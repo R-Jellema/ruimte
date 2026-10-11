@@ -5,6 +5,7 @@ import { ProjectIconChoiceSchema } from './project.ts';
 import { LanDoorSchema } from './lan-door.ts';
 import { ProtocolVersionSchema } from './protocol.ts';
 import { KeepAwakeModeSchema } from './keep-awake.ts';
+import { AgentIntegrationsSummarySchema } from './agent-integrations.ts';
 
 // How a client reaches a daemon; the loopback one is what the app starts with.
 export const ReachabilitySchema = z.enum(['loopback', 'lan', 'tunnel', 'public']);
@@ -80,7 +81,9 @@ export const EndpointInfoSchema = z.object({
     // True when a flag decides the door, so `lanDoor` is kept but changes nothing.
     lanDoorFixed: z.boolean().optional(),
     // Null when on none. Only told to a client that presented the local secret.
-    accountId: z.string().nullable().optional()
+    accountId: z.string().nullable().optional(),
+    // What a person allowed in the CLIs' global settings. No paths, so a remote client learns none.
+    agentIntegrations: AgentIntegrationsSummarySchema.optional()
 });
 export type EndpointInfo = z.infer<typeof EndpointInfoSchema>;
 
@@ -145,7 +148,8 @@ export const EndpointChangedEventSchema = z.object({
     brokerFixed: z.boolean().optional(),
     lan: LanDoorSchema.nullish(),
     lanDoor: z.boolean().optional(),
-    lanDoorFixed: z.boolean().optional()
+    lanDoorFixed: z.boolean().optional(),
+    agentIntegrations: AgentIntegrationsSummarySchema.optional()
 });
 export type EndpointChangedEvent = z.infer<typeof EndpointChangedEventSchema>;
 

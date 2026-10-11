@@ -1,0 +1,59 @@
+import { z } from 'zod';
+import { AgentKindSchema } from './agent.ts';
+
+/*
+ * What a person allowed the daemon to write into a CLI's global settings: the status hooks and, for
+ * Codex, the rule that lets `ruimte-context` out of the sandbox. `unset` writes nothing yet.
+ */
+export const AgentIntegrationSchema = z.object({
+    provider: AgentKindSchema,
+    state: z.enum(['unset', 'on', 'off']),
+    // False while a person has not seen the choice for a provider that was already wired up.
+    reviewed: z.boolean()
+});
+export type AgentIntegration = z.infer<typeof AgentIntegrationSchema>;
+
+export const AgentIntegrationsSummarySchema = z.object({
+    providers: z.array(AgentIntegrationSchema),
+    // True when `--no-hooks` decides: nothing is written or removed, whatever the choice says.
+    fixed: z.boolean()
+});
+export type AgentIntegrationsSummary = z.infer<typeof AgentIntegrationsSummarySchema>;
+
+/* A file the integration writes or would write; paths stay with the local secret. */
+export const AgentIntegrationFileSchema = z.object({
+    provider: AgentKindSchema,
+    path: z.string(),
+    kind: z.enum(['hooks', 'rules']),
+    present: z.boolean(),
+    // Whether the file holds an entry Ruimte wrote.
+    ours: z.boolean()
+});
+export type AgentIntegrationFile = z.infer<typeof AgentIntegrationFileSchema>;
+
+export const AgentIntegrationReportSchema = z.object({
+    path: z.string(),
+    kind: z.enum(['hooks', 'rules']),
+    outcome: z.enum(['written', 'unchanged', 'removed', 'deleted', 'none', 'kept-edited', 'missing', 'refused', 'failed']),
+    message: z.string().optional()
+});
+export type AgentIntegrationReport = z.infer<typeof AgentIntegrationReportSchema>;
+
+export const AgentIntegrationsResultSchema = z.object({
+    summary: AgentIntegrationsSummarySchema,
+    files: z.array(AgentIntegrationFileSchema)
+});
+export type AgentIntegrationsResult = z.infer<typeof AgentIntegrationsResultSchema>;
+
+/* `endpoint.setAgentIntegration`: local secret only. */
+export const AgentIntegrationSetPayloadSchema = z.object({
+    provider: AgentKindSchema,
+    on: z.boolean()
+});
+export type AgentIntegrationSetPayload = z.infer<typeof AgentIntegrationSetPayloadSchema>;
+
+export const AgentIntegrationSetResultSchema = z.object({
+    summary: AgentIntegrationsSummarySchema,
+    report: z.array(AgentIntegrationReportSchema)
+});
+export type AgentIntegrationSetResult = z.infer<typeof AgentIntegrationSetResultSchema>;

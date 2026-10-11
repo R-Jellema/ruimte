@@ -5,6 +5,7 @@ import {
     TerminalPrepareResultSchema
 } from './terminal-prepare.ts';
 export * from './terminal-prepare.ts';
+import { AgentIntegrationSetPayloadSchema, AgentIntegrationSetResultSchema, AgentIntegrationsResultSchema } from './agent-integrations.ts';
 import { AGENT_EVENT_SCHEMAS, AGENT_REQUEST_SCHEMAS, EmptySchema } from '@adecore/agent-contracts/protocol';
 import {
     ChatExternalPayloadSchema,
@@ -316,6 +317,7 @@ import {
 } from './computer.ts';
 
 export * from './agent.ts';
+export * from './agent-integrations.ts';
 export * from './auth.ts';
 export * from './browser.ts';
 export * from './bytes.ts';
@@ -599,6 +601,8 @@ export const REQUEST_SCHEMAS = {
     'computer.revoke': { payload: ComputerRevokePayloadSchema, result: ComputerRevokeResultSchema },
     'endpoint.info': { payload: EmptySchema, result: EndpointInfoSchema },
     'endpoint.setIdentity': { payload: EndpointSetIdentityPayloadSchema, result: EndpointInfoSchema },
+    'endpoint.agentIntegrations': { payload: EmptySchema, result: AgentIntegrationsResultSchema },
+    'endpoint.setAgentIntegration': { payload: AgentIntegrationSetPayloadSchema, result: AgentIntegrationSetResultSchema },
     'endpoint.closedLidRule': { payload: EndpointClosedLidRulePayloadSchema, result: EndpointInfoSchema },
     'endpoint.signRegistration': { payload: EndpointSignRegistrationPayloadSchema, result: EndpointSignRegistrationResultSchema },
     'endpoint.leaveAccount': { payload: EmptySchema, result: EndpointLeaveAccountResultSchema },

@@ -301,6 +301,8 @@
     "computer.revoke",
     "endpoint.info",
     "endpoint.setIdentity",
+    "endpoint.agentIntegrations",
+    "endpoint.setAgentIntegration",
     "endpoint.closedLidRule",
     "endpoint.signRegistration",
     "endpoint.leaveAccount",

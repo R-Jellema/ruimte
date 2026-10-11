@@ -3550,8 +3550,9 @@ public struct PairResultEndpoint: Codable, Sendable, Equatable {
     public let `lanDoor`: Bool?
     public let `lanDoorFixed`: Bool?
     public let `accountId`: Presence<String>
+    public let `agentIntegrations`: PairResultEndpointAgentIntegrations?
 
-    public init(`id`: String, `label`: String, `nameSource`: PairResultEndpointNameSource? = nil, `icon`: Presence<MachineIcon> = .missing, `agentsDeleteAnyView`: Bool? = nil, `refuseStatements`: Bool? = nil, `streamingAllowed`: Bool? = nil, `resumeAtReset`: Bool? = nil, `visualReplies`: Bool? = nil, `appleFoundationEnabled`: Bool? = nil, `keepAwake`: PairResultEndpointKeepAwake? = nil, `keepAwakeOnBattery`: Bool? = nil, `keepAwakeDisplay`: Bool? = nil, `keepAwakeAvailable`: Bool? = nil, `keepAwakeLidClosed`: Bool? = nil, `keepAwakeLidAvailable`: Bool? = nil, `keepAwakeLidRule`: Bool? = nil, `update`: PairResultEndpointUpdate? = nil, `platform`: String, `version`: String, `protocol`: Int64? = nil, `reachability`: PairResultEndpointReachability, `authenticated`: Bool, `publicKey`: String? = nil, `brokerUrl`: Presence<String> = .missing, `broker`: PairResultEndpointBroker? = nil, `brokerFixed`: Bool? = nil, `lan`: Presence<PairResultEndpointLan> = .missing, `lanDoor`: Bool? = nil, `lanDoorFixed`: Bool? = nil, `accountId`: Presence<String> = .missing) {
+    public init(`id`: String, `label`: String, `nameSource`: PairResultEndpointNameSource? = nil, `icon`: Presence<MachineIcon> = .missing, `agentsDeleteAnyView`: Bool? = nil, `refuseStatements`: Bool? = nil, `streamingAllowed`: Bool? = nil, `resumeAtReset`: Bool? = nil, `visualReplies`: Bool? = nil, `appleFoundationEnabled`: Bool? = nil, `keepAwake`: PairResultEndpointKeepAwake? = nil, `keepAwakeOnBattery`: Bool? = nil, `keepAwakeDisplay`: Bool? = nil, `keepAwakeAvailable`: Bool? = nil, `keepAwakeLidClosed`: Bool? = nil, `keepAwakeLidAvailable`: Bool? = nil, `keepAwakeLidRule`: Bool? = nil, `update`: PairResultEndpointUpdate? = nil, `platform`: String, `version`: String, `protocol`: Int64? = nil, `reachability`: PairResultEndpointReachability, `authenticated`: Bool, `publicKey`: String? = nil, `brokerUrl`: Presence<String> = .missing, `broker`: PairResultEndpointBroker? = nil, `brokerFixed`: Bool? = nil, `lan`: Presence<PairResultEndpointLan> = .missing, `lanDoor`: Bool? = nil, `lanDoorFixed`: Bool? = nil, `accountId`: Presence<String> = .missing, `agentIntegrations`: PairResultEndpointAgentIntegrations? = nil) {
         self.`id` = `id`
         self.`label` = `label`
         self.`nameSource` = `nameSource`
@@ -3583,6 +3584,7 @@ public struct PairResultEndpoint: Codable, Sendable, Equatable {
         self.`lanDoor` = `lanDoor`
         self.`lanDoorFixed` = `lanDoorFixed`
         self.`accountId` = `accountId`
+        self.`agentIntegrations` = `agentIntegrations`
     }
 
     public init(from decoder: Decoder) throws {
@@ -3618,6 +3620,7 @@ public struct PairResultEndpoint: Codable, Sendable, Equatable {
         `lanDoor` = try container.decodeIfPresent(Bool.self, forKey: .`lanDoor`)
         `lanDoorFixed` = try container.decodeIfPresent(Bool.self, forKey: .`lanDoorFixed`)
         `accountId` = try container.contains(.`accountId`) ? (container.decodeNil(forKey: .`accountId`) ? .null : .value(container.decode(String.self, forKey: .`accountId`))) : .missing
+        `agentIntegrations` = try container.decodeIfPresent(PairResultEndpointAgentIntegrations.self, forKey: .`agentIntegrations`)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -3669,6 +3672,7 @@ public struct PairResultEndpoint: Codable, Sendable, Equatable {
         case .null: try container.encodeNil(forKey: .`accountId`)
         case .value(let value): try container.encode(value, forKey: .`accountId`)
         }
+        try container.encodeIfPresent(`agentIntegrations`, forKey: .`agentIntegrations`)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -3703,6 +3707,7 @@ public struct PairResultEndpoint: Codable, Sendable, Equatable {
         case `lanDoor` = "lanDoor"
         case `lanDoorFixed` = "lanDoorFixed"
         case `accountId` = "accountId"
+        case `agentIntegrations` = "agentIntegrations"
     }
 }
 
@@ -3908,6 +3913,71 @@ public struct PairResultEndpointLan: Codable, Sendable, Equatable {
         case `port` = "port"
         case `addresses` = "addresses"
     }
+}
+
+public struct PairResultEndpointAgentIntegrations: Codable, Sendable, Equatable {
+    public let `providers`: [PairResultEndpointAgentIntegrationsProvidersItem]
+    public let `fixed`: Bool
+
+    public init(`providers`: [PairResultEndpointAgentIntegrationsProvidersItem], `fixed`: Bool) {
+        self.`providers` = `providers`
+        self.`fixed` = `fixed`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `providers` = try container.decode([PairResultEndpointAgentIntegrationsProvidersItem].self, forKey: .`providers`)
+        `fixed` = try container.decode(Bool.self, forKey: .`fixed`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`providers`, forKey: .`providers`)
+        try container.encode(`fixed`, forKey: .`fixed`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `providers` = "providers"
+        case `fixed` = "fixed"
+    }
+}
+
+public struct PairResultEndpointAgentIntegrationsProvidersItem: Codable, Sendable, Equatable {
+    public let `provider`: AgentKind
+    public let `state`: PairResultEndpointAgentIntegrationsProvidersItemState
+    public let `reviewed`: Bool
+
+    public init(`provider`: AgentKind, `state`: PairResultEndpointAgentIntegrationsProvidersItemState, `reviewed`: Bool) {
+        self.`provider` = `provider`
+        self.`state` = `state`
+        self.`reviewed` = `reviewed`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `provider` = try container.decode(AgentKind.self, forKey: .`provider`)
+        `state` = try container.decode(PairResultEndpointAgentIntegrationsProvidersItemState.self, forKey: .`state`)
+        `reviewed` = try container.decode(Bool.self, forKey: .`reviewed`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`provider`, forKey: .`provider`)
+        try container.encode(`state`, forKey: .`state`)
+        try container.encode(`reviewed`, forKey: .`reviewed`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `provider` = "provider"
+        case `state` = "state"
+        case `reviewed` = "reviewed"
+    }
+}
+
+public enum PairResultEndpointAgentIntegrationsProvidersItemState: String, CaseIterable, Codable, Sendable, Equatable {
+    case `unset` = "unset"
+    case `on` = "on"
+    case `off` = "off"
 }
 
 public struct ProjectCanvasDefaults: Codable, Sendable, Equatable {

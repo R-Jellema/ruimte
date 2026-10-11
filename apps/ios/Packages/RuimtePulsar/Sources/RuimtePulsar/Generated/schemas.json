@@ -5366,6 +5366,52 @@
               "string",
               "null"
             ]
+          },
+          "agentIntegrations": {
+            "type": "object",
+            "properties": {
+              "providers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": [
+                        "claude",
+                        "codex",
+                        "gemini",
+                        "copilot",
+                        "apple"
+                      ]
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "unset",
+                        "on",
+                        "off"
+                      ]
+                    },
+                    "reviewed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "provider",
+                    "state",
+                    "reviewed"
+                  ]
+                }
+              },
+              "fixed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "providers",
+              "fixed"
+            ]
           }
         },
         "required": [
@@ -48041,6 +48087,52 @@
           "string",
           "null"
         ]
+      },
+      "agentIntegrations": {
+        "type": "object",
+        "properties": {
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "x-open-enum": [
+                    "claude",
+                    "codex",
+                    "gemini",
+                    "copilot",
+                    "apple"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "unset",
+                    "on",
+                    "off"
+                  ]
+                },
+                "reviewed": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "provider",
+                "state",
+                "reviewed"
+              ]
+            }
+          },
+          "fixed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "providers",
+          "fixed"
+        ]
       }
     },
     "required": [
@@ -48781,6 +48873,52 @@
           "string",
           "null"
         ]
+      },
+      "agentIntegrations": {
+        "type": "object",
+        "properties": {
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "x-open-enum": [
+                    "claude",
+                    "codex",
+                    "gemini",
+                    "copilot",
+                    "apple"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "unset",
+                    "on",
+                    "off"
+                  ]
+                },
+                "reviewed": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "provider",
+                "state",
+                "reviewed"
+              ]
+            }
+          },
+          "fixed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "providers",
+          "fixed"
+        ]
       }
     },
     "required": [
@@ -48790,6 +48928,227 @@
       "version",
       "reachability",
       "authenticated"
+    ]
+  },
+  "request.endpoint.agentIntegrations.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.endpoint.agentIntegrations.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "summary": {
+        "type": "object",
+        "properties": {
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "x-open-enum": [
+                    "claude",
+                    "codex",
+                    "gemini",
+                    "copilot",
+                    "apple"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "unset",
+                    "on",
+                    "off"
+                  ]
+                },
+                "reviewed": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "provider",
+                "state",
+                "reviewed"
+              ]
+            }
+          },
+          "fixed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "providers",
+          "fixed"
+        ]
+      },
+      "files": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "x-open-enum": [
+                "claude",
+                "codex",
+                "gemini",
+                "copilot",
+                "apple"
+              ]
+            },
+            "path": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "hooks",
+                "rules"
+              ]
+            },
+            "present": {
+              "type": "boolean"
+            },
+            "ours": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "provider",
+            "path",
+            "kind",
+            "present",
+            "ours"
+          ]
+        }
+      }
+    },
+    "required": [
+      "summary",
+      "files"
+    ]
+  },
+  "request.endpoint.setAgentIntegration.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "provider": {
+        "type": "string",
+        "x-open-enum": [
+          "claude",
+          "codex",
+          "gemini",
+          "copilot",
+          "apple"
+        ]
+      },
+      "on": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "provider",
+      "on"
+    ]
+  },
+  "request.endpoint.setAgentIntegration.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "summary": {
+        "type": "object",
+        "properties": {
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "x-open-enum": [
+                    "claude",
+                    "codex",
+                    "gemini",
+                    "copilot",
+                    "apple"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "unset",
+                    "on",
+                    "off"
+                  ]
+                },
+                "reviewed": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "provider",
+                "state",
+                "reviewed"
+              ]
+            }
+          },
+          "fixed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "providers",
+          "fixed"
+        ]
+      },
+      "report": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "hooks",
+                "rules"
+              ]
+            },
+            "outcome": {
+              "type": "string",
+              "enum": [
+                "written",
+                "unchanged",
+                "removed",
+                "deleted",
+                "none",
+                "kept-edited",
+                "missing",
+                "refused",
+                "failed"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "kind",
+            "outcome"
+          ]
+        }
+      }
+    },
+    "required": [
+      "summary",
+      "report"
     ]
   },
   "request.endpoint.closedLidRule.payload": {
@@ -49236,6 +49595,52 @@
         "type": [
           "string",
           "null"
+        ]
+      },
+      "agentIntegrations": {
+        "type": "object",
+        "properties": {
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "x-open-enum": [
+                    "claude",
+                    "codex",
+                    "gemini",
+                    "copilot",
+                    "apple"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "unset",
+                    "on",
+                    "off"
+                  ]
+                },
+                "reviewed": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "provider",
+                "state",
+                "reviewed"
+              ]
+            }
+          },
+          "fixed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "providers",
+          "fixed"
         ]
       }
     },
@@ -57989,6 +58394,52 @@
       },
       "lanDoorFixed": {
         "type": "boolean"
+      },
+      "agentIntegrations": {
+        "type": "object",
+        "properties": {
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "x-open-enum": [
+                    "claude",
+                    "codex",
+                    "gemini",
+                    "copilot",
+                    "apple"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "unset",
+                    "on",
+                    "off"
+                  ]
+                },
+                "reviewed": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "provider",
+                "state",
+                "reviewed"
+              ]
+            }
+          },
+          "fixed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "providers",
+          "fixed"
+        ]
       }
     },
     "required": [
