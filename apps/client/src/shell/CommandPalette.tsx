@@ -1164,14 +1164,31 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                         ) : (
                             <span>
                                 {chatSearch.hits.length === 0
-                                    ? t('palette.nothingYet')
+                                    ? external.length > 0
+                                        ? t('palette.externalCount', { count: external.length })
+                                        : t('palette.nothingYet')
                                     : t('palette.chatHits', {
                                           count: chatSearch.chats.length,
                                           hits: `${chatSearch.hits.length}${chatSearch.truncated ? '+' : ''}`
                                       })}
                                 {chatSearch.cancelled && <span>{` · ${t('palette.chatSearchCancelled')}`}</span>}
                                 {chatSearch.failed.length > 0 && (
-                                    <span className="text-status-error">{` · ${t('palette.chatSearchFailed', { count: chatSearch.failed.length })}`}</span>
+                                    <>
+                                        {' · '}
+                                        <Tooltip
+                                            label={
+                                                <span className="flex flex-col gap-0.5">
+                                                    {chatSearch.failed.map((failed) => (
+                                                        <span
+                                                            key={failed.chatId}
+                                                        >{`${failed.title === '' ? t('palette.untitledChat') : failed.title}: ${failed.reason}`}</span>
+                                                    ))}
+                                                </span>
+                                            }
+                                        >
+                                            <span className="text-status-error">{t('palette.chatSearchFailed', { count: chatSearch.failed.length })}</span>
+                                        </Tooltip>
+                                    </>
                                 )}
                             </span>
                         )}

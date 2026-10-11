@@ -727,6 +727,8 @@
         "chatSearchFailed_other": "{{count}} chats konden niet doorzocht worden",
         "chatSearchCancelled": "Zoeken gestopt",
         "externalSessions": "Buiten Ruimte begonnen",
+        "externalCount_one": "{{count}} sessie buiten Ruimte gestart",
+        "externalCount_other": "{{count}} sessies buiten Ruimte gestart",
         "authorPerson": "Jij",
         "authorAgent": "Agent",
         "untitledChat": "Chat zonder titel",

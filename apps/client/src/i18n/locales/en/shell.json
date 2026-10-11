@@ -727,6 +727,8 @@
         "chatSearchFailed_other": "{{count}} chats could not be searched",
         "chatSearchCancelled": "Search stopped",
         "externalSessions": "Started outside Ruimte",
+        "externalCount_one": "{{count}} session started outside Ruimte",
+        "externalCount_other": "{{count}} sessions started outside Ruimte",
         "authorPerson": "You",
         "authorAgent": "Agent",
         "untitledChat": "Untitled chat",

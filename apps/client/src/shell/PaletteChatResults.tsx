@@ -74,7 +74,7 @@ function ExternalRow({ session, active, id, onHover, onRun }: { session: ChatExt
             <CliMark kind={session.provider} size={14} className="shrink-0" />
             <span className="min-w-0 truncate text-text-muted">{session.title === '' ? t('palette.untitledChat') : session.title}</span>
             <span className="grow" />
-            <span className="min-w-0 shrink-[1000] truncate text-xs text-text-faint">{formatAgo(now - session.updatedAt)}</span>
+            <span className="shrink-0 text-xs text-text-faint">{formatAgo(now - session.updatedAt)}</span>
         </button>
     );
 }
