@@ -49,7 +49,7 @@ import { useSettings } from '@/state/settings';
 import { useUi } from '@/state/ui';
 import { useGroupWorktrees, useWorktreeOf } from '@/state/worktrees';
 import { useTransport } from '@/transport/context';
-import { ColorSwatch, Icon, Tooltip, Kbd, ContextMenu } from '@adecore/ui';
+import { ColorSwatch, DisabledReason, Icon, Tooltip, Kbd, ContextMenu } from '@adecore/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 
 /*
@@ -176,9 +176,11 @@ export function NodeMenuPopup({ id, onRename, snooze }: { id: string; onRename()
                         {node.collapsed ? <Icon icon={ChevronsUpDown} size={14} /> : <Icon icon={ChevronsDownUp} size={14} />}{' '}
                         {node.collapsed ? t('group.expand') : t('group.collapse')}
                     </ContextMenu.Item>
-                    <ContextMenu.Item disabled={node.collapsed || moveLocked} onClick={() => arrangeGroupAction(canvasStore.getState().viewId, id)}>
-                        <Icon icon={LayoutGrid} size={14} /> {t('group.arrange')}
-                    </ContextMenu.Item>
+                    <DisabledReason reason={node.collapsed ? t('group.arrangeCollapsed') : moveLocked ? t('group.arrangeLocked') : null}>
+                        <ContextMenu.Item disabled={node.collapsed || moveLocked} onClick={() => arrangeGroupAction(canvasStore.getState().viewId, id)}>
+                            <Icon icon={LayoutGrid} size={14} /> {t('group.arrange')}
+                        </ContextMenu.Item>
+                    </DisabledReason>
                     {node.worktree ? (
                         <ContextMenu.Item onClick={() => canvasStore.getState().setGroupWorktree(id, null)}>
                             <Icon icon={GitBranch} size={14} /> {t('menu.unbindWorktree')}

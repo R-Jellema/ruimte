@@ -574,8 +574,8 @@
             "saveLayoutAs": "Indeling opslaan als",
             "zoomReset": "Zoomen naar 100%",
             "arrangeGroup": "Groepsleden ordenen",
-            "cameraBack": "Terug op het canvas",
-            "cameraForward": "Vooruit op het canvas",
+            "cameraBack": "Vorige camerapositie",
+            "cameraForward": "Volgende camerapositie",
             "diagramOpenJson": "Het diagram als JSON openen",
             "diagramOnCanvas": "Het diagram op het canvas tonen",
             "diagramCopyJson": "Het diagram als JSON kopiëren",
@@ -672,7 +672,7 @@
             "recentLocations": "Toon recente plekken",
             "explain": "Code uitleggen",
             "suggestInline": "Code voorstellen",
-            "stopPrWatch": "Volgen van pull request stoppen"
+            "stopPrWatch": "Pull request niet meer volgen"
         },
         "sections": {
             "recent": "Recent",
@@ -845,8 +845,8 @@
         "palette": "Opdrachtenpalet",
         "previousView": "Vorige weergave",
         "arrangeGroup": "Groepsleden ordenen",
-        "cameraBack": "Terug op canvas",
-        "cameraForward": "Vooruit op canvas",
+        "cameraBack": "Vorige camerapositie",
+        "cameraForward": "Volgende camerapositie",
         "nextView": "Volgende weergave",
         "focusLeft": "Cel links focussen",
         "focusRight": "Cel rechts focussen",
@@ -962,6 +962,6 @@
         "nodeRight": "Selecteer node rechts",
         "nodeUp": "Selecteer node boven",
         "nodeDown": "Selecteer node onder",
-        "stopPrWatch": "Volgen van pull request stoppen"
+        "stopPrWatch": "Pull request niet meer volgen"
     }
 }

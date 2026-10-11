@@ -62,7 +62,7 @@
             "pill": "context"
         },
         "issuePill": "{{issue}} openen op GitHub",
-        "prWatchPill": "{{pr}} gevolgd: {{state}}. Klik om te stoppen.",
+        "prWatchPill": "{{pr}} gevolgd: {{state}}. Klik om de pull request te openen.",
         "prWatchState": {
             "pending": "checks lopen",
             "success": "checks geslaagd",
@@ -71,7 +71,7 @@
         }
     },
     "group": {
-        "arrange": "Leden ordenen",
+        "arrange": "Groepsleden ordenen",
         "arrangeRefused": "Ordenen zou een node in of uit een groep halen.",
         "arrangeCollapsed": "Klap de groep uit voordat je de leden ordent.",
         "arrangeEmpty": "De groep heeft geen eigen nodes om te ordenen.",
@@ -105,7 +105,7 @@
         "noteColor": "Kleur van de notitie",
         "color": "Kleur",
         "noAccent": "Geen",
-        "stopPrWatch": "Stoppen met volgen van pull request"
+        "stopPrWatch": "Pull request niet meer volgen"
     },
     "kinds": {
         "terminal": "Terminal",

@@ -52,6 +52,7 @@ import { NodeMenuPopup } from '@/canvas/NodeMenu';
 import { FlagMarkOf } from '@/project/FlagMark';
 import { SnoozeMenuItems } from '@/shell/Snooze';
 import { useEndpointId } from '@/state/keys';
+import { useUi } from '@/state/ui';
 import { useCellHasFocus } from '@/state/document';
 import { useProject } from '@/state/project';
 import { useGroupWorktrees, useWorktreeOf } from '@/state/worktrees';
@@ -64,7 +65,6 @@ import { ForkPill } from '@/chat/ForkPill';
 import { AccountPill } from '@adecore/agents-react/chat/ui/AccountPill';
 import { LimitPill } from '@adecore/agents-react/chat/ui/LimitState';
 import { PlanPill } from '@/plan/PlanPill';
-import { stopPrWatch } from '@/shell/pr-watch-actions';
 import { useChatPrWatch } from '@/state/pr-watches';
 import { SubagentTitleCrumb } from '@adecore/agents-react/chat/ui/SubagentControls';
 import { useSubagentTrail } from '@adecore/agents-react/chat/subagent-view';
@@ -190,23 +190,29 @@ function IssuePill({ issue }: { issue: { repo: string; number: number; url: stri
     };
     return (
         <Tooltip label={t('node.issuePill', { issue: `${issue.repo}#${issue.number}` })}>
-            <Pill mono icon={<Icon icon={CircleDot} size={12} />} onClick={open}>
-                {issue.repo}#{issue.number}
+            <Pill mono icon={<Icon icon={CircleDot} size={12} />} className="max-w-48" onClick={open}>
+                #{issue.number}
             </Pill>
         </Tooltip>
     );
 }
 
+const PR_CHECK_TONES = { failure: 'error', success: 'idle', pending: 'muted', none: 'muted' } as const;
+
 function PrWatchPill({ chatId }: { chatId: string }) {
     const { t } = useTranslation('canvas');
-    const endpointId = useEndpointId();
     const watch = useChatPrWatch(chatId);
     if (watch === null) {
         return null;
     }
     return (
         <Tooltip label={t('node.prWatchPill', { pr: `${watch.repo}#${watch.number}`, state: t(`node.prWatchState.${watch.checkState}`) })}>
-            <Pill mono icon={<Icon icon={Eye} size={12} />} onClick={() => void stopPrWatch(endpointId, chatId)}>
+            <Pill
+                mono
+                tone={PR_CHECK_TONES[watch.checkState]}
+                icon={<Icon icon={Eye} size={12} />}
+                onClick={() => useUi.getState().setPullRequestDialog({ cwd: watch.cwd })}
+            >
                 PR #{watch.number}
             </Pill>
         </Tooltip>
