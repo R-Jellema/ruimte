@@ -799,7 +799,7 @@
                 "unchanged": "Already in place",
                 "removed": "Removed Ruimte's entries",
                 "deleted": "Removed the file Ruimte created",
-                "none": "Nothing of Ruimte's here",
+                "none": "No Ruimte entries found",
                 "keptEdited": "Left alone: you changed Ruimte's entry",
                 "missing": "File not found",
                 "refused": "Left alone: not a settings object",

@@ -13,6 +13,7 @@ import {
     useMachineKeepsAwake
 } from '@/state/keep-awake';
 import { IntegrationDetails, IntegrationReports } from '@/shell/AgentIntegrationsDialog';
+import { CliMark } from '@adecore/agents-react/providers/parts';
 import { INTEGRATION_NAMES, loadIntegrationFiles, setAgentIntegration, useAgentIntegrations } from '@/state/agent-integrations';
 import { hasLocalMachine } from '@/state/local-machine';
 import { MachineSwitchSections } from '@/shell/settings/MachineSwitchSection';
@@ -244,17 +245,17 @@ function WorkingSection() {
 function IntegrationsSection() {
     const { t } = useTranslation('settings');
     const summary = useAgentIntegrations();
-    const [files, setFiles] = useState<AgentIntegrationFile[]>([]);
+    const [files, setFiles] = useState<AgentIntegrationFile[] | null>(null);
     const [reports, setReports] = useState<Record<string, AgentIntegrationReport[]>>({});
     const [busy, setBusy] = useState<string | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<{ provider: AgentKind; message: string } | null>(null);
     const listed = summary !== null && hasLocalMachine();
 
     useEffect(() => {
         if (listed) {
             void loadIntegrationFiles()
                 .then(setFiles)
-                .catch(() => undefined);
+                .catch(() => setFiles([]));
         }
     }, [listed, summary]);
 
@@ -269,20 +270,24 @@ function IntegrationsSection() {
             const report = await setAgentIntegration(provider, on);
             setReports((current) => ({ ...current, [provider]: report }));
         } catch (e) {
-            setError(e instanceof Error ? e.message : String(e));
+            setError({ provider, message: e instanceof Error ? e.message : String(e) });
         } finally {
             setBusy(null);
         }
     };
 
     return (
-        <SettingsSection title={t('agents.integrations.title')} description={t('agents.integrations.description')} scope="computer">
+        <SettingsSection
+            title={t('agents.integrations.title')}
+            description={summary.fixed ? `${t('agents.integrations.description')} ${t('agents.integrations.fixed')}` : t('agents.integrations.description')}
+            scope="computer"
+        >
             {summary.providers.map((entry, index) => (
                 <SettingsRow
                     key={entry.provider}
                     searchId={index === 0 ? 'agents.integrations' : undefined}
                     label={INTEGRATION_NAMES[entry.provider] ?? entry.provider}
-                    description={summary.fixed ? t('agents.integrations.fixed') : undefined}
+                    leading={<CliMark kind={entry.provider} size={20} />}
                     control={
                         <Switch
                             checked={entry.state === 'on'}
@@ -294,9 +299,9 @@ function IntegrationsSection() {
                 >
                     <IntegrationDetails entry={entry} files={files} />
                     {reports[entry.provider] !== undefined && <IntegrationReports reports={reports[entry.provider]!} />}
+                    {error?.provider === entry.provider && <FormError>{error.message}</FormError>}
                 </SettingsRow>
             ))}
-            {error !== null && <FormError>{error}</FormError>}
         </SettingsSection>
     );
 }

@@ -4,7 +4,7 @@ import type { AgentIntegration, AgentIntegrationFile, AgentIntegrationReport } f
 import { CliMark } from '@adecore/agents-react/providers/parts';
 import { INTEGRATION_NAMES, loadIntegrationFiles, pendingReview, providersToKeep, setAgentIntegration, useAgentIntegrations } from '@/state/agent-integrations';
 import { useUi } from '@/state/ui';
-import { Button, Dialog, FormError } from '@adecore/ui';
+import { Button, Dialog, FormError, Skeleton } from '@adecore/ui';
 
 const OUTCOME_KEYS = {
     written: 'written',
@@ -33,14 +33,27 @@ export function IntegrationReports({ reports }: { reports: readonly AgentIntegra
     );
 }
 
-/* What Ruimte writes for a provider and what stops working without it; shared by the dialog and the settings row. */
-export function IntegrationDetails({ entry, files }: { entry: Pick<AgentIntegration, 'provider'>; files: readonly AgentIntegrationFile[] }) {
+/*
+ * What Ruimte writes for a provider and what stops working without it; shared by the dialog and the settings row.
+ * `files` is null while the list loads. The consequence of saying no is only news while it is not allowed yet,
+ * unless the caller asks for it (a row about to be kept or removed).
+ */
+export function IntegrationDetails({
+    entry,
+    files,
+    consequence = entry.state !== 'on'
+}: {
+    entry: Pick<AgentIntegration, 'provider' | 'state'>;
+    files: readonly AgentIntegrationFile[] | null;
+    consequence?: boolean;
+}) {
     const { t } = useTranslation('settings');
-    const own = files.filter((file) => file.provider === entry.provider);
+    const own = files?.filter((file) => file.provider === entry.provider) ?? [];
     return (
-        <>
+        <div className="flex flex-col gap-1 text-xs text-text-muted">
+            {files === null && <Skeleton className="h-4 w-48" />}
             {own.length > 0 && (
-                <div className="mt-2 text-xs text-text-muted">
+                <div>
                     <p>{t('agents.integrations.files')}</p>
                     <ul className="mt-0.5 flex flex-col gap-0.5">
                         {own.map((file) => (
@@ -51,9 +64,9 @@ export function IntegrationDetails({ entry, files }: { entry: Pick<AgentIntegrat
                     </ul>
                 </div>
             )}
-            <p className="mt-2 text-xs text-text-muted">{t('agents.integrations.off', { provider: INTEGRATION_NAMES[entry.provider] ?? entry.provider })}</p>
-            {entry.provider === 'codex' && <p className="mt-1 text-xs text-text-muted">{t('agents.integrations.codexRule')}</p>}
-        </>
+            {consequence && <p>{t('agents.integrations.off', { provider: INTEGRATION_NAMES[entry.provider] ?? entry.provider })}</p>}
+            {entry.provider === 'codex' && <p>{t('agents.integrations.codexRule')}</p>}
+        </div>
     );
 }
 
@@ -66,18 +79,21 @@ export function AgentIntegrationsDialog() {
     const { t } = useTranslation(['settings', 'common']);
     const open = useUi((s) => s.agentIntegrations);
     const summary = useAgentIntegrations();
-    const [files, setFiles] = useState<AgentIntegrationFile[]>([]);
+    const [files, setFiles] = useState<AgentIntegrationFile[] | null>(null);
     const [reports, setReports] = useState<Record<string, AgentIntegrationReport[]>>({});
     const [busy, setBusy] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const answered = Object.keys(reports).length > 0;
     const pending = pendingReview(summary);
+    const firstAsked = (summary?.providers ?? []).find(
+        (entry) => reports[entry.provider] === undefined && (entry.state === 'unset' || (entry.state === 'on' && !entry.reviewed))
+    );
 
     useEffect(() => {
         if (open) {
             void loadIntegrationFiles()
                 .then(setFiles)
-                .catch(() => undefined);
+                .catch(() => setFiles([]));
         }
     }, [open]);
 
@@ -94,7 +110,7 @@ export function AgentIntegrationsDialog() {
         try {
             const report = await setAgentIntegration(provider, on);
             setReports((current) => ({ ...current, [provider]: report }));
-            setFiles(await loadIntegrationFiles().catch(() => files));
+            setFiles(await loadIntegrationFiles().catch(() => files ?? []));
         } catch (e) {
             setError(e instanceof Error ? e.message : String(e));
         } finally {
@@ -119,10 +135,10 @@ export function AgentIntegrationsDialog() {
                 }
             }}
         >
-            <Dialog.Popup className="w-[560px] p-5">
+            <Dialog.Popup className="flex w-[560px] flex-col p-5">
                 <Dialog.Title>{t('settings:agents.integrations.dialog.title')}</Dialog.Title>
                 <Dialog.Description className="mt-1">{t('settings:agents.integrations.description')}</Dialog.Description>
-                <div className="mt-4 flex flex-col gap-3">
+                <div className="mt-4 -mx-1 flex min-h-0 flex-col gap-3 overflow-y-auto px-1">
                     {(summary?.providers ?? []).map((entry) => {
                         const own = reports[entry.provider];
                         const migrated = entry.state === 'on' && !entry.reviewed;
@@ -137,20 +153,20 @@ export function AgentIntegrationsDialog() {
                                         {t('settings:agents.integrations.migrated', { provider: INTEGRATION_NAMES[entry.provider] ?? entry.provider })}
                                     </p>
                                 )}
-                                <IntegrationDetails entry={entry} files={files} />
+                                <IntegrationDetails entry={entry} files={files} consequence />
                                 {own !== undefined ? (
                                     <IntegrationReports reports={own} />
                                 ) : entry.state === 'unset' || migrated ? (
                                     <div className="mt-3 flex items-center gap-2">
                                         <Button
-                                            variant={migrated ? undefined : 'primary'}
-                                            autoFocus={!migrated}
+                                            variant="primary"
+                                            autoFocus={entry === firstAsked}
                                             disabled={busy !== null}
                                             onClick={() => void choose(entry.provider, true)}
                                         >
                                             {t(migrated ? 'settings:agents.integrations.keep' : 'settings:agents.integrations.allow')}
                                         </Button>
-                                        <Button disabled={busy !== null} onClick={() => void choose(entry.provider, false)}>
+                                        <Button variant="secondary" disabled={busy !== null} onClick={() => void choose(entry.provider, false)}>
                                             {t(migrated ? 'settings:agents.integrations.remove' : 'settings:agents.integrations.deny')}
                                         </Button>
                                     </div>
@@ -163,7 +179,7 @@ export function AgentIntegrationsDialog() {
                         );
                     })}
                 </div>
-                {error !== null && <FormError>{error}</FormError>}
+                {error !== null && <FormError className="mt-3">{error}</FormError>}
                 <Dialog.Footer>
                     <Button disabled={busy !== null} onClick={close}>
                         {t(pending ? 'settings:agents.integrations.notNow' : 'common:action.done')}
