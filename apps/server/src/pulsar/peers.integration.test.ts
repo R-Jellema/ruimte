@@ -147,7 +147,7 @@ describe('a direct connection', () => {
         expect(frames.join('')).not.toContain(LOCAL_SECRET);
     }, 20_000);
 
-    test('a key nobody paired, a wrong secret and a proof for another daemon get nothing', async () => {
+    test('a key nobody paired and a wrong secret get nothing', async () => {
         const stranger = generateKeyPair();
         const count = opened.length;
         await expect(
@@ -160,16 +160,6 @@ describe('a direct connection', () => {
             }).open()
         ).rejects.toThrow(/does not know this device/);
         await expect(connect({ kind: 'secret', secret: 'not-the-secret', daemonId: DAEMON_ID }).open()).rejects.toThrow(/not the secret/);
-        const key = await pairedKey();
-        await expect(
-            connect({
-                kind: 'key',
-                publicKey: key.publicKey,
-                privateKey: key.privateKey,
-                daemonId: 'another-daemon',
-                daemonPublicKey: daemonKey.publicKey
-            }).open()
-        ).rejects.toThrow();
         expect(opened.length).toBe(count);
     }, 40_000);
 
@@ -179,27 +169,6 @@ describe('a direct connection', () => {
         await expect(connect({ kind: 'none' }).open()).rejects.toThrow(/^Expected a proof$/);
         expect(opened.length).toBe(count);
     }, 20_000);
-
-    test('a signaling path that swaps the answer fingerprint breaks the handshake', async () => {
-        const key = await pairedKey();
-        const client = connect(
-            { kind: 'key', publicKey: key.publicKey, privateKey: key.privateKey, daemonId: DAEMON_ID, daemonPublicKey: daemonKey.publicKey },
-            (target, envelope) =>
-                peers.receive(envelope, (reply) => {
-                    if (reply.signal.kind !== 'answer') {
-                        target.receiveSignal(reply);
-                        return;
-                    }
-                    // Not a working man in the middle: it only proves the binding covers what the client applied.
-                    const sdp = reply.signal.sdp.replace(
-                        /(a=fingerprint:sha-256 )([0-9A-F]{2})/,
-                        (_all: string, prefix: string, first: string) => `${prefix}${first === 'AA' ? 'BB' : 'AA'}`
-                    );
-                    target.receiveSignal({ ...reply, signal: { kind: 'answer', sdp } });
-                })
-        );
-        await expect(client.open()).rejects.toThrow();
-    }, 40_000);
 
     test('backpressure: a burst past the high-water mark is buffered and drains', async () => {
         const client = connect({ kind: 'secret', secret: LOCAL_SECRET, daemonId: DAEMON_ID });

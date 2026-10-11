@@ -50,7 +50,7 @@ describe('proveChallenge', () => {
         expect(await client.verify(clientChannelMessage(DAEMON_ID, 'nonce-1', client.publicKey, BINDING), proof.signature)).toBe(true);
     });
 
-    test('a daemon that signed another binding, or with another key, gets no proof', async () => {
+    test('another channel binding, key or machine id gets no proof', async () => {
         const daemon = await keyPair();
         const imposter = await keyPair();
         const client = await keyPair();
@@ -61,7 +61,11 @@ describe('proveChallenge', () => {
             label: 'box'
         };
         await expect(proveChallenge(credentials, await challengeFrom(daemon, '[["sha-256 CC"],["sha-256 BB"]]'), BINDING)).rejects.toThrow(/did not prove/);
+        await expect(proveChallenge(credentials, await challengeFrom(daemon), '[["sha-256 AA"],["sha-256 CC"]]')).rejects.toThrow(/did not prove/);
         await expect(proveChallenge(credentials, await challengeFrom(imposter), BINDING)).rejects.toThrow(/did not prove/);
+        await expect(
+            proveChallenge({ ...credentials, pinned: { ...credentials.pinned, daemonId: 'another-daemon' } }, await challengeFrom(daemon), BINDING)
+        ).rejects.toThrow(/did not prove/);
     });
 
     test('the local secret goes out as the HMAC the daemon computes, never as itself', async () => {
