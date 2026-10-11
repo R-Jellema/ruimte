@@ -44804,6 +44804,214 @@
       "stash"
     ]
   },
+  "request.git.pr.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "cwd": {
+        "type": "string",
+        "minLength": 1
+      },
+      "number": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "cwd"
+    ]
+  },
+  "request.git.pr.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "pr": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "repo": {
+                "type": "string"
+              },
+              "number": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "isDraft": {
+                "type": "boolean"
+              },
+              "headSha": {
+                "type": "string"
+              },
+              "headBranch": {
+                "type": "string"
+              },
+              "baseBranch": {
+                "type": "string"
+              },
+              "mergeable": {
+                "type": "string"
+              },
+              "mergeState": {
+                "type": "string"
+              },
+              "reviewDecision": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "checks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "workflow": {
+                      "type": "string"
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "success",
+                        "failure",
+                        "neutral",
+                        "skipped"
+                      ]
+                    },
+                    "url": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "name",
+                    "state"
+                  ]
+                }
+              },
+              "checkState": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "success",
+                  "failure",
+                  "none"
+                ]
+              },
+              "threads": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "resolved": {
+                      "type": "boolean"
+                    },
+                    "outdated": {
+                      "type": "boolean"
+                    },
+                    "comments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "author": {
+                            "type": "string"
+                          },
+                          "bot": {
+                            "type": "boolean"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "author",
+                          "bot",
+                          "body",
+                          "url",
+                          "createdAt"
+                        ]
+                      }
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "resolved",
+                    "outdated",
+                    "comments"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "repo",
+              "number",
+              "url",
+              "title",
+              "state",
+              "isDraft",
+              "headSha",
+              "headBranch",
+              "baseBranch",
+              "mergeable",
+              "mergeState",
+              "reviewDecision",
+              "checks",
+              "checkState",
+              "threads"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "pr"
+    ]
+  },
   "request.git.issue.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",

@@ -8,7 +8,7 @@ import { resolveWithAgent } from '../git/resolve-ai.ts';
 import { diffCheckout, diffCommit, diffFile } from '../git/diff.ts';
 import { readLog } from '../git/log.ts';
 import { suggestMessage } from '../git/message.ts';
-import { parseIssueRef, readIssue, runGh } from '../git/github.ts';
+import { parseIssueRef, readIssue, readPullRequest, runGh } from '../git/github.ts';
 import { GitError } from '../git/run.ts';
 import { listRefs, readRefCommit } from '../git/refs.ts';
 import { listRepos } from '../git/repos.ts';
@@ -134,6 +134,8 @@ export function registerGitHandlers(
             return await readIssue(runGh, payload.cwd, ref);
         })
     );
+
+    dispatcher.register('git.pr', (payload) => translate(async () => ({ pr: await readPullRequest(runGh, payload.cwd, payload.number) })));
 
     dispatcher.register('git.ref-commit', (payload) => translate(() => readRefCommit(payload.cwd, payload.ref)));
 

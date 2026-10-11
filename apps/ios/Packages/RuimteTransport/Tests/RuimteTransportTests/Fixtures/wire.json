@@ -267,6 +267,7 @@
     "git.blame",
     "git.stage",
     "git.discard",
+    "git.pr",
     "git.issue",
     "git.ref-commit",
     "git.refs",

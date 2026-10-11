@@ -312,6 +312,74 @@ export const GitIssueSchema = z.object({
 });
 export type GitIssue = z.infer<typeof GitIssueSchema>;
 
+export const GitPrCheckStateSchema = z.enum(['pending', 'success', 'failure', 'neutral', 'skipped']);
+export type GitPrCheckState = z.infer<typeof GitPrCheckStateSchema>;
+
+export const GitPrCheckSchema = z.object({
+    // Tells two runs of one name apart: the push run and the pull request run of a workflow are different checks.
+    key: z.string(),
+    name: z.string(),
+    workflow: z.string().optional(),
+    event: z.string().optional(),
+    state: GitPrCheckStateSchema,
+    url: z.string().optional()
+});
+export type GitPrCheck = z.infer<typeof GitPrCheckSchema>;
+
+export const GitPrCommentSchema = z.object({
+    author: z.string(),
+    // A GitHub App or a login ending in [bot], such as a review bot.
+    bot: z.boolean(),
+    body: z.string(),
+    url: z.string(),
+    createdAt: z.string()
+});
+export type GitPrComment = z.infer<typeof GitPrCommentSchema>;
+
+export const GitPrThreadSchema = z.object({
+    id: z.string(),
+    path: z.string().optional(),
+    line: z.number().int().optional(),
+    resolved: z.boolean(),
+    outdated: z.boolean(),
+    comments: z.array(GitPrCommentSchema),
+    // More comments than the ones carried.
+    truncated: z.boolean().optional()
+});
+export type GitPrThread = z.infer<typeof GitPrThreadSchema>;
+
+export const GitPullRequestSchema = z.object({
+    repo: z.string(),
+    number: z.number().int().positive(),
+    url: z.string(),
+    title: z.string(),
+    state: z.string(),
+    isDraft: z.boolean(),
+    // The commit the checks belong to; a different one replaces everything read before.
+    headSha: z.string(),
+    headBranch: z.string(),
+    baseBranch: z.string(),
+    mergeable: z.string(),
+    mergeState: z.string(),
+    reviewDecision: z.string().nullable(),
+    checks: z.array(GitPrCheckSchema),
+    checkState: z.enum(['pending', 'success', 'failure', 'none']),
+    threads: z.array(GitPrThreadSchema)
+});
+export type GitPullRequest = z.infer<typeof GitPullRequestSchema>;
+
+export const GitPullRequestPayloadSchema = z.object({
+    cwd: z.string().min(1),
+    // Without it, the pull request of the branch the folder is on.
+    number: z.number().int().positive().optional()
+});
+export type GitPullRequestPayload = z.infer<typeof GitPullRequestPayloadSchema>;
+
+export const GitPullRequestResultSchema = z.object({
+    pr: GitPullRequestSchema.nullable()
+});
+export type GitPullRequestResult = z.infer<typeof GitPullRequestResultSchema>;
+
 export const GitStashSchema = z.object({
     ref: z.string(),
     message: z.string()

@@ -1,4 +1,5 @@
-import type { GitIssue } from '@ruimte/contracts';
+import type { GitIssue, GitPrThread, GitPullRequest } from '@ruimte/contracts';
+import { checksOf, summarizeChecks, type RawCheck } from './pr-checks.ts';
 import { GitError, streamWithTimeout, type GitResult } from './run.ts';
 
 // `gh` talks to the network, and a login prompt that cannot be answered would wait for ever.
@@ -97,5 +98,194 @@ export async function readIssue(run: GhRunner, cwd: string, ref: IssueRef): Prom
         state: issue.state ?? 'OPEN',
         author: issue.author?.login ?? null,
         labels: (issue.labels ?? []).map((label) => label.name ?? '').filter((name) => name !== '')
+    };
+}
+
+/* Every JSON document in the output of `gh api --paginate`, which writes one page after the other without a separator. */
+export function jsonDocuments(output: string): unknown[] {
+    const documents: unknown[] = [];
+    let depth = 0;
+    let start = -1;
+    let inString = false;
+    let escaped = false;
+    for (let i = 0; i < output.length; i += 1) {
+        const char = output[i]!;
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+            } else if (char === '\\') {
+                escaped = true;
+            } else if (char === '"') {
+                inString = false;
+            }
+            continue;
+        }
+        if (char === '"') {
+            inString = true;
+        } else if (char === '{' || char === '[') {
+            if (depth === 0) {
+                start = i;
+            }
+            depth += 1;
+        } else if ((char === '}' || char === ']') && depth > 0) {
+            depth -= 1;
+            if (depth === 0 && start !== -1) {
+                const parsed: unknown = JSON.parse(output.slice(start, i + 1));
+                documents.push(...(Array.isArray(parsed) ? parsed : [parsed]));
+                start = -1;
+            }
+        }
+    }
+    return documents;
+}
+
+const PR_QUERY = `query($owner:String!,$name:String!,$number:Int!,$endCursor:String){
+  repository(owner:$owner,name:$name){
+    pullRequest(number:$number){
+      number url title state isDraft headRefOid headRefName baseRefName mergeable mergeStateStatus reviewDecision
+      commits(last:1){nodes{commit{oid statusCheckRollup{contexts(first:100,after:$endCursor){
+        nodes{__typename
+          ... on CheckRun{name status conclusion detailsUrl checkSuite{app{slug} workflowRun{event workflow{name}}}}
+          ... on StatusContext{context state targetUrl}}
+        pageInfo{hasNextPage endCursor}}}}}}
+    }
+  }
+}`;
+
+const THREADS_QUERY = `query($owner:String!,$name:String!,$number:Int!,$endCursor:String){
+  repository(owner:$owner,name:$name){
+    pullRequest(number:$number){
+      reviewThreads(first:100,after:$endCursor){
+        nodes{id isResolved isOutdated path line
+          comments(first:100){totalCount nodes{author{login __typename} body url createdAt}}}
+        pageInfo{hasNextPage endCursor}}
+    }
+  }
+}`;
+
+interface PullRequestJson {
+    number?: number;
+    url?: string;
+    title?: string;
+    state?: string;
+    isDraft?: boolean;
+    headRefOid?: string;
+    headRefName?: string;
+    baseRefName?: string;
+    mergeable?: string;
+    mergeStateStatus?: string;
+    reviewDecision?: string | null;
+    commits?: { nodes?: Array<{ commit?: { statusCheckRollup?: { contexts?: { nodes?: RawCheck[] } } | null } }> };
+}
+
+interface ThreadJson {
+    id?: string;
+    isResolved?: boolean;
+    isOutdated?: boolean;
+    path?: string | null;
+    line?: number | null;
+    comments?: {
+        totalCount?: number;
+        nodes?: Array<{ author?: { login?: string; __typename?: string } | null; body?: string; url?: string; createdAt?: string }>;
+    };
+}
+
+interface Page<Node> {
+    data?: { repository?: { pullRequest?: Node | null } | null };
+}
+
+function pagesOf<Node>(output: string): Node[] {
+    return (jsonDocuments(output) as Array<Page<Node>>)
+        .map((page) => page.data?.repository?.pullRequest)
+        .filter((node): node is Node => node !== null && node !== undefined);
+}
+
+export function isBot(author: { login?: string; __typename?: string } | null | undefined): boolean {
+    return author?.__typename === 'Bot' || (author?.login ?? '').endsWith('[bot]');
+}
+
+function threadOf(json: ThreadJson): GitPrThread {
+    const carried = json.comments?.nodes ?? [];
+    return {
+        id: json.id ?? '',
+        ...(json.path ? { path: json.path } : {}),
+        ...(typeof json.line === 'number' ? { line: json.line } : {}),
+        resolved: json.isResolved === true,
+        outdated: json.isOutdated === true,
+        comments: carried.map((comment) => ({
+            author: comment.author?.login ?? 'ghost',
+            bot: isBot(comment.author),
+            body: comment.body ?? '',
+            url: comment.url ?? '',
+            createdAt: comment.createdAt ?? ''
+        })),
+        ...((json.comments?.totalCount ?? 0) > carried.length ? { truncated: true } : {})
+    };
+}
+
+/* Where a pull request lives, from the link `gh pr view` reports. */
+function locate(url: string): { owner: string; name: string; number: number } | null {
+    const match = /^https?:\/\/[^/]+\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(url);
+    return match ? { owner: match[1]!, name: match[2]!, number: Number.parseInt(match[3]!, 10) } : null;
+}
+
+function graphql(query: string, place: { owner: string; name: string; number: number }): string[] {
+    return ['api', 'graphql', '--paginate', '-f', `query=${query}`, '-f', `owner=${place.owner}`, '-f', `name=${place.name}`, '-F', `number=${place.number}`];
+}
+
+/* Finds the pull request of the branch a folder is on, or the numbered one; null when there is none. */
+export async function findPullRequest(run: GhRunner, cwd: string, number?: number): Promise<{ owner: string; name: string; number: number } | null> {
+    const result = await run(['pr', 'view', ...(number === undefined ? [] : [String(number)]), '--json', 'number,url'], cwd);
+    if (result.code !== 0) {
+        if (/no pull requests? found/i.test(result.stderr)) {
+            return null;
+        }
+        throw ghError(result, 'pr-not-found');
+    }
+    const found = JSON.parse(result.stdout) as { url?: string };
+    return found.url === undefined ? null : locate(found.url);
+}
+
+/* The pull request with its checks and its review threads, every page of both. */
+export async function readPullRequest(run: GhRunner, cwd: string, number?: number): Promise<GitPullRequest | null> {
+    const place = await findPullRequest(run, cwd, number);
+    if (place === null) {
+        return null;
+    }
+    const [summary, threads] = await Promise.all([
+        ghOutput(run, graphql(PR_QUERY, place), cwd, 'pr-not-found'),
+        ghOutput(run, graphql(THREADS_QUERY, place), cwd, 'pr-not-found')
+    ]);
+    return pullRequestOf(`${place.owner}/${place.name}`, pagesOf<PullRequestJson>(summary), pagesOf<{ reviewThreads?: { nodes?: ThreadJson[] } }>(threads));
+}
+
+/* Pages of the summary query become one pull request: the fields of the first, the checks of all. */
+export function pullRequestOf(
+    repo: string,
+    pages: readonly PullRequestJson[],
+    threadPages: ReadonlyArray<{ reviewThreads?: { nodes?: ThreadJson[] } }>
+): GitPullRequest | null {
+    const first = pages[0];
+    if (first === undefined) {
+        return null;
+    }
+    const raws = pages.flatMap((page) => page.commits?.nodes?.[0]?.commit?.statusCheckRollup?.contexts?.nodes ?? []);
+    const checks = checksOf(raws);
+    return {
+        repo,
+        number: first.number ?? 0,
+        url: first.url ?? '',
+        title: first.title ?? '',
+        state: first.state ?? 'OPEN',
+        isDraft: first.isDraft === true,
+        headSha: first.headRefOid ?? '',
+        headBranch: first.headRefName ?? '',
+        baseBranch: first.baseRefName ?? '',
+        mergeable: first.mergeable ?? 'UNKNOWN',
+        mergeState: first.mergeStateStatus ?? 'UNKNOWN',
+        reviewDecision: first.reviewDecision ?? null,
+        checks,
+        checkState: summarizeChecks(checks),
+        threads: threadPages.flatMap((page) => page.reviewThreads?.nodes ?? []).map(threadOf)
     };
 }
