@@ -6,6 +6,7 @@
       "name": "ruimte",
       "devDependencies": {
         "@types/bun": "^1.4.2",
+        "oxc-parser": "^0.151.0",
         "oxfmt": "^0.70.0",
         "oxlint": "^1.85.0",
         "typescript": "^7.0.2",
