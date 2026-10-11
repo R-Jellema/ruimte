@@ -145,10 +145,12 @@ describe('a pull request watch', () => {
         expect(wakes).toEqual([]);
         finish('FAILURE');
         await tick(store, 90_000);
+        expect(wakes).toEqual([]);
+        await tick(store, 60_000);
         expect(wakes).toHaveLength(1);
         expect(wakes[0]!.work).toMatchObject({
             kind: 'deliver-pr-watch',
-            payload: { key: 'checks:abc1234def:failure', label: 'PR #12: checks failed' }
+            payload: { key: expect.stringMatching(/^checks:abc1234def:failure:[0-9a-f]{8}$/), label: 'PR #12: checks failed' }
         });
         const text = (wakes[0]!.work as { payload: { text: string } }).payload.text;
         expect(text).toContain('o/r#12');
@@ -177,8 +179,27 @@ describe('a pull request watch', () => {
         expect(wakes).toEqual([]);
         finish('SUCCESS');
         await tick(store, 60_000);
+        await tick(store, 60_000);
         expect(wakes).toHaveLength(1);
-        expect((wakes[0]!.work as { payload: { key: string } }).payload.key).toBe('checks:fff9999aaa:success');
+        expect((wakes[0]!.work as { payload: { key: string } }).payload.key).toStartWith('checks:fff9999aaa:success:');
+    });
+
+    test('does not take an early pass for the end when more checks register later', async () => {
+        const store = open();
+        await store.start('p', 'chat-1', '/repo');
+        pr.checks = [{ name: 'lint', status: 'COMPLETED', conclusion: 'SUCCESS' }];
+        await tick(store, 60_000);
+        pr.checks = [
+            { name: 'lint', status: 'COMPLETED', conclusion: 'SUCCESS' },
+            { name: 'test', status: 'IN_PROGRESS', conclusion: null }
+        ];
+        await tick(store, 60_000);
+        finish('SUCCESS');
+        await tick(store, 60_000);
+        expect(wakes).toEqual([]);
+        await tick(store, 60_000);
+        expect(wakes).toHaveLength(1);
+        expect(wakes[0]!.work).toMatchObject({ payload: { text: expect.stringContaining('passed: 2') } });
     });
 
     test('waits while a failure sits beside a pending check', async () => {
@@ -222,6 +243,7 @@ describe('a pull request watch', () => {
         await store.start('p', 'chat-1', '/repo');
         finish('SUCCESS');
         await tick(store, 60_000);
+        await tick(store, 60_000);
         expect(wakes).toHaveLength(1);
         store.close();
         const again = open();
@@ -235,6 +257,7 @@ describe('a pull request watch', () => {
         await store.start('p', 'chat-1', '/repo');
         finish('SUCCESS');
         failEnqueue = true;
+        await tick(store, 60_000);
         await tick(store, 60_000);
         expect(wakes).toEqual([]);
         store.close();

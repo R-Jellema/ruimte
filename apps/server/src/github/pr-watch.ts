@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { writeAtomicSync } from '@adecore/agents/fs';
 import { systemClock, type OutboxClock } from '@adecore/agents/outbox/outbox-worker';
 import { GitPrWatchSchema, type GitPrWatch, type GitPrWatchEndReason, type GitPullRequest } from '@ruimte/contracts';
@@ -28,6 +28,8 @@ const RecordSchema = GitPrWatchSchema.extend({
     notified: z.array(z.string()).max(NOTIFIED_KEPT),
     // Submit time of the newest review seen; only a later one is news.
     reviewCursor: z.string().nullable(),
+    // A terminal key seen once; it counts as news only when the next poll sees it again.
+    candidate: z.string().nullable().default(null),
     interval: z.number().positive()
 });
 type WatchRecord = z.infer<typeof RecordSchema>;
@@ -69,9 +71,16 @@ function publicOf(record: WatchRecord): GitPrWatch {
     };
 }
 
-/* The state a poll is news about: a finished set of checks on one head, with nothing in the way. */
+/* The state a poll is news about: a finished set of checks on one head, with nothing in the way. The set is in the key, since checks that register late would otherwise make "passed" of an early look. */
 function terminalKey(pr: GitPullRequest): string | null {
-    return isTerminal(pr.checks) && (pr.checkState === 'success' || pr.checkState === 'failure') ? `checks:${pr.headSha}:${pr.checkState}` : null;
+    if (!isTerminal(pr.checks) || (pr.checkState !== 'success' && pr.checkState !== 'failure')) {
+        return null;
+    }
+    const set = createHash('sha1')
+        .update(pr.checks.map((check) => check.key).sort().join('\n'))
+        .digest('hex')
+        .slice(0, 8);
+    return `checks:${pr.headSha}:${pr.checkState}:${set}`;
 }
 
 function reviewWords(review: PrReview): string {
@@ -177,6 +186,7 @@ export class PrWatchStore {
             checkState: poll.pr.checkState,
             notified: key === null ? [] : [key],
             reviewCursor: newestReview(poll.reviews),
+            candidate: null,
             interval: START_INTERVAL_MS
         };
         this.records.set(record.id, record);
@@ -305,7 +315,7 @@ export class PrWatchStore {
         record.checkState = poll.pr.checkState;
         record.reviewCursor = newestReview(poll.reviews) ?? record.reviewCursor;
         record.notified = [...record.notified, ...wakes.map((wake) => wake.key)].slice(-NOTIFIED_KEPT);
-        record.interval = changed ? START_INTERVAL_MS : Math.min(record.interval * 1.5, MAX_INTERVAL_MS);
+        record.interval = changed || record.candidate !== null ? START_INTERVAL_MS : Math.min(record.interval * 1.5, MAX_INTERVAL_MS);
         // On disk before the wake is queued: a crash between the two loses a wake and never doubles one.
         this.save();
         if (changed) {
@@ -324,7 +334,15 @@ export class PrWatchStore {
         const news: Array<{ key: string; text: string; label: string }> = [];
         const key = terminalKey(poll.pr);
         if (key !== null && !record.notified.includes(key)) {
-            news.push({ key, ...checksWake(poll.pr) });
+            // Seen once is a candidate; a second poll that agrees makes it final.
+            if (record.candidate === key) {
+                record.candidate = null;
+                news.push({ key, ...checksWake(poll.pr) });
+            } else {
+                record.candidate = key;
+            }
+        } else {
+            record.candidate = null;
         }
         for (const review of poll.reviews) {
             // The chat's own replies come back as COMMENTED reviews of the account gh runs as; waking on them would loop.
