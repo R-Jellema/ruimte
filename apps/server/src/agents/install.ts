@@ -38,7 +38,7 @@ interface HookEntry {
     timeout: number;
 }
 
-function hookEntry(kind: AgentKind): HookEntry {
+export function hookEntry(kind: AgentKind): HookEntry {
     return {
         type: 'command',
         command: hookCommand(kind),
@@ -46,15 +46,15 @@ function hookEntry(kind: AgentKind): HookEntry {
     };
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isOurs(hook: unknown): boolean {
+export function isOurs(hook: unknown): boolean {
     return isRecord(hook) && typeof hook.command === 'string' && hook.command.includes(HOOK_MARKER);
 }
 
-function sameEntry(hook: unknown, wanted: HookEntry): boolean {
+export function sameEntry(hook: unknown, wanted: HookEntry): boolean {
     return isRecord(hook) && hook.type === wanted.type && hook.command === wanted.command && hook.timeout === wanted.timeout;
 }
 
@@ -142,9 +142,14 @@ export class HookFileRefused extends Error {}
 // One edit of a file at a time, by real path, so two installs in a row never read the same text.
 const hookFiles = new KeyedSerializer();
 
-const HOOK_FILE_RETRIES = 3;
+export const HOOK_FILE_RETRIES = 3;
 
-async function textOrNull(path: string): Promise<string | null> {
+/* The one place a hook settings file is edited: the install and the revoke queue behind each other here. */
+export function editingHookFile<T>(path: string, work: () => Promise<T>): Promise<T> {
+    return hookFiles.run(path, work);
+}
+
+export async function textOrNull(path: string): Promise<string | null> {
     try {
         return await readFile(path, 'utf8');
     } catch (e) {
@@ -159,7 +164,7 @@ async function textOrNull(path: string): Promise<string | null> {
 export async function installHooks(link: string, kind: AgentKind): Promise<HooksInstall> {
     // Written where a symlink points, since a rename over the link itself would cut a dotfiles checkout loose.
     const path = await realpath(link).catch(() => link);
-    return await hookFiles.run(path, async () => {
+    return await editingHookFile(path, async () => {
         for (let attempt = 0; attempt < HOOK_FILE_RETRIES; attempt++) {
             const text = await textOrNull(path);
             let existing: unknown = {};
@@ -205,13 +210,15 @@ export function hookPathIn(kind: AgentKind, folder: string): string | null {
     return null;
 }
 
-// Where each CLI reads user-level hooks from; a CLI whose hooks the daemon cannot read is not listed.
-export function defaultHookPaths(env: Record<string, string | undefined> = process.env): Partial<Record<AgentKind, string>> {
-    const home = env.HOME ?? homedir();
-    return {
-        claude: hookPathIn('claude', env.CLAUDE_CONFIG_DIR ?? join(home, '.claude'))!,
-        codex: hookPathIn('codex', env.CODEX_HOME ?? join(home, '.codex'))!
-    };
+/* The folder a CLI reads its own settings from when nothing points it elsewhere; null for a CLI the daemon cannot wire. */
+export function defaultConfigFolder(kind: AgentKind, env: Record<string, string | undefined> = process.env): string | null {
+    if (kind === 'claude') {
+        return env.CLAUDE_CONFIG_DIR ?? join(env.HOME ?? homedir(), '.claude');
+    }
+    if (kind === 'codex') {
+        return defaultCodexHome(env);
+    }
+    return null;
 }
 
 /* Lets Codex run `ruimte-context` outside its sandbox without asking; the daemon already enforces every verb (mode ceiling, depth, cwd). */

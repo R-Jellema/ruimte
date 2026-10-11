@@ -18,7 +18,7 @@ The `dev` script runs on port `4211` with `RUIMTE_HOME` set from `RUIMTE_DEV_HOM
 | --- | --- | --- |
 | `--host` | `127.0.0.1` | Interface the API listens on. Go beyond loopback only for a container that publishes the port; only the local secret or a ticket from a direct channel gets in. |
 | `--port` | `4210` | Port for `/ws`, `/health`, `/hooks` and the other HTTP routes. |
-| `--no-hooks` | off | Do not write the status hooks into the CLIs' settings, or the Codex rule for `ruimte-context`, at startup. |
+| `--no-hooks` | off | Write nothing into the CLIs' settings and remove nothing from them: no status hooks, no Codex rule for `ruimte-context`, and the app cannot change that choice. |
 | `--label <name>` | hostname | What the machine calls itself until someone names it from a client (`RUIMTE_LABEL` works too). |
 | `--no-price-fetch` | off | Never fetch the LiteLLM price table or the exchange rate; the bundled snapshot prices everything. |
 | `--no-model-fetch` | off | Never ask the address book for newer model catalogs. |
@@ -112,6 +112,7 @@ Where the daemon keeps its state. Defaults to `~/.ruimte` (`~/.ruimte-dev` under
 ```
 $RUIMTE_HOME/
   endpoint.json                    the machine's id, key pair and settings (above)
+  agent-integrations.json          0600, which CLIs Ruimte may write status hooks into, and what it wrote
   local.key                        the local secret (0600), written on the first start
   auth.json                        the clients this machine let in by public key, their push subscriptions, and the account the machine is on
   projects.json                    every project the machine knows: id, name, color, folder, and when it was last closed
@@ -228,7 +229,13 @@ Every 30 seconds, and on `SIGINT`/`SIGTERM`, the daemon writes each session's sc
 
 Claude Code and Codex report status through hooks. Gemini and GitHub Copilot have none, so their terminals show only the session's own status.
 
-At startup the daemon merges one command hook per lifecycle event into `~/.claude/settings.json` and `~/.codex/hooks.json` (honoring `CLAUDE_CONFIG_DIR` and `CODEX_HOME`), and into the config folder of every other account. The merge is idempotent and leaves other tools' hooks alone. It also writes `~/.codex/rules/ruimte.rules`, which lets Codex run `ruimte-context` outside its sandbox, because the sandbox blocks the daemon's loopback port and the daemon checks every verb itself. Codex asks you to trust new hooks once (`/hooks`). `--no-hooks` skips all of this.
+The daemon writes into a CLI's global settings only for a provider a person on this machine allowed. The choice is per provider (`claude`, `codex`), kept in `$RUIMTE_HOME/agent-integrations.json` (`0600`) and changed only with the local secret, through `endpoint.setAgentIntegration`; any other client gets `forbidden`. A fresh home writes nothing until then. A home whose CLI already holds Ruimte's hooks counts as allowed and asks once (`reviewed: false`).
+
+For an allowed provider the daemon merges one command hook per lifecycle event into `~/.claude/settings.json` or `~/.codex/hooks.json` (honoring `CLAUDE_CONFIG_DIR` and `CODEX_HOME`) at startup, and into the config folder of every other account of that provider when it launches. For Codex it also writes `~/.codex/rules/ruimte.rules`, which lets Codex run `ruimte-context` outside its sandbox, because the sandbox blocks the daemon's loopback port and the daemon checks every verb itself. Without that rule Codex in a sandboxed mode cannot reach Ruimte. The merge is idempotent and leaves other tools' hooks alone, and a settings file whose top level or `hooks` is not an object is left untouched. Codex asks you to trust new hooks once (`/hooks`).
+
+Turning a provider off removes only the hooks that are exactly what Ruimte writes, and the Codex rules file while it is unchanged, and answers per file what happened (`removed`, `deleted`, `kept-edited`, `missing`, `refused`, `failed`). A file Ruimte created goes away when nothing else is in it. The paths written are kept in the same file as a ledger, so a provider turned off later knows what to look for.
+
+Homes share the global files. Two daemons with different `$RUIMTE_HOME`s write into the same `~/.claude` and `~/.codex`, so turning a provider off in one removes the entries the other relies on until its next start; there is no lock between processes. `--no-hooks` skips all of this: nothing is written or removed, and the choice cannot be changed while it is set (`integrations-fixed`).
 
 Every shell gets `RUIMTE_HOOK_URL` (`http://127.0.0.1:<port>/hooks`) and a per-session `RUIMTE_HOOK_TOKEN`. The hook POSTs its stdin to `$RUIMTE_HOOK_URL/<kind>` with the token as bearer and does nothing outside Ruimte. On `SessionStart` and `UserPromptSubmit` the reply carries `additionalContext`, which is how a terminal agent hears about `ruimte-context`, its links and messages left for it. A chat never reaches these hooks.
 

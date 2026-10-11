@@ -72,7 +72,7 @@ import { Handshake } from './auth/handshake.ts';
 import type { Relay } from './auth/relay.ts';
 import { HOOKS_PATH, handleHookRequest } from './agents/hook-receiver.ts';
 import { HOOK_EVENTS } from './agents/hooks.ts';
-import { defaultCodexRulesPath, defaultHookPaths, installCodexRules, installHooks, installInFolder } from './agents/install.ts';
+import { AgentIntegrations } from './agents/integrations.ts';
 import { ATTACHMENTS_PATH, handleAttachmentRequest } from './chat/attachment-route.ts';
 import { AttachmentStore } from '@adecore/agents/chat/attachment-store';
 import { CANVAS_PATH, CANVAS_REQUEST_TIMEOUT_S, handleCanvasRequest } from './canvas/canvas-route.ts';
@@ -305,21 +305,25 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     });
     await modelCatalogs.load();
     void modelCatalogs.refresh();
+    // What a person allowed in the CLIs' global settings; the accounts below ask it before they write anywhere.
+    const integrations = new AgentIntegrations({
+        home: config.home,
+        fixed: !config.installHooks,
+        accountHomes: (kind) =>
+            Object.entries(providerAccounts.snapshot().accounts)
+                .filter(([id, account]) => account.kind === kind && id !== kind && account.home !== undefined)
+                .map(([, account]) => account.home!)
+    });
+    await integrations.load();
+    identity.attachAgentIntegrations({ describe: () => ({ agentIntegrations: integrations.summary() }) });
+    integrations.onChanged(() => identity.announce());
     // Before the managers, which start every CLI under the account its node or chat names.
     const providerAccounts = new ProviderAccountsService({
         home: config.home,
         host: RUIMTE_ACCOUNTS_HOST,
         client: RUIMTE_CODEX_CLIENT,
         providers,
-        install: config.installHooks
-            ? async (kind, folder) => {
-                  for (const { path, result } of await installInFolder(kind, folder)) {
-                      if (result === 'written') {
-                          console.log(`Installed ${kind} status hooks in ${path}`);
-                      }
-                  }
-              }
-            : undefined
+        install: (kind, folder) => integrations.installFolder(kind, folder)
     });
     await providerAccounts.load();
     // One reader for chats and terminals, so a transcript both look at is only read on from where either stopped.
@@ -1011,6 +1015,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
             }
             await providerAccounts.refresh();
         },
+        agentIntegrations: { summary: () => integrations.summary(), files: () => integrations.files(), set: (kind, on) => integrations.set(kind, on) },
         keepAwake: { available: keepAwake.available, changed: checkAwake },
         closedLid: {
             available: closedLid.available,
@@ -1174,26 +1179,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         describe: describeLanDoor
     });
 
-    if (config.installHooks) {
-        // Only the CLIs the daemon has a normalizer for are listed; the others run without status.
-        for (const [kind, path] of Object.entries(defaultHookPaths())) {
-            installHooks(path, kind as AgentKind)
-                .then(({ result }) => {
-                    if (result === 'written') {
-                        console.log(`Installed ${kind} status hooks in ${path}${kind === 'codex' ? ' (trust them once with /hooks in Codex)' : ''}`);
-                    }
-                })
-                .catch((e) => console.error(`Could not install ${kind} hooks:`, errorText(e)));
-        }
-        const rulesPath = defaultCodexRulesPath();
-        installCodexRules(rulesPath)
-            .then((result) => {
-                if (result === 'written') {
-                    console.log(`Installed the codex rule for ruimte-context in ${rulesPath}`);
-                }
-            })
-            .catch((e) => console.error('Could not install the codex rule:', errorText(e)));
-    }
+    void integrations.installDefaults();
 
     interface ConnectionState {
         channel: SocketChannel;

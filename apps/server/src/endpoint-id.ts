@@ -7,6 +7,7 @@ import {
     ProjectIconChoiceSchema,
     type EndpointNameSource,
     type KeepAwakeMode,
+    type AgentIntegrationsSummary,
     type LanDoor,
     type ProjectIconChoice
 } from '@ruimte/contracts';
@@ -106,6 +107,11 @@ export interface IdentityClosedLid {
     describe(): { keepAwakeLidRule: boolean };
 }
 
+/* What the consent for the CLIs' global settings lends the identity: where it stands, which every event carries. */
+export interface IdentityAgentIntegrations {
+    describe(): { agentIntegrations: AgentIntegrationsSummary };
+}
+
 /* The switches a client sets on the machine; one left out stays as it stands. */
 export interface IdentityFlags {
     agentsDeleteAnyView?: boolean;
@@ -146,6 +152,7 @@ export class EndpointIdentity {
     private lanDoorOpen: boolean;
     private door: IdentityLanDoor | null = null;
     private closedLid: IdentityClosedLid | null = null;
+    private integrations: IdentityAgentIntegrations | null = null;
 
     constructor(options: IdentityOptions) {
         this.path = options.path;
@@ -220,6 +227,11 @@ export class EndpointIdentity {
     /* Lets every event say whether the closed-lid rule is installed. */
     attachClosedLid(closedLid: IdentityClosedLid): void {
         this.closedLid = closedLid;
+    }
+
+    /* Lets every event say what a person allowed in the CLIs' global settings. */
+    attachAgentIntegrations(integrations: IdentityAgentIntegrations): void {
+        this.integrations = integrations;
     }
 
     /* The broker a person picked for this machine, which a flag or the environment may still override. */
@@ -303,6 +315,7 @@ export class EndpointIdentity {
                 appleFoundationEnabled: this.appleEnabled,
                 ...this.keepAwakeFields(),
                 ...this.closedLid?.describe(),
+                ...this.integrations?.describe(),
                 broker: this.brokerSetting,
                 ...this.brokerSwitch?.describe(),
                 lanDoor: this.lanDoorOpen,

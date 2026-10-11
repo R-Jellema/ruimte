@@ -1,4 +1,12 @@
-import { PROTOCOL_VERSION, type LanDoor, type MachineUpdate, type MachineUpdateReport, type MachineWork } from '@ruimte/contracts';
+import {
+    PROTOCOL_VERSION,
+    type AgentIntegrationReport,
+    type AgentIntegrationsResult,
+    type LanDoor,
+    type MachineUpdate,
+    type MachineUpdateReport,
+    type MachineWork
+} from '@ruimte/contracts';
 import { RequestError, translate, type ClientAccess, type Dispatcher } from '../dispatcher.ts';
 import { isOwner } from '../auth/access.ts';
 import { signForAccount } from '../auth/registration.ts';
@@ -6,6 +14,7 @@ import type { AuthStore } from '../auth/auth-store.ts';
 import type { EndpointIdentity } from '../endpoint-id.ts';
 import type { BrokerDescription } from '../pulsar/broker-switch.ts';
 import type { InstallVerdict } from '../power/machine-update.ts';
+import { IntegrationsFixed, isIntegrationKind } from '../agents/integrations.ts';
 import { DEFAULT_ADMIN_PROMPT } from '../power/closed-lid.ts';
 
 interface EndpointHost {
@@ -29,6 +38,12 @@ interface EndpointHost {
         available: boolean;
         rule(): Promise<boolean>;
         setRule(install: boolean, prompt: string): Promise<void>;
+    };
+    // What a person allowed in the CLIs' global settings, and the calls that read and change it.
+    agentIntegrations?: {
+        summary(): AgentIntegrationsResult['summary'];
+        files(): Promise<AgentIntegrationsResult['files']>;
+        set(kind: 'claude' | 'codex', on: boolean): Promise<AgentIntegrationReport[]>;
     };
     // The update of the desktop app on this machine, and what installing it would end right now.
     updates?: {
@@ -59,6 +74,7 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
         keepAwakeAvailable: host.keepAwake?.available === true,
         keepAwakeLidAvailable: host.closedLid?.available === true,
         keepAwakeLidRule: host.closedLid?.available === true ? await host.closedLid.rule() : false,
+        ...(host.agentIntegrations ? { agentIntegrations: host.agentIntegrations.summary() } : {}),
         ...(host.updates ? { update: host.updates.state() } : {}),
         platform: process.platform,
         version: host.version,
@@ -138,6 +154,39 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
         }
         await translate(() => closedLid.setRule(payload.install, payload.prompt ?? DEFAULT_ADMIN_PROMPT[payload.install ? 'install' : 'remove']));
         return info(client.access);
+    });
+
+    /*
+     * What Ruimte writes into the CLIs' own settings is a person's call on this machine, so only the local
+     * secret reads the files and changes the choice. A client the machine let in is not its owner.
+     */
+    const integrations = (access: ClientAccess | undefined) => {
+        if (!isOwner(access)) {
+            throw new RequestError('forbidden', 'Only a person on this machine can change what Ruimte writes into the CLIs’ settings');
+        }
+        if (host.agentIntegrations === undefined) {
+            throw new RequestError('unavailable', 'This machine does not manage the CLIs’ settings');
+        }
+        return host.agentIntegrations;
+    };
+
+    dispatcher.register('endpoint.agentIntegrations', async (_payload, client) => {
+        const current = integrations(client.access);
+        return { summary: current.summary(), files: await current.files() };
+    });
+
+    dispatcher.register('endpoint.setAgentIntegration', async (payload, client) => {
+        const current = integrations(client.access);
+        if (!isIntegrationKind(payload.provider)) {
+            throw new RequestError('unknown-provider', `Ruimte has no status hooks for ${payload.provider}`);
+        }
+        const report = await current.set(payload.provider, payload.on).catch((e: unknown) => {
+            if (e instanceof IntegrationsFixed) {
+                throw new RequestError('integrations-fixed', 'This machine was started with --no-hooks');
+            }
+            throw e;
+        });
+        return { summary: current.summary(), report };
     });
 
     /* Only the app on this machine holds the updater, so only the local secret may say where it stands. */

@@ -12,6 +12,7 @@ import { Dispatcher, type ClientAccess, type ClientConnection } from '../dispatc
 import { readOrCreateEndpointIdentity, type EndpointIdentity } from '../endpoint-id.ts';
 import { MachineUpdates } from '../power/machine-update.ts';
 import { PAIRING_REMOVED, registerAuthHandlers } from './auth.ts';
+import { AgentIntegrations } from '../agents/integrations.ts';
 import { ClosedLidError, DEFAULT_ADMIN_PROMPT } from '../power/closed-lid.ts';
 
 let home: string;
@@ -27,6 +28,7 @@ let lidRule: boolean;
 let lidCancels: boolean;
 let ruleRequests: { install: boolean; prompt: string }[];
 let updates: MachineUpdates;
+let integrations: AgentIntegrations;
 
 function client(access?: ClientAccess): { connection: ClientConnection; frames: ServerFrame[] } {
     const frames: ServerFrame[] = [];
@@ -72,6 +74,13 @@ beforeEach(async () => {
     lidCancels = false;
     ruleRequests = [];
     updates = new MachineUpdates();
+    integrations = new AgentIntegrations({
+        home,
+        fixed: false,
+        env: { HOME: join(home, 'user'), CLAUDE_CONFIG_DIR: join(home, 'claude'), CODEX_HOME: join(home, 'codex') },
+        accountHomes: () => []
+    });
+    await integrations.load();
     registerAuthHandlers(dispatcher, store, {
         identity,
         version: '0.0.0',
@@ -98,6 +107,7 @@ beforeEach(async () => {
                 lidRule = install;
             }
         },
+        agentIntegrations: { summary: () => integrations.summary(), files: () => integrations.files(), set: (kind, on) => integrations.set(kind, on) },
         updates: {
             state: () => updates.state(),
             report: (clientId, report) => updates.report(clientId, report),
@@ -472,5 +482,54 @@ describe('auth handlers', () => {
         expect(await ask(LOCAL, 'endpoint.signRegistration', { accountId: 'owner' })).toMatchObject({ ok: true });
         expect(disconnected).toEqual([sessionOf(admitted)]);
         expect(await store.list(null)).toEqual([]);
+    });
+
+    test('endpoint.info carries the integration summary, without paths', async () => {
+        const reply = await ask({ reachability: 'lan', sessionId: 's1' }, 'endpoint.info');
+
+        expect(reply).toMatchObject({
+            ok: true,
+            result: {
+                agentIntegrations: {
+                    fixed: false,
+                    providers: [
+                        { provider: 'claude', state: 'unset' },
+                        { provider: 'codex', state: 'unset' }
+                    ]
+                }
+            }
+        });
+        expect(JSON.stringify(reply)).not.toContain(home);
+    });
+
+    test('only the local secret reads the files or changes the choice', async () => {
+        const lan: ClientAccess = { reachability: 'lan', sessionId: 's1' };
+
+        expect(await ask(lan, 'endpoint.agentIntegrations')).toMatchObject({ ok: false, error: { code: 'forbidden' } });
+        expect(await ask(lan, 'endpoint.setAgentIntegration', { provider: 'claude', on: true })).toMatchObject({ ok: false, error: { code: 'forbidden' } });
+        expect(integrations.allows('claude')).toBe(false);
+
+        expect(await ask(LOCAL, 'endpoint.setAgentIntegration', { provider: 'claude', on: true })).toMatchObject({
+            ok: true,
+            result: {
+                summary: {
+                    providers: [
+                        { provider: 'claude', state: 'on', reviewed: true },
+                        { provider: 'codex', state: 'unset', reviewed: false }
+                    ]
+                }
+            }
+        });
+        expect(await ask(LOCAL, 'endpoint.agentIntegrations')).toMatchObject({
+            ok: true,
+            result: { files: expect.arrayContaining([expect.objectContaining({ provider: 'claude', kind: 'hooks', ours: true })]) }
+        });
+    });
+
+    test('a provider without hooks is unknown', async () => {
+        expect(await ask(LOCAL, 'endpoint.setAgentIntegration', { provider: 'gemini', on: true })).toMatchObject({
+            ok: false,
+            error: { code: 'unknown-provider' }
+        });
     });
 });
