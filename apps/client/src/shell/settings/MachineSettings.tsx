@@ -522,7 +522,7 @@ export function WorktreeFolderRow({ endpoint, reason }: { endpoint: Endpoint; re
             <div className="flex min-w-0 flex-col gap-1">
                 <Input
                     mono
-                    className="min-w-0 flex-1 basis-48"
+                    className="w-full min-w-0"
                     value={shown}
                     placeholder={t('machine.worktreeFolder.placeholder')}
                     aria-label={t('machine.worktreeFolder.label')}
