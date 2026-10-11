@@ -364,7 +364,12 @@
             "open": "Openen op GitHub",
             "refresh": "Vernieuwen",
             "failed": "De pull request kon niet worden gelezen",
-            "draft": "concept",
+            "draft": "Concept",
+            "state": {
+                "open": "Open",
+                "merged": "Samengevoegd",
+                "closed": "Gesloten"
+            },
             "noChecks": "Op deze commit zijn geen checks gedraaid.",
             "status": "Status",
             "noThreads": "Geen reviewdraden",
@@ -385,9 +390,9 @@
                 "unstable": "Mergen kan, maar checks zijn mislukt",
                 "unknown": "Mergestatus nog niet bekend",
                 "review": {
-                    "approved": "goedgekeurd",
-                    "changes_requested": "wijzigingen gevraagd",
-                    "review_required": "review nodig"
+                    "approved": "Goedgekeurd",
+                    "changes_requested": "Wijzigingen gevraagd",
+                    "review_required": "Review nodig"
                 }
             },
             "threads_one": "{{count}} reviewdraad",

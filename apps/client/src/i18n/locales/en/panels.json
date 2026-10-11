@@ -364,7 +364,12 @@
             "open": "Open on GitHub",
             "refresh": "Refresh",
             "failed": "Could not read the pull request",
-            "draft": "draft",
+            "draft": "Draft",
+            "state": {
+                "open": "Open",
+                "merged": "Merged",
+                "closed": "Closed"
+            },
             "noChecks": "No checks have run on this commit.",
             "status": "Status",
             "noThreads": "No review threads",
@@ -385,9 +390,9 @@
                 "unstable": "Merging is possible but checks failed",
                 "unknown": "Merge state not known yet",
                 "review": {
-                    "approved": "approved",
-                    "changes_requested": "changes requested",
-                    "review_required": "review required"
+                    "approved": "Approved",
+                    "changes_requested": "Changes requested",
+                    "review_required": "Review required"
                 }
             },
             "threads_one": "{{count}} review thread",

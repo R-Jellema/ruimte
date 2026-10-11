@@ -202,16 +202,18 @@ function PullRequestMeta({ pr }: { pr: PullRequest }) {
     const { t } = useTranslation('panels');
     const tone = pr.isDraft ? 'muted' : (STATE_TONES[pr.state as keyof typeof STATE_TONES] ?? 'muted');
     return (
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">
             <span className="font-mono">
                 {pr.repo}#{pr.number}
             </span>
+            <span aria-hidden>·</span>
             <span className="flex min-w-0 items-center gap-1 font-mono">
                 <span className="min-w-0 truncate">{pr.headBranch}</span>
                 <span>→</span>
                 <span>{pr.baseBranch}</span>
             </span>
-            <Pill tone={tone}>{pr.isDraft ? t('git.pr.draft') : pr.state.toLowerCase()}</Pill>
+            <span aria-hidden>·</span>
+            <Pill tone={tone}>{pr.isDraft ? t('git.pr.draft') : t(`git.pr.state.${pr.state.toLowerCase()}`, { defaultValue: pr.state })}</Pill>
         </div>
     );
 }
@@ -263,7 +265,7 @@ function PullRequestStatus({ pr }: { pr: PullRequest }) {
                 </StatusRow>
                 {review !== null && pr.reviewDecision !== null && (
                     <StatusRow icon={review.icon} tone={review.tone}>
-                        {t(`git.pr.merge.review.${pr.reviewDecision.toLowerCase()}`, { defaultValue: pr.reviewDecision.toLowerCase() })}
+                        {t(`git.pr.merge.review.${pr.reviewDecision.toLowerCase()}`, { defaultValue: pr.reviewDecision })}
                     </StatusRow>
                 )}
             </ul>
@@ -339,32 +341,34 @@ function PullRequestThreads({ pr, showBots, showResolved, onBots, onResolved }: 
     const view = visibleThreads(pr.threads, { showBots, showResolved });
     return (
         <Section>
-            <div className="flex items-center gap-3">
-                <SectionLabel>{t('git.pr.threads', { count: pr.threads.length })}</SectionLabel>
-                <span className="grow" />
-                <label className="flex items-center gap-2 text-xs text-text-muted">
-                    {t('git.pr.showBots')}
-                    <Switch label={t('git.pr.showBots')} checked={showBots} onCheckedChange={onBots} />
-                </label>
-                <label className="flex items-center gap-2 text-xs text-text-muted">
-                    {t('git.pr.showResolved')}
-                    <Switch label={t('git.pr.showResolved')} checked={showResolved} onCheckedChange={onResolved} />
-                </label>
-            </div>
-            {view.hiddenBots + view.hiddenResolved > 0 && (
-                <p className="mt-1 text-xs text-text-faint">{t('git.pr.hidden', { bots: view.hiddenBots, resolved: view.hiddenResolved })}</p>
-            )}
             {pr.threads.length === 0 ? (
-                <p className="mt-2 flex items-center gap-2 text-xs text-text-muted">
+                <p className="flex items-center gap-2 text-xs text-text-muted">
                     <Icon icon={MessagesSquare} size={14} />
                     {t('git.pr.noThreads')}
                 </p>
             ) : (
-                <ul className="mt-2 flex flex-col gap-2">
-                    {view.shown.map((thread) => (
-                        <ThreadCard key={thread.id} pr={pr} thread={thread} />
-                    ))}
-                </ul>
+                <>
+                    <div className="flex items-center gap-3">
+                        <SectionLabel>{t('git.pr.threads', { count: pr.threads.length })}</SectionLabel>
+                        <span className="grow" />
+                        <label className="flex items-center gap-2 text-xs text-text-muted">
+                            {t('git.pr.showBots')}
+                            <Switch label={t('git.pr.showBots')} checked={showBots} onCheckedChange={onBots} />
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-text-muted">
+                            {t('git.pr.showResolved')}
+                            <Switch label={t('git.pr.showResolved')} checked={showResolved} onCheckedChange={onResolved} />
+                        </label>
+                    </div>
+                    {view.hiddenBots + view.hiddenResolved > 0 && (
+                        <p className="mt-1 text-xs text-text-faint">{t('git.pr.hidden', { bots: view.hiddenBots, resolved: view.hiddenResolved })}</p>
+                    )}
+                    <ul className="mt-2 flex flex-col gap-2">
+                        {view.shown.map((thread) => (
+                            <ThreadCard key={thread.id} pr={pr} thread={thread} />
+                        ))}
+                    </ul>
+                </>
             )}
         </Section>
     );
