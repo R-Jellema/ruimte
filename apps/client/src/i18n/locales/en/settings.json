@@ -1023,7 +1023,9 @@
             "descriptionChosen": "New worktrees are made here. Worktrees you already have stay where they are.",
             "placeholder": "Data folder of Ruimte",
             "choose": "Choose…",
-            "reset": "Reset"
+            "reset": "Reset",
+            "refusedRoot": "That folder is not allowed: use an absolute path that is not the root of the disk, your home folder or the data folder of Ruimte.",
+            "notAFolder": "That is not a folder, or it cannot be made or written to."
         },
         "streaming": {
             "label": "Browser and device streaming",

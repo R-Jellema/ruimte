@@ -1023,7 +1023,9 @@
             "descriptionChosen": "Nieuwe worktrees komen hier. Worktrees die je al hebt, blijven waar ze zijn.",
             "placeholder": "Datamap van Ruimte",
             "choose": "Kiezen…",
-            "reset": "Herstellen"
+            "reset": "Herstellen",
+            "refusedRoot": "Die map mag niet: gebruik een absoluut pad dat niet de root van de schijf, je thuismap of de datamap van Ruimte is.",
+            "notAFolder": "Dat is geen map, of de map kan niet worden aangemaakt of beschreven."
         },
         "streaming": {
             "label": "Streamen van browser en apparaten",

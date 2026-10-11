@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import i18next from 'i18next';
 import { Trash } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -33,6 +33,17 @@ export function WithReason({ reason, children }: { reason: string | null; childr
  * switch sends back the name and icon the machine has; a machine nobody named answers to its own
  * default, and sending that name back would make it chosen.
  */
+function settingFailure(e: unknown): string {
+    switch ((e as { code?: unknown } | null)?.code) {
+        case 'root-refused':
+            return i18next.t('settings:machine.worktreeFolder.refusedRoot');
+        case 'not-a-folder':
+            return i18next.t('settings:machine.worktreeFolder.notAFolder');
+        default:
+            return messageOf(e, i18next.t('settings:machine.toast.unchanged'));
+    }
+}
+
 async function saveMachineSetting(
     endpoint: Endpoint,
     patch: { broker?: BrokerSetting; lanDoor?: boolean; streamingAllowed?: boolean; resumeAtReset?: boolean; worktreeRoot?: string }
@@ -70,7 +81,7 @@ async function saveMachineSetting(
             id: `endpoint-setting-${endpoint.id}`,
             kind: 'error',
             title: i18next.t('settings:machine.toast.saveFailed', { machine: endpoint.label }),
-            description: messageOf(e, i18next.t('settings:machine.toast.unchanged'))
+            description: settingFailure(e)
         });
         return false;
     }
@@ -434,17 +445,24 @@ export function WorktreeFolderRow({ endpoint, reason }: { endpoint: Endpoint; re
     const kept = useServers((s) => s.byEndpoint[endpoint.id]?.worktreeRoot);
     const [draft, setDraft] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+    // Enter saves and the field then loses focus: the blur must not save the same value again.
+    const saving = useRef(false);
     const pickFolder = desktop()?.pickFolder;
     const unavailable = reason ?? (kept === undefined ? t('machine.unsupportedReason') : null);
     const shown = draft ?? kept ?? '';
 
     const save = async (value: string): Promise<void> => {
+        if (saving.current) {
+            return;
+        }
         if (value.trim() === (kept ?? '')) {
             setDraft(null);
             return;
         }
+        saving.current = true;
         setBusy(true);
         const saved = await saveMachineSetting(endpoint, { worktreeRoot: value.trim() });
+        saving.current = false;
         setBusy(false);
         if (saved) {
             setDraft(null);
