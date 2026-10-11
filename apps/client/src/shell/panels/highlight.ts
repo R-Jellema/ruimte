@@ -62,3 +62,22 @@ export function highlightCode(code: string, language: string, theme: string): Pr
 export function highlightDocument(code: string, language: string, theme: string): Promise<string> {
     return loadHighlighter().then((highlight) => highlight(code, language, theme, true));
 }
+
+export function highlightDocumentChunks(blocks: readonly string[], language: string, theme: string): (index: number) => Promise<string> {
+    let loading: Promise<(index: number) => Promise<string>> | undefined;
+    return (index) => {
+        loading ??= Promise.all([import('shiki'), import('@adecore/editor/shiki')])
+            .then(async ([{ getSingletonHighlighter }, { shikiDocumentHighlighter }]) => {
+                const highlighter = await getSingletonHighlighter();
+                if (!highlighter.getLoadedThemes().includes(theme)) {
+                    await highlighter.loadTheme(shikiThemeOf(theme) as Parameters<typeof highlighter.loadTheme>[0]);
+                }
+                return shikiDocumentHighlighter(async () => highlighter, blocks, language, theme, [DROP_LINE_BREAKS]);
+            })
+            .catch((error: unknown) => {
+                loading = undefined;
+                throw error;
+            });
+        return loading.then((highlight) => highlight(index));
+    };
+}

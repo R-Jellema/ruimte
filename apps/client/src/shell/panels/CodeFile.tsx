@@ -18,7 +18,7 @@ import { FileEditor } from '@/shell/panels/FileEditor';
 import { FileScroll } from '@/shell/panels/FileScroll';
 import { FileToolbar } from '@/shell/panels/FileToolbar';
 import { FileBreadcrumb } from '@/shell/panels/FileBreadcrumb';
-import { highlightDocument } from '@/shell/panels/highlight';
+import { highlightDocumentChunks } from '@/shell/panels/highlight';
 import { lineEndingOf } from '@/shell/panels/status-bar-model';
 import { editorSeed, useEditorFind } from '@/shell/panels/use-editor-find';
 import { useEditorLanguage } from '@/shell/panels/use-editor-language';
@@ -61,10 +61,8 @@ interface ChunkProps {
     lines: number;
     /* The line number this chunk opens on, one-based. */
     start: number;
-    /* Null in a file too long to highlight, which draws as the plain text it falls back to anyway. */
-    language: string | null;
-    /* A Shiki theme id. */
-    theme: string;
+    index: number;
+    highlight: ((index: number) => Promise<string>) | null;
     /* The line this chunk was asked to bring into view, one-based, when the ask landed in it. */
     reveal?: Omit<FileLocation, 'path'>;
     /* Which ask that was, so the same line twice jumps twice. */
@@ -76,10 +74,11 @@ interface ChunkProps {
  * highlighted version once shiki answers. Every step has the same line count and line height, so the
  * page below it never moves.
  */
-function CodeChunk({ code, lines, start, language, theme, reveal, revealNonce }: ChunkProps) {
+function CodeChunk({ code, lines, start, index, highlight, reveal, revealNonce }: ChunkProps) {
     const ref = useRef<HTMLDivElement>(null);
     const [seen, setSeen] = useState(start === 1);
-    const [html, setHtml] = useState<string | null>(null);
+    const [highlighted, setHighlighted] = useState<{ source: ChunkProps['highlight']; index: number; html: string } | null>(null);
+    const html = highlighted?.source === highlight && highlighted.index === index ? highlighted.html : null;
     // A chunk the viewport never reached still draws itself when a link points into it.
     const near = seen || reveal !== undefined;
     const revealLine = reveal?.line;
@@ -128,21 +127,21 @@ function CodeChunk({ code, lines, start, language, theme, reveal, revealNonce }:
     }, [near]);
 
     useEffect(() => {
-        if (!near || language === null) {
+        if (!near || highlight === null) {
             return;
         }
         let cancelled = false;
-        highlightDocument(code, language, theme)
+        highlight(index)
             .then((result) => {
                 if (!cancelled) {
-                    setHtml(result);
+                    setHighlighted({ source: highlight, index, html: result });
                 }
             })
             .catch(() => undefined);
         return () => {
             cancelled = true;
         };
-    }, [near, code, language, theme]);
+    }, [near, code, index, highlight]);
 
     // The counter starts one line before the first, since every line increments it before it prints.
     // The height is reserved before the chunk draws, so the scrollbar is the right length from the first paint.
@@ -219,6 +218,17 @@ export function CodeFile({ path, read, toolbarExtra }: CodeFileProps) {
     const large = read.size > FS_READ_MAX_TEXT_BYTES;
     const plain = large || lineCount > HIGHLIGHT_MAX_LINES;
     const language = plain ? null : (read.language ?? 'text');
+    const highlight = useMemo(
+        () =>
+            language === null
+                ? null
+                : highlightDocumentChunks(
+                      chunks.map((chunk) => chunk.code),
+                      language,
+                      theme
+                  ),
+        [chunks, language, theme]
+    );
     const editing = useFileEditing(path, read, plain, large);
     const disk = useMemo(() => ({ text: read.text, mtime: read.mtime }), [read]);
     const readOnlyReason =
@@ -293,7 +303,7 @@ export function CodeFile({ path, read, toolbarExtra }: CodeFileProps) {
                 </ErrorBoundary>
             ) : (
                 <FileScroll className="file-code" data-wrap={wrap} onScroll={(event) => (viewerScroll.current = event.currentTarget.scrollTop)}>
-                    {chunks.map((chunk) => {
+                    {chunks.map((chunk, index) => {
                         const location =
                             reveal === null
                                 ? null
@@ -309,8 +319,8 @@ export function CodeFile({ path, read, toolbarExtra }: CodeFileProps) {
                                 code={chunk.code}
                                 lines={chunk.lines}
                                 start={chunk.start}
-                                language={language}
-                                theme={theme}
+                                index={index}
+                                highlight={highlight}
                                 reveal={inChunk ? location! : undefined}
                                 revealNonce={inChunk ? reveal?.nonce : undefined}
                             />

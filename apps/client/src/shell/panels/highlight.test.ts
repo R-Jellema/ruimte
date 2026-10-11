@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { getSingletonHighlighter } from 'shiki';
 import { CODE_PALETTES } from './code-themes';
-import { highlightCode, highlightDocument } from './highlight';
+import { highlightCode, highlightDocument, highlightDocumentChunks } from './highlight';
 
 // The grammar compiles its patterns on first use, which on a loaded runner outlasts the 500 ms Shiki gives a line
 // and leaves the rest of it one token. The shorthand `highlightCode` draws with shares this singleton.
@@ -32,5 +32,14 @@ describe('highlighting a whole file', () => {
     test('draws the styles of a Vue file in a language its grammar embeds on demand', async () => {
         const html = await highlightDocument('<style lang="scss">\n.a { .b { margin: 4px; } }\n</style>', 'vue', 'github-dark');
         expect(html).toMatch(/<span style="color:#[0-9A-F]{6}">margin/i);
+    });
+
+    test('carries a comment across the viewer block boundary in our own theme', async () => {
+        const blocks = [Array.from({ length: 399 }, () => 'const answer = 42;').join('\n') + '\n/* opening', 'still a comment */'];
+        const highlight = highlightDocumentChunks(blocks, 'typescript', 'ruimte-dark');
+        const html = await highlight(1);
+        expect(html.toLowerCase()).toContain(CODE_PALETTES.dark.colors.comment);
+        expect(html).toContain('still a comment */');
+        expect(html).not.toContain('\n');
     });
 });
