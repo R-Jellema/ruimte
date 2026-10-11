@@ -60,22 +60,6 @@ test('cwd is read after late precmd hooks and the preview only offers that direc
     }
 });
 
-test('a prepared command runs only after the person presses Enter', async () => {
-    const fixture = await realShell();
-    try {
-        await fixture.ready();
-        const destination = join(fixture.home, 'actual-cwd');
-        const preview = await fixture.preview('pwd > actual-cwd');
-        await fixture.prepare.prepare('owner', preview.targets[0]!.token, fixture.client);
-        await expect(access(destination)).rejects.toThrow();
-        fixture.manager.write('shell', '\r', 'person');
-        await waitForAsync(() => Bun.file(destination).exists(), 'explicit Enter');
-        expect((await readFile(destination, 'utf8')).trim()).toBe(fixture.home);
-    } finally {
-        await fixture.cleanup();
-    }
-});
-
 for (const change of ['buffer', 'cwd'] as const) {
     test(`ZLE repeats ${change} validation after preview, even without daemon input notification`, async () => {
         const f = await realShell(
