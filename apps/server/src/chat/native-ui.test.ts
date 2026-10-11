@@ -12,7 +12,8 @@ test('the native bridge refuses deeply nested wire data before schema recursion'
 });
 
 test('the native bridge keeps a good sibling when another node has an unsupported expression', () => {
-    const block = compileUiBlock('<Summary>Kept</Summary><Summary>{1}</Summary>', { id: 'a', final: true });
+    const block = compileUiBlock('<Summary>Kept</Summary><Summary>{1}</Summary>', { id: 'a', final: true, now: () => 0 });
+    expect(block.diagnostics).toEqual([]);
     block.nodes[1].children[0].expressions.text = { kind: 'future' } as never;
     const result = evaluateNativeUi({ block });
     const nodes = result.nodes as { children: { props: { text?: string }; error?: string }[] }[];
