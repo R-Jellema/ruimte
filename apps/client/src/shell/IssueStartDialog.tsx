@@ -6,7 +6,7 @@ import { createNodeAction, performAsPerson } from '@/actions/client-actions';
 import { rememberChatSelection } from '@adecore/agents-react/chat/preferences';
 import { offerDraft } from '@adecore/agents-react/chat/drafts';
 import { useChats } from '@adecore/agents-react/state/chats';
-import { Button, Dialog, ErrorBoundary, FieldHint, FormError, Icon, Input, Pill, TextArea } from '@adecore/ui';
+import { Button, Dialog, ErrorBoundary, Field, FormError, Icon, Input, Pill, TextArea } from '@adecore/ui';
 import { focusChat } from '@/plan/plan-actions';
 import { findIssueNode, issueBranch, issuePrompt } from '@/shell/issue-start';
 import { useWorktreeStart } from '@/shell/use-worktree-start';
@@ -38,7 +38,7 @@ export function IssueStartDialog() {
                 }
             }}
         >
-            <Dialog.Popup size="sm">
+            <Dialog.Popup size="sm" className="flex flex-col">
                 <Dialog.Title className="flex items-center gap-2">
                     <Icon icon={CircleDot} size={16} /> {t('issueStart.title')}
                 </Dialog.Title>
@@ -152,68 +152,76 @@ function IssueStartForm({ onDone }: { onDone(): void }) {
 
     return (
         <>
-            <Dialog.Text className="mt-1">{t('issueStart.description')}</Dialog.Text>
-            <label className="mt-3 block text-xs text-text-muted" htmlFor="issue-ref">
-                {t('issueStart.refLabel')}
-            </label>
-            <div className="mt-1 flex items-center gap-2">
-                <Input
-                    id="issue-ref"
-                    mono
-                    autoFocus
-                    className="grow"
-                    value={text}
-                    placeholder={t('issueStart.refPlaceholder')}
-                    spellCheck={false}
-                    onChange={(e) => setText(e.target.value)}
-                    onKeyDown={(e) => {
-                        e.stopPropagation();
-                        if (e.key === 'Enter') {
-                            void read();
-                        }
-                    }}
-                />
-                <Button disabled={reading || text.trim() === '' || folder === null} onClick={() => void read()}>
-                    {reading ? t('issueStart.reading') : t('issueStart.read')}
-                </Button>
-            </div>
-            {readFailure !== null && <FormError className="mt-1">{readFailure}</FormError>}
-            {issue !== null && (
-                <div className="mt-3 rounded-lg border border-border p-3">
+            <div className="-mx-1 min-h-0 overflow-y-auto px-1">
+                <Dialog.Text className="mt-1">{t('issueStart.description')}</Dialog.Text>
+                <Field label={t('issueStart.refLabel')} error={readFailure} className="mt-3">
                     <div className="flex items-center gap-2">
-                        <Pill mono icon={<Icon icon={CircleDot} size={12} />}>
-                            {issue.repo}#{issue.number}
-                        </Pill>
-                        <span className="text-xs text-text-faint">{issue.state.toLowerCase()}</span>
+                        <Input
+                            mono
+                            autoFocus
+                            className="grow"
+                            value={text}
+                            placeholder={t('issueStart.refPlaceholder')}
+                            spellCheck={false}
+                            onChange={(e) => setText(e.target.value)}
+                            onKeyDown={(e) => {
+                                e.stopPropagation();
+                                if (e.key === 'Enter') {
+                                    void read();
+                                }
+                            }}
+                        />
+                        <Button variant="secondary" disabled={reading || text.trim() === '' || folder === null} onClick={() => void read()}>
+                            {reading ? t('issueStart.reading') : t('issueStart.read')}
+                        </Button>
                     </div>
-                    <p className="mt-2 text-sm text-text">{issue.title}</p>
-                    {issue.labels.length > 0 && <FieldHint>{issue.labels.join(', ')}</FieldHint>}
-                </div>
-            )}
-            {startedNode !== null && (
-                <div className="mt-2 flex items-center justify-between gap-2">
-                    <FieldHint>{t('issueStart.alreadyStarted')}</FieldHint>
-                    <Button
-                        size="xs"
-                        onClick={() => {
-                            focusChat(startedNode);
-                            onDone();
-                        }}
-                    >
-                        {t('issueStart.open')}
-                    </Button>
-                </div>
-            )}
-            {issue !== null && start !== null && (
-                <>
-                    <WorktreeStartFields start={start} idPrefix="issue-start" onSubmit={() => void submit()} />
-                    <label className="mt-3 block text-xs text-text-muted" htmlFor="issue-prompt">
-                        {t('issueStart.prompt')}
-                    </label>
-                    <TextArea id="issue-prompt" mono className="mt-1 h-40" value={prompt} spellCheck={false} onChange={(e) => setTypedPrompt(e.target.value)} />
-                </>
-            )}
-            {failure && <FormError className="mt-2">{failure}</FormError>}
+                </Field>
+                {issue !== null && (
+                    <div className="mt-3 rounded-lg border border-border bg-surface bg-clip-padding p-3.5">
+                        <div className="flex items-center gap-2">
+                            <Pill mono icon={<Icon icon={CircleDot} size={12} />}>
+                                {issue.repo}#{issue.number}
+                            </Pill>
+                            <Pill size="sm" tone={issue.state === 'OPEN' ? 'idle' : 'muted'}>
+                                {t(issue.state === 'OPEN' ? 'issueStart.state.open' : 'issueStart.state.closed')}
+                            </Pill>
+                        </div>
+                        <p className="mt-2 text-sm text-text">{issue.title}</p>
+                        {issue.labels.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                                {issue.labels.map((label) => (
+                                    <Pill key={label} size="sm">
+                                        {label}
+                                    </Pill>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+                {startedNode !== null && (
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                        <Dialog.Text size="xs">{t('issueStart.alreadyStarted')}</Dialog.Text>
+                        <Button
+                            size="xs"
+                            onClick={() => {
+                                focusChat(startedNode);
+                                onDone();
+                            }}
+                        >
+                            {t('issueStart.open')}
+                        </Button>
+                    </div>
+                )}
+                {issue !== null && start !== null && (
+                    <>
+                        <WorktreeStartFields start={start} idPrefix="issue-start" onSubmit={() => void submit()} />
+                        <Field label={t('issueStart.prompt')} className="mt-3">
+                            <TextArea mono className="h-28" value={prompt} spellCheck={false} onChange={(e) => setTypedPrompt(e.target.value)} />
+                        </Field>
+                    </>
+                )}
+                {failure && <FormError className="mt-2">{failure}</FormError>}
+            </div>
             <Dialog.Footer>
                 <Button onClick={onDone}>{t('common:action.cancel')}</Button>
                 <Button variant="primary" disabled={!ready} onClick={() => void submit()}>

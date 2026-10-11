@@ -229,7 +229,7 @@
         "noCanvas": "Open een canvas om de chat op te zetten."
     },
     "issueStart": {
-        "title": "Starten vanaf een GitHub-issue",
+        "title": "Chat starten vanuit een GitHub-issue",
         "description": "Leest de issue via gh, maakt er een worktree voor en start daar een chat met de issue als eerste prompt.",
         "refLabel": "Issue",
         "refPlaceholder": "Link, owner/repo#12 of #12",
@@ -237,6 +237,10 @@
         "reading": "Bezig met lezen…",
         "notFound": "Die issue is niet gevonden.",
         "noGh": "gh is niet geïnstalleerd op deze machine.",
+        "state": {
+            "open": "Open",
+            "closed": "Gesloten"
+        },
         "alreadyStarted": "Deze issue is al gestart.",
         "open": "Openen",
         "unauthenticated": "gh is op deze machine niet ingelogd. Voer daar gh auth login uit.",
@@ -559,7 +563,7 @@
             "newTerminal": "Nieuwe terminal",
             "newChat": "Nieuwe chat",
             "newChatInWorktree": "Nieuwe chat in worktree",
-            "startFromIssue": "Starten vanaf GitHub-issue",
+            "startFromIssue": "Chat starten vanuit een GitHub-issue",
             "showPullRequest": "Pull request tonen",
             "newBrowser": "Nieuwe browser",
             "newGroup": "Nieuwe groep",
@@ -879,7 +883,7 @@
         "newWindow": "Nieuw venster",
         "newChat": "Nieuwe chat",
         "newChatInWorktree": "Nieuwe chat in worktree…",
-        "startFromIssue": "Starten vanaf GitHub-issue…",
+        "startFromIssue": "Chat starten vanuit een GitHub-issue…",
         "showPullRequest": "Pull request tonen…",
         "moveToNewWindow": "Naar nieuw venster verplaatsen",
         "onboarding": "Ruimte instellen…",

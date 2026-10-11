@@ -238,6 +238,10 @@
         "notFound": "That issue was not found.",
         "noGh": "gh is not installed on this machine.",
         "alreadyStarted": "You already started this issue.",
+        "state": {
+            "open": "Open",
+            "closed": "Closed"
+        },
         "open": "Open",
         "unauthenticated": "gh is not signed in on this machine. Run gh auth login there.",
         "prompt": "First prompt",
@@ -879,7 +883,7 @@
         "newWindow": "New Window",
         "newChat": "New Chat",
         "newChatInWorktree": "New Chat in Worktree…",
-        "startFromIssue": "Start From GitHub Issue…",
+        "startFromIssue": "Start from GitHub Issue…",
         "showPullRequest": "Show Pull Request…",
         "moveToNewWindow": "Move to New Window",
         "onboarding": "Set Up Ruimte…",
