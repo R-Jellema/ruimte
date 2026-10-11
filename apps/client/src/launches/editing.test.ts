@@ -210,8 +210,8 @@ describe('imports from VS Code', () => {
         const [imported] = importedLaunches([vscode('api')], false, doc([]));
         expect(driftOf(imported!, [vscode('api')])).toBeNull();
         const changed = vscode('api', { command: 'node --inspect api.js' });
-        expect(driftOf(imported!, [changed])).toEqual({ path: '.vscode/launch.json' });
-        expect(driftOf(imported!, [vscode('api', { env: { A: '1' } })])).toEqual({ path: '.vscode/launch.json' });
+        expect(driftOf(imported!, [changed])).toEqual({ path: '.vscode/launch.json', source: changed.launch });
+        expect(driftOf(imported!, [vscode('api', { env: { A: '1' } })])?.path).toBe('.vscode/launch.json');
         expect(imported!.command).toBe('run api');
         expect(driftOf(launch('typed'), [changed])).toBeNull();
     });

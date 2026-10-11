@@ -178,11 +178,17 @@ function envKey(env: Record<string, string> | undefined): string {
     return JSON.stringify(Object.entries(env ?? {}).sort(([one], [other]) => (one < other ? -1 : one > other ? 1 : 0)));
 }
 
+export interface LaunchDrift {
+    path: string;
+    /* The launch as the file says it now. */
+    source: LaunchSuggestion['launch'];
+}
+
 /*
  * The file a launch was imported from, once that file says something else than the launch does. The
  * launch itself stays as the person saved it; this only tells them the source moved on.
  */
-export function driftOf(launch: LaunchConfigEntry, suggestions: readonly LaunchSuggestion[]): { path: string } | null {
+export function driftOf(launch: LaunchConfigEntry, suggestions: readonly LaunchSuggestion[]): LaunchDrift | null {
     const source = suggestions.find((suggestion) => suggestion.unsupported === undefined && hasOrigin(launch, suggestion));
     if (source === undefined || launch.kind === 'group') {
         return null;
@@ -192,7 +198,7 @@ export function driftOf(launch: LaunchConfigEntry, suggestions: readonly LaunchS
         (launch.cwd ?? '') === (source.launch.cwd ?? '') &&
         (launch.url ?? '') === (source.launch.url ?? '') &&
         envKey(launch.env) === envKey(source.launch.env);
-    return same ? null : { path: source.path };
+    return same ? null : { path: source.path, source: source.launch };
 }
 
 /*

@@ -66,6 +66,7 @@
     "edit": {
         "title": "Launches",
         "drift": "Changed in {{path}} since the import",
+        "takeOver": "Take over from the file",
         "description": "The launches of this project. Saving a launch approves its command on this machine.",
         "new": "New launch",
         "untitled": "Untitled",

@@ -66,6 +66,7 @@
     "edit": {
         "title": "Launches",
         "drift": "Gewijzigd in {{path}} sinds de import",
+        "takeOver": "Overnemen uit het bestand",
         "description": "De launches van dit project. Wie een launch opslaat, keurt zijn commando goed op deze machine.",
         "new": "Nieuwe launch",
         "untitled": "Naamloos",

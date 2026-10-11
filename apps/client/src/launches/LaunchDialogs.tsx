@@ -28,6 +28,7 @@ import {
     emptyRow,
     folderRoots,
     driftOf,
+    type LaunchDrift,
     importedDraftIds,
     importedIds,
     importedLaunches,
@@ -307,7 +308,7 @@ function LaunchForm({
 }: {
     draft: LaunchDraft;
     drafts: readonly LaunchDraft[];
-    drift: { path: string } | null;
+    drift: LaunchDrift | null;
     problem: DraftProblem | null;
     onChange(change: (draft: LaunchDraft) => LaunchDraft): void;
 }) {
@@ -331,13 +332,26 @@ function LaunchForm({
         label: root === '' ? t('edit.projectFolder') : root
     }));
 
+    // Name, id and sharing stay; it saves, and asks approval again if the command changed, like any edit.
+    const takeOver = (source: LaunchDrift['source']): void => {
+        setPlace(splitFolder(source.cwd, roots));
+        onChange((current) => ({
+            ...current,
+            entry: { ...current.entry, command: source.command, cwd: source.cwd, url: source.url, env: source.env },
+            env: draftOf({ ...source, shared: draft.entry.shared }).env
+        }));
+    };
+
     return (
         <div className="flex flex-col gap-3">
             {drift !== null && (
-                <p className="flex items-center gap-1.5 text-xs text-status-needs-you">
+                <div className="flex items-center gap-1.5 text-xs text-status-needs-you">
                     <Icon icon={TriangleAlert} size={12} className="shrink-0" />
-                    {t('edit.drift', { path: drift.path })}
-                </p>
+                    <span className="min-w-0 grow">{t('edit.drift', { path: drift.path })}</span>
+                    <Button variant="ghost" size="xs" onClick={() => takeOver(drift.source)}>
+                        {t('edit.takeOver')}
+                    </Button>
+                </div>
             )}
             <Field orientation="horizontal" label={t('edit.name')} error={problem === 'name' ? t('edit.problem.name') : undefined}>
                 <Input value={entry.name} autoFocus={entry.name === ''} onChange={(e) => set({ name: e.target.value })} />
