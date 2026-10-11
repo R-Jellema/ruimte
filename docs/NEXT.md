@@ -107,6 +107,17 @@ unknown services remain unchanged, and handwritten launches have a verified rout
 5. Measure binary `bytes.read` throughput while terminals and chats are busy, on socket and direct
    connections. If one session can dominate the socket, add fair per-session limits that preserve
    replies/chat events and repair dropped terminal output through `session.resync`.
+   `bun run --cwd apps/server measure:latency --channel both --seconds 60 --out ~/latency.json > ~/latency.md`
+   runs the daemon and a measuring client in two processes, with one terminal printing as fast as it
+   can. It records reply time (`server.ping`), the echo of a key in a quiet terminal and the first
+   event of a chat, idle and under that load, plus the daemon's event-loop lag, the busy terminal's
+   MB/s, resyncs and gate pauses. Run it on the power adapter with other apps closed, three times,
+   and keep the median run. The direct channel is werift on both ends over loopback: it measures
+   the daemon's side (the gate, framing, SCTP buffering) and not Chromium's WebRTC stack or a real
+   network path, and werift may be the bottleneck itself. A network number needs the Electron app
+   on a second machine through the LAN door. The report ends with an open conclusion for the
+   per-session quota decision. Proposed threshold, to be set from the baseline: a quota is worth it
+   when p95 of the reply or quiet-session time under load is above 100 ms, or above 3x the idle p95.
 6. Measure workspace startup and composer chunk cost before splitting CodeMirror. Split it only
    when the measurement shows a startup improvement, then repeat that same measurement.
 7. Record desktop, visual and screen-reader acceptance of the ADE CORE cutover: file navigation
