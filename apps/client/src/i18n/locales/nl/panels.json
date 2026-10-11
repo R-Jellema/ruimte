@@ -992,6 +992,7 @@
             "view": "Bekijken"
         },
         "verdict": {
+            "inspecting": "Bezig met inspecteren…",
             "clean": "Er gaat niets verloren. Hij kan weg.",
             "hasWork": "Hij bevat {{work}}. Verwijderen verliest dat.",
             "locked": "Hij is vergrendeld met git worktree lock. Verwijderen kan alleen geforceerd.",

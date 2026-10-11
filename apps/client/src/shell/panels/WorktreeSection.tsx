@@ -28,7 +28,7 @@ import { useEndpointId } from '@/state/keys';
 import { useSessions } from '@/state/sessions';
 import { useTransport } from '@/transport/context';
 import { worktreeLists, type WorktreeNode } from '@/state/worktrees';
-import { Button, Dialog, Icon, IconButton, ListRow, SectionLabel, Tooltip, Menu, ContextMenu } from '@adecore/ui';
+import { Button, Dialog, Icon, IconButton, ListRow, SectionLabel, Spinner, Tooltip, Menu, ContextMenu } from '@adecore/ui';
 
 /* The mark per kind of work. The number beside it carries the amount; the tooltip carries the words. */
 const BADGE_MARKS: Record<WorkBadgeKind, LucideIcon> = {
@@ -63,7 +63,9 @@ export function WorktreeSection({ folder, worktrees, nodes, current, busy, onVie
     const { t } = useTranslation('panels');
     const endpointId = useEndpointId();
     const transport = useTransport();
-    const [inspected, setInspected] = useState<{ branch: string; verdict: RemoveVerdict } | null>(null);
+    const [inspected, setInspected] = useState<{ worktree: Worktree; verdict: RemoveVerdict | null } | null>(null);
+    // Goes up on every start and on close, so an answer that lands after the dialog was left is dropped.
+    const inspection = useRef(0);
     const sessions = useSessions((s) => s.byKey);
     const chats = useChats((s) => s.statusByKey);
     const sectionRef = useRef<HTMLElement>(null);
@@ -88,20 +90,31 @@ export function WorktreeSection({ folder, worktrees, nodes, current, busy, onVie
         return null;
     }
 
+    const closeInspection = (): void => {
+        inspection.current++;
+        setInspected(null);
+    };
+
     /* Counts the work again and says whether the worktree can go, so a person knows before the question. */
     const inspect = (worktree: Worktree, agentWorking: boolean): void => {
         worktreeLists.refreshCounts(endpointId, folder);
+        const attempt = ++inspection.current;
+        setInspected({ worktree, verdict: null });
         transport
             .request('git.worktree-list', { repo: folder, inspect: true })
             .then((answer) => {
-                const fresh = answer.worktrees.find((entry) => entry.path === worktree.path) ?? worktree;
-                setInspected({ branch: fresh.branch, verdict: removeVerdict(fresh, agentWorking) });
+                if (attempt === inspection.current) {
+                    const fresh = answer.worktrees.find((entry) => entry.path === worktree.path) ?? worktree;
+                    setInspected({ worktree: fresh, verdict: removeVerdict(fresh, agentWorking) });
+                }
             })
             .catch((error: unknown) => {
-                setInspected({
-                    branch: worktree.branch,
-                    verdict: { removable: false, reason: error instanceof Error ? error.message : t('worktree.verdict.failed') }
-                });
+                if (attempt === inspection.current) {
+                    setInspected({
+                        worktree,
+                        verdict: { removable: false, reason: error instanceof Error ? error.message : t('worktree.verdict.failed') }
+                    });
+                }
             });
     };
 
@@ -115,6 +128,10 @@ export function WorktreeSection({ folder, worktrees, nodes, current, busy, onVie
                 {worktrees.map((worktree) => {
                     const working = nodesInWorktree(nodes, worktree);
                     const names = working.map((node) => node.title || node.kind).join(', ');
+                    const origin = originLabel(worktree);
+                    const nameLine =
+                        (worktree.missing ? t('worktree.section.folderMissing') : names === '' ? t('worktree.section.noNode') : names) +
+                        (origin === null ? '' : `, ${origin}`);
                     const agentWorking = working.some((node) => nodeWorking(node, sessions, chats, endpointId));
                     const work = worktree.work;
                     const badges = work === undefined ? [] : workBadges(work);
@@ -147,11 +164,20 @@ export function WorktreeSection({ folder, worktrees, nodes, current, busy, onVie
                                 {agentWorking && <StatusDot status="running" />}
                                 {/* Gives way three times as fast as the branch: two worktrees are told
                                     apart by their branch, and half a branch name tells them apart no more. */}
-                                <Tooltip label={removeVerdict(worktree, agentWorking).reason} disabled={work === undefined && !agentWorking}>
-                                    <span className="min-w-0 shrink-[3] truncate text-xs text-text-faint">
-                                        {worktree.missing ? t('worktree.section.folderMissing') : names === '' ? t('worktree.section.noNode') : names}
-                                        {originLabel(worktree) !== null && `, ${originLabel(worktree)}`}
-                                    </span>
+                                <Tooltip
+                                    label={
+                                        <>
+                                            {nameLine}
+                                            {(work !== undefined || agentWorking) && (
+                                                <>
+                                                    <br />
+                                                    {removeVerdict(worktree, agentWorking).reason}
+                                                </>
+                                            )}
+                                        </>
+                                    }
+                                >
+                                    <span className="min-w-0 shrink-[3] truncate text-xs text-text-faint">{nameLine}</span>
                                 </Tooltip>
                                 <span className="grow" />
                                 {badges.length > 0 && (
@@ -211,12 +237,30 @@ export function WorktreeSection({ folder, worktrees, nodes, current, busy, onVie
                     );
                 })}
             </ul>
-            <Dialog.Root open={inspected !== null} onOpenChange={(open) => !open && setInspected(null)}>
+            <Dialog.Root open={inspected !== null} onOpenChange={(open) => !open && closeInspection()}>
                 <Dialog.Popup size="sm">
-                    <Dialog.Title className="font-mono">{inspected?.branch}</Dialog.Title>
-                    <Dialog.Text className="mt-1">{inspected?.verdict.reason}</Dialog.Text>
+                    <Dialog.Title className="font-mono break-all">{inspected?.worktree.branch}</Dialog.Title>
+                    {inspected?.verdict == null ? (
+                        <Dialog.Text className="mt-1 flex items-center gap-2" role="status">
+                            <Spinner size={14} /> {t('worktree.verdict.inspecting')}
+                        </Dialog.Text>
+                    ) : (
+                        <Dialog.Text className="mt-1">{inspected.verdict.reason}</Dialog.Text>
+                    )}
                     <Dialog.Footer>
-                        <Button onClick={() => setInspected(null)}>{t('common:action.close')}</Button>
+                        <Button onClick={closeInspection}>{t('common:action.close')}</Button>
+                        {inspected?.verdict?.removable === true && (
+                            <Button
+                                variant="danger-outline"
+                                onClick={() => {
+                                    const target = inspected.worktree;
+                                    closeInspection();
+                                    onRemove(target);
+                                }}
+                            >
+                                {t('worktree.section.remove')}
+                            </Button>
+                        )}
                     </Dialog.Footer>
                 </Dialog.Popup>
             </Dialog.Root>

@@ -992,6 +992,7 @@
             "view": "View"
         },
         "verdict": {
+            "inspecting": "Inspecting…",
             "clean": "Nothing to lose. It can be removed.",
             "hasWork": "It holds {{work}}. Removing it loses that.",
             "locked": "It is locked with git worktree lock. Removing it needs force.",
