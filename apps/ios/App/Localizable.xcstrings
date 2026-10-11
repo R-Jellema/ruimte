@@ -21975,6 +21975,70 @@
         }
       }
     },
+    "The first %@ of %@ rows are drawn." : {
+      "comment" : "The first number is the rows a chart draws, the second all rows of its data",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De eerste %@ van %@ rijen zijn getekend."
+          }
+        }
+      }
+    },
+    "%@ is not drawn." : {
+      "comment" : "%@ is the name of a series a chart leaves out",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is niet getekend."
+          }
+        }
+      }
+    },
+    "%@ are not drawn." : {
+      "comment" : "%@ is a list of series a chart leaves out",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ zijn niet getekend."
+          }
+        }
+      }
+    },
+    "Negative values cannot be stacked, so the series stand side by side." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Negatieve waarden kunnen niet gestapeld worden, dus de reeksen staan naast elkaar."
+          }
+        }
+      }
+    },
+    "Show all values" : {
+      "comment" : "Shows every number of a chart's data as a table",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle waarden tonen"
+          }
+        }
+      }
+    },
+    "Hide values" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waarden verbergen"
+          }
+        }
+      }
+    },
     "Shown as text" : {
       "localizations" : {
         "nl" : {

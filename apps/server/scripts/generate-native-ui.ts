@@ -62,6 +62,10 @@ const cases: ParityCase[] = [
     },
     { name: 'bar chart', source: '<Chart kind="bar" data={[{label:"a", zeta:1, alpha:"x"}, {label:2, alpha:-2, zeta:3}, {beta:4}]}/>' },
     { name: 'stacked chart', source: '<Chart kind="stacked" unit="ms" data={[{label:"a", x:1, y:-2}, {label:"b", x:3, y:4}]}/>' },
+    { name: 'negative hbar', source: '<Chart kind="hbar" data={[{label:"Core", value:-3}, {label:"Client", value:5}]}/>' },
+    { name: 'seven series', source: '<Chart kind="bar" data={[{label:"t", a:1, b:2, c:3, d:4, e:5, f:6, g:7}]}/>' },
+    { name: 'too large to scale', source: '<Chart kind="bar" data={[{label:"Huge", count:1.5e308}]}/>' },
+    { name: 'nine derived columns', source: '<Table rows={[{a:1, b:2, c:3, d:4, e:5, f:6, g:7, h:8, i:9}]}/>' },
     {
         name: 'live input',
         source: '$limit = 1\n$zeta = @Query("git.status", {})\n$alpha = @Query("git.status", {})\n<Slider value={$limit} min={0} max={5}>Limit</Slider><Stats><Stat label="Files" value={@Count($zeta.files) + @Count($alpha.files)}/></Stats>',

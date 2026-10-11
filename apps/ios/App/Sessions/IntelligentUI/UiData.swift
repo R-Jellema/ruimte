@@ -53,9 +53,6 @@ struct UiTableColumn: Equatable {
 
     /// Rows shown before a person asks for all of them.
     static let rowsShown = 50
-    /// Columns a table without Column children takes from its rows.
-    private static let derived = 8
-
     /// The Column children whose key some row has, each key once. A table without columns takes the keys of its
     /// rows, as numbers when every value there is one. Empty when nothing is usable, which draws the fallback.
     static func of(_ table: UiNode) -> [Self] {
@@ -76,7 +73,7 @@ struct UiTableColumn: Equatable {
         var keys: [String] = []
         // A row's keys reach the app without the order the agent wrote them in, so a derived table sorts them.
         for row in rows {
-            for key in row.keys.sorted() where !keys.contains(key) && keys.count < derived { keys.append(key) }
+            for key in row.keys.sorted() where !keys.contains(key) { keys.append(key) }
         }
         return keys.map { key in
             let values = rows.compactMap { $0[key] }.filter { $0 != .null }
@@ -104,8 +101,10 @@ enum UiTableCell: Equatable {
             if let number = numberOf(value) { return .number(number, column.kind) }
             return .text(textOf(value))
         case .date:
-            if let number = value.numberValue, number.isFinite { return .date(number) }
-            if let string = value.stringValue, let date = parseDate(string) {
+            if let number = value.numberValue, number.isFinite, abs(number) <= dateRange { return .date(number) }
+            if let string = value.stringValue, let date = parseDate(string),
+                abs(date.timeIntervalSince1970 * 1000) <= dateRange
+            {
                 return .date(date.timeIntervalSince1970 * 1000)
             }
             return .text(textOf(value))
@@ -117,6 +116,9 @@ enum UiTableCell: Equatable {
             return .text(textOf(value))
         }
     }
+
+    /// The furthest a JavaScript Date reaches from the epoch either way, in milliseconds, as on the desktop.
+    private static let dateRange = 8.64e15
 
     private static func numberOf(_ value: JSONValue) -> Double? {
         if let number = value.numberValue { return number.isFinite ? number : nil }
@@ -159,59 +161,104 @@ struct UiChartData: Equatable {
         let values: [Double?]
     }
 
+    /// Every row and every numeric series of a chart's data, whatever a drawing can hold.
+    struct Values: Equatable {
+        let labels: [String]
+        let series: [Series]
+    }
+
     static let maxSeries = 6
     static let maxRows = 60
 
     let labels: [String]
     let series: [Series]
+    /// What it is drawn as: stacked data with a negative value stands side by side as bars.
+    let kind: String
     /// The range the axis covers, from zero or below it, never empty.
     let min: Double
     let max: Double
     /// Whether rows past `maxRows` were left out.
     let truncated: Bool
+    /// The rows of the data, drawn or not.
+    let total: Int
+    /// The numeric series past the first six, which only the values hold.
+    let omitted: [String]
+    let values: Values
 
-    /// Nil when there is no row or no series, which draws the fallback.
+    /// Nil when there is no row or no series, or when the numbers are too large to scale, which draws the fallback.
     init?(_ chart: UiNode) {
         let data = chart.props["data"]?.arrayValue?.compactMap(\.objectValue) ?? []
         let rows = Array(data.prefix(Self.maxRows))
-        var keys: [String] = []
-        for row in rows {
-            for key in row.keys.sorted()
-            where key != "label" && !keys.contains(key) && keys.count < Self.maxSeries
-                && row[key]?.numberValue?.isFinite == true
-            {
-                keys.append(key)
-            }
-        }
+        let keys = Self.numericKeys(rows)
         guard !rows.isEmpty, !keys.isEmpty else { return nil }
-        let series = keys.map { key in
-            Series(key: key, values: rows.map { $0[key]?.numberValue.flatMap { $0.isFinite ? $0 : nil } })
-        }
-        labels = rows.map { row in
-            if let string = row["label"]?.stringValue { return string }
-            if let number = row["label"]?.numberValue { return UiTableCell.textOf(.number(number)) }
-            return ""
-        }
-        let kind = chart.string("kind")
+        let drawn = Self.values(rows, keys: Array(keys.prefix(Self.maxSeries)))
+        let negative = drawn.series.contains { $0.values.contains { ($0 ?? 0) < 0 } }
+        let requested = chart.string("kind") ?? "bar"
+        let kind = requested == "stacked" && negative ? "bar" : requested
         let extents: [Double] =
             kind == "stacked"
-            ? labels.indices.map { index in series.reduce(0) { $0 + Swift.max(0, $1.values[index] ?? 0) } }
-            : series.flatMap { $0.values.compactMap { $0 } }
+            ? drawn.labels.indices.map { index in drawn.series.reduce(0) { $0 + ($1.values[index] ?? 0) } }
+            : drawn.series.flatMap { $0.values.compactMap { $0 } }
         let low = Swift.min(0, extents.min() ?? 0)
         let high = Swift.max(0, extents.max() ?? 0)
-        self.series = series
+        guard Self.range(low, high) != nil else { return nil }
+        labels = drawn.labels
+        series = drawn.series
+        self.kind = kind
         min = low
         max = high == low ? low + 1 : high
         truncated = data.count > rows.count
+        total = data.count
+        let all = Self.numericKeys(data)
+        omitted = all.filter { key in !drawn.series.contains { $0.key == key } }
+        values = Self.values(data, keys: all)
     }
 
-    /// The highest value and where it stands, which a screen reader hears as the main point.
+    /// The rounded ends of a value axis, or nil when they lie beyond what a number can hold.
+    static func range(_ low: Double, _ high: Double) -> ClosedRange<Double>? {
+        let bottom = low < 0 ? -niceCeiling(-low) : 0
+        let top = high > 0 ? niceCeiling(high) : bottom == 0 ? 1 : 0
+        return (top - bottom).isFinite ? bottom...top : nil
+    }
+
+    /// A round number at or above `value`, for the end of an axis: 1, 2, 2.5 or 5 times a power of ten.
+    static func niceCeiling(_ value: Double) -> Double {
+        guard value > 0 else { return 0 }
+        let power = pow(10, floor(log10(value)))
+        return ([1, 2, 2.5, 5, 10].first { $0 * power >= value } ?? 10) * power
+    }
+
+    // A row's keys reach the app without the order the agent wrote them in, so each row's keys are sorted.
+    private static func numericKeys(_ rows: [[String: JSONValue]]) -> [String] {
+        var keys: [String] = []
+        for row in rows {
+            for key in row.keys.sorted()
+            where key != "label" && !keys.contains(key) && row[key]?.numberValue?.isFinite == true {
+                keys.append(key)
+            }
+        }
+        return keys
+    }
+
+    private static func values(_ rows: [[String: JSONValue]], keys: [String]) -> Values {
+        Values(
+            labels: rows.map { row in
+                if let string = row["label"]?.stringValue { return string }
+                if let number = row["label"]?.numberValue { return UiTableCell.textOf(.number(number)) }
+                return ""
+            },
+            series: keys.map { key in
+                Series(key: key, values: rows.map { $0[key]?.numberValue.flatMap { $0.isFinite ? $0 : nil } })
+            })
+    }
+
+    /// The highest value of all the data, drawn or not, and where it stands, which a screen reader hears as the main point.
     var top: (label: String, series: String, value: Double)? {
         var best: (label: String, series: String, value: Double)?
-        for entry in series {
+        for entry in values.series {
             for (index, value) in entry.values.enumerated() {
                 if let value, best == nil || value > best!.value {
-                    best = (labels[index], entry.key, value)
+                    best = (values.labels[index], entry.key, value)
                 }
             }
         }

@@ -220,7 +220,7 @@ struct UiNodeView: View {
         case "EntityList": UiEntityListView(node: node, context: context)
         case "Entry": UiEntryView(node: node, context: context)
         case "Table": UiTableView(node: node, context: context)
-        case "Chart": UiChartView(node: node)
+        case "Chart": UiChartView(node: node, context: context)
         case "Tabs": UiTabsView(node: node, context: context)
         case "Tab": UiNodesView(nodes: node.children, parent: "Tab", context: context)
         case "Sections": UiSectionsView(node: node, context: context)

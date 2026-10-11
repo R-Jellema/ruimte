@@ -81,7 +81,41 @@ final class IntelligentUIPresentationTests: XCTestCase {
         XCTAssertEqual(chart.series.count, 6)
         XCTAssertEqual(chart.labels.count, 60)
         XCTAssertTrue(chart.truncated)
+        XCTAssertEqual(chart.total, 70)
+        XCTAssertEqual(chart.omitted, ["g"])
+        XCTAssertEqual(chart.values.labels.count, 70)
+        XCTAssertEqual(chart.values.series.count, 7)
         XCTAssertNil(UiChartData(try node(#"{"id":"c","type":"Chart","props":{"kind":"bar","data":[]}}"#)))
+    }
+
+    func testNegativeValuesAreDrawnAndNumbersTooLargeToScaleFallBack() throws {
+        let stacked = try XCTUnwrap(
+            UiChartData(
+                try node(
+                    #"{"id":"c","type":"Chart","props":{"kind":"stacked","data":[{"label":"Balance","income":10,"cost":-6}]}}"#
+                )))
+        XCTAssertEqual(stacked.kind, "bar")
+        XCTAssertEqual(stacked.min, -6)
+        let hbar = try XCTUnwrap(
+            UiChartData(
+                try node(#"{"id":"c","type":"Chart","props":{"kind":"hbar","data":[{"label":"Core","value":-3}]}}"#)))
+        XCTAssertEqual(hbar.kind, "hbar")
+        XCTAssertEqual(UiChartData.range(hbar.min, hbar.max), -5...0)
+        XCTAssertNil(
+            UiChartData(
+                try node(#"{"id":"c","type":"Chart","props":{"kind":"bar","data":[{"label":"Huge","count":1.5e308}]}}"#)
+            ))
+    }
+
+    func testDerivedTablesKeepEveryColumnAndFarDatesStayText() throws {
+        let derived = UiTableColumn.of(
+            try node(
+                #"{"id":"t","type":"Table","props":{"rows":[{"a":1,"b":2,"c":3,"d":4,"e":5,"f":6,"g":7,"h":8,"i":9}]}}"#
+            ))
+        XCTAssertEqual(derived.map(\.key), ["a", "b", "c", "d", "e", "f", "g", "h", "i"])
+        let date = UiTableColumn(key: "at", title: "at", unit: nil, kind: .date)
+        XCTAssertEqual(UiTableCell.of(.number(0), column: date), .date(0))
+        XCTAssertEqual(UiTableCell.of(.number(1e20), column: date), .text(UiTableCell.textOf(.number(1e20))))
     }
 
     func testLiveStatusNamesTheSourceThatFailed() {
@@ -153,6 +187,10 @@ final class IntelligentUIPresentationTests: XCTestCase {
                     XCTAssertEqual(actual.min, chart["min"]?.numberValue, name)
                     XCTAssertEqual(actual.max, chart["max"]?.numberValue, name)
                     XCTAssertEqual(actual.truncated, chart["truncated"]?.boolValue, name)
+                    XCTAssertEqual(actual.kind, chart["kind"]?.stringValue, name)
+                    XCTAssertEqual(actual.total, chart["total"]?.numberValue.map { Int($0) }, name)
+                    XCTAssertEqual(
+                        Set(actual.omitted), Set(chart["omitted"]?.arrayValue?.compactMap(\.stringValue) ?? []), name)
                     var series: [String: [Double?]] = [:]
                     for entry in chart["series"]?.arrayValue ?? [] {
                         series[entry["key"]?.stringValue ?? ""] = (entry["values"]?.arrayValue ?? []).map(\.numberValue)
