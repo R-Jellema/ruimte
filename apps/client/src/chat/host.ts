@@ -177,7 +177,11 @@ export function connectChatHost(): void {
         code: {
             useMode: () => useTheme((s) => s.resolved),
             useThemes: () => ({ light: useSettings((s) => s.codeThemeLight), dark: useSettings((s) => s.codeThemeDark) }),
-            custom: CODE_THEMES
+            custom: CODE_THEMES,
+            highlighter: async () => {
+                const { getSingletonHighlighter } = await import('shiki');
+                return getSingletonHighlighter();
+            }
         },
         useStreaming: () => useSettings((s) => s.chatStreaming),
         useSendDelivery: () => useSettings((s) => (s.chatSteerByDefault ? 'steer' : 'queue')),
