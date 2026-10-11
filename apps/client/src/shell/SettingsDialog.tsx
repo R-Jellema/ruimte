@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react';
 import { isApplePlatform } from '@/desktop/bridge';
 import { AccountTab } from '@/shell/settings/AccountTab';
-import { findSettings } from '@/shell/settings/search';
+import { findSettings } from '@/shell/settings/find-settings';
 import {
     ABOUT_SECTION,
     ACCOUNT_SECTION,

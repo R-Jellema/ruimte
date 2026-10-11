@@ -4,7 +4,6 @@ import { closedLidOffered, keepAwakeAvailable } from '@/state/keep-awake';
 import { ALL_SETTINGS_SECTIONS, sectionDescription, sectionLabel } from '@/shell/settings/sections';
 import { FOLDING_GROUPS } from '@/shell/settings/folding-rows';
 import { anyMachineShows } from '@/shell/settings/machine-switches';
-import { keyboardGroups } from '@/shell/settings/keyboard-groups';
 import { shortcutRowId, type ShortcutGroup } from '@/shell/settings/shortcuts';
 import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 import { hasLocalMachine } from '@/state/local-machine';
@@ -486,9 +485,4 @@ export function searchSettings(query: string, built: readonly SearchResult[] = [
         .filter((result) => matches(terms, result.label, result.description))
         .sort((a, b) => order.indexOf(a.section) - order.indexOf(b.section));
     return [...panes, ...rows];
-}
-
-/* The index plus the shortcuts, whose words and keys are only known once the lists are built. */
-export function findSettings(query: string, apple: boolean): SearchResult[] {
-    return searchSettings(query, query.trim() === '' ? [] : shortcutSearchRows(keyboardGroups(apple), apple));
 }
