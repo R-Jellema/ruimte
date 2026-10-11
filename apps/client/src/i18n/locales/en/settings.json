@@ -1020,6 +1020,7 @@
         "worktreeFolder": {
             "label": "Worktree folder",
             "description": "New worktrees are made in the data folder of Ruimte. Choose another folder to make them there.",
+            "descriptionTyped": "New worktrees are made in the data folder of Ruimte. Type another path to make them there.",
             "descriptionChosen": "New worktrees are made here. Worktrees you already have stay where they are.",
             "placeholder": "Data folder of Ruimte",
             "choose": "Choose…",

@@ -1020,6 +1020,7 @@
         "worktreeFolder": {
             "label": "Worktree-map",
             "description": "Nieuwe worktrees komen in de datamap van Ruimte. Kies een andere map om ze daar te maken.",
+            "descriptionTyped": "Nieuwe worktrees komen in de datamap van Ruimte. Typ een ander pad om ze daar te maken.",
             "descriptionChosen": "Nieuwe worktrees komen hier. Worktrees die je al hebt, blijven waar ze zijn.",
             "placeholder": "Datamap van Ruimte",
             "choose": "Kiezen…",

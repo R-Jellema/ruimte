@@ -33,6 +33,11 @@ export function WithReason({ reason, children }: { reason: string | null; childr
  * switch sends back the name and icon the machine has; a machine nobody named answers to its own
  * default, and sending that name back would make it chosen.
  */
+function isRefusedFolder(e: unknown): boolean {
+    const code = (e as { code?: unknown } | null)?.code;
+    return code === 'root-refused' || code === 'not-a-folder';
+}
+
 function settingFailure(e: unknown): string {
     switch ((e as { code?: unknown } | null)?.code) {
         case 'root-refused':
@@ -46,7 +51,9 @@ function settingFailure(e: unknown): string {
 
 async function saveMachineSetting(
     endpoint: Endpoint,
-    patch: { broker?: BrokerSetting; lanDoor?: boolean; streamingAllowed?: boolean; resumeAtReset?: boolean; worktreeRoot?: string }
+    patch: { broker?: BrokerSetting; lanDoor?: boolean; streamingAllowed?: boolean; resumeAtReset?: boolean; worktreeRoot?: string },
+    /* A refused folder is the person's to fix in the field, so it is told there and not in a toast. */
+    onRefused?: (message: string) => void
 ): Promise<boolean> {
     const link = transportFor(endpoint.id);
     if (!link) {
@@ -77,6 +84,10 @@ async function saveMachineSetting(
         useEndpoints.getState().learnLan(endpoint.id, answer.lan ?? null);
         return true;
     } catch (e) {
+        if (onRefused !== undefined && isRefusedFolder(e)) {
+            onRefused(settingFailure(e));
+            return false;
+        }
         useToasts.getState().show({
             id: `endpoint-setting-${endpoint.id}`,
             kind: 'error',
@@ -445,6 +456,7 @@ export function WorktreeFolderRow({ endpoint, reason }: { endpoint: Endpoint; re
     const kept = useServers((s) => s.byEndpoint[endpoint.id]?.worktreeRoot);
     const [draft, setDraft] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+    const [problem, setProblem] = useState<string | null>(null);
     // Enter saves and the field then loses focus: the blur must not save the same value again.
     const saving = useRef(false);
     const pickFolder = desktop()?.pickFolder;
@@ -461,7 +473,8 @@ export function WorktreeFolderRow({ endpoint, reason }: { endpoint: Endpoint; re
         }
         saving.current = true;
         setBusy(true);
-        const saved = await saveMachineSetting(endpoint, { worktreeRoot: value.trim() });
+        setProblem(null);
+        const saved = await saveMachineSetting(endpoint, { worktreeRoot: value.trim() }, setProblem);
         saving.current = false;
         setBusy(false);
         if (saved) {
@@ -477,44 +490,58 @@ export function WorktreeFolderRow({ endpoint, reason }: { endpoint: Endpoint; re
         }
     };
 
+    const canReset = kept !== null && kept !== undefined;
     return (
         <SettingsRow
             searchId="machines.machine.worktreeFolder"
             label={t('machine.worktreeFolder.label')}
-            description={kept === null || kept === undefined ? t('machine.worktreeFolder.description') : t('machine.worktreeFolder.descriptionChosen')}
-            control={
-                <WithReason reason={unavailable}>
-                    <span className="flex items-center gap-2">
-                        <Input
-                            mono
-                            className="w-64"
-                            value={shown}
-                            placeholder={t('machine.worktreeFolder.placeholder')}
-                            aria-label={t('machine.worktreeFolder.label')}
-                            spellCheck={false}
-                            disabled={busy || unavailable !== null}
-                            onChange={(e) => setDraft(e.target.value)}
-                            onBlur={() => void save(shown)}
-                            onKeyDown={(e) => {
-                                e.stopPropagation();
-                                if (e.key === 'Enter') {
-                                    void save(shown);
-                                }
-                            }}
-                        />
-                        {pickFolder && (
-                            <Button variant="secondary" disabled={busy || unavailable !== null} onClick={() => void choose()}>
-                                {t('machine.worktreeFolder.choose')}
-                            </Button>
-                        )}
-                        {kept !== null && kept !== undefined && (
-                            <Button variant="secondary" disabled={busy || unavailable !== null} onClick={() => void save('')}>
-                                {t('machine.worktreeFolder.reset')}
-                            </Button>
-                        )}
-                    </span>
-                </WithReason>
+            description={
+                canReset
+                    ? t('machine.worktreeFolder.descriptionChosen')
+                    : t(pickFolder ? 'machine.worktreeFolder.description' : 'machine.worktreeFolder.descriptionTyped')
             }
-        />
+            control={
+                pickFolder || canReset ? (
+                    <WithReason reason={unavailable}>
+                        <span className="flex items-center gap-2">
+                            {pickFolder && (
+                                <Button variant="secondary" disabled={busy || unavailable !== null} onClick={() => void choose()}>
+                                    {t('machine.worktreeFolder.choose')}
+                                </Button>
+                            )}
+                            {canReset && (
+                                <Button variant="secondary" disabled={busy || unavailable !== null} onClick={() => void save('')}>
+                                    {t('machine.worktreeFolder.reset')}
+                                </Button>
+                            )}
+                        </span>
+                    </WithReason>
+                ) : undefined
+            }
+        >
+            <div className="flex min-w-0 flex-col gap-1">
+                <Input
+                    mono
+                    className="min-w-0 flex-1 basis-48"
+                    value={shown}
+                    placeholder={t('machine.worktreeFolder.placeholder')}
+                    aria-label={t('machine.worktreeFolder.label')}
+                    spellCheck={false}
+                    disabled={busy || unavailable !== null}
+                    onChange={(e) => {
+                        setDraft(e.target.value);
+                        setProblem(null);
+                    }}
+                    onBlur={() => void save(shown)}
+                    onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === 'Enter') {
+                            void save(shown);
+                        }
+                    }}
+                />
+                {problem !== null && <FormError className="break-words">{problem}</FormError>}
+            </div>
+        </SettingsRow>
     );
 }
