@@ -267,6 +267,38 @@ describe('client actions', () => {
         defaultDrawings.release(viewId);
     });
 
+    test('arranging a group is one undo that restores every position, and a refusal moves nothing', async () => {
+        const store = defaultCanvases.of('main');
+        const member = (id: string, x: number, y: number) => ({ id, kind: 'note' as const, title: id, x, y, w: 200, h: 100 });
+        store.setState({
+            nodes: {
+                g: { id: 'g', kind: 'group', title: 'g', x: 0, y: 0, w: 800, h: 600 },
+                a: member('a', 300, 300),
+                b: member('b', 40, 60),
+                c: member('c', 500, 40)
+            },
+            order: ['g', 'a', 'b', 'c'],
+            texts: {},
+            past: [],
+            future: []
+        });
+        const before = structuredClone(store.getState().nodes);
+        const result = await clientActions.execute('group.arrange', { viewId: 'main', groupId: 'g' }, PERSON_ACTION_CALL);
+        expect(result).toMatchObject({ status: 'completed', output: { groupId: 'g', changed: true } });
+        expect(store.getState().nodes).not.toEqual(before);
+        if (result.status !== 'completed' || !result.undoToken) {
+            throw new Error('Expected a completed arrange with an undo');
+        }
+        expect(await clientActions.undo(result.undoToken, PERSON_ACTION_CALL)).toMatchObject({ status: 'completed' });
+        expect(store.getState().nodes).toEqual(before);
+
+        store.getState().toggleGroupCollapse('g');
+        expect(await clientActions.execute('group.arrange', { viewId: 'main', groupId: 'g' }, PERSON_ACTION_CALL)).toMatchObject({
+            status: 'failed',
+            error: { code: 'arrange-refused' }
+        });
+    });
+
     test('fits a drawing on screen, not the canvas behind it', async () => {
         const viewId = useDocument.getState().addDrawingView('Sketch')!;
         useDocument.getState().showView(viewId);

@@ -1,5 +1,6 @@
 import { terminalPrepareActions } from '@/actions/terminal-prepare-actions';
 import i18next from 'i18next';
+import { useToasts } from '@/state/toasts';
 import { contentActions, type ContentMachine } from '@/actions/content-actions';
 import { browserRouteAvailable } from '@/browser/owner-route';
 import { chatSearchActions, type ChatSearchMachine } from '@/actions/chat-search-actions';
@@ -872,6 +873,28 @@ export function createClientActionRegistry(document: StoreApi<DocumentState>, ma
             return {
                 output: { viewId, view: view.name, groupId, members: nodeIds.filter((id) => canvas.nodes[id]?.kind !== 'group') },
                 undo: historyUndo(viewId, depth + 1, hasNode(groupId))
+            };
+        },
+        'group.arrange': ({ viewId, groupId }) => {
+            const { view, canvas } = canvasOnScreen(document, viewId);
+            if (canvas.nodes[groupId]?.kind !== 'group') {
+                throw new ActionRefusal('unknown-node', `No group with id “${groupId}” exists on this canvas.`);
+            }
+            const depth = canvas.past.length;
+            const result = canvas.arrangeGroup(groupId);
+            if ('refused' in result) {
+                const reasons = {
+                    collapsed: 'Expand the group before arranging its members.',
+                    empty: 'The group has no nodes of its own to arrange.',
+                    locked: 'Moving is locked on this canvas.',
+                    membership: i18next.t('canvas:group.arrangeRefused')
+                };
+                throw new ActionRefusal('arrange-refused', reasons[result.refused]);
+            }
+            const changed = canvasNow(document, viewId).past.length > depth;
+            return {
+                output: { viewId, view: view.name, groupId, nodeIds: result.moved, changed },
+                ...(changed ? { undo: historyUndo(viewId, depth + 1) } : {})
             };
         },
         'link.create': ({ viewId, from, to }) => {
@@ -1765,6 +1788,18 @@ export function groupSelectionAction(): void {
         return;
     }
     void runAsPerson('group.create', { viewId, nodeIds });
+}
+
+/* A refusal is the answer here: nothing moved, and the toast says why. */
+export function arrangeGroupAction(viewId: string | null, groupId: string): void {
+    if (viewId === null) {
+        return;
+    }
+    performAsPerson('group.arrange', { viewId, groupId }).catch((error: unknown) => {
+        useToasts
+            .getState()
+            .show({ kind: 'error', title: i18next.t('canvas:group.arrange'), description: error instanceof Error ? error.message : String(error) });
+    });
 }
 
 export function historyAction(step: 'undo' | 'redo', viewId: string | null = activeViewId()): void {

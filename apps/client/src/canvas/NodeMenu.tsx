@@ -9,6 +9,7 @@ import {
     Frame,
     GitBranch,
     GitMerge,
+    LayoutGrid,
     Link2,
     Maximize2,
     MessageSquare,
@@ -20,7 +21,7 @@ import {
     Trash
 } from 'lucide-react';
 import type { ProviderInfo } from '@ruimte/contracts';
-import { colorNoteAction, createNodeAction, duplicateNodeAction, focusNodeAction, linkNodesAction } from '@/actions/client-actions';
+import { arrangeGroupAction, colorNoteAction, createNodeAction, duplicateNodeAction, focusNodeAction, linkNodesAction } from '@/actions/client-actions';
 import { ChatAgentSubmenu } from '@/agents/AgentMenus';
 import { FlagSubmenu } from '@/project/FlagSubmenu';
 import { askOpenAsView, canOpenAsView } from '@/project/views';
@@ -56,6 +57,7 @@ export function NodeMenuPopup({ id, onRename, snooze }: { id: string; onRename()
     const canvasStore = useCanvasStore();
     const node = useCanvas((s) => s.nodes[id]);
     const maximized = useCanvas((s) => maximizedNodeOf(s) === id);
+    const moveLocked = useCanvas((s) => s.locks.move);
     const agent = useSessionRow(id, (row) => row?.agent);
     const sessionAccount = useSessionRow(id, (row) => row?.account);
     const chatSession = useChatRow(id, (row) => row?.info.agentSessionId);
@@ -167,6 +169,9 @@ export function NodeMenuPopup({ id, onRename, snooze }: { id: string; onRename()
                     <ContextMenu.Item onClick={() => canvasStore.getState().toggleGroupCollapse(id)}>
                         {node.collapsed ? <Icon icon={ChevronsUpDown} size={14} /> : <Icon icon={ChevronsDownUp} size={14} />}{' '}
                         {node.collapsed ? t('group.expand') : t('group.collapse')}
+                    </ContextMenu.Item>
+                    <ContextMenu.Item disabled={node.collapsed || moveLocked} onClick={() => arrangeGroupAction(canvasStore.getState().viewId, id)}>
+                        <Icon icon={LayoutGrid} size={14} /> {t('group.arrange')}
                     </ContextMenu.Item>
                     {node.worktree ? (
                         <ContextMenu.Item onClick={() => canvasStore.getState().setGroupWorktree(id, null)}>

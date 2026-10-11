@@ -33,6 +33,7 @@ function context(patch: Partial<MenuContext> = {}): MenuContext {
         shared: false,
         selection: 0,
         promote: false,
+        groupArrangeable: false,
         anyLocked: false,
         cells: 1,
         tabs: { hosted: false, count: 0, index: 0, splitOff: false },
@@ -224,6 +225,8 @@ describe('the menus', () => {
         expect(find(spec, 'split-down')?.enabled).toBe(true);
         expect(find(spec, 'focus-left')?.enabled).toBe(false);
         expect(find(menuModel(context({ selection: 2 })), 'group-selection')?.enabled).toBe(true);
+        expect(find(spec, 'group-arrange')?.enabled).toBe(false);
+        expect(find(menuModel(context({ selection: 1, groupArrangeable: true })), 'group-arrange')?.enabled).toBe(true);
     });
 
     test('a cell maximizes from View while the grid has more than one, and says so while it does', () => {

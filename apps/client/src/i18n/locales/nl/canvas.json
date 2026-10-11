@@ -63,6 +63,8 @@
         }
     },
     "group": {
+        "arrange": "Leden ordenen",
+        "arrangeRefused": "Ordenen zou een node in of uit een groep halen.",
         "expand": "Uitklappen",
         "collapse": "Inklappen",
         "inside_one": "{{count}} erin",

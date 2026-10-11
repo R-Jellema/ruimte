@@ -867,6 +867,23 @@ export const ACTION_DEFINITIONS = {
             edges: z.object({ replaced: z.number().int(), edgeId: z.string() }).nullable().optional()
         })
     },
+    'group.arrange': {
+        title: 'Arrange group members',
+        description:
+            'Tidies the nodes that stand directly in a group into a grid under its title bar. The frame only grows, and nothing is moved into or out of another group.',
+        effect: 'shared',
+        domain: 'canvas',
+        actors: PERSON_AND_VOICE,
+        input: z.object({ viewId, groupId: nodeId }),
+        output: z.object({
+            viewId,
+            view: viewName,
+            groupId: nodeId,
+            // Everything that moved: members, the nodes and texts a nested group carries.
+            nodeIds: z.array(z.string().min(1)),
+            changed: z.boolean()
+        })
+    },
     'canvas.fit': {
         title: 'Zoom to fit',
         description: 'Fits all content of the active canvas, drawing or diagram in the viewport.',

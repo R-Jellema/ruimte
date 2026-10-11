@@ -46,6 +46,8 @@ export interface MenuContext {
     selection: number;
     /* The one selected node could open as a view of its own. */
     promote: boolean;
+    /* The one selected node is an open group whose members can be moved. */
+    groupArrangeable: boolean;
     anyLocked: boolean;
     cells: number;
     /* The focused cell as a host of tabs: how many, which one is in front, and whether the tab in front has room to leave for a cell of its own. */
@@ -588,6 +590,7 @@ function viewKindMenu(context: MenuContext, command: MenuCommand): MenuSection |
             ...only(agents.length > 0, submenu('new-agent', t('newAgent'), agents)),
             separator,
             command('group-selection', t('groupSelection'), { shortcut: CANVAS_SHORTCUTS.group, enabled: context.selection > 0 }),
+            command('group-arrange', t('arrangeGroup'), { enabled: context.groupArrangeable }),
             command('view-promote', t('openAsView'), { enabled: context.promote }),
             submenu(
                 'move-to',

@@ -78,6 +78,7 @@ export const PALETTE_IDS = [
     'add-file',
     'add-text',
     'group-selection',
+    'group-arrange',
     'layout-save',
     'lock',
     'fit',

@@ -63,6 +63,8 @@
         }
     },
     "group": {
+        "arrange": "Arrange members",
+        "arrangeRefused": "Arranging would move a node into or out of a group.",
         "expand": "Expand",
         "collapse": "Collapse",
         "inside_one": "{{count}} inside",

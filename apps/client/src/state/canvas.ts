@@ -7,6 +7,7 @@ import { cameraCenteredOn, cameraOfView, cameraToFit, intersects, snapToGrid, to
 import { cameraToReveal, neighboringNode, type NodeDirection } from '@/canvas/node-navigation';
 import { parentGroupOf } from '@/canvas/editable-gaps';
 import { createCameraSlice, type CameraSlice } from '@/canvas/camera-slice';
+import { arrangeGroupMembers, type ArrangeRefusal } from '@/canvas/arrange-group';
 import { noteJump, noteMove, settle, step } from '@/canvas/camera-history';
 import { historyOf, setHistory } from '@/state/camera-history';
 
@@ -199,6 +200,8 @@ export interface CanvasState extends CameraSlice {
     addNode(kind: NodeKind, at: Point, options?: AddNodeOptions): string | null;
     /* Wraps the selected nodes in a group; answers null when nothing is selected. */
     groupSelection(): string | null;
+    /* Tidies the members that stand directly in a group into a grid, as one undo step; the ids of what moved, or why not. */
+    arrangeGroup(id: string): { moved: string[] } | { refused: ArrangeRefusal };
     addText(at: Point): string;
     updateText(id: string, text: string): void;
     styleText(
@@ -780,6 +783,36 @@ export function createCanvasStore(): StoreApi<CanvasState> {
                 const group: CanvasNode = { id, kind: 'group', title: DEFAULT_TITLES.group, ...frame };
                 set((s) => ({ nodes: { ...s.nodes, [id]: group }, order: [...s.order, id], selection: [id], ...remember(s) }));
                 return id;
+            },
+            arrangeGroup(id) {
+                const state = get();
+                if (state.locks.move) {
+                    return { refused: 'locked' };
+                }
+                const result = arrangeGroupMembers(id, state.nodes, state.texts);
+                if ('refused' in result) {
+                    return result;
+                }
+                const moved = Object.keys(result.moves);
+                const group = state.nodes[id]!;
+                const grew = result.frame.w !== group.w || result.frame.h !== group.h;
+                if (moved.length === 0 && !grew) {
+                    return { moved };
+                }
+                set((s) => {
+                    const nodes = { ...s.nodes };
+                    const texts = { ...s.texts };
+                    for (const [movedId, to] of Object.entries(result.moves)) {
+                        if (nodes[movedId] !== undefined) {
+                            nodes[movedId] = { ...nodes[movedId], ...to };
+                        } else if (texts[movedId] !== undefined) {
+                            texts[movedId] = { ...texts[movedId], ...to };
+                        }
+                    }
+                    nodes[id] = { ...nodes[id]!, w: result.frame.w, h: result.frame.h };
+                    return { nodes, texts, ...remember(s) };
+                });
+                return { moved };
             },
             addText(at) {
                 const id = nextId('text');

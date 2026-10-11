@@ -129,6 +129,7 @@ export function menuContext(host: MenuHost): MenuContext {
         offers: facts?.offers ?? null,
         shared: facts?.shared ?? false,
         selection: onCanvas ? canvas.selection.length : 0,
+        groupArrangeable: onCanvas && selected?.kind === 'group' && selected.collapsed !== true && !canvas.locks.move,
         promote: onCanvas && selected !== undefined && canOpenAsView(selected.kind),
         anyLocked: Object.values(canvas.locks).some(Boolean),
         cells: layout === null ? 0 : cellCount(layout),

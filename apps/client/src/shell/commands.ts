@@ -11,6 +11,7 @@ import {
     createViewAction,
     deleteLayoutAction,
     fitAction,
+    arrangeGroupAction,
     groupSelectionAction,
     moveNodeToViewAction,
     placeViewOnCanvasAction,
@@ -509,6 +510,15 @@ export function appCommands(): Command[] {
                                 shortcut: CANVAS_SHORTCUTS.group,
                                 run: () => groupSelectionAction()
                             },
+                            ...(canvas.selection.length === 1 && canvas.nodes[canvas.selection[0]!]?.kind === 'group'
+                                ? [
+                                      {
+                                          id: 'group-arrange',
+                                          label: i18next.t('shell:palette.commands.arrangeGroup'),
+                                          run: () => arrangeGroupAction(canvas.viewId, canvas.selection[0]!)
+                                      }
+                                  ]
+                                : []),
                             {
                                 id: 'add-text',
                                 label: i18next.t('shell:palette.commands.newText'),
