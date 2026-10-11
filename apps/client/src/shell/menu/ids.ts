@@ -58,6 +58,7 @@ export const PALETTE_IDS = [
     'next-highlight',
     'previous-highlight',
     'find-in-files',
+    'search-chats',
     'view-new',
     'view-new-drawing',
     'view-new-diagram',

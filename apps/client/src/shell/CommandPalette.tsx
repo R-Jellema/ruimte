@@ -58,6 +58,8 @@ import {
 } from '@/shell/palette-browse';
 import { DEFAULT_GREP_OPTIONS, useGrepSearch, type GrepOptions } from '@/shell/palette-grep';
 import { PaletteGrepResults } from '@/shell/PaletteGrepResults';
+import { PaletteChatResults } from '@/shell/PaletteChatResults';
+import { openChatHit, useChatSearch } from '@/shell/palette-chats';
 import { readRecents, rememberRecent, sortByRecency } from '@/shell/palette-recents';
 import { absoluteOf, basenameOf } from '@/shell/panels/files-tree';
 import { iconOfEntry } from '@/shell/settings/machine-icon';
@@ -275,11 +277,13 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
     const fileGeneration = useRef(0);
     const mode = useUi((s) => s.paletteMode);
     const grepping = mode === 'grep';
+    const chatting = mode === 'chats';
     /* Picking one file out of the folder, to make it a node or a view. The list is the file search
        and nothing else, and it answers before anything is typed. */
     const picking = mode === 'file';
     const filePick = useUi((s) => s.filePick);
     const grep = useGrepSearch(grepping ? folder : null, grepping ? query : '', grepOptions);
+    const chatSearch = useChatSearch(chatting && open ? currentProjectId : null, chatting ? query : '');
     const browseEndpointId = browse?.endpointId ?? activeId;
     const machineStep = browse?.machines === true;
     const platform = useServers((s) => s.byEndpoint[browseEndpointId]?.platform ?? null);
@@ -362,7 +366,7 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
         }
     }
 
-    const browsing = !grepping && browse !== null;
+    const browsing = !grepping && !chatting && browse !== null;
 
     useEffect(() => {
         // An empty field is a step with nothing to list yet; the last listing stays under it.
@@ -577,7 +581,7 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
 
     const entries = useMemo<Entry[]>(() => {
         // Find in files draws its own results; the commands have no place among them.
-        if (grepping) {
+        if (grepping || chatting) {
             return [];
         }
         if (machineStep) {
@@ -726,6 +730,7 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
         endpoints,
         fileMatches,
         grepping,
+        chatting,
         machines,
         machineStep,
         linkWait,
@@ -749,8 +754,19 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
        folders without an arrow key first and Cmd+Enter is what opens the path in the field. */
     const active = entries[Math.min(index, entries.length - 1)];
     // What the arrow keys walk: the hits while searching in files, the rows of the list otherwise.
-    const count = grepping ? grep.matches.length : entries.length;
-    const activeHit = grepping ? Math.min(index, count - 1) : -1;
+    const count = grepping ? grep.matches.length : chatting ? chatSearch.hits.length : entries.length;
+    const activeHit = grepping || chatting ? Math.min(index, count - 1) : -1;
+
+    const runChatHit = (at: number): void => {
+        const hit = chatSearch.hits[at];
+        if (!hit) {
+            return;
+        }
+        setOpen(false);
+        if (currentEndpointId !== null) {
+            openChatHit(currentEndpointId, hit);
+        }
+    };
 
     const runHit = (at: number): void => {
         const match = grep.matches[at];
@@ -835,7 +851,7 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
             <Dialog.Popup
                 /* Wider while searching in files, since source lines do not fold. Never centered: the
                    popup changes height with every keystroke, and a centered list would walk up the screen. */
-                className={clsx('top-[18vh] [translate:-50%_0]', grepping ? 'w-[760px]' : 'w-[576px]')}
+                className={clsx('top-[18vh] [translate:-50%_0]', grepping || chatting ? 'w-[760px]' : 'w-[576px]')}
                 initialFocus={inputRef}
             >
                 <div className="flex items-center gap-2 border-b border-border px-3">
@@ -862,8 +878,9 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                         </Tooltip>
                     )}
                     {grepping && <Icon icon={FileSearch} size={14} className="shrink-0 text-accent" />}
+                    {chatting && <Icon icon={MessageSquare} size={14} className="shrink-0 text-accent" />}
                     {picking && <Icon icon={FileText} size={14} className="shrink-0 text-accent" />}
-                    {!browsing && !grepping && !picking && <Icon icon={Search} size={14} className="shrink-0 text-text-faint" />}
+                    {!browsing && !grepping && !chatting && !picking && <Icon icon={Search} size={14} className="shrink-0 text-text-faint" />}
                     <input
                         ref={inputRef}
                         role="combobox"
@@ -871,9 +888,17 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                         aria-controls={LIST_ID}
                         aria-autocomplete="list"
                         aria-activedescendant={
-                            grepping ? (activeHit >= 0 ? optionId(activeHit) : undefined) : active ? optionId(entries.indexOf(active)) : undefined
+                            grepping || chatting ? (activeHit >= 0 ? optionId(activeHit) : undefined) : active ? optionId(entries.indexOf(active)) : undefined
                         }
-                        aria-label={grepping ? t('palette.searchFiles') : picking ? t('palette.pickFile') : t('palette.inputLabel')}
+                        aria-label={
+                            grepping
+                                ? t('palette.searchFiles')
+                                : chatting
+                                  ? t('palette.searchChats')
+                                  : picking
+                                    ? t('palette.pickFile')
+                                    : t('palette.inputLabel')
+                        }
                         /* A path stays in the sans font: monospace makes it read as something to read rather than to type. */
                         className={clsx(
                             'h-11 w-full bg-transparent text-sm text-text outline-none placeholder:text-text-faint',
@@ -882,13 +907,15 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                         placeholder={
                             grepping
                                 ? t('palette.searchFiles')
-                                : picking
-                                  ? t('palette.pickFile')
-                                  : machineStep
-                                    ? t('palette.searchMachines')
-                                    : browsing
-                                      ? t('palette.pathPlaceholder')
-                                      : t('palette.placeholder')
+                                : chatting
+                                  ? t('palette.searchChats')
+                                  : picking
+                                    ? t('palette.pickFile')
+                                    : machineStep
+                                      ? t('palette.searchMachines')
+                                      : browsing
+                                        ? t('palette.pathPlaceholder')
+                                        : t('palette.placeholder')
                         }
                         value={query}
                         spellCheck={false}
@@ -904,6 +931,8 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                                 e.preventDefault();
                                 if (grepping) {
                                     runHit(activeHit);
+                                } else if (chatting) {
+                                    runChatHit(activeHit);
                                 } else if (linkWait !== null) {
                                     if (linkWait.state === 'failed') {
                                         retry();
@@ -923,7 +952,7 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                                 setQuery(active.browsePath);
                                 setIndex(0);
                             } else if (e.key === 'Backspace' && query === '') {
-                                if (grepping) {
+                                if (grepping || chatting) {
                                     // The mode leaves the way it was entered: one key, nothing typed.
                                     e.preventDefault();
                                     useUi.getState().setPaletteMode('default');
@@ -968,7 +997,7 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                 </div>
                 <div id={LIST_ID} className="max-h-[50vh] overflow-auto p-1.5" role="listbox" aria-label={t('palette.results')}>
                     <div aria-live="polite">
-                        {entries.length === 0 && !browsing && !grepping && !picking && <PaletteNote>{t('palette.noMatch')}</PaletteNote>}
+                        {entries.length === 0 && !browsing && !grepping && !chatting && !picking && <PaletteNote>{t('palette.noMatch')}</PaletteNote>}
                         {picking && entries.length === 0 && (
                             <PaletteNote>{folder === null ? t('palette.noProjectFolder') : t('palette.noFileMatch')}</PaletteNote>
                         )}
@@ -976,6 +1005,10 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                             <PaletteNote>{t('palette.noLineMatch')}</PaletteNote>
                         )}
                         {grepping && query.trim() === '' && <PaletteNote>{t('palette.typeToSearch')}</PaletteNote>}
+                        {chatting && query.trim() !== '' && !chatSearch.busy && chatSearch.failure === null && chatSearch.hits.length === 0 && (
+                            <PaletteNote>{t('palette.noChatMatch')}</PaletteNote>
+                        )}
+                        {chatting && query.trim() === '' && <PaletteNote>{t('palette.typeToSearchChats')}</PaletteNote>}
                         {machineStep && entries.length === 0 && (
                             <PaletteNote>{machines.length === 0 ? t('palette.noMachineYet') : t('palette.noMachineMatch')}</PaletteNote>
                         )}
@@ -1011,6 +1044,15 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                             optionId={optionId}
                             onHover={(at) => setIndex(at)}
                             onRun={(at) => runHit(at)}
+                        />
+                    )}
+                    {chatting && (
+                        <PaletteChatResults
+                            search={chatSearch}
+                            active={activeHit}
+                            optionId={optionId}
+                            onHover={(at) => setIndex(at)}
+                            onRun={(at) => runChatHit(at)}
                         />
                     )}
                     {/* An empty folder is the label with nothing under it; the previous listing stays up until the next one lands. */}
@@ -1066,6 +1108,31 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                         <span className="grow" />
                         <span>
                             <Kbd shortcut={KEY_SHORTCUTS.enter} variant="inline" /> {t('palette.grepEnterHint')}{' '}
+                            <Kbd shortcut={KEY_SHORTCUTS.backspace} variant="inline" /> {t('palette.grepBackHint')}
+                        </span>
+                    </div>
+                )}
+                {chatting && (
+                    <div className="flex items-center gap-3 border-t border-border px-3 py-2 text-xs text-text-faint">
+                        {chatSearch.failure !== null ? (
+                            <span className="text-status-error" role="alert">
+                                {chatSearch.failure}
+                            </span>
+                        ) : (
+                            <span>
+                                {chatSearch.hits.length === 0
+                                    ? t('palette.nothingYet')
+                                    : t('palette.chatHits', {
+                                          count: chatSearch.chats.length,
+                                          hits: `${chatSearch.hits.length}${chatSearch.truncated ? '+' : ''}`
+                                      })}
+                                {chatSearch.cancelled && ` - ${t('palette.chatSearchCancelled')}`}
+                                {chatSearch.failed.length > 0 && ` - ${t('palette.chatSearchFailed', { count: chatSearch.failed.length })}`}
+                            </span>
+                        )}
+                        <span className="grow" />
+                        <span>
+                            <Kbd shortcut={KEY_SHORTCUTS.enter} variant="inline" /> {t('palette.chatEnterHint')}{' '}
                             <Kbd shortcut={KEY_SHORTCUTS.backspace} variant="inline" /> {t('palette.grepBackHint')}
                         </span>
                     </div>

@@ -2,6 +2,7 @@ import { terminalPrepareActions } from '@/actions/terminal-prepare-actions';
 import i18next from 'i18next';
 import { contentActions, type ContentMachine } from '@/actions/content-actions';
 import { browserRouteAvailable } from '@/browser/owner-route';
+import { chatSearchActions, type ChatSearchMachine } from '@/actions/chat-search-actions';
 import { databaseActions, type DatabaseMachine } from '@/actions/database-actions';
 import { asksFirst, asRefusal, developerActions, GIT_OPERATION, type DeveloperMachine } from '@/actions/developer-actions';
 import { filesActions, projectPathOf, type FilesMachine } from '@/actions/files-actions';
@@ -448,6 +449,7 @@ export interface ClientActionMachine {
     content: Partial<ContentMachine>;
     files: Partial<FilesMachine>;
     database: Partial<DatabaseMachine>;
+    chatSearch: Partial<ChatSearchMachine>;
     pages: Partial<PageMachine>;
     projects: Partial<ProjectMachine>;
     machine: Partial<MachineReach>;
@@ -465,13 +467,29 @@ const LIVE_MACHINE: ClientActionMachine = {
     content: {},
     files: {},
     database: {},
+    chatSearch: {},
     pages: {},
     projects: {},
     machine: {}
 };
 
 export function createClientActionRegistry(document: StoreApi<DocumentState>, machine: Partial<ClientActionMachine> = {}): ActionRegistry<void> {
-    const { sendChat, clearChat, clearTerminal, providers, copyViewContent, viewDeletion, developer, sessions, content, files, database, pages, projects } = {
+    const {
+        sendChat,
+        clearChat,
+        clearTerminal,
+        providers,
+        copyViewContent,
+        viewDeletion,
+        developer,
+        sessions,
+        content,
+        files,
+        database,
+        chatSearch,
+        pages,
+        projects
+    } = {
         ...LIVE_MACHINE,
         ...machine
     };
@@ -483,6 +501,7 @@ export function createClientActionRegistry(document: StoreApi<DocumentState>, ma
         ...contentActions(document, content),
         ...filesActions(files),
         ...databaseActions(database),
+        ...chatSearchActions(chatSearch),
         ...pageActions(document, pages),
         ...projectActions(document, projects),
         ...machineActions(machine.machine),

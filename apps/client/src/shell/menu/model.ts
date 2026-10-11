@@ -361,7 +361,8 @@ function editMenu(context: MenuContext, command: MenuCommand): MenuSection {
                 separator
             ),
             ...only(context.settingsOpen, command('settings-search', t('searchSettings'), { shortcut: APP_SHORTCUTS.settingsSearch })),
-            ...only(workspace && context.folder, command('find-in-files', t('findInFiles'), { shortcut: APP_SHORTCUTS.findInFiles }))
+            ...only(workspace && context.folder, command('find-in-files', t('findInFiles'), { shortcut: APP_SHORTCUTS.findInFiles })),
+            ...only(workspace, command('search-chats', t('searchChats')))
         ]
     };
 }

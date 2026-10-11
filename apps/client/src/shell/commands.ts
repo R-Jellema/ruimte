@@ -273,6 +273,15 @@ export function appCommands(): Command[] {
         ...(inWorkspace
             ? [
                   {
+                      id: 'search-chats',
+                      label: i18next.t('shell:palette.commands.searchChats'),
+                      run: () => useUi.getState().openChatSearch()
+                  }
+              ]
+            : []),
+        ...(inWorkspace
+            ? [
+                  {
                       id: 'find',
                       label: i18next.t('shell:palette.commands.find'),
                       shortcut: CANVAS_SHORTCUTS.find,

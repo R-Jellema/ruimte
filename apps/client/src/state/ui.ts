@@ -156,9 +156,9 @@ export type ViewDialog =
     | null;
 
 /* What the palette is doing: jumping and running commands, searching through the files of the open
-   folder, or picking one file out of it. The mode is a step inside the same dialog, not a dialog of
-   its own. */
-export type PaletteMode = 'default' | 'grep' | 'file';
+   folder, searching the messages of the project's chats, or picking one file out of it. The mode is a
+   step inside the same dialog, not a dialog of its own. */
+export type PaletteMode = 'default' | 'grep' | 'chats' | 'file';
 
 /* What a picked file becomes. A node carries where it lands, in world units, because the menu that
    asked knows the point that was right-clicked and the palette does not. */
@@ -251,6 +251,8 @@ interface UiStore {
     openPalette(seed?: string): void;
     /* The palette in its find-in-files mode, from the palette itself or from the files panel. */
     openFindInFiles(seed?: string): void;
+    /* The palette in its chat search mode; with nothing typed it lists the CLI sessions started outside the app. */
+    openChatSearch(seed?: string): void;
     /* With one machine it opens on that machine's start folder, with more on the machines. */
     openFolderBrowser(machineId?: string): void;
     /* The machines, for a new chat on the one that is picked. */
@@ -364,6 +366,9 @@ export const useUi = create<UiStore>((set, get) => ({
     },
     openFindInFiles(seed = '') {
         set({ paletteOpen: true, paletteMode: 'grep', paletteSeed: seed, filePick: null });
+    },
+    openChatSearch(seed = '') {
+        set({ paletteOpen: true, paletteMode: 'chats', paletteSeed: seed, filePick: null });
     },
     openFolderBrowser(machineId) {
         set({

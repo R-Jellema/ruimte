@@ -8,7 +8,9 @@ import {
     ChatBackgroundTaskSchema,
     ChatCheckpointDiffSchema,
     ChatDeliverySchema,
+    ChatExternalResultSchema,
     ChatQuoteSourceSchema,
+    ChatSearchResultSchema,
     ChatSendResultSchema,
     ChatSubagentSourceSchema,
     ChatSubagentStatusSchema,
@@ -1098,6 +1100,27 @@ export const ACTION_DEFINITIONS = {
             queued: z.boolean(),
             turnId: z.string().min(1).optional()
         })
+    },
+    'chat.search': {
+        title: 'Search the chats of the project',
+        description: 'Finds a word in the messages of every chat of the project, grouped by chat. Read only.',
+        effect: 'read',
+        domain: 'sessions',
+        actors: PERSON,
+        input: z.object({
+            query: z.string().min(1).max(256).describe('The text to find'),
+            searchId: z.string().min(1).max(64).describe('Names the search, so a newer one can cancel it')
+        }),
+        output: ChatSearchResultSchema
+    },
+    'chat.external': {
+        title: 'List CLI sessions started outside the app',
+        description: 'Lists the Claude and Codex sessions that were started in the folder of the project outside the app, newest first. Read only.',
+        effect: 'read',
+        domain: 'sessions',
+        actors: PERSON,
+        input: z.object({}),
+        output: ChatExternalResultSchema
     },
     'chat.uiChoice': {
         title: 'Send AI Chat choice',
