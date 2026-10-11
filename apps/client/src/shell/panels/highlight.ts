@@ -1,4 +1,5 @@
 import type { ShikiTransformer } from 'shiki';
+import { codeHighlighter } from '@/code-highlighter';
 import { shikiThemeOf } from '@/shell/panels/code-themes';
 
 type Highlight = (code: string, language: string, theme: string, document: boolean) => Promise<string>;
@@ -17,18 +18,17 @@ let loading: Promise<Highlight> | null = null;
    when a file asks for it. */
 function loadHighlighter(): Promise<Highlight> {
     loading ??= Promise.all([import('shiki'), import('@adecore/editor/shiki')]).then(
-        ([{ bundledLanguages, getSingletonHighlighter }, { documentLanguageOf, loadGrammar }]) =>
+        ([{ bundledLanguages }, { documentLanguageOf, loadGrammar }]) =>
             async (code, language, theme, document) => {
                 const grammar = document ? documentLanguageOf(language) : language;
                 const known = grammar in bundledLanguages || grammar !== language;
                 // The editor's own loader, so a file reads the same in both and embedded languages come with it.
-                const highlighter = await getSingletonHighlighter();
+                const highlighter = await codeHighlighter();
                 const lang = known && (await loadGrammar(highlighter, grammar, code)) ? grammar : 'text';
-                const shikiTheme = shikiThemeOf(theme);
-                if (typeof shikiTheme === 'string' && !highlighter.getLoadedThemes().includes(shikiTheme)) {
-                    await highlighter.loadTheme(shikiTheme as Parameters<typeof highlighter.loadTheme>[0]);
+                if (!highlighter.getLoadedThemes().includes(theme)) {
+                    await highlighter.loadTheme(shikiThemeOf(theme) as Parameters<typeof highlighter.loadTheme>[0]);
                 }
-                return highlighter.codeToHtml(code, { lang, theme: shikiTheme, transformers: [DROP_LINE_BREAKS] });
+                return highlighter.codeToHtml(code, { lang, theme, transformers: [DROP_LINE_BREAKS] });
             }
     );
     return loading;
@@ -66,9 +66,8 @@ export function highlightDocument(code: string, language: string, theme: string)
 export function highlightDocumentChunks(blocks: readonly string[], language: string, theme: string): (index: number) => Promise<string> {
     let loading: Promise<(index: number) => Promise<string>> | undefined;
     return (index) => {
-        loading ??= Promise.all([import('shiki'), import('@adecore/editor/shiki')])
-            .then(async ([{ getSingletonHighlighter }, { shikiDocumentHighlighter }]) => {
-                const highlighter = await getSingletonHighlighter();
+        loading ??= Promise.all([codeHighlighter(), import('@adecore/editor/shiki')])
+            .then(async ([highlighter, { shikiDocumentHighlighter }]) => {
                 if (!highlighter.getLoadedThemes().includes(theme)) {
                     await highlighter.loadTheme(shikiThemeOf(theme) as Parameters<typeof highlighter.loadTheme>[0]);
                 }

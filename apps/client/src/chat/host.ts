@@ -1,5 +1,6 @@
 import { createElement } from 'react';
 import i18next from 'i18next';
+import { codeHighlighter } from '@/code-highlighter';
 import { configureChatStorage } from '@adecore/agents-react/storage';
 import { setChatHost, type ChatActions } from '@adecore/agents-react/host';
 import { setLazyPrefetch } from '@adecore/agents-react/lazy';
@@ -178,10 +179,7 @@ export function connectChatHost(): void {
             useMode: () => useTheme((s) => s.resolved),
             useThemes: () => ({ light: useSettings((s) => s.codeThemeLight), dark: useSettings((s) => s.codeThemeDark) }),
             custom: CODE_THEMES,
-            highlighter: async () => {
-                const { getSingletonHighlighter } = await import('shiki');
-                return getSingletonHighlighter();
-            }
+            highlighter: codeHighlighter
         },
         useStreaming: () => useSettings((s) => s.chatStreaming),
         useSendDelivery: () => useSettings((s) => (s.chatSteerByDefault ? 'steer' : 'queue')),

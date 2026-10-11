@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { getSingletonHighlighter } from 'shiki';
+import { codeHighlighter } from '@/code-highlighter';
 import { CODE_PALETTES } from './code-themes';
 import { highlightCode, highlightDocument, highlightDocumentChunks } from './highlight';
 
@@ -42,4 +43,15 @@ describe('highlighting a whole file', () => {
         expect(html).toContain('still a comment */');
         expect(html).not.toContain('\n');
     });
+});
+
+test('the shared highlighter retains custom theme identity across snippets and viewer blocks', async () => {
+    const pending = codeHighlighter();
+    expect(codeHighlighter()).toBe(pending);
+    const highlighter = await pending;
+    const theme = highlighter.getTheme('ruimte-dark');
+    await highlightCode('let shared = 1;', 'typescript', 'ruimte-dark');
+    await highlightDocumentChunks(['/* opening', 'shared */'], 'typescript', 'ruimte-dark')(1);
+    expect(await codeHighlighter()).toBe(highlighter);
+    expect(highlighter.getTheme('ruimte-dark')).toBe(theme);
 });

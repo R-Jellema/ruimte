@@ -1,6 +1,6 @@
 import type { EditorEngine } from '@adecore/editor';
 import { isApplePlatform } from '@/desktop/bridge';
-import { CODE_THEMES } from '@/shell/panels/code-themes';
+import { codeHighlighter } from '@/code-highlighter';
 import { shellShortcuts } from '@/terminal/keymap';
 import { RUIMTE_EDITOR_KEYMAP } from '@/shell/editor-keymap';
 
@@ -29,16 +29,9 @@ export function loadEditorEngine(): Promise<EditorEngine> {
 async function createEngine(): Promise<EditorEngine> {
     const apple = isApplePlatform();
     const { createSmartEditorEngine, shikiScopeColors, shikiTokenizers } = await import('@adecore/editor');
-    // Ours go in up front, since the editor loads a theme it has not seen by a bundled id.
-    const highlighter = () =>
-        import('shiki').then(async ({ getSingletonHighlighter }) => {
-            const loaded = await getSingletonHighlighter();
-            await loaded.loadTheme(...CODE_THEMES);
-            return loaded;
-        });
     return createSmartEditorEngine({
-        tokenizer: shikiTokenizers(highlighter),
-        scopeColors: shikiScopeColors(highlighter),
+        tokenizer: shikiTokenizers(codeHighlighter),
+        scopeColors: shikiScopeColors(codeHighlighter),
         handBack: shellShortcuts(apple),
         keymap: RUIMTE_EDITOR_KEYMAP,
         apple
