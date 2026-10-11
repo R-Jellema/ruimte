@@ -129,13 +129,25 @@ function FileDiffView({ tabKey, path, name, view }: { tabKey: string; path: stri
                         </>
                     }
                 />
-                <DiffBody state={state} wrap={wrap} layout={layout} relative={relative} />
+                <DiffBody state={state} wrap={wrap} layout={layout} relative={relative} ignoreWhitespace={!whitespace} />
             </div>
         </FileActionsContext.Provider>
     );
 }
 
-function DiffBody({ state, wrap, layout, relative }: { state: DiffState; wrap: boolean; layout: 'stacked' | 'split'; relative: string }) {
+function DiffBody({
+    state,
+    wrap,
+    layout,
+    relative,
+    ignoreWhitespace
+}: {
+    state: DiffState;
+    wrap: boolean;
+    layout: 'stacked' | 'split';
+    relative: string;
+    ignoreWhitespace: boolean;
+}) {
     const { t } = useTranslation('panels');
     if (state.status === 'loading') {
         return (
@@ -174,6 +186,7 @@ function DiffBody({ state, wrap, layout, relative }: { state: DiffState; wrap: b
                     diffStyle={layout === 'split' ? 'split' : 'unified'}
                     fill
                     contents={contentsOf(state.diff)}
+                    ignoreWhitespace={ignoreWhitespace}
                 />
             </Suspense>
         </div>
