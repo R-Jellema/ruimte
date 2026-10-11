@@ -1,4 +1,4 @@
-import type { AgentIntegrationFile, AgentIntegrationReport, AgentIntegrationsSummary, AgentKind } from '@ruimte/contracts';
+import type { AgentIntegration, AgentIntegrationFile, AgentIntegrationReport, AgentIntegrationsSummary, AgentKind } from '@ruimte/contracts';
 import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import { hasLocalMachine } from '@/state/local-machine';
 import { serverInfoOf, useServers } from '@/state/server';
@@ -17,6 +17,17 @@ export function pendingReview(summary: AgentIntegrationsSummary | null | undefin
         return false;
     }
     return summary.providers.some((entry) => entry.state === 'unset' || (entry.state === 'on' && !entry.reviewed));
+}
+
+/** Migrated providers left without a choice, minus those the person already answered or is answering. */
+export function providersToKeep(
+    summary: AgentIntegrationsSummary | null | undefined,
+    answered: readonly string[],
+    busy: string | null
+): AgentIntegration['provider'][] {
+    return (summary?.providers ?? [])
+        .filter((entry) => entry.state === 'on' && !entry.reviewed && entry.provider !== busy && !answered.includes(entry.provider))
+        .map((entry) => entry.provider);
 }
 
 function localSummary(): AgentIntegrationsSummary | null {

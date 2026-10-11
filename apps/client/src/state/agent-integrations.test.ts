@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { AgentIntegrationsSummary } from '@ruimte/contracts';
-import { pendingReview } from './agent-integrations';
+import { pendingReview, providersToKeep } from './agent-integrations';
 
 function summary(
     claude: AgentIntegrationsSummary['providers'][number]['state'],
@@ -41,5 +41,21 @@ describe('pendingReview', () => {
     test('has nothing to ask under --no-hooks, whatever the state', () => {
         expect(pendingReview(summary('unset', false, true))).toBe(false);
         expect(pendingReview(summary('on', false, true))).toBe(false);
+    });
+});
+
+describe('providersToKeep', () => {
+    test('keeps a migrated provider that was left without a choice', () => {
+        expect(providersToKeep(summary('on', false), [], null)).toEqual(['claude']);
+    });
+
+    test('skips a provider the person answered or is answering', () => {
+        expect(providersToKeep(summary('on', false), ['claude'], null)).toEqual([]);
+        expect(providersToKeep(summary('on', false), [], 'claude')).toEqual([]);
+    });
+
+    test('skips reviewed and unset providers', () => {
+        expect(providersToKeep(summary('on', true), [], null)).toEqual([]);
+        expect(providersToKeep(summary('unset', false), [], null)).toEqual([]);
     });
 });

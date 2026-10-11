@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AgentIntegration, AgentIntegrationFile, AgentIntegrationReport } from '@ruimte/contracts';
 import { CliMark } from '@adecore/agents-react/providers/parts';
-import { INTEGRATION_NAMES, loadIntegrationFiles, pendingReview, setAgentIntegration, useAgentIntegrations } from '@/state/agent-integrations';
+import { INTEGRATION_NAMES, loadIntegrationFiles, pendingReview, providersToKeep, setAgentIntegration, useAgentIntegrations } from '@/state/agent-integrations';
 import { useUi } from '@/state/ui';
 import { Button, Dialog, FormError } from '@adecore/ui';
 
@@ -104,10 +104,8 @@ export function AgentIntegrationsDialog() {
 
     // Leaving a migrated row without a choice keeps what it has, which counts as having seen it.
     const close = (): void => {
-        for (const entry of summary?.providers ?? []) {
-            if (entry.state === 'on' && !entry.reviewed) {
-                void setAgentIntegration(entry.provider, true).catch(() => undefined);
-            }
+        for (const provider of providersToKeep(summary, Object.keys(reports), busy)) {
+            void setAgentIntegration(provider, true).catch(() => undefined);
         }
         useUi.getState().setAgentIntegrations(false);
     };
@@ -167,7 +165,9 @@ export function AgentIntegrationsDialog() {
                 </div>
                 {error !== null && <FormError>{error}</FormError>}
                 <Dialog.Footer>
-                    <Button onClick={close}>{t(pending ? 'settings:agents.integrations.notNow' : 'common:action.done')}</Button>
+                    <Button disabled={busy !== null} onClick={close}>
+                        {t(pending ? 'settings:agents.integrations.notNow' : 'common:action.done')}
+                    </Button>
                 </Dialog.Footer>
             </Dialog.Popup>
         </Dialog.Root>
