@@ -597,7 +597,8 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                 .map((row) => {
                     const link = machineLink(row.entry, connectionOf(row.endpointId), null);
                     const hint = linkHint(link);
-                    const hintLine = hint === undefined ? null : <span className="max-w-64 truncate text-xs text-text-faint">{hint}</span>;
+                    const hintLine =
+                        hint === undefined ? null : <span className="max-w-64 min-w-0 shrink-[1000] truncate text-xs text-text-faint">{hint}</span>;
                     return {
                         id: `machine-${row.endpointId}`,
                         label: row.label,
@@ -879,7 +880,10 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                 className={clsx('top-[18vh] [translate:-50%_0]', grepping || chatting ? 'w-[760px]' : 'w-[576px]')}
                 initialFocus={inputRef}
             >
-                <div className="flex items-center gap-2 border-b border-border px-3">
+                <div className="relative flex items-center gap-2 border-b border-border px-3">
+                    {chatting && chatSearch.busy && (
+                        <div className="progress-line absolute inset-x-0 bottom-0" role="progressbar" aria-label={t('palette.searching')} />
+                    )}
                     {/* One step back; on the folders of a machine it names that machine. */}
                     {browsing && (
                         <Tooltip label={backLabel} kbd={KEY_SHORTCUTS.backspace}>
@@ -1036,7 +1040,7 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                             chatSearch.failure === null &&
                             chatSearch.hits.length === 0 &&
                             external.length === 0 && <PaletteNote>{t('palette.noChatMatch')}</PaletteNote>}
-                        {chatting && query.trim() === '' && external.length === 0 && <PaletteNote>{t('palette.typeToSearchChats')}</PaletteNote>}
+                        {chatting && query.trim() === '' && <PaletteNote>{t('palette.typeToSearchChats')}</PaletteNote>}
                         {machineStep && entries.length === 0 && (
                             <PaletteNote>{machines.length === 0 ? t('palette.noMachineYet') : t('palette.noMachineMatch')}</PaletteNote>
                         )}
@@ -1109,11 +1113,11 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                                     onClick={(e) => run(entry, wantsNewWindow(e))}
                                 >
                                     <span className="shrink-0 text-text-faint">{entry.icon}</span>
-                                    <span className="max-w-full shrink-0 truncate">{entry.label}</span>
-                                    {entry.hint && <span className="min-w-0 truncate text-xs text-text-faint">{entry.hint}</span>}
+                                    <span className="min-w-0 truncate">{entry.label}</span>
+                                    {entry.hint && <span className="min-w-0 shrink-[1000] truncate text-xs text-text-faint">{entry.hint}</span>}
                                     <span className="grow" />
                                     {entry.trailing}
-                                    {entry.shortcut && <Kbd shortcut={entry.shortcut} variant="inline" />}
+                                    {entry.shortcut && <Kbd shortcut={entry.shortcut} variant="inline" className="shrink-0" />}
                                 </button>
                             </div>
                         );
@@ -1155,8 +1159,10 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                                           count: chatSearch.chats.length,
                                           hits: `${chatSearch.hits.length}${chatSearch.truncated ? '+' : ''}`
                                       })}
-                                {chatSearch.cancelled && ` - ${t('palette.chatSearchCancelled')}`}
-                                {chatSearch.failed.length > 0 && ` - ${t('palette.chatSearchFailed', { count: chatSearch.failed.length })}`}
+                                {chatSearch.cancelled && <span>{` · ${t('palette.chatSearchCancelled')}`}</span>}
+                                {chatSearch.failed.length > 0 && (
+                                    <span className="text-status-error">{` · ${t('palette.chatSearchFailed', { count: chatSearch.failed.length })}`}</span>
+                                )}
                             </span>
                         )}
                         <span className="grow" />

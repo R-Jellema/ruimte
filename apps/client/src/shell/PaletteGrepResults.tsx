@@ -92,7 +92,7 @@ export function PaletteGrepResults({ matches, active, optionId, onHover, onRun }
                     <SectionLabel render={<div />} className="flex items-center gap-1.5 px-2.5 pt-1.5 pb-1">
                         <FileIcon path={group.path} size={14} />
                         <span className="min-w-0 truncate normal-case">{group.path}</span>
-                        <span className="text-text-faint">{group.matches.length}</span>
+                        <span className="shrink-0 text-text-faint">{group.matches.length}</span>
                     </SectionLabel>
                     {group.matches.map((match, index) => {
                         const at = group.offset + index;
