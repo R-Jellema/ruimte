@@ -17,7 +17,7 @@ import {
 import { isInside } from '../canvas/project-paths.ts';
 import { ClientSinks } from '../client-sinks.ts';
 import type { SessionSink } from '../sessions/manager.ts';
-import { linesAtHead, linesInTree, MAX_TEXT_BYTES, repositoryOf } from './file-versions.ts';
+import { filesBetweenCommits, linesAtHead, linesInTree, MAX_TEXT_BYTES, repositoryOf } from './file-versions.ts';
 import { hashLines, sameLines } from './line-hash.ts';
 import { ProvenanceStore } from './provenance-store.ts';
 import { boundedBefore, dropCommitted, lineCount, locatedHunks, mapRuns, uncoveredRanges, writtenHunks, type FileRecord, type WriteSignature } from './runs.ts';
@@ -40,6 +40,8 @@ export interface ProvenanceChat {
     cwd: string;
     /* The tree of the chat's folder at the start of the turn; absent outside a repository. */
     checkpointOf(turnId: string): string | undefined;
+    /* HEAD when the turn started and when it settled; absent when the host did not read it or there was no commit. */
+    headsOf(turnId: string): { before?: string; after?: string } | undefined;
     /* The place of the turn in its chat, from 1. */
     turnNumberOf(turnId: string): number | null;
     /* What the person wrote to open the turn; null for a turn the daemon opened itself. */
@@ -291,7 +293,8 @@ export class ProvenanceService {
                 if (top === null) {
                     return;
                 }
-                for (const file of files) {
+                const claimable = await this.unmoved(top, chat, turnId, files);
+                for (const file of claimable) {
                     const path = join(top, file);
                     if (!isInside(place.folder, path)) {
                         continue;
@@ -305,6 +308,20 @@ export class ProvenanceService {
                 }
             })()
         );
+    }
+
+    /*
+     * The files of a checkpoint diff that the turn can be guessed to have written. When HEAD moved during
+     * the turn the diff also holds what a pull, a rebase or a reset brought in, so the files that move
+     * touched are left out; when the move cannot be read, nothing is claimed.
+     */
+    private async unmoved(top: string, chat: ProvenanceChat, turnId: string, files: readonly string[]): Promise<readonly string[]> {
+        const heads = chat.headsOf(turnId);
+        if (heads?.before === undefined || heads.after === undefined || heads.before === heads.after) {
+            return files;
+        }
+        const moved = await filesBetweenCommits(top, heads.before, heads.after);
+        return moved === null ? [] : files.filter((file) => !moved.has(file));
     }
 
     /* The runs of a record once the file changed, the old ones are cut and a commit may have taken lines over. */
@@ -376,9 +393,11 @@ export class ProvenanceService {
                 });
             }
         }
-        const runs = [...existing, ...created].sort((left, right) => left.start - right.start || left.at - right.at);
+        const headLines = created.length > 0 && top !== null ? await linesAtHead(top, relative(top, path)) : null;
+        const unclaimed = headLines === null ? created : dropCommitted(created, hashes, hashLines(headLines));
+        const runs = [...existing, ...unclaimed].sort((left, right) => left.start - right.start || left.at - right.at);
         const capped = runs.length > MAX_RUNS_PER_FILE ? [...runs].sort((left, right) => right.at - left.at).slice(0, MAX_RUNS_PER_FILE) : runs;
-        const changed = created.length > 0 || JSON.stringify(capped) !== JSON.stringify(stored?.runs ?? []);
+        const changed = unclaimed.length > 0 || JSON.stringify(capped) !== JSON.stringify(stored?.runs ?? []);
         await this.persist(projectId, { version: 1, path, lineHashes: hashes, mtime: current.mtime, runs: capped }, stored === null);
         return changed;
     }

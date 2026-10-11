@@ -53,7 +53,14 @@ beforeEach(async () => {
         locate: () => ({ projectId: 'p1', folder: project }),
         folderOf: (projectId) => (projectId === 'p1' ? project : null),
         holders: () => [],
-        chat: () => ({ provider: 'claude', cwd: project, checkpointOf: () => undefined, turnNumberOf: () => 4, promptOf: () => 'Add rankCandidates' })
+        chat: () => ({
+            provider: 'claude',
+            cwd: project,
+            checkpointOf: () => undefined,
+            headsOf: () => undefined,
+            turnNumberOf: () => 4,
+            promptOf: () => 'Add rankCandidates'
+        })
     });
     dispatcher = new Dispatcher();
     registerProvenanceHandlers(dispatcher, service, new MachineHome(home));

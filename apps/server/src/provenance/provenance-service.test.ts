@@ -69,6 +69,7 @@ async function setup(options: { project?: boolean; git?: boolean } = {}): Promis
         provider: 'claude',
         cwd: repo,
         checkpointOf: (turnId) => trees.get(turnId),
+        headsOf: () => undefined,
         turnNumberOf: (turnId) => turns.indexOf(turnId) + 1 || null,
         promptOf: (turnId) => prompts.get(turnId) ?? null
     };

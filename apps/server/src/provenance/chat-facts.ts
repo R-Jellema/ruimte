@@ -15,6 +15,16 @@ export function provenanceChat(chats: Pick<ChatCore, 'get'>, chatId: string): Pr
             const turn = thread.get(turnId);
             return turn?.kind === 'turn' ? turn.checkpoint : undefined;
         },
+        headsOf: (turnId) => {
+            const turn = thread.get(turnId);
+            if (turn?.kind !== 'turn') {
+                return undefined;
+            }
+            return {
+                ...(turn.checkpointHead === undefined ? {} : { before: turn.checkpointHead }),
+                ...(turn.checkpointHeadAfter === undefined ? {} : { after: turn.checkpointHeadAfter })
+            };
+        },
         turnNumberOf: (turnId) => {
             const index = thread
                 .list()

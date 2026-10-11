@@ -43,3 +43,17 @@ export async function linesAtHead(top: string, path: string): Promise<VersionLin
     const sha = /^\d+ blob ([0-9a-f]+)\t/.exec(listed.stdout)?.[1];
     return sha === undefined ? null : blobLines(top, sha);
 }
+
+/*
+ * The files a move of HEAD touched, relative to the repository. Null when either commit is gone
+ * (a rebase or a reset can leave the old one to garbage collection), since then nothing can be told apart.
+ */
+export async function filesBetweenCommits(top: string, before: string, after: string): Promise<Set<string> | null> {
+    for (const commit of [before, after]) {
+        if ((await runGit(['cat-file', '-e', `${commit}^{commit}`], top)).code !== 0) {
+            return null;
+        }
+    }
+    const listed = await runGit(['diff', '--name-only', '-z', before, after], top);
+    return listed.code === 0 ? new Set(listed.stdout.split('\0').filter((path) => path !== '')) : null;
+}
