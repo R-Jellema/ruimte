@@ -1,5 +1,5 @@
 import { ARRANGE_LAYOUTS } from '@ruimte/actions';
-import { GROUP_HEADER, GROUP_PADDING, groupMemberIds, groupRect, type ProjectNode } from '@ruimte/contracts';
+import { arrangeRects, GROUP_HEADER, GROUP_PADDING, gridColumns, groupMemberIds, groupRect, PLACEMENT_GAP, type ProjectNode } from '@ruimte/contracts';
 
 export interface Rect {
     x: number;
@@ -7,9 +7,6 @@ export interface Rect {
     w: number;
     h: number;
 }
-
-// The room between a node and the one placed next to it; a multiple of the client's 8 px grid.
-export const PLACEMENT_GAP = 40;
 
 function overlaps(a: Rect, b: Rect): boolean {
     return a.x < b.x + b.w + PLACEMENT_GAP && b.x < a.x + a.w + PLACEMENT_GAP && a.y < b.y + b.h + PLACEMENT_GAP && b.y < a.y + a.h + PLACEMENT_GAP;
@@ -50,55 +47,9 @@ export function placeFree(existing: readonly Rect[], size: { w: number; h: numbe
     };
 }
 
-// The layouts are the catalog's, since `node.arrange` takes one as input.
-export { ARRANGE_LAYOUTS };
+// The layouts are the catalog's, since `node.arrange` takes one as input; the arithmetic lives in contracts for the client's group arrange.
+export { ARRANGE_LAYOUTS, arrangeRects, gridColumns, PLACEMENT_GAP };
 export type ArrangeLayout = (typeof ARRANGE_LAYOUTS)[number];
-
-/* How many columns a grid takes without being told: as square as the count allows. */
-export function gridColumns(count: number): number {
-    return Math.ceil(Math.sqrt(count));
-}
-
-/*
- * The rectangles tidied into a block from the top left of the box they already occupy, so a canvas
- * is straightened where it stands. Columns and rows take their widest and tallest node, so nodes of
- * different sizes never touch and none is resized.
- */
-export function arrangeRects(rects: readonly Rect[], layout: ArrangeLayout, cols?: number): Rect[] {
-    if (rects.length === 0) {
-        return [];
-    }
-    const columns = layout === 'row' ? rects.length : layout === 'column' ? 1 : Math.min(cols ?? gridColumns(rects.length), rects.length);
-    const origin = {
-        x: Math.round(Math.min(...rects.map((rect) => rect.x))),
-        y: Math.round(Math.min(...rects.map((rect) => rect.y)))
-    };
-    const columnOf = (index: number): number => index % columns;
-    const rowOf = (index: number): number => Math.floor(index / columns);
-    const widths: number[] = [];
-    const heights: number[] = [];
-    for (const [index, rect] of rects.entries()) {
-        widths[columnOf(index)] = Math.max(widths[columnOf(index)] ?? 0, rect.w);
-        heights[rowOf(index)] = Math.max(heights[rowOf(index)] ?? 0, rect.h);
-    }
-    const offsets = (sizes: readonly number[]): number[] => {
-        const places: number[] = [];
-        let at = 0;
-        for (const size of sizes) {
-            places.push(at);
-            at += size + PLACEMENT_GAP;
-        }
-        return places;
-    };
-    const left = offsets(widths);
-    const top = offsets(heights);
-    return rects.map((rect, index) => ({
-        x: Math.round(origin.x + left[columnOf(index)]!),
-        y: Math.round(origin.y + top[rowOf(index)]!),
-        w: rect.w,
-        h: rect.h
-    }));
-}
 
 /* What placing inside a group needs to know about it, so a frame that is not a node yet also fits. */
 type GroupFrame = Pick<ProjectNode, 'x' | 'y' | 'w' | 'h' | 'collapsed' | 'expandedHeight'>;

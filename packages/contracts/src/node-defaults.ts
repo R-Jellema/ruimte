@@ -96,6 +96,58 @@ export function groupMemberIds(group: GroupFrame, items: readonly GroupItem[]): 
     return items.filter((item) => item.id !== group.id && holds(rect, item)).map((item) => item.id);
 }
 
+// The room between a node and the one placed next to it; a multiple of the client's 8 px grid.
+export const PLACEMENT_GAP = 40;
+
+/* Contracts cannot import the action catalog, so the layouts are named here as well; `node.arrange` takes the same three. */
+export type ArrangeLayout = 'grid' | 'row' | 'column';
+
+/* How many columns a grid takes without being told: as square as the count allows. */
+export function gridColumns(count: number): number {
+    return Math.ceil(Math.sqrt(count));
+}
+
+/*
+ * The rectangles tidied into a block from the top left of the box they already occupy, so a canvas
+ * is straightened where it stands. Columns and rows take their widest and tallest node, so nodes of
+ * different sizes never touch and none is resized.
+ */
+export function arrangeRects(rects: readonly NodeRect[], layout: ArrangeLayout, cols?: number): NodeRect[] {
+    if (rects.length === 0) {
+        return [];
+    }
+    const columns = layout === 'row' ? rects.length : layout === 'column' ? 1 : Math.min(cols ?? gridColumns(rects.length), rects.length);
+    const origin = {
+        x: Math.round(Math.min(...rects.map((rect) => rect.x))),
+        y: Math.round(Math.min(...rects.map((rect) => rect.y)))
+    };
+    const columnOf = (index: number): number => index % columns;
+    const rowOf = (index: number): number => Math.floor(index / columns);
+    const widths: number[] = [];
+    const heights: number[] = [];
+    for (const [index, rect] of rects.entries()) {
+        widths[columnOf(index)] = Math.max(widths[columnOf(index)] ?? 0, rect.w);
+        heights[rowOf(index)] = Math.max(heights[rowOf(index)] ?? 0, rect.h);
+    }
+    const offsets = (sizes: readonly number[]): number[] => {
+        const places: number[] = [];
+        let at = 0;
+        for (const size of sizes) {
+            places.push(at);
+            at += size + PLACEMENT_GAP;
+        }
+        return places;
+    };
+    const left = offsets(widths);
+    const top = offsets(heights);
+    return rects.map((rect, index) => ({
+        x: Math.round(origin.x + left[columnOf(index)]!),
+        y: Math.round(origin.y + top[rowOf(index)]!),
+        w: rect.w,
+        h: rect.h
+    }));
+}
+
 /*
  * In the picker's hue order. Shared because the daemon refuses a `--color` outside the set; the hex per
  * name stays in the client (`canvas/accents.ts`), the only side that paints.
