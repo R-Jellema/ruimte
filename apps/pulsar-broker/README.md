@@ -129,7 +129,7 @@ which recreates the container with the broker off.
 ## Deploy on the VPS
 
 Nothing here deploys itself. `deploy/pulsar-broker.service` and `deploy/Caddyfile` are for a small Linux
-VPS as the report describes (1 vCPU, 2 GB), with the broker on loopback and Caddy in front for TLS.
+VPS (1 vCPU, 2 GB), with the broker on loopback and Caddy in front for TLS.
 Replace `broker.ruimte.app` in both with the name you use.
 
 1. Point the name's A and AAAA records at the VPS, and open ports 80 and 443 (Caddy needs 80 for the

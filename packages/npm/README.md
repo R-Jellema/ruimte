@@ -17,7 +17,7 @@ npx ruimte --version
 
 `bunx ruimte` works the same way. Node is enough; Bun does not have to be installed.
 
-It runs on macOS and Linux, on arm64 and x64. Windows is not supported yet.
+It runs on Macs with Apple silicon and on Linux, on x64 and arm64. Windows is not supported yet.
 
 ## Reaching it
 
