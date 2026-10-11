@@ -53,7 +53,7 @@ struct LaunchDraft: Equatable, Identifiable {
 /// A launch the machine found in the project's own files, ready to import.
 struct LaunchSuggestion: Equatable, Identifiable {
     var launch: JSONValue
-    /// `run-xml`, `package-json` or `composer-json`.
+    /// `run-xml`, `package-json`, `composer-json` or `vscode-launch`.
     var source: String
     /// The file it came from, relative to the project folder.
     var path: String
@@ -231,9 +231,32 @@ enum LaunchEditing {
                 == (offered.command ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// The file and name an imported launch came from, as the desktop records it.
+    private static func origin(_ suggestion: LaunchSuggestion) -> JSONValue {
+        .object([
+            "source": .string(suggestion.source), "path": .string(suggestion.path),
+            "name": .string(suggestion.launch.text("name")),
+        ])
+    }
+
+    private static func hasOrigin(_ launch: LaunchEntry, _ suggestion: LaunchSuggestion) -> Bool {
+        launch.raw["origin"] == origin(suggestion)
+    }
+
     /// What the project offers that is not a launch yet.
     static func newSuggestions(_ suggestions: [LaunchSuggestion], existing: [LaunchEntry]) -> [LaunchSuggestion] {
-        suggestions.filter { suggestion in !existing.contains { sameRun($0, suggestion) } }
+        suggestions.filter { suggestion in !existing.contains { sameRun($0, suggestion) || hasOrigin($0, suggestion) } }
+    }
+
+    /// The launches of a save that an import added: each stays unapproved until a person runs it and says yes.
+    static func importedIDs(_ saved: [JSONValue], existing: [LaunchEntry]) -> [String] {
+        let known = Set(existing.map(\.id))
+        return saved.filter { $0["origin"] != nil && !known.contains($0.text("id")) }.map { $0.text("id") }
+    }
+
+    /// A configuration an IDE keeps, as against the script of a package manifest.
+    private static func readsAsRunConfiguration(_ suggestion: LaunchSuggestion) -> Bool {
+        suggestion.source == "run-xml" || suggestion.source == "vscode-launch"
     }
 
     /// The launches an import adds. Sharing is the person's choice for the lot, except for one that names a path
@@ -244,6 +267,7 @@ enum LaunchEditing {
             let id = uniqueID(suggestion.launch.text("id"), taken: taken)
             taken.insert(id)
             return suggestion.launch.setting("id", .string(id)).setting("shared", .bool(share && !suggestion.isPrivate))
+                .setting("origin", origin(suggestion))
         }
     }
 
@@ -254,7 +278,7 @@ enum LaunchEditing {
 
     /// Where a suggestion came from, as the import writes it beside the name.
     static func source(_ suggestion: LaunchSuggestion) -> String {
-        if suggestion.source == "run-xml" { return suggestion.detail }
+        if readsAsRunConfiguration(suggestion) { return suggestion.detail }
         let folder = directory(suggestion.path)
         let file = suggestion.path.split(separator: "/").last.map(String.init) ?? suggestion.path
         return folder == "." ? file : "\(folder) · \(file)"
@@ -271,7 +295,7 @@ enum LaunchEditing {
         var order: [String] = []
         var counts: [String: (runs: Bool, count: Int)] = [:]
         for suggestion in usable {
-            let runs = suggestion.source == "run-xml"
+            let runs = readsAsRunConfiguration(suggestion)
             let place = runs ? directory(suggestion.path) : suggestion.path
             let key = (runs ? "run:" : "script:") + place
             if counts[key] == nil { order.append(key) }
@@ -291,8 +315,8 @@ enum LaunchEditing {
     /// The line under "Found in this project": how many of each, and where; nil when there is nothing to import.
     static func foundText(_ suggestions: [LaunchSuggestion]) -> String? {
         let usable = suggestions.filter { $0.unsupported == nil }
-        let runFiles = usable.filter { $0.source == "run-xml" }
-        let scripts = usable.filter { $0.source != "run-xml" }
+        let runFiles = usable.filter(readsAsRunConfiguration)
+        let scripts = usable.filter { !readsAsRunConfiguration($0) }
         var parts: [String] = []
         if !runFiles.isEmpty {
             let location = place(Set(runFiles.map { directory($0.path) })) { String(localized: "\($0) folders") }

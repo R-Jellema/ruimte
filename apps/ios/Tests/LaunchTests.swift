@@ -212,6 +212,20 @@ final class LaunchEditingTests: XCTestCase {
         XCTAssertEqual(LaunchEditing.slug("  "), "launch")
         XCTAssertEqual(LaunchEditing.slug("Web: Dev"), "web-dev")
     }
+
+    func testAVSCodeImportReadsAsARunConfigurationAndStaysUnapproved() {
+        let suggestion = LaunchSuggestion(
+            json: .object([
+                "launch": launch("api", command: "node server.js"), "source": .string("vscode-launch"),
+                "path": .string(".vscode/launch.json"), "detail": .string("node"), "private": .bool(false),
+            ]))
+        XCTAssertEqual(LaunchEditing.foundText([suggestion]), "1 run configurations in .vscode.")
+        XCTAssertEqual(LaunchEditing.source(suggestion), "node")
+        let imported = LaunchEditing.imported([suggestion], share: false, existing: [])
+        XCTAssertEqual(LaunchEditing.importedIDs(imported, existing: []), ["api"])
+        XCTAssertEqual(LaunchEditing.importedIDs(imported, existing: [LaunchEntry(raw: imported[0])]), [])
+        XCTAssertTrue(LaunchEditing.newSuggestions([suggestion], existing: [LaunchEntry(raw: imported[0])]).isEmpty)
+    }
 }
 
 @MainActor final class ProjectLaunchesTests: XCTestCase {

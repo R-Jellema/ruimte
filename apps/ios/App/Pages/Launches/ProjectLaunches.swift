@@ -164,13 +164,14 @@ enum LaunchesText {
     }
 
     /// Saves the whole list against the rev it was read at. A save by a person approves what it adds or changes.
-    func save(_ launches: [JSONValue], baseRev: Int) async throws {
+    /// `imported` names the launches an import added, which a person has not approved yet.
+    func save(_ launches: [JSONValue], baseRev: Int, imported: [String] = []) async throws {
+        var payload: [String: JSONValue] = [
+            "projectId": .string(projectID), "baseRev": .number(Double(baseRev)), "launches": .array(launches),
+        ]
+        if !imported.isEmpty { payload["imported"] = .array(imported.map { .string($0) }) }
         do {
-            _ = try await client.request(
-                WireRequest.launchesSave.rawValue,
-                payload: .object([
-                    "projectId": .string(projectID), "baseRev": .number(Double(baseRev)), "launches": .array(launches),
-                ]))
+            _ = try await client.request(WireRequest.launchesSave.rawValue, payload: .object(payload))
         } catch MachineClientError.server(let code, _) where code == "rev-conflict" {
             throw LaunchSaveFailure.conflict
         } catch {
@@ -196,7 +197,8 @@ enum LaunchesText {
     func detect() async -> [LaunchSuggestion]? {
         guard
             let result = try? await client.request(
-                WireRequest.launchesDetect.rawValue, payload: .object(["projectId": .string(projectID)]))
+                WireRequest.launchesDetect.rawValue,
+                payload: .object(["projectId": .string(projectID), "sources": .array([.string("vscode-launch")])]))
         else { return nil }
         return result.list("suggestions").map(LaunchSuggestion.init(json:))
     }

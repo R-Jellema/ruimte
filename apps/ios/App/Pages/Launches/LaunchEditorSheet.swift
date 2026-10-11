@@ -81,7 +81,10 @@ import SwiftUI
         failure = nil
         conflict = false
         do {
-            try await store.save(LaunchEditing.saved(drafts), baseRev: baseRev)
+            let saved = LaunchEditing.saved(drafts)
+            try await store.save(
+                saved, baseRev: baseRev,
+                imported: LaunchEditing.importedIDs(saved, existing: store.document?.launches ?? []))
             return true
         } catch LaunchSaveFailure.conflict {
             conflict = true
@@ -364,7 +367,9 @@ struct LaunchImportSheet: View {
         let launches =
             document.launches.map(\.raw) + LaunchEditing.imported(picked, share: share, existing: document.launches)
         do {
-            try await store.save(launches, baseRev: document.rev)
+            try await store.save(
+                launches, baseRev: document.rev,
+                imported: LaunchEditing.importedIDs(launches, existing: document.launches))
             dismiss()
         } catch {
             failure = LaunchesText.reason(error)
