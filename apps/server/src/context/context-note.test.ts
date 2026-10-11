@@ -48,7 +48,8 @@ describe('contextHint', () => {
 
 describe('verbsNote', () => {
     test('the complete agent note contains a closed and compilable UI example', () => {
-        const blocks = compileUi(VISUAL_NOTE, { id: 'agent-note-example', final: true, fenceLanguage: RUIMTE_UI_FENCE });
+        // This checks the example syntax; CPU scheduling must not consume its compiler time budget.
+        const blocks = compileUi(VISUAL_NOTE, { id: 'agent-note-example', final: true, fenceLanguage: RUIMTE_UI_FENCE, now: () => 0 });
         expect(blocks).toHaveLength(1);
         expect(blocks[0].diagnostics).toEqual([]);
         expect(blocks[0].nodes.some((node) => node.type === 'Summary')).toBe(true);
