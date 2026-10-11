@@ -366,6 +366,8 @@
             "failed": "De pull request kon niet worden gelezen",
             "draft": "concept",
             "noChecks": "Op deze commit zijn geen checks gedraaid.",
+            "status": "Status",
+            "noThreads": "Geen reviewdraden",
             "checks": "Checks",
             "checksFailed_one": "{{count}} check mislukt",
             "checksFailed_other": "{{count}} checks mislukt",

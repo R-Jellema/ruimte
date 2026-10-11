@@ -366,6 +366,8 @@
             "failed": "Could not read the pull request",
             "draft": "draft",
             "noChecks": "No checks have run on this commit.",
+            "status": "Status",
+            "noThreads": "No review threads",
             "checks": "Checks",
             "checksFailed_one": "{{count}} check failed",
             "checksFailed_other": "{{count}} checks failed",
