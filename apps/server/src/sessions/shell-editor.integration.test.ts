@@ -55,15 +55,24 @@ test('cwd is read after late precmd hooks and the preview only offers that direc
         expect(preview.cwd).toBe(actual);
         expect(preview.targets).toHaveLength(1);
         expect(preview.targets[0]!.cwd).toBe(actual);
-        await f.prepare.prepare('owner', preview.targets[0]!.token, f.client);
-        // ZLE acknowledges insertion before it redraws the prepared line.
-        await waitForAsync(async () => (await f.session.plainText()).includes('pwd > actual-cwd'), 'prepared line displayed');
-        await expect(access(join(actual, 'actual-cwd'))).rejects.toThrow();
-        f.manager.write('shell', '\r', 'person');
-        await waitForAsync(() => Bun.file(join(actual, 'actual-cwd')).exists(), 'explicit Enter');
-        expect((await readFile(join(actual, 'actual-cwd'), 'utf8')).trim()).toBe(actual);
     } finally {
         await f.cleanup();
+    }
+});
+
+test('a prepared command runs only after the person presses Enter', async () => {
+    const fixture = await realShell();
+    try {
+        await fixture.ready();
+        const destination = join(fixture.home, 'actual-cwd');
+        const preview = await fixture.preview('pwd > actual-cwd');
+        await fixture.prepare.prepare('owner', preview.targets[0]!.token, fixture.client);
+        await expect(access(destination)).rejects.toThrow();
+        fixture.manager.write('shell', '\r', 'person');
+        await waitForAsync(() => Bun.file(destination).exists(), 'explicit Enter');
+        expect((await readFile(destination, 'utf8')).trim()).toBe(fixture.home);
+    } finally {
+        await fixture.cleanup();
     }
 });
 
