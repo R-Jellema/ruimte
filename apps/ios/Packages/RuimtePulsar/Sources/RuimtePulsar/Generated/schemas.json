@@ -5416,6 +5416,12 @@
               "providers",
               "fixed"
             ]
+          },
+          "worktreeRoot": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -48893,6 +48899,12 @@
           "providers",
           "fixed"
         ]
+      },
+      "worktreeRoot": {
+        "type": [
+          "string",
+          "null"
+        ]
       }
     },
     "required": [
@@ -49198,6 +49210,10 @@
       },
       "lanDoor": {
         "type": "boolean"
+      },
+      "worktreeRoot": {
+        "type": "string",
+        "maxLength": 4096
       }
     },
     "required": [
@@ -49678,6 +49694,12 @@
         "required": [
           "providers",
           "fixed"
+        ]
+      },
+      "worktreeRoot": {
+        "type": [
+          "string",
+          "null"
         ]
       }
     },
@@ -50401,6 +50423,12 @@
         "required": [
           "providers",
           "fixed"
+        ]
+      },
+      "worktreeRoot": {
+        "type": [
+          "string",
+          "null"
         ]
       }
     },
