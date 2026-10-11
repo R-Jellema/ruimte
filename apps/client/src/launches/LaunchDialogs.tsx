@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
-import { Lock, Plus, Rocket, Search, Users, X } from 'lucide-react';
+import { Lock, Plus, Rocket, Search, TriangleAlert, Users, X } from 'lucide-react';
 import type { LaunchConfigEntry, LaunchConfigKind, LaunchesDocument, LaunchSuggestion } from '@ruimte/contracts';
 import {
     Button,
@@ -333,7 +333,12 @@ function LaunchForm({
 
     return (
         <div className="flex flex-col gap-3">
-            {drift !== null && <FieldHint>{t('edit.drift', { path: drift.path })}</FieldHint>}
+            {drift !== null && (
+                <p className="flex items-center gap-1.5 text-xs text-status-needs-you">
+                    <Icon icon={TriangleAlert} size={12} className="shrink-0" />
+                    {t('edit.drift', { path: drift.path })}
+                </p>
+            )}
             <Field orientation="horizontal" label={t('edit.name')} error={problem === 'name' ? t('edit.problem.name') : undefined}>
                 <Input value={entry.name} autoFocus={entry.name === ''} onChange={(e) => set({ name: e.target.value })} />
             </Field>

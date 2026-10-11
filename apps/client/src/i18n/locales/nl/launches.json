@@ -116,8 +116,8 @@
     },
     "import": {
         "title": "Launches importeren",
-        "description": "Er wordt niets opgeslagen tot je importeert. Geïmporteerde launches vragen om jouw goedkeuring bij de eerste keer draaien.",
-        "descriptionInEditor": "Wat je importeert, komt in de lijst. Er wordt niets opgeslagen tot je opslaat. Geïmporteerde launches vragen om jouw goedkeuring bij de eerste keer draaien.",
+        "description": "Er wordt niets opgeslagen tot je importeert. Geïmporteerde launches vragen de eerste keer dat ze draaien om je goedkeuring.",
+        "descriptionInEditor": "Wat je importeert, komt in de lijst. Er wordt niets opgeslagen tot je opslaat. Geïmporteerde launches vragen de eerste keer dat ze draaien om je goedkeuring.",
         "searching": "Zoekt naar run-configuraties en scripts…",
         "nothing": "Niets gevonden om te importeren in dit project.",
         "failed": "Kon het project niet doorzoeken.",
