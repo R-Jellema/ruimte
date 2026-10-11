@@ -367,7 +367,8 @@ describe('the daemon actions', () => {
             model: null,
             mode: null,
             worktree: false,
-            branch: null
+            branch: null,
+            requestId: null
         };
         expect(await serverActions.execute('agent.start', start, voice)).toMatchObject({ status: 'failed', error: { code: 'forbidden-action' } });
         expect(await serverActions.execute('worktree.merge', { branch: 'lexer', strategy: 'merge', message: null }, voice)).toMatchObject({

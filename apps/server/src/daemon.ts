@@ -72,6 +72,7 @@ import { Handshake } from './auth/handshake.ts';
 import type { Relay } from './auth/relay.ts';
 import { HOOKS_PATH, handleHookRequest } from './agents/hook-receiver.ts';
 import { HOOK_EVENTS } from './agents/hooks.ts';
+import { StartClaims } from './actions/start-claims.ts';
 import { AgentIntegrations } from './agents/integrations.ts';
 import { ATTACHMENTS_PATH, handleAttachmentRequest } from './chat/attachment-route.ts';
 import { AttachmentStore } from '@adecore/agents/chat/attachment-store';
@@ -476,6 +477,8 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     });
     const projects = new ProjectStore(config.home);
     await projects.hiddenAgents.load();
+    const startClaims = new StartClaims(config.home);
+    await startClaims.load();
     projects.attachTracked(isTrackedPath);
     const machineHome = new MachineHome(config.home);
     const databases = new DatabaseService({ machineHome });
@@ -716,6 +719,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     };
     const canvasHost = {
         hiddenAgents: projects.hiddenAgents,
+        startClaims,
         locate: (id: string) => projects.index.locate(id),
         read: (projectId: string) => projects.read(projectId),
         revision: (projectId: string) => projects.revision(projectId),

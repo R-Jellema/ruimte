@@ -33,6 +33,7 @@ import type { NoticeDelivery } from '../context/notices.ts';
 import type { PlanStore } from '../plans/plan-store.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
 import type { HiddenAgentStore } from '../agents/hidden-agents.ts';
+import type { StartClaims } from '../actions/start-claims.ts';
 import type { VisualPreview } from '../visuals/renderer.ts';
 import type { ProjectMutation } from '../projects/project-store.ts';
 import { field } from '@adecore/agents/context/refusal';
@@ -70,6 +71,8 @@ export type WorktreeWant = { fresh: string } | { branch: string };
 /* What a verb reaches the daemon through; an interface so a test can hand in a store of its own. */
 export interface CanvasHost {
     hiddenAgents?: HiddenAgentStore;
+    /* What a retried `agent --request-id` answers with; absent, a request id is ignored. */
+    startClaims?: StartClaims;
     locate(id: string): IndexedPlace | null;
     read(projectId: string): Promise<ProjectContent>;
     /* The rev of the project file; read it before the content, so a write in between only makes it older. */

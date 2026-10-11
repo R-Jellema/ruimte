@@ -2415,7 +2415,12 @@ export const ACTION_DEFINITIONS = {
                 'The permission mode the agent runs in: supervised, auto-accept-edits, auto or full-access, never wider than your own'
             ),
             worktree: z.boolean().describe('Starts the agent in a git worktree of its own on a new branch'),
-            branch: z.string().min(1).nullable().describe('The branch of that worktree instead of one named after the task or the title')
+            branch: z.string().min(1).nullable().describe('The branch of that worktree instead of one named after the task or the title'),
+            requestId: z
+                .string()
+                .regex(/^[A-Za-z0-9._:-]{1,128}$/)
+                .nullable()
+                .describe('An id of your choosing; a retry with the same id and the same input answers with what the first call made')
         }),
         output: z.object({
             nodeId,

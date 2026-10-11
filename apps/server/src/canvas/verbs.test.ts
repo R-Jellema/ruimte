@@ -56,6 +56,7 @@ import { MAX_NOTICE_LENGTH, type NoticeDelivery } from '../context/notices.ts';
 import { MAX_TITLE_LENGTH, NEW_NODE, OPENING_OFF_CANVAS, type AgentStart, type CanvasHost, type Noun } from './verb.ts';
 import { VERBS } from './verbs.ts';
 import { TaskStore } from '@adecore/agents/tasks/task-store';
+import { StartClaims } from '../actions/start-claims.ts';
 import { freeBranch } from '../git/worktrees.ts';
 import { MAX_TASK_PROMPT_LENGTH, nextLine, taskBrief } from './task-verbs.ts';
 
@@ -75,6 +76,7 @@ let diagrams: DiagramStore;
 let diagramEvents: SessionEvent[];
 let projectId: string;
 let worktrees: string[];
+let startClaims: StartClaims;
 let installed: AgentKind[];
 let held: Array<{ projectId: string; nodeId: string; prompt: string }>;
 let started: AgentStart[];
@@ -150,6 +152,7 @@ beforeEach(async () => {
     await writeFile(join(folder, 'src', 'main.ts'), 'export {};\n');
     await writeFile(join(outside, 'notes.md'), '# notes\n');
     worktrees = [];
+    startClaims = new StartClaims(join(root, 'home'));
     modes = {};
     terminalPreference = undefined;
     branches = null;
@@ -217,6 +220,7 @@ afterEach(async () => {
 function host(): CanvasHost {
     return {
         hiddenAgents: store.hiddenAgents,
+        startClaims,
         databases,
         locate: (id) => store.index.locate(id),
         read: (id) => store.read(id),
@@ -1290,6 +1294,33 @@ describe('agent model selection', () => {
 });
 
 describe('agent', () => {
+    test('--request-id answers a retry with the node the first call made, and starts one agent', async () => {
+        const first = await post('agent', ['claude', '--prompt', 'x', '--request-id', 'r1']);
+        const second = await post('agent', ['claude', '--prompt', 'x', '--request-id', 'r1']);
+
+        expect([first.status, second.status]).toEqual([200, 200]);
+        expect(second.lines[0]).toBe(first.lines[0]!);
+        expect(started).toHaveLength(1);
+        const ids = (await canvasOnDisk()).nodes.filter((node) => node.id === first.lines[0]!.split('\t')[0]);
+        expect(ids).toHaveLength(1);
+    });
+
+    test('--request-id with another command is refused and makes nothing', async () => {
+        await post('agent', ['claude', '--prompt', 'x', '--request-id', 'r1']);
+
+        const other = await post('agent', ['claude', '--prompt', 'y', '--request-id', 'r1']);
+
+        expect(other.lines[0]).toStartWith('refused\trequest-id-reused\t');
+        expect(started).toHaveLength(1);
+    });
+
+    test('--request-id takes only a plain id', async () => {
+        const bad = await post('agent', ['claude', '--request-id', 'has space']);
+
+        expect(bad.lines[0]).toContain('--request-id');
+        expect(started).toHaveLength(0);
+    });
+
     test('--terminal opens a terminal agent with an edge from the caller into it, and holds the prompt', async () => {
         const { status, lines } = await post('agent', ['claude', '--terminal', '--prompt', 'say hello']);
         expect(status).toBe(200);

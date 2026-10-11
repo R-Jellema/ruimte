@@ -14,6 +14,7 @@ import { NEW_NODE, OPENING_OFF_CANVAS, VerbRefusal, canvasFor, field, newNode } 
 import { branchSlug, makeWorktrees, requireRepository } from '../canvas/worktree.ts';
 import { providerFor } from '../providers/registry.ts';
 import { verbCallOf, type ServerActionContext } from './context.ts';
+import { startInputHash } from './start-claims.ts';
 import { operationIdOf } from './operation-actions.ts';
 
 type TeamRole = { provider: AgentKind; terminal: boolean };
@@ -22,210 +23,222 @@ function kindOf(role: TeamRole): 'chat' | 'terminal' {
     return !role.terminal && providerFor(role.provider).capabilities.chat ? 'chat' : 'terminal';
 }
 
+type StartHandler = NonNullable<ActionHandlers<ServerActionContext>['agent.start']>;
+
+/* The start itself; a retried one never gets here, since its claim answers first. */
+const startAgent: StartHandler = async (input, call) => {
+    const { context, dryRun = false } = call;
+    const { host, place } = context;
+    const caller = verbCallOf(call);
+    const kind = input.provider;
+    const depth = depthForOpening(caller, 'agent', 1);
+    const ceiling = modeForOpening(caller, input.mode ?? undefined);
+    const chat = !input.terminal && providerFor(kind).capabilities.chat;
+    const selection = selectionForOpening(kind, chat, input.model ?? undefined);
+    if (input.branch !== null && !input.worktree) {
+        throw new VerbRefusal('branch-needs-worktree', '--branch names the branch of a worktree; add --worktree');
+    }
+    if (input.worktree && input.cwd !== null) {
+        throw new VerbRefusal('worktree-and-cwd', '--worktree and --cwd both say where the agent starts; give one of them');
+    }
+    if (input.beside !== null && input.group !== null) {
+        throw new VerbRefusal('two-places', '--beside and --group both say where the node goes; give one of them');
+    }
+    const readIds = readsOf(input.reads);
+    const hidden = input.viewId === null && place.canvasId === null;
+    if (hidden && (input.beside !== null || input.group !== null || readIds.length > 0)) {
+        throw new VerbRefusal('view-required', '--beside, --group and --reads place nodes or lines on a canvas; name one with --view');
+    }
+    if (hidden && host.hiddenAgents === undefined) {
+        throw new VerbRefusal('view-required', OPENING_OFF_CANVAS);
+    }
+    requireInstalled(await host.installedAgents(), kind);
+
+    // Everything that touches the disk or git runs before the lock, so a slow repository holds up no save.
+    const prompt = await startPrompt(input.prompt, input.promptFile, host, place.folder);
+    if (input.task !== null && prompt === null) {
+        throw new VerbRefusal('task-needs-prompt', '--task gives a task and the prompt is what it asks; add --prompt or --prompt-file');
+    }
+    if (input.task !== null && prompt !== null && prompt.length > MAX_TASK_PROMPT_LENGTH) {
+        throw new VerbRefusal(
+            'prompt-too-long',
+            `The prompt is ${prompt.length} characters and a task takes at most ${MAX_TASK_PROMPT_LENGTH}, since the child is also told how to report back; put the rest in a file and tell the agent to read it`
+        );
+    }
+    let cwd = input.cwd === null ? undefined : await checkCwd(place.folder, input.cwd, (folder) => host.worktreePaths(folder));
+    const runtimeMode = chat ? (input.mode ?? undefined) : terminalMode(caller, input.mode ?? undefined, ceiling);
+    const account = inheritedAccount(caller, kind);
+    let undoWorktrees = async (): Promise<void> => undefined;
+    if (input.worktree) {
+        await requireRepository(caller, place.folder);
+        if (!dryRun) {
+            const want = input.branch === null ? { fresh: branchSlug(input.task ?? input.title ?? kind) } : { branch: input.branch };
+            const made = await makeWorktrees(caller, { folder: place.folder, projectId: place.projectId }, [want]);
+            cwd = made.worktrees[0]!.path;
+            undoWorktrees = made.undo;
+        }
+    }
+
+    return host
+        .mutate<{ output: ActionOutput<'agent.start'>; operation?: { id: string; status: 'running' } }>(place.projectId, async (content) => {
+            // Counted again under the lock the last start wrote its node down in: a call at the same moment read the same count.
+            depthForOpening(caller, 'agent', 1);
+            if (input.task !== null) {
+                requireChatParent(content, caller.caller, host.hiddenAgents?.get(caller.caller)?.node.kind);
+            }
+            const canvas = hidden ? null : canvasFor(content, place, input.viewId ?? undefined, OPENING_OFF_CANVAS);
+            if (canvas && canvas.nodes.length + 1 > MAX_CANVAS_NODES) {
+                throw canvasFull(canvas, 1);
+            }
+            const anchor = input.beside === null ? undefined : canvas?.nodes.find((node) => node.id === input.beside);
+            if (canvas && input.beside !== null && !anchor) {
+                throw refuseMissingNodes(content, [input.beside], canvas.id, 'the agent this opens has nothing there to stand beside', nodeLines(canvas));
+            }
+            const group = input.group === null ? undefined : canvas?.nodes.find((node) => node.id === input.group && node.kind === 'group');
+            if (canvas && input.group !== null && !group) {
+                throw new VerbRefusal('unknown-group', `${input.group} is not a group on ${canvas.id}`, groupLines(canvas));
+            }
+            const read = canvas ? nodesNamed(content, canvas, readIds, { cannot: 'no line can run from it into the agent this opens' }) : [];
+
+            const size = NODE_SIZE[chat ? 'chat' : 'terminal'];
+            const self = canvas?.nodes.find((node) => node.id === caller.caller) ?? null;
+            const inGroup = group && canvas ? placeInGroup(group, groupMembers(group, canvas.nodes), size) : null;
+            const rect = inGroup?.rect ?? (anchor ? placeBeside(anchor, size) : canvas ? placeFree(canvas.nodes, size, self) : { x: 0, y: 0, ...size });
+            const kindName = chat ? ('chat' as const) : ('terminal' as const);
+
+            if (dryRun) {
+                return {
+                    content: null,
+                    result: {
+                        output: {
+                            nodeId: NEW_NODE,
+                            kind: kindName,
+                            viewId: canvas?.id ?? null,
+                            provider: kind,
+                            edge: self ? { edgeId: null, from: self.id, to: NEW_NODE } : null,
+                            reads: read.map((node) => ({ edgeId: null, from: node.id, to: NEW_NODE })),
+                            taskId: null
+                        }
+                    }
+                };
+            }
+
+            const id = newId(
+                kindName,
+                content,
+                host.hiddenAgents?.inProject(place.projectId).map((agent) => agent.node.id)
+            );
+            const taken = [id];
+            const mint = (): string => {
+                const fresh = newId('edge', content, taken);
+                taken.push(fresh);
+                return fresh;
+            };
+            const node = agentNode({
+                id,
+                chat,
+                kind,
+                title: input.title ?? input.task ?? undefined,
+                rect,
+                cwd,
+                account,
+                ...(runtimeMode === undefined ? {} : { runtimeMode })
+            });
+            const edge: ProjectEdge | null = self ? { id: mint(), from: self.id, to: id, label: 'context' } : null;
+            const reading: ProjectEdge[] = [];
+            const readLines = read.map((source) => {
+                /* Your own line is the one drawn above: naming yourself in --reads is that line
+                   reported again, never a second one beside it. */
+                const line = edge && edge.from === source.id ? edge : { id: mint(), from: source.id, to: id, label: 'context' };
+                if (line !== edge) {
+                    reading.push(line);
+                }
+                return { edgeId: line.id, from: source.id, to: id };
+            });
+            const nodes = [
+                ...(canvas?.nodes ?? []).map((candidate) => (group && candidate.id === group.id ? grownGroup(candidate, inGroup, id) : candidate)),
+                node
+            ];
+            const output: ActionOutput<'agent.start'> = {
+                nodeId: id,
+                kind: kindName,
+                viewId: canvas?.id ?? null,
+                provider: kind,
+                edge: edge ? { edgeId: edge.id, from: edge.from, to: edge.to } : null,
+                reads: readLines,
+                taskId: null
+            };
+
+            const start = async (): Promise<void> => {
+                if (hidden) {
+                    await host.hiddenAgents!.put({ projectId: place.projectId, openedBy: caller.caller, node: { ...node, kind: kindName } });
+                }
+                await host.recordMade({ projectId: place.projectId, nodeId: id, openedBy: caller.caller, depth, agent: true, ceiling });
+                if (input.worktree && cwd !== undefined) {
+                    await host.claimWorktree(place.folder, cwd, id);
+                }
+                // Before the agent starts, so a child that is done at once finds its task open.
+                if (input.task !== null && prompt !== null) {
+                    const task = await host.tasks.open({
+                        projectId: place.projectId,
+                        parentId: caller.caller,
+                        childId: id,
+                        title: input.task,
+                        prompt
+                    });
+                    output.taskId = task.id;
+                }
+                if (prompt !== null) {
+                    await host.holdPrompt(place.projectId, id, input.task === null ? prompt : `${prompt}${taskBrief(chat)}`);
+                }
+                await host.startAgent({
+                    projectId: place.projectId,
+                    nodeId: id,
+                    openedBy: caller.caller,
+                    node: kindName,
+                    provider: kind,
+                    ...(selection ? { selection } : {}),
+                    cwd: cwd ?? place.folder,
+                    ...(runtimeMode === undefined ? {} : { runtimeMode }),
+                    ...(account === undefined ? {} : { account })
+                });
+            };
+            if (hidden) {
+                await start();
+            }
+            return {
+                landed: hidden ? undefined : start,
+                content: canvas
+                    ? {
+                          ...content,
+                          views: content.views.map((view) =>
+                              view.id === canvas.id ? { ...canvas, nodes, edges: [...canvas.edges, ...(edge ? [edge] : []), ...reading] } : view
+                          )
+                      }
+                    : null,
+                // Started is not done: the outbox starts the agent, and its task or its first turn says how it went.
+                result: { output, operation: { id: operationIdOf('agent.start', [id]), status: 'running' } }
+            };
+        })
+        .catch(async (e: unknown) => {
+            await undoWorktrees();
+            throw e;
+        });
+};
+
 /*
  * Everything a start enforces lives here, whoever asks: the depth and the count of agents a caller
  * may open, a mode no wider than the caller's riding on every start, a directory inside the project
  * or its worktrees, and the task only a chat may give.
  */
 export const startActions: ActionHandlers<ServerActionContext> = {
-    'agent.start': async (input, call) => {
-        const { context, dryRun = false } = call;
-        const { host, place } = context;
-        const caller = verbCallOf(call);
-        const kind = input.provider;
-        const depth = depthForOpening(caller, 'agent', 1);
-        const ceiling = modeForOpening(caller, input.mode ?? undefined);
-        const chat = !input.terminal && providerFor(kind).capabilities.chat;
-        const selection = selectionForOpening(kind, chat, input.model ?? undefined);
-        if (input.branch !== null && !input.worktree) {
-            throw new VerbRefusal('branch-needs-worktree', '--branch names the branch of a worktree; add --worktree');
+    'agent.start': (input, call) => {
+        const claims = call.context.host.startClaims;
+        if (input.requestId === null || call.dryRun || claims === undefined) {
+            return startAgent(input, call);
         }
-        if (input.worktree && input.cwd !== null) {
-            throw new VerbRefusal('worktree-and-cwd', '--worktree and --cwd both say where the agent starts; give one of them');
-        }
-        if (input.beside !== null && input.group !== null) {
-            throw new VerbRefusal('two-places', '--beside and --group both say where the node goes; give one of them');
-        }
-        const readIds = readsOf(input.reads);
-        const hidden = input.viewId === null && place.canvasId === null;
-        if (hidden && (input.beside !== null || input.group !== null || readIds.length > 0)) {
-            throw new VerbRefusal('view-required', '--beside, --group and --reads place nodes or lines on a canvas; name one with --view');
-        }
-        if (hidden && host.hiddenAgents === undefined) {
-            throw new VerbRefusal('view-required', OPENING_OFF_CANVAS);
-        }
-        requireInstalled(await host.installedAgents(), kind);
-
-        // Everything that touches the disk or git runs before the lock, so a slow repository holds up no save.
-        const prompt = await startPrompt(input.prompt, input.promptFile, host, place.folder);
-        if (input.task !== null && prompt === null) {
-            throw new VerbRefusal('task-needs-prompt', '--task gives a task and the prompt is what it asks; add --prompt or --prompt-file');
-        }
-        if (input.task !== null && prompt !== null && prompt.length > MAX_TASK_PROMPT_LENGTH) {
-            throw new VerbRefusal(
-                'prompt-too-long',
-                `The prompt is ${prompt.length} characters and a task takes at most ${MAX_TASK_PROMPT_LENGTH}, since the child is also told how to report back; put the rest in a file and tell the agent to read it`
-            );
-        }
-        let cwd = input.cwd === null ? undefined : await checkCwd(place.folder, input.cwd, (folder) => host.worktreePaths(folder));
-        const runtimeMode = chat ? (input.mode ?? undefined) : terminalMode(caller, input.mode ?? undefined, ceiling);
-        const account = inheritedAccount(caller, kind);
-        let undoWorktrees = async (): Promise<void> => undefined;
-        if (input.worktree) {
-            await requireRepository(caller, place.folder);
-            if (!dryRun) {
-                const want = input.branch === null ? { fresh: branchSlug(input.task ?? input.title ?? kind) } : { branch: input.branch };
-                const made = await makeWorktrees(caller, { folder: place.folder, projectId: place.projectId }, [want]);
-                cwd = made.worktrees[0]!.path;
-                undoWorktrees = made.undo;
-            }
-        }
-
-        return host
-            .mutate<{ output: ActionOutput<'agent.start'>; operation?: { id: string; status: 'running' } }>(place.projectId, async (content) => {
-                // Counted again under the lock the last start wrote its node down in: a call at the same moment read the same count.
-                depthForOpening(caller, 'agent', 1);
-                if (input.task !== null) {
-                    requireChatParent(content, caller.caller, host.hiddenAgents?.get(caller.caller)?.node.kind);
-                }
-                const canvas = hidden ? null : canvasFor(content, place, input.viewId ?? undefined, OPENING_OFF_CANVAS);
-                if (canvas && canvas.nodes.length + 1 > MAX_CANVAS_NODES) {
-                    throw canvasFull(canvas, 1);
-                }
-                const anchor = input.beside === null ? undefined : canvas?.nodes.find((node) => node.id === input.beside);
-                if (canvas && input.beside !== null && !anchor) {
-                    throw refuseMissingNodes(content, [input.beside], canvas.id, 'the agent this opens has nothing there to stand beside', nodeLines(canvas));
-                }
-                const group = input.group === null ? undefined : canvas?.nodes.find((node) => node.id === input.group && node.kind === 'group');
-                if (canvas && input.group !== null && !group) {
-                    throw new VerbRefusal('unknown-group', `${input.group} is not a group on ${canvas.id}`, groupLines(canvas));
-                }
-                const read = canvas ? nodesNamed(content, canvas, readIds, { cannot: 'no line can run from it into the agent this opens' }) : [];
-
-                const size = NODE_SIZE[chat ? 'chat' : 'terminal'];
-                const self = canvas?.nodes.find((node) => node.id === caller.caller) ?? null;
-                const inGroup = group && canvas ? placeInGroup(group, groupMembers(group, canvas.nodes), size) : null;
-                const rect = inGroup?.rect ?? (anchor ? placeBeside(anchor, size) : canvas ? placeFree(canvas.nodes, size, self) : { x: 0, y: 0, ...size });
-                const kindName = chat ? ('chat' as const) : ('terminal' as const);
-
-                if (dryRun) {
-                    return {
-                        content: null,
-                        result: {
-                            output: {
-                                nodeId: NEW_NODE,
-                                kind: kindName,
-                                viewId: canvas?.id ?? null,
-                                provider: kind,
-                                edge: self ? { edgeId: null, from: self.id, to: NEW_NODE } : null,
-                                reads: read.map((node) => ({ edgeId: null, from: node.id, to: NEW_NODE })),
-                                taskId: null
-                            }
-                        }
-                    };
-                }
-
-                const id = newId(
-                    kindName,
-                    content,
-                    host.hiddenAgents?.inProject(place.projectId).map((agent) => agent.node.id)
-                );
-                const taken = [id];
-                const mint = (): string => {
-                    const fresh = newId('edge', content, taken);
-                    taken.push(fresh);
-                    return fresh;
-                };
-                const node = agentNode({
-                    id,
-                    chat,
-                    kind,
-                    title: input.title ?? input.task ?? undefined,
-                    rect,
-                    cwd,
-                    account,
-                    ...(runtimeMode === undefined ? {} : { runtimeMode })
-                });
-                const edge: ProjectEdge | null = self ? { id: mint(), from: self.id, to: id, label: 'context' } : null;
-                const reading: ProjectEdge[] = [];
-                const readLines = read.map((source) => {
-                    /* Your own line is the one drawn above: naming yourself in --reads is that line
-                       reported again, never a second one beside it. */
-                    const line = edge && edge.from === source.id ? edge : { id: mint(), from: source.id, to: id, label: 'context' };
-                    if (line !== edge) {
-                        reading.push(line);
-                    }
-                    return { edgeId: line.id, from: source.id, to: id };
-                });
-                const nodes = [
-                    ...(canvas?.nodes ?? []).map((candidate) => (group && candidate.id === group.id ? grownGroup(candidate, inGroup, id) : candidate)),
-                    node
-                ];
-                const output: ActionOutput<'agent.start'> = {
-                    nodeId: id,
-                    kind: kindName,
-                    viewId: canvas?.id ?? null,
-                    provider: kind,
-                    edge: edge ? { edgeId: edge.id, from: edge.from, to: edge.to } : null,
-                    reads: readLines,
-                    taskId: null
-                };
-
-                const start = async (): Promise<void> => {
-                    if (hidden) {
-                        await host.hiddenAgents!.put({ projectId: place.projectId, openedBy: caller.caller, node: { ...node, kind: kindName } });
-                    }
-                    await host.recordMade({ projectId: place.projectId, nodeId: id, openedBy: caller.caller, depth, agent: true, ceiling });
-                    if (input.worktree && cwd !== undefined) {
-                        await host.claimWorktree(place.folder, cwd, id);
-                    }
-                    // Before the agent starts, so a child that is done at once finds its task open.
-                    if (input.task !== null && prompt !== null) {
-                        const task = await host.tasks.open({
-                            projectId: place.projectId,
-                            parentId: caller.caller,
-                            childId: id,
-                            title: input.task,
-                            prompt
-                        });
-                        output.taskId = task.id;
-                    }
-                    if (prompt !== null) {
-                        await host.holdPrompt(place.projectId, id, input.task === null ? prompt : `${prompt}${taskBrief(chat)}`);
-                    }
-                    await host.startAgent({
-                        projectId: place.projectId,
-                        nodeId: id,
-                        openedBy: caller.caller,
-                        node: kindName,
-                        provider: kind,
-                        ...(selection ? { selection } : {}),
-                        cwd: cwd ?? place.folder,
-                        ...(runtimeMode === undefined ? {} : { runtimeMode }),
-                        ...(account === undefined ? {} : { account })
-                    });
-                };
-                if (hidden) {
-                    await start();
-                }
-                return {
-                    landed: hidden ? undefined : start,
-                    content: canvas
-                        ? {
-                              ...content,
-                              views: content.views.map((view) =>
-                                  view.id === canvas.id ? { ...canvas, nodes, edges: [...canvas.edges, ...(edge ? [edge] : []), ...reading] } : view
-                              )
-                          }
-                        : null,
-                    // Started is not done: the outbox starts the agent, and its task or its first turn says how it went.
-                    result: { output, operation: { id: operationIdOf('agent.start', [id]), status: 'running' } }
-                };
-            })
-            .catch(async (e: unknown) => {
-                await undoWorktrees();
-                throw e;
-            });
+        const claim = { actor: call.actor, requestId: input.requestId, inputHash: startInputHash(call.context.place.projectId, input) };
+        return claims.run(claim, async () => await startAgent(input, call));
     },
     'team.start': async (input, call) => {
         const { context, dryRun = false } = call;

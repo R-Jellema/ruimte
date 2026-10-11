@@ -45,6 +45,7 @@ const AGENT_DETAIL: readonly string[] = [
     ...DEPTH_LIMIT_LINES,
     ...MODE_LINES,
     ...WORKTREE_LINES,
+    'retry\t--request-id R: the same id with the same command answers with the node, task and worktree the first call made, also after the machine restarted; another command under the same id is refused',
     'operation\tStarting is not succeeding: ruimte-context operation get agent.start:<id> says whether the agent is queued, running, completed, failed or cancelled, from its task when it has one',
     'note\tThe machine starts the node right away, whether or not anyone has its canvas open; a client that shows it later joins what runs'
 ];
@@ -52,7 +53,7 @@ const AGENT_DETAIL: readonly string[] = [
 export const agentVerb = defineStandaloneActionVerb({
     name: 'agent',
     action: 'agent.start',
-    usage: `<${AGENT_KINDS.join('|')}> [--terminal] [--prompt T | --prompt-file F] [--cwd P] [--reads A,B] [--view V] [--beside N] [--group G] [--title T] [--task T] [--model M] [--mode M] [--worktree [--branch B]] [--dry-run]`,
+    usage: `<${AGENT_KINDS.join('|')}> [--terminal] [--prompt T | --prompt-file F] [--cwd P] [--reads A,B] [--view V] [--beside N] [--group G] [--title T] [--task T] [--model M] [--mode M] [--worktree [--branch B]] [--request-id R] [--dry-run]`,
     params: [
         { syntax: '<cli>', need: 'required', field: 'provider', text: AGENT_KINDS.join(', ') },
         {
@@ -105,6 +106,12 @@ export const agentVerb = defineStandaloneActionVerb({
             text: 'With --worktree: the branch to use instead of one named after the task or the title; an existing branch is checked out as it is'
         },
         {
+            syntax: '--request-id R',
+            need: 'optional',
+            field: 'requestId',
+            text: 'An id of your choosing, 1 to 128 characters of letters, digits and . _ : -; a retry with the same id and the same command answers with what the first call made'
+        },
+        {
             syntax: '--dry-run',
             need: 'no value',
             text: `Checks everything and makes nothing; the first field is dry-run and the last names the edge it would draw, as <from> -> <new node>; ${DRY_RUN_PREVIEW}`
@@ -128,7 +135,11 @@ export const agentVerb = defineStandaloneActionVerb({
         task: titleField('--task', '--task needs the title of the task').optional(),
         mode: modeFlag,
         model: modelFlag,
-        branch: z.string().min(1, '--branch needs the name of a branch').optional()
+        branch: z.string().min(1, '--branch needs the name of a branch').optional(),
+        'request-id': z
+            .string()
+            .regex(/^[A-Za-z0-9._:-]{1,128}$/, '--request-id takes 1 to 128 characters of letters, digits and . _ : -')
+            .optional()
     }),
     async run({ positionals: [kind], flags, switches, dryRun }, call) {
         const started = await runAction(
@@ -149,7 +160,8 @@ export const agentVerb = defineStandaloneActionVerb({
                 model: flags.model ?? null,
                 mode: flags.mode ?? null,
                 worktree: switches.has('worktree'),
-                branch: flags.branch ?? null
+                branch: flags.branch ?? null,
+                requestId: flags['request-id'] ?? null
             },
             dryRun
         );
