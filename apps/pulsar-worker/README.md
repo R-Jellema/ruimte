@@ -11,99 +11,76 @@ in `packages/pulsar/src/statement-key.ts`. The wire shapes live in `packages/pul
 
 ## Routes
 
-| Route                                      | What                                                                                       |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `GET /health`                              | The public statement key the Worker signs with and which providers work                    |
-| `GET /auth/<provider>/start`               | Opened by the app in the system browser; `link` adds the provider to the signed-in account |
-| `GET /auth/github/callback`                | Where GitHub sends the browser back                                                        |
-| `POST /auth/apple/callback`                | Where Apple posts the browser back (`response_mode=form_post`)                             |
-| `POST /v1/apple/start`                     | Native Apple sign-in attempt and nonce, bound to the app's PKCE challenge                  |
-| `POST /v1/apple/complete`                  | Apple credentials become a one-time code for the standard session exchange                 |
-| `POST /v1/session`                         | The one-time code, the PKCE verifier and the key the session is bound to                   |
-| `POST /v1/session/refresh`                 | A new access and refresh token, signed with the session key                                |
-| `DELETE /v1/session`                       | Sign out                                                                                   |
-| `GET /v1/providers`                        | The providers that are configured, so a client only offers those                           |
-| `GET /v1/models/benchmarks`                | Model indices, costs and output speed per effort, for the model comparison                 |
-| `GET /v1/models/catalog`                   | The shipped model catalogs per agent kind, for a machine to pick up a new model            |
-| `GET /v1/account`                          | The account and its identities                                                             |
-| `DELETE /v1/account`                       | Delete the account and everything bound to it, with the typed name and an Apple code       |
-| `POST /v1/account/link`                    | A single-use link token for the start URL, bound to this session                           |
-| `POST /v1/account/identities`              | The code of a link login with its verifier, from the same session                          |
-| `DELETE /v1/account/identities/<provider>` | Remove an identity; the last one is refused                                                |
-| `GET /v1/machines`                         | The machines on this account, and the ids a person removed from it                         |
-| `POST /v1/machines`                        | Register a machine with the daemon's signature; `automatic` skips a removed one            |
-| `DELETE /v1/machines/<id>`                 | Take a machine off the list and remember that it was removed                               |
-| `POST /v1/statements`                      | A signed statement for one machine and one client key, two minutes                         |
+| Route | What |
+| --- | --- |
+| `GET /health` | The public statement key the Worker signs with and which providers work |
+| `GET /.well-known/apple-developer-domain-association.txt` | The file in `APPLE_DOMAIN_ASSOCIATION`, while that secret is set |
+| `GET /auth/<provider>/start` | Opened by the app in the system browser; `link` adds the provider to the signed-in account |
+| `GET /auth/github/callback` | Where GitHub sends the browser back |
+| `POST /auth/apple/callback` | Where Apple posts the browser back (`response_mode=form_post`) |
+| `POST /v1/apple/start` | Native Apple sign-in attempt and nonce, bound to the app's PKCE challenge |
+| `POST /v1/apple/complete` | Apple credentials become a one-time code for the standard session exchange |
+| `POST /v1/session` | The one-time code, the PKCE verifier and the key the session is bound to |
+| `POST /v1/session/refresh` | A new access and refresh token, signed with the session key |
+| `DELETE /v1/session` | Sign out |
+| `GET /v1/providers` | The providers that are configured, so a client only offers those |
+| `GET /v1/models/benchmarks` | Model indices, costs and output speed per effort, for the model comparison |
+| `GET /v1/models/catalog` | The shipped model catalogs per agent kind, for a machine to pick up a new model |
+| `GET /v1/account` | The account and its identities |
+| `DELETE /v1/account` | Delete the account and everything bound to it, with the typed name and an Apple code |
+| `POST /v1/account/link` | A single-use link token for the start URL, bound to this session |
+| `POST /v1/account/identities` | The code of a link login with its verifier, from the same session |
+| `DELETE /v1/account/identities/<provider>` | Remove an identity; the last one is refused |
+| `GET /v1/machines` | The machines on this account, and the ids a person removed from it |
+| `POST /v1/machines` | Register a machine with the daemon's signature; `automatic` skips a removed one |
+| `DELETE /v1/machines/<id>` | Take a machine off the list and remember that it was removed |
+| `POST /v1/statements` | A signed statement for one machine and one client key, two minutes |
+| `POST /v1/device/start`, `poll`, `complete`, `cancel` | The machine's side of a device link (`ruimte login`) |
+| `POST /v1/device/lookup`, `approve`, `deny` | The person's side, from the link page (`DEVICE_LINK_PAGE_URL`) |
+| `POST /v1/push/devices` | Register a device's APNs token for this session |
+| `DELETE /v1/push/devices/<handle>` | Remove that device |
+| `PUT /v1/push/devices/<handle>/activities` | Its Live Activity update tokens |
+| `PUT /v1/push/devices/<handle>/start-activity` | Its Live Activity push-to-start token |
+| `POST /v1/push` | A signed, encrypted push from a machine, relayed to APNs (`APNS.md`) |
+| `POST /internal/benchmarks/refresh` | The benchmark refresh after a deploy, with a one-time bearer |
 
 ## The account
 
-An account (`AccountSchema` in `packages/pulsar`) is its `id`, the `provider` and `login` of the identity it
-is shown as (the oldest with a login, else the oldest), and a `displayName`. Each identity carries its own
-`displayName` too: the person's name at the provider, or `null`. The account's `displayName` is that of the
-identity it is shown as, and when that one has none, of the first identity in the same order that has one.
-A client from before names ignores the field, and one reading an older Worker finds it missing.
-
-GitHub hands the public name of the profile to every sign-in and link, so a rename on GitHub follows at the
-next one. Apple sends the name only on the first authorization of an Apple ID for this app: on the web as
-the `user` field of its form post, native as the credential's `fullName`, which the app may pass on as
-`displayName` to `/v1/apple/complete` (the iOS app asks for no scope and sends none yet). Neither is
-signed, but each arrives with the id_token that proves the identity it names. A sign-in without a name keeps the stored one; to have Apple send it again, stop using
-Sign in with Apple for Ruimte in the Apple ID settings and sign in once more. A name has its control
-characters and runs of whitespace folded and is cut at 100 characters. Migration `0013_display_name.sql`
-adds the nullable columns, so the Worker still running while it applies keeps working.
+An account (`AccountSchema` in `packages/pulsar`) is shown as one of its identities: the oldest with a login,
+else the oldest. Its `displayName` is that identity's name at the provider, else the first identity in the same
+order that has one. GitHub hands the profile's public name to every sign-in, so a rename follows at the next
+one. Apple sends the name only on the first authorization of an Apple ID for this app: the `user` field of the
+web form post, or the native credential's `fullName`, which the iOS app asks for and passes on as
+`displayName` to `/v1/apple/complete`. A sign-in without a name keeps the stored one. A name has its control
+characters and runs of whitespace folded and is cut at 100 characters.
 
 ## Deleting an account
 
-`DELETE /v1/account` takes `AccountDeletePayloadSchema` (`{ confirmation, appleAuthorizationCode? }`) with a live
-access token and answers 204. `confirmation` is what the person typed: the name `accountConfirmationName` in
-`packages/pulsar` gives (the account's `displayName`, else its `login`, else the fixed word `DELETE`, never
-translated), compared ignoring case and runs of whitespace. A mismatch is `confirmation-mismatch` (400) and deletes
-nothing. It is limited to five tries a minute per account, and shares the per-address window of the session routes.
+`DELETE /v1/account` takes `{ confirmation, appleAuthorizationCode? }` (`AccountDeletePayloadSchema`) and answers
+204. `confirmation` must match `accountConfirmationName` in `packages/pulsar` (the `displayName`, else the
+`login`, else the untranslated word `DELETE`), ignoring case and runs of whitespace; a mismatch is
+`confirmation-mismatch` (400). It allows five tries a minute per account. One batch deletes every row bound to
+the account, so a later sign-in with one of its identities opens a new account.
 
-One batch deletes every row bound to the account: its sessions on every device, its identities (so a later
-sign-in with one of them opens a new account), its machines and the removals it remembered, the devices and the
-statement log, push devices with their activities, receipts and pending starts, and whatever a sign-in, a link
-or a device link left half done. The rate limit windows keyed on it go with the daily cleanup.
+A machine leaves the account by its row going, and is not told. It keeps the account in its own `auth.json`, no
+statement for that account can be signed any more, and it takes another account only once a person on it
+leaves the first. The desktop app takes its own machine off right after a deletion, with the local secret.
 
-A machine leaves the account by its row going, so another account may list its key afterwards. The machine
-itself is not told: it keeps the account it signed for in its own `auth.json`, no statement for that account can
-be signed any more, and it takes another account only once a person on it leaves the first
-(`apps/server/README.md`, "One account per machine"). A client a statement already let in keeps its access to
-the machine until then. The desktop app takes its own machine off right after a deletion, with the local secret.
-
-### Revoking Sign in with Apple
-
-Apple asks an app that deletes an account made with Sign in with Apple to revoke the user's tokens. This Worker
-drops Apple's tokens at sign-in, so the iOS app brings a fresh one:
-
-1. Right before deleting, the app runs `ASAuthorizationAppleIDProvider` for the Apple ID on the account (no
-   scope, no nonce needed) and takes the credential's `authorizationCode`.
-2. It sends that as `appleAuthorizationCode` beside `confirmation` within the five minutes the code lives.
-3. The Worker trades it at `/auth/token` as `APPLE_NATIVE_CLIENT_ID` without a `redirect_uri`, checks the
-   id_token's signature, issuer, audience and expiry, and that its subject is the account's Apple identity. It
-   then posts the refresh token to `/auth/revoke` (`token_type_hint=refresh_token`), with the same client secret
-   it signs logins with. No new secret is needed.
-
-Only once Apple answers 200 does the account go. A code for another Apple ID, or one sent for an account without
-an Apple identity, is `bad-request`; Apple refusing the code or the revocation is `apple-revocation-failed` (502).
-Either way nothing is deleted, so the app asks for a new code and tries again. The desktop sends no code: a
-person deleting there ends Sign in with Apple in the Apple ID settings themselves.
+Apple asks an app that deletes a Sign in with Apple account to revoke the user's tokens. This Worker drops
+Apple's tokens at sign-in, so the iOS app asks for a fresh authorization right before deleting and sends its
+code as `appleAuthorizationCode`. The Worker trades it at `/auth/token` as `APPLE_NATIVE_CLIENT_ID`, checks
+that the id_token's subject is the account's Apple identity, and posts the refresh token to `/auth/revoke`.
+Only once Apple answers 200 does the account go; otherwise the answer is `bad-request` or
+`apple-revocation-failed` (502) and nothing is deleted. The desktop sends no code: a person deleting there ends
+Sign in with Apple in the Apple ID settings.
 
 ## Statements and the one account of a machine
 
-A statement (`POST /v1/statements`) carries two signatures with the statement key. `signature` is over
-`accessStatementMessage`: the machine id, the client key, the nonce and the times, which is all a daemon
-from before v2 reads. `accountSignature` is over `accessStatementV2Message`, which adds the key this
-account's row lists the machine with (`machinePublicKey`) and the account (`accountId`). A machine id is
-no secret, so a second account can list the same id under a key of its own; the v2 statement it gets
-names that key, and the machine refuses a statement that does not name its own key. A daemon from 0.13
-refuses one without the v2 fields, and a machine bound to an account one for another account
-(`apps/server/README.md`).
-
-A machine is on one account at a time and only moves itself, so `POST /v1/machines` and a device link
-refuse a machine key that another account lists with `machine-on-other-account` (409). A row an account
-already holds for that key keeps updating, so two accounts that listed one machine before this rule keep
-it; nothing is thrown away. A person removes the machine from the other account first.
+A statement (`POST /v1/statements`) carries `signature` over `accessStatementMessage` and `accountSignature`
+over `accessStatementV2Message`, which adds the key the account lists the machine with and the account.
+`POST /v1/machines` and a device link refuse a machine key another account lists with
+`machine-on-other-account` (409). What a machine accepts is in
+[`apps/server/README.md`](../server/README.md#one-account-per-machine).
 
 ## Local dev
 
@@ -127,14 +104,19 @@ APPLE_CLIENT_ID=...
 APPLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----..."
 # Optional. Without it `/v1/models/benchmarks` answers 503 `not-configured`.
 ARTIFICIAL_ANALYSIS_API_KEY=...
+# Optional. Served at /.well-known/apple-developer-domain-association.txt when set.
+APPLE_DOMAIN_ASSOCIATION=...
+# Optional. The page a person approves a machine's code on; defaults to https://station.ruimte.app/link.
+DEVICE_LINK_PAGE_URL=http://localhost:5173/link
 PUBLIC_ORIGIN=http://localhost:8787
 ```
+
+The APNs secrets (`APNS_SANDBOX_KEY`, `APNS_PRODUCTION_KEY` and their key ids) are in [`APNS.md`](APNS.md).
 
 A GitHub OAuth app for local dev needs `http://localhost:8787/auth/github/callback` as its callback,
 so use a second app rather than changing the production one.
 
-Tests run the bundled Worker in workerd through Miniflare, on an in-memory D1 with GitHub and Apple mocked
-(Apple's token endpoint and keys answer from the test, with a throwaway .p8 and signing key):
+Tests run the bundled Worker in workerd through Miniflare, on an in-memory D1 with GitHub and Apple mocked:
 
 ```sh
 bun test                         # in apps/pulsar-worker
@@ -163,14 +145,8 @@ bun run deploy                   # remote migrations, deploy, then refresh the b
 ```
 
 A migration is a new numbered file in `migrations/`, committed with the code that reads it. Migrations
-run before the new Worker is live, so a migration must keep the Worker that is still running working;
-`0002_machine_broker.sql` adds `broker_url` as a nullable column for that reason, and `0003_session_key.sql`
-adds `session_key` the same way: the new Worker refuses to refresh a session without a key, so every session
-from before the binding signs in again.
-
-Migration `0005_identity.sql` copies every account's provider and subject into the new `identity` table and
-leaves the columns on `account` for the Worker still running while it applies. A GitHub account made by that
-Worker in the seconds before the deploy gets its identity on its next sign-in.
+run before the new Worker is live, so a migration must keep the Worker that is still running working: add
+nullable columns and new tables, and leave old columns in place until no running Worker reads them.
 
 A login may only come back to the redirects `isAppRedirectUri` in `packages/pulsar` allows: the app scheme, a
 loopback listener, `https://station.ruimte.app/pulsar/callback` and the Vite dev origin. `ALLOWED_ORIGINS` in
@@ -178,16 +154,19 @@ loopback listener, `https://station.ruimte.app/pulsar/callback` and the Vite dev
 
 ## Secrets
 
-| Secret                        | What                                                          |
-| ----------------------------- | ------------------------------------------------------------- |
-| `STATEMENT_PRIVATE_KEY`       | The private half of the statement key, pkcs8 DER in base64url |
-| `GITHUB_CLIENT_ID`            | From the GitHub OAuth app                                     |
-| `GITHUB_CLIENT_SECRET`        | From the GitHub OAuth app                                     |
-| `APPLE_TEAM_ID`               | The team id of the Apple Developer account, ten characters    |
-| `APPLE_KEY_ID`                | The id of the Sign in with Apple key, ten characters          |
-| `APPLE_PRIVATE_KEY`           | The whole `.p8` file of that key, armor lines included        |
-| `APPLE_CLIENT_ID`             | The Services ID, `app.ruimte.pulsar`                          |
-| `ARTIFICIAL_ANALYSIS_API_KEY` | The key of the free Data API of Artificial Analysis           |
+| Secret | What |
+| --- | --- |
+| `STATEMENT_PRIVATE_KEY` | The private half of the statement key, pkcs8 DER in base64url |
+| `GITHUB_CLIENT_ID` | From the GitHub OAuth app |
+| `GITHUB_CLIENT_SECRET` | From the GitHub OAuth app |
+| `APPLE_TEAM_ID` | The team id of the Apple Developer account, ten characters |
+| `APPLE_KEY_ID` | The id of the Sign in with Apple key, ten characters |
+| `APPLE_PRIVATE_KEY` | The whole `.p8` file of that key, armor lines included |
+| `APPLE_CLIENT_ID` | The Services ID, `app.ruimte.pulsar` |
+| `ARTIFICIAL_ANALYSIS_API_KEY` | The key of the free Data API of Artificial Analysis |
+| `APPLE_DOMAIN_ASSOCIATION` | Optional, the domain verification file Apple hands out |
+| `DEVICE_LINK_PAGE_URL` | Optional, the device link page when it is not the station's |
+| `APNS_*` | The APNs keys per environment, see [`APNS.md`](APNS.md) |
 
 ```sh
 cd apps/pulsar-worker
@@ -200,11 +179,9 @@ bunx wrangler secret put APPLE_PRIVATE_KEY < ~/.private/AuthKey_XXXXXXXXXX.p8
 bunx wrangler secret put ARTIFICIAL_ANALYSIS_API_KEY
 ```
 
-Without the GitHub pair, `/auth/github/start` answers `503` with `not-configured` and `/health` says
-`"github": false`. Apple is the same with any of its four missing: `/health` says `"apple": false`,
-`/v1/providers` leaves it out, and the clients draw no Apple button, so the Worker deploys safely before the
-secrets exist. The private statement key is also kept in `~/.private/ruimte.secrets.env` as
-`PULSAR_STATEMENT_PRIVATE_KEY`.
+A provider whose secrets are missing answers `503` with `not-configured`, reads `false` in `/health` and stays
+out of `/v1/providers`, so the Worker deploys safely before the secrets exist. The private statement key is also
+kept in `~/.private/ruimte.secrets.env` as `PULSAR_STATEMENT_PRIVATE_KEY`.
 
 ## Model catalogs
 
@@ -217,42 +194,21 @@ could not read goes on a new route, never on this one.
 
 ## Model benchmarks
 
-`GET /v1/models/benchmarks` is public and feeds the model comparison in the app. The Worker reads the free
-Data API of Artificial Analysis (`GET /api/v2/language/models/free`, the key in `x-api-key`, 200 models
-a page, `page` from 1 while `has_more`, at most ten pages) every three hours, so four pages cost 32 of the
-100 requests a day. It keeps one snapshot in D1 with model metadata, Intelligence, Coding and Agentic
-indices, cost per task, total benchmark cost and median output tokens per second. Missing values stay
-absent; a model with a score but no cost still appears in the index charts. Token counts and time per
-benchmark task are not available on Free and are not inferred from output speed.
+`GET /v1/models/benchmarks` is public and feeds the model comparison. Every three hours the Worker reads the
+free Data API of Artificial Analysis (`GET /api/v2/language/models/free`, 200 models a page, at most ten pages),
+so four pages cost 32 of the 100 requests a day. It keeps one snapshot in D1. Missing values stay absent and are
+never inferred, and a failed, malformed, truncated or mixed-version fetch keeps the previous snapshot. Without
+the key the route answers `503` with `not-configured`, and before the first refresh with `no-benchmarks`.
 
-The optional `measurements` and `intelligenceIndexVersion` fields extend the response. `models.points`
-still contains complete Intelligence/cost pairs for older clients, and a cache created before migration
-`0015_benchmark_measurements.sql` remains readable. Apply the migration before deploying this Worker;
-the refresh after the deploy fills the new fields. A failed, malformed, truncated or mixed-version
-fetch keeps the previous snapshot. Unrelated source fields are neither stored nor returned. Without the key
-the route answers `503` with `not-configured`; before the first successful refresh it answers `503` with
-`no-benchmarks`.
-
-Which model of Artificial Analysis stands for which model and effort of Ruimte is `src/benchmark-models.ts`,
-looked up by id. A new model is a row there and a deploy of this Worker, not a release of the app.
-`X-RateLimit-Remaining` and `X-RateLimit-Reset` on an answer say how much of the day is left.
+Which Artificial Analysis model stands for which Ruimte model and effort is `src/benchmark-models.ts`, so a new
+model is a row there and a deploy of this Worker, not a release of the app.
 
 ### Refresh after deployment
 
-`bun run deploy` uses `scripts/deploy-pulsar-worker.ts`. After applying migrations, it generates a
-random bearer token, deploys only its SHA-256 digest and a 15-minute expiry as Worker bindings, then
-calls `POST /internal/benchmarks/refresh`. The bearer stays in the deploy process and is never passed
-to Wrangler or printed. No additional GitHub secret is needed; the Artificial Analysis key stays in
-the Worker. While the deployment reaches Cloudflare's edges, the script waits up to 55 seconds for
-an old version's `404` or `401` to clear. Those requests never reach Artificial Analysis. Other errors
-are not retried because the refresh may already have consumed quota.
-
-The route validates the token and consumes it atomically before fetching, also when the upstream
-request fails. Repeated or concurrent calls cannot spend the Free quota again. The response confirms
-the new snapshot only after D1 has stored it. A failed refresh fails the deployment job while retaining
-the previous snapshot; it does not undo the deployed Worker. The three-hour schedule continues, and
-each deploy uses one additional paginated fetch from the daily Free allowance. The existing daily
-rate-limit cleanup removes expired deployment claims.
+`bun run deploy` (`scripts/deploy-pulsar-worker.ts`) deploys the SHA-256 digest of a random bearer with a
+15-minute expiry and then calls `POST /internal/benchmarks/refresh`; the bearer never leaves the deploy process.
+The route consumes the token before it fetches, so a repeat cannot spend the Free quota twice, and a failed
+refresh fails the job but keeps the previous snapshot and the deployed Worker.
 
 ## The GitHub OAuth app
 
@@ -287,35 +243,19 @@ asks to verify the domain, put the file it hands out in the `APPLE_DOMAIN_ASSOCI
 
 ### Native iOS sign-in
 
-The iOS app uses Apple's system authorization sheet. It sends a PKCE challenge to `/v1/apple/start`,
-then passes the returned nonce unchanged to `ASAuthorizationAppleIDRequest`. The attempt expires after
-ten minutes. `/v1/apple/complete` spends it atomically before verifying the identity token and exchanging
-the authorization code with Apple. Both identity tokens must have Apple's signature, the native audience,
-the same subject and the attempt's nonce. Expired tokens and attempts are refused.
+The iOS app sends a PKCE challenge to `/v1/apple/start` and passes the returned nonce unchanged to
+`ASAuthorizationAppleIDRequest`. `/v1/apple/complete` spends the attempt (ten minutes) atomically before it
+verifies the identity token and exchanges the authorization code. Both identity tokens must carry Apple's
+signature, the native audience, the same subject and the attempt's nonce. The native audience is
+`APPLE_NATIVE_CLIENT_ID` (`app.ruimte.mobile`) in `packages/pulsar`, the web route keeps the Services ID, and
+because the Services ID is grouped under that primary App ID both resolve to the same account. A completion
+returns a login code valid for sixty seconds, which the app exchanges at `/v1/session` with its PKCE verifier,
+the `ruimte://pulsar/callback` redirect value and its device key. The Worker never stores Apple's tokens.
 
-The native audience and client-secret subject are fixed to `app.ruimte.mobile` through
-`APPLE_NATIVE_CLIENT_ID` in `packages/pulsar`. The native token request has no `redirect_uri`.
-The web route keeps `APPLE_CLIENT_ID`, the Services ID. Because that Services ID is grouped under the
-same primary App ID, native and web Apple identities resolve to the same Ruimte account.
-
-A successful completion returns a login code valid for sixty seconds. The app exchanges it at
-`/v1/session` with its original PKCE verifier, the existing `ruimte://pulsar/callback` redirect value and
-a signature from its device session key. This redirect value binds the exchange; native login opens no
-browser or callback URL. Both native routes share the existing login IP rate limit. They never store
-Apple identity, access or refresh tokens.
-
-Apply migration `0007_native_apple.sql` before deploying this Worker. It only adds the attempt table and
-its expiry index, so the previous Worker can keep serving requests during migration. The daily cleanup
-removes unused expired attempts. Existing Apple configuration needs no new secrets: native login uses
-`APPLE_TEAM_ID`, `APPLE_KEY_ID` and `APPLE_PRIVATE_KEY`, with the key authorized for the primary App ID
-`app.ruimte.mobile`. The iOS app needs the matching Sign in with Apple capability and provisioning profile.
-Until this Worker is deployed, the two native routes return `404` from the previous version. With missing
-Apple signing credentials, the new Worker returns `503` with `not-configured`.
-
-The tests mock Apple's public keys and token endpoint with throwaway signing keys and run the routes
-against real D1 through Miniflare. They cover native and web account consistency, one-time consumption,
-wrong signatures, audiences and nonces, mismatched subjects, expiry, rate limits and the final signed
-session exchange. Provisioned-device authorization against Apple still requires a configured deployment.
+Native login needs no secrets beyond `APPLE_TEAM_ID`, `APPLE_KEY_ID` and `APPLE_PRIVATE_KEY`, with the key
+authorized for the primary App ID `app.ruimte.mobile`. The iOS app needs the matching Sign in with Apple
+capability and provisioning profile. Without the signing credentials, both native routes answer `503` with
+`not-configured`.
 
 A key stays valid until it is revoked; a new key means a new `APPLE_KEY_ID` and `APPLE_PRIVATE_KEY`.
 Apple documents native code exchange in [Token validation](https://developer.apple.com/documentation/signinwithapplerestapi/generate-and-validate-tokens).

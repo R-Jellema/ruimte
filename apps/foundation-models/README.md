@@ -13,10 +13,10 @@ Requirements: Apple silicon, macOS 26.4 or later, Apple Intelligence enabled and
 model available. Ruimte probes availability; it does not change Apple settings or
 force model downloads.
 
-Enable **Settings → Providers → Apple Foundation Models** on the machine running
-the chat. The machine setting is off by default. Disabling it withdraws requests
+Turn on Apple Foundation Models under **Settings > Agents** for the machine running
+the chat. The machine setting is off by default. Turning it off withdraws requests
 and ends running Apple helpers. Select Apple Foundation Models in a chat's
-provider picker. The former experimental environment flag does not enable it.
+provider picker.
 
 For a development checkout:
 
@@ -96,10 +96,9 @@ state before trying again.
 | `AskUserQuestion` | Ask a question with optional choices and await the answer |
 
 The model and chat cards use these names. They follow Claude's naming where the
-operations overlap, but retain the behavior listed here: `Grep` is literal search,
-`Write` creates only, and `ListFiles` lists one directory. The private helper
-protocol keeps its tool identifiers. Protocol version 3 distinguishes recoverable edit validation from terminal errors;
-an older helper is refused at startup so it cannot misinterpret an outcome.
+operations overlap, but keep the behavior listed here: `Grep` is literal search,
+`Write` creates only, and `ListFiles` lists one directory. The helper protocol keeps
+its own tool identifiers.
 
 File tools accept project-relative paths and reject parent traversal, symlinks,
 hidden state and common credential filenames. `.gitignore`, `.gitattributes` and
@@ -209,9 +208,8 @@ tasks when needed.
 The provider does not load linked nodes, attachments, skills or mentioned files
 automatically. There is no agent delegation, durable background task queue,
 cross-chat searchable memory, native fork, thinking stream or cloud fallback.
-Model quality remains separate from runtime correctness. Our workday evaluation
-still catches premature questions, and the user's latest fixture had a created
-reply but an unchanged planning file and an unresolved meeting-time conflict.
+Model quality is separate from runtime correctness; `docs/ACCEPTANCE.md` lists the
+model-quality checks that are still open.
 
 ## Streaming performance
 
@@ -228,10 +226,7 @@ bun apps/foundation-models/stream-benchmark.ts
 
 This measures time to first text, streamed characters per second, and delay from
 the helper's stdout to backend text events. It does not measure network or browser
-rendering. On this Mac, three runs after the naming update took 2.2 to 3.1 seconds
-to first text, then 187 to 246 characters per second. The maximum measured bridge
-delay was 1.02 ms. There was no clear speedup over the preceding run. These are
-single-session observations, not token throughput or performance guarantees.
+rendering, and one session is an observation, not a guarantee.
 
 Apple documents [session prewarming](https://developer.apple.com/documentation/foundationmodels/languagemodelsession/prewarm(promptprefix:)).
 
@@ -261,74 +256,40 @@ RUIMTE_TEST_NATIVE_APPLE=1 swift test --package-path apps/foundation-models \
 ```
 
 It seeds completed conversation facts, runs the actual local summarizer, verifies
-the original saved history, restores the helper and asks for facts from the summary.
-The deterministic tests separately exercise refusal, cancellation, budgets, late
-replies, checkpoint compatibility, crash markers, atomic size failures and complete
-tool exchanges. The native test remains sensitive to model quality. The separate
-`nativeCompactionHandlesSchemaHeavyHistory` test covers the regression where native
-checkpoint JSON exceeded the summarizer budget. Its source dropped from 7522 to
-632 tokens by excluding repeated response schemas and identifiers, while keeping
-all 24 original exchanges on disk.
+the saved history, restores the helper and asks for facts from the summary. It stays
+sensitive to model quality. Recorded runs are in [`verification.json`](verification.json).
 
-Current verification: 115 focused backend/tool tests pass, and workspace checks
-pass. Natural-language questions, cancellation and final denial pass in the
-workflow smoke. Visible tests through Ruimte computer use in Ruimte Dev reproduced premature
-clarification, an invalid Edit match, and a native Edit argument missing its path.
-The targeted Edit recovery test passed: a rejected match, a fresh Read, then a
-successful exact replacement verified on disk. The complete workday evaluation
-is still not passing. The latest long native smoke failed on a memory answer, so the
-full long-running scenario is not claimed as passing. See the
-[recorded evidence](verification.json).
+The real-model smoke creates temporary project fixtures and a separate state folder,
+approves only its scripted fixture operations and removes its state afterward. `--trim`
+also checks retention after automatic summarization. It uses no cloud keys; network
+and MCP behavior is tested with controlled fixtures.
 
-The real-model smoke creates temporary project fixtures and a separate state
-folder. It exercises memory, file listing, reading, search, editing, new-file
-creation, a `printf` command, questions, denied reads, cancellation, native resume
-and manual summarization. It approves only its scripted fixture operations and removes
-its temporary state. `--trim` additionally checks retention after automatic
-context summarization. Network/MCP behavior is tested separately with controlled
-fixtures; the real-model smoke uses no cloud keys.
-
-Apple's local model service requires XPC access. A command sandbox may permit the
-availability probe but reject generation. Run this smoke outside that command
-sandbox. In a restricted build environment, Swift may need:
+Apple's local model service needs XPC access. A command sandbox may permit the
+availability probe but reject generation, so run the smoke outside it. In a restricted
+build environment, Swift may need:
 
 ```sh
 CLANG_MODULE_CACHE_PATH=/private/tmp/ruimte-foundation-clang \
   swift test --disable-sandbox --package-path apps/foundation-models
 ```
 
-Measured September 25, 2026 on macOS 27.2 build 26B5086k, Swift 6.4, macOS 27 SDK
-and Apple silicon. The deployment target is macOS 26.4; that version has not been
-run here. The model reported an 8192-token context. Instructions, eleven tool
-definitions and the structured response schema consume part of that context.
-The helper reports instruction and tool token counts at startup; those counts
-change as instructions evolve and exclude the per-response schema.
+The model's context is small (8192 tokens on macOS 27), and the instructions, tool
+definitions and response schema take part of it. The helper reports instruction and
+tool token counts at startup.
 
-The following timings are from earlier runs, before structured question routing.
-They are historical; current evidence is recorded above.
+## Protocol
 
-| Real-model check | Earlier observed result | Time |
-| --- | --- | --- |
-| Follow-up memory | Returns `LANTERN-73` from an earlier turn | 1416 ms |
-| Literal search | Finds `notes.txt` | 2568 ms |
-| Exact edit | Replaces violet with green in the fixture | 3125 ms |
-| New file | Creates `greeting.txt` with verified text | 3102 ms |
-| Command | Approved `printf` returns `command-ok` | 3101 ms |
-| Question | Question card answered Blue; model repeats Blue | 3174 ms |
-| Denied read | Model acknowledges refusal | 2382 ms |
-| Stop | Tool approval withdrawn; turn aborted; checkpoint restored | 2407 ms |
-| Native restart | New helper recalls saved `CYPRESS-19` | 2820 ms |
-| Manual trim | Removes ten old turns and retains the latest two | Completed |
+The transport is JSONL on stdin and stdout, with schemas in
+`packages/contracts/src/apple-foundation.ts`; Swift mirrors those frames. Stdout carries
+protocol only. The helper reports a protocol version, and the daemon refuses an older
+helper at startup so it cannot misread whether an edit failure is recoverable or
+terminal. Input frames are capped at 64 KiB. Cumulative Apple text snapshots become
+suffix deltas or replacements.
 
-These are individual runs with immediate scripted approval, not latency guarantees.
-The transport is JSONL with schemas in `packages/contracts/src/apple-foundation.ts`.
-Swift mirrors those frames. Stdout carries protocol only. Per-turn metrics report
-elapsed time, time to first answer text, tool-call count, schema tokens and the
-native measured retained context. Elapsed time includes approvals and questions;
-these are not pure inference timings or generated-token usage. Retained context
-feeds the existing chat usage event. No prompt, tool arguments or credentials are
-included in the metrics frame. Input frames are capped
-at 64 KiB; cumulative Apple text snapshots become suffix deltas or replacements.
+Per-turn metrics report elapsed time, time to first answer text, tool-call count,
+schema tokens and the measured retained context, which feeds the chat usage event.
+Elapsed time includes approvals and questions, so it is no inference timing. The
+metrics frame carries no prompt, tool arguments or credentials.
 
 References: [Foundation Models](https://developer.apple.com/documentation/foundationmodels)
 and [tool calling](https://developer.apple.com/documentation/foundationmodels/expanding-generation-with-tool-calling).
@@ -336,14 +297,9 @@ Implementation and availability annotations were checked against the installed S
 
 ## Reference implementation
 
-Reviewed FoundationModelsAgent revision
-[`4bc5676`](https://github.com/rudrankriyam/FoundationModelsAgent/tree/4bc5676bb25b78d691cbcca4b8c2f98d430eaba7).
-Ruimte adapts its typed tool-policy failures, hard budgets, native schema accounting,
-validated context transforms, original-history preservation, toolset checks and
-repeatable runtime testing to this helper. The MIT notice ships beside the binary.
-
-The upstream package requires macOS 27 and Swift 6.4. We retained macOS 26.4 and
-Ruimte's existing approval, web, MCP and persistence interfaces. Its optional
-provider routing, long-term memory, child agents and durable task scheduling are
-separate capabilities, not enabled by this integration. Retries stay disabled;
-no write or external operation is silently replayed.
+The helper adapts ideas from FoundationModelsAgent revision
+[`4bc5676`](https://github.com/rudrankriyam/FoundationModelsAgent/tree/4bc5676bb25b78d691cbcca4b8c2f98d430eaba7):
+typed tool-policy failures, hard budgets, schema accounting, validated context
+transforms and original-history preservation. The MIT notice ships beside the binary
+(`THIRD_PARTY_NOTICES.txt`). Ruimte keeps macOS 26.4 and its own approval, web, MCP
+and persistence interfaces.

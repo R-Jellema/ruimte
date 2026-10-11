@@ -336,7 +336,11 @@ A browser upgrade is accepted from the daemon's own origin, the desktop app's (`
 
 ### Push notifications
 
-A client with a key (the iPhone app) hands the daemon its push subscription with `push.subscribe`, kept with that client in `auth.json` so a revoke takes it along. The daemon decides every push itself (`src/push/service.ts`) and posts it signed and encrypted to the address book, which only relays it to APNs (`apps/pulsar-worker/APNS.md`). Nothing goes to a client while it holds a socket to the machine, and a snoozed node raises nothing until its snooze ends. Each device picks the kinds it hears about (`needs-you`, `turn`, `process`), per project if it likes; without a choice it hears `needs-you` only.
+A client with a key (the iPhone app) hands the daemon its push subscription with `push.subscribe`, kept with that client in `auth.json` so a revoke takes it along. The daemon decides every push itself (`src/push/service.ts`) and posts it signed and encrypted to the address book, which only relays it to APNs (`apps/pulsar-worker/APNS.md`). Nothing goes to a client while it holds a socket to the machine, and a snoozed node raises nothing until its snooze ends. Each device picks the kinds it hears about (`needs-you`, `turn`, `process`), per project if it likes; without a choice it hears `needs-you` only. A finished turn and a process warning each have a collapse id of their own per node, so they never replace an attention or approval alert.
+
+Read state lives in `push-attention.json`: per node when it last notified and how far it was read. A client acknowledges what a focused window actually shows with `push.read`, and a new turn reads the previous result. The daemon then sends a signed, encrypted read receipt, only to a client that advertises `readSync`, and a late acknowledgment never removes a newer alert. A snoozed node reads its alert, and when the snooze runs out while the node still needs you, a new alert goes out. Apple delivers background pushes when it likes, so connecting to the machine reconciles what was missed.
+
+Each machine has one Live Activity per device, combining its terminals and chats into one signed overview with the active agents, attention first, and the totals. A work round has a generation (its `startedAt`), so a new round starts a new activity instead of reusing the previous token. A finished turn always updates the activity, whatever the device chose.
 
 ### One account per machine
 

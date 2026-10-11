@@ -1,10 +1,10 @@
 # iOS device bridge
 
-This macOS-only app keeps private physical-device protocols outside the daemon. Its primary route joins Apple's existing wireless `remoted` tunnel through `remotepairingd`, so the iPhone does not need a USB connection. It receives the CoreDevice display service's RTP stream and forwards complete Annex-B HEVC access units over Ruimte's existing helper pipe. The same session sends touch, multitouch, hardware-button and rotation events through CoreDevice HID. A direct usbmuxd route remains available as a fallback for a cabled device.
+This macOS-only helper keeps Apple's private device protocols out of the daemon. Root `CLAUDE.md` describes its routes; this file covers building, simulator accessibility and diagnosing the transport.
 
 The implementation is Rust and uses the MIT-licensed [`idevice`](https://github.com/jkcoxson/idevice), [`block2`](https://github.com/madsmtm/objc2/tree/main/crates/block2) and [`objc2`](https://github.com/madsmtm/objc2) crates. It does not install or launch Python. The CoreDevice and `remotepairingd` protocols are private and may need updates for future macOS and iOS releases.
 
-Build the app with `cargo build --release --locked`.
+Build the binary with `cargo build --release --locked`.
 
 ## Simulator accessibility
 

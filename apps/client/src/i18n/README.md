@@ -7,9 +7,9 @@ first, and a language that misses a key falls back to it rather than showing the
 
 One file per namespace, per language: `locales/<language>/<namespace>.json`. A namespace is the
 folder a component lives in (`NAMESPACES` in `namespaces.ts`), with `shell` split into `settings`,
-`panels` and `usage` because it holds nearly half the interface on its own. Two people never write
-in the same file. A window downloads every namespace of its language before the first render, with
-English beside it as the fallback, and never the words of a language nobody asked for.
+`panels` and `usage` because it holds nearly half the interface on its own. A window downloads
+every namespace of its language before the first render, with English beside it as the fallback,
+and never the words of a language nobody asked for.
 
 The chat, its prompt cards, the providers pane and the usage page carry their words in
 `@adecore/agents-react` (`agent-chat`, `agent-prompts`, `agent-providers`, `agent-usage`), and the

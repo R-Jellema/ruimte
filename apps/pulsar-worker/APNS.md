@@ -11,7 +11,7 @@ select a different broker, TURN server, Worker hostname or Apple team.
 
 `APNS_TEAM_ID=7RGV9KKX87` and `APNS_TOPIC=app.ruimte.mobile` are shared configuration
 in `wrangler.jsonc`. Normal notifications and Live Activities use the same selected
-key. Live Activity requests append `.push-type.liveactivity` to the topic.
+key.
 
 Each environment has its own JWT cache. Missing credentials reject registration and
 delivery for that environment with HTTP 503; the Worker never substitutes the other
@@ -34,85 +34,18 @@ Cloudflare receives them as Worker secrets, separately from the nonsecret team a
 topic configuration. Deploying with `--keep-vars` preserves the other provider
 secrets on the shared Worker.
 
-## The migrations this took
+## What the Worker relays
 
-All of them are additive, so the Worker can roll back while they stay.
-
-- `0006_push.sql`: devices and subscriptions.
-- `0008_activity_target.sql`: the target a Live Activity belongs to.
-- `0009_machine_activities.sql`: an optional device activity scope, so a client
-  registers `scope: machines` once instead of following conversations.
-- `0010_pending_activity_updates.sql`: the latest signed state while a push-started
-  activity waits for its update token, an early end included. Registering the token
-  flushes that state.
-- `0011_activity_generations.sql`: the work round's `startedAt` on both start claims
-  and update-token records.
-
-## Read synchronization
-
-The daemon keeps per-node notification timestamps and read watermarks in
-`push-attention.json`. Desktop and web clients acknowledge what is actually visible in
-a focused window through `push.read`, and a new turn acknowledges the previous result.
-The Worker takes signed, encrypted `background` envelopes and forwards them as silent
-APNs pushes with priority 5, under a collapse key of their own, so a read receipt can
-never replace a pending notification for a newer turn. Only clients that advertise
-`readSync` get one; a daemon or client from before this keeps the old behavior.
-Connected clients get `push.attention` events, and iOS reconciles a snapshot when it
-connects. A late acknowledgment cannot remove a newer notification. Signed payloads
-keep node IDs and read timestamps away from Pulsar and APNs.
-
-A snoozed node (`snooze.set`, kept in `snoozes.json`) reads its alert, so the phone
-drops it the way the desktop closes its notification, and raises none while the snooze
-holds. The machine's Live Activity counts it nowhere, and its own activity shows it done.
-When the snooze runs out while the node still needs you, a new alert goes out: the
-approval cards it waits on, or an attention alert. A snooze a person ends raises nothing.
-
-Apple schedules background pushes opportunistically, so immediate removal is not
-guaranteed, least of all after a force quit or with Background App Refresh off.
-Opening Ruimte and connecting to the machine reconciles what was missed. A service
-extension cannot reliably suppress an alert that arrives after its read receipt while
-the app is suspended; the persisted watermark keeps the badge from going unread again,
-and foreground reconciliation removes the delivered alert. See
-[Apple's background push guidance](https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app).
-
-## Alerts
-
-The daemon decides which alerts a device gets; the Worker only relays them. By default
-an alert push is sent for attention and approval requests only. A device can choose
-more in its `push.subscribe` (`notify`, with a list of its own per project in
-`projects`): a finished turn, sent as kind `turn`, and a process warning about a node,
-sent as kind `attention` with the warning as its body, so no alert kind is added that
-an installed app would not decode. Each has a collapse id of its own per node, so
-it never replaces an open attention or approval alert. Neither creates a
-notification-read entry. A
-finished turn always updates the Live Activity, whatever a device chose.
-
-## Live Activities
-
-One activity represents one machine. The daemon combines the terminal and chat states
-of that machine into one signed overview.
-
-A work round has a generation, its `startedAt`. A new round starts a new activity
-instead of reusing the token of the previous one, token registration requires the
-matching claim, and a late registration, retirement or end from an older round cannot
-replace or remove the current one. An unconfirmed start expires after the APNs
-delivery window, which is what keeps a stale claim from swallowing the next run.
-
-The card carries a machine caption, up to two agent rows and a footer; the Dynamic
-Island uses the same hierarchy. Working shows a blue dot with a white elapsed timer,
-attention an orange one; with exactly one active session the compact Island shows that
-session's terminal or chat icon, otherwise a loader or a circle-alert icon. Timers use
-SwiftUI's system timer rendering, so counting up costs no pushes, and an unknown start
-time is left out rather than borrowed from the machine. Attention and resuming the same
-turn keep the turn's start; a new turn resets it.
-
-An attention row offers `Review`, which opens the matching terminal or chat and grants
-no permission. The daemon picks the active agents, puts attention first and keeps the
-totals when more than two are active. Agent titles, destinations, phases and row
-timestamps are part of the signed but plaintext activity content; alerts and read
-receipts stay encrypted. Optional rows keep older machine summaries decodable.
+The daemon decides every alert, read receipt and Live Activity update
+(`apps/server/README.md#push-notifications`); the Worker checks the account and the
+signature and relays. A read receipt goes out as a silent push with priority 5 under a
+collapse key of its own, so it never replaces a pending alert. An automatic Live Activity accepts
+only the fixed machine-summary collapse ID, and a token registration must match the
+work round that started the activity, so a late one from an older round changes nothing.
+Live Activity requests append `.push-type.liveactivity` to the topic.
 
 ## Open
 
 Delivery to a production-signed app has never been tested. A sandbox test does not
-establish it, so it needs a production-signed build and its device token.
+establish it, so it needs a production-signed build and its device token. The check is
+in [`docs/ACCEPTANCE.md`](../../docs/ACCEPTANCE.md#push-notifications).

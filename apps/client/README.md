@@ -26,9 +26,7 @@ labels so crossing lines cannot cover a label or its editor.
 Alt+Arrow selects a neighboring node while the canvas owns the keyboard; Enter gives that
 node input focus. Mod+Shift+2 fits the focused node in view. Explicit Space or middle-button
 panning keeps wheel input with the canvas over focused node bodies and browser guests.
-Text entry keeps its own keys. The canvas unit tests and
-`canvas-interaction.browser.integration.test.ts` in the manual browser suite cover geometry and
-input ownership.
+Text entry keeps its own keys.
 
 ## Terminal links
 
@@ -74,8 +72,7 @@ changes; filtering either point updates the comparison explicitly.
 The Pulsar worker stores each partial measurement on its own and reports the Intelligence
 Index version. Older clients can still read the original score/cost payload. Missing data
 stays missing and never becomes zero. The dialog shows the source and the age of the snapshot;
-benchmark costs describe benchmark tasks, not a predicted cost for a Ruimte session. The client
-comparison tests and worker benchmark tests cover filtering, point selection and partial data.
+benchmark costs describe benchmark tasks, not a predicted cost for a Ruimte session.
 
 ## Code editor
 
@@ -83,7 +80,7 @@ The editor lives in ADE CORE: `@adecore/editor-core` owns the document and editi
 `@adecore/editor` owns the view and `EditorEngine`, and `@adecore/editor-react` supplies the
 React integration and shared language models. Ruimte owns the language adapters in
 `src/language`, the AI actions in `src/editor-ai` and the machine's on-device client in
-`src/ondevice`. Monaco has been removed.
+`src/ondevice`.
 
 The client reaches language servers through the daemon's transport. `@adecore/lsp` and
 `apps/server/src/language` own their processes and document versions. The

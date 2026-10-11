@@ -16,8 +16,6 @@ This builds the package with Swift Package Manager and assembles `dist/Ruimte Co
 
 The script signs with the first Apple Development identity in the keychain (`security find-identity -v -p codesigning`), with the hardened runtime and the empty entitlements in `Resources/entitlements.plist`. A stable identity keeps the grants across rebuilds. Without one it signs ad hoc and says so; macOS then asks for the grants again after every build. `--identity <name|hash|->` or `RUIMTE_COMPUTER_USE_IDENTITY` picks another identity, and `-` signs ad hoc.
 
-`swift test` covers the parts that do not need a screen: key combos, menu paths, mapping screenshot pixels to screen points, the overlay config, the session control, when the person's mouse takes over, which window a click lands on and when one is covered, reading a value back, the edit commands a background app cannot run, that a scroll stops sending once it is cancelled, the home and the local secret, and in `PhantomTests` the forms of the cursor against the design's path strings, the state table, the easings and where the label flips.
-
 ### In Ruimte.app
 
 `apps/server/scripts/compile.ts` builds `--variant release` (`Ruimte Computer Use.app`, `app.ruimte.computer-use`) into `apps/server/dist/mac-<arch>/Helpers`. electron-builder copies that folder to `Ruimte.app/Contents/Helpers` and keeps it out of `Contents/Resources/bin`. `Contents/Helpers` is where a bundle expects a nested app. Codesign signs and verifies it there as nested code; under `Resources` it would only seal it as files. `apps/desktop/build/sign.cjs` signs it like everything else, with the app's Developer ID, the hardened runtime and a timestamp. Its entitlements are `Resources/entitlements.plist`, not the shell's. Those open up JIT and library validation for Electron and the daemon, and a helper with these grants has no use for either.
@@ -44,31 +42,13 @@ screenshots/      window captures; one older than an hour goes at the next captu
 
 A connection carries one request. The client writes one JSON object and half-closes, the helper answers with one JSON object and closes. The request is `Request` in `Sources/ComputerUseCore/Wire.swift`. It holds `command`, the fields that command takes, and `secret`, the content of `$RUIMTE_HOME/local.key`. The helper accepts a connection only from a process of the same user. It accepts a request only when `secret` matches that file, which it reads again for every request and compares in constant time. Whoever can read `local.key` can drive the daemon already, so the helper is no weaker than the daemon. The reply is `{"ok": true, "result": {...}}` or `{"ok": false, "error": "...", "code": "..."}`. `code` is there only for a refusal a caller branches on (`paused`, `taken-over`, `stopped`, `needs-front`); the message is for people and may change. A request without the secret gets `refused: ...` before the helper looks at anything else in it.
 
-The commands are the ones `cu` sends, listed below. `doctor` also takes `grant` (`accessibility` or `screenRecording`) beside `prompt`: then it asks macOS for that one grant only, which puts the helper in that list of System Settings, and leaves opening the pane to the caller. `cu` has no flag for it. `--state` is `withState`, `--front` is `front`, a menu index or path is `path`, and the key combos of `key` are `combos`. `drag` starts at `element` or `x`/`y` and ends at `toElement` or `toX`/`toY`; `wait` takes `text` (`cu wait --for`), `gone`, or `element` with `value`, and `timeout` in seconds.
+The commands are the ones `cu` sends, listed below, with field names in `Wire.swift`. `doctor` also takes `grant` (`accessibility` or `screenRecording`), which asks macOS for that one grant only and leaves opening the pane to the caller; `cu` has no flag for it.
 
-Every command that acts runs one at a time, in the order it came, so two callers never race for the focus; the daemon on top of that lets one agent at a time call for an app, so two agents' actions never interleave. `wait` is the exception: it only reads and may take two minutes, so it runs beside the queue, and a pause, a take-over or a stop cancels it like a queued command. Every state carries `instance`, a UUID for this run of the helper: handles start over at 0 when it restarts, so a caller that remembers a tree knows it cannot compare the next one with it.
+Every command that acts runs one at a time, in the order it came, so two callers never race for the focus. `wait` is the exception: it only reads and may take two minutes, so it runs beside the queue, and a pause, a take-over or a stop cancels it like a queued command. Every state carries `instance`, a UUID for this run of the helper: handles start over at 0 when it restarts, so a caller that remembers a tree knows it cannot compare the next one with it.
 
 ### The words
 
-`overlay.json` is optional and read again at every action and every `presence`, so a language switched in Ruimte reaches a helper that is already running, in the middle of a session too. Every key is optional; a missing file or key keeps the English default:
-
-```json
-{
-  "title": "Ruimte is using your computer",
-  "menuTitle": "Ruimte is using this Mac",
-  "pause": "Pause",
-  "resume": "Resume",
-  "takeOver": "Take over",
-  "stop": "Stop session",
-  "backgroundTitle": "Ruimte is working in {app} in the background",
-  "backgroundMenuTitle": "Ruimte is using {app} in the background",
-  "accent": "#155dfc",
-  "labels": { "click": "Click", "scroll": "Scroll", "look": "Looking", "think": "Working", "waiting": "Needs you", "permission": "Waiting for permission", "error": "Something went wrong", "done": "Done", "takeover": "You have control", "paused": "Paused", "tap": "Tap" },
-  "steps": { "idle": "Ready", "click": "Clicking {target}", "type": "Typing in {target}", "think": "Deciding what to do next", "...": "..." }
-}
-```
-
-`title` is the session bar, `menuTitle` the first line of the menu; `backgroundTitle` and `backgroundMenuTitle` take their place while the agent works in the background, with `{app}` for the app it works in. The label beside the cursor only says what the state itself cannot: the typed text, or a `label` the daemon sends with `presence`. `steps` is the second line of the menu per state, with `{target}` for the element or app an action is aimed at. The full lists are in `Sources/ComputerUseCore/OverlayConfig.swift`. `accent` replaces the accent of the cursor.
+`overlay.json` holds the overlay's words, written by the daemon in the person's language. The helper reads it again at every action and every `presence`, so a language switch reaches a running session; a missing file or key keeps the English default. The keys and defaults are in `Sources/ComputerUseCore/OverlayConfig.swift`.
 
 ### Presence
 
@@ -156,18 +136,11 @@ One line per meaningful element: controls, anything with a title, value or descr
     [36] Button "Save" id="OKButton" (679,469 81x26)
 ```
 
-- `[N]` is the handle for `--element`. An element keeps its number across `state` calls for as long as it is the same accessibility element, so buttons keep their numbers while a line appears above them. New elements get new, higher numbers, and a number is never reused for a different element. Numbers start over when the agent restarts.
-- The role and subrole drop their `AX` prefix. Then come the label, `value=`, `desc=`, `placeholder=`, `id=` (the app's own AXIdentifier, when it set one), and the frame in screen points (`x,y widthxheight`, top-left origin of the main display). A line may end with `focused`, `selected`, `disabled`, or `offscreen` (outside the window, or scrolled out of what it sits in: Chromium keeps such an element in the tree on the edge of its container, with no height or width or a strip of one point). Elements out of view get at most a fifth of the lines, so a canvas or a long pane never pushes out what shows; `truncated` says how many were left out, and `--find` still reads them.
-- Text longer than `--max-text` ends in `…"(cut: N chars)`.
-- The tree stops at 500 elements and 60 levels by default. `truncated` says when and why.
-- An element out of view can still be pressed, read and set; a mouse event for it is refused until `scroll --element` brings it in.
-- When a sheet is up, the tree starts at its parent window and the sheet sits inside it; `window.sheet` names the sheet. An open context menu or pop-up menu shows up as a `Menu` with its items.
-- `screenshot.path` is a PNG of the window, at most 1280 px wide, captured by itself (`SCContentFilter(desktopIndependentWindow:)`), so another app's window over it and the overlay never show and a window behind the person's work comes out whole. A minimized window gives the last frame it showed. A sheet, an open menu or a popover is a window of its own and cannot be captured alone (a sheet comes back over its parent shrunk into the sheet's size), so while one is up the app's windows are composed on their display instead, again without other apps or the overlay. Map a pixel to a screen point with `screenX = origin.x + px / scale` and `screenY = origin.y + py / scale`; `click --x --y` does this for you. An open menu that hangs outside the window widens the area, so check `origin` and the size each time. Files older than an hour are removed at the next capture.
-- `note` says when the window is minimized, and when other apps' windows cover all of a Chromium or Electron window: Chromium then stops drawing it and updating its tree, so the picture and the tree may be stale until part of it shows.
-- A hidden app gets `hidden: true`. While hidden, its windows are off screen, cannot be captured, and AppKit reports them with subrole `Dialog`; `cu open` shows the app again.
-- `--find T` reads up to 5000 elements and lists only those whose title, value, description or identifier holds `T` (ignoring case and accents), with every element they sit in, so the indent still reads as a tree. `matches` counts the elements that hold it; `--max-elements` still caps the lines.
-- `--within N` lists only element `N` of the last state and what is inside it, with the numbers they already had. The elements of the last state outside it stay usable.
-- For Chromium and Electron apps the agent first sets `AXManualAccessibility`, and `AXEnhancedUserInterface` when the tree stays nearly empty. `note` says when it did.
+- `[N]` is the handle for `--element`. An element keeps its number for as long as it is the same accessibility element, and a number is never reused for another one. Numbers start over when the helper restarts (`instance` changes).
+- The frame is in screen points, top-left origin of the main display. `offscreen` marks an element outside the window or scrolled out of its container; such elements get at most a fifth of the lines, so a long pane never pushes out what shows. It can still be pressed, read and set, but a mouse event for it is refused until `scroll --element` brings it in.
+- The tree stops at 500 elements and 60 levels by default, and `truncated` says when and why. `--find T` reads up to 5000 elements and keeps those that hold `T` with what they sit in; `--within N` lists only element `N` of the last state.
+- `screenshot.path` is a PNG of the window alone (`SCContentFilter(desktopIndependentWindow:)`), at most 1280 px wide, so other apps and the overlay never show and a window behind the person's work comes out whole. While a sheet, menu or popover is up, the app's windows are composed on their display instead. Map a pixel with `screenX = origin.x + px / scale`; `click --x --y` does this for you.
+- For Chromium and Electron apps the helper sets `AXManualAccessibility`, and `AXEnhancedUserInterface` when the tree stays nearly empty. Chromium stops drawing a window that others cover whole, and `note` says so, since its picture and tree may then be stale.
 
 ### Background and front
 
@@ -184,18 +157,13 @@ With `--front` the app comes to the front where an action needs it (a minimized 
 
 ### Actions
 
-Every action result has `target`: role, label, identifier, and the window (and sheet) of what it acted on. For a mouse event that is the element the hit test found at the point.
+Every action result has `target`: the role, label, identifier and window of what it acted on.
 
-- `click --element` uses `AXPress` (or `AXShowMenu` for `--button right`) when the element has it, without moving the real pointer. With `--front`, otherwise and for `--count 2`, it brings the app to the front and clicks the visible center of the element with synthesized mouse events, then puts the pointer back. The result's `method` is `AXPress`, `AXFocused`, `AXShowMenu` or `mouse`, and `point` is where the virtual pointer went.
-- Before a mouse event for an element, the agent hit-tests the point. Unless it finds that element or something inside it, the click is refused with "element N is no longer at (x, y); the point now hits ... Run `cu state` again". This catches a new window that opened over the old one.
-- `click --x --y` takes pixels in the last screenshot and always uses the mouse. It is refused when another app's window covers the point.
-- `scroll` sends scroll wheel events at the element or pixel. A page is 90 percent of the element's height (or width), or of the scroll area under the pixel. The pointer is put back afterwards.
-- `type` sends one unicode character per event; a newline becomes Return and a tab becomes Tab. It takes at most 500 characters and `key` at most 50 combos per call, and more is refused before anything is typed: the keys go one at a time while every other command waits behind them. `key` knows `cmd`, `shift`, `option`/`alt`, `ctrl` and `fn`, and the keys a-z, 0-9, punctuation, `return`, `escape`, `tab`, `space`, `delete`, `forwarddelete`, the arrows, `home`, `end`, `pageup`, `pagedown` and `f1`-`f12`. Use `cmd++` or `plus` for plus. With `--front` both bring the app to the front first and are refused when that fails. Their `target` is the focused element; they have no `point`, since nothing is clicked.
-- `set-value` works only where the app lets `AXValue` be set (text fields and areas, sliders). A number element takes a number, `true` or `false`. Some apps answer success and keep the old value, so the value is read back for up to a second; `value` is what the element holds, and `note` says when that is not what was set.
-- `drag` presses at the start, moves through twelve points to the end over 0.7 seconds and lets go there, then puts the pointer back; the button comes up also when the person interrupts halfway. The start is hit-tested like a click, the end is not, since it is often another element or window. The cursor shows `drag` and glides along.
-- `read` answers an element's title, value, description, placeholder and identifier whole, with its role and frame; the viewfinder goes around the element. It cuts nothing: the daemon caps what it passes on.
-- `wait` shows `look` around the window and reads the app every 250 ms: the whole window up to 5000 elements for `--for` and `--gone`, only the element's value for `--value`, which has to match exactly. It answers `met`, `waited` in seconds and `condition`, with the state at the end under `state`, also when the time ran out.
-- `open` launches an app by the file name of its bundle or else its `CFBundleDisplayName` (searched in `/Applications`, `/System/Applications`, their `Utilities` folders and `~/Applications`) or bundle id, or unhides it when it runs, then waits up to 5 seconds for a window. With `--front` it activates the app as well; without it `note` says when an app came to the front by itself as it started.
+- Before a mouse event for an element, the helper hit-tests the point and refuses unless it finds that element or something inside it. This catches a window that opened over the old one. `click --x --y` is refused when another app's window covers the point.
+- `type` takes at most 500 characters and `key` at most 50 combos per call, refused before anything is typed, since every other command waits behind them. Keys are ANSI key codes.
+- `set-value` reads the value back for up to a second, because some apps answer success and keep the old value; `note` says when the value differs.
+- `drag` lets go of the button also when the person interrupts halfway. Only its start is hit-tested, since the end is often another element or window.
+- `wait` reads the app every 250 ms and answers with the state at the end, also when the time ran out.
 
 ### Menus
 
@@ -205,32 +173,28 @@ Every action result has `target`: role, label, identifier, and the window (and s
 
 ### The phantom cursor
 
-During a session the helper draws its own cursor in a click-through window above everything; the real pointer only visits a point for a mouse event and goes back. The cursor glides to each target (700 ms, easing in and out without overshoot), points, and shows the action: a press and a ring for a click, chevrons for a scroll, the typed text letter by letter for `type`, `key` and `set-value`, and a viewfinder around the window for `state`. A moment after the action it rests again. Between actions the daemon's `presence` shows the agent working, waiting for the person, asking for permission, failing or done. The cursor follows the light or dark appearance of the system, and under Reduce Motion it drops every loop and reads by color and label alone. Nothing of the overlay appears in a screenshot. In the background the cursor shows as well, over whatever covers the app, so the person sees that something happens and where; the session bar and the menu then name the app the agent works in.
+During a session the helper draws its own cursor in a click-through window above everything. The real pointer only visits a point for a mouse event and goes back. The cursor shows each action and, between actions, the state the daemon sends with `presence`. Nothing of the overlay appears in a screenshot. In the background the cursor shows as well, over whatever covers the app, so the person sees that something happens and where. Under Reduce Motion it drops every loop and reads by color and label alone.
 
-The session bar at the top of the screen shows a mini cursor with the state, the title, the time the agent held the Mac, a pause button and a stop button. It sits on the system's Liquid Glass, regular and untinted, with the title and time in the system's label colors; under Reduce Transparency macOS makes the glass opaque by itself. The menu bar item shows the same mark and time, amber while the agent waits for the person, and a menu with the current step, Pause or Resume, Take over and Stop session. A session ends on a stop, on `done`, or two minutes after the last command unless it waits for the person or the person holds it.
+The session bar at the top of the screen and the menu bar item show the state, the time the agent held the Mac, and Pause, Take over and Stop session. A session ends on a stop, on `done`, or two minutes after the last command unless it waits for the person or the person holds it.
 
 ### Pause, take over, stop
 
-- ⌥Space, the pause button or the menu pauses the session and resumes it again. ⌥⎋, the stop button or the menu stops it. Both keys are registered only while a session runs and never reach the app in front. A key another app already holds cannot be registered: the helper logs that, and the menu shows no shortcut for it.
-- The person's own mouse takes over: a click anywhere, or more than 12 points of movement within half a second inside the window the agent acts in. In the background only two things do, since the person is expected to go on working: bringing the app the agent works in to the front, and a click that lands in its window. Moving to another app, Ruimte included, to read along does not, and a quiet moment starts the count over. Take over in the menu does too. The cursor turns hollow and gray. Waiting for the person does not count: then the hand on the mouse is expected. The helper's own events carry a marker and are never mistaken for the person.
-- While paused or taken over, every command that reads or operates an app, `state` included, is refused with "the person paused the session; wait until they resume" or "the person took over; wait until they resume", and an action under way is cancelled. Resume from the bar, the menu or ⌥Space.
-- A stop cancels what runs and ends the session. Every later command fails with "stopped by the person" until the next `cu state`, or until `clear-stop` on the socket. The daemon sends that once it heard of the stop: it tells every agent that called since computer use was turned on itself, once each, so the helper refuses nobody for it after that.
-- `pause`, `resume` and `stop` on the socket are the same buttons for a person who presses them in Ruimte. Each answers `{"session": {...}}` in the shape of `doctor`, and one that would change nothing (a pause while paused, anything without a session) changes nothing.
-- These three refusals carry `code` `paused`, `taken-over` and `stopped`. `doctor` answers with `session`, `{"active": true, "mode": "running|paused|takenOver", "stopped": false}`, so a caller can see how the session stands without changing it.
+- ⌥Space, the pause button or the menu pauses and resumes. ⌥⎋, the stop button or the menu stops. Both keys are registered only while a session runs and never reach the app in front. A key another app already holds is logged, and the menu then shows no shortcut for it.
+- The person's mouse takes over: a click, or more than 12 points of movement within half a second inside the window the agent acts in. In the background only bringing that app to the front or clicking in its window takes over, so the person can go on working elsewhere. Waiting for the person never counts, and the helper's own events carry a marker so they are never mistaken for the person.
+- While paused or taken over, every command that reads or operates an app is refused with `code` `paused` or `taken-over`, and an action under way is cancelled.
+- A stop cancels what runs and ends the session. Every later command is refused with `stopped` until the next `cu state` or a `clear-stop` on the socket, which the daemon sends once it told its agents.
+- `pause`, `resume` and `stop` on the socket are the same buttons. `doctor` answers with `session` (`active`, `mode`, `stopped`), so a caller can read the session without changing it.
 
 ### The look
 
-The look lives in `Sources/Phantom`, apart from how the helper moves it. `OverlayStyle.swift` holds the tokens per theme, sizes, durations and easings under the design's names; `PhantomForms.swift` the forms (every one four cubic segments, so any two morph into each other); `PhantomLook.swift` the state table: form, color, glyph, effect, motion and label per state. Every animation is a `Track` in `Motion.swift`, so the overlay plays it and a snapshot draws the same value at any moment.
-
-`cu render` draws it offscreen in its own process, without the agent, a grant or a screen:
+`Sources/Phantom` holds the look apart from how the helper moves it: tokens in `OverlayStyle.swift`, forms in `PhantomForms.swift`, the state table in `PhantomLook.swift` and every animation as a `Track` in `Motion.swift`, so a snapshot draws the same value the overlay plays. `cu render` draws it offscreen without the agent, a grant or a screen:
 
 ```sh
 cu render sheet --theme both --scale all --out /tmp/phantom   # every state, the forms, the session bar
-cu render click --at 0.2 --scale 3                            # one state, 0.2 s after it began
 cu render bar think --time 02:31                              # the session bar; --held shows it paused
 ```
 
-`--dots`, `--working`, `--direction`, `--label` and `--reduce-motion` pick the variants. A render cannot draw glass, since the window server draws it from what lies behind a window, so the session bar in a render keeps the design's own surface.
+A render cannot draw glass, since the window server draws it from what lies behind a window.
 
 ## Known limitations
 

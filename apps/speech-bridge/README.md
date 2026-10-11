@@ -10,9 +10,9 @@ A release builds the helper for macOS only. The prebuilt ONNX Runtime that `ort`
 
 In **Settings > Voice**, enable **Speech to Text**. This downloads approximately 2.6 GB of Nemotron 3.5 ASR streaming ONNX weights. The source revision, file sizes and SHA-256 hashes are pinned in `apps/desktop/src/speech-model.ts`. Files are downloaded to temporary names and installed only after verification. Cancellation keeps completed, verified files for a retry.
 
-The setting defaults to off. Enabling it never opens the microphone. Turning it off cancels a recording and shuts down the helper, but keeps the model. **Remove model** removes the weights and their compiled CoreML cache. Voice Control uses OpenAI separately; both features share the input device and language settings and have exclusive microphone ownership.
+Turning it off cancels a recording and shuts down the helper, but keeps the model. **Remove model** removes the weights and their compiled CoreML cache.
 
-The helper currently uses ONNX Runtime on the CPU. CoreML compilation of this streaming model crashed inside Apple's native compiler on the development machine; that process-level crash bypasses Rust error recovery.
+The helper uses ONNX Runtime on the CPU. CoreML compilation of this streaming model crashed inside Apple's native compiler, and that process-level crash bypasses Rust error recovery.
 
 ## Helper protocol
 
@@ -29,14 +29,6 @@ The desktop shell kills an idle helper after sixty seconds. Finished utterances 
 
 `probe --model <directory> --cache <directory>` checks that a model loads. `transcribe --model <directory> --language nl-NL --cache <directory>` reads raw samples from stdin for synthetic or recorded test fixtures. Neither command records a microphone.
 
-## Insertion
-
-The composer previews speech inline at the captured selection without changing the draft. New or corrected text uses the chat streaming fade. It tracks the selection through edits and inserts the final result as one undo step. Replacing a draft invalidates its pending insertion. Prompt answers use their existing input handlers. Notes use canvas history for the dictation insertion. A terminal receives nothing until the person presses **Paste into terminal** on its editable draft. Paste removes control characters and line endings, then uses xterm's paste handling without Enter.
-
-`Mod+Shift+D` toggles dictation in the focused supported field. Holding it for at least 400 ms stops when released. Escape discards; losing the app window's focus cancels the recording.
-
 ## Verification
 
-The default tests use fake processes, audio capture and clocks. They cover model integrity, helper readiness, cancellation, stale session messages, final audio delivery, warm reuse, selection mapping and terminal sanitization. `cargo test --locked` covers sample and protocol validation.
-
-Real microphone quality, recognition latency, native undo behavior in prompt answers, CPU-only performance and signed packaged builds still require device acceptance testing. Model weights have their own NVIDIA license; the app does not bundle them.
+`cargo test --locked` covers sample and protocol validation; the open device checks are in [`docs/ACCEPTANCE.md`](../../docs/ACCEPTANCE.md#speech-to-text). Model weights have their own NVIDIA license; the app does not bundle them.

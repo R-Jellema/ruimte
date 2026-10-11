@@ -67,8 +67,8 @@ enum Request {
 
 fn load(model: &Path, cache: Option<&Path>) -> Result<Nemotron> {
     let _ = cache;
-    // CoreML's neural-network compiler can terminate the process while loading this model.
-    // A Rust error fallback cannot recover from that native crash.
+    // CPU only: CoreML's compiler crashes the process while loading this model, past any Rust error handling.
+    // Try CoreML again once a model or ONNX Runtime update loads under it in `probe` without a crash.
     let handle = NemotronHandle::from_pretrained(
         model,
         Some(ExecutionConfig::new().with_execution_provider(ExecutionProvider::Cpu)),
