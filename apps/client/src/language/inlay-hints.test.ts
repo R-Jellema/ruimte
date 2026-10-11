@@ -1,3 +1,4 @@
+import { settleLanguage as settle } from './settle.test';
 import { describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { EditorLanguage } from './ruimte-editor-language';
@@ -8,12 +9,6 @@ import { ManualTimers } from '@adecore/editor-react/testing';
 
 const uri = 'file:///work/app/src/a.ts';
 const at = (line: number, character: number) => ({ line, character });
-
-async function settle(): Promise<void> {
-    for (let turn = 0; turn < 50; turn++) {
-        await Promise.resolve();
-    }
-}
 
 describe('inlay hints of a long file', () => {
     async function setup() {

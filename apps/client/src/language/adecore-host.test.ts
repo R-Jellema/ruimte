@@ -1,3 +1,4 @@
+import { settleLanguage as settle } from './settle.test';
 import { describe, expect, test } from 'bun:test';
 import { EditorLanguage as SharedEditorLanguage, ProjectLanguage as SharedProjectLanguage } from '@adecore/editor-react';
 import { FakeEditorEngine } from '@adecore/editor/fake';
@@ -6,12 +7,6 @@ import { ProjectLanguage } from './ruimte-project-language';
 import { FakeLanguageTransport } from './fake-daemon';
 import { ManualTimers } from '@adecore/editor-react/testing';
 import { RUIMTE_EDITOR_KEYMAP } from '@/shell/editor-keymap';
-
-async function settle(): Promise<void> {
-    for (let turn = 0; turn < 150; turn++) {
-        await Promise.resolve();
-    }
-}
 
 describe('Adecore over the Ruimte language wire', () => {
     test('resolves and accepts a completion through the shared coordinator and keeps host shortcuts', async () => {

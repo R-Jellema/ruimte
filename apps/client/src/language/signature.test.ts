@@ -1,3 +1,4 @@
+import { settleLanguage as settle } from './settle.test';
 import { describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { EditorLanguage } from './ruimte-editor-language';
@@ -8,12 +9,6 @@ import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { eventOf } from './key-events';
 
 const uri = 'file:///work/app/src/a.ts';
-
-async function settle(): Promise<void> {
-    for (let turn = 0; turn < 100; turn++) {
-        await Promise.resolve();
-    }
-}
 
 const OVERLOADS = [
     { label: 'score(candidate: Candidate): number', parameters: [{ label: 'candidate: Candidate' }] },

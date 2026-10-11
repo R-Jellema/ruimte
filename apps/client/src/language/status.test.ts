@@ -1,3 +1,4 @@
+import { settleLanguage as settle } from './settle.test';
 import { describe, expect, test } from 'bun:test';
 import type { LanguageServerStatus } from '@ruimte/contracts';
 import { FakeLanguageTransport } from './fake-daemon';
@@ -5,12 +6,6 @@ import { LanguageStatusTracker } from './status';
 
 function status(server: string, state: LanguageServerStatus['state'], extra: Partial<LanguageServerStatus> = {}): LanguageServerStatus {
     return { server, state, version: '1.0.0', documents: 0, ...extra };
-}
-
-async function settle(): Promise<void> {
-    for (let turn = 0; turn < 20; turn++) {
-        await Promise.resolve();
-    }
 }
 
 describe('language status', () => {

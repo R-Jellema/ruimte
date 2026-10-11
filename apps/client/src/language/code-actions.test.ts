@@ -1,3 +1,4 @@
+import { settleLanguage as settle } from './settle.test';
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { useToasts } from '@/state/toasts';
@@ -13,12 +14,6 @@ import { eventOf } from './key-events';
 const uri = 'file:///work/app/src/a.ts';
 const at = (line: number, character: number) => ({ line, character });
 const range = (line: number, start: number, end: number) => ({ start: at(line, start), end: at(line, end) });
-
-async function settle(): Promise<void> {
-    for (let turn = 0; turn < 100; turn++) {
-        await Promise.resolve();
-    }
-}
 
 const FIX = {
     title: "Change spelling to 'salaryMin'",

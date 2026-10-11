@@ -1,3 +1,4 @@
+import { settleLanguage as settle } from './settle.test';
 import { describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { ManualTimers } from '@adecore/editor-react/testing';
@@ -7,12 +8,6 @@ import { FakeLanguageTransport } from './fake-daemon';
 import { ProjectLanguage } from './ruimte-project-language';
 
 const uri = 'file:///work/app/src/a.ts';
-
-async function settle(): Promise<void> {
-    for (let turn = 0; turn < 30; turn++) {
-        await Promise.resolve();
-    }
-}
 
 describe('inlay hints and semantic tokens', () => {
     test('are asked for once the document is open and a server offers them, and drawn', async () => {

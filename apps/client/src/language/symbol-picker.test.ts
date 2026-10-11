@@ -1,3 +1,4 @@
+import { settleLanguage } from './settle.test';
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { useToasts } from '@/state/toasts';
@@ -39,9 +40,7 @@ describe('go to symbol', () => {
     test('opens on its shortcut with the symbols of the file and goes to the one chosen', async () => {
         const { editor, language } = await setup();
         expect(editor.press(eventOf(CANVAS_SHORTCUTS.goToSymbol))).toBe(true);
-        for (let turn = 0; turn < 100; turn++) {
-            await Promise.resolve();
-        }
+        await settleLanguage();
         const view = language.popups.getState().symbols!;
         expect(view.file).toBe('a.ts');
         expect(view.entries.map((entry) => entry.name)).toEqual(['score', 'DEFAULT']);

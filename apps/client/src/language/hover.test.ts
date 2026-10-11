@@ -1,3 +1,4 @@
+import { settleLanguage as settle } from './settle.test';
 import { describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { EditorLanguage } from './ruimte-editor-language';
@@ -10,12 +11,6 @@ import { eventOf } from './key-events';
 
 const uri = 'file:///work/app/src/a.ts';
 const range = (line: number, start: number, end: number) => ({ start: { line, character: start }, end: { line, character: end } });
-
-async function settle(): Promise<void> {
-    for (let turn = 0; turn < 30; turn++) {
-        await Promise.resolve();
-    }
-}
 
 async function setup(providers: Record<string, unknown> = {}) {
     const transport = new FakeLanguageTransport();

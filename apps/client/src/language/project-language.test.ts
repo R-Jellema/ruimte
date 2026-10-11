@@ -1,3 +1,4 @@
+import { settleLanguage as settle } from './settle.test';
 import { describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { FakeLanguageTransport } from './fake-daemon';
@@ -5,12 +6,6 @@ import { acquireProjectLanguage, ProjectLanguage } from './ruimte-project-langua
 
 const folder = '/work/app';
 const uri = 'file:///work/app/src/a.ts';
-
-async function settle(): Promise<void> {
-    for (let turn = 0; turn < 30; turn++) {
-        await Promise.resolve();
-    }
-}
 
 function setup(text = 'let a = 1;\nlet b = 2;') {
     const transport = new FakeLanguageTransport();

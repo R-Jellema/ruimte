@@ -1,3 +1,4 @@
+import { settleLanguage } from './settle.test';
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { useToasts } from '@/state/toasts';
@@ -151,9 +152,7 @@ describe('peek definition', () => {
         const language = new EditorLanguage(project, editor, uri, 'typescript');
         await language.document.ready;
         editor.press(eventOf(CANVAS_SHORTCUTS.peekDefinition));
-        for (let turn = 0; turn < 100; turn++) {
-            await Promise.resolve();
-        }
+        await settleLanguage();
         const view = language.popups.getState().peek!;
         expect(view.kind).toBe('definitions');
         expect(view.preview).toMatchObject({ uri: otherUri, startLine: 0, text: 'function use() {\n  return 1;\n}', active: 2 });

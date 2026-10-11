@@ -1,3 +1,4 @@
+import { settleLanguage as flush } from './settle.test';
 import { describe, expect, test } from 'bun:test';
 import { type FakeEditor, FakeEditorEngine } from '@adecore/editor/fake';
 import { EditorLanguage } from './ruimte-editor-language';
@@ -10,12 +11,6 @@ const at = (line: number, character = 0) => ({ line, character });
 
 function functionSymbol(name: string, line: number) {
     return { name, kind: 12, range: { start: at(line), end: at(line, 20) }, selectionRange: { start: at(line, 9), end: at(line, 9 + name.length) } };
-}
-
-async function flush(): Promise<void> {
-    for (let turn = 0; turn < 2000; turn++) {
-        await Promise.resolve();
-    }
 }
 
 interface Setup {

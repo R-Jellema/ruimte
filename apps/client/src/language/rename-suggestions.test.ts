@@ -1,3 +1,4 @@
+import { settleLanguage as settle } from './settle.test';
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { FakeOnDeviceModel } from '@/ondevice/fake-model';
@@ -13,12 +14,6 @@ const uri = 'file:///work/app/src/a.ts';
 const otherUri = 'file:///work/app/src/b.ts';
 const at = (line: number, character: number) => ({ line, character });
 const range = (line: number, start: number, end: number) => ({ start: at(line, start), end: at(line, end) });
-
-async function settle(): Promise<void> {
-    for (let turn = 0; turn < 100; turn++) {
-        await Promise.resolve();
-    }
-}
 
 const TEXT = 'const hits = need.filter((n) => has(n));\nreturn hits.length / need.length;';
 

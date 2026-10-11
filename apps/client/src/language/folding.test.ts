@@ -1,3 +1,4 @@
+import { settleLanguage as settle } from './settle.test';
 import { describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { EditorLanguage } from './ruimte-editor-language';
@@ -7,12 +8,6 @@ import { ProjectLanguage } from './ruimte-project-language';
 import { ManualTimers } from '@adecore/editor-react/testing';
 
 const range = (start: number, end: number) => ({ start: { line: start, character: 0 }, end: { line: end, character: 1 } });
-
-async function settle(): Promise<void> {
-    for (let turn = 0; turn < 100; turn++) {
-        await Promise.resolve();
-    }
-}
 
 describe('folding feature', () => {
     test('hands the editor the symbols and the ranges the servers name, and again after an edit', async () => {

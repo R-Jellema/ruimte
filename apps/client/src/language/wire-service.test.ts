@@ -1,3 +1,4 @@
+import { settleLanguage as settle } from './settle.test';
 import { describe, expect, test } from 'bun:test';
 import { TransportError } from '@/transport/transport';
 import { FakeLanguageTransport } from './fake-daemon';
@@ -7,12 +8,6 @@ import type { DiagnosticsReport } from '@adecore/lsp';
 const folder = '/work/app';
 const uri = 'file:///work/app/src/a.ts';
 const origin = { line: 0, character: 0 };
-
-async function settle(): Promise<void> {
-    for (let turn = 0; turn < 30; turn++) {
-        await Promise.resolve();
-    }
-}
 
 function service(texts: Record<string, string> = { [uri]: 'let a = 1;' }) {
     const transport = new FakeLanguageTransport();

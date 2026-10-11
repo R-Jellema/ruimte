@@ -1,3 +1,4 @@
+import { settleLanguage as settle } from './settle.test';
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { FakeOnDeviceModel } from '@/ondevice/fake-model';
@@ -12,12 +13,6 @@ import { ManualTimers } from '@adecore/editor-react/testing';
 
 const uri = 'file:///work/app/src/a.ts';
 const at = (line: number, character: number) => ({ line, character });
-
-async function settle(): Promise<void> {
-    for (let turn = 0; turn < 60; turn++) {
-        await Promise.resolve();
-    }
-}
 
 const TEXT = 'export function bestMatch(pool: Candidate[]): Candidate | null {\n    \n}\n';
 

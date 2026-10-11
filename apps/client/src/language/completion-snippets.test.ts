@@ -1,3 +1,4 @@
+import { settleLanguage as settle } from './settle.test';
 import { describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import type { CompletionItem } from '@adecore/lsp';
@@ -8,12 +9,6 @@ import { ManualTimers } from '@adecore/editor-react/testing';
 
 const uri = 'file:///work/app/src/a.ts';
 const at = (line: number, character: number) => ({ line, character });
-
-async function settle(): Promise<void> {
-    for (let turn = 0; turn < 200; turn++) {
-        await Promise.resolve();
-    }
-}
 
 async function setup(text: string, items: CompletionItem[], caret = text.length) {
     const transport = new FakeLanguageTransport();

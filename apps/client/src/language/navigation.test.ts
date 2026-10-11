@@ -1,3 +1,4 @@
+import { settleLanguage as settle } from './settle.test';
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { useToasts } from '@/state/toasts';
@@ -11,12 +12,6 @@ const at = (line: number, character: number) => ({ line, character });
 const range = (line: number, start: number, end: number) => ({ start: at(line, start), end: at(line, end) });
 const here = { uri, range: range(3, 4, 9) };
 const there = { uri: 'file:///work/app/src/lib/b.ts', range: range(9, 0, 5) };
-
-async function settle(): Promise<void> {
-    for (let turn = 0; turn < 100; turn++) {
-        await Promise.resolve();
-    }
-}
 
 async function setup(answer: unknown, providers: Record<string, unknown> = { 'textDocument/definition': {}, 'textDocument/implementation': {} }) {
     const transport = new FakeLanguageTransport();

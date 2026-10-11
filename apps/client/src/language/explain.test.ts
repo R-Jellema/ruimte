@@ -1,3 +1,4 @@
+import { settleLanguage as settle } from './settle.test';
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { FakeOnDeviceModel } from '@/ondevice/fake-model';
@@ -16,12 +17,6 @@ const range = (line: number, start: number, end: number) => ({ start: at(line, s
 const lines = (first: number, last: number) => ({ start: at(first, 0), end: at(last, 1) });
 
 const TEXT = 'function skillOverlap(have: string[], need: string[]): number {\n    return need.length === 0 ? 1 : 0;\n}\nconst share = skillOverlap([], []);';
-
-async function settle(): Promise<void> {
-    for (let turn = 0; turn < 60; turn++) {
-        await Promise.resolve();
-    }
-}
 
 async function setup(options: { available?: boolean; symbols?: unknown } = {}) {
     const transport = new FakeLanguageTransport();

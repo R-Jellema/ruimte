@@ -1,3 +1,4 @@
+import { settleLanguage } from './settle.test';
 import { describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { EditorLanguage } from './ruimte-editor-language';
@@ -23,16 +24,12 @@ describe('symbols feature', () => {
         const editor = new FakeEditorEngine().mount({} as HTMLElement, { text: 'function a() {\n}\n', theme: 'light' });
         const language = new EditorLanguage(project, editor, 'file:///work/app/src/a.ts', 'typescript', timers);
         await language.document.ready;
-        for (let turn = 0; turn < 100; turn++) {
-            await Promise.resolve();
-        }
+        await settleLanguage();
         expect(editor.blocks).toEqual([{ startLine: 1, endLine: 4, name: 'first', kind: 'function' }]);
         name = 'second';
         editor.type('function a() {\n}\n// x');
         timers.advance(600);
-        for (let turn = 0; turn < 100; turn++) {
-            await Promise.resolve();
-        }
+        await settleLanguage();
         expect(editor.blocks?.[0]?.name).toBe('second');
     });
 });
