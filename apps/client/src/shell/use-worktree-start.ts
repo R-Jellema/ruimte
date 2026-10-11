@@ -3,6 +3,7 @@ import type { AgentKind, GitRefsResult, ModelSelection, Worktree } from '@ruimte
 import { branchRefusal } from '@adecore/agents-react/chat/logic/fork';
 import { defaultProvider, readChatPreferences, startingSelection } from '@adecore/agents-react/chat/preferences';
 import { useProviders } from '@adecore/agents-react/state/providers';
+import { messageOf } from '@adecore/ui';
 import { proposedBranch } from '@/shell/new-worktree-chat';
 import { useTransport } from '@/transport/context';
 
@@ -21,6 +22,8 @@ export function reusableBranches(worktrees: readonly Pick<Worktree, 'branch' | '
 export interface WorktreeStart {
     folder: string;
     refs: GitRefsResult | null;
+    /* Why the branches could not be read (not a git repository, no machine); null while it works or when it did. */
+    refsFailure: string | null;
     branch: string;
     setBranch(branch: string): void;
     base: string;
@@ -46,6 +49,7 @@ export function useWorktreeStart(folder: string | null, proposed: string | null 
     const providers = useProviders((s) => s.providers);
     const pickable = providers.filter((entry) => entry.installed && entry.capabilities.chat);
     const [refs, setRefs] = useState<GitRefsResult | null>(null);
+    const [refsFailure, setRefsFailure] = useState<string | null>(null);
     const [typedBranch, setBranch] = useState<string | null>(null);
     const [typedBase, setBase] = useState<string | null>(null);
     const [worktreeBranches, setWorktreeBranches] = useState<ReadonlySet<string>>(new Set());
@@ -74,9 +78,14 @@ export function useWorktreeStart(folder: string | null, proposed: string | null 
             .then((answer) => {
                 if (current) {
                     setRefs(answer);
+                    setRefsFailure(null);
                 }
             })
-            .catch(() => undefined);
+            .catch((e: unknown) => {
+                if (current) {
+                    setRefsFailure(messageOf(e));
+                }
+            });
         return () => {
             current = false;
         };
@@ -131,6 +140,7 @@ export function useWorktreeStart(folder: string | null, proposed: string | null 
     return {
         folder,
         refs,
+        refsFailure,
         branch,
         setBranch,
         base,

@@ -180,7 +180,7 @@ export function MergeWorktreeDialog() {
                 <Dialog.Text className="mt-1">
                     {shown === null ? t('removeWorktree.counting') : (failure ?? t('merge.holds', { contents: mergeContents(worktrees) }))}
                 </Dialog.Text>
-                {agentLine !== null && <p className="mt-2 text-sm text-status-warning">{agentLine}</p>}
+                {agentLine !== null && <p className="mt-2 text-sm text-status-needs-you">{agentLine}</p>}
                 {shown !== null && failure === null && (
                     <>
                         {loose && (

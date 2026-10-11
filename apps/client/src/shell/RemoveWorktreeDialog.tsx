@@ -1,10 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActionRefusal } from '@ruimte/actions';
 import type { Worktree } from '@ruimte/contracts';
 import { performAsPerson } from '@/actions/client-actions';
 import { PromptDialog } from '@adecore/ui';
-import { removeAllQuestion, removedToast } from '@/shell/panels/worktree-rows';
+import { useChats } from '@adecore/agents-react/state/chats';
+import { nodeWorking } from '@/state/agent-work';
+import { useSessions } from '@/state/sessions';
+import { useProjectNodes } from '@/state/worktrees';
+import { nodesInWorktree, removeAllQuestion, removedToast } from '@/shell/panels/worktree-rows';
 import { useEndpointId } from '@/state/keys';
 import { useToasts } from '@/state/toasts';
 import { useUi } from '@/state/ui';
@@ -23,6 +27,9 @@ export function RemoveWorktreeDialog() {
     const removal = useUi((s) => s.worktreeRemoval);
     const endpointId = useEndpointId();
     const transport = useTransport();
+    const nodes = useProjectNodes();
+    const sessions = useSessions((s) => s.byKey);
+    const chats = useChats((s) => s.statusByKey);
     const [reading, setReading] = useState<Reading | null>(null);
     const [busy, setBusy] = useState(false);
     // Goes up to count again after a refusal, with the dialog still open on the same worktrees.
@@ -70,6 +77,11 @@ export function RemoveWorktreeDialog() {
                 ? t('removeWorktree.alreadyGone')
                 : null;
     const question = shown !== null && shown.worktrees.length > 0 ? removeAllQuestion(shown.worktrees) : null;
+    const working = useMemo(
+        () => (shown?.worktrees ?? []).flatMap((worktree) => nodesInWorktree(nodes, worktree)).filter((node) => nodeWorking(node, sessions, chats, endpointId)),
+        [shown, nodes, sessions, chats, endpointId]
+    );
+    const stopping = agentWorking || working.length > 0;
     const mergeable = shown?.worktrees.filter((worktree) => !worktree.missing) ?? [];
 
     const confirm = async (): Promise<void> => {
@@ -83,7 +95,7 @@ export function RemoveWorktreeDialog() {
                 const result = await performAsPerson('worktree.remove', {
                     branch: worktree.branch,
                     force: question.force,
-                    stopAgent: agentWorking
+                    stopAgent: stopping
                 });
                 useToasts.getState().show({
                     title: t('removeWorktree.removed', { branch: worktree.branch }),
@@ -122,12 +134,19 @@ export function RemoveWorktreeDialog() {
                     failure
                 ) : (
                     <>
-                        {agentWorking ? t('removeWorktree.agentWorking') : question?.description}
+                        {question?.description}
                         {question?.note !== undefined && <span className="mt-1 block">{question.note}</span>}
+                        {stopping && (
+                            <span className="mt-2 block text-sm text-status-needs-you">
+                                {working.length > 0
+                                    ? t('removeWorktree.working', { count: working.length, names: working.map((node) => node.title || node.kind).join(', ') })
+                                    : t('removeWorktree.agentWorking')}
+                            </span>
+                        )}
                     </>
                 )
             }
-            confirmLabel={agentWorking ? t('removeWorktree.stopAndRemove') : (question?.confirmLabel ?? t('common:action.remove'))}
+            confirmLabel={stopping ? t('removeWorktree.stopAndRemove') : (question?.confirmLabel ?? t('common:action.remove'))}
             danger
             busy={busy || question === null}
             secondary={

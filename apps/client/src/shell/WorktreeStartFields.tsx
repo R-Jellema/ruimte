@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ModelPicker } from '@adecore/agents-react/chat/ui/Pickers';
 import { useProviders } from '@adecore/agents-react/state/providers';
-import { FieldHint, FormError, Input } from '@adecore/ui';
+import { Dialog, Field, FormError, Input } from '@adecore/ui';
 import type { WorktreeStart } from '@/shell/use-worktree-start';
 
 /* The branch name, the base with the commit it names, and the model, for a dialog that starts a chat in a worktree. */
@@ -17,32 +17,30 @@ export function WorktreeStartFields({ start, idPrefix, onSubmit }: { start: Work
             onSubmit();
         }
     };
+    const baseHint =
+        start.base.trim() === ''
+            ? t('newWorktreeChat.baseEmpty')
+            : start.commit === 'missing'
+              ? t('newWorktreeChat.baseMissing')
+              : start.baseKnown && start.commit !== null
+                ? t('newWorktreeChat.baseCommit', { commit: start.commit.commit.slice(0, 7), subject: start.commit.subject })
+                : t('newWorktreeChat.baseLooking');
     return (
         <>
-            <label className="mt-3 block text-xs text-text-muted" htmlFor={`${idPrefix}-branch`}>
-                {t('newWorktreeChat.branchLabel')}
-            </label>
-            <Input
-                id={`${idPrefix}-branch`}
-                mono
-                className="mt-1"
-                value={start.branch}
-                spellCheck={false}
-                onChange={(e) => start.setBranch(e.target.value)}
-                onKeyDown={submitOnEnter}
-            />
-            {start.branchProblem !== null && <FormError className="mt-1">{start.branchProblem}</FormError>}
-            {start.reuses ? (
-                <FieldHint>{t('newWorktreeChat.reusesWorktree')}</FieldHint>
-            ) : (
-                <>
-                    <label className="mt-3 block text-xs text-text-muted" htmlFor={`${idPrefix}-base`}>
-                        {t('newWorktreeChat.baseLabel')}
-                    </label>
+            {start.refsFailure !== null && <FormError className="mt-3 break-words">{start.refsFailure}</FormError>}
+            {pickable.length === 0 && <Dialog.Text className="mt-3">{t('newWorktreeChat.noProvider')}</Dialog.Text>}
+            <Field
+                label={t('newWorktreeChat.branchLabel')}
+                error={start.branchProblem}
+                hint={start.reuses ? t('newWorktreeChat.reusesWorktree') : undefined}
+                className="mt-3"
+            >
+                <Input mono value={start.branch} spellCheck={false} onChange={(e) => start.setBranch(e.target.value)} onKeyDown={submitOnEnter} />
+            </Field>
+            {!start.reuses && (
+                <Field label={t('newWorktreeChat.baseLabel')} hint={baseHint} className="mt-3">
                     <Input
-                        id={`${idPrefix}-base`}
                         mono
-                        className="mt-1"
                         list={`${idPrefix}-refs`}
                         value={start.base}
                         spellCheck={false}
@@ -54,18 +52,11 @@ export function WorktreeStartFields({ start, idPrefix, onSubmit }: { start: Work
                             <option key={`${ref.kind}:${ref.name}`} value={ref.name} />
                         ))}
                     </datalist>
-                    <FieldHint>
-                        {start.commit === 'missing'
-                            ? t('newWorktreeChat.baseMissing')
-                            : start.baseKnown && start.commit !== null
-                              ? t('newWorktreeChat.baseCommit', { commit: start.commit.commit.slice(0, 7), subject: start.commit.subject })
-                              : t('newWorktreeChat.baseLooking')}
-                    </FieldHint>
-                </>
+                </Field>
             )}
             {start.provider !== null && start.selection !== null && pickable.length > 0 && (
                 <div className="mt-3 flex items-center justify-between gap-3">
-                    <span className="text-xs text-text-muted">{t('newWorktreeChat.model')}</span>
+                    <span className="text-sm text-text">{t('newWorktreeChat.model')}</span>
                     <ModelPicker
                         providers={pickable}
                         provider={start.provider}
