@@ -271,6 +271,8 @@ When a CLI generates an image, the daemon saves it as an attachment before the t
 
 `chat.imageTarget` and `chat.saveImage` copy an image into the project. Both require the client to hold the chat's project. A copy lands inside the project folder, never in `.git`, `.ruimte` or machine state, and a symlink at the destination is refused. Without `replace` an existing name is never overwritten. A replace names the revision `chat.imageTarget` read and is refused when the file changed since, and it publishes a new file, so it never writes through a hard link. The daemon finds the source in the thread's metadata and takes no path or bytes from the request, and the desktop bridge that opens an image never sees a source path.
 
+`chat.search` looks for a word in the messages of every listed chat of a project, one chat after the other, newest sessions first, and `chat.searchCancel` stops it between two chats. `chat.external` lists the Claude and Codex sessions that were started in the project's folder outside Ruimte, from the transcript folders of every account and nowhere else. Both require the client to hold the project. A session the project's own chats, terminals or nodes already run is left out.
+
 ## Language servers
 
 `src/language` runs the language servers of the editor. The daemon is their LSP client (`@adecore/lsp`) and the one owner of every document's text and version, so all clients of a project share what a server sees. The wire is `packages/contracts/src/language.ts`, and `src/language/CLAUDE.md` has the invariants.

@@ -101,6 +101,10 @@ import { BUILD, COMPILED as compiled, VERSION } from './version.ts';
 import { PAIRING_REMOVED, registerAuthHandlers } from './handlers/auth.ts';
 import { registerChatHandlers } from './handlers/chat.ts';
 import { registerChatImageHandlers } from './handlers/chat-image.ts';
+import { registerChatSearchHandlers } from './handlers/chat-search.ts';
+import { ExternalChatSessions, resumesOfViews } from './chat/external.ts';
+import { chatsOfViews, ProjectChatSearch } from './chat/project-search.ts';
+import { nodeSessionFs } from '@adecore/agents/chat/external-sessions';
 import { ChatImageFiles } from './chat/image-files.ts';
 import { continueOn } from './chat/continue-on.ts';
 import { chatForkDeps, forkChat, readForkInfo } from './chat/fork.ts';
@@ -930,6 +934,36 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
             },
             attachment: (chatId, attachmentId) => chats.findAttachment(chatId, attachmentId),
             refusePath: (path) => machineHome.refuse(path)
+        })
+    );
+    const clientHoldsProject = async (clientId: string, projectId: string): Promise<boolean> => {
+        const folder = projects.index.folderOf(projectId);
+        return folder !== null && (await projects.heldFolders(clientId)).includes(folder);
+    };
+    registerChatSearchHandlers(
+        dispatcher,
+        new ProjectChatSearch({
+            holds: clientHoldsProject,
+            chatsOf: (projectId) => chatsOfViews(projects.index.viewsOf(projectId) ?? []),
+            loadedItems: (chatId) => chats.get(chatId)?.thread.list() ?? null,
+            readStored: async (chatId) => (await chats.readChat(chatId))?.items ?? null
+        }),
+        new ExternalChatSessions({
+            holds: clientHoldsProject,
+            folderOf: (projectId) => projects.index.folderOf(projectId),
+            roots: () => usageRootsOf(providerAccounts),
+            ownSessionIds: async (projectId) => {
+                const views = projects.index.viewsOf(projectId) ?? [];
+                const own = new Set(resumesOfViews(views));
+                for (const { chatId } of chatsOfViews(views)) {
+                    const sessionId = (await chats.readChat(chatId))?.info.agentSessionId;
+                    if (sessionId !== null && sessionId !== undefined) {
+                        own.add(sessionId);
+                    }
+                }
+                return own;
+            },
+            fs: await nodeSessionFs()
         })
     );
     registerPlanHandlers(dispatcher, plans);

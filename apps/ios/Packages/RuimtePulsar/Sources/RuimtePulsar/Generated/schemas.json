@@ -25993,6 +25993,260 @@
       "path"
     ]
   },
+  "request.chat.search.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "query": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "searchId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 500
+      }
+    },
+    "required": [
+      "projectId",
+      "query",
+      "searchId"
+    ]
+  },
+  "request.chat.search.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "hits": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "chatId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "itemId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "author": {
+              "type": "string",
+              "enum": [
+                "person",
+                "agent"
+              ]
+            },
+            "snippet": {
+              "type": "string"
+            },
+            "matchStart": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "matchLength": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "createdAt": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "chatId",
+            "itemId",
+            "author",
+            "snippet",
+            "matchStart",
+            "matchLength",
+            "createdAt"
+          ]
+        }
+      },
+      "chats": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "chatId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "chatId",
+            "title"
+          ]
+        }
+      },
+      "searched": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "failed": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "chatId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "title": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "chatId",
+            "title",
+            "reason"
+          ]
+        }
+      },
+      "truncated": {
+        "type": "boolean"
+      },
+      "cancelled": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "hits",
+      "chats",
+      "searched",
+      "failed",
+      "truncated",
+      "cancelled"
+    ]
+  },
+  "request.chat.searchCancel.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "searchId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "required": [
+      "searchId"
+    ]
+  },
+  "request.chat.searchCancel.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.chat.external.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "projectId"
+    ]
+  },
+  "request.chat.external.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "sessions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "x-open-enum": [
+                "claude",
+                "codex",
+                "gemini",
+                "copilot",
+                "apple"
+              ]
+            },
+            "account": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+            },
+            "sessionId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "title": {
+              "type": "string"
+            },
+            "updatedAt": {
+              "type": "number"
+            },
+            "cwd": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "provider",
+            "sessionId",
+            "title",
+            "updatedAt",
+            "cwd"
+          ]
+        }
+      },
+      "failed": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "x-open-enum": [
+                "claude",
+                "codex",
+                "gemini",
+                "copilot",
+                "apple"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "provider",
+            "reason"
+          ]
+        }
+      }
+    },
+    "required": [
+      "sessions",
+      "failed"
+    ]
+  },
   "request.skills.list.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",

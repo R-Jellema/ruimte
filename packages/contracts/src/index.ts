@@ -6,6 +6,13 @@ import {
 } from './terminal-prepare.ts';
 export * from './terminal-prepare.ts';
 import { AGENT_EVENT_SCHEMAS, AGENT_REQUEST_SCHEMAS, EmptySchema } from '@adecore/agent-contracts/protocol';
+import {
+    ChatExternalPayloadSchema,
+    ChatExternalResultSchema,
+    ChatSearchCancelPayloadSchema,
+    ChatSearchPayloadSchema,
+    ChatSearchResultSchema
+} from './chat-search.ts';
 import { ChatImageTargetPayloadSchema, ChatImageTargetResultSchema, ChatImageSavePayloadSchema, ChatImageSaveResultSchema } from './chat-image.ts';
 import { ProjectSidebarResultSchema } from './project-sidebar.ts';
 import { z } from 'zod';
@@ -314,6 +321,7 @@ export * from './browser.ts';
 export * from './bytes.ts';
 export * from './chat.ts';
 export * from './chat-image.ts';
+export * from './chat-search.ts';
 export * from './computer.ts';
 export * from './context.ts';
 export * from './direct.ts';
@@ -449,6 +457,9 @@ export const REQUEST_SCHEMAS = {
     'chat.removeVisual': AGENT_REQUEST_SCHEMAS['chat.removeVisual'],
     'chat.imageTarget': { payload: ChatImageTargetPayloadSchema, result: ChatImageTargetResultSchema },
     'chat.saveImage': { payload: ChatImageSavePayloadSchema, result: ChatImageSaveResultSchema },
+    'chat.search': { payload: ChatSearchPayloadSchema, result: ChatSearchResultSchema },
+    'chat.searchCancel': { payload: ChatSearchCancelPayloadSchema, result: EmptySchema },
+    'chat.external': { payload: ChatExternalPayloadSchema, result: ChatExternalResultSchema },
     'skills.list': AGENT_REQUEST_SCHEMAS['skills.list'],
     'provider.list': AGENT_REQUEST_SCHEMAS['provider.list'],
     'accounts.list': AGENT_REQUEST_SCHEMAS['accounts.list'],
