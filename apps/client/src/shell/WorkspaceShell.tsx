@@ -81,6 +81,13 @@ const IssueStartDialog = lazyDialog(
     (s) => s.issueStartOpen
 );
 
+const PullRequestDialog = lazyDialog(
+    () => import('@/shell/PullRequestDialog'),
+    'PullRequestDialog',
+    useUi,
+    (s) => s.pullRequestDialog !== null
+);
+
 const ConflictOverlay = lazyDialog(
     () => import('@/conflicts/ConflictOverlay'),
     'ConflictOverlay',
@@ -210,6 +217,9 @@ export function WorkspaceShell({ workspace }: { workspace: Workspace }) {
             </ErrorBoundary>
             <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
                 <IssueStartDialog />
+            </ErrorBoundary>
+            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                <PullRequestDialog />
             </ErrorBoundary>
             <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
                 <ImageSaveHost />

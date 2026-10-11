@@ -230,6 +230,8 @@ interface UiStore {
     newWorktreeChatOpen: boolean;
     /* The dialog that starts a chat on a GitHub issue. */
     issueStartOpen: boolean;
+    /* The checkout whose pull request is shown, while that dialog is up. */
+    pullRequestDialog: { cwd: string } | null;
     /* What a view is being asked about, from the sidebar, the breadcrumb or the palette alike. */
     viewDialog: ViewDialog;
     /* The sidebar row the caret is in, which is how a new heading opens. */
@@ -253,6 +255,7 @@ interface UiStore {
     setForkDialog(fork: { chatId: string; turnId: string } | null): void;
     setNewWorktreeChatOpen(open: boolean): void;
     setIssueStartOpen(open: boolean): void;
+    setPullRequestDialog(request: { cwd: string } | null): void;
     setViewDialog(dialog: ViewDialog): void;
     setRenamingViewId(viewId: string | null): void;
     setSidebarOpen(open: boolean): void;
@@ -315,6 +318,7 @@ export const useUi = create<UiStore>((set, get) => ({
     forkDialog: null,
     newWorktreeChatOpen: false,
     issueStartOpen: false,
+    pullRequestDialog: null,
     viewDialog: null,
     renamingViewId: null,
     projectSettingsAsked: false,
@@ -365,6 +369,9 @@ export const useUi = create<UiStore>((set, get) => ({
     },
     setIssueStartOpen(open) {
         set({ issueStartOpen: open });
+    },
+    setPullRequestDialog(request) {
+        set({ pullRequestDialog: request });
     },
     setViewDialog(dialog) {
         set({ viewDialog: dialog });

@@ -380,6 +380,7 @@ function codeMenu(context: MenuContext, command: MenuCommand): MenuSection {
         items: [
             ...only(
                 workspace && !context.settingsOpen,
+                ...only(context.folder && !context.scratch, command('pr-show', t('showPullRequest')), separator),
                 ...languageCommandsOf('code').map((id) => command(id, t(LANGUAGE_COMMANDS[id].key), { shortcut: LANGUAGE_COMMANDS[id].shortcut })),
                 separator,
                 ...editorCommandsOf(undefined).map((id) => command(id, t(EDITOR_COMMANDS[id].key), { shortcut: EDITOR_COMMANDS[id].shortcut })),

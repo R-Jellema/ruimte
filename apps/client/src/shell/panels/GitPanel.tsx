@@ -473,6 +473,7 @@ export function GitPanel() {
             onAction={(kind, extra) => void act(path, kind, extra)}
             onDialog={setDialog}
             onPullRequest={() => openPullRequest(path)}
+            onShowPullRequest={() => useUi.getState().setPullRequestDialog({ cwd: path })}
         />
     );
 
@@ -913,10 +914,11 @@ interface RepoActionItemsProps {
     onAction(kind: GitActionKind, extra?: { ref: string }): void;
     onDialog(dialog: Dialog): void;
     onPullRequest(): void;
+    onShowPullRequest(): void;
 }
 
 /* Everything that acts on one repository. The order is how often a person reaches for it. */
-function RepoActionItems({ cwd, busy, canPullRequest, stashes, branch, onAction, onDialog, onPullRequest }: RepoActionItemsProps) {
+function RepoActionItems({ cwd, busy, canPullRequest, stashes, branch, onAction, onDialog, onPullRequest, onShowPullRequest }: RepoActionItemsProps) {
     const { t } = useTranslation('panels');
     const popStash = (): void => {
         const step = popStashStep(stashes);
@@ -972,6 +974,10 @@ function RepoActionItems({ cwd, busy, canPullRequest, stashes, branch, onAction,
                     <Menu.Item disabled={busy} onClick={onPullRequest}>
                         <Icon icon={GitPullRequest} size={14} />
                         {t('git.actions.pullRequest')}
+                    </Menu.Item>
+                    <Menu.Item disabled={busy} onClick={onShowPullRequest}>
+                        <Icon icon={GitPullRequest} size={14} />
+                        {t('git.actions.showPullRequest')}
                     </Menu.Item>
                 </>
             )}

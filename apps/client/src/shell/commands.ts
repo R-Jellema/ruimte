@@ -285,6 +285,11 @@ export function appCommands(): Command[] {
                       label: i18next.t('shell:palette.commands.findInFiles'),
                       shortcut: APP_SHORTCUTS.findInFiles,
                       run: () => useUi.getState().openFindInFiles()
+                  },
+                  {
+                      id: 'pr-show',
+                      label: i18next.t('shell:palette.commands.showPullRequest'),
+                      run: () => useUi.getState().setPullRequestDialog({ cwd: folder })
                   }
               ]
             : []),

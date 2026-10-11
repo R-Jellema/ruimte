@@ -48,6 +48,7 @@ export const PALETTE_IDS = [
     'chat-new',
     'chat-new-worktree',
     'issue-start',
+    'pr-show',
     'file-new',
     'folder-new',
     'reveal',
