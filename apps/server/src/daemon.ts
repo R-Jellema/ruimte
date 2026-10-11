@@ -103,8 +103,8 @@ import { PAIRING_REMOVED, registerAuthHandlers } from './handlers/auth.ts';
 import { registerChatHandlers } from './handlers/chat.ts';
 import { registerChatImageHandlers } from './handlers/chat-image.ts';
 import { registerChatSearchHandlers } from './handlers/chat-search.ts';
-import { ExternalChatSessions, resumesOfViews } from './chat/external.ts';
-import { chatsOfViews, ProjectChatSearch } from './chat/project-search.ts';
+import { ExternalChatSessions, ownSessionSources } from './chat/external.ts';
+import { chatsLocatedIn, chatsOfViews, ProjectChatSearch } from './chat/project-search.ts';
 import { nodeSessionFs } from '@adecore/agents/chat/external-sessions';
 import { ChatImageFiles } from './chat/image-files.ts';
 import { continueOn } from './chat/continue-on.ts';
@@ -952,7 +952,8 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         dispatcher,
         new ProjectChatSearch({
             holds: clientHoldsProject,
-            chatsOf: (projectId) => chatsOfViews(projects.index.viewsOf(projectId) ?? []),
+            // The same rule holdsProject applies: a chat id written into this project's file may be another project's chat.
+            chatsOf: (projectId) => chatsLocatedIn(chatsOfViews(projects.index.viewsOf(projectId) ?? []), projectId, (chatId) => projects.index.locate(chatId)),
             loadedItems: (chatId) => chats.get(chatId)?.thread.list() ?? null,
             readStored: async (chatId) => (await chats.readChat(chatId))?.items ?? null
         }),
@@ -961,9 +962,12 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
             folderOf: (projectId) => projects.index.folderOf(projectId),
             roots: () => usageRootsOf(providerAccounts),
             ownSessionIds: async (projectId) => {
-                const views = projects.index.viewsOf(projectId) ?? [];
-                const own = new Set(resumesOfViews(views));
-                for (const { chatId } of chatsOfViews(views)) {
+                const { chatIds, resumes } = ownSessionSources(
+                    projects.index.viewsOf(projectId) ?? [],
+                    projects.hiddenAgents.inProject(projectId).map((agent) => agent.node)
+                );
+                const own = new Set(resumes);
+                for (const chatId of chatIds) {
                     const sessionId = (await chats.readChat(chatId))?.info.agentSessionId;
                     if (sessionId !== null && sessionId !== undefined) {
                         own.add(sessionId);

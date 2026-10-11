@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { ChatItem, ProjectView } from '@ruimte/contracts';
-import { chatsOfViews, ProjectChatSearch, type ProjectChatSearchDeps } from './project-search.ts';
+import { chatsLocatedIn, chatsOfViews, ProjectChatSearch, type ProjectChatSearchDeps } from './project-search.ts';
 
 const message = (id: string, text: string, kind: 'user' | 'assistant' = 'user'): ChatItem =>
     kind === 'user' ? { id, kind, createdAt: 1, turnId: null, text } : { id, kind, createdAt: 1, turnId: null, text, streaming: false };
@@ -162,4 +162,15 @@ describe('the chats of a project', () => {
             { chatId: 'agent', title: 'Agent' }
         ]);
     });
+});
+
+test('chats the index places in another project are left out of a search', () => {
+    const chats = [
+        { chatId: 'mine', title: 'Mine' },
+        { chatId: 'theirs', title: 'Theirs' },
+        { chatId: 'nowhere', title: 'Nowhere' }
+    ];
+    const places: Record<string, string> = { mine: 'p1', theirs: 'p2' };
+    const locate = (chatId: string) => (chatId in places ? { projectId: places[chatId]! } : null);
+    expect(chatsLocatedIn(chats, 'p1', locate)).toEqual([{ chatId: 'mine', title: 'Mine' }]);
 });

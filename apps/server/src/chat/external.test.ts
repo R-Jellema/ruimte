@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { ProjectView } from '@ruimte/contracts';
 import type { SessionFs } from '@adecore/agents/chat/external-sessions';
 import { claudeProjectSlug } from '@adecore/agents/chat/claude-transcript';
-import { ExternalChatSessions, resumesOfViews, type ExternalChatSessionsDeps } from './external.ts';
+import { ExternalChatSessions, ownSessionSources, resumesOfViews, type ExternalChatSessionsDeps } from './external.ts';
 
 const folder = '/work/app';
 const line = (text: string) => JSON.stringify({ type: 'user', message: { role: 'user', content: text } });
@@ -86,4 +86,17 @@ test('the sessions a project resumes are read off its views and nodes', () => {
         }
     ] as unknown as ProjectView[];
     expect(resumesOfViews(views)).toEqual(['one', 'two']);
+});
+
+test('the own sources include unlisted chat views and hidden agents', () => {
+    const views = [
+        { kind: 'chat', id: 'listed', node: { resume: 'one' } },
+        { kind: 'chat', id: 'empty', empty: true, node: {} },
+        { kind: 'chat', id: 'inline', hidden: true, node: {} }
+    ] as unknown as ProjectView[];
+    const hidden = [
+        { id: 'agent', kind: 'chat', resume: 'two' },
+        { id: 'shell', kind: 'terminal', resume: 'three' }
+    ];
+    expect(ownSessionSources(views, hidden)).toEqual({ chatIds: ['listed', 'empty', 'inline', 'agent'], resumes: ['one', 'two', 'three'] });
 });

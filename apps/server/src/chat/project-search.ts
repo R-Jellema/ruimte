@@ -22,11 +22,14 @@ export interface ProjectChatSearchDeps {
 const DEFAULT_LIMIT = 200;
 const HITS_PER_CHAT = 20;
 
-/* The chats a person can open in a project: chat views that are listed, and the chat nodes on its canvases. */
-export function chatsOfViews(views: readonly ProjectView[]): SearchableChat[] {
+/*
+ * The chats a person can open in a project: chat views that are listed, and the chat nodes on its
+ * canvases. `unlisted` adds the hidden and empty chat views, which are still Ruimte's own.
+ */
+export function chatsOfViews(views: readonly ProjectView[], unlisted = false): SearchableChat[] {
     return views.flatMap((view): SearchableChat[] => {
         if (view.kind === 'chat') {
-            return view.empty === true || view.hidden === true ? [] : [{ chatId: view.id, title: view.name ?? '' }];
+            return !unlisted && (view.empty === true || view.hidden === true) ? [] : [{ chatId: view.id, title: view.name ?? '' }];
         }
         if (isCanvasView(view)) {
             return view.nodes.filter((node) => node.kind === 'chat').map((node) => ({ chatId: node.id, title: node.title }));
@@ -37,6 +40,15 @@ export function chatsOfViews(views: readonly ProjectView[]): SearchableChat[] {
 
 function searchKey(clientId: string, searchId: string): string {
     return `${clientId}:${searchId}`;
+}
+
+/* Keeps the chats the index places in this project: an id written into its file may be a chat of another one. */
+export function chatsLocatedIn(
+    chats: readonly SearchableChat[],
+    projectId: string,
+    locate: (chatId: string) => { projectId: string } | null
+): SearchableChat[] {
+    return chats.filter((chat) => locate(chat.chatId)?.projectId === projectId);
 }
 
 /*

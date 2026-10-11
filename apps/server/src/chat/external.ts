@@ -2,7 +2,7 @@ import { isCanvasView, isSessionView, type ChatExternalResult, type ChatExternal
 import { listClaudeSessions, listCodexSessions, type ExternalSession, type SessionFs } from '@adecore/agents/chat/external-sessions';
 import type { UsageRootPath } from '@adecore/agents/usage/roots';
 
-import { ChatSearchError } from './project-search.ts';
+import { ChatSearchError, chatsOfViews } from './project-search.ts';
 
 export interface ExternalChatSessionsDeps {
     /* Whether this client has the project open. */
@@ -23,6 +23,17 @@ export function resumesOfViews(views: readonly ProjectView[]): string[] {
         }
         return isCanvasView(view) ? view.nodes.flatMap((node) => (node.resume === undefined ? [] : [node.resume])) : [];
     });
+}
+
+/* The chats of a project and the sessions their records are known to resume, hidden agents and unlisted chat views included. */
+export function ownSessionSources(
+    views: readonly ProjectView[],
+    hiddenNodes: readonly { id: string; kind: string; resume?: string }[]
+): { chatIds: string[]; resumes: string[] } {
+    return {
+        chatIds: [...chatsOfViews(views, true).map((chat) => chat.chatId), ...hiddenNodes.filter((node) => node.kind === 'chat').map((node) => node.id)],
+        resumes: [...resumesOfViews(views), ...hiddenNodes.flatMap((node) => (node.resume === undefined ? [] : [node.resume]))]
+    };
 }
 
 /*
