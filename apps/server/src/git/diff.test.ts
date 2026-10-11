@@ -1,49 +1,11 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { rm, symlink, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { diffFile, missingSides, patchFits, type DiffOptions } from './diff.ts';
+import { diffFile, type DiffOptions } from './diff.ts';
 import { mergeBaseOf } from './status.ts';
 import { gitIn, initRepo, repoTemplate, type RepoTemplate } from './test-repo.ts';
 
 const ORIGINAL = 'one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten\n';
-
-const PATCH = ['diff --git a/x.txt b/x.txt', '--- a/x.txt', '+++ b/x.txt', '@@ -2,3 +2,3 @@', ' two', '-three', '+THREE', ' four', ''].join('\n');
-
-describe('missingSides', () => {
-    test('a new file is missing on the old side and a deleted one on the new side', () => {
-        expect(missingSides('--- /dev/null\n+++ b/x.txt\n@@ -0,0 +1 @@\n+a\n')).toEqual({ old: true, new: false });
-        expect(missingSides('--- a/x.txt\n+++ /dev/null\n@@ -1 +0,0 @@\n-a\n')).toEqual({ old: false, new: true });
-    });
-
-    test('a removed line that reads like a header is not one', () => {
-        expect(missingSides('--- a/x.txt\n+++ b/x.txt\n@@ -1 +1 @@\n--- /dev/null\n+b\n')).toEqual({ old: false, new: false });
-    });
-});
-
-describe('patchFits', () => {
-    test('a patch fits the two texts it was made from', () => {
-        expect(patchFits(PATCH, ORIGINAL, ORIGINAL.replace('three', 'THREE'), false)).toBe(true);
-    });
-
-    test('a text that moved since the patch does not fit', () => {
-        expect(patchFits(PATCH, ORIGINAL, `zero\n${ORIGINAL.replace('three', 'THREE')}`, false)).toBe(false);
-    });
-
-    test('a patch without hunks fits nothing', () => {
-        expect(patchFits('diff --git a/x b/x\nold mode 100644\nnew mode 100755\n', 'a\n', 'a\n', false)).toBe(false);
-    });
-
-    test('a shared line that differs only in spacing fits when whitespace is ignored', () => {
-        const patch = ['--- a/x.txt', '+++ b/x.txt', '@@ -1,2 +1,2 @@', ' one', '-two', '+TWO', ''].join('\n');
-        expect(patchFits(patch, 'one\ntwo\n', '  one\nTWO\n', false)).toBe(false);
-        expect(patchFits(patch, 'one\ntwo\n', '  one\nTWO\n', true)).toBe(true);
-    });
-
-    test('a file without a final newline fits', () => {
-        const patch = ['--- a/x.txt', '+++ b/x.txt', '@@ -1 +1 @@', '-a', '\\ No newline at end of file', '+b', '\\ No newline at end of file', ''].join('\n');
-        expect(patchFits(patch, 'a', 'b', false)).toBe(true);
-    });
-});
 
 describe('diffFile with the whole texts', () => {
     let template: RepoTemplate;
@@ -117,6 +79,46 @@ describe('diffFile with the whole texts', () => {
         const diff = await diffFile(repo, 'tracked.txt', worktree(false, true), null);
         expect(diff.added).toBe(1);
         expect(diff.newText).toBe(changed);
+    });
+
+    test('a header-like line removed from the file does not mark a side as missing', async () => {
+        await write('tracked.txt', '-- /dev/null\n');
+        await gitIn(repo, ['add', 'tracked.txt']);
+        await write('tracked.txt', 'changed\n');
+        const diff = await diffFile(repo, 'tracked.txt', worktree(), null);
+        expect(diff).toMatchObject({ oldText: '-- /dev/null\n', newText: 'changed\n' });
+    });
+
+    test('snapshots preserve CRLF contents and a UTF-8 byte order mark', async () => {
+        // Keep the fixture's blob bytes independent of the runner's newline conversion.
+        await gitIn(repo, ['config', '--local', 'core.autocrlf', 'false']);
+        const original = '\uFEFFone\r\ntwo\r\nthree\r\n';
+        const changed = original.replace('two', 'TWO');
+        await write('tracked.txt', original);
+        await gitIn(repo, ['add', 'tracked.txt']);
+        await write('tracked.txt', changed);
+        const diff = await diffFile(repo, 'tracked.txt', worktree(), null);
+        expect(diff).toMatchObject({ oldText: original, newText: changed });
+    });
+
+    test('a patch normalized by Git is kept without incompatible raw snapshots', async () => {
+        await gitIn(repo, ['config', '--local', 'core.autocrlf', 'input']);
+        await write('tracked.txt', 'one\r\ntwo\r\nthree\r\n');
+        await gitIn(repo, ['add', 'tracked.txt']);
+        await write('tracked.txt', 'one\r\nTWO\r\nthree\r\n');
+        const diff = await diffFile(repo, 'tracked.txt', worktree(), null);
+        expect(diff.diff).toContain('+TWO');
+        expect(diff.oldText).toBeUndefined();
+        expect(diff.newText).toBeUndefined();
+    });
+
+    test('snapshots preserve missing final newlines on both sides', async () => {
+        await write('tracked.txt', 'old');
+        await gitIn(repo, ['add', 'tracked.txt']);
+        await write('tracked.txt', 'new');
+        const diff = await diffFile(repo, 'tracked.txt', worktree(), null);
+        expect(diff).toMatchObject({ oldText: 'old', newText: 'new' });
+        expect(diff.diff).toContain('\\ No newline at end of file');
     });
 
     test('a file without a change carries no texts', async () => {

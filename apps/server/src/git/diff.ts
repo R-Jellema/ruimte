@@ -1,6 +1,7 @@
 import { copyFile, lstat, mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative } from 'node:path';
+import { missingSides, patchFits } from '@adecore/merge';
 import type { ChatCheckpointDiff, ChatCheckpointFile, GitDiffFile, GitDiffResult, GitDiffScope } from '@ruimte/contracts';
 import { climbsOut } from '../projects/project-files.ts';
 import { readCommit } from './log.ts';
@@ -169,63 +170,6 @@ function sidesOf(path: string, options: DiffOptions, mergeBase: string | null): 
     return options.staged ? [{ blob: `HEAD:${path}` }, { blob: `:0:${path}` }] : [{ blob: `:0:${path}` }, { file: path }];
 }
 
-/* Which side a patch says the file is missing on, read from its header so no line of the file can pass for it. */
-export function missingSides(patch: string): { old: boolean; new: boolean } {
-    const start = patch.search(/^@@/m);
-    const header = start === -1 ? patch : patch.slice(0, start);
-    return { old: /^--- \/dev\/null$/m.test(header), new: /^\+\+\+ \/dev\/null$/m.test(header) };
-}
-
-const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
-
-/*
- * Whether every line a patch shows sits at its place in the two texts. A reader lays the hunks over
- * the texts by line number, so a file written between the diff and the read would land lines in the
- * wrong place. Under `--ignore-all-space` git shows one side's spacing on a shared line, so lines
- * are then compared without their whitespace.
- */
-export function patchFits(patch: string, oldText: string, newText: string, ignoreWhitespace: boolean): boolean {
-    const oldLines = oldText.split('\n');
-    const newLines = newText.split('\n');
-    const same = ignoreWhitespace
-        ? (shown: string, actual: string | undefined): boolean => actual !== undefined && shown.replace(/\s+/g, '') === actual.replace(/\s+/g, '')
-        : (shown: string, actual: string | undefined): boolean => shown === actual;
-    let oldAt = -1;
-    let newAt = -1;
-    let hunks = 0;
-    for (const line of patch.split('\n')) {
-        const header = HUNK_HEADER.exec(line);
-        if (header) {
-            hunks += 1;
-            oldAt = Number(header[1]) - (header[2] === '0' ? 0 : 1);
-            newAt = Number(header[3]) - (header[4] === '0' ? 0 : 1);
-            continue;
-        }
-        if (oldAt === -1) {
-            continue;
-        }
-        const body = line.slice(1);
-        if (line.startsWith(' ')) {
-            if (!same(body, oldLines[oldAt]) || !same(body, newLines[newAt])) {
-                return false;
-            }
-            oldAt += 1;
-            newAt += 1;
-        } else if (line.startsWith('-')) {
-            if (!same(body, oldLines[oldAt])) {
-                return false;
-            }
-            oldAt += 1;
-        } else if (line.startsWith('+')) {
-            if (!same(body, newLines[newAt])) {
-                return false;
-            }
-            newAt += 1;
-        }
-    }
-    return hunks > 0;
-}
-
 function hasNul(bytes: Uint8Array): boolean {
     return bytes.includes(0);
 }
@@ -293,7 +237,7 @@ function readSide(top: string, side: Side): Promise<string | null> {
     return 'blob' in side ? readBlob(top, side.blob) : readWorktree(top, side.file);
 }
 
-/* Both whole texts of a one-file diff, or null when either cannot be handed over as the patch reads it. */
+/* A file may change between Git's patch and the snapshot read, so only matching snapshots can be unfolded. */
 async function readSides(
     top: string,
     patch: string,
