@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import type { ChatSearchHit } from '@ruimte/contracts';
-import { chatSearchState, groupByChat, type ChatSearchAnswer } from './palette-chats';
+import type { ChatExternalSession, ChatSearchHit } from '@ruimte/contracts';
+import { chatSearchState, externalMatching, groupByChat, type ChatSearchAnswer } from './palette-chats';
 
 const hit = (chatId: string, itemId: string): ChatSearchHit => ({
     chatId,
@@ -50,5 +50,26 @@ describe('groupByChat', () => {
             ['Alpha', 0, 2],
             ['Beta', 2, 1]
         ]);
+    });
+});
+
+describe('externalMatching', () => {
+    const session = (sessionId: string, title: string, provider: 'claude' | 'codex'): ChatExternalSession => ({
+        provider,
+        sessionId,
+        title,
+        updatedAt: 1,
+        cwd: '/work'
+    });
+    const sessions = [session('s1', 'Fix the cache layer', 'claude'), session('s2', 'Write docs', 'codex')];
+
+    test('lists everything for an empty query', () => {
+        expect(externalMatching(sessions, ' ')).toHaveLength(2);
+    });
+
+    test('needs every word, in the title or the provider', () => {
+        expect(externalMatching(sessions, 'cache fix').map((entry) => entry.sessionId)).toEqual(['s1']);
+        expect(externalMatching(sessions, 'codex').map((entry) => entry.sessionId)).toEqual(['s2']);
+        expect(externalMatching(sessions, 'cache docs')).toEqual([]);
     });
 });

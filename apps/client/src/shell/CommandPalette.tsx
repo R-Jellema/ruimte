@@ -58,8 +58,9 @@ import {
 } from '@/shell/palette-browse';
 import { DEFAULT_GREP_OPTIONS, useGrepSearch, type GrepOptions } from '@/shell/palette-grep';
 import { PaletteGrepResults } from '@/shell/PaletteGrepResults';
+import { useToasts } from '@/state/toasts';
 import { PaletteChatResults } from '@/shell/PaletteChatResults';
-import { openChatHit, useChatSearch } from '@/shell/palette-chats';
+import { externalMatching, openChatHit, resumeExternal, useChatSearch, useExternalSessions } from '@/shell/palette-chats';
 import { readRecents, rememberRecent, sortByRecency } from '@/shell/palette-recents';
 import { absoluteOf, basenameOf } from '@/shell/panels/files-tree';
 import { iconOfEntry } from '@/shell/settings/machine-icon';
@@ -284,6 +285,8 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
     const filePick = useUi((s) => s.filePick);
     const grep = useGrepSearch(grepping ? folder : null, grepping ? query : '', grepOptions);
     const chatSearch = useChatSearch(chatting && open ? currentProjectId : null, chatting ? query : '');
+    const externalAll = useExternalSessions(chatting && open ? currentProjectId : null);
+    const external = useMemo(() => (chatting ? externalMatching(externalAll.sessions, query) : []), [chatting, externalAll.sessions, query]);
     const browseEndpointId = browse?.endpointId ?? activeId;
     const machineStep = browse?.machines === true;
     const platform = useServers((s) => s.byEndpoint[browseEndpointId]?.platform ?? null);
@@ -754,10 +757,18 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
        folders without an arrow key first and Cmd+Enter is what opens the path in the field. */
     const active = entries[Math.min(index, entries.length - 1)];
     // What the arrow keys walk: the hits while searching in files, the rows of the list otherwise.
-    const count = grepping ? grep.matches.length : chatting ? chatSearch.hits.length : entries.length;
+    const count = grepping ? grep.matches.length : chatting ? chatSearch.hits.length + external.length : entries.length;
     const activeHit = grepping || chatting ? Math.min(index, count - 1) : -1;
 
     const runChatHit = (at: number): void => {
+        const session = external[at - chatSearch.hits.length];
+        if (session) {
+            setOpen(false);
+            resumeExternal(session).catch((e: unknown) =>
+                useToasts.getState().show({ kind: 'error', title: t('palette.resumeFailed'), description: e instanceof Error ? e.message : undefined })
+            );
+            return;
+        }
         const hit = chatSearch.hits[at];
         if (!hit) {
             return;
@@ -1005,10 +1016,13 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                             <PaletteNote>{t('palette.noLineMatch')}</PaletteNote>
                         )}
                         {grepping && query.trim() === '' && <PaletteNote>{t('palette.typeToSearch')}</PaletteNote>}
-                        {chatting && query.trim() !== '' && !chatSearch.busy && chatSearch.failure === null && chatSearch.hits.length === 0 && (
-                            <PaletteNote>{t('palette.noChatMatch')}</PaletteNote>
-                        )}
-                        {chatting && query.trim() === '' && <PaletteNote>{t('palette.typeToSearchChats')}</PaletteNote>}
+                        {chatting &&
+                            query.trim() !== '' &&
+                            !chatSearch.busy &&
+                            chatSearch.failure === null &&
+                            chatSearch.hits.length === 0 &&
+                            external.length === 0 && <PaletteNote>{t('palette.noChatMatch')}</PaletteNote>}
+                        {chatting && query.trim() === '' && external.length === 0 && <PaletteNote>{t('palette.typeToSearchChats')}</PaletteNote>}
                         {machineStep && entries.length === 0 && (
                             <PaletteNote>{machines.length === 0 ? t('palette.noMachineYet') : t('palette.noMachineMatch')}</PaletteNote>
                         )}
@@ -1049,6 +1063,7 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                     {chatting && (
                         <PaletteChatResults
                             search={chatSearch}
+                            external={external}
                             active={activeHit}
                             optionId={optionId}
                             onHover={(at) => setIndex(at)}

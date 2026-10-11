@@ -679,6 +679,7 @@
         "resume": "Hervatten",
         "chatEnterHint": "opent het bericht,",
         "messageGone": "Het bericht staat niet meer in dit gesprek",
+        "resumeFailed": "De sessie kon niet worden hervat",
         "navigate": "Navigeren",
         "browseIn": "Bladeren in {{app}}"
     },

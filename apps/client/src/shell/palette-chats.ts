@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import i18next from 'i18next';
-import type { ChatSearchHit, ChatSearchResult } from '@ruimte/contracts';
+import type { ChatExternalResult, ChatExternalSession, ChatSearchHit, ChatSearchResult } from '@ruimte/contracts';
 import { performAsPerson } from '@/actions/client-actions';
 import { focusChat } from '@/plan/plan-actions';
 import { endpointKey } from '@/state/keys';
@@ -130,5 +130,60 @@ export function openChatHit(endpointId: string, hit: ChatSearchHit): void {
     jumpToTimelineItem(endpointKey(endpointId, hit.chatId), hit.itemId, {
         flash: true,
         onMissing: () => useToasts.getState().show({ kind: 'error', title: i18next.t('shell:palette.messageGone') })
+    });
+}
+
+export interface ExternalSessionsState {
+    sessions: readonly ChatExternalSession[];
+    failed: ChatExternalResult['failed'];
+    failure: string | null;
+}
+
+const NO_EXTERNAL: ExternalSessionsState = { sessions: [], failed: [], failure: null };
+
+/* The CLI sessions of this project that were started outside the app, asked for once each time the palette opens in chat mode. */
+export function useExternalSessions(projectId: string | null): ExternalSessionsState {
+    const [state, setState] = useState<{ projectId: string; value: ExternalSessionsState } | null>(null);
+
+    useEffect(() => {
+        if (projectId === null) {
+            return;
+        }
+        let current = true;
+        performAsPerson('chat.external', {})
+            .then((result) => current && setState({ projectId, value: { sessions: result.sessions, failed: result.failed, failure: null } }))
+            .catch((e: unknown) => current && setState({ projectId, value: { ...NO_EXTERNAL, failure: e instanceof Error ? e.message : '' } }));
+        return () => {
+            current = false;
+        };
+    }, [projectId]);
+
+    return state !== null && state.projectId === projectId ? state.value : NO_EXTERNAL;
+}
+
+/* Sessions whose title mentions every word typed; nothing typed lists them all, newest first as the machine sent them. */
+export function externalMatching(sessions: readonly ChatExternalSession[], query: string): ChatExternalSession[] {
+    const words = query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((word) => word !== '');
+    return sessions.filter((session) => {
+        const haystack = `${session.title} ${session.provider}`.toLowerCase();
+        return words.every((word) => haystack.includes(word));
+    });
+}
+
+/* A chat view that goes on with the session, in the account whose folder holds it. */
+export function resumeExternal(session: ChatExternalSession): Promise<unknown> {
+    return performAsPerson('view.create', {
+        kind: 'chat',
+        name: session.title === '' ? null : session.title,
+        url: null,
+        command: null,
+        path: null,
+        provider: session.provider,
+        ...(session.account === undefined ? {} : { account: session.account }),
+        resume: session.sessionId,
+        cwd: session.cwd
     });
 }
