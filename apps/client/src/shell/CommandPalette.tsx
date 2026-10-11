@@ -17,6 +17,7 @@ import {
     PenTool,
     Regex,
     Search,
+    SlidersHorizontal,
     StickyNote,
     Smartphone,
     Terminal,
@@ -61,6 +62,8 @@ import { PaletteGrepResults } from '@/shell/PaletteGrepResults';
 import { useToasts } from '@/state/toasts';
 import { PaletteChatResults } from '@/shell/PaletteChatResults';
 import { externalMatching, openChatHit, resumeExternal, useChatSearch, useExternalSessions } from '@/shell/palette-chats';
+import { settingsEntries } from '@/shell/palette-settings';
+import { findSettings } from '@/shell/settings/find-settings';
 import { readRecents, rememberRecent, sortByRecency } from '@/shell/palette-recents';
 import { absoluteOf, basenameOf } from '@/shell/panels/files-tree';
 import { iconOfEntry } from '@/shell/settings/machine-icon';
@@ -122,7 +125,7 @@ interface Entry extends Command {
     trailing?: React.ReactNode;
     /* What Cmd-click or Cmd+Enter (Ctrl off macOS) does instead of `run`, such as a project in a window of its own. */
     inNewWindow?: () => void;
-    section: 'recent' | 'jump' | 'files' | 'views' | 'projects' | 'actions' | 'folders' | 'machines';
+    section: 'recent' | 'jump' | 'files' | 'views' | 'projects' | 'actions' | 'settings' | 'folders' | 'machines';
     /* The folder a browse row stands for: what Enter steps into, and what Tab completes the field
        to without stepping in. Navigating is the palette's own business, so such a row has no `run`. */
     browsePath?: string;
@@ -722,7 +725,12 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
             ...jumps.filter(keep),
             ...files,
             ...switches.filter(keep),
-            ...commands.map((command) => asEntry(command, 'actions')).filter(keep)
+            ...commands.map((command) => asEntry(command, 'actions')).filter(keep),
+            ...settingsEntries(findSettings(query, isApplePlatform())).map((command): Entry => ({
+                ...command,
+                icon: <Icon icon={SlidersHorizontal} size={14} />,
+                section: 'settings'
+            }))
         ];
     }, [
         browsing,
@@ -846,7 +854,13 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
             return;
         }
         // Jumping to a node, a file, a view or a project is not a command; only what "Actions" lists comes back.
-        if (entry.section !== 'jump' && entry.section !== 'files' && entry.section !== 'views' && entry.section !== 'projects') {
+        if (
+            entry.section !== 'jump' &&
+            entry.section !== 'files' &&
+            entry.section !== 'views' &&
+            entry.section !== 'projects' &&
+            entry.section !== 'settings'
+        ) {
             setRecents(rememberRecent(entry.id));
         }
         setOpen(false);

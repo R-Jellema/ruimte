@@ -1,0 +1,24 @@
+import { describe, expect, test } from 'bun:test';
+import { searchSettings } from '@/shell/settings/search';
+import { useUi } from '@/state/ui';
+import { SETTINGS_RESULTS, settingsEntries } from './palette-settings';
+
+describe('settings in the palette', () => {
+    test('a row opens the dialog on its pane with the row as target', () => {
+        const [entry] = settingsEntries(searchSettings('accent'));
+        expect(entry).toMatchObject({ id: 'setting-appearance-appearance.accent', hint: 'Appearance' });
+        entry!.run();
+        expect(useUi.getState().settings).toMatchObject({ open: true, section: 'appearance', target: 'appearance.accent' });
+    });
+
+    test('a pane opens without a target and hints with its description', () => {
+        const entry = settingsEntries(searchSettings('voice')).find((candidate) => candidate.id === 'setting-voice-pane');
+        expect(entry?.hint).not.toBe('Voice');
+        entry!.run();
+        expect(useUi.getState().settings).toMatchObject({ open: true, section: 'voice', target: null });
+    });
+
+    test('the list is capped', () => {
+        expect(settingsEntries(searchSettings('a')).length).toBeLessThanOrEqual(SETTINGS_RESULTS);
+    });
+});

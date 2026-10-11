@@ -55,4 +55,13 @@ describe('searching the settings', () => {
     test('an empty query finds nothing rather than everything', () => {
         expect(searchSettings('   ')).toEqual([]);
     });
+
+    test('the accent setting is the first result for its name, in any case and with accents', () => {
+        expect(searchSettings('accent')).toContainEqual(expect.objectContaining({ section: 'appearance', id: 'appearance.accent' }));
+        expect(searchSettings('Accent')).toEqual(searchSettings('accént'));
+    });
+
+    test('a row the pane does not draw is not found', () => {
+        expect(searchSettings('direct').map((result) => result.id)).not.toContain('machines.machine.direct');
+    });
 });
