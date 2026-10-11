@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import type { ChatCheckpointDiff } from '@ruimte/contracts';
+import { KeyedQueue } from '../keyed-queue.ts';
 import { diffTrees } from './diff.ts';
 import { GitError, git, gitOrThrow, runGit } from './run.ts';
 
@@ -21,15 +22,10 @@ export function checkpointIndexFile(top: string): string {
 
 // One index per repository, and one turn at a time in it: two chats in the same folder would
 // otherwise fight over the lock file git writes next to it.
-const queues = new Map<string, Promise<unknown>>();
+const queue = new KeyedQueue();
 
 function serialize<T>(key: string, work: () => Promise<T>): Promise<T> {
-    const next = (queues.get(key) ?? Promise.resolve()).then(work, work);
-    queues.set(
-        key,
-        next.catch(() => undefined)
-    );
-    return next;
+    return queue.run(key, work);
 }
 
 /*

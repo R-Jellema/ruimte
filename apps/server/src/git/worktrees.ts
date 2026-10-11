@@ -8,6 +8,7 @@ import { checkpointIndexFile } from './checkpoints.ts';
 import { resolveBase } from './status.ts';
 import { GitError, READ_ONLY_GIT, git, gitOrThrow as run, runGit, toplevel } from './run.ts';
 import { WorktreeRegister, type WorktreeRecord } from './worktree-register.ts';
+import { KeyedQueue } from '../keyed-queue.ts';
 import { ClientSinks } from '../client-sinks.ts';
 
 // Branch names carry slashes; the folder name must not.
@@ -149,7 +150,7 @@ export class Worktrees {
     private readonly now: () => number;
     private readonly sinks = new ClientSinks();
     // One removal at a time per repository, so two clients never inspect the same worktree against each other's half-done work.
-    private readonly locks = new Map<string, Promise<unknown>>();
+    private readonly locks = new KeyedQueue();
 
     constructor(home: string, now: () => number = Date.now) {
         this.root = join(home, 'worktrees');
@@ -499,12 +500,7 @@ export class Worktrees {
     }
 
     private serialize<T>(key: string, work: () => Promise<T>): Promise<T> {
-        const next = (this.locks.get(key) ?? Promise.resolve()).then(work, work);
-        this.locks.set(
-            key,
-            next.catch(() => undefined)
-        );
-        return next;
+        return this.locks.run(key, work);
     }
 
     announce(main: string): void {
