@@ -6,6 +6,7 @@ import type { AgentEvent } from '@adecore/agents/events';
 import type { ChatTurnItem } from '@ruimte/contracts';
 import { Checkpoints } from '../git/checkpoints.ts';
 import { gitIn, repoTemplate, type RepoTemplate } from '../git/test-repo.ts';
+import { ProvenanceStore } from './provenance-store.ts';
 import { ProvenanceService, type ProvenanceChat } from './provenance-service.ts';
 
 const SCORE = ['export function rank(list: Candidate[]) {', '    return list;', '}', ''].join('\n');
@@ -65,6 +66,8 @@ async function setup(withHeads = true) {
     return {
         repo,
         service,
+        /* What the record holds right after the turn, before a read maps it through HEAD again. */
+        recordedRuns: async (name: string) => (await new ProvenanceStore(home).read('p1', join(repo, name)))?.runs ?? [],
         async startTurn(): Promise<void> {
             tree = (await checkpoints.take(repo)) ?? undefined;
             heads.before = (await checkpoints.head(repo)) ?? undefined;
@@ -108,7 +111,7 @@ describe('HEAD moving during a turn', () => {
         expect(await t.runsOf('other.ts')).toEqual([]);
     });
 
-    test("a person's edit in a file the pull touched is not claimed either", async () => {
+    test("a file the pull touched keeps only a person's uncommitted lines as runs, never the ones the pull brought in", async () => {
         const t = await setup();
         await commitOther(t.repo, 'side', OTHER_BRANCH, 'main');
         await gitIn(t.repo, ['switch', '--quiet', 'main']);
@@ -116,7 +119,38 @@ describe('HEAD moving during a turn', () => {
         await writeFile(join(t.repo, 'other.ts'), PERSON_EDIT);
         await gitIn(t.repo, ['merge', '--quiet', '--autostash', '--ff-only', 'side']);
         await t.endTurn();
-        expect(await t.runsOf('other.ts')).toEqual([]);
+        const runs = await t.runsOf('other.ts');
+        expect(runs.map((run) => [run.start, run.end, run.via])).toEqual([[1, 1, 'checkpoint']]);
+    });
+
+    test('an edit made after the agent committed the file in the same turn is still noted, the commit is not', async () => {
+        const t = await setup();
+        await t.startTurn();
+        await writeFile(join(t.repo, 'score.ts'), AGENT_EDIT);
+        await gitIn(t.repo, ['commit', '--quiet', '--all', '--message', 'agent commit']);
+        const later = AGENT_EDIT.replace('}', '    // formatted\n}');
+        await writeFile(join(t.repo, 'score.ts'), later);
+        await t.endTurn();
+        const runs = await t.runsOf('score.ts');
+        expect(runs.map((run) => [run.start, run.end, run.via])).toEqual([[3, 3, 'checkpoint']]);
+    });
+
+    test('a file the commit holds exactly is left alone even though HEAD moved over it', async () => {
+        const t = await setup();
+        await t.startTurn();
+        await writeFile(join(t.repo, 'score.ts'), AGENT_EDIT);
+        await gitIn(t.repo, ['commit', '--quiet', '--all', '--message', 'agent commit']);
+        await t.endTurn();
+        expect(await t.runsOf('score.ts')).toEqual([]);
+    });
+
+    test('a line equal to a neighbor in HEAD is recorded when the turn started from uncommitted edits', async () => {
+        const t = await setup();
+        await writeFile(join(t.repo, 'other.ts'), PERSON_EDIT);
+        await t.startTurn();
+        await writeFile(join(t.repo, 'other.ts'), PERSON_EDIT.replace('two\n', 'two\ntwo\n'));
+        await t.endTurn();
+        expect((await t.recordedRuns('other.ts')).map((run) => run.via)).toEqual(['checkpoint']);
     });
 
     test('a reset --hard leaves no run on the files it put back', async () => {

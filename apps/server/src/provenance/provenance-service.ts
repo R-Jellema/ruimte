@@ -312,8 +312,9 @@ export class ProvenanceService {
 
     /*
      * The files of a checkpoint diff that the turn can be guessed to have written. When HEAD moved during
-     * the turn the diff also holds what a pull, a rebase or a reset brought in, so the files that move
-     * touched are left out; when the move cannot be read, nothing is claimed.
+     * the turn the diff also holds what a pull, a rebase or a reset brought in. A file that move touched
+     * counts only while its working copy differs from HEAD after the move, and what the commits hold is
+     * dropped from its runs as always; when the move cannot be read, nothing is claimed.
      */
     private async unmoved(top: string, chat: ProvenanceChat, turnId: string, files: readonly string[]): Promise<readonly string[]> {
         const heads = chat.headsOf(turnId);
@@ -321,7 +322,32 @@ export class ProvenanceService {
             return files;
         }
         const moved = await filesBetweenCommits(top, heads.before, heads.after);
-        return moved === null ? [] : files.filter((file) => !moved.has(file));
+        if (moved === null) {
+            return [];
+        }
+        const claimable: string[] = [];
+        for (const file of files) {
+            if (!moved.has(file) || !(await this.matchesCommit(top, heads.after, file))) {
+                claimable.push(file);
+            }
+        }
+        return claimable;
+    }
+
+    /* Whether the turn started from edits no commit holds; unknown when the turn has no HEAD of its start. */
+    private async startedDirty(top: string | null, chat: ProvenanceChat, turnId: string, path: string, checkpoint: string[] | null): Promise<boolean> {
+        const before = chat.headsOf(turnId)?.before;
+        if (top === null || before === undefined || checkpoint === null) {
+            return false;
+        }
+        const base = await linesInTree(top, before, relative(top, path));
+        return base !== null && !sameLines(base, checkpoint);
+    }
+
+    /* Whether the file on disk is exactly what the commit holds. */
+    private async matchesCommit(top: string, commit: string, file: string): Promise<boolean> {
+        const [working, committed] = await Promise.all([readLines(join(top, file)), linesInTree(top, commit, file)]);
+        return working !== null && committed !== null && sameLines(working.lines, committed);
     }
 
     /* The runs of a record once the file changed, the old ones are cut and a commit may have taken lines over. */
@@ -394,7 +420,11 @@ export class ProvenanceService {
             }
         }
         const headLines = created.length > 0 && top !== null ? await linesAtHead(top, relative(top, path)) : null;
-        const unclaimed = headLines === null ? created : dropCommitted(created, hashes, hashLines(headLines));
+        // Over a checkpoint that already differed from HEAD, the hunk and the HEAD diff can line a twin of a HEAD line up differently, so only the hunk decides.
+        const unclaimed =
+            headLines === null || (await this.startedDirty(top, chat, job.turnId, path, previousLines))
+                ? created
+                : dropCommitted(created, hashes, hashLines(headLines));
         const runs = [...existing, ...unclaimed].sort((left, right) => left.start - right.start || left.at - right.at);
         const capped = runs.length > MAX_RUNS_PER_FILE ? [...runs].sort((left, right) => right.at - left.at).slice(0, MAX_RUNS_PER_FILE) : runs;
         const changed = unclaimed.length > 0 || JSON.stringify(capped) !== JSON.stringify(stored?.runs ?? []);
