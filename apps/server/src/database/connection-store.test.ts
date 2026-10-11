@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { DatabaseConnection } from '@ruimte/contracts';
 import { FakeWatch } from '@adecore/agents/watch-test-helpers';
 import type { SessionEvent } from '../sessions/manager.ts';
+import { PROJECT_WRITE_IO, type ProjectWriteIO } from '../projects/project-write.ts';
 import { DatabaseConnectionStore } from './connection-store.ts';
 
 let root: string;
@@ -226,5 +227,66 @@ describe('DatabaseConnectionStore', () => {
         expect(fake.openOn(join(folder, '.ruimte'))).toEqual([]);
         await writeFile(privatePath(), JSON.stringify({ version: 1, rev: 5, connections: [], order: [] }));
         expect((await store.read('p1', 'c1')).rev).toBe(5);
+    });
+});
+
+describe('DatabaseConnectionStore, a save cut off between its two files', () => {
+    function failingPrivateWrite(): ProjectWriteIO {
+        let failed = false;
+        return {
+            remove: PROJECT_WRITE_IO.remove,
+            write: async (path, ...rest) => {
+                if (path === privatePath() && !failed) {
+                    failed = true;
+                    throw new Error('Injected write failure');
+                }
+                await PROJECT_WRITE_IO.write(path, ...rest);
+            }
+        };
+    }
+
+    function storeWith(io?: ProjectWriteIO): DatabaseConnectionStore {
+        return new DatabaseConnectionStore({
+            projects: { folderOf: (projectId) => (projectId === 'p1' ? folder : null), holdersOf: (projectId) => (projectId === 'p1' ? holders : []) },
+            seams: fake,
+            io
+        });
+    }
+
+    test('the save rejects, and a restart finds the connection private and nowhere else', async () => {
+        await store.save('p1', 0, [shop()], 'c1');
+        const crashing = storeWith(failingPrivateWrite());
+        await crashing.read('p1', 'c1');
+
+        await expect(crashing.save('p1', 1, [{ ...shop(), shared: false }], 'c1')).rejects.toThrow('Injected write failure');
+
+        const restarted = storeWith();
+        const read = await restarted.read('p1', 'c1');
+        expect(read.connections.map((connection) => [connection.id, connection.shared])).toEqual([['shop', false]]);
+        expect((await readJson(sharedPath())).connections).toEqual([]);
+        expect(await exists(join(folder, '.ruimte', 'private', 'pending-databases.json'))).toBe(false);
+        restarted.closeAll();
+        crashing.closeAll();
+    });
+
+    test('the store that crashed answers its next save on the old rev with a conflict', async () => {
+        await store.save('p1', 0, [shop()], 'c1');
+        const crashing = storeWith(failingPrivateWrite());
+        await crashing.read('p1', 'c1');
+        await expect(crashing.save('p1', 1, [{ ...shop(), shared: false }], 'c1')).rejects.toThrow();
+
+        await expect(crashing.save('p1', 1, [shop()], 'c1')).rejects.toMatchObject({ code: 'rev-conflict' });
+        crashing.closeAll();
+    });
+
+    test('an edit made after the cut leaves the connections refused until the intent is deleted', async () => {
+        await store.save('p1', 0, [shop()], 'c1');
+        const crashing = storeWith(failingPrivateWrite());
+        await crashing.read('p1', 'c1');
+        await expect(crashing.save('p1', 1, [{ ...shop(), shared: false }], 'c1')).rejects.toThrow();
+        await writeFile(sharedPath(), '{"version":1,"connections":[],"note":"by hand"}\n');
+
+        await expect(storeWith().read('p1', 'c1')).rejects.toMatchObject({ code: 'connections-invalid' });
+        crashing.closeAll();
     });
 });

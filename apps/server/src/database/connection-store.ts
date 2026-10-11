@@ -29,13 +29,16 @@ import {
     readJsonDocument,
     tooNewMessage,
     writeGitignoreIfMissing,
-    writeJsonDocument,
     type JsonDocumentParse,
     type JsonDocumentRead
 } from '../projects/project-files.ts';
+import { PairedWriteRaced, PairedWriteStuck, recoverPaired, writePaired, type PairedFile } from '../projects/paired-write.ts';
+import type { ProjectWriteIO } from '../projects/project-write.ts';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 
 export const DATABASES_FILE = 'databases.json';
+
+const PENDING_FILE = 'pending-databases.json';
 
 // The burst rule of the other project files: git and editors write more than once per save.
 const WATCH_SETTLE_MS = 150;
@@ -76,6 +79,10 @@ function sharedPathIn(folder: string): string {
 
 function privatePathIn(folder: string): string {
     return join(folder, PROJECT_DIR, PRIVATE_DIR, DATABASES_FILE);
+}
+
+function pendingPathIn(folder: string): string {
+    return join(folder, PROJECT_DIR, PRIVATE_DIR, PENDING_FILE);
 }
 
 function parseWith<T>(schema: { safeParse(value: unknown): { success: true; data: T } | { success: false } }) {
@@ -161,11 +168,18 @@ export class DatabaseConnectionStore {
     private readonly loaded = new Map<string, LoadedConnections>();
     private readonly writes = new Serializer();
     private readonly onChanged: ((projectId: string, connections: DatabaseConnection[]) => void) | undefined;
+    private readonly io: ProjectWriteIO | undefined;
 
     /* `onChanged` hears every change of a project's connections, a save here or an edit on disk. */
-    constructor(options: { projects: DatabaseProjects; seams?: WatchSeams; onChanged?: (projectId: string, connections: DatabaseConnection[]) => void }) {
+    constructor(options: {
+        projects: DatabaseProjects;
+        seams?: WatchSeams;
+        io?: ProjectWriteIO;
+        onChanged?: (projectId: string, connections: DatabaseConnection[]) => void;
+    }) {
         this.projects = options.projects;
         this.seams = options.seams ?? SYSTEM_WATCH;
+        this.io = options.io;
         this.onChanged = options.onChanged;
     }
 
@@ -191,6 +205,7 @@ export class DatabaseConnectionStore {
             if (folder === null) {
                 throw new DatabaseConnectionError('project-not-found', `No project ${projectId} on this machine`);
             }
+            await this.recover(folder);
             return documentOf(await readState(folder, false)).connections;
         });
     }
@@ -202,6 +217,8 @@ export class DatabaseConnectionStore {
             if (baseRev !== state.rev) {
                 throw new DatabaseConnectionError('rev-conflict', `The connections are at rev ${state.rev}, the save was based on ${baseRev}`);
             }
+            // A save cut off halfway finishes first; takeOutsideEdits then sees it as the outside edit it is.
+            await this.recover(state.folder);
             const outside = await this.takeOutsideEdits(projectId, state);
             // Caught halfway or broken by a merge, a file is refused rather than written over with what is in it lost.
             if (outside === 'unreadable') {
@@ -227,12 +244,28 @@ export class DatabaseConnectionStore {
                 ...state.privateRest
             };
             const sharedText = serialize(sharedFile);
+            const privateText = serialize(privateFile);
+            const files: PairedFile[] = [];
             // A project that never shared a connection gets no file for git to see.
-            if (sharedText !== state.sharedText && (state.sharedText !== '' || sharedFile.connections.length > 0)) {
-                state.sharedText = await writeJsonDocument(sharedPathIn(state.folder), sharedFile, serialize);
+            const writesShared = sharedText !== state.sharedText && (state.sharedText !== '' || sharedFile.connections.length > 0);
+            if (writesShared) {
+                files.push({ path: sharedPathIn(state.folder), before: state.sharedText || null, after: sharedText });
             }
+            // Last, since it carries the rev: a recovery that finds it written knows the whole save landed.
+            files.push({ path: privatePathIn(state.folder), before: state.privateText || null, after: privateText });
             await writeGitignoreIfMissing(join(state.folder, PROJECT_DIR, PROJECT_FILE));
-            state.privateText = await writeJsonDocument(privatePathIn(state.folder), privateFile, serialize);
+            try {
+                await writePaired(pendingPathIn(state.folder), files, this.io);
+            } catch (e) {
+                if (e instanceof PairedWriteRaced) {
+                    throw new DatabaseConnectionError('rev-conflict', 'The connections changed on disk while they were saved; nothing was written');
+                }
+                throw e;
+            }
+            if (writesShared) {
+                state.sharedText = sharedText;
+            }
+            state.privateText = privateText;
             state.rev = privateFile.rev;
             state.shared = entriesIn(state.folder, sharedFile.connections);
             state.own = entriesIn(state.folder, privateFile.connections);
@@ -262,6 +295,18 @@ export class DatabaseConnectionStore {
         }
     }
 
+    /* Finishes a save that was cut off between its two files. */
+    private async recover(folder: string): Promise<void> {
+        try {
+            await recoverPaired(pendingPathIn(folder), this.io);
+        } catch (e) {
+            if (e instanceof PairedWriteStuck) {
+                throw new DatabaseConnectionError('connections-invalid', e.message);
+            }
+            throw e;
+        }
+    }
+
     private emitChanged(projectId: string, document: DatabaseConnections, except: string | null = null): void {
         this.onChanged?.(projectId, document.connections);
         const event: SessionEvent = { event: 'database.connections.changed', payload: { projectId, ...document } };
@@ -281,6 +326,7 @@ export class DatabaseConnectionStore {
         if (known) {
             return known;
         }
+        await this.recover(folder);
         const state = await readState(folder, true);
         this.loaded.set(projectId, state);
         this.watch(projectId, state);
