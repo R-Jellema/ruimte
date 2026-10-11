@@ -43,6 +43,7 @@ import type { AccountLaunches } from '@adecore/agents/providers/accounts/launch'
 import type { LimitsUpdate } from '@adecore/agents/usage/limits/normalize';
 import { ProviderRegistry } from '../providers/registry.ts';
 import { FakePtyAdapter } from '../pty/fake-pty.ts';
+import type { PtyAdapter } from '../pty/pty.ts';
 import { SessionManager } from '../sessions/manager.ts';
 import { restartBackgroundLimits } from '@adecore/agents/tasks/background-limit';
 import { TaskStore } from '@adecore/agents/tasks/task-store';
@@ -60,7 +61,9 @@ export interface TestDaemon {
     chats: ChatManager;
     plans: PlanStore;
     visuals: VisualStore;
+    /* The fake terminals, which stay empty when `ptyAdapter` brings real ones. */
     adapter: FakePtyAdapter;
+    dispatcher: Dispatcher;
     claude: InProcessCli;
     codex: InProcessCli;
     /* The environment of every chat CLI started, oldest first. */
@@ -84,6 +87,8 @@ export interface TestDaemonOptions {
     home: string;
     store: ProjectStore;
     clock: ManualClock;
+    /* What runs a terminal; the fake adapter unless a measurement needs real processes. */
+    ptyAdapter?: PtyAdapter;
     checkpoints?: CheckpointService;
     /* Real worktrees for the verbs; without them a project is in no repository. */
     worktrees?: Worktrees;
@@ -107,6 +112,7 @@ export async function bootTestDaemon({
     home,
     store,
     clock,
+    ptyAdapter,
     checkpoints,
     worktrees,
     installed = ['claude'],
@@ -133,7 +139,7 @@ export async function bootTestDaemon({
     const claude = inProcess(claudeCli);
     const codex = inProcess(fakeCodex);
     const sessions = new SessionManager({
-        adapter,
+        adapter: ptyAdapter ?? adapter,
         env,
         firstPrompt: (id) => prompts.take(id),
         modeCeiling: (sessionId) => lineage.ceilingOf(sessionId),
@@ -342,6 +348,9 @@ export async function bootTestDaemon({
     });
     registerTaskHandlers(dispatcher, tasks, endChildren.children);
     registerPlanHandlers(dispatcher, plans);
+    if (!dispatcher.has('server.ping')) {
+        dispatcher.register('server.ping', () => ({ time: Date.now() }));
+    }
 
     return {
         tasks,
@@ -354,6 +363,7 @@ export async function bootTestDaemon({
         plans,
         visuals,
         adapter,
+        dispatcher,
         claude,
         codex,
         chatEnvs,
