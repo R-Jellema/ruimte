@@ -36,7 +36,7 @@ bun dev
 
 `bun run dev:client` and `bun run dev:server` start one side. `bun run dev:desktop` opens the Electron shell against the running development server as "Ruimte Dev", with a profile of its own. Browser nodes only work there. `bun run check` typechecks and lints every package. `bun run build` builds the client, and `bun run test` runs the unit tests.
 
-`bun run test:integration` runs the integration tests CI uses. Browser and Electron checks run only on request, with `bun run test:browser` (which builds the client first) or the Browser tests workflow in GitHub Actions.
+`bun run test:integration` runs all automatic integration tests, including the compiled daemon and npm launcher. CI runs the core suite (`bun run test:integration --suite core`) and the packaged daemon (`bun run test:package`) in parallel. Tests that need an already running simulator or device run only on request with `bun run test:devices`. Browser and Electron checks run only on request, with `bun run test:browser` (which builds the client first) or the Browser tests workflow in GitHub Actions.
 
 `bun run adecore:link` uses the live shared packages in `../adecore`; `bun run adecore:npm` restores the pinned npm versions. `bun run adecore:status` shows which mode is active. Restart `bun dev` after switching. See [developing with ADE CORE](docs/ADECORE-DEVELOPMENT.md) for setup, source updates and release order.
 

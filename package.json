@@ -20,6 +20,8 @@
     "lint": "oxlint --deny-warnings && bun scripts/check-client-conventions.ts",
     "test": "bun test --conditions=source --parallel --only-failures",
     "test:integration": "bun scripts/test-integration.ts",
+    "test:package": "bun scripts/test-integration.ts --suite package",
+    "test:devices": "bun scripts/test-integration.ts --suite devices",
     "test:browser": "bun run --cwd apps/client build && bun scripts/test-integration.ts --browser",
     "test:terminal": "bun --config=integration.bunfig.toml test --conditions=source apps/server/src/sessions/terminal-stream.integration.test.ts",
     "format": "oxfmt --write \"apps/*/src/**/*.{ts,tsx}\" \"packages/*/src/**/*.ts\" \"scripts/**/*.ts\"",

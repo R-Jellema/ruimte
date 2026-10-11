@@ -56,7 +56,7 @@ bun packages/npm/scripts/build.ts --version 0.0.0-local --binaries /tmp/npm/bina
 bun packages/npm/scripts/publish.ts --out /tmp/npm/out --dry-run    # wants all three platforms
 ```
 
-`bun run test:integration` does the first two and runs `node <launcher> --version` against the result.
+`bun run test:package` does the first two and runs `node <launcher> --version` against the result. It also runs as part of `bun run test:integration`; CI checks it in a separate job alongside the core integrations.
 
 ## The icon
 

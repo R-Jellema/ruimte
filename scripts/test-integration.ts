@@ -2,11 +2,25 @@ import { Glob } from 'bun';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { parseArgs } from 'node:util';
 
-export function integrationFiles(root: string, browser = false): string[] {
-    const pattern = browser ? '*.browser.integration.test.ts' : '*.integration.test.ts';
-    return [...new Glob(`{apps,packages,scripts}/**/${pattern}`).scanSync({ cwd: root, onlyFiles: true, followSymlinks: false })]
-        .filter((path) => !path.split('/').includes('node_modules') && (browser || !path.endsWith('.browser.integration.test.ts')))
+export type IntegrationSuite = 'default' | 'core' | 'package' | 'devices' | 'browser';
+
+export function integrationFiles(root: string, suite: IntegrationSuite = 'default'): string[] {
+    return [...new Glob('{apps,packages,scripts}/**/*.integration.test.ts').scanSync({ cwd: root, onlyFiles: true, followSymlinks: false })]
+        .filter((path) => {
+            if (path.split('/').includes('node_modules')) {
+                return false;
+            }
+            const group = path.endsWith('.browser.integration.test.ts')
+                ? 'browser'
+                : path.endsWith('.device.integration.test.ts')
+                  ? 'devices'
+                  : path.endsWith('.package.integration.test.ts')
+                    ? 'package'
+                    : 'core';
+            return suite === 'default' ? group === 'core' || group === 'package' : group === suite;
+        })
         .sort()
         .map((path) => `./${path}`);
 }
@@ -14,13 +28,21 @@ export function integrationFiles(root: string, browser = false): string[] {
 async function main(): Promise<void> {
     const fixtureRoot = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-integration-')));
     try {
-        const files = process.argv.slice(2);
-        const browser = files[0] === '--browser';
-        if (browser) {
-            files.shift();
+        const { values, positionals: files } = parseArgs({
+            args: process.argv.slice(2),
+            options: { suite: { type: 'string' }, browser: { type: 'boolean' } },
+            allowPositionals: true
+        });
+        if (values.browser && values.suite !== undefined && values.suite !== 'browser') {
+            throw new Error('--browser cannot be combined with another suite.');
         }
+        const suite = values.browser ? 'browser' : (values.suite ?? 'default');
+        if (!['default', 'core', 'package', 'devices', 'browser'].includes(suite)) {
+            throw new Error(`Unknown integration suite: ${suite}`);
+        }
+        const browser = suite === 'browser';
         const config = browser ? 'browser.bunfig.toml' : 'integration.bunfig.toml';
-        const selected = files.length > 0 ? files : integrationFiles(process.cwd(), browser);
+        const selected = files.length > 0 ? files : integrationFiles(process.cwd(), suite as IntegrationSuite);
         if (selected.length === 0) {
             throw new Error('No integration tests found in apps, packages or scripts.');
         }

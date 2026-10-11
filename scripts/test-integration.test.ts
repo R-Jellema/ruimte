@@ -11,11 +11,15 @@ beforeAll(async () => {
         'apps/client/current.integration.test.ts',
         'apps/client/current.browser.integration.test.ts',
         'apps/server/current.integration.test.ts',
+        'apps/server/current.device.integration.test.ts',
+        'packages/npm/current.package.integration.test.ts',
         'packages/contracts/current.integration.test.ts',
         'scripts/current.integration.test.ts',
         'docs/reports/private/old.integration.test.ts',
         'docs/reports/private/old.browser.integration.test.ts',
         'apps/client/node_modules/library/foreign.integration.test.ts',
+        'apps/client/node_modules/library/foreign.device.integration.test.ts',
+        'packages/npm/node_modules/library/foreign.package.integration.test.ts',
         'packages/contracts/node_modules/library/foreign.browser.integration.test.ts'
     ]) {
         const target = join(root, path);
@@ -27,15 +31,28 @@ afterAll(async () => {
     await rm(root, { recursive: true, force: true });
 });
 
-test('default integration discovery selects active workspace tests, leaving archives, dependencies and browser tests out', () => {
+test('default integration discovery selects automatic workspace tests without loading archives, dependencies, browsers or devices', () => {
     expect(integrationFiles(root)).toEqual([
         './apps/client/current.integration.test.ts',
         './apps/server/current.integration.test.ts',
         './packages/contracts/current.integration.test.ts',
+        './packages/npm/current.package.integration.test.ts',
         './scripts/current.integration.test.ts'
     ]);
 });
 
 test('browser discovery selects only active browser tests', () => {
-    expect(integrationFiles(root, true)).toEqual(['./apps/client/current.browser.integration.test.ts']);
+    expect(integrationFiles(root, 'browser')).toEqual(['./apps/client/current.browser.integration.test.ts']);
+});
+
+test('core and package jobs together cover every automatic integration file exactly once', () => {
+    const core = integrationFiles(root, 'core');
+    const packaged = integrationFiles(root, 'package');
+    expect(packaged).toEqual(['./packages/npm/current.package.integration.test.ts']);
+    expect(core).not.toContain(packaged[0]!);
+    expect([...core, ...packaged].sort()).toEqual(integrationFiles(root));
+});
+
+test('device discovery selects only tests that need a running simulator or device', () => {
+    expect(integrationFiles(root, 'devices')).toEqual(['./apps/server/current.device.integration.test.ts']);
 });
