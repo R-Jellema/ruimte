@@ -107,6 +107,34 @@ final class IntelligentUIPresentationTests: XCTestCase {
             ))
     }
 
+    func testAChoiceOffersItselfOnlyWhenTheHostWouldSendIt() throws {
+        func choice(_ children: String, complete: Bool = true, error: String? = nil) throws -> UiNode {
+            let failed = error.map { #","error":"\#($0)""# } ?? ""
+            return try node(
+                #"{"id":"c","type":"Choice","props":{},"complete":\#(complete)\#(failed),"children":[\#(children)]}"#)
+        }
+        let text = { (value: String) in #"{"id":"t","type":"$text","props":{"text":"\#(value)"},"complete":true}"# }
+        XCTAssertEqual(try choice(text(" Run   checks ")).choiceLabel, "Run checks")
+        XCTAssertNil(
+            try choice(
+                text("Run ") + "," + #"{"id":"e","type":"$text","props":{},"complete":true,"error":"unknown_variable"}"#
+            ).choiceLabel)
+        XCTAssertNil(try choice(text("  ")).choiceLabel)
+        XCTAssertNil(try choice("").choiceLabel)
+        XCTAssertNil(try choice(text("Run"), complete: false).choiceLabel)
+        XCTAssertNil(try choice(text("Run"), error: "invalid_syntax").choiceLabel)
+    }
+
+    func testAScaleNeedsASpanItCanDivideBy() throws {
+        XCTAssertNil(UiChartData.range(0, .leastNonzeroMagnitude))
+        XCTAssertNil(UiChartData.range(0, 1e-310))
+        XCTAssertNotNil(UiChartData.range(0, 1e-300))
+        XCTAssertNil(
+            UiChartData(
+                try node(#"{"id":"c","type":"Chart","props":{"kind":"bar","data":[{"label":"Tiny","value":5e-324}]}}"#))
+        )
+    }
+
     func testDerivedTablesKeepEveryColumnAndFarDatesStayText() throws {
         let derived = UiTableColumn.of(
             try node(
@@ -176,6 +204,9 @@ final class IntelligentUIPresentationTests: XCTestCase {
                     } else {
                         XCTAssertEqual(actual, wanted, name)
                     }
+                }
+                if let choiceLabel = expected["choiceLabel"] {
+                    XCTAssertEqual(node.choiceLabel, choiceLabel.stringValue, "\(name) \(id)")
                 }
                 if let chart = expected["chart"] {
                     let actual = UiChartData(node)

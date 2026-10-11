@@ -50,6 +50,16 @@ struct UiNode: Identifiable, Equatable {
             .trimmingCharacters(in: .whitespaces)
     }
 
+    /// Whether this node or anything below it could not be evaluated.
+    var hasError: Bool { error != nil || children.contains { $0.hasError } }
+
+    /// The label a Choice sends, or nil when it can never send: it failed, never closed, part of its label could not
+    /// be read, or the label is empty. The same rule as `uiChoiceLabel` on the desktop and the host's own check.
+    var choiceLabel: String? {
+        guard !hasError, complete else { return nil }
+        return label.isEmpty ? nil : label
+    }
+
     /// The valid children of one kind, which a parent reads as metadata: the columns of a table, the tabs of a strip.
     func children(of type: String) -> [UiNode] { children.filter { $0.type == type && $0.error == nil } }
 

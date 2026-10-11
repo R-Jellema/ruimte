@@ -214,11 +214,13 @@ struct UiChartData: Equatable {
         values = Self.values(data, keys: all)
     }
 
-    /// The rounded ends of a value axis, or nil when they lie beyond what a number can hold.
+    /// The rounded ends of a value axis, or nil when no drawing can scale to them: the span has to be finite and above
+    /// zero, and so does one over it, which rules out a subnormal span as well.
     static func range(_ low: Double, _ high: Double) -> ClosedRange<Double>? {
         let bottom = low < 0 ? -niceCeiling(-low) : 0
         let top = high > 0 ? niceCeiling(high) : bottom == 0 ? 1 : 0
-        return (top - bottom).isFinite ? bottom...top : nil
+        let span = top - bottom
+        return span > 0 && span.isFinite && (1 / span).isFinite ? bottom...top : nil
     }
 
     /// A round number at or above `value`, for the end of an axis: 1, 2, 2.5 or 5 times a power of ten.

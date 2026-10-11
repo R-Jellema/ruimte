@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { dirname, relative, resolve } from 'node:path';
+import * as intelligentUi from '@adecore/intelligent-ui';
 import { compileUiBlock, type UiBlock, type UiViewNode } from '@adecore/intelligent-ui';
 import { z } from 'zod';
 import { evaluateNativeUi, type NativeUiRequest } from '../src/chat/native-ui';
@@ -65,6 +66,10 @@ const cases: ParityCase[] = [
     { name: 'negative hbar', source: '<Chart kind="hbar" data={[{label:"Core", value:-3}, {label:"Client", value:5}]}/>' },
     { name: 'seven series', source: '<Chart kind="bar" data={[{label:"t", a:1, b:2, c:3, d:4, e:5, f:6, g:7}]}/>' },
     { name: 'too large to scale', source: '<Chart kind="bar" data={[{label:"Huge", count:1.5e308}]}/>' },
+    {
+        name: 'choice eligibility',
+        source: '$empty = ""\n<Choices><Choice context="Run checks">Run {$missing}</Choice><Choice>{$empty}</Choice><Choice context=bad>Fix</Choice ><Choice> Run   checks </Choice></Choices>'
+    },
     { name: 'nine derived columns', source: '<Table rows={[{a:1, b:2, c:3, d:4, e:5, f:6, g:7, h:8, i:9}]}/>' },
     {
         name: 'live input',
@@ -134,6 +139,8 @@ const desktopModule = (path: string) => import(resolve(agentsReact, exportsOf[`.
 const { uiTableColumns } = await desktopModule('table-data');
 const { uiChartData } = await desktopModule('chart-data');
 const { uiNodeLabel } = await desktopModule('node-text');
+// Which choices a page may offer; the expectation exists once the shared package has the rule, so an older one only leaves the fixture stale.
+const uiChoiceLabel = (intelligentUi as Record<string, unknown>).uiChoiceLabel as ((choice: UiViewNode) => string | null) | undefined;
 const presentation = fixtures
     .filter((fixture) => fixture.request.block.complete && fixture.request.block.catalogVersion !== 999)
     .map(({ name, result }) => {
@@ -144,7 +151,8 @@ const presentation = fixtures
                     expected[node.id] = {
                         label: uiNodeLabel(node),
                         ...(node.type === 'Table' ? { columns: uiTableColumns(node) } : {}),
-                        ...(node.type === 'Chart' ? { chart: uiChartData(node.props.data, node.props.kind) } : {})
+                        ...(node.type === 'Chart' ? { chart: uiChartData(node.props.data, node.props.kind) } : {}),
+                        ...(node.type === 'Choice' && uiChoiceLabel !== undefined ? { choiceLabel: uiChoiceLabel(node) } : {})
                     };
                 }
                 visit(node.children);

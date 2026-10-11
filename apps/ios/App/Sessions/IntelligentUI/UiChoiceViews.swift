@@ -27,8 +27,18 @@ struct UiChoiceView: View {
     @State private var slow = false
 
     var body: some View {
+        // A choice the host would refuse draws as its text and offers nothing to press; while the reply streams it
+        // waits as a closed row, since its label may still come.
+        if !context.streaming && node.choiceLabel == nil {
+            UiFallbackPart(fallback: node.fallback, problem: .failed)
+        } else {
+            choice
+        }
+    }
+
+    @ViewBuilder private var choice: some View {
         let model = context.model
-        let label = node.label
+        let label = node.choiceLabel ?? node.label
         let detail = node.string("context").flatMap {
             $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0
         }
@@ -60,7 +70,8 @@ struct UiChoiceView: View {
             .accessibilityHint(reason ?? detail ?? "")
             .accessibilityValue(chosen ? stateWord : "")
             .contextMenu {
-                Button(String(localized: "Send"), lucideIcon: "arrow-right") { choose() }.disabled(closed || reading)
+                Button(String(localized: "Send"), lucideIcon: "arrow-right") { choose() }
+                    .disabled(closed || reading || node.choiceLabel == nil)
                 Button(String(localized: "Copy text"), lucideIcon: "copy") {
                     UIPasteboard.general.string = detail ?? label
                 }
@@ -134,7 +145,8 @@ struct UiChoiceView: View {
     }
 
     private func choose() {
-        guard context.model.canChoose, node.bool("disabled") != true, context.host.connected else { return }
+        guard context.model.canChoose, node.choiceLabel != nil, node.bool("disabled") != true, context.host.connected
+        else { return }
         context.local.setPick("choosing", node.id)
         Task { await context.model.choose(nodeID: node.id) }
     }
