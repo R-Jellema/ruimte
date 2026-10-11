@@ -129,7 +129,8 @@ unknown services remain unchanged, and handwritten launches have a verified rout
    service start on a fresh Mac, AppImage quit and daemon-crash recovery, cancellation during
    long computer/device input, wireless device streaming, closing iPhone media, brief
    notification-page disconnects, and terminal file links and session port chips on a remote
-   machine. Check existing results before repeating these cases.
+   machine. Check existing results before repeating these cases. The device runbooks per app
+   (iPhone and iPad, push, Speech to Text, Apple Foundation Models) are in [ACCEPTANCE.md](ACCEPTANCE.md).
 
 Done when the baseline, hardware/build, fixture sizes and results are recorded with units, and
 any measured regression has a bounded follow-up. Choose performance acceptance budgets from the
