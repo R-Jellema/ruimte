@@ -29,6 +29,16 @@ export async function gitIn(cwd: string, args: string[]): Promise<string> {
 export async function initRepo(repo: string, files: Record<string, string>): Promise<void> {
     await mkdir(repo, { recursive: true });
     await gitIn(repo, ['init', '--quiet', '--initial-branch=main']);
+    // Application Git calls do not use gitIn's environment, so copied worktrees need these too.
+    for (const [key, value] of Object.entries({
+        'user.name': 'Ada',
+        'user.email': 'a@a',
+        'commit.gpgSign': 'false',
+        'maintenance.auto': 'false',
+        'gc.auto': '0'
+    })) {
+        await gitIn(repo, ['config', '--local', key, value]);
+    }
     for (const [name, body] of Object.entries(files)) {
         await writeFile(join(repo, name), body);
     }
