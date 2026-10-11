@@ -70,7 +70,8 @@ export type DeliverWaitingEntry = Extract<OutboxEntry, { kind: 'deliver-waiting'
 /*
  * Work the daemon still owes, under `$RUIMTE_HOME/outbox`. Only a verb or a restart puts something
  * here, never a clock; the exceptions are a `resume-limit`, only where a person turned it on, a
- * `background-limit` and the grace of a `deliver-waiting`, each due at a time.
+ * `background-limit` and the grace of a `deliver-waiting`, each due at a time. A `deliver-pr-watch`
+ * is due at once: the poll that wrote it is the PR-watch's own clock, not the outbox's.
  */
 export class OutboxStore extends BaseOutboxStore<OutboxWork> {
     constructor(home: string) {
