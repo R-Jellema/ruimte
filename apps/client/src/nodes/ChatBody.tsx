@@ -18,12 +18,9 @@ import { chatClientFor } from '@/transport/connections';
 import { useTransportStatus } from '@/transport/status';
 import { NodeNotice } from '@/nodes/NodeNotice';
 import { readNodeHost, renameHost, useNodeHost, useSuggestedTitle } from '@/nodes/node-host';
-import { ErrorBoundary, lazyNamed } from '@adecore/ui';
+import { ErrorBoundary } from '@adecore/ui';
 import { bringPromptToFront } from '@/canvas/prompt-stack';
 import { PROMPTS_IN_NODES } from '@/prompts/placement';
-
-// The worker pool and its highlighter load with the first chat node, not with the app.
-const DiffPool = lazyNamed(() => import('@/chat/ChatDiffPool'), 'default');
 
 function messageOf(error: unknown, fallback: string): string {
     return error instanceof Error ? error.message : fallback;
@@ -120,33 +117,31 @@ export function ChatBody({ id, focused, onCanvas = false }: { id: string; focuse
                 </NodeNotice>
             )}
             <Suspense fallback={<div className="grow" />}>
-                <DiffPool>
-                    <Timeline
-                        chatId={id}
-                        composer={
-                            info && (
-                                <Composer
-                                    chatId={id}
-                                    info={info}
-                                    focused={focused}
-                                    answerPromptsElsewhere={onCanvas && !PROMPTS_IN_NODES ? () => bringPromptToFront(id) : undefined}
-                                    disabled={status !== 'open'}
-                                    readOnly={!composerWrites(trail)}
-                                    providerFixed={providerFixed}
-                                    onSend={send}
-                                    onRetarget={retarget}
-                                />
-                            )
-                        }
-                        overlay={
-                            shown && (
-                                <ErrorBoundary key={shown.toolUseId} label={t('chat.conversationFailed')} resetKeys={[shown.toolUseId]}>
-                                    <SubagentTimeline chatId={id} toolUseId={shown.toolUseId} />
-                                </ErrorBoundary>
-                            )
-                        }
-                    />
-                </DiffPool>
+                <Timeline
+                    chatId={id}
+                    composer={
+                        info && (
+                            <Composer
+                                chatId={id}
+                                info={info}
+                                focused={focused}
+                                answerPromptsElsewhere={onCanvas && !PROMPTS_IN_NODES ? () => bringPromptToFront(id) : undefined}
+                                disabled={status !== 'open'}
+                                readOnly={!composerWrites(trail)}
+                                providerFixed={providerFixed}
+                                onSend={send}
+                                onRetarget={retarget}
+                            />
+                        )
+                    }
+                    overlay={
+                        shown && (
+                            <ErrorBoundary key={shown.toolUseId} label={t('chat.conversationFailed')} resetKeys={[shown.toolUseId]}>
+                                <SubagentTimeline chatId={id} toolUseId={shown.toolUseId} />
+                            </ErrorBoundary>
+                        )
+                    }
+                />
             </Suspense>
         </div>
     );

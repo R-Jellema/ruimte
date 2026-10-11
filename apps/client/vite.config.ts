@@ -152,6 +152,8 @@ export default defineConfig(({ mode }) => ({
         dedupe: [
             'react',
             'react-dom',
+            // Keep the linked renderer and the host worker on the same Pierre protocol.
+            '@pierre/diffs',
             'i18next',
             'react-i18next',
             '@base-ui-components/react',
