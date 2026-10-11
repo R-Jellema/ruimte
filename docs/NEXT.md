@@ -4,7 +4,7 @@ This plan holds only open implementation, decisions and verification. Each numbe
 is a reviewable change; split a larger package into issues when implementation starts. The order
 is a recommended priority. Run measurements or a design spike before estimating larger work.
 
-Reviewed against `aada37fe5` on October 7, 2026. Implementation, acceptance and product decisions
+Reviewed against `2aba19a60` on October 11, 2026. Implementation, acceptance and product decisions
 are separate tasks below. The ADE CORE extraction, initial language-server implementation and
 multiwindow implementation are complete; their remaining acceptance does not require rebuilding them.
 
@@ -16,18 +16,19 @@ multiwindow implementation are complete; their remaining acceptance does not req
 | 2. Ownership and persistent files     | First                                | Nothing                                             |
 | 3. Test floor and measurements        | Early                                | Nothing for a baseline                              |
 | 4. Keyboard and settings              | Next                                 | DOM setup from 3 for interaction tests              |
-| 5. File and diff entry points         | Next                                 | Nothing                                             |
-| 6. Terminal basics                    | Next                                 | 4 for new bindings; 5 for file links                |
+| 5. File entry points                  | Next                                 | Nothing                                             |
+| 6. Terminal basics                    | Next                                 | 4 for new bindings                                  |
 | 7. Canvas ergonomics                  | Next                                 | 4 for bindings; baseline from 3                     |
 | 8. Chat depth                         | Next                                 | 1 for lifecycle; 5 for shared file locations        |
 | 9. Accounts                           | Next                                 | 1 for continuation/recovery                         |
 | 10. Remote access and media           | Next                                 | 2; measurements from 3                              |
 | 11. iOS, devices and worktrees        | Next                                 | 1 for task status; 5 for locations                  |
-| 12. Multiple windows                  | Acceptance                           | Existing implementation; baseline from 3            |
-| 13. Copilot and Gemini chat           | Later                                | 1 and 9; compatibility checks below                 |
-| 14. Editor and language servers       | Acceptance and remaining features    | Existing implementation; server policy per addition |
-| 15. Plugins                           | Decision first                       | Registry inventory and a compatibility release      |
-| 16. Linux and Windows                 | Linux checks early, Windows deferred | Platform spikes and CI                              |
+| 12. Intelligent UI                    | Next                                 | Nothing; step 1 waits on an appearance review       |
+| 13. Multiple windows                  | Acceptance                           | Existing implementation; baseline from 3            |
+| 14. Copilot and Gemini chat           | Later                                | 1 and 9; compatibility checks below                 |
+| 15. Editor and language servers       | Acceptance and remaining features    | Existing implementation; server policy per addition |
+| 16. Plugins                           | Decision first                       | Registry inventory and a compatibility release      |
+| 17. Linux and Windows                 | Linux checks early, Windows deferred | Platform spikes and CI                              |
 
 Measurements must finish before changing the WebGL budget, splitting the composer chunk or
 choosing media buffer sizes.
@@ -39,20 +40,18 @@ Sources: `@adecore/agents/chat`, task coordination and the host's resume handler
 The fixes for Queue, Stop, recovery, durable task delivery and native-request ownership are in.
 Only the live evidence below is left; do not rerun historical implementation prompts.
 
-1. Capture a natural provider-limit/reset sequence when one occurs, using a new bounded probe
-   against the current packages. A quota read alone is not a refusal/reset replay. Do not consume
-   budget to force a limit. Unknown reset times keep the queue paused; this capture does not block
-   other fixes.
-2. Keep a natural capture of early-before-tool metadata or a mid-run child model change if one
-   occurs. Deterministic regressions already cover those orderings, and the latest live capture
-   shows normal nesting and reuse. This is extra evidence, not an implementation gate.
+Capture a natural provider-limit/reset sequence when one occurs, with a new bounded probe against
+the current packages. A quota read alone is not a refusal/reset replay, and nobody spends budget
+to force a limit. Keep a natural capture of early-before-tool metadata or a mid-run child model
+change too, if one occurs; deterministic regressions already cover those orderings. Neither capture
+gates other work.
 
 The remaining full-client memory verification belongs to package 3.
 
 ## 2. Ownership and persistent files
 
-The [October 7 audit](reports/private/2026-10-07-codebase-audit.html) records B01 through B08
-with isolated probes. These are implementation tasks, not missing manual acceptance:
+The October 7 audit found B01 through B08 with isolated probes. These are implementation tasks,
+not missing manual acceptance:
 
 1. Serialize saves per canonical file and recheck the version inside that operation. Two clients
    saving the same old version must produce one whole file and one conflict, including hardlinks,
@@ -69,9 +68,10 @@ with isolated probes. These are implementation tasks, not missing manual accepta
    delete must not be undone by an earlier write (B06).
 7. Make `ProjectStore.mutate` notify drawing and diagram stores when a view disappears, using the
    same orphan cleanup as save. Test failed writes, shared/private files and unknown kinds (B08).
-8. Extend the desktop service check from the standard CLI path to every unknown installation.
-   Preserve another executable's service during start, replacement, uninstall and stop, while
-   retaining the update/restart path for this app's own service (B07).
+8. Extend the desktop service check to every unknown installation. Today it protects only a
+   service on the standard CLI path (`apps/desktop/src/service/controller.ts`). Preserve another
+   executable's service during start, replacement, uninstall and stop, while retaining the
+   update/restart path for this app's own service (B07).
 9. Reproduce the status-routing problem when someone types `codex` manually in a shell. Use
    `apps/server/src/providers/launch.ts` as the baseline. Do not replace shell configuration or
    infer status from terminal output.
@@ -79,7 +79,7 @@ with isolated probes. These are implementation tasks, not missing manual accepta
     screenshot expiry without another capture, writer-owned crash leftovers and durable deletion
     of cold sessions. Log rotation remains a separate patch; age never authorizes deleting work.
 
-Done when the audit's regression cases pass, deleted views lose only their unused files,
+Done when a regression test covers each of B01 through B08, deleted views lose only their unused files,
 unknown services remain unchanged, and handwritten launches have a verified route or limitation.
 
 ## 3. Test floor and measurements
@@ -127,8 +127,9 @@ unknown services remain unchanged, and handwritten launches have a verified rout
    Remaining manual cases include approval focus, sleep/reconnect, quit with no open window,
    preview script redirects, dictation/Voice across windows, resolve-with-agent via stdin, first
    service start on a fresh Mac, AppImage quit and daemon-crash recovery, cancellation during
-   long computer/device input, wireless device streaming, closing iPhone media and brief
-   notification-page disconnects. Check existing results before repeating these cases.
+   long computer/device input, wireless device streaming, closing iPhone media, brief
+   notification-page disconnects, and terminal file links and session port chips on a remote
+   machine. Check existing results before repeating these cases.
 
 Done when the baseline, hardware/build, fixture sizes and results are recorded with units, and
 any measured regression has a bounded follow-up. Choose performance acceptance budgets from the
@@ -152,38 +153,31 @@ Sources: the app/canvas/terminal shortcut handlers, `shell/settings/shortcuts.ts
 Done when changing a binding changes both behavior and the displayed key, overlapping contexts
 are tested, reset restores defaults, and a palette setting result reaches the right row.
 
-## 5. File and diff entry points
+## 5. File entry points
 
-1. Carry a line location through a file node instead of encoding it into the filesystem path.
-   Reuse `file.preview` and the file surface so preview, node and editor agree on the location.
+1. Let a file node keep a location. `FileLocation` (`packages/contracts/src/file-location.ts`)
+   and opening a tab at a line, column or range (`state/files.ts`, `shell/panels/reveal-location.ts`)
+   exist; a file node still stores only its path. Older clients must keep the stored node.
 2. Probe installed external editors, add an editor preference and implement `fs.open` with a
    structured path/line location. Route file menus, diff rows and terminal file links through it,
    on the machine that owns the file. Handle an unavailable editor and paths containing spaces.
-3. Add a diff node that reuses the git panel's worktree/base/commit scopes and diff rendering.
-   Introduce its contract with the existing unknown-kind compatibility discipline; older clients
-   must preserve a node they cannot draw.
 
-Done when a location opens the correct line from every entry point, a diff node follows its scope,
-and reloads/older clients preserve the stored node.
+Done when a location opens the correct line from every entry point and reloads/older clients
+preserve the stored node.
 
 ## 6. Terminal basics
 
 1. Register xterm as a host of the shared find bar, with next/previous, result state and disposal.
-2. Add clickable file paths across wrapped rows, carrying line/column locations into package 5.
-   Test wrapped paths, spaces and an invalid or missing file.
-3. Type a shell-quoted path when a local file is dropped on a terminal. Use the existing Finder
+2. Type a shell-quoted path when a local file is dropped on a terminal. Use the existing Finder
    bridge and remote-machine refusal rules; dragging a local path to a remote shell is not a valid path.
-4. Enable matching Unicode 11 widths on client and headless xterms. Compare attach/resync snapshots
+3. Enable matching Unicode 11 widths on client and headless xterms. Compare attach/resync snapshots
    with the client after resize, wide characters and emoji.
-5. Add Clear to the node and terminal context menus through the existing `terminal.clear` action.
-6. Add Send to linked chat for a terminal selection. Append a fenced block to the chosen linked
+4. Add Clear to the node context menu (`canvas/NodeMenu.tsx`) and the terminal's own context menu
+   through the existing `terminal.clear` action. The app menu already has it.
+5. Add Send to linked chat for a terminal selection. Append a fenced block to the chosen linked
    chat's draft without sending; offer a chooser when several chats qualify.
-7. Discover listening ports from the session's process tree using a platform adapter, beginning
-   with the planned `lsof` probe on macOS. Reuse launch port/probe behavior where useful. Stop the
-   poll with the owning session and offer Open :port as a browser node with an edge.
 
-Done when search, links, drop and Clear work in both a terminal view and node; a discovered port
-belongs to that session, and its chip creates the linked browser.
+Done when search, drop and Clear work in both a terminal view and node.
 
 ## 7. Canvas ergonomics
 
@@ -309,7 +303,41 @@ existing binary reply path, range streaming and explicit direct-connection failu
 Done when phone acceptance checks are recorded and worktree actions show/resolve conflicts
 without losing work. Installing apps and device logs remain out of scope.
 
-## 12. Multiple windows
+## 12. Intelligent UI
+
+Blocks render and take input on the desktop and the iPhone, and choices reach the chat. What is
+left is native presentation, the size of the agent's note and acceptance measurements.
+
+1. Collect the appearance review per element in the real desktop and iPhone apps, including light,
+   dark, narrow windows and accessibility, and work it through. No concrete list exists yet.
+2. Turn a `[1]` reference in a native block's prose into a source chip that jumps to its Source row,
+   as the desktop does. Today `UiInlineRun` draws prose as attributed text and `UiSourceView` gets
+   no number. VoiceOver names the source, and an unclear reference stays text.
+3. Show a failed live read natively as the previous value, dimmed, with the error in the footer.
+   Fade a changed value from the accent to normal once over 800 ms, keep digit widths, and skip the
+   fade under reduced motion (`UiDataViews.swift`). `Stat.previous` is a comparison the agent
+   writes, not the history of a query.
+4. Fade in newly written words of prose that grows in a native block, without changing the
+   identity or focus of an input. Expressions, code and labels stay literal; reduced motion shows
+   the text at once.
+5. Shorten the UI note an agent gets. The plan's goal was under 600 tokens, and the catalog
+   additions of October 10 brought the UI and visual notes to about 3,700 characters. Keep the
+   example, which stops agents from writing components as function calls, and the rules for
+   bindings and choices. The example must still compile after the visual note joins it and on resume.
+6. Run the evaluation set: twenty real work questions per CLI and model, three times each, with no
+   syntax hint in the prompt. Record CLI and model versions, language, fresh start or resume,
+   compiles without diagnostics, empty renders, the choice between a block and prose, and prompt
+   cost. A recurring failure gets a catalog rule and a regression test.
+7. Measure cold replay, several concurrent chats and recorded real Claude and Codex answers. Agree
+   on the acceptance limit first; record input size, hardware, runtime, samples, medians and tails.
+8. Run the iOS app test target, beyond the Swift package tests that already pass, and check the
+   other consumers of `@adecore/intelligent-ui` against the published release.
+
+Done when the native views match the desktop for sources, live values and growing prose, the note
+meets an agreed size with a compiling example, and the evaluation and measurements are recorded
+with their limits.
+
+## 13. Multiple windows
 
 Acceptance only. `createWindows`, project claims, sender-bound IPC, restored window targets and
 shared-storage synchronization already exist.
@@ -323,7 +351,7 @@ shared-storage synchronization already exist.
 Done when these cases have recorded desktop evidence. Fix any reproduced gap in the existing
 implementation; do not introduce another window registry.
 
-## 13. Copilot and Gemini chat
+## 14. Copilot and Gemini chat
 
 Source: [the provider research](reports/2026-09-25-provider-research.html).
 
@@ -344,7 +372,7 @@ Source: [the provider research](reports/2026-09-25-provider-research.html).
 Done per provider when two turns, denied writes, an open approval stopped by the person, restart
 and account/login failures work in the packaged app. Do not promise an SDK/API choice before the spike.
 
-## 14. Editor and language servers
+## 15. Editor and language servers
 
 Current integration: [the client README](../apps/client/README.md#code-editor) and
 [the daemon README](../apps/server/README.md#language-servers). The ADE CORE editor/LSP host,
@@ -374,7 +402,7 @@ integration are built. Monaco is removed.
 Done per accepted feature when the required runtime/device evidence exists. Fake-server tests
 remain deterministic tests; real language servers belong in integration tests.
 
-## 15. Plugins
+## 16. Plugins
 
 Source: [the plugin report](reports/2026-09-14-plugins.html), whose product choices remain open.
 
@@ -392,7 +420,7 @@ Done when one representative plugin can be installed, used, disabled and reopene
 without it, with bounded capabilities and intact stored data. This package cannot pass its first
 step on an engineering assumption alone.
 
-## 16. Linux and Windows
+## 17. Linux and Windows
 
 1. Recheck [LINUX.md](LINUX.md) against the current split between deterministic and integration
    tests. Add Linux CI, handle platform assumptions explicitly, and record package smoke checks for
@@ -411,10 +439,13 @@ architectures/formats.
 
 These steps wait on a decision: shared-folder restore with concurrent edits, sharing Claude
 account configuration, ref-only merges, the protocol window, Bonjour discovery, plugin scope,
-formatter policy and the later language-server execution rules. Decide each before the
-implementation that depends on it, and keep going with the other steps meanwhile. Measurements
-settle the buffer, cap and chunk choices. Automatic redelivery after an accepted parent turn fails remains disabled by
-the existing product decision; it is not an unanswered implementation question.
+formatter policy, the later language-server execution rules, where pasted images go in a project
+without a folder and when unused ones are removed (7.4), what renaming a note does to its heading
+(7.5), whether the canvas font size governs explicitly sized text (4.4) and native Wayland. Decide
+each before the implementation that depends on it, and keep going with the other steps meanwhile.
+Measurements settle the buffer, cap and chunk choices. Automatic redelivery after an accepted
+parent turn fails remains disabled by the existing product decision; it is not an unanswered
+implementation question.
 
 For each code change, run focused deterministic regressions and the repository's required checks.
 Use integration tests for real shells, watchers, sockets and provider/server processes. Verify UI
