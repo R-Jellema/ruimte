@@ -1,0 +1,13 @@
+# Agent verbs
+
+The invariants of this folder. The repository root's `CLAUDE.md` has the map, the wire protocol and the rules that hold everywhere; `ruimte-context help` is the reference for every verb.
+
+- `verbs.ts` is the one registry: the parser dispatches from it and `help` renders from it, so a verb is documented by being defined. There are no aliases for old spellings. A refusal is a 422 whose first line is `refused\t<code>\t<message>`, followed by only what that same call would accept.
+- What a verb enforces lives in the action handlers (`src/actions`, catalog actions from `@ruimte/actions`), so a person, Voice and an agent are held to the same checks. Selectors are ids, never titles, and every write goes through `ProjectStore.mutate`.
+- Depth and the per-caller count live in the lineage under `$RUIMTE_HOME/lineage` (`depth.ts`), never on the node: an agent with a shell can rewrite `project.json`. A person's node is depth 0; `agent` opens up to depth 2 and `team` up to depth 1. One caller holds at most `MAX_OPENED_PER_CALLER` agent nodes at a time; other nodes do not count.
+- `task new` gives work only to an agent the caller opened, read from the lineage and not from a line on the canvas. Two agents that read each other have lines both ways and would set each other to work endlessly; lineage is a tree.
+- The mode ceiling (`mode.ts`) is read when the verb runs, carried on the `start-agent` entry and the lineage record, and applied again by `SessionManager.create` and `ChatManager.create` at every start. A terminal agent no agent opened is held to the mode a person's save gave it (`src/sessions/mode-approvals.ts`), or `supervised` with no client to say otherwise.
+- Every start of a node an agent made checks its folder again (`startCwdGuard` in `project-paths.ts`), since a path checked by the verb may be a symlink that points elsewhere by then.
+- A first prompt never reaches `project.json`. It waits in `$RUIMTE_HOME/prompts/<nodeId>.json` and is delivered once when the session or chat is made (`src/agents/pending-prompts.ts`). It is capped because a terminal agent's prompt rides on the launch line, which the tty cuts off without a word.
+- A view's maker is `createdBy` in the shared file; a node's maker is in the lineage. Delete verbs remove only what the caller made, unless the machine's `agentsDeleteAnyView` frees it, and never the caller's own node or view. Ending a terminal or chat node happens before the write, so no shell outlives its node.
+- A verb never approves a command, a launch or a mode, and cannot set a command. `--dry-run` runs every check under the write's lock and writes nothing; any verb that cannot preview refuses the flag by name.
