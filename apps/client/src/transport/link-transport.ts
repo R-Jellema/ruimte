@@ -49,6 +49,9 @@ export type LinkOpener = (url: string, events: LinkEvents) => Link;
 
 export interface LinkTransportOptions {
     addressTimeoutMs?: number;
+    // Spreads the reconnects of many clients after a daemon restart; a test passes a fixed one.
+    random?: () => number;
+    now?: () => number;
     log?: Pick<Console, 'info' | 'warn'>;
 }
 
@@ -81,6 +84,8 @@ export class LinkTransport implements PooledTransport {
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     private disposed = false;
     private address: SocketAddress;
+    private readonly random: () => number;
+    private readonly now: () => number;
     // Bumped by anything that makes an attempt stale, so an address resolved slowly cannot open a link nobody wants.
     private generation = 0;
 
@@ -89,6 +94,8 @@ export class LinkTransport implements PooledTransport {
         this.openLink = openLink;
         this.addressTimeoutMs = options.addressTimeoutMs ?? ADDRESS_TIMEOUT_MS;
         this.log = options.log ?? console;
+        this.random = options.random ?? Math.random;
+        this.now = options.now ?? Date.now;
         this.connect();
     }
 
@@ -278,8 +285,10 @@ export class LinkTransport implements PooledTransport {
         if (this.disposed || this.reconnectTimer) {
             return;
         }
-        const delay = Math.min(RECONNECT_MIN_MS * 2 ** this.currentConnection.attempts, RECONNECT_MAX_MS);
-        this.setConnection({ attempts: this.currentConnection.attempts + 1, retryAt: Date.now() + delay });
+        // Equal jitter: half the backoff is certain, the other half is spread.
+        const base = Math.min(RECONNECT_MIN_MS * 2 ** this.currentConnection.attempts, RECONNECT_MAX_MS);
+        const delay = base / 2 + (this.random() * base) / 2;
+        this.setConnection({ attempts: this.currentConnection.attempts + 1, retryAt: this.now() + delay });
         this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = null;
             this.connect();

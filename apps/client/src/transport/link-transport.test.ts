@@ -293,4 +293,51 @@ describe('LinkTransport', () => {
         await tick(600);
         expect(links).toHaveLength(1);
     });
+
+    describe('reconnect jitter', () => {
+        function jittered(random: () => number) {
+            const links: FakeLink[] = [];
+            const transport = new LinkTransport(
+                'ws://machine/ws',
+                (_url, events) => {
+                    const link = new FakeLink(events);
+                    links.push(link);
+                    return link;
+                },
+                { random }
+            );
+            return { transport, links };
+        }
+
+        test('the first retry waits half the backoff at least', async () => {
+            const { transport, links } = jittered(() => 0);
+            await tick();
+            links[0]!.events.close(null);
+            await tick(249);
+            expect(links).toHaveLength(1);
+            await tick(1);
+            expect(links).toHaveLength(2);
+            transport.dispose();
+        });
+
+        test('the first retry waits the whole backoff at most', async () => {
+            const { transport, links } = jittered(() => 1);
+            await tick();
+            links[0]!.events.close(null);
+            await tick(499);
+            expect(links).toHaveLength(1);
+            await tick(1);
+            expect(links).toHaveLength(2);
+            transport.dispose();
+        });
+
+        test('dispose leaves no timer behind', async () => {
+            const { transport, links } = jittered(() => 0.5);
+            await tick();
+            links[0]!.events.close(null);
+            await tick();
+            transport.dispose();
+            expect(jest.getTimerCount()).toBe(0);
+        });
+    });
 });
