@@ -287,6 +287,7 @@ function fileMenu(context: MenuContext, command: MenuCommand): MenuSection {
             ...only(context.windows, command('window-new', t('newWindow'), { shortcut: APP_SHORTCUTS.newWindow })),
             ...only(context.newChat, command('chat-new', t('newChat'), { shortcut: APP_SHORTCUTS.newChat })),
             ...only(worktreeChat, command('chat-new-worktree', t('newChatInWorktree'))),
+            ...only(worktreeChat, command('issue-start', t('startFromIssue'))),
             ...only(context.windows || context.newChat || worktreeChat, separator),
             ...only(
                 workspace,

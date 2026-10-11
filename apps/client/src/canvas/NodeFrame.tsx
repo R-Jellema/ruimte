@@ -10,6 +10,7 @@ import {
     CircleQuestionMark,
     CircleX,
     FileText,
+    CircleDot,
     GitBranch,
     Globe,
     Hand,
@@ -27,6 +28,7 @@ import {
     type LucideIcon
 } from 'lucide-react';
 import { focusNodeAction, renameNodeAction } from '@/actions/client-actions';
+import { desktop } from '@/desktop/bridge';
 import { AgentIcon } from '@adecore/agents-react/agents/AgentIcon';
 import { taskStatusWord } from '@adecore/agents-react/agents/status-look';
 import { UnseenMark } from '@/attention/UnseenMark';
@@ -165,6 +167,28 @@ function WorktreePill({ worktree }: { worktree: { path: string; branch: string }
         <Tooltip label={worktree.path}>
             <Pill mono icon={<Icon icon={GitBranch} size={12} />}>
                 {worktree.branch}
+            </Pill>
+        </Tooltip>
+    );
+}
+
+function IssuePill({ issue }: { issue: { repo: string; number: number; url: string } }) {
+    const { t } = useTranslation('canvas');
+    const open = (): void => {
+        if (!/^https:\/\//.test(issue.url)) {
+            return;
+        }
+        const bridge = desktop();
+        if (bridge) {
+            void bridge.openExternal(issue.url);
+        } else {
+            window.open(issue.url, '_blank', 'noopener,noreferrer');
+        }
+    };
+    return (
+        <Tooltip label={t('node.issuePill', { issue: `${issue.repo}#${issue.number}` })}>
+            <Pill mono icon={<Icon icon={CircleDot} size={12} />} onClick={open}>
+                {issue.repo}#{issue.number}
             </Pill>
         </Tooltip>
     );
@@ -395,6 +419,7 @@ export const NodeFrame = memo(function NodeFrame({ id, z }: { id: string; z: num
                     {node.kind === 'terminal' && !renaming && <SessionPorts id={id} />}
                     {(node.kind === 'chat' || node.kind === 'terminal') && !renaming && <ComputerIndicator nodeId={id} />}
                     {nodeWorktree && !renaming && <WorktreePill worktree={nodeWorktree} />}
+                    {node.issue && !renaming && <IssuePill issue={node.issue} />}
                     {isGroup && !node.worktree && groupWorktrees.length > 0 && (
                         <Tooltip label={groupWorktrees.map((worktree) => worktree.branch).join(', ')}>
                             <Pill className="tabular-nums" icon={<Icon icon={GitBranch} size={12} />}>

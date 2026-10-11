@@ -225,6 +225,21 @@
         "failed": "Could not start the chat in a worktree",
         "noCanvas": "Open a canvas to put the chat on."
     },
+    "issueStart": {
+        "title": "Start from a GitHub issue",
+        "description": "Reads the issue through gh, makes a worktree for it and starts a chat there with the issue as its first prompt.",
+        "refLabel": "Issue",
+        "refPlaceholder": "Link, owner/repo#12 or #12",
+        "read": "Read",
+        "reading": "Reading…",
+        "notFound": "That issue was not found.",
+        "noGh": "gh is not installed on this machine.",
+        "unauthenticated": "gh is not signed in on this machine. Run gh auth login there.",
+        "prompt": "First prompt",
+        "start": "Start",
+        "starting": "Starting…",
+        "failed": "Could not start from the issue"
+    },
     "cellToolbar": {
         "view": "View",
         "drag": "{{name}}, drag to move it to another cell",
@@ -537,6 +552,7 @@
             "newTerminal": "New terminal",
             "newChat": "New chat",
             "newChatInWorktree": "New chat in worktree",
+            "startFromIssue": "Start from GitHub issue",
             "newBrowser": "New browser",
             "newGroup": "New group",
             "newNote": "New note",
@@ -851,6 +867,7 @@
         "newWindow": "New Window",
         "newChat": "New Chat",
         "newChatInWorktree": "New Chat in Worktree…",
+        "startFromIssue": "Start From GitHub Issue…",
         "moveToNewWindow": "Move to New Window",
         "onboarding": "Set Up Ruimte…",
         "findReplace": "Find and Replace",

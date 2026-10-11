@@ -58,6 +58,8 @@ export interface AddNodeOptions {
     viewId?: string;
     // Files only: the file it reads, relative to the project folder or absolute outside it.
     path?: string;
+    // Chats and terminals: the GitHub issue the agent was started on.
+    issue?: ProjectNode['issue'];
 }
 
 /* A label on the canvas. Style belongs to the whole element; the text itself holds no runs. */
@@ -766,7 +768,8 @@ export function createCanvasStore(): StoreApi<CanvasState> {
                     providerFixed: options.providerFixed,
                     runtimeMode: options.runtimeMode,
                     viewId: options.viewId,
-                    path: options.path
+                    path: options.path,
+                    ...(options.issue === undefined ? {} : { issue: options.issue })
                 };
                 set((s) => ({ nodes: { ...s.nodes, [id]: node }, order: [...s.order, id], selection: [id], ...remember(s) }));
                 return id;

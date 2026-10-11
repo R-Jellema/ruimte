@@ -60,7 +60,8 @@
         "context": {
             "tooltip": "Linked context. The agent reads it with ruimte-context.",
             "pill": "context"
-        }
+        },
+        "issuePill": "Open {{issue}} on GitHub"
     },
     "group": {
         "arrange": "Arrange members",

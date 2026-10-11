@@ -74,6 +74,13 @@ const NewWorktreeChatDialog = lazyDialog(
     (s) => s.newWorktreeChatOpen
 );
 
+const IssueStartDialog = lazyDialog(
+    () => import('@/shell/IssueStartDialog'),
+    'IssueStartDialog',
+    useUi,
+    (s) => s.issueStartOpen
+);
+
 const ConflictOverlay = lazyDialog(
     () => import('@/conflicts/ConflictOverlay'),
     'ConflictOverlay',
@@ -200,6 +207,9 @@ export function WorkspaceShell({ workspace }: { workspace: Workspace }) {
             <ForkDialog />
             <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
                 <NewWorktreeChatDialog />
+            </ErrorBoundary>
+            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                <IssueStartDialog />
             </ErrorBoundary>
             <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
                 <ImageSaveHost />

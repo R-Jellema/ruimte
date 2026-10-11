@@ -1,0 +1,221 @@
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { CircleDot } from 'lucide-react';
+import type { GitIssue } from '@ruimte/contracts';
+import { createNodeAction, performAsPerson } from '@/actions/client-actions';
+import { rememberChatSelection } from '@adecore/agents-react/chat/preferences';
+import { offerDraft } from '@adecore/agents-react/chat/drafts';
+import { useChats } from '@adecore/agents-react/state/chats';
+import { Button, Dialog, ErrorBoundary, FieldHint, FormError, Icon, Input, Pill, TextArea } from '@adecore/ui';
+import { focusChat } from '@/plan/plan-actions';
+import { findIssueNode, issueBranch, issuePrompt } from '@/shell/issue-start';
+import { useWorktreeStart } from '@/shell/use-worktree-start';
+import { WorktreeStartFields } from '@/shell/WorktreeStartFields';
+import { useDocument } from '@/state/document';
+import { endpointKey, useEndpointId } from '@/state/keys';
+import { useProject } from '@/state/project';
+import { useUi } from '@/state/ui';
+import { useTransport } from '@/transport/context';
+
+// How long a new chat node gets to register its chat with the machine before the prompt is left as a draft.
+const CHAT_OPEN_TIMEOUT_MS = 10_000;
+
+/*
+ * Starts a chat on a GitHub issue: the issue is read through `gh`, a worktree is made for it, and the chat
+ * opens in that worktree with the issue as its first prompt. A second start of the same issue in the same
+ * worktree shows the chat it already has.
+ */
+export function IssueStartDialog() {
+    const { t } = useTranslation('shell');
+    const open = useUi((s) => s.issueStartOpen);
+    const close = (): void => useUi.getState().setIssueStartOpen(false);
+    return (
+        <Dialog.Root
+            open={open}
+            onOpenChange={(next) => {
+                if (!next) {
+                    close();
+                }
+            }}
+        >
+            <Dialog.Popup size="sm">
+                <Dialog.Title className="flex items-center gap-2">
+                    <Icon icon={CircleDot} size={16} /> {t('issueStart.title')}
+                </Dialog.Title>
+                <ErrorBoundary label={t('issueStart.failed')} resetKeys={[open]}>
+                    {open && <IssueStartForm onDone={close} />}
+                </ErrorBoundary>
+            </Dialog.Popup>
+        </Dialog.Root>
+    );
+}
+
+/* Resolves once the machine has the chat, so a prompt sent right after creating the node has somewhere to go. */
+function whenChatOpens(endpointId: string, chatId: string): Promise<boolean> {
+    const key = endpointKey(endpointId, chatId);
+    return new Promise((resolve) => {
+        if (useChats.getState().byKey[key]?.info !== undefined) {
+            resolve(true);
+            return;
+        }
+        const timer = setTimeout(() => {
+            stop();
+            resolve(false);
+        }, CHAT_OPEN_TIMEOUT_MS);
+        const stop = useChats.subscribe((state) => {
+            if (state.byKey[key]?.info !== undefined) {
+                clearTimeout(timer);
+                stop();
+                resolve(true);
+            }
+        });
+    });
+}
+
+function IssueStartForm({ onDone }: { onDone(): void }) {
+    const { t } = useTranslation(['shell', 'common']);
+    const transport = useTransport();
+    const endpointId = useEndpointId();
+    const folder = useProject((s) => s.current?.folder ?? null);
+    const [text, setText] = useState('');
+    const [issue, setIssue] = useState<GitIssue | null>(null);
+    const [reading, setReading] = useState(false);
+    const [readFailure, setReadFailure] = useState<string | null>(null);
+    const [typedPrompt, setTypedPrompt] = useState<string | null>(null);
+    const [busy, setBusy] = useState(false);
+    const [failure, setFailure] = useState<string | null>(null);
+    const start = useWorktreeStart(folder, issue === null ? null : issueBranch(issue));
+    const prompt = typedPrompt ?? (issue === null ? '' : issuePrompt(issue));
+    const ready = start !== null && start.ready && issue !== null && prompt.trim() !== '' && !busy;
+
+    async function read(): Promise<void> {
+        if (folder === null || text.trim() === '' || reading) {
+            return;
+        }
+        setReading(true);
+        setReadFailure(null);
+        setIssue(null);
+        setTypedPrompt(null);
+        try {
+            setIssue(await transport.request('git.issue', { cwd: folder, ref: text.trim() }));
+        } catch (e) {
+            setReadFailure(issueFailure(e, t));
+        } finally {
+            setReading(false);
+        }
+    }
+
+    async function submit(): Promise<void> {
+        if (start === null || issue === null || !ready || start.provider === null) {
+            return;
+        }
+        setBusy(true);
+        setFailure(null);
+        try {
+            const { worktree } = await performAsPerson('worktree.create', { branch: start.branch.trim(), base: start.base.trim() });
+            const existing = findIssueNode(useDocument.getState().views, issue.url, worktree.path);
+            if (existing !== null) {
+                focusChat(existing);
+                onDone();
+                return;
+            }
+            if (start.selection !== null) {
+                rememberChatSelection(start.provider, start.selection);
+            }
+            const marker = { repo: issue.repo, number: issue.number, url: issue.url };
+            const chatId = await createNodeAction('chat', {
+                cwd: worktree.path,
+                provider: start.provider,
+                title: `#${issue.number} ${issue.title}`.slice(0, 60),
+                issue: marker
+            });
+            if (chatId === null) {
+                throw new Error(t('newWorktreeChat.noCanvas'));
+            }
+            if (await whenChatOpens(endpointId, chatId)) {
+                await performAsPerson('chat.send', { chatId, prompt: prompt.trim() });
+            } else {
+                offerDraft(chatId, prompt);
+            }
+            onDone();
+        } catch (e) {
+            setFailure(e instanceof Error ? e.message : t('issueStart.failed'));
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    return (
+        <>
+            <Dialog.Text className="mt-1">{t('issueStart.description')}</Dialog.Text>
+            <label className="mt-3 block text-xs text-text-muted" htmlFor="issue-ref">
+                {t('issueStart.refLabel')}
+            </label>
+            <div className="mt-1 flex items-center gap-2">
+                <Input
+                    id="issue-ref"
+                    mono
+                    autoFocus
+                    className="grow"
+                    value={text}
+                    placeholder={t('issueStart.refPlaceholder')}
+                    spellCheck={false}
+                    onChange={(e) => setText(e.target.value)}
+                    onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === 'Enter') {
+                            void read();
+                        }
+                    }}
+                />
+                <Button disabled={reading || text.trim() === '' || folder === null} onClick={() => void read()}>
+                    {reading ? t('issueStart.reading') : t('issueStart.read')}
+                </Button>
+            </div>
+            {readFailure !== null && <FormError className="mt-1">{readFailure}</FormError>}
+            {issue !== null && (
+                <div className="mt-3 rounded-lg border border-border p-3">
+                    <div className="flex items-center gap-2">
+                        <Pill mono icon={<Icon icon={CircleDot} size={12} />}>
+                            {issue.repo}#{issue.number}
+                        </Pill>
+                        <span className="text-xs text-text-faint">{issue.state.toLowerCase()}</span>
+                    </div>
+                    <p className="mt-2 text-sm text-text">{issue.title}</p>
+                    {issue.labels.length > 0 && <FieldHint>{issue.labels.join(', ')}</FieldHint>}
+                </div>
+            )}
+            {issue !== null && start !== null && (
+                <>
+                    <WorktreeStartFields start={start} idPrefix="issue-start" onSubmit={() => void submit()} />
+                    <label className="mt-3 block text-xs text-text-muted" htmlFor="issue-prompt">
+                        {t('issueStart.prompt')}
+                    </label>
+                    <TextArea id="issue-prompt" mono className="mt-1 h-40" value={prompt} spellCheck={false} onChange={(e) => setTypedPrompt(e.target.value)} />
+                </>
+            )}
+            {failure && <FormError className="mt-2">{failure}</FormError>}
+            <Dialog.Footer>
+                <Button onClick={onDone}>{t('common:action.cancel')}</Button>
+                <Button variant="primary" disabled={!ready} onClick={() => void submit()}>
+                    {busy ? t('issueStart.starting') : t('issueStart.start')}
+                </Button>
+            </Dialog.Footer>
+        </>
+    );
+}
+
+/* The reason a read failed in the person's words: the machine's code when it has one, else its message. */
+function issueFailure(error: unknown, t: (key: string) => string): string {
+    const code = (error as { code?: unknown } | null)?.code;
+    switch (code) {
+        case 'gh-missing':
+            return t('issueStart.noGh');
+        case 'gh-unauthenticated':
+            return t('issueStart.unauthenticated');
+        case 'issue-not-found':
+            return t('issueStart.notFound');
+        default:
+            return error instanceof Error ? error.message : t('issueStart.failed');
+    }
+}

@@ -60,7 +60,8 @@
         "context": {
             "tooltip": "Gekoppelde context. De agent leest die met ruimte-context.",
             "pill": "context"
-        }
+        },
+        "issuePill": "{{issue}} openen op GitHub"
     },
     "group": {
         "arrange": "Leden ordenen",

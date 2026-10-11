@@ -771,7 +771,10 @@ export const ACTION_DEFINITIONS = {
             ),
             cwd: forActors(PERSON_AND_AGENT, z.string().min(1)).describe('The directory the shell starts in'),
             beside: agentField(nodeId).describe('Puts the node directly right of this node, top edges level, whatever is there already'),
-            resume: resumedSession
+            resume: resumedSession,
+            issue: forActors(PERSON, z.object({ repo: z.string().min(1), number: z.number().int().positive(), url: z.string().min(1) })).describe(
+                'The GitHub issue an agent node is started on, which the node shows as a pill'
+            )
         }),
         output: z.object({
             viewId,

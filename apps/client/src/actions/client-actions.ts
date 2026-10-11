@@ -737,7 +737,7 @@ export function createClientActionRegistry(document: StoreApi<DocumentState>, ma
                     : {})
             };
         },
-        'node.create': ({ viewId, kind, title, content, url, browserOwner, command, path, provider, account, at, cwd, resume }) => {
+        'node.create': ({ viewId, kind, title, content, url, browserOwner, command, path, provider, account, at, cwd, resume, issue }) => {
             refuseUnreachableBrowser(kind, url, browserOwner);
             const { view, canvas } = canvasOnScreen(document, viewId);
             refuseResumeWithout(resume, provider);
@@ -750,6 +750,7 @@ export function createClientActionRegistry(document: StoreApi<DocumentState>, ma
                 ...(agent === null ? {} : agentNodeOptions(agent.target, agent.info, sessionOf(resume, cwd))),
                 ...(agent !== null && account != null ? { account } : {}),
                 ...(agent === null && cwd != null && (kind === 'chat' || kind === 'terminal') ? { cwd } : {}),
+                ...(issue != null && (kind === 'chat' || kind === 'terminal') ? { issue } : {}),
                 ...(title
                     ? { title }
                     : kind === 'note' && content
@@ -1736,6 +1737,8 @@ export interface CreateNodeOptions extends AgentSession {
     /* Terminals only: typed in place of the CLI, in the environment of `account`. */
     command?: string;
     path?: string;
+    /* The GitHub issue an agent node was started on. */
+    issue?: { repo: string; number: number; url: string };
     /* The node's middle in world units, which a click or a drop knows and a menu does not. */
     at?: Point;
 }
@@ -1759,7 +1762,8 @@ export async function createNodeAction(kind: CreatableNodeKind, options: CreateN
         account: options.account ?? null,
         at: options.at ?? null,
         resume: options.resume ?? null,
-        cwd: options.cwd ?? null
+        cwd: options.cwd ?? null,
+        issue: options.issue ?? null
     });
     return created?.nodeId ?? null;
 }

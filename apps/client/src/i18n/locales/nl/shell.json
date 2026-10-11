@@ -225,6 +225,21 @@
         "failed": "De chat in een worktree kon niet starten",
         "noCanvas": "Open een canvas om de chat op te zetten."
     },
+    "issueStart": {
+        "title": "Starten vanaf een GitHub-issue",
+        "description": "Leest de issue via gh, maakt er een worktree voor en start daar een chat met de issue als eerste prompt.",
+        "refLabel": "Issue",
+        "refPlaceholder": "Link, owner/repo#12 of #12",
+        "read": "Lezen",
+        "reading": "Bezig met lezen…",
+        "notFound": "Die issue is niet gevonden.",
+        "noGh": "gh is niet geïnstalleerd op deze machine.",
+        "unauthenticated": "gh is op deze machine niet ingelogd. Voer daar gh auth login uit.",
+        "prompt": "Eerste prompt",
+        "start": "Starten",
+        "starting": "Bezig met starten…",
+        "failed": "Starten vanaf de issue is mislukt"
+    },
     "cellToolbar": {
         "view": "Weergave",
         "drag": "{{name}}, sleep om hem naar een andere cel te verplaatsen",
@@ -537,6 +552,7 @@
             "newTerminal": "Nieuwe terminal",
             "newChat": "Nieuwe chat",
             "newChatInWorktree": "Nieuwe chat in worktree",
+            "startFromIssue": "Starten vanaf GitHub-issue",
             "newBrowser": "Nieuwe browser",
             "newGroup": "Nieuwe groep",
             "newNote": "Nieuwe notitie",
@@ -851,6 +867,7 @@
         "newWindow": "Nieuw venster",
         "newChat": "Nieuwe chat",
         "newChatInWorktree": "Nieuwe chat in worktree…",
+        "startFromIssue": "Starten vanaf GitHub-issue…",
         "moveToNewWindow": "Naar nieuw venster verplaatsen",
         "onboarding": "Ruimte instellen…",
         "findReplace": "Zoeken en vervangen",

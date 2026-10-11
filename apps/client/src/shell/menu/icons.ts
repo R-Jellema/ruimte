@@ -1,6 +1,7 @@
 import type { AgentKind } from '@ruimte/contracts';
 import {
     Activity,
+    CircleDot,
     DatabaseZap,
     Cpu,
     WandSparkles,
@@ -165,6 +166,7 @@ const ICONS: Partial<Record<string, LucideIcon>> = {
     'open-folder': FolderOpen,
     'chat-new': MessageSquarePlus,
     'chat-new-worktree': GitBranch,
+    'issue-start': CircleDot,
     'window-new': AppWindow,
     'window-move': SquareArrowOutUpRight,
     reveal: CornerUpRight,

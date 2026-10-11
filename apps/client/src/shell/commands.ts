@@ -269,6 +269,12 @@ export function appCommands(): Command[] {
                       label: i18next.t('shell:palette.commands.newChatInWorktree'),
                       hint: i18next.t('shell:chats.name'),
                       run: () => useUi.getState().setNewWorktreeChatOpen(true)
+                  },
+                  {
+                      id: 'issue-start',
+                      label: i18next.t('shell:palette.commands.startFromIssue'),
+                      hint: i18next.t('shell:chats.name'),
+                      run: () => useUi.getState().setIssueStartOpen(true)
                   }
               ]
             : []),
