@@ -409,6 +409,7 @@
                 "closed": "De pull request is gesloten, dus het volgen is beëindigd.",
                 "expired": "Het volgen liep 7 dagen en is beëindigd.",
                 "folderMissing": "De map van deze chat bestaat niet meer, dus het volgen is beëindigd.",
+                "limit": "Deze machine volgt al 50 pull requests. Stop er eerst één.",
                 "failed": "Kon het volgen niet starten"
             }
         },

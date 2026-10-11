@@ -409,6 +409,7 @@
                 "closed": "The pull request was closed, so the watch ended.",
                 "expired": "The watch ran for 7 days and ended.",
                 "folderMissing": "The folder of this chat no longer exists, so the watch ended.",
+                "limit": "This machine already watches 50 pull requests. Stop one first.",
                 "failed": "Could not start the watch"
             }
         },

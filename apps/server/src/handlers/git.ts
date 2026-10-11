@@ -38,7 +38,8 @@ export function registerGitHandlers(
     merges: WorktreeMerge,
     statuses: GitStatusWatcher,
     providers: ProviderRegistry,
-    prWatches?: PrWatchStore
+    prWatches?: PrWatchStore,
+    placeOf?: (id: string) => { projectId: string } | null
 ): void {
     const actions = new GitActions();
 
@@ -146,7 +147,13 @@ export function registerGitHandlers(
         return prWatches;
     };
     dispatcher.register('git.pr-watch', (payload) =>
-        translate(async () => ({ watch: await watching().start(payload.projectId, payload.chatId, payload.cwd, payload.number) }))
+        translate(async () => {
+            // A client names the project and the chat, so the machine checks that the project really holds the chat.
+            if (placeOf?.(payload.chatId)?.projectId !== payload.projectId) {
+                throw new GitError('pr-watch-refused', 'That chat is not part of this project.');
+            }
+            return { watch: await watching().start(payload.projectId, payload.chatId, payload.cwd, payload.number) };
+        })
     );
     dispatcher.register('git.pr-unwatch', (payload) =>
         translate(async () => {

@@ -26,6 +26,8 @@ export type GitErrorCode =
     | 'ref-not-found'
     | 'gh-missing'
     | 'folder-missing'
+    | 'pr-watch-refused'
+    | 'pr-watch-limit'
     | 'gh-unauthenticated'
     | 'gh-failed'
     | 'issue-not-found'

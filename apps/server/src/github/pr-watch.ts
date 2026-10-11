@@ -18,6 +18,7 @@ export const MAX_WAIT_MS = 60_000;
 export const START_INTERVAL_MS = 60_000;
 export const MAX_INTERVAL_MS = 600_000;
 export const MAX_ERROR_INTERVAL_MS = 1_800_000;
+export const MAX_WATCHES = 50;
 export const WATCH_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_POLLS = 2;
 const RESTART_SPREAD_MS = 30_000;
@@ -184,6 +185,9 @@ export class PrWatchStore {
      * comes after wakes the chat.
      */
     async start(projectId: string, chatId: string, cwd: string, number?: number): Promise<GitPrWatch> {
+        if (this.watchOf(chatId) === null && this.records.size >= MAX_WATCHES) {
+            throw new GitError('pr-watch-limit', `This machine already watches ${MAX_WATCHES} pull requests. Stop one first.`);
+        }
         const place = await findPullRequest(this.options.gh, cwd, number);
         if (place === null) {
             throw new GitError('pr-not-found', 'This branch has no pull request');

@@ -118,8 +118,12 @@ function PullRequestView({ cwd, onDone }: { cwd: string; onDone(): void }) {
 
 /* The reason a watch could not start in the person's words: the machine's code when it has one, else its message. */
 function watchFailure(error: unknown, t: (key: string) => string): string {
-    if ((error as { code?: unknown } | null)?.code === 'folder-missing') {
+    const code = (error as { code?: unknown } | null)?.code;
+    if (code === 'folder-missing') {
         return t('git.pr.watch.folderMissing');
+    }
+    if (code === 'pr-watch-limit') {
+        return t('git.pr.watch.limit');
     }
     return error instanceof Error ? error.message : t('git.pr.watch.failed');
 }

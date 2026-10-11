@@ -7,7 +7,7 @@ import { GitError } from '../git/run.ts';
 import type { GhRunner } from '../git/github.ts';
 import type { OutboxEntry, OutboxWork } from '../outbox/outbox.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
-import { MAX_INTERVAL_MS, MAX_ERROR_INTERVAL_MS, PrWatchStore, WATCH_LIFETIME_MS } from './pr-watch.ts';
+import { MAX_INTERVAL_MS, MAX_WATCHES, MAX_ERROR_INTERVAL_MS, PrWatchStore, WATCH_LIFETIME_MS } from './pr-watch.ts';
 
 interface FakePr {
     state: string;
@@ -349,6 +349,16 @@ describe('a pull request watch', () => {
         const before = polls;
         await tick(store, 3_600_000);
         expect(polls).toBe(before);
+    });
+
+    test('refuses a new chat past the cap, but lets a chat replace its own watch', async () => {
+        const store = open();
+        for (let i = 0; i < MAX_WATCHES; i++) {
+            await store.start('p', `chat-${i}`, '/repo');
+        }
+        await expect(store.start('p', 'one-more', '/repo')).rejects.toMatchObject({ code: 'pr-watch-limit' });
+        await store.start('p', 'chat-0', '/repo');
+        expect(store.list()).toHaveLength(MAX_WATCHES);
     });
 
     test('one watch per chat: a second start replaces the first', async () => {

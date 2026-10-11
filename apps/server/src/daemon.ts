@@ -1126,7 +1126,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     registerProcessHandlers(dispatcher, processes);
     registerSessionPortHandlers(dispatcher, sessionPorts);
     registerComputerHandlers(dispatcher, computer);
-    registerGitHandlers(dispatcher, worktrees, merges, statuses, providers, prWatches);
+    registerGitHandlers(dispatcher, worktrees, merges, statuses, providers, prWatches, (id) => projects.index.locate(id));
 
     // A TURN server that restarts under an allocation must not take the daemon with it.
     guardWeriftTurn(process);
