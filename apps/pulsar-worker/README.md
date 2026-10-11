@@ -107,7 +107,7 @@ ARTIFICIAL_ANALYSIS_API_KEY=...
 # Optional. Served at /.well-known/apple-developer-domain-association.txt when set.
 APPLE_DOMAIN_ASSOCIATION=...
 # Optional. The page a person approves a machine's code on; defaults to https://station.ruimte.app/link.
-DEVICE_LINK_PAGE_URL=http://localhost:5173/link
+DEVICE_LINK_PAGE_URL=http://localhost:4212/link
 PUBLIC_ORIGIN=http://localhost:8787
 ```
 
