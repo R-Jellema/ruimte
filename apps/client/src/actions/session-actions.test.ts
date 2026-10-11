@@ -320,6 +320,16 @@ describe('stopping', () => {
         });
     });
 
+    test('a sub-agent the CLI can stop says its result is lost while the turn carries on', async () => {
+        const nativeItem = { ...thread.find((item) => item.id === 'own')!, id: 'native', toolUseId: 'use-native', native: { agentId: 'agent-1' } } as ChatItem;
+        const { registry, of } = fake({}, { chat: () => rowOf(info(), [...thread, nativeItem]) });
+        const asked = await registry.execute('chat.stopSubagent', { chatId: 'chat', toolUseId: 'use-native' }, VOICE_ACTION_CALL);
+        expect(consequences(asked)).toContain('turn carries on without its result');
+        expect(consequences(asked)).not.toContain('marked stopped');
+        await confirm(registry, asked);
+        expect(of('chat.stopSubagent')).toEqual([{ chatId: 'chat', toolUseId: 'use-native' }]);
+    });
+
     test('a background task Voice stops is named, and one the chat does not run is refused', async () => {
         const { registry, of } = fake(
             {},

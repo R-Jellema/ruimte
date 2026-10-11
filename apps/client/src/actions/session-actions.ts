@@ -593,7 +593,9 @@ export function sessionActions(document: StoreApi<DocumentState>, overrides: Par
                                           'The agent working on this task ends unfinished and the task is cancelled, without waking the chat that gave it. Its node stays with what it did so far.',
                                           ...(agents === 0 ? [] : [`The ${plural(agents, 'agent')} it opened end as well.`])
                                       ]
-                                    : ['It is marked stopped. The turn that ran it is already over, so nothing more is lost.']
+                                    : stop === 'native'
+                                      ? ["The sub-agent ends unfinished; the chat's turn carries on without its result."]
+                                      : ['It is marked stopped. The turn that ran it is already over, so nothing more is lost.']
                         }
                     };
                 }
