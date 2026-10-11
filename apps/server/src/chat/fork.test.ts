@@ -433,6 +433,24 @@ describe('forkChat', () => {
         expect(asked.bookmarkedItems).toEqual([['turn-1', 'user-1']]);
     });
 
+    test('a quote keeps its source in a fork, with the reply it names', async () => {
+        const reply: ChatItem = { id: 'answer-1', kind: 'assistant', createdAt: 0, turnId: 'turn-1', streaming: false, text: 'An earlier reply' };
+        const quoting: ChatItem = {
+            id: 'user-2',
+            kind: 'user',
+            createdAt: 0,
+            turnId: 'turn-2',
+            text: '> An earlier\n\nWhy?',
+            quoteSource: { itemId: 'answer-1' }
+        };
+        const items = [turn('turn-1', { lastUuid: 'u-1' }), user('user-1', 'turn-1'), reply, turn('turn-2', { lastUuid: 'u-2' }), quoting];
+        const { deps, asked } = stub({ info: info('claude'), items });
+        await forkChat(deps, { chatId: 'chat-lead', turnId: 'turn-2' });
+        const written = asked.written[0]!.items;
+        expect(written.find((item) => item.id === 'user-2')).toMatchObject({ quoteSource: { itemId: 'answer-1' } });
+        expect(written.some((item) => item.id === 'answer-1')).toBe(true);
+    });
+
     test('the visuals go along when a copied turn showed them, or between turns before the cut, and no further', async () => {
         const items = [turn('turn-1', { lastUuid: 'u-1' }), user('user-1', 'turn-1'), turn('turn-2', { lastUuid: 'u-2' }), user('user-2', 'turn-2')];
         const { deps, asked } = stub({ info: info('claude'), items });

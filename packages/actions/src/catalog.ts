@@ -8,6 +8,7 @@ import {
     ChatBackgroundTaskSchema,
     ChatCheckpointDiffSchema,
     ChatDeliverySchema,
+    ChatQuoteSourceSchema,
     ChatSendResultSchema,
     ChatSubagentSourceSchema,
     ChatSubagentStatusSchema,
@@ -1088,6 +1089,7 @@ export const ACTION_DEFINITIONS = {
             mentions: forActors(PERSON, z.array(z.string().min(1)).max(64)).describe('Paths picked with @'),
             skills: forActors(PERSON, z.array(z.string().min(1)).max(16)).describe('Skills picked with $'),
             chats: forActors(PERSON, z.array(z.string().min(1)).max(16)).describe('Chats of this project picked with @'),
+            quoteSource: forActors(PERSON, ChatQuoteSourceSchema).describe('The reply a quote at the head of the prompt was taken from'),
             attachments: forActors(PERSON, ChatAttachmentUploadsSchema).describe('Files dropped or pasted into the composer')
         }),
         output: z.object({

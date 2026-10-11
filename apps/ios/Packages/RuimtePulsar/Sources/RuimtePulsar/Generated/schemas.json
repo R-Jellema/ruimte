@@ -10069,6 +10069,19 @@
                 "older",
                 "at"
               ]
+            },
+            "quoteSource": {
+              "type": "object",
+              "properties": {
+                "itemId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              },
+              "required": [
+                "itemId"
+              ]
             }
           },
           "required": [
@@ -10575,6 +10588,19 @@
                     "sourceAt",
                     "older",
                     "at"
+                  ]
+                },
+                "quoteSource": {
+                  "type": "object",
+                  "properties": {
+                    "itemId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "itemId"
                   ]
                 }
               },
@@ -12299,6 +12325,19 @@
                     "older",
                     "at"
                   ]
+                },
+                "quoteSource": {
+                  "type": "object",
+                  "properties": {
+                    "itemId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "itemId"
+                  ]
                 }
               },
               "required": [
@@ -12777,6 +12816,19 @@
                     "sourceAt",
                     "older",
                     "at"
+                  ]
+                },
+                "quoteSource": {
+                  "type": "object",
+                  "properties": {
+                    "itemId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "itemId"
                   ]
                 }
               },
@@ -14290,6 +14342,19 @@
                     "older",
                     "at"
                   ]
+                },
+                "quoteSource": {
+                  "type": "object",
+                  "properties": {
+                    "itemId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "itemId"
+                  ]
                 }
               },
               "required": [
@@ -15795,6 +15860,19 @@
                             "sourceAt",
                             "older",
                             "at"
+                          ]
+                        },
+                        "quoteSource": {
+                          "type": "object",
+                          "properties": {
+                            "itemId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 256
+                            }
+                          },
+                          "required": [
+                            "itemId"
                           ]
                         }
                       },
@@ -17758,6 +17836,19 @@
                               "older",
                               "at"
                             ]
+                          },
+                          "quoteSource": {
+                            "type": "object",
+                            "properties": {
+                              "itemId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 256
+                              }
+                            },
+                            "required": [
+                              "itemId"
+                            ]
                           }
                         },
                         "required": [
@@ -18355,6 +18446,19 @@
                               "older",
                               "at"
                             ]
+                          },
+                          "quoteSource": {
+                            "type": "object",
+                            "properties": {
+                              "itemId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 256
+                              }
+                            },
+                            "required": [
+                              "itemId"
+                            ]
                           }
                         },
                         "required": [
@@ -18833,6 +18937,19 @@
                               "sourceAt",
                               "older",
                               "at"
+                            ]
+                          },
+                          "quoteSource": {
+                            "type": "object",
+                            "properties": {
+                              "itemId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 256
+                              }
+                            },
+                            "required": [
+                              "itemId"
                             ]
                           }
                         },
@@ -20427,6 +20544,19 @@
           "minLength": 1
         }
       },
+      "quoteSource": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "itemId"
+        ]
+      },
       "attachments": {
         "maxItems": 8,
         "type": "array",
@@ -20964,6 +21094,19 @@
               "older",
               "at"
             ]
+          },
+          "quoteSource": {
+            "type": "object",
+            "properties": {
+              "itemId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "itemId"
+            ]
           }
         },
         "required": [
@@ -21409,6 +21552,19 @@
                 "sourceAt",
                 "older",
                 "at"
+              ]
+            },
+            "quoteSource": {
+              "type": "object",
+              "properties": {
+                "itemId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              },
+              "required": [
+                "itemId"
               ]
             }
           },
@@ -22299,6 +22455,19 @@
                     "older",
                     "at"
                   ]
+                },
+                "quoteSource": {
+                  "type": "object",
+                  "properties": {
+                    "itemId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "itemId"
+                  ]
                 }
               },
               "required": [
@@ -23009,6 +23178,19 @@
                         "older",
                         "at"
                       ]
+                    },
+                    "quoteSource": {
+                      "type": "object",
+                      "properties": {
+                        "itemId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
+                        }
+                      },
+                      "required": [
+                        "itemId"
+                      ]
                     }
                   },
                   "required": [
@@ -23698,6 +23880,19 @@
                     "sourceAt",
                     "older",
                     "at"
+                  ]
+                },
+                "quoteSource": {
+                  "type": "object",
+                  "properties": {
+                    "itemId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "itemId"
                   ]
                 }
               },
@@ -49601,6 +49796,19 @@
                       "older",
                       "at"
                     ]
+                  },
+                  "quoteSource": {
+                    "type": "object",
+                    "properties": {
+                      "itemId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      }
+                    },
+                    "required": [
+                      "itemId"
+                    ]
                   }
                 },
                 "required": [
@@ -51903,6 +52111,19 @@
                           "older",
                           "at"
                         ]
+                      },
+                      "quoteSource": {
+                        "type": "object",
+                        "properties": {
+                          "itemId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          }
+                        },
+                        "required": [
+                          "itemId"
+                        ]
                       }
                     },
                     "required": [
@@ -53865,6 +54086,19 @@
                             "older",
                             "at"
                           ]
+                        },
+                        "quoteSource": {
+                          "type": "object",
+                          "properties": {
+                            "itemId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 256
+                            }
+                          },
+                          "required": [
+                            "itemId"
+                          ]
                         }
                       },
                       "required": [
@@ -54462,6 +54696,19 @@
                             "older",
                             "at"
                           ]
+                        },
+                        "quoteSource": {
+                          "type": "object",
+                          "properties": {
+                            "itemId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 256
+                            }
+                          },
+                          "required": [
+                            "itemId"
+                          ]
                         }
                       },
                       "required": [
@@ -54940,6 +55187,19 @@
                             "sourceAt",
                             "older",
                             "at"
+                          ]
+                        },
+                        "quoteSource": {
+                          "type": "object",
+                          "properties": {
+                            "itemId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 256
+                            }
+                          },
+                          "required": [
+                            "itemId"
                           ]
                         }
                       },
@@ -56638,6 +56898,19 @@
                     "sourceAt",
                     "older",
                     "at"
+                  ]
+                },
+                "quoteSource": {
+                  "type": "object",
+                  "properties": {
+                    "itemId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "itemId"
                   ]
                 }
               },
