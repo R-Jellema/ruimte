@@ -54,4 +54,9 @@ describe('findIssueNode', () => {
         expect(findIssueNode([canvas], issue.url, '/wt/three')).toBeNull();
         expect(findIssueNode([canvas], 'https://github.com/o/r/issues/13', '/wt/one')).toBeNull();
     });
+
+    test('finds the first node of the issue when no folder is named', () => {
+        expect(findIssueNode([canvas], issue.url)).toBe('a');
+        expect(findIssueNode([canvas], 'https://github.com/o/r/issues/13')).toBeNull();
+    });
 });

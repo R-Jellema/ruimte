@@ -85,6 +85,8 @@ function IssueStartForm({ onDone }: { onDone(): void }) {
     const [busy, setBusy] = useState(false);
     const [failure, setFailure] = useState<string | null>(null);
     const start = useWorktreeStart(folder, issue === null ? null : issueBranch(issue));
+    const views = useDocument((s) => s.views);
+    const startedNode = issue === null ? null : findIssueNode(views, issue.url);
     const prompt = typedPrompt ?? (issue === null ? '' : issuePrompt(issue));
     const ready = start !== null && start.ready && issue !== null && prompt.trim() !== '' && !busy;
 
@@ -112,7 +114,10 @@ function IssueStartForm({ onDone }: { onDone(): void }) {
         setBusy(true);
         setFailure(null);
         try {
-            const { worktree } = await performAsPerson('worktree.create', { branch: start.branch.trim(), base: start.base.trim() });
+            const { worktree } = await performAsPerson('worktree.create', {
+                branch: start.branch.trim(),
+                ...(start.reuses ? {} : { base: start.base.trim() })
+            });
             const existing = findIssueNode(useDocument.getState().views, issue.url, worktree.path);
             if (existing !== null) {
                 focusChat(existing);
@@ -183,6 +188,20 @@ function IssueStartForm({ onDone }: { onDone(): void }) {
                     </div>
                     <p className="mt-2 text-sm text-text">{issue.title}</p>
                     {issue.labels.length > 0 && <FieldHint>{issue.labels.join(', ')}</FieldHint>}
+                </div>
+            )}
+            {startedNode !== null && (
+                <div className="mt-2 flex items-center justify-between gap-2">
+                    <FieldHint>{t('issueStart.alreadyStarted')}</FieldHint>
+                    <Button
+                        size="xs"
+                        onClick={() => {
+                            focusChat(startedNode);
+                            onDone();
+                        }}
+                    >
+                        {t('issueStart.open')}
+                    </Button>
                 </div>
             )}
             {issue !== null && start !== null && (

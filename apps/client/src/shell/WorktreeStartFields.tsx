@@ -32,31 +32,37 @@ export function WorktreeStartFields({ start, idPrefix, onSubmit }: { start: Work
                 onKeyDown={submitOnEnter}
             />
             {start.branchProblem !== null && <FormError className="mt-1">{start.branchProblem}</FormError>}
-            <label className="mt-3 block text-xs text-text-muted" htmlFor={`${idPrefix}-base`}>
-                {t('newWorktreeChat.baseLabel')}
-            </label>
-            <Input
-                id={`${idPrefix}-base`}
-                mono
-                className="mt-1"
-                list={`${idPrefix}-refs`}
-                value={start.base}
-                spellCheck={false}
-                onChange={(e) => start.setBase(e.target.value)}
-                onKeyDown={submitOnEnter}
-            />
-            <datalist id={`${idPrefix}-refs`}>
-                {(start.refs?.refs ?? []).map((ref) => (
-                    <option key={`${ref.kind}:${ref.name}`} value={ref.name} />
-                ))}
-            </datalist>
-            <FieldHint>
-                {start.commit === 'missing'
-                    ? t('newWorktreeChat.baseMissing')
-                    : start.baseKnown && start.commit !== null
-                      ? t('newWorktreeChat.baseCommit', { commit: start.commit.commit.slice(0, 7), subject: start.commit.subject })
-                      : t('newWorktreeChat.baseLooking')}
-            </FieldHint>
+            {start.reuses ? (
+                <FieldHint>{t('newWorktreeChat.reusesWorktree')}</FieldHint>
+            ) : (
+                <>
+                    <label className="mt-3 block text-xs text-text-muted" htmlFor={`${idPrefix}-base`}>
+                        {t('newWorktreeChat.baseLabel')}
+                    </label>
+                    <Input
+                        id={`${idPrefix}-base`}
+                        mono
+                        className="mt-1"
+                        list={`${idPrefix}-refs`}
+                        value={start.base}
+                        spellCheck={false}
+                        onChange={(e) => start.setBase(e.target.value)}
+                        onKeyDown={submitOnEnter}
+                    />
+                    <datalist id={`${idPrefix}-refs`}>
+                        {(start.refs?.refs ?? []).map((ref) => (
+                            <option key={`${ref.kind}:${ref.name}`} value={ref.name} />
+                        ))}
+                    </datalist>
+                    <FieldHint>
+                        {start.commit === 'missing'
+                            ? t('newWorktreeChat.baseMissing')
+                            : start.baseKnown && start.commit !== null
+                              ? t('newWorktreeChat.baseCommit', { commit: start.commit.commit.slice(0, 7), subject: start.commit.subject })
+                              : t('newWorktreeChat.baseLooking')}
+                    </FieldHint>
+                </>
+            )}
             {start.provider !== null && start.selection !== null && pickable.length > 0 && (
                 <div className="mt-3 flex items-center justify-between gap-3">
                     <span className="text-xs text-text-muted">{t('newWorktreeChat.model')}</span>

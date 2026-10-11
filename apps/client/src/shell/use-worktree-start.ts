@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { AgentKind, GitRefsResult, ModelSelection } from '@ruimte/contracts';
+import type { AgentKind, GitRefsResult, ModelSelection, Worktree } from '@ruimte/contracts';
 import { branchRefusal } from '@adecore/agents-react/chat/logic/fork';
 import { defaultProvider, readChatPreferences, startingSelection } from '@adecore/agents-react/chat/preferences';
 import { useProviders } from '@adecore/agents-react/state/providers';
@@ -7,6 +7,16 @@ import { proposedBranch } from '@/shell/new-worktree-chat';
 import { useTransport } from '@/transport/context';
 
 export type BaseCommit = { ref: string; commit: string; subject: string } | 'missing' | null;
+
+/* The branches a linked worktree has out, which a start reuses; the first entry is the main checkout, and a worktree gone from disk is no place to start. */
+export function reusableBranches(worktrees: readonly Pick<Worktree, 'branch' | 'missing'>[]): Set<string> {
+    return new Set(
+        worktrees
+            .slice(1)
+            .filter((worktree) => worktree.missing !== true && worktree.branch !== '(detached)')
+            .map((worktree) => worktree.branch)
+    );
+}
 
 export interface WorktreeStart {
     folder: string;
@@ -16,6 +26,8 @@ export interface WorktreeStart {
     base: string;
     setBase(base: string): void;
     branchProblem: string | null;
+    /* The branch already has a worktree: the start opens it, and a base does not apply. */
+    reuses: boolean;
     commit: BaseCommit;
     baseKnown: boolean;
     provider: AgentKind | null;
@@ -36,6 +48,7 @@ export function useWorktreeStart(folder: string | null, proposed: string | null 
     const [refs, setRefs] = useState<GitRefsResult | null>(null);
     const [typedBranch, setBranch] = useState<string | null>(null);
     const [typedBase, setBase] = useState<string | null>(null);
+    const [worktreeBranches, setWorktreeBranches] = useState<ReadonlySet<string>>(new Set());
     const [commit, setCommit] = useState<BaseCommit>(null);
     const [pick, setPick] = useState<{ provider: AgentKind; selection: ModelSelection } | null>(null);
 
@@ -47,7 +60,8 @@ export function useWorktreeStart(folder: string | null, proposed: string | null 
     const provider = pick?.provider ?? pickable.find((entry) => entry.kind === defaultProvider(preferences))?.kind ?? pickable[0]?.kind ?? null;
     const info = pickable.find((entry) => entry.kind === provider);
     const selection = pick?.selection ?? (info ? startingSelection(preferences, info) : null);
-    const branchProblem = refs === null ? null : branchRefusal(branch, locals);
+    const reuses = worktreeBranches.has(branch.trim());
+    const branchProblem = refs === null || reuses ? null : branchRefusal(branch, locals);
     const baseKnown = commit !== null && commit !== 'missing' && commit.ref === baseName;
 
     useEffect(() => {
@@ -60,6 +74,24 @@ export function useWorktreeStart(folder: string | null, proposed: string | null 
             .then((answer) => {
                 if (current) {
                     setRefs(answer);
+                }
+            })
+            .catch(() => undefined);
+        return () => {
+            current = false;
+        };
+    }, [transport, folder]);
+
+    useEffect(() => {
+        if (folder === null) {
+            return;
+        }
+        let current = true;
+        transport
+            .request('git.worktree-list', { repo: folder })
+            .then((answer) => {
+                if (current) {
+                    setWorktreeBranches(reusableBranches(answer.worktrees));
                 }
             })
             .catch(() => undefined);
@@ -104,11 +136,12 @@ export function useWorktreeStart(folder: string | null, proposed: string | null 
         base,
         setBase,
         branchProblem,
+        reuses,
         commit,
         baseKnown,
         provider,
         selection,
         pickProvider: (next, chosen) => setPick({ provider: next, selection: chosen }),
-        ready: branchProblem === null && branch.trim() !== '' && baseKnown && provider !== null
+        ready: branchProblem === null && branch.trim() !== '' && (reuses || baseKnown) && provider !== null
     };
 }

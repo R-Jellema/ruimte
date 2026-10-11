@@ -31,15 +31,15 @@ export function issuePrompt(issue: GitIssue): string {
     ].join('\n');
 }
 
-/* The node already started on this issue in this folder, on any canvas or as a view of its own. */
-export function findIssueNode(views: readonly ProjectView[], url: string, cwd: string): string | null {
+/* The node already started on this issue, in this folder when one is named, on any canvas or as a view of its own. */
+export function findIssueNode(views: readonly ProjectView[], url: string, cwd?: string): string | null {
     for (const view of views) {
         if (isCanvasView(view)) {
-            const found = view.nodes.find((node) => node.issue?.url === url && node.cwd === cwd);
+            const found = view.nodes.find((node) => node.issue?.url === url && (cwd === undefined || node.cwd === cwd));
             if (found) {
                 return found.id;
             }
-        } else if ('node' in view && view.node.issue?.url === url && view.node.cwd === cwd) {
+        } else if ('node' in view && view.node.issue?.url === url && (cwd === undefined || view.node.cwd === cwd)) {
             return view.id;
         }
     }

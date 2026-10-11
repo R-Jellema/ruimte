@@ -53,7 +53,10 @@ function NewWorktreeChatForm({ onDone }: { onDone(): void }) {
         setBusy(true);
         setFailure(null);
         try {
-            const { worktree } = await performAsPerson('worktree.create', { branch: start.branch.trim(), base: start.base.trim() });
+            const { worktree } = await performAsPerson('worktree.create', {
+                branch: start.branch.trim(),
+                ...(start.reuses ? {} : { base: start.base.trim() })
+            });
             if (start.selection !== null) {
                 rememberChatSelection(start.provider, start.selection);
             }
