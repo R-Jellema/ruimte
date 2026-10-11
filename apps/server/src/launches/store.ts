@@ -200,9 +200,10 @@ export class LaunchStore {
     /*
      * A person's save of the whole list. Which launches are shared is theirs to say, and every launch
      * it adds or changes counts as approved on this machine, the way a `project.save` that sets a
-     * terminal's command does.
+     * terminal's command does. The ids in `imported` are the exception: an import read them from a file
+     * nobody on this machine wrote them in, so the first run asks.
      */
-    save(projectId: string, baseRev: number, launches: readonly LaunchConfigEntry[]): Promise<number> {
+    save(projectId: string, baseRev: number, launches: readonly LaunchConfigEntry[], imported: readonly string[] = []): Promise<number> {
         return this.writes.run(async () => {
             const state = await this.load(projectId);
             if (baseRev !== state.rev) {
@@ -244,7 +245,7 @@ export class LaunchStore {
             state.overlays = overlays;
 
             for (const resolved of this.resolvedAll(projectId, state)) {
-                if (resolved.launch.kind !== 'group' && before.get(resolved.launch.id) !== digestOf(resolved)) {
+                if (resolved.launch.kind !== 'group' && !imported.includes(resolved.launch.id) && before.get(resolved.launch.id) !== digestOf(resolved)) {
                     await this.approvals.approve(state.folder, approvalKeyOf(resolved.launch.id), digestOf(resolved));
                 }
             }

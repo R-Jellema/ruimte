@@ -95,6 +95,19 @@ describe('LaunchStore', () => {
         expect(events.at(-1)?.event).toBe('launches.changed');
     });
 
+    test('an imported launch is saved but not approved, and keeps where it came from', async () => {
+        const origin = { source: 'vscode-launch', path: '.vscode/launch.json', name: 'Api' };
+        await store.save('p1', 0, [tests, { ...server, origin }], ['run-server']);
+        const document = await store.read('p1');
+        expect(document.approved).toEqual(['run-tests']);
+        expect(document.launches.find((launch) => launch.id === 'run-server')?.origin).toEqual(origin);
+        const shared = JSON.parse(await readFile(sharedPath(), 'utf8'));
+        expect(shared.launches[0].origin).toEqual(origin);
+        // An approval on this machine is the person's own yes, and it covers the command as it stands.
+        await store.approve('p1', ['run-server']);
+        expect((await store.read('p1')).approved).toContain('run-server');
+    });
+
     test('only private launches leave the shared file unwritten', async () => {
         await store.save('p1', 0, [tests]);
         expect(await exists(sharedPath())).toBe(false);

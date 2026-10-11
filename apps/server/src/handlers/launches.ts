@@ -6,7 +6,9 @@ import type { LaunchStore } from '../launches/store.ts';
 export function registerLaunchHandlers(dispatcher: Dispatcher, store: LaunchStore, runner: LaunchRunner): void {
     dispatcher.register('launches.read', (payload) => translate(() => store.read(payload.projectId)));
 
-    dispatcher.register('launches.save', (payload) => translate(async () => ({ rev: await store.save(payload.projectId, payload.baseRev, payload.launches) })));
+    dispatcher.register('launches.save', (payload) =>
+        translate(async () => ({ rev: await store.save(payload.projectId, payload.baseRev, payload.launches, payload.imported) }))
+    );
 
     dispatcher.register('launches.detect', (payload) => translate(async () => ({ suggestions: await store.detect(payload.projectId, payload.sources) })));
 

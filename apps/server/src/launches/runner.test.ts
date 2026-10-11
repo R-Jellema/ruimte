@@ -127,6 +127,14 @@ describe('LaunchRunner', () => {
         expect(runner.list().map((status) => status.state)).toEqual(['exited']);
     });
 
+    test('an imported launch is held at its first run and starts once a person approves it', async () => {
+        await store.save('p1', 0, [server], ['run-server']);
+        const result = await runner.start('p1', 'run-server', { actor: 'person' });
+        expect(result).toMatchObject({ outcome: 'held', held: [{ launchId: 'run-server' }] });
+        expect(adapter.spawned).toHaveLength(0);
+        expect(await runner.start('p1', 'run-server', { actor: 'person', approve: true })).toEqual({ outcome: 'started' });
+    });
+
     test('a changed command is held until a person approves it, and an agent cannot', async () => {
         await store.save('p1', 0, [server]);
         const path = join(folder, '.ruimte', 'launches.json');
