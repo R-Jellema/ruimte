@@ -557,7 +557,9 @@ export function createDocumentStore(peers: DocumentPeers): StoreApi<DocumentStat
                 });
                 // The project that was here goes first, editors and all, so nothing of it may show through.
                 peers.canvases.keep([]);
-                forgetCameraHistories();
+                if (!state.reloading) {
+                    forgetCameraHistories();
+                }
                 openEditors(views, viewLocal, layout === null ? [] : viewIdsIn(layout), settled.activeViewId, peers);
                 set({ loading: false });
             },

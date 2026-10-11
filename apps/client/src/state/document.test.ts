@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { ProjectSavePayloadSchema, storedViewsOf, type ProjectCanvasView, type ProjectDocument, type ProjectNode, type ProjectView } from '@ruimte/contracts';
 import { viewIdsIn } from '@/shell/split';
 import { focusedCanvas } from './canvas';
+import { historyOf, setHistory } from './camera-history';
 import { useDocument } from './document';
 
 function view(id: string, nodes: ProjectCanvasView['nodes'] = []): ProjectCanvasView {
@@ -570,5 +571,14 @@ describe('what a newer Ruimte wrote', () => {
     test('a person may delete an unknown view', () => {
         useDocument.getState().deleteView('timeline');
         expect(useDocument.getState().views.map((each) => each.id)).toEqual(['a']);
+    });
+
+    test('a reload keeps the camera history of its views, a project that loads drops it', () => {
+        const history = { back: [{ x: 1, y: 2, zoom: 1 }], forward: [], at: null, burst: null };
+        setHistory('a', history);
+        useDocument.getState().reload(document([view('a'), view('b')]), { activeViewId: 'a', views: {} });
+        expect(historyOf('a')).toBe(history);
+        useDocument.getState().load(document([view('a'), view('b')]), { activeViewId: 'a', views: {} });
+        expect(historyOf('a')).not.toBe(history);
     });
 });
