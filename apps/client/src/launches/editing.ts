@@ -39,6 +39,8 @@ export interface LaunchDraft {
     entry: LaunchConfigEntry;
     env: EnvRow[];
     fresh: boolean;
+    /* Set by an import inside the editor; it never reaches the stored launch. */
+    imported?: boolean;
 }
 
 export function draftOf(entry: LaunchConfigEntry): LaunchDraft {
@@ -212,9 +214,20 @@ export function importedIds(saved: readonly LaunchConfigEntry[], document: Pick<
     return saved.filter((launch) => launch.origin !== undefined && !known.has(launch.id)).map((launch) => launch.id);
 }
 
+/* The drafts of a save that an import added, by the id they are saved under. */
+export function importedDraftIds(drafts: readonly LaunchDraft[]): string[] {
+    return drafts.filter((draft) => draft.imported === true).map((draft) => draft.entry.id);
+}
+
 /* An import from inside the editor: what was found joins the list beside the drafts, saved with them. */
 export function withImported(drafts: readonly LaunchDraft[], suggestions: readonly LaunchSuggestion[], share: boolean): LaunchDraft[] {
-    return [...drafts, ...importedLaunches(suggestions, share, { launches: drafts.filter((draft) => !draft.fresh).map((draft) => draft.entry) }).map(draftOf)];
+    return [
+        ...drafts,
+        ...importedLaunches(suggestions, share, { launches: drafts.filter((draft) => !draft.fresh).map((draft) => draft.entry) }).map((entry) => ({
+            ...draftOf(entry),
+            imported: true
+        }))
+    ];
 }
 
 function dirnameOf(path: string): string {

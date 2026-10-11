@@ -6,6 +6,7 @@ import {
     driftOf,
     folderRoots,
     foundText,
+    importedDraftIds,
     importedIds,
     importedLaunches,
     joinFolder,
@@ -188,6 +189,14 @@ describe('imports from VS Code', () => {
         expect(entry!.origin).toEqual({ source: 'vscode-launch', path: '.vscode/launch.json', name: 'api' });
         expect(importedIds([entry!, launch('own')], doc([launch('own')]))).toEqual(['api']);
         expect(importedIds([entry!], doc([entry!]))).toEqual([]);
+    });
+
+    test('an import that reuses the id of a launch deleted in the editor still counts as imported', () => {
+        const kept = draftOf(launch('own'));
+        const next = withImported([kept], [vscode('api')], false);
+        expect(importedDraftIds(next)).toEqual(['api']);
+        expect(savedLaunches(next).every((entry) => !('imported' in entry))).toBe(true);
+        expect(importedDraftIds([kept])).toEqual([]);
     });
 
     test('a configuration already imported is not offered again, even after its command was edited', () => {

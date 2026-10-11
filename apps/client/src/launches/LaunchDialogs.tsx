@@ -28,6 +28,7 @@ import {
     emptyRow,
     folderRoots,
     driftOf,
+    importedDraftIds,
     importedIds,
     importedLaunches,
     joinFolder,
@@ -171,7 +172,7 @@ function EditForm({ projectId, document, launchId }: { projectId: string; docume
         setFailure(null);
         try {
             const saved = savedLaunches(drafts);
-            await transport.request('launches.save', { projectId, baseRev, launches: saved, imported: importedIds(saved, document) });
+            await transport.request('launches.save', { projectId, baseRev, launches: saved, imported: importedDraftIds(drafts) });
             close();
         } catch (e) {
             setFailure(failureOf(e, t('edit.failed')));
