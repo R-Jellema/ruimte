@@ -22,6 +22,7 @@ import { isScratchProject, shownFolderOf, useProject } from '@/state/project';
 import { providersOf } from '@adecore/agents-react/state/providers';
 import { fileManagerName, serverInfoOf } from '@/state/server';
 import { useSessions } from '@/state/sessions';
+import { hasPrWatch } from '@/shell/pr-watch-actions';
 import { useUi } from '@/state/ui';
 import { windowWorkspace } from '@/state/window';
 
@@ -125,6 +126,7 @@ export function menuContext(host: MenuHost): MenuContext {
         workspace: windowWorkspace() !== null,
         folder: shownFolderOf(useProject.getState().current) !== null,
         scratch: isScratchProject(useProject.getState().current),
+        prWatch: onCanvas && selected?.kind === 'chat' && hasPrWatch(endpointId, selected.id),
         fileManager: fileManagerName(serverInfoOf(endpointId).platform),
         view: facts?.view.kind ?? null,
         offers: facts?.offers ?? null,

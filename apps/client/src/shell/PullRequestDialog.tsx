@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CircleCheck, CircleDashed, CircleX, ExternalLink, GitPullRequest, RefreshCw } from 'lucide-react';
+import { CircleCheck, CircleDashed, CircleX, ExternalLink, Eye, EyeOff, GitPullRequest, RefreshCw } from 'lucide-react';
 import type { GitPrCheck, GitPrThread, GitPullRequest as PullRequest } from '@ruimte/contracts';
 import { AgentIcon } from '@adecore/agents-react/agents/AgentIcon';
 import { Button, Dialog, ErrorBoundary, FormError, Icon, IconButton, Menu, Pill, Switch, Tooltip } from '@adecore/ui';
@@ -8,6 +8,10 @@ import { useChooserSections } from '@/chat/chat-chooser';
 import { sendToChat } from '@/chat/selection-to-chat';
 import { desktop } from '@/desktop/bridge';
 import { groupChecks, mergeStateKey, threadBlock, visibleThreads } from '@/shell/pr-view';
+import { stopPrWatch } from '@/shell/pr-watch-actions';
+import { isOfEndpoint, useEndpointId } from '@/state/keys';
+import { usePrWatches } from '@/state/pr-watches';
+import { useProject } from '@/state/project';
 import { useUi } from '@/state/ui';
 import { useTransport } from '@/transport/context';
 
@@ -90,6 +94,7 @@ function PullRequestView({ cwd, onDone }: { cwd: string; onDone(): void }) {
                     </>
                 )}
                 <span className="grow" />
+                {pr !== null && pr.state === 'OPEN' && <PullRequestWatch cwd={cwd} pr={pr} />}
                 <IconButton icon={RefreshCw} size="sm" label={t('git.pr.refresh')} disabled={busy} onClick={() => setAttempt((count) => count + 1)} />
             </div>
             <div className="mt-3 min-h-0 grow overflow-y-auto pr-1">
@@ -107,6 +112,56 @@ function PullRequestView({ cwd, onDone }: { cwd: string; onDone(): void }) {
             <Dialog.Footer>
                 <Button onClick={onDone}>{t('common:action.close')}</Button>
             </Dialog.Footer>
+        </>
+    );
+}
+
+/* Which chat the machine wakes when this pull request's checks finish or a review comes in. */
+function PullRequestWatch({ cwd, pr }: { cwd: string; pr: PullRequest }) {
+    const { t } = useTranslation('panels');
+    const transport = useTransport();
+    const endpointId = useEndpointId();
+    const projectId = useProject((state) => state.current?.projectId ?? null);
+    const sections = useChooserSections([]);
+    const chats = [...sections.here, ...sections.others];
+    const watches = usePrWatches((state) => state.byChat);
+    const watching = Object.entries(watches).filter(([key, watch]) => isOfEndpoint(key, endpointId) && watch.repo === pr.repo && watch.number === pr.number);
+    const [error, setError] = useState<string | null>(null);
+    const start = (chatId: string): void => {
+        if (projectId === null) {
+            return;
+        }
+        setError(null);
+        transport
+            .request('git.pr-watch', { projectId, chatId, cwd, number: pr.number })
+            .catch((e: unknown) => setError(e instanceof Error ? e.message : t('git.pr.watch.failed')));
+    };
+    return (
+        <>
+            {error !== null && <span className="text-xs text-status-error">{error}</span>}
+            {watching.map(([key, watch]) => (
+                <Tooltip key={key} label={t('git.pr.watch.stop')}>
+                    <Button size="xs" onClick={() => void stopPrWatch(endpointId, watch.chatId)}>
+                        <Icon icon={EyeOff} size={12} />{' '}
+                        {t('git.pr.watch.watching', { chat: chats.find((chat) => chat.id === watch.chatId)?.title ?? watch.chatId })}
+                    </Button>
+                </Tooltip>
+            ))}
+            <Menu.Root>
+                <Tooltip label={t('git.pr.watch.forChatHint')}>
+                    <Menu.Trigger render={<Button size="xs" disabled={chats.length === 0 || projectId === null} />}>
+                        <Icon icon={Eye} size={12} /> {t('git.pr.watch.forChat')}
+                    </Menu.Trigger>
+                </Tooltip>
+                <Menu.Popup align="end">
+                    {chats.map((chat) => (
+                        <Menu.Item key={chat.id} onClick={() => start(chat.id)}>
+                            {chat.provider !== null && <AgentIcon kind={chat.provider} />}
+                            <span className="min-w-0 truncate">{chat.title}</span>
+                        </Menu.Item>
+                    ))}
+                </Menu.Popup>
+            </Menu.Root>
         </>
     );
 }

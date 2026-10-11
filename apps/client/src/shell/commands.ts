@@ -43,6 +43,7 @@ import { chosenLaunchId, startLaunch, stopLaunch } from '@/launches/actions';
 import { launchViews } from '@/launches/model';
 import { useLaunches } from '@/launches/state';
 import { activeViewOf, useDocument } from '@/state/document';
+import { hasPrWatch, stopPrWatch } from '@/shell/pr-watch-actions';
 import { currentEndpointId, endpointKey } from '@/state/keys';
 import { openOnboarding } from '@/onboarding/open';
 import { isScratchProject, shownFolderOf, useProject } from '@/state/project';
@@ -275,6 +276,15 @@ export function appCommands(): Command[] {
                       label: i18next.t('shell:palette.commands.startFromIssue'),
                       hint: i18next.t('shell:chats.name'),
                       run: () => useUi.getState().setIssueStartOpen(true)
+                  }
+              ]
+            : []),
+        ...(selected?.kind === 'chat' && hasPrWatch(currentEndpointId(), selected.id)
+            ? [
+                  {
+                      id: 'pr-watch-stop',
+                      label: i18next.t('shell:palette.commands.stopPrWatch'),
+                      run: () => void stopPrWatch(currentEndpointId(), selected.id)
                   }
               ]
             : []),

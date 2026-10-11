@@ -404,7 +404,8 @@ export const GitPrWatchPayloadSchema = z.object({
 });
 export const GitPrWatchResultSchema = z.object({ watch: GitPrWatchSchema });
 export const GitPrUnwatchPayloadSchema = z.object({ chatId: z.string().min(1).max(256) });
-export const GitPrWatchesPayloadSchema = z.object({ projectId: z.string().min(1).max(256) });
+// Without a project, every watch of the machine.
+export const GitPrWatchesPayloadSchema = z.object({ projectId: z.string().min(1).max(256).optional() });
 export const GitPrWatchesResultSchema = z.object({ watches: z.array(GitPrWatchSchema).max(1000) });
 export const GitPrWatchEndReasonSchema = z.enum(['merged', 'closed', 'expired']);
 export type GitPrWatchEndReason = z.infer<typeof GitPrWatchEndReasonSchema>;

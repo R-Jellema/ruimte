@@ -4,6 +4,7 @@ import {
     ChevronsDownUp,
     ChevronsUpDown,
     Copy,
+    EyeOff,
     Expand,
     ExternalLink,
     Frame,
@@ -30,6 +31,9 @@ import { DEFAULT_NOTE_COLOR, NOTE_COLORS } from '@/canvas/note-colors';
 import { EMPTY_DRAFT, writeDraft } from '@adecore/agents-react/chat/drafts';
 import { BookmarkSubmenu } from '@adecore/agents-react/chat/ui/BookmarkSubmenu';
 import { ForkMenuItem } from '@/chat/ForkMenuItem';
+import { stopPrWatch } from '@/shell/pr-watch-actions';
+import { useEndpointId } from '@/state/keys';
+import { useChatPrWatch } from '@/state/pr-watches';
 import { FileActionItems } from '@/shell/panels/FileActionItems';
 import { resolveStoredPath } from '@/shell/panels/files-tree';
 import { worktreeDiffTab } from '@/shell/panels/worktree-rows';
@@ -56,6 +60,8 @@ export function NodeMenuPopup({ id, onRename, snooze }: { id: string; onRename()
     const { t } = useTranslation('canvas');
     const canvasStore = useCanvasStore();
     const node = useCanvas((s) => s.nodes[id]);
+    const endpointId = useEndpointId();
+    const prWatch = useChatPrWatch(id);
     const maximized = useCanvas((s) => maximizedNodeOf(s) === id);
     const moveLocked = useCanvas((s) => s.locks.move);
     const agent = useSessionRow(id, (row) => row?.agent);
@@ -215,6 +221,11 @@ export function NodeMenuPopup({ id, onRename, snooze }: { id: string; onRename()
             {node.kind === 'chat' && chatSession && (
                 <ContextMenu.Item onClick={openInTerminal}>
                     <Icon icon={Terminal} size={14} /> {t('menu.openInTerminal')}
+                </ContextMenu.Item>
+            )}
+            {node.kind === 'chat' && prWatch !== null && (
+                <ContextMenu.Item onClick={() => void stopPrWatch(endpointId, id)}>
+                    <Icon icon={EyeOff} size={14} /> {t('menu.stopPrWatch')}
                 </ContextMenu.Item>
             )}
             {node.kind === 'chat' && <ForkMenuItem chatId={id} />}

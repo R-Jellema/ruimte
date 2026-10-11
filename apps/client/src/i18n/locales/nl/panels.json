@@ -398,7 +398,18 @@
             "bot": "bot",
             "copyToChat": "Naar chat kopiëren…",
             "copyToChatHint": "Zet de draad in de prompt van een chat. Er wordt niets verstuurd.",
-            "truncated": "Er staan meer reacties in deze draad dan hier getoond."
+            "truncated": "Er staan meer reacties in deze draad dan hier getoond.",
+            "watch": {
+                "forChat": "Volgen voor chat…",
+                "forChatHint": "Wekt de chat één keer als de checks van de huidige commit klaar zijn en als er een review binnenkomt. Er wordt niets samengevoegd of gepusht.",
+                "stop": "Stoppen met volgen",
+                "watching": "Gevolgd voor {{chat}}",
+                "ended": "Het volgen is beëindigd.",
+                "merged": "De pull request is samengevoegd, dus het volgen is beëindigd.",
+                "closed": "De pull request is gesloten, dus het volgen is beëindigd.",
+                "expired": "Het volgen liep 7 dagen en is beëindigd.",
+                "failed": "Kon het volgen niet starten"
+            }
         },
         "branchMenu": {
             "checkout": "Checkout",

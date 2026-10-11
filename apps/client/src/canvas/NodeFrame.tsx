@@ -9,6 +9,7 @@ import {
     CirclePower,
     CircleQuestionMark,
     CircleX,
+    Eye,
     FileText,
     CircleDot,
     GitBranch,
@@ -63,6 +64,8 @@ import { ForkPill } from '@/chat/ForkPill';
 import { AccountPill } from '@adecore/agents-react/chat/ui/AccountPill';
 import { LimitPill } from '@adecore/agents-react/chat/ui/LimitState';
 import { PlanPill } from '@/plan/PlanPill';
+import { stopPrWatch } from '@/shell/pr-watch-actions';
+import { useChatPrWatch } from '@/state/pr-watches';
 import { SubagentTitleCrumb } from '@adecore/agents-react/chat/ui/SubagentControls';
 import { useSubagentTrail } from '@adecore/agents-react/chat/subagent-view';
 import { BrowserBody } from '@/nodes/BrowserBody';
@@ -189,6 +192,22 @@ function IssuePill({ issue }: { issue: { repo: string; number: number; url: stri
         <Tooltip label={t('node.issuePill', { issue: `${issue.repo}#${issue.number}` })}>
             <Pill mono icon={<Icon icon={CircleDot} size={12} />} onClick={open}>
                 {issue.repo}#{issue.number}
+            </Pill>
+        </Tooltip>
+    );
+}
+
+function PrWatchPill({ chatId }: { chatId: string }) {
+    const { t } = useTranslation('canvas');
+    const endpointId = useEndpointId();
+    const watch = useChatPrWatch(chatId);
+    if (watch === null) {
+        return null;
+    }
+    return (
+        <Tooltip label={t('node.prWatchPill', { pr: `${watch.repo}#${watch.number}`, state: t(`node.prWatchState.${watch.checkState}`) })}>
+            <Pill mono icon={<Icon icon={Eye} size={12} />} onClick={() => void stopPrWatch(endpointId, chatId)}>
+                PR #{watch.number}
             </Pill>
         </Tooltip>
     );
@@ -414,6 +433,7 @@ export const NodeFrame = memo(function NodeFrame({ id, z }: { id: string; z: num
                             <ForkPill chatId={id} />
                             <PlanPill chatId={id} />
                             <LimitPill chatId={id} />
+                            <PrWatchPill chatId={id} />
                         </>
                     )}
                     {node.kind === 'terminal' && !renaming && <SessionPorts id={id} />}

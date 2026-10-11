@@ -398,7 +398,18 @@
             "bot": "bot",
             "copyToChat": "Copy to chat…",
             "copyToChatHint": "Puts the thread in the prompt of a chat. Nothing is sent.",
-            "truncated": "There are more comments in this thread than shown here."
+            "truncated": "There are more comments in this thread than shown here.",
+            "watch": {
+                "forChat": "Watch for chat…",
+                "forChatHint": "Wakes the chat once when the checks of the current commit finish, and when a review comes in. Nothing is merged or pushed.",
+                "stop": "Stop watching",
+                "watching": "Watched for {{chat}}",
+                "ended": "The watch ended.",
+                "merged": "The pull request was merged, so the watch ended.",
+                "closed": "The pull request was closed, so the watch ended.",
+                "expired": "The watch ran for 7 days and ended.",
+                "failed": "Could not start the watch"
+            }
         },
         "branchMenu": {
             "checkout": "Checkout",

@@ -61,7 +61,14 @@
             "tooltip": "Linked context. The agent reads it with ruimte-context.",
             "pill": "context"
         },
-        "issuePill": "Open {{issue}} on GitHub"
+        "issuePill": "Open {{issue}} on GitHub",
+        "prWatchPill": "Watching {{pr}}: {{state}}. Click to stop.",
+        "prWatchState": {
+            "pending": "checks running",
+            "success": "checks passed",
+            "failure": "checks failed",
+            "none": "no checks"
+        }
     },
     "group": {
         "arrange": "Arrange members",
@@ -97,7 +104,8 @@
         "startAgentFromNote": "Start agent from note",
         "noteColor": "Note color",
         "color": "Color",
-        "noAccent": "None"
+        "noAccent": "None",
+        "stopPrWatch": "Stop Watching Pull Request"
     },
     "kinds": {
         "terminal": "Terminal",

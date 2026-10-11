@@ -58,6 +58,7 @@ function context(patch: Partial<MenuContext> = {}): MenuContext {
         windows: true,
         newChat: true,
         scratch: false,
+        prWatch: false,
         ...patch
     };
 }
@@ -133,6 +134,11 @@ describe('the menus', () => {
         expect(find(menuModel(START_SCREEN), 'chat-new')?.accelerator).toBe('CommandOrControl+Alt+N');
         expect(find(menuModel(context()), 'chat-new')).toBeDefined();
         expect(commandIds(menuModel(context({ newChat: false })))).not.toContain('chat-new');
+    });
+
+    test('stopping a pull request watch is offered only for a chat that has one', () => {
+        expect(commandIds(menuModel(context()))).not.toContain('pr-watch-stop');
+        expect(commandIds(menuModel(context({ prWatch: true })))).toContain('pr-watch-stop');
     });
 
     test('the Chats project has no panels for a folder, no launches and no folder to reveal', () => {

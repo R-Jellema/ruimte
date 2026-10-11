@@ -61,7 +61,14 @@
             "tooltip": "Gekoppelde context. De agent leest die met ruimte-context.",
             "pill": "context"
         },
-        "issuePill": "{{issue}} openen op GitHub"
+        "issuePill": "{{issue}} openen op GitHub",
+        "prWatchPill": "{{pr}} gevolgd: {{state}}. Klik om te stoppen.",
+        "prWatchState": {
+            "pending": "checks lopen",
+            "success": "checks geslaagd",
+            "failure": "checks mislukt",
+            "none": "geen checks"
+        }
     },
     "group": {
         "arrange": "Leden ordenen",
@@ -97,7 +104,8 @@
         "startAgentFromNote": "Agent starten vanuit de notitie",
         "noteColor": "Kleur van de notitie",
         "color": "Kleur",
-        "noAccent": "Geen"
+        "noAccent": "Geen",
+        "stopPrWatch": "Stoppen met volgen van pull request"
     },
     "kinds": {
         "terminal": "Terminal",
