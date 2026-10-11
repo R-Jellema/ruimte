@@ -1558,6 +1558,7 @@ describe('--worktree', () => {
         expect((await post('agent', ['claude', '--worktree'])).lines[0]).toStartWith('refused\tnot-a-repository\t');
         expect((await post('agent', ['claude', '--worktree', '--cwd', 'src'])).lines[0]).toStartWith('refused\tworktree-and-cwd\t');
         expect((await post('agent', ['claude', '--branch', 'x'])).lines[0]).toStartWith('refused\tbranch-needs-worktree\t');
+        expect((await post('agent', ['claude', '--base', 'main'])).lines[0]).toStartWith('refused\tbase-needs-worktree\t');
         expect(
             (await post('team', ['--label', 'Crew', '--worktree', '--roles', JSON.stringify([{ provider: 'claude', title: 'One', prompt: 'a' }])])).lines[0]
         ).toStartWith('refused\tnot-a-repository\t');

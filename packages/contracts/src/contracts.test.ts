@@ -625,4 +625,12 @@ describe('usage', () => {
             }).success
         ).toBe(true);
     });
+
+    test('a worktree starts at a base, and a ref answers the commit it names', () => {
+        expect(REQUEST_SCHEMAS['git.worktree-add'].payload.safeParse({ repo: '/r', branch: 'x', base: 'v1' }).success).toBe(true);
+        expect(REQUEST_SCHEMAS['git.worktree-add'].payload.safeParse({ repo: '/r', branch: 'x' }).success).toBe(true);
+        expect(REQUEST_SCHEMAS['git.worktree-add'].payload.safeParse({ repo: '/r', branch: 'x', base: '' }).success).toBe(false);
+        expect(REQUEST_SCHEMAS['git.ref-commit'].payload.safeParse({ cwd: '/r', ref: 'v1' }).success).toBe(true);
+        expect(REQUEST_SCHEMAS['git.ref-commit'].result.safeParse({ commit: 'abc', subject: 'init' }).success).toBe(true);
+    });
 });

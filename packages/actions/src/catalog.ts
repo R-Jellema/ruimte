@@ -2437,7 +2437,8 @@ export const ACTION_DEFINITIONS = {
                 .string()
                 .regex(/^[A-Za-z0-9._:-]{1,128}$/)
                 .nullable()
-                .describe('An id of your choosing; a retry with the same id and the same input answers with what the first call made')
+                .describe('An id of your choosing; a retry with the same id and the same input answers with what the first call made'),
+            base: z.string().min(1).nullish().describe('With a worktree: the branch, tag or commit a new branch starts at instead of HEAD')
         }),
         output: z.object({
             nodeId,
@@ -2918,7 +2919,10 @@ export const ACTION_DEFINITIONS = {
         effect: 'shared',
         domain: 'developer',
         actors: PERSON_AND_VOICE,
-        input: z.object({ branch: z.string().trim().min(1).describe('The branch of the worktree; made when it does not exist') }),
+        input: z.object({
+            branch: z.string().trim().min(1).describe('The branch of the worktree; made when it does not exist'),
+            base: forActors(PERSON, z.string().trim().min(1)).describe('The branch, tag or commit a new branch starts at instead of HEAD')
+        }),
         // False when the branch already had a worktree and that one was answered.
         output: z.object({ worktree: WorktreeSchema, created: z.boolean() })
     },

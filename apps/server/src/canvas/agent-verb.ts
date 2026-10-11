@@ -53,7 +53,7 @@ const AGENT_DETAIL: readonly string[] = [
 export const agentVerb = defineStandaloneActionVerb({
     name: 'agent',
     action: 'agent.start',
-    usage: `<${AGENT_KINDS.join('|')}> [--terminal] [--prompt T | --prompt-file F] [--cwd P] [--reads A,B] [--view V] [--beside N] [--group G] [--title T] [--task T] [--model M] [--mode M] [--worktree [--branch B]] [--request-id R] [--dry-run]`,
+    usage: `<${AGENT_KINDS.join('|')}> [--terminal] [--prompt T | --prompt-file F] [--cwd P] [--reads A,B] [--view V] [--beside N] [--group G] [--title T] [--task T] [--model M] [--mode M] [--worktree [--branch B] [--base R]] [--request-id R] [--dry-run]`,
     params: [
         { syntax: '<cli>', need: 'required', field: 'provider', text: AGENT_KINDS.join(', ') },
         {
@@ -112,6 +112,12 @@ export const agentVerb = defineStandaloneActionVerb({
             text: 'An id of your choosing, 1 to 128 characters of letters, digits and . _ : -; a retry with the same id and the same command answers with what the first call made'
         },
         {
+            syntax: '--base R',
+            need: 'optional',
+            field: 'base',
+            text: 'With --worktree: the branch, tag or commit a new branch starts at instead of HEAD'
+        },
+        {
             syntax: '--dry-run',
             need: 'no value',
             text: `Checks everything and makes nothing; the first field is dry-run and the last names the edge it would draw, as <from> -> <new node>; ${DRY_RUN_PREVIEW}`
@@ -139,7 +145,8 @@ export const agentVerb = defineStandaloneActionVerb({
         'request-id': z
             .string()
             .regex(/^[A-Za-z0-9._:-]{1,128}$/, '--request-id takes 1 to 128 characters of letters, digits and . _ : -')
-            .optional()
+            .optional(),
+        base: z.string().min(1, '--base needs a branch, tag or commit').optional()
     }),
     async run({ positionals: [kind], flags, switches, dryRun }, call) {
         const started = await runAction(
@@ -161,7 +168,8 @@ export const agentVerb = defineStandaloneActionVerb({
                 mode: flags.mode ?? null,
                 worktree: switches.has('worktree'),
                 branch: flags.branch ?? null,
-                requestId: flags['request-id'] ?? null
+                requestId: flags['request-id'] ?? null,
+                base: flags.base ?? null
             },
             dryRun
         );

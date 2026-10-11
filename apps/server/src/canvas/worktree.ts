@@ -38,9 +38,10 @@ export async function addWanted(
     want: WorktreeWant,
     projectId: string
 ): Promise<{ worktree: Worktree; created: boolean }> {
+    const options = want.base === undefined ? {} : { base: want.base };
     return 'branch' in want
-        ? await worktrees.add(folder, want.branch, { madeBy: 'verb', projectId })
-        : { worktree: await worktrees.addFresh(folder, want.fresh, { madeBy: 'verb', projectId }), created: true };
+        ? await worktrees.add(folder, want.branch, { madeBy: 'verb', projectId }, options)
+        : { worktree: await worktrees.addFresh(folder, want.fresh, { madeBy: 'verb', projectId }, options), created: true };
 }
 
 /*

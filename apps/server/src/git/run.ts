@@ -22,6 +22,8 @@ export type GitErrorCode =
     | 'worktree-busy'
     | 'worktree-taken'
     | 'no-branch'
+    | 'ref-not-found'
+    | 'branch-exists'
     | 'target-not-checked-out'
     | 'target-busy'
     | 'target-dirty'

@@ -1,11 +1,11 @@
-import type { GitRef, GitRefsResult, GitStash } from '@ruimte/contracts';
-import { FIELD, git, toplevel } from './run.ts';
+import type { GitRef, GitRefCommitResult, GitRefsResult, GitStash } from '@ruimte/contracts';
+import { FIELD, GitError, git, toplevel } from './run.ts';
 import { resolveBase } from './status.ts';
 
 // A branch menu nobody scrolls past this; the field on top of it is what finds the rest.
 const MAX_REFS = 200;
 
-export const REF_FORMAT = `%(refname:short)${FIELD}%(committerdate:unix)${FIELD}%(HEAD)`;
+export const REF_FORMAT = `%(refname:short)${FIELD}%(committerdate:unix)${FIELD}%(HEAD)${FIELD}%(objectname)`;
 
 /* `worktree list --porcelain` writes a paragraph per checkout: `worktree <path>` and `branch <ref>`. */
 export function parseWorktreeBranches(output: string): Map<string, string> {
@@ -28,7 +28,7 @@ export function parseRefs(output: string, kind: GitRef['kind'], worktrees: Map<s
         if (line === '') {
             continue;
         }
-        const [name = '', at = '', head = ''] = line.split(FIELD);
+        const [name = '', at = '', head = '', commit = ''] = line.split(FIELD);
         // Git's own pointer at the remote's default branch is a symbolic ref, not a branch to check out.
         if (name === '' || name.endsWith('/HEAD')) {
             continue;
@@ -40,6 +40,7 @@ export function parseRefs(output: string, kind: GitRef['kind'], worktrees: Map<s
             current: head === '*',
             isDefault: name === base,
             ...(worktree ? { worktree } : {}),
+            ...(commit === '' ? {} : { commit }),
             at: Number.parseInt(at, 10) || 0
         });
     }
@@ -82,4 +83,15 @@ export async function listRefs(cwd: string): Promise<GitRefsResult> {
         current: refs.find((ref) => ref.current)?.name ?? null,
         stashes: parseStashes(stashes ?? '')
     };
+}
+
+/* The commit a ref names and its subject, to show a person where a new branch would start. */
+export async function readRefCommit(cwd: string, ref: string): Promise<GitRefCommitResult> {
+    const top = await toplevel(cwd);
+    const output = await git(['log', '-1', `--format=%H${FIELD}%s`, '--end-of-options', `${ref}^{commit}`], top);
+    if (output === null || output.trim() === '') {
+        throw new GitError('ref-not-found', `${ref} is not a branch, tag or commit of this repository.`);
+    }
+    const [commit = '', ...subject] = output.replace(/\n$/, '').split(FIELD);
+    return { commit, subject: subject.join(FIELD) };
 }

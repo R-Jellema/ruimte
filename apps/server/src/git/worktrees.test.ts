@@ -62,6 +62,42 @@ describe('Worktrees', () => {
         await expect(worktrees.remove(repo, added.worktree.path)).rejects.toMatchObject({ code: 'worktree-not-found' });
     });
 
+    test('a new branch starts at the base it was given, a tag or a commit, and the register names it', async () => {
+        const first = (await git(['rev-parse', 'HEAD'])).trim();
+        await git(['tag', 'v1']);
+        await writeFile(join(repo, 'later.txt'), 'later');
+        await git(['add', '.']);
+        await git(['commit', '-q', '-m', 'later']);
+
+        const tagged = await worktrees.add(repo, 'from-tag', { madeBy: 'client' }, { base: 'v1' });
+        expect((await gitIn(tagged.worktree.path, ['rev-parse', 'HEAD'])).trim()).toBe(first);
+        expect(tagged.worktree.from).toEqual({ branch: 'main', commit: first });
+
+        const onMain = await worktrees.add(repo, 'from-main', { madeBy: 'client' }, { base: 'main' });
+        expect(onMain.worktree.from?.branch).toBe('main');
+        expect(await exists(join(onMain.worktree.path, 'later.txt'))).toBe(true);
+    });
+
+    test('a base that is no ref makes nothing, and neither does a base for a branch that exists', async () => {
+        await expect(worktrees.add(repo, 'nope', { madeBy: 'client' }, { base: 'no-such-ref' })).rejects.toMatchObject({ code: 'ref-not-found' });
+        expect(await exists(join(home, 'worktrees'))).toBe(false);
+        expect(await branchList()).toEqual(['main']);
+
+        await git(['branch', 'old']);
+        await expect(worktrees.add(repo, 'old', { madeBy: 'client' }, { base: 'main' })).rejects.toMatchObject({ code: 'branch-exists' });
+        expect(await worktrees.list(repo)).toEqual([]);
+    });
+
+    test('two clients asking for the same branch and base get one checkout', async () => {
+        const [first, second] = await Promise.all([
+            worktrees.add(repo, 'same', { madeBy: 'client' }, { base: 'main' }),
+            worktrees.add(repo, 'same', { madeBy: 'client' }, { base: 'main' })
+        ]);
+        expect([first.created, second.created].sort()).toEqual([false, true]);
+        expect(second.worktree.path).toBe(first.worktree.path);
+        expect(await worktrees.list(repo)).toHaveLength(1);
+    });
+
     test('two fresh worktrees asked for at once under one name get a branch and a folder each', async () => {
         const [first, second] = await Promise.all([
             worktrees.addFresh(repo, 'claude', { madeBy: 'verb', nodeId: 'chat-a' }),

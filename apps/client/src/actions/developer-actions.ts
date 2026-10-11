@@ -652,7 +652,7 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
                 }
             };
         },
-        'worktree.create': async ({ branch }, call) => {
+        'worktree.create': async ({ branch, base }, call) => {
             const folder = projectFolder();
             if (asksFirst(call)) {
                 return {
@@ -665,7 +665,9 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
                 };
             }
             const projectId = machine.projectId();
-            return { output: await ask('git.worktree-add', { repo: folder, branch, ...(projectId === null ? {} : { projectId }) }) };
+            return {
+                output: await ask('git.worktree-add', { repo: folder, branch, ...(base == null ? {} : { base }), ...(projectId === null ? {} : { projectId }) })
+            };
         },
         'worktree.merge': async ({ branch, strategy, message, body, commitFirst, remove, stopAgent, into, run }, call) => {
             const folder = projectFolder();

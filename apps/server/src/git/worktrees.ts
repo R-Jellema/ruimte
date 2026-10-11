@@ -214,13 +214,18 @@ export class Worktrees {
      * branch, and the commit the new branch shares with it. An agent never lands in a worktree the
      * register gives to another node; a person may open any.
      */
-    async add(repo: string, branch: string, origin: WorktreeOrigin = { madeBy: 'client' }): Promise<{ worktree: Worktree; created: boolean }> {
+    async add(
+        repo: string,
+        branch: string,
+        origin: WorktreeOrigin = { madeBy: 'client' },
+        options: MakeOptions = {}
+    ): Promise<{ worktree: Worktree; created: boolean }> {
         const { main } = await this.read(repo);
         return await this.serialize(main, async () => {
             const { entries } = await this.read(repo);
             const existing = entries.find((entry) => entry.path !== main && entry.branch === branch);
             if (existing === undefined) {
-                return { worktree: await this.make(repo, main, branch, origin), created: true };
+                return { worktree: await this.make(repo, main, branch, origin, options), created: true };
             }
             const record = (await this.registerOf(main).read()).get(existing.path);
             if (origin.madeBy !== 'client' && record?.nodeId !== undefined && record.nodeId !== origin.nodeId) {
@@ -231,29 +236,30 @@ export class Worktrees {
     }
 
     /*
-     * A worktree on a new branch named `base`, or base-2, base-3 when that is taken. The name is picked
+     * A worktree on a new branch named `name`, or name-2, name-3 when that is taken. The name is picked
      * and the worktree made under the repository lock, so two agents started at once never share one.
      */
-    async addFresh(repo: string, base: string, origin: WorktreeOrigin): Promise<Worktree> {
+    async addFresh(repo: string, name: string, origin: WorktreeOrigin, options: MakeOptions = {}): Promise<Worktree> {
         const { main } = await this.read(repo);
         return await this.serialize(main, async () => {
             const { entries } = await this.read(repo);
             const taken = new Set([...(await this.branches(main)), ...entries.map((entry) => basename(entry.path))]);
-            return await this.make(repo, main, freeBranch(base, taken), origin);
+            return await this.make(repo, main, freeBranch(name, taken), origin, options);
         });
     }
 
-    private async make(repo: string, main: string, branch: string, origin: WorktreeOrigin): Promise<Worktree> {
+    private async make(repo: string, main: string, branch: string, origin: WorktreeOrigin, options: MakeOptions): Promise<Worktree> {
         const register = this.registerOf(main);
+        const branchExists = await this.branchExists(main, branch);
+        const based = options.base === undefined ? null : await this.resolveBase(repo, main, options.base, branchExists);
         const dir = join(this.root, repoFolderName(main));
         await mkdir(dir, { recursive: true, mode: 0o700 });
         // Git answers real paths, and the register is keyed on what git answers.
         const path = join(await realpath(dir), safeName(branch));
-        const branchExists = await this.branchExists(main, branch);
-        const fromBranch = (await git(['rev-parse', '--abbrev-ref', 'HEAD'], repo))?.trim();
-        const head = (await git(['rev-parse', 'HEAD'], repo))?.trim();
+        const fromBranch = based?.branch ?? (await git(['rev-parse', '--abbrev-ref', 'HEAD'], repo))?.trim();
+        const head = based?.commit ?? (await git(['rev-parse', 'HEAD'], repo))?.trim();
         const fork = branchExists && head ? (await git(['merge-base', `refs/heads/${branch}`, head], repo))?.trim() : head;
-        await run(branchExists ? ['worktree', 'add', path, branch] : ['worktree', 'add', '-b', branch, path], main);
+        await run(branchExists ? ['worktree', 'add', path, branch] : ['worktree', 'add', '-b', branch, path, ...(based ? [based.commit] : [])], main);
         const record: WorktreeRecord | null = fork
             ? {
                   branch,
@@ -270,6 +276,18 @@ export class Worktrees {
         }
         this.announce(main);
         return { path, branch, ...(record ? recordFields(record) : {}) };
+    }
+
+    /* The commit a new branch starts at, found before anything is made; the local branch name it was given by, when it was one. */
+    private async resolveBase(repo: string, main: string, base: string, branchExists: boolean): Promise<{ commit: string; branch: string | null }> {
+        if (branchExists) {
+            throw new GitError('branch-exists', 'A base only applies to a new branch.');
+        }
+        const commit = (await git(['rev-parse', '--verify', '--quiet', '--end-of-options', `${base}^{commit}`], repo))?.trim();
+        if (!commit) {
+            throw new GitError('ref-not-found', `${base} is not a branch, tag or commit of this repository.`);
+        }
+        return { commit, branch: (await this.branchExists(main, base)) ? base : null };
     }
 
     /*
@@ -506,6 +524,11 @@ export class Worktrees {
     announce(main: string): void {
         this.sinks.emit({ event: 'git.worktrees', payload: { repo: main } });
     }
+}
+
+/* Where a new branch starts: a branch, a tag or a commit. */
+export interface MakeOptions {
+    base?: string;
 }
 
 function recordFields(record: WorktreeRecord): Pick<Worktree, 'from' | 'projectId' | 'nodeId' | 'madeAt'> {

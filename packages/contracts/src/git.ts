@@ -6,7 +6,9 @@ import { WorktreeSchema } from '@adecore/agent-contracts/worktree';
 export const WorktreeAddPayloadSchema = z.object({
     repo: z.string().min(1),
     branch: z.string().min(1),
-    projectId: z.string().optional()
+    projectId: z.string().optional(),
+    // A new branch starts here: a branch, tag or commit. Without it, at HEAD.
+    base: z.string().min(1).optional()
 });
 export type WorktreeAddPayload = z.infer<typeof WorktreeAddPayloadSchema>;
 
@@ -270,10 +272,24 @@ export const GitRefSchema = z.object({
     isDefault: z.boolean(),
     // The checkout that has this branch out, when another worktree does; git refuses a second one.
     worktree: z.string().optional(),
+    // The commit the tip points at.
+    commit: z.string().optional(),
     // Seconds since the epoch, the commit date its tip carries; the list is newest first.
     at: z.number().int()
 });
 export type GitRef = z.infer<typeof GitRefSchema>;
+
+export const GitRefCommitPayloadSchema = z.object({
+    cwd: z.string().min(1),
+    ref: z.string().min(1)
+});
+export type GitRefCommitPayload = z.infer<typeof GitRefCommitPayloadSchema>;
+
+export const GitRefCommitResultSchema = z.object({
+    commit: z.string(),
+    subject: z.string()
+});
+export type GitRefCommitResult = z.infer<typeof GitRefCommitResultSchema>;
 
 export const GitStashSchema = z.object({
     ref: z.string(),

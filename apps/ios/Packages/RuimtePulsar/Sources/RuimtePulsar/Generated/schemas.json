@@ -43795,6 +43795,10 @@
       },
       "projectId": {
         "type": "string"
+      },
+      "base": {
+        "type": "string",
+        "minLength": 1
       }
     },
     "required": [
@@ -44671,6 +44675,40 @@
       "stash"
     ]
   },
+  "request.git.ref-commit.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "cwd": {
+        "type": "string",
+        "minLength": 1
+      },
+      "ref": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "cwd",
+      "ref"
+    ]
+  },
+  "request.git.ref-commit.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "commit": {
+        "type": "string"
+      },
+      "subject": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "commit",
+      "subject"
+    ]
+  },
   "request.git.refs.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -44710,6 +44748,9 @@
               "type": "boolean"
             },
             "worktree": {
+              "type": "string"
+            },
+            "commit": {
               "type": "string"
             },
             "at": {

@@ -66,7 +66,7 @@ export {
 } from '@adecore/agents/context/verb';
 
 /* A worktree a verb asks for: a new branch named after a title, or the branch it was given. */
-export type WorktreeWant = { fresh: string } | { branch: string };
+export type WorktreeWant = ({ fresh: string } | { branch: string }) & { base?: string };
 
 /* What a verb reaches the daemon through; an interface so a test can hand in a store of its own. */
 export interface CanvasHost {

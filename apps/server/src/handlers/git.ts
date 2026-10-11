@@ -8,7 +8,7 @@ import { resolveWithAgent } from '../git/resolve-ai.ts';
 import { diffCheckout, diffCommit, diffFile } from '../git/diff.ts';
 import { readLog } from '../git/log.ts';
 import { suggestMessage } from '../git/message.ts';
-import { listRefs } from '../git/refs.ts';
+import { listRefs, readRefCommit } from '../git/refs.ts';
 import { listRepos } from '../git/repos.ts';
 import { discardPaths, stagePaths, unstagePaths } from '../git/stage.ts';
 import type { GitStatusWatcher } from '../git/status-watcher.ts';
@@ -40,7 +40,12 @@ export function registerGitHandlers(
 
     dispatcher.register('git.worktree-add', (payload) =>
         translate(() =>
-            worktrees.add(payload.repo, payload.branch, { madeBy: 'client', ...(payload.projectId === undefined ? {} : { projectId: payload.projectId }) })
+            worktrees.add(
+                payload.repo,
+                payload.branch,
+                { madeBy: 'client', ...(payload.projectId === undefined ? {} : { projectId: payload.projectId }) },
+                payload.base === undefined ? {} : { base: payload.base }
+            )
         )
     );
 
@@ -116,6 +121,8 @@ export function registerGitHandlers(
     dispatcher.register('git.discard', (payload) => translate(() => discardPaths(payload.cwd, payload.paths)));
 
     dispatcher.register('git.refs', (payload) => translate(() => listRefs(payload.cwd)));
+
+    dispatcher.register('git.ref-commit', (payload) => translate(() => readRefCommit(payload.cwd, payload.ref)));
 
     dispatcher.register('git.repos', (payload) => translate(() => listRepos(payload.folder)));
 

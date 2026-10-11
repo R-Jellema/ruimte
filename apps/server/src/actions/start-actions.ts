@@ -38,6 +38,9 @@ const startAgent: StartHandler = async (input, call) => {
     if (input.branch !== null && !input.worktree) {
         throw new VerbRefusal('branch-needs-worktree', '--branch names the branch of a worktree; add --worktree');
     }
+    if (input.base != null && !input.worktree) {
+        throw new VerbRefusal('base-needs-worktree', '--base says where the branch of a worktree starts; add --worktree');
+    }
     if (input.worktree && input.cwd !== null) {
         throw new VerbRefusal('worktree-and-cwd', '--worktree and --cwd both say where the agent starts; give one of them');
     }
@@ -73,7 +76,8 @@ const startAgent: StartHandler = async (input, call) => {
         await requireRepository(caller, place.folder);
         if (!dryRun) {
             const want = input.branch === null ? { fresh: branchSlug(input.task ?? input.title ?? kind) } : { branch: input.branch };
-            const made = await makeWorktrees(caller, { folder: place.folder, projectId: place.projectId }, [want]);
+            const based = input.base == null ? want : { ...want, base: input.base };
+            const made = await makeWorktrees(caller, { folder: place.folder, projectId: place.projectId }, [based]);
             cwd = made.worktrees[0]!.path;
             undoWorktrees = made.undo;
         }
