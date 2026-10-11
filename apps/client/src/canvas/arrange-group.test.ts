@@ -62,6 +62,23 @@ describe('arranging the members of a group', () => {
         expect(arrangeGroupMembers('g', byId(group('g', 0, 0, 800, 600)), {})).toEqual({ refused: 'empty' });
     });
 
+    test('a collapsed group inside it carries the members it hid', () => {
+        const nested = group('inner', 700, 400, 500, 40, { collapsed: true, memberIds: ['hidden'], expandedHeight: 400 });
+        const nodes = byId(group('outer', 0, 0, 1400, 900), nested, node('hidden', 3000, 3000), node('loose', 60, 80));
+        const result = arrangeGroupMembers('outer', nodes, {});
+        if ('refused' in result) {
+            throw new Error(result.refused);
+        }
+        expect(result.moves.inner).toBeDefined();
+        expect(result.moves.hidden).toEqual({ x: 3000 + result.moves.inner!.x - 700, y: 3000 + result.moves.inner!.y - 400 });
+    });
+
+    test('a node landing in the expanded rect of a collapsed group refuses', () => {
+        const hiding = group('c', 300, -100, 300, 40, { collapsed: true, memberIds: ['m'], expandedHeight: 400 });
+        const nodes = byId(group('g', 0, 0, 500, 400), hiding, node('m', 3000, 3000), node('a', 20, 60), node('b', 20, 170), node('d', 20, 280));
+        expect(arrangeGroupMembers('g', nodes, {})).toEqual({ refused: 'membership' });
+    });
+
     test('the store arranges in one undo step and leaves the edges alone', () => {
         const store = createCanvasStore();
         const edges = [{ id: 'e1', from: 'a', to: 'b' }];

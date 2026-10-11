@@ -1,4 +1,4 @@
-import { arrangeRects, CANVAS_GRID, GROUP_HEADER, GROUP_PADDING, groupMemberIds, type GroupItem } from '@ruimte/contracts';
+import { arrangeRects, CANVAS_GRID, GROUP_HEADER, GROUP_PADDING, groupMemberIds, groupRect, type GroupItem } from '@ruimte/contracts';
 import type { Point, Rect } from '@/canvas/math';
 import type { CanvasNode, TextElement } from '@/state/canvas';
 
@@ -18,13 +18,25 @@ function itemsOf(nodes: Record<string, CanvasNode>, texts: Record<string, TextEl
     return [...Object.values(nodes), ...Object.values(texts)];
 }
 
-/* Which ids every group holds, so the frame growing or a node moving can be checked against what it did before. */
+/*
+ * Which ids every group holds, so the frame growing or a node moving can be checked against what it did before.
+ * A collapsed group also reports what its expanded rect would take in besides its remembered members.
+ */
 function membershipOf(nodes: Record<string, CanvasNode>, texts: Record<string, TextElement>): Map<string, string> {
     const items = itemsOf(nodes, texts);
     return new Map(
         Object.values(nodes)
             .filter((node) => node.kind === 'group')
-            .map((group) => [group.id, groupMemberIds(group, items).sort().join('\n')])
+            .map((group) => {
+                const held = groupMemberIds(group, items).sort().join('\n');
+                if (group.collapsed !== true) {
+                    return [group.id, held];
+                }
+                const remembered = new Set(group.memberIds ?? []);
+                const open = { ...group, collapsed: false, h: groupRect(group).h };
+                const landed = groupMemberIds(open, items).filter((id) => !remembered.has(id));
+                return [group.id, `${held}\n--\n${landed.sort().join('\n')}`];
+            })
     );
 }
 
@@ -59,7 +71,7 @@ export function arrangeGroupMembers(groupId: string, nodes: Record<string, Canva
 
     const moves: Record<string, Point> = {};
     const carry = (carrier: CanvasNode, delta: Point, seen: Set<string>): void => {
-        if (carrier.kind !== 'group' || carrier.collapsed) {
+        if (carrier.kind !== 'group') {
             return;
         }
         for (const id of groupMemberIds(carrier, items)) {
