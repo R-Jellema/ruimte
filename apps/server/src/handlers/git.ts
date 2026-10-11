@@ -57,7 +57,8 @@ export function registerGitHandlers(
         translate(() =>
             worktrees.remove(payload.repo, payload.path, {
                 ...(payload.force === undefined ? {} : { force: payload.force }),
-                ...(payload.keepBranch === undefined ? {} : { keepBranch: payload.keepBranch })
+                ...(payload.keepBranch === undefined ? {} : { keepBranch: payload.keepBranch }),
+                ...(payload.stopAgent === undefined ? {} : { stopAgent: payload.stopAgent })
             })
         )
     );

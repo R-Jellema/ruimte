@@ -702,10 +702,13 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     manager.holdsForeground = holdsForeground;
 
     const worktrees = new Worktrees(config.home, Date.now, () => identity.worktreeRoot);
-    const merges = new WorktreeMerge(
-        worktrees,
-        worktreeAgents({ chats: () => chats.list(), sessions: () => manager.list(), stopNode: (nodeId, reason) => endChildren.stopNode(nodeId, reason) })
-    );
+    const agentsInWorktrees = worktreeAgents({
+        chats: () => chats.list(),
+        sessions: () => manager.list(),
+        stopNode: (nodeId, reason) => endChildren.stopNode(nodeId, reason)
+    });
+    worktrees.attachAgents(agentsInWorktrees);
+    const merges = new WorktreeMerge(worktrees, agentsInWorktrees);
     const modes = {
         chatMode: (id: string) => chats.get(id)?.info.runtimeMode,
         launch: (id: string) => manager.get(id)?.launch,

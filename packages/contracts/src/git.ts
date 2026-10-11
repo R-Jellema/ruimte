@@ -37,7 +37,9 @@ export const WorktreeRemovePayloadSchema = z.object({
     // Removes a worktree that holds work, and deletes its branch with commits the target lacks.
     force: z.boolean().optional(),
     // True keeps the branch; false deletes a branch the register does not know as well.
-    keepBranch: z.boolean().optional()
+    keepBranch: z.boolean().optional(),
+    // Stops the agents working in the worktree first instead of refusing with `agent-working`.
+    stopAgent: z.boolean().optional()
 });
 export type WorktreeRemovePayload = z.infer<typeof WorktreeRemovePayloadSchema>;
 

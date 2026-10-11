@@ -218,6 +218,46 @@ describe('Worktrees', () => {
         expect((await worktrees.list(repo)).map((entry) => entry.branch)).toEqual(['lexer']);
     });
 
+    test('a file written after the count but before the removal is refused by git itself, with the fresh numbers', async () => {
+        const { worktree } = await worktrees.add(repo, 'lexer');
+        worktrees.beforeRemoveCheckout = async () => {
+            await writeFile(join(worktree.path, 'late.md'), 'late');
+        };
+
+        await expect(worktrees.remove(repo, worktree.path)).rejects.toMatchObject({ code: 'worktree-has-work' });
+        expect(await exists(join(worktree.path, 'late.md'))).toBe(true);
+    });
+
+    test('force still removes a worktree that gained a file in that gap', async () => {
+        const { worktree } = await worktrees.add(repo, 'lexer');
+        worktrees.beforeRemoveCheckout = async () => {
+            await writeFile(join(worktree.path, 'late.md'), 'late');
+        };
+
+        await worktrees.remove(repo, worktree.path, { force: true });
+        expect(await exists(worktree.path)).toBe(false);
+    });
+
+    test('an agent in a turn in the worktree refuses the removal, and stopAgent stops it first', async () => {
+        const { worktree } = await worktrees.add(repo, 'lexer');
+        const stopped: string[] = [];
+        let working = true;
+        worktrees.attachAgents({
+            in: () => [{ nodeId: 'chat-a', working, live: true }],
+            stop: async (nodeId) => {
+                stopped.push(nodeId);
+                working = false;
+            }
+        });
+
+        await expect(worktrees.remove(repo, worktree.path)).rejects.toMatchObject({ code: 'agent-working' });
+        expect(stopped).toEqual([]);
+
+        await worktrees.remove(repo, worktree.path, { stopAgent: true });
+        expect(stopped).toEqual(['chat-a']);
+        expect(await exists(worktree.path)).toBe(false);
+    });
+
     test('with force the folder, the branch, the register entry and the checkpoint index all go, and the answer says where the branch was', async () => {
         const { worktree } = await worktrees.add(repo, 'lexer');
         await writeFile(join(worktree.path, 'work.md'), 'work');

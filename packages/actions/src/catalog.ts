@@ -2979,7 +2979,8 @@ export const ACTION_DEFINITIONS = {
         actors: PERSON,
         input: z.object({
             branch: worktreeBranch,
-            force: forActors(PERSON, z.boolean()).describe('Removes a worktree that holds work, and a branch with commits the target lacks')
+            force: forActors(PERSON, z.boolean()).describe('Removes a worktree that holds work, and a branch with commits the target lacks'),
+            stopAgent: forActors(PERSON, z.boolean()).describe('Stops the agents working in the worktree first instead of refusing')
         }),
         // Where a deleted branch pointed, so git branch <name> <commit> brings it back until git collects it.
         output: z.object({ branch: z.string(), branchDeleted: z.boolean().nullable(), branchCommit: z.string().nullable() })

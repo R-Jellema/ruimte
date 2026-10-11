@@ -17,6 +17,7 @@ export type GitErrorCode =
     | 'git-failed'
     | 'worktree-not-found'
     | 'worktree-has-work'
+    | 'worktree-refused'
     | 'worktree-locked'
     | 'worktree-missing'
     | 'worktree-busy'

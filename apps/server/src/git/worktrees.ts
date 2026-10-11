@@ -9,6 +9,7 @@ import { resolveBase } from './status.ts';
 import { GitError, READ_ONLY_GIT, git, gitOrThrow as run, runGit, toplevel } from './run.ts';
 import { WorktreeRegister, type WorktreeRecord } from './worktree-register.ts';
 import { KeyedQueue } from '../keyed-queue.ts';
+import type { WorktreeAgents } from './worktree-merge.ts';
 import { ClientSinks } from '../client-sinks.ts';
 
 // Branch names carry slashes; the folder name must not.
@@ -39,6 +40,8 @@ export interface WorktreeOrigin {
 export interface RemoveOptions {
     force?: boolean;
     keepBranch?: boolean;
+    /* Stops the agents working in the worktree first instead of refusing while one is in a turn. */
+    stopAgent?: boolean;
     /* The branch a squash just put this worktree's content on; its commits then no longer count as work. */
     squashedInto?: string;
 }
@@ -149,6 +152,9 @@ export class Worktrees {
     readonly root: string;
     private readonly checkpointsRoot: string;
     private readonly checkoutRoot: () => string | null;
+    private agents: WorktreeAgents | null = null;
+    // A test seam: runs between the last count of a removal and the removal itself.
+    beforeRemoveCheckout: (() => Promise<void>) | null = null;
     private readonly now: () => number;
     private readonly sinks = new ClientSinks();
     // One removal at a time per repository, so two clients never inspect the same worktree against each other's half-done work.
@@ -330,7 +336,39 @@ export class Worktrees {
      */
     async remove(repo: string, path: string, options: RemoveOptions = {}): Promise<RemoveResult> {
         const { main } = await this.read(repo);
-        return await this.serialize(main, () => this.removeHeld(main, path, options));
+        return await this.serialize(main, async () => {
+            await this.settleAgents(main, path, options.stopAgent === true);
+            return await this.removeHeld(main, path, options);
+        });
+    }
+
+    /* Hands the worktrees the agents of the machine, so a removal can tell whether one is still working in the folder. */
+    attachAgents(agents: WorktreeAgents): void {
+        this.agents = agents;
+    }
+
+    /* Refuses while an agent is in a turn in the worktree, or stops the agents there when told to. */
+    private async settleAgents(main: string, path: string, stop: boolean): Promise<void> {
+        if (this.agents === null) {
+            return;
+        }
+        const { entry, record, label } = await this.describe(main, path);
+        if (entry === null) {
+            return;
+        }
+        const agents = this.agents.in(entry.path, record?.nodeId);
+        const working = agents.filter((agent) => agent.working);
+        if (working.length > 0 && !stop) {
+            throw new GitError(
+                'agent-working',
+                `${working.length === 1 ? 'An agent is' : `${working.length} agents are`} still working in ${label}. Stop ${working.length === 1 ? 'it' : 'them'} first.`
+            );
+        }
+        if (stop) {
+            for (const agent of agents.filter((candidate) => candidate.live)) {
+                await this.agents.stop(agent.nodeId);
+            }
+        }
     }
 
     /*
@@ -387,7 +425,7 @@ export class Worktrees {
         }
 
         if (entry !== null) {
-            await this.removeCheckout(main, entry, missing);
+            await this.removeCheckout(main, entry, missing, options.force === true);
         }
 
         const branch = this.branchToDelete(entry, record, options.keepBranch);
@@ -500,10 +538,11 @@ export class Worktrees {
         return null;
     }
 
-    private async removeCheckout(main: string, entry: Listed, missing: boolean): Promise<void> {
-        // The work check already ran, so what force still overrides here is ignored files, submodules and a lock.
-        const force = entry.locked ? ['--force', '--force'] : ['--force'];
-        const removed = await runGit(['worktree', 'remove', ...force, entry.path], main);
+    private async removeCheckout(main: string, entry: Listed, missing: boolean, force: boolean): Promise<void> {
+        await this.beforeRemoveCheckout?.();
+        // Without a person's force git does the last check itself, which closes the gap between the count and the removal.
+        const flags = !force ? [] : entry.locked ? ['--force', '--force'] : ['--force'];
+        const removed = await runGit(['worktree', 'remove', ...flags, entry.path], main);
         if (removed.code === 0) {
             return;
         }
@@ -511,6 +550,13 @@ export class Worktrees {
             // A git that cannot remove a worktree whose folder is gone still prunes it; prune only touches entries in that state.
             await run(['worktree', 'prune'], main);
             return;
+        }
+        if (!force) {
+            const fresh = await this.describe(main, entry.path);
+            if (hasWork(fresh.work)) {
+                throw new GitError('worktree-has-work', `${workSentence(fresh.label, fresh.work, fresh.target)}. Remove it with force to lose that.`);
+            }
+            throw new GitError('worktree-refused', removed.stderr.trim() || 'git would not remove the worktree');
         }
         throw new GitError('git-failed', removed.stderr.trim() || 'git worktree remove failed');
     }

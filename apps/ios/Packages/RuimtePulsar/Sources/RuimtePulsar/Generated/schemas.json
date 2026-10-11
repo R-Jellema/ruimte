@@ -44018,6 +44018,9 @@
       },
       "keepBranch": {
         "type": "boolean"
+      },
+      "stopAgent": {
+        "type": "boolean"
       }
     },
     "required": [

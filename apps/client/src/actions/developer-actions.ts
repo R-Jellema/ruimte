@@ -723,9 +723,14 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
                 }
             };
         },
-        'worktree.remove': async ({ branch, force }) => {
+        'worktree.remove': async ({ branch, force, stopAgent }) => {
             const worktree = await worktreeNamed(branch, false);
-            const result = await ask('git.worktree-remove', { repo: projectFolder(), path: worktree.path, ...(force === true ? { force: true } : {}) });
+            const result = await ask('git.worktree-remove', {
+                repo: projectFolder(),
+                path: worktree.path,
+                ...(force === true ? { force: true } : {}),
+                ...(stopAgent === true ? { stopAgent: true } : {})
+            });
             return { output: { branch, branchDeleted: result.branchDeleted ?? null, branchCommit: result.branchCommit ?? null } };
         },
         'operation.cancel': async ({ operationId }, call) => {
