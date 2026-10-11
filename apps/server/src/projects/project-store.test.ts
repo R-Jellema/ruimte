@@ -304,10 +304,15 @@ describe('ProjectStore', () => {
         expect(opened.summary.icon).toEqual({ kind: 'initial', value: 'R' });
         expect(opened.summary.nameSource).toBe('folder');
 
-        // The summary goes out after the reload is done, so it is awaited as an event of its own.
+        // Opening also publishes a summary; wait for the icon reload's event.
         const summary = new Promise<SessionEvent>((resolve) => {
             store.subscribe('icon-listener', (event) => {
-                if (event.event === 'project.summary') {
+                if (
+                    event.event === 'project.summary' &&
+                    event.payload.summary.projectId === opened.summary.projectId &&
+                    event.payload.summary.icon.kind === 'image' &&
+                    event.payload.summary.icon.value === '.ruimte/icon.png'
+                ) {
                     resolve(event);
                 }
             });
