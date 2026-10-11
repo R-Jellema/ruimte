@@ -926,10 +926,19 @@
             "folderMissing": "map ontbreekt",
             "locked": "Vergrendeld",
             "merge": "Mergen…",
+            "inspect": "Bekijken",
             "noNode": "geen node",
             "remove": "Verwijderen…",
             "title": "Worktrees",
             "view": "Bekijken"
+        },
+        "verdict": {
+            "clean": "Er gaat niets verloren. Hij kan weg.",
+            "hasWork": "Hij bevat {{work}}. Verwijderen verliest dat.",
+            "locked": "Hij is vergrendeld met git worktree lock. Verwijderen kan alleen geforceerd.",
+            "agentWorking": "Er werkt een agent in. Stop de agent voordat je hem verwijdert.",
+            "missing": "De map is weg. Alleen de registratie ervan moet nog worden verwijderd.",
+            "failed": "De worktree kon niet worden bekeken"
         },
         "work": {
             "ahead_one": "{{count}} commit die {{target}} mist",

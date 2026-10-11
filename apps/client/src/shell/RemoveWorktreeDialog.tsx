@@ -27,6 +27,8 @@ export function RemoveWorktreeDialog() {
     const [busy, setBusy] = useState(false);
     // Goes up to count again after a refusal, with the dialog still open on the same worktrees.
     const [attempt, setAttempt] = useState(0);
+    // Set once the machine said an agent is still working there, so the next confirm stops it first.
+    const [agentWorking, setAgentWorking] = useState(false);
     const key = removal === null ? null : removal.paths.join('\u0000');
 
     useEffect(() => {
@@ -54,6 +56,7 @@ export function RemoveWorktreeDialog() {
 
     const close = (): void => {
         setReading(null);
+        setAgentWorking(false);
         useUi.getState().setWorktreeRemoval(null);
     };
 
@@ -77,7 +80,11 @@ export function RemoveWorktreeDialog() {
         try {
             // One after the other, stopping at the first refusal so what follows it stays as it was.
             for (const worktree of shown.worktrees) {
-                const result = await performAsPerson('worktree.remove', { branch: worktree.branch, force: question.force });
+                const result = await performAsPerson('worktree.remove', {
+                    branch: worktree.branch,
+                    force: question.force,
+                    stopAgent: agentWorking
+                });
                 useToasts.getState().show({
                     title: t('removeWorktree.removed', { branch: worktree.branch }),
                     ...(removedToast(worktree.branch, result) ?? {}),
@@ -86,6 +93,10 @@ export function RemoveWorktreeDialog() {
             }
             close();
         } catch (error: unknown) {
+            if (error instanceof ActionRefusal && error.code === 'agent-working') {
+                setAgentWorking(true);
+                return;
+            }
             if (error instanceof ActionRefusal && error.code === 'worktree-has-work') {
                 setReading(null);
                 setAttempt((count) => count + 1);
@@ -111,12 +122,12 @@ export function RemoveWorktreeDialog() {
                     failure
                 ) : (
                     <>
-                        {question?.description}
+                        {agentWorking ? t('removeWorktree.agentWorking') : question?.description}
                         {question?.note !== undefined && <span className="mt-1 block">{question.note}</span>}
                     </>
                 )
             }
-            confirmLabel={question?.confirmLabel ?? t('common:action.remove')}
+            confirmLabel={agentWorking ? t('removeWorktree.stopAndRemove') : (question?.confirmLabel ?? t('common:action.remove'))}
             danger
             busy={busy || question === null}
             secondary={

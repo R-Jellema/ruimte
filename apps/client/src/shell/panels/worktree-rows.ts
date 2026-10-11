@@ -72,6 +72,31 @@ export function removeQuestion(worktree: Worktree): RemoveQuestion {
     };
 }
 
+export interface RemoveVerdict {
+    removable: boolean;
+    reason: string;
+}
+
+/*
+ * Whether a worktree can go without losing anything, and why not otherwise. An agent in a turn and a lock
+ * come first: neither shows in the counts, and both stop a plain remove.
+ */
+export function removeVerdict(worktree: Worktree, agentWorking: boolean): RemoveVerdict {
+    if (agentWorking) {
+        return { removable: false, reason: i18next.t('panels:worktree.verdict.agentWorking') };
+    }
+    if (worktree.locked === true) {
+        return { removable: false, reason: i18next.t('panels:worktree.verdict.locked') };
+    }
+    if (worktree.work !== undefined && hasWork(worktree.work)) {
+        return { removable: false, reason: i18next.t('panels:worktree.verdict.hasWork', { work: workSentence(worktree, worktree.work) }) };
+    }
+    if (worktree.missing === true) {
+        return { removable: true, reason: i18next.t('panels:worktree.verdict.missing') };
+    }
+    return { removable: true, reason: i18next.t('panels:worktree.verdict.clean') };
+}
+
 /*
  * What removing several worktrees at once asks: a plain confirm when none holds work, otherwise each
  * one with work named with its numbers, since that is what goes.

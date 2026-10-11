@@ -926,10 +926,19 @@
             "folderMissing": "folder missing",
             "locked": "Locked",
             "merge": "Merge…",
+            "inspect": "Inspect",
             "noNode": "no node",
             "remove": "Remove…",
             "title": "Worktrees",
             "view": "View"
+        },
+        "verdict": {
+            "clean": "Nothing to lose. It can be removed.",
+            "hasWork": "It holds {{work}}. Removing it loses that.",
+            "locked": "It is locked with git worktree lock. Removing it needs force.",
+            "agentWorking": "An agent is working in it. Stop the agent before you remove it.",
+            "missing": "The folder is gone. Only the record of it is left to remove.",
+            "failed": "Could not inspect the worktree"
         },
         "work": {
             "ahead_one": "{{count}} commit that {{target}} lacks",

@@ -1,18 +1,34 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { ArrowDown, ArrowUp, CircleAlert, Eye, FilePen, FilePlus, FolderX, GitBranch, GitMerge, LocateFixed, Lock, MoreHorizontal, Trash } from 'lucide-react';
+import {
+    ArrowDown,
+    ArrowUp,
+    CircleAlert,
+    Eye,
+    FilePen,
+    FilePlus,
+    FolderX,
+    GitBranch,
+    GitMerge,
+    LocateFixed,
+    Lock,
+    MoreHorizontal,
+    ScanSearch,
+    Trash
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Worktree } from '@ruimte/contracts';
 import { StatusDot } from '@/canvas/NodeFrame';
-import { nodesInWorktree, originLabel, workBadges, workBadgesLabel, type WorkBadgeKind } from '@/shell/panels/worktree-rows';
+import { nodesInWorktree, originLabel, removeVerdict, workBadges, workBadgesLabel, type RemoveVerdict, type WorkBadgeKind } from '@/shell/panels/worktree-rows';
 import { nodeWorking } from '@/state/agent-work';
 import { hasActiveCanvas, useDocument } from '@/state/document';
 import { useChats } from '@adecore/agents-react/state/chats';
 import { useEndpointId } from '@/state/keys';
 import { useSessions } from '@/state/sessions';
+import { useTransport } from '@/transport/context';
 import { worktreeLists, type WorktreeNode } from '@/state/worktrees';
-import { Icon, IconButton, ListRow, SectionLabel, Tooltip, Menu, ContextMenu } from '@adecore/ui';
+import { Button, Dialog, Icon, IconButton, ListRow, SectionLabel, Tooltip, Menu, ContextMenu } from '@adecore/ui';
 
 /* The mark per kind of work. The number beside it carries the amount; the tooltip carries the words. */
 const BADGE_MARKS: Record<WorkBadgeKind, LucideIcon> = {
@@ -46,6 +62,8 @@ interface WorktreeSectionProps {
 export function WorktreeSection({ folder, worktrees, nodes, current, busy, onView, onMerge, onRemove, onReveal }: WorktreeSectionProps) {
     const { t } = useTranslation('panels');
     const endpointId = useEndpointId();
+    const transport = useTransport();
+    const [inspected, setInspected] = useState<{ branch: string; verdict: RemoveVerdict } | null>(null);
     const sessions = useSessions((s) => s.byKey);
     const chats = useChats((s) => s.statusByKey);
     const sectionRef = useRef<HTMLElement>(null);
@@ -69,6 +87,23 @@ export function WorktreeSection({ folder, worktrees, nodes, current, busy, onVie
     if (worktrees.length === 0) {
         return null;
     }
+
+    /* Counts the work again and says whether the worktree can go, so a person knows before the question. */
+    const inspect = (worktree: Worktree, agentWorking: boolean): void => {
+        worktreeLists.refreshCounts(endpointId, folder);
+        transport
+            .request('git.worktree-list', { repo: folder, inspect: true })
+            .then((answer) => {
+                const fresh = answer.worktrees.find((entry) => entry.path === worktree.path) ?? worktree;
+                setInspected({ branch: fresh.branch, verdict: removeVerdict(fresh, agentWorking) });
+            })
+            .catch((error: unknown) => {
+                setInspected({
+                    branch: worktree.branch,
+                    verdict: { removable: false, reason: error instanceof Error ? error.message : t('worktree.verdict.failed') }
+                });
+            });
+    };
 
     return (
         <section ref={sectionRef} className="flex max-h-48 shrink-0 flex-col border-t border-border">
@@ -112,10 +147,12 @@ export function WorktreeSection({ folder, worktrees, nodes, current, busy, onVie
                                 {agentWorking && <StatusDot status="running" />}
                                 {/* Gives way three times as fast as the branch: two worktrees are told
                                     apart by their branch, and half a branch name tells them apart no more. */}
-                                <span className="min-w-0 shrink-[3] truncate text-xs text-text-faint">
-                                    {worktree.missing ? t('worktree.section.folderMissing') : names === '' ? t('worktree.section.noNode') : names}
-                                    {originLabel(worktree) !== null && `, ${originLabel(worktree)}`}
-                                </span>
+                                <Tooltip label={removeVerdict(worktree, agentWorking).reason} disabled={work === undefined && !agentWorking}>
+                                    <span className="min-w-0 shrink-[3] truncate text-xs text-text-faint">
+                                        {worktree.missing ? t('worktree.section.folderMissing') : names === '' ? t('worktree.section.noNode') : names}
+                                        {originLabel(worktree) !== null && `, ${originLabel(worktree)}`}
+                                    </span>
+                                </Tooltip>
                                 <span className="grow" />
                                 {badges.length > 0 && (
                                     <Tooltip label={badgeLabel}>
@@ -154,6 +191,7 @@ export function WorktreeSection({ folder, worktrees, nodes, current, busy, onVie
                                             onMerge={onMerge}
                                             onRemove={onRemove}
                                             onReveal={onReveal}
+                                            onInspect={() => inspect(worktree, agentWorking)}
                                         />
                                     </Menu.Popup>
                                 </Menu.Root>
@@ -166,12 +204,22 @@ export function WorktreeSection({ folder, worktrees, nodes, current, busy, onVie
                                     onMerge={onMerge}
                                     onRemove={onRemove}
                                     onReveal={onReveal}
+                                    onInspect={() => inspect(worktree, agentWorking)}
                                 />
                             </ContextMenu.Popup>
                         </ContextMenu.Root>
                     );
                 })}
             </ul>
+            <Dialog.Root open={inspected !== null} onOpenChange={(open) => !open && setInspected(null)}>
+                <Dialog.Popup size="sm">
+                    <Dialog.Title className="font-mono">{inspected?.branch}</Dialog.Title>
+                    <Dialog.Text className="mt-1">{inspected?.verdict.reason}</Dialog.Text>
+                    <Dialog.Footer>
+                        <Button onClick={() => setInspected(null)}>{t('common:action.close')}</Button>
+                    </Dialog.Footer>
+                </Dialog.Popup>
+            </Dialog.Root>
         </section>
     );
 }
@@ -180,13 +228,14 @@ interface WorktreeMenuProps extends Pick<WorktreeSectionProps, 'onView' | 'onMer
     worktree: Worktree;
     /* The node working in this worktree, which is what "show on canvas" points at. */
     reveal: string | null;
+    onInspect(): void;
 }
 
 /*
  * What a worktree row can be asked. The overflow button and the right click on the row offer the
  * same list in the same order; `ContextMenu` draws a `Menu.Item` as its own.
  */
-function WorktreeMenuItems({ worktree, reveal, onView, onMerge, onRemove, onReveal }: WorktreeMenuProps) {
+function WorktreeMenuItems({ worktree, reveal, onView, onMerge, onRemove, onReveal, onInspect }: WorktreeMenuProps) {
     const { t } = useTranslation('panels');
     const onCanvas = useDocument(hasActiveCanvas);
     const offerReveal = reveal !== null && onCanvas;
@@ -207,7 +256,10 @@ function WorktreeMenuItems({ worktree, reveal, onView, onMerge, onRemove, onReve
                     <Icon icon={LocateFixed} size={14} /> {t('file.menu.showOnCanvas')}
                 </Menu.Item>
             )}
-            {(!worktree.missing || offerReveal) && <Menu.Separator />}
+            <Menu.Item onClick={onInspect}>
+                <Icon icon={ScanSearch} size={14} /> {t('worktree.section.inspect')}
+            </Menu.Item>
+            <Menu.Separator />
             <Menu.Item className="text-status-error" onClick={() => onRemove(worktree)}>
                 <Icon icon={Trash} size={14} /> {t('worktree.section.remove')}
             </Menu.Item>

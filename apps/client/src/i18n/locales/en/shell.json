@@ -387,6 +387,8 @@
     "removeWorktree": {
         "title": "Remove this worktree?",
         "counting": "Counting what is in it…",
+        "agentWorking": "An agent is still working in this worktree. Stop it and remove the worktree?",
+        "stopAndRemove": "Stop agent and remove",
         "alreadyGone": "This worktree is already gone.",
         "unreadable": "Could not read the worktree.",
         "removed": "Removed worktree {{branch}}",

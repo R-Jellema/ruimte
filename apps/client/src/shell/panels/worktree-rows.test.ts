@@ -8,6 +8,7 @@ import {
     originLabel,
     removedToast,
     removeQuestion,
+    removeVerdict,
     workBadges,
     workBadgesLabel,
     worktreeDiffTab,
@@ -60,6 +61,23 @@ describe('removeQuestion', () => {
             description: 'It holds a merge that stopped halfway. They are lost, and so is the branch.',
             force: true
         });
+    });
+});
+
+describe('removeVerdict', () => {
+    test('names what stands in the way, an agent and a lock before the counts', () => {
+        const held = { ...lexer, work: { changed: 1, untracked: 0, ahead: 0 } };
+        expect(removeVerdict(held, true)).toEqual({ removable: false, reason: 'An agent is working in it. Stop the agent before you remove it.' });
+        expect(removeVerdict({ ...held, locked: true }, false).reason).toContain('locked');
+        expect(removeVerdict(held, false)).toEqual({ removable: false, reason: 'It holds 1 uncommitted file. Removing it loses that.' });
+    });
+
+    test('a clean worktree and one whose folder is gone can go', () => {
+        expect(removeVerdict({ ...lexer, work: { changed: 0, untracked: 0, ahead: 0 } }, false)).toEqual({
+            removable: true,
+            reason: 'Nothing to lose. It can be removed.'
+        });
+        expect(removeVerdict({ ...lexer, missing: true }, false).removable).toBe(true);
     });
 });
 
