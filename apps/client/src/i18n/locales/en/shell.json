@@ -211,6 +211,20 @@
         "bind": "Bind",
         "failed": "Could not create the worktree"
     },
+    "newWorktreeChat": {
+        "title": "New chat in worktree",
+        "description": "Makes a checkout on a new branch and starts the chat in it.",
+        "branchLabel": "Branch name",
+        "baseLabel": "Start from",
+        "baseCommit": "Base: {{commit}} {{subject}}",
+        "baseMissing": "That is not a branch, tag or commit of this repository.",
+        "baseLooking": "Looking up the base…",
+        "model": "Model",
+        "start": "Start",
+        "starting": "Starting…",
+        "failed": "Could not start the chat in a worktree",
+        "noCanvas": "Open a canvas to put the chat on."
+    },
     "cellToolbar": {
         "view": "View",
         "drag": "{{name}}, drag to move it to another cell",
@@ -520,6 +534,7 @@
             "closeCellsRight": "Close cells to the right",
             "newTerminal": "New terminal",
             "newChat": "New chat",
+            "newChatInWorktree": "New chat in worktree",
             "newBrowser": "New browser",
             "newGroup": "New group",
             "newNote": "New note",
@@ -833,6 +848,7 @@
         "launchesEdit": "Edit Launches…",
         "newWindow": "New Window",
         "newChat": "New Chat",
+        "newChatInWorktree": "New Chat in Worktree…",
         "moveToNewWindow": "Move to New Window",
         "onboarding": "Set Up Ruimte…",
         "findReplace": "Find and Replace",

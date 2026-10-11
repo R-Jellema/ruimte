@@ -226,6 +226,8 @@ interface UiStore {
     conflicts: ConflictRequest | null;
     /* The chat and the turn a fork goes on after, while its dialog is up. */
     forkDialog: { chatId: string; turnId: string } | null;
+    /* The dialog that starts a chat in a worktree made for it. */
+    newWorktreeChatOpen: boolean;
     /* What a view is being asked about, from the sidebar, the breadcrumb or the palette alike. */
     viewDialog: ViewDialog;
     /* The sidebar row the caret is in, which is how a new heading opens. */
@@ -247,6 +249,7 @@ interface UiStore {
     setWorktreeMerge(merge: WorktreeMergeRequest | null): void;
     setConflicts(request: ConflictRequest | null): void;
     setForkDialog(fork: { chatId: string; turnId: string } | null): void;
+    setNewWorktreeChatOpen(open: boolean): void;
     setViewDialog(dialog: ViewDialog): void;
     setRenamingViewId(viewId: string | null): void;
     setSidebarOpen(open: boolean): void;
@@ -307,6 +310,7 @@ export const useUi = create<UiStore>((set, get) => ({
     worktreeMerge: null,
     conflicts: null,
     forkDialog: null,
+    newWorktreeChatOpen: false,
     viewDialog: null,
     renamingViewId: null,
     projectSettingsAsked: false,
@@ -351,6 +355,9 @@ export const useUi = create<UiStore>((set, get) => ({
     },
     setForkDialog(fork) {
         set({ forkDialog: fork });
+    },
+    setNewWorktreeChatOpen(open) {
+        set({ newWorktreeChatOpen: open });
     },
     setViewDialog(dialog) {
         set({ viewDialog: dialog });

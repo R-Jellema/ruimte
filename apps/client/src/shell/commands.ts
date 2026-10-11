@@ -262,6 +262,16 @@ export function appCommands(): Command[] {
         ...(offersNewChat(newChatMachine(), useNewChat.getState().refused)
             ? [{ id: 'chat-new', label: i18next.t('shell:chats.newChat'), hint: i18next.t('shell:chats.name'), shortcut: APP_SHORTCUTS.newChat, run: newChat }]
             : []),
+        ...(folder && !scratch && onCanvas
+            ? [
+                  {
+                      id: 'chat-new-worktree',
+                      label: i18next.t('shell:palette.commands.newChatInWorktree'),
+                      hint: i18next.t('shell:chats.name'),
+                      run: () => useUi.getState().setNewWorktreeChatOpen(true)
+                  }
+              ]
+            : []),
         ...(folder
             ? [
                   {

@@ -211,6 +211,20 @@
         "bind": "Koppelen",
         "failed": "Kon de worktree niet maken"
     },
+    "newWorktreeChat": {
+        "title": "Nieuwe chat in worktree",
+        "description": "Maakt een checkout op een nieuwe branch en start de chat daarin.",
+        "branchLabel": "Branchnaam",
+        "baseLabel": "Beginnen bij",
+        "baseCommit": "Basis: {{commit}} {{subject}}",
+        "baseMissing": "Dit is geen branch, tag of commit van deze repository.",
+        "baseLooking": "De basis opzoeken…",
+        "model": "Model",
+        "start": "Starten",
+        "starting": "Bezig met starten…",
+        "failed": "De chat in een worktree kon niet starten",
+        "noCanvas": "Open een canvas om de chat op te zetten."
+    },
     "cellToolbar": {
         "view": "Weergave",
         "drag": "{{name}}, sleep om hem naar een andere cel te verplaatsen",
@@ -520,6 +534,7 @@
             "closeCellsRight": "Cellen rechts ervan sluiten",
             "newTerminal": "Nieuwe terminal",
             "newChat": "Nieuwe chat",
+            "newChatInWorktree": "Nieuwe chat in worktree",
             "newBrowser": "Nieuwe browser",
             "newGroup": "Nieuwe groep",
             "newNote": "Nieuwe notitie",
@@ -833,6 +848,7 @@
         "launchesEdit": "Launches bewerken…",
         "newWindow": "Nieuw venster",
         "newChat": "Nieuwe chat",
+        "newChatInWorktree": "Nieuwe chat in worktree…",
         "moveToNewWindow": "Naar nieuw venster verplaatsen",
         "onboarding": "Ruimte instellen…",
         "findReplace": "Zoeken en vervangen",

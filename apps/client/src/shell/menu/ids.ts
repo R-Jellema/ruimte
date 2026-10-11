@@ -46,6 +46,7 @@ export const PALETTE_IDS = [
     ...EDITOR_COMMAND_IDS,
     'open-folder',
     'chat-new',
+    'chat-new-worktree',
     'file-new',
     'folder-new',
     'reveal',

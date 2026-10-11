@@ -5,16 +5,7 @@ import { focusedCanvas, useCanvas } from '@/state/canvas';
 import { useProject } from '@/state/project';
 import { useUi } from '@/state/ui';
 import { PromptDialog } from '@adecore/ui';
-
-// A group's title, as a branch name git accepts.
-function branchFromTitle(title: string): string {
-    return (
-        title
-            .toLowerCase()
-            .replace(/[^a-z0-9._/-]+/g, '-')
-            .replace(/^-+|-+$/g, '') || 'work'
-    );
-}
+import { branchFromTitle } from '@/shell/new-worktree-chat';
 
 /* Binds a group to a git worktree of the project's repository; every node made inside it starts there. */
 export function WorktreeDialog() {

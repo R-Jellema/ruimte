@@ -164,6 +164,7 @@ const ICONS: Partial<Record<string, LucideIcon>> = {
     'project-settings': FolderCog,
     'open-folder': FolderOpen,
     'chat-new': MessageSquarePlus,
+    'chat-new-worktree': GitBranch,
     'window-new': AppWindow,
     'window-move': SquareArrowOutUpRight,
     reveal: CornerUpRight,

@@ -67,6 +67,13 @@ const ImageSaveHost = lazyDialog(
     (s) => s.session !== null
 );
 
+const NewWorktreeChatDialog = lazyDialog(
+    () => import('@/shell/NewWorktreeChatDialog'),
+    'NewWorktreeChatDialog',
+    useUi,
+    (s) => s.newWorktreeChatOpen
+);
+
 const ConflictOverlay = lazyDialog(
     () => import('@/conflicts/ConflictOverlay'),
     'ConflictOverlay',
@@ -191,6 +198,9 @@ export function WorkspaceShell({ workspace }: { workspace: Workspace }) {
                 <DatabaseConnectionsDialog />
             </ErrorBoundary>
             <ForkDialog />
+            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                <NewWorktreeChatDialog />
+            </ErrorBoundary>
             <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
                 <ImageSaveHost />
             </ErrorBoundary>
