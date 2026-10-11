@@ -17,3 +17,9 @@ export function settingsEntries(results: readonly SearchResult[]): Command[] {
         run: () => useUi.getState().setSettings({ open: true, section: result.section, target: result.id })
     }));
 }
+
+/* Whether the query is the start of some setting's label, which is when settings outrank the loose matches of files. */
+export function namesSetting(query: string, settings: readonly Command[]): boolean {
+    const wanted = query.trim().toLowerCase();
+    return wanted !== '' && settings.some((setting) => setting.label.toLowerCase().startsWith(wanted));
+}

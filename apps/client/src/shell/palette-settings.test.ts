@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { searchSettings } from '@/shell/settings/search';
 import { useUi } from '@/state/ui';
-import { SETTINGS_RESULTS, settingsEntries } from './palette-settings';
+import { namesSetting, SETTINGS_RESULTS, settingsEntries } from './palette-settings';
 
 describe('settings in the palette', () => {
     test('a row opens the dialog on its pane with the row as target', () => {
@@ -20,5 +20,12 @@ describe('settings in the palette', () => {
 
     test('the list is capped', () => {
         expect(settingsEntries(searchSettings('a')).length).toBeLessThanOrEqual(SETTINGS_RESULTS);
+    });
+
+    test("a query that starts a setting's label puts settings above the loose matches", () => {
+        expect(namesSetting('accent', settingsEntries(searchSettings('accent')))).toBe(true);
+        expect(namesSetting('  ACC', settingsEntries(searchSettings('accent')))).toBe(true);
+        expect(namesSetting('zzzz', settingsEntries(searchSettings('accent')))).toBe(false);
+        expect(namesSetting('', settingsEntries(searchSettings('accent')))).toBe(false);
     });
 });
