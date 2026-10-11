@@ -11786,6 +11786,12 @@
                 "checkpoint": {
                   "type": "string"
                 },
+                "checkpointHead": {
+                  "type": "string"
+                },
+                "checkpointHeadAfter": {
+                  "type": "string"
+                },
                 "checkpointDiff": {
                   "type": "object",
                   "properties": {
@@ -14014,6 +14020,12 @@
                 "checkpoint": {
                   "type": "string"
                 },
+                "checkpointHead": {
+                  "type": "string"
+                },
+                "checkpointHeadAfter": {
+                  "type": "string"
+                },
                 "checkpointDiff": {
                   "type": "object",
                   "properties": {
@@ -15539,6 +15551,12 @@
                 "checkpoint": {
                   "type": "string"
                 },
+                "checkpointHead": {
+                  "type": "string"
+                },
+                "checkpointHeadAfter": {
+                  "type": "string"
+                },
                 "checkpointDiff": {
                   "type": "object",
                   "properties": {
@@ -17056,6 +17074,12 @@
                           "minimum": 0
                         },
                         "checkpoint": {
+                          "type": "string"
+                        },
+                        "checkpointHead": {
+                          "type": "string"
+                        },
+                        "checkpointHeadAfter": {
                           "type": "string"
                         },
                         "checkpointDiff": {
@@ -20133,6 +20157,12 @@
                             "minimum": 0
                           },
                           "checkpoint": {
+                            "type": "string"
+                          },
+                          "checkpointHead": {
+                            "type": "string"
+                          },
+                          "checkpointHeadAfter": {
                             "type": "string"
                           },
                           "checkpointDiff": {
@@ -25076,6 +25106,12 @@
                   "minimum": 0
                 },
                 "checkpoint": {
+                  "type": "string"
+                },
+                "checkpointHead": {
+                  "type": "string"
+                },
+                "checkpointHeadAfter": {
                   "type": "string"
                 },
                 "checkpointDiff": {
@@ -53924,6 +53960,12 @@
                       "checkpoint": {
                         "type": "string"
                       },
+                      "checkpointHead": {
+                        "type": "string"
+                      },
+                      "checkpointHeadAfter": {
+                        "type": "string"
+                      },
                       "checkpointDiff": {
                         "type": "object",
                         "properties": {
@@ -56999,6 +57041,12 @@
                           "minimum": 0
                         },
                         "checkpoint": {
+                          "type": "string"
+                        },
+                        "checkpointHead": {
+                          "type": "string"
+                        },
+                        "checkpointHeadAfter": {
                           "type": "string"
                         },
                         "checkpointDiff": {
