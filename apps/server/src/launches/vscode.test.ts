@@ -41,6 +41,20 @@ describe('node launch configurations', () => {
         expect(built.launch.command).toBe(`node ${homedir()}/tool.js`);
     });
 
+    test('an executable inside the working folder keeps a path form instead of a PATH lookup', () => {
+        expect(one({ program: 'a.js', runtimeExecutable: '${workspaceFolder}/tool' }).launch.command).toBe('./tool a.js');
+        expect(one({ program: 'a.js', runtimeExecutable: '${workspaceFolder}/bin/tool' }).launch.command).toBe('bin/tool a.js');
+        expect(one({ program: 'a.js', runtimeExecutable: 'npm' }).launch.command).toBe('npm a.js');
+    });
+
+    test('a machine path inside a token or an env value makes the launch private', () => {
+        expect(one({ program: 'a.js' }).outside).toBe(false);
+        expect(one({ program: 'a.js', args: ['--root=${workspaceFolder}/x'] }).outside).toBe(true);
+        expect(one({ program: 'a.js', env: { DIR: '${workspaceFolder}/x' } }).outside).toBe(true);
+        expect(one({ program: 'a.js', env: { HOME_DIR: '${userHome}' } }).outside).toBe(true);
+        expect(one({ program: 'a.js', args: ['${pathSeparator}'] }).outside).toBe(false);
+    });
+
     test.each([
         ['attach', { request: 'attach' }, 'attach'],
         ['preLaunchTask', { program: 'a.js', preLaunchTask: 'build' }, 'preLaunchTask'],
