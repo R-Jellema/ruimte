@@ -49,7 +49,6 @@ describe('parseServerArgs', () => {
         const config = parseServerArgs(['status', '--label', 'box'], {});
         expect(config.command).toBe('status');
         expect(config.label).toBe('box');
-        expect(parseServerArgs(['pair'], {}).command).toBe('pair');
         expect(parseServerArgs([], { RUIMTE_LABEL: 'named' }).label).toBe('named');
         expect(() => parseServerArgs(['dance'], {})).toThrow('Unknown command');
         expect(parseServerArgs(['context', 'read', 'abc'], {})).toMatchObject({ command: 'context', args: ['read', 'abc'] });

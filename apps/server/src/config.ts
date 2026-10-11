@@ -34,8 +34,8 @@ export interface ServerConfig {
     underService: boolean;
     // `login` puts it on an account with a code; `status` says how the running daemon is reached; `context` is the agent-side CLI (`ruimte-context`);
     // `service` installs, removes or reports the background service; `closed-lid` installs or removes the sudoers rule behind keep awake
-    // with the lid closed; `version` prints the version; `pair` only says that pairing links are gone.
-    command: 'serve' | 'pair' | 'login' | 'logout' | 'status' | 'context' | 'service' | 'closed-lid' | 'version';
+    // with the lid closed; `version` prints the version.
+    command: 'serve' | 'login' | 'logout' | 'status' | 'context' | 'service' | 'closed-lid' | 'version';
     // What follows the command: the words of `context`, and the action of `service` followed by the daemon flags its service runs with.
     args: string[];
 }
@@ -110,7 +110,7 @@ export function parseServerArgs(argv: string[], env: Record<string, string | und
             host: { type: 'string', default: DEFAULT_HOST },
             port: { type: 'string', default: String(DEFAULT_PORT) },
             'no-hooks': { type: 'boolean', default: false },
-            // todo(bas): drop one release after the shell served its own page; a service definition from before still passes it.
+            // A desktop service definition from before 0.14.0 still passes it, and strict parsing would keep that service from starting.
             serve: { type: 'string' },
             label: { type: 'string' },
             'no-price-fetch': { type: 'boolean', default: false },
@@ -132,7 +132,6 @@ export function parseServerArgs(argv: string[], env: Record<string, string | und
     const command = values.version ? 'version' : (positionals[0] ?? 'serve');
     if (
         command !== 'serve' &&
-        command !== 'pair' &&
         command !== 'login' &&
         command !== 'logout' &&
         command !== 'status' &&

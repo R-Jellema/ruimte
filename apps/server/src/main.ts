@@ -45,12 +45,6 @@ if (config.command === 'service') {
     process.exit(await runService(config.args, { port: config.port, ruimteHome: config.home, compiled: COMPILED }));
 }
 
-// todo(bas): drop the command one release after pairing links went.
-if (config.command === 'pair') {
-    console.error('Pairing links are gone. Run `ruimte login` to put this machine on your account.');
-    process.exit(1);
-}
-
 if (config.command === 'status') {
     const { runStatus } = await import('./cli/status.ts');
     process.exit(await runStatus({ port: config.port, home: config.home }));
