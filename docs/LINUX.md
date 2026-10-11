@@ -1,18 +1,14 @@
 # Linux
 
-Linux packaging exists; CI coverage and packaged-app acceptance are still open. Reviewed on
-October 7, 2026. The daemon has a Debian setup in `apps/server/docker`, spawns PTYs through
+Linux packaging exists; CI coverage and packaged-app acceptance are still open. The daemon has a Debian setup in `apps/server/docker`, spawns PTYs through
 `Bun.spawn({ terminal })`, reads DMI and the device tree for the machine model, reveals through
 `xdg-open` and falls back to per-directory watching. Newer native dependencies, such as the
 ADE CORE database helper and the separately installed PHP language server, need Linux build and
 runtime checks of their own; the older shell smoke test below does not cover them.
 
-An rpm and an AppImage were built and run on Fedora 44 (x64, Wayland) on 11 September 2026. The
-packaged app brought its daemon up, loaded the window and shut down cleanly on SIGTERM. The rpm
-installs `/opt/Ruimte` with the icon set from 16 to 512, and its updater goes through
-`RpmUpdater`, so electron-builder's `resources/package-type` does its work. The AppImage needs
-FUSE 2, which Fedora 44 does not ship; `--appimage-extract-and-run` starts it. That is an
-AppImage property and one more reason the rpm matters.
+On Fedora 44 (x64, Wayland) the packaged rpm brought its daemon up, loaded the window, shut down
+cleanly on SIGTERM and updates through `RpmUpdater`. The AppImage needs FUSE 2, which Fedora 44 does
+not ship; `--appimage-extract-and-run` starts it.
 
 ## The packaging config
 
@@ -73,9 +69,9 @@ The `linux` job in `.github/workflows/release.yml` builds x64 on `ubuntu-22.04` 
 
 Unverified:
 
-- the deb. It was never built, and the `deb.depends` list in `apps/desktop/electron-builder.yml`
-  names `libgtk-3-0` and `libxss1`, both renamed or dropped in the t64 transition, so install it on
-  trixie and noble;
+- the deb. Every release builds and uploads it for amd64 and arm64, but nobody has installed one.
+  The `deb.depends` list in `apps/desktop/electron-builder.yml` still names `libgtk-3-0` and
+  `libxss1`, which the t64 transition renamed or dropped, so install it on trixie and noble;
 - arm64;
 - the AppImage on Ubuntu 24.04, whose AppArmor policy takes away the unprivileged user namespaces
   Fedora allows;

@@ -6,12 +6,6 @@ While the preview is open, it follows the existing terminal sessions in the curr
 
 After a confirmed insertion, Ruimte opens the destination view or canvas, selects its terminal node and focuses the editor once the dialog closes. A cancelled, refused, unconfirmed or stale destination gets no focus. Ruimte checks the session identity, machine and project again before it navigates.
 
-## ADE CORE dependency
-
-`prepare-code-block.ts` imports `ShellCodeBlockContext` from `@adecore/agents-react/host`. `workspace-host.ts` connects the callback, which was published in [ADE CORE 0.20.1](https://github.com/basmilius/adecore/releases/tag/v0.20.1). Ruimte pins that version in its manifests and lockfile.
-
-The generated Swift artifacts include the combined Ruimte contracts and the current ADE CORE vocabulary. `TERMINAL-PREPARE-CHECKS.txt` separates the final npm consumer checks from historical isolated and linked-source validation.
-
 ## Editor protocol
 
 PTY output is never evidence of editor state. OSC 133, OSC 7, bracketed-paste markers and prompt text cannot authorize preparation or establish the cwd used by its preview and confirmation.
@@ -43,7 +37,34 @@ Live editor consumers can call `await session.shellPrompt.workingDirectory()` on
 
 There is no fallback to the launch directory or to OSC. The cwd is what the shell said at reply time, not a promise about what it runs next. A consumer must ask for it at the moment it uses it and handle unknown explicitly. `snapshot()` is an internal preview observation only: it is no reliable cwd for file links and authorizes no insertion. A prepare always checks the cwd again inside ZLE.
 
-Historical file links use the cwd attached to their output, not this live observation. The shared tracker and snapshot metadata are described in [ADECORE-DEVELOPMENT.md](ADECORE-DEVELOPMENT.md#file-location-links-and-shell-cwd).
+Historical file links use the cwd attached to their output, not this live observation. [File location links and shell cwd](#file-location-links-and-shell-cwd) describes the shared tracker and the snapshot metadata.
+
+## Daemon API
+
+`Session.write()` calls `ShellPrompt.input()` before it touches the PTY. `ShellEditorConnection.prepare(cwd, command, signal)` and `ShellPrompt.prepare()` resolve to a `ShellPrepareOutcome`: `'inserted'`, `'refused'` or `'unconfirmed'`. `ShellPrompt.prepare()` owns the pending AbortController. The hello frame carries protocol version `2` as its fourth field. The environment hands the shell `RUIMTE_EDITOR_PERMITS`, and the bootstrap removes it from the exported variables. The two error codes travel in the existing error envelope, so no request or result schema names them.
+
+The output-cwd hooks share the isolated bootstrap and keep their incoming status. A cwd notification never acknowledges input readiness or bypasses the editor's permit claim.
+
+## File location links and shell cwd
+
+Ruimte's `FileLocation` contract carries a path, an optional one-based line and column, and an optional inclusive end line. A range needs a start line and cannot run backward. The `file.preview` action also accepts the owning `endpointId`, which it checks before opening a tab. It still accepts the legacy nullable line.
+
+The chat adapter uses ADE CORE's complete `FileRef` and the rendering `ChatScope.id` it passes to `fileLinks.target` and `open`. Markdown links and timeline menus keep the source cwd and scope, mentions and subagent threads included. A missing scope is refused: neither rendering nor activation guesses the active machine or project.
+
+Terminal file links resolve a relative path only with cwd metadata attached to their output. The daemon and the browser share `trackTerminalCwd` from the contracts package; the client imports it through `output-cwd.ts`. It reads OSC 7 file URIs and keeps at most 128 context transitions on xterm markers. Scrollback and reflow keep those transitions. Evicted context, malformed metadata, alternate output and ambiguous rewrites stay unknown. A cwd change within a wrapped logical line invalidates that line. Without a known cwd a relative path is not a link; an absolute path still is. This metadata does not authorize terminal input or bypass the file preview sandbox.
+
+The integrated zsh emits its cwd on `preexec`, `precmd` and `chpwd`. It writes the markers synchronously to `/dev/tty`, so they stay in order even when a command redirects stdout and stderr. Without a reachable controlling terminal it emits no metadata and leaves redirected streams and the shell status alone. Subshell hooks emit unknown context and ignore TTOU only for that metadata write, so fully redirected background jobs can finish under `tostop`. The caller's signal handling, shell options and tty flags stay as they were, and ordinary background tty output still stops. After a cwd change in a subshell, relative links stay unavailable until a trusted foreground hook runs. Concurrent process output carries no per-process cwd.
+
+An OSC 777 footer keeps bounded context metadata inside the existing snapshot string and its byte budget. A restored screen replays on its saved grid before reflow. Old snapshots and shells without the integration have no historical cwd to fall back on. The producer cannot see cwd changes inside external processes, or in shell code that suppresses, replaces or bypasses its hooks, such as `cd -q` and output from an earlier custom `chpwd` hook.
+
+Run the cwd performance gate on its own, apart from the browser tests and typechecks:
+
+```sh
+bun --conditions=source apps/server/scripts/benchmark-output-cwd.ts \
+    --warmup=1 --repetitions=3 --metadata=none,fixed,changing --enforce
+```
+
+Each case writes 50,000 rows after filling scrollback, in one burst or in 128-row chunks, and compares paired medians with absent, fixed and changing cwd metadata. The budget is twice the plain parser time plus 150 ms; the fixed allowance keeps timer noise from blowing up small baselines. The script also checks the retained output and that the cwd context is usable. The default unit suite does not run it.
 
 ## Limits and verification
 
@@ -51,12 +72,4 @@ Only zsh terminals started with the integration are eligible destinations, so an
 
 Real-shell validation covers zsh on macOS. Nobody has tried Linux or a connection between two physical machines yet. A profile that removes or replaces the ZLE hooks can turn the integration off. A used terminal becomes eligible again once its editor is really empty; a redraw alone grants nothing.
 
-The browser test renders ADE CORE's real `AssistantRow`/Markdown through Ruimte's real workspace host, person action registry, request schemas and dispatcher into a real zsh editor. It checks completed/streaming/incomplete blocks, simulated remote ownership despite a local active endpoint, the complete preview, late busy/input changes, and no execution after preparation. Separate real-shell regressions cover forged OSC plus startup read, prefilled line-init buffers, late cwd changes, invisible-to-daemon buffer/cwd races, blocked-widget expiry, editor cycling, secondary editors, and concurrent confirmations. Further regressions cover option preservation in both startup files, delayed-frame races for partial decoding and typing/clearing, cancellation cleanup, and lost-acknowledgement dialog tests in English and Dutch. `TERMINAL-PREPARE-CHECKS.txt` records isolated and combined integration checks separately.
-
-## Cwd integration
-
-`workingDirectory()` and its known/unknown observation contract are unchanged. OSC stays navigation metadata with no say over insertion. `Session.write()` still calls `ShellPrompt.input()` before touching the PTY.
-
-`ShellEditorConnection.prepare(cwd, command, signal)` now returns `Promise<ShellPrepareOutcome>`; `ShellPrepareOutcome` is `'inserted' | 'refused' | 'unconfirmed'`. `ShellPrompt.prepare()` returns that same outcome and owns the pending AbortController. The Unix request frame is unchanged, but the hello frame has a required fourth field `2`, and the environment supplies `RUIMTE_EDITOR_PERMITS`, which the bootstrap removes from the exported shell variables. The existing error envelope carries the two new error codes, so no public request or result schema and no generated wire code changed.
-
-The output-cwd hooks share the isolated bootstrap and preserve their incoming status while isolating shell options. Cwd notifications never acknowledge input readiness or bypass the editor's permit claim. Combined real-shell/browser tests cover historical file navigation and clear/resync with strict options in both startup files, alongside the editor race and acknowledgement regressions.
+A browser test drives a fenced block from ADE CORE's real chat rendering through Ruimte's host and dispatcher into a real zsh editor. Real-shell regressions cover each race above, in `apps/server/src/sessions`.

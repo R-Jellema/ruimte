@@ -157,9 +157,8 @@ and every build succeed. It publishes as Latest, or as a prerelease for a tag wi
 it does not download the build to try the daemon in it first. If a release does turn out broken
 on start, look there: start `Contents/Resources/bin/ruimte` from the arm64 zip with a temporary
 `RUIMTE_HOME` and another port, wait for `/health`, then open a socket with
-`?protocol=N&token=<local.key>` and check that `endpoint.info` carries `protocol`. v0.0.12 shipped a
-daemon that crashed on start (tsyringe loaded before reflect-metadata in the bundle), and v0.0.12
-and v0.0.13 left `protocol` out of `endpoint.info`, so every client refused every machine as older.
+`?protocol=N&token=<local.key>` and check that `endpoint.info` carries `protocol`. A client refuses
+a machine whose `endpoint.info` lacks it.
 
 ## The secrets in CI
 
@@ -182,15 +181,14 @@ Export the certificate and its private key from Keychain Access, then encode it 
 `base64 -i cert.p12 | pbcopy`. The workflow writes the `.p8` to a file under `RUNNER_TEMP`
 for the length of the job, because notarytool reads the key from disk, and removes it afterwards.
 
-Two things about that `.p12` cost an afternoon once.
+Two things can go wrong with that `.p12`.
 
 Apple's `security import` reads only the old PKCS12 ciphers. A file written by OpenSSL 3 with its
 defaults comes back as `MAC verification failed during PKCS12 import (wrong password?)`, which is
 about the algorithm, not the password. Rebuild one with `-legacy -macalg sha1` and
 `-certpbe pbeWithSHA1And3-KeyTripleDES-CBC -keypbe pbeWithSHA1And3-KeyTripleDES-CBC`.
 
-And electron-builder before 26.16.1 created its keychain with a random password and then unlocked it
-with the `.p12` password, so `security set-key-partition-list` answered `SecKeychainUnlock: The user
-name or passphrase you entered is not correct`. The workflow built the keychain itself until 26.16.1
-fixed that (electron-builder#10172); it now hands electron-builder `CSC_LINK` and
-`CSC_KEY_PASSWORD`. That error on a release means an older electron-builder came back.
+Electron-builder before 26.16.1 unlocked its own keychain with the wrong password
+(electron-builder#10172), and the manifest pins `^26.16.1`. A release that fails with
+`SecKeychainUnlock: The user name or passphrase you entered is not correct` has an older
+electron-builder again.
