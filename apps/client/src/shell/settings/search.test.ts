@@ -1,4 +1,5 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import i18next from 'i18next';
 import { SETTINGS_INDEX, searchSettings, shortcutSearchRows } from './search';
 import { shortcutGroups } from './shortcuts';
@@ -63,5 +64,31 @@ describe('searching the settings', () => {
 
     test('a row the pane does not draw is not found', () => {
         expect(searchSettings('direct').map((result) => result.id)).not.toContain('machines.machine.direct');
+    });
+});
+
+describe('searching in Dutch', () => {
+    afterEach(async () => {
+        await i18next.changeLanguage('en');
+    });
+
+    async function useDutch(): Promise<void> {
+        const words = JSON.parse(readFileSync(new URL('../../i18n/locales/nl/settings.json', import.meta.url), 'utf8'));
+        i18next.addResourceBundle('nl', 'settings', words, true, true);
+        await i18next.changeLanguage('nl');
+    }
+
+    test('finds a row by its Dutch and by its English words', async () => {
+        await useDutch();
+        expect(searchSettings('accentkleur').map((result) => result.id)).toContain('appearance.accent');
+        expect(searchSettings('accent').map((result) => result.id)).toContain('appearance.accent');
+        expect(searchSettings('theme').map((result) => result.id)).toContain('appearance.theme');
+    });
+
+    test('shows the label in the interface language', async () => {
+        await useDutch();
+        const row = searchSettings('theme').find((result) => result.id === 'appearance.theme');
+        expect(row?.label).toBe(i18next.t('settings:appearance.theme.label'));
+        expect(row?.label).not.toBe(i18next.getFixedT('en')('settings:appearance.theme.label'));
     });
 });

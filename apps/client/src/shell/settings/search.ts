@@ -417,6 +417,8 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
 
 export interface SearchResult {
     section: SettingsSectionId;
+    /* English words that also find this result without being shown; set only outside English. */
+    english?: string;
     /* The row to reveal, or null for a result that is the pane itself. */
     id: string | null;
     label: string;
@@ -431,12 +433,21 @@ function fold(text: string): string {
         .toLowerCase();
 }
 
+function withoutBraces(text: string): string {
+    return text.replace(/\{\{\w+\}\}/g, '').trim();
+}
+
 // An interpolation the index cannot fill in reads as nothing rather than as its braces.
 function words(key: string): string {
-    return i18next
-        .t(key)
-        .replace(/\{\{\w+\}\}/g, '')
-        .trim();
+    return withoutBraces(i18next.t(key));
+}
+
+/* The English words of a key, or nothing where the interface already speaks English or the key has no English. */
+function englishWords(key: string | undefined): string {
+    if (key === undefined || i18next.language.startsWith('en') || !i18next.exists(key, { lng: 'en' })) {
+        return '';
+    }
+    return withoutBraces(i18next.getFixedT('en')(key));
 }
 
 function matches(terms: readonly string[], ...texts: string[]): boolean {
@@ -472,17 +483,19 @@ export function searchSettings(query: string, built: readonly SearchResult[] = [
         section: meta.id,
         id: null,
         label: sectionLabel(meta.id),
-        description: sectionDescription(meta.id)
-    })).filter((result) => matches(terms, result.label, result.description));
+        description: sectionDescription(meta.id),
+        english: `${englishWords(`settings:sections.${meta.id}.label`)} ${englishWords(`settings:sections.${meta.id}.description`)}`
+    })).filter((result) => matches(terms, result.label, result.description, result.english));
     const order = ALL_SETTINGS_SECTIONS.map((meta) => meta.id);
     const indexed = SETTINGS_INDEX.filter((entry) => entry.available?.() ?? true).map((entry) => ({
         section: entry.section,
         id: entry.id,
         label: words(entry.label),
-        description: entry.description ? words(entry.description) : ''
+        description: entry.description ? words(entry.description) : '',
+        english: `${englishWords(entry.label)} ${englishWords(entry.description)}`
     }));
     const rows = [...indexed, ...built]
-        .filter((result) => matches(terms, result.label, result.description))
+        .filter((result) => matches(terms, result.label, result.description, result.english ?? ''))
         .sort((a, b) => order.indexOf(a.section) - order.indexOf(b.section));
     return [...panes, ...rows];
 }
