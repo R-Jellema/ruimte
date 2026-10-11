@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import i18next from 'i18next';
 import { codeHighlighter } from '@/code-highlighter';
+import DiffSyntaxWorker from '@/chat/diff-syntax.worker?worker';
 import { configureChatStorage } from '@adecore/agents-react/storage';
 import { setChatHost, type ChatActions } from '@adecore/agents-react/host';
 import { setLazyPrefetch } from '@adecore/agents-react/lazy';
@@ -179,7 +180,12 @@ export function connectChatHost(): void {
             useMode: () => useTheme((s) => s.resolved),
             useThemes: () => ({ light: useSettings((s) => s.codeThemeLight), dark: useSettings((s) => s.codeThemeDark) }),
             custom: CODE_THEMES,
-            highlighter: codeHighlighter
+            highlighter: codeHighlighter,
+            syntaxWorker: () => new DiffSyntaxWorker(),
+            editor: async () => {
+                const { loadEditorEngine } = await import('@/shell/panels/editor-engine');
+                return loadEditorEngine();
+            }
         },
         useStreaming: () => useSettings((s) => s.chatStreaming),
         useSendDelivery: () => useSettings((s) => (s.chatSteerByDefault ? 'steer' : 'queue')),

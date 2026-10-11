@@ -164,6 +164,10 @@ export default defineConfig(({ mode }) => ({
             '@lezer/markdown'
         ]
     },
+    worker: {
+        // Keep Shiki grammars lazy instead of putting the full catalog into every syntax worker.
+        format: 'es'
+    },
     optimizeDeps: {
         // Source exports in the shared React packages are TSX and can import CommonJS dependencies.
         extensions: ['.tsx'],
