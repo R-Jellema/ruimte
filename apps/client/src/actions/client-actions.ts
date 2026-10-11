@@ -884,9 +884,9 @@ export function createClientActionRegistry(document: StoreApi<DocumentState>, ma
             const result = canvas.arrangeGroup(groupId);
             if ('refused' in result) {
                 const reasons = {
-                    collapsed: 'Expand the group before arranging its members.',
-                    empty: 'The group has no nodes of its own to arrange.',
-                    locked: 'Moving is locked on this canvas.',
+                    collapsed: i18next.t('canvas:group.arrangeCollapsed'),
+                    empty: i18next.t('canvas:group.arrangeEmpty'),
+                    locked: i18next.t('canvas:group.arrangeLocked'),
                     membership: i18next.t('canvas:group.arrangeRefused')
                 };
                 throw new ActionRefusal('arrange-refused', reasons[result.refused]);

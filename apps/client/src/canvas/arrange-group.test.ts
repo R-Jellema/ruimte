@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { GROUP_HEADER, GROUP_PADDING } from '@ruimte/contracts';
 import type { CanvasNode } from '@/state/canvas';
 import { createCanvasStore } from '@/state/canvas';
-import { arrangeGroupMembers } from './arrange-group';
+import { arrangeGroupMembers, groupArrangeable } from './arrange-group';
 
 function node(id: string, x: number, y: number, patch: Partial<CanvasNode> = {}): CanvasNode {
     return { id, kind: 'terminal', title: id, x, y, w: 200, h: 100, ...patch };
@@ -77,6 +77,15 @@ describe('arranging the members of a group', () => {
         const hiding = group('c', 300, -100, 300, 40, { collapsed: true, memberIds: ['m'], expandedHeight: 400 });
         const nodes = byId(group('g', 0, 0, 500, 400), hiding, node('m', 3000, 3000), node('a', 20, 60), node('b', 20, 170), node('d', 20, 280));
         expect(arrangeGroupMembers('g', nodes, {})).toEqual({ refused: 'membership' });
+    });
+
+    test('the command is offered for an open group on an unlocked canvas only', () => {
+        const unlocked = { move: false };
+        expect(groupArrangeable(group('g', 0, 0, 100, 100), unlocked)).toBe(true);
+        expect(groupArrangeable(group('g', 0, 0, 100, 100, { collapsed: true }), unlocked)).toBe(false);
+        expect(groupArrangeable(group('g', 0, 0, 100, 100), { move: true })).toBe(false);
+        expect(groupArrangeable(node('a', 0, 0), unlocked)).toBe(false);
+        expect(groupArrangeable(undefined, unlocked)).toBe(false);
     });
 
     test('the store arranges in one undo step and leaves the edges alone', () => {

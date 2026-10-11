@@ -65,6 +65,9 @@
     "group": {
         "arrange": "Arrange members",
         "arrangeRefused": "Arranging would move a node into or out of a group.",
+        "arrangeCollapsed": "Expand the group before arranging its members.",
+        "arrangeEmpty": "The group has no nodes of its own to arrange.",
+        "arrangeLocked": "Moving is locked on this canvas.",
         "expand": "Expand",
         "collapse": "Collapse",
         "inside_one": "{{count}} inside",

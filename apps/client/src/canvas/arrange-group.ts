@@ -2,6 +2,11 @@ import { arrangeRects, CANVAS_GRID, GROUP_HEADER, GROUP_PADDING, groupMemberIds,
 import type { Point, Rect } from '@/canvas/math';
 import type { CanvasNode, TextElement } from '@/state/canvas';
 
+/* Whether the arrange command is offered for this selection; the menu and the palette share it. */
+export function groupArrangeable(selected: CanvasNode | undefined, locks: { move: boolean }): boolean {
+    return selected?.kind === 'group' && selected.collapsed !== true && !locks.move;
+}
+
 export type ArrangeRefusal = 'collapsed' | 'empty' | 'locked' | 'membership';
 
 export type ArrangeResult = { moves: Record<string, Point>; frame: Rect } | { refused: ArrangeRefusal };

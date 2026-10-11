@@ -19,6 +19,7 @@ import {
     showViewOnCanvasAction,
     toggleFlagAction
 } from '@/actions/client-actions';
+import { groupArrangeable } from '@/canvas/arrange-group';
 import { toWorld } from '@/canvas/math';
 import { openNewConsole } from '@/database/console-file';
 import { useDatabasePanel } from '@/database/state';
@@ -510,7 +511,7 @@ export function appCommands(): Command[] {
                                 shortcut: CANVAS_SHORTCUTS.group,
                                 run: () => groupSelectionAction()
                             },
-                            ...(canvas.selection.length === 1 && canvas.nodes[canvas.selection[0]!]?.kind === 'group'
+                            ...(canvas.selection.length === 1 && groupArrangeable(canvas.nodes[canvas.selection[0]!], canvas.locks)
                                 ? [
                                       {
                                           id: 'group-arrange',
