@@ -203,6 +203,32 @@ describe('package scripts', () => {
     });
 });
 
+describe('VS Code launch configurations', () => {
+    const launchFile = JSON.stringify({
+        configurations: [{ type: 'node', request: 'launch', name: 'Api', program: '${workspaceFolder}/server.js', args: ['--name', 'a b'] }]
+    });
+
+    test('each checkout gets its own working folder, and only when the request names the source', async () => {
+        await write('.vscode/launch.json', launchFile);
+        await write('backend/.vscode/launch.json', launchFile);
+        const sources = ['vscode-launch'];
+        const suggestions = (await detectLaunches(folder, [join(folder, 'backend')], { sources })).filter(
+            (suggestion) => suggestion.source === 'vscode-launch'
+        );
+        expect(suggestions.map((suggestion) => [suggestion.path, suggestion.launch.cwd])).toEqual([
+            ['.vscode/launch.json', undefined],
+            ['backend/.vscode/launch.json', 'backend']
+        ]);
+        expect(suggestions[0]!.launch.command).toBe("node server.js --name 'a b'");
+    });
+
+    test('without sources, no VS Code suggestion is sent', async () => {
+        await write('.vscode/launch.json', launchFile);
+        const suggestions = await detectLaunches(folder, [join(folder, 'backend')]);
+        expect(suggestions.some((suggestion) => suggestion.source === 'vscode-launch')).toBe(false);
+    });
+});
+
 describe('the pieces', () => {
     test('entities in attributes are decoded', () => {
         const document = parseXml('<a x="&quot;b&quot; &amp; &#65;"><c/></a>');

@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import type { LaunchConfig, LaunchConfigEnv, LaunchConfigKind, LaunchSuggestion } from '@ruimte/contracts';
 import { isInside } from '../canvas/project-paths.ts';
+import { readVscodeLaunch } from './vscode.ts';
 
 /*
  * Launches a project already describes in its own files: run configurations from `.run.xml` files,
@@ -105,7 +106,7 @@ function optionOf(element: XmlElement, name: string): string | undefined {
     return childrenOf(element, 'option').find((option) => option.attributes.name === name)?.attributes.value;
 }
 
-function shellQuote(value: string): string {
+export function shellQuote(value: string): string {
     return /^[\w@%+=:,./-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
@@ -126,12 +127,12 @@ function titleOf(name: string): string {
     return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-function kindOfScript(name: string): LaunchConfigKind {
+export function kindOfScript(name: string): LaunchConfigKind {
     return SERVICE_NAME.test(name) ? 'service' : 'task';
 }
 
 /* Where the paths of one launch are read from and what they point at. */
-class PathScope {
+export class PathScope {
     /* A path in the launch points outside the project, so it cannot travel with it. */
     outside = false;
 
@@ -175,7 +176,7 @@ interface RunFileContext {
     projectDir: string;
 }
 
-type Built = { launch: LaunchConfig; detail: string; outside: boolean; unsupported?: string };
+export type Built = { launch: LaunchConfig; detail: string; outside: boolean; unsupported?: string };
 
 function envOf(configuration: XmlElement, scope: PathScope): LaunchConfigEnv | undefined {
     const envs = childOf(configuration, 'envs');
@@ -459,9 +460,10 @@ async function projectDirOf(file: string, root: string): Promise<string> {
 
 /*
  * Suggestions from the project folder and each checkout in it. Ids are unique among the suggestions;
- * the client makes them unique against the launches the project already has.
+ * the client makes them unique against the launches the project already has. A source newer than the
+ * client that asks only answers when `sources` names it, since a client validates every reply whole.
  */
-export async function detectLaunches(folder: string, checkouts: readonly string[]): Promise<LaunchSuggestion[]> {
+export async function detectLaunches(folder: string, checkouts: readonly string[], options: { sources?: readonly string[] } = {}): Promise<LaunchSuggestion[]> {
     const roots = [folder, ...checkouts.filter((path) => path !== folder && isInside(folder, path))];
     const rootSet = new Set(roots);
     const budget = { directories: MAX_DIRECTORIES };
@@ -475,6 +477,13 @@ export async function detectLaunches(folder: string, checkouts: readonly string[
             const context = { folder, file, projectDir: await projectDirOf(file, root) };
             for (const built of readRunFile(text, context)) {
                 found.push({ built: { ...built, launch: { cwd: context.projectDir, ...built.launch } }, source: 'run-xml', path: file });
+            }
+        }
+        if (options.sources?.includes('vscode-launch')) {
+            const launchFile = join(root, '.vscode', 'launch.json');
+            const text = await readFile(launchFile, 'utf8').catch(() => null);
+            for (const built of text === null ? [] : readVscodeLaunch(text, root, folder)) {
+                found.push({ built, source: 'vscode-launch', path: launchFile });
             }
         }
         for (const built of await composerScripts(root)) {

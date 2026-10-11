@@ -272,7 +272,7 @@ export class LaunchStore {
     }
 
     /* What the project's own files describe, in the folder and each checkout the git panel knows. */
-    async detect(projectId: string): Promise<LaunchSuggestion[]> {
+    async detect(projectId: string, sources?: readonly string[]): Promise<LaunchSuggestion[]> {
         const folder = this.projects.folderOf(projectId);
         if (folder === null) {
             throw new LaunchError('project-not-found', `No project ${projectId} on this machine`);
@@ -280,7 +280,8 @@ export class LaunchStore {
         const { repos } = await listRepos(folder).catch(() => ({ repos: [] }));
         return detectLaunches(
             folder,
-            repos.map((repo) => repo.path)
+            repos.map((repo) => repo.path),
+            { sources }
         );
     }
 
