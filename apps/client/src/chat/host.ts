@@ -2,8 +2,6 @@ import { createElement } from 'react';
 import i18next from 'i18next';
 import { codeHighlighter } from '@/code-highlighter';
 import DiffSyntaxWorker from '@/chat/diff-syntax.worker?worker';
-// A bare worker entry is tree-shaken; Vite's wrapper preserves the legacy worker.
-import PierreDiffWorker from '@pierre/diffs/worker/worker.js?worker';
 import { configureChatStorage } from '@adecore/agents-react/storage';
 import { setChatHost, type ChatActions } from '@adecore/agents-react/host';
 import { setLazyPrefetch } from '@adecore/agents-react/lazy';
@@ -184,7 +182,6 @@ export function connectChatHost(): void {
             custom: CODE_THEMES,
             highlighter: codeHighlighter,
             syntaxWorker: () => new DiffSyntaxWorker(),
-            legacyDiffWorker: () => new PierreDiffWorker(),
             editor: async () => {
                 const { loadEditorEngine } = await import('@/shell/panels/editor-engine');
                 return loadEditorEngine();
