@@ -82,6 +82,13 @@ describe('verbsNote', () => {
         expect(VISUAL_RESUME_NOTE).not.toContain(RUIMTE_UI_FENCE);
     });
 
+    test('sends a question needed before acting to the built-in question tool, never to Choices, and names no tool', () => {
+        expect(VISUAL_NOTE).toContain("ask it with your CLI's built-in question tool if it has one, otherwise in plain text");
+        expect(VISUAL_NOTE).toContain('Choices only offer optional next steps after a finished answer.');
+        expect(VISUAL_NOTE).not.toContain('next steps to pick');
+        expect(VISUAL_NOTE).not.toMatch(/AskUserQuestion|request_user_input|ask_user/i);
+    });
+
     test('names computer use only while it is on for this machine', () => {
         for (const standalone of [false, true]) {
             expect(verbsNote({ depth: 0, standalone })).not.toContain('computer');
