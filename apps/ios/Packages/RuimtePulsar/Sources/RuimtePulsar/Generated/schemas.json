@@ -961,6 +961,10 @@
                   },
                   "legacy": {
                     "type": "boolean"
+                  },
+                  "minCliVersion": {
+                    "type": "string",
+                    "pattern": "^\\d+\\.\\d+(\\.\\d+)?$"
                   }
                 },
                 "required": [
@@ -26483,6 +26487,9 @@
                         }
                       ]
                     }
+                  },
+                  "minCliVersion": {
+                    "type": "string"
                   }
                 },
                 "required": [

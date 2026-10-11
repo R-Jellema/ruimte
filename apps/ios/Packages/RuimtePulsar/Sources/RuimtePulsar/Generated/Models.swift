@@ -932,14 +932,16 @@ public struct ModelCatalogsResultCatalogsValueModelsItem: Codable, Sendable, Equ
     public let `profile`: String
     public let `aliases`: [String]?
     public let `legacy`: Bool?
+    public let `minCliVersion`: String?
 
-    public init(`slug`: String, `name`: String, `badge`: String? = nil, `profile`: String, `aliases`: [String]? = nil, `legacy`: Bool? = nil) {
+    public init(`slug`: String, `name`: String, `badge`: String? = nil, `profile`: String, `aliases`: [String]? = nil, `legacy`: Bool? = nil, `minCliVersion`: String? = nil) {
         self.`slug` = `slug`
         self.`name` = `name`
         self.`badge` = `badge`
         self.`profile` = `profile`
         self.`aliases` = `aliases`
         self.`legacy` = `legacy`
+        self.`minCliVersion` = `minCliVersion`
     }
 
     public init(from decoder: Decoder) throws {
@@ -950,6 +952,7 @@ public struct ModelCatalogsResultCatalogsValueModelsItem: Codable, Sendable, Equ
         `profile` = try container.decode(String.self, forKey: .`profile`)
         `aliases` = try container.decodeIfPresent([String].self, forKey: .`aliases`)
         `legacy` = try container.decodeIfPresent(Bool.self, forKey: .`legacy`)
+        `minCliVersion` = try container.decodeIfPresent(String.self, forKey: .`minCliVersion`)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -960,6 +963,7 @@ public struct ModelCatalogsResultCatalogsValueModelsItem: Codable, Sendable, Equ
         try container.encode(`profile`, forKey: .`profile`)
         try container.encodeIfPresent(`aliases`, forKey: .`aliases`)
         try container.encodeIfPresent(`legacy`, forKey: .`legacy`)
+        try container.encodeIfPresent(`minCliVersion`, forKey: .`minCliVersion`)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -969,6 +973,7 @@ public struct ModelCatalogsResultCatalogsValueModelsItem: Codable, Sendable, Equ
         case `profile` = "profile"
         case `aliases` = "aliases"
         case `legacy` = "legacy"
+        case `minCliVersion` = "minCliVersion"
     }
 }
 

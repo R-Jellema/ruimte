@@ -15,6 +15,7 @@ import { desktop, isApplePlatform } from '@/desktop/bridge';
 import { downloadBlob } from '@/download';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
 import { CODE_THEMES } from '@/shell/panels/code-themes';
+import { useEndpoints } from '@/state/endpoints';
 import { currentEndpointId, endpointKey } from '@/state/keys';
 import { isScratchProject, useProject } from '@/state/project';
 import { useProjectList } from '@/state/project-list';
@@ -209,6 +210,7 @@ export function connectChatHost(): void {
         },
         fork: (chatId, turnId) => useUi.getState().setForkDialog({ chatId, turnId }),
         openSettings: (section) => useUi.getState().setSettings({ open: true, section }),
+        useMachineLabel: (endpointId) => useEndpoints((s) => s.endpoints.find((endpoint) => endpoint.id === endpointId)?.label ?? null),
         useResumeAtReset: (endpointId) => useServers((s) => s.byEndpoint[endpointId]?.resumeAtReset === true),
         // A chat on screen belongs to the project the window shows, and the Chats project shows none of its folders.
         useHidesFolder: () => useProject((s) => isScratchProject(s.current)),
