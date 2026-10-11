@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
-import { readFile, rm, writeFile } from 'node:fs/promises';
+import { readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { diffCommit, diffFile } from './diff.ts';
 import { forgetBase, mergeBaseOf, parsePorcelain, readStatus } from './status.ts';
@@ -64,6 +64,15 @@ describe('parsePorcelain', () => {
 });
 
 describe('readStatus', () => {
+    test('reading leaves the index alone, so a commit beside it never meets its lock', async () => {
+        await write('tracked.txt', 'one\ntwo\nthree\nfour\n');
+        await utimes(join(repo, 'tracked.txt'), new Date(), new Date());
+        const before = await stat(join(repo, '.git', 'index'));
+        await readStatus(repo);
+        const after = await stat(join(repo, '.git', 'index'));
+        expect(after.mtimeMs).toBe(before.mtimeMs);
+    });
+
     test('a folder outside a repository answers that it is not one', async () => {
         expect(await readStatus(root)).toMatchObject({ repo: false, root: null, files: [] });
     });

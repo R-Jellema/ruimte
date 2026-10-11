@@ -66,9 +66,17 @@ export async function git(args: string[], cwd: string, env?: Record<string, stri
     return code === 0 ? stdout : null;
 }
 
+// A status read is a question, not a change: without this git refreshes the index and takes its lock, which fails a commit running beside it.
+export const READ_ONLY_GIT = { GIT_OPTIONAL_LOCKS: '0' };
+
+/* `git` for a read that must not take `index.lock`. */
+export function readGit(args: string[], cwd: string): Promise<string | null> {
+    return git(args, cwd, READ_ONLY_GIT);
+}
+
 /* A git whose failure is the person's problem, not a result: what it wrote to stderr is the message. */
-export async function gitOrThrow(args: string[], cwd: string): Promise<string> {
-    const { code, stdout, stderr } = await runGit(args, cwd);
+export async function gitOrThrow(args: string[], cwd: string, env?: Record<string, string>): Promise<string> {
+    const { code, stdout, stderr } = await runGit(args, cwd, { env });
     if (code !== 0) {
         throw new GitError('git-failed', stderr.trim() || `git ${args[0]} failed`);
     }

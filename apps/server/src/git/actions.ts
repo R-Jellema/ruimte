@@ -1,6 +1,6 @@
 import type { GitActionPayload, GitActionPhase, GitActionResult } from '@ruimte/contracts';
 import { conflictedFiles } from './conflict.ts';
-import { git, runGit, streamCommand, toplevel, GitError } from './run.ts';
+import { READ_ONLY_GIT, git, runGit, streamCommand, toplevel, GitError } from './run.ts';
 
 // A push over a slow link is allowed to take this long before the daemon gives up on it.
 const NETWORK_TIMEOUT_MS = 120_000;
@@ -337,6 +337,6 @@ async function diverged(cwd: string): Promise<boolean> {
 
 /* Whether the working tree holds anything a checkout would have to carry over or lose. */
 export async function isDirty(cwd: string): Promise<boolean> {
-    const { code, stdout } = await runGit(['status', '--porcelain'], cwd);
+    const { code, stdout } = await runGit(['status', '--porcelain'], cwd, { env: READ_ONLY_GIT });
     return code === 0 && stdout.trim() !== '';
 }

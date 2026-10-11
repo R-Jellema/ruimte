@@ -2,7 +2,7 @@ import type { GitActionPhase, WorktreeMergePayload, WorktreeMergeResult } from '
 import { Job, type ProgressSink } from './actions.ts';
 import { abortOperation, conflictedFiles, dropSquashMessage, gitPathExists, hasStaged, operationOf, squashWaits } from './conflict.ts';
 import { resolveBase } from './status.ts';
-import { GitError, git, runGit, streamGit } from './run.ts';
+import { GitError, git, readGit, runGit, streamGit } from './run.ts';
 import type { Worktrees } from './worktrees.ts';
 import { PROJECT_DIR } from '../projects/project-files.ts';
 import { errorText } from '../error-text.ts';
@@ -319,7 +319,7 @@ export class WorktreeMerge {
            `.ruimte`, tracked or not: a person moving a node dirties it all day. */
         if (
             limits.cleanTarget === true &&
-            (await git(['status', '--porcelain', '--untracked-files=no', '--', '.', `:(exclude)${PROJECT_DIR}`], target.path))?.trim() !== ''
+            (await readGit(['status', '--porcelain', '--untracked-files=no', '--', '.', `:(exclude)${PROJECT_DIR}`], target.path))?.trim() !== ''
         ) {
             throw new GitError('target-dirty', `${target.path} has uncommitted changes of its own; a person merges into a checkout like that, not an agent.`);
         }

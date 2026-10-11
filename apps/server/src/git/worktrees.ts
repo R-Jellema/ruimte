@@ -6,7 +6,7 @@ import type { Worktree, WorktreeWork } from '@ruimte/contracts';
 import type { SessionSink } from '../sessions/manager.ts';
 import { checkpointIndexFile } from './checkpoints.ts';
 import { resolveBase } from './status.ts';
-import { GitError, git, gitOrThrow as run, runGit, toplevel } from './run.ts';
+import { GitError, READ_ONLY_GIT, git, gitOrThrow as run, runGit, toplevel } from './run.ts';
 import { WorktreeRegister, type WorktreeRecord } from './worktree-register.ts';
 import { ClientSinks } from '../client-sinks.ts';
 
@@ -446,7 +446,7 @@ export class Worktrees {
         if (missing || entry === null) {
             return { work: { changed: 0, untracked: 0, ahead, ...moved }, target };
         }
-        const status = await run(['status', '--porcelain=v2', '-z', '-uall', '--ignore-submodules=all'], entry.path);
+        const status = await run(['status', '--porcelain=v2', '-z', '-uall', '--ignore-submodules=all'], entry.path, READ_ONLY_GIT);
         const { changed, untracked } = countStatus(status);
         const operation = await this.operationIn(entry.path);
         return { work: { changed, untracked, ahead, ...(operation === null ? {} : { operation }), ...moved }, target };

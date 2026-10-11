@@ -1,7 +1,7 @@
 import type { GitFile, GitStatus } from '@ruimte/contracts';
 import { operationOf } from './conflict.ts';
 import { parseNumstat, type Numstat } from './diff.ts';
-import { git, runGit } from './run.ts';
+import { READ_ONLY_GIT, git, readGit, runGit } from './run.ts';
 
 // A list past this is one nobody reads, and a status that carries it is one nobody wants on the wire.
 const MAX_FILES = 1000;
@@ -114,7 +114,7 @@ async function untrackedCounts(root: string, paths: string[]): Promise<Map<strin
         const results = await Promise.all(
             batch.map(async (path) => {
                 // `--no-index` answers 1 when the two sides differ, which is what every file here does.
-                const { code, stdout } = await runGit(['diff', '--numstat', '-z', '--no-index', '--', '/dev/null', path], root);
+                const { code, stdout } = await runGit(['diff', '--numstat', '-z', '--no-index', '--', '/dev/null', path], root, { env: READ_ONLY_GIT });
                 return code > 1 ? null : (parseNumstat(stdout)[0] ?? null);
             })
         );
@@ -205,15 +205,15 @@ export async function readStatus(cwd: string): Promise<GitStatus> {
     if (root === null) {
         return EMPTY;
     }
-    const porcelain = await git(['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all'], root);
+    const porcelain = await readGit(['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all'], root);
     if (porcelain === null) {
         return EMPTY;
     }
     const parsed = parsePorcelain(porcelain);
     const entries = parsed.entries.slice(0, MAX_FILES);
     const [staged, unstaged, base, operation] = await Promise.all([
-        git(['diff', '--cached', '--numstat', '-z'], root).then(byPath),
-        git(['diff', '--numstat', '-z'], root).then(byPath),
+        readGit(['diff', '--cached', '--numstat', '-z'], root).then(byPath),
+        readGit(['diff', '--numstat', '-z'], root).then(byPath),
         resolveBase(root),
         operationOf(root)
     ]);
