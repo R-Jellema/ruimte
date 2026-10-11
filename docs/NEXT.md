@@ -186,8 +186,8 @@ Directional selection, input focus, direct node zoom, gap dragging, selection du
 connector label layering and explicit pan ownership are implemented. Current behavior is in
 [the client README](../apps/client/README.md#canvas-interaction); manual checks belong to package 3.
 
-1. Add local camera back/forward history. Browser Cmd+[ and Cmd+] win while a browser is focused.
-   History stays out of project persistence and does not record every pan animation frame.
+1. Add local camera back/forward history on Cmd+Alt+[ and Cmd+Alt+], so Cmd+[ and Cmd+] stay with a
+   focused browser, the editor history and a drawing's order. History stays out of project persistence and does not record every pan animation frame.
 2. Implement arrange, align and tidy as pure geometry functions, expose them in palette/menu and
    undo each operation as one change.
 3. Rank palette results by exact match, prefix and substring; add `>` for actions. Track recently
