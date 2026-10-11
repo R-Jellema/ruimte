@@ -236,6 +236,7 @@
         "read": "Lezen",
         "reading": "Bezig met lezen…",
         "notFound": "Die issue is niet gevonden.",
+        "isPullRequest": "Dat is een pull request, geen issue.",
         "noGh": "gh is niet geïnstalleerd op deze machine.",
         "state": {
             "open": "Open",

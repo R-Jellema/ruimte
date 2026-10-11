@@ -100,7 +100,12 @@ function IssueStartForm({ onDone }: { onDone(): void }) {
         setIssue(null);
         setTypedPrompt(null);
         try {
-            setIssue(await transport.request('git.issue', { cwd: folder, ref: text.trim() }));
+            const read = await transport.request('git.issue', { cwd: folder, ref: text.trim() });
+            if (isPullRequestUrl(read.url)) {
+                setReadFailure(t('issueStart.isPullRequest'));
+            } else {
+                setIssue(read);
+            }
         } catch (e) {
             setReadFailure(issueFailure(e, t));
         } finally {
@@ -231,6 +236,11 @@ function IssueStartForm({ onDone }: { onDone(): void }) {
             </Dialog.Footer>
         </>
     );
+}
+
+/* `gh` resolves a pull request reference as an issue; the start needs an issue. */
+function isPullRequestUrl(url: string): boolean {
+    return /\/pull\/\d+/.test(url);
 }
 
 /* The reason a read failed in the person's words: the machine's code when it has one, else its message. */

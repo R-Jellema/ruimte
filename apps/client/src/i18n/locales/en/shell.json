@@ -236,6 +236,7 @@
         "read": "Read",
         "reading": "Reading…",
         "notFound": "That issue was not found.",
+        "isPullRequest": "That is a pull request, not an issue.",
         "noGh": "gh is not installed on this machine.",
         "alreadyStarted": "You already started this issue.",
         "state": {
