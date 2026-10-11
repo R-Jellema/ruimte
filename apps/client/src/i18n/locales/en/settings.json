@@ -772,6 +772,39 @@
                 "label": "Steer running agents by default",
                 "description": "Send messages to Codex or Claude at the next tool call. With this off, messages wait until the turn ends. Hold Option or Alt when sending to use the other behavior."
             }
+        },
+        "integrations": {
+            "title": "Agent status in terminals",
+            "description": "Ruimte learns whether Claude Code or Codex in a terminal is working, done or waiting for you from hooks in that CLI's own settings. These settings are global: they apply to every run of the CLI on this computer, also outside Ruimte, where the hook does nothing.",
+            "dialog": {
+                "title": "Let Ruimte change your CLI settings?"
+            },
+            "off": "Without them, terminals running {{provider}} show no status and never ask for your attention. Chats are not affected; they get their status another way.",
+            "codexRule": "For Codex this choice also covers the rule that lets ruimte-context run outside Codex's sandbox. Without it, Codex in a sandboxed mode cannot reach Ruimte: ruimte-context fails or asks for your approval each time, in terminals and chats.",
+            "files": "Ruimte writes to:",
+            "allow": "Allow",
+            "deny": "Don't allow",
+            "keep": "Keep",
+            "remove": "Remove",
+            "notNow": "Not now",
+            "migrated": "Ruimte already added these to {{provider}}. Keep them, or remove them now.",
+            "fixed": "This machine was started with --no-hooks, so Ruimte writes nothing into the CLIs' settings.",
+            "search": "hooks, status, Claude, Codex, settings.json",
+            "state": {
+                "on": "Allowed",
+                "off": "Not allowed"
+            },
+            "outcome": {
+                "written": "Added",
+                "unchanged": "Already in place",
+                "removed": "Removed Ruimte's entries",
+                "deleted": "Removed the file Ruimte created",
+                "none": "Nothing of Ruimte's here",
+                "keptEdited": "Left alone: you changed Ruimte's entry",
+                "missing": "File not found",
+                "refused": "Left alone: not a settings object",
+                "failed": "Failed: {{message}}"
+            }
         }
     },
     "about": {

@@ -1,0 +1,175 @@
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { AgentIntegration, AgentIntegrationFile, AgentIntegrationReport } from '@ruimte/contracts';
+import { CliMark } from '@adecore/agents-react/providers/parts';
+import { INTEGRATION_NAMES, loadIntegrationFiles, pendingReview, setAgentIntegration, useAgentIntegrations } from '@/state/agent-integrations';
+import { useUi } from '@/state/ui';
+import { Button, Dialog, FormError } from '@adecore/ui';
+
+const OUTCOME_KEYS = {
+    written: 'written',
+    unchanged: 'unchanged',
+    removed: 'removed',
+    deleted: 'deleted',
+    none: 'none',
+    'kept-edited': 'keptEdited',
+    missing: 'missing',
+    refused: 'refused',
+    failed: 'failed'
+} as const;
+
+/* One line per file of what became of it; the reports of a revoke are what a person checks the result by. */
+export function IntegrationReports({ reports }: { reports: readonly AgentIntegrationReport[] }) {
+    const { t } = useTranslation('settings');
+    return (
+        <ul className="mt-2 flex flex-col gap-1 text-xs text-text-muted">
+            {reports.map((report) => (
+                <li key={report.path} className="break-all">
+                    <span className="text-text">{t(`agents.integrations.outcome.${OUTCOME_KEYS[report.outcome]}`, { message: report.message ?? '' })}</span>{' '}
+                    <span className="font-mono">{report.path}</span>
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+/* What Ruimte writes for a provider and what stops working without it; shared by the dialog and the settings row. */
+export function IntegrationDetails({ entry, files }: { entry: Pick<AgentIntegration, 'provider'>; files: readonly AgentIntegrationFile[] }) {
+    const { t } = useTranslation('settings');
+    const own = files.filter((file) => file.provider === entry.provider);
+    return (
+        <>
+            {own.length > 0 && (
+                <div className="mt-2 text-xs text-text-muted">
+                    <p>{t('agents.integrations.files')}</p>
+                    <ul className="mt-0.5 flex flex-col gap-0.5">
+                        {own.map((file) => (
+                            <li key={file.path} className="font-mono break-all">
+                                {file.path}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            <p className="mt-2 text-xs text-text-muted">{t('agents.integrations.off', { provider: INTEGRATION_NAMES[entry.provider] ?? entry.provider })}</p>
+            {entry.provider === 'codex' && <p className="mt-1 text-xs text-text-muted">{t('agents.integrations.codexRule')}</p>}
+        </>
+    );
+}
+
+/*
+ * Asks once, per CLI, whether Ruimte may write its status hooks into that CLI's global settings. A
+ * fresh machine writes nothing until a person answers; a machine that already carries the hooks
+ * shows them once, preselected to stay.
+ */
+export function AgentIntegrationsDialog() {
+    const { t } = useTranslation(['settings', 'common']);
+    const open = useUi((s) => s.agentIntegrations);
+    const summary = useAgentIntegrations();
+    const [files, setFiles] = useState<AgentIntegrationFile[]>([]);
+    const [reports, setReports] = useState<Record<string, AgentIntegrationReport[]>>({});
+    const [busy, setBusy] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const answered = Object.keys(reports).length > 0;
+    const pending = pendingReview(summary);
+
+    useEffect(() => {
+        if (open) {
+            void loadIntegrationFiles()
+                .then(setFiles)
+                .catch(() => undefined);
+        }
+    }, [open]);
+
+    // Answered in another window: nothing is left to ask here, unless this window shows the report of its own answer.
+    useEffect(() => {
+        if (open && !pending && !answered) {
+            useUi.getState().setAgentIntegrations(false);
+        }
+    }, [open, pending, answered]);
+
+    const choose = async (provider: AgentIntegration['provider'], on: boolean): Promise<void> => {
+        setBusy(provider);
+        setError(null);
+        try {
+            const report = await setAgentIntegration(provider, on);
+            setReports((current) => ({ ...current, [provider]: report }));
+            setFiles(await loadIntegrationFiles().catch(() => files));
+        } catch (e) {
+            setError(e instanceof Error ? e.message : String(e));
+        } finally {
+            setBusy(null);
+        }
+    };
+
+    // Leaving a migrated row without a choice keeps what it has, which counts as having seen it.
+    const close = (): void => {
+        for (const entry of summary?.providers ?? []) {
+            if (entry.state === 'on' && !entry.reviewed) {
+                void setAgentIntegration(entry.provider, true).catch(() => undefined);
+            }
+        }
+        useUi.getState().setAgentIntegrations(false);
+    };
+
+    return (
+        <Dialog.Root
+            open={open}
+            onOpenChange={(next) => {
+                if (!next) {
+                    close();
+                }
+            }}
+        >
+            <Dialog.Popup className="w-[560px] p-5">
+                <Dialog.Title>{t('settings:agents.integrations.dialog.title')}</Dialog.Title>
+                <Dialog.Description className="mt-1">{t('settings:agents.integrations.description')}</Dialog.Description>
+                <div className="mt-4 flex flex-col gap-3">
+                    {(summary?.providers ?? []).map((entry) => {
+                        const own = reports[entry.provider];
+                        const migrated = entry.state === 'on' && !entry.reviewed;
+                        return (
+                            <section key={entry.provider} className="rounded-lg border border-border bg-surface bg-clip-padding p-3.5">
+                                <h3 className="flex items-center gap-2 text-sm font-semibold text-text">
+                                    <CliMark kind={entry.provider} size={16} />
+                                    {INTEGRATION_NAMES[entry.provider] ?? entry.provider}
+                                </h3>
+                                {migrated && (
+                                    <p className="mt-1 text-sm text-text-muted">
+                                        {t('settings:agents.integrations.migrated', { provider: INTEGRATION_NAMES[entry.provider] ?? entry.provider })}
+                                    </p>
+                                )}
+                                <IntegrationDetails entry={entry} files={files} />
+                                {own !== undefined ? (
+                                    <IntegrationReports reports={own} />
+                                ) : entry.state === 'unset' || migrated ? (
+                                    <div className="mt-3 flex items-center gap-2">
+                                        <Button
+                                            variant={migrated ? undefined : 'primary'}
+                                            autoFocus={!migrated}
+                                            disabled={busy !== null}
+                                            onClick={() => void choose(entry.provider, true)}
+                                        >
+                                            {t(migrated ? 'settings:agents.integrations.keep' : 'settings:agents.integrations.allow')}
+                                        </Button>
+                                        <Button disabled={busy !== null} onClick={() => void choose(entry.provider, false)}>
+                                            {t(migrated ? 'settings:agents.integrations.remove' : 'settings:agents.integrations.deny')}
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <p className="mt-2 text-xs text-text-muted">
+                                        {t(entry.state === 'on' ? 'settings:agents.integrations.state.on' : 'settings:agents.integrations.state.off')}
+                                    </p>
+                                )}
+                            </section>
+                        );
+                    })}
+                </div>
+                {error !== null && <FormError>{error}</FormError>}
+                <Dialog.Footer>
+                    <Button onClick={close}>{t(pending ? 'settings:agents.integrations.notNow' : 'common:action.done')}</Button>
+                </Dialog.Footer>
+            </Dialog.Popup>
+        </Dialog.Root>
+    );
+}

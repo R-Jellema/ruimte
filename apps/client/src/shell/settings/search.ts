@@ -316,6 +316,13 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         available: keepAwakeAvailable
     },
     {
+        id: 'agents.integrations',
+        section: 'agents',
+        label: 'settings:agents.integrations.title',
+        description: 'settings:agents.integrations.search',
+        available: hasLocalMachine
+    },
+    {
         id: 'agents.keepAwake.lid',
         section: 'agents',
         label: 'settings:agents.keepAwake.lid.label',

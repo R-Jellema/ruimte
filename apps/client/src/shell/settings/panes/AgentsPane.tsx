@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { CLOSED_LID_BATTERY_FLOOR, type RuntimeMode } from '@ruimte/contracts';
+import { CLOSED_LID_BATTERY_FLOOR, type AgentIntegrationFile, type AgentIntegrationReport, type AgentKind, type RuntimeMode } from '@ruimte/contracts';
 import { rememberChatPreferences, useChatPreferences } from '@adecore/agents-react/chat/preferences';
 import { RUNTIME_MODES, runtimeModeHint, runtimeModeLabel } from '@adecore/agents-react/chat/runtime-modes';
 import {
@@ -12,6 +12,9 @@ import {
     useKeepAwakeChoice,
     useMachineKeepsAwake
 } from '@/state/keep-awake';
+import { IntegrationDetails, IntegrationReports } from '@/shell/AgentIntegrationsDialog';
+import { INTEGRATION_NAMES, loadIntegrationFiles, setAgentIntegration, useAgentIntegrations } from '@/state/agent-integrations';
+import { hasLocalMachine } from '@/state/local-machine';
 import { MachineSwitchSections } from '@/shell/settings/MachineSwitchSection';
 import { SettingsRow } from '@adecore/ui/settings';
 import { Button, FormError, Switch, Select, type SelectItem } from '@adecore/ui';
@@ -41,6 +44,7 @@ export function AgentsPane() {
             <ChatsSection />
             <MachineSwitchSections />
             <WorkingSection />
+            <IntegrationsSection />
         </>
     );
 }
@@ -232,6 +236,67 @@ function WorkingSection() {
                     }
                 />
             )}
+        </SettingsSection>
+    );
+}
+
+/* What Ruimte may write into the CLIs' global settings, per CLI. Only this computer's own machine has it. */
+function IntegrationsSection() {
+    const { t } = useTranslation('settings');
+    const summary = useAgentIntegrations();
+    const [files, setFiles] = useState<AgentIntegrationFile[]>([]);
+    const [reports, setReports] = useState<Record<string, AgentIntegrationReport[]>>({});
+    const [busy, setBusy] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const listed = summary !== null && hasLocalMachine();
+
+    useEffect(() => {
+        if (listed) {
+            void loadIntegrationFiles()
+                .then(setFiles)
+                .catch(() => undefined);
+        }
+    }, [listed, summary]);
+
+    if (!listed) {
+        return null;
+    }
+
+    const change = async (provider: AgentKind, on: boolean): Promise<void> => {
+        setBusy(provider);
+        setError(null);
+        try {
+            const report = await setAgentIntegration(provider, on);
+            setReports((current) => ({ ...current, [provider]: report }));
+        } catch (e) {
+            setError(e instanceof Error ? e.message : String(e));
+        } finally {
+            setBusy(null);
+        }
+    };
+
+    return (
+        <SettingsSection title={t('agents.integrations.title')} description={t('agents.integrations.description')} scope="computer">
+            {summary.providers.map((entry, index) => (
+                <SettingsRow
+                    key={entry.provider}
+                    searchId={index === 0 ? 'agents.integrations' : undefined}
+                    label={INTEGRATION_NAMES[entry.provider] ?? entry.provider}
+                    description={summary.fixed ? t('agents.integrations.fixed') : undefined}
+                    control={
+                        <Switch
+                            checked={entry.state === 'on'}
+                            disabled={summary.fixed || busy !== null}
+                            onCheckedChange={(checked) => void change(entry.provider, checked)}
+                            label={INTEGRATION_NAMES[entry.provider] ?? entry.provider}
+                        />
+                    }
+                >
+                    <IntegrationDetails entry={entry} files={files} />
+                    {reports[entry.provider] !== undefined && <IntegrationReports reports={reports[entry.provider]!} />}
+                </SettingsRow>
+            ))}
+            {error !== null && <FormError>{error}</FormError>}
         </SettingsSection>
     );
 }

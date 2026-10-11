@@ -186,6 +186,8 @@ interface UiStore {
     modelsOpen: boolean;
     login: LoginRequest | null;
     onboarding: OnboardingStep | null;
+    /* The consent for the CLIs' global settings is up (`state/agent-integrations.ts`). */
+    agentIntegrations: boolean;
     /* Whether the session list is in view; it survives a reload, like everything else on the canvas. */
     sidebarOpen: boolean;
     /* Which canvases the sidebar has folded open, per project, or null until the list seeds itself.
@@ -238,6 +240,7 @@ interface UiStore {
     setModelsOpen(open: boolean): void;
     setLogin(login: LoginRequest | null): void;
     setOnboarding(step: OnboardingStep | null): void;
+    setAgentIntegrations(open: boolean): void;
     askProjectSettings(asked: boolean): void;
     setWorktreeDialogFor(groupId: string | null): void;
     setWorktreeRemoval(removal: { folder: string; paths: string[] } | null): void;
@@ -282,6 +285,7 @@ export const useUi = create<UiStore>((set, get) => ({
     modelsOpen: false,
     login: null,
     onboarding: null,
+    agentIntegrations: false,
     paletteSeed: '',
     paletteBrowseAt: 0,
     paletteBrowseMachine: null,
@@ -326,6 +330,9 @@ export const useUi = create<UiStore>((set, get) => ({
     },
     setOnboarding(step) {
         set({ onboarding: step });
+    },
+    setAgentIntegrations(open) {
+        set({ agentIntegrations: open });
     },
     askProjectSettings(asked) {
         set({ projectSettingsAsked: asked });

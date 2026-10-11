@@ -772,6 +772,39 @@
                 "label": "Werkende agents standaard bijsturen",
                 "description": "Stuur berichten naar Codex of Claude bij de volgende toolaanroep. Als dit uitstaat, wachten berichten tot de beurt klaar is. Houd Option of Alt ingedrukt bij het sturen om het andere gedrag te gebruiken."
             }
+        },
+        "integrations": {
+            "title": "Agentstatus in terminals",
+            "description": "Ruimte ziet of Claude Code of Codex in een terminal werkt, klaar is of op je wacht via hooks in de instellingen van die CLI. Die instellingen gelden overal: voor elke keer dat de CLI op deze computer draait, ook buiten Ruimte, waar de hook niets doet.",
+            "dialog": {
+                "title": "Mag Ruimte je CLI-instellingen aanpassen?"
+            },
+            "off": "Zonder deze hooks tonen terminals met {{provider}} geen status en vragen ze nooit om je aandacht. Chats merken hier niets van; die krijgen hun status langs een andere weg.",
+            "codexRule": "Voor Codex geldt deze keuze ook voor de regel waarmee ruimte-context buiten de sandbox van Codex mag draaien. Zonder die regel kan Codex in een sandboxmodus Ruimte niet bereiken: ruimte-context mislukt of vraagt elke keer om je toestemming, in terminals en in chats.",
+            "files": "Ruimte schrijft in:",
+            "allow": "Toestaan",
+            "deny": "Niet toestaan",
+            "keep": "Behouden",
+            "remove": "Verwijderen",
+            "notNow": "Niet nu",
+            "migrated": "Ruimte heeft deze al aan {{provider}} toegevoegd. Behoud ze of verwijder ze nu.",
+            "fixed": "Deze machine is gestart met --no-hooks, dus Ruimte schrijft niets in de instellingen van de CLI's.",
+            "search": "hooks, status, Claude, Codex, settings.json",
+            "state": {
+                "on": "Toegestaan",
+                "off": "Niet toegestaan"
+            },
+            "outcome": {
+                "written": "Toegevoegd",
+                "unchanged": "Stond er al",
+                "removed": "Ruimtes regels verwijderd",
+                "deleted": "Het bestand van Ruimte verwijderd",
+                "none": "Niets van Ruimte gevonden",
+                "keptEdited": "Ongemoeid: je hebt de regel van Ruimte aangepast",
+                "missing": "Bestand niet gevonden",
+                "refused": "Ongemoeid: geen instellingenobject",
+                "failed": "Mislukt: {{message}}"
+            }
         }
     },
     "about": {

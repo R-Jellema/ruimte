@@ -43,6 +43,7 @@ function load(endpointId: string): void {
                 brokerFixed: info.brokerFixed === true,
                 lanDoor: info.lanDoor ?? null,
                 lanDoorFixed: info.lanDoorFixed === true,
+                agentIntegrations: info.agentIntegrations ?? null,
                 reachability: info.reachability,
                 publicKey: info.publicKey ?? null,
                 accountId: info.accountId

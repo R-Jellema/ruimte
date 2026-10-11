@@ -62,6 +62,12 @@ const OnboardingDialog = lazyDialog(
     useUi,
     (s) => s.onboarding !== null
 );
+const AgentIntegrationsDialog = lazyDialog(
+    () => import('@/shell/AgentIntegrationsDialog'),
+    'AgentIntegrationsDialog',
+    useUi,
+    (s) => s.agentIntegrations
+);
 const ReleaseNotesDialog = lazyDialog(
     () => import('@/shell/ReleaseNotesDialog'),
     'ReleaseNotesDialog',
@@ -156,6 +162,9 @@ export function App() {
                     </ErrorBoundary>
                     <ErrorBoundary label={failed('onboarding')} compact className={FLOATING_FAILURE}>
                         <OnboardingDialog />
+                    </ErrorBoundary>
+                    <ErrorBoundary label={failed('agentIntegrations')} compact className={FLOATING_FAILURE}>
+                        <AgentIntegrationsDialog />
                     </ErrorBoundary>
                     <ErrorBoundary label={failed('login')} compact className={FLOATING_FAILURE}>
                         <LoginDialog />

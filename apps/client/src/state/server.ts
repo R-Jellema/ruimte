@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { EndpointNameSource, KeepAwakeMode, MachineUpdate, ProjectIconChoice, Reachability } from '@ruimte/contracts';
+import type { AgentIntegrationsSummary, EndpointNameSource, KeepAwakeMode, MachineUpdate, ProjectIconChoice, Reachability } from '@ruimte/contracts';
 import type { BrokerSetting } from '@ruimte/pulsar';
 import { useEndpointId } from '@/state/keys';
 
@@ -48,6 +48,8 @@ export interface ServerInfo {
     lanDoor: boolean | null;
     /* Whether a flag on the machine decides the door, which leaves the setting without effect. */
     lanDoorFixed: boolean;
+    /* What a person allowed in the CLIs' global settings; null for a daemon from before the consent. */
+    agentIntegrations: AgentIntegrationsSummary | null;
     reachability: Reachability | null;
     /* The key the machine announces, which the record on an account carries; null until it answers. */
     publicKey: string | null;
@@ -82,6 +84,7 @@ const UNKNOWN: ServerInfo = {
     brokerFixed: false,
     lanDoor: null,
     lanDoorFixed: false,
+    agentIntegrations: null,
     reachability: null,
     publicKey: null,
     accountId: undefined
@@ -114,11 +117,14 @@ interface ServersStore {
             | 'brokerFixed'
             | 'lanDoor'
             | 'lanDoorFixed'
+            | 'agentIntegrations'
             | 'reachability'
             | 'publicKey'
             | 'accountId'
         >
     ): void;
+    /* What a person allowed in the CLIs' settings, after this client changed it. */
+    setAgentIntegrations(endpointId: string, summary: AgentIntegrationsSummary): void;
     /* The account the machine is on now, after this client put it on one or took it off. */
     setAccount(endpointId: string, accountId: string | null): void;
     /* What someone set on this machine, from `endpoint.changed` or from setting it here. A switch left out stays where it stands. */
@@ -141,6 +147,7 @@ interface ServersStore {
                     | 'brokerFixed'
                     | 'lanDoor'
                     | 'lanDoorFixed'
+                    | 'agentIntegrations'
                 >
             >
     ): void;
@@ -160,6 +167,9 @@ export const useServers = create<ServersStore>((set, get) => {
         byEndpoint: {},
         setInfo: merge,
         setEndpoint: merge,
+        setAgentIntegrations(endpointId, summary) {
+            merge(endpointId, { agentIntegrations: summary });
+        },
         setAccount(endpointId, accountId) {
             merge(endpointId, { accountId });
         },
