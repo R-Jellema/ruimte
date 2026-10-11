@@ -28,7 +28,9 @@ export const LaunchConfigSchema = z.looseObject({
     // The launch ids a group starts, in order. Only a group has them.
     launches: z.array(z.string().min(1)).optional(),
     // Starts with the project, and only on a machine where a person approved it.
-    autostart: z.boolean().optional()
+    autostart: z.boolean().optional(),
+    // Where an import read it from. Not part of what an approval covers, so a hand edit of the source never touches the launch.
+    origin: z.object({ source: z.string(), path: z.string(), name: z.string() }).optional()
 });
 export type LaunchConfig = z.infer<typeof LaunchConfigSchema>;
 
@@ -84,17 +86,26 @@ export const LaunchesTargetPayloadSchema = z.object({
 });
 export type LaunchesTargetPayload = z.infer<typeof LaunchesTargetPayloadSchema>;
 
+/* `sources` opts in to the suggestion sources newer than the client that asks; without it the answer holds only the first three. */
+export const LaunchesDetectPayloadSchema = LaunchesTargetPayloadSchema.extend({
+    sources: z.array(z.string().min(1)).max(16).optional()
+});
+export type LaunchesDetectPayload = z.infer<typeof LaunchesDetectPayloadSchema>;
+
 export const LaunchesSavePayloadSchema = z.object({
     projectId: ProjectIdSchema,
     baseRev: z.number().int().nonnegative(),
-    launches: z.array(LaunchConfigEntrySchema)
+    launches: z.array(LaunchConfigEntrySchema),
+    // The ids an import added in this save. An import approves nothing: the first run asks. An older daemon ignores this and approves as it always did.
+    imported: z.array(z.string().min(1)).optional()
 });
 export type LaunchesSavePayload = z.infer<typeof LaunchesSavePayloadSchema>;
 
 export const LaunchesSaveResultSchema = ProjectSaveResultSchema;
 export type LaunchesSaveResult = z.infer<typeof LaunchesSaveResultSchema>;
 
-export const LaunchSuggestionSourceSchema = z.enum(['run-xml', 'package-json', 'composer-json']);
+// `vscode-launch` is only ever sent to a request that names it (`LaunchesDetectPayloadSchema`), since a client validates every reply whole.
+export const LaunchSuggestionSourceSchema = z.enum(['run-xml', 'package-json', 'composer-json', 'vscode-launch']);
 export type LaunchSuggestionSource = z.infer<typeof LaunchSuggestionSourceSchema>;
 
 /* A launch the daemon found in the project's own files, ready to import. */

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { LaunchesSharedFileSchema, launchPortOf, readLaunchEntries, type LaunchConfig } from './launches.ts';
+import { LaunchesDetectPayloadSchema, LaunchesSharedFileSchema, launchPortOf, readLaunchEntries, type LaunchConfig } from './launches.ts';
 
 /* The shared file from the design report, with a field and a kind a later release might add. */
 const file = {
@@ -43,5 +43,12 @@ describe('the port of an address', () => {
         expect(launchPortOf('https://example.test/path')).toBe(443);
         expect(launchPortOf('not an address')).toBeNull();
         expect(launchPortOf(undefined)).toBeNull();
+    });
+});
+
+describe('detecting launches', () => {
+    test('a request from before the opt-in still parses, and one that names sources keeps them', () => {
+        expect(LaunchesDetectPayloadSchema.parse({ projectId: 'p1' })).toEqual({ projectId: 'p1' });
+        expect(LaunchesDetectPayloadSchema.parse({ projectId: 'p1', sources: ['vscode-launch'] }).sources).toEqual(['vscode-launch']);
     });
 });

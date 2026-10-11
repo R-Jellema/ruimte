@@ -233,6 +233,7 @@ import {
     LaunchStopPayloadSchema,
     LaunchesChangedEventSchema,
     LaunchesDetectResultSchema,
+    LaunchesDetectPayloadSchema,
     LaunchesDocumentSchema,
     LaunchesSavePayloadSchema,
     LaunchesSaveResultSchema,
@@ -524,7 +525,7 @@ export const REQUEST_SCHEMAS = {
     'launches.read': { payload: LaunchesTargetPayloadSchema, result: LaunchesDocumentSchema },
     // A person's save; it approves on this machine every launch it adds or changes.
     'launches.save': { payload: LaunchesSavePayloadSchema, result: LaunchesSaveResultSchema },
-    'launches.detect': { payload: LaunchesTargetPayloadSchema, result: LaunchesDetectResultSchema },
+    'launches.detect': { payload: LaunchesDetectPayloadSchema, result: LaunchesDetectResultSchema },
     'launch.start': { payload: LaunchStartPayloadSchema, result: LaunchStartResultSchema },
     'launch.restart': { payload: LaunchStartPayloadSchema, result: LaunchStartResultSchema },
     'launch.stop': { payload: LaunchStopPayloadSchema, result: EmptySchema },

@@ -42038,6 +42038,25 @@
             "autostart": {
               "type": "boolean"
             },
+            "origin": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "source",
+                "path",
+                "name"
+              ]
+            },
             "shared": {
               "type": "boolean"
             },
@@ -42144,6 +42163,25 @@
             "autostart": {
               "type": "boolean"
             },
+            "origin": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "source",
+                "path",
+                "name"
+              ]
+            },
             "shared": {
               "type": "boolean"
             },
@@ -42174,6 +42212,13 @@
           ],
           "additionalProperties": {}
         }
+      },
+      "imported": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "required": [
@@ -42203,6 +42248,14 @@
       "projectId": {
         "type": "string",
         "minLength": 1
+      },
+      "sources": {
+        "maxItems": 16,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "required": [
@@ -42264,6 +42317,25 @@
                 },
                 "autostart": {
                   "type": "boolean"
+                },
+                "origin": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "path",
+                    "name"
+                  ]
                 }
               },
               "required": [
@@ -42278,7 +42350,8 @@
               "enum": [
                 "run-xml",
                 "package-json",
-                "composer-json"
+                "composer-json",
+                "vscode-launch"
               ]
             },
             "path": {
@@ -63909,6 +63982,25 @@
                 },
                 "autostart": {
                   "type": "boolean"
+                },
+                "origin": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "path",
+                    "name"
+                  ]
                 },
                 "shared": {
                   "type": "boolean"
