@@ -277,7 +277,7 @@ function fileMenu(context: MenuContext, command: MenuCommand): MenuSection {
     ]);
     // In a host the key closes the tab in front, so Close Cell keeps no key of its own there.
     const hosted = context.tabs.hosted;
-    const worktreeChat = workspace && context.folder && !context.scratch && context.view === 'canvas';
+    const worktreeChat = workspace && context.folder && !context.scratch;
     const close =
         workspace && context.cells > 0
             ? command('close-cell', t('closeCell'), { shortcut: hosted ? undefined : CANVAS_SHORTCUTS.closeCell })

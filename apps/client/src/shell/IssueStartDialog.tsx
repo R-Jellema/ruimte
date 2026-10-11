@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleDot } from 'lucide-react';
 import type { GitIssue } from '@ruimte/contracts';
-import { createNodeAction, performAsPerson } from '@/actions/client-actions';
+import { performAsPerson } from '@/actions/client-actions';
 import { rememberChatSelection } from '@adecore/agents-react/chat/preferences';
 import { offerDraft } from '@adecore/agents-react/chat/drafts';
 import { useChats } from '@adecore/agents-react/state/chats';
 import { Button, Dialog, ErrorBoundary, Field, FormError, Icon, Input, Pill, TextArea } from '@adecore/ui';
 import { focusChat } from '@/plan/plan-actions';
 import { findIssueNode, issueBranch, issuePrompt } from '@/shell/issue-start';
+import { createWorktreeChat } from '@/shell/worktree-chat';
 import { useWorktreeStart } from '@/shell/use-worktree-start';
 import { WorktreeStartFields } from '@/shell/WorktreeStartFields';
 import { useDocument } from '@/state/document';
@@ -128,7 +129,7 @@ function IssueStartForm({ onDone }: { onDone(): void }) {
                 rememberChatSelection(start.provider, start.selection);
             }
             const marker = { repo: issue.repo, number: issue.number, url: issue.url };
-            const chatId = await createNodeAction('chat', {
+            const chatId = await createWorktreeChat({
                 cwd: worktree.path,
                 provider: start.provider,
                 title: `#${issue.number} ${issue.title}`.slice(0, 60),

@@ -142,6 +142,15 @@ describe('the menus', () => {
         expect(commandIds(menuModel(context({ prWatch: true })))).toContain('pr-watch-stop');
     });
 
+    test('a chat in a worktree and a chat from an issue are offered in any view of a project with a folder', () => {
+        for (const view of ['canvas', 'chat', 'terminal'] as const) {
+            const ids = commandIds(menuModel(context({ view })));
+            expect(ids).toContain('chat-new-worktree');
+            expect(ids).toContain('issue-start');
+        }
+        expect(commandIds(menuModel(context({ folder: false })))).not.toContain('chat-new-worktree');
+    });
+
     test('showing a pull request has one row per repository once the folder holds several', () => {
         expect(commandIds(menuModel(context()))).toContain('pr-show');
         const repos = [

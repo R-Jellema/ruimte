@@ -265,7 +265,7 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
         ...(offersNewChat(newChatMachine(), useNewChat.getState().refused)
             ? [{ id: 'chat-new', label: i18next.t('shell:chats.newChat'), hint: i18next.t('shell:chats.name'), shortcut: APP_SHORTCUTS.newChat, run: newChat }]
             : []),
-        ...(folder && !scratch && onCanvas
+        ...(folder && !scratch
             ? [
                   {
                       id: 'chat-new-worktree',

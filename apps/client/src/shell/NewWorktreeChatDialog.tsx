@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GitBranch } from 'lucide-react';
-import { createNodeAction, performAsPerson } from '@/actions/client-actions';
+import { performAsPerson } from '@/actions/client-actions';
 import { rememberChatSelection } from '@adecore/agents-react/chat/preferences';
 import { Button, Dialog, ErrorBoundary, FormError, Icon } from '@adecore/ui';
+import { createWorktreeChat } from '@/shell/worktree-chat';
 import { useWorktreeStart } from '@/shell/use-worktree-start';
 import { WorktreeStartFields } from '@/shell/WorktreeStartFields';
 import { useProject } from '@/state/project';
@@ -60,8 +61,8 @@ function NewWorktreeChatForm({ onDone }: { onDone(): void }) {
             if (start.selection !== null) {
                 rememberChatSelection(start.provider, start.selection);
             }
-            const nodeId = await createNodeAction('chat', { cwd: worktree.path, provider: start.provider });
-            if (nodeId === null) {
+            const chatId = await createWorktreeChat({ cwd: worktree.path, provider: start.provider });
+            if (chatId === null) {
                 throw new Error(t('newWorktreeChat.noCanvas'));
             }
             onDone();
