@@ -12,16 +12,20 @@ export function WorktreeStartFields({ start, idPrefix, onSubmit }: { start: Work
     const pickable = providers.filter((entry) => entry.installed && entry.capabilities.chat);
     const [pickerOpen, setPickerOpen] = useState(false);
     const submitOnEnter = (e: React.KeyboardEvent): void => {
-        e.stopPropagation();
+        // Escape must reach the dialog's own listener, also while the suggestion list is open.
+        if (e.key !== 'Escape') {
+            e.stopPropagation();
+        }
         if (e.key === 'Enter') {
             onSubmit();
         }
     };
+    const baseMissing = start.commit === 'missing';
     const baseHint =
         start.base.trim() === ''
             ? t('newWorktreeChat.baseEmpty')
             : start.commit === 'missing'
-              ? t('newWorktreeChat.baseMissing')
+              ? undefined
               : start.baseKnown && start.commit !== null
                 ? t('newWorktreeChat.baseCommit', { commit: start.commit.commit.slice(0, 7), subject: start.commit.subject })
                 : t('newWorktreeChat.baseLooking');
@@ -38,9 +42,15 @@ export function WorktreeStartFields({ start, idPrefix, onSubmit }: { start: Work
                 <Input mono value={start.branch} spellCheck={false} onChange={(e) => start.setBranch(e.target.value)} onKeyDown={submitOnEnter} />
             </Field>
             {!start.reuses && (
-                <Field label={t('newWorktreeChat.baseLabel')} hint={baseHint} className="mt-3">
+                <Field
+                    label={t('newWorktreeChat.baseLabel')}
+                    hint={baseHint}
+                    error={baseMissing && start.base.trim() !== '' ? t('newWorktreeChat.baseMissing') : undefined}
+                    className="mt-3"
+                >
                     <Input
                         mono
+                        className="[&::-webkit-calendar-picker-indicator]:hidden"
                         list={`${idPrefix}-refs`}
                         value={start.base}
                         spellCheck={false}

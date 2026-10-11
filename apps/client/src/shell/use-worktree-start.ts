@@ -57,7 +57,11 @@ export function useWorktreeStart(folder: string | null, proposed: string | null 
     const [pick, setPick] = useState<{ provider: AgentKind; selection: ModelSelection } | null>(null);
 
     const locals = (refs?.refs ?? []).filter((ref) => ref.kind === 'local').map((ref) => ref.name);
-    const branch = typedBranch ?? proposed ?? (refs === null ? '' : proposedBranch(locals));
+    const [generated, setGenerated] = useState<string | null>(null);
+    if (generated === null && proposed === null && refs !== null) {
+        setGenerated(proposedBranch(locals));
+    }
+    const branch = typedBranch ?? proposed ?? generated ?? '';
     const base = typedBase ?? refs?.current ?? '';
     const baseName = base.trim();
     const preferences = readChatPreferences();
