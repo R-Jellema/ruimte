@@ -7,6 +7,7 @@ import { chatOpener } from '@adecore/agents/chat/wake-chat';
 import { deliverMessageHandler } from '@adecore/agents/messages/deliver-message';
 import type { NoticeStore } from '@adecore/agents/messages/notice-store';
 import { MESSAGE_WORDS } from '../context/notices.ts';
+import type { PrWatchStore } from '../github/pr-watch.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 import type { SessionManager } from '../sessions/manager.ts';
 import type { TaskStore } from '@adecore/agents/tasks/task-store';
@@ -101,6 +102,7 @@ export interface OutboxWiringDeps {
     lineage: AgentLineageStore;
     prompts: PendingPromptStore;
     notices: NoticeStore;
+    prWatches: Pick<PrWatchStore, 'has' | 'prune'>;
     tasks: TaskStore;
     chats: ChatManager;
     sessions: SessionManager;
@@ -133,7 +135,7 @@ export interface OutboxWiring {
  * only one of them knew would fail in production or in the tests, never in both.
  */
 export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
-    const { link, outbox, projects, lineage, prompts, notices, tasks, chats, sessions } = deps;
+    const { link, outbox, projects, lineage, prompts, notices, prWatches, tasks, chats, sessions } = deps;
     const enqueue = (projectId: string, target: string, work: OutboxWork, notBefore?: number): Promise<void> =>
         link.enqueue(projectId, target, work, notBefore);
     const placed = (nodeId: string): boolean => projects.index.locate(nodeId) !== null;
@@ -188,6 +190,7 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
         enqueue
     });
 
+    const openChat = chatOpener({ chats, placed });
     const worker = new OutboxWorker({
         store: outbox,
         ...(deps.clock ? { clock: deps.clock } : {}),
@@ -219,7 +222,18 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
             }),
             'end-children': endChildren.handler,
             'deliver-summary': summaries.handler,
-            'deliver-waiting': taskWiring.deliverWaiting
+            'deliver-waiting': taskWiring.deliverWaiting,
+            // A watch that ended takes its wake along; a chat in a turn keeps it until the turn ends.
+            'deliver-pr-watch': async (entry) => {
+                if (!prWatches.has(entry.payload.watchId)) {
+                    return;
+                }
+                const chat = await openChat(entry.target);
+                if (chat === null) {
+                    return;
+                }
+                return chat.wake({ text: entry.payload.text, label: entry.payload.label, taskIds: [] }) ? undefined : 'wait';
+            }
         },
         onParked: (entry, error) => {
             resumeRunParked(chats)(entry, error);
@@ -237,6 +251,7 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
         // A node deleted before anyone ran it takes its prompt with it, and a node that is gone frees the count its opener is held to.
         places: (projectId, ids) => {
             endChildren.places(projectId, ids);
+            prWatches.prune(projectId, ids);
             void prompts.prune(projectId, ids).catch((e) => failed('Pruning pending prompts failed', e));
             for (const forkId of lineage.forksLeaving(projectId, ids)) {
                 const drop = chats.dropUnspokenFork(forkId);

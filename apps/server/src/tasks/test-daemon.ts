@@ -25,6 +25,8 @@ import { worktreeAgents } from '../git/worktree-agents.ts';
 import { worktreeHost } from '../git/worktree-host.ts';
 import { WorktreeMerge } from '../git/worktree-merge.ts';
 import type { Worktrees } from '../git/worktrees.ts';
+import { PrWatchStore } from '../github/pr-watch.ts';
+import type { GhRunner } from '../git/github.ts';
 import { registerChatHandlers } from '../handlers/chat.ts';
 import { registerSessionHandlers } from '../handlers/session.ts';
 import { registerPlanHandlers } from '../handlers/plan.ts';
@@ -56,6 +58,7 @@ export interface TestDaemon {
     notices: NoticeStore;
     lineage: AgentLineageStore;
     outbox: OutboxStore;
+    prWatches: PrWatchStore;
     worker: OutboxWorker<OutboxWork>;
     sessions: SessionManager;
     chats: ChatManager;
@@ -106,6 +109,8 @@ export interface TestDaemonOptions {
     onLimits?: (update: LimitsUpdate) => void;
     /* How pages are previewed and measured; without it a preview is refused and a page shown without heights. */
     visualRender?: Pick<VisualHost, 'preview' | 'measure'>;
+    /* What `gh` answers a pull request watch; without it every call fails. */
+    gh?: GhRunner;
 }
 
 export async function bootTestDaemon({
@@ -121,7 +126,8 @@ export async function bootTestDaemon({
     accounts,
     env = { PATH: process.env.PATH, HOME: home },
     onLimits,
-    visualRender = {}
+    visualRender = {},
+    gh = () => Promise.resolve({ code: 1, stdout: '', stderr: 'no gh in this test' })
 }: TestDaemonOptions): Promise<TestDaemon> {
     await store.hiddenAgents.load();
     const prompts = new PendingPromptStore(home);
@@ -206,6 +212,15 @@ export async function bootTestDaemon({
         }
     };
     const alerts: string[] = [];
+    const prWatches = new PrWatchStore({
+        path: `${home}/pr-watches.json`,
+        clock,
+        gh,
+        random: () => 0.5,
+        enqueue: (projectId, chatId, work) => outboxLink.enqueue(projectId, chatId, work),
+        entries: () => outbox.list(),
+        removeEntry: (id) => outbox.remove(id)
+    });
     const outboxWiring = wireOutbox({
         link: outboxLink,
         outbox,
@@ -213,6 +228,7 @@ export async function bootTestDaemon({
         lineage,
         prompts,
         notices,
+        prWatches,
         tasks,
         chats,
         sessions,
@@ -369,6 +385,7 @@ export async function bootTestDaemon({
         chatEnvs,
         wiring,
         endChildren,
+        prWatches,
         host,
         alerts,
         enqueued,
@@ -384,6 +401,7 @@ export async function bootTestDaemon({
         stop: async () => {
             // The order the daemon's own shutdown takes: nothing that dies with it settles a task.
             worker.stop();
+            prWatches.close();
             wiring.coordinator.stop();
             wiring.waiting.stop();
             summaries.coordinator.stop();

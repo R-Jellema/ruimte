@@ -4,6 +4,8 @@ import { prepareShellIntegration } from './sessions/shell-integration.ts';
 import { PushService } from './push/service.ts';
 import { registerPushHandlers } from './handlers/push.ts';
 import { SnoozeStore } from './push/snoozes.ts';
+import { PrWatchStore } from './github/pr-watch.ts';
+import { runGh } from './git/github.ts';
 import { registerSnoozeHandlers } from './handlers/snooze.ts';
 import { dirname, join, resolve } from 'node:path';
 import { userInfo } from 'node:os';
@@ -516,6 +518,14 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         }),
         access: databaseAccess
     });
+    const prWatches = new PrWatchStore({
+        path: join(config.home, 'pr-watches.json'),
+        gh: runGh,
+        enqueue: (projectId, chatId, work) => outboxLink.enqueue(projectId, chatId, work),
+        entries: () => outbox.list(),
+        removeEntry: (id) => outbox.remove(id),
+        onError: (what, error) => console.error(`${what}:`, errorText(error))
+    });
     const outboxWiring = wireOutbox({
         link: outboxLink,
         outbox,
@@ -523,6 +533,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         lineage,
         prompts,
         notices,
+        prWatches,
         tasks,
         chats,
         sessions: manager,
@@ -925,12 +936,20 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         computer.nodeClosed(chatId);
         return endChildren.owe(chatId);
     };
-    registerChatHandlers(dispatcher, chats, providers, beforeChatKill, endChildren.stopNode, {
-        fork: (payload) => forkChat(forkDeps, payload),
-        info: (payload) => readForkInfo(forkDeps, payload),
-        summarize: (chatId) => summaries.summarize(chatId),
-        continueOn: (payload) => continueOn({ chats, fork: (fork) => forkChat(forkDeps, fork) }, payload)
-    });
+    registerChatHandlers(
+        dispatcher,
+        chats,
+        providers,
+        beforeChatKill,
+        endChildren.stopNode,
+        {
+            fork: (payload) => forkChat(forkDeps, payload),
+            info: (payload) => readForkInfo(forkDeps, payload),
+            summarize: (chatId) => summaries.summarize(chatId),
+            continueOn: (payload) => continueOn({ chats, fork: (fork) => forkChat(forkDeps, fork) }, payload)
+        },
+        (chatId) => prWatches.stop(chatId)
+    );
     registerTaskHandlers(dispatcher, tasks, endChildren.children);
     registerChatImageHandlers(
         dispatcher,
@@ -1107,7 +1126,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     registerProcessHandlers(dispatcher, processes);
     registerSessionPortHandlers(dispatcher, sessionPorts);
     registerComputerHandlers(dispatcher, computer);
-    registerGitHandlers(dispatcher, worktrees, merges, statuses, providers);
+    registerGitHandlers(dispatcher, worktrees, merges, statuses, providers, prWatches);
 
     // A TURN server that restarts under an allocation must not take the daemon with it.
     guardWeriftTurn(process);
@@ -1205,6 +1224,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         dispatcher,
         presence: push,
         snoozes,
+        prWatches,
         sessions: manager,
         chats,
         browsers,
@@ -1472,6 +1492,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         keepAwake.stop();
         closedLid.stop();
         snoozes.stop();
+        prWatches.close();
         outboxWorker.stop();
         taskWiring.coordinator.stop();
         taskWiring.waiting.stop();

@@ -45012,6 +45012,209 @@
       "pr"
     ]
   },
+  "request.git.pr-watch.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "chatId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "cwd": {
+        "type": "string",
+        "minLength": 1
+      },
+      "number": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "projectId",
+      "chatId",
+      "cwd"
+    ]
+  },
+  "request.git.pr-watch.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "watch": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "chatId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "cwd": {
+            "type": "string",
+            "minLength": 1
+          },
+          "repo": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "startedAt": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "head": {
+            "type": "string"
+          },
+          "checkState": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "success",
+              "failure",
+              "none"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "chatId",
+          "cwd",
+          "repo",
+          "number",
+          "startedAt",
+          "head",
+          "checkState"
+        ]
+      }
+    },
+    "required": [
+      "watch"
+    ]
+  },
+  "request.git.pr-unwatch.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "chatId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "chatId"
+    ]
+  },
+  "request.git.pr-unwatch.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.git.pr-watches.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "projectId"
+    ]
+  },
+  "request.git.pr-watches.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "watches": {
+        "maxItems": 1000,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "chatId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "cwd": {
+              "type": "string",
+              "minLength": 1
+            },
+            "repo": {
+              "type": "string"
+            },
+            "number": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "startedAt": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "head": {
+              "type": "string"
+            },
+            "checkState": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "success",
+                "failure",
+                "none"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "projectId",
+            "chatId",
+            "cwd",
+            "repo",
+            "number",
+            "startedAt",
+            "head",
+            "checkState"
+          ]
+        }
+      }
+    },
+    "required": [
+      "watches"
+    ]
+  },
   "request.git.issue.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -64875,6 +65078,42 @@
       "actionId",
       "phase",
       "line"
+    ]
+  },
+  "event.git.pr-watches": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "ended": {
+        "type": "object",
+        "properties": {
+          "chatId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "merged",
+              "closed",
+              "expired"
+            ]
+          }
+        },
+        "required": [
+          "chatId",
+          "reason"
+        ]
+      }
+    },
+    "required": [
+      "projectId"
     ]
   },
   "event.git.worktrees": {

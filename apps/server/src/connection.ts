@@ -74,6 +74,7 @@ export interface ConnectionServices {
     provenance?: Subscribable;
     computer?: Subscribable;
     snoozes?: Subscribable;
+    prWatches?: Subscribable;
 }
 
 export interface OpenConnection {
@@ -151,7 +152,8 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
             services.plans?.subscribe(clientId, sink) ?? (() => undefined),
             services.provenance?.subscribe(clientId, sink) ?? (() => undefined),
             services.computer?.subscribe(clientId, sink) ?? (() => undefined),
-            services.snoozes?.subscribe(clientId, sink) ?? (() => undefined)
+            services.snoozes?.subscribe(clientId, sink) ?? (() => undefined),
+            services.prWatches?.subscribe(clientId, sink) ?? (() => undefined)
         ];
 
         channel.onDrain(() => {

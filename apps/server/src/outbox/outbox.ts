@@ -40,6 +40,12 @@ const DeliverSummarySchema = z.object({
     payload: z.object({ forkId: z.string().min(1), turnId: z.string().min(1), text: z.string() })
 });
 
+const DeliverPrWatchSchema = z.object({
+    kind: z.literal('deliver-pr-watch'),
+    // The target is the watching chat; the text and label are what the poll found, written when it did.
+    payload: z.object({ watchId: z.string().min(1), key: z.string().min(1), text: z.string(), label: z.string() })
+});
+
 // The kinds of tasks, ending children and delivering a message are @adecore/agents' own, each at the place it always had.
 const OutboxWorkSchema = z.discriminatedUnion('kind', [
     StartAgentSchema,
@@ -51,7 +57,8 @@ const OutboxWorkSchema = z.discriminatedUnion('kind', [
     DeliverMessageWorkSchema,
     EndChildrenWorkSchema,
     DeliverSummarySchema,
-    DeliverWaitingWorkSchema
+    DeliverWaitingWorkSchema,
+    DeliverPrWatchSchema
 ]);
 
 export type OutboxWork = z.infer<typeof OutboxWorkSchema>;
@@ -66,6 +73,7 @@ export type DeliverMessageEntry = Extract<OutboxEntry, { kind: 'deliver-message'
 export type EndChildrenEntry = Extract<OutboxEntry, { kind: 'end-children' }>;
 export type DeliverSummaryEntry = Extract<OutboxEntry, { kind: 'deliver-summary' }>;
 export type DeliverWaitingEntry = Extract<OutboxEntry, { kind: 'deliver-waiting' }>;
+export type DeliverPrWatchEntry = Extract<OutboxEntry, { kind: 'deliver-pr-watch' }>;
 
 /*
  * Work the daemon still owes, under `$RUIMTE_HOME/outbox`. Only a verb or a restart puts something

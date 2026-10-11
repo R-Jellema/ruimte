@@ -10,6 +10,7 @@ import { readLog } from '../git/log.ts';
 import { suggestMessage } from '../git/message.ts';
 import { parseIssueRef, readIssue, readPullRequest, runGh } from '../git/github.ts';
 import { GitError } from '../git/run.ts';
+import type { PrWatchStore } from '../github/pr-watch.ts';
 import { listRefs, readRefCommit } from '../git/refs.ts';
 import { listRepos } from '../git/repos.ts';
 import { discardPaths, stagePaths, unstagePaths } from '../git/stage.ts';
@@ -36,7 +37,8 @@ export function registerGitHandlers(
     worktrees: Worktrees,
     merges: WorktreeMerge,
     statuses: GitStatusWatcher,
-    providers: ProviderRegistry
+    providers: ProviderRegistry,
+    prWatches?: PrWatchStore
 ): void {
     const actions = new GitActions();
 
@@ -136,6 +138,23 @@ export function registerGitHandlers(
     );
 
     dispatcher.register('git.pr', (payload) => translate(async () => ({ pr: await readPullRequest(runGh, payload.cwd, payload.number) })));
+
+    const watching = (): PrWatchStore => {
+        if (!prWatches) {
+            throw new GitError('gh-failed', 'This machine does not watch pull requests');
+        }
+        return prWatches;
+    };
+    dispatcher.register('git.pr-watch', (payload) =>
+        translate(async () => ({ watch: await watching().start(payload.projectId, payload.chatId, payload.cwd, payload.number) }))
+    );
+    dispatcher.register('git.pr-unwatch', (payload) =>
+        translate(async () => {
+            await watching().stop(payload.chatId);
+            return {};
+        })
+    );
+    dispatcher.register('git.pr-watches', (payload) => ({ watches: watching().list(payload.projectId) }));
 
     dispatcher.register('git.ref-commit', (payload) => translate(() => readRefCommit(payload.cwd, payload.ref)));
 

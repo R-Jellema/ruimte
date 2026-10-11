@@ -380,6 +380,40 @@ export const GitPullRequestResultSchema = z.object({
 });
 export type GitPullRequestResult = z.infer<typeof GitPullRequestResultSchema>;
 
+// A person's watch on one pull request for one chat. The daemon polls it and wakes the chat once per finished state.
+export const GitPrWatchSchema = z.object({
+    id: z.string().min(1),
+    projectId: z.string().min(1).max(256),
+    chatId: z.string().min(1).max(256),
+    cwd: z.string().min(1),
+    repo: z.string(),
+    number: z.number().int().positive(),
+    // Epoch ms; the watch ends seven days after it.
+    startedAt: z.number().int().nonnegative(),
+    // The head and check state the last poll saw, for the pill's tooltip.
+    head: z.string(),
+    checkState: z.enum(['pending', 'success', 'failure', 'none'])
+});
+export type GitPrWatch = z.infer<typeof GitPrWatchSchema>;
+
+export const GitPrWatchPayloadSchema = z.object({
+    projectId: z.string().min(1).max(256),
+    chatId: z.string().min(1).max(256),
+    cwd: z.string().min(1),
+    number: z.number().int().positive().optional()
+});
+export const GitPrWatchResultSchema = z.object({ watch: GitPrWatchSchema });
+export const GitPrUnwatchPayloadSchema = z.object({ chatId: z.string().min(1).max(256) });
+export const GitPrWatchesPayloadSchema = z.object({ projectId: z.string().min(1).max(256) });
+export const GitPrWatchesResultSchema = z.object({ watches: z.array(GitPrWatchSchema).max(1000) });
+export const GitPrWatchEndReasonSchema = z.enum(['merged', 'closed', 'expired']);
+export type GitPrWatchEndReason = z.infer<typeof GitPrWatchEndReasonSchema>;
+// A person's Stop carries no `ended`: only a watch that ended by itself says why, and for which chat.
+export const GitPrWatchesEventSchema = z.object({
+    projectId: z.string().min(1).max(256),
+    ended: z.object({ chatId: z.string().min(1).max(256), reason: GitPrWatchEndReasonSchema }).optional()
+});
+
 export const GitStashSchema = z.object({
     ref: z.string(),
     message: z.string()

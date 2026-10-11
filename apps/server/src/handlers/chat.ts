@@ -28,7 +28,8 @@ export function registerChatHandlers(
     providers: ProviderRegistry,
     beforeKill?: BeforeKill,
     stopNode?: (nodeId: string, reason: string) => Promise<void>,
-    forks?: ChatForkHandlers
+    forks?: ChatForkHandlers,
+    stopped?: (chatId: string) => Promise<void>
 ): void {
     // What the daemon answers differently from a host of chats alone: a task's row stops its node, a stop or a
     // removal first owes the end of the agents a chat opened, and a fork lands on the canvas.
@@ -73,6 +74,7 @@ export function registerChatHandlers(
                 await beforeKill?.(payload.chatId);
             }
             manager.cancel(payload.chatId, payload.subagents === true);
+            await stopped?.(payload.chatId);
             return {};
         })
     );
@@ -81,6 +83,7 @@ export function registerChatHandlers(
         translate(async () => {
             await beforeKill?.(payload.chatId);
             await manager.kill(payload.chatId);
+            await stopped?.(payload.chatId);
             return {};
         })
     );
