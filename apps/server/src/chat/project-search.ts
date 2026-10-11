@@ -35,6 +35,10 @@ export function chatsOfViews(views: readonly ProjectView[]): SearchableChat[] {
     });
 }
 
+function searchKey(clientId: string, searchId: string): string {
+    return `${clientId}:${searchId}`;
+}
+
 /*
  * Searches the messages of every chat in a project, one chat after the other, so a search over a
  * long history never holds more than one thread in memory and a newer query can stop it between two.
@@ -49,16 +53,19 @@ export class ProjectChatSearch {
     }
 
     /* Stops the search before it opens its next chat; a search that is not running is nothing to stop. */
-    cancel(searchId: string): void {
-        if (this.running.has(searchId)) {
-            this.cancelled.add(searchId);
+    cancel(searchId: string, clientId: string): void {
+        const key = searchKey(clientId, searchId);
+        if (this.running.has(key)) {
+            this.cancelled.add(key);
         }
     }
 
     async search(payload: ChatSearchPayload, clientId: string): Promise<ChatSearchResult> {
         const { searchId, query, projectId } = payload;
         const limit = payload.limit ?? DEFAULT_LIMIT;
-        this.running.add(searchId);
+        // Every window counts its own search ids, so an id means something only next to its client.
+        const key = searchKey(clientId, searchId);
+        this.running.add(key);
         try {
             if (!(await this.deps.holds(clientId, projectId))) {
                 throw new ChatSearchError('not-open', 'Open this project before searching its chats');
@@ -71,7 +78,7 @@ export class ProjectChatSearch {
                 ...chats.filter((chat) => this.deps.loadedItems(chat.chatId) === null)
             ];
             for (const chat of ordered) {
-                if (this.cancelled.has(searchId)) {
+                if (this.cancelled.has(key)) {
                     result.cancelled = true;
                     break;
                 }
@@ -107,8 +114,8 @@ export class ProjectChatSearch {
             }
             return result;
         } finally {
-            this.running.delete(searchId);
-            this.cancelled.delete(searchId);
+            this.running.delete(key);
+            this.cancelled.delete(key);
         }
     }
 

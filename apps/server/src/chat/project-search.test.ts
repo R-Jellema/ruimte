@@ -82,12 +82,43 @@ describe('searching the chats of a project', () => {
         const pending = search.search(query, 'client');
         await Promise.resolve();
         await Promise.resolve();
-        search.cancel('s1');
+        search.cancel('s1', 'client');
         gate.resolve([message('a1', 'cache')]);
         const result = await pending;
         expect(result.cancelled).toBe(true);
         expect(result.hits.map((hit) => hit.itemId)).toEqual(['a1']);
         expect(reads).toBe(1);
+    });
+
+    test('a cancel from another client leaves the search alone, whatever id it picked', async () => {
+        const gate = Promise.withResolvers<readonly ChatItem[] | null>();
+        const { search } = setup({
+            holds: async () => true,
+            readStored: (chatId) => (chatId === 'a' ? gate.promise : Promise.resolve([message('b2', 'cache')]))
+        });
+        const pending = search.search(query, 'client');
+        await Promise.resolve();
+        await Promise.resolve();
+        search.cancel('s1', 'other');
+        gate.resolve([message('a1', 'cache')]);
+        const result = await pending;
+        expect(result.cancelled).toBe(false);
+        expect(result.hits.map((hit) => hit.itemId)).toEqual(['a1', 'b2']);
+    });
+
+    test('a search that ends does not clear the running mark of another client with the same id', async () => {
+        const gate = Promise.withResolvers<readonly ChatItem[] | null>();
+        const { search } = setup({
+            holds: async () => true,
+            readStored: (chatId) => (chatId === 'a' ? gate.promise : Promise.resolve([message('b2', 'cache')]))
+        });
+        const pending = search.search(query, 'client');
+        await Promise.resolve();
+        await Promise.resolve();
+        await search.search({ ...query, query: 'nothing here', projectId: 'p2' }, 'other').catch(() => undefined);
+        search.cancel('s1', 'client');
+        gate.resolve([message('a1', 'cache')]);
+        expect((await pending).cancelled).toBe(true);
     });
 
     test('a client that does not hold the project is refused', async () => {
