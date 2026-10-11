@@ -10,6 +10,8 @@ export interface CheckpointService {
     diff(cwd: string, tree: string): Promise<ChatCheckpointDiff | null>;
     /* The diff of a turn that ended, with the tree of the folder it was taken against: where that turn left the files. */
     settle(cwd: string, tree: string): Promise<{ diff: ChatCheckpointDiff; after: string } | null>;
+    /* The commit HEAD points at, or null when unborn or outside a repository. */
+    head(cwd: string): Promise<string | null>;
 }
 
 /* The name of the index file a checkout's turns are written through; removing a worktree removes it too. */
@@ -84,6 +86,14 @@ export class Checkpoints implements CheckpointService {
         }
         const diff = await diffTrees(top, tree, now, prefix.trim());
         return diff === null ? null : { diff, after: now };
+    }
+
+    async head(cwd: string): Promise<string | null> {
+        const top = await this.toplevel(cwd);
+        if (top === null) {
+            return null;
+        }
+        return (await git(['rev-parse', '--verify', '--quiet', 'HEAD^{commit}'], top))?.trim() || null;
     }
 
     /* Whether git still has a tree; one no ref points at is collected after a while. */

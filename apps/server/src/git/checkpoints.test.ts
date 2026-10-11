@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Checkpoints } from './checkpoints.ts';
+import { gitIn } from './test-repo.ts';
 
 async function git(args: string[], cwd: string): Promise<void> {
     const proc = Bun.spawn(['git', ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
@@ -126,5 +127,17 @@ describe('Checkpoints', () => {
         const tree = await checkpoints.take(repo);
         const diff = await checkpoints.diff(repo, tree!);
         expect(diff).toEqual({ files: [], truncated: false });
+    });
+
+    test('head is the commit HEAD points at, and null outside a repository or before the first commit', async () => {
+        expect(await checkpoints.head(repo)).toBe((await gitIn(repo, ['rev-parse', 'HEAD'])).trim());
+        expect(await checkpoints.head(plain)).toBeNull();
+        const unborn = await mkdtemp(join(tmpdir(), 'ruimte-checkpoint-unborn-'));
+        try {
+            await gitIn(unborn, ['init', '--quiet']);
+            expect(await checkpoints.head(unborn)).toBeNull();
+        } finally {
+            await rm(unborn, { recursive: true, force: true });
+        }
     });
 });

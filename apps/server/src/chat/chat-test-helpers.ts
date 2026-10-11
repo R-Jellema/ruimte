@@ -179,6 +179,10 @@ export class FakeCheckpoints implements CheckpointService {
         return settled;
     }
 
+    head(): Promise<string | null> {
+        return Promise.resolve(null);
+    }
+
     /* Resolves once every answer handed out so far, and whatever those answers set off, has settled. */
     async settled(): Promise<void> {
         let count = -1;
