@@ -1,8 +1,7 @@
 import type { ComponentType } from 'react';
 import { isApplePlatform } from '@/desktop/bridge';
 import { AccountTab } from '@/shell/settings/AccountTab';
-import { keyboardGroups } from '@/shell/settings/keyboard-groups';
-import { searchSettings, shortcutSearchRows, type SearchResult } from '@/shell/settings/search';
+import { findSettings } from '@/shell/settings/search';
 import {
     ABOUT_SECTION,
     ACCOUNT_SECTION,
@@ -39,12 +38,6 @@ const HEROES: Partial<Record<SettingsSectionId, ComponentType>> = {
     about: lazyNamed(() => import('@/shell/settings/panes/AboutPane'), 'AboutHero')
 };
 
-/* The index plus the shortcuts, whose words and keys are only known once the lists are built. */
-function findSettings(query: string): SearchResult[] {
-    const apple = isApplePlatform();
-    return searchSettings(query, query.trim() === '' ? [] : shortcutSearchRows(keyboardGroups(apple), apple));
-}
-
 // Built on every render rather than once: the words move with the language, the list does not.
 function entryOf(meta: SettingsSectionMeta): SettingsSectionEntry {
     return {
@@ -75,7 +68,11 @@ export function SettingsDialog() {
             groups={SETTINGS_GROUPS.map((group) => ({ label: group.label === null ? null : groupLabel(group.label), sections: group.sections.map(entryOf) }))}
             footer={[entryOf(ABOUT_SECTION)]}
             account={{ section: entryOf(ACCOUNT_SECTION), tab: <AccountTab /> }}
-            search={{ find: findSettings, hint: formatShortcut(APP_SHORTCUTS.settingsSearch, isApplePlatform()), focusAt: searchAt }}
+            search={{
+                find: (query) => findSettings(query, isApplePlatform()),
+                hint: formatShortcut(APP_SHORTCUTS.settingsSearch, isApplePlatform()),
+                focusAt: searchAt
+            }}
             target={target}
             onTargetShown={() => setSettings({ target: null })}
         />
