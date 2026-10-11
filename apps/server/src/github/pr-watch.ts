@@ -186,7 +186,7 @@ export class PrWatchStore {
         return publicOf(record);
     }
 
-    /* A person's Stop, or the chat going away. */
+    /* A person turning the watch off, or the chat going away; a turn's Stop is neither. */
     async stop(chatId: string): Promise<void> {
         const found = this.watchOf(chatId);
         if (found) {
