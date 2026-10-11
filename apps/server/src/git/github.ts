@@ -140,6 +140,7 @@ export function jsonDocuments(output: string): unknown[] {
 }
 
 const PR_QUERY = `query($owner:String!,$name:String!,$number:Int!,$endCursor:String){
+  viewer{login}
   repository(owner:$owner,name:$name){
     pullRequest(number:$number){
       number url title state isDraft headRefOid headRefName baseRefName mergeable mergeStateStatus reviewDecision
@@ -193,7 +194,7 @@ interface ThreadJson {
 }
 
 interface Page<Node> {
-    data?: { repository?: { pullRequest?: Node | null } | null };
+    data?: { viewer?: { login?: string } | null; repository?: { pullRequest?: Node | null } | null };
 }
 
 function pagesOf<Node>(output: string): Node[] {
@@ -303,6 +304,8 @@ export interface PrReview {
 
 export interface PrPoll {
     pr: GitPullRequest;
+    /* The account gh is signed in as; null when the answer did not say. */
+    viewer: string | null;
     reviews: PrReview[];
 }
 
@@ -312,7 +315,9 @@ export async function pollPullRequest(run: GhRunner, cwd: string, repo: string, 
     if (owner === undefined || name === undefined) {
         return null;
     }
-    const pages = pagesOf<PullRequestJson>(await ghOutput(run, graphql(PR_QUERY, { owner, name, number }), cwd, 'pr-not-found'));
+    const output = await ghOutput(run, graphql(PR_QUERY, { owner, name, number }), cwd, 'pr-not-found');
+    const pages = pagesOf<PullRequestJson>(output);
+    const viewer = (jsonDocuments(output) as Array<Page<PullRequestJson>>).find((page) => page.data?.viewer?.login)?.data?.viewer?.login ?? null;
     const pr = pullRequestOf(repo, pages, []);
     if (pr === null) {
         return null;
@@ -324,5 +329,5 @@ export async function pollPullRequest(run: GhRunner, cwd: string, repo: string, 
         bot: isBot(review.author),
         submittedAt: review.submittedAt ?? ''
     }));
-    return { pr, reviews };
+    return { pr, viewer, reviews };
 }

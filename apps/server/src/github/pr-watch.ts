@@ -327,6 +327,10 @@ export class PrWatchStore {
             news.push({ key, ...checksWake(poll.pr) });
         }
         for (const review of poll.reviews) {
+            // The chat's own replies come back as COMMENTED reviews of the account gh runs as; waking on them would loop.
+            if (poll.viewer !== null && review.author === poll.viewer) {
+                continue;
+            }
             const reviewKey = `review:${review.id}`;
             const fresh = review.submittedAt !== '' && review.state !== 'PENDING' && (record.reviewCursor === null || review.submittedAt > record.reviewCursor);
             if (fresh && !record.notified.includes(reviewKey)) {

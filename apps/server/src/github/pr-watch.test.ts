@@ -37,6 +37,7 @@ const fakeGh: GhRunner = (args) => {
     }
     const page = {
         data: {
+            viewer: { login: 'me' },
             repository: {
                 pullRequest: {
                     number: 12,
@@ -202,6 +203,17 @@ describe('a pull request watch', () => {
         expect(wakes[0]!.work).toMatchObject({ payload: { key: 'review:new', label: 'PR #12: new review' } });
         expect((wakes[0]!.work as { payload: { text: string } }).payload.text).toContain('copilot left a changes requested review.');
         await tick(store, 60_000);
+        expect(wakes).toHaveLength(1);
+    });
+
+    test('does not wake for a review by the account gh runs as', async () => {
+        const store = open();
+        await store.start('p', 'chat-1', '/repo');
+        pr.reviews.push({ id: 'mine', submittedAt: '2026-10-02T10:00:00Z', state: 'COMMENTED', login: 'me' });
+        await tick(store, 60_000);
+        expect(wakes).toEqual([]);
+        pr.reviews.push({ id: 'theirs', submittedAt: '2026-10-03T10:00:00Z', state: 'COMMENTED', login: 'ann' });
+        await tick(store, 90_000);
         expect(wakes).toHaveLength(1);
     });
 
