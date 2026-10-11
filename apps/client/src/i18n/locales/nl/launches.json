@@ -65,6 +65,7 @@
     },
     "edit": {
         "title": "Launches",
+        "drift": "Gewijzigd in {{path}} sinds de import",
         "description": "De launches van dit project. Wie een launch opslaat, keurt zijn commando goed op deze machine.",
         "new": "Nieuwe launch",
         "untitled": "Naamloos",
@@ -115,8 +116,8 @@
     },
     "import": {
         "title": "Launches importeren",
-        "description": "Er wordt niets opgeslagen tot je importeert. Wat je importeert, telt als jouw goedkeuring op deze machine.",
-        "descriptionInEditor": "Wat je importeert, komt in de lijst. Er wordt niets opgeslagen tot je opslaat, en dat telt als jouw goedkeuring op deze machine.",
+        "description": "Er wordt niets opgeslagen tot je importeert. Geïmporteerde launches vragen om jouw goedkeuring bij de eerste keer draaien.",
+        "descriptionInEditor": "Wat je importeert, komt in de lijst. Er wordt niets opgeslagen tot je opslaat. Geïmporteerde launches vragen om jouw goedkeuring bij de eerste keer draaien.",
         "searching": "Zoekt naar run-configuraties en scripts…",
         "nothing": "Niets gevonden om te importeren in dit project.",
         "failed": "Kon het project niet doorzoeken.",

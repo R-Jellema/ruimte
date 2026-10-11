@@ -120,7 +120,7 @@ export function useLaunchSuggestions(projectId: string | null): LaunchSuggestion
         }
         let cancelled = false;
         transport
-            .request('launches.detect', { projectId })
+            .request('launches.detect', { projectId, sources: ['vscode-launch'] })
             .then((result) => {
                 if (!cancelled) {
                     setFound({ projectId, suggestions: result.suggestions, failed: false });

@@ -27,6 +27,8 @@ import {
     draftProblem,
     emptyRow,
     folderRoots,
+    driftOf,
+    importedIds,
     importedLaunches,
     joinFolder,
     newDraft,
@@ -129,6 +131,8 @@ function EditForm({ projectId, document, launchId }: { projectId: string; docume
 
     const selected = drafts.find((draft) => draft.entry.id === selectedId) ?? null;
     const problem = draftProblem(drafts);
+    const { suggestions } = useLaunchSuggestions(projectId);
+    const drift = selected === null || suggestions === null ? null : driftOf(selected.entry, suggestions);
 
     function update(id: string, change: (draft: LaunchDraft) => LaunchDraft) {
         setDrafts((current) => current.map((draft) => (draft.entry.id === id ? change(draft) : draft)));
@@ -166,7 +170,8 @@ function EditForm({ projectId, document, launchId }: { projectId: string; docume
         setBusy(true);
         setFailure(null);
         try {
-            await transport.request('launches.save', { projectId, baseRev, launches: savedLaunches(drafts) });
+            const saved = savedLaunches(drafts);
+            await transport.request('launches.save', { projectId, baseRev, launches: saved, imported: importedIds(saved, document) });
             close();
         } catch (e) {
             setFailure(failureOf(e, t('edit.failed')));
@@ -211,6 +216,7 @@ function EditForm({ projectId, document, launchId }: { projectId: string; docume
                             key={selected.entry.id}
                             draft={selected}
                             drafts={drafts}
+                            drift={drift}
                             problem={tried && problem?.id === selected.entry.id ? problem.problem : null}
                             onChange={(change) => update(selected.entry.id, change)}
                         />
@@ -294,11 +300,13 @@ function DraftRow({ draft, selected, onSelect }: { draft: LaunchDraft; selected:
 function LaunchForm({
     draft,
     drafts,
+    drift,
     problem,
     onChange
 }: {
     draft: LaunchDraft;
     drafts: readonly LaunchDraft[];
+    drift: { path: string } | null;
     problem: DraftProblem | null;
     onChange(change: (draft: LaunchDraft) => LaunchDraft): void;
 }) {
@@ -324,6 +332,7 @@ function LaunchForm({
 
     return (
         <div className="flex flex-col gap-3">
+            {drift !== null && <FieldHint>{t('edit.drift', { path: drift.path })}</FieldHint>}
             <Field orientation="horizontal" label={t('edit.name')} error={problem === 'name' ? t('edit.problem.name') : undefined}>
                 <Input value={entry.name} autoFocus={entry.name === ''} onChange={(e) => set({ name: e.target.value })} />
             </Field>
@@ -503,7 +512,7 @@ function ImportForm({ projectId, document, into }: { projectId: string; document
         setFailure(null);
         try {
             const launches = [...document.launches, ...importedLaunches(picked, share, document)];
-            await transport.request('launches.save', { projectId, baseRev: document.rev, launches });
+            await transport.request('launches.save', { projectId, baseRev: document.rev, launches, imported: importedIds(launches, document) });
             close();
         } catch (e) {
             setFailure(failureOf(e, t('edit.failed')));

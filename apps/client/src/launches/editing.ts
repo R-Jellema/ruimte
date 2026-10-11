@@ -158,9 +158,39 @@ function sameRun(launch: LaunchConfigEntry, suggestion: LaunchSuggestion): boole
     );
 }
 
-/* What the project offers that is not a launch yet. */
+function originOf(suggestion: LaunchSuggestion): NonNullable<LaunchConfigEntry['origin']> {
+    return { source: suggestion.source, path: suggestion.path, name: suggestion.launch.name };
+}
+
+function hasOrigin(launch: LaunchConfigEntry, suggestion: LaunchSuggestion): boolean {
+    const origin = originOf(suggestion);
+    return launch.origin?.source === origin.source && launch.origin.path === origin.path && launch.origin.name === origin.name;
+}
+
+/* What the project offers that is not a launch yet: neither the same run nor the same configuration, edited since. */
 export function newSuggestions(suggestions: readonly LaunchSuggestion[], document: Pick<LaunchesDocument, 'launches'>): LaunchSuggestion[] {
-    return suggestions.filter((suggestion) => !document.launches.some((launch) => sameRun(launch, suggestion)));
+    return suggestions.filter((suggestion) => !document.launches.some((launch) => sameRun(launch, suggestion) || hasOrigin(launch, suggestion)));
+}
+
+function envKey(env: Record<string, string> | undefined): string {
+    return JSON.stringify(Object.entries(env ?? {}).sort(([one], [other]) => (one < other ? -1 : one > other ? 1 : 0)));
+}
+
+/*
+ * The file a launch was imported from, once that file says something else than the launch does. The
+ * launch itself stays as the person saved it; this only tells them the source moved on.
+ */
+export function driftOf(launch: LaunchConfigEntry, suggestions: readonly LaunchSuggestion[]): { path: string } | null {
+    const source = suggestions.find((suggestion) => suggestion.unsupported === undefined && hasOrigin(launch, suggestion));
+    if (source === undefined || launch.kind === 'group') {
+        return null;
+    }
+    const same =
+        (launch.command ?? '').trim() === (source.launch.command ?? '').trim() &&
+        (launch.cwd ?? '') === (source.launch.cwd ?? '') &&
+        (launch.url ?? '') === (source.launch.url ?? '') &&
+        envKey(launch.env) === envKey(source.launch.env);
+    return same ? null : { path: source.path };
 }
 
 /*
@@ -172,8 +202,14 @@ export function importedLaunches(suggestions: readonly LaunchSuggestion[], share
     return suggestions.map((suggestion) => {
         const id = uniqueId(suggestion.launch.id, taken);
         taken.add(id);
-        return { ...suggestion.launch, id, shared: share && !suggestion.private };
+        return { ...suggestion.launch, id, shared: share && !suggestion.private, origin: originOf(suggestion) };
     });
+}
+
+/* The launches of a save that an import added: each stays unapproved until a person runs it and says yes. */
+export function importedIds(saved: readonly LaunchConfigEntry[], document: Pick<LaunchesDocument, 'launches'>): string[] {
+    const known = new Set(document.launches.map((launch) => launch.id));
+    return saved.filter((launch) => launch.origin !== undefined && !known.has(launch.id)).map((launch) => launch.id);
 }
 
 /* An import from inside the editor: what was found joins the list beside the drafts, saved with them. */
@@ -190,11 +226,16 @@ function placeOf(places: ReadonlySet<string>, many: 'folders' | 'files'): string
     return places.size === 1 ? [...places][0]! : i18next.t(`launches:found.${many}`, { count: places.size });
 }
 
+/* A configuration an IDE keeps, as against the script of a package manifest. */
+function readsAsRunConfiguration(suggestion: LaunchSuggestion): boolean {
+    return suggestion.source === 'run-xml' || suggestion.source === 'vscode-launch';
+}
+
 /* The line under "Found in this project": how many of each, and where. */
 export function foundText(suggestions: readonly LaunchSuggestion[]): string | null {
     const usable = suggestions.filter((suggestion) => suggestion.unsupported === undefined);
-    const runFiles = usable.filter((suggestion) => suggestion.source === 'run-xml');
-    const scripts = usable.filter((suggestion) => suggestion.source !== 'run-xml');
+    const runFiles = usable.filter(readsAsRunConfiguration);
+    const scripts = usable.filter((suggestion) => !readsAsRunConfiguration(suggestion));
     const parts: string[] = [];
     if (runFiles.length > 0) {
         const place = placeOf(new Set(runFiles.map((suggestion) => dirnameOf(suggestion.path))), 'folders');
@@ -212,7 +253,7 @@ export function foundText(suggestions: readonly LaunchSuggestion[]): string | nu
 
 /* Where a suggestion came from, as the import dialog writes it beside the name. */
 export function suggestionSource(suggestion: LaunchSuggestion): string {
-    if (suggestion.source === 'run-xml') {
+    if (readsAsRunConfiguration(suggestion)) {
         return suggestion.detail;
     }
     const folder = dirnameOf(suggestion.path);

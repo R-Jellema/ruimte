@@ -65,6 +65,7 @@
     },
     "edit": {
         "title": "Launches",
+        "drift": "Changed in {{path}} since the import",
         "description": "The launches of this project. Saving a launch approves its command on this machine.",
         "new": "New launch",
         "untitled": "Untitled",
@@ -115,8 +116,8 @@
     },
     "import": {
         "title": "Import launches",
-        "description": "Nothing is saved until you import. What you import counts as your approval on this machine.",
-        "descriptionInEditor": "What you import joins the list. Nothing is saved until you save, which counts as your approval on this machine.",
+        "description": "Nothing is saved until you import. Imported launches ask for your approval the first time they run.",
+        "descriptionInEditor": "What you import joins the list. Nothing is saved until you save. Imported launches ask for your approval the first time they run.",
         "searching": "Looking for run configurations and scripts…",
         "nothing": "Found nothing to import in this project.",
         "failed": "Could not look through the project.",

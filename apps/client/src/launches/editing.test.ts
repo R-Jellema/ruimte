@@ -3,8 +3,10 @@ import type { GitRepo, LaunchConfigEntry, LaunchesDocument, LaunchSuggestion } f
 import {
     draftOf,
     draftProblem,
+    driftOf,
     folderRoots,
     foundText,
+    importedIds,
     importedLaunches,
     joinFolder,
     newDraft,
@@ -174,5 +176,39 @@ describe('the import', () => {
         expect(suggestionSource(suggestion('dev', { source: 'package-json', path: 'frontend/package.json' }))).toBe('frontend · package.json');
         expect(suggestionSource(suggestion('dev', { source: 'composer-json', path: 'composer.json' }))).toBe('composer.json');
         expect(suggestionSource(suggestion('run'))).toBe('PHP Built-in Web Server');
+    });
+});
+
+describe('imports from VS Code', () => {
+    const vscode = (id: string, launchOverrides: Partial<LaunchConfigEntry> = {}): LaunchSuggestion =>
+        suggestion(id, { source: 'vscode-launch', path: '.vscode/launch.json', detail: 'node' }, launchOverrides);
+
+    test('the origin is recorded, and the import is counted as an import until the daemon knows it', () => {
+        const [entry] = importedLaunches([vscode('api')], false, doc([]));
+        expect(entry!.origin).toEqual({ source: 'vscode-launch', path: '.vscode/launch.json', name: 'api' });
+        expect(importedIds([entry!, launch('own')], doc([launch('own')]))).toEqual(['api']);
+        expect(importedIds([entry!], doc([entry!]))).toEqual([]);
+    });
+
+    test('a configuration already imported is not offered again, even after its command was edited', () => {
+        const [imported] = importedLaunches([vscode('api')], false, doc([]));
+        const edited = { ...imported!, command: 'node other.js' };
+        expect(newSuggestions([vscode('api')], doc([edited]))).toEqual([]);
+        expect(newSuggestions([vscode('worker')], doc([edited])).map((entry) => entry.launch.id)).toEqual(['worker']);
+    });
+
+    test('drift shows when the source says something else than the launch, and never rewrites the launch', () => {
+        const [imported] = importedLaunches([vscode('api')], false, doc([]));
+        expect(driftOf(imported!, [vscode('api')])).toBeNull();
+        const changed = vscode('api', { command: 'node --inspect api.js' });
+        expect(driftOf(imported!, [changed])).toEqual({ path: '.vscode/launch.json' });
+        expect(driftOf(imported!, [vscode('api', { env: { A: '1' } })])).toEqual({ path: '.vscode/launch.json' });
+        expect(imported!.command).toBe('run api');
+        expect(driftOf(launch('typed'), [changed])).toBeNull();
+    });
+
+    test('they read as run configurations, with the type beside the name', () => {
+        expect(foundText([vscode('a'), vscode('b')])).toBe('2 run configurations in .vscode.');
+        expect(suggestionSource(vscode('a'))).toBe('node');
     });
 });
