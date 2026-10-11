@@ -1178,7 +1178,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         // Only the CLIs the daemon has a normalizer for are listed; the others run without status.
         for (const [kind, path] of Object.entries(defaultHookPaths())) {
             installHooks(path, kind as AgentKind)
-                .then((result) => {
+                .then(({ result }) => {
                     if (result === 'written') {
                         console.log(`Installed ${kind} status hooks in ${path}${kind === 'codex' ? ' (trust them once with /hooks in Codex)' : ''}`);
                     }

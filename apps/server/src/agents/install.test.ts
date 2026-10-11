@@ -3,7 +3,17 @@ import { chmod, lstat, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HOOK_EVENTS } from './hooks.ts';
-import { CODEX_RULES, HOOK_MARKER, defaultCodexRulesPath, hookCommand, installCodexRules, installHooks, installInFolder, mergeHooks } from './install.ts';
+import {
+    CODEX_RULES,
+    HOOK_MARKER,
+    HookFileRefused,
+    defaultCodexRulesPath,
+    hookCommand,
+    installCodexRules,
+    installHooks,
+    installInFolder,
+    mergeHooks
+} from './install.ts';
 
 const other = { type: 'command', command: 'echo other' };
 
@@ -90,10 +100,10 @@ describe('installHooks', () => {
 
     test('creates the file, then leaves it untouched', async () => {
         const path = join(dir, 'nested', 'hooks.json');
-        expect(await installHooks(path, 'codex')).toBe('written');
+        expect(await installHooks(path, 'codex')).toEqual({ result: 'written', createdFile: true, createdHooksKey: true });
         const written = await readFile(path, 'utf8');
         expect(written.endsWith('\n')).toBe(true);
-        expect(await installHooks(path, 'codex')).toBe('unchanged');
+        expect(await installHooks(path, 'codex')).toEqual({ result: 'unchanged', createdFile: false, createdHooksKey: false });
         expect(await readFile(path, 'utf8')).toBe(written);
     });
 
@@ -104,6 +114,34 @@ describe('installHooks', () => {
         expect(await readFile(path, 'utf8')).toBe('{ not json');
     });
 
+    test.each([['[]'], ['null'], ['"x"'], ['{ "hooks": [] }'], ['{ "hooks": { "Stop": {} } }']])('leaves %s alone, byte for byte', async (content) => {
+        const path = join(dir, 'settings.json');
+        await writeFile(path, content);
+        const before = await readFile(path);
+
+        await expect(installHooks(path, 'claude')).rejects.toBeInstanceOf(HookFileRefused);
+
+        expect((await readFile(path)).equals(before)).toBe(true);
+    });
+
+    test('says a file that already had a hooks key did not get it from us', async () => {
+        const path = join(dir, 'settings.json');
+        await writeFile(path, '{ "hooks": {} }');
+
+        expect(await installHooks(path, 'claude')).toEqual({ result: 'written', createdFile: false, createdHooksKey: false });
+    });
+
+    test('two installs at once leave one valid file with one hook per event', async () => {
+        const path = join(dir, 'settings.json');
+        await writeFile(path, '{ "model": "opus" }');
+
+        await Promise.all([installHooks(path, 'claude'), installHooks(path, 'claude')]);
+
+        const written = JSON.parse(await readFile(path, 'utf8'));
+        expect(written.model).toBe('opus');
+        expect(Object.values(written.hooks).every((groups) => (groups as unknown[]).length === 1)).toBe(true);
+    });
+
     test('writes through a symlink and keeps the link and the mode', async () => {
         await mkdir(join(dir, 'dotfiles'));
         const target = join(dir, 'dotfiles', 'settings.json');
@@ -112,7 +150,7 @@ describe('installHooks', () => {
         const link = join(dir, 'settings.json');
         await symlink(join('dotfiles', 'settings.json'), link);
 
-        expect(await installHooks(link, 'claude')).toBe('written');
+        expect(await installHooks(link, 'claude')).toEqual({ result: 'written', createdFile: false, createdHooksKey: true });
         expect((await lstat(link)).isSymbolicLink()).toBe(true);
         expect((await stat(target)).mode & 0o777).toBe(0o600);
         const written = JSON.parse(await readFile(target, 'utf8'));
@@ -167,15 +205,19 @@ describe('installInFolder', () => {
     });
 
     test('puts the hooks of Claude Code in the settings of that folder', async () => {
-        expect(await installInFolder('claude', dir)).toEqual([{ path: join(dir, 'settings.json'), result: 'written' }]);
+        expect(await installInFolder('claude', dir)).toEqual([
+            { path: join(dir, 'settings.json'), kind: 'hooks', result: 'written', createdFile: true, createdHooksKey: true }
+        ]);
         expect(await readFile(join(dir, 'settings.json'), 'utf8')).toContain(HOOK_MARKER);
-        expect(await installInFolder('claude', dir)).toEqual([{ path: join(dir, 'settings.json'), result: 'unchanged' }]);
+        expect(await installInFolder('claude', dir)).toEqual([
+            { path: join(dir, 'settings.json'), kind: 'hooks', result: 'unchanged', createdFile: false, createdHooksKey: false }
+        ]);
     });
 
     test('gives a Codex folder its hooks and the rule', async () => {
         expect(await installInFolder('codex', dir)).toEqual([
-            { path: join(dir, 'hooks.json'), result: 'written' },
-            { path: join(dir, 'rules', 'ruimte.rules'), result: 'written' }
+            { path: join(dir, 'hooks.json'), kind: 'hooks', result: 'written', createdFile: true, createdHooksKey: true },
+            { path: join(dir, 'rules', 'ruimte.rules'), kind: 'rules', result: 'written', createdFile: true, createdHooksKey: false }
         ]);
         expect(await readFile(join(dir, 'rules', 'ruimte.rules'), 'utf8')).toBe(CODEX_RULES);
     });

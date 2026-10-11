@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { AgentKind } from '@ruimte/contracts';
 import { isNotFound, writeAtomic } from '@adecore/agents/fs';
+import { KeyedSerializer } from '@adecore/agents/serializer';
 import {
     codexRulesPathIn as codexRulesPathInFolder,
     codexRulesText,
@@ -60,10 +61,15 @@ function sameEntry(hook: unknown, wanted: HookEntry): boolean {
 /*
  * Puts one Ruimte hook under every event the daemon listens for and leaves everything else in
  * the config alone: other tools' hooks, other keys, unknown fields on our own group. Answers the
- * new config and whether anything changed, so an unchanged file is never rewritten.
+ * new config and whether anything changed, so an unchanged file is never rewritten. A config whose
+ * top level, `hooks` or an event is not the shape the CLI reads is refused, never rebuilt.
  */
-export function mergeHooks(config: unknown, kind: AgentKind): { config: Record<string, unknown>; changed: boolean } {
-    const root: Record<string, unknown> = isRecord(config) ? { ...config } : {};
+export function mergeHooks(config: unknown, kind: AgentKind): { config: Record<string, unknown>; changed: boolean; refused: boolean } {
+    const shapeKept = isRecord(config) && (config.hooks === undefined || (isRecord(config.hooks) && Object.values(config.hooks).every(Array.isArray)));
+    if (!shapeKept) {
+        return { config: {}, changed: false, refused: true };
+    }
+    const root: Record<string, unknown> = { ...(config as Record<string, unknown>) };
     const hooks: Record<string, unknown> = isRecord(root.hooks) ? { ...root.hooks } : {};
     const wantedEvents = new Set(HOOK_EVENTS[kind] ?? []);
     let changed = false;
@@ -118,34 +124,74 @@ export function mergeHooks(config: unknown, kind: AgentKind): { config: Record<s
     }
 
     root.hooks = hooks;
-    return { config: root, changed };
+    return { config: root, changed, refused: false };
 }
 
 type InstallResult = 'unchanged' | 'written';
 
-/* Idempotent: the second run on the same file is a no-op. A file that is not JSON is left alone (throws). */
-export async function installHooks(link: string, kind: AgentKind): Promise<InstallResult> {
+export interface HooksInstall {
+    result: InstallResult;
+    // What the file lacked before, so turning the hooks off can leave it as it was found.
+    createdFile: boolean;
+    createdHooksKey: boolean;
+}
+
+/* A settings file that is not an object, or whose `hooks` is not one, is a person's and is never rewritten. */
+export class HookFileRefused extends Error {}
+
+// One edit of a file at a time, by real path, so two installs in a row never read the same text.
+const hookFiles = new KeyedSerializer();
+
+const HOOK_FILE_RETRIES = 3;
+
+async function textOrNull(path: string): Promise<string | null> {
+    try {
+        return await readFile(path, 'utf8');
+    } catch (e) {
+        if (isNotFound(e)) {
+            return null;
+        }
+        throw new Error(`Cannot read ${path}: ${errorText(e)}`);
+    }
+}
+
+/* Idempotent: the second run on the same file is a no-op. A file that is not JSON, or not an object, is left alone (throws). */
+export async function installHooks(link: string, kind: AgentKind): Promise<HooksInstall> {
     // Written where a symlink points, since a rename over the link itself would cut a dotfiles checkout loose.
     const path = await realpath(link).catch(() => link);
-    let existing: unknown = {};
-    try {
-        existing = JSON.parse(await readFile(path, 'utf8'));
-    } catch (e) {
-        if (!isNotFound(e)) {
-            throw new Error(`Cannot read ${path}: ${errorText(e)}`);
+    return await hookFiles.run(path, async () => {
+        for (let attempt = 0; attempt < HOOK_FILE_RETRIES; attempt++) {
+            const text = await textOrNull(path);
+            let existing: unknown = {};
+            if (text !== null) {
+                try {
+                    existing = JSON.parse(text);
+                } catch (e) {
+                    throw new Error(`Cannot read ${path}: ${errorText(e)}`);
+                }
+            }
+            const { config, changed, refused } = mergeHooks(existing, kind);
+            if (refused) {
+                throw new HookFileRefused(`${path} is not a settings object with hooks in the shape the CLI reads, so Ruimte leaves it alone`);
+            }
+            const created = { createdFile: text === null, createdHooksKey: !isRecord(existing) || existing.hooks === undefined };
+            if (!changed) {
+                return { result: 'unchanged', ...created };
+            }
+            const mode = await stat(path).then(
+                (stats) => stats.mode & 0o777,
+                () => 0o644
+            );
+            await mkdir(dirname(path), { recursive: true });
+            // A CLI or an editor that wrote since the read would lose its change to ours.
+            if ((await textOrNull(path)) !== text) {
+                continue;
+            }
+            await writeAtomic(path, `${JSON.stringify(config, null, 2)}\n`, mode);
+            return { result: 'written', ...created };
         }
-    }
-    const { config, changed } = mergeHooks(existing, kind);
-    if (!changed) {
-        return 'unchanged';
-    }
-    const mode = await stat(path).then(
-        (stats) => stats.mode & 0o777,
-        () => 0o644
-    );
-    await mkdir(dirname(path), { recursive: true });
-    await writeAtomic(path, `${JSON.stringify(config, null, 2)}\n`, mode);
-    return 'written';
+        throw new Error(`${path} kept changing; try again`);
+    });
 }
 
 /* The file a CLI reads user-level hooks from inside one of its config folders; null for a CLI whose hooks the daemon cannot read. */
@@ -185,9 +231,9 @@ export function defaultCodexRulesPath(env: Record<string, string | undefined> = 
     return codexRulesPathIn(defaultCodexHome(env));
 }
 
-export interface FolderInstall {
+export interface FolderInstall extends HooksInstall {
     path: string;
-    result: InstallResult;
+    kind: 'hooks' | 'rules';
 }
 
 /*
@@ -199,10 +245,14 @@ export async function installInFolder(kind: AgentKind, folder: string): Promise<
     if (hookPath === null) {
         return [];
     }
-    const installs = [{ path: hookPath, result: await installHooks(hookPath, kind) }];
+    const installs: FolderInstall[] = [{ path: hookPath, kind: 'hooks', ...(await installHooks(hookPath, kind)) }];
     if (kind === 'codex') {
         const rulesPath = codexRulesPathIn(folder);
-        installs.push({ path: rulesPath, result: await installCodexRules(rulesPath) });
+        const existed = await stat(rulesPath).then(
+            () => true,
+            () => false
+        );
+        installs.push({ path: rulesPath, kind: 'rules', result: await installCodexRules(rulesPath), createdFile: !existed, createdHooksKey: false });
     }
     return installs;
 }
