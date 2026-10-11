@@ -110,8 +110,6 @@ export function parseServerArgs(argv: string[], env: Record<string, string | und
             host: { type: 'string', default: DEFAULT_HOST },
             port: { type: 'string', default: String(DEFAULT_PORT) },
             'no-hooks': { type: 'boolean', default: false },
-            // A desktop service definition from before 0.14.0 still passes it, and strict parsing would keep that service from starting.
-            serve: { type: 'string' },
             label: { type: 'string' },
             'no-price-fetch': { type: 'boolean', default: false },
             'no-model-fetch': { type: 'boolean', default: false },

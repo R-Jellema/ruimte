@@ -33,9 +33,8 @@ describe('parseServerArgs', () => {
         expect(parseServerArgs(['--no-stun'], {}).stun).toEqual([]);
     });
 
-    test('--no-hooks skips the installers, and --serve from an older service definition is taken and ignored', () => {
+    test('--no-hooks skips the installers', () => {
         expect(parseServerArgs(['--no-hooks'], {}).installHooks).toBe(false);
-        expect(parseServerArgs(['--serve', '/tmp/dist'], {})).not.toHaveProperty('serve');
     });
 
     test('reads --host and --port', () => {

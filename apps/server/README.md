@@ -32,8 +32,6 @@ The `dev` script runs on port `4211` with `RUIMTE_HOME` set from `RUIMTE_DEV_HOM
 | `--lan-port <port>` | `--port` plus 10 | The port of the door on the local network; `0` lets the system pick one. |
 | `--no-lan` | off | Keep the door on the local network closed, whatever the machine's setting says. |
 
-`--serve` is still accepted and ignored, for service definitions written before the shell served its own page.
-
 `GET /health` answers `{ ok: true, version, build, service }`, where `service` says whether the daemon runs as the background service. `POST /hooks/<claude|codex>` takes a hook payload from an agent CLI; other kinds answer 404. Everything else goes over `/ws` in the frames of `packages/contracts`.
 
 Other environment variables:
