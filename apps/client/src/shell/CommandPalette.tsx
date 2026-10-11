@@ -1109,8 +1109,8 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                                     onClick={(e) => run(entry, wantsNewWindow(e))}
                                 >
                                     <span className="shrink-0 text-text-faint">{entry.icon}</span>
-                                    <span className="min-w-0 truncate">{entry.label}</span>
-                                    {entry.hint && <span className="text-xs text-text-faint">{entry.hint}</span>}
+                                    <span className="max-w-full shrink-0 truncate">{entry.label}</span>
+                                    {entry.hint && <span className="min-w-0 truncate text-xs text-text-faint">{entry.hint}</span>}
                                     <span className="grow" />
                                     {entry.trailing}
                                     {entry.shortcut && <Kbd shortcut={entry.shortcut} variant="inline" />}
