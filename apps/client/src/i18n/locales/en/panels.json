@@ -408,6 +408,7 @@
                 "merged": "The pull request was merged, so the watch ended.",
                 "closed": "The pull request was closed, so the watch ended.",
                 "expired": "The watch ran for 7 days and ended.",
+                "folderMissing": "The folder of this chat no longer exists, so the watch ended.",
                 "failed": "Could not start the watch"
             }
         },

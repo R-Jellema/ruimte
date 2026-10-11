@@ -77,7 +77,12 @@ function terminalKey(pr: GitPullRequest): string | null {
         return null;
     }
     const set = createHash('sha1')
-        .update(pr.checks.map((check) => check.key).sort().join('\n'))
+        .update(
+            pr.checks
+                .map((check) => check.key)
+                .sort()
+                .join('\n')
+        )
         .digest('hex')
         .slice(0, 8);
     return `checks:${pr.headSha}:${pr.checkState}:${set}`;
@@ -93,7 +98,11 @@ const MAX_NAME = 80;
 
 /* A check name is the author's own words in a fork's pull request: one line, no control characters, cut short. */
 function cleanName(name: string): string {
-    return name.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ').trim().slice(0, MAX_NAME);
+    const plain = [...name].map((char) => {
+        const code = char.codePointAt(0)!;
+        return code < 32 || (code >= 127 && code <= 159) || code === 0x2028 || code === 0x2029 ? ' ' : char;
+    });
+    return plain.join('').replace(/ +/g, ' ').trim().slice(0, MAX_NAME);
 }
 
 /* A block of lines fenced by more backticks than any line holds, so nothing inside ends it. */
@@ -308,7 +317,11 @@ export class PrWatchStore {
         let poll: PrPoll | null;
         try {
             poll = await pollPullRequest(this.options.gh, record.cwd, record.repo, record.number);
-        } catch {
+        } catch (e) {
+            if (e instanceof GitError && e.code === 'folder-missing') {
+                await this.end(id, 'folder-missing');
+                return;
+            }
             poll = null;
         }
         // Stopped while the poll was out: nothing it found is anybody's.

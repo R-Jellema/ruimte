@@ -25,6 +25,7 @@ export type GitErrorCode =
     | 'no-branch'
     | 'ref-not-found'
     | 'gh-missing'
+    | 'folder-missing'
     | 'gh-unauthenticated'
     | 'gh-failed'
     | 'issue-not-found'

@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ManualClock } from '@adecore/agents/outbox/manual-clock';
+import { GitError } from '../git/run.ts';
 import type { GhRunner } from '../git/github.ts';
 import type { OutboxEntry, OutboxWork } from '../outbox/outbox.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
@@ -14,6 +15,7 @@ interface FakePr {
     checks: Array<{ name: string; status: string; conclusion: string | null }>;
     reviews: Array<{ id: string; submittedAt: string | null; state: string; login: string }>;
     fails: boolean;
+    folderGone?: boolean;
 }
 
 let home: string;
@@ -28,6 +30,9 @@ let failEnqueue: boolean;
 const stores: PrWatchStore[] = [];
 
 const fakeGh: GhRunner = (args) => {
+    if (pr.folderGone) {
+        return Promise.reject(new GitError('folder-missing', 'gone'));
+    }
     if (args[0] === 'pr') {
         return Promise.resolve({ code: 0, stdout: JSON.stringify({ number: 12, url: 'https://github.com/o/r/pull/12' }), stderr: '' });
     }
@@ -360,6 +365,15 @@ describe('a pull request watch', () => {
         await tick(store, 60_000);
         expect(store.list()).toEqual([]);
         expect(events.at(-1)).toEqual({ event: 'git.pr-watches', payload: { projectId: 'p', ended: { chatId: 'chat-1', reason: 'merged' } } });
+    });
+
+    test('ends, and says why, when its folder is gone', async () => {
+        const store = open();
+        await store.start('p', 'chat-1', '/repo');
+        pr.folderGone = true;
+        await tick(store, 60_000);
+        expect(store.list()).toEqual([]);
+        expect(events.at(-1)).toEqual({ event: 'git.pr-watches', payload: { projectId: 'p', ended: { chatId: 'chat-1', reason: 'folder-missing' } } });
     });
 
     test('ends seven days after it began', async () => {

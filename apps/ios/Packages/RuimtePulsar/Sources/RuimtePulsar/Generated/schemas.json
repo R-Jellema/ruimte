@@ -65099,7 +65099,8 @@
             "enum": [
               "merged",
               "closed",
-              "expired"
+              "expired",
+              "folder-missing"
             ]
           }
         },

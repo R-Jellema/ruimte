@@ -408,6 +408,7 @@
                 "merged": "De pull request is samengevoegd, dus het volgen is beëindigd.",
                 "closed": "De pull request is gesloten, dus het volgen is beëindigd.",
                 "expired": "Het volgen liep 7 dagen en is beëindigd.",
+                "folderMissing": "De map van deze chat bestaat niet meer, dus het volgen is beëindigd.",
                 "failed": "Kon het volgen niet starten"
             }
         },

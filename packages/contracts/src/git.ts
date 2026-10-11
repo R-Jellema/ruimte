@@ -407,7 +407,7 @@ export const GitPrUnwatchPayloadSchema = z.object({ chatId: z.string().min(1).ma
 // Without a project, every watch of the machine.
 export const GitPrWatchesPayloadSchema = z.object({ projectId: z.string().min(1).max(256).optional() });
 export const GitPrWatchesResultSchema = z.object({ watches: z.array(GitPrWatchSchema).max(1000) });
-export const GitPrWatchEndReasonSchema = z.enum(['merged', 'closed', 'expired']);
+export const GitPrWatchEndReasonSchema = z.enum(['merged', 'closed', 'expired', 'folder-missing']);
 export type GitPrWatchEndReason = z.infer<typeof GitPrWatchEndReasonSchema>;
 // A person's Stop carries no `ended`: only a watch that ended by itself says why, and for which chat.
 export const GitPrWatchesEventSchema = z.object({

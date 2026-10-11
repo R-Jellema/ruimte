@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { ghError, jsonDocuments, parseIssueRef, readIssue, readPullRequest, type GhRunner } from './github.ts';
+import { ghError, jsonDocuments, parseIssueRef, readIssue, readPullRequest, runGh, type GhRunner } from './github.ts';
 
 function fake(answers: Record<string, { code?: number; stdout?: string; stderr?: string }>): { run: GhRunner; calls: string[][] } {
     const calls: string[][] = [];
@@ -171,5 +171,11 @@ describe('readPullRequest', () => {
     test('a branch without a pull request answers null', async () => {
         const run: GhRunner = async () => ({ code: 1, stdout: '', stderr: 'no pull requests found for branch "x"' });
         expect(await readPullRequest(run, '/p')).toBeNull();
+    });
+});
+
+describe('runGh', () => {
+    test('says the folder is missing instead of a gh that cannot start', async () => {
+        await expect(runGh(['--version'], '/definitely/not/a/folder')).rejects.toMatchObject({ code: 'folder-missing' });
     });
 });

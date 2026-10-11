@@ -9,7 +9,7 @@ import { sendToChat } from '@/chat/selection-to-chat';
 import { desktop } from '@/desktop/bridge';
 import { groupChecks, mergeStateKey, threadBlock, visibleThreads } from '@/shell/pr-view';
 import { stopPrWatch } from '@/shell/pr-watch-actions';
-import { isOfEndpoint, useEndpointId } from '@/state/keys';
+import { endpointKey, isOfEndpoint, useEndpointId } from '@/state/keys';
 import { usePrWatches } from '@/state/pr-watches';
 import { useProject } from '@/state/project';
 import { useUi } from '@/state/ui';
@@ -116,6 +116,14 @@ function PullRequestView({ cwd, onDone }: { cwd: string; onDone(): void }) {
     );
 }
 
+/* The reason a watch could not start in the person's words: the machine's code when it has one, else its message. */
+function watchFailure(error: unknown, t: (key: string) => string): string {
+    if ((error as { code?: unknown } | null)?.code === 'folder-missing') {
+        return t('git.pr.watch.folderMissing');
+    }
+    return error instanceof Error ? error.message : t('git.pr.watch.failed');
+}
+
 /* Which chat the machine wakes when this pull request's checks finish or a review comes in. */
 function PullRequestWatch({ cwd, pr }: { cwd: string; pr: PullRequest }) {
     const { t } = useTranslation('panels');
@@ -126,19 +134,28 @@ function PullRequestWatch({ cwd, pr }: { cwd: string; pr: PullRequest }) {
     const chats = [...sections.here, ...sections.others];
     const watches = usePrWatches((state) => state.byChat);
     const watching = Object.entries(watches).filter(([key, watch]) => isOfEndpoint(key, endpointId) && watch.repo === pr.repo && watch.number === pr.number);
+    const ended = usePrWatches((state) => state.ended);
+    const endedHere = chats.flatMap((chat) => {
+        const reason = ended[endpointKey(endpointId, chat.id)];
+        return reason === undefined ? [] : [{ chat, reason }];
+    });
     const [error, setError] = useState<string | null>(null);
     const start = (chatId: string): void => {
         if (projectId === null) {
             return;
         }
         setError(null);
-        transport
-            .request('git.pr-watch', { projectId, chatId, cwd, number: pr.number })
-            .catch((e: unknown) => setError(e instanceof Error ? e.message : t('git.pr.watch.failed')));
+        usePrWatches.getState().dismissEnded(endpointId, chatId);
+        transport.request('git.pr-watch', { projectId, chatId, cwd, number: pr.number }).catch((e: unknown) => setError(watchFailure(e, t)));
     };
     return (
         <>
             {error !== null && <span className="text-xs text-status-error">{error}</span>}
+            {endedHere.map(({ chat, reason }) => (
+                <Button key={chat.id} size="xs" onClick={() => usePrWatches.getState().dismissEnded(endpointId, chat.id)}>
+                    {chat.title}: {t(`git.pr.watch.${reason === 'folder-missing' ? 'folderMissing' : reason}`)}
+                </Button>
+            ))}
             {watching.map(([key, watch]) => (
                 <Tooltip key={key} label={t('git.pr.watch.stop')}>
                     <Button size="xs" onClick={() => void stopPrWatch(endpointId, watch.chatId)}>

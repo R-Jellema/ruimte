@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import type { GitIssue, GitPrThread, GitPullRequest } from '@ruimte/contracts';
 import { checksOf, summarizeChecks, type RawCheck } from './pr-checks.ts';
 import { GitError, streamWithTimeout, type GitResult } from './run.ts';
@@ -12,7 +13,13 @@ const MAX_BODY = 60_000;
 /* Runs `gh` with these arguments in a folder; a seam so tests hand in answers. */
 export type GhRunner = (args: string[], cwd: string) => Promise<GitResult>;
 
-export const runGh: GhRunner = (args, cwd) => streamWithTimeout('gh', args, cwd, GH_TIMEOUT_MS, { env: GH_ENV });
+export const runGh: GhRunner = (args, cwd) => {
+    // A folder that is gone would otherwise read as a `gh` that cannot start.
+    if (!existsSync(cwd)) {
+        return Promise.reject(new GitError('folder-missing', 'That folder no longer exists on this machine.'));
+    }
+    return streamWithTimeout('gh', args, cwd, GH_TIMEOUT_MS, { env: GH_ENV });
+};
 
 export interface IssueRef {
     /* `owner/repo`; null when the reference leaves it to the folder's own repository. */
