@@ -24,6 +24,11 @@ export type GitErrorCode =
     | 'worktree-taken'
     | 'no-branch'
     | 'ref-not-found'
+    | 'gh-missing'
+    | 'gh-unauthenticated'
+    | 'gh-failed'
+    | 'issue-not-found'
+    | 'pr-not-found'
     | 'branch-exists'
     | 'target-not-checked-out'
     | 'target-busy'
@@ -175,7 +180,7 @@ export async function streamWithTimeout(
     args: string[],
     cwd: string,
     timeoutMs: number,
-    options: Pick<StreamOptions, 'onSpawn' | 'stdin'> = {}
+    options: Pick<StreamOptions, 'onSpawn' | 'stdin' | 'env'> = {}
 ): Promise<GitResult> {
     let kill: (() => void) | null = null;
     const timer = setTimeout(() => kill?.(), timeoutMs);
@@ -185,7 +190,8 @@ export async function streamWithTimeout(
                 kill = stop;
                 options.onSpawn?.(stop);
             },
-            ...(options.stdin === undefined ? {} : { stdin: options.stdin })
+            ...(options.stdin === undefined ? {} : { stdin: options.stdin }),
+            ...(options.env === undefined ? {} : { env: options.env })
         });
     } finally {
         clearTimeout(timer);

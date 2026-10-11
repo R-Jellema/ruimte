@@ -8,6 +8,8 @@ import { resolveWithAgent } from '../git/resolve-ai.ts';
 import { diffCheckout, diffCommit, diffFile } from '../git/diff.ts';
 import { readLog } from '../git/log.ts';
 import { suggestMessage } from '../git/message.ts';
+import { parseIssueRef, readIssue, runGh } from '../git/github.ts';
+import { GitError } from '../git/run.ts';
 import { listRefs, readRefCommit } from '../git/refs.ts';
 import { listRepos } from '../git/repos.ts';
 import { discardPaths, stagePaths, unstagePaths } from '../git/stage.ts';
@@ -122,6 +124,16 @@ export function registerGitHandlers(
     dispatcher.register('git.discard', (payload) => translate(() => discardPaths(payload.cwd, payload.paths)));
 
     dispatcher.register('git.refs', (payload) => translate(() => listRefs(payload.cwd)));
+
+    dispatcher.register('git.issue', (payload) =>
+        translate(async () => {
+            const ref = parseIssueRef(payload.ref);
+            if (ref === null) {
+                throw new GitError('issue-not-found', 'Name the issue as a link, owner/repo#12 or #12.');
+            }
+            return await readIssue(runGh, payload.cwd, ref);
+        })
+    );
 
     dispatcher.register('git.ref-commit', (payload) => translate(() => readRefCommit(payload.cwd, payload.ref)));
 

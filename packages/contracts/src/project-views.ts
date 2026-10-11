@@ -179,7 +179,8 @@ export function withNodeAsView(views: readonly ProjectView[], nodeId: string): {
                 provider: node.provider,
                 providerFixed: node.providerFixed,
                 runtimeMode: node.runtimeMode,
-                accent: node.accent
+                accent: node.accent,
+                issue: node.issue
             }
         };
     }

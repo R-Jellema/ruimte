@@ -29333,6 +29333,27 @@
                               "branch"
                             ]
                           },
+                          "issue": {
+                            "type": "object",
+                            "properties": {
+                              "repo": {
+                                "type": "string"
+                              },
+                              "number": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "url": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "repo",
+                              "number",
+                              "url"
+                            ]
+                          },
                           "body": {
                             "type": "string"
                           },
@@ -29844,6 +29865,27 @@
                         },
                         "accent": {
                           "type": "string"
+                        },
+                        "issue": {
+                          "type": "object",
+                          "properties": {
+                            "repo": {
+                              "type": "string"
+                            },
+                            "number": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "url": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "repo",
+                            "number",
+                            "url"
+                          ]
                         }
                       }
                     },
@@ -30117,6 +30159,27 @@
                         },
                         "accent": {
                           "type": "string"
+                        },
+                        "issue": {
+                          "type": "object",
+                          "properties": {
+                            "repo": {
+                              "type": "string"
+                            },
+                            "number": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "url": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "repo",
+                            "number",
+                            "url"
+                          ]
                         }
                       }
                     }
@@ -32771,6 +32834,27 @@
                               "branch"
                             ]
                           },
+                          "issue": {
+                            "type": "object",
+                            "properties": {
+                              "repo": {
+                                "type": "string"
+                              },
+                              "number": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "url": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "repo",
+                              "number",
+                              "url"
+                            ]
+                          },
                           "body": {
                             "type": "string"
                           },
@@ -33282,6 +33366,27 @@
                         },
                         "accent": {
                           "type": "string"
+                        },
+                        "issue": {
+                          "type": "object",
+                          "properties": {
+                            "repo": {
+                              "type": "string"
+                            },
+                            "number": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "url": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "repo",
+                            "number",
+                            "url"
+                          ]
                         }
                       }
                     },
@@ -33555,6 +33660,27 @@
                         },
                         "accent": {
                           "type": "string"
+                        },
+                        "issue": {
+                          "type": "object",
+                          "properties": {
+                            "repo": {
+                              "type": "string"
+                            },
+                            "number": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "url": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "repo",
+                            "number",
+                            "url"
+                          ]
                         }
                       }
                     }
@@ -44676,6 +44802,72 @@
     },
     "required": [
       "stash"
+    ]
+  },
+  "request.git.issue.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "cwd": {
+        "type": "string",
+        "minLength": 1
+      },
+      "ref": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "cwd",
+      "ref"
+    ]
+  },
+  "request.git.issue.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "repo": {
+        "type": "string"
+      },
+      "number": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+      },
+      "title": {
+        "type": "string"
+      },
+      "body": {
+        "type": "string"
+      },
+      "url": {
+        "type": "string"
+      },
+      "state": {
+        "type": "string"
+      },
+      "author": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "labels": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "repo",
+      "number",
+      "title",
+      "body",
+      "url",
+      "state",
+      "author",
+      "labels"
     ]
   },
   "request.git.ref-commit.payload": {
@@ -59471,6 +59663,27 @@
                               "branch"
                             ]
                           },
+                          "issue": {
+                            "type": "object",
+                            "properties": {
+                              "repo": {
+                                "type": "string"
+                              },
+                              "number": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "url": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "repo",
+                              "number",
+                              "url"
+                            ]
+                          },
                           "body": {
                             "type": "string"
                           },
@@ -59982,6 +60195,27 @@
                         },
                         "accent": {
                           "type": "string"
+                        },
+                        "issue": {
+                          "type": "object",
+                          "properties": {
+                            "repo": {
+                              "type": "string"
+                            },
+                            "number": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "url": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "repo",
+                            "number",
+                            "url"
+                          ]
                         }
                       }
                     },
@@ -60255,6 +60489,27 @@
                         },
                         "accent": {
                           "type": "string"
+                        },
+                        "issue": {
+                          "type": "object",
+                          "properties": {
+                            "repo": {
+                              "type": "string"
+                            },
+                            "number": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "url": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "repo",
+                            "number",
+                            "url"
+                          ]
                         }
                       }
                     }

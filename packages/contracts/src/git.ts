@@ -293,6 +293,25 @@ export const GitRefCommitResultSchema = z.object({
 });
 export type GitRefCommitResult = z.infer<typeof GitRefCommitResultSchema>;
 
+export const GitIssuePayloadSchema = z.object({
+    cwd: z.string().min(1),
+    // A link, `owner/repo#12` or `#12`, which reads in the repository of the folder.
+    ref: z.string().min(1)
+});
+export type GitIssuePayload = z.infer<typeof GitIssuePayloadSchema>;
+
+export const GitIssueSchema = z.object({
+    repo: z.string(),
+    number: z.number().int().positive(),
+    title: z.string(),
+    body: z.string(),
+    url: z.string(),
+    state: z.string(),
+    author: z.string().nullable(),
+    labels: z.array(z.string())
+});
+export type GitIssue = z.infer<typeof GitIssueSchema>;
+
 export const GitStashSchema = z.object({
     ref: z.string(),
     message: z.string()

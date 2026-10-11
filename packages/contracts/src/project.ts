@@ -113,6 +113,8 @@ export const ProjectNodeSchema = z.object({
     expandedHeight: z.number().positive().optional(),
     // Group only: the git worktree every node made inside it starts in.
     worktree: z.object({ path: z.string(), branch: z.string() }).optional(),
+    // Chat and terminal: the GitHub issue the agent was started on, which the node shows as a pill.
+    issue: z.object({ repo: z.string(), number: z.number().int().positive(), url: z.string() }).optional(),
     // Note only: its markdown and one of the note colors; without a color it takes the default.
     body: z.string().optional(),
     color: z.string().optional(),
@@ -466,7 +468,8 @@ export const StandaloneNodeSchema = ProjectNodeSchema.pick({
     account: true,
     providerFixed: true,
     runtimeMode: true,
-    accent: true
+    accent: true,
+    issue: true
 });
 export type StandaloneNode = z.infer<typeof StandaloneNodeSchema>;
 
