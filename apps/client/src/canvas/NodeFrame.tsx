@@ -61,7 +61,7 @@ import { ForkPill } from '@/chat/ForkPill';
 import { AccountPill } from '@adecore/agents-react/chat/ui/AccountPill';
 import { LimitPill } from '@adecore/agents-react/chat/ui/LimitState';
 import { PlanPill } from '@/plan/PlanPill';
-import { SubagentBreadcrumb, SubagentTitleCrumb } from '@adecore/agents-react/chat/ui/SubagentControls';
+import { SubagentTitleCrumb } from '@adecore/agents-react/chat/ui/SubagentControls';
 import { useSubagentTrail } from '@adecore/agents-react/chat/subagent-view';
 import { BrowserBody } from '@/nodes/BrowserBody';
 import { DeviceBody, DevicePlate, DeviceToolbar } from '@/devices/DeviceBody';
@@ -373,7 +373,7 @@ export const NodeFrame = memo(function NodeFrame({ id, z }: { id: string; z: num
                             ICONS[node.kind]
                         )}
                     </span>
-                    <span className={clsx('flex min-w-0 items-center', !inSubagents && 'grow')} onDoubleClick={() => setRenaming(!isUnknown)}>
+                    <span className="flex min-w-0 grow items-center" onDoubleClick={() => setRenaming(!isUnknown)}>
                         {node.kind === 'chat' && !renaming ? (
                             <SubagentTitleCrumb chatId={id}>
                                 <Title id={id} title={visibleTitle} editing={false} muted={inSubagents} onDone={() => setRenaming(false)} />
@@ -382,7 +382,6 @@ export const NodeFrame = memo(function NodeFrame({ id, z }: { id: string; z: num
                             <Title id={id} title={visibleTitle} editing={renaming} muted={false} onDone={() => setRenaming(false)} />
                         )}
                     </span>
-                    {node.kind === 'chat' && !renaming && <SubagentBreadcrumb chatId={id} className="grow" />}
                     {!renaming && <FlagMarkOf id={id} />}
                     {collapsed && <Pill className="tabular-nums">{t('group.inside', { count: node.memberIds?.length ?? 0 })}</Pill>}
                     {node.kind === 'chat' && !renaming && (

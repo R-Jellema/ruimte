@@ -1,6 +1,5 @@
 import type { ProjectViewKind, RuntimeMode } from '@ruimte/contracts';
 import { RUNTIME_MODES } from '@adecore/agents-react/chat/runtime-modes';
-import { useSubagentTrail } from '@adecore/agents-react/chat/subagent-view';
 import { useDictation } from '@/dictation/controller';
 import { useNodeHost, type NodeHost } from '@/nodes/node-host';
 import { isLooseView, type CellView } from '@/shell/cell-view';
@@ -20,16 +19,10 @@ export function hostIdOf(view: CellView | null): string {
     return view !== null && view.kind !== 'canvas' && !isLooseView(view) ? view.id : '';
 }
 
-/* Whether a chat view shows a sub-agent in its place, where its title turns into the first crumb and needs no separator after it. */
-export function useShowsSubagents(view: CellView | null): boolean {
-    return useSubagentTrail(view?.kind === 'chat' ? view.id : '').trail.length > 0;
-}
-
 /* Whether a view has content for the bar, which is what the separators around it wait for. */
 export function useHasViewToolbar(view: CellView | null): boolean {
     const host = useNodeHost(hostIdOf(view));
     const dictationEnabled = useDictation((state) => state.model?.enabled === true);
-    const subagents = useShowsSubagents(view);
     const forked = useIsFork(view);
     const planned = useHasPlans(view?.kind === 'chat' ? view.id : '');
     const ports = useSessionPortControl(view?.kind === 'terminal' ? view.id : '');
@@ -41,7 +34,7 @@ export function useHasViewToolbar(view: CellView | null): boolean {
         return false;
     }
     if (view.kind === 'chat') {
-        return subagents || forked || planned;
+        return forked || planned;
     }
     return (
         (view.kind === 'terminal' && (dictationEnabled || ports !== null)) ||

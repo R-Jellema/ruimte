@@ -13,7 +13,7 @@ import { TabStrip } from '@/shell/TabStrip';
 import { SubagentTitleCrumb } from '@adecore/agents-react/chat/ui/SubagentControls';
 import { SplitItems, ViewMenuItems } from '@/shell/ViewMenuItems';
 import { ViewToolbar } from '@/shell/ViewToolbar';
-import { useHasViewToolbar, useShowsSubagents, useViewToolbarLeads } from '@/shell/view-toolbar';
+import { useHasViewToolbar, useViewToolbarLeads } from '@/shell/view-toolbar';
 import { setDragging, VIEW_DRAG_TYPE } from '@/shell/view-drag';
 import { useDocument } from '@/state/document';
 import { isDatabaseTab } from '@/state/files';
@@ -92,7 +92,6 @@ export function CellToolbar({ at, view, focused, children }: { at: CellAt; view:
     /* A lone cell with nothing to do takes no bar. The wrapper stays, so the body keeps its place
        in the tree and a session inside it survives the bar coming and going. */
     const bare = !hosted && !closable && !hasViewToolbar;
-    const inSubagents = useShowsSubagents(view);
     const title = useBrowserDisplayTitle(view.id, view.name ?? '', 'titleSource' in view ? view.titleSource : undefined);
     const visibleTitle = view.kind === 'browser' ? title : view.name;
 
@@ -108,7 +107,7 @@ export function CellToolbar({ at, view, focused, children }: { at: CellAt; view:
         <>
             {!folded && (
                 <>
-                    {!hosted && leads && !inSubagents && <Separator />}
+                    {!hosted && leads && <Separator />}
                     {/* The controls keep their minimum width so overflow can trigger folding. */}
                     <span ref={actions} className={clsx('flex min-w-min items-center', hosted && compactToolbar ? 'shrink-0' : 'grow')}>
                         {controls}

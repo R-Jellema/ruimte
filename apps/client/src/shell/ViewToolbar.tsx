@@ -6,7 +6,6 @@ import { isLooseView, type CellView } from '@/shell/cell-view';
 import { runtimeModeHint, runtimeModeLabel } from '@adecore/agents-react/chat/runtime-modes';
 import { ForkPill } from '@/chat/ForkPill';
 import { PlanPill } from '@/plan/PlanPill';
-import { SubagentBreadcrumb } from '@adecore/agents-react/chat/ui/SubagentControls';
 import { BrowserToolbar } from '@/nodes/BrowserBody';
 import { DeviceToolbar } from '@/devices/DeviceBody';
 import { SessionPorts } from '@/terminal/SessionPorts';
@@ -16,13 +15,12 @@ import { useFileToolbarSlot } from '@/shell/panels/file-toolbar-slot';
 import { useEndpointId } from '@/state/keys';
 import { useHasPlans } from '@/state/plans';
 import { Pill, Tooltip } from '@adecore/ui';
-import { hostIdOf, KINDS_WITH_TOOLBAR, modeOf, useIsFork, useShowsSubagents } from '@/shell/view-toolbar';
+import { hostIdOf, KINDS_WITH_TOOLBAR, modeOf, useIsFork } from '@/shell/view-toolbar';
 
 export function ViewToolbar({ view, focused }: { view: CellView | null; focused: boolean }) {
     const host = useNodeHost(hostIdOf(view));
     const { mount } = useFileToolbarSlot();
     const dictationEnabled = useDictation((state) => state.model?.enabled === true);
-    const hasSubagents = useShowsSubagents(view);
     const forked = useIsFork(view);
     const planned = useHasPlans(view?.kind === 'chat' ? view.id : '');
     const endpointId = useEndpointId();
@@ -55,12 +53,11 @@ export function ViewToolbar({ view, focused }: { view: CellView | null; focused:
         return <div ref={mount} className="flex min-w-0 grow items-center justify-end gap-1" />;
     }
     if (view.kind === 'chat') {
-        if (!hasSubagents && !forked && !planned && !operating) {
+        if (!forked && !planned && !operating) {
             return null;
         }
         return (
             <div className="flex min-w-0 grow items-center gap-1.5">
-                {hasSubagents && <SubagentBreadcrumb chatId={view.id} className="grow" />}
                 {forked && <ForkPill chatId={view.id} />}
                 {planned && <PlanPill chatId={view.id} />}
                 {operating && <ComputerIndicator nodeId={view.id} />}
