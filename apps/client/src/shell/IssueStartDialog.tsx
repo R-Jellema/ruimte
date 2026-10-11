@@ -171,7 +171,10 @@ function IssueStartForm({ onDone }: { onDone(): void }) {
                             spellCheck={false}
                             onChange={(e) => setText(e.target.value)}
                             onKeyDown={(e) => {
-                                e.stopPropagation();
+                                // Escape must reach the dialog's own listener.
+                                if (e.key !== 'Escape') {
+                                    e.stopPropagation();
+                                }
                                 if (e.key === 'Enter') {
                                     void read();
                                 }
