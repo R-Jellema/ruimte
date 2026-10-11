@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { ProjectSavePayloadSchema, storedViewsOf, type ProjectCanvasView, type ProjectDocument, type ProjectNode, type ProjectView } from '@ruimte/contracts';
+import type { CameraHistory } from '@/canvas/camera-history';
 import { viewIdsIn } from '@/shell/split';
 import { focusedCanvas } from './canvas';
 import { historyOf, setHistory } from './camera-history';
@@ -574,7 +575,7 @@ describe('what a newer Ruimte wrote', () => {
     });
 
     test('a reload keeps the camera history of its views, a project that loads drops it', () => {
-        const history = { back: [{ x: 1, y: 2, zoom: 1 }], forward: [], at: null, burst: null };
+        const history: CameraHistory = { back: [{ camera: { x: 1, y: 2, zoom: 1 }, nodeId: null }], forward: [], at: null, burst: null };
         setHistory('a', history);
         useDocument.getState().reload(document([view('a'), view('b')]), { activeViewId: 'a', views: {} });
         expect(historyOf('a')).toBe(history);
