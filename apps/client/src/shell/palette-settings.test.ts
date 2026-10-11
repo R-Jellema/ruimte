@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { searchSettings } from '@/shell/settings/search';
 import { useUi } from '@/state/ui';
-import { namesSetting, SETTINGS_RESULTS, settingsEntries } from './palette-settings';
+import { namesSetting, orderBelowJumps, SETTINGS_RESULTS, settingsEntries } from './palette-settings';
 
 describe('settings in the palette', () => {
     test('a row opens the dialog on its pane with the row as target', () => {
@@ -27,5 +27,11 @@ describe('settings in the palette', () => {
         expect(namesSetting('  ACC', settingsEntries(searchSettings('accent')))).toBe(true);
         expect(namesSetting('zzzz', settingsEntries(searchSettings('accent')))).toBe(false);
         expect(namesSetting('', settingsEntries(searchSettings('accent')))).toBe(false);
+    });
+
+    test('commands rank above a setting the query names, which ranks above files', () => {
+        const parts = { settings: ['setting'], files: ['file'], rest: ['command'] };
+        expect(orderBelowJumps({ named: true, ...parts })).toEqual(['command', 'setting', 'file']);
+        expect(orderBelowJumps({ named: false, ...parts })).toEqual(['file', 'command', 'setting']);
     });
 });

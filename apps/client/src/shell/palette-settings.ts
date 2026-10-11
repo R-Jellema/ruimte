@@ -23,3 +23,8 @@ export function namesSetting(query: string, settings: readonly Command[]): boole
     const wanted = query.trim().toLowerCase();
     return wanted !== '' && settings.some((setting) => setting.label.toLowerCase().startsWith(wanted));
 }
+
+/* Commands and actions always come first. A setting the query names only outranks the files, which match the letters loosely; otherwise settings stay last. */
+export function orderBelowJumps<T>({ named, settings, files, rest }: { named: boolean; settings: readonly T[]; files: readonly T[]; rest: readonly T[] }): T[] {
+    return named ? [...rest, ...settings, ...files] : [...files, ...rest, ...settings];
+}

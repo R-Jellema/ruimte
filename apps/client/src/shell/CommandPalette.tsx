@@ -62,7 +62,7 @@ import { PaletteGrepResults } from '@/shell/PaletteGrepResults';
 import { useToasts } from '@/state/toasts';
 import { PaletteChatResults } from '@/shell/PaletteChatResults';
 import { externalMatching, openChatHit, resumeExternal, useChatSearch, useExternalSessions } from '@/shell/palette-chats';
-import { namesSetting, settingsEntries } from '@/shell/palette-settings';
+import { namesSetting, orderBelowJumps, settingsEntries } from '@/shell/palette-settings';
 import { findSettings } from '@/shell/settings/find-settings';
 import { readRecents, rememberRecent, sortByRecency } from '@/shell/palette-recents';
 import { absoluteOf, basenameOf } from '@/shell/panels/files-tree';
@@ -735,11 +735,9 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
             icon: <Icon icon={SlidersHorizontal} size={14} />,
             section: 'settings'
         }));
-        /* A setting named by the query (the whole label or its start) is what was meant, so it goes
-           above the files, which only match the letters loosely. Otherwise settings stay last. */
         const named = namesSetting(query, settings);
         const rest = [...switches.filter(keep), ...commands.map((command) => asEntry(command, 'actions')).filter(keep)];
-        return [...viewSwitches.filter(keep), ...jumps.filter(keep), ...(named ? [...settings, ...files, ...rest] : [...files, ...rest, ...settings])];
+        return [...viewSwitches.filter(keep), ...jumps.filter(keep), ...orderBelowJumps({ named, settings, files, rest })];
     }, [
         browsing,
         listing,
