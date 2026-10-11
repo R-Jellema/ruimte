@@ -12,6 +12,7 @@ import { isOwner } from '../auth/access.ts';
 import { signForAccount } from '../auth/registration.ts';
 import type { AuthStore } from '../auth/auth-store.ts';
 import type { EndpointIdentity } from '../endpoint-id.ts';
+import { checkWorktreeRoot } from '../git/worktree-root.ts';
 import type { BrokerDescription } from '../pulsar/broker-switch.ts';
 import type { InstallVerdict } from '../power/machine-update.ts';
 import { IntegrationsFixed, isIntegrationKind } from '../agents/integrations.ts';
@@ -19,6 +20,8 @@ import { DEFAULT_ADMIN_PROMPT } from '../power/closed-lid.ts';
 
 interface EndpointHost {
     identity: EndpointIdentity;
+    // `$RUIMTE_HOME`, which a worktree folder may not sit in.
+    home: string;
     version: string;
     // The broker clients are told to dial right now (null when this machine announces itself to none), and whether a flag decides it.
     broker(): BrokerDescription;
@@ -87,7 +90,7 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
         lanDoor: identity.lanDoor,
         ...host.lanDoor(),
         // Only the app on this machine is told which account it is on; it is the one that can take it off.
-        ...(isOwner(access) ? { accountId: (await store.accountBinding())?.id ?? null } : {})
+        ...(isOwner(access) ? { accountId: (await store.accountBinding())?.id ?? null, worktreeRoot: identity.worktreeRoot } : {})
     });
 
     dispatcher.register('endpoint.info', (_payload, client) => info(client.access));
@@ -106,7 +109,24 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
                 throw new RequestError('closed-lid-no-rule', 'Allow it on the Mac first: Ruimte there installs the rule with an administrator password');
             }
         }
+        // Where checkouts land decides which folders the daemon makes and writes in, so it is the owner's alone.
+        let worktreeRoot: string | undefined;
+        if (payload.worktreeRoot !== undefined) {
+            if (!isOwner(client.access)) {
+                throw new RequestError('owner-only', 'Only a person on this machine can choose where it makes worktrees');
+            }
+            if (payload.worktreeRoot === '') {
+                worktreeRoot = '';
+            } else {
+                const checked = await checkWorktreeRoot(payload.worktreeRoot, host.home);
+                if ('refusal' in checked) {
+                    throw new RequestError(checked.refusal, checked.message);
+                }
+                worktreeRoot = checked.root;
+            }
+        }
         await identity.setIdentity(payload.name, payload.icon, {
+            worktreeRoot,
             agentsDeleteAnyView: payload.agentsDeleteAnyView,
             streamingAllowed: payload.streamingAllowed,
             resumeAtReset: payload.resumeAtReset,

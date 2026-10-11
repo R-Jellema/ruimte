@@ -10,7 +10,7 @@ import { useRegistrationFailures } from '@/pulsar/auto-register-watch';
 import { addMachineToAccount, leaveAccount, openAccountMachine, refreshAccountMachines, usePulsarMachines } from '@/pulsar/machines';
 import { BackgroundServiceSection } from '@/shell/settings/BackgroundServiceSection';
 import { MachineIdentityForm } from '@/shell/settings/MachineIdentityForm';
-import { BrokerRow, DirectRow, LanDoorRow, MachineAccess, StreamingRow, WithReason } from '@/shell/settings/MachineSettings';
+import { BrokerRow, DirectRow, LanDoorRow, MachineAccess, StreamingRow, WithReason, WorktreeFolderRow } from '@/shell/settings/MachineSettings';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { useMachineIcon } from '@/shell/settings/machine-icon';
 import { forgetOnClient, machineDialogModel, removeFromAccount, type MachineActionDeps, type MachineDialogModel } from '@/shell/settings/machine-actions';
@@ -93,6 +93,11 @@ export function MachineDetail({ entry }: { entry: MachineEntry }) {
                         <StreamingRow endpoint={entry.endpoint} reason={reason} />
                     </SettingsSection>
                     <AccountSection entry={entry} endpoint={entry.endpoint} model={model} machineAccount={machineAccount} reason={reason} />
+                    {entry.local && (
+                        <SettingsSection title={t('machineDialog.worktrees')}>
+                            <WorktreeFolderRow endpoint={entry.endpoint} reason={reason} />
+                        </SettingsSection>
+                    )}
                     {entry.local && <BackgroundServiceSection />}
                     <MachineAccess endpoint={entry.endpoint} />
                 </>

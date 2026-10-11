@@ -701,7 +701,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     manager.isAgentGone = (sessionId) => processes.isAgentGone(sessionId);
     manager.holdsForeground = holdsForeground;
 
-    const worktrees = new Worktrees(config.home);
+    const worktrees = new Worktrees(config.home, Date.now, () => identity.worktreeRoot);
     const merges = new WorktreeMerge(
         worktrees,
         worktreeAgents({ chats: () => chats.list(), sessions: () => manager.list(), stopNode: (nodeId, reason) => endChildren.stopNode(nodeId, reason) })
@@ -1002,6 +1002,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     };
     registerAuthHandlers(dispatcher, auth, {
         identity,
+        home: config.home,
         version: VERSION,
         broker: () => brokerSwitch.describe(),
         lanDoor: () => describeLanDoor(),
@@ -1083,7 +1084,8 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         async (clientId) => ({
             folders: await projects.heldFolders(clientId),
             worktreesOf: canvasHost.worktreePaths,
-            worktreesRoot: worktrees.root
+            worktreesRoot: worktrees.root,
+            registeredWorktrees: (folder) => worktrees.registeredPaths(folder)
         }),
         machineHome,
         language

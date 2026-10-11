@@ -166,6 +166,21 @@ describe('fs.write', () => {
         expect(await codeOf(writeTextFile(elsewhere.path, 'two\n', elsewhere.mtime, boundary([worktree, outside])))).toBe('outside-project');
     });
 
+    test('writes in a worktree the daemon made outside the worktrees folder, and not in one it did not make', async () => {
+        const made = join(root, 'wt', 'project-1234', 'feature');
+        const foreign = join(root, 'wt', 'project-1234', 'foreign');
+        await mkdir(made, { recursive: true });
+        await mkdir(foreign, { recursive: true });
+        const inside = await put(join(made, 'a.ts'), 'one\n');
+        const other = await put(join(foreign, 'b.ts'), 'one\n');
+        const registered: WriteBoundary = { ...boundary([made, foreign]), registeredWorktrees: async () => [made] };
+
+        await writeTextFile(inside.path, 'two\n', inside.mtime, registered);
+
+        expect(await readFile(inside.path, 'utf8')).toBe('two\n');
+        expect(await codeOf(writeTextFile(other.path, 'two\n', other.mtime, registered))).toBe('outside-project');
+    });
+
     test('never writes over a file the sniff calls binary', async () => {
         const { path, mtime } = await put(join(project, 'image.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]));
 

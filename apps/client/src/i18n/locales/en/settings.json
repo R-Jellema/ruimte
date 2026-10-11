@@ -1017,6 +1017,14 @@
             "fixedNote": "Set by a flag when the machine started, so this switch waits until it runs without that.",
             "toggle": "Let a client on the local network reach {{machine}} without the broker"
         },
+        "worktreeFolder": {
+            "label": "Worktree folder",
+            "description": "New worktrees are made in the data folder of Ruimte. Choose another folder to make them there.",
+            "descriptionChosen": "New worktrees are made here. Worktrees you already have stay where they are.",
+            "placeholder": "Data folder of Ruimte",
+            "choose": "Choose…",
+            "reset": "Reset"
+        },
         "streaming": {
             "label": "Browser and device streaming",
             "description": "Allow this machine to stream browser pages and device screens to clients without a native view of their own.",
@@ -1063,6 +1071,7 @@
             "description": "Every client that reaches this machine sees these."
         },
         "connection": "Connection",
+        "worktrees": "Worktrees",
         "streaming": "Streaming",
         "account": {
             "title": "Account",

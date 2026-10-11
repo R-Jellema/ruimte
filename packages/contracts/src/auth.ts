@@ -83,7 +83,9 @@ export const EndpointInfoSchema = z.object({
     // Null when on none. Only told to a client that presented the local secret.
     accountId: z.string().nullable().optional(),
     // What a person allowed in the CLIs' global settings. No paths, so a remote client learns none.
-    agentIntegrations: AgentIntegrationsSummarySchema.optional()
+    agentIntegrations: AgentIntegrationsSummarySchema.optional(),
+    // Null while worktrees go in the data folder. Only told to a client that presented the local secret.
+    worktreeRoot: z.string().nullable().optional()
 });
 export type EndpointInfo = z.infer<typeof EndpointInfoSchema>;
 
@@ -123,7 +125,9 @@ export const EndpointSetIdentityPayloadSchema = z.object({
     // Turning it on is refused with `closed-lid-no-rule` while the rule is not installed; off always goes through.
     keepAwakeLidClosed: z.boolean().optional(),
     broker: BrokerSettingSchema.optional(),
-    lanDoor: z.boolean().optional()
+    lanDoor: z.boolean().optional(),
+    // Only the owner of the machine may set it: the folder new worktrees are made in. An empty string puts it back.
+    worktreeRoot: z.string().max(4096).optional()
 });
 export type EndpointSetIdentityPayload = z.infer<typeof EndpointSetIdentityPayloadSchema>;
 

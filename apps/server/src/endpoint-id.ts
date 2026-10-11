@@ -59,7 +59,9 @@ const FileSchema = z.object({
     broker: BrokerSettingSchema.optional().catch(undefined),
     /* Whether the door on the local network is open, so a client on the same network signals without
        the broker. Absent is open: a machine nobody changed is found at home without anything set. */
-    lanDoor: z.boolean().optional().catch(undefined)
+    lanDoor: z.boolean().optional().catch(undefined),
+    /* Where new worktrees are made, set by the owner of the machine. Absent is `worktrees` in the data folder. */
+    worktreeRoot: z.string().min(1).optional().catch(undefined)
 });
 
 interface IdentityOptions {
@@ -79,6 +81,7 @@ interface IdentityOptions {
     keepAwake: KeepAwakeSetting;
     broker: BrokerSetting;
     lanDoor: boolean;
+    worktreeRoot: string | null;
 }
 
 export interface KeepAwakeSetting {
@@ -125,6 +128,8 @@ export interface IdentityFlags {
     keepAwakeLidClosed?: boolean;
     broker?: BrokerSetting;
     lanDoor?: boolean;
+    // An empty string puts it back to the data folder.
+    worktreeRoot?: string;
 }
 
 /*
@@ -150,6 +155,7 @@ export class EndpointIdentity {
     private brokerSetting: BrokerSetting;
     private brokerSwitch: IdentityBroker | null = null;
     private lanDoorOpen: boolean;
+    private checkoutRoot: string | null;
     private door: IdentityLanDoor | null = null;
     private closedLid: IdentityClosedLid | null = null;
     private integrations: IdentityAgentIntegrations | null = null;
@@ -170,6 +176,7 @@ export class EndpointIdentity {
         this.awake = options.keepAwake;
         this.brokerSetting = options.broker;
         this.lanDoorOpen = options.lanDoor;
+        this.checkoutRoot = options.worktreeRoot;
     }
 
     /* What clients call this machine: the name a person gave it, or the one it started with. */
@@ -249,6 +256,11 @@ export class EndpointIdentity {
         return this.lanDoorOpen;
     }
 
+    /* The folder new worktrees are made in; null while they go in the data folder. */
+    get worktreeRoot(): string | null {
+        return this.checkoutRoot;
+    }
+
     /* Hands a changed door setting to the door, and lets the event say where it stands. */
     attachLanDoor(door: IdentityLanDoor): void {
         this.door = door;
@@ -284,6 +296,9 @@ export class EndpointIdentity {
         };
         this.brokerSetting = flags.broker ?? this.brokerSetting;
         this.lanDoorOpen = flags.lanDoor ?? this.lanDoorOpen;
+        if (flags.worktreeRoot !== undefined) {
+            this.checkoutRoot = flags.worktreeRoot === '' ? null : flags.worktreeRoot;
+        }
         await this.persist();
         if (flags.broker !== undefined) {
             await this.brokerSwitch?.apply();
@@ -344,7 +359,8 @@ export class EndpointIdentity {
             ...(this.awake.display ? { keepAwakeDisplay: true } : {}),
             ...(this.awake.lidClosed ? { keepAwakeLidClosed: true } : {}),
             ...(this.brokerSetting.mode === 'default' ? {} : { broker: this.brokerSetting }),
-            ...(this.lanDoorOpen ? {} : { lanDoor: false })
+            ...(this.lanDoorOpen ? {} : { lanDoor: false }),
+            ...(this.checkoutRoot === null ? {} : { worktreeRoot: this.checkoutRoot })
         };
         await mkdir(dirname(this.path), { recursive: true, mode: 0o700 });
         // Durable: a power cut right after a change must not leave an empty file where the key pair was.
@@ -409,7 +425,8 @@ export async function readOrCreateEndpointIdentity(home: string, defaultName: st
             lidClosed: file?.keepAwakeLidClosed ?? KEEP_AWAKE_OFF.lidClosed
         },
         broker: file?.broker ?? { mode: 'default' },
-        lanDoor: file?.lanDoor ?? true
+        lanDoor: file?.lanDoor ?? true,
+        worktreeRoot: file?.worktreeRoot ?? null
     });
     if (!keys) {
         await identity.persist();

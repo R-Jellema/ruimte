@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { checkpointIndexFile, Checkpoints } from './checkpoints.ts';
@@ -85,6 +85,27 @@ describe('Worktrees', () => {
 
         await git(['branch', 'old']);
         await expect(worktrees.add(repo, 'old', { madeBy: 'client' }, { base: 'main' })).rejects.toMatchObject({ code: 'branch-exists' });
+        expect(await worktrees.list(repo)).toEqual([]);
+    });
+
+    test('after the worktree folder changes an old worktree stays listed and removable while a new one lands in the new folder', async () => {
+        let elsewhere: string | null = null;
+        worktrees = new Worktrees(
+            home,
+            () => 1789999999,
+            () => elsewhere
+        );
+        const old = await worktrees.add(repo, 'old');
+        elsewhere = join(root, 'wt');
+        const fresh = await worktrees.add(repo, 'fresh');
+
+        expect(old.worktree.path.startsWith(join(home, 'worktrees'))).toBe(true);
+        expect(fresh.worktree.path.startsWith(join(await realpath(root), 'wt'))).toBe(true);
+        expect((await worktrees.list(repo)).map((entry) => entry.branch).sort()).toEqual(['fresh', 'old']);
+        expect(await worktrees.registeredPaths(repo)).toEqual(expect.arrayContaining([old.worktree.path, fresh.worktree.path]));
+
+        await worktrees.remove(repo, old.worktree.path);
+        await worktrees.remove(repo, fresh.worktree.path);
         expect(await worktrees.list(repo)).toEqual([]);
     });
 

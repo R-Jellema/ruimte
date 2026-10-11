@@ -23,6 +23,8 @@ export interface WriteBoundary {
     worktreesOf: (folder: string) => Promise<string[]>;
     // `$RUIMTE_HOME/worktrees`: a worktree counts only when it sits there.
     worktreesRoot: string;
+    // The worktrees the daemon made for the repository a folder is in, which count wherever they were made: the worktree folder can change.
+    registeredWorktrees?: (folder: string) => Promise<string[]>;
 }
 
 function realOrNull(path: string): Promise<string | null> {
@@ -33,8 +35,13 @@ function realOrNull(path: string): Promise<string | null> {
 export async function realRoots(boundary: WriteBoundary): Promise<string[]> {
     const folders = await Promise.all(boundary.folders.map(realOrNull));
     const worktreesRoot = await realOrNull(boundary.worktreesRoot);
-    const listed = worktreesRoot === null ? [] : (await Promise.all(boundary.folders.map(boundary.worktreesOf))).flat();
-    const worktrees = (await Promise.all(listed.map(realOrNull))).filter((path) => path !== null && worktreesRoot !== null && isInside(worktreesRoot, path));
+    const listed = (await Promise.all(boundary.folders.map(boundary.worktreesOf))).flat();
+    const registered = boundary.registeredWorktrees;
+    const made = registered ? (await Promise.all(boundary.folders.map((folder) => registered(folder).catch(() => [] as string[])))).flat() : [];
+    const madeReal = new Set((await Promise.all(made.map(realOrNull))).filter((path): path is string => path !== null));
+    const worktrees = (await Promise.all(listed.map(realOrNull))).filter(
+        (path) => path !== null && ((worktreesRoot !== null && isInside(worktreesRoot, path)) || madeReal.has(path))
+    );
     return [...folders, ...worktrees].filter((root): root is string => root !== null);
 }
 

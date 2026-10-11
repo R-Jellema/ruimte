@@ -405,6 +405,13 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         available: hasOpenedMachine
     },
     {
+        id: 'machines.machine.worktreeFolder',
+        section: 'machines',
+        label: 'settings:machine.worktreeFolder.label',
+        description: 'settings:machine.worktreeFolder.description',
+        available: hasLocalMachine
+    },
+    {
         id: 'machines.machine.keepRunning',
         section: 'machines',
         label: 'settings:backgroundService.keepRunning.label',

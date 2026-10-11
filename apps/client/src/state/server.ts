@@ -56,6 +56,8 @@ export interface ServerInfo {
     /* The account the machine is on, null for none. Only the app on the machine is told, so it is
        undefined for any other machine and for a daemon from before a machine had one account. */
     accountId: string | null | undefined;
+    /* The folder new worktrees are made in, null for the data folder. Only the app on the machine is told; undefined for any other. */
+    worktreeRoot: string | null | undefined;
 }
 
 /* One object for a machine that has not said hello yet, so a selector gets a stable snapshot. */
@@ -87,7 +89,8 @@ const UNKNOWN: ServerInfo = {
     agentIntegrations: null,
     reachability: null,
     publicKey: null,
-    accountId: undefined
+    accountId: undefined,
+    worktreeRoot: undefined
 };
 
 interface ServersStore {
@@ -121,6 +124,7 @@ interface ServersStore {
             | 'reachability'
             | 'publicKey'
             | 'accountId'
+            | 'worktreeRoot'
         >
     ): void;
     /* What a person allowed in the CLIs' settings, after this client changed it. */
@@ -148,6 +152,7 @@ interface ServersStore {
                     | 'lanDoor'
                     | 'lanDoorFixed'
                     | 'agentIntegrations'
+                    | 'worktreeRoot'
                 >
             >
     ): void;

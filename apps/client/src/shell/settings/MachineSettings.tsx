@@ -7,6 +7,7 @@ import type { AuthSession, LanDoor } from '@ruimte/contracts';
 import { messageOf, Segmented, Skeleton, Switch, Button, IconButton, Tooltip, FormError, Input } from '@adecore/ui';
 import { formatNumericDate, formatAgo } from '@adecore/ui/format';
 import { ConfirmDialog, SettingsRow } from '@adecore/ui/settings';
+import { desktop } from '@/desktop/bridge';
 import { forgetEndpoint } from '@/endpoint';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { useEndpoints, type Endpoint } from '@/state/endpoints';
@@ -34,11 +35,11 @@ export function WithReason({ reason, children }: { reason: string | null; childr
  */
 async function saveMachineSetting(
     endpoint: Endpoint,
-    patch: { broker?: BrokerSetting; lanDoor?: boolean; streamingAllowed?: boolean; resumeAtReset?: boolean }
-): Promise<void> {
+    patch: { broker?: BrokerSetting; lanDoor?: boolean; streamingAllowed?: boolean; resumeAtReset?: boolean; worktreeRoot?: string }
+): Promise<boolean> {
     const link = transportFor(endpoint.id);
     if (!link) {
-        return;
+        return false;
     }
     const info = useServers.getState().byEndpoint[endpoint.id];
     try {
@@ -58,10 +59,12 @@ async function saveMachineSetting(
             broker: answer.broker ?? null,
             brokerFixed: answer.brokerFixed === true,
             lanDoor: answer.lanDoor ?? null,
-            lanDoorFixed: answer.lanDoorFixed === true
+            lanDoorFixed: answer.lanDoorFixed === true,
+            ...(answer.worktreeRoot === undefined ? {} : { worktreeRoot: answer.worktreeRoot })
         });
         useEndpoints.getState().learnBrokerUrl(endpoint.id, answer.brokerUrl ?? null);
         useEndpoints.getState().learnLan(endpoint.id, answer.lan ?? null);
+        return true;
     } catch (e) {
         useToasts.getState().show({
             id: `endpoint-setting-${endpoint.id}`,
@@ -69,6 +72,7 @@ async function saveMachineSetting(
             title: i18next.t('settings:machine.toast.saveFailed', { machine: endpoint.label }),
             description: messageOf(e, i18next.t('settings:machine.toast.unchanged'))
         });
+        return false;
     }
 }
 
@@ -418,5 +422,81 @@ export function MachineAccess({ endpoint }: { endpoint: Endpoint }) {
                 onConfirm={revoke}
             />
         </SettingsSection>
+    );
+}
+
+/*
+ * Where this machine makes new worktrees. Worktrees already made stay where they are. Only the app on
+ * the machine may set it, so the row is not drawn for another machine.
+ */
+export function WorktreeFolderRow({ endpoint, reason }: { endpoint: Endpoint; reason: string | null }) {
+    const { t } = useTranslation('settings');
+    const kept = useServers((s) => s.byEndpoint[endpoint.id]?.worktreeRoot);
+    const [draft, setDraft] = useState<string | null>(null);
+    const [busy, setBusy] = useState(false);
+    const pickFolder = desktop()?.pickFolder;
+    const unavailable = reason ?? (kept === undefined ? t('machine.unsupportedReason') : null);
+    const shown = draft ?? kept ?? '';
+
+    const save = async (value: string): Promise<void> => {
+        if (value.trim() === (kept ?? '')) {
+            setDraft(null);
+            return;
+        }
+        setBusy(true);
+        const saved = await saveMachineSetting(endpoint, { worktreeRoot: value.trim() });
+        setBusy(false);
+        if (saved) {
+            setDraft(null);
+        }
+    };
+
+    const choose = async (): Promise<void> => {
+        const picked = await pickFolder?.(kept ?? undefined);
+        if (picked) {
+            setDraft(picked);
+            await save(picked);
+        }
+    };
+
+    return (
+        <SettingsRow
+            searchId="machines.machine.worktreeFolder"
+            label={t('machine.worktreeFolder.label')}
+            description={kept === null || kept === undefined ? t('machine.worktreeFolder.description') : t('machine.worktreeFolder.descriptionChosen')}
+            control={
+                <WithReason reason={unavailable}>
+                    <span className="flex items-center gap-2">
+                        <Input
+                            mono
+                            className="w-64"
+                            value={shown}
+                            placeholder={t('machine.worktreeFolder.placeholder')}
+                            aria-label={t('machine.worktreeFolder.label')}
+                            spellCheck={false}
+                            disabled={busy || unavailable !== null}
+                            onChange={(e) => setDraft(e.target.value)}
+                            onBlur={() => void save(shown)}
+                            onKeyDown={(e) => {
+                                e.stopPropagation();
+                                if (e.key === 'Enter') {
+                                    void save(shown);
+                                }
+                            }}
+                        />
+                        {pickFolder && (
+                            <Button variant="secondary" disabled={busy || unavailable !== null} onClick={() => void choose()}>
+                                {t('machine.worktreeFolder.choose')}
+                            </Button>
+                        )}
+                        {kept !== null && kept !== undefined && (
+                            <Button variant="secondary" disabled={busy || unavailable !== null} onClick={() => void save('')}>
+                                {t('machine.worktreeFolder.reset')}
+                            </Button>
+                        )}
+                    </span>
+                </WithReason>
+            }
+        />
     );
 }

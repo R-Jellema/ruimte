@@ -46,7 +46,8 @@ function load(endpointId: string): void {
                 agentIntegrations: info.agentIntegrations ?? null,
                 reachability: info.reachability,
                 publicKey: info.publicKey ?? null,
-                accountId: info.accountId
+                accountId: info.accountId,
+                worktreeRoot: info.worktreeRoot
             });
             void link
                 .request('provider.list', {})

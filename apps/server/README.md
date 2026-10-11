@@ -92,6 +92,7 @@ What a person sets for the machine lives in `endpoint.json`, next to the id and 
 | `keepAwakeLidClosed` | Also hold with the lid closed (below). |
 | `broker` | The broker this machine announces itself to, or off. |
 | `lanDoor` | Whether the door on the local network is open. |
+| `worktreeRoot` | The folder new worktrees are made in; absent is `worktrees` in the data folder. Only the local secret sets it. |
 
 Keep awake is the daemon's own (`src/power/keep-awake.ts`), so it holds with no window open and when a phone set it. On macOS it is a `caffeinate -w <daemon pid>` child, so a daemon that dies never leaves the Mac awake. Elsewhere `keepAwakeAvailable` is false and nothing is held.
 
@@ -125,8 +126,8 @@ $RUIMTE_HOME/
   projects/<projectId>.local.json  camera, focus, grid and panels, where a client that never saw the project starts
   scratch/                         the Chats project (see "Projects")
   worktrees/
-    <repo>-<hash>/<branch>/        a worktree the daemon made; nothing removes it on its own
-    worktrees.json                 what git cannot say about them: branch, from, project, node, who made it
+    <repo>-<hash>/<branch>/        a worktree the daemon made, unless `worktreeRoot` in `endpoint.json` sends new ones elsewhere; nothing removes it on its own
+    worktrees.json                 what git cannot say about them: branch, from, project, node, who made it (stays here either way)
   hidden-agents/<id>.json          agents a chat view started outside the canvas, with their placement
   sessions/                        0700
     <sessionId>.txt                serialized screen plus scrollback of one session
@@ -324,7 +325,7 @@ One server runs per project per kind. It starts with the first document that nee
 The file requests (`fs.read`, `fs.write`, `fs.create`, `fs.rename`, `fs.delete`, `fs.grep`, `fs.list`, `fs.browse`, `bytes.read`) live in `src/fs`.
 
 - No file request reaches under `$RUIMTE_HOME`, by name or by where a link leads, except the Chats project, the worktrees, the screenshots and the attachments (`src/fs/machine-home.ts`). A client the machine let in is not the owner, and the local secret, the key pair and the approvals there are what tell the two apart. Such a path answers `machine-state`.
-- `fs.write`, `fs.create`, `fs.rename` and `fs.delete` work only inside a project folder the calling client holds, or a worktree of its repository under `$RUIMTE_HOME/worktrees`, compared on real paths (`outside-project`). `.ruimte` at the root of such a folder is closed (`ruimte-state`), except `.ruimte/private/consoles`, and `.git` is closed at any level.
+- `fs.write`, `fs.create`, `fs.rename` and `fs.delete` work only inside a project folder the calling client holds, or a worktree of its repository that the daemon made (under `$RUIMTE_HOME/worktrees`, or where the register says), compared on real paths (`outside-project`). `.ruimte` at the root of such a folder is closed (`ruimte-state`), except `.ruimte/private/consoles`, and `.git` is closed at any level.
 - `fs.read` and `fs.write` treat a file over 2 MB as too large for the socket. `fs.write` checks the mtime it read (`stale`) and never writes over a file that is not text. Agents have no verb for writing; they write with their own CLI.
 - `GET /fs/file?path=<absolute>&v=<mtime>-<size>` (`src/fs/file-route.ts`) serves images, video, sound, PDFs and large text files behind the same access rules as the socket. Text always goes out as `text/plain`, so an HTML file never runs in the page's origin. Responses carry `nosniff`, an immutable cache, `Range` support for video and, for an SVG, a policy that allows nothing but its own styles.
 - `fs.grep` uses ripgrep when it is on PATH, and a JavaScript search over the cached file list otherwise.
@@ -378,7 +379,7 @@ Which chat wrote which lines of a file, for the editor's gutter (`src/provenance
 
 ## Worktrees
 
-A worktree the daemon makes lives under `$RUIMTE_HOME/worktrees/<repo>-<hash>/<branch>`, where `<repo>` is the repository's main checkout. `worktrees.json` beside those folders (`src/git/worktree-register.ts`) records what git cannot say: the branch, where it was made from, the project, the node, who made it, and whether the daemon made the branch. Git stays the truth about which worktrees exist.
+A worktree the daemon makes lives under `$RUIMTE_HOME/worktrees/<repo>-<hash>/<branch>`, where `<repo>` is the repository's main checkout. The person on the machine can pick another folder for new ones (`worktreeRoot`, set with `endpoint.setIdentity` by the local secret only, refused for the root of the disk, the home folder and the data folder); worktrees already made stay where they are, and the register keeps knowing them. `worktrees.json` beside those folders (`src/git/worktree-register.ts`) records what git cannot say: the branch, where it was made from, the project, the node, who made it, and whether the daemon made the branch. Git stays the truth about which worktrees exist.
 
 `git.worktree-remove` refuses a worktree with uncommitted, untracked or unmerged work, or a locked one, unless forced. It deletes the branch only when the daemon made it and the worktree is still on it, and answers the tip it had, since no reflog keeps it after removal. Merges run through `src/git/worktree-merge.ts`; root `CLAUDE.md` has their rules.
 

@@ -83,6 +83,7 @@ beforeEach(async () => {
     await integrations.load();
     registerAuthHandlers(dispatcher, store, {
         identity,
+        home,
         version: '0.0.0',
         broker: () => ({ brokerUrl: identity.broker.mode === 'custom' ? identity.broker.url : null, brokerFixed: false }),
         lanDoor: () => ({ lan: lanDoorOpen ? { port: 4220, addresses: ['192.168.1.20'] } : null, lanDoorFixed: false }),
@@ -202,6 +203,35 @@ describe('auth handlers', () => {
             result: { keepAwakeLidClosed: false }
         });
         expect(keepAwakeChanges).toBe(3);
+    });
+
+    test('only the app on this machine chooses where worktrees are made, and a refused folder changes nothing', async () => {
+        const folder = join(home, 'checkouts');
+        expect(await ask({ reachability: 'lan', sessionId: 's1' }, 'endpoint.setIdentity', { name: null, icon: null, worktreeRoot: folder })).toMatchObject({
+            ok: false,
+            error: { code: 'owner-only' }
+        });
+        expect(identity.worktreeRoot).toBeNull();
+
+        expect(await ask(LOCAL, 'endpoint.setIdentity', { name: null, icon: null, worktreeRoot: '/' })).toMatchObject({
+            ok: false,
+            error: { code: 'root-refused' }
+        });
+        expect(identity.worktreeRoot).toBeNull();
+
+        const chosen = join(await mkdtemp(join(tmpdir(), 'ruimte-wt-root-')), 'wt');
+        expect(await ask(LOCAL, 'endpoint.setIdentity', { name: null, icon: null, worktreeRoot: chosen })).toMatchObject({
+            ok: true,
+            result: { worktreeRoot: chosen }
+        });
+        expect(identity.worktreeRoot).toBe(chosen);
+        expect(await ask({ reachability: 'lan', sessionId: 's1' }, 'endpoint.info')).not.toHaveProperty('result.worktreeRoot');
+
+        expect(await ask(LOCAL, 'endpoint.setIdentity', { name: null, icon: null, worktreeRoot: '' })).toMatchObject({
+            ok: true,
+            result: { worktreeRoot: null }
+        });
+        expect(identity.worktreeRoot).toBeNull();
     });
 
     test('only the app on this machine installs or removes the closed-lid rule, through the dialog it asks macOS for', async () => {

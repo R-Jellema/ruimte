@@ -1017,6 +1017,14 @@
             "fixedNote": "Ingesteld met een flag bij het starten van de machine, dus deze schakelaar wacht tot die zonder draait.",
             "toggle": "{{machine}} bereikbaar maken voor een client op het lokale netwerk, zonder de broker"
         },
+        "worktreeFolder": {
+            "label": "Worktree-map",
+            "description": "Nieuwe worktrees komen in de datamap van Ruimte. Kies een andere map om ze daar te maken.",
+            "descriptionChosen": "Nieuwe worktrees komen hier. Worktrees die je al hebt, blijven waar ze zijn.",
+            "placeholder": "Datamap van Ruimte",
+            "choose": "Kiezen…",
+            "reset": "Herstellen"
+        },
         "streaming": {
             "label": "Streamen van browser en apparaten",
             "description": "Sta deze machine toe browserpagina's en schermen van apparaten te streamen naar clients zonder eigen native weergave.",
@@ -1063,6 +1071,7 @@
             "description": "Elke client die deze machine bereikt ziet ze."
         },
         "connection": "Verbinding",
+        "worktrees": "Worktrees",
         "streaming": "Streaming",
         "account": {
             "title": "Account",

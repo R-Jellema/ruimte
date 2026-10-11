@@ -139,20 +139,28 @@ export function hasWork(work: WorktreeWork): boolean {
 }
 
 /*
- * Worktrees of a repository, kept under the app data dir so the repository itself stays clean:
- * `$RUIMTE_HOME/worktrees/<repo name>-<hash of its path>/<branch>`, with `worktrees.json` beside them.
+ * Worktrees of a repository, kept outside it so the repository itself stays clean:
+ * `<worktree folder>/<repo name>-<hash of its path>/<branch>`, with `worktrees.json` in `$RUIMTE_HOME/worktrees`.
+ * The worktree folder is that same folder until a person on the machine picks another, which only new worktrees follow.
  * Git is the truth about which worktrees exist; the register adds where each was made from and for
  * which node. Nothing in here removes a worktree that holds work unless it is told to with force.
  */
 export class Worktrees {
     readonly root: string;
     private readonly checkpointsRoot: string;
+    private readonly checkoutRoot: () => string | null;
     private readonly now: () => number;
     private readonly sinks = new ClientSinks();
     // One removal at a time per repository, so two clients never inspect the same worktree against each other's half-done work.
     private readonly locks = new KeyedQueue();
 
-    constructor(home: string, now: () => number = Date.now) {
+    constructor(
+        home: string,
+        now: () => number = Date.now,
+        // Where new checkouts go, read for each one; null keeps them beside the register.
+        checkoutRoot: () => string | null = () => null
+    ) {
+        this.checkoutRoot = checkoutRoot;
         this.root = join(home, 'worktrees');
         this.checkpointsRoot = join(home, 'checkpoints');
         this.now = now;
@@ -160,6 +168,12 @@ export class Worktrees {
 
     subscribe(clientId: string, sink: SessionSink): () => void {
         return this.sinks.subscribe(clientId, sink);
+    }
+
+    /* The paths of the worktrees the daemon made for the repository a folder is in, wherever the worktree folder was then. */
+    async registeredPaths(folder: string): Promise<string[]> {
+        const { main } = await this.read(folder);
+        return [...(await this.registerOf(main).read()).keys()];
     }
 
     /* The register of a repository, by its main checkout. */
@@ -252,7 +266,7 @@ export class Worktrees {
         const register = this.registerOf(main);
         const branchExists = await this.branchExists(main, branch);
         const based = options.base === undefined ? null : await this.resolveBase(repo, main, options.base, branchExists);
-        const dir = join(this.root, repoFolderName(main));
+        const dir = join(this.checkoutRoot() ?? this.root, repoFolderName(main));
         await mkdir(dir, { recursive: true, mode: 0o700 });
         // Git answers real paths, and the register is keyed on what git answers.
         const path = join(await realpath(dir), safeName(branch));
