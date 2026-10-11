@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { chmod, link, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { chmod, link, mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FS_READ_MAX_TEXT_BYTES } from '@ruimte/contracts';
@@ -90,6 +90,45 @@ describe('fs.write', () => {
         expect(after.ino).toBe(before.ino);
         expect(after.mode & 0o777).toBe(0o754);
         expect(await readFile(twin, 'utf8')).toBe('echo two\n');
+    });
+
+    test('two saves against one mtime: one wins whole and the other is stale', async () => {
+        const { path, mtime } = await put(join(project, 'race.txt'), 'start\n');
+        const long = 'long '.repeat(2000);
+
+        const results = await Promise.allSettled([writeTextFile(path, long, mtime, boundary()), writeTextFile(path, 'short', mtime, boundary())]);
+
+        const fulfilled = results.filter((result) => result.status === 'fulfilled');
+        const rejected = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
+        expect(fulfilled).toHaveLength(1);
+        expect(rejected.map((result) => (result.reason as { code?: string }).code)).toEqual(['stale']);
+        const winner = results[0].status === 'fulfilled' ? long : 'short';
+        expect(await readFile(path, 'utf8')).toBe(winner);
+    });
+
+    test('the same race through two hard links of one file', async () => {
+        const { path, mtime } = await put(join(project, 'one.txt'), 'start\n');
+        const twin = join(project, 'two.txt');
+        await link(path, twin);
+        const long = 'long '.repeat(2000);
+
+        const results = await Promise.allSettled([writeTextFile(path, long, mtime, boundary()), writeTextFile(twin, 'short', mtime, boundary())]);
+
+        expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+        expect(await readFile(path, 'utf8')).toBe(results[0].status === 'fulfilled' ? long : 'short');
+    });
+
+    test('a save inside the millisecond of the read still moves the mtime, so the same read cannot save twice', async () => {
+        const { path } = await put(join(project, 'tick.txt'), 'start\n');
+        const future = new Date(Date.now() + 86_400_000);
+        await utimes(path, future, future);
+        const mtime = Math.round(future.getTime());
+
+        const first = await writeTextFile(path, 'first\n', mtime, boundary());
+
+        expect(first.mtime).toBeGreaterThan(mtime);
+        expect(await codeOf(writeTextFile(path, 'second\n', mtime, boundary()))).toBe('stale');
+        expect(await readFile(path, 'utf8')).toBe('first\n');
     });
 
     test('refuses a file that moved since it was read', async () => {

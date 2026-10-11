@@ -5,11 +5,15 @@ import { FS_READ_MAX_TEXT_BYTES, type FsWriteResult } from '@ruimte/contracts';
 import { isInside } from '../canvas/project-paths.ts';
 import { isRuimteState } from '../projects/project-files.ts';
 import { CodedError } from '@adecore/agents/coded-error';
+import { KeyedSerializer } from '@adecore/agents/serializer';
 import { ReadError, UTF8_BOM, inspect } from './read.ts';
 
 type WriteErrorCode = 'stale' | 'too-large' | 'not-text' | 'outside-project' | 'ruimte-state' | 'not-writable';
 
 export class WriteError extends CodedError<WriteErrorCode> {}
+
+/* Keyed on dev and inode, so a hard link to a file shares the queue of the file itself. */
+const saves = new KeyedSerializer();
 
 /* Where a save from one client may land. */
 export interface WriteBoundary {
@@ -102,20 +106,28 @@ export async function writeTextFile(path: string, text: string, expectedMtime: n
     if (bytes.length > FS_READ_MAX_TEXT_BYTES) {
         throw new WriteError('too-large', 'That text is too large to save from here');
     }
-    const handle = await open(real, constants.O_WRONLY | constants.O_NOFOLLOW).catch((e: unknown) => {
-        throw openError(e, file.path);
-    });
-    try {
-        const opened = await handle.stat();
-        // A different inode means the name was swapped for another file after the checks above.
-        if (opened.dev !== file.dev || opened.ino !== file.ino || Math.round(opened.mtimeMs) !== expectedMtime) {
-            throw new WriteError('stale', 'That file changed on disk since it was read');
+    // An editor outside Ruimte can still race this: the in-place write is deliberate, it keeps the inode, the mode and every link.
+    return await saves.run(`${file.dev}:${file.ino}`, async () => {
+        const handle = await open(real, constants.O_WRONLY | constants.O_NOFOLLOW).catch((e: unknown) => {
+            throw openError(e, file.path);
+        });
+        try {
+            const opened = await handle.stat();
+            // A different inode means the name was swapped for another file after the checks above.
+            if (opened.dev !== file.dev || opened.ino !== file.ino || Math.round(opened.mtimeMs) !== expectedMtime) {
+                throw new WriteError('stale', 'That file changed on disk since it was read');
+            }
+            await handle.writeFile(bytes);
+            await handle.truncate(bytes.length);
+            let written = await handle.stat();
+            // A save inside the millisecond of the read would keep the mtime, and a second save against it would pass as fresh.
+            if (Math.round(written.mtimeMs) <= expectedMtime) {
+                await handle.utimes(written.atime, new Date(expectedMtime + 1));
+                written = await handle.stat();
+            }
+            return { size: written.size, mtime: Math.round(written.mtimeMs) };
+        } finally {
+            await handle.close();
         }
-        await handle.writeFile(bytes);
-        await handle.truncate(bytes.length);
-        const written = await handle.stat();
-        return { size: written.size, mtime: Math.round(written.mtimeMs) };
-    } finally {
-        await handle.close();
-    }
+    });
 }
