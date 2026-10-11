@@ -76,6 +76,23 @@ describe('AgentIntegrations', () => {
         expect(migrated.allows('codex')).toBe(false);
     });
 
+    test('a file that does not parse is set aside and never turns a provider back on from the markers', async () => {
+        await installHooks(settingsPath(), 'claude');
+        await writeFile(join(home, 'agent-integrations.json'), '{ not json');
+
+        const subject = integrations();
+        await subject.load();
+
+        expect(subject.summary().providers).toEqual([
+            { provider: 'claude', state: 'unset', reviewed: false },
+            { provider: 'codex', state: 'unset', reviewed: false }
+        ]);
+        const files = await readdir(home);
+        const aside = files.find((name) => name.startsWith('agent-integrations.json.corrupt-'));
+        expect(aside).toBeDefined();
+        expect(await readFile(join(home, aside!), 'utf8')).toBe('{ not json');
+    });
+
     test('a Codex rules file of Ruimte counts as the migration too', async () => {
         await mkdir(join(env.CODEX_HOME!, 'rules'));
         await writeFile(join(env.CODEX_HOME!, 'rules', 'ruimte.rules'), CODEX_RULES);

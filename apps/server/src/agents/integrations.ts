@@ -1,4 +1,4 @@
-import { mkdir, readFile, realpath, stat } from 'node:fs/promises';
+import { mkdir, readFile, realpath, rename, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import type { AgentIntegrationFile, AgentIntegrationReport, AgentIntegrationsSummary, AgentKind } from '@ruimte/contracts';
@@ -126,7 +126,7 @@ export class AgentIntegrations {
         try {
             parsed = text === null ? null : JSON.parse(text);
         } catch {
-            // A file that does not parse is read as no choice: the safe answer writes nothing.
+            // Handled below with every other file that holds no choice.
         }
         if (isRecord(parsed) && isRecord(parsed.providers)) {
             const { providers: stored, version: _version, ...rest } = parsed;
@@ -143,8 +143,18 @@ export class AgentIntegrations {
             }
             return;
         }
-        for (const kind of INTEGRATION_KINDS) {
-            this.providers[kind] = (await this.foundIn(kind)) ? { state: 'on', reviewed: false, written: [] } : unset();
+        if (text !== null) {
+            // The markers cannot tell a choice of off from a first run, so a person is asked again rather than turned back on.
+            const setAside = `${this.path}.corrupt-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+            await rename(this.path, setAside);
+            console.warn(`${this.path} would not read; it is kept as ${setAside} and every integration is asked again`);
+            for (const kind of INTEGRATION_KINDS) {
+                this.providers[kind] = unset();
+            }
+        } else {
+            for (const kind of INTEGRATION_KINDS) {
+                this.providers[kind] = (await this.foundIn(kind)) ? { state: 'on', reviewed: false, written: [] } : unset();
+            }
         }
         await this.persist();
     }
