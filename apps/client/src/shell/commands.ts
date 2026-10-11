@@ -572,6 +572,18 @@ export function appCommands(): Command[] {
                                 shortcut: NODE_NAVIGATION_SHORTCUTS[direction],
                                 run: () => focusedCanvas().getState().selectNeighbor(direction)
                             })),
+                            {
+                                id: 'camera-back',
+                                label: i18next.t('shell:palette.commands.cameraBack'),
+                                shortcut: CANVAS_SHORTCUTS.cameraBack,
+                                run: () => focusedCanvas().getState().stepCamera(-1)
+                            },
+                            {
+                                id: 'camera-forward',
+                                label: i18next.t('shell:palette.commands.cameraForward'),
+                                shortcut: CANVAS_SHORTCUTS.cameraForward,
+                                run: () => focusedCanvas().getState().stepCamera(1)
+                            },
                             ...(zoomNodeTargetOf(canvas) !== null
                                 ? [
                                       {

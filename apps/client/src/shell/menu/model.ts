@@ -465,6 +465,11 @@ function goMenu(context: MenuContext, command: MenuCommand): MenuSection {
                 command('view-previous', t('previousView'), { shortcut: CANVAS_SHORTCUTS.previousView }),
                 command('view-next', t('nextView'), { shortcut: CANVAS_SHORTCUTS.nextView }),
                 ...only(
+                    context.view === 'canvas',
+                    command('camera-back', t('cameraBack'), { shortcut: CANVAS_SHORTCUTS.cameraBack }),
+                    command('camera-forward', t('cameraForward'), { shortcut: CANVAS_SHORTCUTS.cameraForward })
+                ),
+                ...only(
                     hosted,
                     command('tab-previous', t('previousTab'), { shortcut: CANVAS_SHORTCUTS.previousTab, enabled: context.tabs.count > 1 }),
                     command('tab-next', t('nextTab'), { shortcut: CANVAS_SHORTCUTS.nextTab, enabled: context.tabs.count > 1 })

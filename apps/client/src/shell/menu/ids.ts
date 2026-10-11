@@ -87,6 +87,8 @@ export const PALETTE_IDS = [
     'node-right',
     'node-up',
     'node-down',
+    'camera-back',
+    'camera-forward',
     'zoom-reset',
     'cell-maximize',
     'node-maximize',

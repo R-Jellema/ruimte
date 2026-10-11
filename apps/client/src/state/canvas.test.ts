@@ -1,8 +1,19 @@
 import { describe, expect, test } from 'bun:test';
 import { groupFrame, ProjectCanvasViewSchema, type ProjectCanvasView } from '@ruimte/contracts';
 import { toWorld } from '@/canvas/math';
+import { forgetCameraHistories } from '@/state/camera-history';
 import type { CanvasPatch } from '@/project/merge';
-import { carriedByGroups, createCanvasStore, focusedCanvas, isNodeActive, maximizedNodeOf, maximizeTargetOf, patchSnapshot, type CanvasNode } from './canvas';
+import {
+    carriedByGroups,
+    createCanvasStore,
+    setCameraClock,
+    focusedCanvas,
+    isNodeActive,
+    maximizedNodeOf,
+    maximizeTargetOf,
+    patchSnapshot,
+    type CanvasNode
+} from './canvas';
 
 /* Every test here is about one editor, and with no workspace open that is the module's own. */
 function canvas() {
@@ -558,5 +569,62 @@ describe('a maximized node', () => {
         expect(store.getState().maximizedId).toBeNull();
         expect(maximizedNodeOf({ nodes, hidden: new Set(['a']), maximizedId: 'a' })).toBeNull();
         expect(maximizedNodeOf({ nodes: { b: nodes.b }, hidden: new Set(), maximizedId: 'a' })).toBeNull();
+    });
+});
+
+describe('the camera history of a view', () => {
+    let clock = 0;
+    const open = (...nodes: CanvasNode[]) => {
+        forgetCameraHistories();
+        setCameraClock(() => clock);
+        const store = createCanvasStore();
+        store.getState().setViewport({ w: 1200, h: 800 });
+        store.getState().loadView({ kind: 'canvas', id: 'history-view', name: 'Canvas', nodes, texts: [], edges: [], layouts: [] }, null);
+        return store;
+    };
+
+    test('fitting everything and stepping back restores the camera from before it', () => {
+        const store = open(node('a', 0, 0), node('b', 3000, 2000));
+        store.getState().setCamera({ x: 40, y: 40, zoom: 1 });
+        store.getState().fitAll();
+        expect(store.getState().camera).not.toEqual({ x: 40, y: 40, zoom: 1 });
+        expect(store.getState().stepCamera(-1)).toBe(true);
+        expect(store.getState().camera).toEqual({ x: 40, y: 40, zoom: 1 });
+        expect(store.getState().stepCamera(-1)).toBe(false);
+        expect(store.getState().stepCamera(1)).toBe(true);
+    });
+
+    test('loading a view records nothing', () => {
+        const store = open(node('a', 0, 0), node('b', 3000, 2000));
+        expect(store.getState().stepCamera(-1)).toBe(false);
+    });
+
+    test('a pan is one step once the pointer lets go', () => {
+        const store = open(node('a', 0, 0));
+        const before = store.getState().camera;
+        for (let i = 0; i < 20; i++) {
+            clock += 10;
+            store.getState().panBy(50, 0);
+        }
+        store.getState().setPanning(false);
+        expect(store.getState().stepCamera(-1)).toBe(true);
+        expect(store.getState().camera).toEqual(before);
+        expect(store.getState().stepCamera(-1)).toBe(false);
+    });
+
+    test('the way back outlives the editor of a view', () => {
+        const first = open(node('a', 0, 0), node('b', 3000, 2000));
+        first.getState().goToNode('b');
+        const moved = first.getState().camera;
+        const second = createCanvasStore();
+        second.getState().setViewport({ w: 1200, h: 800 });
+        second
+            .getState()
+            .loadView(
+                { kind: 'canvas', id: 'history-view', name: 'Canvas', nodes: [node('a', 0, 0), node('b', 3000, 2000)], texts: [], edges: [], layouts: [] },
+                null
+            );
+        second.getState().setCamera(moved);
+        expect(second.getState().stepCamera(-1)).toBe(true);
     });
 });

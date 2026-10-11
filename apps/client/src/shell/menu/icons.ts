@@ -302,6 +302,8 @@ const ICONS: Partial<Record<string, LucideIcon>> = {
     palette: Command,
     'view-previous': ChevronsLeft,
     'view-next': ChevronsRight,
+    'camera-back': ArrowLeft,
+    'camera-forward': ArrowRight,
     'focus-left': ArrowLeft,
     'focus-right': ArrowRight,
     'focus-up': ArrowUp,

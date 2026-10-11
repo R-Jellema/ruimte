@@ -1,4 +1,5 @@
 import { useContext } from 'react';
+import { forgetCameraHistories } from '@/state/camera-history';
 import { createStore, type StoreApi } from 'zustand';
 import type { ProjectDatabaseTarget, SplitLayout } from '@ruimte/contracts';
 import {
@@ -556,6 +557,7 @@ export function createDocumentStore(peers: DocumentPeers): StoreApi<DocumentStat
                 });
                 // The project that was here goes first, editors and all, so nothing of it may show through.
                 peers.canvases.keep([]);
+                forgetCameraHistories();
                 openEditors(views, viewLocal, layout === null ? [] : viewIdsIn(layout), settled.activeViewId, peers);
                 set({ loading: false });
             },

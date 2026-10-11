@@ -55,6 +55,8 @@ export const TERMINAL_HANDED_BACK: readonly Shortcut[] = [
     CANVAS_SHORTCUTS.zoomNode,
     CANVAS_SHORTCUTS.previousView,
     CANVAS_SHORTCUTS.nextView,
+    CANVAS_SHORTCUTS.cameraBack,
+    CANVAS_SHORTCUTS.cameraForward,
     CANVAS_SHORTCUTS.previousTab,
     CANVAS_SHORTCUTS.nextTab,
     CANVAS_SHORTCUTS.moveTabLeft,
@@ -72,8 +74,15 @@ export const TERMINAL_HANDED_BACK: readonly Shortcut[] = [
 ];
 
 /* Off macOS these are control characters a program reads (Ctrl+B the tmux prefix, Ctrl+W delete-word,
-   Ctrl+T transpose, Ctrl+\ SIGQUIT), so the terminal keeps them there. */
-const PTY_CONTROL_SHORTCUTS: readonly Shortcut[] = [APP_SHORTCUTS.sidebar, CANVAS_SHORTCUTS.newView, CANVAS_SHORTCUTS.splitRight, CANVAS_SHORTCUTS.closeCell];
+   Ctrl+T transpose, Ctrl+\ SIGQUIT, Ctrl+Alt+[ Meta-Escape), so the terminal keeps them there. */
+const PTY_CONTROL_SHORTCUTS: readonly Shortcut[] = [
+    APP_SHORTCUTS.sidebar,
+    CANVAS_SHORTCUTS.newView,
+    CANVAS_SHORTCUTS.splitRight,
+    CANVAS_SHORTCUTS.closeCell,
+    CANVAS_SHORTCUTS.cameraBack,
+    CANVAS_SHORTCUTS.cameraForward
+];
 
 function matchesAny(shortcuts: readonly Shortcut[], event: KeyLike, apple: boolean): boolean {
     return shortcuts.some((candidate) => matchesShortcut(candidate, event, apple));

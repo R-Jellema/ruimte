@@ -7,6 +7,8 @@ import { cameraCenteredOn, cameraOfView, cameraToFit, intersects, snapToGrid, to
 import { cameraToReveal, neighboringNode, type NodeDirection } from '@/canvas/node-navigation';
 import { parentGroupOf } from '@/canvas/editable-gaps';
 import { createCameraSlice, type CameraSlice } from '@/canvas/camera-slice';
+import { noteJump, noteMove, settle, step } from '@/canvas/camera-history';
+import { historyOf, setHistory } from '@/state/camera-history';
 
 import type { CanvasPatch } from '@/project/merge';
 import type {
@@ -160,6 +162,8 @@ export interface CanvasState extends CameraSlice {
     /* Brings the camera to one node and selects it. */
     goToNode(id: string): void;
     zoomToNode(id?: string): void;
+    /* One step back (-1) or forward (1) through the places this view's camera was; false where there is none. */
+    stepCamera(direction: -1 | 1): boolean;
     selectNeighbor(direction: NodeDirection): void;
     beginGapMove(ids: string[], fixed?: string[]): boolean;
     moveGapNodes(offsets: Record<string, Point>): void;
@@ -358,10 +362,29 @@ function remember(s: CanvasState): Pick<CanvasState, 'past' | 'future'> {
     return { past: [...s.past.slice(-(HISTORY_LIMIT - 1)), snapshotOf(s)], future: [] };
 }
 
+/* The clock of the camera's bursts; a test swaps it so no assertion waits on real time. */
+let now = (): number => performance.now();
+
+export function setCameraClock(clock: () => number): void {
+    now = clock;
+}
+
+// Above zero while the camera moves for a reason that is not the person's: a view loading, a size arriving.
+let quiet = 0;
+
+function quietly(action: () => void): void {
+    quiet++;
+    try {
+        action();
+    } finally {
+        quiet--;
+    }
+}
+
 /* One canvas editor, for one view on screen. */
 export function createCanvasStore(): StoreApi<CanvasState> {
-    return createStore<CanvasState>((set, get) => ({
-        ...createCameraSlice<CanvasState>(set, get, {
+    return createStore<CanvasState>((set, get) => {
+        const slice = createCameraSlice<CanvasState>(set, get, {
             boundsOfAll: (state) => unionOf([...Object.values(state.nodes), ...Object.values(state.texts).map(textRect)]),
             boundsOfSelection: (state) =>
                 unionOf(state.selection.flatMap((id) => (state.nodes[id] ? [state.nodes[id]] : state.texts[id] ? [textRect(state.texts[id])] : []))),
@@ -370,679 +393,745 @@ export function createCanvasStore(): StoreApi<CanvasState> {
                     state.goToNode(request.id);
                 }
             }
-        }),
+        });
 
-        viewId: null,
-        nodes: {},
-        order: [],
-        texts: {},
-        edges: [],
-        layouts: [],
-        linkDraft: null,
-        hidden: new Set(),
-        selection: [],
-        navigationId: null,
-        bodyFocusId: null,
-        maximizedId: null,
-        editingTextId: null,
-        locks: { pan: false, zoom: false, move: false, resize: false },
-        resizing: null,
-        gesturing: false,
-        panning: false,
-        gapMove: null,
-        loading: false,
-        merging: false,
-        past: [],
-        future: [],
+        /* Records the camera a jump left and where it landed; `target` names the node it landed on, if any. */
+        const jumping =
+            <TArgs extends unknown[]>(action: (...args: TArgs) => void, target: (state: CanvasState, args: TArgs) => string | null) =>
+            (...args: TArgs): void => {
+                const { camera: from, viewId } = get();
+                action(...args);
+                if (viewId !== null && quiet === 0) {
+                    const state = get();
+                    setHistory(viewId, noteJump(historyOf(viewId), from, state.camera, target(state, args)));
+                }
+            };
+        /* A pan or zoom joins the burst it belongs to. */
+        const moving =
+            <TArgs extends unknown[]>(action: (...args: TArgs) => void) =>
+            (...args: TArgs): void => {
+                const { camera: from, viewId } = get();
+                action(...args);
+                if (viewId !== null && quiet === 0 && get().camera !== from) {
+                    setHistory(viewId, noteMove(historyOf(viewId), from, now()));
+                }
+            };
 
-        goToNode(id) {
-            const { nodes, viewport, camera, maximizedId } = get();
-            const node = nodes[id];
-            if (!node) {
-                return;
-            }
-            const next = cameraCenteredOn(node, viewport, Math.max(camera.zoom, 0.75));
-            /* Revealing a node on another view switches to it first, which makes the editor this
+        const base: Omit<CanvasState, 'stepCamera'> = {
+            ...slice,
+
+            viewId: null,
+            nodes: {},
+            order: [],
+            texts: {},
+            edges: [],
+            layouts: [],
+            linkDraft: null,
+            hidden: new Set(),
+            selection: [],
+            navigationId: null,
+            bodyFocusId: null,
+            maximizedId: null,
+            editingTextId: null,
+            locks: { pan: false, zoom: false, move: false, resize: false },
+            resizing: null,
+            gesturing: false,
+            panning: false,
+            gapMove: null,
+            loading: false,
+            merging: false,
+            past: [],
+            future: [],
+
+            goToNode(id) {
+                const { nodes, viewport, camera, maximizedId } = get();
+                const node = nodes[id];
+                if (!node) {
+                    return;
+                }
+                const next = cameraCenteredOn(node, viewport, Math.max(camera.zoom, 0.75));
+                /* Revealing a node on another view switches to it first, which makes the editor this
                runs on one frame old, so it waits for the size rather than landing in the corner. */
-            set({
-                ...(next === null ? { pendingCamera: { kind: 'node', id } } : { camera: next, pendingCamera: null }),
-                // Another node would land under the maximized one.
-                ...(maximizedId !== id ? { maximizedId: null } : {}),
-                selection: [id]
-            });
-        },
-        zoomToNode(id) {
-            const state = get();
-            const target = id ?? zoomNodeTargetOf(state);
-            const node = target === null || target === undefined ? undefined : state.nodes[target];
-            if (!node || state.hidden.has(node.id) || maximizedNodeOf(state) !== null || state.gesturing) {
-                return;
-            }
-            const camera = cameraToFit(node, state.viewport, 48, 1);
-            if (camera !== null) {
-                set({ camera, pendingCamera: null });
-            }
-        },
-        selectNeighbor(direction) {
-            const state = get();
-            if (maximizedNodeOf(state) !== null || state.gesturing) {
-                return;
-            }
-            const from =
-                state.navigationId !== null && state.selection.includes(state.navigationId)
-                    ? state.navigationId
-                    : (state.selection.find((id) => state.nodes[id] !== undefined) ?? null);
-            const target = neighboringNode(
-                Object.values(state.nodes).filter((node) => !state.hidden.has(node.id)),
-                from,
-                direction,
-                toWorld(state.camera, { x: state.viewport.w / 2, y: state.viewport.h / 2 })
-            );
-            const node = target === null ? undefined : state.nodes[target];
-            if (!node) {
-                return;
-            }
-            const camera = state.viewport.w > 0 && state.viewport.h > 0 ? cameraToReveal(node, state.camera, state.viewport) : state.camera;
-            set({ selection: [node.id], navigationId: node.id, bodyFocusId: null, camera });
-        },
-        select(ids, additive = false) {
-            set((state) => {
-                const selection = mergeSelection(state.selection, ids, additive ? 'toggle' : 'replace');
-                const last = ids.findLast((id) => state.nodes[id] !== undefined && selection.includes(id));
-                return { selection, navigationId: last ?? (state.navigationId !== null && selection.includes(state.navigationId) ? state.navigationId : null) };
-            });
-        },
-        clearSelection() {
-            set({ selection: [], navigationId: null });
-        },
-        selectInRect(rect, additive = false) {
-            const { nodes, texts, selection, hidden } = get();
-            // A node inside a collapsed group is not drawn, so a box drawn over it cannot take it along.
-            const hits = [
-                ...Object.values(nodes)
-                    .filter((node) => !hidden.has(node.id) && intersects(node, rect))
-                    .map((node) => node.id),
-                ...Object.values(texts)
-                    .filter((text) => !hidden.has(text.id) && intersects({ x: text.x, y: text.y, w: text.size * 8, h: text.size * 1.4 }, rect))
-                    .map((text) => text.id)
-            ];
-            set({ selection: mergeSelection(selection, hits, additive ? 'add' : 'replace') });
-        },
-        activateNode(id) {
-            get().bringToFront(id);
-            set({ selection: [id], navigationId: id, bodyFocusId: id, editingTextId: null });
-        },
-        setBodyFocus(id) {
-            set({ bodyFocusId: id, ...(id === null ? {} : { navigationId: id }) });
-        },
-        toggleMaximizedNode(id) {
-            if (maximizedNodeOf(get()) === id) {
-                set({ maximizedId: null });
-                return;
-            }
-            get().activateNode(id);
-            set({ maximizedId: id });
-        },
+                set({
+                    ...(next === null ? { pendingCamera: { kind: 'node', id } } : { camera: next, pendingCamera: null }),
+                    // Another node would land under the maximized one.
+                    ...(maximizedId !== id ? { maximizedId: null } : {}),
+                    selection: [id]
+                });
+            },
+            zoomToNode(id) {
+                const state = get();
+                const target = id ?? zoomNodeTargetOf(state);
+                const node = target === null || target === undefined ? undefined : state.nodes[target];
+                if (!node || state.hidden.has(node.id) || maximizedNodeOf(state) !== null || state.gesturing) {
+                    return;
+                }
+                const camera = cameraToFit(node, state.viewport, 48, 1);
+                if (camera !== null) {
+                    set({ camera, pendingCamera: null });
+                }
+            },
+            selectNeighbor(direction) {
+                const state = get();
+                if (maximizedNodeOf(state) !== null || state.gesturing) {
+                    return;
+                }
+                const from =
+                    state.navigationId !== null && state.selection.includes(state.navigationId)
+                        ? state.navigationId
+                        : (state.selection.find((id) => state.nodes[id] !== undefined) ?? null);
+                const target = neighboringNode(
+                    Object.values(state.nodes).filter((node) => !state.hidden.has(node.id)),
+                    from,
+                    direction,
+                    toWorld(state.camera, { x: state.viewport.w / 2, y: state.viewport.h / 2 })
+                );
+                const node = target === null ? undefined : state.nodes[target];
+                if (!node) {
+                    return;
+                }
+                const camera = state.viewport.w > 0 && state.viewport.h > 0 ? cameraToReveal(node, state.camera, state.viewport) : state.camera;
+                set({ selection: [node.id], navigationId: node.id, bodyFocusId: null, camera });
+            },
+            select(ids, additive = false) {
+                set((state) => {
+                    const selection = mergeSelection(state.selection, ids, additive ? 'toggle' : 'replace');
+                    const last = ids.findLast((id) => state.nodes[id] !== undefined && selection.includes(id));
+                    return {
+                        selection,
+                        navigationId: last ?? (state.navigationId !== null && selection.includes(state.navigationId) ? state.navigationId : null)
+                    };
+                });
+            },
+            clearSelection() {
+                set({ selection: [], navigationId: null });
+            },
+            selectInRect(rect, additive = false) {
+                const { nodes, texts, selection, hidden } = get();
+                // A node inside a collapsed group is not drawn, so a box drawn over it cannot take it along.
+                const hits = [
+                    ...Object.values(nodes)
+                        .filter((node) => !hidden.has(node.id) && intersects(node, rect))
+                        .map((node) => node.id),
+                    ...Object.values(texts)
+                        .filter((text) => !hidden.has(text.id) && intersects({ x: text.x, y: text.y, w: text.size * 8, h: text.size * 1.4 }, rect))
+                        .map((text) => text.id)
+                ];
+                set({ selection: mergeSelection(selection, hits, additive ? 'add' : 'replace') });
+            },
+            activateNode(id) {
+                get().bringToFront(id);
+                set({ selection: [id], navigationId: id, bodyFocusId: id, editingTextId: null });
+            },
+            setBodyFocus(id) {
+                set({ bodyFocusId: id, ...(id === null ? {} : { navigationId: id }) });
+            },
+            toggleMaximizedNode(id) {
+                if (maximizedNodeOf(get()) === id) {
+                    set({ maximizedId: null });
+                    return;
+                }
+                get().activateNode(id);
+                set({ maximizedId: id });
+            },
 
-        moveSelected(dx, dy, first = false) {
-            const s = get();
-            const { nodes, texts, selection, locks } = s;
-            if (locks.move) {
-                return;
-            }
-            const nextNodes = { ...nodes };
-            const nextTexts = { ...texts };
-            for (const id of [...selection, ...carriedByGroups(nodes, texts, selection)]) {
-                if (nextNodes[id]) {
-                    nextNodes[id] = { ...nextNodes[id], x: nextNodes[id].x + dx, y: nextNodes[id].y + dy };
-                } else if (nextTexts[id]) {
-                    nextTexts[id] = { ...nextTexts[id], x: nextTexts[id].x + dx, y: nextTexts[id].y + dy };
+            moveSelected(dx, dy, first = false) {
+                const s = get();
+                const { nodes, texts, selection, locks } = s;
+                if (locks.move) {
+                    return;
                 }
-            }
-            set({ nodes: nextNodes, texts: nextTexts, ...(first ? remember(s) : {}) });
-        },
-        settleMove() {
-            const { nodes, texts, selection } = get();
-            const nextNodes = { ...nodes };
-            const nextTexts = { ...texts };
-            for (const id of [...selection, ...carriedByGroups(nodes, texts, selection)]) {
-                if (nextNodes[id]) {
-                    nextNodes[id] = { ...nextNodes[id], x: snapToGrid(nextNodes[id].x), y: snapToGrid(nextNodes[id].y) };
-                } else if (nextTexts[id]) {
-                    nextTexts[id] = { ...nextTexts[id], x: snapToGrid(nextTexts[id].x), y: snapToGrid(nextTexts[id].y) };
-                }
-            }
-            set({ nodes: nextNodes, texts: nextTexts });
-        },
-        resizeNode(id, rect) {
-            const { nodes, locks } = get();
-            if (locks.resize || !nodes[id]) {
-                return;
-            }
-            set({ nodes: { ...nodes, [id]: { ...nodes[id], ...rect } } });
-        },
-        setResizing(id) {
-            // The handle goes down before the first resize, so this is where the old size is remembered.
-            set((s) => (id !== null && s.resizing === null ? { resizing: id, ...remember(s) } : { resizing: id }));
-        },
-        setGesturing(gesturing) {
-            set({ gesturing });
-        },
-        setPanning(panning) {
-            if (get().panning !== panning) {
-                set({ panning });
-            }
-        },
-        beginGapMove(ids, fixed = []) {
-            const state = get();
-            if (state.locks.move || state.gapMove !== null || ids.length === 0 || ids.some((id) => state.nodes[id] === undefined || state.hidden.has(id))) {
-                return false;
-            }
-            const carried: Record<string, string> = {};
-            for (const id of ids) {
-                for (const member of carriedByGroups(state.nodes, state.texts, [id])) {
-                    if (!ids.includes(member)) {
-                        carried[member] = id;
+                const nextNodes = { ...nodes };
+                const nextTexts = { ...texts };
+                for (const id of [...selection, ...carriedByGroups(nodes, texts, selection)]) {
+                    if (nextNodes[id]) {
+                        nextNodes[id] = { ...nextNodes[id], x: nextNodes[id].x + dx, y: nextNodes[id].y + dy };
+                    } else if (nextTexts[id]) {
+                        nextTexts[id] = { ...nextTexts[id], x: nextTexts[id].x + dx, y: nextTexts[id].y + dy };
                     }
                 }
-            }
-            const origins: Record<string, Point> = {};
-            for (const id of [...ids, ...Object.keys(carried)]) {
-                const element = state.nodes[id] ?? state.texts[id];
-                if (element) {
-                    origins[id] = { x: element.x, y: element.y };
+                set({ nodes: nextNodes, texts: nextTexts, ...(first ? remember(s) : {}) });
+            },
+            settleMove() {
+                const { nodes, texts, selection } = get();
+                const nextNodes = { ...nodes };
+                const nextTexts = { ...texts };
+                for (const id of [...selection, ...carriedByGroups(nodes, texts, selection)]) {
+                    if (nextNodes[id]) {
+                        nextNodes[id] = { ...nextNodes[id], x: snapToGrid(nextNodes[id].x), y: snapToGrid(nextNodes[id].y) };
+                    } else if (nextTexts[id]) {
+                        nextTexts[id] = { ...nextTexts[id], x: snapToGrid(nextTexts[id].x), y: snapToGrid(nextTexts[id].y) };
+                    }
                 }
-            }
-            const parentIds = new Set<string>();
-            const nodes = Object.values(state.nodes);
-            for (const id of ids) {
-                let parent = parentGroupOf(state.nodes[id]!, nodes);
-                while (parent !== null && !parentIds.has(parent)) {
-                    parentIds.add(parent);
-                    parent = parentGroupOf(state.nodes[parent]!, nodes);
+                set({ nodes: nextNodes, texts: nextTexts });
+            },
+            resizeNode(id, rect) {
+                const { nodes, locks } = get();
+                if (locks.resize || !nodes[id]) {
+                    return;
                 }
-            }
-            const parents = [...parentIds]
-                .sort((first, second) => state.nodes[first]!.w * state.nodes[first]!.h - state.nodes[second]!.w * state.nodes[second]!.h)
-                .map((id) => ({ id, members: membersOf(state.nodes[id]!, state.nodes, state.texts) }));
-            set({ gapMove: { snapshot: snapshotOf(state), origins, carried, parents, fixed }, gesturing: true });
-            return true;
-        },
-        moveGapNodes(offsets) {
-            const state = get();
-            const move = state.gapMove;
-            if (move === null || state.locks.move) {
-                return;
-            }
-            const nodes = { ...state.nodes };
-            const texts = { ...state.texts };
-            let changed = false;
-            for (const [id, origin] of Object.entries(move.origins)) {
-                const offset = offsets[move.carried[id] ?? id];
-                const element = nodes[id] ?? texts[id];
-                if (!offset || !element) {
-                    continue;
+                set({ nodes: { ...nodes, [id]: { ...nodes[id], ...rect } } });
+            },
+            setResizing(id) {
+                // The handle goes down before the first resize, so this is where the old size is remembered.
+                set((s) => (id !== null && s.resizing === null ? { resizing: id, ...remember(s) } : { resizing: id }));
+            },
+            setGesturing(gesturing) {
+                set({ gesturing });
+            },
+            setPanning(panning) {
+                if (get().panning !== panning) {
+                    set({ panning });
                 }
-                const point = { x: origin.x + offset.x, y: origin.y + offset.y };
-                if (element.x === point.x && element.y === point.y) {
-                    continue;
+            },
+            beginGapMove(ids, fixed = []) {
+                const state = get();
+                if (state.locks.move || state.gapMove !== null || ids.length === 0 || ids.some((id) => state.nodes[id] === undefined || state.hidden.has(id))) {
+                    return false;
                 }
-                changed = true;
-                if (nodes[id]) {
-                    nodes[id] = { ...nodes[id]!, ...point };
-                } else {
-                    texts[id] = { ...texts[id]!, ...point };
+                const carried: Record<string, string> = {};
+                for (const id of ids) {
+                    for (const member of carriedByGroups(state.nodes, state.texts, [id])) {
+                        if (!ids.includes(member)) {
+                            carried[member] = id;
+                        }
+                    }
                 }
-            }
-            if (changed) {
-                set({ nodes, texts });
-            }
-        },
-        endGapMove(cancel = false) {
-            const state = get();
-            const move = state.gapMove;
-            if (move === null) {
-                return;
-            }
-            const nodes = { ...state.nodes };
-            const texts = { ...state.texts };
-            const changed = Object.entries(move.origins).some(([id, point]) => {
-                const element = nodes[id] ?? texts[id];
-                return element !== undefined && (element.x !== point.x || element.y !== point.y);
-            });
-            if (cancel) {
-                for (const [id, point] of Object.entries(move.origins)) {
+                const origins: Record<string, Point> = {};
+                for (const id of [...ids, ...Object.keys(carried)]) {
+                    const element = state.nodes[id] ?? state.texts[id];
+                    if (element) {
+                        origins[id] = { x: element.x, y: element.y };
+                    }
+                }
+                const parentIds = new Set<string>();
+                const nodes = Object.values(state.nodes);
+                for (const id of ids) {
+                    let parent = parentGroupOf(state.nodes[id]!, nodes);
+                    while (parent !== null && !parentIds.has(parent)) {
+                        parentIds.add(parent);
+                        parent = parentGroupOf(state.nodes[parent]!, nodes);
+                    }
+                }
+                const parents = [...parentIds]
+                    .sort((first, second) => state.nodes[first]!.w * state.nodes[first]!.h - state.nodes[second]!.w * state.nodes[second]!.h)
+                    .map((id) => ({ id, members: membersOf(state.nodes[id]!, state.nodes, state.texts) }));
+                set({ gapMove: { snapshot: snapshotOf(state), origins, carried, parents, fixed }, gesturing: true });
+                return true;
+            },
+            moveGapNodes(offsets) {
+                const state = get();
+                const move = state.gapMove;
+                if (move === null || state.locks.move) {
+                    return;
+                }
+                const nodes = { ...state.nodes };
+                const texts = { ...state.texts };
+                let changed = false;
+                for (const [id, origin] of Object.entries(move.origins)) {
+                    const offset = offsets[move.carried[id] ?? id];
+                    const element = nodes[id] ?? texts[id];
+                    if (!offset || !element) {
+                        continue;
+                    }
+                    const point = { x: origin.x + offset.x, y: origin.y + offset.y };
+                    if (element.x === point.x && element.y === point.y) {
+                        continue;
+                    }
+                    changed = true;
                     if (nodes[id]) {
                         nodes[id] = { ...nodes[id]!, ...point };
-                    } else if (texts[id]) {
+                    } else {
                         texts[id] = { ...texts[id]!, ...point };
                     }
                 }
-            } else if (changed) {
-                for (const parent of move.parents) {
-                    const group = nodes[parent.id];
-                    if (!group || group.collapsed) {
-                        continue;
-                    }
-                    const frame = groupFrame(parent.members.flatMap((id) => (nodes[id] ? [nodes[id]!] : texts[id] ? [textRect(texts[id]!)] : [])));
-                    const rect = frame === null ? null : unionOf([group, frame]);
-                    if (rect !== null) {
-                        nodes[parent.id] = { ...group, ...rect };
-                    }
+                if (changed) {
+                    set({ nodes, texts });
                 }
-            }
-            set({
-                nodes,
-                texts,
-                gapMove: null,
-                gesturing: false,
-                ...(!cancel && changed ? { past: [...state.past.slice(-(HISTORY_LIMIT - 1)), move.snapshot], future: [] } : {})
-            });
-        },
-        /* A node of an unknown kind is written back as it was read, apart from its frame, so an accent,
-           a title or a patch on it would be an edit that never reaches the file. */
-        setNodeAccent(id, accent) {
-            set((s) => (s.nodes[id] && !isUnknownNode(s.nodes[id]) ? { nodes: { ...s.nodes, [id]: { ...s.nodes[id], accent: accent ?? undefined } } } : {}));
-        },
-        renameNode(id, title, source = 'user') {
-            set((s) => {
-                const node = s.nodes[id];
-                // A rename that changes nothing claims nothing, since the editor closes on a blur either way.
-                if (!node || isUnknownNode(node) || (node.title === title && (node.titleSource ?? null) === source)) {
-                    return {};
-                }
-                return { nodes: { ...s.nodes, [id]: { ...node, title, titleSource: source ?? undefined } } };
-            });
-        },
-        updateNode(id, patch, undoable = false) {
-            set((s) =>
-                s.nodes[id] && !isUnknownNode(s.nodes[id])
-                    ? { nodes: { ...s.nodes, [id]: { ...s.nodes[id], ...patch } }, ...(undoable ? remember(s) : {}) }
-                    : {}
-            );
-        },
-        duplicateNode(id) {
-            const source = get().nodes[id];
-            // What a newer Ruimte's node holds may be tied to its id (a session, a file), so a copy of it is not this version's to make.
-            if (!source || isUnknownNode(source)) {
-                return;
-            }
-            const copyId = nextId(source.kind);
-            // A copy is a new node: a fresh session, never the original's agent session.
-            const copy: CanvasNode = { ...source, id: copyId, x: source.x + 32, y: source.y + 32, resume: undefined };
-            set((s) => ({ nodes: { ...s.nodes, [copyId]: copy }, order: [...s.order, copyId], selection: [copyId], ...remember(s) }));
-        },
-        bringToFront(id) {
-            const { order } = get();
-            if (order[order.length - 1] === id) {
-                return;
-            }
-            set({ order: [...order.filter((n) => n !== id), id] });
-        },
-        addNode(kind, at, options = {}) {
-            /* Without a view nothing in the project file is behind the canvas, so a node here would be a live
-           terminal or agent that nothing ever saves. The surfaces that offer one are hidden in that
-           state; this is the floor under them. */
-            if (get().viewId === null && options.viewId === undefined) {
-                return null;
-            }
-            const id = nextId(kind);
-            const size = NODE_SIZE[kind];
-            // Made inside a group that is bound to a worktree, a node starts in that checkout.
-            const host = Object.values(get().nodes)
-                .filter((node) => node.kind === 'group' && node.worktree && contains(node, at))
-                .sort((a, b) => a.w * a.h - b.w * b.h)[0];
-            const node: CanvasNode = {
-                id,
-                kind,
-                title: options.title ?? DEFAULT_TITLES[kind],
-                x: snapToGrid(at.x - size.w / 2),
-                y: snapToGrid(at.y - size.h / 2),
-                ...size,
-                url: options.url,
-                ...(options.browserOwner ? { browserOwner: options.browserOwner } : {}),
-                device: options.device,
-                cwd: options.cwd ?? host?.worktree?.path,
-                command: options.command,
-                resume: options.resume,
-                provider: options.provider,
-                account: options.account,
-                providerFixed: options.providerFixed,
-                runtimeMode: options.runtimeMode,
-                viewId: options.viewId,
-                path: options.path
-            };
-            set((s) => ({ nodes: { ...s.nodes, [id]: node }, order: [...s.order, id], selection: [id], ...remember(s) }));
-            return id;
-        },
-        groupSelection() {
-            const { nodes, selection } = get();
-            const members = selection.map((id) => nodes[id]).filter((node): node is CanvasNode => Boolean(node) && node!.kind !== 'group');
-            // The same frame the daemon's `node group` action draws, so the two ways to group cannot drift.
-            const frame = groupFrame(members);
-            if (!frame) {
-                return null;
-            }
-            const id = nextId('group');
-            const group: CanvasNode = { id, kind: 'group', title: DEFAULT_TITLES.group, ...frame };
-            set((s) => ({ nodes: { ...s.nodes, [id]: group }, order: [...s.order, id], selection: [id], ...remember(s) }));
-            return id;
-        },
-        addText(at) {
-            const id = nextId('text');
-            const text: TextElement = { id, x: snapToGrid(at.x), y: snapToGrid(at.y), text: '', size: 18 };
-            set((s) => ({ texts: { ...s.texts, [id]: text }, selection: [id], editingTextId: id, ...remember(s) }));
-            return id;
-        },
-        updateText(id, text) {
-            set((s) => (s.texts[id] ? { texts: { ...s.texts, [id]: { ...s.texts[id], text } } } : {}));
-        },
-        styleText(id, patch, undoable = true) {
-            set((s) => (s.texts[id] ? { texts: { ...s.texts, [id]: { ...s.texts[id], ...patch } }, ...(undoable ? remember(s) : {}) } : {}));
-        },
-        resizeText(id, x, maxWidth, undoable = true) {
-            set((s) => (s.texts[id] ? { texts: { ...s.texts, [id]: { ...s.texts[id], x, maxWidth } }, ...(undoable ? remember(s) : {}) } : {}));
-        },
-        setEditingText(id) {
-            set({ editingTextId: id });
-        },
-        deleteSelected() {
-            const { nodes, texts, order, edges, selection } = get();
-            if (selection.length === 0) {
-                return;
-            }
-            const gone = new Set(selection);
-            // A collapsed group takes what it hid along; nothing should linger unseen.
-            for (const id of selection) {
-                const node = nodes[id];
-                if (node?.kind === 'group' && node.collapsed) {
-                    for (const member of node.memberIds ?? []) {
-                        gone.add(member);
-                    }
-                }
-            }
-            const nextNodes = { ...nodes };
-            const nextTexts = { ...texts };
-            for (const id of gone) {
-                delete nextNodes[id];
-                delete nextTexts[id];
-            }
-            set({
-                nodes: nextNodes,
-                texts: nextTexts,
-                hidden: hiddenIn(nextNodes),
-                order: order.filter((id) => !gone.has(id)),
-                edges: edges.filter((e) => !gone.has(e.id) && !gone.has(e.from) && !gone.has(e.to)),
-                selection: [],
-                bodyFocusId: gone.has(get().bodyFocusId ?? '') ? null : get().bodyFocusId,
-                ...remember(get())
-            });
-        },
-        toggleLock(key) {
-            set((s) => ({ locks: { ...s.locks, [key]: !s.locks[key] } }));
-        },
-
-        toggleGroupCollapse(id) {
-            const s = get();
-            const group = s.nodes[id];
-            if (!group || group.kind !== 'group') {
-                return;
-            }
-            const next: CanvasNode = group.collapsed
-                ? { ...group, collapsed: false, memberIds: undefined, h: group.expandedHeight ?? group.h, expandedHeight: undefined }
-                : { ...group, collapsed: true, memberIds: membersOf(group, s.nodes, s.texts), expandedHeight: group.h, h: GROUP_HEADER_PX };
-            const nodes = { ...s.nodes, [id]: next };
-            const hidden = hiddenIn(nodes);
-            set({ nodes, hidden, selection: s.selection.filter((selected) => !hidden.has(selected)), ...remember(s) });
-        },
-        setGroupWorktree(id, worktree) {
-            set((s) => (s.nodes[id]?.kind === 'group' ? { nodes: { ...s.nodes, [id]: { ...s.nodes[id], worktree: worktree ?? undefined } } } : {}));
-        },
-        addEdge(from, to, sides) {
-            const s = get();
-            const exists = (id: string): boolean => Boolean(s.nodes[id]);
-            if (!exists(from) || !exists(to) || !canLink(s.edges, from, to)) {
-                return null;
-            }
-            const isAgent = (id: string): boolean => {
-                const node = s.nodes[id];
-                return node !== undefined && isAgentKind(node.kind);
-            };
-            const drawn: Edge[] = [];
-            const draw = (start: string, end: string, ends: EdgeSides): void => {
-                if (!canLink([...s.edges, ...drawn], start, end)) {
+            },
+            endGapMove(cancel = false) {
+                const state = get();
+                const move = state.gapMove;
+                if (move === null) {
                     return;
                 }
-                // Only a line into an agent carries meaning, so only that one gets a label by default.
-                const label = isAgent(end) ? 'context' : undefined;
-                drawn.push({ id: nextId('edge'), from: start, to: end, label, ...ends });
-            };
-            draw(from, to, sides ?? {});
-            /* Both ways between two agents, the way the daemon's `link new` draws it: a line is what
-               lets the end it runs into read the other, so two agents that read each other are two. */
-            if (isAgent(from) && isAgent(to)) {
-                draw(to, from, mirroredSides(sides));
-            }
-            // One handling is one step in the history, whether it drew one line or the pair.
-            set({ edges: [...s.edges, ...drawn], linkDraft: null, ...remember(s) });
-            return drawn[0]!.id;
-        },
-        startLink(from) {
-            const s = get();
-            const node = s.nodes[from];
-            if (!node) {
-                return;
-            }
-            const to = center(node);
-            set({ linkDraft: { from, to, aiming: true }, selection: [from] });
-        },
-        removeEdge(id) {
-            set((s) => ({ edges: s.edges.filter((edge) => edge.id !== id), selection: s.selection.filter((selected) => selected !== id), ...remember(s) }));
-        },
-        setEdgeLabel(id, label) {
-            set((s) => ({ edges: s.edges.map((edge) => (edge.id === id ? { ...edge, label: label.trim() || undefined } : edge)) }));
-        },
-        setLinkDraft(draft) {
-            set({ linkDraft: draft });
-        },
-        saveLayout(name) {
-            const s = get();
-            const layout: ProjectLayout = {
-                name,
-                nodes: Object.fromEntries(Object.values(s.nodes).map((node) => [node.id, { x: node.x, y: node.y, w: node.w, h: node.h }])),
-                texts: Object.fromEntries(Object.values(s.texts).map((text) => [text.id, { x: text.x, y: text.y }]))
-            };
-            get().putLayout(layout);
-        },
-        putLayout(layout) {
-            set((s) => ({ layouts: [...s.layouts.filter((entry) => entry.name !== layout.name), layout] }));
-        },
-        applyLayout(name) {
-            const s = get();
-            const layout = s.layouts.find((entry) => entry.name === name);
-            if (!layout) {
-                return;
-            }
-            // Nodes the layout never saw stay where they are; nothing is added or removed.
-            const nodes = { ...s.nodes };
-            for (const [id, rect] of Object.entries(layout.nodes)) {
-                if (nodes[id]) {
-                    nodes[id] = { ...nodes[id], ...rect };
+                const nodes = { ...state.nodes };
+                const texts = { ...state.texts };
+                const changed = Object.entries(move.origins).some(([id, point]) => {
+                    const element = nodes[id] ?? texts[id];
+                    return element !== undefined && (element.x !== point.x || element.y !== point.y);
+                });
+                if (cancel) {
+                    for (const [id, point] of Object.entries(move.origins)) {
+                        if (nodes[id]) {
+                            nodes[id] = { ...nodes[id]!, ...point };
+                        } else if (texts[id]) {
+                            texts[id] = { ...texts[id]!, ...point };
+                        }
+                    }
+                } else if (changed) {
+                    for (const parent of move.parents) {
+                        const group = nodes[parent.id];
+                        if (!group || group.collapsed) {
+                            continue;
+                        }
+                        const frame = groupFrame(parent.members.flatMap((id) => (nodes[id] ? [nodes[id]!] : texts[id] ? [textRect(texts[id]!)] : [])));
+                        const rect = frame === null ? null : unionOf([group, frame]);
+                        if (rect !== null) {
+                            nodes[parent.id] = { ...group, ...rect };
+                        }
+                    }
                 }
-            }
-            const texts = { ...s.texts };
-            for (const [id, point] of Object.entries(layout.texts)) {
-                if (texts[id]) {
-                    texts[id] = { ...texts[id], ...point };
+                set({
+                    nodes,
+                    texts,
+                    gapMove: null,
+                    gesturing: false,
+                    ...(!cancel && changed ? { past: [...state.past.slice(-(HISTORY_LIMIT - 1)), move.snapshot], future: [] } : {})
+                });
+            },
+            /* A node of an unknown kind is written back as it was read, apart from its frame, so an accent,
+           a title or a patch on it would be an edit that never reaches the file. */
+            setNodeAccent(id, accent) {
+                set((s) =>
+                    s.nodes[id] && !isUnknownNode(s.nodes[id]) ? { nodes: { ...s.nodes, [id]: { ...s.nodes[id], accent: accent ?? undefined } } } : {}
+                );
+            },
+            renameNode(id, title, source = 'user') {
+                set((s) => {
+                    const node = s.nodes[id];
+                    // A rename that changes nothing claims nothing, since the editor closes on a blur either way.
+                    if (!node || isUnknownNode(node) || (node.title === title && (node.titleSource ?? null) === source)) {
+                        return {};
+                    }
+                    return { nodes: { ...s.nodes, [id]: { ...node, title, titleSource: source ?? undefined } } };
+                });
+            },
+            updateNode(id, patch, undoable = false) {
+                set((s) =>
+                    s.nodes[id] && !isUnknownNode(s.nodes[id])
+                        ? { nodes: { ...s.nodes, [id]: { ...s.nodes[id], ...patch } }, ...(undoable ? remember(s) : {}) }
+                        : {}
+                );
+            },
+            duplicateNode(id) {
+                const source = get().nodes[id];
+                // What a newer Ruimte's node holds may be tied to its id (a session, a file), so a copy of it is not this version's to make.
+                if (!source || isUnknownNode(source)) {
+                    return;
                 }
-            }
-            set({ nodes, texts, ...remember(s) });
-        },
-        deleteLayout(name) {
-            set((s) => ({ layouts: s.layouts.filter((entry) => entry.name !== name) }));
-        },
-
-        loadView(view, local) {
-            const nodes = view ? Object.fromEntries(view.nodes.map((node) => [node.id, node])) : {};
-            const texts = view ? Object.fromEntries(view.texts.map((text) => [text.id, text])) : {};
-            set({
-                loading: true,
-                viewId: view?.id ?? null,
-                nodes,
-                order: view ? view.nodes.map((node) => node.id) : [],
-                texts,
-                edges: view?.edges ?? [],
-                layouts: view?.layouts ?? [],
-                linkDraft: null,
-                hidden: hiddenIn(nodes),
-                selection: [],
-                bodyFocusId: null,
-                maximizedId: null,
-                editingTextId: null,
-                resizing: null,
-                navigationId: null,
-                gapMove: null,
-                panning: false,
-                gesturing: false,
-                past: [],
-                future: [],
-                pendingCamera: null,
-                // A reload in place hands over no locks and keeps the ones it has.
-                ...(local?.locks ? { locks: local.locks } : {})
-            });
-            const stored = local?.camera ?? null;
-            const camera = stored === null ? null : cameraOfView(stored, get().viewport);
-            if (stored !== null) {
-                set(camera === null ? { pendingCamera: { kind: 'view', view: stored } } : { camera });
-            }
-            set({ loading: false });
-            // No camera for this view on this machine, so it opens on everything it holds, once there is room.
-            if (stored === null) {
-                get().fitAll();
-            }
-        },
-        applyExternal(patch) {
-            set((s) => {
-                const arrived: CanvasPatch = {
-                    ...patch,
-                    nodes: patch.nodes.filter((node) => s.nodes[node.id] === undefined),
-                    texts: patch.texts.filter((text) => s.texts[text.id] === undefined),
-                    edges: patch.edges.filter((edge) => !s.edges.some((held) => held.id === edge.id))
+                const copyId = nextId(source.kind);
+                // A copy is a new node: a fresh session, never the original's agent session.
+                const copy: CanvasNode = { ...source, id: copyId, x: source.x + 32, y: source.y + 32, resume: undefined };
+                set((s) => ({ nodes: { ...s.nodes, [copyId]: copy }, order: [...s.order, copyId], selection: [copyId], ...remember(s) }));
+            },
+            bringToFront(id) {
+                const { order } = get();
+                if (order[order.length - 1] === id) {
+                    return;
+                }
+                set({ order: [...order.filter((n) => n !== id), id] });
+            },
+            addNode(kind, at, options = {}) {
+                /* Without a view nothing in the project file is behind the canvas, so a node here would be a live
+           terminal or agent that nothing ever saves. The surfaces that offer one are hidden in that
+           state; this is the floor under them. */
+                if (get().viewId === null && options.viewId === undefined) {
+                    return null;
+                }
+                const id = nextId(kind);
+                const size = NODE_SIZE[kind];
+                // Made inside a group that is bound to a worktree, a node starts in that checkout.
+                const host = Object.values(get().nodes)
+                    .filter((node) => node.kind === 'group' && node.worktree && contains(node, at))
+                    .sort((a, b) => a.w * a.h - b.w * b.h)[0];
+                const node: CanvasNode = {
+                    id,
+                    kind,
+                    title: options.title ?? DEFAULT_TITLES[kind],
+                    x: snapToGrid(at.x - size.w / 2),
+                    y: snapToGrid(at.y - size.h / 2),
+                    ...size,
+                    url: options.url,
+                    ...(options.browserOwner ? { browserOwner: options.browserOwner } : {}),
+                    device: options.device,
+                    cwd: options.cwd ?? host?.worktree?.path,
+                    command: options.command,
+                    resume: options.resume,
+                    provider: options.provider,
+                    account: options.account,
+                    providerFixed: options.providerFixed,
+                    runtimeMode: options.runtimeMode,
+                    viewId: options.viewId,
+                    path: options.path
                 };
-                const reshapes =
-                    arrived.nodes.length + arrived.texts.length + arrived.edges.length > 0 ||
-                    patch.removed.nodes.length + patch.removed.texts.length + patch.removed.edges.length > 0;
-                const gone = new Set([...patch.removed.nodes, ...patch.removed.texts, ...patch.removed.edges]);
-                const nodes: Record<string, CanvasNode> = { ...s.nodes };
-                for (const id of patch.removed.nodes) {
-                    delete nodes[id];
+                set((s) => ({ nodes: { ...s.nodes, [id]: node }, order: [...s.order, id], selection: [id], ...remember(s) }));
+                return id;
+            },
+            groupSelection() {
+                const { nodes, selection } = get();
+                const members = selection.map((id) => nodes[id]).filter((node): node is CanvasNode => Boolean(node) && node!.kind !== 'group');
+                // The same frame the daemon's `node group` action draws, so the two ways to group cannot drift.
+                const frame = groupFrame(members);
+                if (!frame) {
+                    return null;
                 }
-                // Spread over what the editor holds, so what only lives here (a browser's status) stays.
-                for (const node of patch.nodes) {
-                    const held = nodes[node.id];
-                    nodes[node.id] = held ? { ...held, ...node } : node;
+                const id = nextId('group');
+                const group: CanvasNode = { id, kind: 'group', title: DEFAULT_TITLES.group, ...frame };
+                set((s) => ({ nodes: { ...s.nodes, [id]: group }, order: [...s.order, id], selection: [id], ...remember(s) }));
+                return id;
+            },
+            addText(at) {
+                const id = nextId('text');
+                const text: TextElement = { id, x: snapToGrid(at.x), y: snapToGrid(at.y), text: '', size: 18 };
+                set((s) => ({ texts: { ...s.texts, [id]: text }, selection: [id], editingTextId: id, ...remember(s) }));
+                return id;
+            },
+            updateText(id, text) {
+                set((s) => (s.texts[id] ? { texts: { ...s.texts, [id]: { ...s.texts[id], text } } } : {}));
+            },
+            styleText(id, patch, undoable = true) {
+                set((s) => (s.texts[id] ? { texts: { ...s.texts, [id]: { ...s.texts[id], ...patch } }, ...(undoable ? remember(s) : {}) } : {}));
+            },
+            resizeText(id, x, maxWidth, undoable = true) {
+                set((s) => (s.texts[id] ? { texts: { ...s.texts, [id]: { ...s.texts[id], x, maxWidth } }, ...(undoable ? remember(s) : {}) } : {}));
+            },
+            setEditingText(id) {
+                set({ editingTextId: id });
+            },
+            deleteSelected() {
+                const { nodes, texts, order, edges, selection } = get();
+                if (selection.length === 0) {
+                    return;
+                }
+                const gone = new Set(selection);
+                // A collapsed group takes what it hid along; nothing should linger unseen.
+                for (const id of selection) {
+                    const node = nodes[id];
+                    if (node?.kind === 'group' && node.collapsed) {
+                        for (const member of node.memberIds ?? []) {
+                            gone.add(member);
+                        }
+                    }
+                }
+                const nextNodes = { ...nodes };
+                const nextTexts = { ...texts };
+                for (const id of gone) {
+                    delete nextNodes[id];
+                    delete nextTexts[id];
+                }
+                set({
+                    nodes: nextNodes,
+                    texts: nextTexts,
+                    hidden: hiddenIn(nextNodes),
+                    order: order.filter((id) => !gone.has(id)),
+                    edges: edges.filter((e) => !gone.has(e.id) && !gone.has(e.from) && !gone.has(e.to)),
+                    selection: [],
+                    bodyFocusId: gone.has(get().bodyFocusId ?? '') ? null : get().bodyFocusId,
+                    ...remember(get())
+                });
+            },
+            toggleLock(key) {
+                set((s) => ({ locks: { ...s.locks, [key]: !s.locks[key] } }));
+            },
+
+            toggleGroupCollapse(id) {
+                const s = get();
+                const group = s.nodes[id];
+                if (!group || group.kind !== 'group') {
+                    return;
+                }
+                const next: CanvasNode = group.collapsed
+                    ? { ...group, collapsed: false, memberIds: undefined, h: group.expandedHeight ?? group.h, expandedHeight: undefined }
+                    : { ...group, collapsed: true, memberIds: membersOf(group, s.nodes, s.texts), expandedHeight: group.h, h: GROUP_HEADER_PX };
+                const nodes = { ...s.nodes, [id]: next };
+                const hidden = hiddenIn(nodes);
+                set({ nodes, hidden, selection: s.selection.filter((selected) => !hidden.has(selected)), ...remember(s) });
+            },
+            setGroupWorktree(id, worktree) {
+                set((s) => (s.nodes[id]?.kind === 'group' ? { nodes: { ...s.nodes, [id]: { ...s.nodes[id], worktree: worktree ?? undefined } } } : {}));
+            },
+            addEdge(from, to, sides) {
+                const s = get();
+                const exists = (id: string): boolean => Boolean(s.nodes[id]);
+                if (!exists(from) || !exists(to) || !canLink(s.edges, from, to)) {
+                    return null;
+                }
+                const isAgent = (id: string): boolean => {
+                    const node = s.nodes[id];
+                    return node !== undefined && isAgentKind(node.kind);
+                };
+                const drawn: Edge[] = [];
+                const draw = (start: string, end: string, ends: EdgeSides): void => {
+                    if (!canLink([...s.edges, ...drawn], start, end)) {
+                        return;
+                    }
+                    // Only a line into an agent carries meaning, so only that one gets a label by default.
+                    const label = isAgent(end) ? 'context' : undefined;
+                    drawn.push({ id: nextId('edge'), from: start, to: end, label, ...ends });
+                };
+                draw(from, to, sides ?? {});
+                /* Both ways between two agents, the way the daemon's `link new` draws it: a line is what
+               lets the end it runs into read the other, so two agents that read each other are two. */
+                if (isAgent(from) && isAgent(to)) {
+                    draw(to, from, mirroredSides(sides));
+                }
+                // One handling is one step in the history, whether it drew one line or the pair.
+                set({ edges: [...s.edges, ...drawn], linkDraft: null, ...remember(s) });
+                return drawn[0]!.id;
+            },
+            startLink(from) {
+                const s = get();
+                const node = s.nodes[from];
+                if (!node) {
+                    return;
+                }
+                const to = center(node);
+                set({ linkDraft: { from, to, aiming: true }, selection: [from] });
+            },
+            removeEdge(id) {
+                set((s) => ({ edges: s.edges.filter((edge) => edge.id !== id), selection: s.selection.filter((selected) => selected !== id), ...remember(s) }));
+            },
+            setEdgeLabel(id, label) {
+                set((s) => ({ edges: s.edges.map((edge) => (edge.id === id ? { ...edge, label: label.trim() || undefined } : edge)) }));
+            },
+            setLinkDraft(draft) {
+                set({ linkDraft: draft });
+            },
+            saveLayout(name) {
+                const s = get();
+                const layout: ProjectLayout = {
+                    name,
+                    nodes: Object.fromEntries(Object.values(s.nodes).map((node) => [node.id, { x: node.x, y: node.y, w: node.w, h: node.h }])),
+                    texts: Object.fromEntries(Object.values(s.texts).map((text) => [text.id, { x: text.x, y: text.y }]))
+                };
+                get().putLayout(layout);
+            },
+            putLayout(layout) {
+                set((s) => ({ layouts: [...s.layouts.filter((entry) => entry.name !== layout.name), layout] }));
+            },
+            applyLayout(name) {
+                const s = get();
+                const layout = s.layouts.find((entry) => entry.name === name);
+                if (!layout) {
+                    return;
+                }
+                // Nodes the layout never saw stay where they are; nothing is added or removed.
+                const nodes = { ...s.nodes };
+                for (const [id, rect] of Object.entries(layout.nodes)) {
+                    if (nodes[id]) {
+                        nodes[id] = { ...nodes[id], ...rect };
+                    }
                 }
                 const texts = { ...s.texts };
-                for (const id of patch.removed.texts) {
-                    delete texts[id];
+                for (const [id, point] of Object.entries(layout.texts)) {
+                    if (texts[id]) {
+                        texts[id] = { ...texts[id], ...point };
+                    }
                 }
-                for (const text of patch.texts) {
-                    const held = texts[text.id];
-                    texts[text.id] = held ? { ...held, ...text } : text;
-                }
-                const arriving = new Map(patch.edges.map((edge) => [edge.id, edge]));
-                const edges = s.edges
-                    .filter((edge) => !gone.has(edge.id))
-                    .map((edge) => (arriving.has(edge.id) ? { ...edge, ...arriving.get(edge.id)! } : edge));
-                const present = new Set(edges.map((edge) => edge.id));
-                edges.push(...patch.edges.filter((edge) => !present.has(edge.id)));
-                const hidden = hiddenIn(nodes);
-                const lost = (id: string | null | undefined): boolean => id !== null && id !== undefined && gone.has(id);
-                return {
-                    merging: true,
+                set({ nodes, texts, ...remember(s) });
+            },
+            deleteLayout(name) {
+                set((s) => ({ layouts: s.layouts.filter((entry) => entry.name !== name) }));
+            },
+
+            loadView(view, local) {
+                const nodes = view ? Object.fromEntries(view.nodes.map((node) => [node.id, node])) : {};
+                const texts = view ? Object.fromEntries(view.texts.map((text) => [text.id, text])) : {};
+                set({
+                    loading: true,
+                    viewId: view?.id ?? null,
                     nodes,
-                    order: patch.order.filter((id) => nodes[id] !== undefined),
+                    order: view ? view.nodes.map((node) => node.id) : [],
                     texts,
+                    edges: view?.edges ?? [],
+                    layouts: view?.layouts ?? [],
+                    linkDraft: null,
+                    hidden: hiddenIn(nodes),
+                    selection: [],
+                    bodyFocusId: null,
+                    maximizedId: null,
+                    editingTextId: null,
+                    resizing: null,
+                    navigationId: null,
+                    gapMove: null,
+                    panning: false,
+                    gesturing: false,
+                    past: [],
+                    future: [],
+                    pendingCamera: null,
+                    // A reload in place hands over no locks and keeps the ones it has.
+                    ...(local?.locks ? { locks: local.locks } : {})
+                });
+                const stored = local?.camera ?? null;
+                const camera = stored === null ? null : cameraOfView(stored, get().viewport);
+                if (stored !== null) {
+                    set(camera === null ? { pendingCamera: { kind: 'view', view: stored } } : { camera });
+                }
+                set({ loading: false });
+                // No camera for this view on this machine, so it opens on everything it holds, once there is room.
+                if (stored === null) {
+                    get().fitAll();
+                }
+            },
+            applyExternal(patch) {
+                set((s) => {
+                    const arrived: CanvasPatch = {
+                        ...patch,
+                        nodes: patch.nodes.filter((node) => s.nodes[node.id] === undefined),
+                        texts: patch.texts.filter((text) => s.texts[text.id] === undefined),
+                        edges: patch.edges.filter((edge) => !s.edges.some((held) => held.id === edge.id))
+                    };
+                    const reshapes =
+                        arrived.nodes.length + arrived.texts.length + arrived.edges.length > 0 ||
+                        patch.removed.nodes.length + patch.removed.texts.length + patch.removed.edges.length > 0;
+                    const gone = new Set([...patch.removed.nodes, ...patch.removed.texts, ...patch.removed.edges]);
+                    const nodes: Record<string, CanvasNode> = { ...s.nodes };
+                    for (const id of patch.removed.nodes) {
+                        delete nodes[id];
+                    }
+                    // Spread over what the editor holds, so what only lives here (a browser's status) stays.
+                    for (const node of patch.nodes) {
+                        const held = nodes[node.id];
+                        nodes[node.id] = held ? { ...held, ...node } : node;
+                    }
+                    const texts = { ...s.texts };
+                    for (const id of patch.removed.texts) {
+                        delete texts[id];
+                    }
+                    for (const text of patch.texts) {
+                        const held = texts[text.id];
+                        texts[text.id] = held ? { ...held, ...text } : text;
+                    }
+                    const arriving = new Map(patch.edges.map((edge) => [edge.id, edge]));
+                    const edges = s.edges
+                        .filter((edge) => !gone.has(edge.id))
+                        .map((edge) => (arriving.has(edge.id) ? { ...edge, ...arriving.get(edge.id)! } : edge));
+                    const present = new Set(edges.map((edge) => edge.id));
+                    edges.push(...patch.edges.filter((edge) => !present.has(edge.id)));
+                    const hidden = hiddenIn(nodes);
+                    const lost = (id: string | null | undefined): boolean => id !== null && id !== undefined && gone.has(id);
+                    return {
+                        merging: true,
+                        nodes,
+                        order: patch.order.filter((id) => nodes[id] !== undefined),
+                        texts,
+                        edges,
+                        layouts: patch.layouts ?? s.layouts,
+                        hidden,
+                        ...(reshapes
+                            ? {
+                                  past: s.past.map((snapshot) => patchSnapshot(snapshot, arrived)),
+                                  future: s.future.map((snapshot) => patchSnapshot(snapshot, arrived)),
+                                  ...(s.gapMove === null ? {} : { gapMove: { ...s.gapMove, snapshot: patchSnapshot(s.gapMove.snapshot, arrived) } })
+                              }
+                            : {}),
+                        ...(gone.size === 0
+                            ? {}
+                            : {
+                                  selection: s.selection.filter((id) => !gone.has(id) && !hidden.has(id)),
+                                  bodyFocusId: lost(s.bodyFocusId) ? null : s.bodyFocusId,
+                                  editingTextId: lost(s.editingTextId) ? null : s.editingTextId,
+                                  resizing: lost(s.resizing) ? null : s.resizing,
+                                  linkDraft: lost(s.linkDraft?.from) ? null : s.linkDraft
+                              })
+                    };
+                });
+                set({ merging: false });
+            },
+            heldNodeIds() {
+                const { gesturing, resizing, selection, nodes, texts, gapMove } = get();
+                if (gapMove !== null) {
+                    return [...new Set([...Object.keys(gapMove.origins), ...gapMove.parents.map((parent) => parent.id), ...gapMove.fixed])];
+                }
+                if (!gesturing && resizing === null) {
+                    return [];
+                }
+                const held = gesturing ? [...selection, ...carriedByGroups(nodes, texts, selection)] : [];
+                return resizing === null ? held : [...held, resizing];
+            },
+            exportContent() {
+                const { nodes, order, texts, edges, layouts } = get();
+                return {
+                    nodes: order.map((id) => nodes[id]!).map(({ status: _status, ...node }) => node),
+                    texts: Object.values(texts),
                     edges,
-                    layouts: patch.layouts ?? s.layouts,
-                    hidden,
-                    ...(reshapes
-                        ? {
-                              past: s.past.map((snapshot) => patchSnapshot(snapshot, arrived)),
-                              future: s.future.map((snapshot) => patchSnapshot(snapshot, arrived)),
-                              ...(s.gapMove === null ? {} : { gapMove: { ...s.gapMove, snapshot: patchSnapshot(s.gapMove.snapshot, arrived) } })
-                          }
-                        : {}),
-                    ...(gone.size === 0
-                        ? {}
-                        : {
-                              selection: s.selection.filter((id) => !gone.has(id) && !hidden.has(id)),
-                              bodyFocusId: lost(s.bodyFocusId) ? null : s.bodyFocusId,
-                              editingTextId: lost(s.editingTextId) ? null : s.editingTextId,
-                              resizing: lost(s.resizing) ? null : s.resizing,
-                              linkDraft: lost(s.linkDraft?.from) ? null : s.linkDraft
-                          })
+                    layouts
                 };
-            });
-            set({ merging: false });
-        },
-        heldNodeIds() {
-            const { gesturing, resizing, selection, nodes, texts, gapMove } = get();
-            if (gapMove !== null) {
-                return [...new Set([...Object.keys(gapMove.origins), ...gapMove.parents.map((parent) => parent.id), ...gapMove.fixed])];
+            },
+            undo() {
+                const s = get();
+                if (s.gapMove !== null) {
+                    return;
+                }
+                const previous = s.past[s.past.length - 1];
+                if (!previous) {
+                    return;
+                }
+                set({
+                    ...previous,
+                    hidden: hiddenIn(previous.nodes),
+                    past: s.past.slice(0, -1),
+                    future: [snapshotOf(s), ...s.future],
+                    selection: [],
+                    bodyFocusId: null
+                });
+            },
+            redo() {
+                const s = get();
+                if (s.gapMove !== null) {
+                    return;
+                }
+                const next = s.future[0];
+                if (!next) {
+                    return;
+                }
+                set({
+                    ...next,
+                    hidden: hiddenIn(next.nodes),
+                    past: [...s.past, snapshotOf(s)],
+                    future: s.future.slice(1),
+                    selection: [],
+                    bodyFocusId: null
+                });
             }
-            if (!gesturing && resizing === null) {
-                return [];
+        };
+
+        return {
+            ...base,
+            // A camera that waited for its first size lands without being a jump.
+            setViewport: (viewport) => quietly(() => base.setViewport(viewport)),
+            loadView: (view, local) => quietly(() => base.loadView(view, local)),
+            fitAll: jumping(base.fitAll, () => null),
+            zoomToSelection: jumping(base.zoomToSelection, () => null),
+            goToNode: jumping(base.goToNode, (_state, [id]) => id),
+            zoomToNode: jumping(base.zoomToNode, (state, [id]) => id ?? zoomNodeTargetOf(state)),
+            selectNeighbor: jumping(base.selectNeighbor, (state) => state.navigationId),
+            panBy: moving(base.panBy),
+            zoomAt: moving(base.zoomAt),
+            zoomTo: moving(base.zoomTo),
+            setPanning: (panning) => {
+                base.setPanning(panning);
+                const { viewId, camera } = get();
+                if (!panning && viewId !== null) {
+                    setHistory(viewId, settle(historyOf(viewId), camera));
+                }
+            },
+            stepCamera: (direction) => {
+                const { viewId, camera, nodes } = get();
+                if (viewId === null) {
+                    return false;
+                }
+                const result = step(historyOf(viewId), direction, camera, (id) => nodes[id] !== undefined);
+                if (result === null) {
+                    return false;
+                }
+                setHistory(viewId, result.history);
+                set({ camera: result.to.camera, pendingCamera: null });
+                return true;
             }
-            const held = gesturing ? [...selection, ...carriedByGroups(nodes, texts, selection)] : [];
-            return resizing === null ? held : [...held, resizing];
-        },
-        exportContent() {
-            const { nodes, order, texts, edges, layouts } = get();
-            return {
-                nodes: order.map((id) => nodes[id]!).map(({ status: _status, ...node }) => node),
-                texts: Object.values(texts),
-                edges,
-                layouts
-            };
-        },
-        undo() {
-            const s = get();
-            if (s.gapMove !== null) {
-                return;
-            }
-            const previous = s.past[s.past.length - 1];
-            if (!previous) {
-                return;
-            }
-            set({
-                ...previous,
-                hidden: hiddenIn(previous.nodes),
-                past: s.past.slice(0, -1),
-                future: [snapshotOf(s), ...s.future],
-                selection: [],
-                bodyFocusId: null
-            });
-        },
-        redo() {
-            const s = get();
-            if (s.gapMove !== null) {
-                return;
-            }
-            const next = s.future[0];
-            if (!next) {
-                return;
-            }
-            set({
-                ...next,
-                hidden: hiddenIn(next.nodes),
-                past: [...s.past, snapshotOf(s)],
-                future: s.future.slice(1),
-                selection: [],
-                bodyFocusId: null
-            });
-        }
-    }));
+        };
+    });
 }
 
 /* The blank canvas of the window: what a view that is not a canvas reads, and what a unit test reads. */

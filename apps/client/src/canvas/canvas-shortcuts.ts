@@ -267,6 +267,14 @@ function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, apple: b
         }
         return true;
     }
+    // Mod+Alt+[ and ] because Mod+[ and ] belong to a page, the editor's history and a drawing's order.
+    if (is(CANVAS_SHORTCUTS.cameraBack) || is(CANVAS_SHORTCUTS.cameraForward)) {
+        if (!isInFloatingLayer(e.target) && !useUi.getState().settings.open && !onStandaloneView()) {
+            e.preventDefault();
+            s.stepCamera(is(CANVAS_SHORTCUTS.cameraForward) ? 1 : -1);
+        }
+        return true;
+    }
     /* With the keyboard inside the page these never get here; the guest preload sends them instead.
        Only a focused browser takes them, so a drawing keeps them for its order. */
     if (is(CANVAS_SHORTCUTS.browserBack) || is(CANVAS_SHORTCUTS.browserForward)) {

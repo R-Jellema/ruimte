@@ -26,6 +26,8 @@ export const CANVAS_SHORTCUTS = {
     moveTabRight: shortcut('Mod+Alt+Shift+ArrowRight'),
     previousView: shortcut('Mod+Shift+['),
     nextView: shortcut('Mod+Shift+]'),
+    cameraBack: shortcut('Mod+Alt+['),
+    cameraForward: shortcut('Mod+Alt+]'),
     browserBack: shortcut('Mod+['),
     browserForward: shortcut('Mod+]'),
     undo: shortcut('Mod+Z'),

@@ -216,8 +216,15 @@ describe('what a terminal hands back', () => {
         }
     });
 
-    test('off macOS Ctrl+W, Ctrl+T, Ctrl+\\ and Ctrl+B stay with the program', () => {
-        const kept = [CANVAS_SHORTCUTS.closeCell, CANVAS_SHORTCUTS.newView, CANVAS_SHORTCUTS.splitRight, APP_SHORTCUTS.sidebar];
+    test('off macOS Ctrl+W, Ctrl+T, Ctrl+\\, Ctrl+B and Ctrl+Alt+[ ] stay with the program', () => {
+        const kept = [
+            CANVAS_SHORTCUTS.closeCell,
+            CANVAS_SHORTCUTS.newView,
+            CANVAS_SHORTCUTS.splitRight,
+            APP_SHORTCUTS.sidebar,
+            CANVAS_SHORTCUTS.cameraBack,
+            CANVAS_SHORTCUTS.cameraForward
+        ];
         for (const target of TERMINAL_HANDED_BACK) {
             expect(isAppShortcut(eventFor(target, false), false)).toBe(!kept.includes(target));
         }
