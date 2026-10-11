@@ -146,8 +146,12 @@ export const PALETTE_IDS = [
 
 export type PaletteId = (typeof PALETTE_IDS)[number];
 
+/* The palette and menu row that shows the pull request of one repository of a folder that holds several. */
+export const PR_SHOW_IN_PREFIX = 'pr-show-in-';
+
 /* The palette rows that exist once per agent CLI, layout or target view, and the menu's own row per view. */
 export const PALETTE_PREFIXES = [
+    PR_SHOW_IN_PREFIX,
     'agent-chat-',
     'agent-terminal-',
     'agent-view-chat-',

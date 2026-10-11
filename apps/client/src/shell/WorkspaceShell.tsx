@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { refreshPrRepos } from '@/state/pr-repos';
+import { shownFolderOf, useProject } from '@/state/project';
 import i18next from 'i18next';
 import { useStore } from 'zustand';
 import { WebviewParking } from '@/browser/WebviewParking';
@@ -115,6 +117,10 @@ export function WorkspaceShell({ workspace }: { workspace: Workspace }) {
         void prefetcher.prefetchEverything();
     }, []);
     useEffect(() => () => stopVoice(), []);
+    const folder = useProject((state) => shownFolderOf(state.current));
+    useEffect(() => {
+        void refreshPrRepos();
+    }, [folder]);
     /* The project's agents open its databases with the passwords this window holds, so they are read with the project rather than with the panel. */
     useEffect(() => {
         ensureDatabaseConnections();

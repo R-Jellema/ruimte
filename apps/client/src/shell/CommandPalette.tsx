@@ -79,6 +79,7 @@ import { useProjectList } from '@/state/project-list';
 import { shownFolderOf, useProject } from '@/state/project';
 import { fileManagerName, serverInfoOf, useServers } from '@/state/server';
 import { useSettings } from '@/state/settings';
+import { refreshPrRepos, useCurrentPrRepos } from '@/state/pr-repos';
 import { useUi } from '@/state/ui';
 import { pool, transportFor, type ConnectionState } from '@/transport';
 import { useFocusedMachine } from '@/transport/connections';
@@ -248,6 +249,8 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
     const views = useDocument((s) => s.views);
     const activeViewId = useDocument((s) => s.activeViewId);
     const folder = useProject((s) => shownFolderOf(s.current));
+    // The command rows read it with appCommands(); the list only needs to redraw when it moves.
+    const prRepos = useCurrentPrRepos();
     const projects = useProjectList((s) => s.projects);
     const currentProjectId = useProject((s) => s.current?.projectId ?? null);
     const currentEndpointId = useProject((s) => s.currentEndpointId);
@@ -449,6 +452,12 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
     useEffect(() => {
         document.getElementById(LIST_ID)?.querySelector('[data-active="true"]')?.scrollIntoView({ block: 'nearest' });
     });
+
+    useEffect(() => {
+        if (open) {
+            void refreshPrRepos();
+        }
+    }, [open]);
 
     useEffect(() => {
         /* A folders step that has not been anywhere yet is one the palette still has to open. The
@@ -699,7 +708,7 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
         if (picking) {
             return files;
         }
-        const commands = appCommands();
+        const commands = appCommands(prRepos);
         const asEntry = (command: Command, section: Entry['section']): Entry => ({
             ...command,
             icon: command.agent ? <AgentIcon kind={command.agent} /> : <Icon icon={Zap} size={14} />,
@@ -759,6 +768,7 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
         servers,
         currentProjectId,
         currentEndpointId,
+        prRepos,
         t
     ]);
 

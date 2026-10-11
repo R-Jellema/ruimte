@@ -59,6 +59,7 @@ function context(patch: Partial<MenuContext> = {}): MenuContext {
         newChat: true,
         scratch: false,
         prWatch: false,
+        prRepos: [],
         ...patch
     };
 }
@@ -139,6 +140,18 @@ describe('the menus', () => {
     test('stopping a pull request watch is offered only for a chat that has one', () => {
         expect(commandIds(menuModel(context()))).not.toContain('pr-watch-stop');
         expect(commandIds(menuModel(context({ prWatch: true })))).toContain('pr-watch-stop');
+    });
+
+    test('showing a pull request has one row per repository once the folder holds several', () => {
+        expect(commandIds(menuModel(context()))).toContain('pr-show');
+        const repos = [
+            { path: '/work/backend', label: 'backend' },
+            { path: '/work/web', label: 'web' }
+        ];
+        const ids = commandIds(menuModel(context({ prRepos: repos })));
+        expect(ids).not.toContain('pr-show');
+        expect(ids).toContain('pr-show-in-/work/backend');
+        expect(ids).toContain('pr-show-in-/work/web');
     });
 
     test('the Chats project has no panels for a folder, no launches and no folder to reveal', () => {
@@ -391,12 +404,14 @@ describe('the commands behind the menu', () => {
 
     test('every palette id the menu borrows is a row of the palette', () => {
         const source = readFileSync(join(import.meta.dir, '..', 'commands.ts'), 'utf8');
+        const pullRequestRows = readFileSync(join(import.meta.dir, '..', 'pull-request-commands.ts'), 'utf8');
         for (const id of PALETTE_IDS) {
             // The language commands are rows of `languageCommandRows()`, which `appCommands()` spreads in.
             const listed =
                 (LANGUAGE_COMMAND_IDS as readonly string[]).includes(id) ||
                 (EDITOR_COMMAND_IDS as readonly string[]).includes(id) ||
-                source.includes(`id: '${id}'`);
+                source.includes(`id: '${id}'`) ||
+                pullRequestRows.includes(`id: '${id}'`);
             expect(listed ? id : `${id} is not in appCommands()`).toBe(id);
         }
         expect(source).toContain('languageCommandRows()');
@@ -412,6 +427,8 @@ describe('the commands behind the menu', () => {
         ]) {
             expect(source).toContain(row);
         }
+        expect(pullRequestRows).toContain('`${PR_SHOW_IN_PREFIX}${repo.path}`');
+        expect(isPaletteId('pr-show-in-/work/web')).toBe(true);
     });
 });
 

@@ -9,7 +9,7 @@ import type { ViewOffers } from '@/shell/view-offers';
 import type { KeepAwakeMode } from '@/state/settings';
 import type { PanelKind } from '@/state/ui';
 import { formatShortcut, type Shortcut } from '@adecore/ui';
-import { GO_VIEW_PREFIX, LAUNCH_CHOOSE_PREFIX, type MenuActionId, type PaletteId } from '@/shell/menu/ids';
+import { GO_VIEW_PREFIX, LAUNCH_CHOOSE_PREFIX, PR_SHOW_IN_PREFIX, type MenuActionId, type PaletteId } from '@/shell/menu/ids';
 
 export type MenuHost = 'desktop' | 'station';
 
@@ -39,6 +39,8 @@ export interface MenuContext {
     scratch: boolean;
     /* The one selected node is a chat with a pull request watch on. */
     prWatch: boolean;
+    /* The repositories of the folder that stand on a branch, which a pull request hangs on. */
+    prRepos: { path: string; label: string }[];
     fileManager: string;
     /* The kind of the view in the focused cell. */
     view: ProjectView['kind'] | null;
@@ -382,7 +384,14 @@ function codeMenu(context: MenuContext, command: MenuCommand): MenuSection {
         items: [
             ...only(
                 workspace && !context.settingsOpen,
-                ...only(context.folder && !context.scratch, command('pr-show', t('showPullRequest')), separator),
+                ...(context.folder && !context.scratch
+                    ? [
+                          ...(context.prRepos.length > 1
+                              ? context.prRepos.map((repo) => command(`${PR_SHOW_IN_PREFIX}${repo.path}`, t('showPullRequestIn', { repo: repo.label })))
+                              : [command('pr-show', t('showPullRequest'))]),
+                          separator
+                      ]
+                    : []),
                 ...only(context.prWatch, command('pr-watch-stop', t('stopPrWatch')), separator),
                 ...languageCommandsOf('code').map((id) => command(id, t(LANGUAGE_COMMANDS[id].key), { shortcut: LANGUAGE_COMMANDS[id].shortcut })),
                 separator,

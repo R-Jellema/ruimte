@@ -18,6 +18,7 @@ import { focusedCanvas, maximizedNodeOf, maximizeTargetOf, zoomNodeTargetOf } fr
 import { useChats } from '@adecore/agents-react/state/chats';
 import { activeViewOf, hasActiveCanvas, useDocument } from '@/state/document';
 import { currentEndpointId, endpointKey } from '@/state/keys';
+import { prReposOfCurrent } from '@/state/pr-repos';
 import { isScratchProject, shownFolderOf, useProject } from '@/state/project';
 import { providersOf } from '@adecore/agents-react/state/providers';
 import { fileManagerName, serverInfoOf } from '@/state/server';
@@ -126,6 +127,7 @@ export function menuContext(host: MenuHost): MenuContext {
         workspace: windowWorkspace() !== null,
         folder: shownFolderOf(useProject.getState().current) !== null,
         scratch: isScratchProject(useProject.getState().current),
+        prRepos: prReposOfCurrent().map((repo) => ({ path: repo.path, label: repo.label })),
         prWatch: onCanvas && selected?.kind === 'chat' && hasPrWatch(endpointId, selected.id),
         fileManager: fileManagerName(serverInfoOf(endpointId).platform),
         view: facts?.view.kind ?? null,

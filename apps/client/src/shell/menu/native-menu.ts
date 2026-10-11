@@ -9,6 +9,7 @@ import { menuModel } from '@/shell/menu/model';
 import { subscribeCanvases } from '@/state/canvas';
 import { useChats } from '@adecore/agents-react/state/chats';
 import { useDocument } from '@/state/document';
+import { usePrRepos } from '@/state/pr-repos';
 import { useProject } from '@/state/project';
 import { useProvidersStore } from '@adecore/agents-react/state/providers';
 import { useServers } from '@/state/server';
@@ -53,6 +54,7 @@ export function useNativeMenu(): void {
             useServers.subscribe(schedule),
             useWindow.subscribe(schedule),
             useLaunches.subscribe(schedule),
+            usePrRepos.subscribe(schedule),
             useNewChat.subscribe(schedule),
             subscribeCanvases(schedule),
             bridge.onMenuCommand?.(runMenuCommand) ?? (() => undefined)

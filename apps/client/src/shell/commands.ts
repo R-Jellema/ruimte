@@ -46,6 +46,8 @@ import { activeViewOf, useDocument } from '@/state/document';
 import { hasPrWatch, stopPrWatch } from '@/shell/pr-watch-actions';
 import { currentEndpointId, endpointKey } from '@/state/keys';
 import { openOnboarding } from '@/onboarding/open';
+import { pullRequestCommands } from '@/shell/pull-request-commands';
+import { prReposOfCurrent, type PrRepo } from '@/state/pr-repos';
 import { isScratchProject, shownFolderOf, useProject } from '@/state/project';
 import { windowWorkspace } from '@/state/window';
 import { hasLocalMachine } from '@/state/local-machine';
@@ -234,7 +236,7 @@ function tabCommands(layout: SplitLayout | null): Command[] {
 export const OPENING_COMMAND_IDS: readonly string[] = ['add-chat', 'add-terminal', 'view-new', 'find-in-files', 'open-folder', 'usage', 'settings'];
 
 /* Everything the palette can do besides jumping to a node. One list, so the dock and the keys agree. */
-export function appCommands(): Command[] {
+export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Command[] {
     const canvas = focusedCanvas().getState();
     const anyLocked = Object.values(canvas.locks).some(Boolean);
     const current = useProject.getState().current;
@@ -296,11 +298,7 @@ export function appCommands(): Command[] {
                       shortcut: APP_SHORTCUTS.findInFiles,
                       run: () => useUi.getState().openFindInFiles()
                   },
-                  {
-                      id: 'pr-show',
-                      label: i18next.t('shell:palette.commands.showPullRequest'),
-                      run: () => useUi.getState().setPullRequestDialog({ cwd: folder })
-                  }
+                  ...pullRequestCommands(folder, prRepos, (cwd) => useUi.getState().setPullRequestDialog({ cwd }))
               ]
             : []),
         ...(inWorkspace
