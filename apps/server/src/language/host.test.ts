@@ -464,6 +464,36 @@ describe('several servers on one document', () => {
         expect(opened.providers['textDocument/completion']).toEqual({ resolveProvider: true, triggerCharacters: ['.', '"'] });
     });
 
+    it('keeps primary suggestions and logs a malformed default range from a secondary server', async () => {
+        const spawner = fakeSpawner({ typescript: caps({ completionProvider: {} }), eslint: caps({ completionProvider: {} }) });
+        const { host } = await installed(['typescript', 'eslint'], { files: eslintFiles, spawner });
+        await open(host);
+        await ready(host);
+        await ready(host, 'eslint');
+        spawner.of('typescript')[0]!.server.handle('textDocument/completion', () => [{ label: 'primary' }]);
+        spawner.of('eslint')[0]!.server.handle('textDocument/completion', () => ({
+            isIncomplete: false,
+            itemDefaults: { editRange: {}, insertTextFormat: 2, insertTextMode: 2 },
+            items: [{ label: 'rule', insertText: 'rule($1)' }, { label: 'other' }]
+        }));
+        const answer = await host.request({
+            projectId: 'p1',
+            path: 'src/a.ts',
+            method: 'textDocument/completion',
+            params: { position: { line: 0, character: 0 } }
+        });
+        expect(answer.result).toEqual({
+            isIncomplete: false,
+            items: [
+                { label: 'primary' },
+                { label: 'rule', insertText: 'rule($1)', insertTextFormat: 2, insertTextMode: 2 },
+                { label: 'other', insertTextFormat: 2, insertTextMode: 2 }
+            ]
+        });
+        expect(answer.itemServers).toEqual(['typescript', 'eslint', 'eslint']);
+        expect((await host.log('p1', 'eslint')).filter((line) => line.text.includes('Invalid completion default'))).toHaveLength(1);
+    });
+
     it('names the process of every code action across the native server, its sidecar and ESLint, and sends a resolve back to the sidecar', async () => {
         const spawner = fakeSpawner(
             {

@@ -104,3 +104,10 @@ describe('merging what the servers offer', () => {
         expect(merged['workspace/symbol']).toEqual({});
     });
 });
+
+it('dropping malformed items preserves the original per-item server ownership', () => {
+    const merged = mergeAnswers('textDocument/completion', [
+        { server: 'mixed', result: [{ label: 123 }, { label: 'valid' }], itemServers: ['typescript', 'eslint'] }
+    ]);
+    expect(merged).toEqual({ result: { isIncomplete: false, items: [{ label: 'valid' }] }, itemServers: ['eslint'] });
+});

@@ -26,7 +26,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /* A completion answer is a list of items or a list with a flag that says it is incomplete. */
-function completionPart(result: unknown): { items: unknown[]; isIncomplete: boolean } {
+function completionPart(result: unknown): { items: unknown[]; isIncomplete: boolean; indices?: number[] } {
     if (Array.isArray(result)) {
         return { items: result, isIncomplete: false };
     }
@@ -36,16 +36,34 @@ function completionPart(result: unknown): { items: unknown[]; isIncomplete: bool
     return { items: [], isIncomplete: false };
 }
 
-function completionItems(result: unknown): { items: unknown[]; isIncomplete: boolean } {
+function completionItems(result: unknown, report?: (error: Error) => void): { items: unknown[]; isIncomplete: boolean; indices?: number[] } {
     const part = completionPart(result);
     const defaults = isRecord(result) && isRecord(result.itemDefaults) ? result.itemDefaults : null;
-    if (defaults === null) {
-        return part;
-    }
-    const items = part.items.map((item) =>
-        isRecord(item) ? applyCompletionDefaults(item as unknown as CompletionItem, defaults as CompletionList['itemDefaults']) : item
-    );
-    return { ...part, items };
+    let reported = false;
+    const diagnostic = (error: Error): void => {
+        if (!reported) {
+            reported = true;
+            report?.(error);
+        }
+    };
+    const indices: number[] = [];
+    const items = part.items.flatMap((item, index) => {
+        if (!isRecord(item) || typeof item.label !== 'string') {
+            diagnostic(new TypeError('A completion item must have a string label.'));
+            return [];
+        }
+        try {
+            const normalized = applyCompletionDefaults(item as unknown as CompletionItem, (defaults ?? undefined) as CompletionList['itemDefaults'], {
+                onInvalidRange: diagnostic
+            });
+            indices.push(index);
+            return [normalized];
+        } catch (error) {
+            diagnostic(error instanceof Error ? error : new Error(String(error)));
+            return [];
+        }
+    });
+    return { ...part, items, indices };
 }
 
 /* The parts of a hover as marked strings, which is the one shape that holds several. */
@@ -69,7 +87,7 @@ function mergeHover(answers: readonly ServerAnswer[]): unknown {
 }
 
 /* Answers to one request, in the order of the servers that gave them. `null` is no answer. */
-export function mergeAnswers(method: string, answers: readonly ServerAnswer[]): MergedAnswer {
+export function mergeAnswers(method: string, answers: readonly ServerAnswer[], report?: (server: string, error: Error) => void): MergedAnswer {
     if (method === 'textDocument/hover') {
         return { result: mergeHover(answers) };
     }
@@ -77,11 +95,12 @@ export function mergeAnswers(method: string, answers: readonly ServerAnswer[]): 
     const items: unknown[] = [];
     let isIncomplete = false;
     for (const answer of answers) {
-        const part = method === 'textDocument/completion' ? completionItems(answer.result) : completionPart(answer.result);
+        const part =
+            method === 'textDocument/completion' ? completionItems(answer.result, (error) => report?.(answer.server, error)) : completionPart(answer.result);
         isIncomplete ||= part.isIncomplete;
         part.items.forEach((item, index) => {
             items.push(item);
-            itemServers.push(answer.itemServers?.[index] ?? answer.server);
+            itemServers.push(answer.itemServers?.[part.indices?.[index] ?? index] ?? answer.server);
         });
     }
     if (method === 'textDocument/completion') {

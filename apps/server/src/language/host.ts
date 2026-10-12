@@ -483,7 +483,8 @@ export class LanguageHost {
             }
             const merged = mergeAnswers(
                 method,
-                answers.map((answer) => ({ server: answer.server, result: answer.result, itemServers: answer.itemServers }))
+                answers.map((answer) => ({ server: answer.server, result: answer.result, itemServers: answer.itemServers })),
+                (id, error) => able.find((server) => server.hasComponent(id))?.log.push('host', `Completion default ignored: ${error.message}`)
             );
             return {
                 result: merged.result,

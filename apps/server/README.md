@@ -283,7 +283,7 @@ When a CLI generates an image, the daemon saves it as an attachment before the t
 
 ## Language servers
 
-Merged completion answers apply each server's supported list defaults to its own items before concatenation, preserving individual item overrides and resolve ownership.
+Merged completion answers apply each server's supported list defaults to its own items before concatenation, preserving individual item overrides and resolve ownership. A malformed default edit range is ignored and logged once for that answer; the remaining defaults and the other servers' suggestions survive. Malformed items are dropped.
 
 Completion negotiation advertises snippets, both insertion modes (as-is and adjusted indentation), and the list defaults the client applies: `commitCharacters`, `editRange`, `insertTextFormat` and `insertTextMode`. The shared `applyCompletionDefaults` helper validates edit ranges and uses `textEditText`, then the item label, for a default range. Mode 1 (as-is) is the explicit completion default.
 
