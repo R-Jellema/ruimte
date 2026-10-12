@@ -44,6 +44,10 @@ export interface FindBarProps {
     /* Zero-based; null while nothing is picked. */
     current: number | null;
     invalid?: boolean;
+    limited?: boolean;
+    searching?: boolean;
+    canStep?: boolean;
+    status?: string | null;
     onStep(direction: 1 | -1): void;
     /* Why a toggle does nothing on this surface, per toggle; a toggle without one works. */
     unsupported?: Partial<Record<keyof FindOptions, string>>;
@@ -68,6 +72,10 @@ export function FindBar({
     total,
     current,
     invalid = false,
+    limited = false,
+    searching = false,
+    canStep = false,
+    status = null,
     onStep,
     unsupported = {},
     disabledReason = null,
@@ -81,7 +89,7 @@ export function FindBar({
     const { query, setQuery, summons } = find;
     const disabled = disabledReason !== null;
     const replacing = replacement !== undefined && find.replaceOpen;
-    const cannotReplace = disabled || total === 0 || (replacement?.disabledReason ?? null) !== null;
+    const cannotReplace = disabled || searching || total === 0 || (replacement?.disabledReason ?? null) !== null;
 
     useLayoutEffect(() => {
         input.current?.focus();
@@ -167,10 +175,17 @@ export function FindBar({
                 </span>
             );
         }
+        if (searching || (status !== null && total === 0)) {
+            return null;
+        }
         if (total === 0) {
             return t('find.none');
         }
-        return current === null ? formatNumber(total) : t('find.count', { current: formatNumber(current + 1), total: formatNumber(total) });
+        return current === null
+            ? limited
+                ? t('find.countMore', { total: formatNumber(total) })
+                : formatNumber(total)
+            : t(limited ? 'find.countLimited' : 'find.count', { current: formatNumber(current + 1), total: formatNumber(total) });
     };
     const count = countOf();
 
@@ -254,7 +269,7 @@ export function FindBar({
                         size="sm"
                         label={t('find.previous')}
                         kbd={FIND_SHORTCUTS.previous}
-                        disabled={disabled || total === 0}
+                        disabled={disabled || (total === 0 && !canStep)}
                         onClick={() => onStep(-1)}
                     />
                     <IconButton
@@ -262,7 +277,7 @@ export function FindBar({
                         size="sm"
                         label={t('find.next')}
                         kbd={FIND_SHORTCUTS.next}
-                        disabled={disabled || total === 0}
+                        disabled={disabled || (total === 0 && !canStep)}
                         onClick={() => onStep(1)}
                     />
                     {onSelectAll !== undefined && (
@@ -278,6 +293,11 @@ export function FindBar({
                     <IconButton icon={X} size="sm" label={t('find.close')} kbd={FIND_SHORTCUTS.close} onClick={find.close} />
                 </ButtonGroup>
             </div>
+            {status !== null && (
+                <output role="status" aria-live="polite" className="px-1.5 text-xs text-text-muted">
+                    {status}
+                </output>
+            )}
             {replacing && (
                 <div className="flex items-center gap-1.5">
                     {/* The width of the arrow above, so the two fields start on the same line. */}

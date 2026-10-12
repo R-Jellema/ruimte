@@ -112,6 +112,8 @@
             "preserveCase": "Preserve case",
             "toggle": "Show replace",
             "hide": "Hide replace"
-        }
+        },
+        "countLimited": "{{current}} / {{total}}+",
+        "countMore": "{{total}}+ matches"
     }
 }

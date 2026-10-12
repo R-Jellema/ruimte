@@ -277,6 +277,10 @@ export function CodeFile({ path, read, toolbarExtra }: CodeFileProps) {
                     total={editorFind.total}
                     current={editorFind.current}
                     invalid={editorFind.invalid}
+                    limited={editorFind.limited}
+                    searching={editorFind.searching}
+                    canStep={editorFind.canStep}
+                    status={editorFind.status}
                     onStep={editorFind.step}
                     onSelectAll={editorFind.selectAll}
                     selectionScope={{ noSelection: editorFind.noSelection }}

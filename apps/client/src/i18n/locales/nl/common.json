@@ -112,6 +112,8 @@
             "preserveCase": "Hoofdletters behouden",
             "toggle": "Vervangen tonen",
             "hide": "Vervangen verbergen"
-        }
+        },
+        "countLimited": "{{current}} / {{total}}+",
+        "countMore": "{{total}}+ resultaten"
     }
 }

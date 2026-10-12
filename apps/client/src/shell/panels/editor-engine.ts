@@ -1,3 +1,4 @@
+import SearchWorker from './search.worker.ts?worker';
 import type { EditorEngine } from '@adecore/editor';
 import { isApplePlatform } from '@/desktop/bridge';
 import { codeHighlighter } from '@/code-highlighter';
@@ -30,6 +31,7 @@ async function createEngine(): Promise<EditorEngine> {
     const apple = isApplePlatform();
     const { createSmartEditorEngine, shikiScopeColors, shikiTokenizers } = await import('@adecore/editor');
     return createSmartEditorEngine({
+        searchWorker: () => new SearchWorker(),
         tokenizer: shikiTokenizers(codeHighlighter),
         scopeColors: shikiScopeColors(codeHighlighter),
         handBack: shellShortcuts(apple),

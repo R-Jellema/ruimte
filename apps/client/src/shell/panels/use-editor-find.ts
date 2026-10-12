@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { formatNumber } from '@adecore/ui/format';
 import type { Editor, EditorFindState } from '@adecore/editor';
 import { compileFind, type FindQuery } from '@/find/query';
 import { openFocusedFind } from '@/find/hosts';
@@ -30,6 +32,10 @@ export interface EditorFind {
     invalid: boolean;
     /* A search in the selection was asked for and nothing is selected. */
     noSelection: boolean;
+    limited: boolean;
+    searching: boolean;
+    canStep: boolean;
+    status: string | null;
     step(direction: 1 | -1): void;
     /* Writes `find.replaceText` in place of the match the find is on, or of every match. */
     replace(): void;
@@ -77,6 +83,7 @@ function queryOf(query: FindQuery) {
  * the bar leaves the cursor on the match it was on.
  */
 export function useEditorFind(find: FindState, editor: Editor | null): EditorFind {
+    const { t } = useTranslation('editor');
     const [state, setState] = useState<EditorFindState>(NOTHING);
     const compiled = useMemo(() => compileFind(find.query), [find.query]);
     const wasOpen = useRef(false);
@@ -143,14 +150,32 @@ export function useEditorFind(find: FindState, editor: Editor | null): EditorFin
         };
     }, [editor]);
 
+    const failure = state.failed ?? state.captureFailed;
+    const status = !find.open
+        ? null
+        : state.replaceFailed !== undefined
+          ? t(`find.replace.failed.${state.replaceFailed}`, { edits: formatNumber(10000), characters: formatNumber(4000000) })
+          : failure !== undefined
+            ? t(`find.failed.${failure}`)
+            : state.searching
+              ? t('find.searching')
+              : state.large
+                ? t('find.large')
+                : state.replaced !== undefined
+                  ? t('find.replaced', { count: formatNumber(state.replaced) })
+                  : null;
     return {
         total: find.open ? state.count : 0,
         current: find.open ? state.current : null,
         invalid: find.open && compiled.kind === 'invalid',
+        status,
+        limited: find.open && state.limited === true,
+        searching: find.open && state.searching === true,
+        canStep: find.open && compiled.kind === 'pattern',
         noSelection: find.open && state.noSelection === true,
         step: (direction) => editor?.findStep(direction),
         replace: () => void editor?.replace(find.replaceText, { preserveCase: find.preserveCase }),
-        replaceAll: () => void editor?.replaceAll(find.replaceText, { preserveCase: find.preserveCase }),
+        replaceAll: () => void editor?.replaceAllAsync(find.replaceText, { preserveCase: find.preserveCase }),
         selectAll: () => {
             if (editor !== null && editor.selectFindMatches() > 0) {
                 find.close();
