@@ -124,6 +124,7 @@ export interface LanguageHostOptions {
     run?: RunCommand;
     clock?: LanguageClock;
     exists?: (path: string) => Promise<boolean>;
+    isFolder?: (path: string) => Promise<boolean>;
     /* The text of a file, or null when it cannot be read. */
     readText?: (path: string) => Promise<string | null>;
     now?: () => number;
@@ -228,6 +229,7 @@ export class LanguageHost {
     private readonly choices: LanguageChoices;
     private readonly clock: LanguageClock;
     private readonly exists: (path: string) => Promise<boolean>;
+    private readonly isFolder: (path: string) => Promise<boolean>;
     private readonly sinks = new ClientSinks((clientId) => this.dropClient(clientId));
     private readonly projects = new Map<string, ProjectLanguage>();
     private readonly edits = new Map<string, PendingEdit>();
@@ -272,6 +274,7 @@ export class LanguageHost {
         this.choices = options.choices ?? new LanguageChoices({ path: join(options.root, 'choices.json') });
         this.clock = options.clock ?? realLanguageClock;
         this.exists = options.exists ?? fileExists;
+        this.isFolder = options.isFolder ?? isDirectory;
         this.installer = new LanguageInstaller({
             root: options.root,
             runtime: options.runtime ?? bunRuntime(),
@@ -1159,7 +1162,7 @@ export class LanguageHost {
                     return false;
                 }
                 await this.options.machineHome.refuse(path);
-                return fileExists(path);
+                return this.exists(path);
             },
             isFolder: async (uri) => {
                 const path = fileUriToPath(uri);
@@ -1167,7 +1170,7 @@ export class LanguageHost {
                     return false;
                 }
                 await this.options.machineHome.refuse(path);
-                return isDirectory(path);
+                return this.isFolder(path);
             }
         };
     }

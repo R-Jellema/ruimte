@@ -58,6 +58,7 @@ function rig(
         native?: NativePolicy;
         /* The text of files that are no document, by path. */
         texts?: Record<string, string>;
+        folders?: string[];
         /* The revision of the checkout the PHP server builds from; none to read by default. */
         revision?: () => string | null;
         sqlSettings?: (projectId: string) => Promise<ProjectSqlSettings | null>;
@@ -118,7 +119,8 @@ function rig(
             path: join(root, 'custom.json'),
             resolve: (command) => (['zls', 'taplo'].includes(command) ? `/bin/${command}` : null)
         }),
-        exists: async (path) => (options.files ?? []).includes(path),
+        exists: async (path) => (options.files ?? []).includes(path) || (options.folders ?? []).includes(path),
+        isFolder: async (path) => (options.folders ?? []).includes(path),
         readText: async (path) => (path === '/work/package.json' ? (options.packageJson ?? null) : (options.texts?.[path] ?? null)),
         ...(options.sqlSettings === undefined ? {} : { sqlSettings: options.sqlSettings })
     });
@@ -139,6 +141,7 @@ async function installed(
         intelephense?: boolean;
         native?: NativePolicy;
         texts?: Record<string, string>;
+        folders?: string[];
         sqlSettings?: (projectId: string) => Promise<ProjectSqlSettings | null>;
     } = {}
 ): Promise<Rig> {
@@ -1249,9 +1252,9 @@ describe('files that move', () => {
         edits: [{ range: { start: { line: 0, character: 8 }, end: { line: 0, character: 11 } }, newText: text }]
     });
 
-    async function moveRig(answer?: (params: unknown) => unknown, texts: Record<string, string> = {}) {
+    async function moveRig(answer?: (params: unknown) => unknown, texts: Record<string, string> = {}, folders: string[] = []) {
         const spawner = fakeSpawner(capabilities, [], answer === undefined ? {} : { typescript: { 'workspace/willRenameFiles': answer } });
-        const result = await installed(['typescript'], { spawner, texts: { '/work/src/b.ts': 'import "./a";\n', ...texts } });
+        const result = await installed(['typescript'], { spawner, texts: { '/work/src/b.ts': 'import "./a";\n', ...texts }, folders });
         await openReady(result.host, 'src/a.ts', 'export "./a";\n');
         const calls: string[] = [];
         const written: Array<{ path: string; text: string }> = [];
@@ -1408,6 +1411,10 @@ describe('files that move', () => {
         'an overwriting create of a held file': [{ kind: 'create', uri: held, options: { overwrite: true } }],
         'a delete of a held file': [{ kind: 'delete', uri: held }]
     };
+    const folderPlans: Record<string, Array<Record<string, unknown>>> = {
+        'a rename of a folder that holds a file': [{ kind: 'rename', oldUri: 'file:///work/src', newUri: 'file:///work/lib' }],
+        'a delete of a folder that holds a file': [{ kind: 'delete', uri: 'file:///work/src', options: { recursive: true } }]
+    };
 
     for (const [name, steps] of Object.entries(refusedPlans)) {
         it(`refuses ${name} and changes nothing`, async () => {
@@ -1417,6 +1424,16 @@ describe('files that move', () => {
             });
             expect(rig.calls).toEqual([]);
             expect(kinds(rig.events['client-1'], 'language.edit')).toHaveLength(0);
+        });
+    }
+
+    for (const [name, steps] of Object.entries(folderPlans)) {
+        it(`refuses ${name} and changes nothing`, async () => {
+            const rig = await moveRig(() => ({ documentChanges: [{ kind: 'create', uri: 'file:///work/e.ts' }, ...steps] }), {}, ['/work/src']);
+            await expect(rig.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, rig.file)).rejects.toMatchObject({
+                code: LANGUAGE_ERROR_CODES.failed
+            });
+            expect(rig.calls).toEqual([]);
         });
     }
 
