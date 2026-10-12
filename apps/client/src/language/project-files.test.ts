@@ -29,7 +29,9 @@ describe('the files a workspace edit creates', () => {
     test('are made through the machine with their text', async () => {
         const { transport, calls } = fakeTransport();
         expect(await draftFiles('local', transport, 'p1').create!('/work/src/UserInterface.php', '<?php\n')).toBeNull();
-        expect(calls).toEqual([{ type: 'fs.create', payload: { path: '/work/src/UserInterface.php', kind: 'file', text: '<?php\n' } }]);
+        expect(calls).toEqual([
+            { type: 'fs.create', payload: { path: '/work/src/UserInterface.php', kind: 'file', text: '<?php\n', projectId: 'p1', edits: false } }
+        ]);
     });
 
     test('say why the machine did not make them', async () => {
@@ -38,11 +40,46 @@ describe('the files a workspace edit creates', () => {
     });
 });
 
+describe('overwriting', () => {
+    test('is supported', () => {
+        expect(draftFiles('local', fakeTransport().transport, 'p1').supportsOverwrite).toBe(true);
+    });
+
+    test('a create asks the machine to replace the file', async () => {
+        const { transport, calls } = fakeTransport();
+        expect(await draftFiles('local', transport, 'p1').create!('/work/src/a.php', 'new', { overwrite: true })).toBeNull();
+        expect(calls).toEqual([
+            { type: 'fs.create', payload: { path: '/work/src/a.php', kind: 'file', text: 'new', projectId: 'p1', edits: false, overwrite: true } }
+        ]);
+    });
+
+    test('a rename asks the machine to replace the target and forgets the draft of what it replaced', async () => {
+        const { transport, calls } = fakeTransport();
+        textDrafts.stage('local', '/work/src/old.php', { text: 'old', mtime: 1 }, 'edited');
+        const files = draftFiles('local', transport, 'p1');
+        expect(await files.rename('/work/src/new.php', '/work/src/old.php', { overwrite: true })).toBeNull();
+        expect(calls).toEqual([
+            { type: 'fs.rename', payload: { path: '/work/src/new.php', to: '/work/src/old.php', projectId: 'p1', edits: false, overwrite: true } }
+        ]);
+        expect(textDrafts.isUnsaved('local', '/work/src/old.php')).toBe(false);
+        textDrafts.discard('local', '/work/src/old.php');
+    });
+
+    test('a rename without overwrite leaves the target alone', async () => {
+        const { transport, calls } = fakeTransport();
+        textDrafts.stage('local', '/work/src/kept.php', { text: 'kept', mtime: 1 }, 'kept');
+        expect(await draftFiles('local', transport, 'p1').rename('/work/src/a.php', '/work/src/kept.php')).toBeNull();
+        expect(calls[0]!.payload).not.toHaveProperty('overwrite');
+        expect(textDrafts.draft('local', '/work/src/kept.php')).toBeDefined();
+        textDrafts.discard('local', '/work/src/kept.php');
+    });
+});
+
 describe('the files a workspace edit deletes', () => {
     test('are deleted through the machine', async () => {
         const { transport, calls } = fakeTransport();
         expect(await draftFiles('local', transport, 'p1').delete!('/work/src/Old.php', { recursive: false })).toBeNull();
-        expect(calls).toEqual([{ type: 'fs.delete', payload: { path: '/work/src/Old.php' } }]);
+        expect(calls).toEqual([{ type: 'fs.delete', payload: { path: '/work/src/Old.php', projectId: 'p1', edits: false } }]);
     });
 
     test('say why the machine did not delete them', async () => {

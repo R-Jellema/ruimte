@@ -2,6 +2,7 @@ import { lstat, mkdir, realpath, rename, stat } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { CodedError } from '@adecore/agents/coded-error';
 import { isInside } from '../canvas/project-paths.ts';
+import { trashPath } from './trash.ts';
 import { realEntryPath, realRoots, stateRefusal, type WriteBoundary } from './write.ts';
 
 type RenameErrorCode =
@@ -76,11 +77,16 @@ export interface RenamePlan {
 
 /*
  * Checks a move of a file or folder of an open project to another place, inside the boundary a save keeps and
- * outside what a delete keeps closed. A name that is taken is never overwritten, and a case-only change of a name
+ * outside what a delete keeps closed. A name that is taken is never overwritten (unless `overwrite` replaces a file with a file, the old one going to the trash), and a case-only change of a name
  * is the one case where the target is the source itself. Nothing is moved until `run`, so a caller can do
  * what has to come before the move knowing that the move will be allowed.
  */
-export async function planRename(path: string, to: string, boundary: WriteBoundary): Promise<RenamePlan> {
+export async function planRename(
+    path: string,
+    to: string,
+    boundary: WriteBoundary,
+    options: { overwrite?: boolean; trash?: (path: string) => Promise<void> } = {}
+): Promise<RenamePlan> {
     if (!isAbsolute(path) || !isAbsolute(to) || path.includes('\0') || to.includes('\0')) {
         throw new RenameError('bad-path', 'Both paths must be absolute');
     }
@@ -101,15 +107,23 @@ export async function planRename(path: string, to: string, boundary: WriteBounda
         throw new RenameError('into-itself', `${path} cannot be moved into itself`);
     }
     const taken = await lstat(target).catch(() => null);
+    let replaced = false;
     if (taken !== null) {
         const moving = await lstat(source);
         if (taken.dev !== moving.dev || taken.ino !== moving.ino) {
-            throw new RenameError('exists', `${to} is already there`);
+            // Only a plain file replaces a plain file; the trash keeps what it replaced.
+            if (options.overwrite !== true || !taken.isFile() || !moving.isFile()) {
+                throw new RenameError('exists', `${to} is already there`);
+            }
+            replaced = true;
         }
     }
     return {
         run: async () => {
             try {
+                if (replaced) {
+                    await (options.trash ?? trashPath)(target);
+                }
                 await mkdir(dirname(target), { recursive: true });
                 await rename(source, target);
             } catch (e) {

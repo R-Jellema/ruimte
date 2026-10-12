@@ -198,27 +198,45 @@ export const FsWriteResultSchema = z.object({
 });
 export type FsWriteResult = z.infer<typeof FsWriteResultSchema>;
 
-/* Makes missing parent folders. An existing path is refused as `exists`. Held to the boundary of
-   `fs.write`, with `.git` and `.ruimte` closed; `text` is held to `FS_READ_MAX_TEXT_BYTES`. */
+/* Makes missing parent folders. An existing path is refused as `exists`, unless `overwrite` makes a file of `text`
+   over a file that is there (a folder, or a folder over a file, is still `exists`). Held to the boundary of
+   `fs.write`, with `.git` and `.ruimte` closed; `text` is held to `FS_READ_MAX_TEXT_BYTES`. With a `projectId` the
+   language servers first make the edits the new entry brings and then hear it was made. */
 export const FsCreatePayloadSchema = z.object({
     path: z.string().min(1),
     kind: z.enum(['file', 'directory']),
-    text: z.string().optional()
+    text: z.string().optional(),
+    projectId: ProjectIdSchema.optional(),
+    // False when the caller made those edits itself, as a workspace edit that creates the file does; the servers then only hear it was made.
+    edits: z.boolean().optional(),
+    overwrite: z.boolean().optional()
 });
 export type FsCreatePayload = z.infer<typeof FsCreatePayloadSchema>;
 
 export const FsCreateResultSchema = z.object({
     size: z.number(),
-    mtime: z.number()
+    mtime: z.number(),
+    // The files the language servers edited before the entry was made, at the places they had.
+    edited: z.array(z.string()).optional()
 });
 export type FsCreateResult = z.infer<typeof FsCreateResultSchema>;
 
 /* To the machine's trash. Only inside an open project or one of its worktrees, and never the project
-   folder itself, `.git` or `.ruimte`. */
+   folder itself, `.git` or `.ruimte`. With a `projectId` the language servers first make the edits the delete
+   brings and then hear it was deleted. */
 export const FsDeletePayloadSchema = z.object({
-    path: z.string().min(1)
+    path: z.string().min(1),
+    projectId: ProjectIdSchema.optional(),
+    // False when the caller made those edits itself; the servers then only hear it was deleted.
+    edits: z.boolean().optional()
 });
 export type FsDeletePayload = z.infer<typeof FsDeletePayloadSchema>;
+
+export const FsDeleteResultSchema = z.object({
+    // The files the language servers edited before the delete, at the places they had.
+    edited: z.array(z.string()).optional()
+});
+export type FsDeleteResult = z.infer<typeof FsDeleteResultSchema>;
 
 /*
  * Inside the boundary of `fs.write`, with `.git` and `.ruimte` closed. A taken path is refused as
@@ -230,7 +248,9 @@ export const FsRenamePayloadSchema = z.object({
     to: z.string().min(1),
     projectId: ProjectIdSchema.optional(),
     // False when the caller made those edits itself, as a refactor that moves a file does; the servers then only hear that it moved.
-    edits: z.boolean().optional()
+    edits: z.boolean().optional(),
+    // A file at `to` is moved to the trash first and replaced; a folder on either side is still `exists`.
+    overwrite: z.boolean().optional()
 });
 export type FsRenamePayload = z.infer<typeof FsRenamePayloadSchema>;
 

@@ -59,15 +59,23 @@ function failure(e: unknown, path: string): unknown {
  * Creates a file or a folder of an open project, inside the boundary a save keeps and outside what
  * a delete keeps closed. The location is judged on real paths before anything is made, and the
  * entry itself is made with `O_EXCL` or a plain `mkdir`, so a name that appears in between is
- * `exists` and never overwritten.
+ * `exists` and never overwritten, unless the payload asks to `overwrite` a file with a file.
  */
 export async function createEntry(payload: FsCreatePayload, boundary: WriteBoundary): Promise<FsCreateResult> {
+    return (await planCreate(payload, boundary)).run();
+}
+
+/* Checks a create the way `createEntry` makes it; nothing is made until `run`. */
+export async function planCreate(payload: FsCreatePayload, boundary: WriteBoundary): Promise<{ run(): Promise<FsCreateResult> }> {
     const { path, kind } = payload;
     if (!isAbsolute(path) || path.includes('\0')) {
         throw new CreateError('bad-path', 'The path must be absolute');
     }
     const target = resolve(path);
-    if (await lstat(target).catch(() => null)) {
+    const taken = await lstat(target).catch(() => null);
+    // Only a plain file is replaced, and only by a file: a folder or a link stays what it is.
+    const replacing = payload.overwrite === true && kind === 'file' && taken?.isFile() === true;
+    if (taken !== null && !replacing) {
         throw new CreateError('exists', `${target} is already there`);
     }
     const { base, missing } = await deepestExisting(target);
@@ -85,21 +93,29 @@ export async function createEntry(payload: FsCreatePayload, boundary: WriteBound
     if (bytes !== null && bytes.length > FS_READ_MAX_TEXT_BYTES) {
         throw new CreateError('too-large', 'That text is too large to create from here');
     }
-    try {
-        await mkdir(dirname(real), { recursive: true });
-        if (bytes === null) {
-            await mkdir(real);
-            return { size: 0, mtime: Math.round((await lstat(real)).mtimeMs) };
+    return {
+        run: async () => {
+            try {
+                await mkdir(dirname(real), { recursive: true });
+                if (bytes === null) {
+                    await mkdir(real);
+                    return { size: 0, mtime: Math.round((await lstat(real)).mtimeMs) };
+                }
+                const handle = await open(
+                    real,
+                    constants.O_WRONLY | constants.O_CREAT | (replacing ? constants.O_TRUNC : constants.O_EXCL) | constants.O_NOFOLLOW,
+                    0o644
+                );
+                try {
+                    await handle.writeFile(bytes);
+                    const created = await handle.stat();
+                    return { size: created.size, mtime: Math.round(created.mtimeMs) };
+                } finally {
+                    await handle.close();
+                }
+            } catch (e) {
+                throw failure(e, target);
+            }
         }
-        const handle = await open(real, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o644);
-        try {
-            await handle.writeFile(bytes);
-            const created = await handle.stat();
-            return { size: created.size, mtime: Math.round(created.mtimeMs) };
-        } finally {
-            await handle.close();
-        }
-    } catch (e) {
-        throw failure(e, target);
-    }
+    };
 }

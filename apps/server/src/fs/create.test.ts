@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FS_READ_MAX_TEXT_BYTES } from '@ruimte/contracts';
-import { createEntry } from './create.ts';
+import { createEntry, planCreate } from './create.ts';
 import type { WriteBoundary } from './write.ts';
 
 let root: string;
@@ -136,5 +136,47 @@ describe('fs.create', () => {
 
         expect(await codeOf(createEntry({ path: join(project, 'big.txt'), kind: 'file', text }, boundary()))).toBe('too-large');
         expect(await stat(join(project, 'big.txt')).catch(() => null)).toBeNull();
+    });
+
+    test('replaces the text of a file that is there when asked to overwrite', async () => {
+        const path = join(project, 'src', 'a.ts');
+
+        const result = await createEntry({ path, kind: 'file', text: 'longer text', overwrite: true }, boundary());
+
+        expect(await readFile(path, 'utf8')).toBe('longer text');
+        expect(result.size).toBe(11);
+    });
+
+    test('shortens a file it overwrites', async () => {
+        const path = join(project, 'src', 'a.ts');
+        await writeFile(path, 'a long old text');
+
+        await createEntry({ path, kind: 'file', text: 'new', overwrite: true }, boundary());
+
+        expect(await readFile(path, 'utf8')).toBe('new');
+    });
+
+    test('still refuses a file over a folder, a folder over a file and a link, also with overwrite', async () => {
+        await symlink(join(project, 'src', 'a.ts'), join(project, 'link.ts'));
+
+        expect(await codeOf(createEntry({ path: join(project, 'src'), kind: 'file', text: 'x', overwrite: true }, boundary()))).toBe('exists');
+        expect(await codeOf(createEntry({ path: join(project, 'src', 'a.ts'), kind: 'directory', overwrite: true }, boundary()))).toBe('exists');
+        expect(await codeOf(createEntry({ path: join(project, 'link.ts'), kind: 'file', text: 'x', overwrite: true }, boundary()))).toBe('exists');
+        expect(await readFile(join(project, 'src', 'a.ts'), 'utf8')).toBe('a');
+    });
+
+    test('keeps the boundary when overwriting', async () => {
+        await writeFile(join(outside, 'c.txt'), 'c');
+
+        expect(await codeOf(createEntry({ path: join(outside, 'c.txt'), kind: 'file', text: 'x', overwrite: true }, boundary()))).toBe('outside-project');
+        expect(await readFile(join(outside, 'c.txt'), 'utf8')).toBe('c');
+    });
+
+    test('checks everything in a plan before it makes anything', async () => {
+        const plan = await planCreate({ path: join(project, 'deep', 'new.ts'), kind: 'file', text: 'x' }, boundary());
+
+        expect(await stat(join(project, 'deep')).catch(() => null)).toBeNull();
+        await plan.run();
+        expect(await readFile(join(project, 'deep', 'new.ts'), 'utf8')).toBe('x');
     });
 });

@@ -42,6 +42,8 @@ import {
     type ApplyWorkspaceEditResult,
     type Diagnostic,
     type DocumentSnapshot,
+    type CreatedFile,
+    type DeletedFile,
     type RenamedFile,
     type WorkspaceEdit
 } from '@adecore/lsp';
@@ -167,6 +169,10 @@ async function readTextOrNull(path: string): Promise<string | null> {
     return readFile(path, 'utf8').catch(() => null);
 }
 
+async function isDirectory(path: string): Promise<boolean> {
+    return (await stat(path).catch(() => null))?.isDirectory() === true;
+}
+
 async function fileExists(path: string): Promise<boolean> {
     return access(path).then(
         () => true,
@@ -174,7 +180,7 @@ async function fileExists(path: string): Promise<boolean> {
     );
 }
 
-/* What a move of files leaves to the host: the move itself and the writing of a file no client holds open. */
+/* What a file operation leaves to the host: the operation itself (`move`: the move, the create or the delete) and the writing of a file no client holds open. */
 export interface FileMove {
     move(): Promise<void>;
     write(path: string, text: string): Promise<void>;
@@ -963,43 +969,98 @@ export class LanguageHost {
      * `edits: false` skips the first half, for a caller that moves files as part of an edit it made itself.
      */
     async renameFiles(clientId: string, projectId: string, from: string, to: string, edits: boolean, file: FileMove): Promise<string[]> {
+        const moved: RenamedFile = {
+            oldUri: pathToFileUri(resolve(from)),
+            newUri: pathToFileUri(resolve(to)),
+            directory: await isDirectory(from)
+        };
+        return this.passFilesBy(
+            clientId,
+            projectId,
+            'rename',
+            edits,
+            file,
+            (server, apply) => server.willRenameFiles([moved], apply),
+            (server) => server.didRenameFiles([moved])
+        );
+    }
+
+    /* A file or folder that is made goes past the servers the same way a move does; `file.move` makes it. */
+    async createFiles(clientId: string, projectId: string, path: string, directory: boolean, edits: boolean, file: FileMove): Promise<string[]> {
+        const made: CreatedFile = { uri: pathToFileUri(resolve(path)), directory };
+        return this.passFilesBy(
+            clientId,
+            projectId,
+            'new file',
+            edits,
+            file,
+            (server, apply) => server.willCreateFiles([made], apply),
+            (server) => server.didCreateFiles([made])
+        );
+    }
+
+    /* A file or folder that is deleted goes past the servers the same way a move does; `file.move` deletes it. */
+    async deleteFiles(clientId: string, projectId: string, path: string, edits: boolean, file: FileMove): Promise<string[]> {
+        const gone: DeletedFile = { uri: pathToFileUri(resolve(path)), directory: await isDirectory(path) };
+        return this.passFilesBy(
+            clientId,
+            projectId,
+            'delete',
+            edits,
+            file,
+            (server, apply) => server.willDeleteFiles([gone], apply),
+            (server) => server.didDeleteFiles([gone])
+        );
+    }
+
+    private async passFilesBy(
+        clientId: string,
+        projectId: string,
+        what: string,
+        edits: boolean,
+        file: FileMove,
+        before: (server: LanguageServer, apply: (edit: WorkspaceEdit) => Promise<void>) => Promise<void>,
+        after: (server: LanguageServer) => Promise<void>
+    ): Promise<string[]> {
         const project = this.projects.get(projectId);
         const edited: string[] = [];
         if (project === undefined) {
             await file.move();
             return edited;
         }
-        const moved: RenamedFile = {
-            oldUri: pathToFileUri(resolve(from)),
-            newUri: pathToFileUri(resolve(to)),
-            directory: (await stat(from).catch(() => null))?.isDirectory() === true
-        };
         if (edits) {
             for (const server of project.servers.values()) {
-                await server.willRenameFiles([moved], async (edit) => {
-                    edited.push(...(await this.applyRenameEdit(project, clientId, edit, file, server)));
+                await before(server, async (edit) => {
+                    edited.push(...(await this.applyFileEdit(project, clientId, edit, file, server, what)));
                 });
             }
         }
         await file.move();
-        await Promise.all([...project.servers.values()].map((server) => server.didRenameFiles([moved])));
+        await Promise.all([...project.servers.values()].map(after));
         return edited;
     }
 
     /*
-     * Makes what a server answered to a rename: a file it creates is made first, a document a client holds open takes
+     * Makes what a server answered to a file operation: a file it creates is made first, a document a client holds open takes
      * its edits in its editor, as one undo step, and any other file is written. The edit is tried against every text
-     * first, so one that does not fit changes nothing: it is left out whole and logged, and the rename goes on.
+     * first, so one that does not fit changes nothing: it is left out whole and logged, and the operation goes on.
      */
-    private async applyRenameEdit(project: ProjectLanguage, clientId: string, edit: WorkspaceEdit, file: FileMove, server: LanguageServer): Promise<string[]> {
+    private async applyFileEdit(
+        project: ProjectLanguage,
+        clientId: string,
+        edit: WorkspaceEdit,
+        file: FileMove,
+        server: LanguageServer,
+        what: string
+    ): Promise<string[]> {
         const documents = new Map<string, SharedDocument>(
             [...project.documents.values()].filter((document) => document.clients.size > 0).map((document) => [document.uri, document])
         );
         let planned;
         try {
-            planned = planWorkspaceEdit(edit, await this.snapshotsOf(edit, documents));
+            planned = planWorkspaceEdit(edit, await this.snapshotsOf(edit, documents, what));
         } catch (error) {
-            server.log.push('host', `${server.kind} left out the edit of a rename: ${error instanceof Error ? error.message : 'it does not fit the files'}`);
+            server.log.push('host', `${server.kind} left out the edit of a ${what}: ${error instanceof Error ? error.message : 'it does not fit the files'}`);
             return [];
         }
         const held = new Map<string, WorkspaceEdit>();
@@ -1036,7 +1097,7 @@ export class LanguageHost {
         for (const [target, own] of held) {
             const result = await this.sendEdit(project.projectId, target, own);
             if (!result.applied) {
-                throw new LanguageError(LANGUAGE_ERROR_CODES.failed, result.failureReason ?? 'The editor did not make the edit of a rename');
+                throw new LanguageError(LANGUAGE_ERROR_CODES.failed, result.failureReason ?? `The editor did not make the edit of a ${what}`);
             }
         }
         for (const { path, text } of closed) {
@@ -1046,7 +1107,7 @@ export class LanguageHost {
     }
 
     /* The text every file an edit touches has now: the editor's for a document a client holds open, else the disk's. */
-    private async snapshotsOf(edit: WorkspaceEdit, documents: ReadonlyMap<string, SharedDocument>): Promise<Map<string, DocumentSnapshot>> {
+    private async snapshotsOf(edit: WorkspaceEdit, documents: ReadonlyMap<string, SharedDocument>, what: string): Promise<Map<string, DocumentSnapshot>> {
         const snapshots = new Map<string, DocumentSnapshot>();
         const creates = new Set((edit.documentChanges ?? []).flatMap((change) => ('kind' in change && change.kind === 'create' ? [change.uri] : [])));
         const uris = new Set([
@@ -1062,7 +1123,7 @@ export class LanguageHost {
                 if (creates.has(uri)) {
                     continue;
                 }
-                throw new LanguageError(LANGUAGE_ERROR_CODES.failed, `${uri} cannot be read to make the edit of a rename`);
+                throw new LanguageError(LANGUAGE_ERROR_CODES.failed, `${uri} cannot be read to make the edit of a ${what}`);
             }
             snapshots.set(uri, { text, version: open?.version ?? null });
         }

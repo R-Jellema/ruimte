@@ -73,7 +73,10 @@ describe('the machine home', () => {
     });
 
     test('a visual of a chat reads, the thread beside it does not', async () => {
-        expect(await request('fs.read', { path: join(home, 'chats', 'chat-1.visuals', 'report.html') })).toMatchObject({ ok: true, result: { kind: 'text', text: '<p>Report</p>' } });
+        expect(await request('fs.read', { path: join(home, 'chats', 'chat-1.visuals', 'report.html') })).toMatchObject({
+            ok: true,
+            result: { kind: 'text', text: '<p>Report</p>' }
+        });
         expect(await request('fs.read', { path: join(home, 'chats', 'chat-1.json') })).toMatchObject(refused);
         expect(await request('fs.read', { path: join(home, 'chats') })).toMatchObject(refused);
     });
@@ -113,5 +116,80 @@ describe('the machine home', () => {
         expect(await request('fs.rename', { path: join(root, 'a.txt'), to: join(root, 'moved', 'b.txt') })).toMatchObject({ ok: true, result: {} });
         expect((await stat(join(root, 'moved', 'b.txt'))).isFile()).toBe(true);
         expect(await request('fs.rename', { path: join(root, 'a.txt'), to: join(root, 'c.txt') })).toMatchObject({ ok: false, error: { code: 'not-found' } });
+    });
+});
+
+describe('files that go past the language servers', () => {
+    function withLanguage(): { calls: string[]; edits: boolean[] } {
+        const calls: string[] = [];
+        const edits: boolean[] = [];
+        const language = {
+            renameFiles: async (_client: string, _project: string, from: string, to: string, withEdits: boolean, file: { move(): Promise<void> }) => {
+                calls.push(`rename ${from} ${to}`);
+                edits.push(withEdits);
+                await file.move();
+                return [];
+            },
+            createFiles: async (_client: string, _project: string, path: string, directory: boolean, withEdits: boolean, file: { move(): Promise<void> }) => {
+                calls.push(`create ${path} ${directory}`);
+                edits.push(withEdits);
+                await file.move();
+                return ['/edited.ts'];
+            },
+            deleteFiles: async (_client: string, _project: string, path: string, withEdits: boolean, file: { move(): Promise<void> }) => {
+                calls.push(`delete ${path}`);
+                edits.push(withEdits);
+                expect(await Bun.file(path).exists()).toBe(true);
+                await file.move();
+                return [];
+            }
+        };
+        dispatcher = new Dispatcher();
+        registerFsHandlers(
+            dispatcher,
+            new FolderWatcher('linux', new FakeWatch(), 0),
+            async () => ({ folders: [root], worktreesOf: async () => [], worktreesRoot: join(home, 'worktrees') }),
+            new MachineHome(home),
+            language as never
+        );
+        return { calls, edits };
+    }
+
+    test('creates a file through the servers of the project and names the files they edited', async () => {
+        const { calls, edits } = withLanguage();
+        const path = join(root, 'made.ts');
+        const reply = await request('fs.create', { path, kind: 'file', text: 'x', projectId: 'p1' });
+        expect(reply).toMatchObject({ ok: true, result: { size: 1, edited: ['/edited.ts'] } });
+        expect(calls).toEqual([`create ${path} false`]);
+        expect(edits).toEqual([true]);
+        expect(await Bun.file(path).text()).toBe('x');
+    });
+
+    test('asks the servers nothing of a create without a project, and passes edits false on', async () => {
+        const { calls, edits } = withLanguage();
+        await request('fs.create', { path: join(root, 'plain.ts'), kind: 'file' });
+        expect(calls).toEqual([]);
+        await request('fs.create', { path: join(root, 'quiet.ts'), kind: 'file', projectId: 'p1', edits: false });
+        expect(edits).toEqual([false]);
+    });
+
+    test('does not ask the servers about a delete that is refused', async () => {
+        const { calls } = withLanguage();
+        const reply = await request('fs.delete', { path: join(root, 'missing.ts'), projectId: 'p1' });
+        expect(reply).toMatchObject({ ok: false, error: { code: 'not-found' } });
+        expect(calls).toEqual([]);
+    });
+
+    test('refuses an overwrite of a folder, and replaces the text of a file', async () => {
+        withLanguage();
+        const path = join(root, 'over.ts');
+        await writeFile(path, 'old old old');
+        expect(await request('fs.create', { path, kind: 'file', text: 'new', overwrite: true })).toMatchObject({ ok: true, result: { size: 3 } });
+        expect(await Bun.file(path).text()).toBe('new');
+        expect(await request('fs.create', { path: join(root, 'screenshots-dir'), kind: 'directory' })).toMatchObject({ ok: true });
+        expect(await request('fs.create', { path: join(root, 'screenshots-dir'), kind: 'file', overwrite: true })).toMatchObject({
+            ok: false,
+            error: { code: 'exists' }
+        });
     });
 });

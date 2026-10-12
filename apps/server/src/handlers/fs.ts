@@ -1,9 +1,11 @@
+import type { FsCreateResult } from '@ruimte/contracts';
 import { translate, type Dispatcher } from '../dispatcher.ts';
 import { browseDirectories } from '../fs/browse.ts';
+import { planCreate } from '../fs/create.ts';
+import { planDelete } from '../fs/delete.ts';
 import { createEntry } from '../fs/create.ts';
-import { deletePath } from '../fs/delete.ts';
 import { listDirectory } from '../fs/list.ts';
-import type { LanguageHost } from '../language/host.ts';
+import type { FileMove, LanguageHost } from '../language/host.ts';
 import type { MachineHome } from '../fs/machine-home.ts';
 import { readFile } from '../fs/read.ts';
 import { planRename } from '../fs/rename.ts';
@@ -13,12 +15,27 @@ import { searchFiles } from '../fs/search.ts';
 import type { FolderWatcher } from '../fs/watch.ts';
 import { writeTextFile, type WriteBoundary } from '../fs/write.ts';
 
+/* How the host writes and makes the files a server's edit touches, inside the boundary of the client that asked. */
+function editsOf(boundary: WriteBoundary): Omit<FileMove, 'move'> {
+    return {
+        write: async (path, text) => {
+            const read = await readFile(path);
+            if (read.kind === 'text') {
+                await writeTextFile(path, text, read.mtime, boundary);
+            }
+        },
+        create: async (path, text) => {
+            await createEntry({ path, kind: 'file', text }, boundary);
+        }
+    };
+}
+
 export function registerFsHandlers(
     dispatcher: Dispatcher,
     watcher: FolderWatcher,
     boundaryOf: (clientId: string) => Promise<WriteBoundary>,
     machineHome: MachineHome,
-    language?: Pick<LanguageHost, 'renameFiles'>
+    language?: Pick<LanguageHost, 'renameFiles' | 'createFiles' | 'deleteFiles'>
 ): void {
     dispatcher.register('fs.browse', (payload) => translate(() => browseDirectories(payload.partialPath, payload.cwd, { hidden: payload.hidden })));
 
@@ -55,15 +72,36 @@ export function registerFsHandlers(
     dispatcher.register('fs.create', (payload, client) =>
         translate(async () => {
             await machineHome.refuse(payload.path);
-            return createEntry(payload, await boundaryOf(client.id));
+            const boundary = await boundaryOf(client.id);
+            const plan = await planCreate(payload, boundary);
+            if (payload.projectId === undefined || language === undefined) {
+                return plan.run();
+            }
+            let made: FsCreateResult | undefined;
+            const edited = await language.createFiles(client.id, payload.projectId, payload.path, payload.kind === 'directory', payload.edits !== false, {
+                ...editsOf(boundary),
+                move: async () => {
+                    made = await plan.run();
+                }
+            });
+            return edited.length > 0 ? { ...made!, edited } : made!;
         })
     );
 
     dispatcher.register('fs.delete', (payload, client) =>
         translate(async () => {
             await machineHome.refuse(payload.path);
-            await deletePath(payload.path, await boundaryOf(client.id));
-            return {};
+            const boundary = await boundaryOf(client.id);
+            const plan = await planDelete(payload.path, boundary);
+            if (payload.projectId === undefined || language === undefined) {
+                await plan.run();
+                return {};
+            }
+            const edited = await language.deleteFiles(client.id, payload.projectId, payload.path, payload.edits !== false, {
+                ...editsOf(boundary),
+                move: plan.run
+            });
+            return edited.length > 0 ? { edited } : {};
         })
     );
 
@@ -71,22 +109,14 @@ export function registerFsHandlers(
         translate(async () => {
             await Promise.all([machineHome.refuse(payload.path), machineHome.refuse(payload.to)]);
             const boundary = await boundaryOf(client.id);
-            const plan = await planRename(payload.path, payload.to, boundary);
+            const plan = await planRename(payload.path, payload.to, boundary, { overwrite: payload.overwrite });
             if (payload.projectId === undefined || language === undefined) {
                 await plan.run();
                 return {};
             }
             const edited = await language.renameFiles(client.id, payload.projectId, payload.path, payload.to, payload.edits !== false, {
-                move: plan.run,
-                write: async (path, text) => {
-                    const read = await readFile(path);
-                    if (read.kind === 'text') {
-                        await writeTextFile(path, text, read.mtime, boundary);
-                    }
-                },
-                create: async (path, text) => {
-                    await createEntry({ path, kind: 'file', text }, boundary);
-                }
+                ...editsOf(boundary),
+                move: plan.run
             });
             return edited.length > 0 ? { edited } : {};
         })

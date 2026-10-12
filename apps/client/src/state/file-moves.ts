@@ -65,13 +65,18 @@ export async function moveFile(
     projectId: string | null,
     from: string,
     to: string,
-    options: { edits: boolean; focus?: boolean },
+    options: { edits: boolean; focus?: boolean; overwrite?: boolean },
     drafts: TextDrafts = textDrafts
 ): Promise<void> {
     const unsaved = await saveBeforeMove(endpointId, from, drafts);
     if (unsaved !== null) {
         throw new Error(i18next.t('panels:files.rename.unsaved', { name: nameOf(unsaved) }));
     }
-    await transport.request('fs.rename', { path: from, to, ...(projectId === null ? {} : { projectId, edits: options.edits }) });
+    await transport.request('fs.rename', {
+        path: from,
+        to,
+        ...(projectId === null ? {} : { projectId, edits: options.edits }),
+        ...(options.overwrite ? { overwrite: true } : {})
+    });
     followMove(endpointId, from, to, options.focus ?? false);
 }

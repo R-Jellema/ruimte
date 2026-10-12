@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { renamePath } from './rename.ts';
+import { planRename, renamePath } from './rename.ts';
 import type { WriteBoundary } from './write.ts';
 
 let root: string;
@@ -88,5 +88,59 @@ describe('fs.rename', () => {
         expect((await stat(join(outside, 'c.txt'))).isFile()).toBe(true);
         await symlink(outside, join(project, 'out'));
         expect(await codeOf(renamePath(join(project, 'src', 'a.ts'), join(project, 'out', 'a.ts'), boundary()))).toBe('outside-project');
+    });
+});
+
+describe('fs.rename with overwrite', () => {
+    test('trashes the file at the target and moves the source over it', async () => {
+        const trashed: string[] = [];
+        const plan = await planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'b.ts'), boundary(), {
+            overwrite: true,
+            trash: async (path) => {
+                trashed.push(path);
+                await rm(path);
+            }
+        });
+        expect(trashed).toEqual([]);
+
+        await plan.run();
+
+        expect(trashed).toEqual([join(project, 'src', 'b.ts')]);
+        expect(await readFile(join(project, 'src', 'b.ts'), 'utf8')).toBe('a');
+        expect(await exists(join(project, 'src', 'a.ts'))).toBe(false);
+    });
+
+    test('trashes nothing when the target is free', async () => {
+        const trashed: string[] = [];
+        const plan = await planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'c.ts'), boundary(), {
+            overwrite: true,
+            trash: async (path) => void trashed.push(path)
+        });
+
+        await plan.run();
+
+        expect(trashed).toEqual([]);
+        expect(await readFile(join(project, 'src', 'c.ts'), 'utf8')).toBe('a');
+    });
+
+    test('still refuses a taken name without overwrite', async () => {
+        expect(await codeOf(planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'b.ts'), boundary(), { overwrite: false }))).toBe('exists');
+    });
+
+    test('refuses a file over a folder and a folder over a file', async () => {
+        await mkdir(join(project, 'dir'));
+        const options = { overwrite: true, trash: async () => undefined };
+
+        expect(await codeOf(planRename(join(project, 'src', 'a.ts'), join(project, 'dir'), boundary(), options))).toBe('exists');
+        expect(await codeOf(planRename(join(project, 'dir'), join(project, 'src', 'a.ts'), boundary(), options))).toBe('exists');
+        expect(await readFile(join(project, 'src', 'a.ts'), 'utf8')).toBe('a');
+    });
+
+    test('keeps the boundary of the target', async () => {
+        await writeFile(join(outside, 'x.txt'), 'x');
+
+        expect(
+            await codeOf(planRename(join(project, 'src', 'a.ts'), join(outside, 'c.txt'), boundary(), { overwrite: true, trash: async () => undefined }))
+        ).toBe('outside-project');
     });
 });

@@ -26075,6 +26075,12 @@
       "mtime": {
         "type": "number"
       },
+      "edited": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
       "path": {
         "type": "string"
       }
@@ -41592,6 +41598,7 @@
           "codeLens/resolve",
           "textDocument/formatting",
           "textDocument/rangeFormatting",
+          "textDocument/onTypeFormatting",
           "textDocument/foldingRange",
           "textDocument/selectionRange",
           "textDocument/semanticTokens/full",
@@ -43639,6 +43646,16 @@
       },
       "text": {
         "type": "string"
+      },
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "edits": {
+        "type": "boolean"
+      },
+      "overwrite": {
+        "type": "boolean"
       }
     },
     "required": [
@@ -43655,6 +43672,12 @@
       },
       "mtime": {
         "type": "number"
+      },
+      "edited": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
       }
     },
     "required": [
@@ -43669,6 +43692,13 @@
       "path": {
         "type": "string",
         "minLength": 1
+      },
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "edits": {
+        "type": "boolean"
       }
     },
     "required": [
@@ -43678,7 +43708,14 @@
   "request.fs.delete.result": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
-    "properties": {}
+    "properties": {
+      "edited": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
   },
   "request.fs.rename.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -43697,6 +43734,9 @@
         "minLength": 1
       },
       "edits": {
+        "type": "boolean"
+      },
+      "overwrite": {
         "type": "boolean"
       }
     },

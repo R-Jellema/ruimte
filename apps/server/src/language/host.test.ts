@@ -1378,6 +1378,119 @@ describe('files that move', () => {
     });
 });
 
+describe('files that are made or deleted', () => {
+    const files = [{ scheme: 'file', pattern: { glob: '**/*.ts', matches: 'file' as const } }];
+    const folders = [{ scheme: 'file', pattern: { glob: '**/gen', matches: 'folder' as const } }];
+    const operations = {
+        willCreate: { filters: files },
+        didCreate: { filters: files },
+        willDelete: { filters: files },
+        didDelete: { filters: [...files, ...folders] }
+    };
+    const capabilities = { typescript: { ...FULL_CAPABILITIES, workspace: { fileOperations: operations } } };
+    const created = 'file:///work/src/new.ts';
+    const barrel = (text: string) => ({
+        documentChanges: [
+            {
+                textDocument: { uri: 'file:///work/src/b.ts', version: null },
+                edits: [{ range: { start: { line: 0, character: 8 }, end: { line: 0, character: 11 } }, newText: text }]
+            }
+        ]
+    });
+
+    async function rig(handlers: Record<string, (params: unknown) => unknown> = {}) {
+        const spawner = fakeSpawner(capabilities, [], { typescript: handlers });
+        const result = await installed(['typescript'], { spawner, texts: { '/work/src/b.ts': 'import "./a";\n' } });
+        await openReady(result.host, 'src/a.ts', 'export "./a";\n');
+        const calls: string[] = [];
+        const written: Array<{ path: string; text: string }> = [];
+        const file = {
+            move: async () => void calls.push('run'),
+            write: async (path: string, text: string) => {
+                calls.push('write');
+                written.push({ path, text });
+            },
+            create: async () => void calls.push('create')
+        };
+        return { ...result, server: spawner.processes[0].server, calls, written, file };
+    }
+
+    it('asks what a new file changes before it is made, applies the edit, and tells the server afterwards', async () => {
+        const { host, server, calls, written, file } = await rig({ 'workspace/willCreateFiles': () => barrel('./new') });
+        expect(await host.createFiles('client-1', 'p1', '/work/src/new.ts', false, true, file)).toEqual(['/work/src/b.ts']);
+        expect(calls).toEqual(['write', 'run']);
+        expect(written).toEqual([{ path: '/work/src/b.ts', text: 'import "./new";\n' }]);
+        expect(server.paramsOf('workspace/willCreateFiles')).toEqual([{ files: [{ uri: created }] }]);
+        expect(server.paramsOf('workspace/didCreateFiles')).toEqual([{ files: [{ uri: created }] }]);
+    });
+
+    it('asks what a delete changes while the file is still there, and tells the server afterwards', async () => {
+        const { host, server, calls, file } = await rig({ 'workspace/willDeleteFiles': () => barrel('./gone') });
+        expect(await host.deleteFiles('client-1', 'p1', '/work/src/b.ts', true, file)).toEqual(['/work/src/b.ts']);
+        expect(calls).toEqual(['write', 'run']);
+        expect(server.paramsOf('workspace/willDeleteFiles')).toEqual([{ files: [{ uri: 'file:///work/src/b.ts' }] }]);
+        expect(server.paramsOf('workspace/didDeleteFiles')).toEqual([{ files: [{ uri: 'file:///work/src/b.ts' }] }]);
+    });
+
+    it('matches a folder as a folder', async () => {
+        const { host, server, file } = await rig();
+        await host.createFiles('client-1', 'p1', '/work/src/gen', true, true, file);
+        await host.deleteFiles('client-1', 'p1', '/work/src/gen', true, file);
+        expect(server.paramsOf('workspace/didCreateFiles')).toEqual([]);
+        expect(server.paramsOf('workspace/willDeleteFiles')).toEqual([]);
+    });
+
+    it('only tells the servers when the caller made the edits itself', async () => {
+        const { host, server, calls, file } = await rig({ 'workspace/willCreateFiles': () => barrel('./new') });
+        await host.createFiles('client-1', 'p1', '/work/src/new.ts', false, false, file);
+        expect(server.paramsOf('workspace/willCreateFiles')).toEqual([]);
+        expect(server.paramsOf('workspace/didCreateFiles')).toHaveLength(1);
+        expect(calls).toEqual(['run']);
+    });
+
+    it('goes on, without the edit, when a server fails or its edit does not fit', async () => {
+        const failing = await rig({
+            'workspace/willCreateFiles': () => {
+                throw new Error('boom');
+            }
+        });
+        expect(await failing.host.createFiles('client-1', 'p1', '/work/src/new.ts', false, true, failing.file)).toEqual([]);
+        expect(failing.calls).toEqual(['run']);
+        const unfit = await rig({ 'workspace/willDeleteFiles': () => ({ documentChanges: [{ kind: 'delete', uri: 'file:///work/src/old.ts' }] }) });
+        expect(await unfit.host.deleteFiles('client-1', 'p1', '/work/src/b.ts', true, unfit.file)).toEqual([]);
+        expect(unfit.calls).toEqual(['run']);
+        expect((await unfit.host.log('p1', 'typescript')).map((entry) => entry.text).join('\n')).toContain('left out the edit of a delete');
+    });
+
+    it('only runs the operation when no server of the project is up', async () => {
+        const { host, calls, file } = await rig();
+        expect(await host.deleteFiles('client-1', 'other', '/work/src/b.ts', true, file)).toEqual([]);
+        expect(calls).toEqual(['run']);
+    });
+});
+
+describe('format on type', () => {
+    const edits = [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, newText: ' ' }];
+    const capabilities = {
+        typescript: { ...FULL_CAPABILITIES, documentOnTypeFormattingProvider: { firstTriggerCharacter: '}', moreTriggerCharacter: [';'] } }
+    };
+
+    it('offers the trigger characters and routes the request to the server', async () => {
+        const spawner = fakeSpawner(capabilities, [], { typescript: { 'textDocument/onTypeFormatting': () => edits } });
+        const { host, events } = await installed(['typescript'], { spawner });
+        await openReady(host);
+        const [providers] = kinds(events['client-1'], 'language.providers');
+        expect((providers as { payload: { providers: Record<string, unknown> } }).payload.providers['textDocument/onTypeFormatting']).toEqual({
+            firstTriggerCharacter: '}',
+            moreTriggerCharacter: [';']
+        });
+        const params = { position: { line: 0, character: 1 }, ch: '}', options: { tabSize: 4, insertSpaces: true } };
+        const answer = await host.request({ projectId: 'p1', path: 'src/a.ts', method: 'textDocument/onTypeFormatting', params });
+        expect(answer.result).toEqual(edits);
+        expect(spawner.processes[0].server.paramsOf('textDocument/onTypeFormatting')).toEqual([{ textDocument: { uri: 'file:///work/src/a.ts' }, ...params }]);
+    });
+});
+
 describe('an agent asking about a file', () => {
     const hover = { contents: { kind: 'markdown', value: '`let a: number`' } };
 

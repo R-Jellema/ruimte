@@ -23,6 +23,8 @@ import {
     type LspDocument,
     type ProgressParams,
     type PublishDiagnosticsParams,
+    type CreatedFile,
+    type DeletedFile,
     type RenamedFile,
     type WorkspaceEdit
 } from '@adecore/lsp';
@@ -529,27 +531,57 @@ export class LanguageServer {
     }
 
     /*
-     * Asks each running process what it would change before the files move, one after the other, and hands
-     * every edit to `apply` before the next process is asked, since each one worked from the text as it was.
-     * A process that is slow, fails or takes none of the files is left out; an `apply` that fails ends it all.
+     * Asks each running process what it would change before files move, are made or are deleted, one after the
+     * other, and hands every edit to `apply` before the next process is asked, since each one worked from the
+     * text as it was. A process that is slow, fails or takes none of the files is left out; an `apply` that fails ends it all.
      */
     async willRenameFiles(files: readonly RenamedFile[], apply: (edit: WorkspaceEdit) => Promise<void>): Promise<void> {
+        await this.askBefore('workspace/willRenameFiles', 'a rename', (session) => session.willRenameFiles(files), apply);
+    }
+
+    async willCreateFiles(files: readonly CreatedFile[], apply: (edit: WorkspaceEdit) => Promise<void>): Promise<void> {
+        await this.askBefore('workspace/willCreateFiles', 'a new file', (session) => session.willCreateFiles(files), apply);
+    }
+
+    async willDeleteFiles(files: readonly DeletedFile[], apply: (edit: WorkspaceEdit) => Promise<void>): Promise<void> {
+        await this.askBefore('workspace/willDeleteFiles', 'a delete', (session) => session.willDeleteFiles(files), apply);
+    }
+
+    /* Tells each running process which files moved, those its filters take. */
+    async didRenameFiles(files: readonly RenamedFile[]): Promise<void> {
+        await this.tell('renamed', (session) => session.didRenameFiles(files));
+    }
+
+    async didCreateFiles(files: readonly CreatedFile[]): Promise<void> {
+        await this.tell('created', (session) => session.didCreateFiles(files));
+    }
+
+    async didDeleteFiles(files: readonly DeletedFile[]): Promise<void> {
+        await this.tell('deleted', (session) => session.didDeleteFiles(files));
+    }
+
+    private async askBefore(
+        method: string,
+        what: string,
+        ask: (session: LspSession) => Promise<WorkspaceEdit | null>,
+        apply: (edit: WorkspaceEdit) => Promise<void>
+    ): Promise<void> {
         for (const component of [...this.components]) {
             // A sidecar answers code actions only, and does not watch the files of a project, so its answer would rest on text that is out of date.
             if (component.session.state !== 'ready' || component.profile.sidecar === true) {
                 continue;
             }
-            const answer = component.session.willRenameFiles(files);
+            const answer = ask(component.session);
             const title = titleOf(component.profile);
             let edit: WorkspaceEdit | null | 'expired';
             try {
                 edit = await this.beforeDeadline(answer, WILL_RENAME_DEADLINE_MS);
             } catch (error) {
-                this.log.push('host', `${title} could not say what a rename changes: ${errorText(error)}`);
+                this.log.push('host', `${title} could not say what ${what} changes: ${errorText(error)}`);
                 continue;
             }
             if (edit === 'expired') {
-                this.log.push('host', `${title} did not answer workspace/willRenameFiles within ${WILL_RENAME_DEADLINE_MS / 1000} seconds and was left out`);
+                this.log.push('host', `${title} did not answer ${method} within ${WILL_RENAME_DEADLINE_MS / 1000} seconds and was left out`);
                 answer.catch(() => undefined);
                 continue;
             }
@@ -559,17 +591,16 @@ export class LanguageServer {
         }
     }
 
-    /* Tells each running process which files moved, those its filters take. */
-    async didRenameFiles(files: readonly RenamedFile[]): Promise<void> {
+    private async tell(what: string, send: (session: LspSession) => Promise<void>): Promise<void> {
         await Promise.all(
             this.components.map(async (component) => {
                 if (component.session.state !== 'ready' || component.profile.sidecar === true) {
                     return;
                 }
                 try {
-                    await component.session.didRenameFiles(files);
+                    await send(component.session);
                 } catch (error) {
-                    this.log.push('host', `Could not tell the server about renamed files: ${errorText(error)}`);
+                    this.log.push('host', `Could not tell the server about ${what} files: ${errorText(error)}`);
                 }
             })
         );

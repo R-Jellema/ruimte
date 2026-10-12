@@ -11,9 +11,9 @@ export class DeleteError extends CodedError<DeleteErrorCode> {}
 /*
  * Moves a file or folder of an open project to the trash, inside the same boundary a save keeps.
  * A symbolic link is trashed as the link and never followed, so a link out of the project cannot
- * take its target along.
+ * take its target along. Nothing is trashed until `run`, so a caller can do what has to come before knowing it is allowed.
  */
-export async function deletePath(path: string, boundary: WriteBoundary, trash: (path: string) => Promise<void> = trashPath): Promise<void> {
+export async function planDelete(path: string, boundary: WriteBoundary, trash: (path: string) => Promise<void> = trashPath): Promise<{ run(): Promise<void> }> {
     const real = await realEntryPath(path);
     if (real === null) {
         throw new DeleteError('not-found', 'That path is not there');
@@ -30,5 +30,9 @@ export async function deletePath(path: string, boundary: WriteBoundary, trash: (
     if (refused !== null) {
         throw new DeleteError(refused.code, refused.message);
     }
-    await trash(real);
+    return { run: () => trash(real) };
+}
+
+export async function deletePath(path: string, boundary: WriteBoundary, trash: (path: string) => Promise<void> = trashPath): Promise<void> {
+    await (await planDelete(path, boundary, trash)).run();
 }

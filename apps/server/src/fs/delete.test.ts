@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { deletePath } from './delete.ts';
+import { deletePath, planDelete } from './delete.ts';
 import type { WriteBoundary } from './write.ts';
 
 let root: string;
@@ -113,5 +113,13 @@ describe('fs.delete', () => {
         await symlink(outside, join(project, 'out'));
 
         expect(await codeOf(deletePath(join(project, 'out', 'b.txt'), boundary(), trash))).toBe('outside-project');
+    });
+
+    test('trashes nothing until its plan runs, and a refusal comes before that', async () => {
+        const plan = await planDelete(join(project, 'src', 'a.ts'), boundary(), trash);
+        expect(trashed).toEqual([]);
+        await plan.run();
+        expect(trashed).toEqual([join(project, 'src', 'a.ts')]);
+        await expect(planDelete(join(project, 'src', 'none.ts'), boundary(), trash)).rejects.toMatchObject({ code: 'not-found' });
     });
 });

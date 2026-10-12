@@ -58,19 +58,30 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
             }
             return null;
         },
-        rename: async (from, to) => {
+        supportsOverwrite: true,
+        rename: async (from, to, options) => {
             try {
                 const unsaved = draftPathsUnder(endpointId, from, true);
-                await moveFile(transport, endpointId, projectId, from, to, { edits: false, focus: true }, drafts);
+                if (options?.overwrite) {
+                    // The replaced file goes to the trash, so what is open on it must not keep its text or write it back.
+                    forgetDeleted(endpointId, to, drafts);
+                }
+                await moveFile(transport, endpointId, projectId, from, to, { edits: false, focus: true, overwrite: options?.overwrite }, drafts);
                 unsaved.forEach((path) => savedByMove.add(to + path.slice(from.length)));
                 return null;
             } catch (error) {
                 return error instanceof Error ? error.message : String(error);
             }
         },
-        create: async (path, text) => {
+        create: async (path, text, options) => {
             try {
-                await transport.request('fs.create', { path, kind: 'file', text });
+                await transport.request('fs.create', {
+                    path,
+                    kind: 'file',
+                    text,
+                    ...(projectId === null ? {} : { projectId, edits: false }),
+                    ...(options?.overwrite ? { overwrite: true } : {})
+                });
                 return null;
             } catch (error) {
                 return error instanceof Error ? error.message : String(error);
@@ -78,7 +89,7 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
         },
         delete: async (path) => {
             try {
-                await transport.request('fs.delete', { path });
+                await transport.request('fs.delete', { path, ...(projectId === null ? {} : { projectId, edits: false }) });
                 forgetDeleted(endpointId, path);
                 return null;
             } catch (error) {

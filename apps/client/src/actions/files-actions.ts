@@ -69,6 +69,12 @@ const LIVE_MACHINE: FilesMachine = {
     reveal: (path) => useFiles.getState().revealInFiles(path)
 };
 
+/* Lets the language servers of the open project hear of a file that is made or deleted. */
+function projectScope(): { projectId?: string } {
+    const projectId = useProject.getState().current?.projectId;
+    return projectId === undefined ? {} : { projectId };
+}
+
 /* What anyone but a person gets when nothing bounds it: enough to answer with, few enough to read out. */
 const DEFAULT_RESULTS = 50;
 const MAX_LISTED = 200;
@@ -216,13 +222,13 @@ export function filesActions(overrides: Partial<FilesMachine> = {}): ActionHandl
         },
         'file.create': async ({ path, kind, text }, { actor }) => {
             const absolute = resolvedPath(machine, path, actor.kind);
-            await requested(() => connected().request('fs.create', { path: absolute, kind, ...(text === null ? {} : { text }) }));
+            await requested(() => connected().request('fs.create', { path: absolute, kind, ...(text === null ? {} : { text }), ...projectScope() }));
             return { output: { path: absolute, kind } };
         },
         'file.delete': async ({ paths }, { actor }) => {
             const targets = outermostPaths(machine, paths, actor.kind);
             for (const target of targets) {
-                await requested(() => connected().request('fs.delete', { path: target }));
+                await requested(() => connected().request('fs.delete', { path: target, ...projectScope() }));
                 machine.forget(target);
             }
             return { output: { paths: targets } };
