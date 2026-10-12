@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Stepper, Switch } from '@adecore/ui';
 import { SettingsRow } from '@adecore/ui/settings';
+import { RENDERED_DOC_COMMENTS } from '@/features';
 import { CodeThemePreview } from '@/shell/settings/panes/CodeSection';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { useCodeTheme } from '@/state/code-theme';
@@ -134,20 +135,22 @@ export function EditorGeneralTab() {
                     }
                 />
             </SettingsSection>
-            <SettingsSection title={t('editor.general.documentation.title')}>
-                <SettingsRow
-                    searchId="editor.general.documentation.render"
-                    label={t('editor.general.documentation.render.label')}
-                    description={t('editor.general.documentation.render.description')}
-                    control={
-                        <Switch
-                            checked={codeRenderDocs}
-                            onCheckedChange={(checked) => update({ codeRenderDocs: checked })}
-                            label={t('editor.general.documentation.render.label')}
-                        />
-                    }
-                />
-            </SettingsSection>
+            {RENDERED_DOC_COMMENTS && (
+                <SettingsSection title={t('editor.general.documentation.title')}>
+                    <SettingsRow
+                        searchId="editor.general.documentation.render"
+                        label={t('editor.general.documentation.render.label')}
+                        description={t('editor.general.documentation.render.description')}
+                        control={
+                            <Switch
+                                checked={codeRenderDocs}
+                                onCheckedChange={(checked) => update({ codeRenderDocs: checked })}
+                                label={t('editor.general.documentation.render.label')}
+                            />
+                        }
+                    />
+                </SettingsSection>
+            )}
             <SettingsSection title={t('editor.general.codeVision.title')}>
                 <SettingsRow
                     searchId="editor.general.codeVision.usages"

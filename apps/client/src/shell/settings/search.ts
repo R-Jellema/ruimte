@@ -1,4 +1,5 @@
 import i18next from 'i18next';
+import { RENDERED_DOC_COMMENTS } from '@/features';
 import { canSwipeBetweenPages, desktop } from '@/desktop/bridge';
 import { closedLidOffered, keepAwakeAvailable } from '@/state/keep-awake';
 import { ALL_SETTINGS_SECTIONS, sectionDescription, sectionLabel } from '@/shell/settings/sections';
@@ -136,7 +137,8 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         id: 'editor.general.documentation.render',
         section: 'editor',
         label: 'settings:editor.general.documentation.render.label',
-        description: 'settings:editor.general.documentation.render.description'
+        description: 'settings:editor.general.documentation.render.description',
+        available: () => RENDERED_DOC_COMMENTS
     },
     {
         id: 'editor.general.codeVision.usages',
