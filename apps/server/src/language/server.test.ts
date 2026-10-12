@@ -83,6 +83,20 @@ describe('a language server of one kind in one project', () => {
         expect(Object.keys(server.capabilities ?? {})).toEqual(['typescript', 'vue']);
     });
 
+    it('negotiates snippet indentation and only the completion defaults the client consumes', async () => {
+        const { server, spawner } = rig('typescript');
+        server.attach(document('/work/src/a.ts', 'typescript', 'let a = 1;'));
+        await settle();
+        const initialize = spawner.processes[0]!.server.paramsOf('initialize')[0] as {
+            capabilities: { textDocument: { completion: unknown } };
+        };
+        expect(initialize.capabilities.textDocument.completion).toMatchObject({
+            completionItem: { snippetSupport: true, insertTextModeSupport: { valueSet: [1, 2] } },
+            completionList: { itemDefaults: ['commitCharacters', 'editRange', 'insertTextFormat', 'insertTextMode'] }
+        });
+        await server.stop();
+    });
+
     it('runs the native TypeScript server as a program of its own, not under the daemon runtime', async () => {
         const { server, spawner } = rig('typescript');
         server.attach(document('/work/src/a.ts', 'typescript', 'let a = 1;'));

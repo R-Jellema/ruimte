@@ -283,6 +283,8 @@ When a CLI generates an image, the daemon saves it as an attachment before the t
 
 ## Language servers
 
+Completion negotiation advertises snippets, both insertion modes (as-is and adjusted indentation), and the list defaults the client applies: `commitCharacters`, `editRange`, `insertTextFormat` and `insertTextMode`. It does not advertise a `data` default, which the completion consumer does not inherit.
+
 `src/language` runs the language servers of the editor. The daemon is their LSP client (`@adecore/lsp`) and the one owner of every document's text and version, so all clients of a project share what a server sees. The wire is `packages/contracts/src/language.ts`, and `src/language/CLAUDE.md` has the invariants.
 
 | Kind | Package | Serves |

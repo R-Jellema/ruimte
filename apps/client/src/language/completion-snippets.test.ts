@@ -107,6 +107,7 @@ describe('ending the stops', () => {
         expect(editor.press({ key: 'Escape' })).toBe(false);
         await start();
         editor.moveCaret(at(0, 100));
+        await settle();
         expect(language.snippets.isActive).toBe(false);
         await start();
         editor.applyEdits([{ range: { start: at(0, 0), end: at(0, 0) }, text: '// ' }]);
