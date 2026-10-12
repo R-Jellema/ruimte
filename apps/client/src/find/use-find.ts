@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { registerFindHost } from '@/find/hosts';
 import { EMPTY_FIND_QUERY, type FindQuery } from '@/find/query';
+import { activeViewEditorFor } from '@/shell/panels/focused-editor';
 
 export interface FindState {
     open: boolean;
@@ -29,6 +30,14 @@ export function lastFindQuery(): FindQuery {
 
 /* What a surface puts in the query when the bar is asked for, such as the text that is selected. */
 export type FindSeed = (options: { replace: boolean }, query: FindQuery) => Partial<FindQuery> | null;
+
+/* Where the keyboard goes when a bar closes: where it was, else the last editor of the view the bar is in. */
+export function findReturnTarget(remembered: HTMLElement | null, surface: HTMLElement | null): { focus(options?: FocusOptions): void } | null {
+    if (remembered !== null && remembered !== document.body && remembered.isConnected) {
+        return remembered;
+    }
+    return surface === null ? null : activeViewEditorFor(surface);
+}
 
 /*
  * One searchable surface: it registers the element it draws in, so Mod+F finds it while it has the
@@ -90,12 +99,10 @@ export function useFind(surface: RefObject<HTMLElement | null>, enabled = true, 
     const close = useCallback((): void => {
         openRef.current = false;
         setOpen(false);
-        const target = returnTo.current;
+        const target = findReturnTarget(returnTo.current, surface.current);
         returnTo.current = null;
-        if (target !== null && target.isConnected) {
-            target.focus({ preventScroll: true });
-        }
-    }, []);
+        target?.focus({ preventScroll: true });
+    }, [surface]);
 
     // A surface that can no longer be searched (a chat that shows a sub-agent in its place) drops its bar.
     useEffect(() => {
