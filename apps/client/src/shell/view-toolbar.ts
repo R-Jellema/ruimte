@@ -4,6 +4,7 @@ import { useDictation } from '@/dictation/controller';
 import { useNodeHost, type NodeHost } from '@/nodes/node-host';
 import { isLooseView, type CellView } from '@/shell/cell-view';
 import { useChatRow } from '@adecore/agents-react/state/chats';
+import { isDatabaseTab } from '@/state/files';
 import { useHasPlans } from '@/state/plans';
 import { useSessionPortControl } from '@/terminal/session-port-controls';
 
@@ -26,9 +27,9 @@ export function useHasViewToolbar(view: CellView | null): boolean {
     const forked = useIsFork(view);
     const planned = useHasPlans(view?.kind === 'chat' ? view.id : '');
     const ports = useSessionPortControl(view?.kind === 'terminal' ? view.id : '');
-    // The file's controls are portaled into the bar, which is where its renderer puts them.
+    // A file's controls are portaled into the bar; a database tab draws its own toolbar in the body.
     if (isLooseView(view)) {
-        return true;
+        return !isDatabaseTab(view.tab);
     }
     if (view === null || !KINDS_WITH_TOOLBAR.has(view.kind)) {
         return false;
