@@ -1215,9 +1215,9 @@ describe('files that move', () => {
         edits: [{ range: { start: { line: 0, character: 8 }, end: { line: 0, character: 11 } }, newText: text }]
     });
 
-    async function moveRig(answer?: (params: unknown) => unknown) {
+    async function moveRig(answer?: (params: unknown) => unknown, texts: Record<string, string> = {}) {
         const spawner = fakeSpawner(capabilities, [], answer === undefined ? {} : { typescript: { 'workspace/willRenameFiles': answer } });
-        const result = await installed(['typescript'], { spawner, texts: { '/work/src/b.ts': 'import "./a";\n' } });
+        const result = await installed(['typescript'], { spawner, texts: { '/work/src/b.ts': 'import "./a";\n', ...texts } });
         await openReady(result.host, 'src/a.ts', 'export "./a";\n');
         const calls: string[] = [];
         const written: Array<{ path: string; text: string }> = [];
@@ -1230,7 +1230,9 @@ describe('files that move', () => {
             create: async (path: string, text: string) => {
                 calls.push('create');
                 written.push({ path, text });
-            }
+            },
+            rename: async (from: string, to: string, overwrite: boolean) => void calls.push(`rename ${from} ${to}${overwrite ? ' overwrite' : ''}`),
+            delete: async (path: string) => void calls.push(`delete ${path}`)
         };
         const server = spawner.processes[0].server;
         return { ...result, server, calls, written, file };
@@ -1329,7 +1331,7 @@ describe('files that move', () => {
         expect(calls).toEqual(['move', 'move']);
     });
 
-    it('moves anyway, and skips the whole edit, when the server answers with a delete', async () => {
+    it('moves anyway, and skips the whole edit, when the server deletes a file that is not there', async () => {
         const { host, calls, written, file, events, server } = await moveRig(() => ({
             documentChanges: [line('/work/src/b.ts', './c'), { kind: 'delete', uri: 'file:///work/src/old.ts' }]
         }));
@@ -1339,6 +1341,51 @@ describe('files that move', () => {
         expect(kinds(events['client-1'], 'language.edit')).toHaveLength(0);
         expect(server.paramsOf('workspace/didRenameFiles')).toHaveLength(1);
         expect((await host.log('p1', 'typescript')).map((entry) => entry.text).join('\n')).toContain('left out the edit of a rename');
+    });
+
+    it('carries out the moves, creates and deletes of a server edit in order, and edits a moved file where it now stands', async () => {
+        const { host, calls, written, file } = await moveRig(
+            () => ({
+                documentChanges: [
+                    { kind: 'rename', oldUri: 'file:///work/src/b.ts', newUri: 'file:///work/src/d.ts' },
+                    line('/work/src/d.ts', './c'),
+                    { kind: 'delete', uri: 'file:///work/src/old.ts' },
+                    { kind: 'create', uri: 'file:///work/src/index.ts' },
+                    {
+                        textDocument: { uri: 'file:///work/src/index.ts', version: null },
+                        edits: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, newText: 'export {};\n' }]
+                    }
+                ]
+            }),
+            { '/work/src/old.ts': 'old\n' }
+        );
+        expect(await host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, file)).toEqual(['/work/src/d.ts', '/work/src/index.ts']);
+        expect(calls).toEqual(['rename /work/src/b.ts /work/src/d.ts', 'write', 'delete /work/src/old.ts', 'create', 'move']);
+        expect(written).toEqual([
+            { path: '/work/src/d.ts', text: 'import "./c";\n' },
+            { path: '/work/src/index.ts', text: 'export {};\n' }
+        ]);
+    });
+
+    it('checks the version of a held document against the daemon, and leaves a stale edit out', async () => {
+        const stale = (version: number) => ({
+            documentChanges: [{ textDocument: { uri: 'file:///work/src/a.ts', version }, edits: line('/work/src/a.ts', './c').edits }]
+        });
+        const fresh = await moveRig(() => stale(1));
+        const document = [...fresh.host['projects'].get('p1')!.documents.values()][0]!;
+        const moving = fresh.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, fresh.file);
+        await until(() => kinds(fresh.events['client-1'], 'language.edit').length > 0);
+        const [asked] = kinds(fresh.events['client-1'], 'language.edit');
+        const payload = (asked as { payload: { editId: string; edit: { documentChanges: Array<{ textDocument: { version: number } }> } } }).payload;
+        expect(payload.edit.documentChanges[0]!.textDocument.version).toBe(document.version);
+        fresh.host.answerEdit('client-1', { projectId: 'p1', editId: payload.editId, applied: true });
+        expect(await moving).toEqual(['/work/src/a.ts']);
+
+        const old = await moveRig(() => stale(99));
+        expect(await old.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, old.file)).toEqual([]);
+        expect(old.calls).toEqual(['move']);
+        expect(kinds(old.events['client-1'], 'language.edit')).toHaveLength(0);
+        expect((await old.host.log('p1', 'typescript')).map((entry) => entry.text).join('\n')).toContain('Workspace edit version mismatch');
     });
 
     it('moves anyway, and skips the edit, when it does not fit the text', async () => {
@@ -1410,7 +1457,9 @@ describe('files that are made or deleted', () => {
                 calls.push('write');
                 written.push({ path, text });
             },
-            create: async () => void calls.push('create')
+            create: async () => void calls.push('create'),
+            rename: async () => void calls.push('rename'),
+            delete: async () => void calls.push('delete')
         };
         return { ...result, server: spawner.processes[0].server, calls, written, file };
     }

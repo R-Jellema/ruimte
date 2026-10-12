@@ -35,17 +35,18 @@ import {
     LspError,
     fileUriToPath,
     pathToFileUri,
-    planWorkspaceEdit,
+    planWorkspaceOperations,
     StaleResultError,
     watchesFile,
     type ApplyWorkspaceEditParams,
     type ApplyWorkspaceEditResult,
     type Diagnostic,
-    type DocumentSnapshot,
     type CreatedFile,
     type DeletedFile,
     type RenamedFile,
-    type WorkspaceEdit
+    type WorkspaceEdit,
+    type WorkspaceEditPlan,
+    type WorkspaceEditSource
 } from '@adecore/lsp';
 import type { WatchSeams } from '@adecore/agents/watch-seam';
 import { ClientSinks } from '../client-sinks.ts';
@@ -186,6 +187,10 @@ export interface FileMove {
     write(path: string, text: string): Promise<void>;
     /* Makes a file that is not there with its text, and fails when it is. */
     create(path: string, text: string): Promise<void>;
+    /* Moves a file or folder a server's edit moves; `overwrite` replaces a file that is there. */
+    rename(from: string, to: string, overwrite: boolean): Promise<void>;
+    /* Deletes a file or folder a server's edit deletes. */
+    delete(path: string): Promise<void>;
 }
 
 /* What a failure of the LSP client is on the wire. */
@@ -1041,9 +1046,10 @@ export class LanguageHost {
     }
 
     /*
-     * Makes what a server answered to a file operation: a file it creates is made first, a document a client holds open takes
-     * its edits in its editor, as one undo step, and any other file is written. The edit is tried against every text
-     * first, so one that does not fit changes nothing: it is left out whole and logged, and the operation goes on.
+     * Makes what a server answered to a file operation, step by step as the shared planner ordered it: files it makes,
+     * moves and deletes go through the same checks a person's own operation does, a document a client holds open takes
+     * its edits in its editor, as one undo step, and any other file is written. The whole edit is planned against the
+     * files first, so one that does not fit changes nothing: it is left out whole and logged, and the operation goes on.
      */
     private async applyFileEdit(
         project: ProjectLanguage,
@@ -1053,81 +1059,98 @@ export class LanguageHost {
         server: LanguageServer,
         what: string
     ): Promise<string[]> {
-        const documents = new Map<string, SharedDocument>(
-            [...project.documents.values()].filter((document) => document.clients.size > 0).map((document) => [document.uri, document])
-        );
-        let planned;
+        let plan: WorkspaceEditPlan;
         try {
-            planned = planWorkspaceEdit(edit, await this.snapshotsOf(edit, documents, what));
+            plan = await planWorkspaceOperations(edit, this.editSource(project));
         } catch (error) {
             server.log.push('host', `${server.kind} left out the edit of a ${what}: ${error instanceof Error ? error.message : 'it does not fit the files'}`);
             return [];
         }
+        const documents = new Map<string, SharedDocument>(
+            [...project.documents.values()].filter((document) => document.clients.size > 0).map((document) => [document.uri, document])
+        );
         const held = new Map<string, WorkspaceEdit>();
-        const created: Array<{ path: string; text: string }> = [];
-        const closed: Array<{ path: string; text: string }> = [];
         const edited: string[] = [];
-        for (const change of planned) {
-            if (change.text === change.before && change.created !== true) {
+        const flush = async (): Promise<void> => {
+            for (const [target, own] of held) {
+                const result = await this.sendEdit(project.projectId, target, own);
+                if (!result.applied) {
+                    throw new LanguageError(LANGUAGE_ERROR_CODES.failed, result.failureReason ?? `The editor did not make the edit of a ${what}`);
+                }
+            }
+            held.clear();
+        };
+        for (const step of plan.steps) {
+            if (step.kind === 'edits') {
+                if (step.after === step.before) {
+                    continue;
+                }
+                const path = fileUriToPath(step.uri) ?? '';
+                edited.push(path);
+                const open = step.uri === step.readUri ? documents.get(step.uri) : undefined;
+                if (open === undefined) {
+                    await flush();
+                    await this.options.machineHome.refuse(path);
+                    await file.write(path, step.after);
+                    continue;
+                }
+                const target = open.clients.has(clientId) ? clientId : [...open.clients][0]!;
+                const own = held.get(target) ?? { documentChanges: [] };
+                own.documentChanges = [...(own.documentChanges ?? []), { textDocument: { uri: step.uri, version: open.version }, edits: [...step.edits] }];
+                held.set(target, own);
                 continue;
             }
-            const path = fileUriToPath(change.uri) ?? '';
-            edited.push(path);
-            if (change.created === true) {
-                created.push({ path, text: change.text });
-                continue;
-            }
-            const open = documents.get(change.uri);
-            if (open === undefined) {
-                closed.push({ path, text: change.text });
-                continue;
-            }
-            const target = open.clients.has(clientId) ? clientId : [...open.clients][0]!;
-            const entries = (edit.documentChanges ?? []).filter((entry) => 'textDocument' in entry && entry.textDocument.uri === change.uri);
-            const own = held.get(target) ?? { documentChanges: [] };
-            own.documentChanges = [
-                ...(own.documentChanges ?? []),
-                ...(entries.length > 0 ? entries : [{ textDocument: { uri: change.uri, version: null }, edits: edit.changes?.[change.uri] ?? [] }])
-            ];
-            held.set(target, own);
-        }
-        for (const { path, text } of created) {
-            await file.create(path, text);
-        }
-        for (const [target, own] of held) {
-            const result = await this.sendEdit(project.projectId, target, own);
-            if (!result.applied) {
-                throw new LanguageError(LANGUAGE_ERROR_CODES.failed, result.failureReason ?? `The editor did not make the edit of a ${what}`);
+            await flush();
+            if (step.kind === 'create') {
+                const path = fileUriToPath(step.uri) ?? '';
+                await this.options.machineHome.refuse(path);
+                edited.push(path);
+                await (step.overwrite ? file.write(path, step.text) : file.create(path, step.text));
+            } else if (step.kind === 'rename') {
+                const [from, to] = [fileUriToPath(step.oldUri) ?? '', fileUriToPath(step.newUri) ?? ''];
+                await Promise.all([this.options.machineHome.refuse(from), this.options.machineHome.refuse(to)]);
+                await file.rename(from, to, step.overwrite);
+            } else {
+                const path = fileUriToPath(step.uri) ?? '';
+                await this.options.machineHome.refuse(path);
+                await file.delete(path);
             }
         }
-        for (const { path, text } of closed) {
-            await file.write(path, text);
-        }
+        await flush();
         return edited;
     }
 
-    /* The text every file an edit touches has now: the editor's for a document a client holds open, else the disk's. */
-    private async snapshotsOf(edit: WorkspaceEdit, documents: ReadonlyMap<string, SharedDocument>, what: string): Promise<Map<string, DocumentSnapshot>> {
-        const snapshots = new Map<string, DocumentSnapshot>();
-        const creates = new Set((edit.documentChanges ?? []).flatMap((change) => ('kind' in change && change.kind === 'create' ? [change.uri] : [])));
-        const uris = new Set([
-            ...creates,
-            ...(edit.documentChanges ?? []).flatMap((change) => ('textDocument' in change ? [change.textDocument.uri] : [])),
-            ...Object.keys(edit.changes ?? {})
-        ]);
-        for (const uri of uris) {
-            const open = documents.get(uri);
-            const text = open?.text ?? (await this.readText(fileUriToPath(uri) ?? ''));
-            if (text === null || text === undefined) {
-                // A file the edit creates has no text yet; if it is there all the same, making it fails.
-                if (creates.has(uri)) {
-                    continue;
+    /* The files an edit is planned against: the editor's text for a document a client holds open, else the disk's. */
+    private editSource(project: ProjectLanguage): WorkspaceEditSource {
+        const held = (uri: string): SharedDocument | undefined => {
+            const path = fileUriToPath(uri);
+            const document = path === null ? undefined : project.documents.get(path);
+            return document !== undefined && document.clients.size > 0 ? document : undefined;
+        };
+        return {
+            operations: ['create', 'rename', 'delete'],
+            read: async (uri) => {
+                const open = held(uri);
+                if (open !== undefined) {
+                    return { text: open.text, version: open.version, open: true };
                 }
-                throw new LanguageError(LANGUAGE_ERROR_CODES.failed, `${uri} cannot be read to make the edit of a ${what}`);
+                const path = fileUriToPath(uri);
+                if (path === null) {
+                    return null;
+                }
+                await this.options.machineHome.refuse(path);
+                const text = await this.readText(path);
+                return text === null ? null : { text, version: null, open: false };
+            },
+            exists: async (uri) => {
+                const path = fileUriToPath(uri);
+                return path !== null && (await fileExists(path));
+            },
+            isFolder: async (uri) => {
+                const path = fileUriToPath(uri);
+                return path !== null && (await isDirectory(path));
             }
-            snapshots.set(uri, { text, version: open?.version ?? null });
-        }
-        return snapshots;
+        };
     }
 
     private projectOf(document: SharedDocument): string | null {

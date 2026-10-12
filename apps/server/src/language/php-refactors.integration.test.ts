@@ -350,7 +350,9 @@ describe.skipIf(!runnable)('the refactors of the PHP server of Ruimte', () => {
             create: async (path, text) => {
                 order.push(`create ${path.slice(project.length + 1)}`);
                 await writeFile(path, text, { flag: 'wx' });
-            }
+            },
+            rename: async (from, to) => rename(from, to),
+            delete: async (path) => rm(path, { recursive: true })
         });
         expect(edited.map((path) => path.slice(project.length + 1)).sort()).toEqual([
             'src/Models/User.php',

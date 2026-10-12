@@ -26,6 +26,12 @@ function editsOf(boundary: WriteBoundary): Omit<FileMove, 'move'> {
         },
         create: async (path, text) => {
             await createEntry({ path, kind: 'file', text }, boundary);
+        },
+        rename: async (from, to, overwrite) => {
+            await (await planRename(from, to, boundary, { overwrite })).run();
+        },
+        delete: async (path) => {
+            await (await planDelete(path, boundary)).run();
         }
     };
 }
