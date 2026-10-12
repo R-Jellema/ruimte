@@ -3,7 +3,7 @@ import type { Shortcut } from '@adecore/ui';
 import { agentReviewOf } from '@/editor-ai/agent-review-registry';
 import { LANGUAGE_COMMANDS, LANGUAGE_COMMAND_IDS, type LanguageCommandId } from './command-table';
 import type { EditorLanguage } from './ruimte-editor-language';
-import { focusedLanguage } from './focused-language';
+import { languageForCommand } from './focused-language';
 
 const RUNNERS: Record<LanguageCommandId, (language: EditorLanguage) => void> = {
     'trigger-completion': (language) => language.completion.invoke(),
@@ -50,7 +50,7 @@ export function languageCommandRows(): LanguageCommandRow[] {
         shortcut: LANGUAGE_COMMANDS[id].shortcut,
         run: () => {
             requestAnimationFrame(() => {
-                const language = focusedLanguage();
+                const language = languageForCommand();
                 if (language !== null) {
                     RUNNERS[id](language);
                 }
