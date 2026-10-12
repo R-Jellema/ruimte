@@ -42,7 +42,7 @@ describe('the editor key table', () => {
 
         test(`names, on ${platform}, what holds each key the platform has and Ruimte keeps`, () => {
             for (const id of KEYMAP_IDS) {
-                const taken = KEYMAP[id as KeymapId][apple ? 'takenMac' : 'takenOther'] as { platform: string; by: string } | undefined;
+                const taken = KEYMAP[id as KeymapId]?.[apple ? 'takenMac' : 'takenOther'] as { platform: string; by: string } | undefined;
                 if (taken === undefined) {
                     continue;
                 }
