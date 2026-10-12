@@ -34,6 +34,32 @@ function completionPart(result: unknown): { items: unknown[]; isIncomplete: bool
     return { items: [], isIncomplete: false };
 }
 
+function completionItems(result: unknown): { items: unknown[]; isIncomplete: boolean } {
+    const part = completionPart(result);
+    const defaults = isRecord(result) && isRecord(result.itemDefaults) ? result.itemDefaults : null;
+    if (defaults === null) {
+        return part;
+    }
+    const items = part.items.map((item) => {
+        if (!isRecord(item)) {
+            return item;
+        }
+        const next = { ...item };
+        for (const key of ['commitCharacters', 'insertTextFormat', 'insertTextMode']) {
+            if (next[key] === undefined && defaults[key] !== undefined) {
+                next[key] = defaults[key];
+            }
+        }
+        const range = defaults.editRange;
+        if (next.textEdit === undefined && isRecord(range)) {
+            const newText = item.textEditText ?? item.insertText ?? item.label;
+            next.textEdit = 'start' in range ? { range, newText } : { insert: range.insert, replace: range.replace, newText };
+        }
+        return next;
+    });
+    return { ...part, items };
+}
+
 /* The parts of a hover as marked strings, which is the one shape that holds several. */
 function hoverParts(contents: unknown): unknown[] {
     if (Array.isArray(contents)) {
@@ -63,7 +89,7 @@ export function mergeAnswers(method: string, answers: readonly ServerAnswer[]): 
     const items: unknown[] = [];
     let isIncomplete = false;
     for (const answer of answers) {
-        const part = completionPart(answer.result);
+        const part = method === 'textDocument/completion' ? completionItems(answer.result) : completionPart(answer.result);
         isIncomplete ||= part.isIncomplete;
         part.items.forEach((item, index) => {
             items.push(item);

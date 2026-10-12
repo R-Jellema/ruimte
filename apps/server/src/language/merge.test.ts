@@ -12,6 +12,50 @@ describe('merging the answers of several servers', () => {
         expect(merged.itemServers).toEqual(['typescript', 'tailwind', 'tailwind']);
     });
 
+    it("materializes each server's list defaults before merging without overriding item fields", () => {
+        const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } };
+        const insert = { ...range, end: { line: 0, character: 1 } };
+        const first = {
+            isIncomplete: false,
+            itemDefaults: { editRange: range, insertTextFormat: 2, insertTextMode: 2, commitCharacters: [';'] },
+            items: [
+                { label: 'call', textEditText: 'call($1)' },
+                { label: 'own', insertTextFormat: 1, insertTextMode: 1, commitCharacters: [], textEdit: { range: insert, newText: 'own' } }
+            ]
+        };
+        const merged = mergeAnswers('textDocument/completion', [
+            { server: 'typescript', result: first },
+            {
+                server: 'tailwind',
+                result: {
+                    isIncomplete: true,
+                    itemDefaults: { editRange: { insert, replace: range }, insertTextFormat: 1 },
+                    items: [{ label: 'flex', insertText: 'flex-row' }]
+                }
+            }
+        ]);
+        expect(merged).toEqual({
+            result: {
+                isIncomplete: true,
+                items: [
+                    {
+                        label: 'call',
+                        textEditText: 'call($1)',
+                        insertTextFormat: 2,
+                        insertTextMode: 2,
+                        commitCharacters: [';'],
+                        textEdit: { range, newText: 'call($1)' }
+                    },
+                    { label: 'own', insertTextFormat: 1, insertTextMode: 1, commitCharacters: [], textEdit: { range: insert, newText: 'own' } },
+                    { label: 'flex', insertText: 'flex-row', insertTextFormat: 1, textEdit: { insert, replace: range, newText: 'flex-row' } }
+                ]
+            },
+            itemServers: ['typescript', 'typescript', 'tailwind']
+        });
+        expect(first.items[0]).toEqual({ label: 'call', textEditText: 'call($1)' });
+        expect(mergeAnswers('textDocument/completion', [{ server: 'host', result: merged.result, itemServers: merged.itemServers }])).toEqual(merged);
+    });
+
     it('concatenates the actions, and is no answer when none had one', () => {
         expect(
             mergeAnswers('textDocument/codeAction', [
