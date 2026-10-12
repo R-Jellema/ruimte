@@ -16,6 +16,7 @@ import { ProjectProblems } from './project-problems';
 import { LanguageStatusTracker } from './status';
 import { WireLanguageService, type WireLanguageServiceOptions } from './wire-service';
 import { shikiLanguageOf } from './language-ids-host';
+import { readPanelHeight, writePanelHeight } from './panel-height';
 
 export class ProjectLanguage extends SharedProjectLanguage {
     declare readonly service: WireLanguageService;
@@ -41,6 +42,7 @@ export class ProjectLanguage extends SharedProjectLanguage {
             textOf: (uri) => openEditors.get(uri)?.[0]?.getText(),
             applyEdit: (params) => applyEdit?.(params) ?? Promise.resolve({ applied: false, failureReason: 'The project language is not ready' })
         });
+        const panelBodyHeight = readPanelHeight();
         super(service, {
             i18n: i18next,
             folder,
@@ -48,6 +50,8 @@ export class ProjectLanguage extends SharedProjectLanguage {
             apple: isApplePlatform(),
             keymap: RUIMTE_EDITOR_KEYMAP,
             snippetTransformWorker: createSnippetTransformWorker,
+            ...(panelBodyHeight === undefined ? {} : { panelBodyHeight }),
+            onPanelResize: writePanelHeight,
             openPlace: (place) => {
                 const path = fileUriToPath(place.uri);
                 if (path !== null) {
