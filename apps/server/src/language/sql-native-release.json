@@ -1,28 +1,28 @@
 {
-  "version": "0.2.0",
-  "sourceRevision": "c0e7e05b0104c22a1afd9d1d1e790607a521246c",
+  "version": "0.2.1",
+  "sourceRevision": "07d184db2aa42c00af154811e9b9b4816d241334",
   "assets": {
     "darwin-arm64": {
-      "url": "https://github.com/basmilius/language-server-sql/releases/download/v0.2.0/sql-language-server-v0.2.0-darwin-arm64.tar.gz",
-      "sha256": "6844c5b85945acbaacbee06b0138ba01d41478b04af7317d87788b26fd256123",
+      "url": "https://github.com/basmilius/language-server-sql/releases/download/v0.2.1/sql-language-server-v0.2.1-darwin-arm64.tar.gz",
+      "sha256": "288834beacfed4e1a98fd2f61250beda293f54706ae9ff8ab9c9de40b72fc248",
       "format": "tar.gz",
       "executable": "sql-language-server"
     },
     "linux-arm64": {
-      "url": "https://github.com/basmilius/language-server-sql/releases/download/v0.2.0/sql-language-server-v0.2.0-linux-arm64.tar.gz",
-      "sha256": "2eeb652f88215a9e8116165f68672eeae8e13a1c9a16567c8711c3a0acdf6dcf",
+      "url": "https://github.com/basmilius/language-server-sql/releases/download/v0.2.1/sql-language-server-v0.2.1-linux-arm64.tar.gz",
+      "sha256": "e787f7101962b549078d72562722b5077cffb26bcf61199ea1620b44bcbc5f13",
       "format": "tar.gz",
       "executable": "sql-language-server"
     },
     "linux-x64": {
-      "url": "https://github.com/basmilius/language-server-sql/releases/download/v0.2.0/sql-language-server-v0.2.0-linux-x64.tar.gz",
-      "sha256": "aef8121ea424eebde458db5fbc72d76d5fdab5415de02921ac098ccc7af5eb9c",
+      "url": "https://github.com/basmilius/language-server-sql/releases/download/v0.2.1/sql-language-server-v0.2.1-linux-x64.tar.gz",
+      "sha256": "9e483260a36e52ab94bf548589a54005744f1f26eee090e84237d6fe6a74ee61",
       "format": "tar.gz",
       "executable": "sql-language-server"
     },
     "win32-x64": {
-      "url": "https://github.com/basmilius/language-server-sql/releases/download/v0.2.0/sql-language-server-v0.2.0-win32-x64.zip",
-      "sha256": "8787e566c62108df670c2fcdf48aeb963bd5d6011b443f0b25ed4a1ab4b541c6",
+      "url": "https://github.com/basmilius/language-server-sql/releases/download/v0.2.1/sql-language-server-v0.2.1-win32-x64.zip",
+      "sha256": "8647c9ecbb6c19030cd283871dcb12359f9f772f6cbd28eddca864282a14d9ae",
       "format": "zip",
       "executable": "sql-language-server.exe"
     }
