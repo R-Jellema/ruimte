@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '@adecore/ui/format';
-import type { Editor, EditorFindState } from '@adecore/editor';
+import { MAX_REPLACEMENT_PAGE, MAX_REPLACEMENT_CHARACTERS, type Editor, type EditorFindState } from '@adecore/editor';
 import { compileFind, type FindQuery } from '@/find/query';
 import { openFocusedFind } from '@/find/hosts';
 import { lastFindQuery, type FindSeed, type FindState } from '@/find/use-find';
@@ -154,7 +154,7 @@ export function useEditorFind(find: FindState, editor: Editor | null): EditorFin
     const status = !find.open
         ? null
         : state.replaceFailed !== undefined
-          ? t(`find.replace.failed.${state.replaceFailed}`, { edits: formatNumber(10000), characters: formatNumber(4000000) })
+          ? t(`find.replace.failed.${state.replaceFailed}`, { edits: formatNumber(MAX_REPLACEMENT_PAGE), characters: formatNumber(MAX_REPLACEMENT_CHARACTERS) })
           : failure !== undefined
             ? t(`find.failed.${failure}`)
             : state.searching
