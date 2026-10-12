@@ -7,7 +7,10 @@ export function docCommentsRendered(setting: boolean, feature: boolean = RENDERE
     return feature && setting;
 }
 
-export function renderedDocsSettings(setting: boolean, feature: boolean = RENDERED_DOC_COMMENTS): { readonly renderDocComments: boolean, readonly enabled: boolean } {
+export function renderedDocsSettings(
+    setting: boolean,
+    feature: boolean = RENDERED_DOC_COMMENTS
+): { readonly renderDocComments: boolean; readonly enabled: boolean } {
     return { renderDocComments: docCommentsRendered(setting, feature), enabled: feature };
 }
 
