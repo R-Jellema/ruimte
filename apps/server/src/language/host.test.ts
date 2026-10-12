@@ -1401,6 +1401,39 @@ describe('files that move', () => {
         ]);
     });
 
+    const movedThenEdited = () => ({
+        documentChanges: [{ kind: 'rename', oldUri: 'file:///work/src/a.ts', newUri: 'file:///work/src/d.ts' }, line('/work/src/d.ts', './c')]
+    });
+
+    it('sends the edit of a held document that an earlier step moved to the client that holds it', async () => {
+        const rig = await moveRig(movedThenEdited);
+        const document = [...rig.host['projects'].get('p1')!.documents.values()][0]!;
+        const moving = rig.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, rig.file);
+        await until(() => kinds(rig.events['client-1'], 'language.edit').length > 0);
+        const [asked] = kinds(rig.events['client-1'], 'language.edit');
+        const payload = (asked as { payload: { editId: string; edit: { documentChanges: Array<{ textDocument: { uri: string; version: number } }> } } })
+            .payload;
+        expect(payload.edit.documentChanges[0]!.textDocument).toEqual({ uri: document.uri, version: document.version });
+        rig.host.answerEdit('client-1', { projectId: 'p1', editId: payload.editId, applied: true });
+        expect(await moving).toEqual(['/work/src/d.ts']);
+        expect(rig.written).toEqual([]);
+        expect(rig.calls).toEqual(['rename /work/src/a.ts /work/src/d.ts', 'move']);
+    });
+
+    it('writes the edit of a moved document to its new path when the client let go of it in the move', async () => {
+        const rig = await moveRig(movedThenEdited);
+        const file = {
+            ...rig.file,
+            rename: async (from: string, to: string) => {
+                rig.calls.push(`rename ${from} ${to}`);
+                await rig.host.closeDocument('client-1', { projectId: 'p1', path: 'src/a.ts' });
+            }
+        };
+        expect(await rig.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, file)).toEqual(['/work/src/d.ts']);
+        expect(rig.written).toEqual([{ path: '/work/src/d.ts', text: 'export "./c";\n' }]);
+        expect(kinds(rig.events['client-1'], 'language.edit')).toHaveLength(0);
+    });
+
     it('checks the version of a held document against the daemon, and leaves a stale edit out', async () => {
         const stale = (version: number) => ({
             documentChanges: [{ textDocument: { uri: 'file:///work/src/a.ts', version }, edits: line('/work/src/a.ts', './c').edits }]

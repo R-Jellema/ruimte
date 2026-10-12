@@ -1090,7 +1090,7 @@ export class LanguageHost {
                 }
                 const path = fileUriToPath(step.uri) ?? '';
                 edited.push(path);
-                const open = step.uri === step.readUri ? documents.get(step.uri) : undefined;
+                const open = step.uri === step.readUri ? documents.get(step.uri) : this.heldAfterMove(project, step.uri, step.readUri);
                 if (open === undefined) {
                     await flush();
                     await this.options.machineHome.refuse(path);
@@ -1099,7 +1099,7 @@ export class LanguageHost {
                 }
                 const target = open.clients.has(clientId) ? clientId : [...open.clients][0]!;
                 const own = held.get(target) ?? { documentChanges: [] };
-                own.documentChanges = [...(own.documentChanges ?? []), { textDocument: { uri: step.uri, version: open.version }, edits: [...step.edits] }];
+                own.documentChanges = [...(own.documentChanges ?? []), { textDocument: { uri: open.uri, version: open.version }, edits: [...step.edits] }];
                 held.set(target, own);
                 continue;
             }
@@ -1121,6 +1121,18 @@ export class LanguageHost {
         }
         await flush();
         return edited;
+    }
+
+    /* The document a client still holds for a file an earlier step moved: under its new path when the client reopened it there, else under the old one it moves along with the file. */
+    private heldAfterMove(project: ProjectLanguage, uri: string, readUri: string): SharedDocument | undefined {
+        for (const candidate of [uri, readUri]) {
+            const path = fileUriToPath(candidate);
+            const document = path === null ? undefined : project.documents.get(path);
+            if (document !== undefined && document.clients.size > 0) {
+                return document;
+            }
+        }
+        return undefined;
     }
 
     /* The files an edit is planned against: the editor's text for a document a client holds open, else the disk's. */
