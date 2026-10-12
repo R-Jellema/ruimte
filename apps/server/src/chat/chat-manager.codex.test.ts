@@ -361,6 +361,71 @@ describe('ChatManager with Codex', () => {
         expect(recorder.ofKind('assistant')[0]?.streaming).toBe(false);
     });
 
+    test.each([false, true])('a reply after background output completes with native background turn %j and delivers steering', async (nativeBackground) => {
+        let sends = 0;
+        const probe = inProcess((io) => {
+            const program = fakeCodexWith({ resumeLead: CONTEXT_LEAD })(io);
+            return {
+                onLine: (line) => {
+                    const frame = JSON.parse(line);
+                    if (frame.method === 'turn/start' && sends === 1 && nativeBackground) {
+                        io.out({
+                            method: 'turn/completed',
+                            params: { threadId: frame.params.threadId, turn: { id: 'background-turn', status: 'completed', items: [], error: null } }
+                        });
+                    }
+                    program.onLine(line);
+                    if (frame.method !== 'turn/start') {
+                        return;
+                    }
+                    sends += 1;
+                    const threadId = frame.params.threadId;
+                    if (sends === 1) {
+                        io.later(() => {
+                            if (nativeBackground) {
+                                io.out({
+                                    method: 'turn/started',
+                                    params: { threadId, turn: { id: 'background-turn', status: 'inProgress', items: [], error: null } }
+                                });
+                            }
+                            io.out({
+                                method: 'item/completed',
+                                params: {
+                                    threadId,
+                                    item: { type: 'agentMessage', id: 'background-report', text: 'Background work finished', phase: 'commentary' }
+                                }
+                            });
+                        });
+                    }
+                    io.out({
+                        method: 'thread/tokenUsage/updated',
+                        params: { threadId, tokenUsage: { last: { totalTokens: 25090 + sends } } }
+                    });
+                }
+            };
+        });
+        await retire(manager);
+        manager = makeManager({ spawn: probe.spawn });
+        manager.subscribe('c1', recorder.sink());
+        await open('chat-background-reply');
+        await manager.send('chat-background-reply', 'first');
+        await recorder.until(idle);
+        probe.started[0]!.runLater();
+        await recorder.until(() => recorder.ofKind('assistant').some((item) => item.text === 'Background work finished'));
+        expect(recorder.ofKind('turn').at(-1)).toMatchObject({ origin: 'agent', state: 'running' });
+
+        await manager.send('chat-background-reply', 'second');
+        await recorder.until(() => recorder.info?.usage.contextTokens === 25092);
+        expect(recorder.ofKind('assistant').at(-1)).toMatchObject({ text: 'echo: second (medium)', streaming: false });
+        expect(recorder.info).toMatchObject({ status: 'idle', activeTurnId: null });
+        expect(recorder.ofKind('turn').at(-1)?.state).toBe('done');
+
+        expect(await manager.send('chat-background-reply', 'third', { delivery: 'steer' })).toMatchObject({ queued: false });
+        await recorder.until(() => recorder.info?.usage.contextTokens === 25093);
+        expect(recorder.info).toMatchObject({ status: 'idle', activeTurnId: null });
+        expect(recorder.info?.queue ?? []).toEqual([]);
+    });
+
     for (const arrivesAfterRoot of [false, true]) {
         test(`Stop declines a native child approval ${arrivesAfterRoot ? 'arriving after' : 'held across'} root completion`, async () => {
             const answered = Promise.withResolvers<unknown>();
