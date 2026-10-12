@@ -3,8 +3,8 @@ import type { AgentKind, AgentRequest, AgentStatus, RuntimeMode } from '@ruimte/
 interface HookOutcome {
     agentSessionId: string;
     transcriptPath: string | null;
-    // Null means the agent has left the shell.
-    status: AgentStatus | null;
+    // Null means the agent has left the shell; `unchanged` says nothing about the agent the person talks to.
+    status: AgentStatus | 'unchanged' | null;
     // The CLI's own name for its permission mode, on the events that carry one.
     permissionMode: string | null;
     event: string;
@@ -14,7 +14,7 @@ interface HookOutcome {
 
 // What each hook event means for the person watching the node. Claude Code and Codex share the
 // event names, so one table serves both; the few events only one of them fires are harmless for the other.
-const EVENT_STATUS: Record<string, AgentStatus | 'gone'> = {
+const EVENT_STATUS: Record<string, AgentStatus | 'unchanged' | 'gone'> = {
     SessionStart: 'idle',
     UserPromptSubmit: 'running',
     PreToolUse: 'running',
@@ -26,7 +26,8 @@ const EVENT_STATUS: Record<string, AgentStatus | 'gone'> = {
     Elicitation: 'needs-you',
     ElicitationResult: 'running',
     SubagentStart: 'running',
-    SubagentStop: 'running',
+    // Claude Code 2.1.296 also fires it for the recap it writes on its own after a finished turn.
+    SubagentStop: 'unchanged',
     PreCompact: 'running',
     PostCompact: 'running',
     Stop: 'idle',
@@ -148,7 +149,7 @@ export function normalizeHook(body: unknown): HookOutcome | null {
     }
     const transcriptPath = asString(hook.transcript_path);
 
-    let status: AgentStatus | 'gone' | undefined;
+    let status: AgentStatus | 'unchanged' | 'gone' | undefined;
     if (event === 'Notification') {
         status = NOTIFICATION_STATUS[asString(hook.notification_type) ?? ''];
     } else if (event === 'PreToolUse' && ASKING_TOOLS.has(asString(hook.tool_name) ?? '')) {
@@ -177,11 +178,15 @@ const MAIN_AGENT = '';
 const SETTLING_EVENTS: ReadonlySet<string> = new Set(['SessionStart', 'UserPromptSubmit', 'Interrupt', 'SessionEnd']);
 
 /*
- * The status a hook leaves, given who was still waiting on the person before it. A hook only settles
- * a wait of its own agent: a background subagent working on does not answer the question the main
- * agent asked, and the main agent's tools do not answer a subagent's approval.
+ * The status a hook leaves, given who was still waiting on the person before it and the status it
+ * found. A hook only settles a wait of its own agent: a background subagent working on does not
+ * answer the question the main agent asked, and the main agent's tools do not answer a subagent's approval.
  */
-export function settleWaiting(waiting: ReadonlySet<string>, outcome: HookOutcome): { waiting: Set<string>; status: AgentStatus | null } {
+export function settleWaiting(
+    waiting: ReadonlySet<string>,
+    outcome: HookOutcome,
+    previous: AgentStatus | null
+): { waiting: Set<string>; status: AgentStatus | null } {
     const source = outcome.subagentId ?? MAIN_AGENT;
     const next = new Set(source === MAIN_AGENT && SETTLING_EVENTS.has(outcome.event) ? [] : waiting);
     if (outcome.status === 'needs-you') {
@@ -192,7 +197,14 @@ export function settleWaiting(waiting: ReadonlySet<string>, outcome: HookOutcome
     if (outcome.status === null) {
         return { waiting: new Set(), status: null };
     }
-    return { waiting: next, status: next.size > 0 ? 'needs-you' : outcome.status };
+    if (next.size > 0) {
+        return { waiting: next, status: 'needs-you' };
+    }
+    if (outcome.status !== 'unchanged') {
+        return { waiting: next, status: outcome.status };
+    }
+    // A wait that just ended was the only thing the previous status said, so the main agent works on.
+    return { waiting: next, status: previous === 'idle' || previous === 'error' ? previous : 'running' };
 }
 
 /*

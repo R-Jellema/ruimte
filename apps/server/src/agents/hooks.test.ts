@@ -1,3 +1,4 @@
+import type { AgentStatus } from '@ruimte/contracts';
 import { describe, expect, test } from 'bun:test';
 import { modeOfHook, normalizeHook, requestOfHook, settleWaiting } from './hooks.ts';
 
@@ -85,12 +86,12 @@ describe('the permission mode a hook reports', () => {
 });
 
 describe('settleWaiting', () => {
-    const settle = (waiting: string[], event: string, extra: Record<string, unknown> = {}) => {
+    const settle = (waiting: string[], event: string, extra: Record<string, unknown> = {}, previous: AgentStatus | null = 'running') => {
         const outcome = normalizeHook(hook(event, extra));
         if (!outcome) {
             throw new Error(`${event} is not a status hook`);
         }
-        const settled = settleWaiting(new Set(waiting), outcome);
+        const settled = settleWaiting(new Set(waiting), outcome, previous);
         return { waiting: [...settled.waiting].sort(), status: settled.status };
     };
     const subagent = { agent_id: 'a1' };
@@ -119,7 +120,13 @@ describe('settleWaiting', () => {
             normalizeHook({ session_id: 'thread-1', turn_id: 'turn-2', hook_event_name: event, permission_mode: 'default', ...extra });
         const pre = codex('PreToolUse', { tool_name: 'Bash', agent_id: 'thread-2', agent_type: 'default' });
         expect(pre).toMatchObject({ agentSessionId: 'thread-1', subagentId: 'thread-2' });
-        expect(settleWaiting(new Set(['']), pre!).status).toBe('needs-you');
+        expect(settleWaiting(new Set(['']), pre!, 'needs-you').status).toBe('needs-you');
+    });
+
+    test('a subagent that stops leaves the status of the main agent as it was', () => {
+        expect(settle([], 'SubagentStop', {}, 'idle')).toEqual({ waiting: [], status: 'idle' });
+        expect(settle([], 'SubagentStop', subagent, 'running')).toEqual({ waiting: [], status: 'running' });
+        expect(settle(['a1'], 'SubagentStop', subagent, 'needs-you')).toEqual({ waiting: [], status: 'running' });
     });
 
     test('the end of the main turn leaves a subagent that still waits', () => {

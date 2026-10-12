@@ -405,7 +405,7 @@ export class SessionManager {
         if (!outcome) {
             return 'ignored';
         }
-        const settled = settleWaiting(this.waiting.get(session.id) ?? new Set(), outcome);
+        const settled = settleWaiting(this.waiting.get(session.id) ?? new Set(), outcome, session.agent?.status ?? null);
         this.waiting.set(session.id, settled.waiting);
         const updatedAt = Date.now();
         const request = requestOfHook(body, updatedAt);

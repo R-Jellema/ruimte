@@ -147,6 +147,16 @@ describe('agent status via hooks', () => {
         expect(recorder.statusesOf('s1').filter((status, i, all) => status !== all[i - 1])).toEqual(['running', 'needs-you', 'running']);
     });
 
+    test('a recap after the turn ended leaves the agent idle', async () => {
+        await create('s1');
+        const token = harness.manager.get('s1')!.hookToken;
+
+        await harness.manager.applyHook('claude', token, hook('UserPromptSubmit'));
+        await harness.manager.applyHook('claude', token, hook('Stop'));
+        await harness.manager.applyHook('claude', token, hook('SubagentStop', { agent_id: 'recap' }));
+        expect(harness.manager.list()[0]?.agent?.status).toBe('idle');
+    });
+
     test('the permission mode the hooks last reported is kept per session until the CLI leaves', async () => {
         await createAgent('s1', { kind: 'claude', runtimeMode: 'full-access' });
         const session = harness.manager.get('s1')!;
