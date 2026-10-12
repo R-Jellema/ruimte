@@ -501,6 +501,20 @@ describe('several servers on one document', () => {
         expect(tsserver.paramsOf('callHierarchy/outgoingCalls')).toEqual([]);
     });
 
+    it('routes a call hierarchy follow-up normally, with the item unwrapped, when the server that made it no longer serves the document', async () => {
+        const spawner = fakeSpawner({ typescript: caps({ callHierarchyProvider: true }) });
+        const { host } = await installed(['typescript'], { spawner });
+        await open(host);
+        await ready(host);
+        const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } };
+        const stale = { name: 'rule', kind: 12, uri: 'file:///work/src/a.ts', range, selectionRange: range, data: { $ruimteServer: 'eslint', data: { id: 7 } } };
+        const tsserver = spawner.of('typescript')[0]!.server;
+        tsserver.handle('callHierarchy/incomingCalls', () => []);
+        const answer = await host.request({ projectId: 'p1', path: 'src/a.ts', method: 'callHierarchy/incomingCalls', params: { item: stale } });
+        expect(answer.server).toBe('typescript');
+        expect(tsserver.paramsOf('callHierarchy/incomingCalls')).toEqual([{ item: { ...stale, data: { id: 7 } } }]);
+    });
+
     it('keeps primary suggestions and logs a malformed default range from a secondary server', async () => {
         const spawner = fakeSpawner({ typescript: caps({ completionProvider: {} }), eslint: caps({ completionProvider: {} }) });
         const { host } = await installed(['typescript', 'eslint'], { files: eslintFiles, spawner });

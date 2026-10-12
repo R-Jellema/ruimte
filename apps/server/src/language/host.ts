@@ -460,8 +460,9 @@ export class LanguageHost {
         }
         const params = typeof payload.params === 'object' && payload.params !== null ? payload.params : {};
         const pinned = pinnedItem(payload.method, params);
+        const pinnedServer = pinned !== null && servers.some((server) => server.hasComponent(pinned.server)) ? pinned.server : undefined;
         try {
-            const answer = await this.route(servers, document, payload.method, pinned?.params ?? params, payload.server ?? pinned?.server);
+            const answer = await this.route(servers, document, payload.method, pinned?.params ?? params, payload.server ?? pinnedServer);
             return { ...answer, result: tagCallHierarchy(payload.method, answer.result, answer.server) };
         } catch (error) {
             throw translated(error);
