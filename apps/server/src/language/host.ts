@@ -57,6 +57,7 @@ import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 import { LanguageChoices } from './choices.ts';
 import { LanguageInstaller, type CheckoutRevision } from './installer.ts';
 import type { Download, NativePolicy } from './native.ts';
+import { pinnedItem, tagCallHierarchy } from './call-hierarchy.ts';
 import { MERGED_METHODS, mergeAnswers, mergeProviders } from './merge.ts';
 import {
     activates,
@@ -455,8 +456,10 @@ export class LanguageHost {
             throw new LanguageError(LANGUAGE_ERROR_CODES.unavailable, `No language server serves ${document.languageId}`);
         }
         const params = typeof payload.params === 'object' && payload.params !== null ? payload.params : {};
+        const pinned = pinnedItem(payload.method, params);
         try {
-            return await this.route(servers, document, payload.method, params, payload.server);
+            const answer = await this.route(servers, document, payload.method, pinned?.params ?? params, payload.server ?? pinned?.server);
+            return { ...answer, result: tagCallHierarchy(payload.method, answer.result, answer.server) };
         } catch (error) {
             throw translated(error);
         }

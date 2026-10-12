@@ -464,6 +464,40 @@ describe('several servers on one document', () => {
         expect(opened.providers['textDocument/completion']).toEqual({ resolveProvider: true, triggerCharacters: ['.', '"'] });
     });
 
+    it('sends a call hierarchy follow-up to the server that made the item, and hands the server its own data back', async () => {
+        const spawner = fakeSpawner({ typescript: caps({ callHierarchyProvider: true }), eslint: caps({ callHierarchyProvider: true }) });
+        const { host } = await installed(['typescript', 'eslint'], { files: eslintFiles, spawner });
+        await open(host);
+        await ready(host);
+        await ready(host, 'eslint');
+        const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } };
+        const item = (name: string, data?: unknown) => ({
+            name,
+            kind: 12,
+            uri: 'file:///work/src/a.ts',
+            range,
+            selectionRange: range,
+            ...(data === undefined ? {} : { data })
+        });
+        const [tsserver, eslint] = [spawner.of('typescript')[0]!.server, spawner.of('eslint')[0]!.server];
+        eslint.handle('textDocument/prepareCallHierarchy', () => [item('rule', { id: 7 })]);
+        eslint.handle('callHierarchy/incomingCalls', () => [{ from: item('caller'), fromRanges: [range] }]);
+        tsserver.handle('callHierarchy/incomingCalls', () => []);
+        const base = { projectId: 'p1', path: 'src/a.ts' };
+        const prepared = await host.request({ ...base, method: 'textDocument/prepareCallHierarchy', params: {}, server: 'eslint' });
+        const [made] = prepared.result as Array<{ data: unknown }>;
+        const incoming = await host.request({ ...base, method: 'callHierarchy/incomingCalls', params: { item: made } });
+        expect(eslint.paramsOf('callHierarchy/incomingCalls')).toEqual([{ item: item('rule', { id: 7 }) }]);
+        expect(tsserver.paramsOf('callHierarchy/incomingCalls')).toEqual([]);
+        expect(incoming.server).toBe('eslint');
+        const [call] = incoming.result as Array<{ from: { data: unknown } }>;
+        tsserver.handle('callHierarchy/outgoingCalls', () => []);
+        eslint.handle('callHierarchy/outgoingCalls', () => []);
+        await host.request({ ...base, method: 'callHierarchy/outgoingCalls', params: { item: call.from } });
+        expect(eslint.paramsOf('callHierarchy/outgoingCalls')).toEqual([{ item: item('caller') }]);
+        expect(tsserver.paramsOf('callHierarchy/outgoingCalls')).toEqual([]);
+    });
+
     it('keeps primary suggestions and logs a malformed default range from a secondary server', async () => {
         const spawner = fakeSpawner({ typescript: caps({ completionProvider: {} }), eslint: caps({ completionProvider: {} }) });
         const { host } = await installed(['typescript', 'eslint'], { files: eslintFiles, spawner });
