@@ -30,6 +30,9 @@ beforeEach(async () => {
     await writeFile(join(home, 'portrait.gif'), GIF);
     await writeFile(join(home, 'scratch', 'notes.md'), '# Notes');
     await writeFile(join(home, 'screenshots', 'shot.gif'), GIF);
+    await mkdir(join(home, 'chats', 'chat-1.visuals'), { recursive: true });
+    await writeFile(join(home, 'chats', 'chat-1.json'), '{}');
+    await writeFile(join(home, 'chats', 'chat-1.visuals', 'report.html'), '<p>Report</p>');
     await symlink(home, join(root, 'linked'));
     dispatcher = new Dispatcher();
     const machineHome = new MachineHome(home);
@@ -67,6 +70,12 @@ describe('the machine home', () => {
     test('the Chats project and the shots agents take still read', async () => {
         expect(await request('fs.read', { path: join(home, 'scratch', 'notes.md') })).toMatchObject({ ok: true, result: { kind: 'text', text: '# Notes' } });
         expect(await request('fs.read', { path: join(home, 'screenshots', 'shot.gif') })).toMatchObject({ ok: true, result: { kind: 'binary' } });
+    });
+
+    test('a visual of a chat reads, the thread beside it does not', async () => {
+        expect(await request('fs.read', { path: join(home, 'chats', 'chat-1.visuals', 'report.html') })).toMatchObject({ ok: true, result: { kind: 'text', text: '<p>Report</p>' } });
+        expect(await request('fs.read', { path: join(home, 'chats', 'chat-1.json') })).toMatchObject(refused);
+        expect(await request('fs.read', { path: join(home, 'chats') })).toMatchObject(refused);
     });
 
     test('bytes.read serves a shot but no other picture of the home', async () => {

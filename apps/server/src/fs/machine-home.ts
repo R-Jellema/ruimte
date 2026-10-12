@@ -1,5 +1,5 @@
 import { realpath } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import { CodedError } from '@adecore/agents/coded-error';
 import { isInside } from '../canvas/project-paths.ts';
 
@@ -7,13 +7,23 @@ export class MachineHomeError extends CodedError<'machine-state'> {}
 
 /*
  * What under `$RUIMTE_HOME` a person's own work or a picture made for them sits in: the Chats project,
- * the agents' worktrees, the shots agents take and the files people attach. The rest is the machine's:
- * its key pair, the local secret, the approvals, the accounts of the CLIs and the browser profile.
+ * the agents' worktrees, the shots agents take, the files people attach and the visuals of a chat. The
+ * rest is the machine's: its key pair, the local secret, the approvals, the accounts of the CLIs, the
+ * browser profile and the threads of the chats beside their visuals.
  */
 const OPEN_FOLDERS = ['scratch', 'worktrees', 'screenshots', join('computer-use', 'screenshots'), 'attachments'];
 
+function isChatVisuals(home: string, path: string): boolean {
+    const chats = join(home, 'chats');
+    if (!isInside(chats, path)) {
+        return false;
+    }
+    const folder = relative(chats, path).split(sep)[0]!;
+    return folder.endsWith('.visuals');
+}
+
 function isMachineState(home: string, path: string): boolean {
-    return isInside(home, path) && !OPEN_FOLDERS.some((folder) => isInside(join(home, folder), path));
+    return isInside(home, path) && !OPEN_FOLDERS.some((folder) => isInside(join(home, folder), path)) && !isChatVisuals(home, path);
 }
 
 /*
