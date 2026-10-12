@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import type { EventMap, EventType, RequestMap, RequestType } from '@ruimte/contracts';
 import type { Transport } from '@/transport/transport';
-import { textDrafts } from '@/state/text-drafts';
+import { TextDrafts, textDrafts, type DraftLink } from '@/state/text-drafts';
+import { TransportError } from '@/transport/transport';
 import { draftFiles } from './project-files';
 
 type Call = { type: RequestType; payload: unknown };
@@ -92,5 +93,59 @@ describe('what is at a path', () => {
     test('exists when the machine reads it', async () => {
         const { transport } = fakeTransport();
         expect(await draftFiles('local', transport, 'p1').exists!('/work/a.php')).toBe(true);
+    });
+});
+
+describe('a file that moves and is edited while it has an unsaved draft', () => {
+    /* A one-file machine whose write checks the mtime the way `fs.write` does, and whose rename keeps the mtime. */
+    function fakeMachine(initial: { path: string; text: string; mtime: number }): {
+        transport: Transport;
+        drafts: TextDrafts;
+        file: () => { path: string; text: string; mtime: number };
+    } {
+        const file = { ...initial };
+        let clock = initial.mtime;
+        const link: DraftLink = {
+            read: async (path) => ({ kind: 'text', path, text: file.text, mtime: file.mtime }) as never,
+            write: async (path, text, expectedMtime) => {
+                if (path !== file.path || expectedMtime !== file.mtime) {
+                    throw new TransportError('stale', 'The file changed');
+                }
+                clock += 1;
+                file.text = text;
+                file.mtime = clock;
+                return { mtime: clock } as never;
+            },
+            projectOpen: async () => undefined
+        };
+        const transport = {
+            status: 'open',
+            request: async (type: string, payload: { path: string; to?: string }) => {
+                if (type === 'fs.rename') {
+                    file.path = payload.to!;
+                    return {};
+                }
+                if (type === 'fs.read') {
+                    return payload.path === file.path
+                        ? { kind: 'text', path: payload.path, text: file.text, mtime: file.mtime }
+                        : Promise.reject(new Error('gone'));
+                }
+                return {};
+            },
+            on: () => () => undefined,
+            subscribeStatus: () => () => undefined
+        } as unknown as Transport;
+        return { transport, drafts: new TextDrafts(() => link), file: () => file };
+    }
+
+    test('saves the draft and the edit at the new path', async () => {
+        const { transport, drafts, file } = fakeMachine({ path: '/work/moved/old.php', text: 'disk', mtime: 10 });
+        drafts.stage('local', '/work/moved/old.php', { text: 'disk', mtime: 10 }, 'draft');
+        const files = draftFiles('local', transport, 'p1', drafts);
+        const read = (await files.read('/work/moved/old.php'))!;
+        expect(await files.rename!('/work/moved/old.php', '/work/moved/new.php')).toBeNull();
+        expect(await files.save!([{ path: '/work/moved/new.php', disk: read, text: 'draft edited' }])).toBeNull();
+        expect(file()).toMatchObject({ path: '/work/moved/new.php', text: 'draft edited' });
+        expect(drafts.isUnsaved('local', '/work/moved/new.php')).toBe(false);
     });
 });

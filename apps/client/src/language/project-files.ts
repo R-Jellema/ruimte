@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 import { draftPathsUnder, forgetDeleted, moveFile } from '@/state/file-moves';
 import { endpointKey } from '@/state/keys';
-import { textDrafts } from '@/state/text-drafts';
+import { textDrafts, type TextDrafts } from '@/state/text-drafts';
 import { useToasts } from '@/state/toasts';
 import type { Transport } from '@/transport/transport';
 import type { ProjectFiles, StagedFile } from '@adecore/editor-react';
@@ -14,7 +14,7 @@ function nameOf(path: string): string {
 }
 
 /* The files of one machine as the editors keep their text: a draft where there is one, and otherwise what the machine has. */
-export function draftFiles(endpointId: string, transport: Transport, projectId: string | null = null): ProjectFiles {
+export function draftFiles(endpointId: string, transport: Transport, projectId: string | null = null, drafts: TextDrafts = textDrafts): ProjectFiles {
     const isFolder = async (path: string): Promise<boolean> => {
         try {
             await transport.request('fs.list', { path, depth: 1 });
@@ -23,9 +23,22 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
             return false;
         }
     };
+    /* Paths that took an unsaved draft along in a move: the move saved it, so the mtime a read of it gave is out of date. */
+    const savedByMove = new Set<string>();
+    const diskOf = async (file: StagedFile): Promise<StagedFile['disk']> => {
+        if (!savedByMove.delete(file.path)) {
+            return file.disk;
+        }
+        try {
+            const read = await transport.request('fs.read', { path: file.path });
+            return read.kind === 'text' ? { text: read.text, mtime: read.mtime } : file.disk;
+        } catch {
+            return file.disk;
+        }
+    };
     return {
         read: async (path) => {
-            const draft = textDrafts.draft(endpointId, path);
+            const draft = drafts.draft(endpointId, path);
             if (draft !== undefined) {
                 return { text: draft.text, mtime: draft.mtime };
             }
@@ -38,8 +51,8 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
         },
         save: async (files) => {
             for (const file of files) {
-                textDrafts.stage(endpointId, file.path, file.disk, file.text);
-                if (!(await textDrafts.save(endpointId, file.path))) {
+                drafts.stage(endpointId, file.path, await diskOf(file), file.text);
+                if (!(await drafts.save(endpointId, file.path))) {
                     return i18next.t('panels:language.edit.notSaved', { name: nameOf(file.path) });
                 }
             }
@@ -47,7 +60,9 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
         },
         rename: async (from, to) => {
             try {
-                await moveFile(transport, endpointId, projectId, from, to, { edits: false, focus: true });
+                const unsaved = draftPathsUnder(endpointId, from, true);
+                await moveFile(transport, endpointId, projectId, from, to, { edits: false, focus: true }, drafts);
+                unsaved.forEach((path) => savedByMove.add(to + path.slice(from.length)));
                 return null;
             } catch (error) {
                 return error instanceof Error ? error.message : String(error);
@@ -82,7 +97,7 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
         },
         stage: (files: readonly StagedFile[]) => {
             for (const file of files) {
-                textDrafts.stage(endpointId, file.path, file.disk, file.text);
+                drafts.stage(endpointId, file.path, file.disk, file.text);
             }
             const names = files.slice(0, NAMED_FILES).map((file) => nameOf(file.path));
             const more = files.length - names.length;
@@ -96,7 +111,7 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
                     label: i18next.t('panels:language.edit.saveAll'),
                     run: () => {
                         for (const file of files) {
-                            void textDrafts.save(endpointId, file.path);
+                            void drafts.save(endpointId, file.path);
                         }
                     }
                 }
