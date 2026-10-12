@@ -172,6 +172,12 @@ async function readTextOrNull(path: string): Promise<string | null> {
     return readFile(path, 'utf8').catch(() => null);
 }
 
+function withoutItemData(params: object): object {
+    const { item } = params as { item: Record<string, unknown> };
+    const { data: _data, ...rest } = item;
+    return { ...params, item: rest };
+}
+
 async function isDirectory(path: string): Promise<boolean> {
     return (await stat(path).catch(() => null))?.isDirectory() === true;
 }
@@ -461,8 +467,10 @@ export class LanguageHost {
         const params = typeof payload.params === 'object' && payload.params !== null ? payload.params : {};
         const pinned = pinnedItem(payload.method, params);
         const pinnedServer = pinned !== null && servers.some((server) => server.hasComponent(pinned.server)) ? pinned.server : undefined;
+        // The data of a server that is gone means nothing to the one that answers instead.
+        const routed = pinned === null ? params : pinnedServer === undefined ? withoutItemData(pinned.params) : pinned.params;
         try {
-            const answer = await this.route(servers, document, payload.method, pinned?.params ?? params, payload.server ?? pinnedServer);
+            const answer = await this.route(servers, document, payload.method, routed, payload.server ?? pinnedServer);
             return { ...answer, result: tagCallHierarchy(payload.method, answer.result, answer.server) };
         } catch (error) {
             throw translated(error);

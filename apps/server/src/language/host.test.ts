@@ -519,7 +519,8 @@ describe('several servers on one document', () => {
         tsserver.handle('callHierarchy/incomingCalls', () => []);
         const answer = await host.request({ projectId: 'p1', path: 'src/a.ts', method: 'callHierarchy/incomingCalls', params: { item: stale } });
         expect(answer.server).toBe('typescript');
-        expect(tsserver.paramsOf('callHierarchy/incomingCalls')).toEqual([{ item: { ...stale, data: { id: 7 } } }]);
+        const { data: _gone, ...bare } = stale;
+        expect(tsserver.paramsOf('callHierarchy/incomingCalls')).toEqual([{ item: bare }]);
     });
 
     it('keeps primary suggestions and logs a malformed default range from a secondary server', async () => {
