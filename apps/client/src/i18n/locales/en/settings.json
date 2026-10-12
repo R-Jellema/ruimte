@@ -110,6 +110,10 @@
                     "label": "Show whitespace",
                     "description": "Spaces as dots and tabs as arrows in the editor."
                 },
+                "stickyScroll": {
+                    "label": "Sticky scroll",
+                    "description": "Keep the lines that open the surrounding scopes pinned at the top of the editor while you scroll."
+                },
                 "rightMargin": {
                     "label": "Right margin",
                     "description": "A line at the column set by max_line_length in the project's .editorconfig. Off for a project without one."

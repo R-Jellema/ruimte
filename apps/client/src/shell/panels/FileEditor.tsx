@@ -67,6 +67,7 @@ export function FileEditor({
     const smartKeys = useSettings((s) => s.smartKeys);
     const guides = useSettings((s) => s.codeIndentGuides);
     const whitespace = useSettings((s) => s.codeWhitespace);
+    const stickyScroll = useSettings((s) => s.codeStickyScroll);
     const folding = useSettings((s) => s.codeFolding);
     const foldOutline = useSettings((s) => s.codeFoldOutline);
     // What the editor mounts with; every later change reaches it through the effects below.
@@ -79,6 +80,7 @@ export function FileEditor({
         rightMargin,
         guides,
         whitespace,
+        stickyScroll,
         smartKeys,
         readOnlyReason,
         theme,
@@ -111,6 +113,7 @@ export function FileEditor({
                 indentation: first.indentation,
                 guides: first.guides,
                 whitespace: first.whitespace,
+                stickyScroll: first.stickyScroll,
                 rightMargin: first.rightMargin,
                 smartKeys: first.smartKeys,
                 foldOutline: first.foldOutline,
@@ -170,6 +173,10 @@ export function FileEditor({
     useEffect(() => {
         editorRef.current?.setWhitespace(whitespace);
     }, [whitespace]);
+
+    useEffect(() => {
+        editorRef.current?.setStickyScroll?.(stickyScroll);
+    }, [stickyScroll]);
 
     useEffect(() => {
         editorRef.current?.setFoldOutline(foldOutline);

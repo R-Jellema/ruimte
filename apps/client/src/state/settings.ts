@@ -172,6 +172,8 @@ export interface Settings {
     codeIndentGuides: boolean;
     /* Whether the editor draws spaces as dots and tabs as arrows. */
     codeWhitespace: boolean;
+    /* Whether the editor pins the lines that open the scopes around the top line while scrolling. */
+    codeStickyScroll: boolean;
     /* Whether documentation comments are drawn as formatted text in place of their lines. */
     codeRenderDocs: boolean;
     /* Whether the editor says above a declaration how many times it is used. */
@@ -289,6 +291,7 @@ const DEFAULT_SETTINGS: Settings = {
     codeWrap: false,
     codeIndentGuides: true,
     codeWhitespace: false,
+    codeStickyScroll: true,
     codeRenderDocs: false,
     codeVisionUsages: true,
     codeVisionAuthors: true,
@@ -362,6 +365,7 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         codeWrap: stored.codeWrap === true,
         codeIndentGuides: stored.codeIndentGuides !== false,
         codeWhitespace: stored.codeWhitespace === true,
+        codeStickyScroll: stored.codeStickyScroll !== false,
         codeRenderDocs: stored.codeRenderDocs === true,
         codeVisionUsages: stored.codeVisionUsages !== false,
         codeVisionAuthors: stored.codeVisionAuthors !== false,
@@ -490,6 +494,7 @@ export const useSettings = create<SettingsStore>((set, get) => {
                 codeWrap,
                 codeIndentGuides,
                 codeWhitespace,
+                codeStickyScroll,
                 codeRenderDocs,
                 codeVisionUsages,
                 codeVisionAuthors,
@@ -547,6 +552,7 @@ export const useSettings = create<SettingsStore>((set, get) => {
                 codeWrap,
                 codeIndentGuides,
                 codeWhitespace,
+                codeStickyScroll,
                 codeRenderDocs,
                 codeVisionUsages,
                 codeVisionAuthors,

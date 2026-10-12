@@ -19,6 +19,7 @@ export function EditorGeneralTab() {
     const codeWrap = useSettings((s) => s.codeWrap);
     const codeIndentGuides = useSettings((s) => s.codeIndentGuides);
     const codeWhitespace = useSettings((s) => s.codeWhitespace);
+    const codeStickyScroll = useSettings((s) => s.codeStickyScroll);
     const smartKeys = useSettings((s) => s.smartKeys);
     const codeRenderDocs = useSettings((s) => s.codeRenderDocs);
     const codeVisionUsages = useSettings((s) => s.codeVisionUsages);
@@ -111,6 +112,18 @@ export function EditorGeneralTab() {
                             checked={codeWhitespace}
                             onCheckedChange={(checked) => update({ codeWhitespace: checked })}
                             label={t('editor.general.display.whitespace.label')}
+                        />
+                    }
+                />
+                <SettingsRow
+                    searchId="editor.general.display.stickyScroll"
+                    label={t('editor.general.display.stickyScroll.label')}
+                    description={t('editor.general.display.stickyScroll.description')}
+                    control={
+                        <Switch
+                            checked={codeStickyScroll}
+                            onCheckedChange={(checked) => update({ codeStickyScroll: checked })}
+                            label={t('editor.general.display.stickyScroll.label')}
                         />
                     }
                 />

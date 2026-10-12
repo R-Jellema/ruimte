@@ -122,6 +122,12 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         description: 'settings:editor.general.display.whitespace.description'
     },
     {
+        id: 'editor.general.display.stickyScroll',
+        section: 'editor',
+        label: 'settings:editor.general.display.stickyScroll.label',
+        description: 'settings:editor.general.display.stickyScroll.description'
+    },
+    {
         id: 'editor.general.display.rightMargin',
         section: 'editor',
         label: 'settings:editor.general.display.rightMargin.label',

@@ -110,6 +110,10 @@
                     "label": "Witruimte tonen",
                     "description": "Spaties als punten en tabs als pijlen in de editor."
                 },
+                "stickyScroll": {
+                    "label": "Plakkend scrollen",
+                    "description": "Houd de regels die de omliggende blokken openen bovenin de editor vast terwijl je scrolt."
+                },
                 "rightMargin": {
                     "label": "Rechtermarge",
                     "description": "Een lijn op de kolom die max_line_length in de .editorconfig van het project aangeeft. Uit voor een project zonder."

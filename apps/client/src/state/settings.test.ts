@@ -352,6 +352,12 @@ describe('what the editor draws', () => {
         expect(settingsFrom({ codeWhitespace: true }).codeWhitespace).toBe(true);
         expect(settingsFrom({ codeWhitespace: 'yes' as unknown as boolean }).codeWhitespace).toBe(false);
     });
+
+    test('keeps the scopes of the code in view while scrolling until a person says otherwise', () => {
+        expect(settingsFrom({}).codeStickyScroll).toBe(true);
+        expect(settingsFrom({ codeStickyScroll: false }).codeStickyScroll).toBe(false);
+        expect(settingsFrom({ codeStickyScroll: 'no' as unknown as boolean }).codeStickyScroll).toBe(true);
+    });
 });
 
 describe('code vision', () => {

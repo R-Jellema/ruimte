@@ -20,6 +20,7 @@ describe('searching the settings', () => {
         expect(searchSettings('wrap long').map((result) => result.id)).toEqual(['editor.general.display.wrap']);
         expect(searchSettings('pinned tab').map((result) => result.id)).toContain('files.files.openFiles');
         expect(searchSettings('terminal links').map((result) => result.id)).toContain('terminal.links');
+        expect(searchSettings('sticky scroll')[0]).toMatchObject({ section: 'editor', id: 'editor.general.display.stickyScroll' });
         expect(searchSettings('whitespace changes')[0]).toMatchObject({ section: 'files', id: 'files.git.whitespace', label: 'Show whitespace changes' });
     });
 
