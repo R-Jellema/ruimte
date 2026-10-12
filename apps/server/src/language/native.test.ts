@@ -194,9 +194,9 @@ describe('the SQL checkout', () => {
         expect(policy.plan('php-native', '/home/php-native')).not.toBeNull();
     });
 
-    it('pins the standalone v0.1.4 artifacts and their native version', () => {
-        expect(sqlDescriptor.version).toBe('0.1.4');
-        expect(sqlDescriptor.sourceRevision).toBe('8b7087ba29cc81c3e94fa473fc5b324474bfe44e');
+    it('pins the standalone v0.2.0 artifacts and their native version', () => {
+        expect(sqlDescriptor.version).toBe('0.2.0');
+        expect(sqlDescriptor.sourceRevision).toBe('c0e7e05b0104c22a1afd9d1d1e790607a521246c');
         expect(NATIVE_RELEASES['sql-native']).toBeDefined();
         expect(Object.keys(sqlDescriptor.assets).sort()).toEqual(['darwin-arm64', 'linux-arm64', 'linux-x64', 'win32-x64']);
         for (const [target, asset] of Object.entries(sqlDescriptor.assets)) {
@@ -238,10 +238,10 @@ describe('native policy', () => {
         assets: { 'darwin-arm64': { url: 'https://example.test/a.tar.gz', sha256: 'f'.repeat(64), format: 'tar.gz', executable: 'php-language-server' } }
     };
 
-    it('pins the standalone v0.5.0 artifacts and their native version', () => {
-        expect(descriptor.version).toBe('0.5.0');
+    it('pins the standalone v0.6.0 artifacts and their native version', () => {
+        expect(descriptor.version).toBe('0.6.0');
         expect(descriptor.stubsCommit).toBe('e4f5f6c3de39f3bab3e9f3fca4b8cdb8b061e681');
-        expect(descriptor.sourceRevision).toBe('18a0747e0ada0b3cd2203cc94db976c4a1f90bf6');
+        expect(descriptor.sourceRevision).toBe('4cda1f44e3e8b7af85f8189d7353a13fc9616ec8');
         expect(descriptor).not.toHaveProperty('adecoreVersion');
         expect(Object.keys(descriptor.assets).sort()).toEqual(['darwin-arm64', 'linux-arm64', 'linux-x64', 'win32-x64']);
         for (const [target, asset] of Object.entries(descriptor.assets)) {
