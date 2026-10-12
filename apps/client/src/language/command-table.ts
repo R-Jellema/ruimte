@@ -1,5 +1,6 @@
 import type { Shortcut } from '@adecore/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
+import { RENDERED_DOC_COMMENTS } from '@/features';
 
 /*
  * The commands that act on the editor with the keyboard in it: the id the menu and the palette share, the
@@ -46,7 +47,12 @@ export type LanguageCommandId = keyof typeof TABLE;
 
 export const LANGUAGE_COMMANDS: Record<LanguageCommandId, LanguageCommandSpec> = TABLE;
 
-export const LANGUAGE_COMMAND_IDS = Object.keys(LANGUAGE_COMMANDS) as LanguageCommandId[];
+/* The commands a person is offered; the toggle for rendered documentation waits for its feature. */
+export function offeredLanguageCommands(renderedDocs: boolean): LanguageCommandId[] {
+    return (Object.keys(LANGUAGE_COMMANDS) as LanguageCommandId[]).filter((id) => renderedDocs || id !== 'toggle-rendered-docs');
+}
+
+export const LANGUAGE_COMMAND_IDS = offeredLanguageCommands(RENDERED_DOC_COMMENTS);
 
 /* The ids of one menu, in the order the table lists them. */
 export function languageCommandsOf(menu: 'code' | 'go'): LanguageCommandId[] {

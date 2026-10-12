@@ -1,14 +1,23 @@
 import { describe, expect, test } from 'bun:test';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
-import { LANGUAGE_COMMANDS, languageCommandsOf } from './command-table';
+import { LANGUAGE_COMMANDS, LANGUAGE_COMMAND_IDS, languageCommandsOf, offeredLanguageCommands } from './command-table';
 
 describe('toggle rendered documentation command', () => {
-    test('sits in the Code menu with the editor key', () => {
+    test('is described with the editor key', () => {
         expect(LANGUAGE_COMMANDS['toggle-rendered-docs']).toMatchObject({
             menu: 'code',
             key: 'toggleRenderedDocs',
             shortcut: CANVAS_SHORTCUTS.toggleRenderedDocs
         });
-        expect(languageCommandsOf('code')).toContain('toggle-rendered-docs');
+    });
+
+    test('is left out of the menu and the palette while the feature is off', () => {
+        expect(languageCommandsOf('code')).not.toContain('toggle-rendered-docs');
+        expect(LANGUAGE_COMMAND_IDS).not.toContain('toggle-rendered-docs');
+    });
+
+    test('sits in the Code menu once the feature is on', () => {
+        expect(offeredLanguageCommands(true)).toContain('toggle-rendered-docs');
+        expect(offeredLanguageCommands(false)).not.toContain('toggle-rendered-docs');
     });
 });
