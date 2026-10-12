@@ -1,3 +1,5 @@
+import { applyCompletionDefaults, type CompletionItem, type CompletionList } from '@adecore/lsp';
+
 /*
  * Several servers can serve one document, such as the TypeScript server and ESLint. A feature that
  * adds up, such as suggestions or fixes, is asked of every server that offers it and the answers are
@@ -40,23 +42,9 @@ function completionItems(result: unknown): { items: unknown[]; isIncomplete: boo
     if (defaults === null) {
         return part;
     }
-    const items = part.items.map((item) => {
-        if (!isRecord(item)) {
-            return item;
-        }
-        const next = { ...item };
-        for (const key of ['commitCharacters', 'insertTextFormat', 'insertTextMode']) {
-            if (next[key] === undefined && defaults[key] !== undefined) {
-                next[key] = defaults[key];
-            }
-        }
-        const range = defaults.editRange;
-        if (next.textEdit === undefined && isRecord(range)) {
-            const newText = item.textEditText ?? item.insertText ?? item.label;
-            next.textEdit = 'start' in range ? { range, newText } : { insert: range.insert, replace: range.replace, newText };
-        }
-        return next;
-    });
+    const items = part.items.map((item) =>
+        isRecord(item) ? applyCompletionDefaults(item as unknown as CompletionItem, defaults as CompletionList['itemDefaults']) : item
+    );
     return { ...part, items };
 }
 

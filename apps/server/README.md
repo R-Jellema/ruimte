@@ -285,7 +285,7 @@ When a CLI generates an image, the daemon saves it as an attachment before the t
 
 Merged completion answers apply each server's supported list defaults to its own items before concatenation, preserving individual item overrides and resolve ownership.
 
-Completion negotiation advertises snippets, both insertion modes (as-is and adjusted indentation), and the list defaults the client applies: `commitCharacters`, `editRange`, `insertTextFormat` and `insertTextMode`. It does not advertise a `data` default, which the completion consumer does not inherit.
+Completion negotiation advertises snippets, both insertion modes (as-is and adjusted indentation), and the list defaults the client applies: `commitCharacters`, `editRange`, `insertTextFormat` and `insertTextMode`. The shared `applyCompletionDefaults` helper validates edit ranges and uses `textEditText`, then the item label, for a default range. Mode 1 (as-is) is the explicit completion default.
 
 `src/language` runs the language servers of the editor. The daemon is their LSP client (`@adecore/lsp`) and the one owner of every document's text and version, so all clients of a project share what a server sees. The wire is `packages/contracts/src/language.ts`, and `src/language/CLAUDE.md` has the invariants.
 

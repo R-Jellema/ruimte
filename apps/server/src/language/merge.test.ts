@@ -47,7 +47,7 @@ describe('merging the answers of several servers', () => {
                         textEdit: { range, newText: 'call($1)' }
                     },
                     { label: 'own', insertTextFormat: 1, insertTextMode: 1, commitCharacters: [], textEdit: { range: insert, newText: 'own' } },
-                    { label: 'flex', insertText: 'flex-row', insertTextFormat: 1, textEdit: { insert, replace: range, newText: 'flex-row' } }
+                    { label: 'flex', insertText: 'flex-row', insertTextFormat: 1, textEdit: { insert, replace: range, newText: 'flex' } }
                 ]
             },
             itemServers: ['typescript', 'typescript', 'tailwind']
