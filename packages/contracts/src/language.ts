@@ -255,6 +255,7 @@ export const LANGUAGE_METHODS = [
     'codeLens/resolve',
     'textDocument/formatting',
     'textDocument/rangeFormatting',
+    'textDocument/onTypeFormatting',
     'textDocument/foldingRange',
     'textDocument/selectionRange',
     'textDocument/semanticTokens/full',

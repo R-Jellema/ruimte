@@ -375,6 +375,10 @@ export class WireLanguageService implements LanguageService {
         return this.call(uri, 'textDocument/formatting', { options: formatting }, options);
     }
 
+    onTypeFormatting(uri: string, position: Position, ch: string, formatting: FormattingOptions, options?: LanguageRequestOptions): Promise<TextEdit[] | null> {
+        return this.call(uri, 'textDocument/onTypeFormatting', { position, ch, options: formatting }, options);
+    }
+
     rangeFormatting(uri: string, range: Range, formatting: FormattingOptions, options?: LanguageRequestOptions): Promise<TextEdit[] | null> {
         return this.call(uri, 'textDocument/rangeFormatting', { range, options: formatting }, options);
     }

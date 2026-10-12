@@ -183,6 +183,22 @@ describe('requests', () => {
         transport.release();
     });
 
+    test('sends the typed character, and the resolve requests, as the methods the daemon routes', async () => {
+        const { transport, language } = service();
+        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        await language.onTypeFormatting(uri, origin, '}', { tabSize: 4, insertSpaces: true });
+        await language.resolveCompletion(uri, { label: 'a' });
+        await language.resolveInlayHint(uri, { position: origin, label: 'a' });
+        expect(transport.callsOf('language.request').map((call) => (call.payload as { method: string }).method)).toEqual([
+            'textDocument/onTypeFormatting',
+            'completionItem/resolve',
+            'inlayHint/resolve'
+        ]);
+        expect(transport.callsOf('language.request')[0].payload).toMatchObject({
+            params: { position: origin, ch: '}', options: { tabSize: 4, insertSpaces: true } }
+        });
+    });
+
     test('says why the daemon could not answer, in the codes of LSP', async () => {
         const { transport, language } = service();
         await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
