@@ -77,7 +77,7 @@ async function trashLinux(path: string, original: string, home: string, env: Nod
  * Moves a path to the trash of the machine the daemon runs on, which is a rename into the trash
  * folder: no Finder, no Electron and no permission prompt, since the daemon also runs as a service
  * with neither. Items on another volume than the home folder are refused rather than deleted.
- * `original` is the place a restore returns the file to on Linux, for a file moved aside before it is trashed.
+ * `original` is the place a restore returns the file to on Linux (macOS keeps only the file name, since Put Back is Finder's own record), for a file moved aside before it is trashed.
  */
 export async function trashPath(
     path: string,

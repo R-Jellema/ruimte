@@ -28,6 +28,16 @@ describe('trashPath on macOS', () => {
         expect(await stat(file).catch(() => null)).toBeNull();
     });
 
+    test('keeps the file name of a file that was moved aside, and nothing of the hidden folder it sat in', async () => {
+        const aside = join(root, '.ruimte-overwrite-1', 'b.ts');
+        await mkdir(join(root, '.ruimte-overwrite-1'));
+        await writeFile(aside, 'b');
+
+        await trashPath(aside, 'darwin', home, {}, join(root, 'b.ts'));
+
+        expect(await readdir(join(home, '.Trash'))).toEqual(['b.ts']);
+    });
+
     test('numbers a name the trash already holds, keeping the extension', async () => {
         const first = join(root, 'a.txt');
         const second = join(root, 'sub', 'a.txt');
