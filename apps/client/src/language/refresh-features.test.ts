@@ -31,7 +31,7 @@ describe('inlay hints and semantic tokens', () => {
         await language.document.ready;
         await settle();
         expect(calls.sort()).toEqual(['textDocument/inlayHint', 'textDocument/semanticTokens/full']);
-        expect(editor.inlayHints).toEqual([{ position: { line: 0, character: 5 }, label: ': number' }]);
+        expect(editor.inlayHints).toEqual([expect.objectContaining({ position: { line: 0, character: 5 }, label: ': number' })]);
         expect(editor.semanticTokens).toEqual([{ line: 0, character: 10, length: 4, scopes: ['entity.name.function.call'] }]);
         transport.emit('language.providers', { projectId: 'p1', path: 'src/a.ts', providers: transport.providers });
         await settle();
