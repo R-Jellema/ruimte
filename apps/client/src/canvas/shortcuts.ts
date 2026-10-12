@@ -62,6 +62,7 @@ export const CANVAS_SHORTCUTS = {
     goToSymbol: requiredShortcut('goToSymbol'),
     peekReferences: requiredShortcut('peekReferences'),
     callHierarchy: requiredShortcut('callHierarchy'),
+    toggleRenderedDocs: requiredShortcut('toggleRenderedDocs'),
     peekDefinition: requiredShortcut('peekDefinition'),
     rename: requiredShortcut('renameSymbol'),
     organizeImports: requiredShortcut('organizeImports'),

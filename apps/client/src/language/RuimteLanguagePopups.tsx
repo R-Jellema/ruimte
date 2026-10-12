@@ -11,6 +11,7 @@ import {
     HoverCard,
     PeekPanel,
     PickPopup,
+    RenderedDocs,
     RenameCard,
     SignatureCard,
     SymbolPicker,
@@ -139,6 +140,7 @@ export function LanguagePopups({ language }: { language: EditorLanguage }) {
             {peek !== null && <PeekPanel language={language} view={peek} />}
             {callHierarchy !== undefined && callHierarchy !== null && <CallHierarchyPanel language={language} view={callHierarchy} />}
             {authors !== null && <CodeAuthorsCard language={language} view={authors} />}
+            <RenderedDocs language={language} />
             <InlineEditLayer language={language} />
             {rename !== null && renameRect !== null && <RenameCard language={language} view={rename} rect={renameRect} endRect={renameEnd} />}
         </EditorRenderingProvider>

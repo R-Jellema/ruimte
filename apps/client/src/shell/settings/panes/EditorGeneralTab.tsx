@@ -19,6 +19,7 @@ export function EditorGeneralTab() {
     const codeIndentGuides = useSettings((s) => s.codeIndentGuides);
     const codeWhitespace = useSettings((s) => s.codeWhitespace);
     const smartKeys = useSettings((s) => s.smartKeys);
+    const codeRenderDocs = useSettings((s) => s.codeRenderDocs);
     const codeVisionUsages = useSettings((s) => s.codeVisionUsages);
     const codeVisionAuthors = useSettings((s) => s.codeVisionAuthors);
     const update = useSettings((s) => s.update);
@@ -129,6 +130,20 @@ export function EditorGeneralTab() {
                             checked={smartKeys.camelHumps}
                             onCheckedChange={(checked) => update({ smartKeys: { ...smartKeys, camelHumps: checked } })}
                             label={t('editor.general.navigation.camelHumps.label')}
+                        />
+                    }
+                />
+            </SettingsSection>
+            <SettingsSection title={t('editor.general.documentation.title')}>
+                <SettingsRow
+                    searchId="editor.general.documentation.render"
+                    label={t('editor.general.documentation.render.label')}
+                    description={t('editor.general.documentation.render.description')}
+                    control={
+                        <Switch
+                            checked={codeRenderDocs}
+                            onCheckedChange={(checked) => update({ codeRenderDocs: checked })}
+                            label={t('editor.general.documentation.render.label')}
                         />
                     }
                 />

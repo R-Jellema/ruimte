@@ -122,6 +122,13 @@
                     "description": "Woord voor woord bewegen stopt ook binnen camelCase- en snake_case-woorden."
                 }
             },
+            "documentation": {
+                "title": "Documentatie",
+                "render": {
+                    "label": "Documentatiecommentaar renderen",
+                    "description": "Toont documentatiecommentaar als opgemaakte tekst in plaats van de regels zelf. De boekknop in de goot wisselt één commentaar, en het commentaar waarin je typt blijft tekst."
+                }
+            },
             "codeVision": {
                 "title": "Code vision",
                 "usages": {

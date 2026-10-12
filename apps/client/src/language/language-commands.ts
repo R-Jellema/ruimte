@@ -31,6 +31,7 @@ const RUNNERS: Record<LanguageCommandId, (language: EditorLanguage) => void> = {
     'inline-edit': (language) => language.inlineEdit.start(),
     'show-inline-edit': (language) => void language.inlineEdit.show(),
     explain: (language) => void language.explain.explainHere(),
+    'toggle-rendered-docs': (language) => void language.renderedDocs.toggle(),
     'suggest-inline': (language) => void language.ghost.request()
 };
 

@@ -122,6 +122,13 @@
                     "description": "Moving by word also stops inside camelCase and snake_case words."
                 }
             },
+            "documentation": {
+                "title": "Documentation",
+                "render": {
+                    "label": "Render documentation comments",
+                    "description": "Draws documentation comments as formatted text in place of their lines. The book button in the gutter switches one comment, and the comment you are editing stays text."
+                }
+            },
             "codeVision": {
                 "title": "Code vision",
                 "usages": {

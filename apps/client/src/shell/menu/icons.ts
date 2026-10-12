@@ -204,6 +204,7 @@ const ICONS: Partial<Record<string, LucideIcon>> = {
     'go-to-implementation': Blocks,
     'peek-references': Rows3,
     'call-hierarchy': Network,
+    'toggle-rendered-docs': BookOpen,
     'peek-definition': FileSearch,
     'quick-info': Info,
     'trigger-completion': ListChecks,

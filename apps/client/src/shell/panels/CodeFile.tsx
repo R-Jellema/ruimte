@@ -30,6 +30,7 @@ import { ReviewBar, ReviewLayer } from '@/editor-ai/ReviewLayer';
 import { useAgentChanges } from '@/editor-ai/use-agent-changes';
 import { useConflictResolution } from '@/editor-ai/use-conflict-resolution';
 import { useCodeVision } from '@/shell/panels/use-code-vision';
+import { useRenderedDocs } from '@/shell/panels/use-rendered-docs';
 import { useGitBlame } from '@/shell/panels/use-git-blame';
 import { useEditorScope } from '@/shell/panels/use-editor-scope';
 import { useFileEditing } from '@/shell/panels/use-file-editing';
@@ -260,6 +261,7 @@ export function CodeFile({ path, read, toolbarExtra, onEditor, frame }: CodeFile
     }, [editor]);
     const editorLanguage = useEditorLanguage(editor, path, plain ? undefined : read.language);
     useCodeVision(editorLanguage);
+    useRenderedDocs(editorLanguage);
     useGitBlame(editorLanguage, path, read.text);
     useEffect(() => {
         const element = surface.current;

@@ -27,6 +27,7 @@ const TABLE = {
     'inline-edit': { menu: 'code', key: 'inlineEdit', shortcut: CANVAS_SHORTCUTS.inlineEdit },
     'show-inline-edit': { menu: 'code', key: 'showInlineEdit' },
     explain: { menu: 'code', key: 'explain' },
+    'toggle-rendered-docs': { menu: 'code', key: 'toggleRenderedDocs', shortcut: CANVAS_SHORTCUTS.toggleRenderedDocs },
     'suggest-inline': { menu: 'code', key: 'suggestInline', shortcut: CANVAS_SHORTCUTS.suggestInline },
     'go-to-symbol': { menu: 'go', key: 'goToSymbol', shortcut: CANVAS_SHORTCUTS.goToSymbol },
     'go-to-definition': { menu: 'go', key: 'goToDefinition', shortcut: CANVAS_SHORTCUTS.goToDefinition },

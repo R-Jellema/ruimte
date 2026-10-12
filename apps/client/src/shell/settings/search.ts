@@ -133,6 +133,12 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         description: 'settings:editor.general.navigation.camelHumps.description'
     },
     {
+        id: 'editor.general.documentation.render',
+        section: 'editor',
+        label: 'settings:editor.general.documentation.render.label',
+        description: 'settings:editor.general.documentation.render.description'
+    },
+    {
         id: 'editor.general.codeVision.usages',
         section: 'editor',
         label: 'settings:editor.general.codeVision.usages.label',
