@@ -2,7 +2,7 @@ import i18next from 'i18next';
 import type { Shortcut } from '@adecore/ui';
 import type { EditorRunCommand } from '@adecore/editor';
 import { editorShortcut } from '@/shell/editor-keymap';
-import { focusedEditor } from '@/shell/panels/focused-editor';
+import { editorForCommand } from '@/shell/panels/focused-editor';
 
 /*
  * The editing commands of a file editor that have a place in the menu and the palette, with their words
@@ -85,7 +85,7 @@ export function editorCommandRows(): EditorCommandRow[] {
         shortcut: EDITOR_COMMANDS[id].shortcut,
         run: () => {
             requestAnimationFrame(() => {
-                focusedEditor()?.runCommand(EDITOR_COMMANDS[id].command);
+                editorForCommand()?.runCommand(EDITOR_COMMANDS[id].command);
             });
         }
     }));

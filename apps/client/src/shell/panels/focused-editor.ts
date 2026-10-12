@@ -1,4 +1,6 @@
 import type { Editor } from '@adecore/editor';
+import { cellElement } from '@/shell/cell-rects';
+import { useDocument } from '@/state/document';
 
 interface Entry {
     editor: Editor;
@@ -6,13 +8,22 @@ interface Entry {
 }
 
 const entries = new Set<Entry>();
+let recent: Entry | null = null;
 
 /* An editor and the element it draws in, so a command from the palette or the menu finds the editor that has the keyboard. */
 export function registerFocusedEditor(editor: Editor, surface: HTMLElement): () => void {
     const entry = { editor, surface };
+    const remember = (): void => {
+        recent = entry;
+    };
     entries.add(entry);
+    surface.addEventListener('focusin', remember);
     return () => {
         entries.delete(entry);
+        surface.removeEventListener('focusin', remember);
+        if (recent === entry) {
+            recent = null;
+        }
     };
 }
 
@@ -29,4 +40,35 @@ export function focusedEditor(): Editor | null {
         }
     }
     return found?.editor ?? null;
+}
+
+/* The editor that last had the keyboard, when it sits in `cell`; null for a cell that never held one. */
+export function recentEditorIn(cell: Element | null): Editor | null {
+    return cell !== null && recent !== null && entries.has(recent) && cell.contains(recent.surface) ? recent.editor : null;
+}
+
+/*
+ * The editor a menu or palette command means: the one with the keyboard, else the one the active view
+ * had it last, which then gets the keyboard back, since focus left it for something else in the same view.
+ */
+export function editorForCommand(): Editor | null {
+    const focused = focusedEditor();
+    if (focused !== null) {
+        return focused;
+    }
+    const editor = activeViewEditor();
+    editor?.focus();
+    return editor;
+}
+
+/* The active view's last focused editor, when `surface` belongs to that view. */
+export function activeViewEditorFor(surface: Element): Editor | null {
+    const state = useDocument.getState();
+    const cell = state.activeViewId === null ? null : cellElement(state.activeViewId);
+    return cell !== null && cell.contains(surface) ? recentEditorIn(cell) : null;
+}
+
+function activeViewEditor(): Editor | null {
+    const state = useDocument.getState();
+    return state.activeViewId === null ? null : recentEditorIn(cellElement(state.activeViewId));
 }

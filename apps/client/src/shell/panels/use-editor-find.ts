@@ -6,7 +6,7 @@ import { compileFind, type FindQuery } from '@/find/query';
 import { openFocusedFind } from '@/find/hosts';
 import { lastFindQuery, type FindSeed, type FindState } from '@/find/use-find';
 import { requiredShortcut } from '@/shell/editor-keymap';
-import { focusedEditor } from '@/shell/panels/focused-editor';
+import { editorForCommand } from '@/shell/panels/focused-editor';
 import { isApplePlatform } from '@/desktop/bridge';
 import { matchesShortcut } from '@adecore/ui';
 
@@ -17,7 +17,7 @@ const steppers = new Map<Editor, (direction: 1 | -1) => void>();
 
 /* Goes to the next or the previous match in the editor that has the keyboard; false when none does. */
 export function stepFocusedEditorFind(direction: 1 | -1): boolean {
-    const editor = focusedEditor();
+    const editor = editorForCommand();
     const step = editor === null ? undefined : steppers.get(editor);
     step?.(direction);
     return step !== undefined;

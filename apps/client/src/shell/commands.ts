@@ -24,7 +24,7 @@ import { toWorld } from '@/canvas/math';
 import { openNewConsole } from '@/database/console-file';
 import { useDatabasePanel } from '@/database/state';
 import { refreshSqlSchemas } from '@/database/sql-bindings';
-import { focusedLanguage } from '@/language/focused-language';
+import { languageForCommand } from '@/language/focused-language';
 import { languageCommandRows } from '@/language/language-commands';
 import { editorCommandRows } from '@/shell/editor-commands';
 import { editorShortcut } from '@/shell/editor-keymap';
@@ -354,25 +354,25 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
                       id: 'next-problem',
                       label: i18next.t('shell:palette.commands.nextProblem'),
                       shortcut: CANVAS_SHORTCUTS.nextProblem,
-                      run: afterPaletteCloses(() => focusedLanguage()?.diagnostics.step(1))
+                      run: afterPaletteCloses(() => languageForCommand()?.diagnostics.step(1))
                   },
                   {
                       id: 'next-highlight',
                       label: i18next.t('shell:palette.commands.nextHighlight'),
                       shortcut: CANVAS_SHORTCUTS.nextHighlight,
-                      run: afterPaletteCloses(() => focusedLanguage()?.highlights.step(1))
+                      run: afterPaletteCloses(() => languageForCommand()?.highlights.step(1))
                   },
                   {
                       id: 'previous-highlight',
                       label: i18next.t('shell:palette.commands.previousHighlight'),
                       shortcut: CANVAS_SHORTCUTS.previousHighlight,
-                      run: afterPaletteCloses(() => focusedLanguage()?.highlights.step(-1))
+                      run: afterPaletteCloses(() => languageForCommand()?.highlights.step(-1))
                   },
                   {
                       id: 'previous-problem',
                       label: i18next.t('shell:palette.commands.previousProblem'),
                       shortcut: CANVAS_SHORTCUTS.previousProblem,
-                      run: afterPaletteCloses(() => focusedLanguage()?.diagnostics.step(-1))
+                      run: afterPaletteCloses(() => languageForCommand()?.diagnostics.step(-1))
                   }
               ]
             : []),
