@@ -41599,6 +41599,9 @@
           "textDocument/semanticTokens/range",
           "textDocument/inlayHint",
           "inlayHint/resolve",
+          "textDocument/prepareCallHierarchy",
+          "callHierarchy/incomingCalls",
+          "callHierarchy/outgoingCalls",
           "workspace/symbol"
         ]
       },

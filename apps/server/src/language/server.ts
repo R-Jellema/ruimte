@@ -13,6 +13,7 @@ import {
     watchesFile,
     type ApplyWorkspaceEditParams,
     type ApplyWorkspaceEditResult,
+    type CallHierarchyItem,
     type ConfigurationItem,
     type ContentChange,
     type Diagnostic,
@@ -157,6 +158,19 @@ const SIDECAR_ACTION_OPTIONS = {
 type Phase = 'stopped' | 'starting' | 'ready' | 'crashed';
 
 /* What a failure or a log line calls a process. */
+/* The two call hierarchy requests carry the item of an earlier answer, with no `textDocument` beside it. */
+function requestOf(open: LspDocument, method: string, params: object): Promise<unknown> {
+    const options = { cancelPrevious: false, timeoutMs: 0 };
+    const { item } = params as { item: CallHierarchyItem };
+    if (method === 'callHierarchy/incomingCalls') {
+        return open.incomingCalls(item, options);
+    }
+    if (method === 'callHierarchy/outgoingCalls') {
+        return open.outgoingCalls(item, options);
+    }
+    return open.request(method, params, options);
+}
+
 function titleOf(profile: ComponentProfile): string {
     return profile.title ?? profile.name;
 }
@@ -453,7 +467,7 @@ export class LanguageServer {
         for (const component of this.orderFor(document, method, params, hint)) {
             const open = component.documents.get(document.absolutePath);
             if (open && component.session.supports(method, open)) {
-                const result = await open.request(method, params, { cancelPrevious: false, timeoutMs: 0 });
+                const result = await requestOf(open, method, params);
                 return { result, server: component.profile.name, version: open.version };
             }
         }
@@ -488,7 +502,7 @@ export class LanguageServer {
             if (!component || !open || !component.session.supports(method, open)) {
                 return null;
             }
-            const result = await open.request(method, params, { cancelPrevious: false, timeoutMs: 0 });
+            const result = await requestOf(open, method, params);
             return { result, server: profile.name, version: open.version };
         })();
         const deadline = cold ? SIDECAR_START_DEADLINE_MS : MERGE_DEADLINE_MS;

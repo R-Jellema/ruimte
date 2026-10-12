@@ -3,6 +3,7 @@ import { useStore } from 'zustand';
 import { useTranslation } from 'react-i18next';
 import {
     AnchoredPopup,
+    CallHierarchyPanel,
     CodeAuthorsCard,
     CompletionPopup,
     EditorContextMenu,
@@ -107,7 +108,7 @@ export function LanguagePopups({ language }: { language: EditorLanguage }) {
     const [, redraw] = useReducer((count: number) => count + 1, 0);
     const state = useStore(language.popups);
     useEffect(() => language.editor.onViewChange(redraw), [language]);
-    const { hover, completion, signature, pick, rename, peek, symbols, menu, authors } = state;
+    const { hover, completion, signature, pick, rename, peek, callHierarchy, symbols, menu, authors } = state;
     const hoverRect = hover === null ? null : language.editor.rectAt(hover.anchor);
     const completionRect = completion === null ? null : language.editor.rectAt(completion.anchor);
     const signatureRect = signature === null ? null : language.editor.rectAt(signature.anchor);
@@ -136,6 +137,7 @@ export function LanguagePopups({ language }: { language: EditorLanguage }) {
             )}
             {symbols !== null && <SymbolPicker language={language} view={symbols} />}
             {peek !== null && <PeekPanel language={language} view={peek} />}
+            {callHierarchy !== undefined && callHierarchy !== null && <CallHierarchyPanel language={language} view={callHierarchy} />}
             {authors !== null && <CodeAuthorsCard language={language} view={authors} />}
             <InlineEditLayer language={language} />
             {rename !== null && renameRect !== null && <RenameCard language={language} view={rename} rect={renameRect} endRect={renameEnd} />}

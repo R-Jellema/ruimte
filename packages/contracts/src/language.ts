@@ -262,6 +262,10 @@ export const LANGUAGE_METHODS = [
     'textDocument/semanticTokens/range',
     'textDocument/inlayHint',
     'inlayHint/resolve',
+    'textDocument/prepareCallHierarchy',
+    // These two take the item a prepare or an earlier call answered, not a position.
+    'callHierarchy/incomingCalls',
+    'callHierarchy/outgoingCalls',
     // Asked of the server that serves the document, for a name in a snippet that is no document of its own.
     'workspace/symbol'
 ] as const;

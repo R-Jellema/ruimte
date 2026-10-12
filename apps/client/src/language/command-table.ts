@@ -34,6 +34,7 @@ const TABLE = {
     'go-to-type-definition': { menu: 'go', key: 'goToTypeDefinition', shortcut: CANVAS_SHORTCUTS.goToTypeDefinition },
     'peek-definition': { menu: 'go', key: 'peekDefinition', shortcut: CANVAS_SHORTCUTS.peekDefinition },
     'peek-references': { menu: 'go', key: 'peekReferences', shortcut: CANVAS_SHORTCUTS.peekReferences },
+    'call-hierarchy': { menu: 'go', key: 'callHierarchy', shortcut: CANVAS_SHORTCUTS.callHierarchy },
     'go-to-implementation': { menu: 'go', key: 'goToImplementation', shortcut: CANVAS_SHORTCUTS.goToImplementation },
     'history-back': { menu: 'go', key: 'historyBack', shortcut: CANVAS_SHORTCUTS.historyBack },
     'history-forward': { menu: 'go', key: 'historyForward', shortcut: CANVAS_SHORTCUTS.historyForward },

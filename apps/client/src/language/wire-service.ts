@@ -7,6 +7,9 @@ import {
     StaleResultError,
     type ApplyWorkspaceEditParams,
     type ApplyWorkspaceEditResult,
+    type CallHierarchyIncomingCall,
+    type CallHierarchyItem,
+    type CallHierarchyOutgoingCall,
     type CodeAction,
     type CodeActionContext,
     type CodeLens,
@@ -299,6 +302,18 @@ export class WireLanguageService implements LanguageService {
 
     implementation(uri: string, position: Position, options?: LanguageRequestOptions): Promise<NavigationResult> {
         return this.call(uri, 'textDocument/implementation', { position }, options);
+    }
+
+    prepareCallHierarchy(uri: string, position: Position, options?: LanguageRequestOptions): Promise<CallHierarchyItem[] | null> {
+        return this.call(uri, 'textDocument/prepareCallHierarchy', { position }, options);
+    }
+
+    incomingCalls(uri: string, item: CallHierarchyItem, options?: LanguageRequestOptions): Promise<CallHierarchyIncomingCall[] | null> {
+        return this.call(uri, 'callHierarchy/incomingCalls', { item }, options);
+    }
+
+    outgoingCalls(uri: string, item: CallHierarchyItem, options?: LanguageRequestOptions): Promise<CallHierarchyOutgoingCall[] | null> {
+        return this.call(uri, 'callHierarchy/outgoingCalls', { item }, options);
     }
 
     references(uri: string, position: Position, includeDeclaration = true, options?: LanguageRequestOptions): Promise<Location[] | null> {
