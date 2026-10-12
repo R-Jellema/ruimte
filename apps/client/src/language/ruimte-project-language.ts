@@ -1,3 +1,4 @@
+import { createSnippetTransformWorker } from './snippet-transform-worker';
 import i18next from 'i18next';
 import { ProjectLanguage as SharedProjectLanguage, type LanguageDocumentHandle, type ProjectFiles, type RenameSuggestionsRequest } from '@adecore/editor-react';
 import type { Editor } from '@adecore/editor';
@@ -46,6 +47,7 @@ export class ProjectLanguage extends SharedProjectLanguage {
             ...(files === null ? {} : { files }),
             apple: isApplePlatform(),
             keymap: RUIMTE_EDITOR_KEYMAP,
+            snippetTransformWorker: createSnippetTransformWorker,
             openPlace: (place) => {
                 const path = fileUriToPath(place.uri);
                 if (path !== null) {
