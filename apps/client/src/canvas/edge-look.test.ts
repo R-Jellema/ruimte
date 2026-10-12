@@ -101,9 +101,8 @@ describe('edgeLook', () => {
         expect(look('target')).toEqual({ tail: 'none', head: 'chevron', dashed: false, accent: false, width: 2 });
     });
 
-    test('an origin points at what was opened, thinner than the rest', () => {
-        expect(look('origin')).toEqual({ tail: 'dot', head: 'arrow', dashed: true, accent: false, width: 1 });
-        expect(look('origin').width).toBeLessThan(look('plain').width);
+    test('an origin points at what was opened, dashed where a target line is solid', () => {
+        expect(look('origin')).toEqual({ ...look('target'), dashed: true });
     });
 
     test('a plain line carries nothing, so neither end points anywhere', () => {

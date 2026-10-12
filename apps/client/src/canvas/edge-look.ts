@@ -16,12 +16,7 @@ export interface EdgeLook {
     width: number;
 }
 
-/* What the canvas has always drawn a line with, and what every line but an origin still gets. */
 const EDGE_WIDTH = 2;
-
-/* An origin line only says where a node came from and grants nothing, so it lies under the rest.
-   A whole pixel and not half of one: 2 is already the thin stroke, and 1.5 blurs at rest. */
-const ORIGIN_WIDTH = 1;
 
 /* What a line means and which way it is drawn, since a person draws a pair of meanings both ways. */
 export interface LineMeaning {
@@ -73,7 +68,8 @@ function lookOf(role: LineRole, pair: boolean, openTask: boolean): EdgeLook {
         case 'target':
             return { tail: 'none', head: 'chevron', dashed: false, accent: false, width: EDGE_WIDTH };
         case 'origin':
-            return { tail: 'dot', head: 'arrow', dashed: true, accent: false, width: ORIGIN_WIDTH };
+            // A target line's shape, dashed because it grants nothing: it only says where a node came from.
+            return { tail: 'none', head: 'chevron', dashed: true, accent: false, width: EDGE_WIDTH };
         case 'plain':
             return { tail: 'dot', head: 'dot', dashed: false, accent: false, width: EDGE_WIDTH };
     }

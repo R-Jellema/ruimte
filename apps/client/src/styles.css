@@ -97,9 +97,8 @@
     --canvas-bg: #eeeef1;
     --canvas-dot: #cfcfd6;
     /* A connector is solid, never an alpha over the canvas the way a border is: two lines that cross
-       must not stack into a darker seam, and a port dot rims itself in the same color. The weight
-       matches `--border-strong` over the canvas. */
-    --edge-line: color-mix(in srgb, var(--text) 20%, var(--canvas-bg));
+       must not stack into a darker seam, and a port dot rims itself in the same color. */
+    --edge-line: color-mix(in srgb, var(--text) 30%, var(--canvas-bg));
     --edge-context: color-mix(in srgb, var(--accent) 55%, var(--canvas-bg));
     /* Every wider layer pulls in by a negative spread of half its blur, so it falls below the
        surface instead of spreading around it as a haze.
@@ -189,9 +188,8 @@
     --canvas-bg: #0d0d10;
     --canvas-dot: #202024;
     /* A connector is solid, never an alpha over the canvas the way a border is: two lines that cross
-       must not stack into a darker seam, and a port dot rims itself in the same color. The weight
-       matches `--border-strong` over the canvas. */
-    --edge-line: color-mix(in srgb, var(--text) 13%, var(--canvas-bg));
+       must not stack into a darker seam, and a port dot rims itself in the same color. */
+    --edge-line: color-mix(in srgb, var(--text) 22%, var(--canvas-bg));
     --edge-context: color-mix(in srgb, var(--accent) 55%, var(--canvas-bg));
     /* Tighter than in the light theme: the compositor rounds the faint tail of a shadow on a layer
        of its own a gray level darker, so a wide blur ends in a flat ring that reads as a band. */

@@ -20,7 +20,7 @@
     --text-faint: #5f5f6b;
     --accent: #155dfc;
     --accent-soft: color-mix(in srgb, var(--accent) 16%, var(--surface));
-    --edge-line: color-mix(in srgb, var(--text) 13%, var(--canvas-bg));
+    --edge-line: color-mix(in srgb, var(--text) 22%, var(--canvas-bg));
     --edge-context: color-mix(in srgb, var(--accent) 55%, var(--canvas-bg));
     --status-running: #60a5fa;
     --status-needs-you: #fbbf24;
