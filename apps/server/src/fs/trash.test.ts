@@ -65,6 +65,19 @@ describe('trashPath on macOS', () => {
 });
 
 describe('trashPath on Linux', () => {
+    test('records the original path given for a file that was moved aside', async () => {
+        const aside = join(root, '.ruimte-overwrite-1', 'b.ts');
+        const original = join(root, 'b.ts');
+        await mkdir(join(root, '.ruimte-overwrite-1'));
+        await writeFile(aside, 'b');
+
+        await trashPath(aside, 'linux', home, { XDG_DATA_HOME: join(home, 'data') }, original);
+
+        const info = await readFile(join(home, 'data', 'Trash', 'info', 'b.ts.trashinfo'), 'utf8');
+        expect(info).toContain(`Path=${original.split('/').map(encodeURIComponent).join('/')}\n`);
+        expect(info).not.toContain('.ruimte-overwrite');
+    });
+
     test('moves into the XDG trash and writes the info file a file manager restores from', async () => {
         const file = join(root, 'my file.txt');
         await writeFile(file, 'a');

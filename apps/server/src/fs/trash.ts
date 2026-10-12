@@ -44,13 +44,13 @@ function localIso(at: Date): string {
 }
 
 /* The trash of the freedesktop.org spec in the home directory, with the `.trashinfo` a file manager restores from. */
-async function trashLinux(path: string, home: string, env: NodeJS.ProcessEnv): Promise<void> {
+async function trashLinux(path: string, original: string, home: string, env: NodeJS.ProcessEnv): Promise<void> {
     const root = join(env.XDG_DATA_HOME || join(home, '.local', 'share'), 'Trash');
     const files = join(root, 'files');
     const info = join(root, 'info');
     await Promise.all([mkdir(files, { recursive: true, mode: 0o700 }), mkdir(info, { recursive: true, mode: 0o700 })]);
-    const original = path.split('/').map(encodeURIComponent).join('/');
-    const text = `[Trash Info]\nPath=${original}\nDeletionDate=${localIso(new Date())}\n`;
+    const recorded = original.split('/').map(encodeURIComponent).join('/');
+    const text = `[Trash Info]\nPath=${recorded}\nDeletionDate=${localIso(new Date())}\n`;
     // The info file claims the name: `link` fails when another trashing took it first.
     const name = await freeName(basename(path), async (candidate) => {
         const claim = join(info, `${candidate}.trashinfo`);
@@ -77,12 +77,14 @@ async function trashLinux(path: string, home: string, env: NodeJS.ProcessEnv): P
  * Moves a path to the trash of the machine the daemon runs on, which is a rename into the trash
  * folder: no Finder, no Electron and no permission prompt, since the daemon also runs as a service
  * with neither. Items on another volume than the home folder are refused rather than deleted.
+ * `original` is the place a restore returns the file to on Linux, for a file moved aside before it is trashed.
  */
 export async function trashPath(
     path: string,
     platform: NodeJS.Platform = process.platform,
     home: string = homedir(),
-    env: NodeJS.ProcessEnv = process.env
+    env: NodeJS.ProcessEnv = process.env,
+    original: string = path
 ): Promise<void> {
     switch (platform) {
         case 'darwin': {
@@ -92,7 +94,7 @@ export async function trashPath(
             return;
         }
         case 'linux':
-            await trashLinux(path, home, env);
+            await trashLinux(path, original, home, env);
             return;
         default:
             throw new TrashError('trash-unsupported', 'This machine has no trash Ruimte can move files to');

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { rename } from 'node:fs/promises';
 import { planRename, renamePath } from './rename.ts';
 import type { WriteBoundary } from './write.ts';
 
@@ -170,5 +171,54 @@ describe('fs.rename with overwrite', () => {
         expect(
             await codeOf(planRename(join(project, 'src', 'a.ts'), join(outside, 'c.txt'), boundary(), { overwrite: true, trash: async () => undefined }))
         ).toBe('outside-project');
+    });
+});
+
+describe('fs.rename across volumes', () => {
+    const exdev = async (): Promise<void> => {
+        throw Object.assign(new Error('cross-device link'), { code: 'EXDEV' });
+    };
+
+    test('refuses before moving anything when the target is on another device', async () => {
+        const moved: string[] = [];
+        const code = await codeOf(
+            planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'b.ts'), boundary(), {
+                overwrite: true,
+                deviceOf: async (path) => (path.endsWith('a.ts') ? 1 : 2),
+                rename: async (from) => void moved.push(from)
+            })
+        );
+        expect(code).toBe('other-volume');
+        expect(moved).toEqual([]);
+    });
+
+    test('maps EXDEV from the move to other-volume', async () => {
+        const plan = await planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'c.ts'), boundary(), { rename: exdev });
+        expect(await codeOf(plan.run())).toBe('other-volume');
+        expect(await readFile(join(project, 'src', 'a.ts'), 'utf8')).toBe('a');
+    });
+
+    test('maps EXDEV of a replacing move to other-volume and keeps the target', async () => {
+        const plan = await planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'b.ts'), boundary(), {
+            overwrite: true,
+            trash: async () => undefined,
+            rename: async (from, to) => (from.endsWith('a.ts') ? exdev() : rename(from, to))
+        });
+        expect(await codeOf(plan.run())).toBe('other-volume');
+        expect(await readFile(join(project, 'src', 'b.ts'), 'utf8')).toBe('b');
+        expect((await readdir(join(project, 'src'))).sort()).toEqual(['a.ts', 'b.ts']);
+    });
+
+    test('tells the trash where the replaced file was', async () => {
+        const originals: string[] = [];
+        const plan = await planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'b.ts'), boundary(), {
+            overwrite: true,
+            trash: async (path, original) => {
+                originals.push(original);
+                await rm(path);
+            }
+        });
+        await plan.run();
+        expect(originals).toEqual([join(project, 'src', 'b.ts')]);
     });
 });

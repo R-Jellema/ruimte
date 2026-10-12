@@ -75,6 +75,29 @@ function assertOpenGround(segments: readonly string[], path: string): void {
     }
 }
 
+type Rename = (from: string, to: string) => Promise<void>;
+type Trash = (path: string, original: string) => Promise<void>;
+
+/* The device of the deepest folder that exists along `path`, which is where a move to it lands. */
+async function deviceOfPlace(path: string): Promise<number> {
+    let current = dirname(path);
+    for (;;) {
+        const entry = await stat(current).catch(() => null);
+        if (entry !== null) {
+            return entry.dev;
+        }
+        const parent = dirname(current);
+        if (parent === current) {
+            throw new RenameError('bad-path', `${path} has no folder to start from`);
+        }
+        current = parent;
+    }
+}
+
+function trashReplaced(path: string, original: string): Promise<void> {
+    return trashPath(path, undefined, undefined, undefined, original);
+}
+
 /* A move that passed every check; `run` makes it. */
 export interface RenamePlan {
     run(): Promise<void>;
@@ -90,7 +113,7 @@ export async function planRename(
     path: string,
     to: string,
     boundary: WriteBoundary,
-    options: { overwrite?: boolean; trash?: (path: string) => Promise<void> } = {}
+    options: { overwrite?: boolean; trash?: Trash; rename?: Rename; deviceOf?: (path: string) => Promise<number> } = {}
 ): Promise<RenamePlan> {
     if (!isAbsolute(path) || !isAbsolute(to) || path.includes('\0') || to.includes('\0')) {
         throw new RenameError('bad-path', 'Both paths must be absolute');
@@ -111,6 +134,10 @@ export async function planRename(
     if (target !== source && isInside(source, target)) {
         throw new RenameError('into-itself', `${path} cannot be moved into itself`);
     }
+    const deviceOf = options.deviceOf ?? deviceOfPlace;
+    if ((await deviceOf(source)) !== (await deviceOf(target))) {
+        throw new RenameError('other-volume', `${path} cannot be moved to another volume from here`);
+    }
     const taken = await lstat(target).catch(() => null);
     let replaced = false;
     if (taken !== null) {
@@ -123,14 +150,15 @@ export async function planRename(
             replaced = true;
         }
     }
+    const move = options.rename ?? rename;
     return {
         run: async () => {
             try {
                 await mkdir(dirname(target), { recursive: true });
                 if (replaced) {
-                    await replace(source, target, options.trash ?? trashPath);
+                    await replace(source, target, options.trash ?? trashReplaced, move);
                 } else {
-                    await rename(source, target);
+                    await move(source, target);
                 }
             } catch (e) {
                 throw failure(e, path);
@@ -143,27 +171,27 @@ export async function planRename(
  * Moves `source` over the file at `target`. The old file is set aside next to the target first, in a hidden folder
  * that keeps its name for the trash, and comes back when the move fails, so a failed move never leaves it only in the trash.
  */
-async function replace(source: string, target: string, trash: (path: string) => Promise<void>): Promise<void> {
+async function replace(source: string, target: string, trash: Trash, move: Rename): Promise<void> {
     const holder = join(dirname(target), `.ruimte-overwrite-${randomUUID()}`);
     const aside = join(holder, basename(target));
     await mkdir(holder);
     try {
-        await rename(target, aside);
+        await move(target, aside);
     } catch (e) {
         await rmdir(holder).catch(() => undefined);
         throw e;
     }
     try {
-        await rename(source, target);
+        await move(source, target);
     } catch (e) {
-        await rename(aside, target).catch((restoreError: unknown) => {
+        await move(aside, target).catch((restoreError: unknown) => {
             console.warn(`Could not put ${target} back from ${aside}`, restoreError);
         });
         await rmdir(holder).catch(() => undefined);
         throw e;
     }
     try {
-        await trash(aside);
+        await trash(aside, target);
         await rmdir(holder);
     } catch (e) {
         // The replaced file stays in its hidden folder: losing it is worse than a leftover.
