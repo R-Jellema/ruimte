@@ -9,6 +9,12 @@ export function extensionOf(name: string): string {
 const MARKDOWN_EXTENSIONS = new Set(['md', 'mdx', 'markdown']);
 const HTML_EXTENSIONS = new Set(['html', 'htm']);
 
+const PATCH_EXTENSIONS = new Set(['patch', 'diff']);
+
+export function isPatchName(name: string): boolean {
+    return PATCH_EXTENSIONS.has(extensionOf(name));
+}
+
 export function isMarkdownName(name: string): boolean {
     return MARKDOWN_EXTENSIONS.has(extensionOf(name));
 }

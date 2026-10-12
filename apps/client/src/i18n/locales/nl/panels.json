@@ -146,6 +146,15 @@
             "source": "Broncode",
             "previewAfterSave": "Het voorbeeld verschijnt zodra de wijzigingen zijn opgeslagen"
         },
+        "patch": {
+            "patch": "Patchweergave",
+            "text": "Platte tekst",
+            "binary": "binair",
+            "truncated": "Afgekapt",
+            "truncatedHint": "Deze patch is te lang om helemaal te tonen. De bestanden na de afkapping staan niet in de lijst en zijn niet gekleurd.",
+            "mismatch": "Hunks verouderd",
+            "mismatchHint": "Deze patch komt niet meer overeen met de hunkkoppen. Je kunt gewoon verder bewerken; de aantallen in de koppen worden niet hersteld."
+        },
         "markdown": {
             "frontmatter": "Frontmatter",
             "invalidFrontmatter": "De frontmatter kon niet als YAML worden gelezen. Hieronder staat de oorspronkelijke tekst."

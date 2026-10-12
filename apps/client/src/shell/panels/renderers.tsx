@@ -1,11 +1,12 @@
 import { isAudioMime, isImageMime, isPdfMime, isVideoMime, type FsReadResult, type FsReadText } from '@ruimte/contracts';
 import { AudioFile } from '@/shell/panels/AudioFile';
 import { CodeFile } from '@/shell/panels/CodeFile';
-import { isHtmlName, isMarkdownName } from '@/shell/panels/file-kind';
+import { isHtmlName, isMarkdownName, isPatchName } from '@/shell/panels/file-kind';
 import { HtmlFile } from '@/shell/panels/HtmlFile';
 import { ImageFile } from '@/shell/panels/ImageFile';
 import { MarkdownFile } from '@/shell/panels/MarkdownFile';
 import { UnsupportedFile } from '@/shell/panels/UnsupportedFile';
+import { PatchFileSlot } from '@/shell/panels/patch-file-lazy';
 import { PdfPreview } from '@/shell/panels/PdfPreview';
 import { VideoFile } from '@/shell/panels/VideoFile';
 
@@ -37,6 +38,11 @@ export const TEXT_RENDERERS: readonly TextFileRenderer[] = [
         id: 'html',
         match: (name) => isHtmlName(name),
         render: (props) => <HtmlFile path={props.path} name={props.name} read={props.read} />
+    },
+    {
+        id: 'patch',
+        match: (name) => isPatchName(name),
+        render: (props) => <PatchFileSlot path={props.path} read={props.read} />
     }
 ];
 

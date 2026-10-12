@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { GitTreeMarks } from './GitTreeMarks';
 import type { GitDiffFile } from '@ruimte/contracts';
 import { diffFileParts, firstFile, folderParts } from '@/shell/panels/commit-tree';
-import { dirPathOf, mergeCollapsedPaths } from '@/shell/panels/git-tree';
+import { dirPathOf, mergeCollapsedPaths, type DecorationPart } from '@/shell/panels/git-tree';
 const { applyExpansion, focusRow, selectOnly, visibleRows } = FileTree;
 
 interface CommitFileTreeProps {
@@ -13,6 +13,8 @@ interface CommitFileTreeProps {
     /* The file whose diff is up, or null while none is picked yet. */
     shown: string | null;
     onPick(path: string): void;
+    /* The decoration after a file's name; the counts and letter of a commit's diff when absent. */
+    marks?(file: GitDiffFile): DecorationPart[];
 }
 
 /*
@@ -20,7 +22,7 @@ interface CommitFileTreeProps {
  * A commit is read, not staged, so a row has no box and no menu: selecting it is what shows its
  * diff, by the pointer or by the arrow keys, and the keyboard stays here while it does.
  */
-export function CommitFileTree({ files, shown, onPick }: CommitFileTreeProps) {
+export function CommitFileTree({ files, shown, onPick, marks = diffFileParts }: CommitFileTreeProps) {
     const { t } = useTranslation('panels');
     const filesRef = useRef(files);
     const byPathRef = useRef<ReadonlyMap<string, GitDiffFile>>(new Map());
@@ -41,9 +43,9 @@ export function CommitFileTree({ files, shown, onPick }: CommitFileTreeProps) {
                 return parts === null ? null : <GitTreeMarks parts={parts} />;
             }
             const file = byPath.get(item.path);
-            return file === undefined ? null : <GitTreeMarks parts={diffFileParts(file)} />;
+            return file === undefined ? null : <GitTreeMarks parts={marks(file)} />;
         },
-        [byPath, files]
+        [byPath, files, marks]
     );
 
     const { model } = useFileTree({

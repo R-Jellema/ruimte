@@ -181,6 +181,10 @@ export interface CodeFileProps {
     read: FsReadText;
     /* Controls the file's own renderer adds to the toolbar, such as the markdown view switch. */
     toolbarExtra?: ReactNode;
+    /* Hands the editor out once it is mounted, and null when it is gone. */
+    onEditor?(editor: Editor | null): void;
+    /* Draws something around the editor area. It is applied at the same place for as long as it is given, so the editor is not mounted again. */
+    frame?(area: ReactNode): ReactNode;
 }
 
 /*
@@ -188,7 +192,7 @@ export interface CodeFileProps {
  * moves when it takes over, and stay for touch (which the editor does not handle) and for an editor that
  * did not load. Where the file cannot be written from here the toolbar says why.
  */
-export function CodeFile({ path, read, toolbarExtra }: CodeFileProps) {
+export function CodeFile({ path, read, toolbarExtra, onEditor, frame }: CodeFileProps) {
     const { t } = useTranslation('panels');
     const theme = useCodeTheme();
     const wrap = useSettings((s) => s.codeWrap);
@@ -239,6 +243,9 @@ export function CodeFile({ path, read, toolbarExtra }: CodeFileProps) {
     const find = useFind(surface, editor !== null, editorSeed(editor));
     const editorFind = useEditorFind(find, editor);
     const scope = useEditorScope(editor);
+    useEffect(() => {
+        onEditor?.(editor);
+    }, [editor, onEditor]);
     useEffect(() => {
         if (caret === null || editor === null || readOnlyReason !== null) {
             return;
@@ -375,7 +382,7 @@ export function CodeFile({ path, read, toolbarExtra }: CodeFileProps) {
                 </EditorNotice>
             )}
             {sqlTab === null ? (
-                editorArea
+                (frame?.(editorArea) ?? editorArea)
             ) : (
                 <ErrorBoundary label={t('databases:console.failedToDraw')} resetKeys={[binding?.connectionId]} className="min-h-0 grow">
                     <Suspense fallback={null}>

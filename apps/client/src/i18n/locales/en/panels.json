@@ -146,6 +146,15 @@
             "source": "Source",
             "previewAfterSave": "Preview shows once the changes are saved"
         },
+        "patch": {
+            "patch": "Patch view",
+            "text": "Plain text",
+            "binary": "binary",
+            "truncated": "Cut off",
+            "truncatedHint": "This patch is too long to show in full. The files after the cut are not listed and not colored.",
+            "mismatch": "Hunks out of date",
+            "mismatchHint": "This patch no longer matches its hunk headers. You can keep editing; the counts in the headers are not repaired."
+        },
         "markdown": {
             "frontmatter": "Frontmatter",
             "invalidFrontmatter": "Frontmatter could not be read as YAML. The original text is shown below."
