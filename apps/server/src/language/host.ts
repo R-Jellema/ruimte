@@ -1049,10 +1049,10 @@ export class LanguageHost {
     }
 
     /*
-     * Makes what a server answered to a file operation, step by step as the shared planner ordered it: files it makes,
-     * moves and deletes go through the same checks a person's own operation does, a document a client holds open takes
-     * its edits in its editor, as one undo step, and any other file is written. The whole edit is planned against the
-     * files first, so one that does not fit changes nothing: it is left out whole and logged, and the operation goes on.
+     * Makes what a server answered to a file operation. The whole edit is planned against the files and checked first: one
+     * that does not fit is left out whole and logged, and one that would move, replace or delete a document a client holds
+     * open is refused. Then the editors take their edits, as one undo step, and only when all accept do the files change on
+     * disk, in the planner's order, so a refusal leaves the disk as it was.
      */
     private async applyFileEdit(
         project: ProjectLanguage,
@@ -1069,20 +1069,9 @@ export class LanguageHost {
             server.log.push('host', `${server.kind} left out the edit of a ${what}: ${error instanceof Error ? error.message : 'it does not fit the files'}`);
             return [];
         }
-        const documents = new Map<string, SharedDocument>(
-            [...project.documents.values()].filter((document) => document.clients.size > 0).map((document) => [document.uri, document])
-        );
         const held = new Map<string, WorkspaceEdit>();
         const edited: string[] = [];
-        const flush = async (): Promise<void> => {
-            for (const [target, own] of held) {
-                const result = await this.sendEdit(project.projectId, target, own);
-                if (!result.applied) {
-                    throw new LanguageError(LANGUAGE_ERROR_CODES.failed, result.failureReason ?? `The editor did not make the edit of a ${what}`);
-                }
-            }
-            held.clear();
-        };
+        const onDisk: Array<() => Promise<void>> = [];
         for (const step of plan.steps) {
             if (step.kind === 'edits') {
                 if (step.after === step.before) {
@@ -1090,11 +1079,10 @@ export class LanguageHost {
                 }
                 const path = fileUriToPath(step.uri) ?? '';
                 edited.push(path);
-                const open = step.uri === step.readUri ? documents.get(step.uri) : this.heldAfterMove(project, step.uri, step.readUri);
+                const open = this.heldDocument(project, step.uri);
                 if (open === undefined) {
-                    await flush();
                     await this.options.machineHome.refuse(path);
-                    await file.write(path, step.after);
+                    onDisk.push(() => file.write(path, step.after));
                     continue;
                 }
                 const target = open.clients.has(clientId) ? clientId : [...open.clients][0]!;
@@ -1103,49 +1091,57 @@ export class LanguageHost {
                 held.set(target, own);
                 continue;
             }
-            await flush();
+            const paths = step.kind === 'rename' ? [fileUriToPath(step.oldUri) ?? '', fileUriToPath(step.newUri) ?? ''] : [fileUriToPath(step.uri) ?? ''];
+            for (const path of paths) {
+                if (this.holdsUnder(project, path)) {
+                    throw new LanguageError(
+                        LANGUAGE_ERROR_CODES.failed,
+                        `The edit of a ${what} would move, replace or delete ${path}, which an editor holds open`
+                    );
+                }
+                await this.options.machineHome.refuse(path);
+            }
             if (step.kind === 'create') {
-                const path = fileUriToPath(step.uri) ?? '';
-                await this.options.machineHome.refuse(path);
-                edited.push(path);
-                await (step.overwrite ? file.write(path, step.text) : file.create(path, step.text));
+                edited.push(paths[0]!);
+                onDisk.push(() => (step.overwrite ? file.write(paths[0]!, step.text) : file.create(paths[0]!, step.text)));
             } else if (step.kind === 'rename') {
-                const [from, to] = [fileUriToPath(step.oldUri) ?? '', fileUriToPath(step.newUri) ?? ''];
-                await Promise.all([this.options.machineHome.refuse(from), this.options.machineHome.refuse(to)]);
-                await file.rename(from, to, step.overwrite);
+                onDisk.push(() => file.rename(paths[0]!, paths[1]!, step.overwrite));
             } else {
-                const path = fileUriToPath(step.uri) ?? '';
-                await this.options.machineHome.refuse(path);
-                await file.delete(path);
+                onDisk.push(() => file.delete(paths[0]!));
             }
         }
-        await flush();
+        for (const [target, own] of held) {
+            const result = await this.sendEdit(project.projectId, target, own);
+            if (!result.applied) {
+                throw new LanguageError(LANGUAGE_ERROR_CODES.failed, result.failureReason ?? `The editor did not make the edit of a ${what}`);
+            }
+        }
+        for (const run of onDisk) {
+            await run();
+        }
         return edited;
     }
 
-    /* The document a client still holds for a file an earlier step moved: under its new path when the client reopened it there, else under the old one it moves along with the file. */
-    private heldAfterMove(project: ProjectLanguage, uri: string, readUri: string): SharedDocument | undefined {
-        for (const candidate of [uri, readUri]) {
-            const path = fileUriToPath(candidate);
-            const document = path === null ? undefined : project.documents.get(path);
-            if (document !== undefined && document.clients.size > 0) {
-                return document;
-            }
-        }
-        return undefined;
+    private heldDocument(project: ProjectLanguage, uri: string): SharedDocument | undefined {
+        const path = fileUriToPath(uri);
+        const document = path === null ? undefined : project.documents.get(path);
+        return document !== undefined && document.clients.size > 0 ? document : undefined;
+    }
+
+    /* Whether a client holds the file at the path, or a file inside it when it is a folder. */
+    private holdsUnder(project: ProjectLanguage, path: string): boolean {
+        const inside = path.endsWith('/') ? path : `${path}/`;
+        return [...project.documents.values()].some(
+            (document) => document.clients.size > 0 && (document.absolutePath === path || document.absolutePath.startsWith(inside))
+        );
     }
 
     /* The files an edit is planned against: the editor's text for a document a client holds open, else the disk's. */
     private editSource(project: ProjectLanguage): WorkspaceEditSource {
-        const held = (uri: string): SharedDocument | undefined => {
-            const path = fileUriToPath(uri);
-            const document = path === null ? undefined : project.documents.get(path);
-            return document !== undefined && document.clients.size > 0 ? document : undefined;
-        };
         return {
             operations: ['create', 'rename', 'delete'],
             read: async (uri) => {
-                const open = held(uri);
+                const open = this.heldDocument(project, uri);
                 if (open !== undefined) {
                     return { text: open.text, version: open.version, open: true };
                 }
@@ -1159,11 +1155,19 @@ export class LanguageHost {
             },
             exists: async (uri) => {
                 const path = fileUriToPath(uri);
-                return path !== null && (await fileExists(path));
+                if (path === null) {
+                    return false;
+                }
+                await this.options.machineHome.refuse(path);
+                return fileExists(path);
             },
             isFolder: async (uri) => {
                 const path = fileUriToPath(uri);
-                return path !== null && (await isDirectory(path));
+                if (path === null) {
+                    return false;
+                }
+                await this.options.machineHome.refuse(path);
+                return isDirectory(path);
             }
         };
     }

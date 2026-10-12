@@ -1401,37 +1401,62 @@ describe('files that move', () => {
         ]);
     });
 
-    const movedThenEdited = () => ({
-        documentChanges: [{ kind: 'rename', oldUri: 'file:///work/src/a.ts', newUri: 'file:///work/src/d.ts' }, line('/work/src/d.ts', './c')]
-    });
+    const held = 'file:///work/src/a.ts';
+    const refusedPlans: Record<string, Array<Record<string, unknown>>> = {
+        'a rename of a held file': [{ kind: 'rename', oldUri: held, newUri: 'file:///work/src/d.ts' }],
+        'a rename onto a held file': [{ kind: 'rename', oldUri: 'file:///work/src/b.ts', newUri: held, options: { overwrite: true } }],
+        'an overwriting create of a held file': [{ kind: 'create', uri: held, options: { overwrite: true } }],
+        'a delete of a held file': [{ kind: 'delete', uri: held }]
+    };
 
-    it('sends the edit of a held document that an earlier step moved to the client that holds it', async () => {
-        const rig = await moveRig(movedThenEdited);
-        const document = [...rig.host['projects'].get('p1')!.documents.values()][0]!;
+    for (const [name, steps] of Object.entries(refusedPlans)) {
+        it(`refuses ${name} and changes nothing`, async () => {
+            const rig = await moveRig(() => ({ documentChanges: [{ kind: 'create', uri: 'file:///work/src/e.ts' }, ...steps] }));
+            await expect(rig.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, rig.file)).rejects.toMatchObject({
+                code: LANGUAGE_ERROR_CODES.failed
+            });
+            expect(rig.calls).toEqual([]);
+            expect(kinds(rig.events['client-1'], 'language.edit')).toHaveLength(0);
+        });
+    }
+
+    it('leaves the disk as it was when the editor refuses the edit of a plan that also moves a closed file', async () => {
+        const rig = await moveRig(() => ({
+            documentChanges: [{ kind: 'rename', oldUri: 'file:///work/src/b.ts', newUri: 'file:///work/src/d.ts' }, line('/work/src/a.ts', './c')]
+        }));
         const moving = rig.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, rig.file);
+        const outcome = moving.then(
+            () => 'moved',
+            (error: { message: string }) => error.message
+        );
         await until(() => kinds(rig.events['client-1'], 'language.edit').length > 0);
         const [asked] = kinds(rig.events['client-1'], 'language.edit');
-        const payload = (asked as { payload: { editId: string; edit: { documentChanges: Array<{ textDocument: { uri: string; version: number } }> } } })
-            .payload;
-        expect(payload.edit.documentChanges[0]!.textDocument).toEqual({ uri: document.uri, version: document.version });
-        rig.host.answerEdit('client-1', { projectId: 'p1', editId: payload.editId, applied: true });
-        expect(await moving).toEqual(['/work/src/d.ts']);
-        expect(rig.written).toEqual([]);
-        expect(rig.calls).toEqual(['rename /work/src/a.ts /work/src/d.ts', 'move']);
+        rig.host.answerEdit('client-1', {
+            projectId: 'p1',
+            editId: (asked as { payload: { editId: string } }).payload.editId,
+            applied: false,
+            failureReason: 'Version in flight'
+        });
+        expect(await outcome).toBe('Version in flight');
+        expect(rig.calls).toEqual([]);
     });
 
-    it('writes the edit of a moved document to its new path when the client let go of it in the move', async () => {
-        const rig = await moveRig(movedThenEdited);
-        const file = {
-            ...rig.file,
-            rename: async (from: string, to: string) => {
-                rig.calls.push(`rename ${from} ${to}`);
-                await rig.host.closeDocument('client-1', { projectId: 'p1', path: 'src/a.ts' });
-            }
-        };
-        expect(await rig.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, file)).toEqual(['/work/src/d.ts']);
-        expect(rig.written).toEqual([{ path: '/work/src/d.ts', text: 'export "./c";\n' }]);
-        expect(kinds(rig.events['client-1'], 'language.edit')).toHaveLength(0);
+    it('edits the held documents first, then moves and writes the closed files', async () => {
+        const rig = await moveRig(() => ({
+            documentChanges: [
+                { kind: 'rename', oldUri: 'file:///work/src/b.ts', newUri: 'file:///work/src/d.ts' },
+                line('/work/src/d.ts', './c'),
+                line('/work/src/a.ts', './c')
+            ]
+        }));
+        const moving = rig.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, rig.file);
+        await until(() => kinds(rig.events['client-1'], 'language.edit').length > 0);
+        expect(rig.calls).toEqual([]);
+        const [asked] = kinds(rig.events['client-1'], 'language.edit');
+        rig.host.answerEdit('client-1', { projectId: 'p1', editId: (asked as { payload: { editId: string } }).payload.editId, applied: true });
+        expect(await moving).toEqual(['/work/src/d.ts', '/work/src/a.ts']);
+        expect(rig.calls).toEqual(['rename /work/src/b.ts /work/src/d.ts', 'write', 'move']);
+        expect(rig.written).toEqual([{ path: '/work/src/d.ts', text: 'import "./c";\n' }]);
     });
 
     it('checks the version of a held document against the daemon, and leaves a stale edit out', async () => {
