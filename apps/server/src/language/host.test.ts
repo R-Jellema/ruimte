@@ -1274,15 +1274,12 @@ describe('files that move', () => {
         ]);
     });
 
-    it('does not move when the server creates a file that is there', async () => {
+    it('moves anyway, without the edit, when the server creates a file that is there', async () => {
         const { host, calls, file } = await moveRig(() => ({
             documentChanges: [{ kind: 'create', uri: 'file:///work/src/b.ts' }, line('/work/src/b.ts', './c')]
         }));
-        await expect(host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, file)).rejects.toMatchObject({
-            code: 'language-failed',
-            message: 'file:///work/src/b.ts already exists'
-        });
-        expect(calls).toEqual([]);
+        expect(await host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, file)).toEqual([]);
+        expect(calls).toEqual(['move']);
     });
 
     it('sends the edit of an open document to the client that asked, and only the files it holds', async () => {
@@ -1332,14 +1329,27 @@ describe('files that move', () => {
         expect(calls).toEqual(['move', 'move']);
     });
 
-    it('does not move when an edit does not fit the text, or the editor does not make it', async () => {
+    it('moves anyway, and skips the whole edit, when the server answers with a delete', async () => {
+        const { host, calls, written, file, events, server } = await moveRig(() => ({
+            documentChanges: [line('/work/src/b.ts', './c'), { kind: 'delete', uri: 'file:///work/src/old.ts' }]
+        }));
+        expect(await host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, file)).toEqual([]);
+        expect(calls).toEqual(['move']);
+        expect(written).toEqual([]);
+        expect(kinds(events['client-1'], 'language.edit')).toHaveLength(0);
+        expect(server.paramsOf('workspace/didRenameFiles')).toHaveLength(1);
+        expect((await host.log('p1', 'typescript')).map((entry) => entry.text).join('\n')).toContain('left out the edit of a rename');
+    });
+
+    it('moves anyway, and skips the edit, when it does not fit the text', async () => {
         const unfit = await moveRig(() => ({
             documentChanges: [
                 { ...line('/work/src/b.ts', 'c'), edits: [{ range: { start: { line: 9, character: 0 }, end: { line: 9, character: 1 } }, newText: 'x' }] }
             ]
         }));
-        await expect(unfit.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, unfit.file)).rejects.toMatchObject({ code: 'language-failed' });
-        expect(unfit.calls).toEqual([]);
+        expect(await unfit.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, unfit.file)).toEqual([]);
+        expect(unfit.calls).toEqual(['move']);
+        expect((await unfit.host.log('p1', 'typescript')).map((entry) => entry.text).join('\n')).toContain('left out the edit of a rename');
     });
 
     it('does not move when the editor refuses the edit', async () => {

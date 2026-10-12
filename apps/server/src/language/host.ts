@@ -959,7 +959,7 @@ export class LanguageHost {
     /*
      * Files that move go past the servers of the project: each says what it would change first (imports, a
      * namespace), which is made before the move, and is told afterwards that the files moved. A server that is
-     * slow or fails is left out, and the move still happens; an edit that cannot be made ends it before a file moved.
+     * slow or fails is left out, and the move still happens, also when its edit cannot be planned. An edit the editor refuses ends it before a file moved.
      * `edits: false` skips the first half, for a caller that moves files as part of an edit it made itself.
      */
     async renameFiles(clientId: string, projectId: string, from: string, to: string, edits: boolean, file: FileMove): Promise<string[]> {
@@ -977,7 +977,7 @@ export class LanguageHost {
         if (edits) {
             for (const server of project.servers.values()) {
                 await server.willRenameFiles([moved], async (edit) => {
-                    edited.push(...(await this.applyRenameEdit(project, clientId, edit, file)));
+                    edited.push(...(await this.applyRenameEdit(project, clientId, edit, file, server)));
                 });
             }
         }
@@ -989,18 +989,18 @@ export class LanguageHost {
     /*
      * Makes what a server answered to a rename: a file it creates is made first, a document a client holds open takes
      * its edits in its editor, as one undo step, and any other file is written. The edit is tried against every text
-     * first, so one that does not fit changes nothing.
+     * first, so one that does not fit changes nothing: it is left out whole and logged, and the rename goes on.
      */
-    private async applyRenameEdit(project: ProjectLanguage, clientId: string, edit: WorkspaceEdit, file: FileMove): Promise<string[]> {
+    private async applyRenameEdit(project: ProjectLanguage, clientId: string, edit: WorkspaceEdit, file: FileMove, server: LanguageServer): Promise<string[]> {
         const documents = new Map<string, SharedDocument>(
             [...project.documents.values()].filter((document) => document.clients.size > 0).map((document) => [document.uri, document])
         );
-        const snapshots = await this.snapshotsOf(edit, documents);
         let planned;
         try {
-            planned = planWorkspaceEdit(edit, snapshots);
+            planned = planWorkspaceEdit(edit, await this.snapshotsOf(edit, documents));
         } catch (error) {
-            throw new LanguageError(LANGUAGE_ERROR_CODES.failed, error instanceof Error ? error.message : 'The edit of a rename does not fit the files');
+            server.log.push('host', `${server.kind} left out the edit of a rename: ${error instanceof Error ? error.message : 'it does not fit the files'}`);
+            return [];
         }
         const held = new Map<string, WorkspaceEdit>();
         const created: Array<{ path: string; text: string }> = [];
