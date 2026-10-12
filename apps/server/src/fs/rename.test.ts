@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { planRename, renamePath } from './rename.ts';
@@ -105,9 +105,37 @@ describe('fs.rename with overwrite', () => {
 
         await plan.run();
 
-        expect(trashed).toEqual([join(project, 'src', 'b.ts')]);
+        expect(trashed).toHaveLength(1);
+        expect(trashed[0]).not.toBe(join(project, 'src', 'b.ts'));
+        expect(trashed[0]!.startsWith(join(project, 'src'))).toBe(true);
         expect(await readFile(join(project, 'src', 'b.ts'), 'utf8')).toBe('a');
         expect(await exists(join(project, 'src', 'a.ts'))).toBe(false);
+    });
+
+    test('gives the target back when the source cannot be moved', async () => {
+        const plan = await planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'b.ts'), boundary(), {
+            overwrite: true,
+            trash: async (path) => rm(path)
+        });
+        await rm(join(project, 'src', 'a.ts'));
+
+        expect(await codeOf(plan.run())).toBeDefined();
+
+        expect(await readFile(join(project, 'src', 'b.ts'), 'utf8')).toBe('b');
+        expect(await readdir(join(project, 'src'))).toEqual(['b.ts']);
+    });
+
+    test('leaves the replaced file where it is when the trash refuses it', async () => {
+        const plan = await planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'b.ts'), boundary(), {
+            overwrite: true,
+            trash: async () => {
+                throw new Error('no trash');
+            }
+        });
+
+        await plan.run();
+
+        expect(await readFile(join(project, 'src', 'b.ts'), 'utf8')).toBe('a');
     });
 
     test('trashes nothing when the target is free', async () => {

@@ -23,18 +23,12 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
             return false;
         }
     };
-    /* Paths that took an unsaved draft along in a move: the move saved it, so the mtime a read of it gave is out of date. */
-    const savedByMove = new Set<string>();
-    const diskOf = async (file: StagedFile): Promise<StagedFile['disk']> => {
-        if (!savedByMove.delete(file.path)) {
-            return file.disk;
-        }
-        try {
-            const read = await transport.request('fs.read', { path: file.path });
-            return read.kind === 'text' ? { text: read.text, mtime: read.mtime } : file.disk;
-        } catch {
-            return file.disk;
-        }
+    /* Paths that took an unsaved draft along in a move, with what the move left on disk: the mtime of a read from before it is out of date. */
+    const savedByMove = new Map<string, NonNullable<StagedFile['disk']>>();
+    const diskOf = (file: StagedFile): StagedFile['disk'] => {
+        const moved = savedByMove.get(file.path);
+        savedByMove.delete(file.path);
+        return moved !== undefined && file.disk.mtime < moved.mtime ? moved : file.disk;
     };
     return {
         read: async (path) => {
@@ -51,7 +45,7 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
         },
         save: async (files) => {
             for (const file of files) {
-                drafts.stage(endpointId, file.path, await diskOf(file), file.text);
+                drafts.stage(endpointId, file.path, diskOf(file), file.text);
                 if (!(await drafts.save(endpointId, file.path))) {
                     return i18next.t('panels:language.edit.notSaved', { name: nameOf(file.path) });
                 }
@@ -62,12 +56,24 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
         rename: async (from, to, options) => {
             try {
                 const unsaved = draftPathsUnder(endpointId, from, true);
+                await moveFile(transport, endpointId, projectId, from, to, { edits: false, focus: true, overwrite: options?.overwrite }, drafts);
                 if (options?.overwrite) {
-                    // The replaced file goes to the trash, so what is open on it must not keep its text or write it back.
+                    // The replaced file went to the trash, so what is open on it must not keep its text or write it back.
                     forgetDeleted(endpointId, to, drafts);
                 }
-                await moveFile(transport, endpointId, projectId, from, to, { edits: false, focus: true, overwrite: options?.overwrite }, drafts);
-                unsaved.forEach((path) => savedByMove.add(to + path.slice(from.length)));
+                await Promise.all(
+                    unsaved.map(async (path) => {
+                        const moved = to + path.slice(from.length);
+                        try {
+                            const read = await transport.request('fs.read', { path: moved });
+                            if (read.kind === 'text') {
+                                savedByMove.set(moved, { text: read.text, mtime: read.mtime });
+                            }
+                        } catch {
+                            // Without a read the save goes against the mtime it had.
+                        }
+                    })
+                );
                 return null;
             } catch (error) {
                 return error instanceof Error ? error.message : String(error);
@@ -75,13 +81,17 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
         },
         create: async (path, text, options) => {
             try {
-                await transport.request('fs.create', {
+                const written = await transport.request('fs.create', {
                     path,
                     kind: 'file',
                     text,
                     ...(projectId === null ? {} : { projectId, edits: false }),
                     ...(options?.overwrite ? { overwrite: true } : {})
                 });
+                if (options?.overwrite) {
+                    // An open editor is then set to this text: against the old mtime that would read as an unsaved change and a false conflict.
+                    drafts.received(endpointId, path, { text, mtime: written.mtime });
+                }
                 return null;
             } catch (error) {
                 return error instanceof Error ? error.message : String(error);

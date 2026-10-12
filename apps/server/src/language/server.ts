@@ -159,7 +159,6 @@ const SIDECAR_ACTION_OPTIONS = {
 
 type Phase = 'stopped' | 'starting' | 'ready' | 'crashed';
 
-/* What a failure or a log line calls a process. */
 /* The two call hierarchy requests carry the item of an earlier answer, with no `textDocument` beside it. */
 function requestOf(open: LspDocument, method: string, params: object): Promise<unknown> {
     const options = { cancelPrevious: false, timeoutMs: 0 };
@@ -173,6 +172,7 @@ function requestOf(open: LspDocument, method: string, params: object): Promise<u
     return open.request(method, params, options);
 }
 
+/* What a failure or a log line calls a process. */
 function titleOf(profile: ComponentProfile): string {
     return profile.title ?? profile.name;
 }

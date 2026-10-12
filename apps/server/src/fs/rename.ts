@@ -1,4 +1,5 @@
-import { lstat, mkdir, realpath, rename, stat } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { lstat, mkdir, realpath, rename, rmdir, stat } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { CodedError } from '@adecore/agents/coded-error';
 import { isInside } from '../canvas/project-paths.ts';
@@ -15,7 +16,8 @@ type RenameErrorCode =
     | 'project-root'
     | 'git-state'
     | 'ruimte-state'
-    | 'not-writable';
+    | 'not-writable'
+    | 'other-volume';
 
 export class RenameError extends CodedError<RenameErrorCode> {}
 
@@ -53,6 +55,9 @@ function failure(e: unknown, path: string): unknown {
     const code = (e as NodeJS.ErrnoException).code;
     if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS') {
         return new RenameError('not-writable', `${path} cannot be moved`);
+    }
+    if (code === 'EXDEV') {
+        return new RenameError('other-volume', `${path} cannot be moved to another volume from here`);
     }
     if (code === 'ENAMETOOLONG' || code === 'EINVAL') {
         return new RenameError('bad-path', `${path} is not a name this machine can store`);
@@ -121,16 +126,49 @@ export async function planRename(
     return {
         run: async () => {
             try {
-                if (replaced) {
-                    await (options.trash ?? trashPath)(target);
-                }
                 await mkdir(dirname(target), { recursive: true });
-                await rename(source, target);
+                if (replaced) {
+                    await replace(source, target, options.trash ?? trashPath);
+                } else {
+                    await rename(source, target);
+                }
             } catch (e) {
                 throw failure(e, path);
             }
         }
     };
+}
+
+/*
+ * Moves `source` over the file at `target`. The old file is set aside next to the target first, in a hidden folder
+ * that keeps its name for the trash, and comes back when the move fails, so a failed move never leaves it only in the trash.
+ */
+async function replace(source: string, target: string, trash: (path: string) => Promise<void>): Promise<void> {
+    const holder = join(dirname(target), `.ruimte-overwrite-${randomUUID()}`);
+    const aside = join(holder, basename(target));
+    await mkdir(holder);
+    try {
+        await rename(target, aside);
+    } catch (e) {
+        await rmdir(holder).catch(() => undefined);
+        throw e;
+    }
+    try {
+        await rename(source, target);
+    } catch (e) {
+        await rename(aside, target).catch((restoreError: unknown) => {
+            console.warn(`Could not put ${target} back from ${aside}`, restoreError);
+        });
+        await rmdir(holder).catch(() => undefined);
+        throw e;
+    }
+    try {
+        await trash(aside);
+        await rmdir(holder);
+    } catch (e) {
+        // The replaced file stays in its hidden folder: losing it is worse than a leftover.
+        console.warn(`Could not trash the file replaced at ${target}; it was left in ${holder}`, e);
+    }
 }
 
 export async function renamePath(path: string, to: string, boundary: WriteBoundary): Promise<void> {

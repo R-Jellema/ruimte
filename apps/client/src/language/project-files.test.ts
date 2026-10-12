@@ -185,4 +185,44 @@ describe('a file that moves and is edited while it has an unsaved draft', () => 
         expect(file()).toMatchObject({ path: '/work/moved/new.php', text: 'draft edited' });
         expect(drafts.isUnsaved('local', '/work/moved/new.php')).toBe(false);
     });
+
+    test('still catches a change of the file that came after the move', async () => {
+        const { transport, drafts, file } = fakeMachine({ path: '/work/moved/old.php', text: 'disk', mtime: 10 });
+        drafts.stage('local', '/work/moved/old.php', { text: 'disk', mtime: 10 }, 'draft');
+        const files = draftFiles('local', transport, 'p1', drafts);
+        const read = (await files.read('/work/moved/old.php'))!;
+        expect(await files.rename!('/work/moved/old.php', '/work/moved/new.php')).toBeNull();
+        file().text = 'someone else';
+        file().mtime += 5;
+        expect(await files.save!([{ path: '/work/moved/new.php', disk: read, text: 'mine' }])).not.toBeNull();
+        expect(file().text).toBe('someone else');
+    });
+});
+
+describe('a rename that fails', () => {
+    test('leaves the draft of the target alone', async () => {
+        const { transport } = fakeTransport('That name is taken');
+        textDrafts.stage('local', '/work/src/target.php', { text: 'target', mtime: 1 }, 'target edited');
+        const message = await draftFiles('local', transport, 'p1').rename('/work/src/a.php', '/work/src/target.php', { overwrite: true });
+        expect(message).toBe('That name is taken');
+        expect(textDrafts.draft('local', '/work/src/target.php')?.text).toBe('target edited');
+        textDrafts.discard('local', '/work/src/target.php');
+    });
+});
+
+describe('overwriting a file that is open', () => {
+    test('takes the draft along to what the machine wrote, so the editor text is no change', async () => {
+        const transport = {
+            status: 'open',
+            request: async () => ({ size: 3, mtime: 9 }),
+            on: () => () => undefined,
+            subscribeStatus: () => () => undefined
+        } as unknown as Transport;
+        textDrafts.stage('local', '/work/src/open.php', { text: 'old', mtime: 1 }, 'old');
+        expect(await draftFiles('local', transport, 'p1').create!('/work/src/open.php', 'new', { overwrite: true })).toBeNull();
+        textDrafts.edit('local', '/work/src/open.php', 'new');
+        expect(textDrafts.draft('local', '/work/src/open.php')).toMatchObject({ disk: 'new', text: 'new', mtime: 9 });
+        expect(textDrafts.isUnsaved('local', '/work/src/open.php')).toBe(false);
+        textDrafts.discard('local', '/work/src/open.php');
+    });
 });
