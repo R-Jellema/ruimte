@@ -799,6 +799,7 @@ export class LanguageServer {
             initializationOptions: profile.initializationOptions(context),
             clientInfo: { name: 'ruimte' },
             snippetSupport: true,
+            resourceOperations: ['create', 'rename', 'delete'],
             insertTextModes: [1, 2],
             completionItemDefaults: ['commitCharacters', 'editRange', 'insertTextFormat', 'insertTextMode'],
             ...(configuration === undefined ? {} : { configuration }),

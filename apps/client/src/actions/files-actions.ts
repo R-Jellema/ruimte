@@ -5,12 +5,11 @@ import { asRefusal } from '@/actions/developer-actions';
 import { desktop } from '@/desktop/bridge';
 import { canCopyFilesOn } from '@/shell/panels/file-copy';
 import { absoluteOf, basenameOf, isAbsolutePath, relativeTo, revealableInFiles } from '@/shell/panels/files-tree';
-import { isDatabaseTab, useFiles } from '@/state/files';
-import { moveFile } from '@/state/file-moves';
+import { useFiles } from '@/state/files';
+import { forgetDeleted, moveFile } from '@/state/file-moves';
 import { currentEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { useSettings } from '@/state/settings';
-import { textDrafts } from '@/state/text-drafts';
 import { machineFor } from '@/transport/connections';
 
 type Requester = Pick<Transport, 'request'>;
@@ -58,15 +57,7 @@ const LIVE_MACHINE: FilesMachine = {
     isOpen: (path) => useFiles.getState().tabs.some((tab) => tab.key === path),
     open: ({ path, ...position }) => useFiles.getState().open(path, useSettings.getState().filesTabLimit, undefined, position),
     close: (path) => useFiles.getState().close(path),
-    forget: (path) => {
-        const endpointId = currentEndpointId();
-        for (const tab of useFiles.getState().tabs) {
-            if (!isDatabaseTab(tab) && (tab.path === path || tab.path.startsWith(`${path}/`))) {
-                textDrafts.discard(endpointId, tab.path);
-                useFiles.getState().close(tab.key);
-            }
-        }
-    },
+    forget: (path) => forgetDeleted(currentEndpointId(), path),
     move: async (from, to) => {
         const endpointId = currentEndpointId();
         const transport = machineFor(endpointId)?.transport;

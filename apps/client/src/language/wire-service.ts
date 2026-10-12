@@ -185,6 +185,11 @@ export class WireLanguageService implements LanguageService {
         open.providers = reply.providers;
     }
 
+    versionOf(uri: string): number | null {
+        const version = this.documents.get(uri)?.version ?? 0;
+        return version === 0 ? null : version;
+    }
+
     async changeDocument(uri: string, changes: readonly ContentChange[]): Promise<void> {
         const document = this.documentOf(uri);
         if (document.resyncing) {

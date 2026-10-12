@@ -97,6 +97,17 @@ describe('a language server of one kind in one project', () => {
         await server.stop();
     });
 
+    it('tells a server that edits may create, rename and delete files', async () => {
+        const { server, spawner } = rig('typescript');
+        server.attach(document('/work/src/a.ts', 'typescript', 'let a = 1;'));
+        await settle();
+        const initialize = spawner.processes[0]!.server.paramsOf('initialize')[0] as {
+            capabilities: { workspace: { workspaceEdit: { resourceOperations: string[] } } };
+        };
+        expect(initialize.capabilities.workspace.workspaceEdit.resourceOperations).toEqual(['create', 'rename', 'delete']);
+        await server.stop();
+    });
+
     it('runs the native TypeScript server as a program of its own, not under the daemon runtime', async () => {
         const { server, spawner } = rig('typescript');
         server.attach(document('/work/src/a.ts', 'typescript', 'let a = 1;'));

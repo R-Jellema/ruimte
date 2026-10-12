@@ -2,25 +2,41 @@ import i18next from 'i18next';
 import type { Transport } from '@/transport/transport';
 import { followViewStates } from '@/shell/panels/editor-view-state-host';
 import { useDocument } from '@/state/document';
-import { useFiles } from '@/state/files';
+import { isDatabaseTab, useFiles } from '@/state/files';
 import { endpointKey, splitKey } from '@/state/keys';
 import { isUnsavedDraft, textDrafts, useTextDrafts, type TextDrafts } from '@/state/text-drafts';
+
+/* The paths of the drafts at a path, or under it for a folder; with `unsavedOnly` just those holding text that is not saved. */
+export function draftPathsUnder(endpointId: string, path: string, unsavedOnly: boolean): string[] {
+    const prefix = endpointKey(endpointId, path);
+    return Object.entries(useTextDrafts.getState().rows)
+        .filter(([key, draft]) => (key === prefix || key.startsWith(`${prefix}/`)) && (!unsavedOnly || isUnsavedDraft(draft)))
+        .map(([key]) => splitKey(key).id);
+}
 
 /*
  * Saves what is unsaved in a file or folder that is about to move, so the move carries it and no
  * autosave writes the old path again afterwards. The first path that could not be saved, or null.
  */
 export async function saveBeforeMove(endpointId: string, path: string, drafts: TextDrafts = textDrafts): Promise<string | null> {
-    const prefix = endpointKey(endpointId, path);
-    const unsaved = Object.entries(useTextDrafts.getState().rows)
-        .filter(([key, draft]) => (key === prefix || key.startsWith(`${prefix}/`)) && isUnsavedDraft(draft))
-        .map(([key]) => splitKey(key).id);
-    for (const unsavedPath of unsaved) {
+    for (const unsavedPath of draftPathsUnder(endpointId, path, true)) {
         if (!(await drafts.save(endpointId, unsavedPath))) {
             return unsavedPath;
         }
     }
     return null;
+}
+
+/* Lets go of a file or folder that was deleted: its drafts go and the tabs that showed it close. */
+export function forgetDeleted(endpointId: string, path: string, drafts: TextDrafts = textDrafts): void {
+    for (const draftPath of draftPathsUnder(endpointId, path, false)) {
+        drafts.discard(endpointId, draftPath);
+    }
+    for (const tab of useFiles.getState().tabs) {
+        if (!isDatabaseTab(tab) && (tab.path === path || tab.path.startsWith(`${path}/`))) {
+            useFiles.getState().close(tab.key);
+        }
+    }
 }
 
 /* The editors, tabs and places of a file or folder that moved follow it; with `focus` the keyboard goes to the editor of the active tab again. */

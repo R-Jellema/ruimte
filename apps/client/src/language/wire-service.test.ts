@@ -30,6 +30,18 @@ describe('documents', () => {
         expect(language.providerOptions('textDocument/completion', uri)).toEqual({ triggerCharacters: ['.'] });
     });
 
+    test('knows the version a document is at, counting the changes sent, and null for one that is not open', async () => {
+        const { language } = service();
+        expect(language.versionOf(uri)).toBeNull();
+        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const opened = language.versionOf(uri);
+        expect(opened).not.toBeNull();
+        await language.changeDocument(uri, [{ text: 'let a = 2;' }]);
+        expect(language.versionOf(uri)).toBe(opened! + 1);
+        await language.closeDocument(uri);
+        expect(language.versionOf(uri)).toBeNull();
+    });
+
     test('keeps a path outside the project folder absolute', async () => {
         const { transport, language } = service({ 'file:///elsewhere/x.ts': '' });
         await language.openDocument({ uri: 'file:///elsewhere/x.ts', languageId: 'typescript', text: '' });

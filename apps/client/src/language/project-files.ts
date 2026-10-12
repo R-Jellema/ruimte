@@ -1,5 +1,5 @@
 import i18next from 'i18next';
-import { moveFile } from '@/state/file-moves';
+import { draftPathsUnder, forgetDeleted, moveFile } from '@/state/file-moves';
 import { endpointKey } from '@/state/keys';
 import { textDrafts } from '@/state/text-drafts';
 import { useToasts } from '@/state/toasts';
@@ -15,6 +15,14 @@ function nameOf(path: string): string {
 
 /* The files of one machine as the editors keep their text: a draft where there is one, and otherwise what the machine has. */
 export function draftFiles(endpointId: string, transport: Transport, projectId: string | null = null): ProjectFiles {
+    const isFolder = async (path: string): Promise<boolean> => {
+        try {
+            await transport.request('fs.list', { path, depth: 1 });
+            return true;
+        } catch {
+            return false;
+        }
+    };
     return {
         read: async (path) => {
             const draft = textDrafts.draft(endpointId, path);
@@ -51,6 +59,25 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
                 return null;
             } catch (error) {
                 return error instanceof Error ? error.message : String(error);
+            }
+        },
+        delete: async (path) => {
+            try {
+                await transport.request('fs.delete', { path });
+                forgetDeleted(endpointId, path);
+                return null;
+            } catch (error) {
+                return error instanceof Error ? error.message : String(error);
+            }
+        },
+        isUnsaved: (path) => draftPathsUnder(endpointId, path, true).length > 0,
+        isFolder,
+        exists: async (path) => {
+            try {
+                await transport.request('fs.read', { path });
+                return true;
+            } catch {
+                return isFolder(path);
             }
         },
         stage: (files: readonly StagedFile[]) => {
