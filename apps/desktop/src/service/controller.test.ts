@@ -168,14 +168,24 @@ describe('start', () => {
         const { controller, fake, events } = setup({ fake: fakeManager({ installed: true, running: EXPECTED }) });
         await controller.start();
         expect(controller.state().owner).toBe('service');
-        expect(fake.calls).toEqual(['install']);
+        expect(fake.calls).toEqual([]);
         expect(events).toEqual([]);
+    });
+
+    test('a definition already on disk is not installed again, and one that changed is', async () => {
+        const unchanged = setup({ fake: fakeManager({ installed: true, running: EXPECTED }) });
+        await unchanged.controller.start();
+        expect(unchanged.fake.calls).not.toContain('install');
+        const changed = setup({ fake: fakeManager({ onDisk: OLD_PATH, running: EXPECTED }), work: { terminals: 1, agents: 0 } });
+        await changed.controller.start();
+        expect(changed.fake.calls).toEqual(['install']);
+        expect(changed.fake.service.definition).toBe(DEFINITION);
     });
 
     test('an older build is restarted onto the binary in the bundle', async () => {
         const { controller, fake } = setup({ fake: fakeManager({ installed: true, running: { version: '0.0.9', build: 'old' } }) });
         await controller.start();
-        expect(fake.calls).toEqual(['install', 'restart']);
+        expect(fake.calls).toEqual(['restart']);
         expect(controller.state().owner).toBe('service');
     });
 
@@ -183,14 +193,14 @@ describe('start', () => {
         const old = { version: '0.0.9', build: 'old' };
         const { controller, fake } = setup({ fake: fakeManager({ installed: true, running: old }), work: { terminals: 2, agents: 1 } });
         await controller.start();
-        expect(fake.calls).toEqual(['install']);
+        expect(fake.calls).toEqual([]);
         expect(controller.state()).toMatchObject({ owner: 'service', pendingRestart: { work: 3, answered: false } });
     });
 
     test('an older build that cannot say what runs is asked about too', async () => {
         const { controller, fake } = setup({ fake: fakeManager({ installed: true, running: { version: '0.0.9', build: 'old' } }), work: null });
         await controller.start();
-        expect(fake.calls).toEqual(['install']);
+        expect(fake.calls).toEqual([]);
         expect(controller.state().pendingRestart).toEqual({ work: null, answered: false });
     });
 
@@ -201,7 +211,7 @@ describe('start', () => {
         });
         await controller.start();
         const next = await controller.restartNow();
-        expect(fake.calls).toEqual(['install', 'restart']);
+        expect(fake.calls).toEqual(['restart']);
         expect(next).toMatchObject({ owner: 'service', pendingRestart: null });
     });
 
@@ -215,7 +225,7 @@ describe('start', () => {
         expect((await controller.refresh()).pendingRestart).toEqual({ work: 1, answered: true });
         fake.service.running = EXPECTED;
         expect((await controller.refresh()).pendingRestart).toBeNull();
-        expect(fake.calls).toEqual(['install']);
+        expect(fake.calls).toEqual([]);
     });
 
     test('nothing answering starts the service', async () => {
@@ -251,7 +261,7 @@ describe('start', () => {
             work: { terminals: 1, agents: 1 }
         });
         await controller.start();
-        expect(fake.calls).toEqual(['install', 'uninstall']);
+        expect(fake.calls).toEqual(['uninstall']);
         expect(fake.service.running).toEqual(EXPECTED);
         expect(events).toEqual([]);
     });
@@ -317,14 +327,14 @@ describe('proving the local secret', () => {
         });
         expect(await controller.start()).toBe(true);
         expect(events).toEqual(['ask']);
-        expect(fake.calls).toEqual(['install', 'restart']);
+        expect(fake.calls).toEqual(['restart']);
         expect(controller.state().owner).toBe('service');
     });
 
     test('an earlier build that cannot prove itself is left running when the person quits instead', async () => {
         const { controller, fake } = setup({ fake: fakeManager({ installed: true, running: OLD }), proves: onlyThisBuild });
         expect(await controller.start()).toBe(false);
-        expect(fake.calls).toEqual(['install']);
+        expect(fake.calls).toEqual([]);
         expect(fake.service.running).toEqual(OLD);
     });
 });
@@ -416,7 +426,7 @@ describe('a service of another installation', () => {
         await controller.start();
         fake.service.definition = OTHER_HOME;
         await controller.restartNow();
-        expect(fake.calls).toEqual(['install']);
+        expect(fake.calls).toEqual([]);
         expect(fake.service.definition).toBe(OTHER_HOME);
     });
 
@@ -425,7 +435,7 @@ describe('a service of another installation', () => {
         await controller.start();
         fake.service.definition = OTHER_HOME;
         controller.quit(true);
-        expect(fake.calls).toEqual(['install']);
+        expect(fake.calls).toEqual([]);
         expect(fake.service.running).toEqual(EXPECTED);
     });
 });
@@ -516,7 +526,7 @@ describe('the setting', () => {
         expect(fake.service.running).toEqual(EXPECTED);
         expect(controller.survivesQuit(false)).toBe(false);
         controller.quit(false);
-        expect(fake.calls).toEqual(['install', 'uninstall', 'stop']);
+        expect(fake.calls).toEqual(['uninstall', 'stop']);
     });
 
     test('turning background use on applies immediately and keeps the same daemon and sessions at quit', async () => {
@@ -569,7 +579,7 @@ describe('the setting', () => {
         await controller.start();
         controller.setKeepRunning(false);
         expect(await controller.restartNow()).toMatchObject({ owner: 'service', keepRunning: false, failure: null, pendingRestart: null });
-        expect(fake.calls).toEqual(['install', 'uninstall', 'install', 'restart', 'uninstall']);
+        expect(fake.calls).toEqual(['uninstall', 'install', 'restart', 'uninstall']);
         expect(fake.service.definition).toBeNull();
         expect(events).toEqual([]);
     });
@@ -585,7 +595,7 @@ describe('the setting', () => {
         await controller.start();
         expect(controller.survivesQuit(false)).toBe(true);
         controller.quit(false);
-        expect(fake.calls).toEqual(['install']);
+        expect(fake.calls).toEqual([]);
         expect(fake.service.running).toEqual(EXPECTED);
     });
 
@@ -594,10 +604,10 @@ describe('the setting', () => {
         await controller.start();
         expect(controller.survivesQuit(true)).toBe(false);
         controller.quit(true);
-        expect(fake.calls).toEqual(['install', 'stop', 'uninstall']);
+        expect(fake.calls).toEqual(['stop', 'uninstall']);
         expect(controller.state().keepRunning).toBe(true);
         await controller.start();
-        expect(fake.calls.slice(3)).toEqual(['install', 'start']);
+        expect(fake.calls.slice(2)).toEqual(['install', 'start']);
     });
 
     test('stopping the machine while the app runs its own daemon does not hand it to the service', async () => {

@@ -10,7 +10,7 @@ export interface ServiceControllerDeps {
     /* Null wherever `support` is not `supported`, so nothing below can reach a service manager there. */
     manager: ServiceManager | null;
     setting: KeepRunningSetting;
-    /* The plist or unit for this app, built when it is needed: the login shell's PATH is asked once. */
+    /* The plist or unit for this app, installed only when it differs from the one on disk. */
     definition(): string;
     /* What a service of `ruimte service install` runs, which the app leaves as it finds it. */
     commandLineProgram: string;
@@ -208,8 +208,11 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
             // A service of the command line or another installation is used as it is, the way that command leaves the app's alone.
             if (manager && managedService) {
                 try {
+                    const definition = deps.definition();
                     // Use the service even with background use off, so turning it on needs no daemon restart.
-                    definitionChanged = manager.install(deps.definition());
+                    if (onDisk() !== definition) {
+                        definitionChanged = manager.install(definition);
+                    }
                 } catch (e) {
                     failure = messageOf(e);
                 }

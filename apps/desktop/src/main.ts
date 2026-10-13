@@ -1,4 +1,4 @@
-import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, openSync, readFileSync } from 'node:fs';
 import { readFile, rm, writeFile } from 'node:fs/promises';
@@ -35,6 +35,7 @@ import { editFrameOf, runGuestEdit } from './guest-edit';
 import { contextMenuPayload, editableMenuTemplate, PREVIEW_ACTIONS, type BrowserContextAction, type GuestKind } from './guest-menu';
 import { askDaemonWork, proveDaemon, type DaemonPort } from './daemon-proof';
 import { createKeepAwakeHold, keepAwakeBlocker, keepAwakeRequestFrom, LEGACY_KEEP_AWAKE, mergeKeepAwake } from './keep-awake';
+import { askLoginShellPath, fileLoginPathCache, loadLoginPath } from './login-path';
 import { listenForLogin, type LoopbackLogin } from './pulsar-login';
 import { fileSessionKey, fileSessionStore } from './pulsar-store';
 import { quitQuestion } from './quit-question';
@@ -48,6 +49,7 @@ import { createOpenAiLiveSession, parseOpenAiLivePreferences } from './openai-li
 import { SpeechService, speechHelperPath } from './speech';
 import { SpeechModel } from './speech-model';
 import { runSmoke } from './smoke';
+import { createSecretGate, startApp } from './startup';
 import { appSubframeNavigation, BROWSER_PARTITION, createGestureGate, isExternalLink, isWebLink, isSystemSettingsPane, PREVIEW_PARTITION } from './web-guards';
 
 // A plain require: the bundler's ESM interop copies enumerable keys, and electron's are getters.
@@ -131,30 +133,8 @@ function onFromApp<Args extends unknown[]>(channel: string, listener: (event: El
     });
 }
 
-/*
- * An app opened from the Dock inherits a bare PATH, not the one the person's rc files build, and the
- * daemon finds `claude` and friends through PATH. So the login shell is asked once.
- */
-let loginPath: string | null | undefined;
-
-function loginShellPath(): string | null {
-    loginPath ??= askLoginShellPath();
-    return loginPath;
-}
-
-function askLoginShellPath(): string | null {
-    if (process.platform === 'win32' || !process.env.SHELL) {
-        return null;
-    }
-    const marker = '__RUIMTE_PATH__';
-    const result = spawnSync(process.env.SHELL, ['-ilc', `printf '${marker}%s${marker}' "$PATH"`], {
-        encoding: 'utf8',
-        timeout: 5000,
-        stdio: ['ignore', 'pipe', 'ignore']
-    });
-    const match = result.stdout?.match(new RegExp(`${marker}(.*?)${marker}`, 's'));
-    return match?.[1] || null;
-}
+// The login shell's PATH for a packaged app, loaded before the machine starts (`login-path.ts`).
+let loginPath: string | null = null;
 
 function daemonCommand(): { command: string; args: string[] } | null {
     if (app.isPackaged) {
@@ -182,10 +162,9 @@ function spawnDaemon(onExit: () => void): void {
     }
     const env = { ...process.env };
     if (app.isPackaged) {
-        const path = loginShellPath();
-        if (path) {
-            env.PATH = path;
-            process.env.PATH = path;
+        if (loginPath) {
+            env.PATH = loginPath;
+            process.env.PATH = loginPath;
         }
     }
     env.RUIMTE_HOME = ruimteHome;
@@ -237,7 +216,7 @@ const daemonPort: DaemonPort = {
     nonce: () => randomBytes(32).toString('base64url')
 };
 
-/* Asked before restarting a daemon of an earlier build, which cannot prove it holds the local secret. No window exists yet. */
+/* Asked before restarting a daemon of an earlier build, which cannot prove it holds the local secret. A window may stand already, still without the secret. */
 async function askRestartUnproven(): Promise<boolean> {
     const { response } = await dialog.showMessageBox({
         type: 'question',
@@ -293,9 +272,24 @@ function serviceDefinition(): string {
         home: homedir(),
         ruimteHome,
         // A packaged app inherits the launcher's PATH, which is not the one a terminal of this person finds.
-        path: loginShellPath() ?? process.env.PATH ?? '/usr/bin:/bin'
+        path: loginPath ?? process.env.PATH ?? '/usr/bin:/bin'
     });
     return definitionFor(process.platform, spec);
+}
+
+/* `bun dev` runs the daemon itself; the shell only opens the dev URL. */
+async function startMachine(): Promise<boolean> {
+    if (devUrl) {
+        return true;
+    }
+    if (app.isPackaged) {
+        loginPath = (
+            await loadLoginPath(fileLoginPathCache(join(app.getPath('userData'), 'login-path.json')), () =>
+                askLoginShellPath(process.env.SHELL, process.platform)
+            )
+        ).path;
+    }
+    return serviceController.start();
 }
 
 const serviceController = createServiceController({
@@ -882,7 +876,9 @@ handleFromApp('browser:capture', async (_event, id: number) => {
 });
 
 /* Only the app's own page gets the local secret, and only once the daemon on the port proved it holds it (`serviceController.start`). */
-handleFromApp('daemon:local-secret', () => readLocalSecret());
+const localSecret = createSecretGate(readLocalSecret);
+
+handleFromApp('daemon:local-secret', () => localSecret.read());
 
 /*
  * The page runs the login (PKCE, state, start URL); this side listens on loopback for the redirect and
@@ -1386,6 +1382,18 @@ onFromApp('menu:set', (event, spec: MenuSpec) => {
     }
 });
 
+/* One window on what the page remembers, whatever the last session left open. */
+async function runSmokeWindow(): Promise<void> {
+    const window = windows.open(null);
+    await new Promise<void>((resolve) => window.webContents.once('did-finish-load', () => resolve()));
+    await runSmoke(window, {
+        appUrl: scheme.url,
+        capturePath,
+        titleBarHeight: TITLEBAR_HEIGHT,
+        scaleFactorOf: (shown) => screen.getDisplayMatching(shown.getBounds()).scaleFactor
+    });
+}
+
 if (!app.requestSingleInstanceLock()) {
     app.quit();
 } else {
@@ -1425,34 +1433,24 @@ if (!app.requestSingleInstanceLock()) {
         browserRoutes = installBrowserRoutes(fromAppWindow, join(here, 'guest.cjs'));
         powerMonitor.on('on-battery', applyKeepAwake);
         powerMonitor.on('on-ac', applyKeepAwake);
-        try {
-            // `bun dev` runs the daemon itself; the shell only opens the dev URL.
-            if (!devUrl && !(await serviceController.start())) {
+        await startApp({
+            startMachine,
+            moveStorage: () =>
+                devUrl ? Promise.resolve(() => undefined) : moveLegacyStorage(port, join(app.getPath('userData'), 'storage-moved-to-app-scheme')),
+            restoreWindows: () => windows.restore(),
+            startUpdater: () => updater.start(),
+            machineReady: () => {
+                localSecret.open();
+                // A window that asked while the machine came up holds the state from before it.
+                pushServiceState(serviceController.state());
+                watchPendingRestart();
+            },
+            fail: (message) => dialog.showErrorBox('Ruimte', message),
+            quit: () => {
+                quitConfirmed = true;
                 app.quit();
-                return;
-            }
-        } catch (e) {
-            dialog.showErrorBox('Ruimte', e instanceof Error ? e.message : 'The background service did not start');
-            app.quit();
-            return;
-        }
-        if (smoke) {
-            // One window on what the page remembers, whatever the last session left open.
-            const window = windows.open(null);
-            await new Promise<void>((resolve) => window.webContents.once('did-finish-load', () => resolve()));
-            await runSmoke(window, {
-                appUrl: scheme.url,
-                capturePath,
-                titleBarHeight: TITLEBAR_HEIGHT,
-                scaleFactorOf: (shown) => screen.getDisplayMatching(shown.getBounds()).scaleFactor
-            });
-            app.quit();
-            return;
-        }
-        const closeStorageMove = devUrl ? () => undefined : await moveLegacyStorage(port, join(app.getPath('userData'), 'storage-moved-to-app-scheme'));
-        windows.restore();
-        closeStorageMove();
-        updater.start();
-        watchPendingRestart();
+            },
+            ...(smoke ? { smoke: runSmokeWindow } : {})
+        });
     });
 }

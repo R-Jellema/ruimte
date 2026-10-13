@@ -209,7 +209,8 @@ export interface DesktopBridge {
     /* From the shell's copy on disk; `refresh` asks GitHub first. */
     releaseNotes?(refresh?: boolean): Promise<ReleaseNotesState>;
     /* The secret in the home of the daemon this app started, which the local row presents to get in,
-       since a loopback address proves nothing. Null while the daemon has not written it. */
+       since a loopback address proves nothing. Null while the daemon has not written it. A window
+       opens while the machine still comes up, and this answers only once it proved itself. */
     localSecret?(): Promise<string | null>;
     /* macOS owns the application-level microphone grant; the shell asks while the renderer only
        receives the result. Other platforms let Chromium handle the same request. */
