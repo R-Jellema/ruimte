@@ -19,7 +19,7 @@ import {
 } from '@ruimte/contracts';
 import { CodedError, Serializer, settled, SYSTEM_WATCH, type DirectoryWatcher, type Settled, type WatchSeams } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
-import { listRepos } from '../git/repos.ts';
+import { cachedRepos } from '../git/repo-cache.ts';
 import { ClientSinks } from '../client-sinks.ts';
 import { errorText } from '../error-text.ts';
 import {
@@ -427,7 +427,7 @@ export class LaunchStore {
         if (folder === null) {
             throw new LaunchError('project-not-found', `No project ${projectId} on this machine`);
         }
-        const { repos } = await listRepos(folder).catch(() => ({ repos: [] }));
+        const { repos } = await cachedRepos(folder).catch(() => ({ repos: [] }));
         return detectLaunches(
             folder,
             repos.map((repo) => repo.path),

@@ -12,7 +12,7 @@ import { parseIssueRef, readIssue, readPullRequest, runGh } from '../git/github.
 import { GitError } from '../git/run.ts';
 import type { PrWatchStore } from '../github/pr-watch.ts';
 import { listRefs, readRefCommit } from '../git/refs.ts';
-import { listRepos } from '../git/repos.ts';
+import { cachedRepos } from '../git/repo-cache.ts';
 import { discardPaths, stagePaths, unstagePaths } from '../git/stage.ts';
 import type { GitStatusWatcher } from '../git/status-watcher.ts';
 import { mergeBaseWith } from '../git/status.ts';
@@ -165,7 +165,7 @@ export function registerGitHandlers(
 
     dispatcher.register('git.ref-commit', (payload) => translate(() => readRefCommit(payload.cwd, payload.ref)));
 
-    dispatcher.register('git.repos', (payload) => translate(() => listRepos(payload.folder)));
+    dispatcher.register('git.repos', (payload) => translate(() => cachedRepos(payload.folder)));
 
     dispatcher.register('git.log', (payload) => translate(() => readLog(payload.cwd, payload.limit, payload.cursor)));
 

@@ -4,7 +4,7 @@ import type { ChatInfo } from '@ruimte/contracts';
 import type { UiLinkResolution, UiLinkTarget } from '@adecore/intelligent-ui/links';
 import { ChatUiRefusal } from '@adecore/agents/chat';
 import { checkCwd, isInside } from '../canvas/project-paths.ts';
-import { listRepos } from '../git/repos.ts';
+import { cachedRepos } from '../git/repo-cache.ts';
 import { git, toplevel } from '../git/run.ts';
 import { UiSourceAccessSchema } from './ui-access.ts';
 import type { UiSourceHosts } from './ui-sources.ts';
@@ -54,7 +54,7 @@ export async function resolveUiProjectLink(host: UiSourceHosts, info: ChatInfo, 
 async function resolveCommit(host: UiSourceHosts, place: LinkPlace, access: UiAccess, cwd: string, wanted: string): Promise<UiLinkResolution> {
     // The agent's own repository first, then every other checkout of the project folder (submodules, repositories beside it).
     const candidates = new Set<string>();
-    for (const directory of [cwd, ...(await listRepos(place.folder)).repos.map((repo) => repo.path)]) {
+    for (const directory of [cwd, ...(await cachedRepos(place.folder)).repos.map((repo) => repo.path)]) {
         const root = await repositoryOf(directory);
         if (root !== null && access.roots.some((allowed) => isInside(allowed, root))) {
             candidates.add(root);

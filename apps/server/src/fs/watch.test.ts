@@ -42,6 +42,15 @@ describe('FolderWatcher', () => {
         expect(changes).toEqual([{ root, paths: [join(root, 'src')] }]);
     });
 
+    test('a burst tells the caches that read the same folders', async () => {
+        const forgotten: Array<readonly string[]> = [];
+        const watcher = new FolderWatcher('darwin', fake, 0, (paths) => forgotten.push(paths));
+        await watcher.watch('client-1', root);
+        fake.on(root).emit(join('alpha', '.git'));
+        await fake.settle();
+        expect(forgotten).toEqual([[join(root, 'alpha')]]);
+    });
+
     test('a change without a name reports the root', async () => {
         const watcher = watcherOn('darwin');
         await watcher.watch('client-1', root);

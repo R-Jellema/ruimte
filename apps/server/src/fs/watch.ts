@@ -1,6 +1,7 @@
 import { dirname, join, resolve, sep } from 'node:path';
 import type { SessionSink } from '../sessions/manager.ts';
 import { forgetSearchCache } from './search.ts';
+import { forgetRepos } from '../git/repo-cache.ts';
 import { PerClientWatches, settled, supportsRecursive, SYSTEM_WATCH, type DirectoryWatcher, type Settled, type WatchSeams } from '@adecore/agents';
 import { ClientSinks } from '../client-sinks.ts';
 
@@ -9,6 +10,12 @@ const SETTLE_MS = 250;
 
 // FSEvents can miss writes immediately after `fs.watch`; delay readiness until its stream is running.
 const STREAM_START_MS = 200;
+
+/* The `@` picker and the repository list read the same folders from caches of their own; a write there is stale news. */
+function forgetCaches(paths: readonly string[]): void {
+    forgetSearchCache(paths);
+    forgetRepos(paths);
+}
 
 function isUnder(path: string, ancestor: string): boolean {
     return path === ancestor || path.startsWith(ancestor.endsWith(sep) ? ancestor : `${ancestor}${sep}`);
@@ -36,11 +43,18 @@ export class FolderWatcher {
     private readonly platform: NodeJS.Platform;
     private readonly seams: WatchSeams;
     private readonly streamStartMs: number;
+    private readonly forget: (paths: readonly string[]) => void;
 
-    constructor(platform: NodeJS.Platform = process.platform, seams: WatchSeams = SYSTEM_WATCH, streamStartMs: number = STREAM_START_MS) {
+    constructor(
+        platform: NodeJS.Platform = process.platform,
+        seams: WatchSeams = SYSTEM_WATCH,
+        streamStartMs: number = STREAM_START_MS,
+        forget: (paths: readonly string[]) => void = forgetCaches
+    ) {
         this.platform = platform;
         this.seams = seams;
         this.streamStartMs = streamStartMs;
+        this.forget = forget;
     }
 
     subscribe(clientId: string, sink: SessionSink): () => void {
@@ -98,8 +112,7 @@ export class FolderWatcher {
         if (paths.length === 0) {
             return;
         }
-        // The `@` picker reads the same folder from a cache of its own; a write there is stale news.
-        forgetSearchCache(paths);
+        this.forget(paths);
         this.sinks.to(clientId, { event: 'fs.changed', payload: { root: state.root, paths } });
     }
 }
