@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy } from 'lucide-react';
 import { useToasts, type Toast } from '@/state/toasts';
-import { Button, Icon, Toasts as ToastStack } from '@adecore/ui';
+import { Button, copyText, Icon, Toasts as ToastStack } from '@adecore/ui';
 
 /* Keep copy feedback on this button rather than opening another toast. */
 function CopyOutput({ output }: { output: string }) {
@@ -13,7 +13,7 @@ function CopyOutput({ output }: { output: string }) {
             size="sm"
             variant="secondary"
             onClick={() => {
-                void navigator.clipboard.writeText(output).then(() => setCopied(true));
+                void copyText(output).then(setCopied);
             }}
         >
             <Icon icon={Copy} size={12} /> {copied ? t('toasts.copied') : t('toasts.copyOutput')}

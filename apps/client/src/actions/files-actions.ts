@@ -1,6 +1,7 @@
 import type { FileLocation } from '@ruimte/contracts';
 import { ActionRefusal, FILE_READ_MAX_LINES, type ActionActorKind, type ActionHandlers } from '@ruimte/actions';
 import type { Transport } from '@/transport/transport';
+import { copyTextOrRefuse } from '@/actions/clipboard';
 import { asRefusal } from '@/actions/developer-actions';
 import { desktop } from '@/desktop/bridge';
 import { canCopyFilesOn } from '@/shell/panels/file-copy';
@@ -38,12 +39,7 @@ const LIVE_MACHINE: FilesMachine = {
     endpointId: currentEndpointId,
     transport: () => machineFor(currentEndpointId())?.transport ?? null,
     folder: () => useProject.getState().current?.folder ?? null,
-    writeText: async (text) => {
-        if (typeof navigator === 'undefined' || !navigator.clipboard) {
-            throw new ActionRefusal('no-clipboard', 'This window has no clipboard to copy to.');
-        }
-        await navigator.clipboard.writeText(text);
-    },
+    writeText: copyTextOrRefuse,
     copyFiles: async (paths) => {
         const copyFiles = desktop()?.copyFiles;
         if (!canCopyFilesOn(currentEndpointId()) || copyFiles === undefined) {

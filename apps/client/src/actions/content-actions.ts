@@ -14,6 +14,7 @@ import {
 } from '@ruimte/contracts';
 import type { StoreApi } from 'zustand';
 import { z } from 'zod';
+import { clipboardOrRefuse, copyTextOrRefuse } from '@/actions/clipboard';
 import { asksFirst } from '@/actions/developer-actions';
 import { DEFAULT_NOTE_COLOR } from '@/canvas/note-colors';
 import { diagramPng, diagramSvg } from '@/diagram/export';
@@ -41,16 +42,9 @@ export interface ContentMachine {
     diagramSvg(store: StoreApi<DiagramState>): string;
 }
 
-function clipboard(): Clipboard {
-    if (typeof navigator === 'undefined' || !navigator.clipboard) {
-        throw new ActionRefusal('no-clipboard', 'This window has no clipboard to copy to.');
-    }
-    return navigator.clipboard;
-}
-
 const LIVE_MACHINE: ContentMachine = {
-    writeText: (text) => clipboard().writeText(text),
-    writePng: (png) => clipboard().write([new ClipboardItem({ 'image/png': png })]),
+    writeText: copyTextOrRefuse,
+    writePng: (png) => clipboardOrRefuse().write([new ClipboardItem({ 'image/png': png })]),
     save: download,
     drawingPng: (store) => drawingPng(store),
     drawingSvg: (store) => drawingSvg(store),

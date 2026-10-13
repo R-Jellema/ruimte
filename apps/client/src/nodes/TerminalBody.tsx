@@ -275,7 +275,7 @@ function TerminalSession({ id, endpointId, viewRef, onFileLinkHover, onFailure }
         // Selecting copies; the platform's paste shortcut lands in xterm's own textarea.
         const copySelection = (): void => {
             if (term.hasSelection()) {
-                void navigator.clipboard?.writeText(term.getSelection()).catch(() => undefined);
+                void copyText(term.getSelection());
             }
         };
         element?.addEventListener('pointerup', copySelection);
