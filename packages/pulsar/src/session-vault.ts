@@ -47,6 +47,12 @@ export interface SessionVaultOptions {
     now?: () => number;
 }
 
+interface Rotation {
+    // The epoch the rotation began in, which says whether its result may still be kept.
+    epoch: number;
+    view: SessionView | null;
+}
+
 function viewOf(result: SessionResult): SessionView {
     return {
         accessToken: result.accessToken,
@@ -56,11 +62,18 @@ function viewOf(result: SessionResult): SessionView {
     };
 }
 
+function refused(e: unknown): boolean {
+    return e instanceof AddressBookRequestError && (e.code === 'unauthorized' || e.code === 'bad-request' || e.code === 'bad-signature');
+}
+
 /*
  * The one holder of an address book refresh token. It trades a login code for a session bound to its
  * signer's key, hands out access tokens and never the refresh token, and rotates it on every refresh.
  * Refreshes are one at a time: the address book ends a session when a spent refresh token comes back,
  * so two refreshes racing with the same token would sign the person out.
+ *
+ * A sign-out wins from whatever was under way when it began: a refresh or a sign-in that answers
+ * afterwards is never kept, so a session the person ended does not come back in the store.
  */
 export class SessionVault {
     private readonly client: AddressBookClient;
@@ -69,7 +82,13 @@ export class SessionVault {
     private readonly exclusive: <T>(run: () => Promise<T>) => Promise<T>;
     private readonly now: () => number;
     private current: SessionView | null = null;
-    private refreshing: Promise<SessionView | null> | null = null;
+    private refreshing: Promise<Rotation> | null = null;
+    // Moves on with every sign-out and every session a sign-in kept; a rotation keeps its result only within the epoch it began in.
+    private epoch = 0;
+    // Moves on with every sign-out alone; a sign-in under way when it moved is not kept.
+    private signOuts = 0;
+    // Every read and write of the store, in the order they were asked, so a write never overtakes the one asked before it.
+    private storeTail: Promise<unknown> = Promise.resolve();
 
     constructor(options: SessionVaultOptions) {
         this.client = options.client;
@@ -80,6 +99,7 @@ export class SessionVault {
     }
 
     async exchange(login: SessionLoginCode): Promise<SessionView> {
+        const signOuts = this.signOuts;
         const signer = await this.signer();
         if (!signer) {
             throw new Error('This device has no key to bind a session to');
@@ -89,21 +109,29 @@ export class SessionVault {
             sessionKey: signer.publicKey,
             sessionKeySignature: await signer.sign(sessionKeyMessage(login.code, signer.publicKey))
         });
-        await this.keep(result);
-        return this.current!;
+        if (signOuts !== this.signOuts) {
+            await this.client.endSession(result.accessToken).catch(() => undefined);
+            throw new Error('Signed out while signing in');
+        }
+        this.epoch += 1;
+        const view = viewOf(result);
+        await this.keep(view, result);
+        return view;
     }
 
     /* Who is signed in, from what was kept, without asking the address book. */
     async restore(): Promise<{ account: Account; expiresAt: number } | null> {
-        const stored = await this.store.read();
-        if (!stored) {
-            return null;
-        }
-        if (stored.expiresAt <= this.now()) {
-            await this.store.write(null);
-            return null;
-        }
-        return { account: stored.account, expiresAt: stored.expiresAt };
+        return this.queue(async () => {
+            const stored = await this.store.read();
+            if (!stored) {
+                return null;
+            }
+            if (stored.expiresAt <= this.now()) {
+                await this.store.write(null);
+                return null;
+            }
+            return { account: stored.account, expiresAt: stored.expiresAt };
+        });
     }
 
     /*
@@ -112,55 +140,96 @@ export class SessionVault {
      * or a clock the address book calls off throws and keeps the session, since the token is still
      * good once the address book answers again or the clock is right.
      */
-    refresh(): Promise<SessionView | null> {
+    async refresh(): Promise<SessionView | null> {
         this.refreshing ??= this.exclusive(() => this.rotate()).finally(() => {
             this.refreshing = null;
         });
-        return this.refreshing;
+        const rotation = await this.refreshing;
+        // A rotation overtaken by a sign-out or a new sign-in answers with what holds now.
+        return rotation.epoch === this.epoch ? rotation.view : this.current;
     }
 
     /* Ends the session at the address book when it can, and forgets it here whatever the answer. */
     async signOut(): Promise<void> {
-        const token = this.current?.accessToken ?? (await this.refresh().catch(() => null))?.accessToken ?? null;
+        this.epoch += 1;
+        this.signOuts += 1;
+        const known = this.current?.accessToken ?? null;
+        const underway = this.refreshing;
         this.current = null;
-        await this.store.write(null);
+        // Asked before anything after this call can read the store, so no later refresh finds the token.
+        const stored = this.queue(() => this.store.read());
+        this.queue(() => this.store.write(null)).catch(() => undefined);
+        // Another holder's refresh under way writes what it rotated to; clearing in turn after it removes that too.
+        await this.exclusive(() => this.queue(() => this.store.write(null)));
+
+        // A refresh under way spent the kept token, so only its access token can still end the session.
+        let token = known ?? (await underway?.catch(() => null))?.view?.accessToken ?? null;
+        if (token === null) {
+            token = await this.spend(await stored.catch(() => null)).catch(() => null);
+        }
         if (token !== null) {
             await this.client.endSession(token).catch(() => undefined);
         }
     }
 
-    private async rotate(): Promise<SessionView | null> {
-        const stored = await this.store.read();
+    private async rotate(): Promise<Rotation> {
+        const epoch = this.epoch;
+        const stored = await this.queue(() => this.store.read());
         const signer = stored && stored.expiresAt > this.now() ? await this.signer() : null;
         if (!stored || !signer) {
-            this.current = null;
-            if (stored) {
-                await this.store.write(null);
-            }
-            return null;
+            await this.forget(epoch, stored !== null);
+            return { epoch, view: null };
         }
-        const issuedAt = this.now();
         let result: SessionResult;
         try {
-            result = await this.client.refresh({
-                refreshToken: stored.refreshToken,
-                issuedAt,
-                signature: await signer.sign(sessionRefreshMessage(stored.refreshToken, issuedAt))
-            });
+            result = await this.client.refresh(await this.refreshRequest(stored.refreshToken, signer));
         } catch (e) {
-            if (e instanceof AddressBookRequestError && (e.code === 'unauthorized' || e.code === 'bad-request' || e.code === 'bad-signature')) {
-                this.current = null;
-                await this.store.write(null);
-                return null;
+            if (refused(e)) {
+                await this.forget(epoch, true);
+                return { epoch, view: null };
             }
             throw e;
         }
-        await this.keep(result);
-        return this.current;
+        const view = viewOf(result);
+        if (epoch === this.epoch) {
+            await this.keep(view, result);
+        }
+        return { epoch, view };
     }
 
-    private async keep(result: SessionResult): Promise<void> {
-        await this.store.write({ refreshToken: result.refreshToken, expiresAt: result.expiresAt, account: result.account });
-        this.current = viewOf(result);
+    /* Trades a kept refresh token for an access token without keeping what it rotated to. */
+    private async spend(stored: StoredSession | null): Promise<string | null> {
+        const signer = stored && stored.expiresAt > this.now() ? await this.signer() : null;
+        if (!stored || !signer) {
+            return null;
+        }
+        return (await this.client.refresh(await this.refreshRequest(stored.refreshToken, signer))).accessToken;
+    }
+
+    private async refreshRequest(refreshToken: string, signer: SessionSigner): Promise<{ refreshToken: string; issuedAt: number; signature: string }> {
+        const issuedAt = this.now();
+        return { refreshToken, issuedAt, signature: await signer.sign(sessionRefreshMessage(refreshToken, issuedAt)) };
+    }
+
+    /* Clears the session, unless a sign-out or a sign-in since the epoch already decided what is kept. */
+    private async forget(epoch: number, kept: boolean): Promise<void> {
+        if (epoch !== this.epoch) {
+            return;
+        }
+        this.current = null;
+        if (kept) {
+            await this.queue(() => this.store.write(null));
+        }
+    }
+
+    private keep(view: SessionView, result: SessionResult): Promise<void> {
+        this.current = view;
+        return this.queue(() => this.store.write({ refreshToken: result.refreshToken, expiresAt: result.expiresAt, account: result.account }));
+    }
+
+    private queue<T>(task: () => Promise<T>): Promise<T> {
+        const run = this.storeTail.then(task);
+        this.storeTail = run.catch(() => undefined);
+        return run;
     }
 }

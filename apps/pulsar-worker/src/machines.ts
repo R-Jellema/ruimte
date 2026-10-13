@@ -121,38 +121,46 @@ export async function storeMachine(
 ): Promise<{ machine: Machine } | { response: Response }> {
     /*
      * A machine is on one account at a time and only the machine moves itself, so its key on a second
-     * account is refused. A row this account already holds for the key keeps updating: two accounts
-     * that listed one machine before this rule keep it.
+     * account is refused, in the insert itself so two accounts registering one key at once cannot both
+     * pass a check read before either wrote. A row this account already holds for the key keeps
+     * updating: two accounts that listed one machine before this rule keep it, which is why the key is
+     * not unique.
+     *
+     * The upsert goes only by the key the machine is listed with: anyone who can sign a registration for
+     * another key could otherwise take over the row, and every client that opens the machine pins the
+     * listed key. A machine with a new key comes back after a person removes it from the account.
      */
-    const elsewhere = await db
+    const upsert = db
         .prepare(
-            `SELECT 1 AS taken FROM machine WHERE public_key = ?1 AND account_id != ?2
-             AND NOT EXISTS (SELECT 1 FROM machine AS own WHERE own.account_id = ?2 AND own.id = ?3 AND own.public_key = ?1)`
-        )
-        .bind(machine.publicKey, accountId, machine.id)
-        .first<{ taken: number }>();
-    if (elsewhere) {
-        return { response: failure('machine-on-other-account', 'This machine is on another account. Disconnect it on the machine itself first.') };
-    }
-    if (clearsRemoval) {
-        await db.prepare('DELETE FROM removed_machine WHERE account_id = ?1 AND machine_id = ?2').bind(accountId, machine.id).run();
-    }
-    /*
-     * An upsert only by the key the machine is listed with: anyone who can sign a registration for another
-     * key could otherwise take over the row, and every client that opens the machine pins the listed key.
-     * A machine with a new key comes back after a person removes it from the account.
-     */
-    const row = await db
-        .prepare(
-            `INSERT INTO machine (account_id, id, name, icon, broker_url, public_key, last_seen_at, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)
+            `INSERT INTO machine (account_id, id, name, icon, broker_url, public_key, last_seen_at, created_at)
+             SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM machine AS other WHERE other.public_key = ?6 AND other.account_id != ?1
+                 AND NOT EXISTS (SELECT 1 FROM machine AS own WHERE own.account_id = ?1 AND own.id = ?2 AND own.public_key = ?6)
+             )
          ON CONFLICT (account_id, id) DO UPDATE SET name = excluded.name, icon = excluded.icon, broker_url = excluded.broker_url, last_seen_at = excluded.last_seen_at
          WHERE machine.public_key = excluded.public_key
          RETURNING id, name, icon, broker_url, public_key, last_seen_at`
         )
-        .bind(accountId, machine.id, machine.name, machine.icon ? JSON.stringify(machine.icon) : null, machine.brokerUrl, machine.publicKey, now)
-        .first<MachineRow>();
+        .bind(accountId, machine.id, machine.name, machine.icon ? JSON.stringify(machine.icon) : null, machine.brokerUrl, machine.publicKey, now);
+    // Cleared only once the machine is on the account with this key, in the same batch.
+    const clearRemoval = db
+        .prepare(
+            `DELETE FROM removed_machine WHERE account_id = ?1 AND machine_id = ?2
+             AND EXISTS (SELECT 1 FROM machine WHERE account_id = ?1 AND id = ?2 AND public_key = ?3)`
+        )
+        .bind(accountId, machine.id, machine.publicKey);
+    const [upserted] = await db.batch(clearsRemoval ? [upsert, clearRemoval] : [upsert]);
+    const row = (upserted?.results ?? [])[0] as MachineRow | undefined;
     if (!row) {
-        return { response: failure('bad-signature', 'This machine is on the account with another key; remove it from the account and add it again') };
+        // Only which refusal to name; the insert above already decided.
+        const elsewhere = await db
+            .prepare('SELECT 1 AS taken FROM machine WHERE public_key = ?1 AND account_id != ?2')
+            .bind(machine.publicKey, accountId)
+            .first<{ taken: number }>();
+        return elsewhere
+            ? { response: failure('machine-on-other-account', 'This machine is on another account. Disconnect it on the machine itself first.') }
+            : { response: failure('bad-signature', 'This machine is on the account with another key; remove it from the account and add it again') };
     }
     return { machine: machineOf(row) };
 }

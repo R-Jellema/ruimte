@@ -193,4 +193,30 @@ describe('a machine key on another account', () => {
         const refused = await storeMachine(env.DB, 'colleague', signed, true, Date.now());
         expect('response' in refused && (await errorCode(refused.response))).toBe('machine-on-other-account');
     });
+
+    test('two accounts registering one machine at once leave it on one of them', async () => {
+        await signIn('owner');
+        await signIn('colleague');
+        const signed = { id: 'studio', name: 'Studio', icon: null, brokerUrl: null, publicKey: newPair().publicKey };
+        const outcomes = await Promise.all([
+            storeMachine(env.DB, 'owner', signed, true, Date.now()),
+            storeMachine(env.DB, 'colleague', signed, true, Date.now())
+        ]);
+        expect(outcomes.filter((outcome) => 'machine' in outcome)).toHaveLength(1);
+        expect(sqlite.query('SELECT COUNT(*) AS count FROM machine WHERE public_key = ?').get(signed.publicKey)).toEqual({ count: 1 });
+    });
+
+    test('a refused registration leaves a removal standing', async () => {
+        await signIn('owner');
+        await signIn('colleague');
+        const signed = { id: 'studio', name: 'Studio', icon: null, brokerUrl: null, publicKey: newPair().publicKey };
+        expect('machine' in (await storeMachine(env.DB, 'owner', signed, true, Date.now()))).toBe(true);
+        sqlite.query('INSERT INTO removed_machine (account_id, machine_id, removed_at) VALUES (?, ?, ?)').run('colleague', 'studio', Date.now());
+        expect('response' in (await storeMachine(env.DB, 'colleague', signed, true, Date.now()))).toBe(true);
+        expect(sqlite.query("SELECT COUNT(*) AS count FROM removed_machine WHERE account_id = 'colleague'").get()).toEqual({ count: 1 });
+
+        sqlite.query("DELETE FROM machine WHERE account_id = 'owner'").run();
+        expect('machine' in (await storeMachine(env.DB, 'colleague', signed, true, Date.now()))).toBe(true);
+        expect(sqlite.query("SELECT COUNT(*) AS count FROM removed_machine WHERE account_id = 'colleague'").get()).toEqual({ count: 0 });
+    });
 });

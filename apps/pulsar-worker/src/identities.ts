@@ -287,9 +287,11 @@ export async function completeIdentityLink(request: Request, env: Env): Promise<
 }
 
 /*
- * `DELETE /v1/account/identities/<provider>`. Refused for the last identity, in the statement itself, so
- * two removals at once cannot both pass a count read before either wrote. The account's own provider and
- * subject are rewritten when they name the identity, so signing in with it later makes a new account.
+ * `DELETE /v1/account/identities/<provider>`. Refused for the last identity, in the statements themselves,
+ * so two removals at once cannot both pass a count read before either wrote. The account's own provider
+ * and subject are rewritten when they name the identity, so signing in with it later makes a new account.
+ * Both go in one batch, the rewrite first: between two statements a sign-in with that identity would find
+ * the account by its subject and link it again.
  */
 export async function unlinkIdentity(request: Request, env: Env, rawProvider: string): Promise<Response> {
     const session = await authenticate(request, env.DB);
@@ -302,13 +304,18 @@ export async function unlinkIdentity(request: Request, env: Env, rawProvider: st
     }
     const provider = parsed.data;
     const accountId = session.account.id;
-    const removed = await env.DB.prepare(
-        `DELETE FROM identity WHERE account_id = ?1 AND provider = ?2 AND (SELECT COUNT(*) FROM identity WHERE account_id = ?1) > 1
-         RETURNING subject`
-    )
-        .bind(accountId, provider)
-        .first<{ subject: string }>();
-    if (!removed) {
+    const [, deleted] = await env.DB.batch([
+        env.DB.prepare(
+            `UPDATE account SET subject = 'unlinked:' || id WHERE id = ?1 AND provider = ?2
+             AND subject = (SELECT subject FROM identity WHERE account_id = ?1 AND provider = ?2)
+             AND (SELECT COUNT(*) FROM identity WHERE account_id = ?1) > 1`
+        ).bind(accountId, provider),
+        env.DB.prepare(
+            `DELETE FROM identity WHERE account_id = ?1 AND provider = ?2 AND (SELECT COUNT(*) FROM identity WHERE account_id = ?1) > 1
+             RETURNING subject`
+        ).bind(accountId, provider)
+    ]);
+    if ((deleted?.results ?? []).length === 0) {
         const exists = await env.DB.prepare('SELECT 1 AS present FROM identity WHERE account_id = ?1 AND provider = ?2')
             .bind(accountId, provider)
             .first<{ present: number }>();
@@ -316,9 +323,6 @@ export async function unlinkIdentity(request: Request, env: Env, rawProvider: st
             ? failure('last-identity', 'This is the only way to sign in to this account, so it stays. Add another one first.')
             : failure('not-found', `This account does not sign in with ${PROVIDER_NAMES[provider]}`);
     }
-    await env.DB.prepare(`UPDATE account SET subject = 'unlinked:' || id WHERE id = ?1 AND provider = ?2 AND subject = ?3`)
-        .bind(accountId, provider, removed.subject)
-        .run();
     return answerAccount(env.DB, session);
 }
 

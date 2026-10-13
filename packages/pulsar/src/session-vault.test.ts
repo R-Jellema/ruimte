@@ -58,6 +58,7 @@ function fakeAddressBook() {
     let liveRefresh: string | null = null;
     let reachable = true;
     let boundKey: string | null = null;
+    let held: { path: string; until: Promise<void> } | null = null;
     const session = (): SessionResult => {
         generation += 1;
         liveRefresh = token(String.fromCharCode(96 + generation));
@@ -69,6 +70,9 @@ function fakeAddressBook() {
         calls.push({ method: init.method ?? 'GET', path: url.pathname, authorization: new Headers(init.headers).get('authorization'), body });
         if (!reachable) {
             throw new TypeError('fetch failed');
+        }
+        if (held && held.path === url.pathname && init.method === 'POST') {
+            await held.until;
         }
         if (url.pathname === '/v1/session' && init.method === 'POST') {
             if (!verifies(String(body?.sessionKey), sessionKeyMessage(String(body?.code), String(body?.sessionKey)), body?.sessionKeySignature)) {
@@ -100,6 +104,18 @@ function fakeAddressBook() {
         },
         setReachable: (value: boolean) => {
             reachable = value;
+        },
+        // Holds every sign-in or every refresh until the returned call lets them answer.
+        hold: (route: 'sign-in' | 'refresh'): (() => void) => {
+            let release = () => undefined as void;
+            const until = new Promise<void>((resolve) => {
+                release = resolve;
+            });
+            held = { path: route === 'sign-in' ? '/v1/session' : '/v1/session/refresh', until };
+            return () => {
+                held = null;
+                release();
+            };
         }
     };
 }
@@ -247,6 +263,104 @@ describe('SessionVaults over one store', () => {
         const spent = book.calls.filter((call) => call.path === '/v1/session/refresh').map((call) => (call.body as { refreshToken: string }).refreshToken);
         expect(spent).toEqual([token('a'), token('b')]);
         expect(store.held?.refreshToken).toBe(token('c'));
+    });
+});
+
+describe('SessionVault and a sign-out', () => {
+    test('a refresh under way when signing out is never kept', async () => {
+        const book = fakeAddressBook();
+        const store = memoryStore();
+        const vault = new SessionVault({ client: book.client, store, signer: keyed, now: () => NOW });
+        await vault.exchange(exchange);
+        const release = book.hold('refresh');
+        const refreshing = vault.refresh();
+        await Promise.resolve();
+        const signingOut = vault.signOut();
+        release();
+        expect(await refreshing).toBeNull();
+        await signingOut;
+        expect(store.held).toBeNull();
+        expect(await vault.restore()).toBeNull();
+        expect(book.calls.at(-1)).toMatchObject({ method: 'DELETE', authorization: `Bearer ${token('1')}` });
+    });
+
+    test('without an access token at hand, the one the refresh under way brings ends the session', async () => {
+        const book = fakeAddressBook();
+        const store = memoryStore();
+        await new SessionVault({ client: book.client, store, signer: keyed, now: () => NOW }).exchange(exchange);
+        const restarted = new SessionVault({ client: book.client, store, signer: keyed, now: () => NOW });
+        const release = book.hold('refresh');
+        const refreshing = restarted.refresh();
+        await Promise.resolve();
+        const signingOut = restarted.signOut();
+        release();
+        expect(await refreshing).toBeNull();
+        await signingOut;
+        expect(store.held).toBeNull();
+        expect(book.calls.filter((call) => call.path === '/v1/session/refresh')).toHaveLength(1);
+        expect(book.calls.at(-1)).toMatchObject({ method: 'DELETE', authorization: `Bearer ${token('2')}` });
+    });
+
+    test('a refresh asked after signing out began finds nothing to refresh', async () => {
+        const book = fakeAddressBook();
+        const store = memoryStore();
+        const vault = new SessionVault({ client: book.client, store, signer: keyed, now: () => NOW });
+        await vault.exchange(exchange);
+        const signingOut = vault.signOut();
+        expect(await vault.refresh()).toBeNull();
+        await signingOut;
+        expect(store.held).toBeNull();
+        expect(book.calls.filter((call) => call.path === '/v1/session/refresh')).toHaveLength(0);
+    });
+
+    test('a sign-in under way when signing out is not kept, and its session is ended', async () => {
+        const book = fakeAddressBook();
+        const store = memoryStore();
+        const vault = new SessionVault({ client: book.client, store, signer: keyed, now: () => NOW });
+        const release = book.hold('sign-in');
+        const signingIn = vault.exchange(exchange).catch((e: unknown) => e);
+        await Promise.resolve();
+        await vault.signOut();
+        release();
+        expect(await signingIn).toBeInstanceOf(Error);
+        expect(store.held).toBeNull();
+        expect(await vault.refresh()).toBeNull();
+        expect(book.calls.at(-1)).toMatchObject({ method: 'DELETE', authorization: `Bearer ${token('1')}` });
+    });
+
+    test('a refresh of the previous session that answers after a new sign-in leaves the new one alone', async () => {
+        const book = fakeAddressBook();
+        const store = memoryStore();
+        const vault = new SessionVault({ client: book.client, store, signer: keyed, now: () => NOW });
+        await vault.exchange(exchange);
+        const release = book.hold('refresh');
+        const refreshing = vault.refresh();
+        await Promise.resolve();
+        const signedIn = await vault.exchange(exchange);
+        expect(store.held?.refreshToken).toBe(token('b'));
+        release();
+        // The address book refuses the old token by now, which must not clear the session just kept.
+        expect(await refreshing).toBe(signedIn);
+        expect(store.held?.refreshToken).toBe(token('b'));
+        expect((await vault.refresh())?.accessToken).toBe(token('3'));
+    });
+
+    test('a sign-out in one tab outlasts a refresh another tab has under way', async () => {
+        const book = fakeAddressBook();
+        const store = memoryStore();
+        const lock = fakeLock();
+        const first = new SessionVault({ client: book.client, store, signer: keyed, exclusive: lock.exclusive, now: () => NOW });
+        const second = new SessionVault({ client: book.client, store, signer: keyed, exclusive: lock.exclusive, now: () => NOW });
+        await first.exchange(exchange);
+        const release = book.hold('refresh');
+        const refreshing = second.refresh();
+        await Promise.resolve();
+        const signingOut = first.signOut();
+        release();
+        expect((await refreshing)?.accessToken).toBe(token('2'));
+        await signingOut;
+        expect(store.held).toBeNull();
+        expect(await second.refresh()).toBeNull();
     });
 });
 
