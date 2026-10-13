@@ -1,8 +1,13 @@
 import { Glob } from 'bun';
-import { existsSync, lstatSync, readFileSync, readlinkSync, realpathSync, rmSync, symlinkSync, unlinkSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readlinkSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
-interface Manifest {
+const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[\w.-]+)?$/;
+const DEPENDENCY_SECTIONS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const;
+
+type DependencySection = (typeof DEPENDENCY_SECTIONS)[number];
+
+export interface Manifest {
     name: string;
     version?: string;
     workspaces?: string[] | { packages: string[] };
@@ -30,6 +35,12 @@ export interface PackageStatus {
     version: string;
     target: string | null;
     mode: 'npm' | 'local' | 'other' | 'missing';
+}
+
+export interface Pin {
+    section: DependencySection;
+    name: string;
+    version: string;
 }
 
 export type RunCommand = (cwd: string, args: string[]) => Promise<void>;
@@ -67,6 +78,10 @@ function consumersIn(root: string): Dependency[] {
 function isInside(root: string, path: string): boolean {
     const child = relative(root, path);
     return child === '' || (!isAbsolute(child) && child !== '..' && !child.startsWith(`..${sep}`));
+}
+
+function isInstalled(root: string, target: string): boolean {
+    return isInside(root, target) && relative(root, target).split(sep).includes('node_modules');
 }
 
 function resolvedFolder(path: string): string | null {
@@ -144,10 +159,8 @@ export function packageStatus(root: string, adecore: string): PackageStatus[] {
     const local = resolvedFolder(adecore) ?? resolve(adecore);
     return consumersIn(root).map((dep) => {
         const target = resolvedFolder(dep.path);
-        const installed = target !== null && isInside(root, target) && relative(root, target).split(sep).includes('node_modules');
-        const manifest = installed ? readPackage(target!).manifest : null;
-        const exactVersion = /^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(dep.version);
-        const npm = manifest?.name === dep.name && (!exactVersion || manifest.version === dep.version);
+        const manifest = target !== null && isInstalled(root, target) ? readPackage(target).manifest : null;
+        const npm = manifest?.name === dep.name && (!EXACT_VERSION.test(dep.version) || manifest.version === dep.version);
         const mode = target === null ? 'missing' : isInside(local, target) ? 'local' : npm ? 'npm' : 'other';
         return { workspace: relative(root, dep.consumer.folder) || '.', name: dep.name, version: dep.version, target, mode };
     });
@@ -216,6 +229,97 @@ export async function restoreNpmPackages(root: string, adecore = adecorePath(roo
     unchanged();
     if (statusMode(packageStatus(root, adecore)) !== 'npm') {
         throw new Error('Some ADE CORE packages still resolve outside the npm install. Run adecore:status to inspect them.');
+    }
+    clearClientCache(root);
+}
+
+export function adecorePins(manifest: Manifest): Pin[] {
+    return DEPENDENCY_SECTIONS.flatMap((section) =>
+        Object.entries(manifest[section] ?? {})
+            .filter(([name]) => name.startsWith('@adecore/'))
+            .map(([name, version]) => ({ section, name, version }))
+    );
+}
+
+/**
+ * Rewrites the text rather than serializing the parsed manifest, so the file keeps its own layout.
+ */
+export function bumpManifest(text: string, version: string, file = 'package.json'): { text: string; pins: Pin[] } {
+    const manifest = JSON.parse(text) as Manifest;
+    const pins = adecorePins(manifest);
+    for (const pin of pins) {
+        if (!EXACT_VERSION.test(pin.version)) {
+            throw new Error(`${file}: ${pin.name} in ${pin.section} is "${pin.version}", not an exact version. No manifest was changed.`);
+        }
+    }
+    const expected = structuredClone(manifest);
+    for (const pin of pins) {
+        expected[pin.section]![pin.name] = version;
+    }
+    let next = text;
+    for (const name of new Set(pins.map((pin) => pin.name))) {
+        const key = name.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+        next = next.replace(new RegExp(`("${key}"\\s*:\\s*")[^"]*(")`, 'g'), `$1${version}$2`);
+    }
+    if (!Bun.deepEquals(JSON.parse(next), expected, true)) {
+        throw new Error(`${file}: the ADE CORE pins could not be rewritten without touching other fields. No manifest was changed.`);
+    }
+    return { text: next, pins };
+}
+
+export function lockedOffVersion(lock: string, version: string): string[] {
+    const locked = new Set(
+        [...lock.matchAll(/"(@adecore\/[\w.-]+)@([^"]+)"/g)].filter((match) => match[2] !== version).map((match) => `${match[1]}@${match[2]}`)
+    );
+    return [...locked].sort();
+}
+
+function pinsOffVersion(root: string, version: string): string[] {
+    return packagesIn(root).flatMap((pkg) =>
+        adecorePins(pkg.manifest)
+            .filter((pin) => pin.version !== version)
+            .map((pin) => `${relative(root, pkg.folder) || '.'}: ${pin.name} in ${pin.section} is ${pin.version}`)
+    );
+}
+
+export async function bumpPackages(root: string, adecore: string, version: string, run: RunCommand = runBun): Promise<void> {
+    if (!EXACT_VERSION.test(version)) {
+        throw new Error(`${version} is not an exact version such as 0.24.0.`);
+    }
+    root = realpathSync(root);
+    // An install in a linked checkout swaps every link back to npm, so a bump would end the link without saying so.
+    const linked = packageStatus(root, adecore).filter((pkg) => pkg.mode === 'local' || (pkg.target !== null && !isInstalled(root, pkg.target)));
+    if (linked.length > 0) {
+        throw new Error(
+            `${linked[0].workspace}: ${linked[0].name} is linked to ${linked[0].target}. Run bun run adecore:npm first, bump, then bun run adecore:link to continue on the local folder.`
+        );
+    }
+    const lockfile = join(root, 'bun.lock');
+    const manifests = packagesIn(root).map((pkg) => join(pkg.folder, 'package.json'));
+    const before = new Map([lockfile, ...manifests].map((file) => [file, readFileSync(file, 'utf8')]));
+    const bumped = manifests.map((file) => ({ file, ...bumpManifest(before.get(file)!, version, relative(root, file)) }));
+    if (bumped.every((entry) => entry.pins.length === 0)) {
+        throw new Error('No manifest pins an ADE CORE package.');
+    }
+    for (const entry of bumped) {
+        if (entry.text !== before.get(entry.file)) {
+            writeFileSync(entry.file, entry.text);
+        }
+    }
+    try {
+        await run(root, ['install']);
+    } catch (error) {
+        for (const [file, text] of before) {
+            writeFileSync(file, text);
+        }
+        throw error;
+    }
+    const missed = [...pinsOffVersion(root, version), ...lockedOffVersion(readFileSync(lockfile, 'utf8'), version).map((entry) => `bun.lock: ${entry}`)];
+    if (missed.length > 0) {
+        throw new Error(`These ADE CORE entries are not on ${version}. Review the manifests and bun.lock:\n  ${missed.join('\n  ')}`);
+    }
+    if (statusMode(packageStatus(root, adecore)) !== 'npm') {
+        throw new Error(`Some ADE CORE packages do not resolve to the npm install of ${version}. Run adecore:status to inspect them.`);
     }
     clearClientCache(root);
 }
@@ -300,12 +404,14 @@ function printStatus(root: string, adecore: string, brief = false): 'npm' | 'loc
 
 async function main(): Promise<void> {
     const [command, ...args] = process.argv.slice(2);
+    const bump = command === 'bump' && args.length === 1 && !args[0].startsWith('-');
     if (
-        !['link', 'npm', 'status'].includes(command ?? '') ||
-        args.some((arg) => !['--npm', '--brief'].includes(arg)) ||
-        (args.length > 0 && command !== 'status')
+        !bump &&
+        (!['link', 'npm', 'status'].includes(command ?? '') ||
+            args.some((arg) => !['--npm', '--brief'].includes(arg)) ||
+            (args.length > 0 && command !== 'status'))
     ) {
-        throw new Error('Usage: bun run adecore:link | adecore:npm | adecore:status [--npm] [--brief]');
+        throw new Error('Usage: bun run adecore:link | adecore:npm | adecore:status [--npm] [--brief] | adecore:bump <version>');
     }
     const root = resolve(import.meta.dir, '..');
     const adecore = adecorePath(root);
@@ -313,12 +419,16 @@ async function main(): Promise<void> {
         linkLocalPackages(root, adecore);
     } else if (command === 'npm') {
         await restoreNpmPackages(root, adecore);
+    } else if (bump) {
+        await bumpPackages(root, adecore, args[0]);
     }
     const mode = printStatus(root, adecore, args.includes('--brief'));
-    if (mode === 'mixed' || (args.includes('--npm') && mode !== 'npm')) {
+    if (mode === 'mixed' || ((bump || args.includes('--npm')) && mode !== 'npm')) {
         process.exitCode = 1;
     }
-    if (command !== 'status') {
+    if (bump) {
+        console.log(`Every ADE CORE pin is ${args[0]}. Commit the manifests and bun.lock together.`);
+    } else if (command !== 'status') {
         console.log('Restart bun dev after switching. Package manifests and bun.lock are unchanged.');
     }
 }
