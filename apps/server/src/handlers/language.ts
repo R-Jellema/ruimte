@@ -1,5 +1,4 @@
-import { isOwner } from '../auth/access.ts';
-import { RequestError, type Dispatcher } from '../dispatcher.ts';
+import type { Dispatcher } from '../dispatcher.ts';
 import type { LanguageHost } from '../language/host.ts';
 
 /* Every request here comes from a client, so an install or a restart is a person's. */
@@ -22,21 +21,18 @@ export function registerLanguageHandlers(dispatcher: Dispatcher, host: LanguageH
      * Saving a server of a person's own approves starting its command on this machine, so only the local
      * secret saves, removes or probes one: a client the machine let in is not the owner of the machine.
      */
-    dispatcher.register('language.custom.save', async (payload, client) => {
-        requireOwner(client.access);
-        return { server: await host.customSave(payload.server) };
-    });
+    dispatcher.register('language.custom.save', async (payload) => ({ server: await host.customSave(payload.server) }), { owner: true });
 
-    dispatcher.register('language.custom.remove', async (payload, client) => {
-        requireOwner(client.access);
-        await host.customRemove(payload.id);
-        return {};
-    });
+    dispatcher.register(
+        'language.custom.remove',
+        async (payload) => {
+            await host.customRemove(payload.id);
+            return {};
+        },
+        { owner: true }
+    );
 
-    dispatcher.register('language.custom.check', async (payload, client) => {
-        requireOwner(client.access);
-        return host.customCheck(payload.command);
-    });
+    dispatcher.register('language.custom.check', (payload) => host.customCheck(payload.command), { owner: true });
 
     dispatcher.register('language.document.open', (payload, client) => host.open(client.id, payload));
 
@@ -55,10 +51,4 @@ export function registerLanguageHandlers(dispatcher: Dispatcher, host: LanguageH
         host.answerEdit(client.id, payload);
         return {};
     });
-}
-
-function requireOwner(access: Parameters<typeof isOwner>[0]): void {
-    if (!isOwner(access)) {
-        throw new RequestError('forbidden', 'Only a person on this machine can add, change or remove a language server of their own');
-    }
 }

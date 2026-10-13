@@ -1,6 +1,10 @@
 import type { ComputerUse } from '../computer/computer-use.ts';
 import type { Dispatcher } from '../dispatcher.ts';
 
+/*
+ * None of these is owner-only: the settings offer the switch for every machine a person reaches, and an
+ * agent still gets nothing until that person grants Accessibility at the Mac and lets it into an app.
+ */
 export function registerComputerHandlers(dispatcher: Dispatcher, computer: ComputerUse): void {
     dispatcher.register('computer.status', () => computer.refreshStatus());
 

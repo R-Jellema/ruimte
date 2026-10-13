@@ -179,59 +179,66 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
      * asks; macOS then asks that person for an administrator. Removing turns sleep back on and, once the
      * rule is gone, the switch off with it.
      */
-    dispatcher.register('endpoint.closedLidRule', async (payload, client) => {
-        if (!isOwner(client.access)) {
-            throw new RequestError('forbidden', 'Only a person on this Mac can let it stay awake with its lid closed');
-        }
-        const closedLid = host.closedLid;
-        if (closedLid?.available !== true) {
-            throw new RequestError('closed-lid-unavailable', 'Only a Mac can stay awake with its lid closed');
-        }
-        await closedLid.setRule(payload.install, payload.prompt ?? DEFAULT_ADMIN_PROMPT[payload.install ? 'install' : 'remove']);
-        return info(client.access);
-    });
+    dispatcher.register(
+        'endpoint.closedLidRule',
+        async (payload, client) => {
+            const closedLid = host.closedLid;
+            if (closedLid?.available !== true) {
+                throw new RequestError('closed-lid-unavailable', 'Only a Mac can stay awake with its lid closed');
+            }
+            await closedLid.setRule(payload.install, payload.prompt ?? DEFAULT_ADMIN_PROMPT[payload.install ? 'install' : 'remove']);
+            return info(client.access);
+        },
+        { owner: true }
+    );
 
     /*
      * What Ruimte writes into the CLIs' own settings is a person's call on this machine, so only the local
      * secret reads the files and changes the choice. A client the machine let in is not its owner.
      */
-    const integrations = (access: ClientAccess | undefined) => {
-        if (!isOwner(access)) {
-            throw new RequestError('forbidden', 'Only a person on this machine can change what Ruimte writes into the CLIs’ settings');
-        }
+    const integrations = () => {
         if (host.agentIntegrations === undefined) {
             throw new RequestError('unavailable', 'This machine does not manage the CLIs’ settings');
         }
         return host.agentIntegrations;
     };
 
-    dispatcher.register('endpoint.agentIntegrations', async (_payload, client) => {
-        const current = integrations(client.access);
-        return { summary: current.summary(), files: await current.files() };
-    });
+    dispatcher.register(
+        'endpoint.agentIntegrations',
+        async () => {
+            const current = integrations();
+            return { summary: current.summary(), files: await current.files() };
+        },
+        { owner: true }
+    );
 
-    dispatcher.register('endpoint.setAgentIntegration', async (payload, client) => {
-        const current = integrations(client.access);
-        if (!isIntegrationKind(payload.provider)) {
-            throw new RequestError('unknown-provider', `Ruimte has no status hooks for ${payload.provider}`);
-        }
-        const report = await current.set(payload.provider, payload.on).catch((e: unknown) => {
-            if (e instanceof IntegrationsFixed) {
-                throw new RequestError('integrations-fixed', 'This machine was started with --no-hooks');
+    dispatcher.register(
+        'endpoint.setAgentIntegration',
+        async (payload) => {
+            const current = integrations();
+            if (!isIntegrationKind(payload.provider)) {
+                throw new RequestError('unknown-provider', `Ruimte has no status hooks for ${payload.provider}`);
             }
-            throw e;
-        });
-        return { summary: current.summary(), report };
-    });
+            const report = await current.set(payload.provider, payload.on).catch((e: unknown) => {
+                if (e instanceof IntegrationsFixed) {
+                    throw new RequestError('integrations-fixed', 'This machine was started with --no-hooks');
+                }
+                throw e;
+            });
+            return { summary: current.summary(), report };
+        },
+        { owner: true }
+    );
 
     /* Only the app on this machine holds the updater, so only the local secret may say where it stands. */
-    dispatcher.register('endpoint.reportUpdate', (payload, client) => {
-        if (!isOwner(client.access)) {
-            throw new RequestError('forbidden', 'Only the app on this machine can say where its update stands');
-        }
-        host.updates?.report(client.id, payload);
-        return {};
-    });
+    dispatcher.register(
+        'endpoint.reportUpdate',
+        (payload, client) => {
+            host.updates?.report(client.id, payload);
+            return {};
+        },
+        { owner: true }
+    );
 
     /*
      * Any client may ask, not only the owner: it installs only a signed release of the app, and any
@@ -263,24 +270,24 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
      * not move it onto an account of its choosing. The client posts the answer with its own session, so
      * no account token ever reaches the daemon.
      */
-    dispatcher.register('endpoint.signRegistration', async (payload, client) => {
-        if (!isOwner(client.access)) {
-            throw new RequestError('forbidden', 'Only the app on this machine can put it on an account');
-        }
-        return {
+    dispatcher.register(
+        'endpoint.signRegistration',
+        async (payload) => ({
             registration: await signForAccount(store, identity, host.broker().brokerUrl, payload.accountId, (sessionId) => host.disconnect(sessionId))
-        };
-    });
+        }),
+        { owner: true }
+    );
 
     /* A person on this machine taking it off its account: every client a statement let in loses its access at once. */
-    dispatcher.register('endpoint.leaveAccount', async (_payload, client) => {
-        if (!isOwner(client.access)) {
-            throw new RequestError('forbidden', 'Only the app on this machine can take it off its account');
-        }
-        const revoked = await store.leaveAccount();
-        revoked.forEach((sessionId) => host.disconnect(sessionId));
-        return { revoked: revoked.length };
-    });
+    dispatcher.register(
+        'endpoint.leaveAccount',
+        async () => {
+            const revoked = await store.leaveAccount();
+            revoked.forEach((sessionId) => host.disconnect(sessionId));
+            return { revoked: revoked.length };
+        },
+        { owner: true }
+    );
 
     dispatcher.register('auth.sessions', async (_payload, client) => ({ sessions: await store.list(client.access?.sessionId ?? null) }));
 

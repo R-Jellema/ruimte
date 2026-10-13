@@ -106,6 +106,33 @@ describe('Dispatcher', () => {
         expect(socket.last()).toEqual({ id: 'r10', ok: false, error: { code: 'domain-refused', message: 'Refused later' } });
     });
 
+    test('refuses an owner-only request from a client that did not present the local secret, before its handler runs', async () => {
+        let runs = 0;
+        const dispatcher = new Dispatcher();
+        dispatcher.register(
+            'endpoint.leaveAccount',
+            () => {
+                runs += 1;
+                return { revoked: 0 };
+            },
+            { owner: true }
+        );
+        const frame = JSON.stringify({ id: 'r11', type: 'endpoint.leaveAccount', payload: {} });
+
+        const guest = Object.assign(new FakeSocket(), { access: { reachability: 'tunnel' as const, sessionId: 'session-1' } });
+        await dispatcher.handle(guest, frame);
+        expect(guest.last()).toMatchObject({ id: 'r11', ok: false, error: { code: 'forbidden' } });
+        const unknown = new FakeSocket();
+        await dispatcher.handle(unknown, frame);
+        expect(unknown.last()).toMatchObject({ ok: false, error: { code: 'forbidden' } });
+        expect(runs).toBe(0);
+
+        const owner = Object.assign(new FakeSocket(), { access: { reachability: 'loopback' as const, sessionId: null } });
+        await dispatcher.handle(owner, frame);
+        expect(owner.last()).toEqual({ id: 'r11', ok: true, result: { revoked: 0 } });
+        expect(runs).toBe(1);
+    });
+
     test('refuses a second handler for the same type', () => {
         const dispatcher = makeDispatcher();
         expect(() => dispatcher.register('server.hello', () => ({ version: '', platform: '', home: '' }))).toThrow('already registered');

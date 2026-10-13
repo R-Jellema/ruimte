@@ -1,3 +1,4 @@
+import { isOwner } from './auth/access.ts';
 import { errorText } from './error-text.ts';
 import {
     REQUEST_SCHEMAS,
@@ -50,6 +51,11 @@ type Handler<T extends RequestType> = (
 // Thrown by a handler to answer with a specific error code instead of a generic failure.
 export class RequestError extends CodedError {}
 
+export interface HandlerOptions {
+    /* Only a client that presented the local secret may ask; any other is refused as `forbidden` before the handler runs. */
+    owner?: boolean;
+}
+
 function errorReply(id: string | null, code: string, message: string): ReplyError {
     return {
         id,
@@ -60,12 +66,16 @@ function errorReply(id: string | null, code: string, message: string): ReplyErro
 
 export class Dispatcher {
     private readonly handlers = new Map<RequestType, Handler<RequestType>>();
+    private readonly ownerOnly = new Set<RequestType>();
 
-    register<T extends RequestType>(type: T, handler: Handler<T>): void {
+    register<T extends RequestType>(type: T, handler: Handler<T>, options: HandlerOptions = {}): void {
         if (this.handlers.has(type)) {
             throw new Error(`Handler for ${type} is already registered`);
         }
         this.handlers.set(type, handler as Handler<RequestType>);
+        if (options.owner === true) {
+            this.ownerOnly.add(type);
+        }
     }
 
     has(type: RequestType): boolean {
@@ -103,6 +113,11 @@ export class Dispatcher {
         const payloadParse = REQUEST_SCHEMAS[type].payload.safeParse(payload);
         if (!payloadParse.success) {
             client.send(errorReply(id, 'bad-request', `Invalid payload for ${type}`));
+            return;
+        }
+
+        if (this.ownerOnly.has(type) && !isOwner(client.access)) {
+            client.send(errorReply(id, 'forbidden', 'Only a person on this machine may ask this'));
             return;
         }
 
