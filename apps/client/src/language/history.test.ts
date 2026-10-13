@@ -45,7 +45,7 @@ describe('back and forward', () => {
         editor.moveCaret(at(2, 4));
         await language.navigation.go('definition');
         expect(opened).toEqual([{ path: '/work/app/src/b.ts', line: 6 }]);
-        const secondEditor = engine.mount({} as HTMLElement, { text: '\n\n\n\n\n\n', theme: 'light' });
+        const secondEditor = engine.mount({} as HTMLElement, { text: '\n\n\n\n\nlet other = 2;\n', theme: 'light' });
         const second = new EditorLanguage(project, secondEditor, other, 'typescript');
         await second.document.ready;
         // The file opened on the line; the history's column arrives with the editor.

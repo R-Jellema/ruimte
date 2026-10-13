@@ -95,8 +95,8 @@ describe('ending the stops', () => {
     test('Escape, a caret that leaves the call and any change that is not typing end them', async () => {
         const { editor, language, timers } = await setup('', [CALL]);
         const start = async (): Promise<void> => {
-            editor.setText('');
-            await open(editor, timers, 's');
+            editor.setText('\n');
+            await open(editor, timers, '\ns');
             editor.press({ key: 'Enter' });
             await settle();
             expect(language.snippets.isActive).toBe(true);
@@ -106,7 +106,7 @@ describe('ending the stops', () => {
         expect(language.snippets.isActive).toBe(false);
         expect(editor.press({ key: 'Escape' })).toBe(false);
         await start();
-        editor.moveCaret(at(0, 100));
+        editor.moveCaret(at(0, 0));
         await settle();
         expect(language.snippets.isActive).toBe(false);
         await start();
