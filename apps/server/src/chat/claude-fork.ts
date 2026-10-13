@@ -1,8 +1,7 @@
-import { existsSync } from 'node:fs';
-import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
+import { mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { isNotFound, writeAtomic } from '@adecore/agents';
-import { claudeProjectSlug } from '@adecore/agents/chat';
+import { writeAtomic } from '@adecore/agents';
+import { claudeProjectSlug, findClaudeSession } from '@adecore/agents/chat';
 import { ChatError } from './errors.ts';
 
 /* The Claude Code whose transcript this cut was checked against; the file is undocumented, so a change there is a refusal here. */
@@ -99,24 +98,6 @@ export function cutTranscript(text: string, at: TranscriptCutPoint, sessionId: s
         .join('');
 }
 
-/* The transcript of a session: in the folder of the chat's directory, else wherever the session id alone finds it. */
-async function findTranscript(projectsDir: string, cwd: string, sessionId: string): Promise<string | null> {
-    const own = join(projectsDir, claudeProjectSlug(cwd), `${sessionId}.jsonl`);
-    if (existsSync(own)) {
-        return own;
-    }
-    let dirs: string[];
-    try {
-        dirs = await readdir(projectsDir);
-    } catch (e) {
-        if (isNotFound(e)) {
-            return null;
-        }
-        throw e;
-    }
-    return dirs.map((dir) => join(projectsDir, dir, `${sessionId}.jsonl`)).find((candidate) => existsSync(candidate)) ?? null;
-}
-
 export interface ClaudeForkInput {
     projectsDir: string;
     cwd: string;
@@ -132,7 +113,7 @@ export async function forkClaudeTranscript(input: ClaudeForkInput): Promise<{ pa
     if (input.projectsDir === '' || /[/\\]|\.\./.test(input.sessionId)) {
         throw new ChatError('transcript-missing', 'Claude Code keeps no conversations on this machine');
     }
-    const source = await findTranscript(input.projectsDir, input.cwd, input.sessionId);
+    const source = await findClaudeSession(input.projectsDir, input.sessionId, input.cwd);
     if (source === null) {
         throw new ChatError(
             'transcript-missing',
