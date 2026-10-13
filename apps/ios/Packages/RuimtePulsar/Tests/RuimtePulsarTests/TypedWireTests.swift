@@ -78,9 +78,10 @@ struct TypedWireTests {
         #expect(git.status.ahead == 2)
         #expect(git.status.files.first?.state == .staged)
         #expect(git.status.files.first?.oldPath == "a.ts")
-        let summary = try #require(try fixtures("event.project.summary").first).decoded(as: ProjectSummaryEvent.self)
-        #expect(summary.summary.closedAt == .null)
-        #expect(summary.summary.scratch == nil)
+        let event = try #require(try fixtures("event.project.summary").first)
+        let summary = try #require(event["summary"]).decoded(as: ProjectSummary.self)
+        #expect(summary.closedAt == .null)
+        #expect(summary.scratch == nil)
     }
 
     @Test func aRenamedOrMistypedFieldIsAnErrorAndNotAnEmptyValue() throws {

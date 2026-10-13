@@ -343,8 +343,7 @@ const typedRoots: [name: string, source: string, path: (string | number)[]][] = 
     ['GitStatusFile', 'request.git.status.result', ['properties', 'files', 'items']],
     ['GitStatus', 'request.git.status.result', []],
     ['GitStatusEvent', 'event.git.status', []],
-    ['ProjectSummary', 'event.project.summary', ['properties', 'summary']],
-    ['ProjectSummaryEvent', 'event.project.summary', []]
+    ['ProjectSummary', 'event.project.summary', ['properties', 'summary']]
 ];
 const typed = typedRoots.map(([name, source, path]) => {
     const schema = path.reduce((node: any, key) => node?.[key], typedSchema(schemas[source]));
