@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SettingsRow } from '@adecore/ui/settings';
 import { Switch } from '@adecore/ui';
+import { perform } from '@/actions/client-actions';
 import { MACHINE_SWITCHES, showsMachineSwitch, type MachineSwitch } from '@/shell/settings/machine-switches';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { LOCAL_ENDPOINT_ID, useEndpoints, type Endpoint } from '@/state/endpoints';
@@ -14,7 +15,6 @@ import { useEndpointConnection } from '@/transport/status';
 // The i18n group under `agents` each switch reads its words from.
 const WORDS: Record<MachineSwitch, string> = { agentsDeleteAnyView: 'deleteAnyView', resumeAtReset: 'resumeAtReset', visualReplies: 'visualReplies' };
 
-/* The wire takes name, icon and the switch together, so the row sends back the name and icon the machine already carries. */
 function MachineSwitchRow({ endpoint, setting, searchId }: { endpoint: Endpoint; setting: MachineSwitch; searchId?: string }) {
     const { t } = useTranslation('settings');
     const info = useServers((s) => s.byEndpoint[endpoint.id]);
@@ -24,26 +24,12 @@ function MachineSwitchRow({ endpoint, setting, searchId }: { endpoint: Endpoint;
     const words = `agents.${WORDS[setting]}`;
 
     const set = async (checked: boolean): Promise<void> => {
-        const link = transportFor(endpoint.id);
-        if (!link) {
+        if (!transportFor(endpoint.id)) {
             return;
         }
         setBusy(true);
         try {
-            const next = await link.request('endpoint.setIdentity', {
-                // A machine nobody named answers to its own default, and sending that name back would make it chosen.
-                name: info?.nameSource === 'chosen' ? (info.label ?? null) : null,
-                icon: info?.icon ?? null,
-                [setting]: checked
-            });
-            useServers.getState().setIdentity(endpoint.id, {
-                label: next.label,
-                nameSource: next.nameSource ?? null,
-                icon: next.icon ?? null,
-                agentsDeleteAnyView: next.agentsDeleteAnyView === true,
-                resumeAtReset: next.resumeAtReset === true,
-                visualReplies: next.visualReplies ?? null
-            });
+            await perform('machine.setIdentity', { endpointId: endpoint.id, [setting]: checked });
         } catch (e) {
             useToasts.getState().show({
                 id: `endpoint-${setting}-${endpoint.id}`,

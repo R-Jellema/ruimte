@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import i18next from 'i18next';
-import type { EndpointInfo } from '@ruimte/contracts';
+import { perform } from '@/actions/client-actions';
 import { canKeepAwake, desktop, type DesktopBridge, type KeepAwakeRequest } from '@/desktop/bridge';
 import { agentsWorking } from '@/state/agent-work';
 import { useChats, type ChatStatuses } from '@adecore/agents-react/state';
@@ -12,6 +12,7 @@ import { useSessions, type SessionsByKey } from '@/state/sessions';
 import { useSettings, type Settings } from '@/state/settings';
 import { useToasts } from '@/state/toasts';
 import { transportFor } from '@/transport';
+import { adoptEndpointInfo } from '@/transport/server-info';
 import { TransportError } from '@/transport/transport';
 
 export type KeepAwakeSettings = Pick<Settings, 'keepAwake' | 'keepAwakeOnBattery' | 'keepAwakeDisplay'>;
@@ -65,39 +66,17 @@ export function useKeepAwakeAvailable(): boolean {
     return useMachineKeepsAwake() || canKeepAwake();
 }
 
-/* What the machine answered a write with, so the pane moves without waiting for the event. */
-function adoptAnswer(answer: EndpointInfo): void {
-    useServers.getState().setIdentity(LOCAL_ENDPOINT_ID, {
-        label: answer.label,
-        nameSource: answer.nameSource ?? null,
-        icon: answer.icon ?? null,
-        agentsDeleteAnyView: answer.agentsDeleteAnyView === true,
-        keepAwake: answer.keepAwake ?? null,
-        keepAwakeOnBattery: answer.keepAwakeOnBattery === true,
-        keepAwakeDisplay: answer.keepAwakeDisplay === true,
-        keepAwakeLidClosed: answer.keepAwakeLidClosed === true,
-        keepAwakeLidRule: answer.keepAwakeLidRule === true
-    });
-}
-
-/* The machine takes name, icon and switches together, so the name and icon it has go back with it. */
 async function saveOnMachine(patch: Partial<KeepAwakeSettings> & { keepAwakeLidClosed?: boolean }): Promise<void> {
-    const link = transportFor(LOCAL_ENDPOINT_ID);
-    if (!link) {
+    if (!transportFor(LOCAL_ENDPOINT_ID)) {
         return;
     }
-    const info = localInfo();
-    adoptAnswer(
-        await link.request('endpoint.setIdentity', {
-            // A machine nobody named answers to its own default, and sending that name back would make it chosen.
-            name: info.nameSource === 'chosen' ? info.label : null,
-            icon: info.icon,
-            keepAwake: patch.keepAwake,
-            keepAwakeOnBattery: patch.keepAwakeOnBattery,
-            keepAwakeDisplay: patch.keepAwakeDisplay,
-            keepAwakeLidClosed: patch.keepAwakeLidClosed
-        })
-    );
+    await perform('machine.setIdentity', {
+        endpointId: LOCAL_ENDPOINT_ID,
+        keepAwake: patch.keepAwake,
+        keepAwakeOnBattery: patch.keepAwakeOnBattery,
+        keepAwakeDisplay: patch.keepAwakeDisplay,
+        keepAwakeLidClosed: patch.keepAwakeLidClosed
+    });
 }
 
 function showSaveFailed(e: unknown): void {
@@ -161,7 +140,8 @@ export async function setClosedLidRule(install: boolean): Promise<boolean> {
         throw new Error(i18next.t('settings:machine.notAnswering'));
     }
     try {
-        adoptAnswer(
+        adoptEndpointInfo(
+            LOCAL_ENDPOINT_ID,
             await link.request('endpoint.closedLidRule', {
                 install,
                 prompt: i18next.t(install ? 'settings:agents.keepAwake.lid.rule.prompt.install' : 'settings:agents.keepAwake.lid.rule.prompt.remove')

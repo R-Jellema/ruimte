@@ -8,6 +8,7 @@ import { databaseActions, type DatabaseMachine } from '@/actions/database-action
 import { asksFirst, asRefusal, developerActions, GIT_OPERATION, type DeveloperMachine } from '@/actions/developer-actions';
 import { filesActions, projectPathOf, type FilesMachine } from '@/actions/files-actions';
 import { inspectionActions } from '@/actions/inspection-actions';
+import { launchActions, type LaunchReach } from '@/actions/launch-actions';
 import { machineActions, type MachineReach } from '@/actions/machine-actions';
 import { pageActions, type PageMachine } from '@/actions/page-actions';
 import { projectActions, type ProjectMachine } from '@/actions/project-actions';
@@ -453,6 +454,7 @@ export interface ClientActionMachine {
     pages: Partial<PageMachine>;
     projects: Partial<ProjectMachine>;
     machine: Partial<MachineReach>;
+    launches: Partial<LaunchReach>;
 }
 
 const LIVE_MACHINE: ClientActionMachine = {
@@ -470,7 +472,8 @@ const LIVE_MACHINE: ClientActionMachine = {
     chatSearch: {},
     pages: {},
     projects: {},
-    machine: {}
+    machine: {},
+    launches: {}
 };
 
 export function createClientActionRegistry(document: StoreApi<DocumentState>, machine: Partial<ClientActionMachine> = {}): ActionRegistry<void> {
@@ -488,7 +491,8 @@ export function createClientActionRegistry(document: StoreApi<DocumentState>, ma
         database,
         chatSearch,
         pages,
-        projects
+        projects,
+        launches
     } = {
         ...LIVE_MACHINE,
         ...machine
@@ -505,6 +509,7 @@ export function createClientActionRegistry(document: StoreApi<DocumentState>, ma
         ...pageActions(document, pages),
         ...projectActions(document, projects),
         ...machineActions(machine.machine),
+        ...launchActions(launches),
         'target.resolve': (input) => ({ output: resolveTarget(document, input) }),
         'workspace.inspect': () => {
             const state = document.getState();

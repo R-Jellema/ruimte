@@ -186,4 +186,109 @@ describe('machine actions', () => {
         expect(await held.registry.execute('usage.limits', {}, VOICE_ACTION_CALL)).toMatchObject({ output: { providers: [] } });
         expect(held.requests).toEqual([]);
     });
+
+    describe('setting what a machine is', () => {
+        const answer = { id: 'mac', label: 'Studio', nameSource: 'chosen', icon: null, streamingAllowed: false, platform: 'darwin', version: '1' };
+
+        function onMachine(identity: { name: string | null; icon: null } = { name: 'Studio', icon: null }) {
+            const sent: unknown[] = [];
+            const adopted: unknown[] = [];
+            const link = {
+                request: async (type: string, payload: unknown) => {
+                    sent.push({ type, payload });
+                    return answer;
+                }
+            } as unknown as Transport;
+            const { registry } = fake({
+                linkTo: (endpointId) => (endpointId === 'mac' ? link : null),
+                identity: () => identity,
+                adoptInfo: (endpointId, info) => adopted.push({ endpointId, info })
+            });
+            return { registry, sent, adopted };
+        }
+
+        test('sends back the name and icon the machine has with a switch, and takes the whole answer', async () => {
+            const { registry, sent, adopted } = onMachine();
+            expect(await registry.execute('machine.setIdentity', { endpointId: 'mac', streamingAllowed: false }, PERSON_ACTION_CALL)).toMatchObject({
+                output: { endpointId: 'mac', machine: 'Studio' }
+            });
+            expect(sent).toEqual([{ type: 'endpoint.setIdentity', payload: { name: 'Studio', icon: null, streamingAllowed: false } }]);
+            expect(adopted).toEqual([{ endpointId: 'mac', info: answer }]);
+        });
+
+        test('a name given, null included, replaces the one the machine has', async () => {
+            const { registry, sent } = onMachine();
+            await registry.execute('machine.setIdentity', { endpointId: 'mac', name: null, icon: null }, PERSON_ACTION_CALL);
+            expect(sent).toEqual([{ type: 'endpoint.setIdentity', payload: { name: null, icon: null } }]);
+        });
+
+        test('is only a person’s, and refuses a machine without a link', async () => {
+            const { registry, sent } = onMachine();
+            expect(await registry.execute('machine.setIdentity', { endpointId: 'mac', agentsDeleteAnyView: true }, VOICE_ACTION_CALL)).toMatchObject({
+                error: { code: 'forbidden-action' }
+            });
+            expect(await registry.execute('machine.setIdentity', { endpointId: 'gone', resumeAtReset: true }, PERSON_ACTION_CALL)).toMatchObject({
+                error: { code: 'no-machine' }
+            });
+            expect(sent).toEqual([]);
+        });
+    });
+
+    describe("a person's hand on a machine", () => {
+        function onMachine() {
+            const sent: { type: string; payload: unknown }[] = [];
+            const adopted: unknown[] = [];
+            const answers: Record<string, unknown> = {
+                'auth.revoke': {},
+                'computer.control': { enabled: true, present: true, running: true },
+                'device.control': { backendId: 'sim', deviceId: 'phone', nodeId: null, state: 'paused', step: null }
+            };
+            const link = {
+                request: async (type: string, payload: unknown) => {
+                    sent.push({ type, payload });
+                    return answers[type];
+                }
+            } as unknown as Transport;
+            const { registry } = fake({
+                linkTo: (endpointId) => (endpointId === 'mac' ? link : null),
+                adoptComputer: (endpointId, status) => adopted.push({ endpointId, status }),
+                adoptDevice: (endpointId, operated) => adopted.push({ endpointId, operated })
+            });
+            return { registry, sent, adopted };
+        }
+
+        test('revokes one access on the machine named', async () => {
+            const { registry, sent } = onMachine();
+            expect(await registry.execute('machine.revokeAccess', { endpointId: 'mac', sessionId: 'phone' }, PERSON_ACTION_CALL)).toMatchObject({
+                status: 'completed'
+            });
+            expect(sent).toEqual([{ type: 'auth.revoke', payload: { id: 'phone' } }]);
+        });
+
+        test('pauses computer use and a device, and the window takes what the machine answered', async () => {
+            const { registry, sent, adopted } = onMachine();
+            await registry.execute('computer.control', { endpointId: 'mac', action: 'pause' }, PERSON_ACTION_CALL);
+            await registry.execute('device.control', { endpointId: 'mac', backendId: 'sim', deviceId: 'phone', mode: 'pause' }, PERSON_ACTION_CALL);
+            expect(sent).toEqual([
+                { type: 'computer.control', payload: { action: 'pause' } },
+                { type: 'device.control', payload: { backendId: 'sim', deviceId: 'phone', mode: 'pause' } }
+            ]);
+            expect(adopted).toEqual([
+                { endpointId: 'mac', status: { enabled: true, present: true, running: true } },
+                { endpointId: 'mac', operated: { backendId: 'sim', deviceId: 'phone', nodeId: null, state: 'paused', step: null } }
+            ]);
+        });
+
+        test('Voice gets none of them', async () => {
+            const { registry, sent } = onMachine();
+            for (const [name, input] of [
+                ['machine.revokeAccess', { endpointId: 'mac', sessionId: 'phone' }],
+                ['computer.control', { endpointId: 'mac', action: 'resume' }],
+                ['device.control', { endpointId: 'mac', backendId: 'sim', deviceId: 'phone', mode: 'resume' }]
+            ] as const) {
+                expect(await registry.execute(name, input, VOICE_ACTION_CALL)).toMatchObject({ error: { code: 'forbidden-action' } });
+            }
+            expect(sent).toEqual([]);
+        });
+    });
 });

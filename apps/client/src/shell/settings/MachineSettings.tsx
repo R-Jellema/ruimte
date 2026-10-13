@@ -7,6 +7,7 @@ import type { AuthSession, LanDoor } from '@ruimte/contracts';
 import { messageOf, Segmented, Skeleton, Switch, Button, IconButton, Tooltip, FormError, Input } from '@adecore/ui';
 import { formatNumericDate, formatAgo } from '@adecore/ui/format';
 import { ConfirmDialog, SettingsRow } from '@adecore/ui/settings';
+import { perform } from '@/actions/client-actions';
 import { desktop } from '@/desktop/bridge';
 import { forgetEndpoint } from '@/endpoint';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
@@ -28,11 +29,6 @@ export function WithReason({ reason, children }: { reason: string | null; childr
     );
 }
 
-/*
- * The switches that live in `endpoint.json`. The wire takes name, icon and switches together, so a
- * switch sends back the name and icon the machine has; a machine nobody named answers to its own
- * default, and sending that name back would make it chosen.
- */
 function isRefusedFolder(e: unknown): boolean {
     const code = (e as { code?: unknown } | null)?.code;
     return code === 'root-refused' || code === 'not-a-folder';
@@ -55,33 +51,11 @@ async function saveMachineSetting(
     /* A refused folder is the person's to fix in the field, so it is told there and not in a toast. */
     onRefused?: (message: string) => void
 ): Promise<boolean> {
-    const link = transportFor(endpoint.id);
-    if (!link) {
+    if (!transportFor(endpoint.id)) {
         return false;
     }
-    const info = useServers.getState().byEndpoint[endpoint.id];
     try {
-        const answer = await link.request('endpoint.setIdentity', {
-            name: info?.nameSource === 'chosen' ? (info.label ?? null) : null,
-            icon: info?.icon ?? null,
-            ...patch
-        });
-        useServers.getState().setIdentity(endpoint.id, {
-            label: answer.label,
-            nameSource: answer.nameSource ?? null,
-            icon: answer.icon ?? null,
-            agentsDeleteAnyView: answer.agentsDeleteAnyView === true,
-            streamingAllowed: answer.streamingAllowed ?? null,
-            resumeAtReset: answer.resumeAtReset === true,
-            visualReplies: answer.visualReplies ?? null,
-            broker: answer.broker ?? null,
-            brokerFixed: answer.brokerFixed === true,
-            lanDoor: answer.lanDoor ?? null,
-            lanDoorFixed: answer.lanDoorFixed === true,
-            ...(answer.worktreeRoot === undefined ? {} : { worktreeRoot: answer.worktreeRoot })
-        });
-        useEndpoints.getState().learnBrokerUrl(endpoint.id, answer.brokerUrl ?? null);
-        useEndpoints.getState().learnLan(endpoint.id, answer.lan ?? null);
+        await perform('machine.setIdentity', { endpointId: endpoint.id, ...patch });
         return true;
     } catch (e) {
         if (onRefused !== undefined && isRefusedFolder(e)) {
@@ -366,11 +340,10 @@ export function MachineAccess({ endpoint }: { endpoint: Endpoint }) {
 
     const revoke = async (): Promise<void> => {
         const session = target;
-        const transport = transportFor(endpoint.id);
-        if (!session || !transport) {
+        if (!session || !transportFor(endpoint.id)) {
             return;
         }
-        await transport.request('auth.revoke', { id: session.id });
+        await perform('machine.revokeAccess', { endpointId: endpoint.id, sessionId: session.id });
         if (session.current) {
             // Revoking this client's own access leaves a row that can no longer get in.
             await forgetEndpoint(endpoint.id);

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ProviderInfo } from '@ruimte/contracts';
 import { useProvidersStore } from '@adecore/agents-react/state';
+import { perform } from '@/actions/client-actions';
 import { useServers } from '@/state/server';
 import { useToasts } from '@/state/toasts';
 import { transportFor } from '@/transport';
@@ -37,18 +38,7 @@ export function useAppleFoundation(endpointId: string, provider: ProviderInfo | 
         }
         setBusy(true);
         try {
-            const next = await link.request('endpoint.setIdentity', {
-                name: info?.nameSource === 'chosen' ? (info.label ?? null) : null,
-                icon: info?.icon ?? null,
-                appleFoundationEnabled: checked
-            });
-            useServers.getState().setIdentity(endpointId, {
-                label: next.label,
-                nameSource: next.nameSource ?? null,
-                icon: next.icon ?? null,
-                agentsDeleteAnyView: next.agentsDeleteAnyView === true,
-                appleFoundationEnabled: next.appleFoundationEnabled ?? null
-            });
+            await perform('machine.setIdentity', { endpointId, appleFoundationEnabled: checked });
             const { providers } = await link.request('provider.list', {});
             useProvidersStore.getState().setProviders(endpointId, providers);
         } catch (error) {

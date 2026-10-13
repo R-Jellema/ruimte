@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import type { DeviceControlMode, DeviceInfo } from '@ruimte/contracts';
+import { perform } from '@/actions/client-actions';
 import { operatedOf, stripLook, tapPoint, useDeviceOperated, useOperatedDevice } from '@/devices/operated';
 import { useResolvedDevice } from '@/devices/state';
 import { useNodeHost } from '@/nodes/node-host';
@@ -24,19 +25,16 @@ function FingerMark() {
 }
 
 function press(endpointId: string, device: Pick<DeviceInfo, 'backendId' | 'deviceId'>, mode: DeviceControlMode): void {
-    const link = transportFor(endpointId);
-    if (!link) {
+    if (!transportFor(endpointId)) {
         return;
     }
-    link.request('device.control', { backendId: device.backendId, deviceId: device.deviceId, mode })
-        .then((operated) => useDeviceOperated.getState().receive(endpointId, operated))
-        .catch((error: unknown) => {
-            useToasts.getState().show({
-                kind: 'error',
-                title: i18next.t('machines:device.operated.failed'),
-                description: error instanceof Error ? error.message : String(error)
-            });
+    perform('device.control', { endpointId, backendId: device.backendId, deviceId: device.deviceId, mode }).catch((error: unknown) => {
+        useToasts.getState().show({
+            kind: 'error',
+            title: i18next.t('machines:device.operated.failed'),
+            description: error instanceof Error ? error.message : String(error)
         });
+    });
 }
 
 /*

@@ -1,7 +1,11 @@
 import { ActionRefusal, type ActionHandlers, type ActionOutput } from '@ruimte/actions';
 import {
     totalTokensOf,
+    type ComputerUseStatus,
+    type DeviceOperated,
+    type EndpointInfo,
     type ProcessAlert,
+    type ProjectIconChoice,
     type ProcessesSampleEvent,
     type ProcessGroup,
     type UsageLimitsSnapshot,
@@ -10,12 +14,17 @@ import {
 } from '@ruimte/contracts';
 import { asRefusal } from '@/actions/developer-actions';
 import { localTimeZone } from '@adecore/ui/format';
+import { useDeviceOperated } from '@/devices/operated';
 import { projectNodes } from '@/project/views';
+import { useComputer } from '@/state/computer';
 import { currentEndpointId } from '@/state/keys';
 import { useProcesses, useProcessWarnings } from '@/state/processes';
+import { serverInfoOf } from '@/state/server';
 import { dayOf, useUsageStore } from '@adecore/agents-react/state';
 import type { Transport } from '@/transport/transport';
+import { transportFor } from '@/transport';
 import { machineFor } from '@/transport/connections';
+import { adoptEndpointInfo } from '@/transport/server-info';
 
 type Requester = Pick<Transport, 'request'>;
 
@@ -31,6 +40,13 @@ export interface MachineReach {
     titles(): ReadonlyMap<string, string>;
     now(): Date;
     timeZone(): string;
+    /* Any machine this window has a link to, for what is set on that machine itself. */
+    linkTo(endpointId: string): Requester | null;
+    /* The name a person gave the machine, null for its own default name, and its icon. */
+    identity(endpointId: string): { name: string | null; icon: ProjectIconChoice | null };
+    adoptInfo(endpointId: string, info: EndpointInfo): void;
+    adoptComputer(endpointId: string, status: ComputerUseStatus): void;
+    adoptDevice(endpointId: string, operated: DeviceOperated): void;
 }
 
 const LIVE_MACHINE: MachineReach = {
@@ -40,7 +56,16 @@ const LIVE_MACHINE: MachineReach = {
     limits: () => useUsageStore.getState().byScope[currentEndpointId()]?.limits ?? null,
     titles: () => new Map(projectNodes().map((node) => [node.id, node.title])),
     now: () => new Date(),
-    timeZone: () => localTimeZone() ?? 'UTC'
+    timeZone: () => localTimeZone() ?? 'UTC',
+    linkTo: transportFor,
+    identity: (endpointId) => {
+        const info = serverInfoOf(endpointId);
+        // A machine nobody named answers to its own default, and sending that name back would make it chosen.
+        return { name: info.nameSource === 'chosen' ? info.label : null, icon: info.icon };
+    },
+    adoptInfo: adoptEndpointInfo,
+    adoptComputer: (endpointId, status) => useComputer.getState().setStatus(endpointId, status),
+    adoptDevice: (endpointId, operated) => useDeviceOperated.getState().receive(endpointId, operated)
 };
 
 const DEFAULT_PROCESSES = 5;
@@ -113,10 +138,9 @@ function limitsOf(snapshot: UsageLimitsSnapshot): ActionOutput<'usage.limits'> {
 export function machineActions(overrides: Partial<MachineReach> = {}): ActionHandlers<void> {
     const machine: MachineReach = { ...LIVE_MACHINE, ...overrides };
 
-    const ask = async <Result>(send: (transport: Requester) => Promise<Result>): Promise<Result> => {
-        const transport = machine.transport();
+    const reached = async <Result>(transport: Requester | null, send: (transport: Requester) => Promise<Result>): Promise<Result> => {
         if (transport === null) {
-            throw new ActionRefusal('no-machine', 'The machine this project runs on is not connected.');
+            throw new ActionRefusal('no-machine', 'The machine is not connected.');
         }
         try {
             return await send(transport);
@@ -124,6 +148,8 @@ export function machineActions(overrides: Partial<MachineReach> = {}): ActionHan
             throw asRefusal(error);
         }
     };
+    const ask = <Result>(send: (transport: Requester) => Promise<Result>): Promise<Result> => reached(machine.transport(), send);
+    const askOn = <Result>(endpointId: string, send: (transport: Requester) => Promise<Result>): Promise<Result> => reached(machine.linkTo(endpointId), send);
 
     const alertNamed = (alertId: string): ProcessAlert => {
         const alert = machine.alerts().find((candidate) => candidate.id === alertId);
@@ -194,6 +220,26 @@ export function machineActions(overrides: Partial<MachineReach> = {}): ActionHan
             }
             await ask((transport) => transport.request('processes.signal', { pid, startTime, signal }));
             return { output: { pid, name, signal } };
+        },
+        'machine.setIdentity': async ({ endpointId, name, icon, ...switches }) => {
+            // The wire takes name and icon on every call, so what is left out goes back as the machine has it.
+            const known = machine.identity(endpointId);
+            const payload = { name: name === undefined ? known.name : name, icon: icon === undefined ? known.icon : icon, ...switches };
+            const answer = await askOn(endpointId, (link) => link.request('endpoint.setIdentity', payload));
+            machine.adoptInfo(endpointId, answer);
+            return { output: { endpointId, machine: answer.label } };
+        },
+        'machine.revokeAccess': async ({ endpointId, sessionId }) => {
+            await askOn(endpointId, (link) => link.request('auth.revoke', { id: sessionId }));
+            return { output: { endpointId, sessionId } };
+        },
+        'computer.control': async ({ endpointId, action }) => {
+            machine.adoptComputer(endpointId, await askOn(endpointId, (link) => link.request('computer.control', { action })));
+            return { output: { endpointId, action } };
+        },
+        'device.control': async ({ endpointId, ...device }) => {
+            machine.adoptDevice(endpointId, await askOn(endpointId, (link) => link.request('device.control', device)));
+            return { output: { endpointId, deviceId: device.deviceId, mode: device.mode } };
         },
         'usage.summary': async ({ from, to }) => {
             const now = machine.now();

@@ -19,8 +19,11 @@ import {
     VisualLayoutSchema,
     ChatVisualsSchema,
     ComputerApprovalChoiceSchema,
+    ComputerControlActionSchema,
     ContextSourceSchema,
     DatabaseAgentAccessSchema,
+    DeviceControlModeSchema,
+    DeviceControlPayloadSchema,
     DeviceReferenceSchema,
     DiagramDirectionSchema,
     DiagramShapeSchema,
@@ -30,6 +33,7 @@ import {
     DrawingFillSchema,
     DrawingFontSchema,
     DrawingStrokeStyleSchema,
+    EndpointSetIdentityPayloadSchema,
     DRAWING_TEXT_SIZE_MAX,
     DRAWING_TEXT_SIZE_MIN,
     FS_GREP_MAX_RESULTS,
@@ -48,6 +52,7 @@ import {
     GitResolveAiResultSchema,
     GitResolveResultSchema,
     GitStatusSchema,
+    LaunchConfigEntrySchema,
     LaunchConfigKindSchema,
     LaunchStateSchema,
     ModelSelectionSchema,
@@ -406,6 +411,8 @@ const launchName = z.string().trim().min(1).describe('The id of a launch, or its
 const launchStarted = z.object({ launchId: z.string(), name: z.string(), kind: LaunchConfigKindSchema, members: z.array(z.string()) });
 
 const projectMachine = z.string().min(1).describe('The machine, by the endpointId project.list gives');
+/* Any machine this client knows, not only the one the project runs on. */
+const givenMachine = z.string().min(1).describe('The machine, by endpointId');
 const listedProjectId = z.string().min(1).describe('The project, by the projectId project.list gives');
 
 const usageDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -3018,6 +3025,21 @@ export const ACTION_DEFINITIONS = {
         // Where a deleted branch pointed, so git branch <name> <commit> brings it back until git collects it.
         output: z.object({ branch: z.string(), branchDeleted: z.boolean().nullable(), branchCommit: z.string().nullable() })
     },
+    'launch.save': {
+        title: 'Save launches',
+        description: 'Saves every launch of a project at once, against the revision it was read at; the save approves on this machine what it adds or changes.',
+        effect: 'shared',
+        domain: 'developer',
+        // Saving approves, and an agent never adds, edits or approves a launch.
+        actors: PERSON,
+        input: z.object({
+            projectId: z.string().min(1),
+            baseRev: revision,
+            launches: z.array(LaunchConfigEntrySchema),
+            imported: z.array(z.string().min(1)).describe('The launches an import added in this save, which it leaves unapproved')
+        }),
+        output: z.object({ rev: z.number().int() })
+    },
     'launch.list': {
         title: 'List launches',
         description: 'Lists the launches of the project with what runs of each on this machine and whether a person approved it here.',
@@ -3517,6 +3539,48 @@ export const ACTION_DEFINITIONS = {
                 })
             )
         })
+    },
+    'machine.setIdentity': {
+        title: 'Set what a machine is',
+        description: 'Names a machine, gives it an icon and sets the switches it keeps itself; what is left out stays as it is.',
+        effect: 'external',
+        domain: 'machine',
+        // These switches decide what agents may do on the machine and who reaches it, which stays a person's choice.
+        actors: PERSON,
+        input: EndpointSetIdentityPayloadSchema.partial().extend({
+            endpointId: givenMachine
+        }),
+        output: z.object({ endpointId: z.string(), machine: z.string() })
+    },
+    'machine.revokeAccess': {
+        title: 'Revoke access to a machine',
+        description: "Takes away one client's access to a machine, this client's own included.",
+        effect: 'external',
+        domain: 'machine',
+        // Who reaches a machine is only a person's to decide.
+        actors: PERSON,
+        input: z.object({ endpointId: givenMachine, sessionId: z.string().min(1).describe('The access, by the id the machine lists it under') }),
+        output: z.object({ endpointId: z.string(), sessionId: z.string() })
+    },
+    'computer.control': {
+        title: "Pause, resume or stop an agent's computer use",
+        description: 'What the session bar on the Mac offers: pause the agent that operates an app, let it go on, or stop it.',
+        effect: 'external',
+        domain: 'machine',
+        // The person's own hand on the session bar; an agent never lets itself go on.
+        actors: PERSON,
+        input: z.object({ endpointId: givenMachine, action: ComputerControlActionSchema }),
+        output: z.object({ endpointId: z.string(), action: ComputerControlActionSchema })
+    },
+    'device.control': {
+        title: 'Pause, resume or take over a device an agent operates',
+        description: 'Pauses the agent that operates a device, lets it go on, or takes the device over from it.',
+        effect: 'external',
+        domain: 'machine',
+        // The person's own hand on the device; an agent never lets itself go on.
+        actors: PERSON,
+        input: DeviceControlPayloadSchema.extend({ endpointId: givenMachine }),
+        output: z.object({ endpointId: z.string(), deviceId: z.string(), mode: DeviceControlModeSchema })
     },
     'process.dismissAlert': {
         title: 'Dismiss process warning',

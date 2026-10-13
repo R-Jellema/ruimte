@@ -3,8 +3,8 @@ import i18next from 'i18next';
 import { Pause, Play, Square, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ComputerControlAction } from '@ruimte/contracts';
+import { perform } from '@/actions/client-actions';
 import { indicatorLook, useNodeComputerSession } from '@/computer/indicator';
-import { useComputer } from '@/state/computer';
 import { localEndpointLabel, useEndpoints } from '@/state/endpoints';
 import { useEndpointId } from '@/state/keys';
 import { useToasts } from '@/state/toasts';
@@ -30,19 +30,16 @@ function CursorMark() {
 }
 
 function press(endpointId: string, action: ComputerControlAction): void {
-    const link = transportFor(endpointId);
-    if (!link) {
+    if (!transportFor(endpointId)) {
         return;
     }
-    link.request('computer.control', { action })
-        .then((status) => useComputer.getState().setStatus(endpointId, status))
-        .catch((error: unknown) => {
-            useToasts.getState().show({
-                kind: 'error',
-                title: i18next.t('computer:indicator.failed'),
-                description: error instanceof Error ? error.message : String(error)
-            });
+    perform('computer.control', { endpointId, action }).catch((error: unknown) => {
+        useToasts.getState().show({
+            kind: 'error',
+            title: i18next.t('computer:indicator.failed'),
+            description: error instanceof Error ? error.message : String(error)
         });
+    });
 }
 
 /* In the header of the chat or terminal whose agent operates the Mac right now; a click offers the session bar's buttons. */

@@ -1,4 +1,4 @@
-import type { EndpointNameSource } from '@ruimte/contracts';
+import type { EndpointInfo, EndpointNameSource } from '@ruimte/contracts';
 import { noteDaemonIdentity } from '@/endpoint/identity';
 import { LOCAL_ENDPOINT_ID, localMachineLabel, useEndpoints } from '@/state/endpoints';
 import { serverInfoOf, useServers } from '@/state/server';
@@ -20,46 +20,51 @@ function load(endpointId: string): void {
         .request('endpoint.info', {})
         .then(async (info) => {
             const settled = noteDaemonIdentity(endpointId, info);
-            useEndpoints.getState().learnBrokerUrl(settled, info.brokerUrl ?? null);
-            useEndpoints.getState().learnLan(settled, info.lan ?? null);
-            useServers.getState().setEndpoint(settled, {
-                label: info.label,
-                nameSource: info.nameSource ?? null,
-                icon: info.icon ?? null,
-                agentsDeleteAnyView: info.agentsDeleteAnyView === true,
-                streamingAllowed: info.streamingAllowed ?? null,
-                resumeAtReset: info.resumeAtReset === true,
-                visualReplies: info.visualReplies ?? null,
-                appleFoundationEnabled: info.appleFoundationEnabled ?? null,
-                keepAwake: info.keepAwake ?? null,
-                keepAwakeOnBattery: info.keepAwakeOnBattery === true,
-                keepAwakeDisplay: info.keepAwakeDisplay === true,
-                keepAwakeAvailable: info.keepAwakeAvailable === true,
-                keepAwakeLidClosed: info.keepAwakeLidClosed === true,
-                keepAwakeLidAvailable: info.keepAwakeLidAvailable === true,
-                keepAwakeLidRule: info.keepAwakeLidRule === true,
-                update: info.update ?? null,
-                broker: info.broker ?? null,
-                brokerFixed: info.brokerFixed === true,
-                lanDoor: info.lanDoor ?? null,
-                lanDoorFixed: info.lanDoorFixed === true,
-                agentIntegrations: info.agentIntegrations ?? null,
-                reachability: info.reachability,
-                publicKey: info.publicKey ?? null,
-                accountId: info.accountId,
-                worktreeRoot: info.worktreeRoot
-            });
+            adoptEndpointInfo(settled, info);
             void link
                 .request('provider.list', {})
                 .then(({ providers }) => useProvidersStore.getState().setProviders(settled, providers))
                 .catch(() => undefined);
-            adoptMachineName(settled, info.label, info.nameSource ?? null);
             const hello = await link.request('server.hello', {});
             useServers.getState().setInfo(settled, { platform: hello.platform, home: hello.home, version: hello.version, model: hello.model ?? null });
             // The model arrives a request later than the name, so the row asks again now that it is known.
             adoptMachineName(settled, info.label, info.nameSource ?? null);
         })
         .catch(() => undefined);
+}
+
+/* Everything a machine says about itself, on every connection and in its answer to a change made here. */
+export function adoptEndpointInfo(endpointId: string, info: EndpointInfo): void {
+    useEndpoints.getState().learnBrokerUrl(endpointId, info.brokerUrl ?? null);
+    useEndpoints.getState().learnLan(endpointId, info.lan ?? null);
+    useServers.getState().setEndpoint(endpointId, {
+        label: info.label,
+        nameSource: info.nameSource ?? null,
+        icon: info.icon ?? null,
+        agentsDeleteAnyView: info.agentsDeleteAnyView === true,
+        streamingAllowed: info.streamingAllowed ?? null,
+        resumeAtReset: info.resumeAtReset === true,
+        visualReplies: info.visualReplies ?? null,
+        appleFoundationEnabled: info.appleFoundationEnabled ?? null,
+        keepAwake: info.keepAwake ?? null,
+        keepAwakeOnBattery: info.keepAwakeOnBattery === true,
+        keepAwakeDisplay: info.keepAwakeDisplay === true,
+        keepAwakeAvailable: info.keepAwakeAvailable === true,
+        keepAwakeLidClosed: info.keepAwakeLidClosed === true,
+        keepAwakeLidAvailable: info.keepAwakeLidAvailable === true,
+        keepAwakeLidRule: info.keepAwakeLidRule === true,
+        update: info.update ?? null,
+        broker: info.broker ?? null,
+        brokerFixed: info.brokerFixed === true,
+        lanDoor: info.lanDoor ?? null,
+        lanDoorFixed: info.lanDoorFixed === true,
+        agentIntegrations: info.agentIntegrations ?? null,
+        reachability: info.reachability,
+        publicKey: info.publicKey ?? null,
+        accountId: info.accountId,
+        worktreeRoot: info.worktreeRoot
+    });
+    adoptMachineName(endpointId, info.label, info.nameSource ?? null);
 }
 
 /*

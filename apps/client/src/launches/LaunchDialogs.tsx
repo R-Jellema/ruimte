@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { KeyRound, Lock, Plus, Rocket, Search, TriangleAlert, Users, X } from 'lucide-react';
+import { ActionRefusal, REVISION_CONFLICT } from '@ruimte/actions';
 import { isSecretReference, type LaunchConfigEntry, type LaunchConfigKind, type LaunchesDocument, type LaunchSuggestion } from '@ruimte/contracts';
 import {
     Button,
@@ -44,12 +45,11 @@ import {
     type EnvRow,
     type LaunchDraft
 } from '@/launches/editing';
+import { perform } from '@/actions/client-actions';
 import { LAUNCH_KIND_ICON } from '@/launches/icons';
 import { launchSections } from '@/launches/model';
 import { useLaunches, useLaunchSuggestions, useProjectLaunches } from '@/launches/state';
 import { useProjectRepos } from '@/state/git-repos';
-import { useTransport } from '@/transport/context';
-import { TransportError } from '@/transport/transport';
 
 const PROJECT_FOLDER = '.';
 
@@ -102,7 +102,7 @@ export function LaunchDialogs() {
 type Failure = { conflict: true } | { conflict: false; message: string };
 
 function failureOf(e: unknown, fallback: string): Failure {
-    if (e instanceof TransportError && e.code === 'rev-conflict') {
+    if (e instanceof ActionRefusal && e.code === REVISION_CONFLICT) {
         return { conflict: true };
     }
     return { conflict: false, message: e instanceof Error ? e.message : fallback };
@@ -114,7 +114,6 @@ function failureOf(e: unknown, fallback: string): Failure {
  */
 function EditForm({ projectId, document, launchId }: { projectId: string; document: LaunchesDocument; launchId: string | null }) {
     const { t } = useTranslation('launches');
-    const transport = useTransport();
     const [start] = useState(() => {
         const drafts = document.launches.map(draftOf);
         if (launchId !== null && drafts.some((draft) => draft.entry.id === launchId)) {
@@ -173,7 +172,7 @@ function EditForm({ projectId, document, launchId }: { projectId: string; docume
         setFailure(null);
         try {
             const saved = savedLaunches(drafts);
-            await transport.request('launches.save', { projectId, baseRev, launches: saved, imported: importedDraftIds(drafts) });
+            await perform('launch.save', { projectId, baseRev, launches: saved, imported: importedDraftIds(drafts) });
             close();
         } catch (e) {
             setFailure(failureOf(e, t('edit.failed')));
@@ -556,7 +555,6 @@ interface ImportInto {
 /* What the machine found in the project, each with the command it becomes; nothing is saved until the import. */
 function ImportForm({ projectId, document, into }: { projectId: string; document: LaunchesDocument; into?: ImportInto }) {
     const { t } = useTranslation('launches');
-    const transport = useTransport();
     const { suggestions, failed } = useLaunchSuggestions(projectId);
     const offered = useMemo(
         () => (suggestions === null ? null : newSuggestions(suggestions, into === undefined ? document : { launches: savedLaunches(into.drafts) })),
@@ -577,7 +575,7 @@ function ImportForm({ projectId, document, into }: { projectId: string; document
         setFailure(null);
         try {
             const launches = [...document.launches, ...importedLaunches(picked, share, document)];
-            await transport.request('launches.save', { projectId, baseRev: document.rev, launches, imported: importedIds(launches, document) });
+            await perform('launch.save', { projectId, baseRev: document.rev, launches, imported: importedIds(launches, document) });
             close();
         } catch (e) {
             setFailure(failureOf(e, t('edit.failed')));

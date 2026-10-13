@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type ProjectIconChoice } from '@ruimte/contracts';
+import { perform } from '@/actions/client-actions';
 import { PROJECT_ICON_KEYWORDS } from '@/project/project-icons';
 import { useProjectIconGroups } from '@/project/use-project-icon-groups';
 import { SettingsRow } from '@adecore/ui/settings';
@@ -8,7 +9,6 @@ import { Button, useAsyncAction, Tooltip, IconPicker, FormError, Input } from '@
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { useServers } from '@/state/server';
 import { transportFor } from '@/transport';
-import { adoptMachineName } from '@/transport/server-info';
 
 interface MachineIdentityFormProps {
     endpointId: string;
@@ -36,20 +36,12 @@ export function MachineIdentityForm({ endpointId, label, disabledReason }: Machi
     const dirty = name.trim() !== savedName || JSON.stringify(icon) !== JSON.stringify(savedIcon);
 
     const save = async (): Promise<void> => {
-        const link = transportFor(endpointId);
-        if (!link) {
+        if (!transportFor(endpointId)) {
             fail(t('identity.gone'));
             return;
         }
         await run(async () => {
-            const next = await link.request('endpoint.setIdentity', { name: name.trim() === '' ? null : name.trim(), icon });
-            useServers.getState().setIdentity(endpointId, {
-                label: next.label,
-                nameSource: next.nameSource ?? null,
-                icon: next.icon ?? null,
-                agentsDeleteAnyView: next.agentsDeleteAnyView === true
-            });
-            adoptMachineName(endpointId, next.label, next.nameSource ?? null);
+            await perform('machine.setIdentity', { endpointId, name: name.trim() === '' ? null : name.trim(), icon });
         });
     };
 
