@@ -57,6 +57,20 @@ describe('what a file is read against', () => {
         expect(choiceFor(FOLDER, { files: { 'a.sql': { connectionId: 'gone' } } }, connections, `${FOLDER}/a.sql`)).toEqual({ source: 'none' });
     });
 
+    test('a console reads its selected database instead of the empty connection default', () => {
+        const path = `${consoleFolderOf(FOLDER, 'shop')}/Shop 1.sql`;
+        const stored = path.slice(FOLDER.length + 1);
+        const sql = { files: { [stored]: { connectionId: 'shop', database: 'pool_transvita' } } };
+        expect(choiceFor(FOLDER, sql, [SHOP], path)).toMatchObject({ source: 'console', database: 'pool_transvita' });
+        const settings = sqlSettingsOf({ folder: FOLDER, sql, connections: [SHOP], snapshots: [facts('shop', 'shop'), facts('shop', 'pool_transvita')] });
+        expect(settings.sql.overrides).toContainEqual({
+            path,
+            dialect: 'mariadb',
+            version: '11.4.2-MariaDB',
+            schema: '/home/snapshots/p1/shop/pool_transvita.json'
+        });
+    });
+
     test('the targets the choices read, each once', () => {
         expect(boundTargets({ ...sql, files: { ...sql.files, 'b.sql': { connectionId: 'shop', database: 'shop' } } }, connections)).toEqual([
             { connectionId: 'shop', database: 'shop' },

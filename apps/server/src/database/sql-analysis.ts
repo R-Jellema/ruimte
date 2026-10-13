@@ -65,7 +65,10 @@ export function choiceFor(folder: string, sql: ProjectSql | undefined, connectio
     const console = consoleConnectionOf(folder, path);
     if (console !== null) {
         const connection = byId(console);
-        return connection === undefined ? { source: 'none' } : { source: 'console', connection, database: startDatabaseOf(connection) };
+        const binding = sql?.files?.[storedPathOf(folder, path)];
+        return connection === undefined
+            ? { source: 'none' }
+            : { source: 'console', connection, database: binding?.connectionId === console ? databaseOf(binding, connection) : startDatabaseOf(connection) };
     }
     const own = sql?.files?.[storedPathOf(folder, path)];
     if (own !== undefined) {

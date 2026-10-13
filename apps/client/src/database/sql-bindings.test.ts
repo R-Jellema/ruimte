@@ -37,6 +37,13 @@ describe('what a .sql file reads', () => {
         expect(snapshotOf([snapshot], 'wide', null)).toBe(snapshot);
         expect(snapshotOf([snapshot], 'wide', 'stats')).toBeNull();
     });
+
+    test('a console reads its selected database instead of the connection default', () => {
+        const path = '/repo/.ruimte/private/consoles/shop/Shop 1.sql';
+        const stored = path.slice('/repo/'.length);
+        const sql = { files: { [stored]: { connectionId: 'shop', database: 'pool_transvita' } } };
+        expect(choiceOf(sql, [SHOP], '/repo', path, stored)).toEqual({ source: 'console', connectionId: 'shop', database: 'pool_transvita' });
+    });
 });
 
 describe('the SQL choices of the project on screen', () => {

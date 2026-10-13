@@ -47,7 +47,14 @@ export function choiceOf(sql: ProjectSql, connections: readonly DatabaseConnecti
     const console = folder === null ? null : consoleConnectionOf(folder, path);
     if (console !== null) {
         const connection = byId(console);
-        return connection === undefined ? { source: 'none' } : { source: 'console', connectionId: connection.id, database: startDatabaseOf(connection) };
+        const binding = sql.files?.[storedPath];
+        return connection === undefined
+            ? { source: 'none' }
+            : {
+                  source: 'console',
+                  connectionId: connection.id,
+                  database: binding?.connectionId === console ? (binding.database ?? startDatabaseOf(connection)) : startDatabaseOf(connection)
+              };
     }
     const own = sql.files?.[storedPath];
     if (own !== undefined) {

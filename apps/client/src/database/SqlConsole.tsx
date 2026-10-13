@@ -3,13 +3,16 @@ import { useTranslation } from 'react-i18next';
 import { ChevronDown, Database } from 'lucide-react';
 import type { Editor } from '@adecore/editor';
 import { QueryConsole, type QueryConsoleEditorProps, type QueryConsoleRunScope } from '@adecore/database';
+import { storedPathOf } from '@ruimte/contracts';
 import { Button, Icon, matchesShortcut, Menu, Select, shortcut } from '@adecore/ui';
 import { asViewConnections, ensureDatabaseConnections, useDatabaseConnectionList } from '@/database/connections';
 import { setConsoleSchema, switchConsoleConnection } from '@/database/console-file';
 import { RuimteDatabaseProvider } from '@/database/RuimteDatabaseProvider';
+import { ensureSqlBindings, sqlBindings, useSqlBindings } from '@/database/sql-bindings';
 import { useDatabasePanel } from '@/database/state';
 import { isApplePlatform } from '@/desktop/bridge';
 import { useFiles, type ConsoleBinding } from '@/state/files';
+import { useProject } from '@/state/project';
 
 /* The keys the console's toolbar names for its two runs, bound in the file's own editor. */
 const RUN_SHORTCUT = shortcut('Mod+Enter');
@@ -47,8 +50,22 @@ export function SqlConsole({ tabKey, binding, editor, text, readOnly, children }
     const found = connections.find((connection) => connection.id === binding?.connectionId);
     const [connection] = found === undefined ? [] : asViewConnections([found]);
     const value = useEditorText(editor, text);
+    const folder = useProject((state) => state.current?.folder ?? null);
+    const sql = useSqlBindings((state) => state.sql);
+    const storedPath = folder === null ? tabKey : storedPathOf(folder, tabKey);
+    const own = sql.files?.[storedPath];
+    const schema = binding?.schema ?? (own?.connectionId === binding?.connectionId ? own?.database : undefined);
 
     useEffect(() => ensureDatabaseConnections(), []);
+    useEffect(() => ensureSqlBindings(), []);
+
+    useEffect(() => {
+        if (binding === undefined || schema === undefined || (own?.connectionId === binding.connectionId && own.database === schema)) {
+            return;
+        }
+        // Execution and diagnostics must read the same database, including a schema restored from this tab's local state.
+        void sqlBindings.bind(tabKey, { connectionId: binding.connectionId, database: schema });
+    }, [tabKey, binding, schema, own]);
 
     const replaceText = (sql: string): void => {
         if (editor === null || readOnly || sql === editor.getText()) {
@@ -63,7 +80,7 @@ export function SqlConsole({ tabKey, binding, editor, text, readOnly, children }
         <RuimteDatabaseProvider>
             <QueryConsole
                 connection={connection}
-                schema={binding?.schema}
+                schema={schema}
                 onSchemaChange={(schema) => {
                     if (binding !== undefined) {
                         setConsoleSchema(tabKey, binding, schema);
