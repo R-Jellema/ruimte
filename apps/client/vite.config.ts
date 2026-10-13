@@ -6,6 +6,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { build, defaultClientConditions, defineConfig, searchForWorkspaceRoot, type Plugin } from 'vite';
 import { adecoreJsonImports, adecoreSources } from './adecore-sources.ts';
+import { shikiModules, shikiOnce } from './shiki-once.ts';
 import { startChunkGuard } from './start-chunk.ts';
 import { visualHostPage } from './visual-host.ts';
 
@@ -132,6 +133,8 @@ function pdfjsAssets(): Plugin {
     };
 }
 
+const shiki = shikiModules();
+
 export default defineConfig(({ mode }) => ({
     plugins: [
         adecoreSources(),
@@ -141,6 +144,7 @@ export default defineConfig(({ mode }) => ({
         bytesWorker(),
         pdfjsAssets(),
         visualHostPage(),
+        shikiOnce(shiki, true),
         startChunkGuard(),
         ...(mode === 'station' ? [stationHead()] : [])
     ],
@@ -163,12 +167,15 @@ export default defineConfig(({ mode }) => ({
             '@codemirror/commands',
             '@lezer/common',
             '@lezer/highlight',
-            '@lezer/markdown'
+            '@lezer/markdown',
+            // One shiki, also when a linked package brings a copy of its own.
+            'shiki'
         ]
     },
     worker: {
         // Keep Shiki grammars lazy instead of putting the full catalog into every syntax worker.
-        format: 'es'
+        format: 'es',
+        plugins: () => [shikiOnce(shiki, false)]
     },
     optimizeDeps: {
         // Source exports in the shared React packages are TSX and can import CommonJS dependencies.
