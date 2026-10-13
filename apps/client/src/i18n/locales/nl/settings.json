@@ -781,6 +781,10 @@
                     "description": "Wacht tot het antwoord af is."
                 }
             },
+            "readingWidth": {
+                "label": "Leesbreedte",
+                "description": "Hoe breed het gesprek en het invoerveld lopen in een chat die een eigen weergave is. Een chat op het canvas gebruikt de breedte van zijn node."
+            },
             "showViews": {
                 "label": "Een agent een weergave laten tonen",
                 "description": "Aan vervangt de weergave waarin je werkt door de weergave die een agent opent, en een banner brengt je terug. Uit biedt de banner een knop om ernaartoe te gaan."

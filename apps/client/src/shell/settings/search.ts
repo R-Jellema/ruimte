@@ -312,6 +312,12 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         description: 'settings:agents.chats.streaming.words.description'
     },
     {
+        id: 'agents.chats.readingWidth',
+        section: 'agents',
+        label: 'settings:agents.chats.readingWidth.label',
+        description: 'settings:agents.chats.readingWidth.description'
+    },
+    {
         id: 'agents.chats.showViews',
         section: 'agents',
         label: 'settings:agents.chats.showViews.label',

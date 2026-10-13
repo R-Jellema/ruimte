@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { CLOSED_LID_BATTERY_FLOOR, type AgentIntegrationFile, type AgentIntegrationReport, type AgentKind, type RuntimeMode } from '@ruimte/contracts';
-import { rememberChatPreferences, useChatPreferences } from '@adecore/agents-react/chat/preferences';
+import { rememberChatPreferences, rememberReadingWidth, useChatPreferences } from '@adecore/agents-react/chat/preferences';
+import { CHAT_READING_WIDTHS, readingWidthHint, readingWidthLabel } from '@adecore/agents-react/chat/reading-width';
 import { RUNTIME_MODES, runtimeModeHint, runtimeModeLabel } from '@adecore/agents-react/chat/runtime-modes';
 import {
     setClosedLidRule,
@@ -108,6 +109,7 @@ function ChatsSection() {
     const chatStreaming = useSettings((s) => s.chatStreaming);
     const chatSteerByDefault = useSettings((s) => s.chatSteerByDefault);
     const update = useSettings((s) => s.update);
+    const readingWidth = useChatPreferences((preferences) => preferences.readingWidth);
     return (
         <SettingsSection title={t('agents.chats.title')} scope="client">
             <SettingsRow
@@ -137,6 +139,20 @@ function ChatsSection() {
                             description: t(`agents.chats.streaming.${mode}.description`)
                         }))}
                         onValueChange={(value) => update({ chatStreaming: value })}
+                    />
+                }
+            />
+            <SettingsRow
+                searchId="agents.chats.readingWidth"
+                label={t('agents.chats.readingWidth.label')}
+                description={t('agents.chats.readingWidth.description')}
+                control={
+                    <Select
+                        value={readingWidth}
+                        label={t('agents.chats.readingWidth.label')}
+                        align="end"
+                        items={CHAT_READING_WIDTHS.map((width) => ({ value: width, label: readingWidthLabel(width), description: readingWidthHint(width) }))}
+                        onValueChange={rememberReadingWidth}
                     />
                 }
             />

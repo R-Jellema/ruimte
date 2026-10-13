@@ -781,6 +781,10 @@
                     "description": "Waits until the reply is done."
                 }
             },
+            "readingWidth": {
+                "label": "Reading width",
+                "description": "How wide the thread and the composer run in a chat that is a view of its own. A chat on the canvas uses the width of its node."
+            },
             "showViews": {
                 "label": "Let an agent show you a view",
                 "description": "On, a view an agent opens replaces the one you are working in, and a banner takes you back. Off, the banner offers a button to go there."

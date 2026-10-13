@@ -34,10 +34,10 @@ function StandaloneView({ view }: { view: ProjectView }) {
             onPointerDownCapture={() => useDocument.getState().setBodyFocused(true)}
         >
             {/* A thread that runs the whole window is unreadable, so a chat of its own keeps a column
-                of 768px of content, centered, with the surface filling what is left beside it. The
-                scroller itself stays the width of the column, so its scrollbar sits at the column's
-                own edge (`.chat-column` in `styles.css`). The type is the app's own: a thread reads
-                the same here as it does in a node on the canvas. */}
+                of content as wide as the person's reading width, centered, with the surface filling
+                what is left beside it. The scroller itself stays the width of the column, so its
+                scrollbar sits at the column's own edge (`.chat-column` in `styles.css`). The type is
+                the app's own: a thread reads the same here as it does in a node on the canvas. */}
             {view.kind === 'chat' && (
                 <div className="chat-column flex h-full w-full flex-col">
                     <ChatBody id={view.id} focused={focused} />
