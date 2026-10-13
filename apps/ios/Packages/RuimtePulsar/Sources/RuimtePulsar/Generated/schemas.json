@@ -5443,6 +5443,12 @@
               "string",
               "null"
             ]
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -49464,6 +49470,12 @@
           "string",
           "null"
         ]
+      },
+      "features": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
       }
     },
     "required": [
@@ -50260,6 +50272,12 @@
           "string",
           "null"
         ]
+      },
+      "features": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
       }
     },
     "required": [
@@ -50840,6 +50858,12 @@
           "string",
           "null"
         ]
+      },
+      "features": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
       }
     },
     "required": [
@@ -51569,6 +51593,12 @@
           "string",
           "null"
         ]
+      },
+      "features": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
       }
     },
     "required": [

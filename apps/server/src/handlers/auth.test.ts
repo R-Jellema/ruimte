@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PROTOCOL_VERSION, type ServerFrame } from '@ruimte/contracts';
+import { PROTOCOL_VERSION, type RequestType, type ServerFrame } from '@ruimte/contracts';
 import { AuthStore, type StatementAdmission } from '../auth/auth-store.ts';
 import { admitClient } from '../auth/test-admit.ts';
 import { machineRegistrationMessage } from '@ruimte/pulsar';
@@ -315,6 +315,16 @@ describe('auth handlers', () => {
     test('endpoint.info carries the protocol version a client refuses the machine without', async () => {
         const info = await ask({ reachability: 'loopback', sessionId: null }, 'endpoint.info');
         expect(info).toMatchObject({ ok: true, result: { protocol: PROTOCOL_VERSION } });
+    });
+
+    test('endpoint.info names every request the machine answers, and nothing it does not', async () => {
+        const info = await ask(undefined, 'endpoint.info');
+        const features = (info as { result: { features: string[] } }).result.features;
+        expect(features).toEqual(expect.arrayContaining(['endpoint.info', 'endpoint.settings', 'endpoint.setIdentity']));
+        expect(features).not.toContain('auth.pairingToken');
+        expect(features.every((type) => dispatcher.has(type as RequestType))).toBe(true);
+        // A reply to a change of the switches leaves the list out; only the request that introduces the machine carries it.
+        expect(await ask(undefined, 'endpoint.settings', { visualReplies: false })).not.toHaveProperty('result.features');
     });
 
     test('a machine nobody has named answers to the name it started with', async () => {

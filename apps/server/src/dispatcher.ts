@@ -87,6 +87,10 @@ export class Dispatcher {
         return this.handlers.has(type);
     }
 
+    types(): RequestType[] {
+        return [...this.handlers.keys()];
+    }
+
     async handle(client: ClientConnection, raw: string | Uint8Array): Promise<void> {
         let json: unknown;
         try {

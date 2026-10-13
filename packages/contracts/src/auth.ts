@@ -85,7 +85,10 @@ export const EndpointInfoSchema = z.object({
     // What a person allowed in the CLIs' global settings. No paths, so a remote client learns none.
     agentIntegrations: AgentIntegrationsSummarySchema.optional(),
     // Null while worktrees go in the data folder. Only told to a client that presented the local secret.
-    worktreeRoot: z.string().nullable().optional()
+    worktreeRoot: z.string().nullable().optional(),
+    // Every request this machine answers, so a client checks before it sends one instead of catching
+    // `unknown-request`. Only `endpoint.info` carries it; absent from a daemon from before it.
+    features: z.array(z.string()).optional()
 });
 export type EndpointInfo = z.infer<typeof EndpointInfoSchema>;
 
