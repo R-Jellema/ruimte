@@ -4,6 +4,7 @@ import { bringPromptToFront } from '@/canvas/prompt-stack';
 import { openSidebarTarget } from '@/shell/sidebar-navigation';
 import { projectNodes, revealNode } from '@/project/views';
 import { useChats } from '@adecore/agents-react/state';
+import { subscribeChatStatuses } from '@/state/chats';
 import { seenNodeIds } from '@/state/in-sight';
 import { currentEndpointId } from '@/state/keys';
 import { nodeStatus, useSessions } from '@/state/sessions';
@@ -75,7 +76,7 @@ export function startAgentNotifications(now: () => number = Date.now): () => voi
         const seen = seenNodeIds();
         const endpointId = currentEndpointId();
         const sessions = useSessions.getState().byKey;
-        const chats = useChats.getState().byKey;
+        const chats = useChats.getState().statusByKey;
         const { agentsTurnSound } = useSettings.getState();
         const snoozes = useSnoozes.getState().byKey;
         const current = new Map<string, string | undefined>();
@@ -103,7 +104,7 @@ export function startAgentNotifications(now: () => number = Date.now): () => voi
     };
 
     const offSessions = useSessions.subscribe(check);
-    const offChats = useChats.subscribe(check);
+    const offChats = subscribeChatStatuses(check);
     const offSettings = useSettings.subscribe(check);
     const offSnoozes = useSnoozes.subscribe(check);
     return () => {

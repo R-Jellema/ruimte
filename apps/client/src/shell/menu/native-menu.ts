@@ -7,7 +7,8 @@ import { runMenuCommand } from '@/shell/menu/actions';
 import { menuContext } from '@/shell/menu/context';
 import { menuModel } from '@/shell/menu/model';
 import { subscribeCanvases } from '@/state/canvas';
-import { useChats, useProvidersStore } from '@adecore/agents-react/state';
+import { useProvidersStore } from '@adecore/agents-react/state';
+import { subscribeChatThreads } from '@/state/chats';
 import { useDocument } from '@/state/document';
 import { usePrRepos } from '@/state/pr-repos';
 import { useProject } from '@/state/project';
@@ -47,7 +48,7 @@ export function useNativeMenu(): void {
             useUi.subscribe(schedule),
             useProject.subscribe(schedule),
             useProvidersStore.subscribe(schedule),
-            useChats.subscribe(schedule),
+            subscribeChatThreads(schedule),
             useSessions.subscribe(schedule),
             useSettings.subscribe(schedule),
             useServers.subscribe(schedule),

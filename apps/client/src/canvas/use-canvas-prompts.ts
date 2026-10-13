@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { canvasPrompts, samePrompts, type CanvasPrompt } from '@/canvas/prompts';
 import { useCanvasStore } from '@/state/canvas';
 import { useChats } from '@adecore/agents-react/state';
+import { subscribeChatThreads } from '@/state/chats';
 import { computerApprovalsOf, useComputer } from '@/state/computer';
 import { useEndpointId } from '@/state/keys';
 import { secretRequestsOf, useSecrets } from '@/state/secrets';
@@ -36,7 +37,7 @@ export function useCanvasPrompts(): CanvasPrompt[] {
         update();
         const unsubscribe = [
             canvasStore.subscribe(update),
-            useChats.subscribe(update),
+            subscribeChatThreads(update),
             useSessions.subscribe(update),
             useComputer.subscribe(update),
             useSecrets.subscribe(update)

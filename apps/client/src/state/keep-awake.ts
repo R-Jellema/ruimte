@@ -3,7 +3,8 @@ import i18next from 'i18next';
 import type { EndpointInfo } from '@ruimte/contracts';
 import { canKeepAwake, desktop, type DesktopBridge, type KeepAwakeRequest } from '@/desktop/bridge';
 import { agentsWorking } from '@/state/agent-work';
-import { useChats, type ChatsById } from '@adecore/agents-react/state';
+import { useChats, type ChatStatuses } from '@adecore/agents-react/state';
+import { subscribeChatStatuses } from '@/state/chats';
 import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import { hasLocalMachine } from '@/state/local-machine';
 import { serverInfoOf, useServers, type ServerInfo } from '@/state/server';
@@ -224,7 +225,7 @@ export function startKeepAwakeMove(): () => void {
  * The whole decision: the setting first, so nothing is counted for someone who never asked. Whether
  * the Mac is on battery is not in here; the shell sees that change and weighs it itself.
  */
-export function keepAwakeWanted(settings: KeepAwakeSettings, sessions: SessionsByKey, chats: ChatsById): KeepAwakeRequest | null {
+export function keepAwakeWanted(settings: KeepAwakeSettings, sessions: SessionsByKey, chats: ChatStatuses): KeepAwakeRequest | null {
     if (settings.keepAwake === 'off') {
         return null;
     }
@@ -269,7 +270,9 @@ export function startKeepAwake(tell: ((request: KeepAwakeRequest | null) => void
 
     const check = (): void => {
         // The machine holds its own block, so the shell lets go of the one this window asked for.
-        const wanted = machineKeepsAwake(localInfo()) ? null : keepAwakeWanted(useSettings.getState(), useSessions.getState().byKey, useChats.getState().byKey);
+        const wanted = machineKeepsAwake(localInfo())
+            ? null
+            : keepAwakeWanted(useSettings.getState(), useSessions.getState().byKey, useChats.getState().statusByKey);
         if (sameRequest(wanted, held)) {
             return;
         }
@@ -278,7 +281,7 @@ export function startKeepAwake(tell: ((request: KeepAwakeRequest | null) => void
     };
 
     const offSessions = useSessions.subscribe(check);
-    const offChats = useChats.subscribe(check);
+    const offChats = subscribeChatStatuses(check);
     const offSettings = useSettings.subscribe(check);
     const offServers = useServers.subscribe(check);
     // `always` holds from the start, before any store has moved.

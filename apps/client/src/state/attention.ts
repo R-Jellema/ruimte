@@ -9,6 +9,7 @@ import { nodesInSight, seenNodes, sightOf, type CanvasSight } from '@/state/in-s
 import { seePushNotifications, subscribePushAttention, unreadOnMachine } from '@/state/push-attention';
 import { liveCanvas, subscribeCanvases } from '@/state/canvas';
 import { useChats, type ChatStatuses } from '@adecore/agents-react/state';
+import { subscribeChatStatuses } from '@/state/chats';
 import { useDocument } from '@/state/document';
 import { currentEndpointId, endpointKey, useEndpointId } from '@/state/keys';
 import { nodeStatus, useSessions, type SessionsByKey, type StatusOf } from '@/state/sessions';
@@ -225,7 +226,7 @@ export function startAttentionWatch(): () => void {
         const endpointId = currentEndpointId();
         const keyOf = (nodeId: string): string => endpointKey(endpointId, nodeId);
         const sessions = useSessions.getState().byKey;
-        const chats = useChats.getState().byKey;
+        const chats = useChats.getState().statusByKey;
         const groups = groupAttention(nodes, sessions, chats, endpointId, useAttention.getState().unseen, useSnoozes.getState().byKey);
         const visible = seenNodes(document.hasFocus(), nodesInSight());
         seePushNotifications(endpointId, visible);
@@ -271,7 +272,7 @@ export function startAttentionWatch(): () => void {
     };
 
     const offSessions = useSessions.subscribe(pass);
-    const offChats = useChats.subscribe(pass);
+    const offChats = subscribeChatStatuses(pass);
     const offCanvases = subscribeCanvases(schedule);
     const offDocument = useDocument.subscribe(schedule);
     const offPushAttention = subscribePushAttention(pass);
