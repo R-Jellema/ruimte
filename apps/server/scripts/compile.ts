@@ -64,48 +64,49 @@ if (process.env.RUIMTE_VERSION) {
 // tells the daemon in its bundle from an older one still running as the background service.
 const buildId = `${process.env.RUIMTE_VERSION ?? 'dev'}-${crypto.randomUUID()}`;
 args.push('--define', `process.env.RUIMTE_BUILD=${JSON.stringify(buildId)}`);
-const build = Bun.spawnSync(['bun', ...args], { cwd: root, stdio: ['ignore', 'inherit', 'inherit'] });
-if (build.exitCode !== 0) {
-    process.exit(build.exitCode);
+if (values.os === 'mac' && process.platform !== 'darwin') {
+    // Only `codesign` can repair the daemon's signature, so a macOS binary built elsewhere is one the kernel refuses to start.
+    console.error('A macOS binary has to be compiled on macOS.');
+    process.exit(1);
 }
 
-if (values.os === 'mac') {
-    if (process.platform !== 'darwin') {
-        // Only `codesign` can repair the signature below, so a macOS binary built elsewhere is one the kernel refuses to start.
-        console.error('A macOS binary has to be compiled on macOS.');
-        process.exit(1);
-    }
-    // Bun 1.4 writes the bundle after signing, which leaves a signature the kernel refuses (SIGKILL on launch); an ad-hoc re-sign fixes it and a release signs again with the real identity anyway.
-    const sign = Bun.spawnSync(['codesign', '--sign', '-', '--force', binary], { stdio: ['ignore', 'ignore', 'inherit'] });
-    if (sign.exitCode !== 0) {
-        process.exit(sign.exitCode);
-    }
+const nativeDir = join(outDir, 'native');
+await mkdir(nativeDir, { recursive: true });
+const rustTarget = `${values.arch === 'arm64' ? 'aarch64' : 'x86_64'}-apple-darwin`;
 
+// The daemon and every native helper write to places of their own, so they build side by side.
+const builds: Array<Promise<number>> = [
+    run(['bun', ...args], root).then(async (exitCode) => {
+        if (exitCode !== 0 || values.os !== 'mac') {
+            return exitCode;
+        }
+        // Bun 1.4 writes the bundle after signing, which leaves a signature the kernel refuses (SIGKILL on launch); an ad-hoc re-sign fixes it and a release signs again with the real identity anyway.
+        return run(['codesign', '--sign', '-', '--force', binary], root, 'ignore');
+    })
+];
+
+if (values.os === 'mac') {
     if (values.arch === 'arm64') {
         const foundationRoot = resolve(root, '../foundation-models');
-        const foundationBuild = Bun.spawnSync(['bun', join(foundationRoot, 'scripts/build.ts')], { cwd: root, stdio: ['ignore', 'inherit', 'inherit'] });
-        if (foundationBuild.exitCode !== 0) {
-            process.exit(foundationBuild.exitCode);
-        }
-        await mkdir(join(outDir, 'native'), { recursive: true });
-        const helper = join(outDir, 'native', 'ruimte-foundation-models');
-        await copyFile(join(foundationRoot, 'dist', 'ruimte-foundation-models'), helper);
-        await copyFile(join(foundationRoot, 'dist', 'ruimte-foundation-models.NOTICES'), `${helper}.NOTICES`);
-        await chmod(helper, 0o755);
+        builds.push(
+            run(['bun', join(foundationRoot, 'scripts/build.ts')], root).then(async (exitCode) => {
+                if (exitCode !== 0) {
+                    return exitCode;
+                }
+                const helper = join(nativeDir, 'ruimte-foundation-models');
+                await copyFile(join(foundationRoot, 'dist', 'ruimte-foundation-models'), helper);
+                await copyFile(join(foundationRoot, 'dist', 'ruimte-foundation-models.NOTICES'), `${helper}.NOTICES`);
+                await chmod(helper, 0o755);
+                return 0;
+            })
+        );
     }
 
+    builds.push(
+        run(['bun', resolve(root, '../ios-device-bridge/scripts/build.ts'), '--target', rustTarget, '--outfile', join(nativeDir, 'ios-device-bridge')], root)
+    );
+
     const middleware = Bun.resolveSync('serve-sim/middleware', root);
-    const nativeDir = join(outDir, 'native');
-    await mkdir(nativeDir, { recursive: true });
-    const rustTarget = `${values.arch === 'arm64' ? 'aarch64' : 'x86_64'}-apple-darwin`;
-    const deviceBridge = join(nativeDir, 'ios-device-bridge');
-    const bridgeBuild = Bun.spawnSync(['bun', resolve(root, '../ios-device-bridge/scripts/build.ts'), '--target', rustTarget, '--outfile', deviceBridge], {
-        cwd: root,
-        stdio: ['ignore', 'inherit', 'inherit']
-    });
-    if (bridgeBuild.exitCode !== 0) {
-        process.exit(bridgeBuild.exitCode);
-    }
     await copyFile(join(dirname(middleware), 'native', 'serve-sim-native.node'), join(nativeDir, 'serve-sim-native.node'));
     const axHelper = join(nativeDir, 'serve-sim-ax-settings');
     await copyFile(join(dirname(middleware), 'simax', 'serve-sim-ax-settings'), axHelper);
@@ -116,32 +117,42 @@ if (values.os === 'mac') {
        without the helper reports the feature as unavailable. */
     const speechRoot = join(root, '../speech-bridge');
     const installedCargo = join(homedir(), '.cargo', 'bin', 'cargo');
-    const speechBuild = Bun.spawnSync(
-        [process.env.CARGO ?? (existsSync(installedCargo) ? installedCargo : 'cargo'), 'build', '--release', '--locked', '--target', rustTarget],
-        {
-            cwd: speechRoot,
-            stdio: ['ignore', 'inherit', 'inherit']
-        }
+    const cargo = process.env.CARGO ?? (existsSync(installedCargo) ? installedCargo : 'cargo');
+    builds.push(
+        run([cargo, 'build', '--release', '--locked', '--target', rustTarget], speechRoot).then(async (exitCode) => {
+            if (exitCode !== 0) {
+                return exitCode;
+            }
+            const speechHelper = join(nativeDir, 'speech-bridge');
+            await copyFile(join(speechRoot, 'target', rustTarget, 'release', 'speech-bridge'), speechHelper);
+            await chmod(speechHelper, 0o755);
+            return 0;
+        })
     );
-    if (speechBuild.exitCode !== 0) {
-        process.exit(speechBuild.exitCode);
-    }
-    const speechHelper = join(nativeDir, 'speech-bridge');
-    await copyFile(join(speechRoot, 'target', rustTarget, 'release', 'speech-bridge'), speechHelper);
-    await chmod(speechHelper, 0o755);
 
     // The desktop build moves `Helpers` out of the daemon's folder into the app's own; see electron-builder.yml.
-    const computerUseBuild = Bun.spawnSync(
-        ['bun', resolve(root, '../computer-use/scripts/build.ts'), '--variant', 'release', '--arch', values.arch, '--outdir', join(outDir, 'Helpers')],
-        { cwd: root, stdio: ['ignore', 'inherit', 'inherit'] }
+    builds.push(
+        run(
+            ['bun', resolve(root, '../computer-use/scripts/build.ts'), '--variant', 'release', '--arch', values.arch, '--outdir', join(outDir, 'Helpers')],
+            root
+        )
     );
-    if (computerUseBuild.exitCode !== 0) {
-        process.exit(computerUseBuild.exitCode);
+}
+
+// Every build settles before the script ends, so a failure never leaves another one running on its own.
+const settled = await Promise.allSettled(builds);
+for (const result of settled) {
+    if (result.status === 'rejected') {
+        console.error(result.reason instanceof Error ? result.reason.message : String(result.reason));
+        process.exit(1);
+    }
+    if (result.value !== 0) {
+        process.exit(result.value);
     }
 }
 
 try {
-    await placeDatabaseHelper(root, join(outDir, 'native'), nodePlatform[values.os]!, values.arch);
+    await placeDatabaseHelper(root, nativeDir, nodePlatform[values.os]!, values.arch);
 } catch (e) {
     console.error(`The database helper could not be placed: ${e instanceof Error ? e.message : String(e)}`);
     process.exit(1);
@@ -149,10 +160,16 @@ try {
 
 if (values.os === 'mac' || values.os === 'linux') {
     // Android devices work the same on both, through the screen server pushed onto them.
-    await downloadScrcpyServer(join(outDir, 'native'));
+    await downloadScrcpyServer(nativeDir);
 }
 
 await copyFile(join(root, 'bin', 'ruimte-context'), join(outDir, 'ruimte-context'));
 await chmod(join(outDir, 'ruimte-context'), 0o755);
 await writeFile(join(outDir, 'ruimte.build'), `${buildId}\n`);
 console.log(`Compiled ${binary}`);
+
+/* Runs one build step and settles with its exit code. */
+async function run(command: string[], cwd: string, stdout: 'inherit' | 'ignore' = 'inherit'): Promise<number> {
+    const child = Bun.spawn(command, { cwd, stdio: ['ignore', stdout, 'inherit'] });
+    return await child.exited;
+}
