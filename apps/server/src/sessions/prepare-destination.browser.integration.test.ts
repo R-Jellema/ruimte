@@ -126,9 +126,9 @@ for (const mode of [
             const css = await readFile(join(clientDirectory, 'node_modules/@xterm/xterm/css/xterm.css'), 'utf8');
             await withBrowserFixture(
                 `
-            import { connectWorkspaceChatHost } from ${source('chat/workspace-host.ts')};
-            import { setChatHost } from ${JSON.stringify(join(clientDirectory, 'node_modules/@adecore/agents-react/src/host.ts'))};
-            import { AssistantRow } from ${JSON.stringify(join(clientDirectory, 'node_modules/@adecore/agents-react/src/chat/ui/rows/MessageRows.tsx'))};
+            import { WORKSPACE_CHAT_HOST } from ${source('chat/workspace-host.ts')};
+            import { ChatHostProvider } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react', clientDirectory))};
+            import { AssistantRow } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat/ui', clientDirectory))};
             import { clientActions } from ${source('actions/client-actions.ts')};
             import { terminalPrepareActions } from ${source('actions/terminal-prepare-actions.ts')};
             import { ActionRegistry } from ${JSON.stringify(join(clientDirectory, '../../packages/actions/src/index.ts'))};
@@ -159,12 +159,12 @@ for (const mode of [
             const prepareRegistry=new ActionRegistry(terminalPrepareActions({machineId:()=> 'owner',transport:()=>wire}));
             clientActions.execute=(name,...args)=>name.startsWith('terminal.prepare')?prepareRegistry.execute(name,...args):original(name,...args);
             const request=wire.request.bind(wire);wire.request=async(type,payload)=>{const result=await request(type,payload);if(type==='session.preparePreview')window.lastPreview=result;return result};
-            i18next.addResourceBundle('en','chat',chatWords,true,true);connectWorkspaceChatHost();setChatHost({useStreaming:()=> 'blocks'});
+            i18next.addResourceBundle('en','chat',chatWords,true,true);const fixtureHost={useStreaming:()=> 'blocks'};
             window.documentStore=useDocument;window.canvas=focusedCanvas;window.projectStore=useProject;window.windowStore=useWindow;window.endpoints=useEndpoints;
             window.clickPrepare=()=>{const button=document.querySelector('button[aria-label="Prepare in terminal"]');button.focus();button.click()};
             window.cancelPrepare=()=>[...document.querySelectorAll("[role=dialog] button")].find(button=>button.textContent===i18next.t("common:action.cancel")).click();
             window.clickPaste=()=>{const button=[...document.querySelectorAll('button')].find(button=>button.textContent==='Paste without Enter');button.focus();button.click()};
-            createRoot(document.getElementById('root')).render(<UIProvider i18n={i18next}><ConnectionContext.Provider value={machine}><ChatScopeProvider><ViewHost/><div className="assistant"><AssistantRow chatId="chat" item={{id:"reply",kind:"assistant",createdAt:0,turnId:null,streaming:false,text:${JSON.stringify('```sh\n' + command + '\n```')}}}/></div></ChatScopeProvider></ConnectionContext.Provider></UIProvider>);
+            createRoot(document.getElementById('root')).render(<UIProvider i18n={i18next}><ChatHostProvider host={WORKSPACE_CHAT_HOST}><ChatHostProvider host={fixtureHost}><ConnectionContext.Provider value={machine}><ChatScopeProvider><ViewHost/><div className="assistant"><AssistantRow chatId="chat" item={{id:"reply",kind:"assistant",createdAt:0,turnId:null,streaming:false,text:${JSON.stringify('```sh\n' + command + '\n```')}}}/></div></ChatScopeProvider></ConnectionContext.Provider></ChatHostProvider></ChatHostProvider></UIProvider>);
         `,
                 css +
                     `.absolute{position:absolute}.relative{position:relative}.inset-0{inset:0}.flex{display:flex}.flex-col{flex-direction:column}.flex-1{flex:1}.grow{flex-grow:1}.h-full{height:100%}.w-full{width:100%}.min-h-0{min-height:0}.min-w-0{min-width:0}.invisible{visibility:hidden}.assistant{position:absolute;right:0;bottom:0;width:300px;background:var(--color-surface);z-index:100}svg{width:14px;height:14px}`,

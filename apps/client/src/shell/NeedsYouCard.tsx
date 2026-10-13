@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { ChatAttachResult, ComputerApproval, SecretRequest } from '@ruimte/contracts';
 import { ButtonGroup, ErrorBoundary, IconButton, PreviewCard } from '@adecore/ui';
 import { answerPrompt, type ChatPromptClients, usePromptSession, PROMPT_SURFACE, PromptView } from '@adecore/agents-react/prompts';
-import { ChatScopeContext } from '@adecore/agents-react';
+import { ChatScopeContext, useChatHost } from '@adecore/agents-react';
 import { useChats, type ChatState, useProviders } from '@adecore/agents-react/state';
 import { PERSON_PROMPT_CLIENTS } from '@/actions/client-actions';
 import { canvasPrompts, stackFront, type CanvasPrompt } from '@/canvas/prompts';
@@ -136,6 +136,7 @@ function CardBody({ endpointId, node, onOpen, onEmpty }: { endpointId: string; n
     const local = useEndpointId() === endpointId;
     const { prompts, failed, reread } = useWaitingPrompts(endpointId, node);
     const disabled = useEndpointConnection(endpointId).status !== 'open';
+    const chatHost = useChatHost();
     const providers = useProviders((row) => row.providers);
     const session = usePromptSession({ prompts: prompts ?? [], idOf, pick, disabled });
     const { active, waiting, index, setActive } = session;
@@ -168,7 +169,7 @@ function CardBody({ endpointId, node, onOpen, onEmpty }: { endpointId: string; n
                 onDraft={(draft) => session.setDraft(active.id, draft)}
                 onAction={(action) => {
                     void session
-                        .act(active, () => answerPrompt(active.subject, action, clients))
+                        .act(active, () => answerPrompt(active.subject, action, clients, chatHost))
                         .then((result) => {
                             if (result === 'sent') {
                                 reread();

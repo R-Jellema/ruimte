@@ -16,12 +16,9 @@ async function fixture(run: (view: View) => Promise<void>): Promise<void> {
     const resolve = (name: string) => JSON.stringify(Bun.resolveSync(name, clientDirectory));
     await withBrowserFixture(
         `
-        import { Markdown, MessageMarkdown } from ${resolve('@adecore/agents-react/chat/ui')};
-        import { AssistantRow } from ${resolve('@adecore/agents-react/chat/ui')};
-        import { ChatScopeContext } from ${resolve('@adecore/agents-react')};
-        import { ReplyContext } from ${resolve('@adecore/agents-react/chat/ui')};
-        import { setChatHost } from ${resolve('@adecore/agents-react')};
-        import { connectWorkspaceChatHost } from ${JSON.stringify(join(clientDirectory, 'src/chat/workspace-host.ts'))};
+        import { AssistantRow, Markdown, MessageMarkdown, ReplyContext } from ${resolve('@adecore/agents-react/chat/ui')};
+        import { ChatHostProvider, ChatScopeContext } from ${resolve('@adecore/agents-react')};
+        import { WORKSPACE_CHAT_HOST } from ${JSON.stringify(join(clientDirectory, 'src/chat/workspace-host.ts'))};
         import { useTheme } from ${JSON.stringify(join(clientDirectory, 'src/state/theme.ts'))};
         import { useEndpoints } from ${JSON.stringify(join(clientDirectory, 'src/state/endpoints.ts'))};
         import { Toasts } from ${JSON.stringify(join(clientDirectory, 'src/shell/Toasts.tsx'))};
@@ -43,9 +40,8 @@ async function fixture(run: (view: View) => Promise<void>): Promise<void> {
         }}});
         useEndpoints.setState({endpoints:[],activeId:'different-machine'});
         useTheme.getState().setTheme('light');
-        connectWorkspaceChatHost();
         window.badTheme=false;window.changeTheme=theme=>useTheme.getState().setTheme(theme);
-        setChatHost({useStreaming:()=> 'blocks',code:{useMode:()=>useTheme(state=>state.resolved),useThemes:()=>({light:window.badTheme?'missing-theme-for-fallback':'github-light',dark:window.badTheme?'missing-theme-for-fallback':'github-dark'}),custom:[]}});
+        const fixtureHost={useStreaming:()=> 'blocks',code:{useMode:()=>useTheme(state=>state.resolved),useThemes:()=>({light:window.badTheme?'missing-theme-for-fallback':'github-light',dark:window.badTheme?'missing-theme-for-fallback':'github-dark'}),custom:[]}};
         function Fixture(){
             const [streaming,changeStreaming]=React.useState(true);
             const [text,changeText]=React.useState(${JSON.stringify(shell)});
@@ -72,7 +68,7 @@ async function fixture(run: (view: View) => Promise<void>): Promise<void> {
                 </>}
             </main><Toasts/></ChatScopeContext.Provider>;
         }
-        createRoot(document.getElementById('root')).render(<UIProvider i18n={i18next}><Fixture/></UIProvider>);
+        createRoot(document.getElementById('root')).render(<UIProvider i18n={i18next}><ChatHostProvider host={WORKSPACE_CHAT_HOST}><ChatHostProvider host={fixtureHost}><Fixture/></ChatHostProvider></ChatHostProvider></UIProvider>);
         `,
         `${styles}\n#root{width:auto;height:auto}body{padding:24px;background:var(--bg);color:var(--text)}#examples{width:620px}h1{margin-bottom:16px;font-size:var(--text-lg)}section{margin-bottom:20px}`,
         async (view) => {

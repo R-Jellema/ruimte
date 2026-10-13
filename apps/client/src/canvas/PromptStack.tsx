@@ -11,6 +11,7 @@ import { useCanvasPrompts } from '@/canvas/use-canvas-prompts';
 import { agentName } from '@/processes/format';
 import { isApplePlatform } from '@/desktop/bridge';
 import { pageKey, answerPrompt, promptCreatedAt, useFocusAfterAnswer, usePromptSession, PROMPT_SURFACE, PromptView } from '@adecore/agents-react/prompts';
+import { useChatHost } from '@adecore/agents-react';
 import { formatClock } from '@adecore/agents-react/usage';
 import { useCanvas, useCanvasStore } from '@/state/canvas';
 import { useNodeStatus } from '@/state/chats';
@@ -74,6 +75,7 @@ export function PromptStack({ viewId, dockShown }: { viewId: string; dockShown: 
     const prompts = useCanvasPrompts();
     const canvasStore = useCanvasStore();
     const disabled = useTransportStatus() !== 'open';
+    const chatHost = useChatHost();
     const providers = useProviders((row) => row.providers);
     const session = usePromptSession({
         prompts,
@@ -159,7 +161,7 @@ export function PromptStack({ viewId, dockShown }: { viewId: string; dockShown: 
                             onAction={(action) => {
                                 refocus.hold();
                                 void session
-                                    .act(active, () => answerPrompt(active.subject, action, PERSON_PROMPT_CLIENTS))
+                                    .act(active, () => answerPrompt(active.subject, action, PERSON_PROMPT_CLIENTS, chatHost))
                                     .then((result) => {
                                         if (result === 'failed') {
                                             refocus.release();

@@ -57,10 +57,9 @@ for (const change of ['none', 'busy', 'input', 'refused', 'lost-ack', 'lost-ack-
         try {
             await withBrowserFixture(
                 `
-                import { connectWorkspaceChatHost } from ${JSON.stringify(join(clientDirectory, 'src/chat/workspace-host.ts'))};
-                import { setChatHost } from ${JSON.stringify(join(clientDirectory, 'node_modules/@adecore/agents-react/src/host.ts'))};
-                import { ChatScopeContext } from ${JSON.stringify(join(clientDirectory, 'node_modules/@adecore/agents-react/src/scope.ts'))};
-                import { AssistantRow } from ${JSON.stringify(join(clientDirectory, 'node_modules/@adecore/agents-react/src/chat/ui/rows/MessageRows.tsx'))};
+                import { WORKSPACE_CHAT_HOST } from ${JSON.stringify(join(clientDirectory, 'src/chat/workspace-host.ts'))};
+                import { ChatHostProvider, ChatScopeContext } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react', clientDirectory))};
+                import { AssistantRow } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat/ui', clientDirectory))};
                 import { terminalPrepareActions } from ${JSON.stringify(join(clientDirectory, 'src/actions/terminal-prepare-actions.ts'))};
                 import { clientActions } from ${JSON.stringify(join(clientDirectory, 'src/actions/client-actions.ts'))};
                 import { TransportError } from ${JSON.stringify(join(clientDirectory, 'src/transport/transport.ts'))};
@@ -81,14 +80,13 @@ for (const change of ['none', 'busy', 'input', 'refused', 'lost-ack', 'lost-ack-
                 }};
                 const registry = new ActionRegistry(terminalPrepareActions({ machineId: id => id === 'remote' ? 'owner' : null, transport: id => id === 'remote' ? transport : null }));
                 clientActions.execute = registry.execute.bind(registry);
-                connectWorkspaceChatHost();
-                setChatHost({ useStreaming: () => 'blocks' });
+                const fixtureHost = { useStreaming: () => 'blocks' };
                 const scope = { id: 'remote', keyOf: id => 'remote/'+id, owns: key => key.startsWith('remote/'), transport, chats: {} };
                 const root = createRoot(document.getElementById('root'));
                 window.draw = (streaming, text = ${JSON.stringify(markdown)}) => root.render(
-                    <UIProvider i18n={i18next}><ChatScopeContext.Provider value={scope}>
+                    <UIProvider i18n={i18next}><ChatHostProvider host={WORKSPACE_CHAT_HOST}><ChatHostProvider host={fixtureHost}><ChatScopeContext.Provider value={scope}>
                         <AssistantRow chatId="chat" item={{ id:'reply', kind:'assistant', turnId:null, createdAt:0, streaming, text }}/>
-                    </ChatScopeContext.Provider></UIProvider>
+                    </ChatScopeContext.Provider></ChatHostProvider></ChatHostProvider></UIProvider>
                 );
                 window.prepareButton = () => document.querySelector('button[aria-label="Prepare in terminal"]');
                 window.draw(true);

@@ -10,15 +10,12 @@ const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimati
 async function fixture(run: (view: View) => Promise<void>): Promise<void> {
     await withBrowserFixture(
         `
-        import { Markdown, MessageMarkdown } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat/ui', clientDirectory))};
-        import { FileLinkContext } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat/ui', clientDirectory))};
-        import { TimelineMenuPopup } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat/ui', clientDirectory))};
+        import { FileLinkContext, Markdown, MessageMarkdown, SubagentTimeline, TimelineMenuPopup } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat/ui', clientDirectory))};
         import { readTimelineTarget, EMPTY_TARGET } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat', clientDirectory))};
-        import { SubagentTimeline } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat/ui', clientDirectory))};
         import { machineFor } from ${JSON.stringify(join(import.meta.dir, '../transport/connections.ts'))};
         import { ContextMenu } from ${JSON.stringify(Bun.resolveSync('@adecore/ui', clientDirectory))};
-        import { connectWorkspaceChatHost } from ${JSON.stringify(join(import.meta.dir, 'workspace-host.ts'))};
-        import { ChatScopeContext } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react', clientDirectory))};
+        import { WORKSPACE_CHAT_HOST } from ${JSON.stringify(join(import.meta.dir, 'workspace-host.ts'))};
+        import { ChatHostProvider, ChatScopeContext } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react', clientDirectory))};
         import { chatScopeOf } from ${JSON.stringify(join(import.meta.dir, '../transport/chat-scope.ts'))};
         import { useFiles } from ${JSON.stringify(join(import.meta.dir, '../state/files.ts'))};
         import { useWindow } from ${JSON.stringify(join(import.meta.dir, '../state/window.ts'))};
@@ -30,7 +27,6 @@ async function fixture(run: (view: View) => Promise<void>): Promise<void> {
         useWindow.getState().show({kind:'workspace',workspace:{connection:{endpointId:'local'}}});
         useProject.setState({current:{folder:'/repo',projectId:'fixture'}});
         useDocument.getState().load({version:3,rev:1,name:'Files',color:'#000',views:[]},null);
-        connectWorkspaceChatHost();
         machineFor('local').transport.request=async(type)=>{
             if(type==='chat.subagent') return {source:'claude-transcript',live:false,history:{cursor:null},context:{provider:'claude',cwd:'/repo/nested'},items:[
                 {id:'child-reply',kind:'assistant',turnId:null,createdAt:0,text:'[Child](<a folder/a file.ts:12:4-16>)',streaming:false},
@@ -48,7 +44,7 @@ async function fixture(run: (view: View) => Promise<void>): Promise<void> {
                 <TimelineMenuPopup target={target} thread={thread}/>
             </ContextMenu.Trigger></ContextMenu.Root>;
         }
-        createRoot(document.getElementById('root')).render(<UIProvider i18n={i18next}><ChatScopeContext.Provider value={chatScopeOf("local")}><FileLinkContext.Provider value="/repo"><Fixture/></FileLinkContext.Provider></ChatScopeContext.Provider></UIProvider>);
+        createRoot(document.getElementById('root')).render(<UIProvider i18n={i18next}><ChatHostProvider host={WORKSPACE_CHAT_HOST}><ChatScopeContext.Provider value={chatScopeOf("local")}><FileLinkContext.Provider value="/repo"><Fixture/></FileLinkContext.Provider></ChatScopeContext.Provider></ChatHostProvider></UIProvider>);
     `,
         'svg{width:14px;height:14px}',
         async (view) => {

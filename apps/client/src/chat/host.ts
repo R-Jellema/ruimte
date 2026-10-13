@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import i18next from 'i18next';
 import { codeHighlighter } from '@/code-highlighter';
 import DiffSyntaxWorker from '@/chat/diff-syntax.worker?worker';
-import { configureChatStorage, setChatHost, type ChatActions, setLazyPrefetch } from '@adecore/agents-react';
+import { configureChatStorage, type ChatActions, type ChatHost, setLazyPrefetch } from '@adecore/agents-react';
 import { useChats } from '@adecore/agents-react/state';
 import { performAsPerson, PERSON_PROMPT_CLIENTS } from '@/actions/client-actions';
 import { askBeforeStoppingSubagents, askBeforeStoppingTask } from '@/agents/end-children';
@@ -75,155 +75,156 @@ function requireTransport(endpointId: string): Transport {
     return transport;
 }
 
-/*
- * What the chat takes from Ruimte that the start screen may already need, handed over once before the
- * first render. What only a workspace draws is handed over by the workspace (`workspace-host.ts`), so
- * none of it reaches the first chunk.
- */
-export function connectChatHost(): void {
+/* The stores every chat view shares, set up before the first render. */
+export function configureChat(): void {
     configureChatStorage({ namespace: 'ruimte' });
     setLazyPrefetch((load) => prefetcher.register(load));
-    setChatHost({
-        accents: {
-            all: NODE_ACCENTS,
-            featured: FEATURED_ACCENTS,
-            label: (id) => accentLabel(id as AccentId),
-            current: () => useSettings.getState().accent
-        },
-        isApplePlatform,
-        notify: (toast) => void useToasts.getState().show(toast),
-        actions: PERSON_CHAT_ACTIONS,
-        intelligentUi: {
-            link: async (endpointId, payload) => requireTransport(endpointId).request('ui.link', payload),
-            subscribe: (endpointId, chatId, changed) => {
-                const transport = transportFor(endpointId);
-                if (transport === null) {
-                    return () => {};
-                }
-                const project = (): { projectId: string; folder: string } | null => (endpointId === currentEndpointId() ? useProject.getState().current : null);
-                const off = [
-                    transport.on('git.status', ({ cwd }) => {
-                        const chatCwd = useChats.getState().statusByKey[endpointKey(endpointId, chatId)]?.info.cwd ?? null;
-                        if (gitStatusConcernsChat(cwd, project(), chatCwd)) {
-                            changed();
-                        }
-                    }),
-                    transport.on('launch.status', (status) => {
-                        const current = project();
-                        if (current === null || status.projectId === current.projectId) {
-                            changed();
-                        }
-                    }),
-                    transport.on('task.changed', ({ task }) => {
-                        if (task.parentId === chatId) {
-                            changed();
-                        }
-                    })
-                ];
-                return () => {
-                    for (const stop of off) {
-                        stop();
-                    }
-                };
-            },
-            query: async (endpointId, payload) => requireTransport(endpointId).request('ui.query', payload),
-            sendChoice: async (endpointId, payload) => {
-                if (endpointId !== currentEndpointId()) {
-                    throw new Error(i18next.t('chat:offline'));
-                }
-                const result = await performAsPerson('chat.uiChoice', payload);
-                return result.queued ? 'queued' : 'sent';
-            }
-        },
-        searchFiles,
-        attachments: {
-            useUrl: (endpointId, chatId, attachmentId) => useMachineUrl({ kind: 'attachment', chatId, attachmentId }, endpointId),
-            read: async (endpointId, chatId, attachmentId) => {
-                const transport = requireTransport(endpointId);
-                return readResource((piece) => readPiece(transport, piece), { kind: 'attachment', chatId, attachmentId });
-            },
-            open: (endpointId, chatId, attachmentId, suggestedName) => {
-                void (async () => {
-                    const transport = requireTransport(endpointId);
-                    const image = await readResource((piece) => readPiece(transport, piece), { kind: 'attachment', chatId, attachmentId });
-                    const bridge = desktop();
-                    if (bridge?.openImage) {
-                        await bridge.openImage(suggestedName, new Uint8Array(await image.arrayBuffer()), image.type);
-                    } else {
-                        downloadBlob(image, suggestedName);
-                    }
-                })().catch((error: unknown) =>
-                    useToasts.getState().show({
-                        kind: 'error',
-                        title: i18next.t('chat:generatedImage.openFailed'),
-                        description: error instanceof Error ? error.message : String(error)
-                    })
-                );
-            },
-            saveToProject: async (endpointId, chatId, attachmentId) => {
-                try {
-                    const transport = requireTransport(endpointId);
-                    // The dialog and its folder tree belong to a workspace, so the start screen loads none of it.
-                    const { requestImageSave } = await import('@/chat/image-save');
-                    return await requestImageSave(transport, chatId, attachmentId);
-                } catch (error) {
-                    useToasts.getState().show({
-                        kind: 'error',
-                        title: i18next.t('chat:generatedImage.saveFailed'),
-                        description: error instanceof Error ? error.message : String(error)
-                    });
-                    return null;
-                }
-            }
-        },
-        visuals: visualHostFor(window.location.origin, desktop, (url) => void window.open(url, '_blank', 'noopener,noreferrer')),
-        code: {
-            useMode: () => useTheme((s) => s.resolved),
-            useThemes: () => ({ light: useSettings((s) => s.codeThemeLight), dark: useSettings((s) => s.codeThemeDark) }),
-            custom: CODE_THEMES,
-            highlighter: codeHighlighter,
-            syntaxWorker: () => new DiffSyntaxWorker(),
-            editor: async () => {
-                const { loadEditorEngine } = await import('@/shell/panels/editor-engine');
-                return loadEditorEngine();
-            }
-        },
-        useStreaming: () => useSettings((s) => s.chatStreaming),
-        useSendDelivery: () => useSettings((s) => (s.chatSteerByDefault ? 'steer' : 'queue')),
-        tasks: {
-            useTasks: (endpointId) => useTasks((s) => s.byEndpoint[endpointId]),
-            useTask: (endpointId, taskId) => useTasks((s) => (taskId === null ? null : (s.byEndpoint[endpointId]?.[taskId] ?? null)))
-        },
-        confirm: {
-            stopSubagents: (endpointId, chatId, run) => void askBeforeStoppingSubagents(transportFor(endpointId), chatId, run),
-            stopTask: (endpointId, childId, title, run) => void askBeforeStoppingTask(transportFor(endpointId), childId, title, run)
-        },
-        openLogin,
-        useProjectLook: (endpointId, projectId) => {
-            const summary = useProjectList(
-                (s) => s.projects.find((row) => row.endpointId === endpointId && projectId !== null && row.summary.projectId === projectId)?.summary
-            );
-            return summary === undefined
-                ? null
-                : {
-                      name: summary.name,
-                      mark: createElement(ProjectGlyph, {
-                          projectId: summary.projectId,
-                          endpointId,
-                          icon: summary.icon,
-                          color: summary.color,
-                          size: 16,
-                          scratch: summary.scratch === true
-                      })
-                  };
-        },
-        fork: (chatId, turnId) => useUi.getState().setForkDialog({ chatId, turnId }),
-        openSettings: (section) => useUi.getState().setSettings({ open: true, section }),
-        useMachineLabel: (endpointId) => useEndpoints((s) => s.endpoints.find((endpoint) => endpoint.id === endpointId)?.label ?? null),
-        useResumeAtReset: (endpointId) => useServers((s) => s.byEndpoint[endpointId]?.resumeAtReset === true),
-        // A chat on screen belongs to the project the window shows, and the Chats project shows none of its folders.
-        useHidesFolder: () => useProject((s) => isScratchProject(s.current)),
-        // A chat of the Chats project is a conversation of its own, so it opens the way one does.
-        useWelcome: () => useProject((s) => isScratchProject(s.current))
-    });
 }
+
+/*
+ * What the chat takes from Ruimte that the start screen may already need. What only a workspace draws
+ * is in `workspace-host.ts`, so none of it reaches the first chunk.
+ */
+export const CHAT_HOST: Partial<ChatHost> = {
+    accents: {
+        all: NODE_ACCENTS,
+        featured: FEATURED_ACCENTS,
+        label: (id) => accentLabel(id as AccentId),
+        current: () => useSettings.getState().accent
+    },
+    isApplePlatform,
+    notify: (toast) => void useToasts.getState().show(toast),
+    actions: PERSON_CHAT_ACTIONS,
+    intelligentUi: {
+        link: async (endpointId, payload) => requireTransport(endpointId).request('ui.link', payload),
+        subscribe: (endpointId, chatId, changed) => {
+            const transport = transportFor(endpointId);
+            if (transport === null) {
+                return () => {};
+            }
+            const project = (): { projectId: string; folder: string } | null => (endpointId === currentEndpointId() ? useProject.getState().current : null);
+            const off = [
+                transport.on('git.status', ({ cwd }) => {
+                    const chatCwd = useChats.getState().statusByKey[endpointKey(endpointId, chatId)]?.info.cwd ?? null;
+                    if (gitStatusConcernsChat(cwd, project(), chatCwd)) {
+                        changed();
+                    }
+                }),
+                transport.on('launch.status', (status) => {
+                    const current = project();
+                    if (current === null || status.projectId === current.projectId) {
+                        changed();
+                    }
+                }),
+                transport.on('task.changed', ({ task }) => {
+                    if (task.parentId === chatId) {
+                        changed();
+                    }
+                })
+            ];
+            return () => {
+                for (const stop of off) {
+                    stop();
+                }
+            };
+        },
+        query: async (endpointId, payload) => requireTransport(endpointId).request('ui.query', payload),
+        sendChoice: async (endpointId, payload) => {
+            if (endpointId !== currentEndpointId()) {
+                throw new Error(i18next.t('chat:offline'));
+            }
+            const result = await performAsPerson('chat.uiChoice', payload);
+            return result.queued ? 'queued' : 'sent';
+        }
+    },
+    searchFiles,
+    attachments: {
+        useUrl: (endpointId, chatId, attachmentId) => useMachineUrl({ kind: 'attachment', chatId, attachmentId }, endpointId),
+        read: async (endpointId, chatId, attachmentId) => {
+            const transport = requireTransport(endpointId);
+            return readResource((piece) => readPiece(transport, piece), { kind: 'attachment', chatId, attachmentId });
+        },
+        open: (endpointId, chatId, attachmentId, suggestedName) => {
+            void (async () => {
+                const transport = requireTransport(endpointId);
+                const image = await readResource((piece) => readPiece(transport, piece), { kind: 'attachment', chatId, attachmentId });
+                const bridge = desktop();
+                if (bridge?.openImage) {
+                    await bridge.openImage(suggestedName, new Uint8Array(await image.arrayBuffer()), image.type);
+                } else {
+                    downloadBlob(image, suggestedName);
+                }
+            })().catch((error: unknown) =>
+                useToasts.getState().show({
+                    kind: 'error',
+                    title: i18next.t('chat:generatedImage.openFailed'),
+                    description: error instanceof Error ? error.message : String(error)
+                })
+            );
+        },
+        saveToProject: async (endpointId, chatId, attachmentId) => {
+            try {
+                const transport = requireTransport(endpointId);
+                // The dialog and its folder tree belong to a workspace, so the start screen loads none of it.
+                const { requestImageSave } = await import('@/chat/image-save');
+                return await requestImageSave(transport, chatId, attachmentId);
+            } catch (error) {
+                useToasts.getState().show({
+                    kind: 'error',
+                    title: i18next.t('chat:generatedImage.saveFailed'),
+                    description: error instanceof Error ? error.message : String(error)
+                });
+                return null;
+            }
+        }
+    },
+    visuals: visualHostFor(window.location.origin, desktop, (url) => void window.open(url, '_blank', 'noopener,noreferrer')),
+    code: {
+        useMode: () => useTheme((s) => s.resolved),
+        useThemes: () => ({ light: useSettings((s) => s.codeThemeLight), dark: useSettings((s) => s.codeThemeDark) }),
+        custom: CODE_THEMES,
+        highlighter: codeHighlighter,
+        syntaxWorker: () => new DiffSyntaxWorker(),
+        editor: async () => {
+            const { loadEditorEngine } = await import('@/shell/panels/editor-engine');
+            return loadEditorEngine();
+        }
+    },
+    useStreaming: () => useSettings((s) => s.chatStreaming),
+    useSendDelivery: () => useSettings((s) => (s.chatSteerByDefault ? 'steer' : 'queue')),
+    tasks: {
+        useTasks: (endpointId) => useTasks((s) => s.byEndpoint[endpointId]),
+        useTask: (endpointId, taskId) => useTasks((s) => (taskId === null ? null : (s.byEndpoint[endpointId]?.[taskId] ?? null)))
+    },
+    confirm: {
+        stopSubagents: (endpointId, chatId, run) => void askBeforeStoppingSubagents(transportFor(endpointId), chatId, run),
+        stopTask: (endpointId, childId, title, run) => void askBeforeStoppingTask(transportFor(endpointId), childId, title, run)
+    },
+    openLogin,
+    useProjectLook: (endpointId, projectId) => {
+        const summary = useProjectList(
+            (s) => s.projects.find((row) => row.endpointId === endpointId && projectId !== null && row.summary.projectId === projectId)?.summary
+        );
+        return summary === undefined
+            ? null
+            : {
+                  name: summary.name,
+                  mark: createElement(ProjectGlyph, {
+                      projectId: summary.projectId,
+                      endpointId,
+                      icon: summary.icon,
+                      color: summary.color,
+                      size: 16,
+                      scratch: summary.scratch === true
+                  })
+              };
+    },
+    fork: (chatId, turnId) => useUi.getState().setForkDialog({ chatId, turnId }),
+    openSettings: (section) => useUi.getState().setSettings({ open: true, section }),
+    useMachineLabel: (endpointId) => useEndpoints((s) => s.endpoints.find((endpoint) => endpoint.id === endpointId)?.label ?? null),
+    useResumeAtReset: (endpointId) => useServers((s) => s.byEndpoint[endpointId]?.resumeAtReset === true),
+    // A chat on screen belongs to the project the window shows, and the Chats project shows none of its folders.
+    useHidesFolder: () => useProject((s) => isScratchProject(s.current)),
+    // A chat of the Chats project is a conversation of its own, so it opens the way one does.
+    useWelcome: () => useProject((s) => isScratchProject(s.current))
+};

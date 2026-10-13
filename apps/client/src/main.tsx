@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { App } from '@/App';
-import { connectChatHost } from '@/chat/host';
+import { CHAT_HOST, configureChat } from '@/chat/host';
 import { connectFormat } from '@/format/source';
 import { initI18n } from '@/i18n';
 import { startAgentNotifications } from '@/shell/notifications';
@@ -39,7 +39,7 @@ import { useTheme } from '@/state/theme';
 import { exposeTerminalTestHooks } from '@/terminal/registry';
 import { reloadOnStaleChunk } from '@/stale-chunks';
 import { onLazyOpenError, prefetcher } from '@adecore/ui';
-import { onLazyOpenError as onChatLazyOpenError } from '@adecore/agents-react';
+import { ChatHostProvider, onLazyOpenError as onChatLazyOpenError } from '@adecore/agents-react';
 import '@/state/theme';
 import '@/state/settings';
 import '@fontsource-variable/geist';
@@ -47,7 +47,7 @@ import '@/styles.css';
 
 // Before anything that writes a date or a number, so none of it is written in the default region first.
 connectFormat();
-connectChatHost();
+configureChat();
 
 /* The desktop app carries its own chunks, so one failing there is no deploy, and a reload would only drop every page. */
 if (!desktop()) {
@@ -119,4 +119,8 @@ if (import.meta.env.DEV) {
 /* The words come first: a screen drawn before its language is in would swap under a person. */
 await initI18n();
 
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(
+    <ChatHostProvider host={CHAT_HOST}>
+        <App />
+    </ChatHostProvider>
+);

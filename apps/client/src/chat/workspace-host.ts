@@ -1,7 +1,8 @@
 import i18next from 'i18next';
 import { createElement, useMemo } from 'react';
-import { chatHost, setChatHost } from '@adecore/agents-react';
+import type { ChatHost } from '@adecore/agents-react';
 import { answerComputerAsPerson } from '@/actions/client-actions';
+import { CHAT_HOST } from '@/chat/host';
 import { ComposerDictation } from '@/chat/ComposerDictation';
 import { prepareCodeBlockAction } from '@/chat/prepare-code-block';
 import { useProjectChats } from '@/chat/project-chats';
@@ -26,49 +27,45 @@ import { isShellShortcut } from '@/terminal/keymap';
 /*
  * What the chat takes from Ruimte that only a workspace draws: the find over a thread, dictation, the
  * cards the machine raises beside a chat's own prompts, the ways to a file or another chat of the
- * project, and the new chat a send opens beside its own. Handed over when the workspace chunk loads,
- * before anything in it renders.
+ * project, and the new chat a send opens beside its own. The workspace hands it to the chat views under
+ * it, over `CHAT_HOST`.
  */
-export function connectWorkspaceChatHost(): void {
-    const intelligentUi = chatHost().intelligentUi;
-    setChatHost({
-        ...(intelligentUi ? { intelligentUi: { ...intelligentUi, openLink: openUiLink, openUrl: openUiUrl } } : {}),
-        isAppShortcut: (event) => isShellShortcut(event, isApplePlatform()),
-        ReadImage,
-        renderShellCodeBlock: prepareCodeBlockAction,
-        fileLinks: {
-            target: (text, cwd, scopeId) => {
-                const ref = parseFileRef(text, true);
-                return !scopeId || ref === null || resolveFileRef(cwd, ref) === null ? null : ref;
-            },
-            open: (cwd, ref: FileRef, scopeId) => {
-                if (!scopeId) {
-                    useToasts.getState().show({ kind: 'error', title: i18next.t('panels:file.locationUnavailable') });
-                    return;
-                }
-                void openFileLink(cwd, ref, scopeId);
+const intelligentUi = CHAT_HOST.intelligentUi;
+
+export const WORKSPACE_CHAT_HOST: Partial<ChatHost> = {
+    ...(intelligentUi ? { intelligentUi: { ...intelligentUi, openLink: openUiLink, openUrl: openUiUrl } } : {}),
+    isAppShortcut: (event) => isShellShortcut(event, isApplePlatform()),
+    ReadImage,
+    renderShellCodeBlock: prepareCodeBlockAction,
+    fileLinks: {
+        target: (text, cwd, scopeId) => {
+            const ref = parseFileRef(text, true);
+            return !scopeId || ref === null || resolveFileRef(cwd, ref) === null ? null : ref;
+        },
+        open: (cwd, ref: FileRef, scopeId) => {
+            if (!scopeId) {
+                useToasts.getState().show({ kind: 'error', title: i18next.t('panels:file.locationUnavailable') });
+                return;
             }
+            void openFileLink(cwd, ref, scopeId);
+        }
+    },
+    useTimelineFind,
+    dictation: { Textarea: DictationTextarea, composer: { extensions: [dictationRange, dictationPreview], Control: ComposerDictation } },
+    prompts: {
+        useExtra: (endpointId, chatId) => {
+            const requests = useNodeComputerApprovals(endpointId, chatId);
+            const secrets = useNodeSecretRequests(endpointId, chatId);
+            return useMemo(
+                () => [...requests.map((request) => computerPrompt(chatId, request)), ...secrets.map((request) => secretPrompt(endpointId, chatId, request))],
+                [requests, secrets, endpointId, chatId]
+            );
         },
-        useTimelineFind,
-        dictation: { Textarea: DictationTextarea, composer: { extensions: [dictationRange, dictationPreview], Control: ComposerDictation } },
-        prompts: {
-            useExtra: (endpointId, chatId) => {
-                const requests = useNodeComputerApprovals(endpointId, chatId);
-                const secrets = useNodeSecretRequests(endpointId, chatId);
-                return useMemo(
-                    () => [
-                        ...requests.map((request) => computerPrompt(chatId, request)),
-                        ...secrets.map((request) => secretPrompt(endpointId, chatId, request))
-                    ],
-                    [requests, secrets, endpointId, chatId]
-                );
-            },
-            render: (prompt, props) => (isRuimtePrompt(prompt) ? createElement(RuimtePromptView, { prompt, props }) : null),
-            answer: (prompt, action) => answerRuimtePrompt(prompt, action, answerComputerAsPerson, secretAnswers)
-        },
-        openNewChat: (endpointId, chatId) => void openNewChatAfterSend(endpointId, chatId),
-        useReferableChats: useProjectChats,
-        useChatPlace,
-        useContextSources
-    });
-}
+        render: (prompt, props) => (isRuimtePrompt(prompt) ? createElement(RuimtePromptView, { prompt, props }) : null),
+        answer: (prompt, action) => answerRuimtePrompt(prompt, action, answerComputerAsPerson, secretAnswers)
+    },
+    openNewChat: (endpointId, chatId) => void openNewChatAfterSend(endpointId, chatId),
+    useReferableChats: useProjectChats,
+    useChatPlace,
+    useContextSources
+};

@@ -7,7 +7,7 @@ import { WebviewParking } from '@/browser/WebviewParking';
 import { EndChildrenDialog } from '@/agents/EndChildrenDialog';
 import { ChatChooserMenu } from '@/chat/ChatChooserMenu';
 import { imageSaveDialog, type ImageSaveDialogState } from '@/chat/image-save';
-import { connectWorkspaceChatHost } from '@/chat/workspace-host';
+import { WORKSPACE_CHAT_HOST } from '@/chat/workspace-host';
 import { ensureDatabaseConnections } from '@/database/connections';
 import { useDatabasePanel } from '@/database/state';
 import { useCanvasShortcuts } from '@/canvas/canvas-shortcuts';
@@ -40,11 +40,11 @@ import { startBytesWorker } from '@/transport/bytes-worker-host';
 import type { Workspace } from '@/transport/connections';
 import { ConnectionProvider } from '@/transport/ConnectionProvider';
 import { ErrorBoundary, Workspace as CoreWorkspace, lazyDialog, prefetcher } from '@adecore/ui';
+import { ChatHostProvider } from '@adecore/agents-react';
 import { stopVoice } from '@/voice/controller';
 import { VoiceOverlay } from '@/voice/VoiceOverlay';
 import { VoicePanel } from '@/voice/VoicePanel';
 
-connectWorkspaceChatHost();
 startBytesWorker();
 startLaunchWatch();
 
@@ -126,110 +126,112 @@ export function WorkspaceShell({ workspace }: { workspace: Workspace }) {
         ensureDatabaseConnections();
     }, []);
     return (
-        <ConnectionProvider connection={workspace.connection}>
-            <FileToolbarSlotProvider value={{ host: fileToolbarHost, mount: setFileToolbarHost }}>
-                <CoreWorkspace
-                    render={<main />}
-                    className="workspace"
-                    layout={layout}
-                    sidebarWidth="auto"
-                    sidebarOpen={sidebarOpen}
-                    sidebar={
-                        <ErrorBoundary label={i18next.t('common:state.sidebarFailed')} className="h-full w-[248px] shrink-0 border-r border-border">
-                            <Sidebar />
-                        </ErrorBoundary>
-                    }
-                    toolbar={
-                        <ErrorBoundary label={failed('toolbar')} resetKeys={[workspace]} compact className="shrink-0">
-                            <Toolbar />
-                        </ErrorBoundary>
-                    }
-                    sidePanelWidth="auto"
-                    sidePanelOpen={planOpen || panelOpen || voiceOpen}
-                    sidePanel={
-                        <>
-                            <PlanPanel />
-                            <Panel />
-                            <ErrorBoundary label={failed('voice')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                                <VoicePanel />
+        <ChatHostProvider host={WORKSPACE_CHAT_HOST}>
+            <ConnectionProvider connection={workspace.connection}>
+                <FileToolbarSlotProvider value={{ host: fileToolbarHost, mount: setFileToolbarHost }}>
+                    <CoreWorkspace
+                        render={<main />}
+                        className="workspace"
+                        layout={layout}
+                        sidebarWidth="auto"
+                        sidebarOpen={sidebarOpen}
+                        sidebar={
+                            <ErrorBoundary label={i18next.t('common:state.sidebarFailed')} className="h-full w-[248px] shrink-0 border-r border-border">
+                                <Sidebar />
                             </ErrorBoundary>
-                        </>
-                    }
-                >
-                    <ViewHost />
-                    <ErrorBoundary label={failed('pages')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                        <WebviewParking />
-                    </ErrorBoundary>
-                    {/* The chrome of a cell, over the pages a cell cannot draw over itself. */}
-                    <ErrorBoundary label={failed('cellChrome')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                        <CellOverlayLayer />
-                    </ErrorBoundary>
-                    {/* After the parked pages, which carry no z-index of their own and would otherwise draw over these screens. */}
-                    <ErrorBoundary label={failed('machine')} resetKeys={[workspace]} className="absolute inset-0 z-10">
-                        <MachineLostScreen />
-                    </ErrorBoundary>
-                    <ErrorBoundary label={failed('projectSwitch')} resetKeys={[workspace]} className="absolute inset-0 z-10">
-                        <ProjectSwitchScreen />
-                    </ErrorBoundary>
-                    <ErrorBoundary label={failed('projectBanner')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                        <ProjectBanner />
-                    </ErrorBoundary>
-                </CoreWorkspace>
-            </FileToolbarSlotProvider>
-            <VoiceOverlay />
-            {/* About the project that is open, so they belong to its workspace and not to the shell. */}
-            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <LayoutDialog />
-            </ErrorBoundary>
-            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <ChatChooserMenu />
-            </ErrorBoundary>
-            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <ViewDialogs />
-            </ErrorBoundary>
-            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <EndChildrenDialog />
-            </ErrorBoundary>
-            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <UnsavedCloseDialog />
-            </ErrorBoundary>
-            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <DiscardEditsDialog />
-            </ErrorBoundary>
-            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <LeaveConflictDialog />
-            </ErrorBoundary>
-            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <WorktreeDialog />
-            </ErrorBoundary>
-            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <RemoveWorktreeDialog />
-            </ErrorBoundary>
-            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <MergeWorktreeDialog />
-            </ErrorBoundary>
-            <ErrorBoundary label={failed('conflicts')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <ConflictOverlay />
-            </ErrorBoundary>
-            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <LaunchDialogs />
-            </ErrorBoundary>
-            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <DatabaseConnectionsDialog />
-            </ErrorBoundary>
-            <ForkDialog />
-            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <NewWorktreeChatDialog />
-            </ErrorBoundary>
-            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <IssueStartDialog />
-            </ErrorBoundary>
-            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <PullRequestDialog />
-            </ErrorBoundary>
-            <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                <ImageSaveHost />
-            </ErrorBoundary>
-        </ConnectionProvider>
+                        }
+                        toolbar={
+                            <ErrorBoundary label={failed('toolbar')} resetKeys={[workspace]} compact className="shrink-0">
+                                <Toolbar />
+                            </ErrorBoundary>
+                        }
+                        sidePanelWidth="auto"
+                        sidePanelOpen={planOpen || panelOpen || voiceOpen}
+                        sidePanel={
+                            <>
+                                <PlanPanel />
+                                <Panel />
+                                <ErrorBoundary label={failed('voice')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                                    <VoicePanel />
+                                </ErrorBoundary>
+                            </>
+                        }
+                    >
+                        <ViewHost />
+                        <ErrorBoundary label={failed('pages')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                            <WebviewParking />
+                        </ErrorBoundary>
+                        {/* The chrome of a cell, over the pages a cell cannot draw over itself. */}
+                        <ErrorBoundary label={failed('cellChrome')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                            <CellOverlayLayer />
+                        </ErrorBoundary>
+                        {/* After the parked pages, which carry no z-index of their own and would otherwise draw over these screens. */}
+                        <ErrorBoundary label={failed('machine')} resetKeys={[workspace]} className="absolute inset-0 z-10">
+                            <MachineLostScreen />
+                        </ErrorBoundary>
+                        <ErrorBoundary label={failed('projectSwitch')} resetKeys={[workspace]} className="absolute inset-0 z-10">
+                            <ProjectSwitchScreen />
+                        </ErrorBoundary>
+                        <ErrorBoundary label={failed('projectBanner')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                            <ProjectBanner />
+                        </ErrorBoundary>
+                    </CoreWorkspace>
+                </FileToolbarSlotProvider>
+                <VoiceOverlay />
+                {/* About the project that is open, so they belong to its workspace and not to the shell. */}
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <LayoutDialog />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <ChatChooserMenu />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <ViewDialogs />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <EndChildrenDialog />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <UnsavedCloseDialog />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <DiscardEditsDialog />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <LeaveConflictDialog />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <WorktreeDialog />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <RemoveWorktreeDialog />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <MergeWorktreeDialog />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('conflicts')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <ConflictOverlay />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <LaunchDialogs />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <DatabaseConnectionsDialog />
+                </ErrorBoundary>
+                <ForkDialog />
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <NewWorktreeChatDialog />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <IssueStartDialog />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <PullRequestDialog />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <ImageSaveHost />
+                </ErrorBoundary>
+            </ConnectionProvider>
+        </ChatHostProvider>
     );
 }
