@@ -101,13 +101,9 @@ enum ModelComparison {
         return from == to ? from : String(localized: "\(from) to \(to)", comment: "A range of reasoning efforts")
     }
 
-    static func cost(_ value: Double) -> String {
-        value.formatted(.currency(code: "USD").precision(.significantDigits(1...2)))
-    }
+    static func cost(_ value: Double) -> String { Format.usdSignificant(value) }
 
-    static func intelligence(_ value: Double) -> String {
-        value.formatted(.number.precision(.fractionLength(0...1)))
-    }
+    static func intelligence(_ value: Double) -> String { Format.decimal(value) }
 
     /// How long ago the address book read the numbers.
     static func updated(fetchedAt: Int64, now: Date) -> String {

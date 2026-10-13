@@ -291,21 +291,11 @@ enum ChatSubagents {
     }
 
     /// How long an entry has run: the seconds and minutes a running tool call shows, and hours past one.
-    static func runningFor(_ milliseconds: Double) -> String {
-        let hour = 3_600_000.0
-        guard milliseconds >= hour else { return ChatToolPresentation.elapsed(milliseconds) }
-        let hours = Int(milliseconds / hour)
-        let minutes = Int(milliseconds.truncatingRemainder(dividingBy: hour) / 60_000)
-        return minutes == 0
-            ? String(localized: "\(hours)h", comment: "Duration in hours, abbreviated")
-            : String(localized: "\(hours)h \(minutes)m", comment: "Duration in hours and minutes, abbreviated")
-    }
+    static func runningFor(_ milliseconds: Double) -> String { Format.elapsedShort(milliseconds: milliseconds) }
 
     /// The time on the right of an entry: how long it has run so far, or when it ended, with the date once that was
     /// not today.
-    static func entryTime(
-        _ item: JSONValue, task: JSONValue?, now: Date, calendar: Calendar = .current, locale: Locale = .current
-    ) -> String? {
+    static func entryTime(_ item: JSONValue, task: JSONValue?, now: Date, locale: FormatLocale = .current) -> String? {
         // A task's own record says when it was given and settled; the row copies those, but may lag behind it.
         let startedAt = task?["createdAt"]?.numberValue ?? item.number("startedAt")
         let finishedAt = task?["settledAt"]?.numberValue ?? item["finishedAt"]?.numberValue
@@ -313,19 +303,11 @@ enum ChatSubagents {
             return startedAt > 0 ? runningFor(now.timeIntervalSince1970 * 1000 - startedAt) : nil
         }
         guard let finishedAt, finishedAt > 0 else { return nil }
-        let end = Date(timeIntervalSince1970: finishedAt / 1000)
-        var clock = Date.FormatStyle(date: .omitted, time: .shortened, locale: locale)
-        clock.calendar = calendar
-        clock.timeZone = calendar.timeZone
-        if calendar.isDate(end, inSameDayAs: now) { return end.formatted(clock) }
-        var day = Date.FormatStyle(date: .abbreviated, time: .omitted, locale: locale)
-        day.calendar = calendar
-        day.timeZone = calendar.timeZone
-        return "\(end.formatted(day)) \(end.formatted(clock))"
+        return Format.moment(Date(timeIntervalSince1970: finishedAt / 1000), now: now, in: locale)
     }
 
     /// What the bar over a sub-agent's conversation says of it beside its state and its time.
-    static func facts(_ item: JSONValue, locale: Locale = .current) -> [String] {
+    static func facts(_ item: JSONValue, locale: FormatLocale = .current) -> [String] {
         var facts: [String] = []
         if let model = item["model"]?.stringValue, !model.isEmpty { facts.append(ModelName.fromSlug(model)) }
         if let type = item["subagentType"]?.stringValue, !type.isEmpty { facts.append(type) }
@@ -334,7 +316,7 @@ enum ChatSubagents {
         }
         let usage = item["usage"]
         if let tokens = usage?["totalTokens"]?.numberValue, tokens > 0 {
-            let count = Int(tokens).formatted(.number.notation(.compactName).locale(locale))
+            let count = Format.tokens(tokens, in: locale)
             facts.append(String(localized: "\(count) tokens", comment: "%@ is a compact number, like 12K"))
         }
         if let calls = usage?["toolUses"]?.numberValue, calls > 0 {

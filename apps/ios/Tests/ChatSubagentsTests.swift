@@ -63,7 +63,7 @@ final class ChatSubagentsTests: XCTestCase {
                 "model": .string("claude-haiku-4-5"), "subagentType": .string("Explore"), "background": .bool(true),
                 "usage": .object(["totalTokens": .number(12_300), "toolUses": .number(8), "durationMs": .number(5_000)]),
             ])
-        let locale = Locale(identifier: "en_US")
+        let locale = FormatLocale(region: Locale(identifier: "en_US"), language: Locale(identifier: "en"))
         XCTAssertEqual(
             ChatSubagents.facts(item, locale: locale),
             ["Claude Haiku 4.5", "Explore", "background", "12K tokens", "8 tool calls"])
@@ -124,26 +124,22 @@ final class ChatSubagentsTests: XCTestCase {
     }
 
     @MainActor func testTheTimeIsHowLongItRunsOrWhenItEnded() {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "UTC")!
-        let locale = Locale(identifier: "en_US_POSIX")
+        let locale = FormatLocale(
+            region: Locale(identifier: "en_US"), language: Locale(identifier: "en"), timeZone: TimeZone(identifier: "UTC")!)
         let now = Date(timeIntervalSince1970: 2 * 86_400 + 12 * 3600)
         let nowMs = now.timeIntervalSince1970 * 1000
         XCTAssertEqual(
-            ChatSubagents.entryTime(agent("a", started: nowMs - 65_000), task: nil, now: now, calendar: calendar),
-            "1m 5s")
+            ChatSubagents.entryTime(agent("a", started: nowMs - 65_000), task: nil, now: now, locale: locale), "1m 5s")
         XCTAssertEqual(
-            ChatSubagents.entryTime(agent("a", started: nowMs - 7_500_000), task: nil, now: now, calendar: calendar),
+            ChatSubagents.entryTime(agent("a", started: nowMs - 7_500_000), task: nil, now: now, locale: locale),
             "2h 5m")
         let today = ChatSubagents.entryTime(
-            agent("d", status: "done", finished: nowMs - 3_600_000), task: nil, now: now, calendar: calendar,
-            locale: locale)
-        XCTAssertEqual(today?.replacingOccurrences(of: "\u{202F}", with: " "), "11:00 AM")
+            agent("d", status: "done", finished: nowMs - 3_600_000), task: nil, now: now, locale: locale)
+        XCTAssertEqual(today, "11:00 AM")
         let earlier = ChatSubagents.entryTime(
-            agent("d", status: "done", finished: nowMs - 86_400_000), task: nil, now: now, calendar: calendar,
-            locale: locale)
-        XCTAssertEqual(earlier?.replacingOccurrences(of: "\u{202F}", with: " "), "Jan 2, 1970 12:00 PM")
-        XCTAssertNil(ChatSubagents.entryTime(agent("d", status: "done"), task: nil, now: now, calendar: calendar))
+            agent("d", status: "done", finished: nowMs - 86_400_000), task: nil, now: now, locale: locale)
+        XCTAssertEqual(earlier, "Jan 2, 12:00 PM")
+        XCTAssertNil(ChatSubagents.entryTime(agent("d", status: "done"), task: nil, now: now, locale: locale))
     }
 
     @MainActor func testANewestPageWithoutOverlapReplacesWhatIsHeld() {

@@ -33,11 +33,8 @@ enum SnoozeChoice: CaseIterable, Identifiable {
     }
 
     /// When a snooze ends, as a menu and a row say it: the time today, the day and time after.
-    static func moment(_ date: Date, from now: Date, calendar: Calendar = .current) -> String {
-        if calendar.isDate(date, inSameDayAs: now) {
-            return date.formatted(date: .omitted, time: .shortened)
-        }
-        return date.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+    static func moment(_ date: Date, from now: Date) -> String {
+        Format.isSameDay(date, now) ? Format.clock(date) : Format.weekdayClock(date)
     }
 }
 

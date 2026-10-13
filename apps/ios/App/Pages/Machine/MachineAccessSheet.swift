@@ -33,8 +33,8 @@ struct MachineClientAccess: Identifiable, Equatable {
     }
 
     func detail(now: Date = Date()) -> String {
-        let since = createdAt.formatted(.dateTime.day().month())
-        let seen = lastSeenAt.formatted(.relative(presentation: .named, unitsStyle: .abbreviated))
+        let since = Format.day(createdAt)
+        let seen = Format.ago(milliseconds: now.timeIntervalSince(lastSeenAt) * 1000)
         return origin == "statement"
             ? String(
                 localized: "Signed in through an account \(since) · last seen \(seen)",

@@ -250,10 +250,8 @@ struct UsageReport: Equatable, Sendable {
         return parts.count <= 3 ? path : "…/" + parts.suffix(3).joined(separator: "/")
     }
 
-    /// Tokens as a person reads them at a glance: 48.2M, 3.1K.
-    static func tokens(_ value: Double) -> String {
-        value.formatted(.number.notation(.compactName).precision(.fractionLength(0...1)))
-    }
+    /// Tokens as a person reads them at a glance: 48M, 3.1K.
+    static func tokens(_ value: Double) -> String { Format.tokens(value) }
 }
 
 enum UsageBreakdown: String, CaseIterable, Identifiable, Sendable {

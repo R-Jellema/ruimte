@@ -197,7 +197,7 @@ struct UiChoiceLine: View {
             origin["older"]?.boolValue == true
             ? String(
                 localized:
-                    "Chose “\(label)” on the reply of \(UiFormat.moment(milliseconds: origin["sourceAt"]?.numberValue ?? 0).formatted(date: .omitted, time: .shortened))"
+                    "Chose “\(label)” on the reply of \(Format.moment(UiFormat.moment(milliseconds: origin["sourceAt"]?.numberValue ?? 0)))"
             )
             : String(localized: "Chose “\(label)”")
         Group {

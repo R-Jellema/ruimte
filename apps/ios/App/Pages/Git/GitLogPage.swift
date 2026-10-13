@@ -153,10 +153,6 @@ struct GitLogPage: View {
 func gitRelativeTime(_ at: Double, now: Date = Date()) -> String {
     let date = Date(timeIntervalSince1970: at)
     let seconds = max(0, now.timeIntervalSince(date))
-    if seconds < 7 * 24 * 3600 {
-        let style = RelativeDateTimeFormatter()
-        style.unitsStyle = .abbreviated
-        return style.localizedString(for: date, relativeTo: now)
-    }
-    return date.formatted(.dateTime.day().month(.abbreviated))
+    if seconds < 7 * 24 * 3600 { return Format.ago(milliseconds: seconds * 1000) }
+    return Format.day(date)
 }

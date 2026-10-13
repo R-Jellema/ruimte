@@ -315,7 +315,7 @@ struct MachineLimitRow: View {
         HStack(spacing: 8) {
             Text(usageProviderName(line.kind)).frame(width: 52, alignment: .leading)
             ShareBar(fraction: line.used, color: close ? MobileStyle.statusNeedsYou : MobileStyle.text)
-            Text(line.used.formatted(.percent.precision(.fractionLength(0))))
+            Text(Format.percent((line.used * 100).rounded()))
                 .foregroundStyle(close ? MobileStyle.statusNeedsYou : MobileStyle.muted)
                 .frame(width: 40, alignment: .trailing)
         }
@@ -323,7 +323,7 @@ struct MachineLimitRow: View {
         .monospacedDigit()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(usageProviderName(line.kind)), \(line.label)")
-        .accessibilityValue(line.used.formatted(.percent.precision(.fractionLength(0))))
+        .accessibilityValue(Format.percent((line.used * 100).rounded()))
     }
 }
 

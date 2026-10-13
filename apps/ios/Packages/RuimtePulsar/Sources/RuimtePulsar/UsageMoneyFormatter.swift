@@ -37,7 +37,8 @@ public struct UsageMoneyFormatter: Sendable {
     public func string(usd: Double) -> String { string(amount: amount(usd: usd)) }
 
     public func string(amount: Double) -> String {
-        let digits = amount != 0 && abs(amount) < 0.01 ? 2...4 : 2...2
-        return amount.formatted(.currency(code: currencyCode).locale(locale).precision(.fractionLength(digits)))
+        Format.money(
+            amount, currency: currencyCode, maximumFractionDigits: amount != 0 && abs(amount) < 0.01 ? 4 : 2,
+            in: FormatLocale(region: locale, language: locale))
     }
 }

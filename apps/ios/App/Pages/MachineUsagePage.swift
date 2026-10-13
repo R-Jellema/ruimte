@@ -117,7 +117,7 @@ struct MachineUsagePage: View {
                 Text(format(value(report.total)))
                     .font(.largeTitle.weight(.bold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
                 Text(
-                    "\(Int(report.sessions).formatted()) sessions · \(Int(report.total.tokens.calls).formatted()) calls · at API rates"
+                    "\(Format.number(report.sessions)) sessions · \(Format.number(report.total.tokens.calls)) calls · at API rates"
                 )
                 .font(.caption).foregroundStyle(MobileStyle.muted)
             }
@@ -183,7 +183,7 @@ struct MachineUsagePage: View {
 
     private func slotDetail(_ slot: UsageReport.Slot, report: UsageReport) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(report.hourly ? slot.date.formatted(date: .omitted, time: .shortened) : slot.date.formatted(.dateTime.weekday(.wide).day().month()))
+            Text(report.hourly ? Format.clock(slot.date) : Format.weekdayDay(slot.date))
                 .font(.caption.weight(.semibold))
             ForEach(report.stacked, id: \.self) { provider in
                 HStack(spacing: 4) {
@@ -253,9 +253,9 @@ struct MachineUsagePage: View {
     private func breakdownRow(_ row: UsageReport.Row, report: UsageReport, top: Double) -> some View {
         let amount = metric == .tokens ? UsageReport.tokens(row.tokens) : row.costUsd.map { money.string(usd: $0) } ?? String(localized: "No price")
         let share = report.share(row, metric: metric)
-        let title = breakdown == .day ? (UsageReport.date(row.title)?.formatted(.dateTime.weekday(.abbreviated).day().month()) ?? row.title) : row.title
-        var detail = breakdown == .projects ? row.detail : String(localized: "\(Int(row.calls).formatted()) calls")
-        if let share { detail += " · \(share.formatted(.percent.precision(.fractionLength(0))))" }
+        let title = breakdown == .day ? (UsageReport.date(row.title).map { Format.weekdayDay($0) } ?? row.title) : row.title
+        var detail = breakdown == .projects ? row.detail : String(localized: "\(Format.number(row.calls)) calls")
+        if let share { detail += " · \(Format.percent((share * 100).rounded()))" }
         return VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 8) {
                 if let provider = row.provider {
@@ -330,12 +330,12 @@ struct MachineUsagePage: View {
             let scanned = Date(timeIntervalSince1970: (scan?.number("at") ?? 0) / 1000)
             let files = Int(scan?.number("files") ?? 0)
             let prices = summary["pricing"]?["fetchedAt"]?.numberValue.map {
-                String(localized: "Prices from LiteLLM, \(Date(timeIntervalSince1970: $0 / 1000).formatted(.dateTime.day().month()))")
+                String(localized: "Prices from LiteLLM, \(Format.day(Date(timeIntervalSince1970: $0 / 1000)))")
             } ?? String(localized: "Bundled prices")
             let rate =
                 money.currencyCode == "EUR"
                 ? money.rateDate.flatMap { UsageReport.date($0) }.map {
-                    String(localized: " · EUR at the ECB rate of \($0.formatted(.dateTime.day().month()))", comment: "Appended to the usage provenance line; %@ is a date")
+                    String(localized: " · EUR at the ECB rate of \(Format.day($0))", comment: "Appended to the usage provenance line; %@ is a date")
                 } ?? "" : ""
             VStack(spacing: 6) {
                 if scan?["failed"]?.boolValue == true {
@@ -345,7 +345,7 @@ struct MachineUsagePage: View {
                     Text(explanation)
                 }
                 Text(
-                    "Scanned \(scanned.formatted(date: .omitted, time: .shortened)), \(files.formatted()) files · \(prices)\(rate)",
+                    "Scanned \(Format.clock(scanned)), \(Format.number(Double(files))) files · \(prices)\(rate)",
                     comment: "A time, a file count, where the prices came from, then an optional currency note"
                 )
             }
@@ -397,9 +397,9 @@ struct LimitBar: View {
                 Spacer()
                 Group {
                     if let resetsAt {
-                        Text("\(used.formatted(.percent.precision(.fractionLength(0)))) · resets \(LimitBar.reset(resetsAt))")
+                        Text("\(Format.percent((used * 100).rounded())) · resets \(LimitBar.reset(resetsAt))")
                     } else {
-                        Text(used.formatted(.percent.precision(.fractionLength(0))))
+                        Text(Format.percent((used * 100).rounded()))
                     }
                 }
                 .foregroundStyle(close ? MobileStyle.statusNeedsYou : MobileStyle.muted)
@@ -411,11 +411,9 @@ struct LimitBar: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// A reset today is a time, one within the week a weekday, anything later a date.
+    /// A reset today is a time, any later one carries its weekday, as the desktop's limits list writes it.
     static func reset(_ date: Date, now: Date = Date()) -> String {
-        if Calendar.current.isDate(date, inSameDayAs: now) { return date.formatted(date: .omitted, time: .shortened) }
-        if date.timeIntervalSince(now) < 6 * 86_400 { return date.formatted(.dateTime.weekday(.abbreviated)) }
-        return date.formatted(.dateTime.day().month())
+        Format.isSameDay(date, now) ? Format.clock(date) : Format.weekdayClock(date)
     }
 }
 

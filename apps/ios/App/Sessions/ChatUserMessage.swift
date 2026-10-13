@@ -173,7 +173,7 @@ struct ChatCompactionRule: View {
         HStack(spacing: 12) {
             dash
             Text(
-                preTokens.map { String(localized: "Context compacted from \(Int($0).formatted()) tokens") }
+                preTokens.map { String(localized: "Context compacted from \(Format.number($0)) tokens") }
                     ?? String(localized: "Context compacted")
             )
             .font(.caption).foregroundStyle(MobileStyle.faint).lineLimit(1).layoutPriority(1)

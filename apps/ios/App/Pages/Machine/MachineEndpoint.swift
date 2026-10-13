@@ -443,7 +443,7 @@ enum MachineReach {
         }
         if connecting { return String(localized: "Connecting") }
         if let lastSeen {
-            let relative = lastSeen.formatted(.relative(presentation: .named, unitsStyle: .wide))
+            let relative = Format.ago(milliseconds: Date.now.timeIntervalSince(lastSeen) * 1000)
             return String(localized: "Last connected \(relative)", comment: "%@ is a relative time, like 5 minutes ago")
         }
         return problem ?? String(localized: "Not connected")

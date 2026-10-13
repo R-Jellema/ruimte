@@ -25,7 +25,7 @@ struct UiBlockFooter: View {
                             Text("Answered with “\(answered)”")
                             if let at = model.answer?["at"]?.numberValue {
                                 Text(verbatim: "·").accessibilityHidden(true)
-                                Text(UiFormat.moment(milliseconds: at), format: .dateTime.hour().minute())
+                                Text(Format.moment(UiFormat.moment(milliseconds: at)))
                             }
                         }
                         .accessibilityElement(children: .combine)
@@ -115,9 +115,8 @@ private struct UiLivePart: View {
                 Text(words)
                 if let readAt = live.readAt, live.state != .refused {
                     Text(verbatim: "·").accessibilityHidden(true)
-                    TimelineView(.periodic(from: .now, by: 1)) { _ in
-                        let ago = readAt.formatted(
-                            .relative(presentation: .numeric, unitsStyle: .abbreviated).locale(.current))
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        let ago = Format.ago(milliseconds: context.date.timeIntervalSince(readAt) * 1000)
                         Text(live.state == .fresh || live.state == .reading ? String(localized: "read \(ago)") : ago)
                             .monospacedDigit()
                     }

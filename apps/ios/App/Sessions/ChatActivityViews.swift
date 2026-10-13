@@ -44,11 +44,8 @@ struct ChatElapsed: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: 1, paused: !visible || scenePhase != .active)) { context in
             let elapsed = max(0, context.date.timeIntervalSince1970 * 1000 - startedAt)
-            let seconds = Int(elapsed / 1000)
-            Text(
-                clock ? String(format: "%02d:%02d", seconds / 60, seconds % 60) : ChatToolPresentation.elapsed(elapsed)
-            )
-            .monospacedDigit()
+            Text(clock ? Format.clockDuration(milliseconds: elapsed) : ChatToolPresentation.elapsed(elapsed))
+                .monospacedDigit()
         }
         .onAppear { visible = true }
         .onDisappear { visible = false }

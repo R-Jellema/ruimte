@@ -205,7 +205,7 @@ struct FileContentPage: View {
                         RemotePageStatus(state: state) { Task { await load() } }
                         FilePDFView(document: pdf, page: $pdfPage)
                         FileFooter(items: [
-                            String(localized: "Page \(pdfPage.formatted()) of \(pdf.pageCount.formatted())"),
+                            String(localized: "Page \(Format.number(Double(pdfPage))) of \(Format.number(Double(pdf.pageCount)))"),
                             mobileByteCount(value["size"]?.numberValue), value.text("mime"),
                         ])
                     }

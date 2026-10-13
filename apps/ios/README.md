@@ -35,6 +35,11 @@ The app follows the desktop wherever a phone can. These are the places where it 
 - Git conflicts are worked out in the app and never through markers. The stretch logic is a Swift port of
   `@adecore/merge` that splits and fingerprints as the daemon does, so a resolution written over the digest it was
   read at lines up with the machine. A merge into a branch that is checked out nowhere is refused on purpose.
+- Every number, date, time and duration a person reads is written by `Format` in `RuimtePulsar`, a port of
+  `@adecore/ui/format` whose tests repeat the desktop's cases. The region iOS is set to writes the notation and the
+  language the app runs in writes the words.
+- The hot paths read the wire as generated types: chat events and attach results, `session.status` and `git.status`
+  decode with `JSONValue.decoded(as:)` after the frame was validated. The chat rows still read their item by key.
 - Usage counts in the region's currency until a person picks one: euros in a EUR region at the ECB rate the
   machine supplies, dollars elsewhere. Missing rates keep dollars and say so.
 - Widgets never connect. The app writes what a connected machine reports into the app group

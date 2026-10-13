@@ -184,7 +184,7 @@ struct UiTableView: View {
         case .empty: Text(verbatim: "")
         case .text(let text): Text(text)
         case .number: Text(Self.spoken(cell, column: column)).monospacedDigit()
-        case .date(let at): Text(UiFormat.moment(milliseconds: at), format: .dateTime.day().month().hour().minute())
+        case .date(let at): Text(Format.moment(UiFormat.moment(milliseconds: at)))
         // A path in a cell has no node the daemon can resolve, so it never opens and stays text.
         case .file(let path):
             Text(path).font(.system(.footnote, design: .monospaced)).foregroundStyle(MobileStyle.muted)
@@ -198,11 +198,11 @@ struct UiTableView: View {
         case .text(let text), .file(let text), .tag(let text): text
         case .number(let value, let kind):
             switch kind {
-            case .bytes: mobileByteCount(value)
+            case .bytes: Format.bytes(value)
             case .duration: UiFormat.duration(milliseconds: value)
             default: UiFormat.withUnit(UiFormat.number(value), column.unit)
             }
-        case .date(let at): UiFormat.moment(milliseconds: at).formatted(date: .abbreviated, time: .shortened)
+        case .date(let at): Format.moment(UiFormat.moment(milliseconds: at))
         }
     }
 }

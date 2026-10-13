@@ -31,12 +31,9 @@ enum ChatLimits {
     }
 
     /// A time today as a clock, any other with its day.
-    static func moment(_ milliseconds: Double, now: Date = .now, calendar: Calendar = .current) -> String {
+    static func moment(_ milliseconds: Double, now: Date = .now) -> String {
         let date = Date(timeIntervalSince1970: milliseconds / 1000)
-        if calendar.isDate(date, inSameDayAs: now) {
-            return date.formatted(date: .omitted, time: .shortened)
-        }
-        return date.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+        return Format.isSameDay(date, now) ? Format.clock(date) : Format.weekdayClock(date)
     }
 
     /// With a choice of accounts the line names the one that ran into the limit.

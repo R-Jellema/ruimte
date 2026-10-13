@@ -292,14 +292,7 @@ enum LaunchLogic {
     /// What a row says after the name: how long it runs and where, or how it ended. `now` is in milliseconds.
     /// The line under a launch's command in the list: its state, and the port it holds or when it ended.
     static func stateLine(_ view: LaunchView, now: Double) -> String {
-        let ago: (Double) -> String = { ended in
-            let formatter = RelativeDateTimeFormatter()
-            formatter.unitsStyle = .full
-            return now - ended < 60_000
-                ? String(localized: "just now")
-                : formatter.localizedString(
-                    for: Date(timeIntervalSince1970: ended / 1000), relativeTo: Date(timeIntervalSince1970: now / 1000))
-        }
+        let ago = { (ended: Double) in Format.ago(milliseconds: now - ended) }
         switch view.phase {
         case .held: return String(localized: "Needs approval")
         case .starting: return String(localized: "Starting…")

@@ -171,7 +171,7 @@ final class ProjectSettingsTests: XCTestCase {
         XCTAssertNil(MachineLost.lastConnected(nil, now: now))
         XCTAssertEqual(MachineLost.lastConnected(now.addingTimeInterval(-20), now: now), "Last connected just now")
         XCTAssertEqual(
-            MachineLost.lastConnected(now.addingTimeInterval(-240), now: now), "Last connected 4 minutes ago")
+            MachineLost.lastConnected(now.addingTimeInterval(-240), now: now), "Last connected 4m ago")
     }
 }
 
@@ -193,9 +193,9 @@ final class LaunchListTests: XCTestCase {
         let now = 600_000.0
         XCTAssertEqual(LaunchLogic.stateLine(view(.running, port: 5173), now: now), "Running · :5173")
         XCTAssertEqual(LaunchLogic.stateLine(view(.held), now: now), "Needs approval")
-        XCTAssertEqual(LaunchLogic.stateLine(view(.passed, ended: 480_000), now: now), "Passed 2 minutes ago")
+        XCTAssertEqual(LaunchLogic.stateLine(view(.passed, ended: 480_000), now: now), "Passed 2m ago")
         XCTAssertEqual(LaunchLogic.stateLine(view(.failed, ended: 590_000, exit: 1), now: now), "Failed · exit 1")
-        XCTAssertEqual(LaunchLogic.stateLine(view(.idle, ended: 590_000), now: now), "Stopped just now")
+        XCTAssertEqual(LaunchLogic.stateLine(view(.idle, ended: 590_000), now: now), "Stopped now")
     }
 
     func testFoundRowsCountPerFile() {

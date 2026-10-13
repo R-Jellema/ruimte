@@ -1,9 +1,10 @@
+import RuimtePulsar
 import XCTest
 
 @testable import Ruimte
 
 final class MobileByteCountTests: XCTestCase {
-    private let english = Locale(identifier: "en_US")
+    private let english = FormatLocale(region: Locale(identifier: "en_US"), language: Locale(identifier: "en"))
 
     func testASizeIsDividedByTheSameKilobyteAsTheDesktop() {
         XCTAssertEqual(mobileByteCount(0, locale: english), "0 B")

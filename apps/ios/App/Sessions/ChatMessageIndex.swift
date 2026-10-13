@@ -1,3 +1,4 @@
+import RuimtePulsar
 import SwiftUI
 import UIKit
 
@@ -85,7 +86,7 @@ struct ChatMessageIndex: View {
                     Text(mark.text.isEmpty ? String(localized: "Message") : mark.text)
                         .lineLimit(3)
                         .foregroundStyle(mark.kind == .wake ? MobileStyle.muted : MobileStyle.text)
-                    Text(Date(timeIntervalSince1970: mark.createdAt / 1000), format: .dateTime.hour().minute())
+                    Text(Format.clock(Date(timeIntervalSince1970: mark.createdAt / 1000)))
                         .font(.caption).foregroundStyle(MobileStyle.muted).monospacedDigit()
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

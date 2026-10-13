@@ -291,10 +291,7 @@ struct UsageWidgetView: View {
     }
 
     private func updated(_ date: Date) -> String {
-        if Calendar.current.isDate(date, inSameDayAs: entry.date) {
-            return date.formatted(date: .omitted, time: .shortened)
-        }
-        return date.formatted(.dateTime.day().month(.abbreviated))
+        Format.isSameDay(date, entry.date) ? Format.clock(date) : Format.day(date)
     }
 
     private func rows(_ snapshot: UsageWidgetSnapshot, kind: String, limit: Int) -> [UsageWidgetRow] {
@@ -303,7 +300,7 @@ struct UsageWidgetView: View {
 }
 
 private func usagePercent(_ used: Double) -> Text {
-    Text(used, format: .percent.precision(.fractionLength(0)))
+    Text(Format.percent((used * 100).rounded()))
 }
 
 private struct UsageBarRow: View {

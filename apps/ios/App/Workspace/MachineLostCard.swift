@@ -15,10 +15,8 @@ enum MachineLost {
     static func lastConnected(_ moment: Date?, now: Date) -> String? {
         guard let moment else { return nil }
         if now.timeIntervalSince(moment) < 60 { return String(localized: "Last connected just now") }
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .full
-        let relative = formatter.localizedString(for: moment, relativeTo: now)
-        return String(localized: "Last connected \(relative)", comment: "%@ is a relative time, such as 4 minutes ago")
+        let relative = Format.ago(milliseconds: now.timeIntervalSince(moment) * 1000)
+        return String(localized: "Last connected \(relative)", comment: "%@ is a relative time, such as 4m ago")
     }
 }
 

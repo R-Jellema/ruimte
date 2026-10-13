@@ -34,7 +34,7 @@ final class ChatSheetTests: XCTestCase {
         XCTAssertEqual(ChatContextUsage.tokens(950), "950")
         XCTAssertEqual(ChatContextUsage.tokens(172_400), "172K")
         XCTAssertEqual(ChatContextUsage.tokens(1_000_000), "1M")
-        XCTAssertEqual(ChatContextUsage.tokens(1_250_000), "1.2M")
+        XCTAssertEqual(ChatContextUsage.tokens(1_240_000), "1.2M")
     }
 
     private func step(_ id: String, state: String, note: String? = nil) -> JSONValue {

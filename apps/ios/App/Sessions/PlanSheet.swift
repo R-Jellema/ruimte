@@ -662,8 +662,7 @@ private struct PlanStepRow: View {
 
     private var time: String? {
         guard let at = step.at, let date = PlanMarkdown.date(at) else { return nil }
-        return Calendar.current.isDateInToday(date)
-            ? date.formatted(date: .omitted, time: .shortened) : date.formatted(date: .abbreviated, time: .shortened)
+        return Format.moment(date)
     }
 
     private var accessibilityValue: String {

@@ -209,11 +209,8 @@ struct ChatBookmarkList: View {
                     Text(bookmark.label).lineLimit(3)
                         .foregroundStyle(bookmark.name == nil ? MobileStyle.muted : MobileStyle.text)
                     if bookmark.createdAt > 0 {
-                        Text(
-                            Date(timeIntervalSince1970: bookmark.createdAt / 1000),
-                            format: .dateTime.day().month().hour().minute()
-                        )
-                        .font(.caption).foregroundStyle(MobileStyle.muted).monospacedDigit()
+                        Text(Format.dayClock(Date(timeIntervalSince1970: bookmark.createdAt / 1000)))
+                            .font(.caption).foregroundStyle(MobileStyle.muted).monospacedDigit()
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

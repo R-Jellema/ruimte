@@ -94,15 +94,7 @@ struct ChatContextUsage: Equatable {
     }
 
     /// "950", "172K", "1M" or "1.2M".
-    static func tokens(_ value: Double) -> String {
-        if value < 1000 { return "\(Int(value))" }
-        if value < 1_000_000 {
-            return String(
-                localized: "\(Int((value / 1000).rounded()))K", comment: "Token count in thousands, abbreviated")
-        }
-        let millions = (value / 1_000_000).formatted(.number.precision(.fractionLength(0...1)))
-        return String(localized: "\(millions)M", comment: "Token count in millions, abbreviated")
-    }
+    static func tokens(_ value: Double) -> String { Format.tokens(value) }
 }
 
 /// Everything that decides how the next turn runs: the account the chat runs on, its context with the breakdown and

@@ -236,8 +236,7 @@ enum ProcessesText {
 
     static func percent(_ value: Double?) -> String {
         guard let value else { return unreadable }
-        let digits = value < 10 ? 1 : 0
-        return value.formatted(.number.precision(.fractionLength(0...digits)).locale(Locale(identifier: "en_US"))) + "%"
+        return Format.percent(value)
     }
 
     static func bytes(_ value: Double?) -> String {
@@ -255,19 +254,7 @@ enum ProcessesText {
         read == nil && write == nil ? nil : (read ?? 0) + (write ?? 0)
     }
 
-    static func duration(_ milliseconds: Double) -> String {
-        let seconds = max(0, Int(milliseconds / 1000))
-        if seconds < 60 { return String(localized: "\(seconds)s", comment: "Duration in seconds, abbreviated") }
-        let minutes = seconds / 60
-        if minutes < 60 {
-            return seconds % 60 == 0
-                ? String(localized: "\(minutes)m", comment: "Duration in minutes, abbreviated")
-                : String(localized: "\(minutes)m \(seconds % 60)s", comment: "Duration, minutes and seconds, abbreviated")
-        }
-        return minutes % 60 == 0
-            ? String(localized: "\(minutes / 60)h", comment: "Duration in hours, abbreviated")
-            : String(localized: "\(minutes / 60)h \(minutes % 60)m", comment: "Duration, hours and minutes, abbreviated")
-    }
+    static func duration(_ milliseconds: Double) -> String { Format.elapsedShort(milliseconds: milliseconds) }
 
     static func agentName(_ kind: String) -> String {
         switch kind {

@@ -98,7 +98,8 @@ struct ChatComposerAccessory: View {
                 .font(.caption).foregroundStyle(MobileStyle.muted).padding(.horizontal, 8)
             }
             if model.draft.utf16.count >= 100_000 {
-                Text("\(model.draft.utf16.count.formatted()) / \(120_000.formatted())").font(.caption).monospacedDigit()
+                Text("\(Format.number(Double(model.draft.utf16.count))) / \(Format.number(120_000))").font(.caption)
+                    .monospacedDigit()
                     .foregroundStyle(MobileStyle.muted).frame(maxWidth: .infinity, alignment: .trailing)
             }
         }

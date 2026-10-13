@@ -446,16 +446,7 @@ enum ChatToolPresentation {
         }
     }
 
-    static func elapsed(_ milliseconds: Double) -> String {
-        let seconds = max(0, Int(milliseconds / 1000))
-        if seconds < 60 {
-            return String(localized: "\(seconds)s", comment: "Duration in seconds, abbreviated")
-        }
-        let rest = seconds % 60
-        return rest == 0
-            ? String(localized: "\(seconds / 60)m", comment: "Duration in minutes, abbreviated")
-            : String(localized: "\(seconds / 60)m \(rest)s", comment: "Duration in minutes and seconds, abbreviated")
-    }
+    static func elapsed(_ milliseconds: Double) -> String { Format.elapsedShort(milliseconds: milliseconds) }
 
     static func tail(_ item: JSONValue) -> String {
         let output = item["progress"]?.text("output") ?? ""

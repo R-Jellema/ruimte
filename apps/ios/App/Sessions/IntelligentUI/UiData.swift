@@ -3,9 +3,7 @@ import RuimtePulsar
 
 /// Numbers as a block shows them. A tone, never the renderer, says whether a change is good.
 enum UiFormat {
-    static func number(_ value: Double, locale: Locale = .current) -> String {
-        value.formatted(.number.precision(.fractionLength(0...2)).locale(locale))
-    }
+    static func number(_ value: Double) -> String { Format.rounded(value, decimals: 2) }
 
     /// A percent sign hugs the number; every other unit stands apart from it.
     static func withUnit(_ text: String, _ unit: String?) -> String {
@@ -14,18 +12,9 @@ enum UiFormat {
     }
 
     /// `value` in percent, so 25 reads as 25%.
-    static func percent(_ value: Double, locale: Locale = .current) -> String {
-        (value / 100).formatted(.percent.precision(.fractionLength(0...1)).locale(locale))
-    }
+    static func percent(_ value: Double) -> String { Format.percent(value) }
 
-    static func duration(milliseconds: Double, locale: Locale = .current) -> String {
-        let duration = Duration.milliseconds(Int64(max(0, min(milliseconds, 1e15)).rounded()))
-        let allowed: Set<Duration.UnitsFormatStyle.Unit> =
-            milliseconds < 1000 ? [.milliseconds] : [.hours, .minutes, .seconds]
-        return duration.formatted(
-            .units(allowed: allowed, width: .abbreviated, maximumUnitCount: 2, fractionalPart: .hide)
-                .locale(locale))
-    }
+    static func duration(milliseconds: Double) -> String { Format.duration(milliseconds: milliseconds) }
 
     static func moment(milliseconds: Double) -> Date { Date(timeIntervalSince1970: milliseconds / 1000) }
 
