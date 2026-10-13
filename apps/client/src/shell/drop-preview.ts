@@ -1,4 +1,4 @@
-import { sameDropPreview, type DropPreviewShape } from '@/shell/tab-drop';
+import { sameDropPreview, type DropPreviewShape } from '@adecore/ui';
 
 /*
  * The one preview of where a dragged view would land, for the whole grid. A cell says where the

@@ -27,21 +27,23 @@ import {
     type CellAt,
     type SplitZone
 } from '@/shell/split';
-import {
-    clampTabLeft,
-    DEFAULT_TAB_WIDTH,
-    gapAt,
-    gapLeft,
-    positionAfterLifting,
-    rectPreview,
-    tabPreview,
-    type PreviewRect,
-    type TabDrop
-} from '@/shell/tab-drop';
+import { clampTabLeft, DEFAULT_TAB_WIDTH, gapLeft, positionAfterLifting } from '@/shell/tab-drop';
 import { hideDropPreview, showDropPreview } from '@/shell/drop-preview';
 import type { SplitCell } from '@ruimte/contracts';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
-import { Button, Kbd, SplitView, Surface, Tooltip, type SplitCommand } from '@adecore/ui';
+import {
+    Button,
+    Kbd,
+    rectDropPreview,
+    SplitView,
+    Surface,
+    tabDropPreview,
+    tabGapAt,
+    Tooltip,
+    type SplitCommand,
+    type SplitRect,
+    type TabDrop
+} from '@adecore/ui';
 import {
     carriesView,
     draggedViewId,
@@ -73,7 +75,7 @@ function takesDrop(target: EventTarget | null): string | null {
 }
 
 /* The box of an element in the grid's coordinates, which the drop preview is drawn in. */
-function boxInGrid(element: Element, grid: DOMRect): PreviewRect {
+function boxInGrid(element: Element, grid: DOMRect): SplitRect {
     const box = element.getBoundingClientRect();
     return { x: Math.round(box.left - grid.left), y: Math.round(box.top - grid.top), width: Math.round(box.width), height: Math.round(box.height) };
 }
@@ -97,12 +99,12 @@ function previewZone(cell: HTMLElement, zone: SplitZone, filling: boolean): void
         filling || boxes.length === 0
             ? { x: 0, y: 0, width: Math.round(grid.width), height: Math.round(grid.height) }
             : { x: Math.min(...boxes.map((box) => box.x)), y: 0, width: boxes[0]!.width, height: Math.round(grid.height) };
-    showDropPreview(rectPreview(shapeRect(shapeOf(zone), column, boxInGrid(cell, grid))));
+    showDropPreview(rectDropPreview(shapeRect(shapeOf(zone), column, boxInGrid(cell, grid))));
 }
 
 function previewTab(cell: HTMLElement, drop: TabDrop): void {
     const grid = cell.closest('[data-split-grid]')!.getBoundingClientRect();
-    showDropPreview(tabPreview(drop, boxInGrid(cell, grid)));
+    showDropPreview(tabDropPreview(drop, boxInGrid(cell, grid)));
 }
 
 /* The gap between a cell's title and the tab that would stand after it, the same as the bar's own spacing. */
@@ -177,7 +179,7 @@ function Cell({
         }
         const bar = (event.target as HTMLElement).closest('[data-cell-bar]')!;
         const rects = [...bar.querySelectorAll('[data-tab-id]')].map((tab) => tab.getBoundingClientRect());
-        const gap = gapAt(rects, event.clientX);
+        const gap = tabGapAt(rects, event.clientX);
         const barBox = bar.getBoundingClientRect();
         const strip = bar.querySelector('[data-tab-strip]');
         const bounds = strip === null ? barBox : strip.getBoundingClientRect();

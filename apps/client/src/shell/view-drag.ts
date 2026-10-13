@@ -1,5 +1,5 @@
 import type { CellAt, SplitZone } from '@/shell/split';
-import type { PreviewRect } from '@/shell/tab-drop';
+import type { SplitRect } from '@adecore/ui';
 
 /*
  * What a dragged view carries. A sidebar row and a grid cell are the same gesture with two targets and
@@ -180,7 +180,7 @@ export function shapeOf(zone: SplitZone): DropShape {
  * and of the cell itself. The edges are rounded and not the sizes, so two rectangles that share an
  * edge keep sharing it and the outline stays on whole pixels.
  */
-export function shapeRect(shape: DropShape, column: PreviewRect, cell: PreviewRect): PreviewRect {
+export function shapeRect(shape: DropShape, column: SplitRect, cell: SplitRect): SplitRect {
     const left = Math.round(column.x + shape.x * column.width);
     const right = Math.round(column.x + (shape.x + shape.width) * column.width);
     const top = Math.round(shape.column ? column.y : cell.y + shape.y * cell.height);
