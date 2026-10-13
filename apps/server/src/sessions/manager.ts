@@ -536,7 +536,7 @@ export class SessionManager {
         }
         for (const [sessionId, owner] of [...this.clientSessions]) {
             if (owner.clientId === clientId) {
-                void this.kill(sessionId).catch(() => undefined);
+                void this.kill(sessionId).catch((e: unknown) => console.warn(`Ending ${sessionId} of a client that left failed:`, errorText(e)));
             }
         }
         if (changed) {

@@ -1,0 +1,13 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  // An unhandled rejection ends the daemon and every PTY under it, so a promise in it is awaited, caught or marked with `void`.
+  // Only this rule: the root config holds the rest, and `--type-aware` would otherwise turn on every type-aware rule as well.
+  "plugins": ["typescript"],
+  "categories": {
+    "correctness": "off"
+  },
+  "rules": {
+    "typescript/no-floating-promises": "error"
+  },
+  "ignorePatterns": ["**/*.test.ts"]
+}

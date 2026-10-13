@@ -74,8 +74,9 @@ export async function runDeviceHelper(deviceId: string, runtime?: DeviceHelperRu
         runtime?.write ??
         ((bytes: Uint8Array) => {
             if (protocolSink) {
-                protocolSink.write(bytes);
-                protocolSink.flush();
+                // A pipe the daemon closed rejects, and the helper ends on it as it should once the daemon went.
+                void protocolSink.write(bytes);
+                void protocolSink.flush();
             } else {
                 process.stdout.write(bytes);
             }
@@ -134,7 +135,7 @@ export async function runDeviceHelper(deviceId: string, runtime?: DeviceHelperRu
     } finally {
         await unsubscribe?.();
         await capture?.stop();
-        protocolSink?.end();
+        await protocolSink?.end();
     }
 }
 

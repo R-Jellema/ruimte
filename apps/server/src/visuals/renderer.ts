@@ -104,7 +104,7 @@ export function childLauncher(command: readonly string[], env: Record<string, st
             }
             child = Bun.spawn([...command], { env, stdin: 'pipe', stdout: 'pipe', stderr: 'ignore', detached: true });
             // Stdin stays open: its end is how the child learns the daemon went.
-            child.stdin.write(`${JSON.stringify({ ...job, profile, budgetMs } satisfies RenderRequest)}\n`);
+            await child.stdin.write(`${JSON.stringify({ ...job, profile, budgetMs } satisfies RenderRequest)}\n`);
             await child.stdin.flush();
             return parseAnswer(await new Response(child.stdout).text());
         })();

@@ -410,7 +410,7 @@ export async function bootTestDaemon({
             await chats.shutdown();
             sessions.killAll();
             for (const info of chats.list()) {
-                chats.get(info.chatId)?.dispose();
+                await chats.get(info.chatId)?.dispose();
             }
         }
     };

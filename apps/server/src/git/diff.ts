@@ -356,6 +356,7 @@ export async function diffCheckout(cwd: string, from: string | null): Promise<Gi
         const index = join(scratch, 'index');
         const own = (await git(['rev-parse', '--git-path', 'index'], top))?.trim();
         if (own) {
+            // A checkout without an index yet starts from an empty one, and git then hashes every file.
             await copyFile(isAbsolute(own) ? own : join(top, own), index).catch(() => undefined);
         }
         const env = { GIT_INDEX_FILE: index };

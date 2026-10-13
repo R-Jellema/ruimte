@@ -58,7 +58,9 @@ export async function makeWorktrees(
     const worktrees: Worktree[] = [];
     const undo = async (): Promise<void> => {
         for (const worktree of made) {
-            await call.host.removeWorktree(folder, worktree.path).catch(() => undefined);
+            await call.host
+                .removeWorktree(folder, worktree.path)
+                .catch((e: unknown) => console.warn(`Taking back the worktree ${worktree.path} failed:`, errorText(e)));
         }
     };
     for (const want of wants) {

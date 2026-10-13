@@ -1324,7 +1324,7 @@ export class ProjectStore {
     private publish(entry: RegistryEntry): void {
         void this.summarize(entry)
             .then((summary) => this.sinks.emit({ event: 'project.summary', payload: { summary } }))
-            .catch(() => undefined);
+            .catch((e: unknown) => console.warn(`Summing up project ${entry.projectId} failed:`, errorText(e)));
     }
 
     /*

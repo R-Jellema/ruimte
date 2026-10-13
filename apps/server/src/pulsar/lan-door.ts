@@ -224,7 +224,7 @@ export class LanDoor {
     }
 
     stop(): void {
-        this.server?.stop(true);
+        void this.server?.stop(true);
         this.server = null;
     }
 

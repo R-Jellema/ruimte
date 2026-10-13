@@ -20,7 +20,7 @@
     "check": "bun run check:types && bun run check:generated && bun run lint && bun run format:check",
     "check:types": "tsc -p tsconfig.scripts.json && bun run --filter '*' typecheck",
     "check:generated": "bun run --cwd packages/contracts check:swift",
-    "lint": "oxlint --deny-warnings && bun scripts/check-client-conventions.ts",
+    "lint": "oxlint --deny-warnings && oxlint --type-aware --deny-warnings -c apps/server/oxlint.promises.json apps/server/src && bun scripts/check-client-conventions.ts",
     "test": "bun test --conditions=source --parallel --only-failures --timings=test-timings.json",
     "test:timings": "bun run test --update-timings",
     "test:integration": "bun scripts/test-integration.ts",
@@ -37,6 +37,7 @@
     "@types/bun": "^1.4.2",
     "oxfmt": "^0.70.0",
     "oxlint": "^1.85.0",
+    "oxlint-tsgolint": "^7.0.2004",
     "typescript": "^7.0.2",
     "oxc-parser": "^0.151.0"
   },

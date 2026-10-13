@@ -57,11 +57,8 @@ async function defaultRunner(arguments_: string[], stdin?: string): Promise<Comm
         stderr: 'pipe',
         env: stdin === undefined ? undefined : { ...Bun.env, LC_ALL: 'en_US.UTF-8' }
     });
-    if (stdin !== undefined && process.stdin) {
-        process.stdin.write(stdin);
-        process.stdin.end();
-    }
-    const [exitCode, stdout, stderr] = await Promise.all([process.exited, new Response(process.stdout).text(), new Response(process.stderr).text()]);
+    const fed = stdin !== undefined && process.stdin ? Promise.all([process.stdin.write(stdin), process.stdin.end()]) : null;
+    const [exitCode, stdout, stderr] = await Promise.all([process.exited, new Response(process.stdout).text(), new Response(process.stderr).text(), fed]);
     return { exitCode, stdout, stderr };
 }
 

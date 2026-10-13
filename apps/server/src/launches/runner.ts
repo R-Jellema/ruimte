@@ -253,7 +253,9 @@ export class LaunchRunner {
         for (const run of runs) {
             this.runs.delete(run.sessionId);
             this.settle(run);
-            await this.sessions.remove(run.sessionId).catch(() => undefined);
+            await this.sessions
+                .remove(run.sessionId)
+                .catch((e: unknown) => console.warn(`Ending the launch ${run.sessionId} with its project failed:`, errorText(e)));
         }
         this.store.closeProject(projectId);
         return ended;

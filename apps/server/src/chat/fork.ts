@@ -238,7 +238,7 @@ class UndoSteps {
 
     async run(): Promise<void> {
         for (const step of this.steps.toReversed()) {
-            await step().catch(() => undefined);
+            await step().catch((e: unknown) => console.warn('Taking back a step of a fork failed:', errorText(e)));
         }
     }
 

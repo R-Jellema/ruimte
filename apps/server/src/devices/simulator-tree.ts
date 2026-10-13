@@ -52,12 +52,12 @@ export function createTreeLauncher(bridge: string): TreeLauncher | null {
             .catch(() => undefined)
             .then(async () => events.exit(await child.exited, (await stderr).slice(-4096)));
         return {
+            // A pipe the bridge closed rejects; its exit already reaches `events.exit` with what it said.
             write: (line) => {
-                child.stdin.write(line);
-                child.stdin.flush();
+                Promise.all([child.stdin.write(line), child.stdin.flush()]).catch(() => undefined);
             },
             end: () => {
-                child.stdin.end();
+                Promise.resolve(child.stdin.end()).catch(() => undefined);
             },
             kill: () => child.kill('SIGKILL')
         };

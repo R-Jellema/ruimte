@@ -1585,7 +1585,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         peers.closeAll();
         lanDoor.stop();
         await relay.stop();
-        server.stop(true);
+        void server.stop(true);
         process.exit(0);
     };
 

@@ -1,6 +1,7 @@
 import type { SecretRequest } from '@ruimte/contracts';
 import { ClientSinks } from '../client-sinks.ts';
 import type { Timers } from '../computer/approvals.ts';
+import { errorText } from '../error-text.ts';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 import { SecretRequests, type SecretAsk, type SecretChats, type SecretOutcome } from './secret-requests.ts';
 import type { SecretSlot, SecretStore } from './secret-store.ts';
@@ -85,7 +86,9 @@ export class SecretService {
             await this.launches.bindSecret(projectId, slot.launchId, slot.variable);
         } catch (e) {
             if (!existed) {
-                await this.store.remove(projectId, slot).catch(() => undefined);
+                await this.store
+                    .remove(projectId, slot)
+                    .catch((removal: unknown) => console.warn(`Taking back the secret ${slot.variable} of ${projectId} failed:`, errorText(removal)));
             }
             throw e;
         }

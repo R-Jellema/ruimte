@@ -242,7 +242,7 @@ export class WorktreeMerge {
                     throw new GitError('git-failed', merged.text || `Merging ${branch} into ${into} failed.`);
                 }
                 if (limits.abortOnConflict === true) {
-                    await this.abort(target.path).catch(() => undefined);
+                    await this.abort(target.path).catch((e: unknown) => console.warn(`Taking back the merge in ${target.path} failed:`, errorText(e)));
                     throw new GitError(
                         'merge-conflict',
                         conflicts.length > 0
