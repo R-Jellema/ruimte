@@ -25,7 +25,8 @@ import {
     snapPoint,
     textElement
 } from '@/drawing/gestures';
-import { applyCamera, clearPathCache, fitTextBox, paintElements, paintOptions } from '@/drawing/paint';
+import { fitTextBox } from '@/drawing/measure';
+import { applyCamera, clearPathCache, paintElements, paintOptions } from '@/drawing/paint';
 import { useDrawingKeys } from '@/drawing/use-drawing-keys';
 import { useDocument } from '@/state/document';
 import { nextId } from '@/state/canvas';

@@ -36,9 +36,9 @@ function fakes() {
         writePng: async () => void log.push('png'),
         save: async (_blob, name, mime) => void log.push(`save:${name.replace(/\d{4}-\d{2}-\d{2}/, 'DAY')}:${mime}`),
         drawingPng: async () => new Blob(['png']),
-        drawingSvg: () => '<svg>drawing</svg>',
+        drawingSvg: async () => '<svg>drawing</svg>',
         diagramPng: async () => new Blob(['png']),
-        diagramSvg: () => '<svg>diagram</svg>'
+        diagramSvg: async () => '<svg>diagram</svg>'
     };
     return { log, registry: createClientActionRegistry(useDocument, { content: machine }) };
 }

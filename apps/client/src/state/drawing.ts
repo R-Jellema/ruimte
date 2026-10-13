@@ -18,7 +18,7 @@ import type {
 import { cameraOfView, intersects, type Rect } from '@/canvas/math';
 import { createCameraSlice, type CameraSlice } from '@/canvas/camera-slice';
 import { boundsOfElements } from '@adecore/drawing';
-import { fitTextBox } from '@/drawing/paint';
+import { fitTextBox } from '@/drawing/measure';
 
 export type DrawingTool = 'select' | 'hand' | 'rect' | 'diamond' | 'ellipse' | 'arrow' | 'line' | 'freehand' | 'text' | 'note' | 'eraser';
 

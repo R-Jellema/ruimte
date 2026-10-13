@@ -1,16 +1,7 @@
 import type { DrawingElement, DrawingFont } from '@ruimte/contracts';
-import {
-    LINE_HEIGHT,
-    NOTE_PADDING,
-    fontOf,
-    linesOf,
-    pathsOfElement,
-    writingFrameOf,
-    type ElementPath,
-    type MeasureLine,
-    type WrittenElement
-} from '@adecore/drawing';
-import { readEdge, readFontStacks, readPaper, readPalette, type DrawingPalette } from '@/drawing/palette';
+import { LINE_HEIGHT, pathsOfElement, writingFrameOf, type ElementPath, type WrittenElement } from '@adecore/drawing';
+import { fontOfElement, linesOn } from '@/drawing/measure';
+import { readEdge, readFontStacks, readPalette, readPaper, type DrawingPalette } from '@/drawing/palette';
 
 export interface PaintOptions {
     palette: DrawingPalette;
@@ -72,67 +63,6 @@ function pathsOf(element: DrawingElement): CachedPaths['paths'] {
 /* Frees what a drawing left behind; called when another one is loaded. */
 export function clearPathCache(): void {
     cache.clear();
-}
-
-export function fontOfElement(element: WrittenElement, fonts: Record<DrawingFont, string>): string {
-    return `${element.size}px ${fonts[fontOf(element.font)]}`;
-}
-
-let scratch: CanvasRenderingContext2D | null = null;
-
-function scratchContext(): CanvasRenderingContext2D | null {
-    if (typeof document === 'undefined') {
-        return null;
-    }
-    scratch ??= document.createElement('canvas').getContext('2d');
-    return scratch;
-}
-
-/* The box a text needs, measured off screen: what a text element takes as its width and height. */
-export function textSize(element: WrittenElement, fonts: Record<DrawingFont, string>): { w: number; h: number } {
-    const ctx = scratchContext();
-    return ctx ? measureText(ctx, element, fonts) : { w: element.w, h: element.h };
-}
-
-/* A line measure in the element's font, for wrapping the way the screen paints it; null without a DOM. */
-export function measureLineIn(element: WrittenElement, fonts: Record<DrawingFont, string>): MeasureLine | null {
-    const ctx = scratchContext();
-    if (!ctx) {
-        return null;
-    }
-    ctx.font = fontOfElement(element, fonts);
-    return (line) => ctx.measureText(line).width;
-}
-
-function linesOn(ctx: CanvasRenderingContext2D, element: WrittenElement): string[] {
-    return linesOf(element, (line) => ctx.measureText(line).width);
-}
-
-/* The box a text needs for the size it is set in; the caller decides what to do with it. */
-export function measureText(ctx: CanvasRenderingContext2D, element: WrittenElement, fonts: Record<DrawingFont, string>): { w: number; h: number } {
-    ctx.save();
-    ctx.font = fontOfElement(element, fonts);
-    const lines = linesOn(ctx, element);
-    const width = Math.max(1, ...lines.map((line) => ctx.measureText(line).width));
-    ctx.restore();
-    return { w: Math.ceil(width), h: Math.ceil(lines.length * element.size * LINE_HEIGHT) };
-}
-
-/*
- * The box a text takes for what it says: the glyphs' own box until the person dragged one, and
- * from then on that width, with the height the wrapped lines come to. Without a DOM (the store's
- * tests) the box stays as it is.
- */
-export function fitTextBox(element: WrittenElement, text = element.text): { w: number; h: number } {
-    if (typeof document === 'undefined') {
-        return { w: element.w, h: element.h };
-    }
-    const fitted = textSize({ ...element, text }, readFontStacks());
-    if (element.kind === 'note') {
-        // A note keeps the paper it was given and grows downwards for what does not fit on it.
-        return { w: element.w, h: Math.max(element.h, fitted.h + NOTE_PADDING * 2) };
-    }
-    return element.sized ? { w: element.w, h: fitted.h } : fitted;
 }
 
 function paintText(ctx: CanvasRenderingContext2D, element: WrittenElement, options: PaintOptions): void {

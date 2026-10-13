@@ -17,10 +17,8 @@ import { z } from 'zod';
 import { clipboardOrRefuse, copyTextOrRefuse } from '@/actions/clipboard';
 import { asksFirst } from '@/actions/developer-actions';
 import { DEFAULT_NOTE_COLOR } from '@/canvas/note-colors';
-import { diagramPng, diagramSvg } from '@/diagram/export';
-import { drawingClipboardText, drawingPng, drawingSvg, download, exportFileName, exportTargets } from '@/drawing/export';
 import { lineElement, noteElement, shapeElement, textElement } from '@/drawing/gestures';
-import { fitTextBox } from '@/drawing/paint';
+import { fitTextBox } from '@/drawing/measure';
 import { locateView } from '@/shell/split';
 import { liveCanvas, nextId, type CanvasState } from '@/state/canvas';
 import { defaultDiagrams, type DiagramState } from '@/state/diagram';
@@ -37,19 +35,28 @@ export interface ContentMachine {
     /* Asks where the file goes; a browser tab downloads it instead. */
     save(blob: Blob, name: string, mime: string): Promise<void>;
     drawingPng(store: StoreApi<DrawingState>): Promise<Blob | null>;
-    drawingSvg(store: StoreApi<DrawingState>): string;
+    drawingSvg(store: StoreApi<DrawingState>): Promise<string>;
     diagramPng(store: StoreApi<DiagramState>): Promise<Blob | null>;
-    diagramSvg(store: StoreApi<DiagramState>): string;
+    diagramSvg(store: StoreApi<DiagramState>): Promise<string>;
+}
+
+/* The painters bring rough and the SVG writers along, which the start screen never needs. */
+function drawingExport() {
+    return import('@/drawing/export');
+}
+
+function diagramExport() {
+    return import('@/diagram/export');
 }
 
 const LIVE_MACHINE: ContentMachine = {
     writeText: copyTextOrRefuse,
     writePng: (png) => clipboardOrRefuse().write([new ClipboardItem({ 'image/png': png })]),
-    save: download,
-    drawingPng: (store) => drawingPng(store),
-    drawingSvg: (store) => drawingSvg(store),
-    diagramPng,
-    diagramSvg
+    save: async (blob, name, mime) => (await drawingExport()).download(blob, name, mime),
+    drawingPng: async (store) => (await drawingExport()).drawingPng(store),
+    drawingSvg: async (store) => (await drawingExport()).drawingSvg(store),
+    diagramPng: async (store) => (await diagramExport()).diagramPng(store),
+    diagramSvg: async (store) => (await diagramExport()).diagramSvg(store)
 };
 
 /* Past this the words of a note are cut; the rest stays in the note. */
@@ -231,9 +238,9 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
         return { output: { viewId, view, elementIds }, undo: historyUndo(store, depth + 1, view) };
     };
 
-    const copied = async (format: 'png' | 'svg', png: () => Promise<Blob | null>, svg: () => string): Promise<void> => {
+    const copied = async (format: 'png' | 'svg', png: () => Promise<Blob | null>, svg: () => Promise<string>): Promise<void> => {
         if (format === 'svg') {
-            await machine.writeText(svg());
+            await machine.writeText(await svg());
             return;
         }
         const blob = await png();
@@ -243,11 +250,12 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
         await machine.writePng(blob);
     };
 
-    const saved = async (prefix: string, format: 'png' | 'svg', png: () => Promise<Blob | null>, svg: () => string): Promise<void> => {
-        const blob = format === 'svg' ? new Blob([svg()], { type: 'image/svg+xml' }) : await png();
+    const saved = async (prefix: string, format: 'png' | 'svg', png: () => Promise<Blob | null>, svg: () => Promise<string>): Promise<void> => {
+        const blob = format === 'svg' ? new Blob([await svg()], { type: 'image/svg+xml' }) : await png();
         if (blob === null) {
             throw new ActionRefusal('empty', 'There is nothing to put in a picture.');
         }
+        const { exportFileName } = await drawingExport();
         await machine.save(blob, exportFileName(prefix, format), format === 'svg' ? 'image/svg+xml' : 'image/png');
     };
 
@@ -474,6 +482,7 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
         },
         'drawing.copy': async ({ viewId, format }) => {
             const { view, store } = drawing(viewId);
+            const { drawingClipboardText, exportTargets } = await drawingExport();
             const targets = exportTargets(store);
             if (targets.length === 0) {
                 throw new ActionRefusal('empty', `“${view.name}” has nothing to copy.`);
@@ -495,6 +504,7 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
         },
         'drawing.export': async ({ viewId, format }) => {
             const { view, store } = drawing(viewId);
+            const { exportTargets } = await drawingExport();
             if (exportTargets(store).length === 0) {
                 throw new ActionRefusal('empty', `“${view.name}” has nothing to save.`);
             }

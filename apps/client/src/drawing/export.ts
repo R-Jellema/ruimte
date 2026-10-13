@@ -3,7 +3,8 @@ import type { DrawingElement } from '@ruimte/contracts';
 import { DEFAULT_SVG_MARGIN, approximateMeasure, boundsOfElements, toSvg } from '@adecore/drawing';
 import { desktop } from '@/desktop/bridge';
 import { downloadBlob } from '@/download';
-import { measureLineIn, paintElements, paintOptions } from '@/drawing/paint';
+import { measureLineIn } from '@/drawing/measure';
+import { paintElements, paintOptions } from '@/drawing/paint';
 import { readCanvasBackground } from '@/drawing/palette';
 import type { DrawingState } from '@/state/drawing';
 
