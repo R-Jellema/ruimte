@@ -138,8 +138,8 @@ function newId(): string {
  * stores over on startup.
  */
 export interface ProjectViewFiles {
-    /* Every file whose view left the project is deleted, but only when a person saved. */
-    removeOrphans(projectId: string, keep: Set<string>): Promise<void>;
+    /* Deletes every file whose view is not in `keep`. The project need not be open, so its file's path comes along. */
+    removeOrphans(projectId: string, documentPath: string, keep: Set<string>): Promise<void>;
     closeProject(projectId: string): void;
 }
 
@@ -215,7 +215,7 @@ export type SessionEnder = (kind: 'terminal' | 'chat', nodeId: string) => Promis
 export type SaveListener = (folder: string, before: readonly ProjectView[], after: readonly ProjectView[]) => Promise<void>;
 
 /* A view of a kind this daemon does not know may own a file under either folder, so it counts as live for both. */
-function viewIdsIn(views: ProjectView[], kind: 'drawing' | 'diagram'): Set<string> {
+function viewIdsIn(views: readonly ProjectView[], kind: 'drawing' | 'diagram'): Set<string> {
     return new Set(views.filter((view) => view.kind === kind || view.kind === UNKNOWN_KIND).map((view) => view.id));
 }
 
@@ -400,7 +400,7 @@ export class ProjectStore {
         return { text: sharedText, private: privateText };
     }
 
-    /* The drawing store follows this one: it hears about a save and about a project closing. */
+    /* The drawing store follows this one: it hears about a write and about a project closing. */
     attachDrawings(drawings: ProjectViewFiles): void {
         this.drawings = drawings;
     }
@@ -702,33 +702,25 @@ export class ProjectStore {
         const portable = toPortable({ ...content, ...(flags ? { flags } : {}), ...(sql ? { sql } : {}) }, state.entry.folder);
         const document: ProjectDocument = { version: PROJECT_VERSION, rev: state.rev + 1, ...portable, shared: ids };
         const written = await this.writeFiles(this.documentPath(state.entry), portable, ids, document.rev, moved);
-        const drawingsBefore = state.drawingIds;
-        const diagramsBefore = state.diagramIds;
         remember(state, written, document.rev, ids, document.views);
-        const daemonSide = fromPortable(document, state.entry.folder);
-        this.index.set(projectId, state.entry.folder, daemonSide);
-        await this.personSaved(state.entry.folder, before ?? daemonSide.views, daemonSide.views);
-        // A view that a person deleted here takes its file with it. An outside edit never does:
-        // a git pull can drop a view whose file is still on its way, and that file is someone's work.
-        if (this.drawings && [...drawingsBefore].some((id) => !state.drawingIds.has(id))) {
-            await this.drawings.removeOrphans(projectId, state.drawingIds);
-        }
-        if (this.diagrams && [...diagramsBefore].some((id) => !state.diagramIds.has(id))) {
-            await this.diagrams.removeOrphans(projectId, state.diagramIds);
-        }
-        const icon = content.icon ?? null;
-        if (content.name !== state.entry.name || content.color !== state.entry.color || !sameIcon(icon, state.entry.icon ?? null)) {
-            state.entry = { ...state.entry, name: content.name, color: content.color, icon };
-            const entries = await this.loadRegistry();
-            await this.saveRegistry(entries.map((entry) => (entry.projectId === projectId ? state.entry : entry)));
-            this.publish(state.entry);
-        }
-        /* The watcher reads this write as our own and stays quiet, so a second client with the project
-           on screen hears about it here or not at all. Not the sender: its screen is already ahead of
-           this document, and taking it in would undo a drag that went on while the save was out. Inside
-           the lock, so a save of another client that this one makes stale finds the document there
-           before its refusal. */
-        this.emit({ event: 'project.changed', payload: { projectId, document: daemonSide } }, origin);
+        /* Not the sender: its screen is already ahead of this document, and taking it in would undo a
+           drag that went on while the save was out. */
+        await this.afterWrite(
+            state.entry,
+            before ?? [],
+            document,
+            async (daemonSide) => {
+                await this.personSaved(state.entry.folder, before ?? daemonSide.views, daemonSide.views);
+                const icon = content.icon ?? null;
+                if (content.name !== state.entry.name || content.color !== state.entry.color || !sameIcon(icon, state.entry.icon ?? null)) {
+                    state.entry = { ...state.entry, name: content.name, color: content.color, icon };
+                    const entries = await this.loadRegistry();
+                    await this.saveRegistry(entries.map((entry) => (entry.projectId === projectId ? state.entry : entry)));
+                    this.publish(state.entry);
+                }
+            },
+            origin
+        );
         return document.rev;
     }
 
@@ -761,6 +753,7 @@ export class ProjectStore {
         if (expectedRev !== undefined && expectedRev !== rev) {
             throw new ProjectError('rev-conflict', revisionConflictMessage('The project', expectedRev, rev));
         }
+        const before = [...content.views];
         const mutation = await apply(content);
         if (mutation.content === null) {
             return mutation.result;
@@ -787,15 +780,53 @@ export class ProjectStore {
             state.entry = nextEntry;
             remember(state, written, document.rev, shared, document.views);
         }
-        const daemonSide = fromPortable(document, entry.folder);
-        this.index.set(projectId, entry.folder, daemonSide);
-        await mutation.landed?.();
-        if (identityChanged) {
-            this.publish(nextEntry);
-        }
         // Every sink, open or not: a client that released the project may still have it on screen in another workspace.
-        this.emit({ event: 'project.changed', payload: { projectId, document: daemonSide } });
+        await this.afterWrite(nextEntry, before, document, async () => {
+            await mutation.landed?.();
+            if (identityChanged) {
+                this.publish(nextEntry);
+            }
+        });
         return mutation.result;
+    }
+
+    /*
+     * What every write of this daemon ends with, a person's save and an agent's change alike, whether
+     * the project is on screen or not. `before` holds the views the write replaced; `announce` runs
+     * once the files are settled and before `project.changed` goes out to every client but `origin`.
+     * The watcher reads the write as our own and stays quiet, so a second client hears of it here or
+     * not at all. Inside the lock, so a save that this write makes stale finds the document there
+     * before its refusal.
+     */
+    private async afterWrite(
+        entry: RegistryEntry,
+        before: readonly ProjectView[],
+        document: ProjectDocument,
+        announce: (daemonSide: ProjectDocument) => Promise<void>,
+        origin: string | null = null
+    ): Promise<void> {
+        const daemonSide = fromPortable(document, entry.folder);
+        this.index.set(entry.projectId, entry.folder, daemonSide);
+        await this.removeOrphanedFiles(entry, before, document.views);
+        await announce(daemonSide);
+        this.emit({ event: 'project.changed', payload: { projectId: entry.projectId, document: daemonSide } }, origin);
+    }
+
+    /*
+     * A view a write of this daemon dropped takes its file with it. An outside edit never does: a git
+     * pull can drop a view whose file is still on its way, and that file is someone's work.
+     */
+    private async removeOrphanedFiles(entry: RegistryEntry, before: readonly ProjectView[], after: readonly ProjectView[]): Promise<void> {
+        const stores = [
+            ['drawing', this.drawings],
+            ['diagram', this.diagrams]
+        ] as const;
+        for (const [kind, files] of stores) {
+            const keep = viewIdsIn(after, kind);
+            if (files && [...viewIdsIn(before, kind)].some((id) => !keep.has(id))) {
+                await files.removeOrphans(entry.projectId, this.documentPath(entry), keep);
+            }
+        }
     }
 
     /*

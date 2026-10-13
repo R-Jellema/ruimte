@@ -1355,6 +1355,50 @@ describe('kinds a newer Ruimte wrote', () => {
         expect(await readdir(join(folder, '.ruimte', 'diagrams'))).toEqual(['timeline-1.json']);
         expect(await unknownOnDisk()).toBe(UNKNOWN);
     });
+
+    test('a mutation that removes a drawing and a diagram takes their files on both sides of a released project, and leaves the unknown view and the live ones alone', async () => {
+        store.attachDrawings(new DrawingStore(store, fake));
+        store.attachDiagrams(new DiagramStore(store, fake));
+        const opened = await store.openProject({ folder });
+        const { projectId } = opened.summary;
+        const { version: _version, rev, ...sent } = opened.document;
+        const views = [...sent.views, { kind: 'drawing' as const, id: 'kept', name: 'Kept' }];
+        await store.save(projectId, rev, { ...sent, views }, ['main', 'sketch', 'kept']);
+        for (const side of [join(folder, '.ruimte'), join(folder, '.ruimte', 'private')]) {
+            for (const dir of ['drawings', 'diagrams']) {
+                await mkdir(join(side, dir), { recursive: true });
+                for (const viewId of ['timeline-1', 'sketch', 'chart', 'kept']) {
+                    await writeFile(join(side, dir, `${viewId}.json`), '{}');
+                }
+            }
+        }
+        store.release(projectId);
+        changed = [];
+
+        await store.mutate(projectId, (current) => ({
+            content: { ...current, views: current.views.filter((view) => view.id !== 'sketch' && view.id !== 'chart') },
+            result: null
+        }));
+
+        for (const side of [join(folder, '.ruimte'), join(folder, '.ruimte', 'private')]) {
+            expect((await readdir(join(side, 'drawings'))).sort()).toEqual(['kept.json', 'timeline-1.json']);
+            expect(await readdir(join(side, 'diagrams'))).toEqual(['timeline-1.json']);
+        }
+        expect(store.index.viewsOf(projectId)?.map((view) => view.id)).toEqual(['main', 'timeline-1', 'kept']);
+        expect(changed.map((event) => event.event)).toEqual(['project.changed']);
+    });
+
+    test('a mutation that keeps every drawing and diagram removes no file, not even one without a view', async () => {
+        store.attachDrawings(new DrawingStore(store, fake));
+        store.attachDiagrams(new DiagramStore(store, fake));
+        const { projectId } = (await store.openProject({ folder })).summary;
+        await mkdir(join(folder, '.ruimte', 'drawings'), { recursive: true });
+        await writeFile(join(folder, '.ruimte', 'drawings', 'arriving.json'), '{}');
+
+        await store.mutate(projectId, (current) => ({ content: { ...current, name: 'renamed' }, result: null }));
+
+        expect(await readdir(join(folder, '.ruimte', 'drawings'))).toEqual(['arriving.json']);
+    });
 });
 
 describe('reading the combined sidebar', () => {

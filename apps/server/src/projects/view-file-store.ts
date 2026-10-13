@@ -165,13 +165,7 @@ export abstract class ProjectViewFileStore<TDocument extends TContent & { rev: n
         return viewFilePathOf(this.projects.documentPathOf(projectId), this.kind.noun, viewId, this.projects.isSharedView(projectId, viewId) ? [viewId] : []);
     }
 
-    async removeOrphans(projectId: string, keep: Set<string>): Promise<void> {
-        let path: string;
-        try {
-            path = this.projects.documentPathOf(projectId);
-        } catch {
-            return;
-        }
+    async removeOrphans(projectId: string, path: string, keep: Set<string>): Promise<void> {
         // Both sides of the folder: a view that was shared once may have left its file on either.
         for (const dir of [this.kind.dirOf(path), this.kind.privateDirOf(path)]) {
             let names: string[];

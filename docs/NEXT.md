@@ -66,8 +66,6 @@ not missing manual acceptance:
    text without accepting invalid UTF-8 later in the file (B05).
 6. Order secret reads, writes and deletes per path, with unique temporary files. A completed
    delete must not be undone by an earlier write (B06).
-7. Make `ProjectStore.mutate` notify drawing and diagram stores when a view disappears, using the
-   same orphan cleanup as save. Test failed writes, shared/private files and unknown kinds (B08).
 8. Extend the desktop service check to every unknown installation. Today it protects only a
    service on the standard CLI path (`apps/desktop/src/service/controller.ts`). Preserve another
    executable's service during start, replacement, uninstall and stop, while retaining the

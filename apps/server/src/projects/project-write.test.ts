@@ -177,4 +177,14 @@ describe('durable project saves', () => {
         const pending = JSON.parse(await readFile(pendingWritePathOf(path), 'utf8')) as { moves: Array<{ kind: string; bytes: string }> };
         expect(Buffer.from(pending.moves.find((move) => move.kind === 'drawing')!.bytes, 'base64')).toEqual(original);
     });
+
+    test('a mutation whose write fails removes no file of the views it dropped', async () => {
+        const path = documentPathInFolder(folder);
+        const drawing = await readFile(viewFilePathOf(path, 'drawing', 'sketch', []));
+        const diagram = await readFile(viewFilePathOf(path, 'diagram', 'flow', []));
+        failAt = 1;
+        await expect(projects.mutate(projectId, (current) => ({ content: { ...current, views: [] }, result: null }))).rejects.toThrow('Injected');
+        expect(await readFile(viewFilePathOf(path, 'drawing', 'sketch', []))).toEqual(drawing);
+        expect(await readFile(viewFilePathOf(path, 'diagram', 'flow', []))).toEqual(diagram);
+    });
 });
