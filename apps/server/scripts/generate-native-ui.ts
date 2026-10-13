@@ -131,10 +131,7 @@ function packageDirectory(name: string, from = import.meta.url, entry = name): s
 // The desktop's own table, chart and label rules, which the hand-ported Swift in the app is checked against.
 const agentsReact = packageDirectory('@adecore/agents-react', resolve(ruimte, 'apps/client/package.json'), '@adecore/agents-react/chat/ui');
 const exportsOf = JSON.parse(readFileSync(resolve(agentsReact, 'package.json'), 'utf8')).exports as Record<string, { source: string }>;
-const desktopModule = (path: string) => import(resolve(agentsReact, exportsOf[`./chat/ui/intelligent-ui/${path}`]!.source));
-const { uiTableColumns } = await desktopModule('table-data');
-const { uiChartData } = await desktopModule('chart-data');
-const { uiNodeLabel } = await desktopModule('node-text');
+const { uiChartData, uiNodeLabel, uiTableColumns } = await import(resolve(agentsReact, exportsOf['./chat/ui']!.source));
 // Which choices a page may offer; the expectation exists once the shared package has the rule, so an older one only leaves the fixture stale.
 const uiChoiceLabel = (intelligentUi as Record<string, unknown>).uiChoiceLabel as ((choice: UiViewNode) => string | null) | undefined;
 const presentation = fixtures

@@ -26963,6 +26963,9 @@
                 "asyncQuestions": {
                   "type": "boolean"
                 },
+                "steer": {
+                  "type": "boolean"
+                },
                 "compaction": {
                   "type": "string",
                   "enum": [
