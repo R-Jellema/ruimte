@@ -35,7 +35,8 @@ const OLD_PATH = definitionOf({ path: '/opt/homebrew/bin:/usr/bin:/bin' });
 
 function fakeManager(options: { installed?: boolean; onDisk?: string; running?: BuildIdentity | null; refuseStart?: string } = {}) {
     const calls: string[] = [];
-    const service = { definition: options.onDisk ?? (options.installed ? DEFINITION : null), running: options.running ?? null };
+    // Like launchd, which never starts a job whose log folder is gone.
+    const service = { definition: options.onDisk ?? (options.installed ? DEFINITION : null), running: options.running ?? null, logFolder: true };
     const manager: ServiceManager = {
         kind: 'launchd',
         path: '/fake/app.ruimte.daemon.plist',
@@ -51,6 +52,9 @@ function fakeManager(options: { installed?: boolean; onDisk?: string; running?: 
             calls.push('start');
             if (options.refuseStart) {
                 throw new Error(options.refuseStart);
+            }
+            if (!service.logFolder) {
+                throw new Error('Bootstrap failed: 5');
             }
             if (service.definition === null) {
                 throw new Error('No service definition');
@@ -112,6 +116,9 @@ function setup(options: {
         manager: fake.manager,
         setting: options.setting ?? memorySetting(options.keepRunning ?? true),
         definition: () => DEFINITION,
+        prepare: () => {
+            fake.service.logFolder = true;
+        },
         commandLineProgram: COMMAND_LINE_PROGRAM,
         ruimteHome: HOME,
         expected: EXPECTED,
@@ -180,6 +187,16 @@ describe('start', () => {
         await changed.controller.start();
         expect(changed.fake.calls).toEqual(['install']);
         expect(changed.fake.service.definition).toBe(DEFINITION);
+    });
+
+    test('an unchanged definition whose log folder is gone still starts the service', async () => {
+        const { controller, fake, events } = setup({ fake: fakeManager({ installed: true }) });
+        fake.service.logFolder = false;
+        await controller.start();
+        expect(fake.calls).toEqual(['start']);
+        expect(fake.service.logFolder).toBe(true);
+        expect(events).toEqual([]);
+        expect(controller.state()).toMatchObject({ owner: 'service', failure: null });
     });
 
     test('an older build is restarted onto the binary in the bundle', async () => {

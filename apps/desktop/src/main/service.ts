@@ -3,11 +3,11 @@ import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, openSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { serviceDefinition as definitionFor, type ServiceManager } from '@adecore/service';
 import { buildIdentityOf, MACHINE_HEALTH_PATH, type BuildIdentity } from '@ruimte/contracts';
 import type { BackgroundServiceState, ServiceSupport } from '@ruimte/desktop-bridge';
-import { commandLineServiceProgram, daemonServiceSpec, platformServiceManager } from '@ruimte/service/host';
+import { commandLineServiceProgram, daemonServiceSpec, platformServiceManager, serviceLogFile } from '@ruimte/service/host';
 import { askDaemonWork, proveDaemon, type DaemonPort } from '../daemon-proof';
 import { askLoginShellPath, fileLoginPathCache, loadLoginPath } from '../login-path';
 import { createServiceController, type ServiceController } from '../service/controller';
@@ -196,6 +196,12 @@ export function createMachine(options: MachineOptions): Machine {
         manager,
         setting: keepRunningSetting(join(app.getPath('userData'), 'background-service.json'), support),
         definition: serviceDefinition,
+        // Only a launchd definition names a log file; systemd writes to the journal.
+        prepare: () => {
+            if (manager?.kind === 'launchd') {
+                mkdirSync(dirname(serviceLogFile(homedir())), { recursive: true });
+            }
+        },
         commandLineProgram: commandLineServiceProgram(ruimteHome),
         ruimteHome,
         expected: { version: app.getVersion(), build: bundledBuild() },

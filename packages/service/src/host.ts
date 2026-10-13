@@ -5,7 +5,7 @@ import { diskFiles, platformServiceManager as createPlatformServiceManager, runC
 const LAUNCH_AGENT_LABEL = 'app.ruimte.daemon';
 const SYSTEMD_UNIT_NAME = 'ruimte-daemon.service';
 
-function serviceLogFile(home: string): string {
+export function serviceLogFile(home: string): string {
     return join(home, 'Library', 'Logs', 'Ruimte', 'daemon.log');
 }
 

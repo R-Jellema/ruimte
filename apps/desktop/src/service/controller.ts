@@ -12,6 +12,8 @@ export interface ServiceControllerDeps {
     setting: KeepRunningSetting;
     /* The plist or unit for this app, installed only when it differs from the one on disk. */
     definition(): string;
+    /* Makes what the service needs beside its definition, on every start: launchd opens the log but makes no folder for it, and a job whose log cannot open never starts. */
+    prepare(): void;
     /* What a service of `ruimte service install` runs, which the app leaves as it finds it. */
     commandLineProgram: string;
     /* The home this installation gives its daemon; a definition with another home is not the app's to touch. */
@@ -208,6 +210,7 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
             // A service of the command line or another installation is used as it is, the way that command leaves the app's alone.
             if (manager && managedService) {
                 try {
+                    deps.prepare();
                     const definition = deps.definition();
                     // Use the service even with background use off, so turning it on needs no daemon restart.
                     if (onDisk() !== definition) {
