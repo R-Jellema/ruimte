@@ -30,6 +30,9 @@ public struct MachineMediaInfo: Sendable, Equatable {
     private var inFlight: [Int: Task<BytesPiece, any Error>] = [:]
     // The furthest piece a read asked for, which reading ahead runs from.
     private var frontier = -1
+    // Where reading ahead goes on: every piece from the frontier up to it is in the spool or on its way, so a settled
+    // piece does not walk that stretch again. A piece that did not reach the spool moves it back.
+    private var aheadCursor = 0
     // Off after a piece that did not reach the spool, which reading ahead would otherwise ask again at once, without
     // end. A piece a read brings in turns it back on.
     private var readingAhead = true
@@ -125,7 +128,10 @@ public struct MachineMediaInfo: Sendable, Equatable {
     private func settle(_ index: Int, piece: BytesPiece?) {
         inFlight.removeValue(forKey: index)
         // The first piece arrives before it pins the file, and reading ahead waits for that.
-        guard let info else { return }
+        guard let info else {
+            aheadCursor = min(aheadCursor, index)
+            return
+        }
         if let piece, let spool, info.version == piece.version, info.size == piece.size,
             (try? spool.write(piece.data, at: index * chunkBytes)) != nil
         {
@@ -133,6 +139,7 @@ public struct MachineMediaInfo: Sendable, Equatable {
             readingAhead = true
             readAhead()
         } else {
+            aheadCursor = min(aheadCursor, index)
             readingAhead = false
         }
     }
@@ -148,11 +155,12 @@ public struct MachineMediaInfo: Sendable, Equatable {
         guard readingAhead, !cancelled, readAheadPieces > 0, spool != nil, let info, info.size > 0 else { return }
         let lastPiece = (info.size - 1) / chunkBytes
         let end = lastPiece - frontier <= readAheadPieces ? lastPiece : frontier + readAheadPieces
-        var next = max(frontier, 0)
+        var next = max(aheadCursor, frontier, 0)
         while inFlight.count < ahead, next <= end {
             fetch(next)
             next += 1
         }
+        aheadCursor = next
     }
 
     private func value(of index: Int) async throws -> BytesPiece {

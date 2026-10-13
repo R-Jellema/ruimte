@@ -4,8 +4,16 @@ import Foundation
 
 /// Accepts one request per connection: the client writes JSON and half-closes, the server answers and closes.
 final class SocketServer: @unchecked Sendable {
+    // Far above any request the daemon sends; the text of a `type` is the largest.
+    static let maxRequestBytes = 4 * 1024 * 1024
+    // Connections served at once, each on a thread of its own; the next waits in the listen backlog.
+    static let maxConnections = 16
+    static let requestDeadline: Duration = .seconds(10)
+    static let answerDeadline: Duration = .seconds(10)
+
     private let path: String
     private let handler: @Sendable (Data) async -> Data
+    private let slots = DispatchSemaphore(value: SocketServer.maxConnections)
     private var listener: Int32 = -1
 
     init(path: String, handler: @escaping @Sendable (Data) async -> Data) {
@@ -64,16 +72,40 @@ final class SocketServer: @unchecked Sendable {
                 continue
             }
             UnixSocket.disableSigpipe(client)
-            UnixSocket.setReadTimeout(client, seconds: 10)
-            let handler = self.handler
-            Thread.detachNewThread {
-                let request = UnixSocket.readAll(client)
-                Task {
-                    let response = await handler(request)
-                    UnixSocket.writeAll(client, response)
-                    close(client)
-                }
+            slots.wait()
+            Thread.detachNewThread { [self] in
+                serve(client)
+                close(client)
+                slots.signal()
             }
         }
     }
+
+    /// Runs on the connection's own thread, so a slow peer blocks that thread and never one of the cooperative pool.
+    private func serve(_ client: Int32) {
+        let request: Data
+        switch UnixSocket.readAll(client, maxBytes: Self.maxRequestBytes, until: .now + Self.requestDeadline) {
+        case .complete(let data):
+            request = data
+        case .tooLarge:
+            UnixSocket.writeAll(client, Data(#"{"ok":false,"error":"the request is larger than 4 MiB"}"#.utf8), until: .now + Self.answerDeadline)
+            return
+        case .timedOut, .failed:
+            return
+        }
+        let answer = Answer()
+        let handler = self.handler
+        Task {
+            answer.data = await handler(request)
+            answer.ready.signal()
+        }
+        answer.ready.wait()
+        UnixSocket.writeAll(client, answer.data, until: .now + Self.answerDeadline)
+    }
+}
+
+/// The handler's answer, handed from its task to the connection's thread; `ready` orders the write before the read.
+private final class Answer: @unchecked Sendable {
+    let ready = DispatchSemaphore(value: 0)
+    var data = Data()
 }

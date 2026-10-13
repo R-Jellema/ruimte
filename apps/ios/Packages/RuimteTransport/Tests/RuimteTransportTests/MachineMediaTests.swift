@@ -12,6 +12,8 @@ import Testing
     var asked: [(offset: Int, length: Int)] = []
     // How many of the next requests are refused.
     var refuse = 0
+    // Offsets refused once each, whenever they are asked.
+    var refuseOnce = Set<Int>()
     // How many of the next requests fail on a dropped connection, which is back at the second look unless it stays down.
     var disconnects = 0
     var staysDown = false
@@ -27,8 +29,8 @@ import Testing
             connection = staysDown ? [false, false] : [false, true]
             throw MachineClientError.disconnected
         }
-        if refuse > 0 {
-            refuse -= 1
+        if refuse > 0 || refuseOnce.remove(offset) != nil {
+            refuse = max(refuse - 1, 0)
             throw MachineClientError.server(code: "busy", message: "Try again")
         }
         guard offset <= bytes.count else { throw MachineClientError.server(code: "bad-offset", message: "Past the end") }
@@ -150,6 +152,36 @@ import Testing
         #expect(result.data == machine.bytes.subdata(in: 8..<16))
         for _ in 0..<200 { await Task.yield() }
         #expect(Set(machine.asked.map(\.offset)) == Set(stride(from: 0, to: 100, by: 8)))
+    }
+
+    @Test func aPieceAheadThatFailedIsAskedAgainOnceReadingAheadResumes() async throws {
+        let machine = MediaMachine(size: 100)
+        machine.refuseOnce = [16]
+        let source = MachineMediaSource(client: machine, path: "/v.mp4", chunkBytes: 8, ahead: 2, readAheadPieces: .max)
+        _ = try await read(source, offset: 0, length: 16)
+        for _ in 0..<2_000 { await Task.yield() }
+        #expect(machine.asked.filter { $0.offset == 16 }.count == 2)
+        #expect(Set(machine.asked.map(\.offset)) == Set(stride(from: 0, to: 100, by: 8)))
+        // The first piece came before the file was pinned and never reached the spool; every piece after it did.
+        let asked = machine.asked.count
+        let rest = try await read(source, offset: 8, length: nil)
+        #expect(rest.data == machine.bytes.subdata(in: 8..<100))
+        #expect(machine.asked.count == asked)
+    }
+
+    @Test func readingAheadFollowsASeekForwardAndAsksNothingTwiceOnASeekBack() async throws {
+        let machine = MediaMachine(size: 200)
+        let source = MachineMediaSource(client: machine, path: "/v.mp4", chunkBytes: 8, ahead: 1, readAheadPieces: 2)
+        _ = try await read(source, offset: 0, length: 16)
+        for _ in 0..<200 { await Task.yield() }
+        #expect(machine.asked.map(\.offset) == [0, 8, 16, 24])
+        _ = try await read(source, offset: 80, length: 16)
+        for _ in 0..<200 { await Task.yield() }
+        #expect(machine.asked.map(\.offset) == [0, 8, 16, 24, 80, 88, 96, 104])
+        let back = try await read(source, offset: 8, length: 24)
+        for _ in 0..<200 { await Task.yield() }
+        #expect(back.data == machine.bytes.subdata(in: 8..<32))
+        #expect(machine.asked.count == 8)
     }
 
     @Test func aCancelledSourceAsksNothingMoreAndGoes() async throws {

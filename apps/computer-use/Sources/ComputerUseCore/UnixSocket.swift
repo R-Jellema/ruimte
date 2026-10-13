@@ -67,17 +67,60 @@ public enum UnixSocket {
         return data
     }
 
+    public enum ReadOutcome: Equatable, Sendable {
+        case complete(Data)
+        case tooLarge
+        case timedOut
+        case failed
+    }
+
+    /// Reads until the peer half-closes, but never past `maxBytes` or `deadline`: a timeout on the socket counts per
+    /// `read`, so a peer that sends a byte at a time would otherwise hold the connection open for good.
+    public static func readAll(_ descriptor: Int32, maxBytes: Int, until deadline: ContinuousClock.Instant) -> ReadOutcome {
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 64 * 1024)
+        while true {
+            guard setTimeout(descriptor, SO_RCVTIMEO, until: deadline) else {
+                return .timedOut
+            }
+            let count = read(descriptor, &buffer, buffer.count)
+            if count > 0 {
+                data.append(buffer, count: count)
+                if data.count > maxBytes {
+                    return .tooLarge
+                }
+                continue
+            }
+            if count == 0 {
+                return .complete(data)
+            }
+            if errno == EINTR {
+                continue
+            }
+            return errno == EAGAIN || errno == EWOULDBLOCK ? .timedOut : .failed
+        }
+    }
+
     @discardableResult
     public static func writeAll(_ descriptor: Int32, _ data: Data) -> Bool {
+        writeAll(descriptor, data, until: nil)
+    }
+
+    /// Writes everything, or gives up once `deadline` passes on a peer that stopped reading.
+    @discardableResult
+    public static func writeAll(_ descriptor: Int32, _ data: Data, until deadline: ContinuousClock.Instant?) -> Bool {
         data.withUnsafeBytes { raw in
             guard let base = raw.baseAddress else {
                 return true
             }
             var offset = 0
             while offset < raw.count {
+                if let deadline, !setTimeout(descriptor, SO_SNDTIMEO, until: deadline) {
+                    return false
+                }
                 let written = write(descriptor, base + offset, raw.count - offset)
                 if written < 0 {
-                    if errno == EINTR {
+                    if errno == EINTR || (deadline != nil && (errno == EAGAIN || errno == EWOULDBLOCK)) {
                         continue
                     }
                     return false
@@ -86,6 +129,18 @@ public enum UnixSocket {
             }
             return true
         }
+    }
+
+    /// Sets the socket's timeout to what is left until `deadline`; false once nothing is left.
+    private static func setTimeout(_ descriptor: Int32, _ option: Int32, until deadline: ContinuousClock.Instant) -> Bool {
+        let left = ContinuousClock.now.duration(to: deadline)
+        guard left > .zero else {
+            return false
+        }
+        // A zero timeval means no timeout at all, so the last moments round up to a millisecond.
+        let microseconds = max(left.components.seconds * 1_000_000 + left.components.attoseconds / 1_000_000_000_000, 1_000)
+        var timeout = timeval(tv_sec: Int(microseconds / 1_000_000), tv_usec: Int32(microseconds % 1_000_000))
+        return setsockopt(descriptor, SOL_SOCKET, option, &timeout, socklen_t(MemoryLayout<timeval>.size)) == 0
     }
 
     public static func setReadTimeout(_ descriptor: Int32, seconds: Int) {

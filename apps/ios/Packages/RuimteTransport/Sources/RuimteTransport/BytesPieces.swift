@@ -20,13 +20,19 @@ public struct BytesPiece: Sendable, Equatable {
 
     /// The header of a binary reply with the bytes that followed it.
     public init(header: JSONValue, data: Data) throws {
-        guard let mime = header["mime"]?.stringValue, let size = header["size"]?.numberValue,
-            let version = header["version"]?.stringValue, let offset = header["offset"]?.numberValue,
-            data.count <= Int(WireConstants.bytesChunkMax)
+        guard let mime = header["mime"]?.stringValue, let size = Self.count(header["size"]),
+            let version = header["version"]?.stringValue, let offset = Self.count(header["offset"]),
+            data.count <= Int(WireConstants.bytesChunkMax), offset <= size, data.count <= size - offset
         else {
             throw MachineClientError.invalid(String(localized: "The machine sent an invalid resource piece.", bundle: .module))
         }
-        self.init(mime: mime, size: Int(size), version: version, offset: Int(offset), data: data)
+        self.init(mime: mime, size: size, version: version, offset: offset, data: data)
+    }
+
+    /// A whole, non-negative number as the contracts promise one; nil for a fraction, a negative, NaN or one past `Int`.
+    private static func count(_ value: JSONValue?) -> Int? {
+        guard let number = value?.numberValue, number >= 0 else { return nil }
+        return Int(exactly: number)
     }
 
     /// A `bytes.read` result in JSON, its bytes in base64.
@@ -52,8 +58,9 @@ public struct BytesReply: Sendable {
         let start = frame.startIndex
         guard frame.count >= 5, frame[start] == UInt8(WireConstants.bytesReplyKind) else { return nil }
         let length = frame[(start + 1)..<(start + 5)].reduce(0) { $0 << 8 | Int($1) }
+        guard length <= frame.count - 5 else { return nil }
         let headEnd = start + 5 + length
-        guard headEnd <= frame.endIndex, let head = try? JSONValue.decode(Data(frame[(start + 5)..<headEnd])),
+        guard let head = try? JSONValue.decode(Data(frame[(start + 5)..<headEnd])),
             let id = head["id"]?.stringValue, let result = head["result"]
         else { return nil }
         self.id = id

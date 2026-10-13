@@ -45,6 +45,33 @@ import Testing
         #expect(BytesReply(Self.contractReply.prefix(20)) == nil)
     }
 
+    @Test func aHeaderWhoseNumbersAreNoCountOrPastTheResourceIsRefused() throws {
+        func header(size: Double, offset: Double) -> JSONValue {
+            .object([
+                "mime": .string("video/mp4"), "size": .number(size), "version": .string("1-10"), "offset": .number(offset),
+            ])
+        }
+        let refused: [(size: Double, offset: Double, count: Int)] = [
+            (1e30, 0, 1), (10, 1e30, 1), (.infinity, 0, 1), (10, .nan, 1), (-1, 0, 0), (10, -1, 1), (10.5, 0, 1),
+            (10, 0.5, 1), (10, 11, 0), (10, 8, 3), (Double(Int.max), Double(Int.max), 1),
+        ]
+        for value in refused {
+            #expect(throws: MachineClientError.self) {
+                try BytesPiece(header: header(size: value.size, offset: value.offset), data: Data(count: value.count))
+            }
+        }
+        #expect(try BytesPiece(header: header(size: 10, offset: 7), data: Data(count: 3)).offset == 7)
+        #expect(try BytesPiece(header: header(size: 10, offset: 10), data: Data()).size == 10)
+        #expect(try BytesPiece(header: header(size: 0, offset: 0), data: Data()).size == 0)
+    }
+
+    @Test func aHeaderLengthPastTheFrameIsRefused() {
+        var frame = Data([UInt8(WireConstants.bytesReplyKind)])
+        withUnsafeBytes(of: UInt32.max.bigEndian) { frame.append(contentsOf: $0) }
+        frame.append(Data("{}".utf8))
+        #expect(BytesReply(frame) == nil)
+    }
+
     @Test func binaryPiecesJoinAndTextPiecesAreNotBinary() {
         var assembler = BinaryFrameAssembler()
         #expect(assembler.push(Data([0x01, 1, 2]), maxBytes: 10) == .partial)
