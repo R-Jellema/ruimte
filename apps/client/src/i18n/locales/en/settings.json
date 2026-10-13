@@ -602,6 +602,7 @@
             "title": "Chat",
             "previousMessage": "Previous message you sent",
             "nextMessage": "Next message you sent",
+            "sendAndNewChat": "Send, then start a new chat beside it",
             "dictation": "Dictate: tap to toggle, hold to talk"
         },
         "browser": {
@@ -788,6 +789,10 @@
             "showViews": {
                 "label": "Let an agent show you a view",
                 "description": "On, a view an agent opens replaces the one you are working in, and a banner takes you back. Off, the banner offers a button to go there."
+            },
+            "sendKey": {
+                "label": "Send with",
+                "description": "Which key sends a message from the composer. Where Enter does not send, it adds a line."
             },
             "steerByDefault": {
                 "label": "Steer running agents by default",

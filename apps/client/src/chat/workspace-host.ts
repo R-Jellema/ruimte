@@ -6,6 +6,7 @@ import { ComposerDictation } from '@/chat/ComposerDictation';
 import { prepareCodeBlockAction } from '@/chat/prepare-code-block';
 import { useProjectChats } from '@/chat/project-chats';
 import { openUiLink, openUiUrl } from '@/chat/ui-links';
+import { openNewChatAfterSend } from '@/chat/new-chat-after-send';
 import { ReadImage } from '@/chat/ReadImage';
 import { useTimelineFind } from '@/chat/use-chat-find';
 import { useChatPlace } from '@/chat/use-chat-place';
@@ -22,8 +23,9 @@ import { isShellShortcut } from '@/terminal/keymap';
 
 /*
  * What the chat takes from Ruimte that only a workspace draws: the find over a thread, dictation, the
- * cards the machine raises beside a chat's own prompts, and the ways to a file or another chat of the
- * project. Handed over when the workspace chunk loads, before anything in it renders.
+ * cards the machine raises beside a chat's own prompts, the ways to a file or another chat of the
+ * project, and the new chat a send opens beside its own. Handed over when the workspace chunk loads,
+ * before anything in it renders.
  */
 export function connectWorkspaceChatHost(): void {
     const intelligentUi = chatHost().intelligentUi;
@@ -55,6 +57,7 @@ export function connectWorkspaceChatHost(): void {
             render: (prompt, props) => (isRuimtePrompt(prompt) ? createElement(RuimtePromptView, { prompt, props }) : null),
             answer: (prompt, action) => answerRuimtePrompt(prompt, action, answerComputerAsPerson)
         },
+        openNewChat: (endpointId, chatId) => void openNewChatAfterSend(endpointId, chatId),
         useReferableChats: useProjectChats,
         useChatPlace,
         useContextSources

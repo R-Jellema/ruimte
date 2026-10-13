@@ -59,6 +59,7 @@ function context(patch: Partial<MenuContext> = {}): MenuContext {
         newChat: true,
         scratch: false,
         prWatch: false,
+        chat: false,
         prRepos: [],
         ...patch
     };
@@ -140,6 +141,15 @@ describe('the menus', () => {
     test('stopping a pull request watch is offered only for a chat that has one', () => {
         expect(commandIds(menuModel(context()))).not.toContain('pr-watch-stop');
         expect(commandIds(menuModel(context({ prWatch: true })))).toContain('pr-watch-stop');
+    });
+
+    test('send and start new chat and restart agent session are offered while a chat has the focus, with the composer key shown', () => {
+        expect(commandIds(menuModel(context({ view: 'chat' })))).not.toContain('chat-restart');
+        for (const view of ['chat', 'canvas'] as const) {
+            const spec = menuModel(context({ view, chat: true }));
+            expect(find(spec, 'chat-send-new')?.accelerator).toBe('CommandOrControl+Alt+Enter');
+            expect(commandIds(spec)).toContain('chat-restart');
+        }
     });
 
     test('a chat in a worktree and a chat from an issue are offered in any view of a project with a folder', () => {

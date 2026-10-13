@@ -62,6 +62,10 @@ import { runAppShortcut } from '@/shell/app-shortcuts';
 import { APP_SHORTCUTS } from '@/shell/shortcuts';
 import { canSplit, cellAt, cellCount, cellsRightOf, isTabHost, maximizedCell } from '@/shell/split';
 import type { Shortcut } from '@adecore/ui';
+import { sendFromComposer } from '@adecore/agents-react/chat/composer-send';
+import { SEND_AND_NEW_SHORTCUT } from '@adecore/agents-react/chat/send-key';
+import { focusedChatId } from '@/chat/focused-chat';
+import { restartChatSession } from '@/chat/restart-session';
 
 export interface Command {
     id: string;
@@ -254,6 +258,7 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
     const maximizeTarget = onCanvas ? maximizeTargetOf(canvas) : null;
     /* The start screen is outside every project, so only the rows about the window are offered there. */
     const inWorkspace = windowWorkspace() !== null;
+    const chat = inWorkspace ? focusedChatId() : null;
     return [
         ...(canOpenWindows()
             ? [{ id: 'window-new', label: i18next.t('shell:palette.commands.newWindow'), shortcut: APP_SHORTCUTS.newWindow, run: () => openNewWindow() }]
@@ -278,6 +283,22 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
                       label: i18next.t('shell:palette.commands.startFromIssue'),
                       hint: i18next.t('shell:chats.name'),
                       run: () => useUi.getState().setIssueStartOpen(true)
+                  }
+              ]
+            : []),
+        ...(chat !== null
+            ? [
+                  {
+                      id: 'chat-send-new',
+                      label: i18next.t('shell:palette.commands.sendAndNewChat'),
+                      shortcut: SEND_AND_NEW_SHORTCUT,
+                      // A frame later, so the keyboard the new chat takes is not handed back to the old one as the palette closes.
+                      run: afterPaletteCloses(() => sendFromComposer(endpointKey(currentEndpointId(), chat), 'and-new'))
+                  },
+                  {
+                      id: 'chat-restart',
+                      label: i18next.t('shell:palette.commands.restartAgentSession'),
+                      run: () => void restartChatSession(chat)
                   }
               ]
             : []),

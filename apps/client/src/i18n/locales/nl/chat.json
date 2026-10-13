@@ -72,5 +72,10 @@
     "uiLink": {
         "elsewhere": "Deze link leidt naar een project dat niet in dit venster open is.",
         "invalidUrl": "Deze link is geen webadres dat Ruimte opent."
+    },
+    "restart": {
+        "done": "Agentsessie herstart",
+        "doneDescription": "Het volgende bericht start een nieuwe sessie die het gesprek voortzet en nieuwe skills, plugins, commando’s en MCP-servers oppikt.",
+        "failed": "Agentsessie herstarten mislukt"
     }
 }

@@ -1,5 +1,6 @@
 import i18next from 'i18next';
 import { create } from 'zustand';
+import type { ProjectNewChatPayload } from '@ruimte/contracts';
 import { desktop } from '@/desktop/bridge';
 import { ensureMachine } from '@/endpoint/reach';
 import { listProjects } from '@/project/list';
@@ -75,9 +76,10 @@ async function showNewChat(endpointId: string, projectId: string, viewId: string
 
 /*
  * A chat outside any project on one machine, which makes it in its Chats project and shows it. The
- * machine shows the chat nobody wrote in yet instead when there is one. False when no chat came.
+ * machine shows the chat nobody wrote in yet instead when there is one, of the CLI and account the
+ * payload names when it names one. False when no chat came.
  */
-export async function newChatOn(endpointId: string): Promise<boolean> {
+export async function newChatOn(endpointId: string, payload: ProjectNewChatPayload = {}): Promise<boolean> {
     let id = endpointId;
     try {
         id = await ensureMachine(endpointId);
@@ -85,7 +87,7 @@ export async function newChatOn(endpointId: string): Promise<boolean> {
         if (!transport) {
             return false;
         }
-        const { summary, viewId } = await transport.request('project.newChat', {});
+        const { summary, viewId } = await transport.request('project.newChat', payload);
         void listProjects(id).catch(() => undefined);
         await showNewChat(id, summary.projectId, viewId);
         return true;

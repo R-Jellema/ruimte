@@ -24,6 +24,7 @@ import { providersOf } from '@adecore/agents-react/state/providers';
 import { fileManagerName, serverInfoOf } from '@/state/server';
 import { useSessions } from '@/state/sessions';
 import { hasPrWatch } from '@/shell/pr-watch-actions';
+import { focusedChatId } from '@/chat/focused-chat';
 import { useUi } from '@/state/ui';
 import { windowWorkspace } from '@/state/window';
 
@@ -129,6 +130,7 @@ export function menuContext(host: MenuHost): MenuContext {
         scratch: isScratchProject(useProject.getState().current),
         prRepos: prReposOfCurrent().map((repo) => ({ path: repo.path, label: repo.label })),
         prWatch: onCanvas && selected?.kind === 'chat' && hasPrWatch(endpointId, selected.id),
+        chat: windowWorkspace() !== null && focusedChatId() !== null,
         fileManager: fileManagerName(serverInfoOf(endpointId).platform),
         view: facts?.view.kind ?? null,
         offers: facts?.offers ?? null,

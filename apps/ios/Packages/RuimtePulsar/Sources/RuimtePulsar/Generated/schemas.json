@@ -51029,6 +51029,24 @@
     "type": "object",
     "properties": {}
   },
+  "request.chat.restart.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "chatId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "chatId"
+    ]
+  },
+  "request.chat.restart.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
   "request.chat.list.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",

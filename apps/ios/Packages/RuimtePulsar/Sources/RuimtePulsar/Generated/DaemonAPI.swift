@@ -228,6 +228,7 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `authRegisterKey` = "auth.registerKey"
     case `directSignal` = "direct.signal"
     case `chatKill` = "chat.kill"
+    case `chatRestart` = "chat.restart"
     case `chatList` = "chat.list"
     case `taskList` = "task.list"
     case `agentChildren` = "agent.children"

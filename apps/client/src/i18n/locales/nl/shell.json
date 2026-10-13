@@ -679,7 +679,9 @@
             "recentLocations": "Toon recente plekken",
             "explain": "Code uitleggen",
             "suggestInline": "Code voorstellen",
-            "stopPrWatch": "Pull request niet meer volgen"
+            "stopPrWatch": "Pull request niet meer volgen",
+            "sendAndNewChat": "Versturen en nieuwe chat starten",
+            "restartAgentSession": "Agentsessie herstarten"
         },
         "sections": {
             "recent": "Recent",
@@ -974,6 +976,8 @@
         "nodeRight": "Selecteer node rechts",
         "nodeUp": "Selecteer node boven",
         "nodeDown": "Selecteer node onder",
-        "stopPrWatch": "Pull request niet meer volgen"
+        "stopPrWatch": "Pull request niet meer volgen",
+        "sendAndNewChat": "Versturen en nieuwe chat starten",
+        "restartAgentSession": "Agentsessie herstarten"
     }
 }

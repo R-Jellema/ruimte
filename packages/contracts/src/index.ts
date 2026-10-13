@@ -636,6 +636,7 @@ export const REQUEST_SCHEMAS = {
     'auth.registerKey': { payload: AuthRegisterKeyPayloadSchema, result: AuthRegisterKeyResultSchema },
     'direct.signal': { payload: DirectSignalPayloadSchema, result: EmptySchema },
     'chat.kill': AGENT_REQUEST_SCHEMAS['chat.kill'],
+    'chat.restart': AGENT_REQUEST_SCHEMAS['chat.restart'],
     'chat.list': AGENT_REQUEST_SCHEMAS['chat.list'],
     'task.list': { payload: TaskListPayloadSchema, result: TaskListResultSchema },
     'agent.children': { payload: AgentChildrenPayloadSchema, result: AgentChildrenResultSchema },

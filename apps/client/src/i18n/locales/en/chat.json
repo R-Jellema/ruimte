@@ -72,5 +72,10 @@
     "uiLink": {
         "elsewhere": "This link leads into a project that is not open in this window.",
         "invalidUrl": "This link is not a web address Ruimte opens."
+    },
+    "restart": {
+        "done": "Agent session restarted",
+        "doneDescription": "The next message starts a fresh session that goes on with the conversation and picks up new skills, plugins, commands and MCP servers.",
+        "failed": "Could not restart the agent session"
     }
 }

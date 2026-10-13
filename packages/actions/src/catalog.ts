@@ -1271,6 +1271,17 @@ export const ACTION_DEFINITIONS = {
         input: z.object({ chatId: chatTarget }),
         output: chatNamed
     },
+    'chat.restart': {
+        title: 'Restart agent session',
+        description:
+            'Ends the CLI process of an AI Chat and keeps its conversation: the next message resumes it in a fresh process, which reads new skills, plugins, commands and MCP servers. Not while the chat works.',
+        effect: 'external',
+        domain: 'sessions',
+        // Ending another chat's process is a person's call alone.
+        actors: PERSON,
+        input: z.object({ chatId: chatTarget }),
+        output: chatNamed
+    },
     'chat.configure': {
         title: 'Configure AI Chat',
         description:

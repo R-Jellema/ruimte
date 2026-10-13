@@ -394,6 +394,15 @@ export function sessionActions(document: StoreApi<DocumentState>, overrides: Par
             await ask('chat.compact', { chatId });
             return { output: { chatId, chat } };
         },
+        'chat.restart': async ({ chatId }, call) => {
+            const chat = chatNamed(chatId, call);
+            const info = machine.chat(chatId)?.info;
+            if (info !== undefined && info.activeTurnId !== null) {
+                throw new ActionRefusal('chat-busy', `“${chat}” is in a turn. Stop it before restarting its agent session.`);
+            }
+            await ask('chat.restart', { chatId });
+            return { output: { chatId, chat } };
+        },
         'chat.configure': async ({ chatId, model, option, runtimeMode, resumeAtReset, selection, account }, call) => {
             const chat = chatNamed(chatId, call);
             const { info } = rowOf(chatId, chat);

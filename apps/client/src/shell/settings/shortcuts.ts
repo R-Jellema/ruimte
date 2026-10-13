@@ -2,6 +2,7 @@ import i18next from 'i18next';
 import { CANVAS_SHORTCUTS, FOCUS_SHORTCUTS, viewShortcut } from '@/canvas/shortcuts';
 import { DRAWING_SHORTCUTS } from '@/drawing/shortcuts';
 import { PROMPT_SHORTCUTS } from '@adecore/agents-react/prompts/logic/keys';
+import { SEND_AND_NEW_SHORTCUT } from '@adecore/agents-react/chat/send-key';
 import { APP_SHORTCUTS } from '@/shell/shortcuts';
 import { CLEAR_SHORTCUT, LEAVE_NODE_SHORTCUT, platformShortcut } from '@/terminal/keymap';
 import { KEY_SHORTCUTS, shortcut, shortcutParts, type Shortcut } from '@adecore/ui';
@@ -143,7 +144,8 @@ export function shortcutGroups(apple: boolean): ShortcutGroup[] {
             shortcuts: [
                 { keys: CANVAS_SHORTCUTS.dictation, label: say('chat.dictation') },
                 { keys: CANVAS_SHORTCUTS.previousMessage, label: say('chat.previousMessage') },
-                { keys: CANVAS_SHORTCUTS.nextMessage, label: say('chat.nextMessage') }
+                { keys: CANVAS_SHORTCUTS.nextMessage, label: say('chat.nextMessage') },
+                { keys: SEND_AND_NEW_SHORTCUT, label: say('chat.sendAndNewChat') }
             ]
         },
         {

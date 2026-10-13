@@ -602,6 +602,7 @@
             "title": "Chat",
             "previousMessage": "Vorig bericht dat je stuurde",
             "nextMessage": "Volgend bericht dat je stuurde",
+            "sendAndNewChat": "Versturen en daarnaast een nieuwe chat starten",
             "dictation": "Dicteren: tik om te schakelen, houd vast om te spreken"
         },
         "browser": {
@@ -788,6 +789,10 @@
             "showViews": {
                 "label": "Een agent een weergave laten tonen",
                 "description": "Aan vervangt de weergave waarin je werkt door de weergave die een agent opent, en een banner brengt je terug. Uit biedt de banner een knop om ernaartoe te gaan."
+            },
+            "sendKey": {
+                "label": "Versturen met",
+                "description": "Welke toets een bericht uit het invoerveld verstuurt. Waar Enter niet verstuurt, voegt het een regel toe."
             },
             "steerByDefault": {
                 "label": "Werkende agents standaard bijsturen",

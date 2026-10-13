@@ -82,7 +82,8 @@ export function ChatBody({ id, focused, onCanvas = false }: { id: string; focuse
         return changed;
     };
 
-    const send = (text: string, extras: ChatSendExtras): void => {
+    /* Whether the machine took the message, which a send that also opens a new chat waits for. */
+    const send = (text: string, extras: ChatSendExtras): Promise<boolean> => {
         const host = readNodeHost(id);
         const title = deriveNodeTitle(text);
         // The prompt that opens a chat names it, once, until the CLI's own name for the session
@@ -90,7 +91,7 @@ export function ChatBody({ id, focused, onCanvas = false }: { id: string; focuse
         if (host && !host.titleSource && title) {
             renameHost(id, title, 'auto');
         }
-        void switched.current
+        return switched.current
             .then(async () => {
                 // An older chat may use a different model from the last picker choice.
                 const info = useChats.getState().byKey[endpointKey(endpointId, id)]?.info;
@@ -98,8 +99,12 @@ export function ChatBody({ id, focused, onCanvas = false }: { id: string; focuse
                 if (info !== undefined) {
                     rememberChatSelection(info.provider, info.selection);
                 }
+                return true;
             })
-            .catch((e: unknown) => setFailure(messageOf(e, t('chat.sendFailed'))));
+            .catch((e: unknown) => {
+                setFailure(messageOf(e, t('chat.sendFailed')));
+                return false;
+            });
     };
 
     return (

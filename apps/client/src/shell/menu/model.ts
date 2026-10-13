@@ -9,6 +9,7 @@ import type { ViewOffers } from '@/shell/view-offers';
 import type { KeepAwakeMode } from '@/state/settings';
 import type { PanelKind } from '@/state/ui';
 import { formatShortcut, type Shortcut } from '@adecore/ui';
+import { SEND_AND_NEW_SHORTCUT } from '@adecore/agents-react/chat/send-key';
 import { GO_VIEW_PREFIX, LAUNCH_CHOOSE_PREFIX, PR_SHOW_IN_PREFIX, type MenuActionId, type PaletteId } from '@/shell/menu/ids';
 
 export type MenuHost = 'desktop' | 'station';
@@ -39,6 +40,8 @@ export interface MenuContext {
     scratch: boolean;
     /* The one selected node is a chat with a pull request watch on. */
     prWatch: boolean;
+    /* A chat has the focus: the chat view in the focused cell, or the chat node with the keyboard or selected alone (`focused-chat.ts`). */
+    chat: boolean;
     /* The repositories of the folder that stand on a branch, which a pull request hangs on. */
     prRepos: { path: string; label: string }[];
     fileManager: string;
@@ -654,6 +657,14 @@ function viewKindMenu(context: MenuContext, command: MenuCommand): MenuSection |
             ...only(context.folder, command('diagram-open-json', t('openJson'))),
             separator,
             command('diagram-show-on-canvas', t('showOnCanvas'))
+        );
+    }
+    // A chat on a canvas has no menu of its own, so its rows go under the canvas's. The composer answers the key itself.
+    if ((kind === 'chat' || kind === 'canvas') && context.chat) {
+        own.push(
+            separator,
+            command('chat-send-new', t('sendAndNewChat'), { shortcut: SEND_AND_NEW_SHORTCUT }),
+            command('chat-restart', t('restartAgentSession'))
         );
     }
     return {

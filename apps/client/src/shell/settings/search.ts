@@ -300,6 +300,12 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
     { id: 'agents.defaults.permissions', section: 'agents', label: 'settings:agents.defaults.permissions' },
     { id: 'agents.defaults.terminalMode', section: 'agents', label: 'settings:agents.defaults.terminalMode' },
     {
+        id: 'agents.chats.sendKey',
+        section: 'agents',
+        label: 'settings:agents.chats.sendKey.label',
+        description: 'settings:agents.chats.sendKey.description'
+    },
+    {
         id: 'agents.chats.steerByDefault',
         section: 'agents',
         label: 'settings:agents.chats.steerByDefault.label',

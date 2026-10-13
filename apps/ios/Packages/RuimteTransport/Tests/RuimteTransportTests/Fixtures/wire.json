@@ -320,6 +320,7 @@
     "auth.registerKey",
     "direct.signal",
     "chat.kill",
+    "chat.restart",
     "chat.list",
     "task.list",
     "agent.children",

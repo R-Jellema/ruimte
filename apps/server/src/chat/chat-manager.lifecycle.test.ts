@@ -272,6 +272,34 @@ test('configure restarts the CLI with new flags on the next send and keeps the s
     expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['echo: first', 'echo: argv?']);
 });
 
+test('a restart ends the CLI between turns and the next send resumes the conversation in a fresh one', async () => {
+    await manager.create({ chatId: 'chat-r', cwd: home });
+    manager.attach('chat-r', 'c1');
+    await manager.send('chat-r', 'first');
+    await recorder.until(idle);
+    const sessionId = recorder.info?.agentSessionId;
+
+    await manager.restart('chat-r');
+    expect(recorder.info).toMatchObject({ running: false, agentSessionId: sessionId });
+    await claude.started[0]!.exited;
+
+    await manager.send('chat-r', 'again');
+    await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+    expect(claude.started).toHaveLength(2);
+    const argv = claude.started[1]!.argv;
+    expect(argv[argv.indexOf('--resume') + 1]).toBe(sessionId!);
+    expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['echo: first', 'echo: again']);
+});
+
+test('a restart is refused while a turn runs', async () => {
+    await manager.create({ chatId: 'chat-busy', cwd: home });
+    manager.attach('chat-busy', 'c1');
+    await manager.send('chat-busy', 'first');
+    await expect(manager.restart('chat-busy')).rejects.toMatchObject({ code: 'chat-busy' });
+    await recorder.until(idle);
+    expect(claude.started).toHaveLength(1);
+});
+
 test('the meter reads the window the pick asked for, not the maximum the CLI reports', async () => {
     await manager.create({ chatId: 'chat-w', cwd: home, selection: { model: 'opus', options: { contextWindow: '200k' } } });
     manager.attach('chat-w', 'c1');

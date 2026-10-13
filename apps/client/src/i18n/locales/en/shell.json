@@ -679,7 +679,9 @@
             "recentLocations": "Show recent locations",
             "explain": "Explain code",
             "suggestInline": "Suggest code",
-            "stopPrWatch": "Stop watching pull request"
+            "stopPrWatch": "Stop watching pull request",
+            "sendAndNewChat": "Send and start new chat",
+            "restartAgentSession": "Restart agent session"
         },
         "sections": {
             "recent": "Recent",
@@ -974,6 +976,8 @@
         "nodeRight": "Select node to the right",
         "nodeUp": "Select node above",
         "nodeDown": "Select node below",
-        "stopPrWatch": "Stop Watching Pull Request"
+        "stopPrWatch": "Stop Watching Pull Request",
+        "sendAndNewChat": "Send and Start New Chat",
+        "restartAgentSession": "Restart Agent Session"
     }
 }

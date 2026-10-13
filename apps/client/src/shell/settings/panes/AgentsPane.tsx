@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { CLOSED_LID_BATTERY_FLOOR, type AgentIntegrationFile, type AgentIntegrationReport, type AgentKind, type RuntimeMode } from '@ruimte/contracts';
-import { rememberChatPreferences, rememberReadingWidth, useChatPreferences } from '@adecore/agents-react/chat/preferences';
+import { rememberChatPreferences, rememberReadingWidth, rememberSendKey, useChatPreferences } from '@adecore/agents-react/chat/preferences';
+import { CHAT_SEND_KEYS, sendKeyHint, sendKeyLabel } from '@adecore/agents-react/chat/send-key';
 import { CHAT_READING_WIDTHS, readingWidthHint, readingWidthLabel } from '@adecore/agents-react/chat/reading-width';
 import { RUNTIME_MODES, runtimeModeHint, runtimeModeLabel } from '@adecore/agents-react/chat/runtime-modes';
 import {
@@ -16,6 +17,7 @@ import {
 import { IntegrationDetails, IntegrationReports } from '@/shell/AgentIntegrationsDialog';
 import { CliMark } from '@adecore/agents-react/providers/parts';
 import { INTEGRATION_NAMES, loadIntegrationFiles, setAgentIntegration, useAgentIntegrations } from '@/state/agent-integrations';
+import { isApplePlatform } from '@/desktop/bridge';
 import { hasLocalMachine } from '@/state/local-machine';
 import { MachineSwitchSections } from '@/shell/settings/MachineSwitchSection';
 import { SettingsRow } from '@adecore/ui/settings';
@@ -110,8 +112,24 @@ function ChatsSection() {
     const chatSteerByDefault = useSettings((s) => s.chatSteerByDefault);
     const update = useSettings((s) => s.update);
     const readingWidth = useChatPreferences((preferences) => preferences.readingWidth);
+    const sendKey = useChatPreferences((preferences) => preferences.sendKey);
+    const apple = isApplePlatform();
     return (
         <SettingsSection title={t('agents.chats.title')} scope="client">
+            <SettingsRow
+                searchId="agents.chats.sendKey"
+                label={t('agents.chats.sendKey.label')}
+                description={t('agents.chats.sendKey.description')}
+                control={
+                    <Select
+                        value={sendKey}
+                        label={t('agents.chats.sendKey.label')}
+                        align="end"
+                        items={CHAT_SEND_KEYS.map((key) => ({ value: key, label: sendKeyLabel(key, apple), description: sendKeyHint(key, apple) }))}
+                        onValueChange={rememberSendKey}
+                    />
+                }
+            />
             <SettingsRow
                 searchId="agents.chats.steerByDefault"
                 label={t('agents.chats.steerByDefault.label')}
