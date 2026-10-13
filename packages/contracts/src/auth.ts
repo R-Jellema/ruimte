@@ -107,14 +107,11 @@ export const PairResultSchema = z.object({
 export type PairResult = z.infer<typeof PairResultSchema>;
 
 /*
- * `endpoint.setIdentity`. Name and icon are always sent, since null is a choice: the default name, or no
- * icon. Every optional field left out leaves the machine as it stands.
+ * The switches a person sets on a machine, one schema for both requests that change them. Every field
+ * left out leaves the machine as it stands. `endpoint.settings` takes these alone.
  */
-export const EndpointSetIdentityPayloadSchema = z.object({
-    name: z.string().min(1).max(80).nullable(),
-    icon: ProjectIconChoiceSchema.nullable(),
+export const EndpointSettingsSchema = z.object({
     agentsDeleteAnyView: z.boolean().optional(),
-    refuseStatements: z.boolean().optional(),
     streamingAllowed: z.boolean().optional(),
     resumeAtReset: z.boolean().optional(),
     visualReplies: z.boolean().optional(),
@@ -128,6 +125,19 @@ export const EndpointSetIdentityPayloadSchema = z.object({
     lanDoor: z.boolean().optional(),
     // Only the owner of the machine may set it: the folder new worktrees are made in. An empty string puts it back.
     worktreeRoot: z.string().max(4096).optional()
+});
+export type EndpointSettings = z.infer<typeof EndpointSettingsSchema>;
+
+/*
+ * `endpoint.setIdentity`. Name and icon are always sent, since null is a choice: the default name, or no
+ * icon. The switches beside them are the ones of `endpoint.settings`.
+ */
+export const EndpointSetIdentityPayloadSchema = z.object({
+    name: z.string().min(1).max(80).nullable(),
+    icon: ProjectIconChoiceSchema.nullable(),
+    // No daemon reads it.
+    refuseStatements: z.boolean().optional(),
+    ...EndpointSettingsSchema.shape
 });
 export type EndpointSetIdentityPayload = z.infer<typeof EndpointSetIdentityPayloadSchema>;
 

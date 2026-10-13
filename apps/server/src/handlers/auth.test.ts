@@ -207,6 +207,23 @@ describe('auth handlers', () => {
         expect(keepAwakeChanges).toBe(3);
     });
 
+    test('endpoint.settings changes the switches it names and leaves the name and icon as they are', async () => {
+        const paired: ClientAccess = { reachability: 'lan', sessionId: 's1' };
+        await ask(paired, 'endpoint.setIdentity', { name: 'Studio', icon: { kind: 'lucide', value: 'server' } });
+
+        const set = await ask(paired, 'endpoint.settings', { keepAwake: 'working', appleFoundationEnabled: true });
+        expect(set).toMatchObject({
+            ok: true,
+            result: { label: 'Studio', icon: { kind: 'lucide', value: 'server' }, keepAwake: 'working', appleFoundationEnabled: true }
+        });
+        expect([keepAwakeChanges, appleChanges]).toEqual([1, [true]]);
+
+        // The same checks as beside a name: the closed-lid rule, and a folder for worktrees only from the owner.
+        expect(await ask(paired, 'endpoint.settings', { keepAwakeLidClosed: true })).toMatchObject({ ok: false, error: { code: 'closed-lid-no-rule' } });
+        expect(await ask(paired, 'endpoint.settings', { worktreeRoot: join(home, 'checkouts') })).toMatchObject({ ok: false, error: { code: 'owner-only' } });
+        expect(identity.worktreeRoot).toBeNull();
+    });
+
     test('only the app on this machine chooses where worktrees are made, and a refused folder changes nothing', async () => {
         const folder = join(home, 'checkouts');
         expect(await ask({ reachability: 'lan', sessionId: 's1' }, 'endpoint.setIdentity', { name: null, icon: null, worktreeRoot: folder })).toMatchObject({

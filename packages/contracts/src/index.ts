@@ -158,6 +158,7 @@ import {
     EndpointInfoSchema,
     EndpointLeaveAccountResultSchema,
     EndpointSetIdentityPayloadSchema,
+    EndpointSettingsSchema,
     EndpointSignRegistrationPayloadSchema,
     EndpointSignRegistrationResultSchema
 } from './auth.ts';
@@ -617,6 +618,7 @@ export const REQUEST_SCHEMAS = {
     'secret.decline': { payload: SecretDeclinePayloadSchema, result: SecretAnswerResultSchema },
     'endpoint.info': { payload: EmptySchema, result: EndpointInfoSchema },
     'endpoint.setIdentity': { payload: EndpointSetIdentityPayloadSchema, result: EndpointInfoSchema },
+    'endpoint.settings': { payload: EndpointSettingsSchema, result: EndpointInfoSchema },
     'endpoint.agentIntegrations': { payload: EmptySchema, result: AgentIntegrationsResultSchema },
     'endpoint.setAgentIntegration': { payload: AgentIntegrationSetPayloadSchema, result: AgentIntegrationSetResultSchema },
     'endpoint.closedLidRule': { payload: EndpointClosedLidRulePayloadSchema, result: EndpointInfoSchema },

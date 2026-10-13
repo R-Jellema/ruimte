@@ -2,6 +2,7 @@ import {
     PROTOCOL_VERSION,
     type AgentIntegrationReport,
     type AgentIntegrationsResult,
+    type EndpointSettings,
     type LanDoor,
     type MachineUpdate,
     type MachineUpdateReport,
@@ -11,7 +12,7 @@ import { RequestError, translate, type ClientAccess, type Dispatcher } from '../
 import { isOwner } from '../auth/access.ts';
 import { signForAccount } from '../auth/registration.ts';
 import type { AuthStore } from '../auth/auth-store.ts';
-import type { EndpointIdentity } from '../endpoint-id.ts';
+import type { EndpointIdentity, IdentityFlags } from '../endpoint-id.ts';
 import { checkWorktreeRoot } from '../git/worktree-root.ts';
 import type { BrokerDescription } from '../pulsar/broker-switch.ts';
 import type { InstallVerdict } from '../power/machine-update.ts';
@@ -99,9 +100,14 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
      * Any client the machine let in may name it. A name and an icon are how a person tells two
      * machines apart, so they belong to the machine and not to whichever client typed them.
      */
-    dispatcher.register('endpoint.setIdentity', async (payload, client) => {
+    /* The checks and the side effects of the switches both requests set; `write` stores them, with or without a new name. */
+    const applySettings = async (
+        settings: EndpointSettings,
+        access: ClientAccess | undefined,
+        write: (flags: IdentityFlags) => Promise<void>
+    ): Promise<void> => {
         // Off always goes through, and a switch already on stays on; only turning it on needs the rule.
-        if (payload.keepAwakeLidClosed === true && !identity.keepAwake.lidClosed) {
+        if (settings.keepAwakeLidClosed === true && !identity.keepAwake.lidClosed) {
             if (host.closedLid?.available !== true) {
                 throw new RequestError('closed-lid-unavailable', 'Only a Mac can stay awake with its lid closed');
             }
@@ -111,51 +117,60 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
         }
         // Where checkouts land decides which folders the daemon makes and writes in, so it is the owner's alone.
         let worktreeRoot: string | undefined;
-        if (payload.worktreeRoot !== undefined) {
-            if (!isOwner(client.access)) {
+        if (settings.worktreeRoot !== undefined) {
+            if (!isOwner(access)) {
                 throw new RequestError('owner-only', 'Only a person on this machine can choose where it makes worktrees');
             }
-            if (payload.worktreeRoot === '') {
+            if (settings.worktreeRoot === '') {
                 worktreeRoot = '';
             } else {
-                const checked = await checkWorktreeRoot(payload.worktreeRoot, host.home);
+                const checked = await checkWorktreeRoot(settings.worktreeRoot, host.home);
                 if ('refusal' in checked) {
                     throw new RequestError(checked.refusal, checked.message);
                 }
                 worktreeRoot = checked.root;
             }
         }
-        await identity.setIdentity(payload.name, payload.icon, {
+        await write({
             worktreeRoot,
-            agentsDeleteAnyView: payload.agentsDeleteAnyView,
-            streamingAllowed: payload.streamingAllowed,
-            resumeAtReset: payload.resumeAtReset,
-            visualReplies: payload.visualReplies,
-            appleFoundationEnabled: payload.appleFoundationEnabled,
-            keepAwake: payload.keepAwake,
-            keepAwakeOnBattery: payload.keepAwakeOnBattery,
-            keepAwakeDisplay: payload.keepAwakeDisplay,
-            keepAwakeLidClosed: payload.keepAwakeLidClosed,
-            broker: payload.broker,
-            lanDoor: payload.lanDoor
+            agentsDeleteAnyView: settings.agentsDeleteAnyView,
+            streamingAllowed: settings.streamingAllowed,
+            resumeAtReset: settings.resumeAtReset,
+            visualReplies: settings.visualReplies,
+            appleFoundationEnabled: settings.appleFoundationEnabled,
+            keepAwake: settings.keepAwake,
+            keepAwakeOnBattery: settings.keepAwakeOnBattery,
+            keepAwakeDisplay: settings.keepAwakeDisplay,
+            keepAwakeLidClosed: settings.keepAwakeLidClosed,
+            broker: settings.broker,
+            lanDoor: settings.lanDoor
         });
         if (
-            payload.keepAwake !== undefined ||
-            payload.keepAwakeOnBattery !== undefined ||
-            payload.keepAwakeDisplay !== undefined ||
-            payload.keepAwakeLidClosed !== undefined
+            settings.keepAwake !== undefined ||
+            settings.keepAwakeOnBattery !== undefined ||
+            settings.keepAwakeDisplay !== undefined ||
+            settings.keepAwakeLidClosed !== undefined
         ) {
             host.keepAwake?.changed();
         }
-        if (payload.streamingAllowed !== undefined) {
+        if (settings.streamingAllowed !== undefined) {
             host.streamingChanged(identity.streamingAllowed);
         }
-        if (payload.resumeAtReset !== undefined) {
+        if (settings.resumeAtReset !== undefined) {
             host.resumeChanged?.(identity.resumeAtReset);
         }
-        if (payload.appleFoundationEnabled !== undefined) {
+        if (settings.appleFoundationEnabled !== undefined) {
             await host.appleFoundationChanged?.(identity.appleFoundationEnabled);
         }
+    };
+
+    dispatcher.register('endpoint.setIdentity', async (payload, client) => {
+        await applySettings(payload, client.access, (flags) => identity.setIdentity(payload.name, payload.icon, flags));
+        return info(client.access);
+    });
+
+    dispatcher.register('endpoint.settings', async (payload, client) => {
+        await applySettings(payload, client.access, (flags) => identity.setSwitches(flags));
         return info(client.access);
     });
 

@@ -310,6 +310,7 @@
     "secret.decline",
     "endpoint.info",
     "endpoint.setIdentity",
+    "endpoint.settings",
     "endpoint.agentIntegrations",
     "endpoint.setAgentIntegration",
     "endpoint.closedLidRule",
