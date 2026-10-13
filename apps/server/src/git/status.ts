@@ -11,6 +11,8 @@ const MAX_UNTRACKED_COUNTS = 100;
 const COUNT_CONCURRENCY = 8;
 // The base branch of a repository moves about as often as its remote does.
 const BASE_TTL_MS = 5 * 60 * 1000;
+// A repository grows past the watch limit or shrinks below it over days, not seconds.
+const TRACKED_TTL_MS = 5 * 60 * 1000;
 
 const EMPTY: GitStatus = {
     repo: false,
@@ -260,16 +262,16 @@ export async function readStatus(cwd: string): Promise<GitStatus> {
     };
 }
 
-const trackedCache = new Map<string, number>();
+const trackedCache = new Map<string, { tracked: number; at: number }>();
 
-/* How many files the index holds, which is the size a status run has to walk every time. */
-export async function trackedFiles(root: string): Promise<number> {
+/* How many files the index holds, which is the size a status run has to walk every time; remembered per repository for a while. */
+export async function trackedFiles(root: string, now: number = Date.now()): Promise<number> {
     const cached = trackedCache.get(root);
-    if (cached !== undefined) {
-        return cached;
+    if (cached && now - cached.at < TRACKED_TTL_MS) {
+        return cached.tracked;
     }
     const listed = await git(['ls-files', '-z'], root);
     const tracked = listed === null ? 0 : listed.split('\0').filter((path) => path !== '').length;
-    trackedCache.set(root, tracked);
+    trackedCache.set(root, { tracked, at: now });
     return tracked;
 }

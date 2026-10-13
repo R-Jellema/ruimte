@@ -13,6 +13,8 @@ const SETTLE_MS = 300;
 const SLOW_STATUS_MS = 1000;
 // And so does a repository this big, before the first run even proves it.
 const MAX_TRACKED_FILES = 5000;
+// What made a run slow (an install, a busy machine) passes, so a slow root gets another chance after this.
+const DEGRADED_MS = 5 * 60 * 1000;
 
 /* Loose objects and lock files move on every git command and say nothing about the status. */
 function isNoise(path: string): boolean {
@@ -22,6 +24,8 @@ function isNoise(path: string): boolean {
 interface Watch {
     cwd: string;
     root: string;
+    /* The working tree, and the common git directory when it lies outside it. */
+    dirs: string[];
     watchers: DirectoryWatcher[];
     /* The paths that moved since the last flush, absolute. */
     touched: Set<string>;
@@ -39,27 +43,53 @@ interface Watch {
  */
 export class GitStatusWatcher {
     private readonly sinks = new ClientSinks();
-    private readonly watches = new PerClientWatches<Watch>((state) => GitStatusWatcher.stop(state));
-    /* Repository roots that proved too expensive to watch; they stay that way for this run. */
-    private readonly degraded = new Set<string>();
+    private readonly watches = new PerClientWatches<Watch>((state) => {
+        GitStatusWatcher.stop(state);
+        this.states.delete(state);
+    });
+    /* Every watch of every client, so a root that recovers opens again the ones it closed. */
+    private readonly states = new Set<Watch>();
+    /* Repository roots whose last run was too slow to watch, with the moment it was. */
+    private readonly degraded = new Map<string, number>();
+    /* Repository roots too big to watch, as last counted. */
+    private readonly tooBig = new Set<string>();
     private readonly platform: NodeJS.Platform;
     private readonly seams: WatchSeams;
     private readonly now: () => number;
+    private readonly read: (cwd: string) => Promise<GitStatus>;
 
-    constructor(platform: NodeJS.Platform = process.platform, seams: WatchSeams = SYSTEM_WATCH, now: () => number = Date.now) {
+    constructor(
+        platform: NodeJS.Platform = process.platform,
+        seams: WatchSeams = SYSTEM_WATCH,
+        now: () => number = Date.now,
+        read: (cwd: string) => Promise<GitStatus> = readStatus
+    ) {
         this.platform = platform;
         this.seams = seams;
         this.now = now;
+        this.read = read;
     }
 
     subscribe(clientId: string, sink: SessionSink): () => void {
         return this.sinks.subscribe(clientId, sink);
     }
 
-    /* The status of a checkout, with the flag that says whether it keeps itself up to date. */
+    /*
+     * The status of a checkout, with the flag that says whether it keeps itself up to date. Every run
+     * is timed: a slow one closes the watches of its root, a fast one opens them again.
+     */
     async status(cwd: string): Promise<GitStatus> {
-        const status = await readStatus(cwd);
-        return { ...status, live: status.root !== null && !this.degraded.has(status.root) };
+        const started = this.now();
+        const status = await this.read(cwd);
+        if (status.root === null) {
+            return { ...status, live: false };
+        }
+        if (this.now() - started > SLOW_STATUS_MS) {
+            this.degrade(status.root);
+        } else {
+            this.recover(status.root);
+        }
+        return { ...status, live: this.isLive(status.root) };
     }
 
     async watch(clientId: string, cwd: string): Promise<void> {
@@ -71,10 +101,14 @@ export class GitStatusWatcher {
         if (!root) {
             return;
         }
-        const tooBig = (await trackedFiles(root)) > MAX_TRACKED_FILES;
+        if ((await trackedFiles(root, this.now())) > MAX_TRACKED_FILES) {
+            this.tooBig.add(root);
+        } else {
+            this.tooBig.delete(root);
+        }
         // A linked worktree keeps its refs in the repository it came from, where a commit on another
         // branch is what makes this one's ahead and behind move.
-        const common = tooBig ? null : (await git(['rev-parse', '--path-format=absolute', '--git-common-dir'], root))?.trim();
+        const common = (await git(['rev-parse', '--path-format=absolute', '--git-common-dir'], root))?.trim();
         // Registered only once git answered, so a second watch asked meanwhile finds this one and opens nothing of its own.
         if (this.watches.get(clientId, key) !== undefined) {
             return;
@@ -82,6 +116,7 @@ export class GitStatusWatcher {
         const state: Watch = {
             cwd: key,
             root,
+            dirs: common && !common.startsWith(root + sep) ? [root, common] : [root],
             watchers: [],
             touched: new Set(),
             settle: settled(this.seams, SETTLE_MS, () => this.flush(clientId, state)),
@@ -90,12 +125,9 @@ export class GitStatusWatcher {
             again: false
         };
         this.watches.put(clientId, key, state);
-        if (tooBig) {
-            this.degraded.add(root);
-            return;
-        }
-        for (const dir of common && !common.startsWith(root + sep) ? [root, common] : [root]) {
-            this.attach(state, dir);
+        this.states.add(state);
+        if (this.isLive(root)) {
+            this.open(state);
         }
     }
 
@@ -105,6 +137,48 @@ export class GitStatusWatcher {
 
     detachAll(clientId: string): void {
         this.watches.detachAll(clientId);
+    }
+
+    private isLive(root: string): boolean {
+        if (this.tooBig.has(root)) {
+            return false;
+        }
+        const since = this.degraded.get(root);
+        if (since === undefined) {
+            return true;
+        }
+        if (this.now() - since < DEGRADED_MS) {
+            return false;
+        }
+        this.degraded.delete(root);
+        return true;
+    }
+
+    private degrade(root: string): void {
+        this.degraded.set(root, this.now());
+        for (const state of this.states) {
+            if (state.root === root) {
+                GitStatusWatcher.stop(state);
+            }
+        }
+    }
+
+    private recover(root: string): void {
+        this.degraded.delete(root);
+        if (!this.isLive(root)) {
+            return;
+        }
+        for (const state of this.states) {
+            if (state.root === root && state.watchers.length === 0) {
+                this.open(state);
+            }
+        }
+    }
+
+    private open(state: Watch): void {
+        for (const dir of state.dirs) {
+            this.attach(state, dir);
+        }
     }
 
     private attach(state: Watch, dir: string): void {
@@ -138,14 +212,8 @@ export class GitStatusWatcher {
             return;
         }
         state.running = true;
-        const started = this.now();
         try {
             const status = await this.status(state.cwd);
-            if (this.now() - started > SLOW_STATUS_MS) {
-                this.degraded.add(state.root);
-                GitStatusWatcher.stop(state);
-                status.live = false;
-            }
             const fingerprint = JSON.stringify(status);
             if (fingerprint !== state.fingerprint) {
                 state.fingerprint = fingerprint;

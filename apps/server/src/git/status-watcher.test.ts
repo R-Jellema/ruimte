@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type { GitChangedEvent, GitStatusEvent } from '@ruimte/contracts';
 import { FakeWatch } from '@adecore/agents/testing';
 import { GitStatusWatcher } from './status-watcher.ts';
-import { forgetBase } from './status.ts';
+import { forgetBase, readStatus } from './status.ts';
 import { gitIn } from './test-repo.ts';
 
 let root: string;
@@ -15,6 +15,8 @@ let watcher: GitStatusWatcher;
 let events: GitStatusEvent[];
 let changed: GitChangedEvent[];
 let unsubscribe: () => void;
+let clock: number;
+let runTakes: number;
 
 async function git(args: string[]): Promise<void> {
     await gitIn(repo, args);
@@ -22,12 +24,17 @@ async function git(args: string[]): Promise<void> {
 
 /* A watcher whose status runs take as long as `runMs` says, whatever the machine is doing. */
 function watcherWith(runMs: number): GitStatusWatcher {
-    let clock = 0;
-    const next = new GitStatusWatcher('darwin', fake, () => {
-        const now = clock;
-        clock += runMs;
-        return now;
-    });
+    runTakes = runMs;
+    const next = new GitStatusWatcher(
+        'darwin',
+        fake,
+        () => clock,
+        async (cwd) => {
+            const status = await readStatus(cwd);
+            clock += runTakes;
+            return status;
+        }
+    );
     unsubscribe = next.subscribe('c1', (frame) => {
         if (frame.event === 'git.status') {
             events.push(frame.payload);
@@ -49,6 +56,7 @@ beforeEach(async () => {
     await git(['add', '.']);
     await git(['commit', '-q', '-m', 'init']);
     forgetBase();
+    clock = 0;
     events = [];
     changed = [];
     fake = new FakeWatch();
@@ -170,7 +178,7 @@ describe('GitStatusWatcher', () => {
         expect(fake.watchers).toEqual([]);
     });
 
-    test('a status run slower than the limit gives the watch up for good', async () => {
+    test('a status run slower than the limit gives the watch up while runs stay slow', async () => {
         unsubscribe();
         watcher = watcherWith(1500);
         await watcher.watch('c1', repo);
@@ -182,5 +190,35 @@ describe('GitStatusWatcher', () => {
         expect(events[0]!.status.live).toBe(false);
         expect(fake.openOn(repo)).toEqual([]);
         expect((await watcher.status(repo)).live).toBe(false);
+    });
+
+    test('a fast run after a slow one opens the watch again', async () => {
+        unsubscribe();
+        watcher = watcherWith(1500);
+        await watcher.watch('c1', repo);
+        fake.on(repo).emit('tracked.txt');
+        await fake.settle();
+        expect(fake.openOn(repo)).toEqual([]);
+
+        runTakes = 10;
+        expect((await watcher.status(repo)).live).toBe(true);
+        expect(fake.openOn(repo)).toHaveLength(1);
+    });
+
+    test('a slow root is watched again by a watch asked once a few minutes passed', async () => {
+        unsubscribe();
+        watcher = watcherWith(1500);
+        await watcher.watch('c1', repo);
+        fake.on(repo).emit('tracked.txt');
+        await fake.settle();
+        watcher.unwatch('c1', repo);
+
+        await watcher.watch('c1', repo);
+        expect(fake.openOn(repo)).toEqual([]);
+        watcher.unwatch('c1', repo);
+
+        clock += 5 * 60 * 1000;
+        await watcher.watch('c1', repo);
+        expect(fake.openOn(repo)).toHaveLength(1);
     });
 });
