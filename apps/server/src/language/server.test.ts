@@ -3,7 +3,7 @@ import { INITIALIZE_TIMEOUT_MS, LanguageServer, STABLE_AFTER_MS, type LanguageSe
 import { KIND_PROFILES, type ProjectSqlSettings } from './profiles.ts';
 import { fakeSpawner, ManualClock, settle, type FakeSpawner } from './test-fakes.ts';
 import type { LanguageServerKind } from '@ruimte/contracts';
-import type { Diagnostic, PublishDiagnosticsParams, RequestHandler, ServerCapabilities } from '@adecore/lsp';
+import { TextMirror, type Diagnostic, type PublishDiagnosticsParams, type RequestHandler, type ServerCapabilities } from '@adecore/lsp';
 
 const runtime = { command: '/ruimte', args: [], env: { BUN_BE_BUN: '1' } };
 
@@ -14,7 +14,7 @@ function document(path: string, languageId: string, text: string): SharedDocumen
         kinds: [],
         storedPath: path.replace('/work/', ''),
         languageId,
-        text,
+        mirror: new TextMirror(text),
         version: 1,
         clients: new Set(['client-1'])
     };
@@ -140,7 +140,7 @@ describe('a language server of one kind in one project', () => {
         const main = document('/work/a.ts', 'typescript', 'let a = 1;\n');
         server.attach(main);
         await settle();
-        main.text = 'let a = 12;\n';
+        main.mirror.applyChanges([{ text: 'let a = 12;\n' }]);
         main.version = 2;
         await server.change(main, [{ range: { start: { line: 0, character: 9 }, end: { line: 0, character: 9 } }, text: '2' }]);
         await settle();
@@ -279,7 +279,7 @@ describe('a language server of one kind in one project', () => {
         server.attach(main);
         await settle();
         time.now += STABLE_AFTER_MS;
-        main.text = 'newer';
+        main.mirror.applyChanges([{ text: 'newer' }]);
         main.version = 3;
         states.length = 0;
         spawner.processes[0].say('RangeError: out of memory');
@@ -375,7 +375,7 @@ describe('a language server of one kind in one project', () => {
         await spawner.processes[0].crash();
         await settle();
         expect(server.state).toBe('crashed');
-        main.text = 'newer';
+        main.mirror.applyChanges([{ text: 'newer' }]);
         main.version = 5;
         await server.restart();
         expect(server.state).toBe('ready');
@@ -742,7 +742,7 @@ describe('the sidecar of code actions beside the native TypeScript server', () =
         const { server, spawner, main, diagnostics } = await started({ 'textDocument/codeAction': () => [] }, { 'textDocument/codeAction': () => [] });
         await server.request(main, 'textDocument/codeAction', params);
         const [sidecar] = spawner.of('typescript-actions');
-        main.text = 'let a = 12;\n';
+        main.mirror.applyChanges([{ text: 'let a = 12;\n' }]);
         main.version = 2;
         await server.change(main, [{ range: { start: { line: 0, character: 9 }, end: { line: 0, character: 9 } }, text: '2' }]);
         const second = document('/work/src/b.ts', 'typescript', 'let b = 1;\n');

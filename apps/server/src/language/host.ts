@@ -30,13 +30,13 @@ import type {
 } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
 import {
-    applyContentChanges,
     ErrorCodes,
     LspError,
     fileUriToPath,
     pathToFileUri,
     planWorkspaceOperations,
     StaleResultError,
+    TextMirror,
     watchesFile,
     type ApplyWorkspaceEditParams,
     type ApplyWorkspaceEditResult,
@@ -425,10 +425,10 @@ export class LanguageHost {
         let document = project.documents.get(absolutePath);
         if (document) {
             document.clients.add(clientId);
-            if (document.text !== payload.text) {
+            if (document.mirror.text !== payload.text) {
                 // Two clients with different text take turns: whoever opens last sets what the servers see.
                 const changes = [{ text: payload.text }];
-                document.text = payload.text;
+                document.mirror.applyChanges(changes);
                 document.version++;
                 await Promise.all(this.serversOf(project, document).map((server) => server.change(document!, changes)));
             }
@@ -439,7 +439,7 @@ export class LanguageHost {
                 kinds,
                 storedPath,
                 languageId: documentLanguageId(payload.languageId, storedPath),
-                text: payload.text,
+                mirror: new TextMirror(payload.text),
                 version: 1,
                 clients: new Set([clientId])
             };
@@ -457,14 +457,12 @@ export class LanguageHost {
         if (payload.baseVersion !== document.version) {
             throw new LanguageError(LANGUAGE_ERROR_CODES.staleDocument, `The document is at version ${document.version}, not ${payload.baseVersion}`);
         }
-        let next: string;
         try {
-            next = applyContentChanges(document.text, payload.changes);
+            document.mirror.applyChanges(payload.changes);
         } catch (error) {
             // A change that does not fit the text means the client's text is not the daemon's.
             throw new LanguageError(LANGUAGE_ERROR_CODES.staleDocument, error instanceof Error ? error.message : 'The change does not fit the document');
         }
-        document.text = next;
         const version = ++document.version;
         await Promise.all(this.serversOf(project, document).map((server) => server.change(document, payload.changes)));
         return { version };
@@ -672,8 +670,8 @@ export class LanguageHost {
             return await work({
                 storedPath,
                 absolutePath,
-                text: held.text,
-                unsaved: held.text !== request.disk,
+                text: held.mirror.text,
+                unsaved: held.mirror.text !== request.disk,
                 servers,
                 request: (method, params) => this.request({ projectId, path: storedPath, method, params }),
                 diagnostics: () => this.diagnosticsFor(project, held)
@@ -1195,7 +1193,7 @@ export class LanguageHost {
             read: async (uri) => {
                 const open = this.heldDocument(project, uri);
                 if (open !== undefined) {
-                    return { text: open.text, version: open.version, open: true };
+                    return { text: open.mirror.text, version: open.version, open: true };
                 }
                 const path = fileUriToPath(uri);
                 if (path === null) {

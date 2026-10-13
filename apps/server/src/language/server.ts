@@ -26,6 +26,7 @@ import {
     type CreatedFile,
     type DeletedFile,
     type RenamedFile,
+    type TextMirror,
     type WorkspaceEdit
 } from '@adecore/lsp';
 import { errorText } from '../error-text.ts';
@@ -85,7 +86,8 @@ export interface SharedDocument {
     /* The stored path a client hears about it under. */
     readonly storedPath: string;
     languageId: string;
-    text: string;
+    /* The text the servers see, kept by line so a change costs the lines it touches. */
+    readonly mirror: TextMirror;
     version: number;
     readonly clients: Set<string>;
     /* What each process last reported for it, by the name of the process, which an agent reads back. */
@@ -894,7 +896,7 @@ export class LanguageServer {
                     component.session.openDocument({
                         uri: document.uri,
                         languageId: lspLanguageId(document.languageId),
-                        text: document.text,
+                        text: document.mirror.text,
                         version: document.version
                     })
                 );
@@ -912,7 +914,7 @@ export class LanguageServer {
             return named(hint);
         }
         if (this.kind === 'vue') {
-            return vueServerOrder(method, document.text, params).flatMap(named);
+            return vueServerOrder(method, document.mirror.text, params).flatMap(named);
         }
         // A sidecar answers only for what it was asked, by name, or through `askSidecar`.
         return this.components.filter((component) => component.profile.sidecar !== true);
