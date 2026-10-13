@@ -1,4 +1,4 @@
-import { translate, type Dispatcher } from '../dispatcher.ts';
+import type { Dispatcher } from '../dispatcher.ts';
 import type { ProcessMonitor } from '../processes/monitor.ts';
 
 export function registerProcessHandlers(dispatcher: Dispatcher, monitor: ProcessMonitor): void {
@@ -10,12 +10,10 @@ export function registerProcessHandlers(dispatcher: Dispatcher, monitor: Process
         return {};
     });
 
-    dispatcher.register('processes.signal', (payload) =>
-        translate(() => {
-            monitor.signal(payload);
-            return {};
-        })
-    );
+    dispatcher.register('processes.signal', (payload) => {
+        monitor.signal(payload);
+        return {};
+    });
 
     dispatcher.register('processes.listAlerts', () => ({ alerts: monitor.alerts() }));
 

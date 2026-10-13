@@ -1,7 +1,7 @@
 import type { BrowserManager } from '../browser/manager.ts';
 import type { BrowserPages } from '../browser/pages.ts';
 import { probeDevServers } from '../browser/dev-servers.ts';
-import { translate, type Dispatcher } from '../dispatcher.ts';
+import type { Dispatcher } from '../dispatcher.ts';
 import { streamingGate } from './streaming.ts';
 
 export function registerBrowserHandlers(dispatcher: Dispatcher, browsers: BrowserManager, pages: BrowserPages, streamingAllowed: () => boolean): void {
@@ -9,8 +9,15 @@ export function registerBrowserHandlers(dispatcher: Dispatcher, browsers: Browse
 
     dispatcher.register('browser.open', (payload, client) => {
         requireStreaming();
-        return translate(() =>
-            browsers.open(payload.browserId, client.id, payload.url, payload.width, payload.height, payload.stream, payload.deviceScaleFactor, payload.binary)
+        return browsers.open(
+            payload.browserId,
+            client.id,
+            payload.url,
+            payload.width,
+            payload.height,
+            payload.stream,
+            payload.deviceScaleFactor,
+            payload.binary
         );
     });
     // Detach and kill let a client clean up after the policy changed, so they stay open.
@@ -24,25 +31,21 @@ export function registerBrowserHandlers(dispatcher: Dispatcher, browsers: Browse
     });
     dispatcher.register('browser.navigate', (payload, client) => {
         requireStreaming();
-        return translate(() => browsers.navigate(payload.browserId, client.id, payload.url));
+        return browsers.navigate(payload.browserId, client.id, payload.url);
     });
     dispatcher.register('browser.command', (payload, client) => {
         requireStreaming();
-        return translate(() => browsers.command(payload.browserId, client.id, payload.command, payload.ignoreCache));
+        return browsers.command(payload.browserId, client.id, payload.command, payload.ignoreCache);
     });
-    dispatcher.register('browser.resize', (payload, client) => {
+    dispatcher.register('browser.resize', async (payload, client) => {
         requireStreaming();
-        return translate(async () => {
-            await browsers.resize(payload.browserId, client.id, payload.width, payload.height, payload.deviceScaleFactor);
-            return {};
-        });
+        await browsers.resize(payload.browserId, client.id, payload.width, payload.height, payload.deviceScaleFactor);
+        return {};
     });
-    dispatcher.register('browser.input', (payload, client) => {
+    dispatcher.register('browser.input', async (payload, client) => {
         requireStreaming();
-        return translate(async () => {
-            await browsers.input(payload.browserId, client.id, payload.input);
-            return {};
-        });
+        await browsers.input(payload.browserId, client.id, payload.input);
+        return {};
     });
     /*
      * Holding a page and answering for it. Outside the streaming gate: these open no browser here.

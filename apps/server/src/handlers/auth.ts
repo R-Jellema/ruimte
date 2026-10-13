@@ -8,7 +8,7 @@ import {
     type MachineUpdateReport,
     type MachineWork
 } from '@ruimte/contracts';
-import { RequestError, translate, type ClientAccess, type Dispatcher } from '../dispatcher.ts';
+import { RequestError, type ClientAccess, type Dispatcher } from '../dispatcher.ts';
 import { isOwner } from '../auth/access.ts';
 import { signForAccount } from '../auth/registration.ts';
 import type { AuthStore } from '../auth/auth-store.ts';
@@ -187,7 +187,7 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
         if (closedLid?.available !== true) {
             throw new RequestError('closed-lid-unavailable', 'Only a Mac can stay awake with its lid closed');
         }
-        await translate(() => closedLid.setRule(payload.install, payload.prompt ?? DEFAULT_ADMIN_PROMPT[payload.install ? 'install' : 'remove']));
+        await closedLid.setRule(payload.install, payload.prompt ?? DEFAULT_ADMIN_PROMPT[payload.install ? 'install' : 'remove']);
         return info(client.access);
     });
 
@@ -268,9 +268,7 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
             throw new RequestError('forbidden', 'Only the app on this machine can put it on an account');
         }
         return {
-            registration: await translate(() =>
-                signForAccount(store, identity, host.broker().brokerUrl, payload.accountId, (sessionId) => host.disconnect(sessionId))
-            )
+            registration: await signForAccount(store, identity, host.broker().brokerUrl, payload.accountId, (sessionId) => host.disconnect(sessionId))
         };
     });
 

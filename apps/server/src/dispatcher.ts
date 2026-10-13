@@ -50,21 +50,6 @@ type Handler<T extends RequestType> = (
 // Thrown by a handler to answer with a specific error code instead of a generic failure.
 export class RequestError extends CodedError {}
 
-/*
- * What a handler runs its work through: a failure that carries a code answers under it, and anything
- * else stays an internal error for the dispatcher to report.
- */
-export function translate<T>(work: () => T | Promise<T>): Promise<T> {
-    return Promise.resolve()
-        .then(work)
-        .catch((e: unknown) => {
-            if (e instanceof CodedError) {
-                throw new RequestError(e.code, e.message);
-            }
-            throw e;
-        });
-}
-
 function errorReply(id: string | null, code: string, message: string): ReplyError {
     return {
         id,
@@ -129,7 +114,7 @@ export class Dispatcher {
             }
             client.send({ id, ok: true, result });
         } catch (e) {
-            if (e instanceof RequestError) {
+            if (e instanceof CodedError) {
                 client.send(errorReply(id, e.code, e.message));
                 return;
             }

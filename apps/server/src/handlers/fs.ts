@@ -1,5 +1,5 @@
 import type { FsCreateResult } from '@ruimte/contracts';
-import { translate, type Dispatcher } from '../dispatcher.ts';
+import type { Dispatcher } from '../dispatcher.ts';
 import { browseDirectories } from '../fs/browse.ts';
 import { planCreate } from '../fs/create.ts';
 import { planDelete } from '../fs/delete.ts';
@@ -43,96 +43,82 @@ export function registerFsHandlers(
     machineHome: MachineHome,
     language?: Pick<LanguageHost, 'renameFiles' | 'createFiles' | 'deleteFiles'>
 ): void {
-    dispatcher.register('fs.browse', (payload) => translate(() => browseDirectories(payload.partialPath, payload.cwd, { hidden: payload.hidden })));
+    dispatcher.register('fs.browse', (payload) => browseDirectories(payload.partialPath, payload.cwd, { hidden: payload.hidden }));
 
-    dispatcher.register('fs.search', (payload) =>
-        translate(async () => {
-            await machineHome.refuse(payload.cwd);
-            return searchFiles(payload.cwd, payload.query, payload.limit, await machineHome.policy());
-        })
-    );
+    dispatcher.register('fs.search', async (payload) => {
+        await machineHome.refuse(payload.cwd);
+        return searchFiles(payload.cwd, payload.query, payload.limit, await machineHome.policy());
+    });
 
-    dispatcher.register('fs.grep', (payload) =>
-        translate(async () => {
-            await machineHome.refuse(payload.cwd);
-            return grepFiles(payload.cwd, payload.query, {
-                regex: payload.regex,
-                caseSensitive: payload.caseSensitive,
-                wholeWord: payload.wholeWord,
-                limit: payload.limit,
-                policy: await machineHome.policy()
-            });
-        })
-    );
+    dispatcher.register('fs.grep', async (payload) => {
+        await machineHome.refuse(payload.cwd);
+        return grepFiles(payload.cwd, payload.query, {
+            regex: payload.regex,
+            caseSensitive: payload.caseSensitive,
+            wholeWord: payload.wholeWord,
+            limit: payload.limit,
+            policy: await machineHome.policy()
+        });
+    });
 
-    dispatcher.register('fs.list', (payload) => translate(() => listDirectory(payload.path, { depth: payload.depth, hidden: payload.hidden })));
+    dispatcher.register('fs.list', (payload) => listDirectory(payload.path, { depth: payload.depth, hidden: payload.hidden }));
 
-    dispatcher.register('fs.read', (payload) =>
-        translate(async () => {
-            await machineHome.refuse(payload.path);
-            return readFile(payload.path);
-        })
-    );
+    dispatcher.register('fs.read', async (payload) => {
+        await machineHome.refuse(payload.path);
+        return readFile(payload.path);
+    });
 
-    dispatcher.register('fs.write', (payload, client) =>
-        translate(async () => {
-            await machineHome.refuse(payload.path);
-            return writeTextFile(payload.path, payload.text, payload.expectedMtime, await boundaryOf(client.id));
-        })
-    );
+    dispatcher.register('fs.write', async (payload, client) => {
+        await machineHome.refuse(payload.path);
+        return writeTextFile(payload.path, payload.text, payload.expectedMtime, await boundaryOf(client.id));
+    });
 
-    dispatcher.register('fs.create', (payload, client) =>
-        translate(async () => {
-            await machineHome.refuse(payload.path);
-            const boundary = await boundaryOf(client.id);
-            const plan = await planCreate(payload, boundary);
-            if (payload.projectId === undefined || language === undefined) {
-                return plan.run();
+    dispatcher.register('fs.create', async (payload, client) => {
+        await machineHome.refuse(payload.path);
+        const boundary = await boundaryOf(client.id);
+        const plan = await planCreate(payload, boundary);
+        if (payload.projectId === undefined || language === undefined) {
+            return plan.run();
+        }
+        let made: FsCreateResult | undefined;
+        const edited = await language.createFiles(client.id, payload.projectId, payload.path, payload.kind === 'directory', payload.edits !== false, {
+            ...editsOf(boundary),
+            move: async () => {
+                made = await plan.run();
             }
-            let made: FsCreateResult | undefined;
-            const edited = await language.createFiles(client.id, payload.projectId, payload.path, payload.kind === 'directory', payload.edits !== false, {
-                ...editsOf(boundary),
-                move: async () => {
-                    made = await plan.run();
-                }
-            });
-            return edited.length > 0 ? { ...made!, edited } : made!;
-        })
-    );
+        });
+        return edited.length > 0 ? { ...made!, edited } : made!;
+    });
 
-    dispatcher.register('fs.delete', (payload, client) =>
-        translate(async () => {
-            await machineHome.refuse(payload.path);
-            const boundary = await boundaryOf(client.id);
-            const plan = await planDelete(payload.path, boundary);
-            if (payload.projectId === undefined || language === undefined) {
-                await plan.run();
-                return {};
-            }
-            const edited = await language.deleteFiles(client.id, payload.projectId, payload.path, payload.edits !== false, {
-                ...editsOf(boundary),
-                move: plan.run
-            });
-            return edited.length > 0 ? { edited } : {};
-        })
-    );
+    dispatcher.register('fs.delete', async (payload, client) => {
+        await machineHome.refuse(payload.path);
+        const boundary = await boundaryOf(client.id);
+        const plan = await planDelete(payload.path, boundary);
+        if (payload.projectId === undefined || language === undefined) {
+            await plan.run();
+            return {};
+        }
+        const edited = await language.deleteFiles(client.id, payload.projectId, payload.path, payload.edits !== false, {
+            ...editsOf(boundary),
+            move: plan.run
+        });
+        return edited.length > 0 ? { edited } : {};
+    });
 
-    dispatcher.register('fs.rename', (payload, client) =>
-        translate(async () => {
-            await Promise.all([machineHome.refuse(payload.path), machineHome.refuse(payload.to)]);
-            const boundary = await boundaryOf(client.id);
-            const plan = await planRename(payload.path, payload.to, boundary, { overwrite: payload.overwrite });
-            if (payload.projectId === undefined || language === undefined) {
-                await plan.run();
-                return {};
-            }
-            const edited = await language.renameFiles(client.id, payload.projectId, payload.path, payload.to, payload.edits !== false, {
-                ...editsOf(boundary),
-                move: plan.run
-            });
-            return edited.length > 0 ? { edited } : {};
-        })
-    );
+    dispatcher.register('fs.rename', async (payload, client) => {
+        await Promise.all([machineHome.refuse(payload.path), machineHome.refuse(payload.to)]);
+        const boundary = await boundaryOf(client.id);
+        const plan = await planRename(payload.path, payload.to, boundary, { overwrite: payload.overwrite });
+        if (payload.projectId === undefined || language === undefined) {
+            await plan.run();
+            return {};
+        }
+        const edited = await language.renameFiles(client.id, payload.projectId, payload.path, payload.to, payload.edits !== false, {
+            ...editsOf(boundary),
+            move: plan.run
+        });
+        return edited.length > 0 ? { edited } : {};
+    });
 
     dispatcher.register('fs.watch', async (payload, client) => {
         await watcher.watch(client.id, payload.path);
@@ -144,10 +130,8 @@ export function registerFsHandlers(
         return {};
     });
 
-    dispatcher.register('fs.reveal', (payload) =>
-        translate(async () => {
-            await revealInFileManager(payload.path);
-            return {};
-        })
-    );
+    dispatcher.register('fs.reveal', async (payload) => {
+        await revealInFileManager(payload.path);
+        return {};
+    });
 }

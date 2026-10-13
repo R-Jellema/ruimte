@@ -1,12 +1,12 @@
-import { translate, type Dispatcher } from '../dispatcher.ts';
+import type { Dispatcher } from '../dispatcher.ts';
 import type { ChatItem } from '@ruimte/contracts';
 import type { ProjectIndex } from '../projects/project-index.ts';
 import { hasPrepareSource } from '../sessions/prepare-source.ts';
 import type { PrepareTerminal, PrepareTerminalHost } from '../sessions/prepare-terminal.ts';
 
 export function registerTerminalPrepareHandlers(dispatcher: Dispatcher, prepare: PrepareTerminal): void {
-    dispatcher.register('session.preparePreview', ({ machineId, ...source }, client) => translate(() => prepare.preview(machineId, source, client)));
-    dispatcher.register('session.prepare', ({ machineId, token }, client) => translate(() => prepare.prepare(machineId, token, client)));
+    dispatcher.register('session.preparePreview', ({ machineId, ...source }, client) => prepare.preview(machineId, source, client));
+    dispatcher.register('session.prepare', ({ machineId, token }, client) => prepare.prepare(machineId, token, client));
 }
 
 export function projectTerminalPrepareHost(

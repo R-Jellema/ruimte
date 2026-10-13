@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { CodedError } from '@adecore/agents';
 import type { ServerFrame } from '@ruimte/contracts';
 import { Dispatcher, RequestError, sendEvent, type ClientConnection } from './dispatcher.ts';
 
@@ -89,6 +90,20 @@ describe('Dispatcher', () => {
         expect(socket.last()).toEqual({ id: 'r7', ok: false, error: { code: 'session-not-found', message: 'No such session' } });
         await dispatcher.handle(socket, JSON.stringify({ id: 'r8', type: 'session.detach', payload: { sessionId: 'n1' } }));
         expect(socket.last()).toEqual({ id: 'r8', ok: false, error: { code: 'internal', message: 'Request failed' } });
+    });
+
+    test('maps a coded error of any domain, thrown or rejected, to its code', async () => {
+        class DomainError extends CodedError<'domain-refused'> {}
+        const socket = new FakeSocket();
+        const dispatcher = new Dispatcher();
+        dispatcher.register('session.kill', () => {
+            throw new DomainError('domain-refused', 'Refused at once');
+        });
+        dispatcher.register('session.detach', () => Promise.reject(new DomainError('domain-refused', 'Refused later')));
+        await dispatcher.handle(socket, JSON.stringify({ id: 'r9', type: 'session.kill', payload: { sessionId: 'n1' } }));
+        expect(socket.last()).toEqual({ id: 'r9', ok: false, error: { code: 'domain-refused', message: 'Refused at once' } });
+        await dispatcher.handle(socket, JSON.stringify({ id: 'r10', type: 'session.detach', payload: { sessionId: 'n1' } }));
+        expect(socket.last()).toEqual({ id: 'r10', ok: false, error: { code: 'domain-refused', message: 'Refused later' } });
     });
 
     test('refuses a second handler for the same type', () => {

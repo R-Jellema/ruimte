@@ -1,4 +1,4 @@
-import { translate, type ClientConnection } from '../dispatcher.ts';
+import type { ClientConnection } from '../dispatcher.ts';
 
 /* The part of a view file store a request reaches; the store has more, and none of it is on the wire. */
 interface ViewFileRequests<TDocument, TContent> {
@@ -21,25 +21,23 @@ interface ViewRef {
 export function viewFileHandlers<TDocument, TContent>(store: ViewFileRequests<TDocument, TContent>) {
     return {
         /* The scene, already drawn, for a client with no renderer of its own; it paints the result, not the document. */
-        scene: <TScene>(payload: ViewRef, render: (document: TDocument) => TScene): Promise<TScene> =>
-            translate(async () => render(await store.open(payload.projectId, payload.viewId))),
+        scene: async <TScene>(payload: ViewRef, render: (document: TDocument) => TScene): Promise<TScene> =>
+            render(await store.open(payload.projectId, payload.viewId)),
 
-        open: (payload: ViewRef): Promise<{ document: TDocument }> =>
-            translate(async () => ({ document: await store.open(payload.projectId, payload.viewId) })),
+        open: async (payload: ViewRef): Promise<{ document: TDocument }> => ({ document: await store.open(payload.projectId, payload.viewId) }),
 
-        save: (payload: ViewRef & { baseRev: number; content: TContent }, client: ClientConnection): Promise<{ rev: number }> =>
-            translate(async () => ({ rev: await store.save(payload.projectId, payload.viewId, payload.baseRev, payload.content, client.id) })),
+        save: async (payload: ViewRef & { baseRev: number; content: TContent }, client: ClientConnection): Promise<{ rev: number }> => ({
+            rev: await store.save(payload.projectId, payload.viewId, payload.baseRev, payload.content, client.id)
+        }),
 
-        close: (payload: ViewRef): Promise<Record<string, never>> =>
-            translate(() => {
-                store.close(payload.projectId, payload.viewId);
-                return {};
-            }),
+        close: (payload: ViewRef): Record<string, never> => {
+            store.close(payload.projectId, payload.viewId);
+            return {};
+        },
 
-        copy: (payload: { projectId: string; from: string; to: string }): Promise<Record<string, never>> =>
-            translate(async () => {
-                await store.copy(payload.projectId, payload.from, payload.to);
-                return {};
-            })
+        copy: async (payload: { projectId: string; from: string; to: string }): Promise<Record<string, never>> => {
+            await store.copy(payload.projectId, payload.from, payload.to);
+            return {};
+        }
     };
 }

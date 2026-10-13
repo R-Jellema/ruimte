@@ -8,7 +8,7 @@ import type {
     ChatSummarizeResult
 } from '@ruimte/contracts';
 import { chatHandlers } from '@adecore/agents/host';
-import { translate, type Dispatcher } from '../dispatcher.ts';
+import type { Dispatcher } from '../dispatcher.ts';
 import { ChatError } from '../chat/errors.ts';
 import type { ChatManager } from '../chat/chat-manager.ts';
 import type { ProviderRegistry } from '../providers/registry.ts';
@@ -45,12 +45,10 @@ export function registerChatHandlers(
     } = chatHandlers(manager, providers);
     registerAgentHandlers(dispatcher, shared);
 
-    dispatcher.register('chat.stopSubagent', (payload) =>
-        translate(async () => {
-            await manager.stopSubagent(payload.chatId, payload.toolUseId, stopNode);
-            return {};
-        })
-    );
+    dispatcher.register('chat.stopSubagent', async (payload) => {
+        await manager.stopSubagent(payload.chatId, payload.toolUseId, stopNode);
+        return {};
+    });
 
     const forking = (): ChatForkHandlers => {
         if (!forks) {
@@ -59,31 +57,27 @@ export function registerChatHandlers(
         return forks;
     };
 
-    dispatcher.register('chat.fork', (payload) => translate(() => forking().fork(payload)));
+    dispatcher.register('chat.fork', (payload) => forking().fork(payload));
 
-    dispatcher.register('chat.forkInfo', (payload) => translate(() => forking().info(payload)));
+    dispatcher.register('chat.forkInfo', (payload) => forking().info(payload));
 
-    dispatcher.register('chat.summarize', (payload) => translate(() => forking().summarize(payload.chatId)));
+    dispatcher.register('chat.summarize', (payload) => forking().summarize(payload.chatId));
 
-    dispatcher.register('chat.continueOn', (payload) => translate(() => forking().continueOn(payload)));
+    dispatcher.register('chat.continueOn', (payload) => forking().continueOn(payload));
 
-    dispatcher.register('chat.cancel', (payload) =>
-        translate(async () => {
-            // Owed on disk before the turn stops, so a restart in between still ends the agents it opened.
-            if (payload.subagents === true && manager.get(payload.chatId)) {
-                await beforeKill?.(payload.chatId);
-            }
-            manager.cancel(payload.chatId, payload.subagents === true);
-            return {};
-        })
-    );
-
-    dispatcher.register('chat.kill', (payload) =>
-        translate(async () => {
+    dispatcher.register('chat.cancel', async (payload) => {
+        // Owed on disk before the turn stops, so a restart in between still ends the agents it opened.
+        if (payload.subagents === true && manager.get(payload.chatId)) {
             await beforeKill?.(payload.chatId);
-            await manager.kill(payload.chatId);
-            await killed?.(payload.chatId);
-            return {};
-        })
-    );
+        }
+        manager.cancel(payload.chatId, payload.subagents === true);
+        return {};
+    });
+
+    dispatcher.register('chat.kill', async (payload) => {
+        await beforeKill?.(payload.chatId);
+        await manager.kill(payload.chatId);
+        await killed?.(payload.chatId);
+        return {};
+    });
 }

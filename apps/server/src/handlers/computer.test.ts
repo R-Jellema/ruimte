@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { ServerFrame } from '@ruimte/contracts';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { computerSetup } from '../computer/computer-test-helpers.ts';
+import { computerSetup, FakeHelper } from '../computer/computer-test-helpers.ts';
 import { Dispatcher, type ClientConnection } from '../dispatcher.ts';
 import { registerComputerHandlers } from './computer.ts';
 
@@ -27,6 +27,20 @@ describe('computer handlers', () => {
 
         await dispatcher.handle(client, request('computer.restart'));
         expect(frames.at(-1)).toMatchObject({ ok: true, result: { enabled: true, running: true, screenRecording: true } });
+    });
+
+    test('a helper that fails a grant answers with its code', async () => {
+        const helper = new FakeHelper();
+        const send = helper.send.bind(helper);
+        helper.send = async (request) => (request.command === 'doctor' ? { ok: false, error: 'The helper broke' } : send(request));
+        const { computer } = await computerSetup({ helper });
+        const dispatcher = new Dispatcher();
+        registerComputerHandlers(dispatcher, computer);
+        const frames: ServerFrame[] = [];
+        const client: ClientConnection = { id: 'client-1', send: (frame) => frames.push(frame) };
+
+        await dispatcher.handle(client, request('computer.requestGrant', { grant: 'accessibility' }));
+        expect(frames.at(-1)).toMatchObject({ ok: false, error: { code: 'helper-error' } });
     });
 
     test('a language a client switched to reaches the overlay', async () => {
