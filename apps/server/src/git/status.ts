@@ -1,13 +1,14 @@
 import type { GitFile, GitStatus } from '@ruimte/contracts';
 import { operationOf } from './conflict.ts';
 import { parseNumstat, type Numstat } from './diff.ts';
-import { READ_ONLY_GIT, git, readGit, runGit } from './run.ts';
+import { git, readGit } from './run.ts';
+import { untrackedNumstat } from './untracked-lines.ts';
 
 // A list past this is one nobody reads, and a status that carries it is one nobody wants on the wire.
 const MAX_FILES = 1000;
-// Every untracked file costs a `--no-index` diff of its own, so only the first ones get real counts.
+// Every untracked file is read whole on every run, so only the first ones get real counts.
 const MAX_UNTRACKED_COUNTS = 100;
-// How many of those run at once: enough to hide the process start, few enough to leave the machine alone.
+// How many of those are open at once, so a folder of new files does not hold a descriptor each.
 const COUNT_CONCURRENCY = 8;
 // The base branch of a repository moves about as often as its remote does.
 const BASE_TTL_MS = 5 * 60 * 1000;
@@ -113,13 +114,7 @@ async function untrackedCounts(root: string, paths: string[]): Promise<Map<strin
     const counts = new Map<string, Numstat>();
     for (let i = 0; i < paths.length; i += COUNT_CONCURRENCY) {
         const batch = paths.slice(i, i + COUNT_CONCURRENCY);
-        const results = await Promise.all(
-            batch.map(async (path) => {
-                // `--no-index` answers 1 when the two sides differ, which is what every file here does.
-                const { code, stdout } = await runGit(['diff', '--numstat', '-z', '--no-index', '--', '/dev/null', path], root, { env: READ_ONLY_GIT });
-                return code > 1 ? null : (parseNumstat(stdout)[0] ?? null);
-            })
-        );
+        const results = await Promise.all(batch.map((path) => untrackedNumstat(root, path)));
         for (let index = 0; index < batch.length; index += 1) {
             const stat = results[index];
             if (stat) {
@@ -203,10 +198,22 @@ function fileOf(entry: PorcelainEntry, state: GitFile['state'], status: string, 
  * one half of a file's changes readable. Renames keep the path they came from.
  */
 export async function readStatus(cwd: string): Promise<GitStatus> {
-    const root = (await git(['rev-parse', '--show-toplevel'], cwd))?.trim() || null;
-    if (root === null) {
-        return EMPTY;
-    }
+    const root = await repositoryRoot(cwd);
+    return root === null ? EMPTY : await readStatusAt(root);
+}
+
+/* The top of the working tree `cwd` is in, or null outside a repository. */
+export async function repositoryRoot(cwd: string): Promise<string | null> {
+    return (await git(['rev-parse', '--show-toplevel'], cwd))?.trim() || null;
+}
+
+/* What a folder outside any repository reads as. */
+export function noRepository(): GitStatus {
+    return { ...EMPTY, files: [] };
+}
+
+/* `readStatus` for a root `repositoryRoot` already found. */
+export async function readStatusAt(root: string): Promise<GitStatus> {
     const porcelain = await readGit(['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all'], root);
     if (porcelain === null) {
         return EMPTY;

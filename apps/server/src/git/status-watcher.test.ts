@@ -17,6 +17,9 @@ let changed: GitChangedEvent[];
 let unsubscribe: () => void;
 let clock: number;
 let runTakes: number;
+let runs: number;
+/* While set, a status run waits for it after reading, standing in for a run that is slow to come back. */
+let hold: (() => Promise<void>) | null;
 
 async function git(args: string[]): Promise<void> {
     await gitIn(repo, args);
@@ -30,7 +33,9 @@ function watcherWith(runMs: number): GitStatusWatcher {
         fake,
         () => clock,
         async (cwd) => {
+            runs += 1;
             const status = await readStatus(cwd);
+            await hold?.();
             clock += runTakes;
             return status;
         }
@@ -57,6 +62,8 @@ beforeEach(async () => {
     await git(['commit', '-q', '-m', 'init']);
     forgetBase();
     clock = 0;
+    runs = 0;
+    hold = null;
     events = [];
     changed = [];
     fake = new FakeWatch();
@@ -120,18 +127,12 @@ describe('GitStatusWatcher', () => {
 
     test('a write that lands while a status runs is published once that run is over', async () => {
         await watcher.watch('c1', repo);
-        const original = watcher.status.bind(watcher);
         const { promise: gate, resolve: release } = Promise.withResolvers<void>();
         const { promise: inside, resolve: entered } = Promise.withResolvers<void>();
-        let first = true;
-        watcher.status = async (cwd: string) => {
-            const status = await original(cwd);
-            if (first) {
-                first = false;
-                entered();
-                await gate;
-            }
-            return status;
+        hold = async () => {
+            hold = null;
+            entered();
+            await gate;
         };
         await writeFile(join(repo, 'a.txt'), 'a\n');
         fake.on(repo).emit('a.txt');
@@ -139,10 +140,11 @@ describe('GitStatusWatcher', () => {
         await inside;
         await writeFile(join(repo, 'b.txt'), 'b\n');
         fake.on(repo).emit('b.txt');
-        await fake.settle();
+        const secondRun = fake.settle();
         release();
-        await firstRun;
+        await Promise.all([firstRun, secondRun]);
 
+        expect(runs).toBe(2);
         expect(
             events
                 .at(-1)!
@@ -220,5 +222,63 @@ describe('GitStatusWatcher', () => {
         clock += 5 * 60 * 1000;
         await watcher.watch('c1', repo);
         expect(fake.openOn(repo)).toHaveLength(1);
+    });
+
+    test('two clients of one repository share its watcher and one status run per burst, each under its own folder', async () => {
+        const nested = join(repo, 'nested');
+        await mkdir(nested);
+        const second: Array<{ event: string; cwd: string }> = [];
+        const unsubscribeSecond = watcher.subscribe('c2', (frame) => {
+            if (frame.event === 'git.status' || frame.event === 'git.changed') {
+                second.push({ event: frame.event, cwd: frame.payload.cwd });
+            }
+        });
+        await watcher.watch('c1', repo);
+        await watcher.watch('c2', nested);
+        expect(fake.watchers).toHaveLength(1);
+
+        await writeFile(join(repo, 'a.txt'), 'a\n');
+        fake.on(repo).emit('a.txt');
+        await fake.settle();
+
+        expect(runs).toBe(1);
+        expect(events.map((event) => event.cwd)).toEqual([repo]);
+        expect(second).toEqual([
+            { event: 'git.status', cwd: nested },
+            { event: 'git.changed', cwd: nested }
+        ]);
+
+        watcher.detachAll('c1');
+        expect(fake.openOn(repo)).toHaveLength(1);
+        watcher.detachAll('c2');
+        expect(fake.openOn(repo)).toEqual([]);
+        unsubscribeSecond();
+    });
+
+    test('statuses asked while one runs share the one run after it', async () => {
+        const { promise: gate, resolve: release } = Promise.withResolvers<void>();
+        const { promise: inside, resolve: entered } = Promise.withResolvers<void>();
+        hold = async () => {
+            hold = null;
+            entered();
+            await gate;
+        };
+        // The run itself, past the root lookup a status starts with, which would let the three arrive in any order.
+        const run = (watcher as unknown as { run(root: string): Promise<unknown> }).run.bind(watcher);
+        const first = run(repo);
+        await inside;
+        const asked = [run(repo), run(repo), run(repo)];
+        release();
+        await Promise.all([first, ...asked]);
+
+        expect(runs).toBe(2);
+    });
+
+    test('a status asked by hand that differs from the last one reaches every client watching', async () => {
+        await watcher.watch('c1', repo);
+        await writeFile(join(repo, 'a.txt'), 'a\n');
+        await watcher.status(repo);
+
+        expect(events.map((event) => event.status.files.map((file) => file.path))).toEqual([['a.txt']]);
     });
 });
