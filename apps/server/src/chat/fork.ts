@@ -643,7 +643,9 @@ export function chatForkDeps(wiring: {
             await wiring.checkpoints.restore(cwd, tree);
         },
         writeRecord: (chatId, info, items, preambles) => wiring.chats.writeRecord(chatId, info, items, preambles),
-        deleteRecord: (chatId) => wiring.chats.deleteRecord(chatId),
+        deleteRecord: async (chatId) => {
+            await wiring.chats.deleteRecord(chatId);
+        },
         copyPlans: (fromChatId, toChatId) => wiring.chats.copyPlans(fromChatId, toChatId),
         copyBookmarks: (fromChatId, toChatId, itemIds) => wiring.chats.copyBookmarks(fromChatId, toChatId, itemIds),
         copyVisuals: (fromChatId, toChatId, keep) => wiring.chats.copyVisuals(fromChatId, toChatId, keep),

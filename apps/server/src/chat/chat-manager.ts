@@ -22,7 +22,7 @@ import type {
     RuntimeMode,
     Task
 } from '@ruimte/contracts';
-import { generatedImageAttachment } from '@ruimte/contracts';
+import { HOST_TASK_ORIGIN } from '@ruimte/contracts';
 import { ChatCore, type ChatCoreOptions, claudeProjectSlug, limitedTurn } from '@adecore/agents/chat';
 import type { ChatReferences, ChatSession, PromptNotes, ResumeWords, ChatRecord, ChatRecordExtras } from '@adecore/agents/chat';
 import { storedAccount, narrowerMode } from '@adecore/agents/providers';
@@ -174,7 +174,7 @@ function taskRowItems(session: ChatSession, task: Task): ChatItem[] {
         usage: null,
         lastTool: null,
         itemsTruncated: false,
-        origin: 'ruimte',
+        origin: HOST_TASK_ORIGIN,
         childId: task.childId
     };
     const noteId = `${id}-cancelled`;
@@ -228,7 +228,36 @@ export class ChatManager extends ChatCore {
     private readonly childHolds = new Map<string, { parentId: string; toolUseId: string; childId: string; clients: Set<string> }>();
 
     constructor(options: ChatManagerOptions) {
-        super({ codexClient: RUIMTE_CODEX_CLIENT, uiFenceLanguage: RUIMTE_UI_FENCE, ...options, env: chatEnvOf(options.env ?? process.env, options.binDir) });
+        super({
+            codexClient: RUIMTE_CODEX_CLIENT,
+            uiFenceLanguage: RUIMTE_UI_FENCE,
+            ...options,
+            env: chatEnvOf(options.env ?? process.env, options.binDir),
+            hooks: {
+                instructionsFor: (chatId) => this.instructionsFor(chatId),
+                resumeNoteFor: (chatId) => this.resumeNoteFor(chatId),
+                foldersFor: (chatId) => this.foldersFor(chatId),
+                promptNotesFor: (chatId) => this.promptNotesFor(chatId),
+                hiddenFor: (chatId) => this.inlineChat(chatId),
+                referencesFor: (chatId) => this.referencesFor(chatId),
+                envFor: (chatId, base) => this.envFor(chatId, base),
+                admit: (chatId, cwd) => this.checkCwd(chatId, cwd),
+                openingSelection: (chatId, kind) => this.opening(chatId, kind),
+                runtimeModeFor: (chatId, mode) => this.runtimeModeFor(chatId, mode),
+                opened: (session, stored) => this.opened(session, stored),
+                recordExtras: (chatId) => clearedExtras(this.clearedTasks.get(chatId)),
+                clearing: async (chatId) => {
+                    await this.endChildren(chatId);
+                },
+                cleared: (chatId) => this.cleared(chatId),
+                forgotten: (chatId) => this.forgotten(chatId),
+                removed: (chatId, chat) => this.removed(chatId, chat),
+                broadcasted: (chatId, event) => this.broadcasted(chatId, event),
+                endedAt: (chatId) => this.ended(chatId),
+                unownedReason: () => 'no project holds this chat any more',
+                resumeWords: (chatId) => this.resumeWords(chatId)
+            }
+        });
         this.contextUrl = options.contextUrl ?? null;
         this.depthOf = options.depthOf ?? (() => 0);
         this.standalone = options.standalone ?? (() => false);
@@ -260,54 +289,13 @@ export class ChatManager extends ChatCore {
         return this.readChat(chatId);
     }
 
-    /* The record of a chat nobody has loaded, written whole: a fork's thread before its node exists. */
-    async writeRecord(chatId: string, info: ChatInfo, items: ChatItem[], preambles: string[]): Promise<void> {
-        if (!this.store) {
-            throw new ChatError('chat-unsupported', 'This machine keeps no chat records');
+    /* Also takes back the plans the fork was given, beside what the core removes. */
+    override async deleteRecord(chatId: string): Promise<boolean> {
+        const deleted = await super.deleteRecord(chatId);
+        if (deleted) {
+            await this.plans?.removeChat(chatId);
         }
-        if (this.chats.has(chatId) || this.creating.has(chatId)) {
-            throw new ChatError('chat-busy', `Chat ${chatId} is already loaded`);
-        }
-        const copies = new Map<string, Promise<ChatAttachment>>();
-        const copy = (attachment: ChatAttachment): Promise<ChatAttachment> => {
-            let pending = copies.get(attachment.id);
-            if (!pending) {
-                pending = this.attachments.copy(chatId, attachment);
-                copies.set(attachment.id, pending);
-            }
-            return pending;
-        };
-        const copied = await Promise.all(
-            items.map(async (item): Promise<ChatItem> => {
-                if (item.kind === 'user' && item.attachments?.length) {
-                    return { ...item, attachments: await Promise.all(item.attachments.map(copy)) };
-                }
-                const generated = generatedImageAttachment(item);
-                if (item.kind === 'tool' && generated) {
-                    return { ...item, input: { ...(item.input as Record<string, unknown>), attachment: await copy(generated) } };
-                }
-                return item;
-            })
-        );
-        await this.store.write(chatId, info, copied, { seq: 0, resetSeq: 0 }, preambles);
-    }
-
-    /* Takes back a record `writeRecord` wrote, as long as nobody loaded the chat since. */
-    async deleteRecord(chatId: string): Promise<void> {
-        if (!this.chats.has(chatId) && !this.creating.has(chatId)) {
-            await this.removeStored(chatId);
-        }
-    }
-
-    /* What a chat nobody loaded keeps on disk beside its record, and the record itself. */
-    private async removeStored(chatId: string): Promise<void> {
-        await Promise.all([
-            this.store?.delete(chatId),
-            this.attachments.removeAll(chatId),
-            this.plans?.removeChat(chatId),
-            this.bookmarks?.removeChat(chatId),
-            this.visuals?.removeChat(chatId)
-        ]);
+        return deleted;
     }
 
     /* Gives a fork the plans of the chat it was forked from. */
@@ -362,7 +350,7 @@ export class ChatManager extends ChatCore {
     override async stopSubagent(chatId: string, toolUseId: string, stopNode?: (nodeId: string, reason: string) => Promise<void>): Promise<void> {
         await this.loaded(chatId);
         const row = this.require(chatId).thread.find('subagent', (item) => item.toolUseId === toolUseId);
-        if (row?.origin === 'ruimte' && row.status === 'running') {
+        if (row?.origin === HOST_TASK_ORIGIN && row.status === 'running') {
             if (row.childId === undefined || !stopNode) {
                 throw new ChatError('chat-unsupported', 'This task cannot be stopped from here; stop its node instead');
             }
@@ -382,7 +370,7 @@ export class ChatManager extends ChatCore {
 
     /* Writes the row of a task into the chat that gave it, when that chat is loaded; loading it lays every row down anyway. */
     syncTaskRow(task: Task): void {
-        const session = this.chats.get(task.parentId);
+        const session = this.get(task.parentId);
         if (session) {
             this.upsertTaskRow(session, task);
         }
@@ -391,7 +379,7 @@ export class ChatManager extends ChatCore {
     /* Opens the turn a fork writes its summary in, loading the fork when nobody has; null while a turn is in the way. */
     async openSummaryTurn(chatId: string, wake: { text: string; label: string; note: string; summaryFor: string }): Promise<string | null> {
         await this.loaded(chatId);
-        if (!this.chats.has(chatId)) {
+        if (!this.get(chatId)) {
             if (!(await this.hasStored(chatId))) {
                 throw new ChatError('chat-not-found', `No chat ${chatId}`);
             }
@@ -407,14 +395,14 @@ export class ChatManager extends ChatCore {
      */
     async dropUnspokenFork(chatId: string): Promise<void> {
         await this.loaded(chatId);
-        if (this.chats.has(chatId) || !this.store) {
+        if (this.get(chatId)) {
             return;
         }
-        const stored = await this.store.read(chatId);
+        const stored = await this.readChat(chatId);
         if (stored === null || !unspokenFork(stored.items, stored.info)) {
             return;
         }
-        await Promise.all([this.removeStored(chatId), this.dropForkCopy(stored)]);
+        await Promise.all([this.deleteRecord(chatId), this.dropForkCopy(stored)]);
     }
 
     /*
@@ -424,7 +412,7 @@ export class ChatManager extends ChatCore {
      */
     async limitedTurnFor(chatId: string, account: string): Promise<{ turnId: string; limit: ChatTurnLimit['kind']; inPlace: boolean }> {
         await this.loaded(chatId);
-        if (!this.chats.has(chatId) && (await this.store?.has(chatId))) {
+        if (!this.get(chatId) && (await this.hasStored(chatId))) {
             await this.create({ chatId });
         }
         const session = this.require(chatId);
@@ -492,11 +480,11 @@ export class ChatManager extends ChatCore {
 
     /* The limited turn of the chat went on in a fork under `account`, so the chat itself never takes it up. */
     continuedInFork(chatId: string, account: string | undefined): void {
-        const session = this.chats.get(chatId);
+        const session = this.get(chatId);
         session?.continuedElsewhere(continuedInForkNote(this.accountLabel(session.info.provider, account)));
     }
 
-    protected override instructionsFor(chatId: string): string {
+    private instructionsFor(chatId: string): string {
         return chatPrompt({
             sources: this.contextSources(chatId),
             depth: this.depthOf(chatId),
@@ -508,13 +496,13 @@ export class ChatManager extends ChatCore {
         });
     }
 
-    protected override resumeNoteFor(chatId: string): string | null {
+    private resumeNoteFor(chatId: string): string | null {
         const context = contextPrompt(this.contextSources(chatId));
         const visuals = this.visualReplies() && !this.inlineChat(chatId) ? VISUAL_RESUME_NOTE : null;
         return [context, visuals].filter((part) => part !== null).join(' ') || null;
     }
 
-    protected override foldersFor(chatId: string): readonly string[] {
+    private foldersFor(chatId: string): readonly string[] {
         if (!this.visuals || !this.visualReplies() || this.inlineChat(chatId)) {
             return [];
         }
@@ -524,16 +512,12 @@ export class ChatManager extends ChatCore {
         return [path];
     }
 
-    protected override promptNotesFor(chatId: string): PromptNotes {
+    private promptNotesFor(chatId: string): PromptNotes {
         const notes = new ContextNotes(() => this.contextSources(chatId), this.messageNotes?.(chatId) ?? null);
         return this.inlineChat(chatId) ? new InlineEditNotes(notes) : notes;
     }
 
-    protected override hiddenFor(chatId: string): boolean {
-        return this.inlineChat(chatId);
-    }
-
-    protected override referencesFor(chatId: string): ChatReferences {
+    private referencesFor(chatId: string): ChatReferences {
         return (ids) => {
             const references = resolveChatReferences(ids, (id) => this.chatTitle(chatId, id));
             return { ids: references.map((reference) => reference.id), note: chatReferenceNote(references) };
@@ -541,7 +525,7 @@ export class ChatManager extends ChatCore {
     }
 
     /* A token per load of the chat, which the CLI's `ruimte-context` presents to the daemon. */
-    protected override envFor(chatId: string, base: Record<string, string>): Record<string, string> {
+    private envFor(chatId: string, base: Record<string, string>): Record<string, string> {
         if (this.contextUrl === null) {
             return base;
         }
@@ -550,20 +534,12 @@ export class ChatManager extends ChatCore {
         return { ...base, RUIMTE_CONTEXT_URL: this.contextUrl, RUIMTE_CONTEXT_TOKEN: token };
     }
 
-    protected override admit(chatId: string, cwd: string): Promise<void> {
-        return this.checkCwd(chatId, cwd);
-    }
-
-    protected override openingSelection(chatId: string, kind: AgentKind): ModelSelection | undefined {
-        return this.opening(chatId, kind);
-    }
-
-    protected override runtimeModeFor(chatId: string, mode: RuntimeMode): RuntimeMode {
+    private runtimeModeFor(chatId: string, mode: RuntimeMode): RuntimeMode {
         const ceiling = this.modeCeiling(chatId);
         return ceiling === null ? mode : narrowerMode(mode, ceiling);
     }
 
-    protected override async opened(session: ChatSession, stored: ChatRecord | null): Promise<void> {
+    private async opened(session: ChatSession, stored: ChatRecord | null): Promise<void> {
         const chatId = session.id;
         this.clearedTasks.set(chatId, new Set(clearedTaskIdsOf(stored?.extras ?? {})));
         for (const task of this.taskRows(chatId)) {
@@ -590,16 +566,8 @@ export class ChatManager extends ChatCore {
         }
     }
 
-    protected override recordExtras(chatId: string): ChatRecordExtras {
-        return clearedExtras(this.clearedTasks.get(chatId));
-    }
-
-    protected override async clearing(chatId: string): Promise<void> {
-        await this.endChildren(chatId);
-    }
-
     /* A cleared chat hides the rows of the tasks it gave, and loses its plans and what those tasks still owed it. */
-    protected override async cleared(chatId: string): Promise<void> {
+    private async cleared(chatId: string): Promise<void> {
         const cleared = this.clearedTasks.get(chatId) ?? new Set<string>();
         for (const task of this.taskRows(chatId)) {
             cleared.add(task.id);
@@ -608,7 +576,7 @@ export class ChatManager extends ChatCore {
         await Promise.all([this.plans?.removeChat(chatId), this.dropWakes(chatId)]);
     }
 
-    protected override forgotten(chatId: string): void {
+    private forgotten(chatId: string): void {
         for (const [key, hold] of this.childHolds) {
             if (hold.parentId === chatId) {
                 this.childHolds.delete(key);
@@ -622,34 +590,26 @@ export class ChatManager extends ChatCore {
         this.clearedTasks.delete(chatId);
     }
 
-    protected override async removed(chatId: string, chat: { info: ChatInfo; items: ChatItem[] }): Promise<void> {
+    private async removed(chatId: string, chat: { info: ChatInfo; items: ChatItem[] }): Promise<void> {
         await Promise.all([this.plans?.removeChat(chatId), this.dropForkCopy(chat)]);
     }
 
     /* A client following a task's node hears whenever an item of that node's thread lands; a delta alone does not. */
-    protected override broadcasted(chatId: string, event: ChatEvent): void {
+    private broadcasted(chatId: string, event: ChatEvent): void {
         if (event.type === 'delta') {
             return;
         }
         for (const hold of this.childHolds.values()) {
             if (hold.childId === chatId) {
                 for (const clientId of hold.clients) {
-                    this.sinks.to(clientId, { event: 'chat.subagentChanged', payload: { chatId: hold.parentId, toolUseId: hold.toolUseId } });
+                    this.sendTo(clientId, { event: 'chat.subagentChanged', payload: { chatId: hold.parentId, toolUseId: hold.toolUseId } });
                 }
             }
         }
     }
 
-    protected override endedAt(chatId: string): number | null {
-        return this.ended(chatId);
-    }
-
-    protected override unownedReason(): string {
-        return 'no project holds this chat any more';
-    }
-
     /* A resumed agent that keeps a plan hears where to find it, since the restart may have cut it off in the middle of one. */
-    protected override async resumeWords(chatId: string): Promise<ResumeWords> {
+    private async resumeWords(chatId: string): Promise<ResumeWords> {
         const open = await (this.plans?.hasOpenSteps(chatId) ?? Promise.resolve(false)).catch((e: unknown) => {
             console.error(`Reading the plans of chat ${chatId} failed:`, errorText(e));
             return false;
@@ -679,14 +639,14 @@ export class ChatManager extends ChatCore {
 
     /* The node a row of this chat stands for when a task opened it, or null for a subagent of the CLI's own. */
     private taskChildOf(chatId: string, toolUseId: string): string | null {
-        const row = this.chats.get(chatId)?.thread.find('subagent', (item) => item.toolUseId === toolUseId);
-        return row?.origin === 'ruimte' && row.childId !== undefined ? row.childId : null;
+        const row = this.get(chatId)?.thread.find('subagent', (item) => item.toolUseId === toolUseId);
+        return row?.origin === HOST_TASK_ORIGIN && row.childId !== undefined ? row.childId : null;
     }
 
     private async childChat(childId: string): Promise<ChatSession> {
         await this.loaded(childId);
-        if (!this.chats.has(childId)) {
-            if (!(await this.store?.has(childId))) {
+        if (!this.get(childId)) {
+            if (!(await this.hasStored(childId))) {
                 throw new ChatError('chat-unsupported', 'This task runs in a terminal or has not started; its node shows what it does');
             }
             await this.create({ chatId: childId });
@@ -708,8 +668,7 @@ export class ChatManager extends ChatCore {
             }
         }
         const child = await this.childChat(childId);
-        this.coalescers.get(childId)?.flush();
-        const page = child.thread.history(payload.limit ?? 60, payload.cursor);
+        const page = this.history(childId, payload.cursor, payload.limit ?? 60);
         if (payload.watch === true) {
             const hold = this.childHolds.get(key) ?? { parentId: payload.chatId, toolUseId: payload.toolUseId, childId, clients: new Set<string>() };
             hold.clients.add(clientId);
