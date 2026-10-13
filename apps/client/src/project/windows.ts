@@ -1,6 +1,8 @@
-import { desktop, isApplePlatform, type DesktopBridge } from '@/desktop/bridge';
+import { desktop, isApplePlatform, type DesktopBridge, type WindowPoint } from '@/desktop/bridge';
 import { confirmLeavingConflict } from '@/project/leave-conflict';
-import { endpointKey } from '@/state/keys';
+import { dropWindowTab, restoreWindowTabs, tabAfterClosing, useWindowTabs } from '@/project/window-tabs';
+import { endpointKey, splitKey } from '@/state/keys';
+import { useProject } from '@/state/project';
 import { windowWorkspace } from '@/state/window';
 import { leaveWorkspace, showStart } from '@/transport/connections';
 
@@ -19,8 +21,8 @@ export function openNewWindow(): void {
 }
 
 /* A project in a window of its own, or the window that already has it, brought to the front. */
-export function openInNewWindow(endpointId: string, projectId: string): void {
-    desktop()?.openWindow?.(endpointKey(endpointId, projectId));
+export function openInNewWindow(endpointId: string, projectId: string, at?: WindowPoint): void {
+    desktop()?.openWindow?.(endpointKey(endpointId, projectId), undefined, at);
 }
 
 /* Cmd-click on macOS, Ctrl-click elsewhere: a project opens in a window of its own, the way a link opens in a new tab. */
@@ -40,6 +42,10 @@ export interface MoveDeps {
     flush(): Promise<void>;
     leave(): Promise<void>;
     toStart(): void;
+    /* The project on screen, as its tab key. */
+    shownKey(): string | null;
+    /* Shows another tab of the window, which leaves the project on screen on its way. */
+    showTab(key: string): Promise<void>;
 }
 
 async function flushWorkspace(): Promise<void> {
@@ -59,15 +65,24 @@ const REAL_MOVE: MoveDeps = {
     confirm: () => confirmLeavingConflict(),
     flush: () => flushWorkspace(),
     leave: () => leaveWorkspace(),
-    toStart: () => showStart()
+    toStart: () => showStart(),
+    shownKey: () => {
+        const { current, currentEndpointId } = useProject.getState();
+        return current !== null && currentEndpointId !== null ? endpointKey(currentEndpointId, current.projectId) : null;
+    },
+    showTab: async (key) => {
+        const { endpointId, id } = splitKey(key);
+        await (await import('@/project/open')).openProject(endpointId, id);
+    }
 };
 
 /*
- * The project on screen, into a window of its own. What is on screen reaches its files first, so the
- * new window reads what this one showed; the shell hands the project over in one step, and only then
- * does this window let go of it and go to the start screen.
+ * The project on screen, into a window of its own, whose corner goes to `at` when given. What is on
+ * screen reaches its files first, so the new window reads what this one showed; the shell hands the
+ * project over in one step, and only then does this window let go of it: for the tab beside it when
+ * the window has tabs, or else for the start screen.
  */
-export async function moveToNewWindow(overrides: Partial<MoveDeps> = {}): Promise<boolean> {
+export async function moveToNewWindow({ at, ...overrides }: Partial<MoveDeps> & { at?: WindowPoint } = {}): Promise<boolean> {
     const deps: MoveDeps = { ...REAL_MOVE, shell: desktop(), ...overrides };
     const move = deps.shell?.moveToNewWindow;
     if (!move || !deps.hasProject() || !(await deps.confirm())) {
@@ -75,10 +90,102 @@ export async function moveToNewWindow(overrides: Partial<MoveDeps> = {}): Promis
     }
     // A conflict the person chose to leave behind cannot be written, and the new window reads the file as it is.
     await deps.flush().catch(() => undefined);
-    if (!(await move())) {
+    const key = deps.shownKey();
+    const next = key === null ? null : tabAfterClosing(key);
+    if (!(await (at === undefined ? move() : move(at)))) {
         return false;
+    }
+    if (key !== null) {
+        dropWindowTab(key);
+    }
+    if (next !== null) {
+        await deps.showTab(next).catch(() => undefined);
+        return true;
     }
     await deps.leave().catch(() => undefined);
     deps.toStart();
     return true;
+}
+
+/*
+ * A tab dragged out of the window, into a window of its own at `at`, for a shell that cannot follow
+ * the pointer. The tab on screen moves with what it shows; another tab opens there and leaves this
+ * window, or raises the window that has it.
+ */
+export async function tearOffTab(key: string, at: WindowPoint): Promise<void> {
+    if (REAL_MOVE.shownKey() === key) {
+        await moveToNewWindow({ at });
+        return;
+    }
+    const { endpointId, id } = splitKey(key);
+    openInNewWindow(endpointId, id, at);
+    dropWindowTab(key);
+}
+
+/* Whether the shell can tear a tab off into a window that follows the pointer. */
+export function canDragTabs(shell: Pick<DesktopBridge, 'tabDrag'> | null = desktop()): boolean {
+    return typeof shell?.tabDrag === 'function';
+}
+
+/* The start of the drag under way, which its end waits for: a quick release can come before the start is through. */
+let dragStarting: Promise<unknown> = Promise.resolve();
+
+/*
+ * A pressed tab left the window: the shell opens it in a window of its own that follows the pointer.
+ * What is on screen reaches its files first, so that window reads what this one showed, and this
+ * window goes on to the tab beside it, or to the start screen.
+ */
+export function tearOutTab(key: string, grab: WindowPoint, tabWidth: number, deps: MoveDeps = { ...REAL_MOVE, shell: null }): Promise<boolean> {
+    const started = startTearOut(key, grab, tabWidth, deps);
+    dragStarting = started.catch(() => undefined);
+    return started;
+}
+
+async function startTearOut(key: string, grab: WindowPoint, tabWidth: number, deps: MoveDeps): Promise<boolean> {
+    const drag = desktop()?.tabDrag;
+    if (!drag) {
+        return false;
+    }
+    const shown = deps.shownKey() === key;
+    const next = shown ? tabAfterClosing(key) : null;
+    // The tab leaves the strip at once, before anything waits, and comes back only if the shell says no.
+    const before = useWindowTabs.getState().tabs;
+    dropWindowTab(key);
+    if (shown) {
+        await deps.flush().catch(() => undefined);
+    }
+    if (!(await drag('start', key, grab, false, tabWidth).catch(() => false))) {
+        restoreWindowTabs(before);
+        return false;
+    }
+    if (next !== null) {
+        await deps.showTab(next).catch(() => undefined);
+    } else if (shown) {
+        await deps.leave().catch(() => undefined);
+        deps.toStart();
+    }
+    return true;
+}
+
+/* The only tab of the window was pressed and moved: the window itself follows the pointer. */
+export function startWindowDrag(key: string, grab: WindowPoint): Promise<boolean> {
+    const started = desktop()?.tabDrag?.('start', key, grab, true) ?? Promise.resolve(false);
+    dragStarting = started.catch(() => undefined);
+    return started;
+}
+
+/* The press let go. Over another window the project goes there, so what is on screen reaches its files first. */
+export async function endTabDrag(key: string, whole: boolean): Promise<void> {
+    await dragStarting;
+    if (whole) {
+        await flushWorkspace().catch(() => undefined);
+    }
+    await desktop()
+        ?.tabDrag?.('end', key, { x: 0, y: 0 }, whole)
+        .catch(() => undefined);
+}
+
+/* Whether a point in the page's coordinates lies outside its window, where letting go of a tab tears it off. */
+export function outsideViewport(x: number, y: number, size: { innerWidth: number; innerHeight: number } = window): boolean {
+    return x < 0 || y < 0 || x > size.innerWidth || y > size.innerHeight;
 }

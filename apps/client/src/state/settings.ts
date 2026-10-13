@@ -135,6 +135,8 @@ export function codeLineHeight(size: number, ratio: number): number {
 export interface Settings {
     sidebarScope: 'current' | 'all-open';
     panelLayout: 'standard' | 'roomy';
+    /* How the toolbar moves between projects: the switcher, or a tab per project this window opened. */
+    projectNavigation: 'switcher' | 'tabs';
     /* "Needs you" lists what waits in every open project, not only the one on screen. The combined sidebar always does. */
     needsYouAllProjects: boolean;
     /* One of the node accents. Blue is the brand's own and the one a fresh client starts on. */
@@ -273,6 +275,7 @@ interface SettingsStore extends Settings {
 const DEFAULT_SETTINGS: Settings = {
     sidebarScope: 'current',
     panelLayout: 'standard',
+    projectNavigation: 'switcher',
     needsYouAllProjects: true,
     accent: 'blue',
     interfaceFont: 'system',
@@ -350,6 +353,7 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         ...stored,
         panelLayout: stored.panelLayout === 'roomy' ? 'roomy' : 'standard',
         sidebarScope: stored.sidebarScope === 'all-open' ? 'all-open' : 'current',
+        projectNavigation: stored.projectNavigation === 'tabs' ? 'tabs' : 'switcher',
         needsYouAllProjects: stored.needsYouAllProjects !== false,
         fontSize: clampSize(stored.fontSize, FONT_SIZE_RANGE, DEFAULT_SETTINGS.fontSize),
         interfaceFontSize: clampSize(stored.interfaceFontSize, INTERFACE_FONT_SIZE_RANGE, DEFAULT_SETTINGS.interfaceFontSize),
@@ -476,6 +480,7 @@ export const useSettings = create<SettingsStore>((set, get) => {
             const {
                 sidebarScope,
                 panelLayout,
+                projectNavigation,
                 needsYouAllProjects,
                 accent,
                 interfaceFont,
@@ -534,6 +539,7 @@ export const useSettings = create<SettingsStore>((set, get) => {
             const next: Settings = {
                 sidebarScope,
                 panelLayout,
+                projectNavigation,
                 needsYouAllProjects,
                 accent,
                 interfaceFont,

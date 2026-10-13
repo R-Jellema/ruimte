@@ -66,13 +66,39 @@ contextBridge.exposeInMainWorld('ruimteDesktop', {
     },
     setTheme: (theme: { resolved: 'light' | 'dark'; followsSystem: boolean; background: string }): void => ipcRenderer.send('window:theme', theme),
     claimWindow: (key: string | null): Promise<boolean> => ipcRenderer.invoke('window:claim', key),
-    openWindow: (key: string | null, view?: string): void => ipcRenderer.send('window:open', key, view ?? null),
+    openWindow: (key: string | null, view?: string, at?: { x: number; y: number }): void => ipcRenderer.send('window:open', key, view ?? null, at ?? null),
     onShowView: (listener: (view: string) => void): (() => void) => {
         const handler = (_event: unknown, view: string): void => listener(view);
         ipcRenderer.on('window:show-view', handler);
         return () => ipcRenderer.removeListener('window:show-view', handler);
     },
-    moveToNewWindow: (): Promise<boolean> => ipcRenderer.invoke('window:move-to-new'),
+    moveToNewWindow: (at?: { x: number; y: number }): Promise<boolean> => ipcRenderer.invoke('window:move-to-new', at ?? null),
+    setWindowState: (state: string | null): void => ipcRenderer.send('window:state', state),
+    closeWindowIfOthers: (): Promise<boolean> => ipcRenderer.invoke('window:close-if-others'),
+    holdTabs: (keys: string[]): Promise<string[]> => ipcRenderer.invoke('window:hold', keys),
+    tabDrag: (phase: 'start' | 'end', key: string, grab: { x: number; y: number }, whole: boolean, tabWidth?: number): Promise<boolean> =>
+        ipcRenderer.invoke('window:tab-drag', phase, key, grab, whole, tabWidth ?? null),
+    onShowProject: (listener: (key: string) => void): (() => void) => {
+        const handler = (_event: unknown, key: string): void => listener(key);
+        ipcRenderer.on('window:show-project', handler);
+        return () => ipcRenderer.removeListener('window:show-project', handler);
+    },
+    onTakeProject: (listener: (key: string, x: number | null) => void): (() => void) => {
+        const handler = (_event: unknown, key: string, x: number | null): void => listener(key, x);
+        ipcRenderer.on('window:take-project', handler);
+        return () => ipcRenderer.removeListener('window:take-project', handler);
+    },
+    onReleaseProject: (listener: (key: string) => void): (() => void) => {
+        const handler = (_event: unknown, key: string): void => listener(key);
+        ipcRenderer.on('window:release-project', handler);
+        return () => ipcRenderer.removeListener('window:release-project', handler);
+    },
+    onTabDragOver: (listener: (key: string, x: number) => void): (() => void) => {
+        const handler = (_event: unknown, key: string, x: number): void => listener(key, x);
+        ipcRenderer.on('window:tab-drag-over', handler);
+        return () => ipcRenderer.removeListener('window:tab-drag-over', handler);
+    },
+    setTabStrip: (rect: { x: number; y: number; width: number; height: number } | null): void => ipcRenderer.send('window:tab-strip', rect),
     setKeepAwake: (keep: boolean): void => ipcRenderer.send('power:keep-awake', keep),
     requestKeepAwake: (request: KeepAwakeRequest | null): void => ipcRenderer.send('power:keep-awake-request', request),
     setAgentActivity: (activity: { working: number; attention: number }): void => ipcRenderer.send('agents:activity', activity),

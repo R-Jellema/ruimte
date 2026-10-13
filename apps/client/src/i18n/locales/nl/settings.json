@@ -20,6 +20,12 @@
                 "label": "Dock verbergen",
                 "description": "De balk onder een canvas of tekening blijft weg tot de muis de onderrand nadert."
             },
+            "projects": {
+                "label": "Projecten",
+                "description": "Wissel tussen projecten via een menu, of houd de projecten van een venster als tabs in de werkbalk.",
+                "switcher": "Menu",
+                "tabs": "Tabs"
+            },
             "layout": {
                 "label": "Paneelindeling",
                 "description": "Ruim voegt tussenruimte en afgeronde hoeken toe aan panelen.",

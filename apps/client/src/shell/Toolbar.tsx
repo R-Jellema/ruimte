@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { ArrowDownToLine, Search } from 'lucide-react';
@@ -6,21 +7,22 @@ import { STRIP_PADDING_PX, useTrafficLightInset } from '@/desktop/useFullscreen'
 import { LaunchChip } from '@/launches/LaunchChip';
 import { PanelControls } from '@/shell/PanelControls';
 import { ProjectMenu } from '@/shell/ProjectMenu';
-import { ViewMenu } from '@/shell/ViewMenu';
 import { SidebarToggle } from '@/shell/SidebarToggle';
 import { StationMenu } from '@/shell/menu/StationMenu';
 import { IS_STATION } from '@/station';
 import { useDiagram } from '@/state/diagram';
 import { useDrawing } from '@/state/drawing';
-import { activeViewOf, useDocument } from '@/state/document';
 import { toolbarPanels } from '@/shell/panels';
 import { isScratchProject, useProject } from '@/state/project';
+import { useSettings } from '@/state/settings';
 import { useShownPanel, useUi } from '@/state/ui';
 import { hasUpdate, useUpdates } from '@/state/updates';
-import { ButtonGroup, IconButton, Separator } from '@adecore/ui';
+import { ButtonGroup, ErrorBoundary, IconButton, Separator, lazyNamed } from '@adecore/ui';
 import { APP_SHORTCUTS } from '@/shell/shortcuts';
 import { VoiceButton } from '@/voice/VoiceButton';
 import { useVoice } from '@/voice/state';
+
+const ProjectTabs = lazyNamed(() => import('@/shell/ProjectTabs'), 'ProjectTabs');
 
 /* The band above the canvas: which project is open, and the panels that sit next to it. The left
    padding follows the sidebar's width, which keeps the breadcrumb from jumping when the list
@@ -38,9 +40,7 @@ export function Toolbar() {
     const hasPanelButtons = toolbarPanels(scratch).length > 0;
     const voiceOpen = useVoice((s) => s.open);
     const sidebarOpen = useUi((s) => s.sidebarOpen);
-    /* A loose view is in no document, so the switcher has nothing to name while it holds the cell;
-       the tabs beside it say which file is up. */
-    const hasView = useDocument((s) => activeViewOf(s) !== null);
+    const tabs = useSettings((s) => s.projectNavigation === 'tabs');
     const inset = useTrafficLightInset();
 
     return (
@@ -52,21 +52,22 @@ export function Toolbar() {
             {!sidebarOpen && IS_STATION && <StationMenu variant="symbol" />}
             {!sidebarOpen && <SidebarToggle />}
             <div className="flex min-w-0 grow items-center gap-2">
-                {/* The machine sits inside the switcher's own trigger, so the pill is one breadcrumb
-                    rather than a label with a button behind it. */}
-                <ProjectMenu />
-                {/* The open sidebar is the view switcher already; the segment comes back with it
-                    closed, and only when there is a view for it to name. */}
-                {!sidebarOpen && hasView && (
-                    <>
-                        <span className="text-text-faint">/</span>
-                        <ViewMenu />
-                    </>
+                {tabs ? (
+                    <ErrorBoundary label={t('projectTabs.failed')} resetKeys={[tabs]} className="flex min-w-0 grow">
+                        <Suspense fallback={<div className="grow" />}>
+                            <ProjectTabs dirty={dirty} />
+                        </Suspense>
+                    </ErrorBoundary>
+                ) : (
+                    // The machine sits inside the switcher's own trigger, so the pill is one breadcrumb
+                    // rather than a label with a button behind it.
+                    <ProjectMenu />
                 )}
                 {/* A live region, not a decorated span: a reader announces the change instead of
                     passing over a dot it has no reason to visit. */}
                 <span role="status" aria-live="polite" className="flex shrink-0 items-center">
-                    {dirty && <span className="h-1.5 w-1.5 rounded-full bg-text-faint" />}
+                    {/* With tabs the dot sits on the tab in front, and this region only speaks. */}
+                    {dirty && !tabs && <span className="h-1.5 w-1.5 rounded-full bg-text-faint" />}
                     <span className="sr-only">{dirty ? t('toolbar.unsaved') : t('toolbar.saved')}</span>
                 </span>
             </div>

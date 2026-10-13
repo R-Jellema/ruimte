@@ -1,6 +1,7 @@
 import i18next from 'i18next';
 import type { ProjectClosingResult, ProjectSummary } from '@ruimte/contracts';
 import { useStore } from 'zustand';
+import { desktop } from '@/desktop/bridge';
 import { claimWindow } from '@/desktop/window-claim';
 import { ensureMachine } from '@/endpoint/reach';
 import { dropClientLocal } from '@/project/client-local';
@@ -10,10 +11,13 @@ import { closeListedProjectLocally, listProjects } from '@/project/list';
 import { closingCount } from '@/project/project-sessions';
 import { showViewOnceThere } from '@/project/show-view-once';
 import { ProjectSwitch, type SwitchOutcome, type SwitchRun, type SwitchState, type SwitchTarget } from '@/project/project-switch';
+import { isOnlyTab, tabAfterClosing } from '@/project/window-tabs';
 import { useEndpoints } from '@/state/endpoints';
+import { endpointKey, splitKey } from '@/state/keys';
 import { hasLocalMachine, isRealMachine } from '@/state/local-machine';
 import { useProject } from '@/state/project';
 import { useProjectList } from '@/state/project-list';
+import { useSettings } from '@/state/settings';
 import { useWindow, windowWorkspace } from '@/state/window';
 import { pageWindowTarget, type WindowTarget } from '@/state/window-target';
 import { transportFor } from '@/transport';
@@ -199,6 +203,26 @@ async function putAway(): Promise<void> {
 }
 
 /* Puts the open project away and goes back to the start screen. The machine ends its sessions only once no other client has it open. */
+/*
+ * Closes the project the window shows, when nothing else is left in it. A window with nothing to show
+ * closes as well while another window is open; the last window goes to the start screen.
+ */
+async function closeShownProject(): Promise<void> {
+    const closeWindow = desktop()?.closeWindowIfOthers;
+    if (!closeWindow) {
+        await closeProject();
+        return;
+    }
+    const workspace = windowWorkspace();
+    if (!workspace || !(await confirmLeavingConflict())) {
+        return;
+    }
+    await workspace.connection.projects.closeProject();
+    if (!(await closeWindow().catch(() => false))) {
+        showStart();
+    }
+}
+
 export async function closeProject(): Promise<void> {
     if (windowWorkspace() && (await confirmLeavingConflict())) {
         await putAway();
@@ -217,8 +241,19 @@ export function isOpenHere(endpointId: string, projectId: string): boolean {
  */
 export async function closeProjectOn(endpointId: string, summary: ProjectSummary): Promise<void> {
     if (isOpenHere(endpointId, summary.projectId)) {
-        await closeProject();
-        return;
+        const key = endpointKey(endpointId, summary.projectId);
+        const next = tabAfterClosing(key);
+        if (next === null) {
+            // With the switcher the project is all the window shows; with tabs only once it is the last tab.
+            const tabs = useSettings.getState().projectNavigation === 'tabs';
+            await (!tabs || isOnlyTab(key) ? closeShownProject() : closeProject());
+            return;
+        }
+        // With tabs the window moves to the tab beside it first, and the project closes once it is off screen.
+        const { endpointId: nextEndpointId, id: nextProjectId } = splitKey(next);
+        if ((await openProject(nextEndpointId, nextProjectId)) !== 'done' || isOpenHere(endpointId, summary.projectId)) {
+            return;
+        }
     }
     const transport = transportFor(endpointId);
     if (transport?.status === 'open') {

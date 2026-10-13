@@ -41,6 +41,12 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         description: 'settings:appearance.interface.layout.description'
     },
     {
+        id: 'appearance.interface.projects',
+        section: 'appearance',
+        label: 'settings:appearance.interface.projects.label',
+        description: 'settings:appearance.interface.projects.description'
+    },
+    {
         id: 'appearance.interface.dock',
         section: 'appearance',
         label: 'settings:appearance.interface.dock.label',

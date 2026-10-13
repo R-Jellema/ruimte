@@ -29,7 +29,7 @@ import { Icon, IconButton, Menu, SectionLabel } from '@adecore/ui';
 import { SidebarToggle } from '@/shell/SidebarToggle';
 import { StationMenu } from '@/shell/menu/StationMenu';
 import { IS_STATION } from '@/station';
-import { NewViewItems } from '@/shell/ViewMenu';
+import { NewViewItems } from '@/shell/NewViewMenu';
 import { draggedViewId, dragging as draggedView, draggingWholeCell, setDragging as setDraggedView, VIEW_DRAG_TYPE } from '@/shell/view-drag';
 import { useInstantWidth } from '@/shell/useInstantWidth';
 import { UsageLimitsCard } from '@adecore/agents-react/usage/UsageLimitsCard';

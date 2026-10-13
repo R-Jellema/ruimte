@@ -25,7 +25,8 @@ import {
 } from '@adecore/shell';
 import type { ThemeState } from '@adecore/shell/bridge';
 import { type AgentActivity, type BackgroundServiceState, type KeepAwakeRequest, type MenuShellAction, type MenuSpec } from '@ruimte/desktop-bridge';
-import { isWindowKey, isWindowView, totalActivity, windowUrl } from './app-windows';
+import { isWindowKey, isWindowState, isWindowView, tabStripOf, totalActivity, windowPointOf, windowUrl } from './app-windows';
+import { createTabDrag } from './tab-drag';
 import { AddressBookClient, ADDRESS_BOOK_URL, SessionLoginCodeSchema, SessionVault } from '@ruimte/pulsar';
 import { copyablePaths, fileClipboard, osClipboardFormat } from './file-clipboard';
 import { openImageCopy } from './open-image';
@@ -558,14 +559,19 @@ const menuTemplates = new Map<number, Electron.MenuItemConstructorOptions[]>();
 
 // `windows.open` calls `createWindow` in the same tick, which takes this.
 let openingView: string | null = null;
+/* A window a tab tears off into opens without the focus, so the window that holds the press keeps getting its pointer. */
+let openingInactive = false;
 
 function createWindow(
     key: string | null,
     bounds: Partial<Electron.Rectangle> & { width: number; height: number },
-    origin: WindowOrigin
+    origin: WindowOrigin,
+    state: string | null
 ): Electron.BrowserWindow {
     const view = openingView;
     openingView = null;
+    const inactive = openingInactive;
+    openingInactive = false;
     const window = new BrowserWindow({
         ...bounds,
         minWidth: 800,
@@ -591,7 +597,7 @@ function createWindow(
     });
     const id = window.id;
     const contents = window.webContents;
-    window.once('ready-to-show', () => window.show());
+    window.once('ready-to-show', () => (inactive ? window.showInactive() : window.show()));
     contents.on('before-input-event', (_event, input) => pageKeys.saw(input));
     window.on('closed', () => {
         menuTemplates.delete(id);
@@ -632,7 +638,7 @@ function createWindow(
     guardAppNavigation(contents);
     browserRoutes.attachApp(contents);
     // The smoke run opens its one window the way a start without a session does.
-    void window.loadURL(windowUrl(scheme.url, key, origin === 'first' || smoke, view)).catch(() => undefined);
+    void window.loadURL(windowUrl(scheme.url, key, origin === 'first' || smoke, view, state)).catch(() => undefined);
     return window;
 }
 
@@ -1117,18 +1123,119 @@ handleFromApp('window:is-fullscreen', (event) => senderWindow(event)?.isFullScre
  */
 handleFromApp('window:claim', (event, key: unknown) => {
     const window = senderWindow(event);
-    return window !== null && (key === null || isWindowKey(key)) && windows.claim(window, key);
+    if (window === null || (key !== null && !isWindowKey(key))) {
+        return false;
+    }
+    if (windows.claim(window, key)) {
+        return true;
+    }
+    showOnHolder(key);
+    return false;
+});
+
+/* A window that keeps a project as a tab it does not show is asked to show it, once it came to the front. */
+function showOnHolder(key: string | null): void {
+    const holder = key === null ? null : windows.holderOf(key);
+    if (holder !== null && windows.keyOf(holder) !== key) {
+        holder.webContents.send('window:show-project', key);
+    }
+}
+
+// The tabs a window keeps; a project another window keeps stays there, so the answer is what this window has.
+handleFromApp('window:hold', (event, keys: unknown) => {
+    const window = senderWindow(event);
+    if (window === null || !Array.isArray(keys) || keys.length > 512 || !keys.every(isWindowKey)) {
+        return [];
+    }
+    return windows.hold(window, keys);
+});
+
+/* Keeps a window that tears off at `at`, as big as `size`, on the work area of the display it lands on, its top fully. */
+function onScreen(at: { x: number; y: number }, size: { width: number; height: number }): { x: number; y: number } {
+    const area = screen.getDisplayNearestPoint(at).workArea;
+    return {
+        x: Math.min(Math.max(at.x, area.x), Math.max(area.x, area.x + area.width - Math.min(size.width, area.width))),
+        y: Math.min(Math.max(at.y, area.y), Math.max(area.y, area.y + area.height - Math.min(size.height, area.height)))
+    };
+}
+
+/* Where each window's page draws its tab strip, in the page's coordinates, for a tab dragged over it. */
+const tabStrips = new Map<number, { x: number; y: number; width: number; height: number }>();
+
+onFromApp('window:tab-strip', (event, rect: unknown) => {
+    const window = senderWindow(event);
+    if (window === null) {
+        return;
+    }
+    const strip = tabStripOf(rect);
+    if (strip === null) {
+        tabStrips.delete(window.id);
+        return;
+    }
+    if (!tabStrips.has(window.id)) {
+        window.once('closed', () => tabStrips.delete(window.id));
+    }
+    tabStrips.set(window.id, strip);
+});
+
+const tabDrag = createTabDrag<Electron.BrowserWindow>({
+    detach: (window, key, at) => {
+        openingInactive = true;
+        try {
+            return windows.detach(window, key, onScreen(at, window.getBounds()));
+        } finally {
+            openingInactive = false;
+        }
+    },
+    transfer: (key, window) => windows.transfer(key, window),
+    windowAt: (point, except) => windows.windowAt(point, except),
+    stripOf: (window) => tabStrips.get(window.id) ?? null,
+    stripX: (window, point) => {
+        const strip = tabStrips.get(window.id);
+        if (strip === undefined) {
+            return null;
+        }
+        const content = window.getContentBounds();
+        const x = point.x - content.x;
+        const y = point.y - content.y;
+        return x >= strip.x && x < strip.x + strip.width && y >= strip.y && y < strip.y + strip.height ? x : null;
+    },
+    cursor: () => screen.getCursorScreenPoint(),
+    every: (tick) => {
+        const timer = setInterval(tick, 16);
+        return () => clearInterval(timer);
+    },
+    onFront: (window, listener) => {
+        window.on('focus', listener);
+        return () => window.removeListener('focus', listener);
+    }
+});
+
+// The page that holds the press says when a tab leaves its window and when the press lets go.
+handleFromApp('window:tab-drag', (event, phase: unknown, key: unknown, grab: unknown, whole: unknown, tabWidth: unknown) => {
+    const window = senderWindow(event);
+    if (window === null) {
+        return false;
+    }
+    if (phase === 'end') {
+        tabDrag.end();
+        return true;
+    }
+    const point = windowPointOf(grab);
+    const width = typeof tabWidth === 'number' && Number.isFinite(tabWidth) && tabWidth > 0 ? tabWidth : null;
+    return phase === 'start' && isWindowKey(key) && point !== undefined && tabDrag.start(window, key, point, whole === true, width);
 });
 
 // Null opens the start screen. A view goes in a new window's address, or as a message to one that already shows the project.
-onFromApp('window:open', (_event, key: unknown, view: unknown) => {
+onFromApp('window:open', (_event, key: unknown, view: unknown, at: unknown) => {
     if (key !== null && !isWindowKey(key)) {
         return;
     }
     const shown = key !== null && isWindowView(view) ? view : null;
-    const holder = key === null ? null : (windows.all().find((window) => windows.keyOf(window) === key) ?? null);
+    const holder = key === null ? null : windows.holderOf(key);
     if (holder !== null) {
         windows.open(key);
+        showOnHolder(key);
         if (shown !== null) {
             holder.webContents.send('window:show-view', shown);
         }
@@ -1136,16 +1243,34 @@ onFromApp('window:open', (_event, key: unknown, view: unknown) => {
     }
     openingView = shown;
     try {
-        windows.open(key);
+        windows.open(key, windowPointOf(at));
     } finally {
         openingView = null;
     }
 });
 
 // Handed over in one tick, so nobody ever holds the project; the asking page goes to the start screen on true.
-handleFromApp('window:move-to-new', (event) => {
+handleFromApp('window:move-to-new', (event, at: unknown) => {
     const window = senderWindow(event);
-    return window !== null && windows.move(window) !== null;
+    return window !== null && windows.move(window, windowPointOf(at)) !== null;
+});
+
+// A window whose last tab closed goes, as long as it is not the last window.
+handleFromApp('window:close-if-others', (event) => {
+    const window = senderWindow(event);
+    if (window === null || windows.all().length < 2) {
+        return false;
+    }
+    setImmediate(() => window.close());
+    return true;
+});
+
+// What the page keeps of itself, such as its tabs, comes back in its address at the next start.
+onFromApp('window:state', (event, state: unknown) => {
+    const window = senderWindow(event);
+    if (window !== null && isWindowState(state)) {
+        windows.setState(window, state);
+    }
 });
 
 onFromApp('window:theme', (_event, state: ThemeState) => theme.apply(state));

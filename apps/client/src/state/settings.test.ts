@@ -3,6 +3,14 @@ import { DEFAULT_STUN_SERVER } from '@ruimte/pulsar';
 import { DEFAULT_CODE_FOLDING } from './code-folding';
 import { codeLineHeight, codeThemesOf, iceServersFrom, settingsFrom, useSettings, type KeepAwakeMode, type Settings } from './settings';
 
+describe('project navigation', () => {
+    test('starts on the switcher and accepts only tabs besides it', () => {
+        expect(settingsFrom({}).projectNavigation).toBe('switcher');
+        expect(settingsFrom({ projectNavigation: 'tabs' }).projectNavigation).toBe('tabs');
+        expect(settingsFrom({ projectNavigation: 'native' as Settings['projectNavigation'] }).projectNavigation).toBe('switcher');
+    });
+});
+
 describe('panel layout', () => {
     test('keeps existing installations compact and accepts only the roomy option', () => {
         expect(settingsFrom({}).panelLayout).toBe('standard');

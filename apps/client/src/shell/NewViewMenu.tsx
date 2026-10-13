@@ -1,26 +1,17 @@
 import { Fragment, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, FileText, Frame, Globe, Heading, Minus, PenTool, Workflow, Terminal } from 'lucide-react';
-import { isOpenableView, viewIconOf, type ProjectView, type ProviderInfo } from '@ruimte/contracts';
+import { FileText, Frame, Globe, Heading, Minus, PenTool, Workflow, Terminal } from 'lucide-react';
+import type { ProviderInfo } from '@ruimte/contracts';
 import { ProviderRows } from '@/agents/ProviderRows';
 import { AgentSubmenu } from '@/agents/AgentMenus';
 import { agentTargetLabel, type AgentTarget } from '@/agents/nodes';
 import { createViewAction } from '@/actions/client-actions';
-import { newSubheaderView, showView } from '@/project/views';
-import { ViewGlyph } from '@/project/ViewGlyph';
-import { SplitItems, ViewMenuItems } from '@/shell/ViewMenuItems';
-import { useDocument } from '@/state/document';
+import { newSubheaderView } from '@/project/views';
 import { shownFolderOf, useProject } from '@/state/project';
-import { Tile, cameThroughPortal, Icon, Menu, Kbd, ContextMenu, SectionLabel } from '@adecore/ui';
+import { Tile, Icon, Menu, Kbd, SectionLabel } from '@adecore/ui';
 import { labelCollator } from '@adecore/ui/format';
 import { useUi } from '@/state/ui';
-import { CANVAS_SHORTCUTS, viewShortcut } from '@/canvas/shortcuts';
-import { useBrowserDisplayTitle } from '@/browser/title';
-
-function ViewName({ view, className }: { view: ProjectView; className: string }) {
-    const title = useBrowserDisplayTitle(view.id, view.name ?? '', 'titleSource' in view ? view.titleSource : undefined);
-    return <span className={className}>{view.kind === 'browser' ? title : view.name}</span>;
-}
+import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 
 /* A row of one of the two lists below, with the label it is put in order by. */
 interface NewViewEntry {
@@ -165,73 +156,5 @@ export function NewViewItems() {
                 }
             ])}
         </>
-    );
-}
-
-/* The view segment of the toolbar's breadcrumb: every view of this project, and the ways to change the list. */
-export function ViewMenu() {
-    const { t } = useTranslation('shell');
-    const views = useDocument((s) => s.views);
-    const activeViewId = useDocument((s) => s.activeViewId);
-    const active = views.find((view) => view.id === activeViewId);
-    if (!active) {
-        return null;
-    }
-    return (
-        // The right-click offers what a cell's bar does; `display: contents`, so the wrapper changes no layout.
-        <ContextMenu.Root>
-            <ContextMenu.Trigger
-                className="contents"
-                onContextMenu={(event) => {
-                    if (cameThroughPortal(event)) {
-                        event.preventBaseUIHandler();
-                    }
-                }}
-            >
-                <Menu.Root>
-                    <Menu.Trigger className="flex h-8 min-w-0 items-center gap-2 rounded-md px-2 text-left hover:bg-surface-hover data-[popup-open]:bg-surface-active">
-                        <ViewGlyph
-                            id={active.id}
-                            kind={active.kind}
-                            icon={viewIconOf(active)}
-                            provider={active.kind === 'chat' || active.kind === 'terminal' ? active.node.provider : null}
-                            path={active.kind === 'file' ? active.path : null}
-                        />
-                        <ViewName view={active} className="truncate text-sm text-text" />
-                        <Icon icon={ChevronDown} size={14} className="shrink-0 text-text-muted" />
-                    </Menu.Trigger>
-                    <Menu.Popup className="min-w-52">
-                        <Menu.Label>{t('viewMenu.views')}</Menu.Label>
-                        {views.filter(isOpenableView).map((view, index) => (
-                            <Menu.Item key={view.id} onClick={() => showView(view.id)}>
-                                <Menu.Check kind="radio" checked={view.id === activeViewId} />
-                                <ViewGlyph
-                                    id={view.id}
-                                    kind={view.kind}
-                                    icon={viewIconOf(view)}
-                                    provider={view.kind === 'chat' || view.kind === 'terminal' ? view.node.provider : null}
-                                    path={view.kind === 'file' ? view.path : null}
-                                />
-                                <ViewName view={view} className="truncate" />
-                                {/* The first nine have a shortcut of their own; the rest are one click away. */}
-                                {index < 9 && <Kbd shortcut={viewShortcut(index)!} />}
-                            </Menu.Item>
-                        ))}
-                        <Menu.Separator />
-                        {/* Here the items follow the list of views, so they say what they are; under
-                            the sidebar's plus they would repeat what the plus already says. */}
-                        <Menu.Label>{t('viewMenu.newView')}</Menu.Label>
-                        <NewViewItems />
-                        <Menu.Separator />
-                        <SplitItems separated />
-                        <ViewMenuItems viewId={active.id} kind={active.kind} />
-                    </Menu.Popup>
-                </Menu.Root>
-            </ContextMenu.Trigger>
-            <ContextMenu.Popup className="min-w-52">
-                <SplitItems separated />
-                <ViewMenuItems viewId={active.id} kind={active.kind} />
-            </ContextMenu.Popup>
-        </ContextMenu.Root>
     );
 }

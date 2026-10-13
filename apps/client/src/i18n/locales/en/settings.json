@@ -20,6 +20,12 @@
                 "label": "Hide the dock",
                 "description": "The bar under a canvas or drawing hides until the pointer nears the bottom edge."
             },
+            "projects": {
+                "label": "Projects",
+                "description": "Switch between projects from a menu, or keep the projects of a window as tabs in the toolbar.",
+                "switcher": "Switcher",
+                "tabs": "Tabs"
+            },
             "layout": {
                 "label": "Panel layout",
                 "description": "Roomy adds space and rounded corners between panels.",

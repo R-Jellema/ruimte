@@ -281,7 +281,6 @@
         "restoreSplit": "Restore split",
         "closeOthers": "Close others",
         "closeToRight": "Close to the right",
-        "views": "Views",
         "newView": "View",
         "putOnCanvas": "Put on canvas",
         "showOnCanvas": "Show on the canvas",
@@ -350,6 +349,10 @@
         "savedLayouts": "Saved layouts",
         "noLayouts": "Nothing saved yet.",
         "saveLayout": "Save current layout"
+    },
+    "projectTabs": {
+        "add": "Open project",
+        "failed": "The project tabs could not be shown."
     },
     "projectMenu": {
         "folderGone": "That folder is gone",

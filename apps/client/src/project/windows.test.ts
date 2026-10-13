@@ -1,5 +1,6 @@
-import { describe, expect, test } from 'bun:test';
-import { moveToNewWindow, wantsNewWindow, type MoveDeps } from './windows';
+import { afterEach, describe, expect, test } from 'bun:test';
+import { NO_TABS, useWindowTabs } from './window-tabs';
+import { moveToNewWindow, outsideViewport, wantsNewWindow, type MoveDeps } from './windows';
 
 function spyMove(over: Partial<MoveDeps> = {}): { deps: Partial<MoveDeps>; steps: string[] } {
     const steps: string[] = [];
@@ -23,12 +24,40 @@ function spyMove(over: Partial<MoveDeps> = {}): { deps: Partial<MoveDeps>; steps
             toStart: () => {
                 steps.push('start');
             },
+            shownKey: () => 'local:a',
+            showTab: async (key) => {
+                steps.push(`show ${key}`);
+            },
             ...over
         }
     };
 }
 
 describe('moving the project to a new window', () => {
+    afterEach(() => useWindowTabs.setState({ tabs: NO_TABS }));
+
+    test('with tabs the window goes on to the tab beside it, and the moved one leaves its tabs', async () => {
+        useWindowTabs.setState({ tabs: { keys: ['local:a', 'local:b'], active: 'local:a' } });
+        const { deps, steps } = spyMove();
+        expect(await moveToNewWindow(deps)).toBe(true);
+        expect(steps).toEqual(['flush', 'move', 'show local:b']);
+        expect(useWindowTabs.getState().tabs.keys).toEqual(['local:b']);
+    });
+
+    test('hands the shell the point the new window goes to', async () => {
+        const points: unknown[] = [];
+        const { deps } = spyMove({
+            shell: {
+                moveToNewWindow: async (at) => {
+                    points.push(at);
+                    return true;
+                }
+            }
+        });
+        await moveToNewWindow({ ...deps, at: { x: 5, y: 6 } });
+        expect(points).toEqual([{ x: 5, y: 6 }]);
+    });
+
     test('writes what is on screen, hands the project over, and only then lets go of it', async () => {
         const { deps, steps } = spyMove();
         expect(await moveToNewWindow(deps)).toBe(true);
@@ -79,5 +108,16 @@ describe('wantsNewWindow', () => {
 
     test('is never true where no shell opens windows', () => {
         expect(wantsNewWindow({ metaKey: true, ctrlKey: true }, true, null)).toBe(false);
+    });
+});
+
+describe('letting go of a tab outside the window', () => {
+    const size = { innerWidth: 800, innerHeight: 600 };
+
+    test('is outside past any edge and inside on the edge itself', () => {
+        expect(outsideViewport(-1, 300, size)).toBe(true);
+        expect(outsideViewport(400, 601, size)).toBe(true);
+        expect(outsideViewport(0, 0, size)).toBe(false);
+        expect(outsideViewport(800, 600, size)).toBe(false);
     });
 });

@@ -1,5 +1,5 @@
 import { ProjectGlyph } from '@/project/ProjectGlyph';
-import { NewViewTiles } from '@/shell/ViewMenu';
+import { NewViewTiles } from '@/shell/NewViewMenu';
 import { isScratchProject, shownFolderOf, useProject } from '@/state/project';
 
 export function ProjectStartScreen() {

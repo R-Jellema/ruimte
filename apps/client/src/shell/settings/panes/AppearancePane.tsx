@@ -161,6 +161,7 @@ function RegionRow() {
 export function AppearancePane() {
     const { t } = useTranslation('settings');
     const panelLayout = useSettings((s) => s.panelLayout);
+    const projectNavigation = useSettings((s) => s.projectNavigation);
     const sidebarScope = useSettings((s) => s.sidebarScope);
     const needsYouAllProjects = useSettings((s) => s.needsYouAllProjects);
     const dockAutoHide = useSettings((s) => s.dockAutoHide);
@@ -191,6 +192,20 @@ export function AppearancePane() {
                             align="end"
                             items={(['standard', 'roomy'] as const).map((value) => ({ value, label: t(`appearance.interface.layout.${value}`) }))}
                             onValueChange={(value) => update({ panelLayout: value })}
+                        />
+                    }
+                />
+                <SettingsRow
+                    searchId="appearance.interface.projects"
+                    label={t('appearance.interface.projects.label')}
+                    description={t('appearance.interface.projects.description')}
+                    control={
+                        <Select
+                            value={projectNavigation}
+                            label={t('appearance.interface.projects.label')}
+                            align="end"
+                            items={(['switcher', 'tabs'] as const).map((value) => ({ value, label: t(`appearance.interface.projects.${value}`) }))}
+                            onValueChange={(value) => update({ projectNavigation: value })}
                         />
                     }
                 />

@@ -281,7 +281,6 @@
         "restoreSplit": "Splitsing herstellen",
         "closeOthers": "Andere sluiten",
         "closeToRight": "Rechts ervan sluiten",
-        "views": "Weergaven",
         "newView": "Weergave",
         "putOnCanvas": "Op het canvas zetten",
         "showOnCanvas": "Op het canvas tonen",
@@ -350,6 +349,10 @@
         "savedLayouts": "Opgeslagen indelingen",
         "noLayouts": "Nog niets opgeslagen.",
         "saveLayout": "Huidige indeling opslaan"
+    },
+    "projectTabs": {
+        "add": "Project openen",
+        "failed": "De projecttabs konden niet worden getoond."
     },
     "projectMenu": {
         "folderGone": "Die map bestaat niet meer",

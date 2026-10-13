@@ -373,6 +373,10 @@
     .app-no-drag {
         -webkit-app-region: no-drag;
     }
+    /* A row of tabs that scrolls takes the wheel between its tabs as well, which a drag region would swallow. */
+    .app-drag .tabs-scroll {
+        -webkit-app-region: no-drag;
+    }
 
     /* Windows and Linux draw the native window controls over the top right of the toolbar, so the
        region under them keeps their width free. The fallback covers a shell that answers no query;

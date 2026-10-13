@@ -10,3 +10,6 @@ export const WINDOW_START_PARAM = 'start';
 
 /* The view a window opened on a project shows first, once. The page drops it from the address as it claims the project. */
 export const WINDOW_VIEW_PARAM = 'view';
+
+/* What the page keeps of itself across a reload and a quit (`setWindowState`), opaque to the shell. */
+export const WINDOW_STATE_PARAM = 'state';

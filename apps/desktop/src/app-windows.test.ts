@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { isWindowKey, isWindowView, totalActivity, windowUrl } from './app-windows';
+import { isWindowKey, isWindowState, isWindowView, tabStripOf, totalActivity, windowPointOf, windowUrl } from './app-windows';
 
 describe('windowUrl', () => {
     const base = 'http://127.0.0.1:4210/';
@@ -23,6 +23,38 @@ describe('windowUrl', () => {
     test('carries the view a project window shows first, and no view without a project', () => {
         expect(new URL(windowUrl(base, 'local:p1', false, 'chat-1')).searchParams.get('view')).toBe('chat-1');
         expect(windowUrl(base, null, false, 'chat-1')).toBe('http://127.0.0.1:4210/?start=1');
+    });
+
+    test('carries what the page kept of itself, with a project and without one', () => {
+        expect(new URL(windowUrl(base, 'local:p1', false, null, '["local:p1"]')).searchParams.get('state')).toBe('["local:p1"]');
+        expect(new URL(windowUrl(base, null, true, null, 'x')).searchParams.has('start')).toBe(false);
+        expect(new URL(windowUrl(base, null, false, null, 'x')).searchParams.get('start')).toBe('1');
+    });
+});
+
+describe('isWindowState', () => {
+    test('takes null or a string of a bounded size', () => {
+        expect(isWindowState(null)).toBe(true);
+        expect(isWindowState('[]')).toBe(true);
+        expect(isWindowState('x'.repeat(8193))).toBe(false);
+        expect(isWindowState(3)).toBe(false);
+    });
+});
+
+describe('tabStripOf', () => {
+    test('takes a box with a size and nothing else', () => {
+        expect(tabStripOf({ x: 80, y: 8, width: 600, height: 32 })).toEqual({ x: 80, y: 8, width: 600, height: 32 });
+        expect(tabStripOf({ x: 80, y: 8, width: 0, height: 32 })).toBeNull();
+        expect(tabStripOf(null)).toBeNull();
+    });
+});
+
+describe('windowPointOf', () => {
+    test('takes two finite numbers and nothing else', () => {
+        expect(windowPointOf({ x: 1, y: 2 })).toEqual({ x: 1, y: 2 });
+        expect(windowPointOf({ x: 1 })).toBeUndefined();
+        expect(windowPointOf({ x: Number.NaN, y: 2 })).toBeUndefined();
+        expect(windowPointOf(null)).toBeUndefined();
     });
 });
 

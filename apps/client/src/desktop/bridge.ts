@@ -41,6 +41,12 @@ export type {
  * Electron's context-menu params, trimmed to what a row needs, plus the guest that asked. A click on
  * an editable field stays in the shell for a native menu, so `isEditable` is false in all of these.
  */
+/* A point on the screen, where the top left corner of a window that opens goes. */
+export interface WindowPoint {
+    x: number;
+    y: number;
+}
+
 export interface BrowserContextParams {
     webContentsId: number;
     /* An HTML file's preview, which has no history and only reads. Missing from a shell older than
@@ -166,13 +172,37 @@ export interface DesktopBridge {
        another window has it, which the shell brings to the front; this page then stays where it was. */
     claimWindow?(key: string | null): Promise<boolean>;
     /* Opens a window on a project, or raises the window that has it; null opens the start screen.
-       A shell from before views ignores the view. */
-    openWindow?(key: string | null, view?: string): void;
+       A shell from before views ignores the view, and one from before points opens it where it likes. */
+    openWindow?(key: string | null, view?: string, at?: WindowPoint): void;
     /* Another window asked this one to show a view of its project (`openWindow` with a view). */
     onShowView?(listener: (view: string) => void): () => void;
     /* Hands this window's project to a new window, which has it before this one lets go. True once it
        did, and then this page goes to the start screen. */
-    moveToNewWindow?(): Promise<boolean>;
+    moveToNewWindow?(at?: WindowPoint): Promise<boolean>;
+    /* What this page keeps of itself across a quit (its tabs); the shell hands it back in the address
+       of the window it opens again. Null keeps nothing. */
+    setWindowState?(state: string | null): void;
+    /* Closes this window when another one is open, and answers whether it did; the last window stays. */
+    closeWindowIfOthers?(): Promise<boolean>;
+    /* The projects this window keeps as tabs, which no other window may show. Answers the ones it
+       has: a project another window keeps stays there. */
+    holdTabs?(keys: string[]): Promise<string[]>;
+    /* A tab pressed in this window left it (`start`), as a window of its own that follows the pointer,
+       or the window itself when `whole`; `end` when the press lets go, where the shell hands the
+       project to a window whose strip is under the pointer. `grab` is where in the window the pointer
+       holds it, and `tabWidth` how wide the tab is, so the pointer holds a torn off window by its tab. */
+    tabDrag?(phase: 'start' | 'end', key: string, grab: WindowPoint, whole: boolean, tabWidth?: number): Promise<boolean>;
+    /* Something asked for a project this window keeps as a tab, and the window came to the front for it. */
+    onShowProject?(listener: (key: string) => void): () => void;
+    /* A tab dragged from another window came over this one, which keeps its project now and shows
+       it. `x` is where along the strip it came in, null for a tab let go over the body of the window. */
+    onTakeProject?(listener: (key: string, x: number | null) => void): () => void;
+    /* The tab dragged in went out of this window's strip again while still held, and is no longer this window's. */
+    onReleaseProject?(listener: (key: string) => void): () => void;
+    /* The tab dragged in moved along this window's strip, to `x` in the page's coordinates. */
+    onTabDragOver?(listener: (key: string, x: number) => void): () => void;
+    /* Where this page draws its tab strip, which a tab dragged out of another window drops into; null without one. */
+    setTabStrip?(rect: { x: number; y: number; width: number; height: number } | null): void;
     /* Superseded by `requestKeepAwake`, and still what a shell from before that one understands. The
        shell drops the block on a reload or when the window goes. */
     setKeepAwake?(keep: boolean): void;

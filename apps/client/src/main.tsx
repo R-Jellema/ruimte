@@ -18,6 +18,7 @@ import { startOnboarding } from '@/onboarding/open';
 import { startAgentIntegrationsPrompt } from '@/state/agent-integrations';
 import { startPlanPanelWatch } from '@/plan/plan-panel-watch';
 import { startProjectList } from '@/project/list';
+import { startWindowTabs } from '@/project/window-tabs';
 import { startPageHolds } from '@/browser/page-hold';
 import { startShowViewWatch } from '@/project/show-view-watch';
 import { bootWindow } from '@/project/open';
@@ -77,6 +78,7 @@ startDeviceOperatedWatch();
 startPlanPanelWatch();
 startConnections();
 startProjectList();
+startWindowTabs();
 /* After the cached lists are in, so the switch screen can name the project it is opening. */
 void bootWindow();
 startShowViewWatch();
