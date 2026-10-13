@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { BinaryFrameAssembler, DIRECT_BINARY_PIECE_BYTES, DIRECT_PIECE_CHARS, splitFrame } from '@ruimte/contracts';
+import { BinaryFrameAssembler, DIRECT_BINARY_PIECE_BYTES, DIRECT_PIECE_CHARS, FrameAssembler, splitFrame } from '@ruimte/contracts';
 import { LOW_WATER_MARK, SOCKET_BACKPRESSURE_LIMIT } from '../backpressure.ts';
-import { AUTHENTICATED_FRAME_CHARS, directChannel, type RawDataChannel } from './data-channel.ts';
+import { AUTHENTICATED_FRAME_CHARS, BINARY_LANE_BYTES, directChannel, type RawDataChannel } from './data-channel.ts';
 
 class FakeRawChannel implements RawDataChannel {
     readonly label = 'ruimte';
@@ -71,10 +71,36 @@ describe('directChannel', () => {
         const channel = directChannel(raw);
         const frame = Uint8Array.from({ length: DIRECT_BINARY_PIECE_BYTES * 2 }, (_, index) => index % 251);
         expect(channel.send(frame)).toBe(frame.byteLength);
+        // Two pieces fill the lane's share of the DataChannel; the third waits until it has room.
+        expect(raw.sent).toHaveLength(2);
+        expect(channel.bufferedAmount()).toBe(frame.byteLength + 3);
+        raw.drainTo(0);
         expect(raw.sent).toHaveLength(3);
         const assembler = new BinaryFrameAssembler();
         const joined = raw.sent.map((piece) => assembler.push(piece as Uint8Array, Number.MAX_SAFE_INTEGER)).at(-1);
         expect(joined).toEqual({ kind: 'frame', frame });
+    });
+
+    test('a text frame goes ahead of binary pieces that wait, and both join again on the other side', () => {
+        const raw = new FakeRawChannel();
+        const channel = directChannel(raw);
+        const picture = Uint8Array.from({ length: DIRECT_BINARY_PIECE_BYTES * 5 }, (_, index) => index % 13);
+        channel.send(picture);
+        channel.send('{"id":"1","ok":true,"result":{}}');
+        expect(raw.sent[2]).toBe('={"id":"1","ok":true,"result":{}}');
+
+        while (raw.sent.length < 7) {
+            raw.drainTo(0);
+        }
+        const text = new FrameAssembler();
+        const binary = new BinaryFrameAssembler();
+        const frames = raw.sent.map((piece) =>
+            typeof piece === 'string' ? text.push(piece, Number.MAX_SAFE_INTEGER) : binary.push(piece, Number.MAX_SAFE_INTEGER)
+        );
+        expect(frames.filter((result) => result.kind === 'frame')).toEqual([
+            { kind: 'frame', frame: '{"id":"1","ok":true,"result":{}}' },
+            { kind: 'frame', frame: picture }
+        ]);
     });
 
     test('send answers the bytes of the whole frame, never the undefined a DataChannel returns', () => {
@@ -161,19 +187,44 @@ describe('directChannel', () => {
         expect(channel.bufferedAmount()).toBeGreaterThan(1000);
     });
 
-    test('a drain is bufferedamountlow at the low-water mark', () => {
+    test('a drain comes once the DataChannel and the lane are both under the low-water mark', () => {
         const raw = new FakeRawChannel();
         const channel = directChannel(raw);
-        expect(raw.bufferedAmountLowThreshold).toBe(LOW_WATER_MARK);
+        expect(raw.bufferedAmountLowThreshold).toBe(BINARY_LANE_BYTES);
         let drains = 0;
         channel.onDrain(() => {
             drains += 1;
         });
         raw.bufferedAmount = 2_000_000;
-        raw.drainTo(LOW_WATER_MARK + 1);
+        raw.drainTo(BINARY_LANE_BYTES + 1);
         expect(drains).toBe(0);
-        raw.drainTo(LOW_WATER_MARK);
+        raw.drainTo(BINARY_LANE_BYTES);
         expect(drains).toBe(1);
+
+        raw.bufferedAmount = BINARY_LANE_BYTES + 1;
+        channel.send(new Uint8Array((DIRECT_BINARY_PIECE_BYTES - 1) * 6));
+        raw.drainTo(0);
+        expect(channel.bufferedAmount()).toBeGreaterThan(LOW_WATER_MARK);
+        expect(drains).toBe(1);
+        raw.drainTo(0);
+        expect(channel.bufferedAmount()).toBeLessThanOrEqual(LOW_WATER_MARK);
+        expect(drains).toBe(2);
+    });
+
+    test('binary pieces that wait in the lane count toward the backpressure limit', () => {
+        const raw = new FakeRawChannel();
+        const channel = directChannel(raw, 200_000);
+        raw.bufferedAmount = BINARY_LANE_BYTES + 1;
+        expect(channel.send(new Uint8Array(100_000))).toBe(100_000);
+        const warn = console.warn;
+        console.warn = () => undefined;
+        try {
+            expect(channel.send(new Uint8Array(40_000))).toBe(0);
+        } finally {
+            console.warn = warn;
+        }
+        expect(raw.closeCalls).toBe(1);
+        expect(channel.bufferedAmount()).toBe(raw.bufferedAmount);
     });
 
     test('close tells its listeners once, whether it came from here or from the channel', () => {

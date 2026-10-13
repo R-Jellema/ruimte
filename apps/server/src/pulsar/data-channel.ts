@@ -1,4 +1,4 @@
-import { FrameAssembler, splitBinaryFrame, splitFrame } from '@ruimte/contracts';
+import { DIRECT_BINARY_PIECE_BYTES, FrameAssembler, splitBinaryFrame, splitFrame } from '@ruimte/contracts';
 import type { RTCDataChannel } from 'werift';
 import { LOW_WATER_MARK, SOCKET_BACKPRESSURE_LIMIT } from '../backpressure.ts';
 import type { ClientChannel } from '../connection.ts';
@@ -63,12 +63,23 @@ export interface DirectChannel extends ClientChannel {
 }
 
 /*
+ * How much the DataChannel may hold before a binary piece waits here instead: two pieces, so the
+ * pipe stays full while a text frame never queues behind more than that.
+ */
+export const BINARY_LANE_BYTES = DIRECT_BINARY_PIECE_BYTES;
+
+/*
  * A frame is split into pieces below the peer's max-message-size and joined again on arrival (see
- * `splitFrame` and `splitBinaryFrame`). The rest is shaped after Bun's socket, because the output gate reads it that way:
- * `send` answers the bytes of the whole frame once every piece is queued and 0 when the frame did
- * not go out, `bufferedAmount` is the channel's own, and a drain is the channel's
- * `bufferedamountlow`, which fires at the gate's low-water mark. A frame that would take the queue past
- * the socket's backpressure limit closes the channel, as Bun closes a socket there.
+ * `splitFrame` and `splitBinaryFrame`). Text pieces go to the DataChannel at once; binary pieces (a
+ * live frame, a `bytes.read` reply) wait in a lane of their own and go only while the DataChannel holds
+ * no more than `BINARY_LANE_BYTES`, so a keyframe never sits in front of a reply or terminal output.
+ * Every peer joins text and binary pieces with an assembler each, so they may interleave.
+ *
+ * The rest is shaped after Bun's socket, because the output gate reads it that way: `send` answers
+ * the bytes of the whole frame once every piece is queued and 0 when the frame did not go out,
+ * `bufferedAmount` counts the DataChannel and the lane, and a drain comes once both are under the
+ * gate's low-water mark. A frame that would take that past the socket's backpressure limit closes
+ * the channel, as Bun closes a socket there.
  */
 export function directChannel(raw: RawDataChannel, backpressureLimit: number = SOCKET_BACKPRESSURE_LIMIT): DirectChannel {
     const closeListeners: Array<() => void> = [];
@@ -78,8 +89,10 @@ export function directChannel(raw: RawDataChannel, backpressureLimit: number = S
     const waiting: string[] = [];
     let maxChars = UNAUTHENTICATED_FRAME_CHARS;
     let closed = false;
+    const lane: Uint8Array[] = [];
+    let laneBytes = 0;
 
-    raw.bufferedAmountLowThreshold = LOW_WATER_MARK;
+    raw.bufferedAmountLowThreshold = BINARY_LANE_BYTES;
 
     const finish = (): void => {
         if (closed) {
@@ -93,10 +106,30 @@ export function directChannel(raw: RawDataChannel, backpressureLimit: number = S
     };
 
     const close = (): void => {
+        lane.length = 0;
+        laneBytes = 0;
         if (raw.readyState !== 'closed') {
             raw.close();
         }
         finish();
+    };
+
+    // Every piece is under the size the peer accepts, so a throw means the channel is going away under us.
+    const refused = (e: unknown): void => {
+        console.warn('A direct channel refused a frame:', errorText(e));
+        close();
+    };
+
+    const pump = (): void => {
+        try {
+            while (!closed && lane.length > 0 && raw.bufferedAmount <= BINARY_LANE_BYTES) {
+                const piece = lane.shift()!;
+                laneBytes -= piece.byteLength;
+                raw.send(piece);
+            }
+        } catch (e) {
+            refused(e);
+        }
     };
 
     raw.onState((state) => {
@@ -106,6 +139,10 @@ export function directChannel(raw: RawDataChannel, backpressureLimit: number = S
     });
     raw.onBufferedAmountLow(() => {
         if (closed) {
+            return;
+        }
+        pump();
+        if (closed || raw.bufferedAmount + laneBytes > LOW_WATER_MARK) {
             return;
         }
         for (const listener of drainListeners) {
@@ -156,26 +193,32 @@ export function directChannel(raw: RawDataChannel, backpressureLimit: number = S
                 return 0;
             }
             const bytes = typeof data === 'string' ? Buffer.byteLength(data) : data.byteLength;
-            if (raw.bufferedAmount + bytes > backpressureLimit) {
-                console.warn(`A direct channel closed with ${raw.bufferedAmount} bytes still queued for a client that does not keep up.`);
+            const queued = raw.bufferedAmount + laneBytes;
+            if (queued + bytes > backpressureLimit) {
+                console.warn(`A direct channel closed with ${queued} bytes still queued for a client that does not keep up.`);
                 close();
                 return 0;
             }
+            if (typeof data !== 'string') {
+                for (const piece of splitBinaryFrame(data)) {
+                    lane.push(piece);
+                    laneBytes += piece.byteLength;
+                }
+                pump();
+                return closed ? 0 : bytes;
+            }
             try {
-                for (const piece of typeof data === 'string' ? splitFrame(data) : splitBinaryFrame(data)) {
+                for (const piece of splitFrame(data)) {
                     raw.send(piece);
                 }
             } catch (e) {
-                /* Every piece is under the size the peer accepts, so a throw means the channel is going
-                   away under us. Half a frame may be out, and the stream after it would not parse, so
-                   the channel goes rather than pretending the frame was merely dropped. */
-                console.warn('A direct channel refused a frame:', errorText(e));
-                close();
+                // Half a frame may be out, and the stream after it would not parse, so the channel goes rather than pretending the frame was merely dropped.
+                refused(e);
                 return 0;
             }
             return bytes;
         },
-        bufferedAmount: () => raw.bufferedAmount,
+        bufferedAmount: () => raw.bufferedAmount + laneBytes,
         // A DataChannel has no close code or reason on the wire; the peer only sees the channel end.
         close: () => close(),
         onClose(listener) {
