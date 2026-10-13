@@ -22,14 +22,56 @@ describe('when the machine takes a snapshot again', () => {
             request: { method: 'open', params: { connection: { ...SHOP.config, password: 'hunter2' } } },
             response: { ok: true, result: { session: 's1', server: { flavor: 'mariadb', version: '11' } } }
         });
-        observe({ request: { method: 'tables', params: { session: 's1', schema: 'shop' } }, response: { ok: true, result: { tables: [] } } });
-        expect(asked).toEqual([]);
         observe({ request: { method: 'schemas', params: { session: 's1' } }, response: { ok: true, result: { schemas: [] } } });
         observe({ request: { method: 'schemas', params: { session: 's1' } }, response: { ok: true, result: { schemas: [] } } });
         expect(asked).toEqual(['shop']);
         finish();
         await new Promise((resolve) => setImmediate(resolve));
         observe({ request: { method: 'schemas', params: { session: 's1' } }, response: { ok: true, result: { schemas: [] } } });
+        expect(asked).toEqual(['shop', 'shop']);
+    });
+
+    test('reading the live tables refreshes an old snapshot even when the schema list stays cached', async () => {
+        const asked: string[] = [];
+        const observe = snapshotTrigger(
+            () => [SHOP],
+            async (connectionId) => {
+                asked.push(connectionId);
+            }
+        );
+        observe({ request: { method: 'open', params: { connection: SHOP.config } }, response: { ok: true, result: { session: 's1' } } });
+        observe({
+            request: { method: 'tables', params: { session: 's1', schema: 'shop' } },
+            response: { ok: true, result: { tables: [{ name: 'log', kind: 'table', rowEstimate: 500, comment: null }] } }
+        });
+        await new Promise((resolve) => setImmediate(resolve));
+        expect(asked).toEqual(['shop']);
+    });
+
+    test('tables received during an older snapshot ask once more after it finishes', async () => {
+        const asked: string[] = [];
+        const waiting: Array<() => void> = [];
+        const observe = snapshotTrigger(
+            () => [SHOP],
+            (connectionId) => {
+                asked.push(connectionId);
+                return new Promise<void>((resolve) => waiting.push(resolve));
+            }
+        );
+        observe({ request: { method: 'open', params: { connection: SHOP.config } }, response: { ok: true, result: { session: 's1' } } });
+        observe({ request: { method: 'schemas', params: { session: 's1' } }, response: { ok: true, result: { schemas: [] } } });
+        const tables = {
+            request: { method: 'tables', params: { session: 's1', schema: 'shop' } },
+            response: { ok: true, result: { tables: [{ name: 'log' }] } }
+        };
+        observe(tables);
+        observe(tables);
+        expect(asked).toEqual(['shop']);
+        waiting.shift()!();
+        await new Promise((resolve) => setImmediate(resolve));
+        expect(asked).toEqual(['shop', 'shop']);
+        waiting.shift()!();
+        await new Promise((resolve) => setImmediate(resolve));
         expect(asked).toEqual(['shop', 'shop']);
     });
 

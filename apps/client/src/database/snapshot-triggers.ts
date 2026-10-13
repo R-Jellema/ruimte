@@ -8,23 +8,30 @@ interface Exchange {
 }
 
 /*
- * When the machine should take the schema snapshots of a connection again: when its tree is read, which
- * is a `schemas` on one of its sessions as the explorer opens or refreshes it. Which connection a session
- * is comes from the `open` that made it, matched on where the connection points. A connection whose
- * snapshot is being taken is not asked again until that one answered.
+ * The schema list can stay cached while its tables change, so both reads refresh SQL analysis.
+ * A table list arriving during a snapshot may be newer than that snapshot and needs one follow-up.
  */
 export function snapshotTrigger(connections: () => readonly DatabaseConnection[], refresh: (connectionId: string) => Promise<void>) {
     const sessions = new Map<string, string[]>();
     const running = new Set<string>();
+    const pending = new Set<string>();
 
-    const ask = (connectionId: string): void => {
+    const ask = (connectionId: string, tables = false): void => {
         if (running.has(connectionId)) {
+            if (tables) {
+                pending.add(connectionId);
+            }
             return;
         }
         running.add(connectionId);
         void refresh(connectionId)
             .catch(() => undefined)
-            .finally(() => running.delete(connectionId));
+            .finally(() => {
+                running.delete(connectionId);
+                if (pending.delete(connectionId)) {
+                    ask(connectionId);
+                }
+            });
     };
 
     return ({ request, response }: Exchange): void => {
@@ -48,9 +55,9 @@ export function snapshotTrigger(connections: () => readonly DatabaseConnection[]
         }
         if (request.method === 'close') {
             sessions.delete(params.session);
-        } else if (request.method === 'schemas') {
+        } else if (request.method === 'schemas' || request.method === 'tables') {
             for (const id of sessions.get(params.session) ?? []) {
-                ask(id);
+                ask(id, request.method === 'tables');
             }
         }
     };
