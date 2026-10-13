@@ -55,11 +55,6 @@ export function wireLaunches({ home, stores, agents, work, projects, later }: La
         chats: { hold: (nodeId, key) => void chats.holdForPerson(nodeId, key), release: (nodeId, key) => chats.releaseHold(nodeId, key) }
     });
     const agentHost = agentLaunches(store, runner, (sessionId) => sessions.get(sessionId)?.plainText() ?? Promise.resolve(null));
-    projects.attachLaunches({
-        opened: (projectId) => void runner.opened(projectId),
-        running: (projectId) => runner.running(projectId),
-        end: (projectId) => runner.end(projectId)
-    });
     const afterSettle = new AfterSettleLaunches({
         store: work.afterSettleStore,
         chats,

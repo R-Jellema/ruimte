@@ -17,6 +17,7 @@ import { generateKeyPair, signMessage } from './auth/keys.ts';
 import { isNotFound, writeAtomic } from '@adecore/agents';
 import type { SessionEvent, SessionSink } from './sessions/manager.ts';
 import { ClientSinks } from './client-sinks.ts';
+import { Binding } from './binding.ts';
 
 /*
  * The version stays at 1 on purpose as fields are added: zod strips what it does not know, so an older
@@ -153,12 +154,12 @@ export class EndpointIdentity {
     private appleEnabled: boolean;
     private awake: KeepAwakeSetting;
     private brokerSetting: BrokerSetting;
-    private brokerSwitch: IdentityBroker | null = null;
+    private readonly brokerSwitch = new Binding<IdentityBroker>('The broker switch of the machine identity');
     private lanDoorOpen: boolean;
     private checkoutRoot: string | null;
-    private door: IdentityLanDoor | null = null;
-    private closedLid: IdentityClosedLid | null = null;
-    private integrations: IdentityAgentIntegrations | null = null;
+    private readonly door = new Binding<IdentityLanDoor>('The door on the local network of the machine identity');
+    private readonly closedLid = new Binding<IdentityClosedLid>('The closed-lid rule of the machine identity');
+    private readonly integrations = new Binding<IdentityAgentIntegrations>('The agent integrations of the machine identity');
 
     constructor(options: IdentityOptions) {
         this.path = options.path;
@@ -233,12 +234,12 @@ export class EndpointIdentity {
 
     /* Lets every event say whether the closed-lid rule is installed. */
     attachClosedLid(closedLid: IdentityClosedLid): void {
-        this.closedLid = closedLid;
+        this.closedLid.bind(closedLid);
     }
 
     /* Lets every event say what a person allowed in the CLIs' global settings. */
     attachAgentIntegrations(integrations: IdentityAgentIntegrations): void {
-        this.integrations = integrations;
+        this.integrations.bind(integrations);
     }
 
     /* The broker a person picked for this machine, which a flag or the environment may still override. */
@@ -248,7 +249,7 @@ export class EndpointIdentity {
 
     /* Hands a changed broker setting to the switch that runs the relay, and lets the event say what it became. */
     attachBroker(broker: IdentityBroker): void {
-        this.brokerSwitch = broker;
+        this.brokerSwitch.bind(broker);
     }
 
     /* Whether a person keeps the door on the local network open, which `--no-lan` may still override. */
@@ -263,7 +264,7 @@ export class EndpointIdentity {
 
     /* Hands a changed door setting to the door, and lets the event say where it stands. */
     attachLanDoor(door: IdentityLanDoor): void {
-        this.door = door;
+        this.door.bind(door);
     }
 
     /* Signs a message with the daemon's private key; the private half never leaves this object. */
@@ -301,10 +302,10 @@ export class EndpointIdentity {
         }
         await this.persist();
         if (flags.broker !== undefined) {
-            await this.brokerSwitch?.apply();
+            await this.brokerSwitch.get().apply();
         }
         if (flags.lanDoor !== undefined) {
-            this.door?.apply();
+            this.door.get().apply();
         }
         this.announce();
     }
@@ -329,12 +330,12 @@ export class EndpointIdentity {
                 visualReplies: this.visuals,
                 appleFoundationEnabled: this.appleEnabled,
                 ...this.keepAwakeFields(),
-                ...this.closedLid?.describe(),
-                ...this.integrations?.describe(),
+                ...this.closedLid.get().describe(),
+                ...this.integrations.get().describe(),
                 broker: this.brokerSetting,
-                ...this.brokerSwitch?.describe(),
+                ...this.brokerSwitch.get().describe(),
                 lanDoor: this.lanDoorOpen,
-                ...this.door?.describe()
+                ...this.door.get().describe()
             }
         };
         this.sinks.emit(event);

@@ -8,15 +8,16 @@ import { FakeWatch } from '@adecore/agents/testing';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { DiagramStore } from './diagram-store.ts';
 import { DrawingStore } from './drawing-store.ts';
-import { documentOnDisk, privateFileOnDisk, rawPrivateViews } from './project-file-test-helpers.ts';
+import { documentOnDisk, privateFileOnDisk, rawPrivateViews, projectLinks } from './project-file-test-helpers.ts';
 import { documentPathInFolder, fromPortable, toPortable } from './project-files.ts';
-import { ProjectStore } from './project-store.ts';
+import { ProjectStore, type ProjectLinks } from './project-store.ts';
 
 let root: string;
 let home: string;
 let folder: string;
 let fake: FakeWatch;
 let store: ProjectStore;
+let links: ProjectLinks;
 let changed: SessionEvent[];
 let summaries: SessionEvent[];
 
@@ -34,7 +35,8 @@ beforeEach(async () => {
     folder = join(root, 'repo');
     await mkdir(folder);
     fake = new FakeWatch();
-    store = new ProjectStore(home, fake);
+    links = projectLinks();
+    store = new ProjectStore(home, links, fake);
     changed = [];
     summaries = [];
     unsubscribe = store.subscribe('c1', (event) => {
@@ -237,16 +239,16 @@ describe('ProjectStore', () => {
 
     test('deleting a project has the provenance records of it forgotten, with or without its files, and a refusal there does not stop the delete', async () => {
         const forgotten: string[] = [];
-        store.attachProvenance({ forget: async (id) => void forgotten.push(id) });
+        links.provenance = { forget: async (id) => void forgotten.push(id) };
         const first = await store.openProject({ folder });
         await store.delete(first.summary.projectId, false);
         expect(forgotten).toEqual([first.summary.projectId]);
 
-        store.attachProvenance({
+        links.provenance = {
             forget: async () => {
                 throw new Error('disk full');
             }
-        });
+        };
         const second = await store.openProject({ folder });
         await store.delete(second.summary.projectId, true);
         expect((await store.list()).map((project) => project.projectId)).not.toContain(second.summary.projectId);
@@ -262,8 +264,7 @@ describe('ProjectStore', () => {
     test('deleting a project with its files takes its drawings and diagrams, shared or not, and then .ruimte', async () => {
         const drawings = new DrawingStore(store, fake);
         const diagrams = new DiagramStore(store, fake);
-        store.attachDrawings(drawings);
-        store.attachDiagrams(diagrams);
+        links.viewFiles = () => [drawings, diagrams];
         const { projectId } = (await store.openProject({ folder })).summary;
         const views: ProjectContent['views'] = [
             ...content().views,
@@ -503,15 +504,15 @@ describe('ProjectStore', () => {
     test('closing survives a restart, because the registry carries it and not the client', async () => {
         const { summary } = await store.openProject({ folder });
         await store.closeProject(summary.projectId, 'c1');
-        const restarted = new ProjectStore(home, fake);
+        const restarted = new ProjectStore(home, projectLinks(), fake);
         expect((await restarted.list())[0]?.closedAt).toBeNumber();
     });
 
     test('a project another client still holds keeps its place, its watcher and its sessions', async () => {
         const ended: string[] = [];
-        store.attachSessionEnder(async (kind, nodeId) => {
+        links.endSession = async (kind, nodeId) => {
             ended.push(`${kind}:${nodeId}`);
-        });
+        };
         const { summary } = await store.openProject({ folder });
         store.hold('c1', summary.projectId);
         store.hold('c2', summary.projectId);
@@ -527,9 +528,9 @@ describe('ProjectStore', () => {
 
     test('the last client out ends the sessions the project holds', async () => {
         const ended: string[] = [];
-        store.attachSessionEnder(async (kind, nodeId) => {
+        links.endSession = async (kind, nodeId) => {
             ended.push(`${kind}:${nodeId}`);
-        });
+        };
         const opened = await store.openProject({ folder });
         const { projectId } = opened.summary;
         await store.save(projectId, opened.document.rev, content());
@@ -548,13 +549,13 @@ describe('ProjectStore', () => {
         await store.save(projectId, opened.document.rev, two);
         store.hold('c1', projectId);
         const ended: string[] = [];
-        store.attachSessionEnder(async (_kind, nodeId) => {
+        links.endSession = async (_kind, nodeId) => {
             ended.push(nodeId);
             if (ended.length === 1) {
                 await store.openProject({ projectId });
                 store.hold('c2', projectId);
             }
-        });
+        };
 
         expect(await store.closeProject(projectId, 'c1')).toEqual({ ended: 1, otherClients: 1 });
         expect(ended).toEqual(['n1']);
@@ -568,9 +569,9 @@ describe('ProjectStore', () => {
         const { projectId } = opened.summary;
         await store.save(projectId, opened.document.rev, content());
         store.hold('c1', projectId);
-        store.attachSessionEnder(async () => {
+        links.endSession = async () => {
             await store.openProject({ projectId });
-        });
+        };
 
         await store.closeProject(projectId, 'c1');
         expect(store.openProjectIds()).toEqual([projectId]);
@@ -580,7 +581,7 @@ describe('ProjectStore', () => {
     test('launches start with the first hold, are counted before closing, and end with the last client out', async () => {
         const calls: string[] = [];
         let running = 2;
-        store.attachLaunches({
+        links.launches = {
             opened: (id) => calls.push(`opened:${id}`),
             running: () => running,
             end: async (id) => {
@@ -589,7 +590,7 @@ describe('ProjectStore', () => {
                 running = 0;
                 return ended;
             }
-        });
+        };
         const opened = await store.openProject({ folder });
         const { projectId } = opened.summary;
         await store.save(projectId, opened.document.rev, content());
@@ -601,7 +602,7 @@ describe('ProjectStore', () => {
 
     test('the language servers of a project end with the last client out and stay while another has it open', async () => {
         const ended: string[] = [];
-        store.attachLanguage({ end: async (id) => void ended.push(id) });
+        links.language = { end: async (id) => void ended.push(id) };
         const opened = await store.openProject({ folder });
         const { projectId } = opened.summary;
         await store.save(projectId, opened.document.rev, content());
@@ -664,10 +665,10 @@ describe('ProjectStore', () => {
 
         test('the second is refused while the first is open, so it never reaches the sessions of the first', async () => {
             const ended: string[] = [];
-            store.attachSessionEnder(async (_kind, nodeId) => {
+            links.endSession = async (_kind, nodeId) => {
                 ended.push(nodeId);
-            });
-            store.attachTracked(async () => true);
+            };
+            links.tracked = async () => true;
             const first = await store.openProject({ folder });
             await store.save(first.summary.projectId, 0, content(), ['main']);
             store.hold('c1', first.summary.projectId);
@@ -681,7 +682,7 @@ describe('ProjectStore', () => {
         });
 
         test('it opens once the first is closed, and the first is refused in turn', async () => {
-            store.attachTracked(async () => true);
+            links.tracked = async () => true;
             const first = await store.openProject({ folder });
             await store.save(first.summary.projectId, 0, content(), ['main']);
             const other = await secondCheckout();
@@ -766,7 +767,7 @@ describe('the project index', () => {
         await store.save(opened.summary.projectId, 0, linked('from disk'));
         await store.closeProject(opened.summary.projectId, 'c1');
 
-        const restarted = new ProjectStore(home, fake);
+        const restarted = new ProjectStore(home, projectLinks(), fake);
         expect(restarted.index.sourcesFor('agent')).toEqual([]);
         await restarted.warmIndex();
         expect(restarted.index.sourcesFor('agent')[0]).toMatchObject({ text: 'from disk' });
@@ -778,7 +779,7 @@ describe('the project index', () => {
         await store.save(opened.summary.projectId, 0, linked('x'));
         await writeFile(documentPathInFolder(folder), '{ not json');
 
-        const restarted = new ProjectStore(home, fake);
+        const restarted = new ProjectStore(home, projectLinks(), fake);
         await restarted.warmIndex();
         expect(restarted.index.has(opened.summary.projectId)).toBe(false);
         // Nobody asked for that file, so it is not set aside the way an open would.
@@ -1057,7 +1058,7 @@ describe('the two files of a project', () => {
         await mkdir(join(folder, '.ruimte'));
         const legacy = { version: 2, rev: 5, name: 'repo', color: '#123456', views: content().views };
         await writeFile(documentPathInFolder(folder), JSON.stringify(legacy));
-        store.attachTracked(async () => true);
+        links.tracked = async () => true;
 
         const opened = await store.openProject({ folder });
         expect(opened.document.shared).toEqual(['main']);
@@ -1135,7 +1136,7 @@ describe('what the shared file may decide', () => {
             documentPathInFolder(folder),
             JSON.stringify({ version: 2, rev: 5, name: 'repo', color: '#123456', views: [{ ...views[0]!, nodes: [node] }] })
         );
-        store.attachTracked(async () => true);
+        links.tracked = async () => true;
 
         const opened = await store.openProject({ folder });
         expect(canvas(opened.document).nodes[0]).toMatchObject({ cwd: '/elsewhere', resume: 'sess-1', runtimeMode: 'auto' });
@@ -1147,7 +1148,7 @@ describe('what the shared file may decide', () => {
         await mkdir(join(folder, '.ruimte'));
         const views = [...content().views, { kind: 'file', id: 'f1', name: 'notes', path: '/home/bas/notes.md' }];
         await writeFile(documentPathInFolder(folder), JSON.stringify({ version: 2, rev: 5, name: 'repo', color: '#123456', views }));
-        store.attachTracked(async () => true);
+        links.tracked = async () => true;
 
         const opened = await store.openProject({ folder });
         expect(opened.document.views.map((view) => view.id)).toEqual(['main', 'f1']);
@@ -1157,7 +1158,7 @@ describe('what the shared file may decide', () => {
     });
 
     test('a version-2 file that turns up after the split came from a colleague, and keeps nothing of theirs', async () => {
-        store.attachTracked(async () => true);
+        links.tracked = async () => true;
         const opened = await store.openProject({ folder });
         await store.save(opened.summary.projectId, 0, content(), ['main']);
         store.closeAll();
@@ -1172,7 +1173,7 @@ describe('what the shared file may decide', () => {
 
     /* This person's canvas after the split: a shared view with a mode and a session of theirs, and a view of their own. */
     const splitMine = async (): Promise<string> => {
-        store.attachTracked(async () => true);
+        links.tracked = async () => true;
         const opened = await store.openProject({ folder });
         store.hold('c1', opened.summary.projectId);
         const mine = content();
@@ -1367,8 +1368,7 @@ describe('kinds a newer Ruimte wrote', () => {
     test('removing a drawing and a diagram leaves the files of an unknown view alone', async () => {
         const drawings = new DrawingStore(store, fake);
         const diagrams = new DiagramStore(store, fake);
-        store.attachDrawings(drawings);
-        store.attachDiagrams(diagrams);
+        links.viewFiles = () => [drawings, diagrams];
         const opened = await store.openProject({ folder });
         const { projectId } = opened.summary;
         for (const dir of ['drawings', 'diagrams']) {
@@ -1386,8 +1386,9 @@ describe('kinds a newer Ruimte wrote', () => {
     });
 
     test('a mutation that removes a drawing and a diagram takes their files on both sides of a released project, and leaves the unknown view and the live ones alone', async () => {
-        store.attachDrawings(new DrawingStore(store, fake));
-        store.attachDiagrams(new DiagramStore(store, fake));
+        const drawingFiles = new DrawingStore(store, fake);
+        const diagramFiles = new DiagramStore(store, fake);
+        links.viewFiles = () => [drawingFiles, diagramFiles];
         const opened = await store.openProject({ folder });
         const { projectId } = opened.summary;
         store.hold('c1', projectId);
@@ -1419,8 +1420,9 @@ describe('kinds a newer Ruimte wrote', () => {
     });
 
     test('a mutation that keeps every drawing and diagram removes no file, not even one without a view', async () => {
-        store.attachDrawings(new DrawingStore(store, fake));
-        store.attachDiagrams(new DiagramStore(store, fake));
+        const drawingFiles = new DrawingStore(store, fake);
+        const diagramFiles = new DiagramStore(store, fake);
+        links.viewFiles = () => [drawingFiles, diagramFiles];
         const { projectId } = (await store.openProject({ folder })).summary;
         await mkdir(join(folder, '.ruimte', 'drawings'), { recursive: true });
         await writeFile(join(folder, '.ruimte', 'drawings', 'arriving.json'), '{}');
@@ -1486,7 +1488,7 @@ describe('locks and reads from memory', () => {
         expect((await store.read(second.summary.projectId)).name).toBe('quick');
         gate.resolve();
         await slow;
-        const fresh = new ProjectStore(home, new FakeWatch());
+        const fresh = new ProjectStore(home, projectLinks(), new FakeWatch());
         expect((await fresh.list()).map((project) => project.name).sort()).toEqual(['quick', 'slow']);
     });
 
@@ -1535,7 +1537,7 @@ describe('locks and reads from memory', () => {
         await rename('released');
         expect((await store.read(projectId)).name).toBe('released');
 
-        const blind = new ProjectStore(home, {
+        const blind = new ProjectStore(home, projectLinks(), {
             watch: () => {
                 throw new Error('no watcher here');
             },
@@ -1563,6 +1565,6 @@ test('an obsolete folderless registry entry does not hide folder projects', asyn
     const registry = JSON.parse(await readFile(path, 'utf8'));
     registry.projects.push({ ...registry.projects[0], projectId: 'loose', folder: null });
     await writeFile(path, JSON.stringify(registry));
-    store = new ProjectStore(home, new FakeWatch());
+    store = new ProjectStore(home, projectLinks(), new FakeWatch());
     expect((await store.list()).map((project) => project.projectId)).toEqual([opened.summary.projectId]);
 });

@@ -9,6 +9,7 @@ import { ProjectStore } from '../projects/project-store.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { bootTestDaemon, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
 import { planFileName } from './plan-store.ts';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 function content(): ProjectContent {
     return {
@@ -53,7 +54,7 @@ beforeEach(async () => {
     home = join(root, 'home');
     folder = join(root, 'repo');
     await mkdir(folder, { recursive: true });
-    store = new ProjectStore(home);
+    store = new ProjectStore(home, projectLinks());
     const opened = await store.openProject({ folder });
     await store.save(opened.summary.projectId, opened.document.rev, content());
     store.release(opened.summary.projectId);

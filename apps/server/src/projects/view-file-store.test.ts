@@ -9,6 +9,7 @@ import { ProjectStore } from './project-store.ts';
 import { DrawingStore } from './drawing-store.ts';
 import { DiagramStore } from './diagram-store.ts';
 import { documentPathInFolder, viewFilePathOf } from './project-files.ts';
+import { projectLinks } from './project-file-test-helpers.ts';
 
 for (const kind of ['drawing', 'diagram'] as const) {
     describe(`${kind} file safety`, () => {
@@ -36,11 +37,9 @@ for (const kind of ['drawing', 'diagram'] as const) {
             const folder = join(root, 'repo');
             await mkdir(folder);
             watch = new FakeWatch();
-            projects = new ProjectStore(join(root, 'home'), watch);
+            projects = new ProjectStore(join(root, 'home'), projectLinks({ viewFiles: () => [drawings, diagrams] }), watch);
             drawings = new DrawingStore(projects, watch);
             diagrams = new DiagramStore(projects, watch);
-            projects.attachDrawings(drawings);
-            projects.attachDiagrams(diagrams);
             projectId = (await projects.openProject({ folder })).summary.projectId;
             await projects.save(projectId, 0, content);
             path = documentPathInFolder(folder);

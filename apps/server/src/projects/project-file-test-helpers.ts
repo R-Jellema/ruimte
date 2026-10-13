@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { PROJECT_VERSION, mergeFiles, migrateSharedFile, type ProjectDocument, type ProjectPrivateFile } from '@ruimte/contracts';
 import { documentPathInFolder, parsePrivateFile, privatePathOf } from './project-files.ts';
+import type { ProjectLinks } from './project-store.ts';
 
 /*
  * What a project holds on disk, which is both its files put back together. A test asking what was
@@ -38,4 +39,22 @@ export async function privateFileOnDisk(folder: string): Promise<ProjectPrivateF
         throw new Error(`the private file of ${folder} does not parse`);
     }
     return parsed.document;
+}
+
+/*
+ * The links of a store whose test reaches none of the services beside it: nothing is tracked, and no
+ * session, launch, language server, record or view file follows the store. A test names what it reaches.
+ */
+export function projectLinks(links: Partial<ProjectLinks> = {}): ProjectLinks {
+    return {
+        tracked: async () => false,
+        endSession: async () => undefined,
+        personSaved: async () => undefined,
+        launches: { opened: () => undefined, running: () => 0, end: async () => 0 },
+        language: { end: async () => undefined },
+        provenance: { forget: async () => undefined },
+        databases: { closeProject: () => undefined },
+        viewFiles: () => [],
+        ...links
+    };
 }

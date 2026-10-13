@@ -9,6 +9,7 @@ import { SqlAnalysis } from '../database/sql-analysis.ts';
 import { errorText } from '../error-text.ts';
 import type { MachineHome } from '../fs/machine-home.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
+import type { LanguageBundle } from './language.ts';
 
 /* A project's databases, for a person through the views and for an agent through its verb. */
 export interface DatabasesBundle {
@@ -18,7 +19,12 @@ export interface DatabasesBundle {
     sqlAnalysis: SqlAnalysis;
 }
 
-export async function wireDatabases(home: string, machineHome: MachineHome, projects: ProjectStore): Promise<DatabasesBundle> {
+export async function wireDatabases(
+    home: string,
+    machineHome: MachineHome,
+    projects: ProjectStore,
+    later: { language(): LanguageBundle }
+): Promise<DatabasesBundle> {
     const service = new DatabaseService({ machineHome });
     const connections = new DatabaseConnectionStore({
         projects: { folderOf: (projectId) => projects.index.folderOf(projectId), holdersOf: (projectId) => projects.holdersOf(projectId) },
@@ -55,12 +61,10 @@ export async function wireDatabases(home: string, machineHome: MachineHome, proj
             service,
             passwordOf: (projectId, connectionId, target) => passwords.passwordOf(projectId, connectionId, target)
         }),
-        access: agents
-    });
-    projects.attachDatabases({
-        closeProject: (projectId) => {
-            connections.closeProject(projectId);
-            agents.letGo(projectId);
+        access: agents,
+        listeners: {
+            sqlChanged: (projectId) => later.language().host.sqlChanged(projectId),
+            outsideFilesChanged: (changes) => later.language().host.outsideFilesChanged(changes)
         }
     });
     return { service, connections, agents, sqlAnalysis };

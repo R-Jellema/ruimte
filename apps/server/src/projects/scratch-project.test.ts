@@ -7,6 +7,7 @@ import { FakeWatch } from '@adecore/agents/testing';
 import { initRepo } from '../git/test-repo.ts';
 import { ProjectStore } from './project-store.ts';
 import { dropEmptyMark, newScratchChat, reusableChat, scratchFolderOf } from './scratch-project.ts';
+import { projectLinks } from './project-file-test-helpers.ts';
 
 let root: string;
 let store: ProjectStore;
@@ -21,7 +22,7 @@ async function chatViews(projectId: string): Promise<ProjectChatView[]> {
 
 beforeEach(async () => {
     root = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-scratch-')));
-    store = new ProjectStore(join(root, 'home'), new FakeWatch());
+    store = new ProjectStore(join(root, 'home'), projectLinks(), new FakeWatch());
 });
 
 afterEach(async () => {
@@ -62,7 +63,7 @@ describe('a new chat outside any project', () => {
     test('a home inside a git checkout is refused and makes nothing', async () => {
         const checkout = join(root, 'checkout');
         await initRepo(checkout, { 'README.md': 'hello\n' });
-        const inside = new ProjectStore(join(checkout, 'home'), new FakeWatch());
+        const inside = new ProjectStore(join(checkout, 'home'), projectLinks(), new FakeWatch());
 
         const refusal = await newScratchChat(inside, {}).catch((e: unknown) => e);
 

@@ -6,6 +6,7 @@ import { FakeWatch } from '@adecore/agents/testing';
 import { ProjectStore } from './project-store.ts';
 import { documentPathInFolder, viewFilePathOf } from './project-files.ts';
 import { writeDrawing } from './project-files.ts';
+import { projectLinks } from './project-file-test-helpers.ts';
 
 test('a process killed at each durable save boundary recovers on a fresh daemon', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ruimte-save-crash-'));
@@ -14,7 +15,7 @@ test('a process killed at each durable save boundary recovers on a fresh daemon'
             const folder = join(root, `${boundary}`, 'repo');
             const home = join(root, `${boundary}`, 'home');
             await mkdir(folder, { recursive: true });
-            const initial = new ProjectStore(home, new FakeWatch());
+            const initial = new ProjectStore(home, projectLinks(), new FakeWatch());
             const opened = await initial.openProject({ folder });
             const projectId = opened.summary.projectId;
             const content = { name: 'repo', color: '#353e53', views: [{ kind: 'drawing' as const, id: 'sketch', name: 'Sketch' }] };
@@ -30,6 +31,7 @@ test('a process killed at each durable save boundary recovers on a fresh daemon'
             const program = `
                 import { ProjectStore } from './apps/server/src/projects/project-store.ts';
                 import { PROJECT_WRITE_IO } from './apps/server/src/projects/project-write.ts';
+                import { projectLinks } from './apps/server/src/projects/project-file-test-helpers.ts';
                 import { FakeWatch } from ${JSON.stringify(import.meta.resolve('@adecore/agents/testing'))};
                 let operations = 0;
                 let armed = false;
@@ -38,7 +40,7 @@ test('a process killed at each durable save boundary recovers on a fresh daemon'
                     write: async (...args) => { await PROJECT_WRITE_IO.write(...args); stop(); },
                     remove: async (path) => { await PROJECT_WRITE_IO.remove(path); stop(); }
                 };
-                const projects = new ProjectStore(${JSON.stringify(home)}, new FakeWatch(), io);
+                const projects = new ProjectStore(${JSON.stringify(home)}, projectLinks(), new FakeWatch(), io);
                 await projects.openProject({ projectId: ${JSON.stringify(projectId)} });
                 armed = true;
                 await projects.save(${JSON.stringify(projectId)}, 1, ${JSON.stringify(content)}, ['sketch']);
@@ -52,7 +54,7 @@ test('a process killed at each durable save boundary recovers on a fresh daemon'
                 child.kill();
                 await child.exited;
             }
-            const restarted = new ProjectStore(home, new FakeWatch());
+            const restarted = new ProjectStore(home, projectLinks(), new FakeWatch());
             try {
                 const recovered = await restarted.openProject({ projectId });
                 expect(recovered.document.rev).toBe(2);

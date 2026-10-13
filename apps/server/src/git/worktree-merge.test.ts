@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { WorktreeMergePayload } from '@ruimte/contracts';
 import { documentPathInFolder } from '../projects/project-files.ts';
 import { forgetBase } from './status.ts';
-import { gitIn, initRepo, repoTemplate, type RepoTemplate } from './test-repo.ts';
+import { gitIn, initRepo, repoTemplate, type RepoTemplate, NO_WORKTREE_AGENTS } from './test-repo.ts';
 import { WorktreeMerge, type WorktreeAgent, type WorktreeAgents } from './worktree-merge.ts';
 import { Worktrees } from './worktrees.ts';
 
@@ -86,7 +86,7 @@ beforeEach(async () => {
     forgetBase();
     root = await template.copy();
     repo = join(root, 'repo');
-    worktrees = new Worktrees(join(root, 'home'), () => 1);
+    worktrees = new Worktrees(join(root, 'home'), NO_WORKTREE_AGENTS, () => 1);
     agents = new FakeAgents();
     merges = new WorktreeMerge(worktrees, agents);
 });

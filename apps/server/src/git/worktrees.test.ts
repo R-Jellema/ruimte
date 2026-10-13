@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { checkpointIndexFile, Checkpoints } from './checkpoints.ts';
 import { forgetBase } from './status.ts';
-import { gitIn, initRepo, repoTemplate, type RepoTemplate } from './test-repo.ts';
+import { gitIn, initRepo, repoTemplate, type RepoTemplate, NO_WORKTREE_AGENTS } from './test-repo.ts';
 import { countStatus, Worktrees } from './worktrees.ts';
 
 let template: RepoTemplate;
@@ -39,7 +39,7 @@ beforeEach(async () => {
     root = await template.copy();
     repo = join(root, 'repo');
     home = join(root, 'home');
-    worktrees = new Worktrees(home, () => 1789999999);
+    worktrees = new Worktrees(home, NO_WORKTREE_AGENTS, () => 1789999999);
 });
 
 afterEach(async () => {
@@ -92,6 +92,7 @@ describe('Worktrees', () => {
         let elsewhere: string | null = null;
         worktrees = new Worktrees(
             home,
+            NO_WORKTREE_AGENTS,
             () => 1789999999,
             () => elsewhere
         );
@@ -171,7 +172,7 @@ describe('Worktrees', () => {
         const added = await worktrees.add(repo, 'lexer', { madeBy: 'verb', projectId: 'project-1' });
         await worktrees.claim(repo, added.worktree.path, 'chat-lexer');
 
-        const restarted = new Worktrees(home);
+        const restarted = new Worktrees(home, NO_WORKTREE_AGENTS);
         expect(await restarted.list(repo)).toEqual([
             {
                 path: added.worktree.path,
@@ -239,16 +240,20 @@ describe('Worktrees', () => {
     });
 
     test('an agent in a turn in the worktree refuses the removal, and stopAgent stops it first', async () => {
-        const { worktree } = await worktrees.add(repo, 'lexer');
         const stopped: string[] = [];
         let working = true;
-        worktrees.attachAgents({
-            in: () => [{ nodeId: 'chat-a', working, live: true }],
-            stop: async (nodeId) => {
-                stopped.push(nodeId);
-                working = false;
-            }
-        });
+        worktrees = new Worktrees(
+            home,
+            {
+                in: () => [{ nodeId: 'chat-a', working, live: true }],
+                stop: async (nodeId) => {
+                    stopped.push(nodeId);
+                    working = false;
+                }
+            },
+            () => 1789999999
+        );
+        const { worktree } = await worktrees.add(repo, 'lexer');
 
         await expect(worktrees.remove(repo, worktree.path)).rejects.toMatchObject({ code: 'agent-working' });
         expect(stopped).toEqual([]);

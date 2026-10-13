@@ -11,6 +11,7 @@ import { generateKeyPair, signMessage } from '../src/auth/keys.ts';
 import { SOCKET_BACKPRESSURE_LIMIT } from '../src/backpressure.ts';
 import { connectionOpener, socketChannel, type ClientChannel, type ConnectionServices, type SocketChannel } from '../src/connection.ts';
 import type { ClientAccess } from '../src/dispatcher.ts';
+import { projectLinks } from '../src/projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../src/projects/project-store.ts';
 import { authenticateChannel } from '../src/pulsar/channel-auth.ts';
 import { AUTHENTICATED_FRAME_CHARS } from '../src/pulsar/data-channel.ts';
@@ -58,7 +59,7 @@ async function serve(): Promise<void> {
     const home = join(root, 'home');
     const folder = join(root, 'repo');
     await mkdir(folder, { recursive: true });
-    const store = new ProjectStore(home);
+    const store = new ProjectStore(home, projectLinks());
     const opened = await store.openProject({ folder });
     const content: ProjectContent = {
         name: 'repo',

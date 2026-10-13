@@ -144,10 +144,11 @@ function newId(): string {
 
 /*
  * What a store of view files (the drawings, the diagrams) needs to hear from this one. It is an
- * interface rather than the class so the files do not import each other; the daemon hands the real
- * stores over on startup.
+ * interface rather than the class so the files do not import each other.
  */
 export interface ProjectViewFiles {
+    /* Which views own its files. */
+    readonly noun: 'drawing' | 'diagram';
     /* Deletes every file whose view is not in `keep`. The project need not be open, so its file's path comes along. */
     removeOrphans(projectId: string, documentPath: string, keep: Set<string>): Promise<void>;
     closeProject(projectId: string): void;
@@ -232,6 +233,21 @@ export type SessionEnder = (kind: 'terminal' | 'chat', nodeId: string) => Promis
 /* Told what a person's save changed, with the views as they were before it and as it wrote them. */
 export type SaveListener = (folder: string, before: readonly ProjectView[], after: readonly ProjectView[]) => Promise<void>;
 
+/* What the store tells or asks of the services beside it, every one handed over when the store is made. */
+export interface ProjectLinks {
+    tracked: TrackedProbe;
+    /* The store knows which sessions a project holds; the managers know how to stop one. */
+    endSession: SessionEnder;
+    /* Only `save` tells it, which only a client's `project.save` calls: a verb, a watcher or a pull never does. */
+    personSaved: SaveListener;
+    launches: ProjectLaunches;
+    language: ProjectLanguage;
+    provenance: ProjectProvenance;
+    databases: ProjectDatabases;
+    /* The stores of drawing and diagram files, which are made from this one and so are asked for when a write or a release reaches them. */
+    viewFiles(): readonly ProjectViewFiles[];
+}
+
 /* A view of a kind this daemon does not know may own a file under either folder, so it counts as live for both. */
 function viewIdsIn(views: readonly ProjectView[], kind: 'drawing' | 'diagram'): Set<string> {
     return new Set(views.filter((view) => view.kind === kind || view.kind === UNKNOWN_KIND).map((view) => view.id));
@@ -272,8 +288,6 @@ export class ProjectStore {
     private readonly holds = new ProjectHolds();
     private registry: RegistryEntry[] | null = null;
     private readonly identity = new IdentityCache();
-    private drawings: ProjectViewFiles | null = null;
-    private diagrams: ProjectViewFiles | null = null;
     // One project's reads and writes run one after the other, and never wait on another project's.
     private readonly projectLocks = new KeyedSerializer();
     // Opening by folder decides which project a folder is, so two opens of one new folder never make two.
@@ -282,54 +296,18 @@ export class ProjectStore {
     private readonly registryWrites = new Serializer();
     private registryLoad: Promise<RegistryEntry[]> | null = null;
 
+    private readonly links: ProjectLinks;
     private readonly seams: WatchSeams;
     private readonly writeIO: ProjectWriteIO;
 
-    /* Nothing is shared until the daemon hands over a probe that can ask git; see `TrackedProbe`. */
-    private tracked: TrackedProbe = async () => false;
-
-    /* The store knows which sessions a project holds; the managers know how to stop one. */
-    private endSession: SessionEnder = async () => undefined;
-
-    private personSaved: SaveListener = async () => undefined;
-
-    private launches: ProjectLaunches | null = null;
-    private language: ProjectLanguage | null = null;
-    private provenance: ProjectProvenance | null = null;
-    private databases: ProjectDatabases | null = null;
-
-    constructor(home: string, seams: WatchSeams = SYSTEM_WATCH, writeIO: ProjectWriteIO = PROJECT_WRITE_IO) {
+    constructor(home: string, links: ProjectLinks, seams: WatchSeams = SYSTEM_WATCH, writeIO: ProjectWriteIO = PROJECT_WRITE_IO) {
         this.home = home;
         this.hiddenAgents = new HiddenAgentStore(home);
         this.index = new ProjectIndex(this.hiddenAgents);
         this.scratchFolder = scratchFolderOf(home);
+        this.links = links;
         this.seams = seams;
         this.writeIO = writeIO;
-    }
-
-    attachTracked(tracked: TrackedProbe): void {
-        this.tracked = tracked;
-    }
-
-    attachSessionEnder(endSession: SessionEnder): void {
-        this.endSession = endSession;
-    }
-
-    attachLaunches(launches: ProjectLaunches): void {
-        this.launches = launches;
-    }
-
-    attachLanguage(language: ProjectLanguage): void {
-        this.language = language;
-    }
-
-    attachProvenance(provenance: ProjectProvenance): void {
-        this.provenance = provenance;
-    }
-
-    /* Only `save` tells it, which only a client's `project.save` calls: a verb, a watcher or a pull never does. */
-    attachSaveListener(listener: SaveListener): void {
-        this.personSaved = listener;
     }
 
     /*
@@ -349,7 +327,7 @@ export class ProjectStore {
            old-format file git tracks is a colleague's on an older Ruimte: what it holds is theirs and
            shared, and the private file still holds this person's views, overlay and rev. */
         if (read !== null && read.legacyRev !== null) {
-            const tracked = (await this.tracked(path)) && read.file.views.length > 0;
+            const tracked = (await this.links.tracked(path)) && read.file.views.length > 0;
             if (!tracked || !(await fileExists(privatePathOf(path)))) {
                 // `mergeFiles` drops a shared file view off the folder, so the one this person had stays theirs.
                 const own = tracked ? read.file.views.filter((view) => viewShareRefusal(view) === 'path-outside-project') : read.file.views;
@@ -423,20 +401,6 @@ export class ProjectStore {
         return { text: sharedText, private: privateText };
     }
 
-    /* The drawing store follows this one: it hears about a write and about a project closing. */
-    attachDrawings(drawings: ProjectViewFiles): void {
-        this.drawings = drawings;
-    }
-
-    /* The diagram store follows this one the same way. */
-    attachDiagrams(diagrams: ProjectViewFiles): void {
-        this.diagrams = diagrams;
-    }
-
-    attachDatabases(databases: ProjectDatabases): void {
-        this.databases = databases;
-    }
-
     subscribe(clientId: string, sink: SessionSink): () => void {
         return this.sinks.subscribe(clientId, sink);
     }
@@ -444,7 +408,7 @@ export class ProjectStore {
     /* This client put the project on screen, which is what makes it one `showView` reaches. */
     hold(clientId: string, projectId: string): void {
         this.holds.add(clientId, projectId);
-        this.launches?.opened(projectId);
+        this.links.launches.opened(projectId);
     }
 
     /*
@@ -476,7 +440,7 @@ export class ProjectStore {
     /* What closing would do, for the confirmation that asks before it. */
     closing(clientId: string, projectId: string): ProjectClosingResult {
         const otherClients = this.holds.others(clientId, projectId);
-        return { sessions: otherClients > 0 ? 0 : this.index.sessionNodes(projectId).length + (this.launches?.running(projectId) ?? 0), otherClients };
+        return { sessions: otherClients > 0 ? 0 : this.index.sessionNodes(projectId).length + this.links.launches.running(projectId), otherClients };
     }
 
     /* Every project in the registry, without opening or resolving anything: what a folder is called
@@ -748,7 +712,7 @@ export class ProjectStore {
             before ?? [],
             document,
             async (daemonSide) => {
-                await this.personSaved(state.entry.folder, before ?? daemonSide.views, daemonSide.views);
+                await this.links.personSaved(state.entry.folder, before ?? daemonSide.views, daemonSide.views);
                 const icon = content.icon ?? null;
                 if (content.name !== state.entry.name || content.color !== state.entry.color || !sameIcon(icon, state.entry.icon ?? null)) {
                     const renamed = { ...state.entry, name: content.name, color: content.color, icon };
@@ -859,13 +823,9 @@ export class ProjectStore {
      * pull can drop a view whose file is still on its way, and that file is someone's work.
      */
     private async removeOrphanedFiles(entry: RegistryEntry, before: readonly ProjectView[], after: readonly ProjectView[]): Promise<void> {
-        const stores = [
-            ['drawing', this.drawings],
-            ['diagram', this.diagrams]
-        ] as const;
-        for (const [kind, files] of stores) {
-            const keep = viewIdsIn(after, kind);
-            if (files && [...viewIdsIn(before, kind)].some((id) => !keep.has(id))) {
+        for (const files of this.links.viewFiles()) {
+            const keep = viewIdsIn(after, files.noun);
+            if ([...viewIdsIn(before, files.noun)].some((id) => !keep.has(id))) {
                 await files.removeOrphans(entry.projectId, this.documentPath(entry), keep);
             }
         }
@@ -1026,9 +986,10 @@ export class ProjectStore {
         if (!state) {
             return;
         }
-        this.drawings?.closeProject(projectId);
-        this.diagrams?.closeProject(projectId);
-        this.databases?.closeProject(projectId);
+        for (const files of this.links.viewFiles()) {
+            files.closeProject(projectId);
+        }
+        this.links.databases.closeProject(projectId);
         state.watcher?.close();
         state.cancelSettle?.();
         this.open.delete(projectId);
@@ -1057,12 +1018,12 @@ export class ProjectStore {
             if (reopened()) {
                 break;
             }
-            await this.endSession(node.kind, node.id);
+            await this.links.endSession(node.kind, node.id);
             ended += 1;
         }
-        const launches = reopened() ? 0 : ((await this.launches?.end(projectId)) ?? 0);
+        const launches = reopened() ? 0 : await this.links.launches.end(projectId);
         if (!reopened()) {
-            await this.language?.end(projectId);
+            await this.links.language.end(projectId);
         }
         const kept = await this.locked(projectId, async () => {
             if (reopened()) {
@@ -1090,7 +1051,9 @@ export class ProjectStore {
         await this.updateRegistry((entries) => entries.filter((candidate) => candidate.projectId !== projectId));
         await rm(this.localPath(projectId), { force: true });
         // Who wrote which lines of a project that is gone is of no use to anyone, and it lives in the daemon's own folder.
-        await this.provenance?.forget(projectId).catch((e: unknown) => console.warn(`Forgetting the provenance of project ${projectId} failed:`, errorText(e)));
+        await this.links.provenance
+            .forget(projectId)
+            .catch((e: unknown) => console.warn(`Forgetting the provenance of project ${projectId} failed:`, errorText(e)));
         if (!removeFiles) {
             return;
         }

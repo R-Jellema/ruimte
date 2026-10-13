@@ -7,6 +7,7 @@ import { ManualClock } from '@adecore/agents/testing';
 import { NO_REPLY_NOTICE } from './notices.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { bootTestDaemon, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 /* Two chats a person opened beside each other, plus a note nothing links to: a message travels only along a line. */
 function content(): ProjectContent {
@@ -44,7 +45,7 @@ beforeEach(async () => {
     home = join(root, 'home');
     folder = join(root, 'repo');
     await mkdir(folder, { recursive: true });
-    store = new ProjectStore(home);
+    store = new ProjectStore(home, projectLinks());
     const opened = await store.openProject({ folder });
     projectId = opened.summary.projectId;
     await store.save(projectId, opened.document.rev, content());

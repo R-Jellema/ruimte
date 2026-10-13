@@ -10,6 +10,7 @@ import { claudeProjectSlug } from '@adecore/agents/chat';
 import { compileUi } from '@adecore/intelligent-ui';
 import { answerOf, SUMMARY_MAX_BYTES, summaryNoteId, summaryPrompt, summaryTexts } from './summary.ts';
 import { RUIMTE_UI_FENCE } from './ui-fence.ts';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 function content(): ProjectContent {
     return {
@@ -56,7 +57,7 @@ describe('a fork summarizing for its original', () => {
         home = join(root, 'home');
         folder = join(root, 'repo');
         await mkdir(folder, { recursive: true });
-        store = new ProjectStore(home);
+        store = new ProjectStore(home, projectLinks());
         const opened = await store.openProject({ folder });
         projectId = opened.summary.projectId;
         await store.save(projectId, opened.document.rev, content());

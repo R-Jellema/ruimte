@@ -8,6 +8,7 @@ import { documentPathInFolder, privatePathOf } from '../projects/project-files.t
 import { ProjectStore } from '../projects/project-store.ts';
 import { ModeApprovals, modesSet, personModeOf } from './mode-approvals.ts';
 import { makeHarness } from './test-helpers.ts';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 function terminal(id: string, extra: Partial<ProjectNode> = {}): ProjectNode {
     return { id, kind: 'terminal', title: 'Shell', x: 0, y: 0, w: 10, h: 10, ...extra };
@@ -88,15 +89,20 @@ describe('a mode an agent writes into the private project file', () => {
     test('starts no session in a wider mode than the person saved, also once a client saved it back', async () => {
         const folder = join(root, 'repo');
         await mkdir(folder);
-        const store = new ProjectStore(join(root, 'home'), new FakeWatch());
         const approvals = new ModeApprovals(join(root, 'home'));
         await approvals.load();
         // The daemon's own wiring: a person's save is what approves a mode.
-        store.attachSaveListener(async (saved, before, after) => {
-            for (const { nodeId, mode } of modesSet(before, after)) {
-                await approvals.approve(saved, nodeId, mode);
-            }
-        });
+        const store = new ProjectStore(
+            join(root, 'home'),
+            projectLinks({
+                personSaved: async (saved, before, after) => {
+                    for (const { nodeId, mode } of modesSet(before, after)) {
+                        await approvals.approve(saved, nodeId, mode);
+                    }
+                }
+            }),
+            new FakeWatch()
+        );
         const { projectId } = (await store.openProject({ folder })).summary;
         await store.save(projectId, 0, { name: 'repo', color: '#123456', views: canvasOf(terminal('t1', { provider: 'claude', runtimeMode: 'auto' })) });
 

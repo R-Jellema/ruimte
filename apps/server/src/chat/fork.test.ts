@@ -13,6 +13,7 @@ import { AttachmentStore, ChatStore, claudeProjectSlug } from '@adecore/agents/c
 import { ChatManager } from './chat-manager.ts';
 import { verbsNote } from '../context/context-note.ts';
 import { chatForkDeps, forkChat, itemsThrough, type ChatForkDeps } from './fork.ts';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 function content(): ProjectContent {
     return {
@@ -53,7 +54,7 @@ describe('forking a Claude chat', () => {
         home = join(root, 'home');
         folder = join(root, 'repo');
         await mkdir(folder, { recursive: true });
-        store = new ProjectStore(home);
+        store = new ProjectStore(home, projectLinks());
         const opened = await store.openProject({ folder });
         projectId = opened.summary.projectId;
         await store.save(projectId, opened.document.rev, content());

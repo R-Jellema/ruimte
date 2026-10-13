@@ -9,6 +9,8 @@ import { commandsSet } from '../sessions/command-approvals.ts';
 import { modesSet } from '../sessions/mode-approvals.ts';
 import type { AgentStores, AgentsBundle } from './agents.ts';
 import type { AgentWorkBundle } from './agent-work.ts';
+import type { DatabasesBundle } from './databases.ts';
+import type { LanguageBundle } from './language.ts';
 import type { LaunchesBundle } from './launches.ts';
 
 /* The projects of this machine and the drawing and diagram files beside them. */
@@ -34,44 +36,59 @@ export interface ProjectsInput {
     later: {
         launches(): LaunchesBundle;
         work(): AgentWorkBundle;
+        databases(): DatabasesBundle;
+        language(): LanguageBundle;
     };
 }
 
 export async function wireProjects({ home, stores, agents, computer, later }: ProjectsInput): Promise<ProjectsBundle> {
     const { sessions, chats } = agents;
-    const store = new ProjectStore(home);
-    await store.hiddenAgents.load();
-    const startClaims = new StartClaims(home);
-    await startClaims.load();
-    store.attachTracked(isTrackedPath);
     const endSession = async (kind: 'terminal' | 'chat', nodeId: string): Promise<void> => {
         computer.nodeClosed(nodeId);
         later.launches().secrets.nodeClosed(nodeId);
         await later.work().endChildren.owe(nodeId);
         await (kind === 'terminal' ? sessions.kill(nodeId) : chats.kill(nodeId)).catch(() => undefined);
     };
-    store.attachSessionEnder(endSession);
-    store.attachSaveListener(async (folder, before, after) => {
-        for (const { nodeId, command } of commandsSet(before, after)) {
-            try {
-                await stores.commandApprovals.approve(folder, nodeId, command);
-            } catch (e) {
-                // Not approved is only asked again; the save itself already landed.
-                console.error(`Approving the command of ${nodeId} failed:`, errorText(e));
-                continue;
+    const store = new ProjectStore(home, {
+        tracked: isTrackedPath,
+        endSession,
+        personSaved: async (folder, before, after) => {
+            for (const { nodeId, command } of commandsSet(before, after)) {
+                try {
+                    await stores.commandApprovals.approve(folder, nodeId, command);
+                } catch (e) {
+                    // Not approved is only asked again; the save itself already landed.
+                    console.error(`Approving the command of ${nodeId} failed:`, errorText(e));
+                    continue;
+                }
+                sessions.runApproved(nodeId, command);
             }
-            sessions.runApproved(nodeId, command);
-        }
-        for (const { nodeId, mode } of modesSet(before, after)) {
-            // Not written down narrows the node to the mode its person picks for new terminals, which is safe to retry.
-            await stores.modeApprovals
-                .approve(folder, nodeId, mode)
-                .catch((e: unknown) => console.error(`Approving the mode of ${nodeId} failed:`, errorText(e)));
-        }
+            for (const { nodeId, mode } of modesSet(before, after)) {
+                // Not written down narrows the node to the mode its person picks for new terminals, which is safe to retry.
+                await stores.modeApprovals
+                    .approve(folder, nodeId, mode)
+                    .catch((e: unknown) => console.error(`Approving the mode of ${nodeId} failed:`, errorText(e)));
+            }
+        },
+        launches: {
+            opened: (projectId) => void later.launches().runner.opened(projectId),
+            running: (projectId) => later.launches().runner.running(projectId),
+            end: (projectId) => later.launches().runner.end(projectId)
+        },
+        language: { end: (projectId) => later.language().host.end(projectId) },
+        provenance: { forget: (projectId) => later.language().provenance.forget(projectId) },
+        databases: {
+            closeProject: (projectId) => {
+                later.databases().connections.closeProject(projectId);
+                later.databases().agents.letGo(projectId);
+            }
+        },
+        viewFiles: () => [drawings, diagrams]
     });
+    await store.hiddenAgents.load();
+    const startClaims = new StartClaims(home);
+    await startClaims.load();
     const drawings = new DrawingStore(store);
-    store.attachDrawings(drawings);
     const diagrams = new DiagramStore(store);
-    store.attachDiagrams(diagrams);
     return { store, startClaims, drawings, diagrams, endSession };
 }

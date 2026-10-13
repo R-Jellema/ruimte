@@ -8,6 +8,7 @@ import type { SessionEvent } from '../sessions/manager.ts';
 import { DrawingStore } from './drawing-store.ts';
 import { ProjectStore } from './project-store.ts';
 import { documentPathInFolder, serializeDrawing } from './project-files.ts';
+import { projectLinks } from './project-file-test-helpers.ts';
 
 let root: string;
 let home: string;
@@ -66,9 +67,8 @@ beforeEach(async () => {
     folder = join(root, 'repo');
     await mkdir(folder);
     fake = new FakeWatch();
-    projects = new ProjectStore(home, fake);
+    projects = new ProjectStore(home, projectLinks({ viewFiles: () => [drawings] }), fake);
     drawings = new DrawingStore(projects, fake);
-    projects.attachDrawings(drawings);
     events = [];
     drawings.subscribe('c1', (event) => events.push(event));
     const opened = await projects.openProject({ folder });

@@ -9,6 +9,7 @@ import { DiagramStore } from './diagram-store.ts';
 import { DrawingStore } from './drawing-store.ts';
 import { ProjectStore } from './project-store.ts';
 import { serializeDiagram } from './project-files.ts';
+import { projectLinks } from './project-file-test-helpers.ts';
 
 let root: string;
 let home: string;
@@ -69,10 +70,9 @@ beforeEach(async () => {
     folder = join(root, 'repo');
     await mkdir(folder);
     fake = new FakeWatch();
-    projects = new ProjectStore(home, fake);
-    projects.attachDrawings(new DrawingStore(projects, fake));
+    projects = new ProjectStore(home, projectLinks({ viewFiles: () => [drawingFiles, diagrams] }), fake);
+    const drawingFiles = new DrawingStore(projects, fake);
     diagrams = new DiagramStore(projects, fake);
-    projects.attachDiagrams(diagrams);
     events = [];
     diagrams.subscribe('c1', (event) => events.push(event));
     const opened = await projects.openProject({ folder });

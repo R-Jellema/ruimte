@@ -9,6 +9,7 @@ import { FakeWatch } from '@adecore/agents/testing';
 import type { InlineChatHost } from '../projects/inline-chat.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { registerProjectHandlers } from './project.ts';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 class FakeChannel implements ClientChannel {
     readonly frames: ServerFrame[] = [];
@@ -49,7 +50,7 @@ beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'ruimte-project-handlers-'));
     folder = join(root, 'repo');
     await mkdir(folder);
-    store = new ProjectStore(join(root, 'home'), new FakeWatch());
+    store = new ProjectStore(join(root, 'home'), projectLinks(), new FakeWatch());
 });
 
 afterEach(async () => {

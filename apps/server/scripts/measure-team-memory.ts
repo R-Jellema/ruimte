@@ -6,6 +6,7 @@ import { heapStats } from 'bun:jsc';
 import type { ProjectContent } from '@ruimte/contracts';
 import { ChatStore } from '@adecore/agents/chat';
 import { ManualClock } from '@adecore/agents/testing';
+import { projectLinks } from '../src/projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../src/projects/project-store.ts';
 import { bootTestDaemon, runVerb, type TestDaemon } from '../src/tasks/test-daemon.ts';
 
@@ -69,7 +70,7 @@ const root = await mkdtemp(join(tmpdir(), 'ruimte-memory-'));
 const home = join(root, 'home');
 const folder = join(root, 'repo');
 await mkdir(folder, { recursive: true });
-const store = new ProjectStore(home);
+const store = new ProjectStore(home, projectLinks());
 const opened = await store.openProject({ folder });
 await store.save(opened.summary.projectId, opened.document.rev, content());
 store.release(opened.summary.projectId);

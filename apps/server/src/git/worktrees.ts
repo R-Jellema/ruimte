@@ -152,7 +152,7 @@ export class Worktrees {
     readonly root: string;
     private readonly checkpointsRoot: string;
     private readonly checkoutRoot: () => string | null;
-    private agents: WorktreeAgents | null = null;
+    private readonly agents: WorktreeAgents;
     // A test seam: runs between the last count of a removal and the removal itself.
     beforeRemoveCheckout: (() => Promise<void>) | null = null;
     private readonly now: () => number;
@@ -162,10 +162,13 @@ export class Worktrees {
 
     constructor(
         home: string,
+        /* The agents of the machine, so a removal can tell whether one is still working in the folder. */
+        agents: WorktreeAgents,
         now: () => number = Date.now,
         // Where new checkouts go, read for each one; null keeps them beside the register.
         checkoutRoot: () => string | null = () => null
     ) {
+        this.agents = agents;
         this.checkoutRoot = checkoutRoot;
         this.root = join(home, 'worktrees');
         this.checkpointsRoot = join(home, 'checkpoints');
@@ -342,16 +345,8 @@ export class Worktrees {
         });
     }
 
-    /* Hands the worktrees the agents of the machine, so a removal can tell whether one is still working in the folder. */
-    attachAgents(agents: WorktreeAgents): void {
-        this.agents = agents;
-    }
-
     /* Refuses while an agent is in a turn in the worktree, or stops the agents there when told to. */
     private async settleAgents(main: string, path: string, stop: boolean): Promise<void> {
-        if (this.agents === null) {
-            return;
-        }
         const { entry, record, label } = await this.describe(main, path);
         if (entry === null) {
             return;

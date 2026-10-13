@@ -10,6 +10,7 @@ import { verifySignature } from '@ruimte/pulsar/verify-node';
 import { generateKeyPair } from '../auth/keys.ts';
 import { Dispatcher, type ClientAccess, type ClientConnection } from '../dispatcher.ts';
 import { readOrCreateEndpointIdentity, type EndpointIdentity } from '../endpoint-id.ts';
+import { LENT_NOTHING, lendNothing } from '../endpoint-id-test-helpers.ts';
 import { MachineUpdates } from '../power/machine-update.ts';
 import { registerAuthHandlers } from './auth.ts';
 import { AgentIntegrations } from '../agents/integrations.ts';
@@ -63,7 +64,7 @@ async function ask(access: ClientAccess | undefined, type: string, payload: unkn
 beforeEach(async () => {
     home = await mkdtemp(join(tmpdir(), 'ruimte-auth-handlers-'));
     store = new AuthStore(home);
-    identity = await readOrCreateEndpointIdentity(home, 'box');
+    identity = lendNothing(await readOrCreateEndpointIdentity(home, 'box'));
     dispatcher = new Dispatcher();
     lanDoorOpen = true;
     disconnected = [];
@@ -358,6 +359,7 @@ describe('auth handlers', () => {
                     keepAwakeOnBattery: false,
                     keepAwakeDisplay: false,
                     keepAwakeLidClosed: false,
+                    ...LENT_NOTHING,
                     broker: { mode: 'default' },
                     lanDoor: true
                 }

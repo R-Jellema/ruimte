@@ -9,6 +9,7 @@ import { DrawingStore } from './drawing-store.ts';
 import { DiagramStore } from './diagram-store.ts';
 import { documentPathInFolder, viewFilePathOf } from './project-files.ts';
 import { pendingWritePathOf, PROJECT_WRITE_IO, type ProjectWriteIO } from './project-write.ts';
+import { projectLinks } from './project-file-test-helpers.ts';
 
 let root: string;
 let folder: string;
@@ -59,11 +60,9 @@ beforeEach(async () => {
         remove: (path) => step(() => PROJECT_WRITE_IO.remove(path))
     };
     const watch = new FakeWatch();
-    projects = new ProjectStore(home, watch, io);
+    projects = new ProjectStore(home, projectLinks({ viewFiles: () => [drawings, diagrams] }), watch, io);
     drawings = new DrawingStore(projects, watch);
     diagrams = new DiagramStore(projects, watch);
-    projects.attachDrawings(drawings);
-    projects.attachDiagrams(diagrams);
     projectId = (await projects.openProject({ folder })).summary.projectId;
     await projects.save(projectId, 0, content);
     await drawings.open(projectId, 'sketch');
@@ -90,7 +89,7 @@ describe('durable project saves', () => {
                 afterOperation = after;
                 await expect(projects.save(projectId, 1, { ...content, name: 'saved' }, ['sketch', 'flow'])).rejects.toThrow('Injected');
                 projects.closeAll();
-                projects = new ProjectStore(home, new FakeWatch());
+                projects = new ProjectStore(home, projectLinks(), new FakeWatch());
                 const opened = await projects.openProject({ projectId });
                 const landed = after || stage > 1;
                 expect(opened.document.rev).toBe(landed ? 2 : 1);
@@ -118,7 +117,7 @@ describe('durable project saves', () => {
         const path = documentPathInFolder(folder);
         await writeFile(path, 'outside edit');
         projects.closeAll();
-        projects = new ProjectStore(home, new FakeWatch());
+        projects = new ProjectStore(home, projectLinks(), new FakeWatch());
         const refused = await projects.openProject({ projectId }).catch((e: unknown) => e);
         // A coded error, so a verb is refused instead of failing, and it names the file that lets the save go.
         expect(refused).toMatchObject({ code: 'project-invalid' });
@@ -141,7 +140,7 @@ describe('durable project saves', () => {
         duringWrite = null;
         expect(await projects.read(projectId)).toMatchObject({ name: 'pulled' });
         projects.closeAll();
-        projects = new ProjectStore(home, new FakeWatch());
+        projects = new ProjectStore(home, projectLinks(), new FakeWatch());
         expect((await projects.openProject({ projectId })).document.name).toBe('pulled');
     });
 

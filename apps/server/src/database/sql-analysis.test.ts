@@ -162,15 +162,15 @@ function analysisRig(connections: DatabaseConnection[] = [SHOP, LOCAL]) {
         connections: { connectionsOf: async () => connections },
         snapshots: snapshots as unknown as SchemaSnapshots,
         access: { levelOf: async (_projectId, connection) => access[connection.id] ?? 'read' },
-        warn: () => undefined
-    });
-    analysis.attach({
-        sqlChanged: async (projectId) => {
-            told.push(projectId);
+        listeners: {
+            sqlChanged: async (projectId) => {
+                told.push(projectId);
+            },
+            outsideFilesChanged: async (changes) => {
+                changed.push([...changes]);
+            }
         },
-        outsideFilesChanged: async (changes) => {
-            changed.push([...changes]);
-        }
+        warn: () => undefined
     });
     analysis.subscribe('c1', (event) => events.push(event));
     return { analysis, events, told, changed, snapshots, access, content: () => content };

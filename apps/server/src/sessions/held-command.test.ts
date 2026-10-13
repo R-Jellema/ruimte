@@ -6,9 +6,10 @@ import { emptyCanvasView, type ProjectContent, type ProjectView, type ServerFram
 import { Dispatcher } from '../dispatcher.ts';
 import { registerSessionHandlers } from '../handlers/session.ts';
 import { FakeWatch } from '@adecore/agents/testing';
-import { ProjectStore } from '../projects/project-store.ts';
+import { ProjectStore, type ProjectLinks } from '../projects/project-store.ts';
 import { CommandApprovals, commandsSet } from './command-approvals.ts';
 import { Recorder, makeHarness, type Harness } from './test-helpers.ts';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 const FOLDER = '/work/repo';
 
@@ -150,11 +151,13 @@ describe('commandsSet', () => {
 describe("the project store's save listener", () => {
     let root: string;
     let store: ProjectStore;
+    let links: ProjectLinks;
 
     beforeEach(async () => {
         root = await mkdtemp(join(tmpdir(), 'ruimte-held-store-'));
         await mkdir(join(root, 'repo'));
-        store = new ProjectStore(join(root, 'home'), new FakeWatch());
+        links = projectLinks();
+        store = new ProjectStore(join(root, 'home'), links, new FakeWatch());
     });
 
     afterEach(async () => {
@@ -164,9 +167,9 @@ describe("the project store's save listener", () => {
 
     test("hears a person's save with what came before it, and never a verb's write", async () => {
         const heard: string[][] = [];
-        store.attachSaveListener(async (_folder, before, after) => {
+        links.personSaved = async (_folder, before, after) => {
             heard.push(commandsSet(before, after).map(({ nodeId, command }) => `${nodeId} ${command}`));
-        });
+        };
         const opened = await store.openProject({ folder: join(root, 'repo') });
         const projectId = opened.summary.projectId;
         const withCommand = (command: string): ProjectContent => ({ name: 'repo', color: '#123456', views: [canvasOf(terminal('t1', command))] });

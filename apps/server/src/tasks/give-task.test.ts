@@ -7,6 +7,7 @@ import { nextLine } from '../canvas/task-verbs.ts';
 import { ManualClock } from '@adecore/agents/testing';
 import { ProjectStore } from '../projects/project-store.ts';
 import { bootTestDaemon, runVerb, type TestDaemon } from './test-daemon.ts';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 type Daemon = TestDaemon;
 
@@ -47,7 +48,7 @@ beforeEach(async () => {
     home = join(root, 'home');
     folder = join(root, 'repo');
     await mkdir(folder, { recursive: true });
-    store = new ProjectStore(home);
+    store = new ProjectStore(home, projectLinks());
     const opened = await store.openProject({ folder });
     projectId = opened.summary.projectId;
     await store.save(projectId, opened.document.rev, content());

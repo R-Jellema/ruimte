@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { chmod, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { gitIn, initRepo } from './test-repo.ts';
+import { gitIn, initRepo, NO_WORKTREE_AGENTS } from './test-repo.ts';
 import { STILL_WAITING, WorktreeMerge } from './worktree-merge.ts';
 import { Worktrees } from './worktrees.ts';
 
@@ -43,7 +43,7 @@ afterEach(async () => {
 });
 
 test('cancel ends a step a hook holds up, after the merge said it is still waiting, and lets go of the repository', async () => {
-    const worktrees = new Worktrees(join(root, 'home'));
+    const worktrees = new Worktrees(join(root, 'home'), NO_WORKTREE_AGENTS);
     const { worktree } = await worktrees.add(repo, 'lexer', { madeBy: 'verb', nodeId: 'chat-lexer' });
     await writeFile(join(worktree.path, 'lexer.txt'), 'lexer\n');
     const merges = new WorktreeMerge(worktrees, { in: () => [], stop: async () => undefined }, { waitNotice: 50 });

@@ -143,7 +143,11 @@ describe.skipIf(!ready)('the SQL servers against a snapshot of the project datab
                 service,
                 passwordOf: (_projectId, connectionId) => passwords[connectionId] ?? null
             }),
-            access: { levelOf: async () => 'read' }
+            access: { levelOf: async () => 'read' },
+            listeners: {
+                sqlChanged: (projectId) => host.sqlChanged(projectId),
+                outsideFilesChanged: (changes) => host.outsideFilesChanged(changes)
+            }
         });
         host = new LanguageHost({
             root: join(home, 'language-servers'),
@@ -159,7 +163,6 @@ describe.skipIf(!ready)('the SQL servers against a snapshot of the project datab
                 return child;
             }
         });
-        analysis.attach(host);
         host.subscribe('c1', (event) => events.push(event));
         analysis.subscribe('c1', (event) => events.push(event));
         await host.install('sql-native');

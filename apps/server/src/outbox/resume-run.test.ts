@@ -13,6 +13,7 @@ import { ProviderRegistry } from '../providers/registry.ts';
 import { OutboxStore, type OutboxWork } from './outbox.ts';
 import { OutboxWorker, RETRY_DELAYS_MS } from '@adecore/agents/coordination';
 import { oweResume, resumeRunHandler, resumeRunParked } from './resume-run.ts';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 const providers = new ProviderRegistry({ detect: async () => ({ installed: true, version: '0.0.0' }) });
 
@@ -59,7 +60,7 @@ beforeEach(async () => {
     home = join(root, 'home');
     folder = join(root, 'repo');
     await mkdir(folder, { recursive: true });
-    projects = new ProjectStore(home);
+    projects = new ProjectStore(home, projectLinks());
     const opened = await projects.openProject({ folder });
     await projects.save(opened.summary.projectId, opened.document.rev, content());
     projects.release(opened.summary.projectId);

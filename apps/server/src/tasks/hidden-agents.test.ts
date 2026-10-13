@@ -6,6 +6,7 @@ import { ManualClock } from '@adecore/agents/testing';
 import { MAX_OPENED_PER_CALLER } from '../canvas/depth.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { bootTestDaemon, runVerb, type TestDaemon } from './test-daemon.ts';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 let root: string;
 let home: string;
@@ -19,7 +20,7 @@ beforeEach(async () => {
     home = join(root, 'home');
     folder = join(root, 'repo');
     await mkdir(folder);
-    store = new ProjectStore(home);
+    store = new ProjectStore(home, projectLinks());
     const opened = await store.openProject({ folder });
     projectId = opened.summary.projectId;
     await store.save(projectId, opened.document.rev, {
@@ -146,7 +147,7 @@ test('queued hidden agents and their lineage survive a restart of the machine', 
     await first.stop();
     daemons = [];
     store.closeAll();
-    store = new ProjectStore(home);
+    store = new ProjectStore(home, projectLinks());
     await store.warmIndex();
     const second = await boot();
     expect(store.index.locate(childId)).toEqual({ projectId, folder, canvasId: null });

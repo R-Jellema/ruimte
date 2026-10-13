@@ -69,8 +69,14 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
             work: () => work
         }
     });
-    const projects = await wireProjects({ home, stores, agents, computer, later: { launches: () => launches, work: () => work } });
-    const databases = await wireDatabases(home, machine.machineHome, projects.store);
+    const projects = await wireProjects({
+        home,
+        stores,
+        agents,
+        computer,
+        later: { launches: () => launches, work: () => work, databases: () => databases, language: () => language }
+    });
+    const databases = await wireDatabases(home, machine.machineHome, projects.store, { language: () => language });
     const work = wireAgentWork({ home, identity, stores, agents, projects: projects.store, later: { push: () => push, launches: () => launches } });
     const launches = wireLaunches({ home, stores, agents, work, projects: projects.store, later: { git: () => git } });
     // Before the socket answers, so an agent whose project nobody opened since the restart still reads its links.

@@ -33,7 +33,7 @@ import {
 } from '@ruimte/contracts';
 import { SESSION_VARIABLES } from '../config.ts';
 import { MAX_SCREEN_LINES } from '../context/context-store.ts';
-import { documentOnDisk, rawPrivateViews, setPrivateViews } from '../projects/project-file-test-helpers.ts';
+import { documentOnDisk, rawPrivateViews, setPrivateViews, projectLinks } from '../projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { DiagramStore } from '../projects/diagram-store.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
@@ -175,9 +175,8 @@ beforeEach(async () => {
     lineage = new AgentLineageStore(join(root, 'home'));
     tasks = new TaskStore(join(root, 'home'));
     await lineage.load();
-    store = new ProjectStore(join(root, 'home'));
+    store = new ProjectStore(join(root, 'home'), projectLinks({ viewFiles: () => [diagrams] }));
     diagrams = new DiagramStore(store);
-    store.attachDiagrams(diagrams);
     diagramEvents = [];
     diagrams.subscribe('client-1', (event) => diagramEvents.push(event));
     // A client on its socket, which is what `open` asks the store to tell.

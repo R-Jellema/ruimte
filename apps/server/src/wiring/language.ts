@@ -39,8 +39,6 @@ export async function wireLanguage({ home, compiled, machineHome, watches, proje
         sqlSettings: (projectId) => sqlAnalysis.settingsOf(projectId)
     });
     await host.load();
-    sqlAnalysis.attach(host);
-    projects.attachLanguage(host);
     const onDevice = new OnDeviceModel();
     const provenance = new ProvenanceService({
         home,
@@ -50,6 +48,5 @@ export async function wireLanguage({ home, compiled, machineHome, watches, proje
         chat: (chatId) => provenanceChat(agents.chats, chatId)
     });
     agents.chats.observe((event) => provenance.consume(event));
-    projects.attachProvenance(provenance);
     return { host, onDevice, provenance };
 }

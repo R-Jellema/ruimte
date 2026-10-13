@@ -10,6 +10,7 @@ import { DrawingStore } from '../projects/drawing-store.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { registerDiagramHandlers } from './diagram.ts';
 import { registerDrawingHandlers } from './drawing.ts';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 let root: string;
 let projects: ProjectStore;
@@ -23,11 +24,9 @@ beforeEach(async () => {
     const folder = join(root, 'repo');
     await mkdir(folder);
     const watch = new FakeWatch();
-    projects = new ProjectStore(join(root, 'home'), watch);
+    projects = new ProjectStore(join(root, 'home'), projectLinks({ viewFiles: () => [drawings, diagrams] }), watch);
     drawings = new DrawingStore(projects, watch);
     diagrams = new DiagramStore(projects, watch);
-    projects.attachDrawings(drawings);
-    projects.attachDiagrams(diagrams);
     const opened = await projects.openProject({ folder });
     projectId = opened.summary.projectId;
     await projects.save(projectId, 0, {

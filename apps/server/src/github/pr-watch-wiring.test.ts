@@ -6,6 +6,7 @@ import type { ChatTurnItem, ProjectContent } from '@ruimte/contracts';
 import { ManualClock } from '@adecore/agents/testing';
 import { ProjectStore } from '../projects/project-store.ts';
 import { bootTestDaemon, type TestDaemon } from '../tasks/test-daemon.ts';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 function content(): ProjectContent {
     return {
@@ -49,7 +50,7 @@ beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'ruimte-pr-watch-wiring-'));
     folder = join(root, 'repo');
     await mkdir(folder, { recursive: true });
-    store = new ProjectStore(join(root, 'home'));
+    store = new ProjectStore(join(root, 'home'), projectLinks());
     const opened = await store.openProject({ folder });
     projectId = opened.summary.projectId;
     await store.save(projectId, opened.document.rev, content());

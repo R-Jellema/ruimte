@@ -178,6 +178,8 @@ export interface SqlAnalysisOptions {
     connections: { connectionsOf(projectId: string): Promise<DatabaseConnection[]> };
     snapshots: SchemaSnapshots;
     access: { levelOf(projectId: string, connection: DatabaseConnection): Promise<DatabaseAgentAccess> };
+    /* The language servers, which read the settings this makes. */
+    listeners: SqlListeners;
     /* Where a snapshot taken in the background that failed is told; the console by default. */
     warn?: (line: string) => void;
 }
@@ -213,14 +215,9 @@ function withBinding(sql: ProjectSql | undefined, path: string | undefined, bind
 export class SqlAnalysis {
     private readonly options: SqlAnalysisOptions;
     private readonly sinks = new ClientSinks();
-    private listeners: SqlListeners | null = null;
 
     constructor(options: SqlAnalysisOptions) {
         this.options = options;
-    }
-
-    attach(listeners: SqlListeners): void {
-        this.listeners = listeners;
     }
 
     subscribe(clientId: string, sink: SessionSink): () => void {
@@ -364,8 +361,8 @@ export class SqlAnalysis {
         for (const clientId of this.options.projects.holdersOf(projectId)) {
             this.sinks.to(clientId, { event: 'language.sql.changed', payload: { projectId, ...state } });
         }
-        await this.listeners
-            ?.sqlChanged(projectId)
+        await this.options.listeners
+            .sqlChanged(projectId)
             .catch((error: unknown) => this.warn(`Telling the language servers of ${projectId} its SQL failed: ${errorText(error)}`));
     }
 
@@ -417,7 +414,7 @@ export class SqlAnalysis {
         });
         if (moved.length > 0) {
             const created = moved.filter((facts) => !before.some((snapshot) => snapshot.path === facts.path));
-            await this.listeners?.outsideFilesChanged(moved.map((facts) => ({ path: facts.path, type: created.includes(facts) ? 1 : 2 })));
+            await this.options.listeners.outsideFilesChanged(moved.map((facts) => ({ path: facts.path, type: created.includes(facts) ? 1 : 2 })));
             await this.changed(projectId);
         }
         return failures;

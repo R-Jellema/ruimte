@@ -1,6 +1,7 @@
 import { cp, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { WorktreeAgents } from './worktree-merge.ts';
 
 const IDENTITY = { GIT_AUTHOR_NAME: 'Ada', GIT_AUTHOR_EMAIL: 'a@a', GIT_COMMITTER_NAME: 'Ada', GIT_COMMITTER_EMAIL: 'a@a' };
 
@@ -14,6 +15,9 @@ const TEST_GIT_CONFIG = {
     GIT_CONFIG_KEY_2: 'commit.gpgSign',
     GIT_CONFIG_VALUE_2: 'false'
 };
+
+/* For a test of git alone, where no agent works in any worktree. */
+export const NO_WORKTREE_AGENTS: WorktreeAgents = { in: () => [], stop: async () => undefined };
 
 /* Runs git in a test repository and answers what it wrote to stdout; a failure throws with its stderr. */
 export async function gitIn(cwd: string, args: string[]): Promise<string> {

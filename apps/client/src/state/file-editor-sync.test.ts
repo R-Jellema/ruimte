@@ -17,6 +17,7 @@ const { registerDiagramHandlers } = await import(`${serverSource}handlers/diagra
 const { ProjectStore } = await import(`${serverSource}projects/project-store.ts`);
 const { DrawingStore } = await import(`${serverSource}projects/drawing-store.ts`);
 const { DiagramStore } = await import(`${serverSource}projects/diagram-store.ts`);
+const { projectLinks } = await import(`${serverSource}projects/project-file-test-helpers.ts`);
 
 interface DispatcherPort {
     handle(client: { id: string; send(frame: ServerFrame): void }, message: string): Promise<void>;
@@ -92,11 +93,9 @@ for (const kind of ['drawing', 'diagram'] as const) {
                 const folder = join(root, 'repo');
                 await mkdir(folder);
                 const watch = new FakeWatch();
-                const projects = new ProjectStore(join(root, 'home'), watch);
+                const projects = new ProjectStore(join(root, 'home'), projectLinks({ viewFiles: () => [drawings, diagrams] }), watch);
                 const drawings = new DrawingStore(projects, watch);
                 const diagrams = new DiagramStore(projects, watch);
-                projects.attachDrawings(drawings);
-                projects.attachDiagrams(diagrams);
                 const opened = await projects.openProject({ folder });
                 const projectId = opened.summary.projectId;
                 await projects.save(projectId, 0, { name: 'repo', color: '#353e53', views: [{ kind, id: 'view', name: 'View' }] });

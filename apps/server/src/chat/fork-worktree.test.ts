@@ -4,12 +4,13 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ChatInfo, ChatTurnItem, ProjectCanvasView, ProjectContent } from '@ruimte/contracts';
 import { Checkpoints } from '../git/checkpoints.ts';
-import { gitIn, initRepo, repoTemplate, type RepoTemplate } from '../git/test-repo.ts';
+import { gitIn, initRepo, repoTemplate, type RepoTemplate, NO_WORKTREE_AGENTS } from '../git/test-repo.ts';
 import { Worktrees } from '../git/worktrees.ts';
 import { ManualClock } from '@adecore/agents/testing';
 import { ProjectStore } from '../projects/project-store.ts';
 import { bootTestDaemon, type TestDaemon } from '../tasks/test-daemon.ts';
 import { ChatStore, claudeProjectSlug } from '@adecore/agents/chat';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 function content(): ProjectContent {
     return {
@@ -49,12 +50,18 @@ beforeEach(async () => {
     root = await template.copy();
     folder = join(root, 'repo');
     home = join(root, 'home');
-    store = new ProjectStore(home);
+    store = new ProjectStore(home, projectLinks());
     const opened = await store.openProject({ folder });
     projectId = opened.summary.projectId;
     await store.save(projectId, opened.document.rev, content());
     store.release(projectId);
-    daemon = await bootTestDaemon({ home, store, clock: new ManualClock(), checkpoints: new Checkpoints(home), worktrees: new Worktrees(home) });
+    daemon = await bootTestDaemon({
+        home,
+        store,
+        clock: new ManualClock(),
+        checkpoints: new Checkpoints(home),
+        worktrees: new Worktrees(home, NO_WORKTREE_AGENTS)
+    });
 });
 
 afterEach(async () => {
@@ -128,7 +135,7 @@ test('a fork after turn 1 in a worktree holds the files after turn 1, with the i
     const canvas = (await store.read(projectId)).views[0] as ProjectCanvasView;
     expect(canvas.nodes.find((node) => node.id === nodeId)).toMatchObject({ cwd: path });
     expect(existsSync(join(daemon.chats.claudeProjectsDir, claudeProjectSlug(path), `${info.agentSessionId}.jsonl`))).toBe(true);
-    const register = await new Worktrees(home).registerOf(folder).read();
+    const register = await new Worktrees(home, NO_WORKTREE_AGENTS).registerOf(folder).read();
     expect(register.get(path)).toMatchObject({ madeBy: 'fork', nodeId, projectId, branch: 'lexer-fork' });
 
     // The fork's own turn diff is its worktree alone.

@@ -10,6 +10,7 @@ import type { ProviderAccountsService } from '@adecore/agents/providers';
 import type { LimitsUpdate } from '@adecore/agents/usage';
 import { bootTestDaemon, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
 import { ChatStore, claudeProjectSlug } from '@adecore/agents/chat';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 function content(): ProjectContent {
     return {
@@ -51,7 +52,7 @@ beforeEach(async () => {
     folder = join(root, 'repo');
     personal = join(root, 'claude_personal');
     await mkdir(folder, { recursive: true });
-    store = new ProjectStore(home);
+    store = new ProjectStore(home, projectLinks());
     const opened = await store.openProject({ folder });
     projectId = opened.summary.projectId;
     await store.save(projectId, opened.document.rev, content());

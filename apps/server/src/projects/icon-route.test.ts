@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { handleProjectRequest, PROJECTS_PATH } from './icon-route.ts';
 import { ProjectStore } from './project-store.ts';
+import { projectLinks } from './project-file-test-helpers.ts';
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
 const SVG = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
@@ -34,7 +35,7 @@ beforeEach(async () => {
     folder = join(root, 'repo');
     await mkdir(join(folder, '.ruimte'), { recursive: true });
     await writeFile(join(folder, '.ruimte', 'icon.png'), PNG);
-    store = new ProjectStore(join(root, 'home'));
+    store = new ProjectStore(join(root, 'home'), projectLinks());
     projectId = (await store.openProject({ folder })).summary.projectId;
 });
 

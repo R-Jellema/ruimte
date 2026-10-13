@@ -25,13 +25,12 @@ export function wireGit(home: string, identity: EndpointIdentity, agents: Agents
     const watches = new SharedWatch();
     const folders = new FolderWatcher(process.platform, watches);
     const statuses = new GitStatusWatcher(process.platform, watches);
-    const worktrees = new Worktrees(home, Date.now, () => identity.worktreeRoot);
     const agentsInWorktrees = worktreeAgents({
         chats: () => agents.chats.list(),
         sessions: () => agents.sessions.list(),
         stopNode: (nodeId, reason) => work.endChildren.stopNode(nodeId, reason)
     });
-    worktrees.attachAgents(agentsInWorktrees);
+    const worktrees = new Worktrees(home, agentsInWorktrees, Date.now, () => identity.worktreeRoot);
     const merges = new WorktreeMerge(worktrees, agentsInWorktrees);
     return { watches, folders, statuses, worktrees, merges, checkouts: checkoutHost(worktrees) };
 }

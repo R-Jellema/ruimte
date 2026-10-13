@@ -17,6 +17,7 @@ import { FakePtyAdapter } from '../pty/fake-pty.ts';
 import { SessionManager } from '../sessions/manager.ts';
 import { OutboxStore, type OutboxWork, type StartAgentEntry } from './outbox.ts';
 import { HEADLESS_TERMINAL, nodeMode, startAgentHandler, startAgentWork, type StartAgentDeps } from './start-agent.ts';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 /* Nothing here fails, so no retry is ever timed; the clock only has to say one moment. */
 const stillClock: OutboxClock = { now: () => 1, setTimeout: () => null, clearTimeout: () => undefined };
@@ -83,7 +84,7 @@ beforeEach(async () => {
     home = join(root, 'home');
     folder = join(root, 'repo');
     await mkdir(folder, { recursive: true });
-    store = new ProjectStore(home);
+    store = new ProjectStore(home, projectLinks());
     const opened = await store.openProject({ folder });
     projectId = opened.summary.projectId;
     await store.save(projectId, opened.document.rev, content());

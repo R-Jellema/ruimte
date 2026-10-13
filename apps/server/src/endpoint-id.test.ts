@@ -3,7 +3,8 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { verifySignature } from '@ruimte/pulsar/verify-node';
-import { readOrCreateEndpointIdentity } from './endpoint-id.ts';
+import { readOrCreateEndpointIdentity as readIdentity } from './endpoint-id.ts';
+import { LENT_NOTHING, lendNothing } from './endpoint-id-test-helpers.ts';
 
 let home: string;
 
@@ -14,6 +15,11 @@ beforeEach(async () => {
 afterEach(async () => {
     await rm(home, { recursive: true, force: true });
 });
+
+/* The identity of a home, lent what the daemon would lend it. */
+async function readOrCreateEndpointIdentity(folder: string, defaultName?: string) {
+    return lendNothing(await readIdentity(folder, defaultName));
+}
 
 describe('readOrCreateEndpointIdentity', () => {
     test('mints an id and a key pair once and answers with the same ones after that', async () => {
@@ -142,6 +148,7 @@ describe('readOrCreateEndpointIdentity', () => {
                     keepAwakeOnBattery: false,
                     keepAwakeDisplay: false,
                     keepAwakeLidClosed: false,
+                    ...LENT_NOTHING,
                     broker: { mode: 'default' },
                     lanDoor: true
                 }

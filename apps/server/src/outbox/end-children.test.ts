@@ -10,6 +10,7 @@ import { STOPPED_TASK_REASON } from '../chat/chat-manager.ts';
 import { ENDED_REASON, wireEndChildren } from './end-children.ts';
 import { OutboxStore } from './outbox.ts';
 import { ManualClock } from '@adecore/agents/testing';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 function content(): ProjectContent {
     return {
@@ -45,7 +46,7 @@ beforeEach(async () => {
     home = join(root, 'home');
     folder = join(root, 'repo');
     await mkdir(folder, { recursive: true });
-    store = new ProjectStore(home);
+    store = new ProjectStore(home, projectLinks());
     const opened = await store.openProject({ folder });
     projectId = opened.summary.projectId;
     await store.save(projectId, opened.document.rev, content());

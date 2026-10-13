@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { documentPathInFolder } from './project-files.ts';
 import { ProjectStore } from './project-store.ts';
+import { projectLinks } from './project-file-test-helpers.ts';
 
 // A watcher on a loaded runner can take seconds, and a pass still ends the moment the change lands.
 const DEADLINE_MS = 15_000;
@@ -18,7 +19,7 @@ beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'ruimte-projects-watch-'));
     folder = join(root, 'repo');
     await mkdir(folder);
-    store = new ProjectStore(join(root, 'home'));
+    store = new ProjectStore(join(root, 'home'), projectLinks());
     changed = [];
     store.subscribe('c1', (event) => {
         if (event.event === 'project.changed') {

@@ -75,6 +75,10 @@ export abstract class ProjectViewFileStore<TDocument extends TContent & { rev: n
         this.seams = seams;
     }
 
+    get noun(): 'drawing' | 'diagram' {
+        return this.kind.noun;
+    }
+
     subscribe(clientId: string, sink: SessionSink): () => void {
         return this.sinks.subscribe(clientId, sink);
     }
