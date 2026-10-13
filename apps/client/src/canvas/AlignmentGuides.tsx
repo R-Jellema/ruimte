@@ -1,11 +1,13 @@
 import clsx from 'clsx';
 import type { AlignmentGuide, GapGuide } from '@/canvas/alignment-guides';
-import type { Camera } from '@/canvas/math';
+import { useCanvas } from '@/state/canvas';
 import { formatNumber } from '@adecore/ui/format';
 
 const TICK = 4;
 
-export function AlignmentGuides({ guides, gaps, camera }: { guides: readonly AlignmentGuide[]; gaps: readonly GapGuide[]; camera: Camera }) {
+/* Reads the camera itself, so a pan redraws the guides and not the canvas that places them. */
+export function AlignmentGuides({ guides, gaps }: { guides: readonly AlignmentGuide[]; gaps: readonly GapGuide[] }) {
+    const camera = useCanvas((s) => s.camera);
     if (guides.length === 0 && gaps.length === 0) {
         return null;
     }

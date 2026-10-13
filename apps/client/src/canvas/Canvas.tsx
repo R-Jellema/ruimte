@@ -13,7 +13,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { carriesFiles, carriesPaths, dropEffectFor, dropPoints, droppedPaths } from '@/canvas/drop';
 import { gridTakesPath } from '@/shell/view-drag';
 import { finderPaths } from '@/canvas/finder-drop';
-import { GRID, snapToGrid, toWorld, type Point, type Rect } from '@/canvas/math';
+import { GRID, snapToGrid, toWorld, type Camera, type Point, type Rect } from '@/canvas/math';
 import { isSpaceDown, subscribeSpacePan } from '@/canvas/space-pan';
 import type { NodeSide } from '@ruimte/contracts';
 import { boxScreenRect, boxWorldRect, startBoxSelection, type BoxSelection } from '@/canvas/box-selection';
@@ -122,6 +122,7 @@ export function Canvas() {
        it, because the cell this canvas is drawn in is not always the cell that has the focus. */
     const canvasStore = useCanvasStore();
     const rootRef = useRef<HTMLDivElement>(null);
+    const worldRef = useRef<HTMLDivElement>(null);
     const gestureRef = useRef<Gesture | null>(null);
     const captureRef = useRef<PointerCapture | null>(null);
     const wheelPanning = useRef(false);
@@ -139,9 +140,8 @@ export function Canvas() {
     // Where the last right-click landed, in world units, so the menu's "add here" knows where.
     const menuPoint = useRef<Point>({ x: 0, y: 0 });
 
-    const { camera, order, texts, locks, aiming } = useCanvas(
+    const { order, texts, locks, aiming } = useCanvas(
         useShallow((s) => ({
-            camera: s.camera,
             order: s.order,
             texts: s.texts,
             locks: s.locks,
@@ -214,19 +214,37 @@ export function Canvas() {
         }
         setGuides(alignmentGuides(moving, stationary));
         setGaps(gapGuides(moving, stationary));
-    }, [activeGesture, nodes, texts, camera, canvasStore]);
+    }, [activeGesture, nodes, texts, canvasStore]);
 
     // The pages park outside this transform and may not swallow the pointer mid-gesture.
     useEffect(() => {
         canvasStore.getState().setGesturing(activeGesture !== null);
     }, [activeGesture, canvasStore]);
 
+    /* A pan moves the world and the grid by hand, so the canvas and its nodes do not render once per frame for it. */
     useLayoutEffect(() => {
-        const gesture = gestureRef.current;
-        if (gesture?.kind === 'box') {
-            setBox(boxScreenRect(gesture, camera));
-        }
-    }, [camera]);
+        const follow = (camera: Camera): void => {
+            const root = rootRef.current;
+            const world = worldRef.current;
+            if (!root || !world) {
+                return;
+            }
+            const gridStep = GRID * 3 * camera.zoom;
+            root.style.backgroundSize = `${gridStep}px ${gridStep}px`;
+            root.style.backgroundPosition = `${camera.x}px ${camera.y}px`;
+            world.style.transform = `translate(${camera.x}px, ${camera.y}px) scale(${camera.zoom})`;
+            const gesture = gestureRef.current;
+            if (gesture?.kind === 'box') {
+                setBox(boxScreenRect(gesture, camera));
+            }
+        };
+        follow(canvasStore.getState().camera);
+        return canvasStore.subscribe((state, previous) => {
+            if (state.camera !== previous.camera) {
+                follow(state.camera);
+            }
+        });
+    }, [canvasStore]);
 
     useEffect(() => {
         const cancel = (): void => {
@@ -697,8 +715,6 @@ export function Canvas() {
         createTextAction(toWorld(canvasStore.getState().camera, screenPoint(e)));
     };
 
-    const gridStep = GRID * 3 * camera.zoom;
-
     return (
         <ContextMenu.Root>
             <ContextMenu.Trigger
@@ -706,8 +722,6 @@ export function Canvas() {
                 ref={rootRef}
                 className="relative h-full w-full touch-none overflow-hidden bg-canvas-bg bg-[image:radial-gradient(circle,var(--canvas-dot)_1px,transparent_1px)]"
                 style={{
-                    backgroundSize: `${gridStep}px ${gridStep}px`,
-                    backgroundPosition: `${camera.x}px ${camera.y}px`,
                     cursor: aiming ? 'crosshair' : activeGesture === 'pan' ? 'grabbing' : locks.pan ? undefined : spaceDown ? 'grab' : undefined
                 }}
                 data-gesture={activeGesture ?? undefined}
@@ -731,12 +745,7 @@ export function Canvas() {
                     menuPoint.current = toWorld(s.camera, screenPoint(e));
                 }}
             >
-                <div
-                    className="absolute left-0 top-0 origin-top-left"
-                    style={{
-                        transform: `translate(${camera.x}px, ${camera.y}px) scale(${camera.zoom})`
-                    }}
-                >
+                <div ref={worldRef} className="absolute left-0 top-0 origin-top-left">
                     {maximizedId === null && <EdgeLayer />}
                     {textIds.map((id) => (
                         <TextElementView key={id} id={id} />
@@ -750,9 +759,9 @@ export function Canvas() {
                 {drawIds.length === 0 && textIds.length === 0 && <EmptyCanvas />}
                 {/* Over the pages, which the canvas itself cannot draw over. */}
                 <CellOverlay slot="view">
-                    <AlignmentGuides guides={guides} gaps={gaps} camera={camera} />
+                    <AlignmentGuides guides={guides} gaps={gaps} />
                     {maximizedId === null && !locks.move && (activeGesture === 'gap' || (!spaceDown && altDown && activeGesture === null)) && (
-                        <GapHandles gaps={editable} nodes={nodes} camera={camera} onStart={startGap} />
+                        <GapHandles gaps={editable} nodes={nodes} onStart={startGap} />
                     )}
                     <TextToolbar />
                     {dropping && <div className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-accent ring-inset" aria-hidden />}

@@ -2,20 +2,19 @@ import type { PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '@adecore/ui/format';
 import clsx from 'clsx';
-import type { Camera } from '@/canvas/math';
+import { useCanvas } from '@/state/canvas';
 import type { EditableGap, GapNode } from '@/canvas/editable-gaps';
 
 export function GapHandles({
     gaps,
     nodes,
-    camera,
     onStart
 }: {
     gaps: readonly EditableGap[];
     nodes: Record<string, GapNode>;
-    camera: Camera;
     onStart(gap: EditableGap, event: PointerEvent): void;
 }) {
+    const camera = useCanvas((s) => s.camera);
     const { t } = useTranslation('canvas');
     return (
         <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden" data-gap-handles>

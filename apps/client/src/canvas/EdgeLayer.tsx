@@ -128,7 +128,7 @@ function DraftLine({ draft, from, obstacles }: { draft: NonNullable<CanvasState[
     );
 }
 
-/* Memoized with no props: the canvas above re-renders on every pan, which moves nothing drawn here. */
+/* Memoized with no props: it reads the store itself, so what renders the canvas above moves nothing drawn here. */
 export const EdgeLayer = memo(function EdgeLayer() {
     const { t } = useTranslation('canvas');
     const canvasStore = useCanvasStore();
