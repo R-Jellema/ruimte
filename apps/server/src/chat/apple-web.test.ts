@@ -45,8 +45,8 @@ describe('Apple web access', () => {
         expect(publicWebUrl('https://example.com/search?q=a%20b').href).toBe('https://example.com/search?q=a%20b');
     });
 
-    test('extracts page text without scripts, forms, navigation, or hidden content', () => {
-        const result = extractApplePage({
+    test('extracts page text without scripts, forms, navigation, or hidden content', async () => {
+        const result = await extractApplePage({
             url: 'https://example.com',
             status: 200,
             contentType: 'text/html; charset=utf-8',
@@ -58,9 +58,9 @@ describe('Apple web access', () => {
         expect(result.text).not.toMatch(/SECRET|Secret|Hidden|Form/);
     });
 
-    test('rejects error responses and binary downloads', () => {
-        expect(() => extractApplePage({ url: '', status: 403, contentType: 'text/html', text: 'Forbidden' })).toThrow('HTTP 403');
-        expect(() => extractApplePage({ url: '', status: 200, contentType: 'image/png', text: 'binary' })).toThrow('Only text');
+    test('rejects error responses and binary downloads', async () => {
+        await expect(extractApplePage({ url: '', status: 403, contentType: 'text/html', text: 'Forbidden' })).rejects.toThrow('HTTP 403');
+        await expect(extractApplePage({ url: '', status: 200, contentType: 'image/png', text: 'binary' })).rejects.toThrow('Only text');
     });
 
     test('UTF-8 clipping never splits a character', () => {

@@ -2,7 +2,6 @@ import { lookup } from 'node:dns/promises';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { BlockList, isIP } from 'node:net';
-import { parseHTML } from 'linkedom';
 
 export interface AppleWebResponse {
     url: string;
@@ -138,11 +137,13 @@ export function limitAppleText(text: string, bytes = 5200): { text: string; trun
     return { text: buffer.subarray(0, end).toString('utf8'), truncated: true };
 }
 
-export function extractApplePage(page: AppleWebResponse): { title: string; text: string } {
+export async function extractApplePage(page: AppleWebResponse): Promise<{ title: string; text: string }> {
     if (page.status < 200 || page.status >= 300) {
         throw new Error(`The page returned HTTP ${page.status}.`);
     }
     if (/text\/html|application\/xhtml\+xml/i.test(page.contentType)) {
+        // Loaded on the first page, not when the daemon starts.
+        const { parseHTML } = await import('linkedom');
         const { document } = parseHTML(page.text);
         const title = document.querySelector('title')?.textContent?.trim() ?? '';
         for (const element of document.querySelectorAll('script,style,noscript,template,svg,nav,footer,form,[hidden],[aria-hidden="true"]')) {

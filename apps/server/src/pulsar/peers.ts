@@ -1,6 +1,6 @@
 import { channelBinding, DIRECT_CHANNEL_LABEL } from '@ruimte/contracts';
 import type { IceServer, SignalEnvelope } from '@ruimte/pulsar';
-import { RTCPeerConnection } from 'werift';
+import type { RTCPeerConnection } from 'werift';
 import type { ClientAccess } from '../dispatcher.ts';
 import { directChannel, fromWerift, type DirectChannel } from './data-channel.ts';
 import { errorText } from '../error-text.ts';
@@ -28,7 +28,15 @@ export interface DirectPeersOptions {
     attemptTimeoutMs?: number;
     log?: Pick<Console, 'log' | 'warn'>;
     /* werift's peer connection unless a test says otherwise. */
-    createPeer?(configuration: ConstructorParameters<typeof RTCPeerConnection>[0]): RTCPeerConnection;
+    createPeer?(configuration: PeerConfiguration): RTCPeerConnection;
+}
+
+type PeerConfiguration = ConstructorParameters<typeof RTCPeerConnection>[0];
+
+// Loaded on the first offer: werift weighs more on the boot than any other module, for a connection that may never come.
+async function weriftPeer(): Promise<(configuration: PeerConfiguration) => RTCPeerConnection> {
+    const { RTCPeerConnection: Peer } = await import('werift');
+    return (configuration) => new Peer(configuration);
 }
 
 interface Attempt {
@@ -93,6 +101,8 @@ export class DirectPeers {
     }
 
     private async answer(connectionId: string, offerSdp: string, reply: (envelope: SignalEnvelope) => void): Promise<void> {
+        // Before the checks, so nothing awaits between them and the attempt they let in.
+        const createPeer = this.options.createPeer ?? (await weriftPeer());
         if (this.attempts.has(connectionId)) {
             return;
         }
@@ -101,7 +111,7 @@ export class DirectPeers {
             reply({ connectionId, signal: { kind: 'close', reason: 'declined' } });
             return;
         }
-        const peer = (this.options.createPeer ?? ((configuration) => new RTCPeerConnection(configuration)))({
+        const peer = createPeer({
             iceServers: this.options.iceServers(),
             icePortRange: this.options.portRange ?? undefined,
             iceAdditionalHostAddresses: this.options.hostAddresses.length > 0 ? this.options.hostAddresses : undefined

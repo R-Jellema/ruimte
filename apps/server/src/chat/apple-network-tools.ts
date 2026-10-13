@@ -71,7 +71,7 @@ export async function executeAppleNetworkTool(
     const request = dependencies.request ?? requestPublicWeb;
     if (call.name === 'fetch_page') {
         const page = await request(publicWebUrl(call.url), active);
-        const result = extractApplePage(page);
+        const result = await extractApplePage(page);
         active.throwIfAborted();
         return { output: appleTextResult({ url: page.url, title: limitAppleText(result.title, 300).text }, result.text), failed: false };
     }
