@@ -1,6 +1,6 @@
 [test]
 # Bun reads the bunfig of the folder it runs in, so a run from here needs the root's ignore too.
-pathIgnorePatterns = ["**/*.integration.test.ts"]
+pathIgnorePatterns = ["**/*.integration.test.ts", "**/*.dom.test.tsx"]
 # The client's English words, so a pure function that reads one off i18next is testable
 # without every test file initializing it first.
 preload = ["@adecore/ui/testing/dedupe", "./test-preload.ts"]

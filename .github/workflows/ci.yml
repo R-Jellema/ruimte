@@ -86,6 +86,13 @@ jobs:
       - uses: ./.github/actions/install
       - run: bun run test --shard=${{ matrix.shard }}/2
 
+  dom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: ./.github/actions/install
+      - run: bun run test:dom
+
   integration:
     runs-on: macos-latest
     steps:
@@ -170,7 +177,7 @@ jobs:
   checks:
     name: CI checks
     if: ${{ always() }}
-    needs: [changes, verify, build, unit, integration, packaged, rust, swift-pulsar, swift-transport, computer-use, foundation-models]
+    needs: [changes, verify, build, unit, dom, integration, packaged, rust, swift-pulsar, swift-transport, computer-use, foundation-models]
     runs-on: ubuntu-latest
     steps:
       - name: Check job results

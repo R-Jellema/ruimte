@@ -11,5 +11,5 @@
             "@/*": ["./src/*"]
         }
     },
-    "include": ["src/**/*.test.ts", "test-preload.ts", "testing/**/*.ts"]
+    "include": ["src/**/*.test.ts", "src/**/*.test.tsx", "test-preload.ts", "testing/**/*.ts", "testing/**/*.tsx"]
 }

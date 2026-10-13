@@ -34,7 +34,7 @@ bun dev
 
 `bun dev` starts the daemon on `localhost:4211`, the Vite client and the Electron shell. The daemon keeps its state in `~/.ruimte-dev`; set `RUIMTE_DEV_HOME` to choose another folder. The Vite client proxies `/ws` to it. An installed Ruimte keeps `4210` and `~/.ruimte`, so both versions can run on one machine.
 
-`bun run dev:client` and `bun run dev:server` start one side. `bun run dev:desktop` opens the Electron shell against the running development server as "Ruimte Dev", with a profile of its own. Browser nodes only work there. `bun run check` typechecks and lints every package. `bun run build` builds the client, and `bun run test` runs the unit tests.
+`bun run dev:client` and `bun run dev:server` start one side. `bun run dev:desktop` opens the Electron shell against the running development server as "Ruimte Dev", with a profile of its own. Browser nodes only work there. `bun run check` typechecks and lints every package. `bun run build` builds the client, `bun run test` runs the unit tests, and `bun run test:dom` the client tests that need a page.
 
 `bun run test:integration` runs all automatic integration tests, including the compiled daemon and npm launcher. CI runs the core suite (`bun run test:integration --suite core`) and the packaged daemon (`bun run test:package`) in parallel. Tests that need an already running simulator or device run only on request with `bun run test:devices`. Browser and Electron checks run only on request, with `bun run test:browser` (which builds the client first) or the Browser tests workflow in GitHub Actions.
 
