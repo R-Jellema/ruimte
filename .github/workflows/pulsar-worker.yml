@@ -18,6 +18,9 @@ concurrency:
 jobs:
     deploy:
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            actions: read
         # The API token only reaches the steps that deploy, never the install, the typecheck or the tests.
         env:
             CLOUDFLARE_ACCOUNT_ID: 5e565cf9fa55b0eae1f8131903da2ca9
@@ -26,17 +29,14 @@ jobs:
                 working-directory: apps/pulsar-worker
         steps:
             - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-            - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-              with:
-                  bun-version-file: package.json
-            - run: bun install --frozen-lockfile
-              working-directory: .
+            - uses: ./.github/actions/install
             - run: bun run typecheck
             - run: bun test
             - run: bun test
               working-directory: packages/pulsar
             - run: bun test scripts/deploy-pulsar-worker.test.ts
               working-directory: .
+            - uses: ./.github/actions/wait-for-ci
             # The script applies migrations, deploys, then spends its one-time benchmark refresh token.
             - run: bun run deploy
               env:

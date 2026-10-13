@@ -18,6 +18,9 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     env:
       CLOUDFLARE_ACCOUNT_ID: 5e565cf9fa55b0eae1f8131903da2ca9
     defaults:
@@ -25,16 +28,13 @@ jobs:
         working-directory: apps/station
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version-file: package.json
-      - run: bun install --frozen-lockfile
-        working-directory: .
+      - uses: ./.github/actions/install
       - run: bun run typecheck
       - run: bun test
       - run: bun test src/station.test.ts src/pulsar src/transport/wake.test.ts
         working-directory: apps/client
       - run: bun run build
+      - uses: ./.github/actions/wait-for-ci
       - run: bunx wrangler deploy
         env:
           # The same token the address book deploys with: Workers Scripts Edit on the account, and on the zone

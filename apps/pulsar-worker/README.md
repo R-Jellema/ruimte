@@ -126,9 +126,9 @@ PULSAR_STATEMENT_PRIVATE_KEY=... bun test   # also checks a statement against th
 ## Deploying
 
 A push to `main` that touches the Worker, its shared API package, deploy script or workflow runs
-`.github/workflows/pulsar-worker.yml`: typecheck, tests, remote migrations, deploy, benchmark refresh,
-and a request to `/health`. It needs the repository secret `CLOUDFLARE_API_TOKEN`, a Cloudflare API
-token with:
+`.github/workflows/pulsar-worker.yml`: typecheck, tests, a wait until `ci.yml` passed on the same
+commit, remote migrations, deploy, benchmark refresh, and a request to `/health`. It needs the
+repository secret `CLOUDFLARE_API_TOKEN`, a Cloudflare API token with:
 
 - Account, `Workers Scripts`, Edit
 - Account, `D1`, Edit
