@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '@adecore/ui/format';
 import { MAX_REPLACEMENT_PAGE, MAX_REPLACEMENT_CHARACTERS, type Editor, type EditorFindState } from '@adecore/editor';
-import { compileFind, type FindQuery } from '@/find/query';
+import { compileFind, type FindQuery } from '@adecore/editor-react/models';
 import { openFocusedFind } from '@/find/hosts';
 import { lastFindQuery, type FindSeed, type FindState } from '@/find/use-find';
 import { requiredShortcut } from '@/shell/editor-keymap';

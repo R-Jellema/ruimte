@@ -1,4 +1,4 @@
-import { matchesIn, type TextMatch } from '@/find/query';
+import { matchesIn, type TextMatch } from '@adecore/editor-react/models';
 
 /*
  * The text a reader sees in a rendered element, as one string, with the way back from an offset in it

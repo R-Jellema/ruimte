@@ -5,7 +5,7 @@ import type { TimelineFind, TimelineFindOptions } from '@adecore/agents-react';
 import { findRanges } from '@/find/dom-text';
 import { FindBar } from '@/find/FindBar';
 import { clearFindHighlights, setFindHighlights } from '@/find/highlights';
-import { compileFind, stepIndex } from '@/find/query';
+import { compileFind, stepIndex } from '@adecore/editor-react/models';
 import { useFind, type FindState } from '@/find/use-find';
 
 // A fold that opens but still hides the hit would otherwise be asked again on every render.

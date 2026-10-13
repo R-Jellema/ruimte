@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react';
 import { findRanges } from '@/find/dom-text';
 import { clearFindHighlights, setFindHighlights } from '@/find/highlights';
-import { compileFind, stepIndex } from '@/find/query';
+import { compileFind, stepIndex } from '@adecore/editor-react/models';
 import type { FindState } from '@/find/use-find';
 
 export interface DomFind {

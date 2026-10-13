@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { ChatItem, ChatToolItem } from '@ruimte/contracts';
-import { EMPTY_FIND_QUERY, type FindQuery } from '@/find/query';
+import { EMPTY_FIND_QUERY, type FindQuery } from '@adecore/editor-react/models';
 import { hitRow, indexRows, placeOfHit, searchChat } from './search';
 import { deriveTimelineRows } from '@adecore/agents-react/chat';
 

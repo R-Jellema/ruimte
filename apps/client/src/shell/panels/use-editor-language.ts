@@ -1,4 +1,4 @@
-import { createHolder as createLanguageHolder } from '@adecore/editor-react';
+import { createHolder } from '@adecore/editor-react';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { storedPathOf } from '@ruimte/contracts';
 import { pathToFileUri } from '@adecore/lsp';
@@ -11,27 +11,6 @@ import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { useTransport } from '@/transport/context';
 
-/* One value that an effect sets and a render reads, which is how an effect's result reaches the tree without a state update inside the effect. */
-export function createHolder<T>(): { get(): T | null; set(value: T | null): void; subscribe(listener: () => void): () => void } {
-    let value: T | null = null;
-    const listeners = new Set<() => void>();
-    return {
-        get: () => value,
-        set: (next) => {
-            value = next;
-            for (const listener of [...listeners]) {
-                listener();
-            }
-        },
-        subscribe: (listener) => {
-            listeners.add(listener);
-            return () => {
-                listeners.delete(listener);
-            };
-        }
-    };
-}
-
 /*
  * The language id of a file that no catalog server knows but a server of a person's own serves, once the
  * machine has said which servers the project has, and again when they change. Null while nothing serves it.
@@ -41,7 +20,7 @@ function useOwnLanguageId(enabled: boolean, path: string, language: string | und
     const endpointId = useEndpointId();
     const projectId = useProject((s) => s.current?.projectId ?? null);
     const folder = useProject((s) => s.current?.folder ?? null);
-    const holder = useMemo(() => createLanguageHolder<string>(), []);
+    const holder = useMemo(() => createHolder<string>(), []);
 
     useEffect(() => {
         if (!enabled || projectId === null || folder === null) {
@@ -72,7 +51,7 @@ export function useEditorLanguage(editor: Editor | null, path: string, language:
     const endpointId = useEndpointId();
     const projectId = useProject((s) => s.current?.projectId ?? null);
     const folder = useProject((s) => s.current?.folder ?? null);
-    const holder = useMemo(() => createLanguageHolder<EditorLanguage>(), []);
+    const holder = useMemo(() => createHolder<EditorLanguage>(), []);
     const builtIn = lspLanguageIdOf(language);
     const ownId = useOwnLanguageId(editor !== null && builtIn === null, path, language);
     const languageId = builtIn ?? ownId;

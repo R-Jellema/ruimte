@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { isApplePlatform } from '@/desktop/bridge';
 import { requiredShortcut } from '@/shell/editor-keymap';
-import type { FindOptions } from '@/find/query';
+import type { FindOptions } from '@adecore/editor-react/models';
 import { FIND_SHORTCUTS } from '@/find/shortcuts';
 import type { FindState } from '@/find/use-find';
 import { formatNumber } from '@adecore/ui/format';

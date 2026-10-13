@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { locateOffset } from './dom-text';
-import { compileFind, EMPTY_FIND_QUERY, matchesIn, stepIndex, type FindQuery } from './query';
+import { compileFind, EMPTY_FIND_QUERY, matchesIn, stepIndex, type FindQuery } from '@adecore/editor-react/models';
 
 function pattern(text: string, options: Partial<FindQuery> = {}): RegExp {
     const compiled = compileFind({ ...EMPTY_FIND_QUERY, text, ...options });

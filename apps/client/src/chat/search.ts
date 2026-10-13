@@ -1,5 +1,5 @@
 import type { ChatItem } from '@ruimte/contracts';
-import { compileFind, matchesIn, MATCH_LIMIT, type FindQuery } from '@/find/query';
+import { compileFind, matchesIn, MATCH_LIMIT, type FindQuery } from '@adecore/editor-react/models';
 import { handbackReportOf, toolSummary, stripAnsi } from '@adecore/agents-react/chat';
 import type { TimelineRow } from '@adecore/agents-react/chat';
 import type { ChatFindField } from '@adecore/agents-react/chat/ui';
