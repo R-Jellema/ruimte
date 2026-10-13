@@ -501,7 +501,7 @@ function dropWindowShares(windowId: number): void {
     setAgentActivity(windowId, null);
 }
 
-/* Set once a person has said to quit with work still running, so the question is asked once. */
+/* Set when a quit needs no question: an install asked before it closed the windows, or the launcher's pipe closed. */
 let quitConfirmed = false;
 let interfaceLanguage: string | null = null;
 onFromApp('app:language', (_event, language: unknown) => {
@@ -509,9 +509,6 @@ onFromApp('app:language', (_event, language: unknown) => {
         interfaceLanguage = language;
     }
 });
-/* While the question is out, another quit waits for its answer. */
-let quitAsked = false;
-
 /*
  * Under `bun dev` the launcher hands down a pipe (`scripts/launch.ts`); when it closes the app quits
  * without asking. A signal cannot tell: Chromium turns the first SIGINT into a quit the question holds up.
@@ -1282,8 +1279,7 @@ const updater = createUpdater({
     packaged: app.isPackaged,
     load: () => (require('electron-updater') as typeof import('electron-updater')).autoUpdater,
     publish: (state) => windows.send('update:state', state),
-    // Installing closes every window before the app's own before-quit, and the next start opens them again.
-    onQuit: (quitting) => (quitting ? windows.quit() : windows.resume()),
+    onQuit: windows.quitForUpdate,
     // Refreshed with the check, so the notes of a version it finds are on disk before anyone asks.
     beforeCheck: () => void releaseNotes.list(true)
 });
@@ -1409,7 +1405,16 @@ if (!app.requestSingleInstanceLock()) {
         contents.on('context-menu', (_e, params) => guestContextMenu(contents, params, 'browser'));
     });
 
-    windows.attach(app);
+    windows.attach(app, {
+        confirmQuit: async ({ update }) => {
+            if (!update && !quitConfirmed && !(await askBeforeQuit().catch(() => true))) {
+                stopMachineOnQuit = false;
+                return false;
+            }
+            serviceController.quit(stopMachineOnQuit);
+            return true;
+        }
+    });
 
     void app.whenReady().then(async () => {
         setStaticMenu();
@@ -1448,35 +1453,5 @@ if (!app.requestSingleInstanceLock()) {
         closeStorageMove();
         updater.start();
         watchPendingRestart();
-    });
-
-    app.on('before-quit', (event) => {
-        if (!quitConfirmed) {
-            event.preventDefault();
-            if (quitAsked) {
-                return;
-            }
-            quitAsked = true;
-            void askBeforeQuit()
-                .catch(() => true)
-                .then((go) => {
-                    quitAsked = false;
-                    if (go) {
-                        quitConfirmed = true;
-                        app.quit();
-                        return;
-                    }
-                    stopMachineOnQuit = false;
-                    // Off macOS the last window closed on its way to this quit, and it comes back as it was.
-                    if (process.platform !== 'darwin' && windows.all().length === 0) {
-                        windows.restore();
-                    }
-                    windows.resume();
-                });
-            return;
-        }
-        // From here the quit goes ahead, so the windows it closes stay in the session for the next start.
-        windows.quit();
-        serviceController.quit(stopMachineOnQuit);
     });
 }
