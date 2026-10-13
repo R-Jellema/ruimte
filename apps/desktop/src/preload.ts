@@ -1,4 +1,22 @@
-import type { BrowserRouteBinding, BrowserRouteBlocked, KeepAwakeRequest, MenuSpec, OpenPathRequest, SavePathRequest } from '@ruimte/desktop-bridge';
+import type {
+    BackgroundServiceState,
+    BrowserContextAction,
+    BrowserContextParams,
+    BrowserRouteBinding,
+    BrowserRouteBlocked,
+    DesktopBridge,
+    KeepAwakeRequest,
+    MenuSpec,
+    OpenAiBridge,
+    OpenAiCredentialStatus,
+    OpenAiLivePreferences,
+    OpenPathRequest,
+    ReleaseNotesState,
+    SavePathRequest,
+    SpeechEvent,
+    SpeechState,
+    UpdateState
+} from '@ruimte/desktop-bridge';
 
 // A plain require: the bundler's ESM interop copies enumerable keys, and electron's are getters.
 const { contextBridge, ipcRenderer, webUtils } = require('electron') as typeof import('electron');
@@ -8,12 +26,14 @@ const LOCALE_ARGUMENT = '--ruimte-system-locale=';
 const LANGUAGES_ARGUMENT = '--ruimte-system-languages=';
 const DAEMON_URL_ARGUMENT = '--ruimte-daemon-url=';
 
+type LiveSession = Awaited<ReturnType<OpenAiBridge['createLiveSession']>>;
+
 function argument(prefix: string): string | undefined {
     return process.argv.find((arg) => arg.startsWith(prefix))?.slice(prefix.length) || undefined;
 }
 
-/* What the client may ask the shell for. The shape is mirrored in `apps/client/src/desktop/bridge.ts`. */
-contextBridge.exposeInMainWorld('ruimteDesktop', {
+/* What the client may ask the shell for, checked against the type the client reads it through. */
+const bridge = {
     platform: process.platform,
     bindBrowserRoute: (binding: BrowserRouteBinding): Promise<boolean> => ipcRenderer.invoke('browser:bind-route', binding),
     onBrowserRouteBlocked: (listener: (event: BrowserRouteBlocked) => void): (() => void) => {
@@ -35,12 +55,12 @@ contextBridge.exposeInMainWorld('ruimteDesktop', {
     pathForFile: (file: File): string | null => webUtils.getPathForFile(file) || null,
     openGuestDevTools: (webContentsId: number): void => ipcRenderer.send('devtools:guest', webContentsId),
     capturePage: (webContentsId: number): Promise<Uint8Array | null> => ipcRenderer.invoke('browser:capture', webContentsId),
-    onBrowserContextMenu: (listener: (params: unknown) => void): (() => void) => {
-        const handler = (_event: unknown, params: unknown): void => listener(params);
+    onBrowserContextMenu: (listener: (params: BrowserContextParams) => void): (() => void) => {
+        const handler = (_event: unknown, params: BrowserContextParams): void => listener(params);
         ipcRenderer.on('browser:context-menu', handler);
         return () => ipcRenderer.removeListener('browser:context-menu', handler);
     },
-    browserContextAction: (action: unknown): void => ipcRenderer.send('browser:context-action', action),
+    browserContextAction: (action: BrowserContextAction): void => ipcRenderer.send('browser:context-action', action),
     onGuestFocus: (listener: (webContentsId: number) => void): (() => void) => {
         const handler = (_event: unknown, webContentsId: number): void => listener(webContentsId);
         ipcRenderer.on('guest:focus', handler);
@@ -112,9 +132,9 @@ contextBridge.exposeInMainWorld('ruimteDesktop', {
         process.platform === 'darwin' || process.platform === 'linux'
             ? (paths: string[]): Promise<boolean> => ipcRenderer.invoke('clipboard:copy-files', paths)
             : undefined,
-    updateState: (): Promise<unknown> => ipcRenderer.invoke('update:state'),
-    onUpdateState: (listener: (state: unknown) => void): (() => void) => {
-        const handler = (_event: unknown, state: unknown): void => listener(state);
+    updateState: (): Promise<UpdateState> => ipcRenderer.invoke('update:state'),
+    onUpdateState: (listener: (state: UpdateState) => void): (() => void) => {
+        const handler = (_event: unknown, state: UpdateState): void => listener(state);
         ipcRenderer.on('update:state', handler);
         return () => ipcRenderer.removeListener('update:state', handler);
     },
@@ -122,14 +142,15 @@ contextBridge.exposeInMainWorld('ruimteDesktop', {
     checkForUpdate: (): Promise<void> => ipcRenderer.invoke('update:check'),
     downloadUpdate: (): Promise<void> => ipcRenderer.invoke('update:download'),
     installUpdate: (confirmed?: boolean): void => ipcRenderer.send('update:install', confirmed === true),
-    releaseNotes: (refresh?: boolean): Promise<unknown> => ipcRenderer.invoke('releases:list', refresh === true),
+    releaseNotes: (refresh?: boolean): Promise<ReleaseNotesState> => ipcRenderer.invoke('releases:list', refresh === true),
     localSecret: (): Promise<string | null> => ipcRenderer.invoke('daemon:local-secret'),
     requestMicrophoneAccess: (): Promise<boolean> => ipcRenderer.invoke('media:request-microphone'),
     openAi: {
-        credentialStatus: (): Promise<unknown> => ipcRenderer.invoke('openai:credential-status'),
-        saveApiKey: (apiKey: string): Promise<unknown> => ipcRenderer.invoke('openai:save-api-key', apiKey),
-        clearApiKey: (): Promise<unknown> => ipcRenderer.invoke('openai:clear-api-key'),
-        createLiveSession: (sdp: string, preferences: unknown): Promise<unknown> => ipcRenderer.invoke('openai:create-live-session', sdp, preferences)
+        credentialStatus: (): Promise<OpenAiCredentialStatus> => ipcRenderer.invoke('openai:credential-status'),
+        saveApiKey: (apiKey: string): Promise<OpenAiCredentialStatus> => ipcRenderer.invoke('openai:save-api-key', apiKey),
+        clearApiKey: (): Promise<OpenAiCredentialStatus> => ipcRenderer.invoke('openai:clear-api-key'),
+        createLiveSession: (sdp: string, preferences: OpenAiLivePreferences): Promise<LiveSession> =>
+            ipcRenderer.invoke('openai:create-live-session', sdp, preferences)
     },
     databaseSecrets: {
         read: (key: string): Promise<string | null> => ipcRenderer.invoke('database:secret-read', key),
@@ -137,20 +158,20 @@ contextBridge.exposeInMainWorld('ruimteDesktop', {
         persistent: (): Promise<boolean> => ipcRenderer.invoke('database:secret-persistent')
     },
     speech: {
-        state: (): Promise<unknown> => ipcRenderer.invoke('speech:state'),
-        setEnabled: (enabled: boolean): Promise<unknown> => ipcRenderer.invoke('speech:enable', enabled),
-        removeModel: (): Promise<unknown> => ipcRenderer.invoke('speech:remove'),
+        state: (): Promise<SpeechState> => ipcRenderer.invoke('speech:state'),
+        setEnabled: (enabled: boolean): Promise<SpeechState> => ipcRenderer.invoke('speech:enable', enabled),
+        removeModel: (): Promise<SpeechState> => ipcRenderer.invoke('speech:remove'),
         start: (id: string, language: string): Promise<void> => ipcRenderer.invoke('speech:start', id, language),
         samples: (id: string, samples: Float32Array): Promise<void> => ipcRenderer.invoke('speech:samples', id, samples),
         stop: (id: string): Promise<void> => ipcRenderer.invoke('speech:stop', id),
         cancel: (id: string): Promise<void> => ipcRenderer.invoke('speech:cancel', id),
-        onState: (listener: (state: unknown) => void): (() => void) => {
-            const handler = (_event: unknown, value: unknown): void => listener(value);
+        onState: (listener: (state: SpeechState) => void): (() => void) => {
+            const handler = (_event: unknown, value: SpeechState): void => listener(value);
             ipcRenderer.on('speech:state', handler);
             return () => ipcRenderer.removeListener('speech:state', handler);
         },
-        onEvent: (listener: (event: unknown) => void): (() => void) => {
-            const handler = (_event: unknown, value: unknown): void => listener(value);
+        onEvent: (listener: (event: SpeechEvent) => void): (() => void) => {
+            const handler = (_event: unknown, value: SpeechEvent): void => listener(value);
             ipcRenderer.on('speech:event', handler);
             return () => ipcRenderer.removeListener('speech:event', handler);
         }
@@ -164,16 +185,16 @@ contextBridge.exposeInMainWorld('ruimteDesktop', {
         }
     },
     backgroundService: {
-        state: (): Promise<unknown> => ipcRenderer.invoke('service:state'),
-        onState: (listener: (state: unknown) => void): (() => void) => {
-            const handler = (_event: unknown, state: unknown): void => listener(state);
+        state: (): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:state'),
+        onState: (listener: (state: BackgroundServiceState) => void): (() => void) => {
+            const handler = (_event: unknown, state: BackgroundServiceState): void => listener(state);
             ipcRenderer.on('service:state', handler);
             return () => ipcRenderer.removeListener('service:state', handler);
         },
-        setKeepRunning: (keepRunning: boolean): Promise<unknown> => ipcRenderer.invoke('service:set-keep-running', keepRunning),
-        enableLinger: (): Promise<unknown> => ipcRenderer.invoke('service:enable-linger'),
-        restartNow: (): Promise<unknown> => ipcRenderer.invoke('service:restart-now'),
-        restartWhenIdle: (): Promise<unknown> => ipcRenderer.invoke('service:restart-when-idle'),
+        setKeepRunning: (keepRunning: boolean): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:set-keep-running', keepRunning),
+        enableLinger: (): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:enable-linger'),
+        restartNow: (): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:restart-now'),
+        restartWhenIdle: (): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:restart-when-idle'),
         stopMachine: (): void => ipcRenderer.send('service:stop-machine')
     },
     pulsar: {
@@ -186,4 +207,6 @@ contextBridge.exposeInMainWorld('ruimteDesktop', {
         restore: (): Promise<unknown> => ipcRenderer.invoke('pulsar:restore'),
         signOut: (): Promise<void> => ipcRenderer.invoke('pulsar:sign-out')
     }
-});
+} satisfies DesktopBridge;
+
+contextBridge.exposeInMainWorld('ruimteDesktop', bridge);
