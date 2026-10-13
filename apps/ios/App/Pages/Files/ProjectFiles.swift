@@ -94,10 +94,10 @@ struct GitFileMarks: Equatable {
 
     init(_ checkouts: [GitCheckout] = []) {
         for checkout in checkouts {
-            let root = checkout.status?["root"]?.stringValue ?? checkout.path
+            let root = checkout.status?.root ?? checkout.path
             for file in checkout.files {
-                let relative = file.text("path")
-                let letter = Self.letter(state: file.text("state"), status: file.text("status"))
+                let relative = file.path
+                let letter = Self.letter(state: file.state.rawValue, status: file.status)
                 if relative.hasSuffix("/") {
                     newDirectories.append(root + "/" + relative.dropLast())
                 } else {
@@ -218,19 +218,19 @@ enum FileLineChanges {
     func load(client: any MachineRequesting, path: String) async {
         let parent = (path as NSString).deletingLastPathComponent
         guard
-            let status = try? await client.request("git.status", payload: .object(["cwd": .string(parent)])),
-            status["repo"] == .bool(true), let root = status["root"]?.stringValue,
+            let answer = try? await client.request("git.status", payload: .object(["cwd": .string(parent)])),
+            let status = try? answer.decoded(as: GitStatus.self), status.repo, let root = status.root,
             let relative = FilesMention.relative(folder: root, path: path)
         else {
             clear()
             return
         }
-        let entries = status.list("files").filter { $0.text("path") == relative }
+        let entries = status.files.filter { $0.path == relative }
         guard !entries.isEmpty else {
             clear()
             return
         }
-        if entries.contains(where: { $0.text("state") == "untracked" }) {
+        if entries.contains(where: { $0.state == .untracked }) {
             untracked = true
             marks = [:]
             diff = GitDiffTarget(cwd: root, path: relative, staged: false, commit: nil)

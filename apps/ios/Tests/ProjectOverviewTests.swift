@@ -89,12 +89,14 @@ final class ProjectOverviewTests: XCTestCase {
     }
 
     func testGitLineReadsTheBranchAndTheChangedFiles() {
-        XCTAssertNil(ProjectGitLine(status: .object(["repo": .bool(false)])))
-        let line = ProjectGitLine(
-            status: .object([
-                "repo": .bool(true), "branch": .string("main"),
-                "files": .array([.object(["path": .string("a")]), .object(["path": .string("b")])]),
-            ]))
+        XCTAssertNil(ProjectGitLine(status: GitWire.status(["repo": .bool(false)])))
+        let file = { (path: String) -> JSONValue in
+            .object([
+                "path": .string(path), "state": .string("unstaged"), "status": .string("M"), "added": .number(1),
+                "deleted": .number(0), "binary": .bool(false),
+            ])
+        }
+        let line = ProjectGitLine(status: GitWire.status(["files": .array([file("a"), file("b")])]))
         XCTAssertEqual(line, ProjectGitLine(branch: "main", changed: 2))
         XCTAssertEqual(line?.text, "main · 2 changed")
         XCTAssertEqual(ProjectGitLine(branch: nil, changed: 0).text, "Detached")

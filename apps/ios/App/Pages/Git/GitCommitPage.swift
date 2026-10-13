@@ -35,10 +35,10 @@ import SwiftUI
     }
 
     /// The files that go in, with the repository they go into.
-    var files: [(checkout: GitCheckout, file: JSONValue)] {
+    var files: [(checkout: GitCheckout, file: GitStatusFile)] {
         let plan = plan
         return plan.targets.flatMap { target in
-            target.files.filter { plan.stageAll || $0.text("state") == "staged" }.map { (target, $0) }
+            target.files.filter { plan.stageAll || $0.state == .staged }.map { (target, $0) }
         }
     }
 
@@ -158,7 +158,7 @@ struct GitCommitPage: View {
                 if model.plan.targets.isEmpty {
                     Text("Stage what belongs in this commit first.").foregroundStyle(MobileStyle.muted)
                 }
-                ForEach(model.files, id: \.file.stableID) { entry in
+                ForEach(model.files, id: \.file.path) { entry in
                     fileRow(entry.checkout, entry.file)
                 }
             } header: {
@@ -194,15 +194,14 @@ struct GitCommitPage: View {
         return String(localized: "Commit in \(labels)", comment: "%@ lists repositories")
     }
 
-    private func fileRow(_ checkout: GitCheckout, _ file: JSONValue) -> some View {
+    private func fileRow(_ checkout: GitCheckout, _ file: GitStatusFile) -> some View {
         Button {
-            diff = GitDiffTarget(
-                cwd: checkout.path, path: file.text("path"), staged: file.text("state") == "staged", commit: nil)
+            diff = GitDiffTarget(cwd: checkout.path, path: file.path, staged: file.state == .staged, commit: nil)
         } label: {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text((file.text("path") as NSString).lastPathComponent).lineLimit(1)
-                    Text(repositories.named ? "\(checkout.label) · \(file.text("path"))" : file.text("path"))
+                    Text((file.path as NSString).lastPathComponent).lineLimit(1)
+                    Text(repositories.named ? "\(checkout.label) · \(file.path)" : file.path)
                         .font(.caption).foregroundStyle(MobileStyle.muted).lineLimit(1).truncationMode(.head)
                 }
                 Spacer(minLength: 8)
@@ -221,21 +220,19 @@ struct GitCommitPage: View {
 
 /// The lines a change adds and takes away, green and red as every diff draws them.
 struct GitLineCounts: View {
-    let file: JSONValue
+    let file: GitStatusFile
 
     var body: some View {
-        if file["binary"] == .bool(true) {
+        if file.binary {
             Text("binary").font(.caption).foregroundStyle(MobileStyle.faint)
         } else {
             HStack(spacing: 6) {
-                let added = Int(file.number("added"))
-                let deleted = Int(file.number("deleted"))
-                if added > 0 { Text("+\(added)").foregroundStyle(.green) }
-                if deleted > 0 { Text("−\(deleted)").foregroundStyle(.red) }
+                if file.added > 0 { Text("+\(file.added)").foregroundStyle(.green) }
+                if file.deleted > 0 { Text("−\(file.deleted)").foregroundStyle(.red) }
             }
             .font(.caption.monospacedDigit())
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(Int(file.number("added"))) added, \(Int(file.number("deleted"))) removed")
+            .accessibilityLabel("\(file.added) added, \(file.deleted) removed")
         }
     }
 }

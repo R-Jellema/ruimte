@@ -13,23 +13,23 @@ struct GitCheckout: Identifiable, Equatable {
     let label: String
     /// `root`, `submodule` or `nested`, as `git.repos` reports it.
     let kind: String
-    var status: JSONValue?
+    var status: GitStatus?
     var failure: String?
 
     var id: String { path }
-    var branch: String? { status?["branch"]?.stringValue }
-    var files: [JSONValue] { status?.list("files") ?? [] }
-    var isRepository: Bool { status?["repo"] == .bool(true) }
-    var ahead: Int { Int(status?.number("ahead") ?? 0) }
-    var behind: Int { Int(status?.number("behind") ?? 0) }
+    var branch: String? { status?.branch }
+    var files: [GitStatusFile] { status?.files ?? [] }
+    var isRepository: Bool { status?.repo == true }
+    var ahead: Int { Int(status?.ahead ?? 0) }
+    var behind: Int { Int(status?.behind ?? 0) }
     /// The merge, rebase, cherry-pick or revert that stopped halfway in this checkout.
-    var operation: String? { status?["operation"]?.stringValue }
+    var operation: String? { status?.operation?.rawValue }
     var conflictCount: Int { files(state: "conflicted").count }
     /// Whether something waits on a person here; a machine from before `operation` only says so with conflicts.
     var halted: Bool { operation != nil || conflictCount > 0 }
 
-    func files(state: String) -> [JSONValue] { files.filter { $0.text("state") == state } }
-    var hasStaged: Bool { files.contains { $0.text("state") == "staged" } }
+    func files(state: String) -> [GitStatusFile] { files.filter { $0.state.rawValue == state } }
+    var hasStaged: Bool { files.contains { $0.state == .staged } }
 }
 
 /// The groups a change falls in, in the order a person acts on them.
@@ -46,16 +46,17 @@ enum GitPanel {
     /// track shows up in the one above it as a single untracked folder (`inner/`), and the page already
     /// draws that repository as a section of its own. A submodule is tracked and stays: its gitlink is a
     /// change the repository above it has to commit.
-    static func withoutNestedRepos(_ status: JSONValue?, root: String, others: [String]) -> JSONValue? {
-        guard case .object(var fields)? = status else { return status }
+    static func withoutNestedRepos(_ status: GitStatus?, root: String, others: [String]) -> GitStatus? {
+        guard let status else { return nil }
         let inside = Set(others.filter { $0.hasPrefix(root + "/") }.map { String($0.dropFirst(root.count + 1)) + "/" })
         if inside.isEmpty { return status }
-        let files = (fields["files"]?.arrayValue ?? []).filter {
-            $0.text("state") != "untracked" || !inside.contains($0.text("path"))
-        }
-        guard files.count != fields["files"]?.arrayValue?.count else { return status }
-        fields["files"] = .array(files)
-        return .object(fields)
+        let files = status.files.filter { $0.state != .untracked || !inside.contains($0.path) }
+        guard files.count != status.files.count else { return status }
+        return GitStatus(
+            repo: status.repo, operation: status.operation, root: status.root, branch: status.branch,
+            detached: status.detached, upstream: status.upstream, ahead: status.ahead, behind: status.behind,
+            base: status.base, mergeBase: status.mergeBase, files: files, truncated: status.truncated,
+            live: status.live)
     }
 
     /// Where a commit would land. Every repository with something staged takes it, which is how a person
@@ -74,7 +75,7 @@ enum GitPanel {
     static func pushable(_ checkouts: [GitCheckout]) -> [(checkout: GitCheckout, kind: String)] {
         checkouts.compactMap { checkout in
             guard checkout.isRepository, checkout.branch != nil else { return nil }
-            if checkout.status?["upstream"]?.stringValue == nil { return (checkout, "publish") }
+            if checkout.status?.upstream == nil { return (checkout, "publish") }
             return checkout.ahead > 0 ? (checkout, "push") : nil
         }
     }
@@ -141,7 +142,7 @@ extension GitPanel {
         if checkouts.count > 1 { return String(localized: "\(checkouts.count) repositories") }
         guard let only = checkouts.first else { return "Git" }
         if let branch = only.branch { return branch }
-        return only.status?["detached"] == .bool(true) ? String(localized: "Detached HEAD") : String(localized: "No commits")
+        return only.status?.detached == true ? String(localized: "Detached HEAD") : String(localized: "No commits")
     }
 
     /// The words on the commit bar: how many files go in, which is everything when nothing is staged yet.

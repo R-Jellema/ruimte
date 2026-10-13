@@ -10,9 +10,9 @@ final class SessionScreenTests: XCTestCase {
         model.replace(
             .object([
                 "items": .array([
-                    .object(["id": .string("reply"), "kind": .string("assistant"), "text": .string("Hello")]),
-                    .object([
-                        "id": .string("tool"), "kind": .string("tool"),
+                    ChatWire.item(["id": .string("reply"), "kind": .string("assistant"), "text": .string("Hello")]),
+                    ChatWire.item([
+                        "id": .string("tool"), "kind": .string("tool"), "state": .string("running"),
                         "progress": .object(["output": .string("first")]),
                     ]),
                 ])
@@ -24,7 +24,7 @@ final class SessionScreenTests: XCTestCase {
         model.receive(
             .object([
                 "type": .string("item"),
-                "item": .object(["id": .string("reply"), "kind": .string("assistant"), "text": .string("Final")]),
+                "item": ChatWire.item(["id": .string("reply"), "kind": .string("assistant"), "text": .string("Final")]),
             ]))
         XCTAssertEqual(model.items.count, 2)
         XCTAssertEqual(model.items[0]["text"]?.stringValue, "Final")
@@ -35,12 +35,12 @@ final class SessionScreenTests: XCTestCase {
         model.replace(
             .object([
                 "items": .array([
-                    .object(["id": .string("old"), "kind": .string("approval"), "decision": .string("pending")])
+                    ChatWire.item(["id": .string("old"), "kind": .string("approval"), "decision": .string("pending")])
                 ])
             ]))
         XCTAssertEqual(model.pending.count, 1)
         model.receive(
-            .object(["type": .string("reset"), "items": .array([]), "info": .object(["status": .string("idle")])]))
+            .object(["type": .string("reset"), "items": .array([]), "info": ChatWire.info()]))
         model.receive(.object(["type": .string("delta"), "itemId": .string("old"), "text": .string("stale")]))
         XCTAssertTrue(model.items.isEmpty)
         XCTAssertTrue(model.pending.isEmpty)

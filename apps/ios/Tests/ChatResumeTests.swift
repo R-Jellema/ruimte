@@ -7,12 +7,12 @@ import XCTest
 
 @MainActor final class ChatResumeTests: XCTestCase {
     private func message(_ id: String, _ text: String) -> JSONValue {
-        .object(["id": .string(id), "kind": .string("assistant"), "text": .string(text)])
+        ChatWire.item(["id": .string(id), "kind": .string("assistant"), "text": .string(text)])
     }
 
     private func snapshot(_ items: [JSONValue], seq: Int) -> JSONValue {
         .object([
-            "info": .object(["chatId": .string("chat")]), "items": .array(items), "seq": .number(Double(seq)),
+            "info": ChatWire.info(), "items": .array(items), "seq": .number(Double(seq)),
             "history": .object(["start": .number(0), "cursor": .null]),
         ])
     }
@@ -37,7 +37,7 @@ import XCTest
 
         machine.attachResults = [
             .object([
-                "info": .object(["chatId": .string("chat")]), "items": .array([]), "seq": .number(7),
+                "info": ChatWire.info(), "items": .array([]), "seq": .number(7),
                 "events": .array([
                     .object(["type": .string("item"), "item": message("c", "Third")]),
                     .object(["type": .string("delta"), "itemId": .string("c"), "text": .string(" part")]),
@@ -72,7 +72,7 @@ import XCTest
 
     func testAMachineWithoutSeqIsAttachedWithoutSinceAgain() async {
         let machine = ResumeMachine()
-        machine.attachResults = [.object(["info": .object([:]), "items": .array([message("a", "Hello")])])]
+        machine.attachResults = [.object(["info": ChatWire.info(), "items": .array([message("a", "Hello")])])]
         let model = await started(machine)
         XCTAssertNil(model.lastSeq)
 
@@ -111,7 +111,7 @@ import XCTest
         if type == "chat.attach" {
             attaches.append(payload)
             return attachResults.isEmpty
-                ? .object(["info": .object([:]), "items": .array([])]) : attachResults.removeFirst()
+                ? .object(["info": ChatWire.info(), "items": .array([])]) : attachResults.removeFirst()
         }
         return .object([:])
     }

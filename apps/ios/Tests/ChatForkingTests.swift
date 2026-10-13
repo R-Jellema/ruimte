@@ -138,7 +138,15 @@ final class ChatForkingTests: XCTestCase {
                     "taskIds", .array([.string("task")])),
                 turn("t3", state: "done").setting("origin", .string("agent")),
                 turn("t4", state: "done"),
-                user("u4", turn: "t4", text: "").setting("attachments", .array([.object(["name": .string("a.png")])])),
+                user("u4", turn: "t4", text: "").setting(
+                    "attachments",
+                    .array([
+                        .object([
+                            "id": .string("a"), "name": .string("a.png"), "mime": .string("image/png"),
+                            "size": .number(1),
+                            "path": .string("/tmp/a.png"),
+                        ])
+                    ])),
             ], info: info)
         let marks = ChatForking.marks(entries: presentation.entries)
         XCTAssertEqual(marks.map(\.id), ["u1", "start-t2", "u4"])
@@ -166,14 +174,14 @@ final class ChatForkingTests: XCTestCase {
     }
 
     private func turn(_ id: String, state: String) -> JSONValue {
-        .object([
+        ChatWire.item([
             "id": .string(id), "kind": .string("turn"), "turnId": .string(id), "state": .string(state),
             "createdAt": .number(1),
         ])
     }
 
     private func user(_ id: String, turn: String, text: String) -> JSONValue {
-        .object([
+        ChatWire.item([
             "id": .string(id), "kind": .string("user"), "turnId": .string(turn), "text": .string(text),
             "createdAt": .number(1),
         ])

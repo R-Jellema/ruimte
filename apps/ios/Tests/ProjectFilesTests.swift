@@ -7,14 +7,17 @@ import XCTest
 @MainActor
 final class ProjectFilesTests: XCTestCase {
     private func change(_ path: String, _ state: String, _ status: String) -> JSONValue {
-        .object(["path": .string(path), "state": .string(state), "status": .string(status)])
+        .object([
+            "path": .string(path), "state": .string(state), "status": .string(status), "added": .number(0),
+            "deleted": .number(0), "binary": .bool(false),
+        ])
     }
 
     func testARowCarriesTheLetterOfItsChangeAndAFolderOneForWhatChangedUnderIt() {
         let checkout = GitCheckout(
             path: "/work/app", label: "app", kind: "root",
-            status: .object([
-                "repo": .bool(true), "root": .string("/work/app"),
+            status: GitWire.status([
+                "root": .string("/work/app"),
                 "files": .array([
                     change("src/transport/pool.ts", "staged", "M"),
                     change("src/transport/pool.ts", "unstaged", "M"),
@@ -40,8 +43,8 @@ final class ProjectFilesTests: XCTestCase {
     func testAStagedAdditionWithLaterEditsReadsAsNew() {
         let checkout = GitCheckout(
             path: "/w", label: "w", kind: "root",
-            status: .object([
-                "repo": .bool(true), "root": .string("/w"),
+            status: GitWire.status([
+                "root": .string("/w"),
                 "files": .array([change("a.ts", "unstaged", "M"), change("a.ts", "staged", "A")]),
             ]))
         XCTAssertEqual(GitFileMarks([checkout]).mark(path: "/w/a.ts", directory: false), "A")
@@ -221,13 +224,20 @@ final class ProjectFilesTests: XCTestCase {
         sent.append((type, payload))
         switch type {
         case "git.status":
-            return .object([
-                "repo": .bool(true), "root": .string("/work/app"),
-                "files": .array([
-                    .object(["path": .string("src/pool.ts"), "state": .string("unstaged"), "status": .string("M")]),
-                    .object(["path": .string("src/List.tsx"), "state": .string("untracked"), "status": .string("?")]),
-                ]),
-            ])
+            return GitWire.json(
+                GitWire.status([
+                    "root": .string("/work/app"),
+                    "files": .array([
+                        .object([
+                            "path": .string("src/pool.ts"), "state": .string("unstaged"), "status": .string("M"),
+                            "added": .number(1), "deleted": .number(1), "binary": .bool(false),
+                        ]),
+                        .object([
+                            "path": .string("src/List.tsx"), "state": .string("untracked"), "status": .string("?"),
+                            "added": .number(0), "deleted": .number(0), "binary": .bool(false),
+                        ]),
+                    ]),
+                ]))
         case "git.diff":
             return .object(["path": .string("src/pool.ts"), "diff": .string("@@ -1,2 +1,2 @@\n a\n-b\n+B\n")])
         case "fs.grep":

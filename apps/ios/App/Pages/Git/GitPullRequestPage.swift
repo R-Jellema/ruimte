@@ -39,7 +39,7 @@ import SwiftUI
         var payload: [String: JSONValue] = [
             "cwd": .string(path), "scope": .string("base"), "staged": .bool(false),
         ]
-        if let base = checkout?.status?["base"]?.stringValue { payload["base"] = .string(base) }
+        if let base = checkout?.status?.base { payload["base"] = .string(base) }
         guard let diff = try? await client.request("git.diff", payload: .object(payload)) else { return }
         let files = diff.list("files")
         stats = (
@@ -79,7 +79,7 @@ struct GitPullRequestPage: View {
         MobileForm {
             Section {
                 HStack(spacing: 8) {
-                    branchChip(model.checkout?.status?["base"]?.stringValue ?? String(localized: "default branch"))
+                    branchChip(model.checkout?.status?.base ?? String(localized: "default branch"))
                     Image(lucide: "arrow-left", size: 14).foregroundStyle(MobileStyle.faint)
                         .accessibilityLabel("from")
                     branchChip(model.checkout?.branch ?? "HEAD")

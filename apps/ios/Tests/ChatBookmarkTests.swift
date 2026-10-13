@@ -92,19 +92,21 @@ import XCTest
         let presentation = ChatPresentation()
         presentation.replace(
             [
-                .object(["id": .string("u1"), "kind": .string("user"), "turnId": .string("t1"), "text": .string("Hi")]),
-                .object([
+                ChatWire.item([
+                    "id": .string("u1"), "kind": .string("user"), "turnId": .string("t1"), "text": .string("Hi"),
+                ]),
+                ChatWire.item([
                     "id": .string("t1"), "kind": .string("turn"), "turnId": .string("t1"), "state": .string("done"),
                     "createdAt": .number(0),
                 ]),
-                .object([
+                ChatWire.item([
                     "id": .string("a1"), "kind": .string("assistant"), "turnId": .string("t1"),
                     "text": .string("Early"),
                 ]),
-                .object([
+                ChatWire.item([
                     "id": .string("x1"), "kind": .string("tool"), "turnId": .string("t1"), "state": .string("done"),
                 ]),
-                .object([
+                ChatWire.item([
                     "id": .string("a2"), "kind": .string("assistant"), "turnId": .string("t1"), "text": .string("Last"),
                 ]),
             ], info: .object([:]))

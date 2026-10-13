@@ -48,16 +48,16 @@ final class SessionVisualTests: XCTestCase {
     @MainActor func testLongHostedMessagePixelsMoveWithTheScrollOffset() async throws {
         let client = VisualSessionClient()
         client.chatSnapshot = .object([
-            "info": .object(["provider": .string("codex")]),
+            "info": ChatWire.info(["provider": .string("codex")]),
             "items": .array([
-                .object([
+                ChatWire.item([
                     "id": .string("long"), "kind": .string("assistant"),
                     "text": .string(
                         (0..<45).map {
                             "Paragraph \($0): The visible message must move with its cell, including **bold text** and `inline code`."
                         }.joined(separator: "\n\n")),
                 ]),
-                .object(["id": .string("next"), "kind": .string("user"), "text": .string("The next message")]),
+                ChatWire.item(["id": .string("next"), "kind": .string("user"), "text": .string("The next message")]),
             ]),
         ])
         let controller = UIHostingController(

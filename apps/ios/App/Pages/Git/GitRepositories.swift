@@ -116,13 +116,14 @@ import SwiftUI
 
     func refresh(client: any MachineRequesting, cwd: String) async {
         do {
-            store(path: cwd, result: .success(try await client.request("git.status", payload: .object(["cwd": .string(cwd)]))))
+            let status = try await client.request("git.status", payload: .object(["cwd": .string(cwd)]))
+            store(path: cwd, result: .success(try status.decoded(as: GitStatus.self)))
         } catch {
             store(path: cwd, result: .failure(error))
         }
     }
 
-    private func store(path: String, result: Result<JSONValue, any Error>) {
+    private func store(path: String, result: Result<GitStatus, any Error>) {
         guard let index = checkouts.firstIndex(where: { $0.path == path }) else { return }
         switch result {
         case .success(let status):
@@ -135,13 +136,14 @@ import SwiftUI
     }
 
     private func apply(_ payload: JSONValue) {
-        let cwd = payload.text("cwd")
-        guard let status = payload["status"], let index = checkouts.firstIndex(where: { $0.path == cwd }) else { return }
-        checkouts[index].status = hideNested(status, root: cwd)
+        guard let event = try? payload.decoded(as: GitStatusEvent.self),
+            let index = checkouts.firstIndex(where: { $0.path == event.cwd })
+        else { return }
+        checkouts[index].status = hideNested(event.status, root: event.cwd)
         checkouts[index].failure = nil
     }
 
-    private func hideNested(_ status: JSONValue, root: String) -> JSONValue? {
+    private func hideNested(_ status: GitStatus, root: String) -> GitStatus? {
         GitPanel.withoutNestedRepos(status, root: root, others: checkouts.map(\.path))
     }
 }

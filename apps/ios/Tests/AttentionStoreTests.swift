@@ -121,11 +121,14 @@ final class SessionReadingTests: XCTestCase {
         XCTAssertEqual(store.statuses["terminal"], .idle)
     }
 
-    private func reading(agent: JSONValue? = nil, shellExited: Bool = false, attached: Bool = false) -> SessionReading {
+    private func reading(agent: SessionAgent? = nil, shellExited: Bool = false, attached: Bool = false)
+        -> SessionReading
+    {
         SessionReading(agent: agent, shellExited: shellExited, attached: attached)
     }
 
-    private func agent(_ status: String, live: Bool) -> JSONValue {
-        .object(["kind": .string("claude"), "status": .string(status), "live": .bool(live)])
+    private func agent(_ status: String, live: Bool) -> SessionAgent {
+        SessionAgent(
+            kind: "claude", agentSessionId: "agent", transcriptPath: nil, status: status, live: live, updatedAt: 0)
     }
 }

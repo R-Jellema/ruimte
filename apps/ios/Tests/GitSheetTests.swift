@@ -15,7 +15,7 @@ final class GitSheetTests: XCTestCase {
 
     private func checkout(
         _ label: String, _ states: [String] = [], branch: String? = "main", ahead: Int = 0, behind: Int = 0,
-        detached: Bool = false
+        detached: Bool = false, operation: String? = nil
     ) -> GitCheckout {
         var fields: [String: JSONValue] = [
             "repo": .bool(true), "detached": .bool(detached), "ahead": .number(Double(ahead)),
@@ -23,7 +23,8 @@ final class GitSheetTests: XCTestCase {
             "files": .array(states.enumerated().map { file("\($0.offset).ts", $0.element) }),
         ]
         fields["branch"] = branch.map { .string($0) } ?? .null
-        return GitCheckout(path: "/work/\(label)", label: label, kind: "nested", status: .object(fields))
+        if let operation { fields["operation"] = .string(operation) }
+        return GitCheckout(path: "/work/\(label)", label: label, kind: "nested", status: GitWire.status(fields))
     }
 
     func testThePillNamesTheBranchOfOneRepositoryAndCountsSeveral() {
@@ -58,8 +59,7 @@ final class GitSheetTests: XCTestCase {
     }
 
     func testAHaltedCheckoutSaysWhatWaitsAndHowManyFilesConflict() {
-        var halted = checkout("app", ["conflicted", "conflicted", "staged"])
-        halted.status = halted.status?.setting("operation", .string("rebase"))
+        let halted = checkout("app", ["conflicted", "conflicted", "staged"], operation: "rebase")
         XCTAssertEqual(GitHaltedText.title(halted, named: false), "A rebase waits on you")
         XCTAssertEqual(GitHaltedText.title(halted, named: true), "A rebase waits on you (app)")
         XCTAssertEqual(
@@ -236,7 +236,7 @@ final class GitSheetTests: XCTestCase {
                         })
                 ])
             case "git.status":
-                return checkouts.first { $0.path == payload.text("cwd") }?.status ?? .object([:])
+                return GitWire.json(checkouts.first { $0.path == payload.text("cwd") }?.status)
             default:
                 return .object([:])
             }
@@ -280,7 +280,7 @@ final class GitSheetTests: XCTestCase {
                 "created": .bool(true),
             ])
         case "git.status":
-            return .object(["repo": .bool(true), "branch": .string("main"), "files": .array([])])
+            return GitWire.json(GitWire.status([:]))
         default:
             return .object(["summary": .string("Done.")])
         }

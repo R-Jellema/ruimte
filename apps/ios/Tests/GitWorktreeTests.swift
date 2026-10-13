@@ -157,7 +157,7 @@ final class GitWorktreeTests: XCTestCase {
         sent.append((type, payload))
         switch type {
         case "git.status":
-            return .object(["branch": .string(branch)])
+            return GitWire.json(GitWire.status(["branch": .string(branch)]))
         case "git.worktree-merge":
             if let refusal { throw MachineClientError.server(code: refusal.code, message: refusal.message) }
             if !conflicts {

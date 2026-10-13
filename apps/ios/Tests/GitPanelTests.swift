@@ -11,14 +11,14 @@ final class GitPanelTests: XCTestCase {
         ])
     }
 
-    private func status(_ files: [JSONValue], ahead: Int = 0, upstream: String? = "origin/main") -> JSONValue {
+    private func status(_ files: [JSONValue], ahead: Int = 0, upstream: String? = "origin/main") -> GitStatus {
         var fields: [String: JSONValue] = [
             "repo": .bool(true), "root": .string("/work/app"), "branch": .string("main"), "detached": .bool(false),
             "ahead": .number(Double(ahead)), "behind": .number(0), "files": .array(files),
             "truncated": .bool(false), "live": .bool(true),
         ]
         fields["upstream"] = upstream.map { .string($0) } ?? .null
-        return .object(fields)
+        return GitWire.status(fields)
     }
 
     private func checkout(_ label: String, _ states: [String], ahead: Int = 0, upstream: String? = "origin/main")
@@ -38,13 +38,13 @@ final class GitPanelTests: XCTestCase {
     func testTheUntrackedFolderARepositoryShowsUpAsInTheOneAboveItIsDropped() {
         let before = status([file("inner/", "untracked"), file("a.ts", "unstaged")])
         let after = GitPanel.withoutNestedRepos(before, root: "/work/app", others: ["/work/app", "/work/app/inner"])
-        XCTAssertEqual(after?.list("files").map { $0.text("path") }, ["a.ts"])
+        XCTAssertEqual(after?.files.map(\.path), ["a.ts"])
     }
 
     func testATrackedChangeAtThatPathStaysBecauseThatIsWhatASubmoduleGitlinkIs() {
         let before = status([file("inner", "unstaged")])
         let after = GitPanel.withoutNestedRepos(before, root: "/work/app", others: ["/work/app", "/work/app/inner"])
-        XCTAssertEqual(after?.list("files").map { $0.text("path") }, ["inner"])
+        XCTAssertEqual(after?.files.map(\.path), ["inner"])
     }
 
     func testACheckoutWithNothingInsideItKeepsTheStatusItWasGiven() {

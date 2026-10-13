@@ -431,9 +431,10 @@ enum GitWorktreeText {
         var target: String?
         do {
             let status = try await client.request("git.status", payload: .object(["cwd": .string(repo)]))
+                .decoded(as: GitStatus.self)
             let list = try await client.request("git.worktree-list", payload: .object(["repo": .string(repo)]))
             target = GitWorktreeText.targetCheckout(
-                folder: repo, folderBranch: status["branch"]?.stringValue,
+                folder: repo, folderBranch: status.branch,
                 worktrees: list.list("worktrees").map(GitWorktree.init(json:)), into: into)
             if let target {
                 _ = try await client.request(

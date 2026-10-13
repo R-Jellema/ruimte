@@ -8,19 +8,20 @@ import SwiftUI
 /// `state/sessions.ts` one for one, so a machine that restarted reads the same on both.
 struct SessionReading: Equatable {
     /// The agent record the CLI's hooks wrote, which outlives the CLI itself.
-    var agent: JSONValue?
+    var agent: SessionAgent?
     var shellExited = false
     /// Whether this client holds an attachment. Only a terminal page attaches, never this store, so it stays false
     /// here; counting the attachments of other clients would call a shell someone opened on the desktop running.
     var attached = false
 
     var status: AgentStatus? {
+        let recorded = AgentStatus(rawValue: agent?.status ?? "") ?? .idle
         // A live agent knows better than the shell what is going on.
-        if let agent, agent["live"]?.boolValue == true {
-            return AgentStatus.of(agent)
+        if agent?.live == true {
+            return recorded
         }
         // The daemon marks the record when the CLI went down with the shell, and it outlives the shell.
-        if AgentStatus.of(agent) == .exited {
+        if recorded == .exited {
             return .exited
         }
         if shellExited {
@@ -70,8 +71,9 @@ final class AttentionStore {
         guard subscriptions.isEmpty else { return }
         subscriptions.append(client.subscribe("push.attention") { [weak self] entry in self?.receivePush(entry) })
         subscriptions.append(
-            client.subscribe("session.status") { [weak self] event in
-                self?.read(event.text("sessionId")) { $0.agent = event["agent"] }
+            client.subscribe("session.status") { [weak self] payload in
+                guard let event = try? payload.decoded(as: SessionStatusEvent.self) else { return }
+                self?.read(event.sessionId) { $0.agent = event.agent }
             })
         subscriptions.append(
             client.subscribe("session.exit") { [weak self] event in
@@ -202,7 +204,7 @@ final class AttentionStore {
             for session in sessions.list("sessions") {
                 let id = session.text("sessionId")
                 read(id) {
-                    $0.agent = session["agent"]
+                    $0.agent = try? session["agent"]?.decoded(as: SessionAgent.self)
                     $0.shellExited = session["exited"] == .bool(true)
                 }
             }

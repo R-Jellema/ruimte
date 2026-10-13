@@ -135,11 +135,11 @@ final class ChatModel {
         attachment = client.acquireAttachment("chat", id: chatID)
         unsubscribe.append(
             client.subscribe("chat.event") { [weak self] payload in
-                guard let self, payload["chatId"]?.stringValue == self.chatID, let event = payload["event"],
-                    !self.loading
+                guard let self, !self.loading, let raw = payload["event"],
+                    let envelope = try? payload.decoded(as: ChatEventEnvelope.self), envelope.chatId == self.chatID
                 else { return }
-                self.receive(event)
-                if let seq = payload["seq"]?.numberValue { self.lastSeq = Int(seq) }
+                self.apply(raw, envelope.event)
+                if let seq = envelope.seq { self.lastSeq = Int(seq) }
             })
         unsubscribe.append(
             client.subscribe(WireEvent.accountsChanged.rawValue) { [weak self] payload in
@@ -251,8 +251,9 @@ final class ChatModel {
 
     /// Applies what came after `since` when the machine still held all of it, and its snapshot otherwise.
     func attached(_ result: JSONValue, since: Int?) {
-        if since != nil, let events = result["events"]?.arrayValue {
-            for event in events { receive(event) }
+        let snapshot = try? result.decoded(as: ChatAttachResult.self)
+        if since != nil, let events = snapshot?.events, let raw = result["events"]?.arrayValue {
+            for (event, typed) in zip(raw, events) { apply(event, typed) }
             if let info = result["info"], info != self.info {
                 self.info = info
                 presentation.setInfo(info)
@@ -262,7 +263,7 @@ final class ChatModel {
         } else {
             replace(result)
         }
-        lastSeq = result["seq"]?.numberValue.map { Int($0) }
+        lastSeq = snapshot?.seq.map { Int($0) }
     }
 
     func replace(_ snapshot: JSONValue) {
@@ -286,15 +287,23 @@ final class ChatModel {
         revision += 1
     }
 
+    /// An event that is not one the contracts know is dropped; a machine never sends one, since each is validated.
     func receive(_ event: JSONValue) {
-        switch event["type"]?.stringValue {
-        case "reset": replace(event)
-        case "info":
+        guard let typed = try? event.decoded(as: ChatEvent.self) else { return }
+        apply(event, typed)
+    }
+
+    /// The raw event goes along because the thread keeps its items as the wire carries them.
+    private func apply(_ event: JSONValue, _ typed: ChatEvent) {
+        switch typed {
+        case .reset: replace(event)
+        case .info:
             info = event["info"] ?? .null
             presentation.setInfo(info)
-        case "item":
-            guard let item = event["item"], let id = item["id"]?.stringValue else { return }
-            guard history.includes(item, index: event["historyIndex"]) else {
+        case .item(let change):
+            guard let item = event["item"] else { return }
+            let id = change.item.id
+            guard history.includes(item, index: change.historyIndex.map { .number(Double($0)) }) else {
                 refreshPending()
                 return
             }
@@ -306,16 +315,16 @@ final class ChatModel {
             }
             refreshPending()
             presentation.upsert(item)
-            if Self.concernsSubagent(item) { subagentRevision += 1 }
+            if Self.concernsSubagent(change.item) { subagentRevision += 1 }
             revision += 1
-        case "delta":
-            guard let id = event["itemId"]?.stringValue, let index = positions[id] else { return }
+        case .delta(let delta):
+            guard let index = positions[delta.itemId] else { return }
             let item = ChatUiDelta.apply(event, to: items[index])
             items[index] = item
-            presentation.upsert(item, textOnly: true)
-            if Self.concernsSubagent(item) { subagentRevision += 1 }
+            if let updated = presentation.upsert(item, textOnly: true), Self.concernsSubagent(updated) {
+                subagentRevision += 1
+            }
             revision += 1
-        default: break
         }
     }
 
@@ -375,8 +384,9 @@ final class ChatModel {
         }
     }
 
-    private static func concernsSubagent(_ item: JSONValue) -> Bool {
-        item.text("kind") == "subagent" || !(item["parentToolUseId"]?.stringValue ?? "").isEmpty
+    private static func concernsSubagent(_ item: ChatItem) -> Bool {
+        if case .subagent = item { return true }
+        return !(item.parentToolUseID ?? "").isEmpty
     }
 
     func target(_ values: [String: JSONValue] = [:]) -> JSONValue {

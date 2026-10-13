@@ -154,7 +154,7 @@ final class ChatPresentationTests: XCTestCase {
     }
 
     private func item(_ id: String, _ kind: String) -> JSONValue {
-        .object(["id": .string(id), "kind": .string(kind), "text": .string("")])
+        ChatWire.item(["id": .string(id), "kind": .string(kind)])
     }
 }
 

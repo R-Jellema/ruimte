@@ -17,13 +17,13 @@ final class ChatSubagentsTests: XCTestCase {
             "finishedAt": finished.map(JSONValue.number) ?? .null, "itemsTruncated": .bool(false),
         ]
         value.merge(extra) { $1 }
-        return .object(value)
+        return ChatWire.item(value)
     }
 
     private func tool(_ id: String, parent: String, name: String = "Read", created: Double, input: JSONValue = .null)
         -> JSONValue
     {
-        .object([
+        ChatWire.item([
             "id": .string(id), "kind": .string("tool"), "name": .string(name), "parentToolUseId": .string(parent),
             "createdAt": .number(created), "state": .string("done"), "input": input,
         ])
@@ -43,7 +43,7 @@ final class ChatSubagentsTests: XCTestCase {
 
     @MainActor func testThePageDerivesItsListsAgainOnlyWhenASubagentMoved() {
         let model = ChatModel(client: SubagentMachine(), chatID: "chat")
-        let reply = JSONValue.object(["id": .string("reply"), "kind": .string("assistant"), "text": .string("Hi")])
+        let reply = ChatWire.item(["id": .string("reply"), "kind": .string("assistant"), "text": .string("Hi")])
         model.replace(.object(["items": .array([agent("a", started: 10), reply])]))
         let derived = SubagentListDerivation()
         let lists = { derived.lists(revision: model.subagentRevision, machineRefused: false) { model.items } }
@@ -165,10 +165,10 @@ final class ChatSubagentsTests: XCTestCase {
         let presentation = ChatPresentation()
         presentation.replace(
             [
-                .object([
+                ChatWire.item([
                     "id": .string("r"), "kind": .string("tool"), "name": .string("Read"), "state": .string("done"),
                 ]),
-                .object([
+                ChatWire.item([
                     "id": .string("h"), "kind": .string("tool"), "name": .string("SubagentHandback"),
                     "state": .string("done"), "input": .object(["message": .string("Report")]),
                 ]),

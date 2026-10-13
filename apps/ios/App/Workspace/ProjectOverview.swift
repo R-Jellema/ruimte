@@ -41,10 +41,10 @@ struct ProjectGitLine: Equatable {
     let changed: Int
 
     /// Nil for a folder outside any repository, which has nothing to say about a branch.
-    init?(status: JSONValue) {
-        guard status["repo"]?.boolValue == true else { return nil }
-        branch = status["branch"]?.stringValue
-        changed = status.list("files").count
+    init?(status: GitStatus) {
+        guard status.repo else { return nil }
+        branch = status.branch
+        changed = status.files.count
     }
 
     init(branch: String?, changed: Int) {
@@ -149,9 +149,9 @@ final class ProjectGitLines {
         guard !folder.isEmpty, !asking.contains(id) else { return }
         asking.insert(id)
         defer { asking.remove(id) }
-        guard let status = try? await client.request("git.status", payload: .object(["cwd": .string(folder)])) else {
-            return
-        }
+        guard let answer = try? await client.request("git.status", payload: .object(["cwd": .string(folder)])),
+            let status = try? answer.decoded(as: GitStatus.self)
+        else { return }
         lines[id] = ProjectGitLine(status: status)
     }
 }

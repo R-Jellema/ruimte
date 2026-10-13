@@ -6,11 +6,25 @@ import RuimtePulsar
 @MainActor @Observable
 final class ChatItemState: Identifiable {
     let id: String
-    var value: JSONValue
+    /// The item as the wire carries it, for the rows that still read it by key.
+    private(set) var value: JSONValue
+    private(set) var item: ChatItem
 
-    init(_ value: JSONValue) {
-        id = value.text("id")
+    /// Nil for a value that is no chat item. A machine never sends one, since every frame is validated as it comes in.
+    init?(_ value: JSONValue) {
+        guard let item = try? value.decoded(as: ChatItem.self) else { return nil }
+        id = item.id
         self.value = value
+        self.item = item
+    }
+
+    /// False, and nothing changes, for a value that is no chat item.
+    @discardableResult
+    func update(_ value: JSONValue) -> Bool {
+        guard let item = try? value.decoded(as: ChatItem.self) else { return false }
+        self.value = value
+        self.item = item
+        return true
     }
 }
 
@@ -80,9 +94,9 @@ final class ChatPresentation {
         historyBoundaries = []
         expandedTurns = []
         expandedSubagents = []
-        for value in values where !value.stableID.isEmpty {
-            if records[value.stableID] == nil { order.append(value.stableID) }
-            records[value.stableID] = ChatItemState(value)
+        for record in values.compactMap(ChatItemState.init) {
+            if records[record.id] == nil { order.append(record.id) }
+            records[record.id] = record
         }
         self.info = info
         refreshActivity()
@@ -91,16 +105,17 @@ final class ChatPresentation {
 
     func prepend(_ values: [JSONValue]) {
         if let first = order.first { historyBoundaries.insert(first) }
-        let visibleTurns = Set(records.values.compactMap { $0.value["turnId"]?.stringValue })
-        for value in values where value.text("kind") == "turn" {
-            if let turn = value["turnId"]?.stringValue, visibleTurns.contains(turn) {
+        let visibleTurns = Set(records.values.compactMap(\.item.turnId))
+        let incoming = values.compactMap(ChatItemState.init)
+        for record in incoming {
+            if case .turn = record.item, let turn = record.item.turnId, visibleTurns.contains(turn) {
                 expandedTurns.insert(turn)
             }
         }
         var older: [String] = []
-        for value in values where !value.stableID.isEmpty && records[value.stableID] == nil {
-            records[value.stableID] = ChatItemState(value)
-            older.append(value.stableID)
+        for record in incoming where records[record.id] == nil {
+            records[record.id] = record
+            older.append(record.id)
         }
         order = older + order
         rebuild()
@@ -118,18 +133,24 @@ final class ChatPresentation {
         rebuild()
     }
 
-    func upsert(_ value: JSONValue, textOnly: Bool = false) {
-        let id = value.stableID
-        guard !id.isEmpty else { return }
-        if let record = records[id] {
-            record.value = value
-            if textOnly { return }
+    /// The item as it now stands here; nil for a value that is no chat item.
+    @discardableResult
+    func upsert(_ value: JSONValue, textOnly: Bool = false) -> ChatItem? {
+        guard let id = value["id"]?.stringValue else { return nil }
+        let record: ChatItemState
+        if let existing = records[id] {
+            guard existing.update(value) else { return nil }
+            record = existing
+            if textOnly { return record.item }
         } else {
-            records[id] = ChatItemState(value)
+            guard let created = ChatItemState(value) else { return nil }
+            record = created
+            records[id] = record
             order.append(id)
         }
         refreshActivity()
         rebuild()
+        return record.item
     }
 
     private func refreshActivity() {
@@ -139,17 +160,18 @@ final class ChatPresentation {
             startedAt = nextID == nil ? nil : Date.now.timeIntervalSince1970 * 1000
         }
         if let nextID,
-            let turn = order.compactMap({ records[$0]?.value }).first(where: {
-                $0.text("kind") == "turn" && ($0.text("turnId") == nextID || $0.stableID == nextID)
+            let turn = order.lazy.compactMap({ self.records[$0].flatMap(Self.turn) }).first(where: {
+                $0.turnId == nextID || $0.id == nextID
             })
         {
-            startedAt = turn["createdAt"]?.numberValue ?? startedAt
+            startedAt = turn.createdAt
         }
         let blocked = records.values.contains {
-            let value = $0.value
-            return (value.text("kind") == "approval" && value.text("decision") == "pending")
-                || (value.text("kind") == "question" && value.text("state") == "pending"
-                    && value["async"]?.boolValue != true)
+            switch $0.item {
+            case .approval(let approval): approval.decision == .pending
+            case .question(let question): question.state == .pending && question.async != true
+            default: false
+            }
         }
         activityLabel =
             !connected
@@ -168,9 +190,7 @@ final class ChatPresentation {
     /// since the screen asks on every render.
     var lastSettledTurnID: String? {
         for id in order.reversed() {
-            if let value = records[id]?.value, value.text("kind") == "turn", value.text("state") != "running" {
-                return value.stableID
-            }
+            if let turn = records[id].flatMap(Self.turn), turn.state != .running { return turn.id }
         }
         return nil
     }
@@ -194,7 +214,7 @@ final class ChatPresentation {
     /// Scrolls to a message, unfolding the turn that hides it. False while the message is not loaded.
     func revealItem(_ id: String) -> Bool {
         guard let record = records[id] else { return false }
-        if !entries.contains(where: { $0.id == id }), let turnID = record.value["turnId"]?.stringValue {
+        if !entries.contains(where: { $0.id == id }), let turnID = record.item.turnId {
             expandedTurns.insert(turnID)
             rebuild()
         }
@@ -229,7 +249,9 @@ final class ChatPresentation {
 
     /// The row of the sub-agent a call opened; a view that reads its value follows it as it changes.
     func subagent(toolUseID: String) -> ChatItemState? {
-        records.values.first { $0.value.text("kind") == "subagent" && $0.value.text("toolUseId") == toolUseID }
+        records.values.first {
+            if case .subagent(let agent) = $0.item { agent.toolUseId == toolUseID } else { false }
+        }
     }
 
     func openSubagent(toolUseID: String) {
@@ -237,17 +259,19 @@ final class ChatPresentation {
         expandedSubagents.insert(agent.id)
         requestedItemID = agent.id
         scrollRequest += 1
-        if let turnID = agent.value["turnId"]?.stringValue { expandedTurns.insert(turnID) }
+        if let turnID = agent.item.turnId { expandedTurns.insert(turnID) }
         rebuild()
     }
 
     private func rebuild() {
         let all = order.compactMap { records[$0] }
-        let children = Dictionary(grouping: all.filter { Self.parent($0.value) != nil }) { Self.parent($0.value)! }
+        let children = Dictionary(grouping: all.filter { $0.item.parentToolUseID != nil }) {
+            $0.item.parentToolUseID!
+        }
         var chunks: [(String?, [ChatItemState])] = []
         var positions: [String: Int] = [:]
         for item in all {
-            if let turnID = item.value["turnId"]?.stringValue {
+            if let turnID = item.item.turnId {
                 if let index = positions[turnID] {
                     chunks[index].1.append(item)
                 } else {
@@ -262,40 +286,50 @@ final class ChatPresentation {
         }
         var rows: [ChatTimelineEntry] = []
         for (turnID, items) in chunks {
-            guard let turnID, let turn = items.first(where: { $0.value.text("kind") == "turn" }) else {
+            guard let turnID, let turn = items.first(where: { Self.turn($0) != nil }), let turnItem = Self.turn(turn)
+            else {
                 rows += rowsFor(items, children: children)
                 continue
             }
-            if turn.value.text("origin") == "agent" {
+            if turnItem.origin == .agent {
                 rows.append(ChatTimelineEntry(id: "start-\(turnID)", kind: .turnStart, items: [turn]))
             }
-            rows += rowsFor(items.filter { $0.value.text("kind") == "user" }, children: children)
-            let work = items.filter { !["user", "turn"].contains($0.value.text("kind")) }
-            if turnID == activeID || turn.value.text("state") == "running" {
+            rows += rowsFor(items.filter { if case .user = $0.item { true } else { false } }, children: children)
+            let work = items.filter {
+                switch $0.item {
+                case .user, .turn: false
+                default: true
+                }
+            }
+            if turnID == activeID || turnItem.state == .running {
                 rows += rowsFor(work, children: children)
                 continue
             }
-            let final = work.last { $0.value.text("kind") == "assistant" && Self.parent($0.value) == nil }
-            let notices = work.filter { $0.value.text("kind") == "note" }
-            let images = work.filter { UiGeneratedImage.isGeneration($0.value) && Self.parent($0.value) == nil }
+            let final = work.last {
+                if case .assistant = $0.item { $0.item.parentToolUseID == nil } else { false }
+            }
+            let notices = work.filter { if case .note = $0.item { true } else { false } }
+            let images = work.filter { UiGeneratedImage.isGeneration($0.value) && $0.item.parentToolUseID == nil }
             let imageIDs = Set(images.map(\.id))
-            let folded = work.filter { $0 !== final && $0.value.text("kind") != "note" && !imageIDs.contains($0.id) }
+            let folded = work.filter {
+                if case .note = $0.item { return false }
+                return $0 !== final && !imageIDs.contains($0.id)
+            }
             if !rowsFor(folded, children: children).isEmpty {
                 let tools = work.filter {
-                    $0.value.text("kind") == "tool" && Self.parent($0.value) == nil
-                        && ChatSubagents.handbackReport($0.value) == nil
+                    guard case .tool = $0.item else { return false }
+                    return $0.item.parentToolUseID == nil && ChatSubagents.handbackReport($0.value) == nil
                 }
                 rows.append(ChatTimelineEntry(id: "fold-\(turnID)", kind: .turnFold, items: [turn] + notices + tools))
                 if expandedTurns.contains(turnID) { rows += rowsFor(folded, children: children) }
             }
             let edits = work.filter {
-                $0.value.text("kind") == "tool" && $0.value.text("state") == "done"
-                    && ChatFileChanges.hasChanges($0.value)
+                guard case .tool(let tool) = $0.item else { return false }
+                return tool.state == .done && ChatFileChanges.hasChanges($0.value)
             }
-            let diff = turn.value["checkpointDiff"]
-            if (diff?.list("files").isEmpty == false)
-                || (diff == nil && (!edits.isEmpty || turn.value["checkpoint"]?.stringValue != nil))
-            {
+            let changed =
+                turnItem.checkpointDiff.map { !$0.files.isEmpty } ?? (!edits.isEmpty || turnItem.checkpoint != nil)
+            if changed {
                 rows.append(ChatTimelineEntry(id: "files-\(turnID)", kind: .changedFiles, items: [turn] + edits))
             }
             rows += rowsFor(images, children: children)
@@ -306,39 +340,35 @@ final class ChatPresentation {
             }
         }
         if let activeID { rows.append(ChatTimelineEntry(id: "working-\(activeID)", kind: .activity)) }
-        let heldFrom = earlierPageWaits ? order.first.flatMap { records[$0]?.value["createdAt"]?.numberValue } : nil
+        let heldFrom = earlierPageWaits ? order.first.flatMap { records[$0]?.item.createdAt } : nil
         rows = ChatVisuals.placed(rows, visuals: visuals, heldFrom: heldFrom)
         guard rows != entries else { return }
         entries = rows
         revision += 1
     }
 
-    private static func parent(_ value: JSONValue) -> String? {
-        ["assistant", "tool"].contains(value.text("kind")) ? value["parentToolUseId"]?.stringValue : nil
+    private static func turn(_ record: ChatItemState) -> ChatTurnItem? {
+        if case .turn(let turn) = record.item { turn } else { nil }
     }
 
     private func rowsFor(_ items: [ChatItemState], children: [String: [ChatItemState]]) -> [ChatTimelineEntry] {
         var rows: [ChatTimelineEntry] = []
-        for item in items {
-            let value = item.value
-            let kind = value.text("kind")
-            if Self.parent(value) != nil || kind == "turn" { continue }
-            if kind == "approval" && value.text("decision") == "pending" { continue }
-            if kind == "question" && value.text("state") == "pending" { continue }
+        for item in items where item.item.parentToolUseID == nil && !item.item.isPending {
+            switch item.item {
+            case .turn: continue
             // A subagent's `SubagentHandback` call reads as the report it carries rather than as a tool call.
-            if kind == "tool" && value.text("state") != "running" && ChatSubagents.handbackReport(value) == nil
-                && !UiGeneratedImage.isGeneration(value)
-            {
+            case .tool(let tool)
+            where tool.state != .running && ChatSubagents.handbackReport(item.value) == nil
+                && !UiGeneratedImage.isGeneration(item.value):
                 if rows.last?.kind == .tools && !historyBoundaries.contains(item.id) {
                     rows[rows.count - 1].items.append(item)
                 } else {
                     rows.append(ChatTimelineEntry(id: "tools-\(item.id)", kind: .tools, items: [item]))
                 }
-            } else if kind == "subagent" {
+            case .subagent(let agent):
                 rows.append(
-                    ChatTimelineEntry(
-                        id: item.id, kind: .subagent, items: [item] + (children[value.text("toolUseId")] ?? [])))
-            } else {
+                    ChatTimelineEntry(id: item.id, kind: .subagent, items: [item] + (children[agent.toolUseId] ?? [])))
+            default:
                 rows.append(ChatTimelineEntry(id: item.id, kind: .message, items: [item]))
             }
         }

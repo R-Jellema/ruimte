@@ -40,18 +40,18 @@ struct GitRepositoryPage: View {
                     LabeledContent(
                         "Branch",
                         value: checkout.branch
-                            ?? (checkout.status?["detached"] == .bool(true)
+                            ?? (checkout.status?.detached == true
                                 ? String(localized: "Detached HEAD") : String(localized: "No commits")))
-                    if let upstream = checkout.status?["upstream"]?.stringValue {
+                    if let upstream = checkout.status?.upstream {
                         LabeledContent("Upstream", value: upstream)
                     }
                     LabeledContent(
                         "Ahead and behind",
                         value: String(localized: "\(checkout.ahead) ahead, \(checkout.behind) behind"))
-                    if let base = checkout.status?["base"]?.stringValue {
+                    if let base = checkout.status?.base {
                         LabeledContent("Base", value: base)
                     }
-                    if checkout.status?["live"] == .bool(false) {
+                    if checkout.status?.live == false {
                         Label(String(localized: "Too large to watch. Pull to refresh it."), lucideIcon: "refresh-cw", iconSize: 14)
                             .font(.caption).foregroundStyle(MobileStyle.muted)
                     }
@@ -132,11 +132,11 @@ extension GitPanel {
     /// A branch git has never seen is published with an upstream in the same push, which is a different word for
     /// a person and a different flag for git.
     static func pushLabel(_ checkout: GitCheckout) -> String {
-        checkout.status?["upstream"]?.stringValue == nil ? String(localized: "Publish branch") : String(localized: "Push")
+        checkout.status?.upstream == nil ? String(localized: "Publish branch") : String(localized: "Push")
     }
 
     static func pushKind(_ checkout: GitCheckout) -> String {
-        checkout.status?["upstream"]?.stringValue == nil ? "publish" : "push"
+        checkout.status?.upstream == nil ? "publish" : "push"
     }
 }
 
@@ -154,7 +154,7 @@ struct GitDivergedRow: View {
             Text(named ? "How should \(branch) in \(checkout.label) come together?" : "How should \(branch) come together?")
                 .font(.callout)
             Text(
-                "It has \(checkout.ahead) commits of its own and \(checkout.behind) from \(checkout.status?["upstream"]?.stringValue ?? String(localized: "the remote")). A pull only fast-forwards until you choose."
+                "It has \(checkout.ahead) commits of its own and \(checkout.behind) from \(checkout.status?.upstream ?? String(localized: "the remote")). A pull only fast-forwards until you choose."
             ).font(.caption).foregroundStyle(MobileStyle.muted)
             HStack(spacing: 8) {
                 Button("Merge") { pull("merge") }

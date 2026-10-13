@@ -9,7 +9,7 @@ import XCTest
     private func item(
         _ id: String, _ kind: String, turn: String = "t1", at createdAt: Double, _ extra: [String: JSONValue] = [:]
     ) -> JSONValue {
-        .object(
+        ChatWire.item(
             [
                 "id": .string(id), "kind": .string(kind), "turnId": .string(turn), "createdAt": .number(createdAt),
             ].merging(extra) { _, extra in extra })

@@ -131,7 +131,7 @@ struct GitChangesList: View {
                                 Task { await stage(checkout, files, group) }
                             }
                         }
-                        ForEach(files, id: \.stableID) { file in
+                        ForEach(files, id: \.path) { file in
                             fileRow(checkout: checkout, file: file, group: group)
                         }
                     }
@@ -146,18 +146,18 @@ struct GitChangesList: View {
                 }
             }
         }
-        if checkouts.contains(where: { $0.status?["truncated"] == .bool(true) }) || repositories.truncated {
+        if checkouts.contains(where: { $0.status?.truncated == true }) || repositories.truncated {
             Text("Some of what changed was left out of this list.").font(.caption).foregroundStyle(MobileStyle.muted)
         }
     }
 
-    private func stage(_ checkout: GitCheckout, _ files: [JSONValue], _ group: String) async {
+    private func stage(_ checkout: GitCheckout, _ files: [GitStatusFile], _ group: String) async {
         await repositories.stage(
-            client: client, cwd: checkout.path, paths: files.map { $0.text("path") }, staged: group != "staged")
+            client: client, cwd: checkout.path, paths: files.map(\.path), staged: group != "staged")
     }
 
-    private func fileRow(checkout: GitCheckout, file: JSONValue, group: String) -> some View {
-        let path = file.text("path")
+    private func fileRow(checkout: GitCheckout, file: GitStatusFile, group: String) -> some View {
+        let path = file.path
         let folderName = (path as NSString).deletingLastPathComponent
         return Button {
             if group == "conflicted" {
@@ -167,10 +167,10 @@ struct GitChangesList: View {
             }
         } label: {
             HStack(spacing: 10) {
-                Text(group == "conflicted" ? "!" : String(file.text("status").prefix(1)))
+                Text(group == "conflicted" ? "!" : String(file.status.prefix(1)))
                     .font(.caption.monospaced().weight(.semibold))
                     .foregroundStyle(
-                        group == "conflicted" ? MobileStyle.statusNeedsYou : gitStatusColor(file.text("status"))
+                        group == "conflicted" ? MobileStyle.statusNeedsYou : gitStatusColor(file.status)
                     )
                     .frame(width: 16, alignment: .leading)
                 VStack(alignment: .leading, spacing: 3) {
