@@ -1,6 +1,6 @@
-import { describeError, setErrorStacks } from '@adecore/agents';
+import { describeError, errorText, setErrorStacks } from '@adecore/agents';
 
-export { describeError };
+export { describeError, errorText };
 
 export const DEBUG_VARIABLE = 'RUIMTE_DEBUG';
 
@@ -8,10 +8,5 @@ export function debugFrom(env: Record<string, string | undefined>): boolean {
     return env[DEBUG_VARIABLE] === '1';
 }
 
-// What the chats say about an error follows the same switch as the daemon's own lines.
+// The daemon's own lines and what the chats say about an error follow the same switch.
 setErrorStacks(debugFrom(process.env));
-
-/** `describeError` with the debug variable of this process, for a log line. */
-export function errorText(error: unknown): string {
-    return describeError(error, debugFrom(process.env));
-}
