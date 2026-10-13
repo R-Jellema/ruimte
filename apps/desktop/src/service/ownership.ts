@@ -1,0 +1,71 @@
+import { definitionRunsProgram } from '@adecore/service';
+
+/* Who the definition on disk belongs to: nobody, this installation of the app, or anything else. */
+export type ServiceOwnership = 'none' | 'this' | 'other';
+
+export interface ServiceIdentity {
+    ruimteHome: string;
+    commandLineProgram: string;
+}
+
+const HOME_VARIABLE = 'RUIMTE_HOME';
+
+function plistHome(definition: string): string | null {
+    const xml = definition.replace(/<!--[\s\S]*?-->/g, '');
+    const found = [...xml.matchAll(/<key>RUIMTE_HOME<\/key>\s*<string>([^<]*)<\/string>/g)];
+    if (found.length !== 1) {
+        return null;
+    }
+    return found[0]![1]!.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+}
+
+/* systemd reads every `Environment=` line of `[Service]` in order, the last assignment of a name wins and an empty one clears them all. */
+function unitHome(definition: string): string | null {
+    let service = false;
+    let home: string | null = null;
+    for (const raw of definition.split('\n')) {
+        const line = raw.trim();
+        if (line.startsWith('#') || line.startsWith(';')) {
+            continue;
+        }
+        if (/^\[.*\]$/.test(line)) {
+            service = line === '[Service]';
+            continue;
+        }
+        const assignments = service ? /^Environment\s*=\s*(.*)$/.exec(line)?.[1] : undefined;
+        if (assignments === undefined) {
+            continue;
+        }
+        if (assignments === '') {
+            home = null;
+            continue;
+        }
+        for (const word of assignments.matchAll(/"((?:[^"\\]|\\.)*)"|(\S+)/g)) {
+            const assignment = (word[1] !== undefined ? word[1].replace(/\\(.)/g, '$1') : word[2]!).replace(/%%/g, '%');
+            if (assignment.startsWith(`${HOME_VARIABLE}=`)) {
+                home = assignment.slice(HOME_VARIABLE.length + 1);
+            }
+        }
+    }
+    return home;
+}
+
+/* The home a definition gives its daemon, as `daemonServiceSpec` writes it; null when it names none. */
+export function definitionHome(definition: string): string | null {
+    return definition.trimStart().startsWith('<') ? plistHome(definition) : unitHome(definition);
+}
+
+/*
+ * An installation is its home, not the path of its binary: an app that moved or updated still writes
+ * the same home, while another home is another installation. The service `ruimte service install`
+ * set up for this home is not the app's either, and neither is a definition that names no home.
+ */
+export function serviceOwnership(definition: string | null, identity: ServiceIdentity): ServiceOwnership {
+    if (definition === null) {
+        return 'none';
+    }
+    if (definitionHome(definition) !== identity.ruimteHome || definitionRunsProgram(definition, identity.commandLineProgram)) {
+        return 'other';
+    }
+    return 'this';
+}

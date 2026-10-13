@@ -4,16 +4,34 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServiceController, type ServiceControllerDeps } from './controller';
 import type { BuildIdentity, MachineWork } from '@ruimte/contracts';
-import type { ServiceManager } from '@adecore/service';
+import { launchAgentPlist, type ServiceManager } from '@adecore/service';
+import { daemonServiceSpec } from '@ruimte/service/host';
 import type { ServiceSupport, ShellServiceState } from '@ruimte/desktop-bridge';
 import { keepRunningSetting, serviceSupport, type KeepRunningSetting } from './settings';
 
 const EXPECTED: BuildIdentity = { version: '0.1.0', build: 'new' };
 
-/* What the app writes; `installed` puts it on disk, `onDisk` something else in its place. */
-const DEFINITION = '<plist/>';
+const HOME = '/Users/bas/.ruimte';
 
-const COMMAND_LINE_PROGRAM = '/Users/bas/.ruimte/bin/ruimte';
+const COMMAND_LINE_PROGRAM = `${HOME}/bin/ruimte`;
+
+function definitionOf(options: { program?: string; args?: string[]; ruimteHome?: string; path?: string } = {}): string {
+    return launchAgentPlist(
+        daemonServiceSpec({
+            program: options.program ?? '/Applications/Ruimte.app/Contents/Resources/bin/ruimte',
+            args: options.args ?? ['--port', '4210'],
+            home: '/Users/bas',
+            ruimteHome: options.ruimteHome ?? HOME,
+            path: options.path ?? '/usr/bin:/bin'
+        })
+    );
+}
+
+/* What the app writes; `installed` puts it on disk, `onDisk` something else in its place. */
+const DEFINITION = definitionOf();
+
+/* The app's own definition from before the login shell's PATH changed. */
+const OLD_PATH = definitionOf({ path: '/opt/homebrew/bin:/usr/bin:/bin' });
 
 function fakeManager(options: { installed?: boolean; onDisk?: string; running?: BuildIdentity | null; refuseStart?: string } = {}) {
     const calls: string[] = [];
@@ -95,6 +113,7 @@ function setup(options: {
         setting: options.setting ?? memorySetting(options.keepRunning ?? true),
         definition: () => DEFINITION,
         commandLineProgram: COMMAND_LINE_PROGRAM,
+        ruimteHome: HOME,
         expected: EXPECTED,
         probe: async () => behindPort(),
         work: async () => machine.work,
@@ -238,7 +257,7 @@ describe('start', () => {
     });
 
     test('a definition that changed under the same build is read by restarting the service, once nothing runs', async () => {
-        const { controller, fake } = setup({ fake: fakeManager({ onDisk: '<plist>old PATH</plist>', running: EXPECTED }) });
+        const { controller, fake } = setup({ fake: fakeManager({ onDisk: OLD_PATH, running: EXPECTED }) });
         await controller.start();
         expect(fake.calls).toEqual(['install', 'restart']);
         expect(controller.state().owner).toBe('service');
@@ -246,7 +265,7 @@ describe('start', () => {
 
     test('a changed definition waits for the work on the machine, and the next refresh after it restarts', async () => {
         const { controller, fake, machine } = setup({
-            fake: fakeManager({ onDisk: '<plist>old PATH</plist>', running: EXPECTED }),
+            fake: fakeManager({ onDisk: OLD_PATH, running: EXPECTED }),
             work: { terminals: 1, agents: 1 }
         });
         await controller.start();
@@ -311,7 +330,7 @@ describe('proving the local secret', () => {
 });
 
 describe('a service the command line installed', () => {
-    const COMMAND_LINE = `<plist><dict><key>ProgramArguments</key><array><string>${COMMAND_LINE_PROGRAM}</string><string>--host</string><string>0.0.0.0</string></array></dict></plist>`;
+    const COMMAND_LINE = definitionOf({ program: COMMAND_LINE_PROGRAM, args: ['--host', '0.0.0.0'] });
 
     test('is used as it is with the switch on, and nothing is written, started or stopped', async () => {
         const { controller, fake, events } = setup({ fake: fakeManager({ onDisk: COMMAND_LINE, running: EXPECTED }) });
@@ -342,15 +361,72 @@ describe('a service the command line installed', () => {
         expect(fake.calls).toEqual([]);
     });
 
-    test("a definition of an app elsewhere is the app's own and is rewritten", async () => {
+    test("a definition of an app elsewhere with this home is the app's own and is rewritten", async () => {
         const { controller, fake } = setup({
-            fake: fakeManager({
-                onDisk: '<plist><dict><key>ProgramArguments</key><array><string>/Volumes/Ruimte/Ruimte.app/Contents/Resources/bin/ruimte</string></array></dict></plist>'
-            })
+            fake: fakeManager({ onDisk: definitionOf({ program: '/Volumes/Ruimte/Ruimte.app/Contents/Resources/bin/ruimte' }) })
         });
         await controller.start();
         expect(fake.calls).toEqual(['install', 'start']);
-        expect(controller.state().commandLineService).toBe(false);
+        expect(fake.service.definition).toBe(DEFINITION);
+        expect(controller.state()).toMatchObject({ commandLineService: false, failure: null });
+    });
+});
+
+describe('a service of another installation', () => {
+    const OTHER_HOME = definitionOf({ ruimteHome: '/Users/bas/.ruimte-other' });
+    const FOREIGN: [string, string][] = [
+        ['the app with another home', OTHER_HOME],
+        ['the command line with another home', definitionOf({ program: '/another/home/bin/ruimte', ruimteHome: '/another/home' })],
+        [
+            'a definition that names no home',
+            '<?xml version="1.0"?><plist version="1.0"><dict><key>Label</key><string>app.ruimte.daemon</string><key>ProgramArguments</key><array><string>/Applications/Ruimte.app/Contents/Resources/bin/ruimte</string></array></dict></plist>'
+        ]
+    ];
+
+    for (const [name, definition] of FOREIGN) {
+        test(`${name} is used as it runs and never written, started, stopped or removed`, async () => {
+            const { controller, fake, events } = setup({ fake: fakeManager({ onDisk: definition, running: EXPECTED }) });
+            await controller.start();
+            expect(controller.state()).toMatchObject({ owner: 'external', keepRunning: false, commandLineService: false });
+            expect(controller.state().failure).toContain(fake.manager.path);
+            expect(controller.setKeepRunning(true).keepRunning).toBe(false);
+            controller.setKeepRunning(false);
+            expect(controller.survivesQuit(true)).toBe(true);
+            controller.quit(true);
+            expect(fake.calls).toEqual([]);
+            expect(fake.service.definition).toBe(definition);
+            expect(events).toEqual([]);
+        });
+
+        test(`${name} that is not running leaves the app on its own daemon, with the switch off`, async () => {
+            const { controller, fake, events } = setup({ keepRunning: false, fake: fakeManager({ onDisk: definition }) });
+            await controller.start();
+            controller.quit(false);
+            expect(events).toEqual(['spawn', 'kill']);
+            expect(fake.calls).toEqual([]);
+            expect(fake.service.definition).toBe(definition);
+        });
+    }
+
+    test('that takes the place of the app\'s own before "Restart now" is not restarted', async () => {
+        const { controller, fake } = setup({
+            fake: fakeManager({ installed: true, running: { version: '0.0.9', build: 'old' } }),
+            work: { terminals: 1, agents: 0 }
+        });
+        await controller.start();
+        fake.service.definition = OTHER_HOME;
+        await controller.restartNow();
+        expect(fake.calls).toEqual(['install']);
+        expect(fake.service.definition).toBe(OTHER_HOME);
+    });
+
+    test("that takes the place of the app's own is not stopped when the machine stops", async () => {
+        const { controller, fake } = setup({ fake: fakeManager({ installed: true, running: EXPECTED }) });
+        await controller.start();
+        fake.service.definition = OTHER_HOME;
+        controller.quit(true);
+        expect(fake.calls).toEqual(['install']);
+        expect(fake.service.running).toEqual(EXPECTED);
     });
 });
 
@@ -471,7 +547,7 @@ describe('the setting', () => {
 
     test('a deferred definition update still applies after background use is turned off', async () => {
         const { controller, fake, machine, events } = setup({
-            fake: fakeManager({ onDisk: '<plist>old PATH</plist>', running: EXPECTED }),
+            fake: fakeManager({ onDisk: OLD_PATH, running: EXPECTED }),
             work: { terminals: 1, agents: 1 }
         });
         await controller.start();

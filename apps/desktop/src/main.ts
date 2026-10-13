@@ -304,6 +304,7 @@ const serviceController = createServiceController({
     setting: keepRunningSetting(join(app.getPath('userData'), 'background-service.json'), support),
     definition: serviceDefinition,
     commandLineProgram: commandLineServiceProgram(ruimteHome),
+    ruimteHome,
     expected: { version: app.getVersion(), build: bundledBuild() },
     probe: probeDaemon,
     work: () => askDaemonWork(daemonPort),

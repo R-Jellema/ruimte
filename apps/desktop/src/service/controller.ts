@@ -2,6 +2,7 @@ import type { BuildIdentity, MachineWork } from '@ruimte/contracts';
 import type { DaemonCrash, DaemonOwner, PendingRestart, ServiceSupport, ShellServiceState } from '@ruimte/desktop-bridge';
 import { decideRestart, decideStart, sameBuild } from './decide';
 import { definitionRunsProgram, type ServiceManager } from '@adecore/service';
+import { serviceOwnership } from './ownership';
 import type { KeepRunningSetting } from './settings';
 
 export interface ServiceControllerDeps {
@@ -13,6 +14,8 @@ export interface ServiceControllerDeps {
     definition(): string;
     /* What a service of `ruimte service install` runs, which the app leaves as it finds it. */
     commandLineProgram: string;
+    /* The home this installation gives its daemon; a definition with another home is not the app's to touch. */
+    ruimteHome: string;
     expected: BuildIdentity;
     /* One ask of `/health`; null when nothing answers. */
     probe(): Promise<BuildIdentity | null>;
@@ -61,6 +64,10 @@ function messageOf(e: unknown): string {
     return e instanceof Error ? e.message : String(e);
 }
 
+function foreignService(path: string): string {
+    return `The background service in ${path} was set up by another Ruimte or by hand, so Ruimte leaves it alone. Remove that file to let Ruimte keep this machine running when it quits.`;
+}
+
 export const UNPROVEN =
     'Something else answers where this machine should be, and it could not prove that it belongs to you, so Ruimte does not connect to it. If it is an earlier Ruimte started from a terminal, stop or update it and open Ruimte again.';
 
@@ -80,11 +87,15 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
     let endsInARow = 0;
     let spawnedAt = 0;
     const manager = deps.support === 'supported' ? deps.manager : null;
+    const onDisk = (): string | null => manager?.read() ?? null;
     const commandLineService = (): boolean => {
-        const onDisk = manager?.read() ?? null;
-        return onDisk !== null && definitionRunsProgram(onDisk, deps.commandLineProgram);
+        const definition = onDisk();
+        return definition !== null && definitionRunsProgram(definition, deps.commandLineProgram);
     };
-    const keepRunning = (): boolean => manager !== null && !commandLineService() && deps.setting.read();
+    // Whatever is not this installation's stays as it is found: never installed over, started, stopped or removed.
+    const foreign = (): boolean => serviceOwnership(onDisk(), deps) === 'other';
+    const managed = (): boolean => manager !== null && !foreign();
+    const keepRunning = (): boolean => managed() && deps.setting.read();
 
     const state = (): ShellServiceState => {
         let linger: boolean | null = null;
@@ -95,11 +106,22 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
                 linger = null;
             }
         }
-        return { support: deps.support, keepRunning: keepRunning(), owner, failure, linger, pendingRestart, commandLineService: commandLineService(), crash };
+        const commandLine = commandLineService();
+        const unknown = manager !== null && !commandLine && foreign() ? foreignService(manager.path) : null;
+        return {
+            support: deps.support,
+            keepRunning: keepRunning(),
+            owner,
+            failure: failure ?? unknown,
+            linger,
+            pendingRestart,
+            commandLineService: commandLine,
+            crash
+        };
     };
 
     const uninstallWhenOff = (): void => {
-        if (!manager || commandLineService() || deps.setting.read() || !manager.isInstalled()) {
+        if (!manager || serviceOwnership(onDisk(), deps) !== 'this' || deps.setting.read()) {
             return;
         }
         try {
@@ -151,6 +173,9 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
     };
 
     const runService = async (service: ServiceManager, step: () => void | Promise<void>): Promise<void> => {
+        if (foreign()) {
+            return;
+        }
         try {
             if (!service.isInstalled()) {
                 service.install(deps.definition());
@@ -178,9 +203,9 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
         async start() {
             failure = null;
             staleDefinition = false;
-            const managedService = manager !== null && !commandLineService();
+            const managedService = managed();
             let definitionChanged = false;
-            // A service of the command line is used as it is, the way that command leaves the app's alone.
+            // A service of the command line or another installation is used as it is, the way that command leaves the app's alone.
             if (manager && managedService) {
                 try {
                     // Use the service even with background use off, so turning it on needs no daemon restart.
@@ -227,7 +252,7 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
             return true;
         },
         setKeepRunning(next) {
-            if (!manager || commandLineService()) {
+            if (!manager || foreign()) {
                 return state();
             }
             deps.setting.write(next);
@@ -267,7 +292,7 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
                 }
                 return;
             }
-            if (owner !== 'service' || !manager) {
+            if (owner !== 'service' || !manager || foreign()) {
                 return;
             }
             if (stopMachine) {
