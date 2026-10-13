@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ProjectError } from '../projects/project-store.ts';
+import { ProjectError } from '../projects/project-error.ts';
 import { VerbRefusal, type CanvasHost } from './verb.ts';
 import { verbNamed, verbSummaryLines } from './verbs.ts';
 import { errorText } from '../error-text.ts';

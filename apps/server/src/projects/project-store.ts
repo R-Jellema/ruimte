@@ -9,24 +9,17 @@ import {
     PROJECT_PRIVATE_VERSION,
     PROJECT_VERSION,
     ProjectDocumentSchema,
-    ProjectIconChoiceSchema,
     UNKNOWN_KIND,
     duplicateIdIn,
-    initialIconOf,
     mergeFiles,
     migrateLocal,
-    overlayOfLegacy,
-    privateFileOf,
     splitContent,
-    viewShareRefusal,
     type ProjectCloseResult,
     type ProjectClosingResult,
     type ProjectContent,
     type ProjectDocument,
-    type ProjectIcon,
     type ProjectIconChoice,
     type ProjectLocal,
-    type ProjectNameSource,
     type ProjectOpenPayload,
     type ProjectOpenResult,
     type ProjectSetIconPayload,
@@ -37,18 +30,7 @@ import {
     type ProjectView
 } from '@ruimte/contracts';
 import { revisionConflictMessage } from '@ruimte/actions';
-import { z } from 'zod';
-import {
-    fileExists,
-    isNotFound,
-    writeAtomic,
-    SYSTEM_WATCH,
-    type DirectoryWatcher,
-    type WatchSeams,
-    CodedError,
-    KeyedSerializer,
-    Serializer
-} from '@adecore/agents';
+import { fileExists, isNotFound, writeAtomic, SYSTEM_WATCH, type DirectoryWatcher, type WatchSeams, KeyedSerializer, Serializer } from '@adecore/agents';
 import type { SessionSink } from '../sessions/manager.ts';
 import {
     diagramsDirOf,
@@ -62,40 +44,26 @@ import {
     privatePathOf,
     readPrivateFile,
     readSharedFile,
-    removeIconFiles,
     serializePrivateFile,
     serializeSharedFile,
     toPortable,
     tooNewMessage,
     writeGitignoreIfMissing,
     writePrivateFile,
-    writeIconFile,
-    ICON_EXTENSION_BY_MIME,
     PROJECT_FILE
 } from './project-files.ts';
 import { PROJECT_WRITE_IO, ProjectWriteRaced, ProjectWriteStuck, recoverProjectWrite, writeProjectFiles, type ProjectWriteIO } from './project-write.ts';
 import { ProjectHolds } from './project-holds.ts';
 import { placesOf, ProjectIndex, type IndexedPlace } from './project-index.ts';
 import { HiddenAgentStore } from '../agents/hidden-agents.ts';
-import { IdentityCache, readIdeaName, servedIcon, sniffIconMime, ICON_MAX_BYTES, type DerivedIcon } from './project-identity.ts';
+import { readIdeaName } from './project-identity.ts';
+import { ProjectError } from './project-error.ts';
+import { ProjectRegistry, type RegistryEntry } from './project-registry.ts';
+import { isIconFile, sameIcon, ProjectSummaries } from './project-summaries.ts';
+import { splitLegacy, type LoadedFiles, type TrackedProbe } from './legacy-split.ts';
 import { errorText } from '../error-text.ts';
 import { ClientSinks } from '../client-sinks.ts';
 import { scratchFolderOf } from './scratch-project.ts';
-
-type ProjectErrorCode =
-    | 'project-not-found'
-    | 'project-missing'
-    | 'project-invalid'
-    // The file is ahead of this daemon. Nothing is written, nothing is moved: only a newer Ruimte may touch it.
-    | 'project-too-new'
-    | 'rev-conflict'
-    | 'folder-not-found'
-    | 'folder-create-failed'
-    | 'bad-icon'
-    // Another copy of the canvas is open here, and a session is keyed on its node id.
-    | 'project-ids-taken';
-
-export class ProjectError extends CodedError<ProjectErrorCode> {}
 
 function asProjectError(e: unknown): unknown {
     if (e instanceof ProjectWriteRaced) {
@@ -104,37 +72,8 @@ function asProjectError(e: unknown): unknown {
     return e instanceof ProjectWriteStuck ? new ProjectError('project-invalid', e.message) : e;
 }
 
-const RegistryEntrySchema = z.object({
-    projectId: z.string().min(1),
-    name: z.string(),
-    color: z.string(),
-    folder: z.string().min(1),
-    lastOpenedAt: z.number(),
-    /* When a person last closed this project. Set means the menu keeps it under Recent; only
-       closing puts it there and only opening takes it out, so neither age nor whether it is open
-       right now moves a project. Absent in a registry written before closing meant anything. */
-    closedAt: z.number().nullish(),
-    // A cache of what the canvas file holds, so `project.list` needs no document read.
-    icon: ProjectIconChoiceSchema.nullish()
-});
-type RegistryEntry = z.infer<typeof RegistryEntrySchema>;
-
-const RegistrySchema = z.object({
-    projects: z.array(z.unknown()).transform((entries) =>
-        entries.flatMap((entry) => {
-            const parsed = RegistryEntrySchema.safeParse(entry);
-            return parsed.success ? [parsed.data] : [];
-        })
-    )
-});
-
 // Editors and git write in bursts; one event per burst is what the client wants.
 const WATCH_SETTLE_MS = 150;
-
-// The only file in `.ruimte` besides the canvas that the daemon has a use for.
-function isIconFile(filename: string): boolean {
-    return filename.startsWith('icon.');
-}
 
 const DEFAULT_COLOR = '#7c74ff';
 
@@ -220,13 +159,6 @@ interface CurrentDocument {
     shared: string[];
 }
 
-/*
- * Whether git tracks a path. A version-2 file someone committed was shared on purpose, so migrating
- * it keeps its views in the shared file; one nobody committed becomes that person's own. Injected
- * rather than imported, so a test decides this without a repository and the store stays out of git.
- */
-export type TrackedProbe = (path: string) => Promise<boolean>;
-
 /* Ends the session behind one node, handed over by the daemon so the store stays out of the managers. */
 export type SessionEnder = (kind: 'terminal' | 'chat', nodeId: string) => Promise<void>;
 
@@ -264,14 +196,6 @@ function remember(state: OpenProject, written: { text: string; private: string }
     state.current = null;
 }
 
-function entryIn(entries: readonly RegistryEntry[], projectId: string): RegistryEntry {
-    const entry = entries.find((candidate) => candidate.projectId === projectId);
-    if (!entry) {
-        throw new ProjectError('project-not-found', `No project ${projectId}`);
-    }
-    return entry;
-}
-
 /*
  * Projects live in `<folder>/.ruimte/project.json`. Machine state stays out of the shared file.
  */
@@ -286,15 +210,12 @@ export class ProjectStore {
     /* Which client has which project on screen. Only those hear `project.changed` and `project.showView`;
        every other client hears a change of the document as the rows of its sidebar (`announceChange`). */
     private readonly holds = new ProjectHolds();
-    private registry: RegistryEntry[] | null = null;
-    private readonly identity = new IdentityCache();
+    private readonly registry: ProjectRegistry;
+    private readonly summaries: ProjectSummaries;
     // One project's reads and writes run one after the other, and never wait on another project's.
     private readonly projectLocks = new KeyedSerializer();
     // Opening by folder decides which project a folder is, so two opens of one new folder never make two.
     private readonly opens = new Serializer();
-    // Registry changes run one after the other; two clients opening at once must not lose an entry.
-    private readonly registryWrites = new Serializer();
-    private registryLoad: Promise<RegistryEntry[]> | null = null;
 
     private readonly links: ProjectLinks;
     private readonly seams: WatchSeams;
@@ -305,6 +226,8 @@ export class ProjectStore {
         this.hiddenAgents = new HiddenAgentStore(home);
         this.index = new ProjectIndex(this.hiddenAgents);
         this.scratchFolder = scratchFolderOf(home);
+        this.registry = new ProjectRegistry(home);
+        this.summaries = new ProjectSummaries(this.scratchFolder);
         this.links = links;
         this.seams = seams;
         this.writeIO = writeIO;
@@ -312,29 +235,20 @@ export class ProjectStore {
 
     /*
      * Both files of a project as one document. The shared file is the one a team commits; the
-     * private one holds the rest, the rev and the sidebar order. A file from version 1 or 2 held
-     * everything at once, so reading one is also the moment the folder is split: what git tracks
-     * was committed on purpose and stays shared, and what it does not becomes this person's own.
+     * private one holds the rest, the rev and the sidebar order. A file from version 1 or 2 is split
+     * on the way in (`splitLegacy`).
      */
     private async loadFiles(
         path: string,
         entry: RegistryEntry,
         read: { file: ProjectSharedFile; legacyRev: number | null } | null,
         readOnly = false
-    ): Promise<{ content: ProjectContent; shared: string[]; rev: number; privateText: string | null }> {
+    ): Promise<LoadedFiles> {
         const fallback = { name: entry.name, color: entry.color };
-        /* The one file was this person's until the folder was split. Once a private file exists, an
-           old-format file git tracks is a colleague's on an older Ruimte: what it holds is theirs and
-           shared, and the private file still holds this person's views, overlay and rev. */
         if (read !== null && read.legacyRev !== null) {
-            const tracked = (await this.links.tracked(path)) && read.file.views.length > 0;
-            if (!tracked || !(await fileExists(privatePathOf(path)))) {
-                // `mergeFiles` drops a shared file view off the folder, so the one this person had stays theirs.
-                const own = tracked ? read.file.views.filter((view) => viewShareRefusal(view) === 'path-outside-project') : read.file.views;
-                const shared = tracked ? read.file.views.filter((view) => !own.includes(view)).map((view: ProjectView) => view.id) : [];
-                const file = { ...privateFileOf(own, read.legacyRev), order: read.file.views.map((view: ProjectView) => view.id) };
-                const merged = mergeFiles(read.file, tracked ? { ...file, overlay: overlayOfLegacy(read.file.views) } : file, fallback);
-                return { content: merged.content, shared, rev: read.legacyRev, privateText: null };
+            const split = await splitLegacy(path, { file: read.file, legacyRev: read.legacyRev }, fallback, this.links.tracked);
+            if (split !== null) {
+                return split;
             }
         }
         const outcome = readOnly ? await this.readPrivateWithoutRepair(privatePathOf(path)) : await readPrivateFile(privatePathOf(path));
@@ -434,7 +348,7 @@ export class ProjectStore {
     /* The folders of the projects this client has on screen, which is as far as a save from it may reach. */
     async heldFolders(clientId: string): Promise<string[]> {
         const held = new Set(this.holds.projectsOf(clientId));
-        return (await this.loadRegistry()).filter((entry) => held.has(entry.projectId)).map((entry) => entry.folder);
+        return (await this.registry.load()).filter((entry) => held.has(entry.projectId)).map((entry) => entry.folder);
     }
 
     /* What closing would do, for the confirmation that asks before it. */
@@ -446,37 +360,14 @@ export class ProjectStore {
     /* Every project in the registry, without opening or resolving anything: what a folder is called
        and which project it is, for whoever has a path in hand and wants the name that goes with it. */
     async known(): Promise<{ projectId: string; name: string; folder: string }[]> {
-        return (await this.loadRegistry()).map((entry) => ({ projectId: entry.projectId, name: entry.name, folder: entry.folder }));
+        return (await this.registry.load()).map((entry) => ({ projectId: entry.projectId, name: entry.name, folder: entry.folder }));
     }
 
     /* Reading the list makes nothing: a daemon nobody has opened a project on answers an empty list,
        and a client that has just paired with one is not handed a project it never asked for. */
     async list(): Promise<ProjectSummary[]> {
-        const entries = await this.loadRegistry();
-        return Promise.all(entries.map((entry) => this.summarize(entry)));
-    }
-
-    /*
-     * What the client shows for one project: the name and color from its canvas file, plus the
-     * icon and where the name came from. A chosen icon wins; without one the folder is asked.
-     */
-    private async summarize(entry: RegistryEntry): Promise<ProjectSummary> {
-        const available = await fileExists(this.documentPath(entry));
-        const derived = await this.identity.resolve(entry.folder);
-        const image = derived.icon ?? null;
-        const icon: ProjectIcon = entry.icon ?? (image ? imageIcon(image) : initialIconOf(entry.name));
-        return {
-            projectId: entry.projectId,
-            name: entry.name,
-            color: entry.color,
-            folder: entry.folder,
-            lastOpenedAt: entry.lastOpenedAt,
-            closedAt: entry.closedAt ?? null,
-            available,
-            icon,
-            nameSource: nameSourceOf(entry.name, entry.folder),
-            ...(entry.folder === this.scratchFolder ? { scratch: true } : {})
-        };
+        const entries = await this.registry.load();
+        return Promise.all(entries.map((entry) => this.summaries.summarize(entry)));
     }
 
     async sidebar(): Promise<ProjectSidebarResult> {
@@ -500,7 +391,7 @@ export class ProjectStore {
     }
 
     private async openUnlocked(payload: ProjectOpenPayload): Promise<ProjectOpenResult> {
-        const entries = await this.loadRegistry();
+        const entries = await this.registry.load();
         let entry: RegistryEntry | undefined;
         // Only a folder the daemon never saw before may take its name from `.idea/.name`.
         let firstOpen = false;
@@ -564,7 +455,7 @@ export class ProjectStore {
         }
         const loaded = await this.loadFiles(path, entry, outcome.kind === 'ok' ? outcome.document : null);
         const content = missing ? { name: entry.name, color: entry.color, views: [] } : loaded.content;
-        const holder = this.holderOfIds(entry.projectId, content.views, await this.loadRegistry());
+        const holder = this.holderOfIds(entry.projectId, content.views, await this.registry.load());
         if (holder) {
             throw new ProjectError(
                 'project-ids-taken',
@@ -593,7 +484,7 @@ export class ProjectStore {
             closedAt: null
         };
         entry = opened;
-        await this.updateRegistry((entries) => [...entries.filter((candidate) => candidate.projectId !== opened.projectId), opened]);
+        await this.registry.update((entries) => [...entries.filter((candidate) => candidate.projectId !== opened.projectId), opened]);
         // Every other client lists it too: a project new to this machine, or one moving to the top.
         this.publish(entry);
 
@@ -616,9 +507,9 @@ export class ProjectStore {
         this.startWatching(state, path);
 
         // Opening a project is the moment to look at the folder again, whatever the cache holds.
-        this.identity.invalidate(entry.folder);
+        this.summaries.invalidate(entry.folder);
         return {
-            summary: await this.summarize(entry),
+            summary: await this.summaries.summarize(entry),
             document: fromPortable(document, entry.folder),
             local: await this.readLocal(entry.projectId)
         };
@@ -631,13 +522,13 @@ export class ProjectStore {
      */
     ensureProject(folder: string, seed: { name: string; icon: ProjectIconChoice }): Promise<ProjectSummary> {
         return this.opens.run(async () => {
-            const known = (await this.loadRegistry()).find((candidate) => candidate.folder === folder);
+            const known = (await this.registry.load()).find((candidate) => candidate.folder === folder);
             const projectId = known?.projectId ?? newId();
             return this.locked(projectId, async () => {
                 if (known) {
                     await this.recover(known);
                     if (await fileExists(this.documentPath(known))) {
-                        return this.summarize(known);
+                        return this.summaries.summarize(known);
                     }
                 }
                 await mkdir(folder, { recursive: true });
@@ -661,10 +552,10 @@ export class ProjectStore {
                 }
                 this.index.set(entry.projectId, folder, content);
                 if (!known) {
-                    await this.updateRegistry((entries) => [...entries, entry]);
+                    await this.registry.update((entries) => [...entries, entry]);
                     this.publish(entry);
                 }
-                return this.summarize(entry);
+                return this.summaries.summarize(entry);
             });
         });
     }
@@ -717,7 +608,7 @@ export class ProjectStore {
                 if (content.name !== state.entry.name || content.color !== state.entry.color || !sameIcon(icon, state.entry.icon ?? null)) {
                     const renamed = { ...state.entry, name: content.name, color: content.color, icon };
                     state.entry = renamed;
-                    await this.updateRegistry((entries) => entries.map((entry) => (entry.projectId === projectId ? renamed : entry)));
+                    await this.registry.update((entries) => entries.map((entry) => (entry.projectId === projectId ? renamed : entry)));
                     this.publish(state.entry);
                 }
             },
@@ -780,7 +671,7 @@ export class ProjectStore {
         const identityChanged = mutation.content.name !== entry.name || mutation.content.color !== entry.color || !sameIcon(icon, entry.icon ?? null);
         const nextEntry = identityChanged ? { ...entry, name: mutation.content.name, color: mutation.content.color, icon } : entry;
         if (identityChanged) {
-            await this.updateRegistry((entries) => entries.map((candidate) => (candidate.projectId === projectId ? nextEntry : candidate)));
+            await this.registry.update((entries) => entries.map((candidate) => (candidate.projectId === projectId ? nextEntry : candidate)));
         }
         if (state) {
             state.entry = nextEntry;
@@ -888,7 +779,7 @@ export class ProjectStore {
         projectId: string,
         readOnly = false
     ): Promise<{ entry: RegistryEntry; path: string; rev: number; content: ProjectContent; shared: string[] }> {
-        const entry = entryIn(await this.loadRegistry(), projectId);
+        const entry = await this.registry.entry(projectId);
         const path = this.documentPath(entry);
         await this.recover(entry);
         let text: string;
@@ -919,10 +810,7 @@ export class ProjectStore {
         await writeAtomic(this.localPath(projectId), JSON.stringify(local));
     }
 
-    /*
-     * Writes or removes `<folder>/.ruimte/icon.<ext>`. The bytes are checked against their own
-     * magic, never the MIME the client claims, so a file that is not an image never lands there.
-     */
+    /* Writes or removes the icon file of the project's folder, and tells every client. */
     setIcon(payload: ProjectSetIconPayload): Promise<ProjectSummary> {
         return this.locked(payload.projectId, () => this.setIconUnlocked(payload));
     }
@@ -943,37 +831,24 @@ export class ProjectStore {
                 }
                 return { content: next, result: null };
             });
-            return this.summarize(entryIn(await this.loadRegistry(), payload.projectId));
+            return this.summaries.summarize(await this.registry.entry(payload.projectId));
         });
     }
 
     private async setIconUnlocked(payload: ProjectSetIconPayload): Promise<ProjectSummary> {
-        const entry = entryIn(await this.loadRegistry(), payload.projectId);
-        if (payload.image === null) {
-            await removeIconFiles(entry.folder);
-        } else {
-            const bytes = decodeImage(payload.image.base64);
-            const mime = sniffIconMime(bytes);
-            const extension = mime ? ICON_EXTENSION_BY_MIME[mime] : undefined;
-            if (!extension) {
-                throw new ProjectError('bad-icon', 'That file is not a PNG, JPEG, GIF, WebP or SVG image');
-            }
-            await writeIconFile(entry.folder, extension, bytes);
-        }
-        this.identity.invalidate(entry.folder);
-        const summary = await this.summarize(entry);
+        const entry = await this.registry.entry(payload.projectId);
+        await this.summaries.setImage(entry.folder, payload.image);
+        const summary = await this.summaries.summarize(entry);
         this.sinks.emit({ event: 'project.summary', payload: { summary } });
         return summary;
     }
 
     /* The file behind `GET /projects/<id>/icon`, or null when the project shows no image. */
     async iconFile(projectId: string, theme: 'light' | 'dark'): Promise<{ path: string; mime: string } | null> {
-        const entry = (await this.loadRegistry()).find((candidate) => candidate.projectId === projectId);
-        if (!entry?.folder || entry.icon) {
-            return null;
-        }
-        const icon = (await this.identity.resolve(entry.folder)).icon;
-        return icon ? await servedIcon(entry.folder, icon, theme) : null;
+        return this.summaries.iconFile(
+            (await this.registry.load()).find((candidate) => candidate.projectId === projectId),
+            theme
+        );
     }
 
     /*
@@ -1030,8 +905,8 @@ export class ProjectStore {
                 return true;
             }
             this.release(projectId);
-            const closed = { ...entryIn(await this.loadRegistry(), projectId), closedAt: Date.now() };
-            await this.updateRegistry((entries) => entries.map((candidate) => (candidate.projectId === projectId ? closed : candidate)));
+            const closed = { ...(await this.registry.entry(projectId)), closedAt: Date.now() };
+            await this.registry.update((entries) => entries.map((candidate) => (candidate.projectId === projectId ? closed : candidate)));
             // What a machine holds is the same for everyone on it, agents included; which projects a
             // person keeps in their own menu is that client's business.
             this.publish(closed);
@@ -1045,10 +920,10 @@ export class ProjectStore {
     }
 
     private async deleteUnlocked(projectId: string, removeFiles: boolean): Promise<void> {
-        const entry = entryIn(await this.loadRegistry(), projectId);
+        const entry = await this.registry.entry(projectId);
         this.release(projectId);
         this.index.remove(projectId);
-        await this.updateRegistry((entries) => entries.filter((candidate) => candidate.projectId !== projectId));
+        await this.registry.update((entries) => entries.filter((candidate) => candidate.projectId !== projectId));
         await rm(this.localPath(projectId), { force: true });
         // Who wrote which lines of a project that is gone is of no use to anyone, and it lives in the daemon's own folder.
         await this.links.provenance
@@ -1078,7 +953,7 @@ export class ProjectStore {
      */
     async warmIndex(): Promise<void> {
         await this.hiddenAgents.load();
-        const entries = await this.loadRegistry();
+        const entries = await this.registry.load();
         await Promise.all(
             entries.map(async (entry) => {
                 let text: string;
@@ -1182,7 +1057,7 @@ export class ProjectStore {
         if (state.iconTouched) {
             state.iconTouched = false;
             if (state.entry.folder) {
-                this.identity.invalidate(state.entry.folder);
+                this.summaries.invalidate(state.entry.folder);
                 this.publish(state.entry);
             }
         }
@@ -1290,7 +1165,8 @@ export class ProjectStore {
 
     /* Tells every client what a project looks like now; too small a change to ship a document for. */
     private publish(entry: RegistryEntry): void {
-        void this.summarize(entry)
+        void this.summaries
+            .summarize(entry)
             .then((summary) => this.sinks.emit({ event: 'project.summary', payload: { summary } }))
             .catch((e: unknown) => console.warn(`Summing up project ${entry.projectId} failed:`, errorText(e)));
     }
@@ -1315,7 +1191,7 @@ export class ProjectStore {
         if (bystanders.length === 0) {
             return;
         }
-        const summary = await this.summarize(entry).catch(() => null);
+        const summary = await this.summaries.summarize(entry).catch(() => null);
         if (summary === null) {
             return;
         }
@@ -1332,69 +1208,6 @@ export class ProjectStore {
         }
         return state;
     }
-
-    private async loadRegistry(): Promise<RegistryEntry[]> {
-        if (this.registry) {
-            return this.registry;
-        }
-        // One read for everyone who asks first, so a read that ends late never undoes a change made meanwhile.
-        this.registryLoad ??= this.readRegistry().then((entries) => {
-            this.registry ??= entries;
-            return this.registry;
-        });
-        return this.registryLoad;
-    }
-
-    private async readRegistry(): Promise<RegistryEntry[]> {
-        try {
-            const parsed = RegistrySchema.safeParse(JSON.parse(await readFile(join(this.home, 'projects.json'), 'utf8')));
-            return parsed.success ? parsed.data.projects : [];
-        } catch (e) {
-            if (!isNotFound(e)) {
-                console.warn('The project registry would not parse; starting with an empty one:', errorText(e));
-            }
-            return [];
-        }
-    }
-
-    /* Applies a change to the registry as it stands once the changes before it are written, never to a copy read earlier. */
-    private updateRegistry(change: (entries: RegistryEntry[]) => RegistryEntry[]): Promise<void> {
-        return this.registryWrites.run(async () => {
-            const entries = change(await this.loadRegistry());
-            this.registry = entries;
-            await mkdir(this.home, { recursive: true, mode: 0o700 });
-            await writeAtomic(join(this.home, 'projects.json'), `${JSON.stringify({ projects: entries }, null, 2)}\n`);
-        });
-    }
-}
-
-function imageIcon(icon: DerivedIcon): ProjectIcon {
-    return { kind: 'image', value: icon.from, version: icon.version };
-}
-
-function sameIcon(left: ProjectIcon | null, right: ProjectIcon | null): boolean {
-    return left === right || (left !== null && right !== null && left.kind === right.kind && left.value === right.value);
-}
-
-/*
- * A name that still matches the folder's own is the folder's, not a decision; the client says so
- * under the icon picker. Renaming to exactly that string reads as the folder's too, which is the
- * honest answer: there is nothing on disk that says otherwise.
- */
-function nameSourceOf(name: string, folder: string): ProjectNameSource {
-    return name === basename(folder) ? 'folder' : 'chosen';
-}
-
-function decodeImage(base64: string): Uint8Array {
-    // Base64 carries three bytes per four characters; the cap is checked before decoding a blob.
-    if (Math.ceil(base64.length / 4) * 3 > ICON_MAX_BYTES) {
-        throw new ProjectError('bad-icon', 'That image is larger than 256 KB');
-    }
-    const bytes = Buffer.from(base64, 'base64');
-    if (bytes.length === 0 || bytes.length > ICON_MAX_BYTES) {
-        throw new ProjectError('bad-icon', 'That image is empty or larger than 256 KB');
-    }
-    return bytes;
 }
 
 async function isDirectory(path: string): Promise<boolean> {

@@ -8,7 +8,7 @@ import { SubagentUnreadable } from '../context/context-store.ts';
 import type { Notice } from '@adecore/agents/coordination';
 import type { AgentState, CanvasHost } from '../canvas/verb.ts';
 import { PlanStore } from '../plans/plan-store.ts';
-import { ProjectError } from '../projects/project-store.ts';
+import { ProjectError } from '../projects/project-error.ts';
 import { serverActionCall } from './context.ts';
 import { serverActions } from './server-actions.ts';
 
