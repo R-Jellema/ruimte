@@ -8,7 +8,8 @@ function memoryStore(): KeyStore & { writes: number } {
         writes: 0,
         read: async () => held,
         async write(pair) {
-            held = pair;
+            await Promise.resolve();
+            held ??= pair;
             this.writes += 1;
         }
     };
@@ -37,6 +38,14 @@ describe('the client key pair', () => {
         const second = (await createClientKeyLoader(store)())!;
         expect(second.publicKey).toBe(first.publicKey);
         expect(store.writes).toBe(1);
+    });
+
+    test('two windows that find no key at once both end up with the one that was stored first', async () => {
+        const store = memoryStore();
+        const [first, second] = await Promise.all([createClientKeyLoader(store)(), createClientKeyLoader(store)()]);
+        expect(store.writes).toBe(2);
+        expect(second!.publicKey).toBe(first!.publicKey);
+        expect(first!.publicKey).toBe((await createClientKeyLoader(store)())!.publicKey);
     });
 
     test('two clients are two keys, so one daemon can tell them apart', async () => {

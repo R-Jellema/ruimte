@@ -34,6 +34,16 @@ describe('VideoDecoderGate', () => {
         expect(gate.accept(true, 9, 3)).toBe('key');
     });
 
+    test('a delta frame dropped for a full queue makes the next one wait for a key frame', () => {
+        const gate = new VideoDecoderGate();
+
+        expect(gate.accept(true, 0, 1)).toBe('key');
+        expect(gate.accept(false, 9, 2)).toBeNull();
+        expect(gate.accept(false, 0, 3)).toBeNull();
+        expect(gate.accept(true, 0, 4)).toBe('key');
+        expect(gate.accept(false, 0, 5)).toBe('delta');
+    });
+
     test('decodes on from a key frame the machine skipped to', () => {
         const gate = new VideoDecoderGate();
 

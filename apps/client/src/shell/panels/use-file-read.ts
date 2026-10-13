@@ -23,18 +23,21 @@ export function useFileRead(path: string): { state: FileRead; retry(): void } {
     const endpointId = useEndpointId();
     const folder = dirnameOf(path);
     const large = useRef<{ path: string; read: FsReadText } | null>(null);
+    const watched = useRef<Promise<void>>(Promise.resolve());
 
     /* Every reader holds the watch itself rather than leaving it to the files panel: a file node on
        a canvas with that panel closed would otherwise never hear that the file changed. */
     useEffect(() => {
         const watch = folderWatches.watch(endpointId, folder, () => setAttempt((count) => count + 1));
+        watched.current = watch.ready;
         return watch.release;
     }, [endpointId, folder]);
 
     useEffect(() => {
         let cancelled = false;
-        transport
-            .request('fs.read', { path })
+        // The watch goes up before the first read, so a write in between is reported, not missed.
+        watched.current
+            .then(() => transport.request('fs.read', { path }))
             .then(async (read) => {
                 if (read.kind !== 'too-large') {
                     return read;

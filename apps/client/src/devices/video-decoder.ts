@@ -44,6 +44,8 @@ export class VideoDecoderGate {
             return null;
         }
         if (decodeQueueSize > 8 && !keyFrame) {
+            // The next delta refers to this one, so a drop here is a gap like any other.
+            this.awaitingKeyFrame = true;
             return null;
         }
         this.awaitingKeyFrame = false;

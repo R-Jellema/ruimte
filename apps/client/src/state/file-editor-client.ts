@@ -77,17 +77,26 @@ interface OpenFile<TState> {
     store: StoreApi<TState>;
     saveTimer: ReturnType<typeof setTimeout> | null;
     saving: Promise<void> | null;
-    /* Rises on every open, so a document that arrives late never lands on the editor after it. */
+    /* Rises with every request for the document, so a reply that arrives late never lands after a newer one. */
     generation: number;
+    /* A request for the document is on its way, whose reply already says where the file stands. */
+    opening: boolean;
+    /* Until the first document lands the editor is on screen empty, and an edit there has no rev to be saved against. */
+    loaded: boolean;
     /* The rev a refused save was already tried again on, so a refusal never turns into a circle. */
     retriedRev: number | null;
 }
 
+/* Every document this client edits is its content with a version and a rev beside it. */
+function withContent<TDocument, TContent>(document: TDocument, content: TContent): TDocument {
+    return { ...document, ...content };
+}
+
 /*
  * Keeps a file view on screen and its file in step, the way `ProjectClient` does for the project.
- * It follows the grid: a view coming up is opened and loaded, one going away is written out first.
- * Edits save after a short pause, one write at a time, always against the rev that was loaded; a
- * file that moved on in the meantime goes to the banner.
+ * It follows the grid: a view coming up gets its editor at once and is then opened and loaded, one
+ * going away is written out first. Edits save after a short pause, one write at a time, always
+ * against the rev that was loaded; a file that moved on in the meantime goes to the banner.
  */
 export class FileEditorClient<TState extends FileEditorState<TDocument, TContent>, TDocument extends { rev: number }, TContent> {
     private readonly transport: Transport;
@@ -99,10 +108,19 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
     private readonly saveDelayMs: number;
     private readonly flushProject: () => Promise<void>;
     private readonly unsubscribe: Array<() => void> = [];
-    /* By view id: the grid can show several files, each with a rev of its own. */
+    /* By view id, every view of this kind on screen and every one still being closed: the grid can show several files, each with a rev of its own. */
     private readonly open = new Map<string, OpenFile<TState>>();
+    /*
+     * Off screen but not closed, since what they hold has not reached the file yet: the link was down,
+     * a save failed or a conflict waits. They close once that is written, or go back on screen as they are.
+     */
+    private readonly parked = new Map<string, OpenFile<TState>>();
+    /* One round of closing at a time; a call while one runs asks for one more, which reads the grid afresh. */
+    private closing: Promise<void> | null = null;
+    private closeAgain = false;
     /* The socket went away, so the daemon may have forgotten these files while it was gone. */
     private reconnecting = false;
+    private disposed = false;
 
     constructor(
         transport: Transport,
@@ -143,7 +161,7 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
             page.addEventListener('visibilitychange', onHidden);
             this.unsubscribe.push(() => page.removeEventListener('visibilitychange', onHidden));
         }
-        void this.sync();
+        this.reconcile();
     }
 
     /* The file of the cell that has the focus, which is the one a banner or a menu is about. */
@@ -154,7 +172,7 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
 
     /* Writes pending edits now; used before a view switch, a project switch and on the way out. */
     async flush(): Promise<void> {
-        await Promise.all([...this.open.values()].map((file) => this.flushOne(file)));
+        await Promise.all(this.held().map((file) => this.flushOne(file)));
     }
 
     /*
@@ -166,7 +184,7 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
             return;
         }
         this.reconnecting = false;
-        await Promise.all([...this.open.values()].map((file) => this.reopen(file)));
+        await Promise.all(this.held().map((file) => this.reopen(file)));
     }
 
     /* Copies the content of one view into another, which is what duplicating a view is. */
@@ -201,15 +219,30 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
         await this.flushOne(file);
     }
 
-    /* Lets go of the machine: no more events, and no timer that would write to a daemon the client left. */
+    /* Lets go of the machine: no more events, and no timer or late reply that would act on a daemon the client left. */
     dispose(): void {
+        this.disposed = true;
         for (const off of this.unsubscribe) {
             off();
         }
         this.unsubscribe.length = 0;
-        for (const file of this.open.values()) {
+        for (const file of this.held()) {
             this.cancelSave(file);
         }
+    }
+
+    /* Every file the daemon holds open for this client, on screen or parked. */
+    private held(): OpenFile<TState>[] {
+        return [...this.open.values(), ...this.parked.values()];
+    }
+
+    private heldFile(viewId: string): OpenFile<TState> | null {
+        return this.open.get(viewId) ?? this.parked.get(viewId) ?? null;
+    }
+
+    /* Whether a reply to request `generation` of this file may still land on its editor. */
+    private isCurrent(file: OpenFile<TState>, generation: number): boolean {
+        return !this.disposed && generation === file.generation && this.heldFile(file.viewId) === file;
     }
 
     private async flushOne(file: OpenFile<TState>): Promise<void> {
@@ -221,26 +254,56 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
         }
     }
 
+    /* A trashed view still counts, since an undo brings it back with what it held. */
+    private inProject(state: ReturnType<DocumentAccess['getState']>, viewId: string): boolean {
+        const held = [...state.views, ...state.trashed.map((entry) => entry.view)];
+        return held.some((view) => view.id === viewId && this.channel.isView(view));
+    }
+
     /* The views of this kind the grid has on screen, which is exactly what the daemon should hold open. */
     private wantedIn(state: ReturnType<DocumentAccess['getState']>): string[] {
         const onScreen = state.layout === null ? [] : viewIdsIn(state.layout);
         return onScreen.filter((viewId) => state.views.some((view) => view.id === viewId && this.channel.isView(view)));
     }
 
+    /* The views the daemon should hold open now, or null between projects, when the views on screen and their project are not the same yet. */
+    private target(): { projectId: string | null; viewIds: Set<string> } | null {
+        const { current, switching } = this.projects.getState();
+        if (switching) {
+            return null;
+        }
+        const projectId = current?.projectId ?? null;
+        return { projectId, viewIds: new Set(projectId === null ? [] : this.wantedIn(this.documents.getState())) };
+    }
+
+    /* Null between projects, which is no answer yet, so nothing closes on it. */
+    private isLeaving(file: OpenFile<TState>, target = this.target()): boolean {
+        return target !== null && (target.projectId !== file.projectId || !target.viewIds.has(file.viewId));
+    }
+
+    /*
+     * A view gone from the project it is in, in which case what it held may not be written, since the
+     * save would resurrect the file as an orphan. A file of another project is not gone: it is written.
+     */
+    private isGone(file: OpenFile<TState>): boolean {
+        const projectId = this.projects.getState().current?.projectId ?? null;
+        return file.projectId === projectId && !this.inProject(this.documents.getState(), file.viewId);
+    }
+
+    /* Nothing of the file waits any more: no unsaved edit, no conflict and no save on its way. */
+    private isSettled(file: OpenFile<TState>): boolean {
+        const state = file.store.getState();
+        return !state.dirty && state.conflict === null && file.saving === null;
+    }
+
     private onDocument(state: ReturnType<DocumentAccess['getState']>, previous: ReturnType<DocumentAccess['getState']>): void {
-        const held = [...state.views, ...state.trashed.map((entry) => entry.view)];
-        const gone = [...this.open.keys()].some((viewId) => !held.some((view) => view.id === viewId && this.channel.isView(view)));
-        const wanted = this.wantedIn(state);
-        // The ids rather than the layout: a project read again from disk is a new layout with the same views.
-        const settled = wanted.length === this.open.size && wanted.every((viewId) => this.open.has(viewId));
-        if (!settled || gone) {
-            void this.sync(gone);
+        if (this.reconcile()) {
             return;
         }
         // The project was read again after a reconnect; a restarted daemon knows no rev until a file is opened.
-        if (this.reconnecting && this.open.size > 0 && state.views !== previous.views) {
+        if (this.reconnecting && this.held().length > 0 && state.views !== previous.views) {
             this.reconnecting = false;
-            void Promise.all([...this.open.values()].map((file) => this.reopen(file)));
+            void Promise.all(this.held().map((file) => this.reopen(file)));
         }
     }
 
@@ -250,7 +313,7 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
      */
     private onProject(state: ReturnType<ProjectAccess['getState']>, previous: ReturnType<ProjectAccess['getState']>): void {
         if (state.current?.projectId !== previous.current?.projectId || state.switching !== previous.switching) {
-            void this.sync();
+            this.reconcile();
         }
     }
 
@@ -261,39 +324,117 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
     }
 
     /*
-     * Brings the open files in step with the grid: every view of this kind on screen is open, and
-     * nothing else is. `dropped` says a view is gone from the project, in which case what it held
-     * may not be written, since the save would resurrect the file as an orphan.
+     * Brings the files in step with the grid. A view coming on screen gets its editor in the same
+     * tick, whatever is still closing, so nothing drawn there is ever an editor this client does not
+     * follow; only closing waits, on the save of what goes away. Says whether anything had to move.
      */
-    private async sync(dropped = false): Promise<void> {
-        const { current, switching } = this.projects.getState();
-        // Between projects the views on screen and the project they belong to are not the same yet.
-        if (switching) {
-            return;
+    private reconcile(): boolean {
+        const target = this.target();
+        if (this.disposed || target === null) {
+            return false;
         }
-        const state = this.documents.getState();
-        const projectId = current?.projectId ?? null;
-        const wanted = new Set(projectId === null ? [] : this.wantedIn(state));
-
-        for (const file of [...this.open.values()]) {
-            if (wanted.has(file.viewId) && file.projectId === projectId) {
-                continue;
+        let moved = false;
+        for (const file of [...this.parked.values()]) {
+            if (this.isGone(file)) {
+                this.discard(file);
+                moved = true;
             }
-            await this.close(file, dropped);
         }
-        await Promise.all(
-            [...wanted].filter((viewId) => !this.open.has(viewId)).map((viewId) => this.openOne(projectId!, viewId, state.viewLocal[viewId] ?? null))
-        );
+        const { projectId, viewIds } = target;
+        if (projectId !== null) {
+            const { viewLocal } = this.documents.getState();
+            for (const viewId of viewIds) {
+                if (this.open.has(viewId)) {
+                    continue;
+                }
+                moved = true;
+                if (!this.unpark(projectId, viewId)) {
+                    void this.openOne(projectId, viewId, viewLocal[viewId] ?? null);
+                }
+            }
+        }
+        if ([...this.open.values()].some((file) => this.isLeaving(file, target))) {
+            moved = true;
+            void this.closeLeaving();
+        }
+        return moved;
     }
 
-    private async close(file: OpenFile<TState>, dropped: boolean): Promise<void> {
-        if (dropped) {
-            this.cancelSave(file);
-        } else {
-            await this.flushOne(file);
+    private closeLeaving(): Promise<void> {
+        if (this.closing) {
+            this.closeAgain = true;
+            return this.closing;
+        }
+        this.closing = (async () => {
+            do {
+                this.closeAgain = false;
+                const target = this.target();
+                await Promise.all([...this.open.values()].filter((file) => this.isLeaving(file, target)).map((file) => this.close(file)));
+            } while (this.closeAgain && !this.disposed);
+        })().finally(() => {
+            this.closing = null;
+        });
+        return this.closing;
+    }
+
+    private async close(file: OpenFile<TState>): Promise<void> {
+        if (this.isGone(file)) {
+            this.discard(file);
+            return;
+        }
+        await this.flushOne(file);
+        // The grid may have taken the view back while the save was out, or be between projects now.
+        if (this.disposed || this.open.get(file.viewId) !== file || !this.isLeaving(file)) {
+            return;
+        }
+        if (this.isGone(file)) {
+            this.discard(file);
+            return;
         }
         // Taken out first, so `onEditor` does not read emptying the editor as an edit.
         this.open.delete(file.viewId);
+        if (this.isSettled(file)) {
+            this.release(file);
+        } else {
+            this.parked.set(file.viewId, file);
+        }
+    }
+
+    /* A view back on screen takes its parked file as it is, since loading the file again would drop what it held. */
+    private unpark(projectId: string, viewId: string): boolean {
+        const file = this.parked.get(viewId);
+        if (!file || file.projectId !== projectId) {
+            return false;
+        }
+        this.parked.delete(viewId);
+        this.open.set(viewId, file);
+        if (file.loaded && file.store.getState().dirty) {
+            this.scheduleSave(file);
+        }
+        return true;
+    }
+
+    /* Closes a parked file once what it held is written, or the file it was behind on has been taken. */
+    private settleParked(file: OpenFile<TState>): void {
+        if (this.parked.get(file.viewId) !== file || !this.isSettled(file)) {
+            return;
+        }
+        this.parked.delete(file.viewId);
+        this.release(file);
+    }
+
+    private discard(file: OpenFile<TState>): void {
+        this.cancelSave(file);
+        if (this.open.get(file.viewId) === file) {
+            this.open.delete(file.viewId);
+        }
+        if (this.parked.get(file.viewId) === file) {
+            this.parked.delete(file.viewId);
+        }
+        this.release(file);
+    }
+
+    private release(file: OpenFile<TState>): void {
         file.store.getState().unload();
         this.editors.release(file.viewId);
         void this.channel.close(this.transport, file.projectId, file.viewId).catch(() => undefined);
@@ -306,24 +447,51 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
             store: this.editors.of(viewId),
             saveTimer: null,
             saving: null,
-            generation: 0,
+            generation: 1,
+            opening: true,
+            loaded: false,
             retriedRev: null
         };
         this.open.set(viewId, file);
+        let document: TDocument;
         try {
             // A view made a moment ago is only in the file after the project save has landed.
             await this.flushProject();
-            const document = await this.channel.open(this.transport, projectId, viewId);
-            if (this.open.get(viewId) !== file) {
-                return;
-            }
-            file.store.getState().load(viewId, document, local);
+            document = await this.channel.open(this.transport, projectId, viewId);
         } catch (e) {
-            if (this.open.get(viewId) === file) {
-                this.open.delete(viewId);
+            if (this.isCurrent(file, 1)) {
+                file.opening = false;
+                // Out of the map, so the next change to the grid asks again; the editor stays with whatever was drawn into it.
+                if (this.open.get(viewId) === file) {
+                    this.open.delete(viewId);
+                }
                 this.report(file, e, this.channel.errors.open);
             }
+            return;
         }
+        if (this.isCurrent(file, 1)) {
+            file.opening = false;
+            this.receive(file, document, local);
+        }
+    }
+
+    /*
+     * The first document of a file. Work drawn into the editor before it came had nothing to stand on,
+     * so it stays on screen with the file in the banner, and a person says which of the two is kept.
+     */
+    private receive(file: OpenFile<TState>, document: TDocument, local: ProjectViewLocal | null): void {
+        const before = file.store.getState();
+        const early = before.dirty || before.edits > 0 ? before.exportContent() : null;
+        before.load(file.viewId, document, local);
+        file.loaded = true;
+        if (early !== null) {
+            const state = file.store.getState();
+            state.applyDocument(withContent(document, early));
+            state.setDirty(true);
+            state.setConflict(document);
+            return;
+        }
+        this.settleParked(file);
     }
 
     /*
@@ -332,15 +500,27 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
      * while there is unsaved work and otherwise simply what the file is now.
      */
     private async reopen(file: OpenFile<TState>): Promise<void> {
-        const generation = file.generation;
+        if (file.opening) {
+            return;
+        }
+        const generation = ++file.generation;
+        file.opening = true;
         let document: TDocument;
         try {
             document = await this.channel.open(this.transport, file.projectId, file.viewId);
         } catch (e) {
-            this.report(file, e, this.channel.errors.open);
+            if (this.isCurrent(file, generation)) {
+                file.opening = false;
+                this.report(file, e, this.channel.errors.open);
+            }
             return;
         }
-        if (generation !== file.generation || this.open.get(file.viewId) !== file) {
+        if (!this.isCurrent(file, generation)) {
+            return;
+        }
+        file.opening = false;
+        if (!file.loaded) {
+            this.receive(file, document, this.documents.getState().viewLocal[file.viewId] ?? null);
             return;
         }
         const state = file.store.getState();
@@ -350,6 +530,7 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
                 file.retriedRev = document.rev;
                 await this.save(file);
             }
+            this.settleParked(file);
             return;
         }
         if (state.dirty || file.saving) {
@@ -357,6 +538,7 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
             return;
         }
         state.applyDocument(document);
+        this.settleParked(file);
     }
 
     private onEditor(viewId: string, state: TState, previous: TState): void {
@@ -366,7 +548,10 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
         }
         if (state.edits !== previous.edits) {
             state.setDirty(true);
-            this.scheduleSave(file);
+            // Before the file is in there is no rev to save against; the document that arrives takes this work up.
+            if (file.loaded) {
+                this.scheduleSave(file);
+            }
         }
     }
 
@@ -392,7 +577,7 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
         }
         const state = file.store.getState();
         // A link that is down keeps the edit dirty for `resume` to write, rather than a request that can only fail.
-        if (state.conflict || this.transport.status !== 'open') {
+        if (state.conflict || !file.loaded || this.transport.status !== 'open') {
             return Promise.resolve();
         }
         state.setDirty(false);
@@ -417,14 +602,17 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
                 file.saving = null;
                 if (stale) {
                     void this.reopen(file);
+                } else {
+                    this.settleParked(file);
                 }
             });
         return file.saving;
     }
 
     private onChanged(projectId: string, viewId: string, document: TDocument): void {
-        const file = this.open.get(viewId);
-        if (!file || file.projectId !== projectId) {
+        const file = this.heldFile(viewId);
+        // Before the first document the reply to the open is what the editor loads.
+        if (!file || file.projectId !== projectId || !file.loaded) {
             return;
         }
         const state = file.store.getState();
@@ -433,6 +621,7 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
             return;
         }
         state.applyDocument(document);
+        this.settleParked(file);
     }
 
     /* An error without a file goes to the focused editor, whose banner a person is looking at. */

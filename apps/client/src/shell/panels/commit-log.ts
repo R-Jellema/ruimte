@@ -74,13 +74,22 @@ function startOfDay(seconds: number): number {
     return Math.floor(date.getTime() / 1000);
 }
 
+/* By the calendar rather than by 24 hours, since the day a clock moves for daylight saving is 23 or 25 hours long. */
+function dayBefore(day: number): number {
+    const date = new Date(day * 1000);
+    date.setDate(date.getDate() - 1);
+    date.setHours(0, 0, 0, 0);
+    return Math.floor(date.getTime() / 1000);
+}
+
 /* The log grouped by day, counted from midnight, so a commit from last night is under Yesterday. */
 export function groupCommits(commits: readonly LogRow[], now: number): LogSection[] {
     const today = startOfDay(now);
+    const yesterday = dayBefore(today);
     const sections: LogSection[] = [];
     for (const commit of commits) {
         const day = startOfDay(commit.at);
-        const label = day === today ? i18next.t('panels:git.log.today') : day === today - DAY ? i18next.t('panels:git.log.yesterday') : dateOf(commit.at, now);
+        const label = day === today ? i18next.t('panels:git.log.today') : day === yesterday ? i18next.t('panels:git.log.yesterday') : dateOf(commit.at, now);
         const last = sections[sections.length - 1];
         if (last?.label === label) {
             last.commits.push(commit);

@@ -14,6 +14,7 @@ export interface ClientKey {
 
 export interface KeyStore {
     read(): Promise<CryptoKeyPair | null>;
+    /* Leaves a pair already stored in place, so of two windows that generate at once the first one written wins. */
     write(pair: CryptoKeyPair): Promise<void>;
 }
 
@@ -25,7 +26,15 @@ export function indexedDbKeyStore(): KeyStore {
     const run = objectStoreRunner(DB_NAME, STORE_NAME);
     return {
         read: () => run<CryptoKeyPair | undefined>('readonly', (store) => store.get(RECORD_ID)).then((value) => value ?? null),
-        write: (pair) => run('readwrite', (store) => store.put(pair, RECORD_ID)).then(() => undefined)
+        write: (pair) =>
+            run('readwrite', (store) => store.add(pair, RECORD_ID)).then(
+                () => undefined,
+                (e: unknown) => {
+                    if (!(e instanceof DOMException && e.name === 'ConstraintError')) {
+                        throw e;
+                    }
+                }
+            )
     };
 }
 
@@ -49,7 +58,8 @@ export function createClientKeyLoader(store: KeyStore = indexedDbKeyStore()): ()
         }
         const pair = (await crypto.subtle.generateKey({ name: 'Ed25519' }, false, ['sign', 'verify'])) as CryptoKeyPair;
         await store.write(pair);
-        return toClientKey(pair);
+        // Another window may have stored its pair first, and a session is bound to the one stored.
+        return toClientKey((await store.read()) ?? pair);
     };
     return () => {
         pending ??= load().catch((e) => {

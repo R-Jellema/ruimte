@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { BytesReadPayload } from '@ruimte/contracts';
 import type { BytesPiece } from './piece';
-import { readResource } from './byte-transfer';
+import { PIECES_IN_FLIGHT, readResource } from './byte-transfer';
 import { blobTypeFor } from './piece';
 
 const RESOURCE = { kind: 'file', path: '/tmp/picture.gif' } as const;
@@ -44,7 +44,28 @@ describe('readResource', () => {
         expect(blob.type).toBe('image/gif');
     });
 
-    test('the next piece is asked for only once the one before is in', async () => {
+    test('a few pieces are on their way at once, never more than the output gate allows', async () => {
+        const bytes = random(5_000);
+        const fake = daemon(bytes);
+        let inFlight = 0;
+        let most = 0;
+        const blob = await readResource(
+            async (payload) => {
+                inFlight += 1;
+                most = Math.max(most, inFlight);
+                await new Promise((resolve) => setImmediate(resolve));
+                inFlight -= 1;
+                return fake.read(payload);
+            },
+            RESOURCE,
+            { chunkBytes: 500 }
+        );
+        expect(most).toBe(PIECES_IN_FLIGHT);
+        expect(new Uint8Array(await blob.arrayBuffer())).toEqual(bytes);
+        expect(fake.asked.map((payload) => payload.offset)).toEqual([0, 500, 1_000, 1_500, 2_000, 2_500, 3_000, 3_500, 4_000, 4_500]);
+    });
+
+    test('one piece in flight asks for the next only once the one before is in', async () => {
         const fake = daemon(random(3_000));
         let inFlight = 0;
         let most = 0;
@@ -57,9 +78,67 @@ describe('readResource', () => {
                 return fake.read(payload);
             },
             RESOURCE,
-            { chunkBytes: 500 }
+            { chunkBytes: 500, piecesInFlight: 1 }
         );
         expect(most).toBe(1);
+    });
+
+    test('pieces that arrive out of order still join in order', async () => {
+        const bytes = random(3_000);
+        const fake = daemon(bytes);
+        const blob = await readResource(
+            async (payload) => {
+                // The later the piece, the sooner it is back.
+                for (let i = 0; i < 10 - payload.offset / 500; i += 1) {
+                    await new Promise((resolve) => setImmediate(resolve));
+                }
+                return fake.read(payload);
+            },
+            RESOURCE,
+            { chunkBytes: 500 }
+        );
+        expect(new Uint8Array(await blob.arrayBuffer())).toEqual(bytes);
+    });
+
+    test('a piece shorter than asked drops the ones asked after it and goes on from where it ended', async () => {
+        const bytes = random(3_000);
+        const fake = daemon(bytes);
+        const blob = await readResource(
+            async (payload) => {
+                const piece = await fake.read(payload);
+                return payload.offset === 1_000 ? { ...piece, bytes: piece.bytes.subarray(0, 200) } : piece;
+            },
+            RESOURCE,
+            { chunkBytes: 1_000 }
+        );
+        expect(new Uint8Array(await blob.arrayBuffer())).toEqual(bytes);
+        expect(fake.asked.map((payload) => payload.offset)).toEqual([0, 1_000, 2_000, 1_200, 2_200]);
+    });
+
+    test('a failing piece is the error, and the pieces still on their way are left without a complaint', async () => {
+        const fake = daemon(random(5_000));
+        const unhandled: unknown[] = [];
+        const onUnhandled = (reason: unknown): void => void unhandled.push(reason);
+        process.on('unhandledRejection', onUnhandled);
+        try {
+            await expect(
+                readResource(
+                    async (payload) => {
+                        await new Promise((resolve) => setImmediate(resolve));
+                        if (payload.offset >= 1_000) {
+                            throw new Error(`gone at ${payload.offset}`);
+                        }
+                        return fake.read(payload);
+                    },
+                    RESOURCE,
+                    { chunkBytes: 1_000 }
+                )
+            ).rejects.toThrow('gone at 1000');
+            await new Promise((resolve) => setImmediate(resolve));
+            expect(unhandled).toEqual([]);
+        } finally {
+            process.off('unhandledRejection', onUnhandled);
+        }
     });
 
     test('an empty file is one request and an empty blob', async () => {
@@ -67,6 +146,36 @@ describe('readResource', () => {
         const blob = await readResource(fake.read, RESOURCE);
         expect(blob.size).toBe(0);
         expect(fake.asked).toHaveLength(1);
+    });
+
+    test('a piece extending past the declared file size cannot become a successful blob', async () => {
+        const fake = daemon(random(2_000));
+        await expect(
+            readResource(
+                async (payload) => {
+                    const piece = await fake.read(payload);
+                    return payload.offset === 0 ? { ...piece, size: 100 } : piece;
+                },
+                RESOURCE,
+                { chunkBytes: 1_000, restarts: 0 }
+            )
+        ).rejects.toThrow('The file changed while it was loading');
+    });
+
+    test('pieces with inconsistent metadata restart instead of mixing resources', async () => {
+        for (const changed of [{ size: 3_000 }, { mime: 'text/plain' }]) {
+            const fake = daemon(random(2_000));
+            await expect(
+                readResource(
+                    async (payload) => {
+                        const piece = await fake.read(payload);
+                        return payload.offset === 0 ? piece : { ...piece, ...changed };
+                    },
+                    RESOURCE,
+                    { chunkBytes: 1_000, restarts: 0 }
+                )
+            ).rejects.toThrow('The file changed while it was loading');
+        }
     });
 
     test('a file larger than the cap stops after the first piece and says how large it is', async () => {

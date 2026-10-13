@@ -21,7 +21,7 @@ import { TransportError, type Transport, type TransportStatus } from '@/transpor
 
 type Call = { type: RequestType; payload: unknown };
 
-type Client = Pick<FileEditorClient<never, never, never>, 'copy' | 'dispose' | 'resolveConflict' | 'resume'>;
+type Client = Pick<FileEditorClient<never, never, never>, 'copy' | 'dispose' | 'flush' | 'resolveConflict' | 'resume'>;
 
 /* What every file editor's state has, whatever it edits. */
 interface EditorState {
@@ -103,7 +103,8 @@ function project(kind: 'drawing' | 'diagram'): ProjectDocument {
         views: [
             { kind: 'canvas', id: 'main', name: 'Canvas', nodes: [], texts: [], edges: [], layouts: [] },
             { kind, id: 'view-1', name: 'Sketch' },
-            { kind, id: 'view-2', name: 'Plan' }
+            { kind, id: 'view-2', name: 'Plan' },
+            { kind, id: 'view-3', name: 'Notes' }
         ]
     };
 }
@@ -115,6 +116,10 @@ class FakeTransport implements Transport {
     conflictOnSave = false;
     /* A restarted daemon: it knows no rev for the file until it is opened again. */
     forgotten = false;
+    /* Set to refuse every save for a reason other than the rev, the way a full disk would. */
+    failOnSave = false;
+    /* Requests of one kind for one view that wait until the test lets them through. */
+    private readonly gates = new Map<string, Promise<void>>();
     private readonly eventHandlers = new Map<string, Set<(payload: unknown) => void>>();
     private readonly statusHandlers = new Set<(status: TransportStatus) => void>();
 
@@ -126,8 +131,26 @@ class FakeTransport implements Transport {
         this.document = document;
     }
 
+    /* Holds every `action` request for one view until the function it hands back is called. */
+    hold(action: 'open' | 'save', viewId: string): () => void {
+        let release = (): void => undefined;
+        this.gates.set(`${action}:${viewId}`, new Promise((resolve) => (release = resolve)));
+        return () => {
+            this.gates.delete(`${action}:${viewId}`);
+            release();
+        };
+    }
+
     request<T extends RequestType>(type: T, payload: RequestMap[T]['payload']): Promise<RequestMap[T]['result']> {
         this.calls.push({ type, payload });
+        const gate = this.gates.get(`${type.slice(this.channel.length + 1)}:${(payload as { viewId?: string }).viewId}`);
+        if (gate) {
+            return gate.then(() => this.answer(type, payload));
+        }
+        return this.answer(type, payload);
+    }
+
+    private answer<T extends RequestType>(type: T, payload: RequestMap[T]['payload']): Promise<RequestMap[T]['result']> {
         if (type === `${this.channel}.open`) {
             this.forgotten = false;
             return Promise.resolve({ document: this.document } as RequestMap[T]['result']);
@@ -135,6 +158,9 @@ class FakeTransport implements Transport {
         if (type === `${this.channel}.save`) {
             if (this.conflictOnSave || this.forgotten) {
                 return Promise.reject(new TransportError('rev-conflict', 'stale'));
+            }
+            if (this.failOnSave) {
+                return Promise.reject(new TransportError('internal', 'disk full'));
             }
             const { baseRev } = payload as { baseRev: number };
             return Promise.resolve({ rev: baseRev + 1 } as RequestMap[T]['result']);
@@ -449,6 +475,229 @@ function suite<S extends EditorState>(kind: Kind<S>): void {
             expect(harness.transport.of('open')).toHaveLength(2);
             expect(harness.transport.of('save')).toHaveLength(1);
             expect(harness.current().dirty).toBe(false);
+        });
+
+        test('a cell closed while the link is down keeps its edits, and the resume writes them before the file closes', async () => {
+            await open();
+            harness.transport.status = 'closed';
+            harness.transport.reconnect();
+            kind.add(harness.current(), 'b');
+            documents().getState().setActiveView('main');
+            await tick(20);
+            expect(harness.transport.of('save')).toHaveLength(0);
+            expect(harness.transport.of('close')).toHaveLength(0);
+            expect(kind.ids(harness.editorOf('view-1'))).toEqual(['a', 'b']);
+
+            harness.transport.status = 'open';
+            await harness.client.resume();
+            await tick(20);
+            const saves = harness.transport.of('save');
+            expect(saves).toHaveLength(1);
+            expect(kind.written((saves[0]!.payload as { content: unknown }).content)).toEqual(['a', 'b']);
+            expect(harness.transport.viewIdsOf('close')).toEqual(['view-1']);
+            expect(harness.editorOf('view-1').viewId).toBeNull();
+        });
+
+        test('a cell that comes back while its edits wait takes them up rather than loading the file over them', async () => {
+            await open();
+            harness.transport.status = 'closed';
+            harness.transport.reconnect();
+            kind.add(harness.current(), 'b');
+            documents().getState().setActiveView('main');
+            await tick(20);
+            documents().getState().setActiveView('view-1');
+            await tick(20);
+            expect(harness.transport.of('open')).toHaveLength(1);
+            expect(kind.ids(harness.editorOf('view-1'))).toEqual(['a', 'b']);
+
+            harness.transport.status = 'open';
+            await harness.client.resume();
+            await tick(20);
+            const saves = harness.transport.of('save');
+            expect(saves).toHaveLength(1);
+            expect(kind.written((saves[0]!.payload as { content: unknown }).content)).toEqual(['a', 'b']);
+            expect(harness.transport.of('close')).toHaveLength(0);
+        });
+
+        test('a save refused on the way out keeps the edits until a later flush writes them', async () => {
+            await open();
+            harness.transport.failOnSave = true;
+            kind.add(harness.current(), 'b');
+            documents().getState().setActiveView('main');
+            await tick(20);
+            expect(harness.transport.of('save')).toHaveLength(1);
+            expect(harness.transport.of('close')).toHaveLength(0);
+            expect(harness.editorOf('view-1').dirty).toBe(true);
+
+            harness.transport.failOnSave = false;
+            await harness.client.flush();
+            await tick(20);
+            expect(harness.transport.of('save')).toHaveLength(2);
+            expect(harness.transport.viewIdsOf('close')).toEqual(['view-1']);
+            expect(harness.editorOf('view-1').viewId).toBeNull();
+        });
+
+        test('a view deleted while its edits wait off screen goes without a save', async () => {
+            await open();
+            harness.transport.status = 'closed';
+            harness.transport.reconnect();
+            kind.add(harness.current(), 'b');
+            documents().getState().setActiveView('main');
+            await tick(20);
+            documents().getState().deleteView('view-1');
+            await tick(20);
+            expect(harness.transport.viewIdsOf('close')).toEqual(['view-1']);
+            expect(harness.editorOf('view-1').viewId).toBeNull();
+
+            harness.transport.status = 'open';
+            await harness.client.resume();
+            await tick(20);
+            expect(harness.transport.of('save')).toHaveLength(0);
+        });
+
+        test('going to another file and back before the save on the way out is answered keeps the editor that is drawn', async () => {
+            await open();
+            kind.add(harness.current(), 'b');
+            documents().getState().setActiveView('view-2');
+            documents().getState().setActiveView('view-1');
+            await tick(20);
+
+            expect(harness.transport.viewIdsOf('open')).toEqual(['view-1', 'view-2']);
+            expect(harness.transport.viewIdsOf('close')).toEqual(['view-2']);
+            expect(harness.editorOf('view-1').viewId).toBe('view-1');
+            expect(kind.ids(harness.editorOf('view-1'))).toEqual(['a', 'b']);
+
+            // The editor on screen is the one this client saves, so the next edit reaches the file.
+            kind.add(harness.editorOf('view-1'), 'c');
+            await tick(20);
+            const saves = harness.transport.of('save');
+            expect(saves.map((call) => (call.payload as { viewId: string }).viewId)).toEqual(['view-1', 'view-1']);
+            expect(kind.written((saves.at(-1)!.payload as { content: unknown }).content)).toEqual(['a', 'b', 'c']);
+        });
+
+        test('a file that comes up while the save of another is held is followed at once, and its edits are kept and saved', async () => {
+            await open();
+            kind.add(harness.current(), 'b');
+            const releaseA = harness.transport.hold('save', 'view-1');
+            documents().getState().setActiveView('view-2');
+            await tick(5);
+            documents().getState().setActiveView('view-3');
+            await tick(5);
+
+            // The save of A is still out, and C is open and loaded all the same.
+            expect(harness.transport.viewIdsOf('save')).toEqual(['view-1']);
+            expect(harness.transport.viewIdsOf('open')).toEqual(['view-1', 'view-2', 'view-3']);
+            expect(harness.editorOf('view-3').viewId).toBe('view-3');
+            kind.add(harness.editorOf('view-3'), 'c');
+            await tick(20);
+            const savedC = harness.transport.of('save').filter((call) => (call.payload as { viewId: string }).viewId === 'view-3');
+            expect(savedC).toHaveLength(1);
+            expect(kind.written((savedC[0]!.payload as { content: unknown }).content)).toEqual(['a', 'c']);
+
+            releaseA();
+            await tick(20);
+            expect(harness.transport.viewIdsOf('close').toSorted()).toEqual(['view-1', 'view-2']);
+            expect(harness.transport.viewIdsOf('open')).toEqual(['view-1', 'view-2', 'view-3']);
+            const savedA = harness.transport.of('save').find((call) => (call.payload as { viewId: string }).viewId === 'view-1');
+            expect(kind.written((savedA!.payload as { content: unknown }).content)).toEqual(['a', 'b']);
+            expect(kind.ids(harness.editorOf('view-3'))).toEqual(['a', 'c']);
+            expect(harness.editorOf('view-3').dirty).toBe(false);
+            expect(harness.editorOf('view-3').rev).toBe(6);
+        });
+
+        test('a view taken back while its save on the way out is held stays open and is not loaded again', async () => {
+            await open();
+            kind.add(harness.current(), 'b');
+            const release = harness.transport.hold('save', 'view-1');
+            documents().getState().setActiveView('main');
+            await tick(5);
+            documents().getState().setActiveView('view-1');
+            await tick(5);
+            kind.add(harness.editorOf('view-1'), 'c');
+            release();
+            await tick(20);
+
+            expect(harness.transport.of('open')).toHaveLength(1);
+            expect(harness.transport.of('close')).toHaveLength(0);
+            expect(kind.ids(harness.editorOf('view-1'))).toEqual(['a', 'b', 'c']);
+            const written = harness.transport.of('save').at(-1)?.payload as { content: unknown; baseRev: number };
+            expect(kind.written(written.content)).toEqual(['a', 'b', 'c']);
+            expect(written.baseRev).toBe(6);
+            expect(harness.editorOf('view-1').dirty).toBe(false);
+        });
+
+        test('work drawn before the file arrived is kept on screen, with the file in the banner', async () => {
+            const release = harness.transport.hold('open', 'view-1');
+            documents().getState().setActiveView('view-1');
+            await tick();
+            kind.add(harness.editorOf('view-1'), 'x');
+            await tick(20);
+            // Nothing to save against yet.
+            expect(harness.transport.of('save')).toHaveLength(0);
+
+            release();
+            await tick();
+            expect(kind.ids(harness.editorOf('view-1'))).toEqual(['x']);
+            expect(harness.editorOf('view-1').conflict).toMatchObject({ rev: 5 });
+            await tick(20);
+            expect(harness.transport.of('save')).toHaveLength(0);
+
+            await harness.client.resolveConflict('mine');
+            await tick(20);
+            const saves = harness.transport.of('save');
+            expect(saves).toHaveLength(1);
+            expect(saves[0]!.payload).toMatchObject({ viewId: 'view-1', baseRev: 5 });
+            expect(kind.written((saves[0]!.payload as { content: unknown }).content)).toEqual(['x']);
+        });
+
+        test('taking the file over work drawn before it arrived loads the file', async () => {
+            const release = harness.transport.hold('open', 'view-1');
+            documents().getState().setActiveView('view-1');
+            await tick();
+            kind.add(harness.editorOf('view-1'), 'x');
+            release();
+            await tick();
+            await harness.client.resolveConflict('theirs');
+            await tick(20);
+            expect(kind.ids(harness.editorOf('view-1'))).toEqual(['a']);
+            expect(harness.transport.of('save')).toHaveLength(0);
+        });
+
+        test('a document that arrives after the client let go lands nowhere', async () => {
+            const release = harness.transport.hold('open', 'view-1');
+            documents().getState().setActiveView('view-1');
+            await tick();
+            harness.client.dispose();
+            release();
+            await tick(20);
+            expect(harness.editorOf('view-1').viewId).toBeNull();
+        });
+
+        test('a document for a view that went away before it arrived is not loaded', async () => {
+            const release = harness.transport.hold('open', 'view-1');
+            documents().getState().setActiveView('view-1');
+            await tick();
+            documents().getState().setActiveView('main');
+            await tick();
+            release();
+            await tick(20);
+            expect(harness.transport.viewIdsOf('close')).toEqual(['view-1']);
+            expect(harness.editorOf('view-1').viewId).toBeNull();
+        });
+
+        test('nothing closes between projects, and what left closes once the switch is over', async () => {
+            await open();
+            kind.add(harness.current(), 'b');
+            harness.stores.project.getState().setSwitching(true);
+            documents().getState().setActiveView('main');
+            await tick(20);
+            expect(harness.transport.of('close')).toHaveLength(0);
+            expect(harness.editorOf('view-1').viewId).toBe('view-1');
+
+            harness.stores.project.getState().setSwitching(false);
+            await tick(20);
+            expect(harness.transport.viewIdsOf('save')).toEqual(['view-1']);
+            expect(harness.transport.viewIdsOf('close')).toEqual(['view-1']);
         });
 
         test('the project being read again after a reconnect opens the file on the daemon', async () => {
