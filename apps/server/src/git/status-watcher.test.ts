@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { GitChangedEvent, GitStatusEvent } from '@ruimte/contracts';
 import { FakeWatch } from '@adecore/agents/testing';
+import { SharedWatch } from '../fs/shared-watch.ts';
+import { FolderWatcher } from '../fs/watch.ts';
 import { GitStatusWatcher } from './status-watcher.ts';
 import { forgetBase, readStatus } from './status.ts';
 import { gitIn } from './test-repo.ts';
@@ -272,6 +274,28 @@ describe('GitStatusWatcher', () => {
         await Promise.all([first, ...asked]);
 
         expect(runs).toBe(2);
+    });
+
+    test('a repository inside a folder the file tree watches rides on its platform watcher', async () => {
+        const shared = new SharedWatch({ platform: 'darwin', seams: fake, forget: () => undefined });
+        const files = new FolderWatcher('darwin', shared, 0);
+        unsubscribe();
+        watcher = new GitStatusWatcher('darwin', shared, () => clock, readStatus);
+        unsubscribe = watcher.subscribe('c1', (frame) => {
+            if (frame.event === 'git.status') {
+                events.push(frame.payload);
+            }
+        });
+        await files.watch('c1', root);
+        await watcher.watch('c1', repo);
+        expect(fake.watchers).toHaveLength(1);
+
+        await writeFile(join(repo, 'a.txt'), 'a\n');
+        fake.on(root).emit(join('repo', 'a.txt'));
+        await fake.settle();
+
+        expect(events.map((event) => event.status.files.map((file) => file.path))).toEqual([['a.txt']]);
+        files.detachAll('c1');
     });
 
     test('a status asked by hand that differs from the last one reaches every client watching', async () => {

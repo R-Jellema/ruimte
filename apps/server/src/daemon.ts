@@ -119,6 +119,7 @@ import { referencedChats } from './context/chat-references.ts';
 import { FS_FILE_PATH, handleFsFileRequest } from './fs/file-route.ts';
 import { MachineHome } from './fs/machine-home.ts';
 import { FolderWatcher } from './fs/watch.ts';
+import { SharedWatch } from './fs/shared-watch.ts';
 import { registerBytesHandlers } from './handlers/bytes.ts';
 import { registerFsHandlers } from './handlers/fs.ts';
 import { readServedFile } from './fs/read.ts';
@@ -613,7 +614,9 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     });
     // Before the socket answers, so an agent whose project nobody opened since the restart still reads its links.
     await projects.warmIndex();
-    const folders = new FolderWatcher();
+    // One platform watcher per folder for the file tree, git status and the language servers together.
+    const watches = new SharedWatch();
+    const folders = new FolderWatcher(process.platform, watches);
     const liveStreams = new LiveStreamHub();
     const browsers = BrowserManager.withBun(config.home, liveStreams);
     // The pages the clients draw themselves, which this machine can only reach by asking them.
@@ -649,7 +652,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     );
     const deviceControl = new DeviceControl();
     const deviceDriver = new DeviceDriver({ home: config.home, manager: devices, gate: deviceControl });
-    const statuses = new GitStatusWatcher();
+    const statuses = new GitStatusWatcher(process.platform, watches);
     const nameOfCli = (kind: AgentKind): string => providers.get(kind).name;
     const usage = new UsageService({
         home: config.home,
@@ -1109,6 +1112,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     });
     const language = new LanguageHost({
         root: join(config.home, 'language-servers'),
+        watch: { seams: watches },
         folderOf: (projectId) => projects.index.folderOf(projectId),
         holders: (projectId) => projects.holdersOf(projectId),
         machineHome,

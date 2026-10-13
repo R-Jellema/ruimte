@@ -93,7 +93,7 @@ export function cachedRepos(folder: string): Promise<GitReposResult> {
     return shared.get(folder);
 }
 
-/* What a folder watcher calls with the directories a burst touched. */
+/* What the shared watch (`fs/shared-watch.ts`) calls with the directories a burst touched, whoever watched them. */
 export function forgetRepos(changed?: readonly string[]): void {
     shared.forget(changed);
 }

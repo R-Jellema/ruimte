@@ -3,6 +3,8 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FsChangedEvent } from '@ruimte/contracts';
+import { supportsRecursive } from '@adecore/agents';
+import { SharedWatch } from './shared-watch.ts';
 import { FolderWatcher } from './watch.ts';
 
 // FSEvents on a loaded runner can take seconds, and a pass still ends the moment the change lands.
@@ -47,6 +49,30 @@ test(
             await Bun.sleep(25);
         }
         expect(changes.every((change) => change.root === root)).toBe(true);
+    },
+    DEADLINE_MS + 5_000
+);
+
+test(
+    'a folder watched under the shared watch hears a write inside it, named from itself',
+    async () => {
+        const shared = new SharedWatch({ forget: () => undefined });
+        const outer = new FolderWatcher(process.platform, shared);
+        outer.subscribe('client-2', () => undefined);
+        await outer.watch('client-2', root);
+        const names: Array<string | null> = [];
+        // Where a tree is one watcher this rides on the outer one, so it has no stream of its own to wait for.
+        const inner = shared.watch(join(root, 'src'), { recursive: supportsRecursive(process.platform) }, (_event, filename) => names.push(filename));
+        await writeFile(join(root, 'src', 'b.ts'), 'two');
+        const deadline = Date.now() + DEADLINE_MS;
+        while (!names.includes('b.ts')) {
+            if (Date.now() > deadline) {
+                throw new Error('No change naming b.ts arrived');
+            }
+            await Bun.sleep(25);
+        }
+        inner.close();
+        outer.detachAll('client-2');
     },
     DEADLINE_MS + 5_000
 );
