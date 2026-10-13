@@ -7,7 +7,7 @@ import { pathToFileUri } from '@adecore/lsp';
 import { Icon, PanelEmpty } from '@adecore/ui';
 import { formatNumber } from '@adecore/ui/format';
 import { PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
-import { createHolder } from '@adecore/editor-react';
+import { countsOf, createHolder, type ProblemFile } from '@adecore/editor-react';
 import { basenameOf } from '@/shell/panels/files-tree';
 import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
@@ -15,7 +15,6 @@ import { useTransport } from '@/transport/context';
 import { codeLabelOf, severityOf } from '@adecore/editor-react/models';
 import { draftFiles } from './project-files';
 import { acquireProjectLanguage, type ProjectLanguage } from './ruimte-project-language';
-import { countsOf, type ProblemFile } from './project-problems';
 
 const SEVERITIES = ['error', 'warning', 'info'] as const;
 type Severity = (typeof SEVERITIES)[number];
@@ -57,7 +56,7 @@ export function ProblemsPanel() {
     const { t } = useTranslation('panels');
     const folder = useProject((state) => state.current?.folder ?? null);
     const language = useProjectLanguage();
-    const files = useSyncExternalStore(language?.machineProblems.subscribe ?? (() => () => undefined), language?.machineProblems.getSnapshot ?? (() => NONE));
+    const files = useSyncExternalStore(language?.problems.subscribe ?? (() => () => undefined), language?.problems.getSnapshot ?? (() => NONE));
     const [filter, setFilter] = useState('');
     const [hidden, setHidden] = useState<ReadonlySet<Severity>>(new Set());
     const counts = useMemo(() => countsOf(files), [files]);

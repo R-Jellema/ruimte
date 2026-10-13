@@ -2,7 +2,7 @@ import { createSnippetTransformWorker } from './snippet-transform-worker';
 import i18next from 'i18next';
 import { ProjectLanguage as SharedProjectLanguage, type LanguageDocumentHandle, type ProjectFiles, type RenameSuggestionsRequest } from '@adecore/editor-react';
 import type { Editor } from '@adecore/editor';
-import { fileUriToPath } from '@adecore/lsp';
+import { fileUriToPath, type Diagnostic } from '@adecore/lsp';
 import { onDeviceClientFor } from '@/ondevice/ondevice-client';
 import { parseNames } from '@/ondevice/names-model';
 import { namesPrompt } from '@/ondevice/prompts';
@@ -12,7 +12,6 @@ import { isApplePlatform } from '@/desktop/bridge';
 import { useSettings } from '@/state/settings';
 import { useToasts } from '@/state/toasts';
 import type { Transport } from '@/transport/transport';
-import { ProjectProblems } from './project-problems';
 import { LanguageStatusTracker } from './status';
 import { WireLanguageService, type WireLanguageServiceOptions } from './wire-service';
 import { shikiLanguageOf } from './language-ids-host';
@@ -22,7 +21,6 @@ export class ProjectLanguage extends SharedProjectLanguage {
     declare readonly service: WireLanguageService;
     readonly transport: Transport;
     readonly status: LanguageStatusTracker;
-    readonly machineProblems: ProjectProblems;
     // The wire resynchronizes from the sending editor without starting a second document owner.
     private readonly openEditors: Map<string, Editor[]>;
 
@@ -52,6 +50,13 @@ export class ProjectLanguage extends SharedProjectLanguage {
             snippetTransformWorker: createSnippetTransformWorker,
             ...(panelBodyHeight === undefined ? {} : { panelBodyHeight }),
             onPanelResize: writePanelHeight,
+            // Machine reports include documents held by other clients, which the shared editor does not own.
+            problemSource: (listener) =>
+                transport.on('language.diagnostics', (event) => {
+                    if (event.projectId === projectId) {
+                        listener({ path: event.path, server: event.server, diagnostics: event.diagnostics as Diagnostic[] });
+                    }
+                }),
             openPlace: (place) => {
                 const path = fileUriToPath(place.uri);
                 if (path !== null) {
@@ -67,8 +72,6 @@ export class ProjectLanguage extends SharedProjectLanguage {
         applyEdit = (params) => this.applyWorkspaceEdit(params.edit);
         this.transport = transport;
         this.status = new LanguageStatusTracker(transport, projectId);
-        // Machine reports include documents held by other clients, which the shared editor does not own.
-        this.machineProblems = new ProjectProblems(transport, projectId);
         void this.status.refresh().catch(() => undefined);
     }
 
@@ -112,7 +115,6 @@ export class ProjectLanguage extends SharedProjectLanguage {
         this.openEditors.clear();
         this.service.dispose();
         this.status.dispose();
-        this.machineProblems.dispose();
     }
 }
 

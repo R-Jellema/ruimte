@@ -59,7 +59,14 @@ describe('Adecore over the Ruimte language wire', () => {
             version: 1,
             diagnostics: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, message: 'Other client problem', severity: 1 }]
         });
-        expect(project.machineProblems.getSnapshot()).toHaveLength(1);
+        transport.emit('language.diagnostics', {
+            projectId: 'p2',
+            path: 'elsewhere.ts',
+            server: 'typescript',
+            version: 1,
+            diagnostics: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, message: 'Another project', severity: 1 }]
+        });
+        expect(project.problems.getSnapshot().map((file) => file.path)).toEqual(['other.ts']);
         project.dispose();
     });
 });
