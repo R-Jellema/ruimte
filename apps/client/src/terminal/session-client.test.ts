@@ -179,14 +179,11 @@ describe('SessionClient', () => {
         expect(transport.of('session.create')).toHaveLength(1);
     });
 
-    test('tells a daemon from before terminal prompts stayed in the TUI to hold none, again on a fresh socket', () => {
+    test('asks nothing of a daemon on its own, also not on a fresh socket', () => {
         const { transport } = setup();
-        expect(transport.of('agent.setApprovals').map((call) => call.payload)).toEqual([{ enabled: false }]);
-
-        // A reconnect is a new client over there, so the answer has to travel again.
         transport.setStatus('closed');
         transport.setStatus('open');
-        expect(transport.of('agent.setApprovals').map((call) => call.payload)).toEqual([{ enabled: false }, { enabled: false }]);
+        expect(transport.calls).toEqual([]);
     });
 
     test('a command the daemon holds is shown until a person runs it here or another client does', async () => {
@@ -378,8 +375,7 @@ describe('SessionClient', () => {
         transport.calls.length = 0;
         transport.setStatus('open');
         await flush();
-        // Not a word about a session. What a fresh socket does hear is what this client wants asked of it.
-        expect(transport.calls.filter((call) => call.type !== 'agent.setApprovals')).toEqual([]);
+        expect(transport.calls).toEqual([]);
     });
 
     test('a node that leaves while its create is on the wire stays gone, also after a reconnect', async () => {

@@ -231,4 +231,35 @@ describe('ActiveTransport', () => {
         expect(failure).toBeInstanceOf(TransportError);
         expect(transport.status).toBe('closed');
     });
+
+    test('the lists asked in one turn are one request, and a later turn asks again', async () => {
+        const { pool, transport, socketOf } = setup();
+        pool.hold(endpoint('a'));
+
+        const first = transport.request('chat.list', {});
+        const second = transport.request('chat.list', {});
+        void transport.request('session.list', {});
+        void transport.request('server.ping', {});
+        void transport.request('server.ping', {});
+        expect(socketOf('a').pending.map((entry) => entry.type)).toEqual(['chat.list', 'session.list', 'server.ping', 'server.ping']);
+
+        socketOf('a').pending[0]!.resolve({ chats: [] });
+        expect(await first).toEqual({ chats: [] });
+        expect(await second).toEqual({ chats: [] });
+
+        void transport.request('chat.list', {});
+        expect(socketOf('a').pending.filter((entry) => entry.type === 'chat.list')).toHaveLength(2);
+    });
+
+    test('a list is never shared across sockets', () => {
+        const { pool, transport, socketOf, activate } = setup();
+        pool.hold(endpoint('a'));
+        pool.hold(endpoint('b'));
+
+        void transport.request('session.list', {});
+        activate('b');
+        void transport.request('session.list', {});
+        expect(socketOf('a').pending).toHaveLength(1);
+        expect(socketOf('b').pending).toHaveLength(1);
+    });
 });

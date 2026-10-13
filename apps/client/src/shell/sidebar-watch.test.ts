@@ -97,6 +97,16 @@ describe('background sidebar updates', () => {
         expect(watcher.getSnapshot().state).toBe('ready');
     });
 
+    test('a fresh socket is asked in the turn it opens, so the lists ride on what other clients ask then', async () => {
+        const transport = new FakeTransport();
+        watch(transport);
+        await settle();
+        transport.setStatus('closed');
+        transport.calls = [];
+        transport.setStatus('open');
+        expect(transport.calls).toEqual(['project.sidebar', 'session.list', 'chat.list']);
+    });
+
     test('a change to a listed project takes its rows from the document without asking', async () => {
         const transport = new FakeTransport();
         transport.answer = (type) =>
@@ -121,9 +131,11 @@ describe('background sidebar updates', () => {
         await settle();
         transport.calls = [];
         transport.emit('project.changed', { projectId: 'new', document: { views: [], shared: [] } });
-        transport.emit('project.summary', { summary: summary('other') });
         await settle();
         expect(transport.calls).toEqual(['project.sidebar']);
+        transport.emit('project.summary', { summary: summary('other') });
+        await settle();
+        expect(transport.calls).toEqual(['project.sidebar', 'project.sidebar']);
     });
 
     test('a new summary of a listed project is taken as it comes, and a closed one asks again', async () => {
@@ -142,15 +154,17 @@ describe('background sidebar updates', () => {
         expect(transport.calls).toEqual(['project.sidebar']);
     });
 
-    test('a changed list of sessions asks for the sessions alone, once for a burst', async () => {
+    test('a changed list of sessions asks for the sessions alone, and a burst waits for the round that is out', async () => {
         const transport = new FakeTransport();
         watch(transport);
         await settle();
         transport.calls = [];
         transport.emit('session.list-changed', {});
         transport.emit('session.list-changed', {});
-        await settle();
+        transport.emit('session.list-changed', {});
         expect(transport.calls).toEqual(['session.list']);
+        await settle();
+        expect(transport.calls).toEqual(['session.list', 'session.list']);
     });
 
     test('a status an event set while the list was out stays, and the list replaces only its own kind', async () => {

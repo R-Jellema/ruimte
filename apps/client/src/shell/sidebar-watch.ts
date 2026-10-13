@@ -34,7 +34,6 @@ export class SidebarWatch {
     private readonly queued = new Set<Part>();
     private disposed = false;
     private loading = false;
-    private scheduled = false;
     private generation = 0;
     // The statuses an event set while a list was out, which are newer than that list.
     private touched = new Set<string>();
@@ -128,7 +127,10 @@ export class SidebarWatch {
         this.listeners.forEach((listener) => listener());
     }
 
-    /* Within a tick the parts gather into one round, and while one is out the next waits for it. */
+    /*
+     * Asked at once, in the turn of the event, so a list another client of the machine asks for in that
+     * turn is one request (`ActiveTransport`). While a round is out the next one gathers and waits.
+     */
     private queue(parts: readonly Part[]): void {
         if (this.disposed || this.snapshot.state === 'unsupported') {
             return;
@@ -141,14 +143,7 @@ export class SidebarWatch {
         for (const part of this.snapshot.state === 'error' ? ALL_PARTS : parts) {
             this.queued.add(part);
         }
-        if (this.loading || this.scheduled) {
-            return;
-        }
-        this.scheduled = true;
-        queueMicrotask(() => {
-            this.scheduled = false;
-            this.load();
-        });
+        this.load();
     }
 
     private load(): void {

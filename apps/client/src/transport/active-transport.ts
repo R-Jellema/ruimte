@@ -24,6 +24,18 @@ interface Registration {
     off: (() => void) | null;
 }
 
+/*
+ * The standing lists a fresh socket is asked for by more than one client of a machine (the chats, the
+ * sessions, the sidebar). Asked in one turn they are one request: no frame of the machine can arrive
+ * within a turn, so the second asker could not have learned anything the first answer lacks.
+ */
+const SHARED_IN_A_TURN: ReadonlySet<RequestType> = new Set<RequestType>(['session.list', 'chat.list']);
+
+interface SharedAnswer {
+    bound: Transport;
+    answer: Promise<unknown>;
+}
+
 function notConnected(): Promise<never> {
     return Promise.reject(new TransportError('not-connected', i18next.t('machines:connection.notConnected')));
 }
@@ -37,6 +49,7 @@ export class ActiveTransport implements Transport {
     private readonly activeId: () => string;
     private readonly registrations = new Set<Registration>();
     private readonly statusHandlers = new Set<(status: TransportStatus) => void>();
+    private readonly shared = new Map<RequestType, SharedAnswer>();
     private bound: Transport | null = null;
     private offBoundStatus: (() => void) | null = null;
     // Null right after a rebind, so the first word about a new socket always goes out.
@@ -62,7 +75,22 @@ export class ActiveTransport implements Transport {
         if (!this.bound) {
             return notConnected();
         }
-        return this.bound.request(type, payload);
+        if (!SHARED_IN_A_TURN.has(type)) {
+            return this.bound.request(type, payload);
+        }
+        const known = this.shared.get(type);
+        if (known?.bound === this.bound) {
+            return known.answer as Promise<RequestMap[T]['result']>;
+        }
+        const answer = this.bound.request(type, payload);
+        const entry: SharedAnswer = { bound: this.bound, answer };
+        this.shared.set(type, entry);
+        queueMicrotask(() => {
+            if (this.shared.get(type) === entry) {
+                this.shared.delete(type);
+            }
+        });
+        return answer;
     }
 
     readBytes(payload: BytesReadPayload): Promise<BytesPiece> {

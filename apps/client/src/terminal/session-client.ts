@@ -83,7 +83,6 @@ export class SessionClient {
             }),
             transport.subscribeStatus((status) => this.onStatus(status))
         );
-        this.declineApprovals();
     }
 
     async ensure(nodeId: string, options: OpenOptions, cols: number, rows: number): Promise<void> {
@@ -290,17 +289,8 @@ export class SessionClient {
         }
     }
 
-    /*
-     * A terminal's permission request is answered in its CLI's own prompt. A daemon from before that
-     * holds one for every socket that does not say no, which keeps the CLI's prompt from showing.
-     */
-    private declineApprovals(): void {
-        void this.transport.request('agent.setApprovals', { enabled: false }).catch(() => undefined);
-    }
-
     private onStatus(status: TransportStatus): void {
         if (status === 'open') {
-            this.declineApprovals();
             let listed: Promise<SessionInfo[] | null> | null = null;
             // One list for the whole pass, asked for once the first attach has answered.
             const sessions = (): Promise<SessionInfo[] | null> => (listed ??= this.listSessions());
