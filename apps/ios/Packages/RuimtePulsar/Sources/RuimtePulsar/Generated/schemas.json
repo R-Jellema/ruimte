@@ -9786,58 +9786,6 @@
     "type": "object",
     "properties": {}
   },
-  "request.agent.answerApproval.payload": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "sessionId": {
-        "type": "string",
-        "minLength": 1
-      },
-      "requestId": {
-        "type": "string",
-        "minLength": 1
-      },
-      "choiceId": {
-        "type": "string",
-        "minLength": 1
-      }
-    },
-    "required": [
-      "sessionId",
-      "requestId",
-      "choiceId"
-    ]
-  },
-  "request.agent.answerApproval.result": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "accepted": {
-        "type": "boolean"
-      }
-    },
-    "required": [
-      "accepted"
-    ]
-  },
-  "request.agent.setApprovals.payload": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "enabled": {
-        "type": "boolean"
-      }
-    },
-    "required": [
-      "enabled"
-    ]
-  },
-  "request.agent.setApprovals.result": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {}
-  },
   "request.chat.create.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -51334,49 +51282,6 @@
     "type": "object",
     "properties": {}
   },
-  "request.auth.pairingToken.payload": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {}
-  },
-  "request.auth.pairingToken.result": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "url": {
-        "type": "string",
-        "minLength": 1
-      }
-    },
-    "required": [
-      "url"
-    ]
-  },
-  "request.auth.registerKey.payload": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "publicKey": {
-        "type": "string",
-        "minLength": 1
-      }
-    },
-    "required": [
-      "publicKey"
-    ]
-  },
-  "request.auth.registerKey.result": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "registered": {
-        "type": "boolean"
-      }
-    },
-    "required": [
-      "registered"
-    ]
-  },
   "request.direct.signal.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -53611,88 +53516,6 @@
     "required": [
       "sessionId",
       "agent"
-    ]
-  },
-  "event.session.approvals": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "sessionId": {
-        "type": "string",
-        "minLength": 1
-      },
-      "approvals": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "requestId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "sessionId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "toolName": {
-              "type": "string",
-              "minLength": 1
-            },
-            "summary": {
-              "type": "string"
-            },
-            "choices": {
-              "minItems": 1,
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "id": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "kind": {
-                    "type": "string",
-                    "enum": [
-                      "allow",
-                      "remember",
-                      "deny"
-                    ]
-                  },
-                  "label": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                },
-                "required": [
-                  "id",
-                  "kind",
-                  "label"
-                ]
-              }
-            },
-            "createdAt": {
-              "type": "number"
-            },
-            "expiresAt": {
-              "type": "number"
-            }
-          },
-          "required": [
-            "requestId",
-            "sessionId",
-            "toolName",
-            "summary",
-            "choices",
-            "createdAt",
-            "expiresAt"
-          ]
-        }
-      }
-    },
-    "required": [
-      "sessionId",
-      "approvals"
     ]
   },
   "event.session.list-changed": {

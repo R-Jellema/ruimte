@@ -185,7 +185,7 @@ describe('agent and chat', () => {
         expect(EVENT_SCHEMAS['session.status'].safeParse({ sessionId: 'node-1', agent: { ...agent, status: 'busy' } }).success).toBe(false);
     });
 
-    test('a permission request carries its choices, and the whole pending list travels per session', () => {
+    test('a permission request carries its choices', () => {
         const request = {
             requestId: 'r1',
             sessionId: 'node-1',
@@ -199,31 +199,7 @@ describe('agent and chat', () => {
             createdAt: 1,
             expiresAt: 2
         };
-        expect(EVENT_SCHEMAS['session.approvals'].safeParse({ sessionId: 'node-1', approvals: [request] }).success).toBe(true);
-        // An empty list is how a client hears that the request it was showing is settled.
-        expect(EVENT_SCHEMAS['session.approvals'].safeParse({ sessionId: 'node-1', approvals: [] }).success).toBe(true);
-        expect(EVENT_SCHEMAS['session.approvals'].safeParse({ sessionId: 'node-1', approvals: [{ ...request, choices: [] }] }).success).toBe(false);
-        expect(
-            EVENT_SCHEMAS['session.approvals'].safeParse({
-                sessionId: 'node-1',
-                approvals: [{ ...request, choices: [{ id: 'maybe', kind: 'maybe', label: 'Maybe' }] }]
-            }).success
-        ).toBe(false);
         expect(SessionInfoSchema.safeParse({ ...info, approvals: [request] }).success).toBe(true);
-    });
-
-    test('an answer names the session, the request and the choice, and says whether it was in time', () => {
-        const schema = REQUEST_SCHEMAS['agent.answerApproval'];
-        expect(schema.payload.safeParse({ sessionId: 'node-1', requestId: 'r1', choiceId: 'allow' }).success).toBe(true);
-        expect(schema.payload.safeParse({ sessionId: 'node-1', requestId: 'r1' }).success).toBe(false);
-        expect(schema.result.safeParse({ accepted: false }).success).toBe(true);
-    });
-
-    test('a client says whether it wants permission requests at all, and nothing else', () => {
-        const schema = REQUEST_SCHEMAS['agent.setApprovals'];
-        expect(schema.payload.safeParse({ enabled: false }).success).toBe(true);
-        expect(schema.payload.safeParse({}).success).toBe(false);
-        expect(schema.payload.safeParse({ enabled: 'yes' }).success).toBe(false);
     });
 
     test('chat events are one of item, delta or info', () => {

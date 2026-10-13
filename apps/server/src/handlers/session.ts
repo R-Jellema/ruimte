@@ -96,8 +96,4 @@ export function registerSessionHandlers(dispatcher: Dispatcher, manager: Session
             return {};
         })
     );
-
-    // A terminal's permission request is answered in its CLI's own prompt; these two stay for clients built before that.
-    dispatcher.register('agent.answerApproval', () => ({ accepted: false }));
-    dispatcher.register('agent.setApprovals', () => ({}));
 }

@@ -269,15 +269,6 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
         return { revoked: revoked.length };
     });
 
-    /* Pairing links are gone; a client of before them that still asks hears where to go instead. */
-    const pairingRemoved = (): never => {
-        throw new RequestError('pairing-removed', PAIRING_REMOVED);
-    };
-
-    // todo(bas): drop both and their schemas one release after pairing links went.
-    dispatcher.register('auth.registerKey', pairingRemoved);
-    dispatcher.register('auth.pairingToken', pairingRemoved);
-
     dispatcher.register('auth.sessions', async (_payload, client) => ({ sessions: await store.list(client.access?.sessionId ?? null) }));
 
     dispatcher.register('auth.revoke', async (payload) => {

@@ -34,8 +34,7 @@ export const SessionInfoSchema = z.object({
     exitCode: z.number().int().optional(),
     // The agent CLI last seen in this shell, if any.
     agent: AgentInfoSchema.nullable().optional(),
-    // What the agent is waiting on right now; the snapshot a client that arrives mid-request needs,
-    // after which `session.approvals` keeps it up to date.
+    // No daemon fills this in any more: a terminal's CLI asks on its own screen.
     approvals: z.array(ApprovalRequestSchema).optional(),
     // A command from a project file that no person on this machine approved yet: the shell started
     // without it, and `session.runHeld` types it. A client that does not know the field shows a bare shell.

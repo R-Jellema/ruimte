@@ -194,12 +194,6 @@ export const AuthRevokePayloadSchema = z.object({
 });
 export type AuthRevokePayload = z.infer<typeof AuthRevokePayloadSchema>;
 
-// `auth.pairingToken`: a fresh pairing URL, minted only for a client that presented the local secret.
-export const PairingTokenResultSchema = z.object({
-    url: z.string().min(1)
-});
-export type PairingTokenResult = z.infer<typeof PairingTokenResultSchema>;
-
 // `POST /auth/challenge`. The daemon's signature over the nonce makes its id a proof, not a string off the wire.
 export const AuthChallengeResultSchema = z.object({
     challenge: z.string().min(1),
@@ -225,18 +219,6 @@ export const AuthTicketResultSchema = z.object({
     expiresIn: z.number()
 });
 export type AuthTicketResult = z.infer<typeof AuthTicketResultSchema>;
-
-// `auth.registerKey`: how a client paired before there were key pairs moves onto one without pairing again.
-export const AuthRegisterKeyPayloadSchema = z.object({
-    publicKey: z.string().min(1)
-});
-export type AuthRegisterKeyPayload = z.infer<typeof AuthRegisterKeyPayloadSchema>;
-
-export const AuthRegisterKeyResultSchema = z.object({
-    // False for a client on the local secret, which has no session record to hang a key on.
-    registered: z.boolean()
-});
-export type AuthRegisterKeyResult = z.infer<typeof AuthRegisterKeyResultSchema>;
 
 /*
  * The daemon id in each message keeps a signature from proving anything to another machine, and the

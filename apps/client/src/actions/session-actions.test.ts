@@ -193,7 +193,6 @@ function fake(answers: Answers = {}, machine: Partial<SessionMachine> = {}): Fak
         'chat.goal': () => ({}),
         'session.kill': () => ({}),
         'agent.resume': () => ({}),
-        'agent.answerApproval': () => ({ accepted: true }),
         'chat.configure': (payload) => info({ selection: payload.selection ?? info().selection, runtimeMode: payload.runtimeMode ?? 'supervised' }),
         'chat.fork': (payload) => ({
             info: info({ chatId: 'fork-1' }),

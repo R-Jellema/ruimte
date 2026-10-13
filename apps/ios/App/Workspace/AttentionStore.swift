@@ -191,9 +191,6 @@ final class AttentionStore {
     }
 
     private func refresh() async {
-        // A terminal's permission request is answered in its TUI. A machine from before that holds one for
-        // every connection that does not say no, which keeps the CLI's own prompt from showing.
-        _ = try? await client.request("agent.setApprovals", payload: .object(["enabled": .bool(false)]))
         if let snapshot = try? await client.request("push.attention", payload: .object([:])) {
             guard !Task.isCancelled else { return }
             marksFrom = snapshot["marksFrom"]?.numberValue

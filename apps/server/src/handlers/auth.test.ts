@@ -11,7 +11,7 @@ import { generateKeyPair } from '../auth/keys.ts';
 import { Dispatcher, type ClientAccess, type ClientConnection } from '../dispatcher.ts';
 import { readOrCreateEndpointIdentity, type EndpointIdentity } from '../endpoint-id.ts';
 import { MachineUpdates } from '../power/machine-update.ts';
-import { PAIRING_REMOVED, registerAuthHandlers } from './auth.ts';
+import { registerAuthHandlers } from './auth.ts';
 import { AgentIntegrations } from '../agents/integrations.ts';
 import { ClosedLidError, DEFAULT_ADMIN_PROMPT } from '../power/closed-lid.ts';
 
@@ -124,10 +124,12 @@ afterEach(async () => {
 });
 
 describe('auth handlers', () => {
-    test('a client of before account-only that asks for a pairing link or to hang a key on a token hears that links are gone', async () => {
-        const removed = { ok: false, error: { code: 'pairing-removed', message: PAIRING_REMOVED } };
-        expect(await ask({ reachability: 'loopback', sessionId: null }, 'auth.pairingToken')).toMatchObject(removed);
-        expect(await ask({ reachability: 'lan', sessionId: 's1' }, 'auth.registerKey', { publicKey: generateKeyPair().publicKey })).toMatchObject(removed);
+    test('a client of before account-only that asks for a pairing link or to hang a key on a token hears the machine does not know the request', async () => {
+        expect(await ask({ reachability: 'loopback', sessionId: null }, 'auth.pairingToken')).toMatchObject({ ok: false, error: { code: 'unknown-request' } });
+        expect(await ask({ reachability: 'lan', sessionId: 's1' }, 'auth.registerKey', { publicKey: generateKeyPair().publicKey })).toMatchObject({
+            ok: false,
+            error: { code: 'unknown-request' }
+        });
     });
 
     test('endpoint.info says where the door on the local network stands, and the switch closes it from any client', async () => {

@@ -540,8 +540,7 @@ describe.skipIf(!ENABLED)('the daemon in the Linux container', () => {
         const owner = await connectOwner();
         try {
             for (const asker of [client, owner]) {
-                await expect(asker.request('auth.pairingToken', {})).rejects.toThrow(/^pairing-removed:/);
-                await expect(asker.request('auth.registerKey', { publicKey: generateKeyPair().publicKey })).rejects.toThrow(/^pairing-removed:/);
+                await expect(asker.request('auth.pairingToken', {})).rejects.toThrow(/^unknown-request:/);
             }
         } finally {
             owner.close();

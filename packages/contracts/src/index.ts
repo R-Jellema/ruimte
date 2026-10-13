@@ -72,14 +72,7 @@ import {
     LanguageSqlPayloadSchema,
     LanguageSqlStateSchema
 } from './sql-binding.ts';
-import {
-    AgentResumePayloadSchema,
-    ApprovalAnswerPayloadSchema,
-    ApprovalAnswerResultSchema,
-    ApprovalPreferencePayloadSchema,
-    SessionApprovalsEventSchema,
-    SessionStatusEventSchema
-} from './agent.ts';
+import { AgentResumePayloadSchema, SessionStatusEventSchema } from './agent.ts';
 import {
     FsBrowsePayloadSchema,
     FsBrowseResultSchema,
@@ -158,8 +151,6 @@ import {
     WorktreeRemoveResultSchema
 } from './git.ts';
 import {
-    AuthRegisterKeyPayloadSchema,
-    AuthRegisterKeyResultSchema,
     AuthRevokePayloadSchema,
     AuthSessionsResultSchema,
     EndpointChangedEventSchema,
@@ -168,8 +159,7 @@ import {
     EndpointLeaveAccountResultSchema,
     EndpointSetIdentityPayloadSchema,
     EndpointSignRegistrationPayloadSchema,
-    EndpointSignRegistrationResultSchema,
-    PairingTokenResultSchema
+    EndpointSignRegistrationResultSchema
 } from './auth.ts';
 import { DirectSignalPayloadSchema } from './direct.ts';
 import {
@@ -442,8 +432,6 @@ export const REQUEST_SCHEMAS = {
     'device.operations': { payload: EmptySchema, result: DeviceOperationsResultSchema },
     'device.control': { payload: DeviceControlPayloadSchema, result: DeviceOperatedSchema },
     'agent.resume': { payload: AgentResumePayloadSchema, result: EmptySchema },
-    'agent.answerApproval': { payload: ApprovalAnswerPayloadSchema, result: ApprovalAnswerResultSchema },
-    'agent.setApprovals': { payload: ApprovalPreferencePayloadSchema, result: EmptySchema },
     'chat.create': AGENT_REQUEST_SCHEMAS['chat.create'],
     'chat.history': AGENT_REQUEST_SCHEMAS['chat.history'],
     'chat.attach': AGENT_REQUEST_SCHEMAS['chat.attach'],
@@ -641,8 +629,6 @@ export const REQUEST_SCHEMAS = {
     'endpoint.installUpdate': { payload: EndpointInstallUpdatePayloadSchema, result: EndpointInstallUpdateResultSchema },
     'auth.sessions': { payload: EmptySchema, result: AuthSessionsResultSchema },
     'auth.revoke': { payload: AuthRevokePayloadSchema, result: EmptySchema },
-    'auth.pairingToken': { payload: EmptySchema, result: PairingTokenResultSchema },
-    'auth.registerKey': { payload: AuthRegisterKeyPayloadSchema, result: AuthRegisterKeyResultSchema },
     'direct.signal': { payload: DirectSignalPayloadSchema, result: EmptySchema },
     'chat.kill': AGENT_REQUEST_SCHEMAS['chat.kill'],
     'chat.restart': AGENT_REQUEST_SCHEMAS['chat.restart'],
@@ -680,7 +666,6 @@ export const EVENT_SCHEMAS = {
     'session.size': SessionSizeEventSchema,
     'session.exit': SessionExitEventSchema,
     'session.status': SessionStatusEventSchema,
-    'session.approvals': SessionApprovalsEventSchema,
     'session.list-changed': EmptySchema,
     'browser.frame': BrowserFrameSchema,
     'browser.status': BrowserInfoSchema,
