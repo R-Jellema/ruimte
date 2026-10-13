@@ -166,6 +166,7 @@
     "chat.subagent",
     "chat.stopSubagent",
     "chat.stopTask",
+    "chat.goal",
     "chat.addBookmark",
     "chat.renameBookmark",
     "chat.removeBookmark",

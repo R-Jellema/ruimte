@@ -190,6 +190,7 @@ function fake(answers: Answers = {}, machine: Partial<SessionMachine> = {}): Fak
         'chat.sendNow': () => ({}),
         'chat.stopSubagent': () => ({}),
         'chat.stopTask': () => ({}),
+        'chat.goal': () => ({}),
         'session.kill': () => ({}),
         'agent.resume': () => ({}),
         'agent.answerApproval': () => ({ accepted: true }),
@@ -344,6 +345,19 @@ describe('stopping', () => {
         expect(of('chat.stopTask')).toEqual([{ chatId: 'chat', taskId: 'bg-1' }]);
         expect(await registry.execute('chat.stopTask', { chatId: 'chat', taskId: 'bg-9' }, VOICE_ACTION_CALL)).toMatchObject({
             error: { code: 'unknown-task' }
+        });
+    });
+
+    test('Voice asks before it pauses a goal, and a chat without one is refused', async () => {
+        const { registry, of } = fake({}, { chat: () => rowOf(info({ goal: { objective: 'Make the build green', status: 'active' } })) });
+        const asked = await registry.execute('chat.goal', { chatId: 'chat', change: 'pause' }, VOICE_ACTION_CALL);
+        expect(consequences(asked)).toContain('Pause the goal of');
+        await confirm(registry, asked);
+        expect(of('chat.goal')).toEqual([{ chatId: 'chat', action: 'pause' }]);
+
+        const none = fake({}, { chat: () => rowOf(info()) });
+        expect(await none.registry.execute('chat.goal', { chatId: 'chat', change: 'clear' }, VOICE_ACTION_CALL)).toMatchObject({
+            error: { code: 'goal-not-found' }
         });
     });
 

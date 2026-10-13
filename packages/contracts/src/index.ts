@@ -467,6 +467,7 @@ export const REQUEST_SCHEMAS = {
     'chat.subagent': AGENT_REQUEST_SCHEMAS['chat.subagent'],
     'chat.stopSubagent': AGENT_REQUEST_SCHEMAS['chat.stopSubagent'],
     'chat.stopTask': AGENT_REQUEST_SCHEMAS['chat.stopTask'],
+    'chat.goal': AGENT_REQUEST_SCHEMAS['chat.goal'],
     'chat.addBookmark': AGENT_REQUEST_SCHEMAS['chat.addBookmark'],
     'chat.renameBookmark': AGENT_REQUEST_SCHEMAS['chat.renameBookmark'],
     'chat.removeBookmark': AGENT_REQUEST_SCHEMAS['chat.removeBookmark'],

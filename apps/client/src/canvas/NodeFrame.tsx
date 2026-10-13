@@ -63,6 +63,7 @@ import { SessionPorts } from '@/terminal/SessionPorts';
 import { ChatBody } from '@/nodes/ChatBody';
 import { ForkPill } from '@/chat/ForkPill';
 import { AccountPill } from '@adecore/agents-react/chat/ui/AccountPill';
+import { GoalPill } from '@adecore/agents-react/chat/ui/GoalDock';
 import { LimitPill } from '@adecore/agents-react/chat/ui/LimitState';
 import { PlanPill } from '@/plan/PlanPill';
 import { useChatPrWatch } from '@/state/pr-watches';
@@ -439,6 +440,7 @@ export const NodeFrame = memo(function NodeFrame({ id, z }: { id: string; z: num
                             <ForkPill chatId={id} />
                             <PlanPill chatId={id} />
                             <LimitPill chatId={id} />
+                            <GoalPill chatId={id} />
                             <PrWatchPill chatId={id} />
                         </>
                     )}

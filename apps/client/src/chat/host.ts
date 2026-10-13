@@ -63,6 +63,9 @@ const PERSON_CHAT_ACTIONS: ChatActions = {
     },
     stopTask: async (chatId, taskId) => {
         await performAsPerson('chat.stopTask', { chatId, taskId });
+    },
+    goal: async (chatId, action) => {
+        await performAsPerson('chat.goal', { chatId, change: action });
     }
 };
 

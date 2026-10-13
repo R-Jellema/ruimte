@@ -5042,6 +5042,27 @@
       "queue"
     ]
   },
+  "ChatGoalActionSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "string",
+    "enum": [
+      "pause",
+      "resume",
+      "clear"
+    ]
+  },
+  "ChatGoalStatusSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "string",
+    "enum": [
+      "active",
+      "paused",
+      "blocked",
+      "usage-limited",
+      "budget-limited",
+      "complete"
+    ]
+  },
   "ChatRequestKindSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "string",
@@ -10456,6 +10477,52 @@
           ]
         }
       },
+      "goal": {
+        "type": "object",
+        "properties": {
+          "objective": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "paused",
+              "blocked",
+              "usage-limited",
+              "budget-limited",
+              "complete"
+            ]
+          },
+          "checks": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "lastCheck": {
+            "type": "string"
+          },
+          "tokensUsed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "tokenBudget": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "secondsUsed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "objective",
+          "status"
+        ]
+      },
       "createdAt": {
         "type": "number"
       }
@@ -12717,6 +12784,52 @@
                 "createdAt"
               ]
             }
+          },
+          "goal": {
+            "type": "object",
+            "properties": {
+              "objective": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "paused",
+                  "blocked",
+                  "usage-limited",
+                  "budget-limited",
+                  "complete"
+                ]
+              },
+              "checks": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "lastCheck": {
+                "type": "string"
+              },
+              "tokensUsed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "tokenBudget": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "secondsUsed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "objective",
+              "status"
+            ]
           },
           "createdAt": {
             "type": "number"
@@ -18247,6 +18360,52 @@
                         ]
                       }
                     },
+                    "goal": {
+                      "type": "object",
+                      "properties": {
+                        "objective": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "paused",
+                            "blocked",
+                            "usage-limited",
+                            "budget-limited",
+                            "complete"
+                          ]
+                        },
+                        "checks": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "lastCheck": {
+                          "type": "string"
+                        },
+                        "tokensUsed": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "tokenBudget": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "secondsUsed": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "objective",
+                        "status"
+                      ]
+                    },
                     "createdAt": {
                       "type": "number"
                     }
@@ -18856,6 +19015,52 @@
                           "createdAt"
                         ]
                       }
+                    },
+                    "goal": {
+                      "type": "object",
+                      "properties": {
+                        "objective": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "paused",
+                            "blocked",
+                            "usage-limited",
+                            "budget-limited",
+                            "complete"
+                          ]
+                        },
+                        "checks": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "lastCheck": {
+                          "type": "string"
+                        },
+                        "tokensUsed": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "tokenBudget": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "secondsUsed": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "objective",
+                        "status"
+                      ]
                     },
                     "createdAt": {
                       "type": "number"
@@ -21970,6 +22175,52 @@
           ]
         }
       },
+      "goal": {
+        "type": "object",
+        "properties": {
+          "objective": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "paused",
+              "blocked",
+              "usage-limited",
+              "budget-limited",
+              "complete"
+            ]
+          },
+          "checks": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "lastCheck": {
+            "type": "string"
+          },
+          "tokensUsed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "tokenBudget": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "secondsUsed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "objective",
+          "status"
+        ]
+      },
       "createdAt": {
         "type": "number"
       }
@@ -22872,6 +23123,52 @@
               ]
             }
           },
+          "goal": {
+            "type": "object",
+            "properties": {
+              "objective": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "paused",
+                  "blocked",
+                  "usage-limited",
+                  "budget-limited",
+                  "complete"
+                ]
+              },
+              "checks": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "lastCheck": {
+                "type": "string"
+              },
+              "tokensUsed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "tokenBudget": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "secondsUsed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "objective",
+              "status"
+            ]
+          },
           "createdAt": {
             "type": "number"
           }
@@ -23594,6 +23891,52 @@
                     "createdAt"
                   ]
                 }
+              },
+              "goal": {
+                "type": "object",
+                "properties": {
+                  "objective": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "paused",
+                      "blocked",
+                      "usage-limited",
+                      "budget-limited",
+                      "complete"
+                    ]
+                  },
+                  "checks": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "lastCheck": {
+                    "type": "string"
+                  },
+                  "tokensUsed": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "tokenBudget": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "secondsUsed": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "objective",
+                  "status"
+                ]
               },
               "createdAt": {
                 "type": "number"
@@ -25719,6 +26062,33 @@
     "type": "object",
     "properties": {}
   },
+  "request.chat.goal.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "chatId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "action": {
+        "type": "string",
+        "enum": [
+          "pause",
+          "resume",
+          "clear"
+        ]
+      }
+    },
+    "required": [
+      "chatId",
+      "action"
+    ]
+  },
+  "request.chat.goal.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
   "request.chat.addBookmark.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -26612,6 +26982,13 @@
                 },
                 "slashCommands": {
                   "type": "boolean"
+                },
+                "goals": {
+                  "type": "string",
+                  "enum": [
+                    "native",
+                    "command"
+                  ]
                 }
               },
               "required": [
@@ -51635,6 +52012,52 @@
                 ]
               }
             },
+            "goal": {
+              "type": "object",
+              "properties": {
+                "objective": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "paused",
+                    "blocked",
+                    "usage-limited",
+                    "budget-limited",
+                    "complete"
+                  ]
+                },
+                "checks": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "lastCheck": {
+                  "type": "string"
+                },
+                "tokensUsed": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "tokenBudget": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "secondsUsed": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "objective",
+                "status"
+              ]
+            },
             "createdAt": {
               "type": "number"
             }
@@ -55931,6 +56354,52 @@
                       ]
                     }
                   },
+                  "goal": {
+                    "type": "object",
+                    "properties": {
+                      "objective": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "active",
+                          "paused",
+                          "blocked",
+                          "usage-limited",
+                          "budget-limited",
+                          "complete"
+                        ]
+                      },
+                      "checks": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "lastCheck": {
+                        "type": "string"
+                      },
+                      "tokensUsed": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "tokenBudget": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "secondsUsed": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "objective",
+                      "status"
+                    ]
+                  },
                   "createdAt": {
                     "type": "number"
                   }
@@ -56540,6 +57009,52 @@
                         "createdAt"
                       ]
                     }
+                  },
+                  "goal": {
+                    "type": "object",
+                    "properties": {
+                      "objective": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "active",
+                          "paused",
+                          "blocked",
+                          "usage-limited",
+                          "budget-limited",
+                          "complete"
+                        ]
+                      },
+                      "checks": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "lastCheck": {
+                        "type": "string"
+                      },
+                      "tokensUsed": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "tokenBudget": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "secondsUsed": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "objective",
+                      "status"
+                    ]
                   },
                   "createdAt": {
                     "type": "number"
@@ -58749,6 +59264,52 @@
                 "createdAt"
               ]
             }
+          },
+          "goal": {
+            "type": "object",
+            "properties": {
+              "objective": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "paused",
+                  "blocked",
+                  "usage-limited",
+                  "budget-limited",
+                  "complete"
+                ]
+              },
+              "checks": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "lastCheck": {
+                "type": "string"
+              },
+              "tokensUsed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "tokenBudget": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "secondsUsed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "objective",
+              "status"
+            ]
           },
           "createdAt": {
             "type": "number"

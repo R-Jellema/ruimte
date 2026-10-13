@@ -630,6 +630,30 @@ export function sessionActions(document: StoreApi<DocumentState>, overrides: Par
             await ask('chat.stopTask', { chatId, taskId });
             return { output: { chatId, chat, taskId, task: named } };
         },
+        'chat.goal': async ({ chatId, change }, call) => {
+            const chat = chatNamed(chatId, call);
+            const goal = machine.chat(chatId)?.info.goal;
+            if (call.actor.kind !== 'person' && goal === undefined) {
+                throw new ActionRefusal('goal-not-found', `“${chat}” has no goal.`);
+            }
+            const objective = goal?.objective ?? '';
+            if (asksFirst(call)) {
+                return {
+                    confirmation: {
+                        title: `${change === 'pause' ? 'Pause' : change === 'resume' ? 'Resume' : 'Clear'} the goal of “${chat}”?`,
+                        consequences: [
+                            change === 'resume'
+                                ? 'The agent works toward it again, turn after turn, until it is met.'
+                                : change === 'pause'
+                                  ? 'The agent finishes the turn it runs and opens no further turn toward the goal.'
+                                  : 'The goal is gone; the agent opens no further turn toward it.'
+                        ]
+                    }
+                };
+            }
+            await ask('chat.goal', { chatId, action: change });
+            return { output: { chatId, chat, change, objective } };
+        },
         'chat.answer': async ({ chatId, requestId, answers }, call) => {
             const chat = chatNamed(chatId, call);
             const given = new Map(answers.map((entry) => [entry.questionId, entry.answer]));

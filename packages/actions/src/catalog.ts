@@ -1411,6 +1411,16 @@ export const ACTION_DEFINITIONS = {
         input: z.object({ chatId: chatTarget, taskId: z.string().min(1).describe('The background task, by the id chat.inspect gives it') }),
         output: chatNamed.extend({ taskId: z.string(), task: z.string() })
     },
+    'chat.goal': {
+        title: 'Pause, resume or clear a goal',
+        description:
+            'Acts on the goal an AI Chat works toward on its own (`/goal`), after confirmation. Pause and resume only where the CLI has them (Codex); clear also on Claude Code, between turns. A paused or cleared goal opens no further turn.',
+        effect: 'external',
+        domain: 'sessions',
+        actors: PERSON_AND_VOICE,
+        input: z.object({ chatId: chatTarget, change: z.enum(['pause', 'resume', 'clear']).describe('What to do to the goal') }),
+        output: chatNamed.extend({ change: z.enum(['pause', 'resume', 'clear']), objective: z.string() })
+    },
     'chat.answer': {
         title: 'Answer an agent’s question',
         description:

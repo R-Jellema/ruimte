@@ -3434,6 +3434,21 @@ public enum ChatDelivery: String, CaseIterable, Codable, Sendable, Equatable {
     case `queue` = "queue"
 }
 
+public enum ChatGoalAction: String, CaseIterable, Codable, Sendable, Equatable {
+    case `pause` = "pause"
+    case `resume` = "resume"
+    case `clear` = "clear"
+}
+
+public enum ChatGoalStatus: String, CaseIterable, Codable, Sendable, Equatable {
+    case `active` = "active"
+    case `paused` = "paused"
+    case `blocked` = "blocked"
+    case `usageLimited` = "usage-limited"
+    case `budgetLimited` = "budget-limited"
+    case `complete` = "complete"
+}
+
 public enum ChatRequestKind: String, CaseIterable, Codable, Sendable, Equatable {
     case `approval` = "approval"
     case `question` = "question"
