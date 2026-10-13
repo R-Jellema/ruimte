@@ -19,7 +19,7 @@ export async function withBrowserFixture(entryCode: string, styles: string, run:
             import React from ${JSON.stringify(join(clientDirectory, 'node_modules/react/index.js'))};
             import { createRoot } from ${JSON.stringify(join(clientDirectory, 'node_modules/react-dom/client.js'))};
             import i18next from ${JSON.stringify(join(clientDirectory, 'node_modules/i18next/dist/esm/i18next.js'))};
-            import { UIProvider } from ${JSON.stringify(join(clientDirectory, 'node_modules/@adecore/ui/src/UIProvider.tsx'))};
+            import { UIProvider } from ${JSON.stringify(Bun.resolveSync('@adecore/ui', clientDirectory))};
             await i18next.init({ lng: 'en', resources: { en: { common: { action: { remove: 'Remove', rename: 'Rename' } }, canvas: { menu: { doubleClick: 'Double-click' } } } } });
             ${entryCode}
         `
@@ -74,7 +74,7 @@ export async function withBrowserFixture(entryCode: string, styles: string, run:
             assets.set(route, result.outputs[0]!);
         }
         const script = await build.outputs[0]!.text();
-        const theme = await readFile(join(clientDirectory, 'node_modules/@adecore/ui/src/theme.css'), 'utf8');
+        const theme = await readFile(Bun.resolveSync('@adecore/ui/theme.css', clientDirectory), 'utf8');
         server = Bun.serve({
             hostname: '127.0.0.1',
             port: 0,

@@ -102,7 +102,7 @@ for (const mode of [
         });
         try {
             const css = await readFile(join(clientDirectory, 'node_modules/@xterm/xterm/css/xterm.css'), 'utf8');
-            const terminalCss = await readFile(join(clientDirectory, 'node_modules/@adecore/terminal/src/terminal.css'), 'utf8');
+            const terminalCss = await readFile(Bun.resolveSync('@adecore/terminal/terminal.css', clientDirectory), 'utf8');
             await withBrowserFixture(
                 `
                 import { Terminal } from ${JSON.stringify(Bun.resolveSync('@xterm/xterm', await realpath(join(clientDirectory, 'node_modules/@adecore/terminal'))))};

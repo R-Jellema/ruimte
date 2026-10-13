@@ -13,10 +13,10 @@ const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimati
 async function fixture(platform: 'darwin' | 'linux' | 'browser', shared: boolean, run: (view: View) => Promise<void>): Promise<void> {
     const apple = platform === 'darwin' || (platform === 'browser' && process.platform === 'darwin');
     const css = await readFile(join(clientDirectory, 'node_modules/@xterm/xterm/css/xterm.css'), 'utf8');
-    const terminalCss = await readFile(join(clientDirectory, 'node_modules/@adecore/terminal/src/terminal.css'), 'utf8');
+    const terminalCss = await readFile(Bun.resolveSync('@adecore/terminal/terminal.css', clientDirectory), 'utf8');
     await withBrowserFixture(
         `
-        import { TerminalView } from ${JSON.stringify(join(clientDirectory, 'node_modules/@adecore/terminal/src/TerminalView.tsx'))};
+        import { TerminalView } from ${JSON.stringify(Bun.resolveSync('@adecore/terminal', clientDirectory))};
         import { MachineTerminal } from ${JSON.stringify(join(import.meta.dir, 'MachineTerminal.tsx'))};
         import { useEndpoints } from ${JSON.stringify(join(import.meta.dir, '../state/endpoints.ts'))};
         import { useToasts } from ${JSON.stringify(join(import.meta.dir, '../state/toasts.ts'))};
@@ -301,7 +301,7 @@ for (const platform of ['darwin', 'browser'] as const) {
 
 test('TerminalBody links work through canvas focus, zoom, selection and dragging', async () => {
     const css = await readFile(join(clientDirectory, 'node_modules/@xterm/xterm/css/xterm.css'), 'utf8');
-    const terminalCss = await readFile(join(clientDirectory, 'node_modules/@adecore/terminal/src/terminal.css'), 'utf8');
+    const terminalCss = await readFile(Bun.resolveSync('@adecore/terminal/terminal.css', clientDirectory), 'utf8');
     const terminalPackage = await realpath(join(clientDirectory, 'node_modules/@adecore/terminal'));
     await withBrowserFixture(
         `
