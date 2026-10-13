@@ -6,6 +6,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { build, defaultClientConditions, defineConfig, searchForWorkspaceRoot, type Plugin } from 'vite';
 import { adecoreJsonImports, adecoreSources } from './adecore-sources.ts';
+import { startChunkGuard } from './start-chunk.ts';
 import { visualHostPage } from './visual-host.ts';
 
 // The dev daemon sits on 4211 so an installed Ruimte can keep 4210.
@@ -140,6 +141,7 @@ export default defineConfig(({ mode }) => ({
         bytesWorker(),
         pdfjsAssets(),
         visualHostPage(),
+        startChunkGuard(),
         ...(mode === 'station' ? [stationHead()] : [])
     ],
     resolve: {
