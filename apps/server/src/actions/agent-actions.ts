@@ -87,7 +87,7 @@ export const agentActions: ActionHandlers<ServerActionContext> = {
     },
     'agent.alert': async ({ text }, { actor, context }) => {
         void context.place;
-        context.host.alert(actor.id, text);
+        context.host.messages.alert(actor.id, text);
         return { output: { nodeId: actor.id } };
     },
     'agent.notify': async ({ nodeId, text }, { actor, context }) => {
@@ -101,7 +101,7 @@ export const agentActions: ActionHandlers<ServerActionContext> = {
                 'see\truimte-context link new\ta line needs both of its ends on one canvas'
             ]);
         }
-        const content = await host.read(place.projectId);
+        const content = await host.projects.read(place.projectId);
         const canvas = canvasFor(content, place, undefined);
         /* A message travels where `deriveContextSources` already lets a read go: along a line from the
            caller into an agent node, which the person who drew it can see. */
@@ -134,7 +134,7 @@ export const agentActions: ActionHandlers<ServerActionContext> = {
 
         const self = canvas.nodes.find((node) => node.id === caller);
         // Delivered, waiting, and the one step a message wakes and no further are decided in `deliverNotice`.
-        const delivery = await host.notify({
+        const delivery = await host.messages.notify({
             projectId: place.projectId,
             targetId: nodeId,
             from: caller,

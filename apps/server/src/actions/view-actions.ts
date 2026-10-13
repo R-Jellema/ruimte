@@ -41,9 +41,9 @@ function kindOf(view: ProjectView): ActionOutput<'view.focus'>['kind'] {
 
 export const viewActions: ActionHandlers<ServerActionContext> = {
     'view.list': async (_input, { actor, context }) => {
-        const revision = await context.host.revision(context.place.projectId);
-        const content = await context.host.read(context.place.projectId);
-        const anyView = context.host.agentsDeleteAnyView();
+        const revision = await context.host.projects.revision(context.place.projectId);
+        const content = await context.host.projects.read(context.place.projectId);
+        const anyView = context.host.machine.agentsDeleteAnyView;
         return {
             output: {
                 views: content.views.map((view) => {
@@ -123,7 +123,7 @@ export const viewActions: ActionHandlers<ServerActionContext> = {
                   }
                 : undefined;
 
-        return context.host.mutate(context.place.projectId, (content) => {
+        return context.host.projects.mutate(context.place.projectId, (content) => {
             if (content.views.length + 1 > MAX_PROJECT_VIEWS) {
                 throw new VerbRefusal('too-many-views', `This project has ${content.views.length} views and a project holds at most ${MAX_PROJECT_VIEWS}`);
             }
@@ -144,7 +144,7 @@ export const viewActions: ActionHandlers<ServerActionContext> = {
     },
     'view.rename': async ({ viewId, name }, { context }) => {
         const { host, place } = context;
-        return host.mutate(place.projectId, (content) => {
+        return host.projects.mutate(place.projectId, (content) => {
             const view = viewNamed(content, viewId, 'view rename');
             const previousName = view.name ?? '';
             const previousSource: NodeTitleSource | null = 'titleSource' in view ? (view.titleSource ?? null) : null;
@@ -158,7 +158,7 @@ export const viewActions: ActionHandlers<ServerActionContext> = {
                         ? {}
                         : {
                               undo: async () => {
-                                  await host.mutate(place.projectId, (current) => {
+                                  await host.projects.mutate(place.projectId, (current) => {
                                       const currentView = current.views.find((candidate) => candidate.id === viewId);
                                       const currentSource = currentView && 'titleSource' in currentView ? (currentView.titleSource ?? null) : null;
                                       if (!currentView || currentView.name !== name || currentSource !== 'user') {
@@ -175,7 +175,7 @@ export const viewActions: ActionHandlers<ServerActionContext> = {
     },
     'view.setIcon': async ({ viewId, icon: name }, { context }) => {
         const icon = name === null ? null : iconChoice(name);
-        return context.host.mutate(context.place.projectId, (content) => {
+        return context.host.projects.mutate(context.place.projectId, (content) => {
             const view = viewNamed(content, viewId, 'view icon');
             if (isDividerView(view)) {
                 throw new VerbRefusal('not-markable', `${viewId} is a ${view.kind}, a row that divides the sidebar and has no room for a mark`);
@@ -188,7 +188,7 @@ export const viewActions: ActionHandlers<ServerActionContext> = {
         });
     },
     'view.move': async ({ viewId, afterViewId }, { context }) =>
-        context.host.mutate(context.place.projectId, (content) => {
+        context.host.projects.mutate(context.place.projectId, (content) => {
             const view = viewNamed(content, viewId, 'view move');
             let toIndex = 0;
             if (afterViewId !== null) {
@@ -207,8 +207,8 @@ export const viewActions: ActionHandlers<ServerActionContext> = {
         }),
     'view.delete': async ({ viewId }, { actor, context }) => {
         const { host, place } = context;
-        const anyView = host.agentsDeleteAnyView();
-        return host.mutate(place.projectId, async (content) => {
+        const anyView = host.machine.agentsDeleteAnyView;
+        return host.projects.mutate(place.projectId, async (content) => {
             const view = viewNamed(content, viewId, 'view delete');
             refuseUndeletable(view, { caller: actor.id, place, anyView });
             const result = withoutView(content.views, viewId)!;
@@ -233,7 +233,7 @@ export const viewActions: ActionHandlers<ServerActionContext> = {
         });
     },
     'view.focus': async ({ viewId }, { actor, context }) => {
-        const content = await context.host.read(context.place.projectId);
+        const content = await context.host.projects.read(context.place.projectId);
         // Only what view open itself takes: a refusal that listed the dividers would offer what the next call refuses.
         const openable = (): string[] => orNote(viewLines(content.views.filter(isOpenableView)), 'This project has no view that opens');
         const view = content.views.find((candidate) => candidate.id === viewId);
@@ -243,7 +243,7 @@ export const viewActions: ActionHandlers<ServerActionContext> = {
         if (!isOpenableView(view)) {
             throw new VerbRefusal('never-opens', `${viewId} is a ${view.kind} and has nothing to show`, openable());
         }
-        const delivered = context.host.showView(context.place.projectId, viewId, actor.id);
+        const delivered = context.host.projects.showView(context.place.projectId, viewId, actor.id);
         return { output: { viewId, view: view.name ?? viewId, kind: kindOf(view), changed: delivered, delivered } };
     }
 };

@@ -58,8 +58,10 @@ function content(): ProjectContent {
 }
 
 const host = {
-    locate: () => ({ projectId: 'p1', folder: home, canvasId: 'main' }),
-    read: async () => content(),
+    projects: {
+        locate: () => ({ projectId: 'p1', folder: home, canvasId: 'main' }),
+        read: async () => content()
+    },
     devices: driver
 } as unknown as CanvasHost;
 

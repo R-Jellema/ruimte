@@ -144,7 +144,7 @@ export const nodeDeleteAction = defineActionVerb('node', {
     flags: z.object({}),
     async run({ positionals: [id] }, call) {
         const place = placeOf(call);
-        const content = await call.host.read(place.projectId);
+        const content = await call.host.projects.read(place.projectId);
         const holding = content.views.filter(isCanvasView).find((view) => view.nodes.some((node) => node.id === id));
         // The action refuses a node on no canvas before it reads the canvas, so any id stands in for one there.
         const deleted = await runAction(call, 'node.delete', { viewId: holding?.id ?? place.canvasId ?? id, nodeIds: [id] });

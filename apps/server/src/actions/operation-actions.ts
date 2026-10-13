@@ -42,7 +42,7 @@ function startTask(host: CanvasHost, caller: string, nodeId: string): Task | und
  */
 function isOwnStart(host: CanvasHost, agents: AgentStateHost, caller: string, nodeId: string, operationId: string, verb: 'follow' | 'cancel'): boolean {
     const startedBy = agents.startedBy(nodeId);
-    if (host.locate(nodeId) === null) {
+    if (host.projects.locate(nodeId) === null) {
         return startedBy === caller || startTask(host, caller, nodeId) !== undefined;
     }
     if (startedBy === caller) {
@@ -145,7 +145,7 @@ export const operationActions: ActionHandlers<ServerActionContext> = {
                 continue;
             }
             const task = startTask(host, actor.id, nodeId);
-            const placed = host.locate(nodeId) !== null;
+            const placed = host.projects.locate(nodeId) !== null;
             const state = await agents.stateOf(nodeId);
             const read = task !== undefined ? byTask(task, state) : placed ? byState(state) : { status: 'cancelled' as const, detail: 'the node is gone' };
             rows.push({ nodeId, ...read, taskId: task?.id ?? null });
@@ -179,7 +179,7 @@ export const operationActions: ActionHandlers<ServerActionContext> = {
         const lines: CancelLine[] = [];
         let yours = 0;
         for (const nodeId of parsed.nodeIds) {
-            const placed = host.locate(nodeId) !== null;
+            const placed = host.projects.locate(nodeId) !== null;
             if (!isOwnStart(host, agents, actor.id, nodeId, operationId, 'cancel')) {
                 lines.push({ operationId, status: 'over', detail: `${nodeId}: the node is gone` });
                 continue;

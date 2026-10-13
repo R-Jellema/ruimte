@@ -86,9 +86,9 @@ describe('reading an attached chat', () => {
         diagramDocument: async () => null
     });
     const host = {
-        locate: () => null,
-        context: { list: (id: string) => store.list(id), read: store.answer.bind(store) }
-    } as Partial<CanvasHost> as CanvasHost;
+        projects: { locate: () => null },
+        context: store
+    } as unknown as CanvasHost;
     const restore: Array<() => void> = [];
 
     afterEach(() => {

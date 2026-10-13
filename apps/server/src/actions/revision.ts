@@ -37,7 +37,7 @@ export async function checkProjectRevision(
     if (!PROJECT_WRITES.has(name)) {
         throw new ActionRefusal('no-revision', `${name} writes no project file, so it takes no revision`);
     }
-    const current = await call.context.host.revision(call.context.place.projectId);
+    const current = await call.context.host.projects.revision(call.context.place.projectId);
     if (current !== call.expectedRevision) {
         throw revisionConflict('The project', call.expectedRevision, current);
     }

@@ -11,7 +11,7 @@ const noun = verbNamed('computer') as Noun;
 /* Only what a computer verb reaches: where the caller stands, and the machine's computer use. */
 function hostFor(setup: ComputerSetup): CanvasHost {
     return {
-        locate: () => ({ projectId: 'p1', folder: '/tmp/p1', canvasId: 'c1' }),
+        projects: { locate: () => ({ projectId: 'p1', folder: '/tmp/p1', canvasId: 'c1' }) },
         computer: setup.computer
     } as unknown as CanvasHost;
 }

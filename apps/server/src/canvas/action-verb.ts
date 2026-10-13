@@ -48,7 +48,7 @@ export async function canvasIdFor(
     if (place.canvasId !== null) {
         return place.canvasId;
     }
-    throw new VerbRefusal('view-required', offCanvas, canvasLines(await call.host.read(place.projectId)));
+    throw new VerbRefusal('view-required', offCanvas, canvasLines(await call.host.projects.read(place.projectId)));
 }
 
 /* One argument or flag of an action verb, as `help` prints it. */

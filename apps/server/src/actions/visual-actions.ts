@@ -42,7 +42,7 @@ function requireEnabled(visuals: VisualHost): void {
 
 /* A visual shows in the thread of an AI chat, and a terminal has no thread to show it in. */
 async function callerChat({ host, place }: ServerActionContext, caller: string): Promise<string> {
-    const kind = callerKind(await host.read(place.projectId), caller) ?? host.hiddenAgents?.get(caller)?.node.kind ?? null;
+    const kind = callerKind(await host.projects.read(place.projectId), caller) ?? host.hiddenAgents?.get(caller)?.node.kind ?? null;
     if (kind !== 'chat') {
         throw new VerbRefusal(
             'visual-needs-chat',

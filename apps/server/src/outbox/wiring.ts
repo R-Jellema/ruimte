@@ -183,7 +183,7 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
 
     const summaries = wireSummaries({
         chats,
-        host: { locate: (id) => projects.index.locate(id), mutate: (projectId, apply) => projects.mutate(projectId, apply) },
+        projects,
         titleFor: (id) => projects.index.titleFor(id),
         enqueue
     });

@@ -1,4 +1,5 @@
-import type { WorktreeHost } from '../canvas/verb.ts';
+import type { Worktree } from '@ruimte/contracts';
+import type { CheckoutHost, WorktreeHost, WorktreeWant } from '../canvas/verb.ts';
 import { diffCheckout } from './diff.ts';
 import { mergeBaseWith } from './status.ts';
 import type { WorktreeMerge } from './worktree-merge.ts';
@@ -17,4 +18,26 @@ export function worktreeHost(worktrees: Worktrees, merge: WorktreeMerge): Worktr
                 abortOnConflict: true
             })
     };
+}
+
+/* What a verb that starts a node in a worktree reaches the machine's worktrees through. */
+export function checkoutHost(worktrees: Worktrees): CheckoutHost {
+    return {
+        paths: (folder) =>
+            worktrees
+                .list(folder)
+                .then((list) => list.map((worktree) => worktree.path))
+                .catch(() => []),
+        branches: (folder) => worktrees.branches(folder).catch(() => null),
+        add: (folder, want, projectId) => addWanted(worktrees, folder, want, projectId),
+        claim: (folder, path, nodeId) => worktrees.claim(folder, path, nodeId),
+        remove: (folder, path) => worktrees.remove(folder, path)
+    };
+}
+
+async function addWanted(worktrees: Worktrees, folder: string, want: WorktreeWant, projectId: string): Promise<{ worktree: Worktree; created: boolean }> {
+    const options = want.base === undefined ? {} : { base: want.base };
+    return 'branch' in want
+        ? await worktrees.add(folder, want.branch, { madeBy: 'verb', projectId }, options)
+        : { worktree: await worktrees.addFresh(folder, want.fresh, { madeBy: 'verb', projectId }, options), created: true };
 }

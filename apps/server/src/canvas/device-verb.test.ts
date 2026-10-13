@@ -52,8 +52,10 @@ beforeEach(async () => {
 
 function hostWith(backends: RecordingBackend[]): CanvasHost {
     return {
-        locate: (id: string) => (id === 'chat-1' ? { projectId: 'p1', folder: '/tmp/p1', canvasId: 'main' } : null),
-        read: async () => content(),
+        projects: {
+            locate: (id: string) => (id === 'chat-1' ? { projectId: 'p1', folder: '/tmp/p1', canvasId: 'main' } : null),
+            read: async () => content()
+        },
         devices: new DeviceDriver({ home, manager: new DeviceManager(backends), timers: new ManualTimers(), sleep: async () => undefined })
     } as unknown as CanvasHost;
 }

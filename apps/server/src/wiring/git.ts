@@ -1,8 +1,10 @@
+import type { CheckoutHost } from '../canvas/verb.ts';
 import type { EndpointIdentity } from '../endpoint-id.ts';
 import { SharedWatch } from '../fs/shared-watch.ts';
 import { FolderWatcher } from '../fs/watch.ts';
 import { GitStatusWatcher } from '../git/status-watcher.ts';
 import { worktreeAgents } from '../git/worktree-agents.ts';
+import { checkoutHost } from '../git/worktree-host.ts';
 import { WorktreeMerge } from '../git/worktree-merge.ts';
 import { Worktrees } from '../git/worktrees.ts';
 import type { AgentsBundle } from './agents.ts';
@@ -16,8 +18,7 @@ export interface GitBundle {
     statuses: GitStatusWatcher;
     worktrees: Worktrees;
     merges: WorktreeMerge;
-    /* The worktrees of the repository the folder is in; empty when it is not in one. */
-    worktreePaths(folder: string): Promise<string[]>;
+    checkouts: CheckoutHost;
 }
 
 export function wireGit(home: string, identity: EndpointIdentity, agents: AgentsBundle, work: AgentWorkBundle): GitBundle {
@@ -32,10 +33,5 @@ export function wireGit(home: string, identity: EndpointIdentity, agents: Agents
     });
     worktrees.attachAgents(agentsInWorktrees);
     const merges = new WorktreeMerge(worktrees, agentsInWorktrees);
-    const worktreePaths = (folder: string): Promise<string[]> =>
-        worktrees
-            .list(folder)
-            .then((list) => list.map((worktree) => worktree.path))
-            .catch(() => []);
-    return { watches, folders, statuses, worktrees, merges, worktreePaths };
+    return { watches, folders, statuses, worktrees, merges, checkouts: checkoutHost(worktrees) };
 }

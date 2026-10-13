@@ -22,6 +22,6 @@ export const contextActions: ActionHandlers<ServerActionContext> = {
         }
     }),
     'context.read': async ({ sourceId, tail, subagent }, { actor, context }) => ({
-        output: { text: await contextOf(context).read(actor.id, sourceId, tail ?? null, subagent ?? null) }
+        output: { text: await contextOf(context).answer(actor.id, sourceId, tail ?? null, subagent ?? null) }
     })
 };

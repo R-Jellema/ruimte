@@ -1,5 +1,9 @@
-import type { AgentInfo, AgentLaunch, ChatCreatePayload, ChatInfo, RuntimeMode } from '@ruimte/contracts';
-import type { AgentStart, NodeAccount } from '../canvas/verb.ts';
+import type { AgentInfo, AgentKind, AgentLaunch, ChatCreatePayload, ChatInfo, RuntimeMode } from '@ruimte/contracts';
+import type { AgentLineageStore } from '@adecore/agents/coordination';
+import type { PendingPromptStore } from '../agents/pending-prompts.ts';
+import type { AgentStart, AgentStartHost, NodeAccount } from '../canvas/verb.ts';
+import type { ChatManager } from '../chat/chat-manager.ts';
+import type { SessionManager } from '../sessions/manager.ts';
 import { errorText } from '../error-text.ts';
 import type { ComposerPreference } from '@adecore/agents/chat';
 import { narrowerMode } from '@adecore/agents/providers';
@@ -68,6 +72,37 @@ export function startAgentWork(start: AgentStart, deps: NodeModeDeps): OutboxWor
             ceiling: nodeMode(deps)(start.openedBy),
             ...(start.account === undefined ? {} : { account: start.account })
         }
+    };
+}
+
+export interface AgentStartHostDeps {
+    /* The agent CLIs installed on this machine. */
+    installed(): Promise<AgentKind[]>;
+    prompts: Pick<PendingPromptStore, 'put'>;
+    enqueue(projectId: string, nodeId: string, work: OutboxWork): Promise<void>;
+    chats: Pick<ChatManager, 'get' | 'composerPreferences'>;
+    sessions: Pick<SessionManager, 'get'>;
+    lineage: Pick<AgentLineageStore, 'ceilingOf'>;
+    /* The agent nodes a caller holds open, which caps one caller in a loop. */
+    openedCount(callerId: string): number;
+}
+
+/* What the verbs start an agent node through, the same for the daemon and the test daemon. */
+export function agentStartHost(deps: AgentStartHostDeps): AgentStartHost {
+    const modes: NodeModeDeps = {
+        chatMode: (id) => deps.chats.get(id)?.info.runtimeMode,
+        launch: (id) => deps.sessions.get(id)?.launch,
+        reportedMode: (id) => deps.sessions.get(id)?.reportedMode,
+        ceiling: (id) => deps.lineage.ceilingOf(id)
+    };
+    return {
+        installedAgents: () => deps.installed(),
+        holdPrompt: (projectId, nodeId, prompt) => deps.prompts.put(projectId, nodeId, prompt),
+        startAgent: (start) => deps.enqueue(start.projectId, start.nodeId, startAgentWork(start, modes)),
+        modeOf: nodeMode(modes),
+        accountOf: nodeAccount({ chat: (id) => deps.chats.get(id)?.info, session: (id) => deps.sessions.get(id) }),
+        terminalModePreference: () => deps.chats.composerPreferences.terminalMode(),
+        openedCount: (callerId) => deps.openedCount(callerId)
     };
 }
 

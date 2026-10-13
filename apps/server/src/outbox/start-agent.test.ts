@@ -194,30 +194,33 @@ async function boot(): Promise<Daemon> {
         ceiling: (id: string) => lineage.ceilingOf(id)
     };
     const host: CanvasHost = {
-        locate: (id) => store.index.locate(id),
-        read: (id) => store.read(id),
-        revision: (id) => store.revision(id),
-        mutate: (id, apply, expectedRev) => store.mutate(id, apply, expectedRev),
-        worktreePaths: async () => [],
-        installedAgents: async () => ['claude', 'codex'],
-        holdPrompt: (id, nodeId, prompt) => prompts.put(id, nodeId, prompt),
-        startAgent: (start: AgentStart) => worker.enqueue(start.projectId, start.nodeId, startAgentWork(start, modes)),
-        modeOf: nodeMode(modes),
-        terminalModePreference: () => chats.composerPreferences.terminalMode(),
-        branchesOf: async () => null,
-        addWorktree: () => Promise.reject(new Error('not used here')),
-        removeWorktree: async () => undefined,
-        claimWorktree: async () => undefined,
-        depthOf: (nodeId) => lineage.depthOf(nodeId),
-        openedCount: (callerId) => lineage.openedCount(callerId),
-        recordMade: (record) => lineage.put(record),
-        madeBy: (nodeId) => lineage.madeBy(nodeId),
-        agentsDeleteAnyView: () => false,
-        showView: () => false,
+        projects: {
+            locate: (id) => store.locate(id),
+            read: (id) => store.read(id),
+            revision: (id) => store.revision(id),
+            mutate: (id, apply, expectedRev) => store.mutate(id, apply, expectedRev),
+            showView: () => false
+        },
+        checkouts: {
+            paths: async () => [],
+            branches: async () => null,
+            add: () => Promise.reject(new Error('not used here')),
+            remove: async () => undefined,
+            claim: async () => undefined
+        },
+        starts: {
+            installedAgents: async () => ['claude', 'codex'],
+            holdPrompt: (id, nodeId, prompt) => prompts.put(id, nodeId, prompt),
+            startAgent: (start: AgentStart) => worker.enqueue(start.projectId, start.nodeId, startAgentWork(start, modes)),
+            modeOf: nodeMode(modes),
+            terminalModePreference: () => chats.composerPreferences.terminalMode(),
+            openedCount: (callerId) => lineage.openedCount(callerId)
+        },
+        lineage,
+        machine: { agentsDeleteAnyView: false },
         endSession: unused,
-        alert: () => undefined,
-        notify: unused,
-        writeDiagram: unused,
+        messages: { alert: () => undefined, notify: unused },
+        diagrams: { write: unused },
         tasks: { open: unused, give: unused, chatState: unused, done: unused, involving: () => [] },
         plans: { read: unused, create: unused, apply: unused, delete: unused }
     };

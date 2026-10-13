@@ -20,7 +20,7 @@ function targetOf(content: ProjectContent, id: string): 'view' | 'node' {
 
 export const flagActions: ActionHandlers<ServerActionContext> = {
     'flag.set': async ({ ids, color }, { context }) =>
-        context.host.mutate(context.place.projectId, (content) => {
+        context.host.projects.mutate(context.place.projectId, (content) => {
             const flagged = [...new Set(ids)].map((id) => ({ id, target: targetOf(content, id), previous: flagOf(content.flags, id) }));
             const flags = withFlags(content.flags, ids, color);
             return {

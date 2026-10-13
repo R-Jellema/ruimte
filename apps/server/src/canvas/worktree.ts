@@ -1,7 +1,6 @@
 import type { Worktree } from '@ruimte/contracts';
 import { VerbRefusal, type VerbCall, type WorktreeWant } from './verb.ts';
 import { errorText } from '../error-text.ts';
-import type { Worktrees } from '../git/worktrees.ts';
 
 export const WORKTREE_LINES: readonly string[] = [
     "worktree\tEach agent gets a git worktree of its own under the machine's worktrees folder, on a new branch from HEAD, and starts in it; two agents editing the same file never overwrite each other",
@@ -22,26 +21,13 @@ export function branchSlug(title: string): string {
 
 /* Refuses a project that is not in a git repository, before anything is made for it. */
 export async function requireRepository(call: VerbCall, folder: string): Promise<void> {
-    if ((await call.host.branchesOf(folder)) === null) {
+    if ((await call.host.checkouts.branches(folder)) === null) {
         throw new VerbRefusal('not-a-repository', `--worktree needs a git repository, and ${folder} is not in one`);
     }
 }
 
 function nameOf(want: WorktreeWant): string {
     return 'branch' in want ? want.branch : want.fresh;
-}
-
-/* `CanvasHost.addWorktree` over the machine's worktrees. */
-export async function addWanted(
-    worktrees: Worktrees,
-    folder: string,
-    want: WorktreeWant,
-    projectId: string
-): Promise<{ worktree: Worktree; created: boolean }> {
-    const options = want.base === undefined ? {} : { base: want.base };
-    return 'branch' in want
-        ? await worktrees.add(folder, want.branch, { madeBy: 'verb', projectId }, options)
-        : { worktree: await worktrees.addFresh(folder, want.fresh, { madeBy: 'verb', projectId }, options), created: true };
 }
 
 /*
@@ -58,14 +44,14 @@ export async function makeWorktrees(
     const worktrees: Worktree[] = [];
     const undo = async (): Promise<void> => {
         for (const worktree of made) {
-            await call.host
-                .removeWorktree(folder, worktree.path)
+            await call.host.checkouts
+                .remove(folder, worktree.path)
                 .catch((e: unknown) => console.warn(`Taking back the worktree ${worktree.path} failed:`, errorText(e)));
         }
     };
     for (const want of wants) {
         try {
-            const { worktree, created } = await call.host.addWorktree(folder, want, place.projectId);
+            const { worktree, created } = await call.host.checkouts.add(folder, want, place.projectId);
             worktrees.push(worktree);
             if (created) {
                 made.push(worktree);

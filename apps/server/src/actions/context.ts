@@ -1,5 +1,5 @@
 import type { ActionCall } from '@ruimte/actions';
-import { VerbRefusal, type CanvasHost, type VerbCall } from '../canvas/verb.ts';
+import { VerbRefusal, type CanvasHost, type ProjectHost, type VerbCall } from '../canvas/verb.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
 
 export interface ServerActionContext {
@@ -16,13 +16,19 @@ export type ServerActionCall = ActionCall<ServerActionContext>;
  */
 function heldTo(host: CanvasHost, expected: number): CanvasHost {
     let first = true;
-    const held: CanvasHost = Object.create(host);
-    held.mutate = (projectId, apply, expectedRev) => {
-        const checked = first ? expected : expectedRev;
-        first = false;
-        return host.mutate(projectId, apply, checked);
+    const { projects } = host;
+    const held: ProjectHost = {
+        locate: (id) => projects.locate(id),
+        read: (projectId) => projects.read(projectId),
+        revision: (projectId) => projects.revision(projectId),
+        showView: (projectId, viewId, by) => projects.showView(projectId, viewId, by),
+        mutate: (projectId, apply, expectedRev) => {
+            const checked = first ? expected : expectedRev;
+            first = false;
+            return projects.mutate(projectId, apply, checked);
+        }
     };
-    return held;
+    return { ...host, projects: held };
 }
 
 /* A caller no project places still reads what is linked into it; any action that needs a project refuses as the verbs always did. */

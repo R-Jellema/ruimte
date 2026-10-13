@@ -1,29 +1,20 @@
 import type { AgentKind, ServerFrame } from '@ruimte/contracts';
 import { agentStates } from '../agents/agent-state.ts';
-import {
-    chatRequests,
-    AgentLineageStore,
-    chatNoticeTargets,
-    showNotices,
-    NoticeNotes,
-    NoticeStore,
-    restartBackgroundLimits,
-    TaskStore
-} from '@adecore/agents/coordination';
+import { chatRequests, AgentLineageStore, NoticeNotes, NoticeStore, restartBackgroundLimits, TaskStore } from '@adecore/agents/coordination';
 import { PendingPromptStore } from '../agents/pending-prompts.ts';
 import { CANVAS_PATH, handleCanvasRequest } from '../canvas/canvas-route.ts';
-import type { AgentStart, CanvasHost, VisualHost } from '../canvas/verb.ts';
-import { addWanted } from '../canvas/worktree.ts';
+import type { CanvasHost, VisualHost } from '../canvas/verb.ts';
 import { AttachmentStore, ChatStore, VisualStore } from '@adecore/agents/chat';
 import { ChatManager } from '../chat/chat-manager.ts';
 import { continueOn } from '../chat/continue-on.ts';
 import { chatForkDeps, forkChat, readForkInfo } from '../chat/fork.ts';
 import { fakeClaude, fakeCodex, inProcess, type FakeCli, type InProcessCli } from '@adecore/agents/testing';
-import { deliverNotice, MESSAGE_WORDS } from '../context/notices.ts';
+import { agentMessages } from '../context/agent-messages.ts';
+import { MESSAGE_WORDS } from '../context/notices.ts';
 import { Dispatcher } from '../dispatcher.ts';
 import { Checkpoints, type CheckpointService } from '../git/checkpoints.ts';
 import { worktreeAgents } from '../git/worktree-agents.ts';
-import { worktreeHost } from '../git/worktree-host.ts';
+import { checkoutHost, worktreeHost } from '../git/worktree-host.ts';
 import { WorktreeMerge } from '../git/worktree-merge.ts';
 import type { Worktrees } from '../git/worktrees.ts';
 import { PrWatchStore } from '../github/pr-watch.ts';
@@ -38,7 +29,7 @@ import type { OutboxWorker } from '@adecore/agents/coordination';
 import type { EndChildrenWiring } from '../outbox/end-children.ts';
 import type { TaskWiring } from './wiring.ts';
 import { isPlanFileName, PlanStore } from '../plans/plan-store.ts';
-import { nodeAccount, nodeMode, startAgentWork } from '../outbox/start-agent.ts';
+import { agentStartHost } from '../outbox/start-agent.ts';
 import { OutboxLink, wireOutbox } from '../outbox/wiring.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 import { openedAgentCount } from '../agents/hidden-agents.ts';
@@ -48,6 +39,7 @@ import { ProviderRegistry } from '../providers/registry.ts';
 import { FakePtyAdapter } from '../pty/fake-pty.ts';
 import type { PtyAdapter } from '../pty/pty.ts';
 import { SessionManager } from '../sessions/manager.ts';
+import { agentVisuals } from '../visuals/agent-host.ts';
 
 const providers = new ProviderRegistry({ detect: async () => ({ installed: true, version: '0.0.0' }) });
 
@@ -258,29 +250,29 @@ export async function bootTestDaemon({
     // A task is written after the event that settled it, so the wait looks again once it is on disk.
     tasks.onChange(() => queueMicrotask(recheck));
 
-    const modes = {
-        chatMode: (id: string) => chats.get(id)?.info.runtimeMode,
-        launch: (id: string) => sessions.get(id)?.launch,
-        reportedMode: (id: string) => sessions.get(id)?.reportedMode,
-        ceiling: (id: string) => lineage.ceilingOf(id)
-    };
+    const enqueue = (projectId: string, nodeId: string, work: OutboxWork): Promise<void> => outboxLink.enqueue(projectId, nodeId, work);
     const host: CanvasHost = {
+        projects: store,
         hiddenAgents: store.hiddenAgents,
-        locate: (id) => store.index.locate(id),
-        read: (id) => store.read(id),
-        revision: (id) => store.revision(id),
-        mutate: (id, apply, expectedRev) => store.mutate(id, apply, expectedRev),
-        worktreePaths: async (folder) => (worktrees ? (await worktrees.list(folder).catch(() => [])).map((worktree) => worktree.path) : []),
-        installedAgents: async () => installed,
-        holdPrompt: (id, nodeId, prompt) => prompts.put(id, nodeId, prompt),
-        startAgent: (start: AgentStart) => outboxLink.enqueue(start.projectId, start.nodeId, startAgentWork(start, modes)),
-        modeOf: nodeMode(modes),
-        accountOf: nodeAccount({ chat: (id) => chats.get(id)?.info, session: (id) => sessions.get(id) }),
-        terminalModePreference: () => chats.composerPreferences.terminalMode(),
-        branchesOf: async (folder) => (worktrees ? worktrees.branches(folder).catch(() => null) : null),
-        addWorktree: (folder, want, projectId) => (worktrees ? addWanted(worktrees, folder, want, projectId) : Promise.reject(new Error('no worktrees here'))),
-        claimWorktree: async (folder, path, nodeId) => worktrees?.claim(folder, path, nodeId),
-        removeWorktree: async (folder, path) => worktrees?.remove(folder, path),
+        lineage,
+        starts: agentStartHost({
+            installed: async () => installed,
+            prompts,
+            enqueue,
+            chats,
+            sessions,
+            lineage,
+            openedCount: (callerId) => openedAgentCount({ lineage, hiddenAgents: store.hiddenAgents, tasks, outbox, chats, sessions }, callerId)
+        }),
+        checkouts: worktrees
+            ? checkoutHost(worktrees)
+            : {
+                  paths: async () => [],
+                  branches: async () => null,
+                  add: () => Promise.reject(new Error('no worktrees here')),
+                  claim: async () => undefined,
+                  remove: async () => undefined
+              },
         ...(worktrees
             ? {
                   worktrees: worktreeHost(
@@ -296,53 +288,21 @@ export async function bootTestDaemon({
                   )
               }
             : {}),
-        depthOf: (nodeId) => lineage.depthOf(nodeId),
-        openedCount: (callerId) => openedAgentCount({ lineage, hiddenAgents: store.hiddenAgents, tasks, outbox, chats, sessions }, callerId),
-        recordMade: (record) => lineage.put(record),
-        madeBy: (nodeId) => lineage.madeBy(nodeId),
-        agentsDeleteAnyView: () => false,
-        showView: () => false,
+        machine: { agentsDeleteAnyView: false },
         endSession: async (kind, nodeId) => {
             await endChildren.owe(nodeId);
             await (kind === 'terminal' ? sessions.kill(nodeId) : chats.kill(nodeId)).catch(() => undefined);
         },
-        alert: () => undefined,
-        notify: async (notice) => {
-            const delivery = await deliverNotice(
-                notices,
-                {
-                    terminal: (id) => {
-                        const session = sessions.get(id);
-                        return session && !session.exited ? { agent: session.agent, notice: (text: string) => session.notice(text) } : null;
-                    },
-                    ...chatNoticeTargets(chats)
-                },
-                notice
-            );
-            await showNotices(
-                notices,
-                { has: (id) => chats.hasStored(id), note: (id, text) => chats.addNote(id, 'info', text) },
-                MESSAGE_WORDS,
-                notice.targetId
-            );
-            if (delivery.wake) {
-                await outboxLink.enqueue(notice.projectId, notice.targetId, { kind: 'deliver-message', payload: { from: notice.from } });
-            }
-            return delivery;
+        messages: {
+            ...agentMessages({ notices, sessions, chats, projects: store, enqueue, push: () => ({ notify: () => undefined }) }),
+            alert: () => undefined
         },
-        writeDiagram: () => Promise.reject(new Error('not used here')),
+        diagrams: { write: () => Promise.reject(new Error('not used here')) },
         tasks: wiring.host,
         plans,
         agents: agentStates({ outbox, lineage, chats, sessions }),
         requests: chatRequests(chats),
-        visuals: {
-            enabled: () => machine.visualReplies !== false,
-            writeSource: (chatId, name, html) => visuals.writeSource(chatId, name, html),
-            publish: (chatId, input) => chats.publishVisual(chatId, input),
-            list: (chatId) => chats.listVisuals(chatId),
-            remove: (chatId, visualId) => chats.removeVisual(chatId, visualId),
-            ...visualRender
-        }
+        visuals: { ...agentVisuals({ enabled: () => machine.visualReplies !== false, visuals, chats }), ...visualRender }
     };
 
     const dispatcher = new Dispatcher();

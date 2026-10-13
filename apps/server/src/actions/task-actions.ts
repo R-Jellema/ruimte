@@ -54,16 +54,16 @@ export const taskActions: ActionHandlers<ServerActionContext> = {
         if (nodeId === caller) {
             throw new VerbRefusal('self-task', `${nodeId} is you; a task is what you give another agent`);
         }
-        const content = await host.read(place.projectId);
+        const content = await host.projects.read(place.projectId);
         requireChatParent(content, caller, host.hiddenAgents?.get(caller)?.node.kind);
         // Only the nodes this same call would accept, so a refusal answers with what can be asked instead.
         const lines = (): string[] =>
             orNote(
                 [
-                    ...openedAgents(content, caller, (id) => host.madeBy(id)),
+                    ...openedAgents(content, caller, (id) => host.lineage.madeBy(id)),
                     ...(host.hiddenAgents
                         ?.inProject(place.projectId)
-                        .filter((agent) => host.madeBy(agent.node.id) === caller)
+                        .filter((agent) => host.lineage.madeBy(agent.node.id) === caller)
                         .map((agent) => agent.node) ?? [])
                 ].map((node) => `node\t${node.id}\t${node.kind}\t${field(node.title)}`),
                 'You have opened no agent that is still in this project; ruimte-context agent --task opens one with a task of its own'
@@ -81,7 +81,7 @@ export const taskActions: ActionHandlers<ServerActionContext> = {
             throw new VerbRefusal('not-an-agent', `${nodeId} is a ${target.kind} node; only a terminal or a chat has an agent that could take a task`, lines());
         }
         // Only an agent the caller opened, as the daemon wrote it down: a line would let two agents set each other to work.
-        if (host.madeBy(nodeId) !== caller) {
+        if (host.lineage.madeBy(nodeId) !== caller) {
             throw new VerbRefusal('not-yours', `${nodeId} is not a node you opened; a task only goes to an agent you opened yourself`, [
                 ...lines(),
                 `see\truimte-context notify ${nodeId}\tsends it a message along a line, which it acts on itself and never reports back from`
@@ -116,7 +116,7 @@ export const taskActions: ActionHandlers<ServerActionContext> = {
         }
         let text: string;
         if (promptFile != null) {
-            text = await readPromptFile(place.folder, promptFile, (path) => host.worktreePaths(path));
+            text = await readPromptFile(place.folder, promptFile, (path) => host.checkouts.paths(path));
         } else if (prompt !== null) {
             text = prompt;
         } else {
@@ -160,7 +160,7 @@ export const taskActions: ActionHandlers<ServerActionContext> = {
         }
         let text: string;
         if (resultFile != null) {
-            text = await readResultFile(place.folder, resultFile, (path) => host.worktreePaths(path));
+            text = await readResultFile(place.folder, resultFile, (path) => host.checkouts.paths(path));
         } else if (result !== null) {
             text = result;
         } else {

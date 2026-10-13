@@ -56,7 +56,7 @@ function lineLines(id: string, url: string | undefined, callerCanvas: string | n
  * caller: the same line a read takes, since driving a page and reading it are one permission.
  */
 async function targetOf({ host, place }: ServerActionContext, caller: string, id: string): Promise<ProjectNode> {
-    const content = await host.read(place.projectId);
+    const content = await host.projects.read(place.projectId);
     const sources = deriveProjectContextSources(content.views, null).get(caller) ?? [];
     const linked = sources.find((source) => source.id === id);
     const canvas = content.views.filter(isCanvasView).find((view) => view.nodes.some((candidate) => candidate.id === id));
@@ -121,7 +121,7 @@ export const browserActions: ActionHandlers<ServerActionContext> = {
         if (!node.url) {
             /* The same step a person takes from the splash: an address on an empty node is what makes
                it a page, so it belongs in the project and not only in whatever client is looking. */
-            await context.host.mutate(context.place.projectId, (content) => ({
+            await context.host.projects.mutate(context.place.projectId, (content) => ({
                 content: {
                     ...content,
                     views: content.views.map((view) =>

@@ -90,7 +90,7 @@ function documentProblems(error: z.ZodError, json: unknown): VerbRefusal {
 export const diagramActions: ActionHandlers<ServerActionContext> = {
     'diagram.replaceContent': async ({ viewId, document }, { context }) => {
         const { host, place } = context;
-        const content = await host.read(place.projectId);
+        const content = await host.projects.read(place.projectId);
         const view = content.views.find((candidate) => candidate.id === viewId);
         if (!view || !isDiagramView(view)) {
             throw new VerbRefusal(
@@ -126,7 +126,7 @@ export const diagramActions: ActionHandlers<ServerActionContext> = {
         }
         let rev: number;
         try {
-            rev = await host.writeDiagram(place.projectId, viewId, { meta, nodes, groups, edges });
+            rev = await host.diagrams.write(place.projectId, viewId, { meta, nodes, groups, edges });
         } catch (e) {
             if (e instanceof DiagramError) {
                 throw new VerbRefusal(e.code, e.message);

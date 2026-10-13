@@ -50,7 +50,7 @@ function deletableLines(content: ProjectContent, place: IndexedPlace, call: Verb
         return ['detail\truimte-context node list --view <id>\tthe nodes of a canvas, which is where an id comes from'];
     }
     return nodeLines(canvas, {
-        takes: (node) => node.id !== call.caller && (anyNode || call.host.madeBy(node.id) === call.caller),
+        takes: (node) => node.id !== call.caller && (anyNode || call.host.lineage.madeBy(node.id) === call.caller),
         empty: `You have no node on ${canvas.id} to remove; node delete takes a node you made yourself`
     });
 }
@@ -61,7 +61,7 @@ function deletableLines(content: ProjectContent, place: IndexedPlace, call: Verb
  */
 function mayWrite(canvas: ProjectCanvasView, node: ProjectNode, call: VerbCall): boolean {
     return (
-        call.host.madeBy(node.id) === call.caller ||
+        call.host.lineage.madeBy(node.id) === call.caller ||
         canvas.edges.some((edge) => (edge.from === call.caller && edge.to === node.id) || (edge.to === call.caller && edge.from === node.id))
     );
 }
@@ -102,8 +102,8 @@ function placeName(container: ProjectNode | undefined): string {
 
 export const nodeActions: ActionHandlers<ServerActionContext> = {
     'node.list': async ({ viewId }, { actor, context }) => {
-        const revision = await context.host.revision(context.place.projectId);
-        const content = await context.host.read(context.place.projectId);
+        const revision = await context.host.projects.revision(context.place.projectId);
+        const content = await context.host.projects.read(context.place.projectId);
         const canvas = canvasNamed(content, viewId);
         const containers = containersOf(canvas.nodes);
         return {
@@ -152,9 +152,9 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
         // Everything that touches the disk or git runs before the lock, so a slow repository holds up no save.
         const url = input.url === null ? undefined : checkUrl(input.url);
         const path = input.path === null ? undefined : await checkPath(place.folder, input.path);
-        const cwd = input.cwd == null ? undefined : await checkCwd(place.folder, input.cwd, (folder) => host.worktreePaths(folder));
+        const cwd = input.cwd == null ? undefined : await checkCwd(place.folder, input.cwd, (folder) => host.checkouts.paths(folder));
 
-        return host.mutate<{ output: ActionOutput<'node.create'> }>(place.projectId, async (content) => {
+        return host.projects.mutate<{ output: ActionOutput<'node.create'> }>(place.projectId, async (content) => {
             const canvas = canvasNamed(content, input.viewId);
             if (canvas.nodes.length + 1 > MAX_CANVAS_NODES) {
                 throw canvasFull(canvas, 1);
@@ -211,7 +211,7 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
             const id = newId(kind, content);
             /* Written down under the project's lock, before the node is on disk: who made a node is
                the whole of the rule `node delete` follows, and it may not arrive after the node does. */
-            await host.recordMade({ projectId: place.projectId, nodeId: id, openedBy: actor.id, depth: 0, agent: false });
+            await host.lineage.put({ projectId: place.projectId, nodeId: id, openedBy: actor.id, depth: 0, agent: false });
             const node: ProjectNode = {
                 id,
                 kind,
@@ -243,7 +243,7 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
     },
     'node.rename': async ({ viewId, nodeId, name }, { context }) => {
         const { host, place } = context;
-        return host.mutate(place.projectId, (content) => {
+        return host.projects.mutate(place.projectId, (content) => {
             const canvas = canvasNamed(content, viewId);
             const [node] = nodesNamed(content, canvas, [nodeId], { cannot: 'there is no node to rename' });
             if (!node || isUnknownNode(node)) {
@@ -262,7 +262,7 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
                     ...(changed
                         ? {
                               undo: async () => {
-                                  await host.mutate(place.projectId, (current) => {
+                                  await host.projects.mutate(place.projectId, (current) => {
                                       const currentCanvas = current.views.find((view): view is ProjectCanvasView => view.id === viewId && isCanvasView(view));
                                       const currentNode = currentCanvas?.nodes.find((candidate) => candidate.id === nodeId);
                                       if (!currentCanvas || !currentNode || currentNode.title !== name || currentNode.titleSource !== 'user') {
@@ -283,9 +283,9 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
     'node.delete': async ({ viewId, nodeIds }, call) => {
         const { host, place } = call.context;
         const caller = verbCallOf(call);
-        const anyNode = host.agentsDeleteAnyView();
+        const anyNode = host.machine.agentsDeleteAnyView;
         const ids = [...new Set(nodeIds)];
-        return host.mutate(place.projectId, async (content) => {
+        return host.projects.mutate(place.projectId, async (content) => {
             // A node on no canvas at all is refused before the canvas is read: the CLI finds the canvas by the node.
             const canvases = content.views.filter(isCanvasView);
             for (const id of ids) {
@@ -307,7 +307,7 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
                 if (node.id === caller.caller) {
                     throw new VerbRefusal('deletes-caller', `You are ${node.id}, so removing it would end the session asking`);
                 }
-                const madeBy = host.madeBy(node.id);
+                const madeBy = host.lineage.madeBy(node.id);
                 if (!anyNode && madeBy !== caller.caller) {
                     throw new VerbRefusal('not-yours', `${node.id} was made by ${madeBy ?? 'a person'} and node delete only removes a node you made yourself`, [
                         `made by\t${madeBy ?? 'a person'}`,
@@ -354,7 +354,7 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
         if (append && text === '') {
             throw new VerbRefusal('bad-arguments', '--append has nothing to add: --text is empty; leave --append off to empty the note');
         }
-        return host.mutate(place.projectId, (content) => {
+        return host.projects.mutate(place.projectId, (content) => {
             const canvas = canvasNamed(content, viewId);
             const node = canvas.nodes.find((candidate) => candidate.id === nodeId);
             if (!node) {
@@ -398,7 +398,7 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
         }
         const accent = color ?? undefined;
 
-        return host.mutate(place.projectId, async (content) => {
+        return host.projects.mutate(place.projectId, async (content) => {
             const canvas = canvasNamed(content, viewId);
             if (canvas.nodes.length + 1 > MAX_CANVAS_NODES) {
                 throw canvasFull(canvas, 1);
@@ -425,7 +425,7 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
             const frame = groupFrame(members)!;
             const id = newId('group', content);
             // The frame is a node like any other, and who made it is what node delete asks about.
-            await host.recordMade({ projectId: place.projectId, nodeId: id, openedBy: caller.caller, depth: 0, agent: false });
+            await host.lineage.put({ projectId: place.projectId, nodeId: id, openedBy: caller.caller, depth: 0, agent: false });
             const group: ProjectNode = {
                 id,
                 kind: 'group',
@@ -474,7 +474,7 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
                 `layout\t${ARRANGE_LAYOUTS.filter((candidate) => candidate !== 'grid').join(', ')}\ttake no --cols`
             ]);
         }
-        return host.mutate(place.projectId, (content) => {
+        return host.projects.mutate(place.projectId, (content) => {
             const canvas = canvasNamed(content, viewId);
             const moving = nodesNamed(content, canvas, ids, { ...NOT_A_GROUP, cannot: 'there is nothing there to move' });
             const carrier = moving.find((node) => node.kind === 'group');

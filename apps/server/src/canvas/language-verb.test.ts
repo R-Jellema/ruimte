@@ -84,8 +84,8 @@ beforeEach(async () => {
         })
     };
     host = {
-        locate: (id: string) => (id === 'chat-1' ? { projectId: 'p1', folder, canvasId: null } : null),
-        worktreePaths: async () => [],
+        projects: { locate: (id: string) => (id === 'chat-1' ? { projectId: 'p1', folder, canvasId: null } : null) },
+        checkouts: { paths: async () => [] },
         language
     } as unknown as CanvasHost;
 });

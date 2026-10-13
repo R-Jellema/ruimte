@@ -31,7 +31,7 @@ import { branchSlug } from '../canvas/worktree.ts';
 import type { Checkpoints } from '../git/checkpoints.ts';
 import { git } from '../git/run.ts';
 import { freeBranch, type Worktrees } from '../git/worktrees.ts';
-import type { CanvasHost } from '../canvas/verb.ts';
+import type { CanvasHost, ProjectHost } from '../canvas/verb.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
 import type { ProjectMutation } from '../projects/project-store.ts';
 import type { AgentLineageStore } from '@adecore/agents/coordination';
@@ -53,8 +53,8 @@ export interface ChatForkDeps {
     startingPoint(provider: AgentKind, selection?: ModelSelection): { selection: ModelSelection; runtimeMode?: RuntimeMode; contextWindow: number | null };
     locate(id: string): IndexedPlace | null;
     titleFor(id: string): string | null;
-    read: CanvasHost['read'];
-    mutate: CanvasHost['mutate'];
+    read: ProjectHost['read'];
+    mutate: ProjectHost['mutate'];
     depthOf(nodeId: string): number;
     recordFork(record: { projectId: string; nodeId: string; openedBy: string; depth: number }): Promise<void>;
     /* Writes the cut transcript under the new session id and answers how to take it back. */
@@ -577,7 +577,7 @@ function forkCanvas(content: ProjectContent, place: IndexedPlace, payload: ChatF
 /* The daemon's pieces a fork is made of, wired once for `daemon.ts` and the test daemon alike. */
 export function chatForkDeps(wiring: {
     chats: ChatManager;
-    host: Pick<CanvasHost, 'installedAgents' | 'locate' | 'read' | 'mutate'>;
+    host: { starts: Pick<CanvasHost['starts'], 'installedAgents'>; projects: Pick<ProjectHost, 'locate' | 'read' | 'mutate'> };
     titleFor(id: string): string | null;
     lineage: Pick<AgentLineageStore, 'depthOf' | 'put'>;
     worktrees?: Pick<Worktrees, 'add' | 'addFresh' | 'remove' | 'branches'>;
@@ -585,12 +585,12 @@ export function chatForkDeps(wiring: {
 }): ChatForkDeps {
     return {
         source: (chatId) => wiring.chats.forkSource(chatId),
-        installed: () => wiring.host.installedAgents(),
+        installed: () => wiring.host.starts.installedAgents(),
         startingPoint: (provider, selection) => wiring.chats.startingPoint(provider, selection),
-        locate: (id) => wiring.host.locate(id),
+        locate: (id) => wiring.host.projects.locate(id),
         titleFor: (id) => wiring.titleFor(id),
-        read: (projectId) => wiring.host.read(projectId),
-        mutate: (projectId, apply) => wiring.host.mutate(projectId, apply),
+        read: (projectId) => wiring.host.projects.read(projectId),
+        mutate: (projectId, apply) => wiring.host.projects.mutate(projectId, apply),
         depthOf: (nodeId) => wiring.lineage.depthOf(nodeId),
         recordFork: (record) => wiring.lineage.put({ ...record, agent: true, relation: 'fork' }),
         forkClaude: ({ source, at, newSessionId, cwd }) =>

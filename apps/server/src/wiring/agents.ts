@@ -133,7 +133,7 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
     const startCwd = startCwdGuard({
         madeByAgent: (nodeId) => lineage.madeBy(nodeId) !== null,
         folderOf,
-        worktreePaths: (folder) => later.git().worktreePaths(folder)
+        worktreePaths: (folder) => later.git().checkouts.paths(folder)
     });
     const messagesFor = (targetId: string): string[] => notices.take(targetId).map(renderNotice);
     // One reader for chats and terminals, so a transcript both look at is only read on from where either stopped.
@@ -224,7 +224,7 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
                           hidden: later.projects().store.hiddenAgents.get(id) !== undefined
                       };
             },
-            worktreePaths: (folder) => later.git().worktreePaths(folder),
+            worktreePaths: (folder) => later.git().checkouts.paths(folder),
             gitStatus: (cwd) => later.git().statuses.status(cwd),
             gitLog: readLog,
             launches: (projectId) => later.launches().agentHost.list(projectId),

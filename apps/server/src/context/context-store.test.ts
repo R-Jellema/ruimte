@@ -11,9 +11,9 @@ function route(context: ContextStore) {
     return (path: string, token?: string) => {
         const url = new URL(`http://127.0.0.1${path}`);
         const host = {
-            locate: () => null,
-            context: { list: (id: string) => context.list(id), read: context.answer.bind(context) }
-        } as Partial<CanvasHost> as CanvasHost;
+            projects: { locate: () => null },
+            context
+        } as unknown as CanvasHost;
         return handleContextRequest(new Request(url, { headers: token ? { authorization: `Bearer ${token}` } : {} }), url.pathname, {
             targetForToken: (given) => (given === 'tok' ? 'agent' : null),
             host

@@ -29,7 +29,7 @@ export const DEPTH_LIMIT_LINES: readonly string[] = [
  * weighed whole rather than one role at a time.
  */
 export function depthForOpening(call: VerbCall, verb: 'agent' | 'team', making: number): number {
-    const mine = call.host.depthOf(call.caller);
+    const mine = call.host.lineage.depthOf(call.caller);
     const depth = mine + 1;
     const max = verb === 'team' ? MAX_TEAM_DEPTH : MAX_AGENT_DEPTH;
     if (depth > max) {
@@ -39,7 +39,7 @@ export function depthForOpening(call: VerbCall, verb: 'agent' | 'team', making: 
             depthLines(mine)
         );
     }
-    const already = call.host.openedCount(call.caller);
+    const already = call.host.starts.openedCount(call.caller);
     if (already + making > MAX_OPENED_PER_CALLER) {
         throw new VerbRefusal(
             'too-many-agents',

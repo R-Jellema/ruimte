@@ -29,7 +29,7 @@ let home: string;
 
 /* Only what these handlers reach; anything else is a handler reaching further than it should. */
 function host(): CanvasHost {
-    return {
+    const projects: Partial<CanvasHost['projects']> = {
         read: async () => content,
         revision: async () => (writtenMeanwhile ? rev - 1 : rev),
         mutate: async (_projectId, apply, expectedRev) => {
@@ -42,10 +42,13 @@ function host(): CanvasHost {
                 rev += 1;
             }
             return mutation.result;
-        },
+        }
+    };
+    return {
+        projects,
         context: {
             list: (targetId: string) => (targetId === 'term-1' ? [{ id: 'note-1', kind: 'text' as const, title: 'Plan' }] : []),
-            read: async (targetId: string, sourceId: string, tail: number | null, subagent: string | null) => {
+            answer: async (targetId: string, sourceId: string, tail: number | null, subagent: string | null) => {
                 if (targetId !== 'term-1' || sourceId !== 'note-1') {
                     throw new ProjectError('project-not-found', 'not used here');
                 }
@@ -55,18 +58,22 @@ function host(): CanvasHost {
                 return tail === null ? 'one\ntwo' : 'two';
             }
         },
-        recordMade: async (record) => {
-            made.set(record.nodeId, record.openedBy);
-        },
-        madeBy: (nodeId) => made.get(nodeId) ?? null,
-        agentsDeleteAnyView: () => false,
+        lineage: {
+            put: async (record) => {
+                made.set(record.nodeId, record.openedBy);
+            },
+            madeBy: (nodeId) => made.get(nodeId) ?? null
+        } as Partial<CanvasHost['lineage']> as CanvasHost['lineage'],
+        machine: { agentsDeleteAnyView: false },
         endSession: async (kind, nodeId) => {
             ended.push(`${kind}\t${nodeId}`);
         },
-        notify: async (notice) => {
-            notices.push(notice);
-            return { at: 'waiting', wake: false, detail: 'that chat is in a turn' };
-        },
+        messages: {
+            notify: async (notice) => {
+                notices.push(notice);
+                return { at: 'waiting', wake: false, detail: 'that chat is in a turn' };
+            }
+        } as Partial<CanvasHost['messages']> as CanvasHost['messages'],
         tasks: {
             involving: (nodeId: string) => tasks.filter((task) => task.parentId === nodeId || task.childId === nodeId),
             chatState: async () => 'idle',
@@ -383,7 +390,7 @@ describe('the daemon actions', () => {
             serverActionCall(
                 {
                     ...host(),
-                    locate: (id: string) => (nodesOnMain().includes(id) ? PLACE : null),
+                    projects: { ...host().projects, locate: (id: string) => (nodesOnMain().includes(id) ? PLACE : null) },
                     agents: { stateOf: async (id: string) => states[id] ?? 'none', startedBy: (id: string) => made.get(id) ?? null, cancelTurn: () => false }
                 },
                 PLACE,
@@ -424,7 +431,7 @@ describe('the daemon actions', () => {
             serverActionCall(
                 {
                     ...host(),
-                    locate: (id: string) => (nodesOnMain().includes(id) ? PLACE : null),
+                    projects: { ...host().projects, locate: (id: string) => (nodesOnMain().includes(id) ? PLACE : null) },
                     agents: {
                         stateOf: async (id: string) => states[id] ?? 'none',
                         startedBy: (id: string) => made.get(id) ?? null,
@@ -538,7 +545,7 @@ describe('the daemon actions', () => {
     });
 
     test('context.list says until when a person snoozed a source', async () => {
-        const snoozing = { ...host(), snoozedUntil: (nodeId: string) => (nodeId === 'note-1' ? Date.UTC(2026, 9, 13, 15, 30) : null) };
+        const snoozing = { ...host(), snoozes: { until: (nodeId: string) => (nodeId === 'note-1' ? Date.UTC(2026, 9, 13, 15, 30) : null) } };
         expect(await serverActions.execute('context.list', {}, serverActionCall(snoozing, null, 'term-1'))).toMatchObject({
             output: { sources: [{ id: 'note-1', snoozedUntil: '2026-10-13T15:30:00.000Z' }] }
         });

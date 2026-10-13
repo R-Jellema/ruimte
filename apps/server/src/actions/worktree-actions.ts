@@ -19,7 +19,7 @@ function worktreeHostOf(host: CanvasHost): WorktreeHost {
 /* The worktrees of the caller's project, refusing a project outside a repository. */
 async function worktreesOf(host: CanvasHost, place: IndexedPlace): Promise<{ content: ProjectContent; worktrees: Worktree[] }> {
     const [content, worktrees] = await Promise.all([
-        host.read(place.projectId),
+        host.projects.read(place.projectId),
         worktreeHostOf(host)
             .list(place.folder)
             .catch((e: unknown) => {
@@ -67,7 +67,7 @@ function named(worktrees: readonly Worktree[], branch: string): Worktree {
 function openedBy(host: CanvasHost, caller: string, nodeId: string): boolean {
     let current: string | null = nodeId;
     for (let i = 0; i < MAX_LINEAGE && current !== null; i++) {
-        current = host.madeBy(current);
+        current = host.lineage.madeBy(current);
         if (current === caller) {
             return true;
         }

@@ -16,7 +16,7 @@ function secretsOf({ host }: ServerActionContext): SecretHost {
 
 /* The card shows in the thread of an AI chat; a terminal's agent asks in its own TUI or in words. */
 async function requireChat({ host, place }: ServerActionContext, caller: string): Promise<void> {
-    const kind = callerKind(await host.read(place.projectId), caller) ?? host.hiddenAgents?.get(caller)?.node.kind ?? null;
+    const kind = callerKind(await host.projects.read(place.projectId), caller) ?? host.hiddenAgents?.get(caller)?.node.kind ?? null;
     if (kind !== 'chat') {
         throw new VerbRefusal(
             'secret-needs-chat',

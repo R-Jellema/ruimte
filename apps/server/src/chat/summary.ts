@@ -8,7 +8,7 @@ import {
     type ProjectEdge
 } from '@ruimte/contracts';
 import { newId } from '../canvas/nodes.ts';
-import type { CanvasHost } from '../canvas/verb.ts';
+import type { ProjectHost } from '../canvas/verb.ts';
 import { errorText } from '../error-text.ts';
 import type { DeliverSummaryEntry, OutboxEntry, OutboxWork } from '../outbox/outbox.ts';
 import type { OutboxOutcome } from '@adecore/agents/coordination';
@@ -187,7 +187,7 @@ export interface DeliverSummaryDeps {
     source(chatId: string): Promise<{ info: ChatInfo; items: ChatItem[] } | null>;
     locate(id: string): IndexedPlace | null;
     titleFor(id: string): string | null;
-    mutate: CanvasHost['mutate'];
+    mutate: ProjectHost['mutate'];
     /* Leaves the note and the preamble in the original; false when it was there already. */
     deliver(chatId: string, summary: { noteId: string; note: string; from: string; preamble: string }): Promise<boolean>;
     /* A warning in a chat's thread, loading it when nobody has. */
@@ -267,21 +267,21 @@ export interface SummaryWiring {
 /* The summaries of the daemon in one place, wired the same for `daemon.ts` and the test daemon. */
 export function wireSummaries(wiring: {
     chats: ChatManager;
-    host: Pick<CanvasHost, 'locate' | 'mutate'>;
+    projects: Pick<ProjectHost, 'locate' | 'mutate'>;
     titleFor(id: string): string | null;
     enqueue(projectId: string, target: string, work: OutboxWork): Promise<void>;
 }): SummaryWiring {
     const coordinator = new SummaryCoordinator({
         chatItems: (chatId) => wiring.chats.get(chatId)?.thread.list() ?? null,
-        projectOf: (chatId) => wiring.host.locate(chatId)?.projectId ?? null,
+        projectOf: (chatId) => wiring.projects.locate(chatId)?.projectId ?? null,
         enqueue: wiring.enqueue
     });
     wiring.chats.observe((event) => coordinator.chatEvent(event));
     const deps: DeliverSummaryDeps = {
         source: (chatId) => wiring.chats.forkSource(chatId),
-        locate: (id) => wiring.host.locate(id),
+        locate: (id) => wiring.projects.locate(id),
         titleFor: wiring.titleFor,
-        mutate: (projectId, apply) => wiring.host.mutate(projectId, apply),
+        mutate: (projectId, apply) => wiring.projects.mutate(projectId, apply),
         deliver: (chatId, summary) => wiring.chats.deliverNote(chatId, summary),
         note: (chatId, text) => wiring.chats.addNote(chatId, 'warning', text)
     };

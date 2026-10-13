@@ -9,5 +9,5 @@ export const MODE_LINES: readonly string[] = [
 ];
 
 export function modeForOpening(call: VerbCall, requested: RuntimeMode | undefined): RuntimeMode {
-    return ceilingForOpening(call.host.modeOf(call.caller), requested);
+    return ceilingForOpening(call.host.starts.modeOf(call.caller), requested);
 }

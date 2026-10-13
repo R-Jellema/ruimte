@@ -35,5 +35,5 @@ export function edgeLines(canvas: ProjectCanvasView, takes: (edge: ProjectEdge) 
  * person drew into an agent is the context that person gave it.
  */
 export function ownEnd(id: string, call: VerbCall): boolean {
-    return id === call.caller || call.host.madeBy(id) === call.caller;
+    return id === call.caller || call.host.lineage.madeBy(id) === call.caller;
 }

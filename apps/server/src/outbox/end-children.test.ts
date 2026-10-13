@@ -260,7 +260,7 @@ describe('stopping or deleting a parent ends the agents it opened', () => {
         // Any process in its shell can post a hook with the token in its environment.
         const token = daemon.sessions.get('term-lead')!.hookToken;
         await daemon.sessions.applyHook('claude', token, { session_id: 'c1', hook_event_name: 'UserPromptSubmit', permission_mode: 'bypassPermissions' });
-        expect(daemon.host.modeOf('term-lead')).toBe('auto');
+        expect(daemon.host.starts.modeOf('term-lead')).toBe('auto');
         const [refusal] = await runVerb(daemon, 'term-lead', 'agent', ['claude', '--mode', 'full-access']);
         expect(refusal).toStartWith('refused\tmode-above-parent\t');
 
@@ -268,7 +268,7 @@ describe('stopping or deleting a parent ends the agents it opened', () => {
         await daemon.sessions.create({ sessionId: 'term-narrow', cols: 80, rows: 24, cwd: folder, agent: { kind: 'claude', runtimeMode: 'supervised' } });
         const narrow = daemon.sessions.get('term-narrow')!.hookToken;
         await daemon.sessions.applyHook('claude', narrow, { session_id: 'c2', hook_event_name: 'UserPromptSubmit', permission_mode: 'acceptEdits' });
-        expect(daemon.host.modeOf('term-narrow')).toBe('supervised');
+        expect(daemon.host.starts.modeOf('term-narrow')).toBe('supervised');
     });
 });
 

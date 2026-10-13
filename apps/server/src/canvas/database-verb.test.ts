@@ -128,9 +128,11 @@ beforeEach(async () => {
     visualsOn = true;
     published = [];
     host = {
-        locate: (id: string) => (id === 'chat-1' || id === 'term-1' ? { projectId: 'p1', folder, canvasId: null } : null),
-        read: async () => CONTENT,
-        modeOf: () => mode,
+        projects: {
+            locate: (id: string) => (id === 'chat-1' || id === 'term-1' ? { projectId: 'p1', folder, canvasId: null } : null),
+            read: async () => CONTENT
+        },
+        starts: { modeOf: () => mode },
         databases: agents,
         visuals: {
             enabled: () => visualsOn,
@@ -382,7 +384,7 @@ describe('ruimte-context database', () => {
             'connection\taway\tAway',
             'connection\tlinked\tLinked'
         ]);
-        host = { ...host, locate: () => ({ projectId: 'scratch', folder: join(root, 'home', 'scratch'), canvasId: null }) } as CanvasHost;
+        host = { ...host, projects: { ...host.projects, locate: () => ({ projectId: 'scratch', folder: join(root, 'home', 'scratch'), canvasId: null }) } };
         expect((await run(['list']))[0]).toStartWith('refused\tdatabase-no-project\tYou are a chat in the Chats project');
     });
 

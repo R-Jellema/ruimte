@@ -33,7 +33,7 @@ function lineLines(id: string, callerCanvas: string | null, deviceCanvas: string
  * sandbox of its own, and the line is the permission.
  */
 async function referenceOf({ host, place }: ServerActionContext, caller: string, id: string): Promise<DeviceReference> {
-    const content = await host.read(place.projectId);
+    const content = await host.projects.read(place.projectId);
     const sources = deriveProjectContextSources(content.views, null).get(caller) ?? [];
     const canvas = content.views.filter(isCanvasView).find((view) => view.nodes.some((candidate) => candidate.id === id));
     const node = canvas?.nodes.find((candidate) => candidate.id === id);

@@ -14,8 +14,8 @@ function pickId(edge: ProjectEdge): string {
 
 export const linkActions: ActionHandlers<ServerActionContext> = {
     'link.list': async ({ viewId }, { context }) => {
-        const revision = await context.host.revision(context.place.projectId);
-        const canvas = canvasNamed(await context.host.read(context.place.projectId), viewId);
+        const revision = await context.host.projects.revision(context.place.projectId);
+        const canvas = canvasNamed(await context.host.projects.read(context.place.projectId), viewId);
         return {
             output: {
                 viewId: canvas.id,
@@ -39,7 +39,7 @@ export const linkActions: ActionHandlers<ServerActionContext> = {
            this action calls "context" by itself. */
         const reads = edgeRole === undefined || edgeRole === 'context';
 
-        return host.mutate(place.projectId, (content) => {
+        return host.projects.mutate(place.projectId, (content) => {
             const canvas = canvasNamed(content, viewId);
             const from = start ?? call.actor.id;
             const source = canvas.nodes.find((node) => node.id === from);
@@ -126,9 +126,9 @@ export const linkActions: ActionHandlers<ServerActionContext> = {
     'link.delete': async ({ viewId, edgeId }, call) => {
         const { host, place } = call.context;
         const caller = verbCallOf(call);
-        const anyLine = host.agentsDeleteAnyView();
+        const anyLine = host.machine.agentsDeleteAnyView;
         const deletable = (edge: ProjectEdge): boolean => anyLine || (ownEnd(edge.from, caller) && ownEnd(edge.to, caller));
-        return host.mutate(place.projectId, (content) => {
+        return host.projects.mutate(place.projectId, (content) => {
             const canvas = canvasNamed(content, viewId);
             const edge = canvas.edges.find((candidate) => candidate.id === edgeId);
             if (!edge) {
@@ -136,7 +136,7 @@ export const linkActions: ActionHandlers<ServerActionContext> = {
             }
             if (!deletable(edge)) {
                 const foreign = ownEnd(edge.from, caller) ? edge.to : edge.from;
-                const maker = host.madeBy(foreign) ?? 'a person';
+                const maker = host.lineage.madeBy(foreign) ?? 'a person';
                 throw new VerbRefusal(
                     'not-yours',
                     `${edgeId} runs ${foreign === edge.from ? 'from' : 'into'} ${foreign}, which ${maker} made, and link delete only removes a line whose ends are both yours`,

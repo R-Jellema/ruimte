@@ -194,7 +194,7 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
             await chats.create({ chatId }).catch(() => undefined);
             await projects.endSession('chat', chatId);
         },
-        worktreePaths: (folder) => git.worktreePaths(folder)
+        worktreePaths: (folder) => git.checkouts.paths(folder)
     });
     registerDrawingHandlers(dispatcher, projects.drawings);
     registerDiagramHandlers(dispatcher, projects.diagrams);
@@ -279,7 +279,7 @@ export function registerEditorHandlers(dispatcher: Dispatcher, input: EditorHand
         git.folders,
         async (clientId) => ({
             folders: await store.heldFolders(clientId),
-            worktreesOf: git.worktreePaths,
+            worktreesOf: git.checkouts.paths,
             worktreesRoot: git.worktrees.root,
             registeredWorktrees: (folder) => git.worktrees.registeredPaths(folder)
         }),

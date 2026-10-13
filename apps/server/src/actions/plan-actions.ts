@@ -14,7 +14,7 @@ function planActorOf(actor: ActionActor): PlanActor {
 
 /* The chat the caller is: a plan is kept beside a chat's record, and a terminal has none. */
 async function callerChat({ host, place }: ServerActionContext, caller: string): Promise<string> {
-    const kind = callerKind(await host.read(place.projectId), caller);
+    const kind = callerKind(await host.projects.read(place.projectId), caller);
     if (kind !== 'chat') {
         throw new VerbRefusal(
             'plan-needs-chat',

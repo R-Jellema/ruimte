@@ -75,7 +75,7 @@ import {
 } from './project-files.ts';
 import { PROJECT_WRITE_IO, ProjectWriteRaced, ProjectWriteStuck, recoverProjectWrite, writeProjectFiles, type ProjectWriteIO } from './project-write.ts';
 import { ProjectHolds } from './project-holds.ts';
-import { placesOf, ProjectIndex } from './project-index.ts';
+import { placesOf, ProjectIndex, type IndexedPlace } from './project-index.ts';
 import { HiddenAgentStore } from '../agents/hidden-agents.ts';
 import { IdentityCache, readIdeaName, servedIcon, sniffIconMime, ICON_MAX_BYTES, type DerivedIcon } from './project-identity.ts';
 import { errorText } from '../error-text.ts';
@@ -760,6 +760,11 @@ export class ProjectStore {
             origin
         );
         return document.rev;
+    }
+
+    /* Where a node or a view sits, from the index of every known project: an open one would miss an agent whose person switched away. */
+    locate(id: string): IndexedPlace | null {
+        return this.index.locate(id);
     }
 
     /* The document as it stands, open or not, in its daemon-side form; a copy, so a caller may change it. */

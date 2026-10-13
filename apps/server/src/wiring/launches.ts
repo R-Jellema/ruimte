@@ -38,7 +38,7 @@ export function wireLaunches({ home, stores, agents, work, projects, later }: La
     const { sessions, chats } = agents;
     const secretStore = new SecretStore(home);
     const store = new LaunchStore({
-        projects: { folderOf: (projectId) => projects.index.folderOf(projectId), worktreePaths: (folder) => later.git().worktreePaths(folder) },
+        projects: { folderOf: (projectId) => projects.index.folderOf(projectId), worktreePaths: (folder) => later.git().checkouts.paths(folder) },
         approvals: stores.commandApprovals,
         secrets: secretStore,
         afterSettle: work.afterSettleStore
@@ -46,7 +46,7 @@ export function wireLaunches({ home, stores, agents, work, projects, later }: La
     const runner = new LaunchRunner({
         store,
         sessions: managerSessions(sessions, foregroundGroup),
-        checkCwd: (folder, cwd) => checkCwd(folder, cwd, (inside) => later.git().worktreePaths(inside)),
+        checkCwd: (folder, cwd) => checkCwd(folder, cwd, (inside) => later.git().checkouts.paths(inside)),
         resolveEnv: (projectId, launchId, env) => secretStore.resolveEnv(projectId, launchId, env)
     });
     const secrets = new SecretService({

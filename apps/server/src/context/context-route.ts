@@ -48,7 +48,7 @@ export async function handleContextRequest(request: Request, pathname: string, d
     if (!caller) {
         return new Response('Unknown token', { status: 401 });
     }
-    const call = serverActionCall(deps.host, deps.host.locate(caller), caller);
+    const call = serverActionCall(deps.host, deps.host.projects.locate(caller), caller);
     const rest = pathname.slice(CONTEXT_PATH.length).replace(/^\//, '');
     if (rest === '') {
         const listed = await serverActions.execute('context.list', {}, call);

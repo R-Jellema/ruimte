@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ChatInfo, ChatItem, ChatTurnItem, ChatVisual, ProjectCanvasView, ProjectContent } from '@ruimte/contracts';
 import { AgentLineageStore } from '@adecore/agents/coordination';
-import type { CanvasHost } from '../canvas/verb.ts';
 import { ManualClock, inProcess, fakeCodex, fakeCodexForks } from '@adecore/agents/testing';
 import { ProjectStore } from '../projects/project-store.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
@@ -600,15 +599,17 @@ describe('forking a Codex chat', () => {
                 }
             ]
         };
-        const host: Pick<CanvasHost, 'installedAgents' | 'locate' | 'read' | 'mutate'> = {
-            installedAgents: async () => ['codex'],
-            locate: () => ({ projectId: 'p1', folder: home, canvasId: 'main' }),
-            read: async () => document,
-            mutate: async (_projectId, apply) => {
-                const mutation = await apply(document);
-                document = mutation.content ?? document;
-                await mutation.landed?.();
-                return mutation.result;
+        const host: Parameters<typeof chatForkDeps>[0]['host'] = {
+            starts: { installedAgents: async () => ['codex'] },
+            projects: {
+                locate: () => ({ projectId: 'p1', folder: home, canvasId: 'main' }),
+                read: async () => document,
+                mutate: async (_projectId, apply) => {
+                    const mutation = await apply(document);
+                    document = mutation.content ?? document;
+                    await mutation.landed?.();
+                    return mutation.result;
+                }
             }
         };
         const deps = chatForkDeps({ chats: manager, host, titleFor: () => 'Lexer', lineage: new AgentLineageStore(home) });

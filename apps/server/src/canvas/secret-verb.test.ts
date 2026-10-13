@@ -18,19 +18,21 @@ beforeEach(() => {
     asks = [];
     outcome = 'saved';
     host = {
-        locate: (id: string) => ({ projectId: 'p1', folder: '/tmp/p1', canvasId: id === 'term-1' || id === 'chat-1' ? 'main' : null }),
-        read: async () => ({
-            views: [
-                {
-                    id: 'main',
-                    kind: 'canvas',
-                    nodes: [
-                        { id: 'chat-1', kind: 'chat' },
-                        { id: 'term-1', kind: 'terminal' }
-                    ]
-                }
-            ]
-        }),
+        projects: {
+            locate: (id: string) => ({ projectId: 'p1', folder: '/tmp/p1', canvasId: id === 'term-1' || id === 'chat-1' ? 'main' : null }),
+            read: async () => ({
+                views: [
+                    {
+                        id: 'main',
+                        kind: 'canvas',
+                        nodes: [
+                            { id: 'chat-1', kind: 'chat' },
+                            { id: 'term-1', kind: 'terminal' }
+                        ]
+                    }
+                ]
+            })
+        },
         launches: {
             list: async () => [reading('api', { name: 'API' }), reading('stack', { name: 'Stack', kind: 'group', members: ['api'] })],
             text: async () => null,

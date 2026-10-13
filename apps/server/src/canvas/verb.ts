@@ -5,7 +5,6 @@ import {
     type AgentStatus,
     type BrowserDriveAction,
     type ChatVisual,
-    type DiagramContent,
     type GitDiffResult,
     type LaunchConfigKind,
     type LaunchStartResult,
@@ -29,14 +28,17 @@ import type { SecretAsk, SecretOutcome } from '../secrets/secret-requests.ts';
 import type { DeviceDriver } from '../devices/agent-driver.ts';
 import type { DatabaseAgentHost } from '../database/agent-databases.ts';
 import type { AgentLanguage } from '../language/agent-language.ts';
-import type { Notice, ChatRequests, TaskVerbs } from '@adecore/agents/coordination';
+import type { AgentLineageStore, Notice, ChatRequests, TaskVerbs } from '@adecore/agents/coordination';
 import type { NoticeDelivery } from '../context/notices.ts';
 import type { PlanStore } from '../plans/plan-store.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
 import type { HiddenAgentStore } from '../agents/hidden-agents.ts';
 import type { StartClaims } from '../actions/start-claims.ts';
 import type { VisualPreview } from '../visuals/renderer.ts';
-import type { ProjectMutation } from '../projects/project-store.ts';
+import type { ProjectStore } from '../projects/project-store.ts';
+import type { DiagramStore } from '../projects/diagram-store.ts';
+import type { SnoozeStore } from '../push/snoozes.ts';
+import type { EndpointIdentity } from '../endpoint-id.ts';
 import {
     field,
     REVISION_FLAG,
@@ -67,62 +69,25 @@ export {
 /* A worktree a verb asks for: a new branch named after a title, or the branch it was given. */
 export type WorktreeWant = ({ fresh: string } | { branch: string }) & { base?: string };
 
-/* What a verb reaches the daemon through; an interface so a test can hand in a store of its own. */
+/*
+ * What a verb reaches the daemon through: the daemon's own services, each typed by what a verb may
+ * call of it, so a new capability is a method of its service and a name here. An interface so a
+ * test can hand in a store of its own.
+ */
 export interface CanvasHost {
+    projects: ProjectHost;
     hiddenAgents?: HiddenAgentStore;
     /* What a retried `agent --request-id` answers with; absent, a request id is ignored. */
     startClaims?: StartClaims;
-    locate(id: string): IndexedPlace | null;
-    read(projectId: string): Promise<ProjectContent>;
-    /* The rev of the project file; read it before the content, so a write in between only makes it older. */
-    revision(projectId: string): Promise<number>;
-    /* A document that moved past `expectedRev` refuses with `rev-conflict` and writes nothing. */
-    mutate<T>(projectId: string, apply: (content: ProjectContent) => ProjectMutation<T> | Promise<ProjectMutation<T>>, expectedRev?: number): Promise<T>;
-    /* The worktrees of the repository the folder is in; empty when it is not in one. */
-    worktreePaths(folder: string): Promise<string[]>;
-    /* The local branches of the repository the folder is in; null when it is in none. */
-    branchesOf(folder: string): Promise<string[] | null>;
-    /*
-     * A worktree under the machine's worktrees folder, made from HEAD when the branch is new. `fresh`
-     * is always a new one, on the first free branch after that name; `branch` takes that branch and
-     * may answer a worktree it already has, unless that one was made for another node.
-     */
-    addWorktree(folder: string, want: WorktreeWant, projectId: string): Promise<{ worktree: Worktree; created: boolean }>;
-    /* Writes the node a worktree was made for into the register, once the node exists. */
-    claimWorktree(folder: string, path: string, nodeId: string): Promise<void>;
-    /* Takes back a worktree this call made, when the write it was made for is refused. */
-    removeWorktree(folder: string, path: string): Promise<unknown>;
-    /* The widest mode an agent this node opens may run in: its own, as far as the daemon knows it. */
-    modeOf(nodeId: string): RuntimeMode;
-    /* The CLI and the account the agent of a node runs under; null for a node that runs none. */
-    accountOf?(nodeId: string): NodeAccount | null;
-    /* The mode a person picked for terminal agents, from the clients connected now; undefined with none. */
-    terminalModePreference(): RuntimeMode | undefined;
-    /* The agent CLIs this machine has; a verb that starts one refuses the rest by name. */
-    installedAgents(): Promise<AgentKind[]>;
-    /* Holds the first prompt of a node against its id until the session or the chat for it is made. */
-    holdPrompt(projectId: string, nodeId: string, prompt: string): Promise<void>;
-    /* Owes the start of an agent node's chat or terminal, which the daemon makes whether or not a client shows the node. */
-    startAgent(start: AgentStart): Promise<void>;
-    /* How deep in the chain of agents opening agents this node sits; 0 for one a person opened. */
-    depthOf(nodeId: string): number;
-    /* The agent nodes this caller has opened and not lost, which is what caps one caller in a loop. */
-    openedCount(callerId: string): number;
-    /* Writes down who made a node, outside the project and across a restart. */
-    recordMade(record: { projectId: string; nodeId: string; openedBy: string; depth: number; agent: boolean; ceiling?: RuntimeMode }): Promise<void>;
-    /* Who made a node, or null for one a person made; what `node delete` asks before it removes one. */
-    madeBy(nodeId: string): string | null;
-    /* Whether this machine lets an agent remove a view it did not make (`agentsDeleteAnyView` in `endpoint.json`). */
-    agentsDeleteAnyView(): boolean;
-    /* Tells every client to show this view of this project; false when nobody had it on screen to tell. */
-    showView(projectId: string, viewId: string, by: string): boolean;
+    lineage: LineageHost;
+    starts: AgentStartHost;
+    checkouts: CheckoutHost;
+    machine: MachineHost;
     /* Ends the shell or the CLI behind a node; a canvas that is removed takes its sessions with it. */
     endSession(kind: 'terminal' | 'chat', nodeId: string): Promise<void>;
-    alert(nodeId: string, text: string): void;
-    /* Puts a message in front of another node's agent, and says whether it landed or is waiting. */
-    notify(notice: Omit<Notice, 'createdAt'>): Promise<NoticeDelivery>;
+    messages: MessageHost;
     /* Replaces the diagram of a view, whether or not anyone has its project open, and answers the new rev. */
-    writeDiagram(projectId: string, viewId: string, content: DiagramContent): Promise<number>;
+    diagrams: Pick<DiagramStore, 'write'>;
     /* The tasks a chat gives the nodes it opens with `--task`, kept by the daemon outside the project. */
     tasks: TaskHost;
     /* The plans of the caller's own chat, kept beside its record. */
@@ -151,8 +116,60 @@ export interface CanvasHost {
     language?: LanguageAgentHost;
     /* The cards in which an agent asks a person for a launch's secret; absent on a host that keeps none. */
     secrets?: SecretHost;
-    /* When a person's snooze on a node ends, in epoch milliseconds; null when it has none, absent on a host without snoozes. */
-    snoozedUntil?(nodeId: string): number | null;
+    /* When a person's snooze on a node ends, in epoch milliseconds; absent on a host without snoozes. */
+    snoozes?: Pick<SnoozeStore, 'until'>;
+}
+
+/* The projects of this machine; every write of a verb goes through `mutate`, which refuses a document that moved past `expectedRev`. */
+export type ProjectHost = Pick<ProjectStore, 'locate' | 'read' | 'revision' | 'mutate' | 'showView'>;
+
+/* Who made a node and how deep it sits, kept under `$RUIMTE_HOME` and across a restart, never in the project an agent can rewrite. */
+export type LineageHost = Pick<AgentLineageStore, 'depthOf' | 'madeBy' | 'put'>;
+
+/* The machine's switches a verb is held to; `agentsDeleteAnyView` lets an agent remove a view it did not make. */
+export type MachineHost = Pick<EndpointIdentity, 'agentsDeleteAnyView'>;
+
+/* What starting an agent node takes. */
+export interface AgentStartHost {
+    /* The agent CLIs this machine has; a verb that starts one refuses the rest by name. */
+    installedAgents(): Promise<AgentKind[]>;
+    /* Holds the first prompt of a node against its id until the session or the chat for it is made. */
+    holdPrompt(projectId: string, nodeId: string, prompt: string): Promise<void>;
+    /* Owes the start of an agent node's chat or terminal, which the daemon makes whether or not a client shows the node. */
+    startAgent(start: AgentStart): Promise<void>;
+    /* The widest mode an agent this node opens may run in: its own, as far as the daemon knows it. */
+    modeOf(nodeId: string): RuntimeMode;
+    /* The CLI and the account the agent of a node runs under; null for a node that runs none. */
+    accountOf?(nodeId: string): NodeAccount | null;
+    /* The mode a person picked for terminal agents, from the clients connected now; undefined with none. */
+    terminalModePreference(): RuntimeMode | undefined;
+    /* The agent nodes this caller has opened and not lost, which is what caps one caller in a loop. */
+    openedCount(callerId: string): number;
+}
+
+/* The repository a project folder is in, as far as a node that starts in it goes. */
+export interface CheckoutHost {
+    /* The worktrees of the repository the folder is in; empty when it is not in one. */
+    paths(folder: string): Promise<string[]>;
+    /* The local branches of the repository the folder is in; null when it is in none. */
+    branches(folder: string): Promise<string[] | null>;
+    /*
+     * A worktree under the machine's worktrees folder, made from HEAD when the branch is new. `fresh`
+     * is always a new one, on the first free branch after that name; `branch` takes that branch and
+     * may answer a worktree it already has, unless that one was made for another node.
+     */
+    add(folder: string, want: WorktreeWant, projectId: string): Promise<{ worktree: Worktree; created: boolean }>;
+    /* Writes the node a worktree was made for into the register, once the node exists. */
+    claim(folder: string, path: string, nodeId: string): Promise<void>;
+    /* Takes back a worktree this call made, when the write it was made for is refused. */
+    remove(folder: string, path: string): Promise<unknown>;
+}
+
+/* What one node says to another, or to a person. */
+export interface MessageHost {
+    alert(nodeId: string, text: string): void;
+    /* Puts a message in front of another node's agent, and says whether it landed or is waiting. */
+    notify(notice: Omit<Notice, 'createdAt'>): Promise<NoticeDelivery>;
 }
 
 /* Only what became of a card ever comes back; the value goes from the person's card to the store. */
@@ -206,7 +223,7 @@ export interface LaunchHost {
 export interface ContextHost {
     list(targetId: string): Pick<ContextSource, 'id' | 'kind' | 'title'>[];
     /* One linked source as text; a source it cannot answer throws a `CodedError` that says why. */
-    read(targetId: string, sourceId: string, tail: number | null, subagent: string | null): Promise<string>;
+    answer(targetId: string, sourceId: string, tail: number | null, subagent: string | null): Promise<string>;
 }
 
 /*
@@ -305,8 +322,8 @@ export const SNOOZE_LINE =
     'snoozed\tThe moment, an ISO time in UTC, until which the person put that node aside, or - for none: until then they get no alert when it waits on them, so a question or an approval from it may sit unanswered that long; it ends early once the person answered what it waited on. Only a person snoozes a node or wakes it, no verb does';
 
 /* The snooze on a node as the actions hand it on: an ISO time, or null for none. */
-export function snoozedAt(host: Pick<CanvasHost, 'snoozedUntil'>, nodeId: string): string | null {
-    const until = host.snoozedUntil?.(nodeId) ?? null;
+export function snoozedAt(host: Pick<CanvasHost, 'snoozes'>, nodeId: string): string | null {
+    const until = host.snoozes?.until(nodeId) ?? null;
     return until === null ? null : new Date(until).toISOString();
 }
 
@@ -326,7 +343,7 @@ export const NEW_NODE = newNode();
 
 /* The project the caller is in, from the index of every known project: an open one would miss an agent whose person switched away. */
 export function placeOf(call: VerbCall): IndexedPlace {
-    const place = call.host.locate(call.caller);
+    const place = call.host.projects.locate(call.caller);
     if (!place) {
         throw new VerbRefusal('not-in-project', 'This session is not a node or a view of any project on this machine');
     }

@@ -223,59 +223,65 @@ function host(): CanvasHost {
         hiddenAgents: store.hiddenAgents,
         startClaims,
         databases,
-        snoozedUntil: (nodeId) => snoozed[nodeId] ?? null,
-        locate: (id) => store.index.locate(id),
-        read: (id) => store.read(id),
-        revision: (id) => store.revision(id),
-        mutate: (id, apply, expectedRev) =>
-            store.mutate(
-                id,
-                async (current) => {
-                    const mutation = await apply(current);
-                    return breakWrites && mutation.content ? { ...mutation, content: withRepeatedId(mutation.content) } : mutation;
-                },
-                expectedRev
-            ),
-        worktreePaths: async () => worktrees,
-        branchesOf: async () => branches,
-        addWorktree: async (_folder, want) => {
-            const taken = new Set([...(branches ?? []), ...madeWorktrees.map((made) => made.branch)]);
-            const branch = 'branch' in want ? want.branch : freeBranch(want.fresh, taken);
-            const made = { path: join(worktree, branch), branch };
-            madeWorktrees.push(made);
-            return { worktree: made, created: true };
+        snoozes: { until: (nodeId) => snoozed[nodeId] ?? null },
+        projects: {
+            locate: (id) => store.locate(id),
+            read: (id) => store.read(id),
+            revision: (id) => store.revision(id),
+            mutate: (id, apply, expectedRev) =>
+                store.mutate(
+                    id,
+                    async (current) => {
+                        const mutation = await apply(current);
+                        return breakWrites && mutation.content ? { ...mutation, content: withRepeatedId(mutation.content) } : mutation;
+                    },
+                    expectedRev
+                ),
+            showView: (projectId, viewId, by) => store.showView(projectId, viewId, by)
         },
-        removeWorktree: async (_folder, path) => {
-            removedWorktrees.push(path);
+        checkouts: {
+            paths: async () => worktrees,
+            branches: async () => branches,
+            add: async (_folder, want) => {
+                const taken = new Set([...(branches ?? []), ...madeWorktrees.map((made) => made.branch)]);
+                const branch = 'branch' in want ? want.branch : freeBranch(want.fresh, taken);
+                const made = { path: join(worktree, branch), branch };
+                madeWorktrees.push(made);
+                return { worktree: made, created: true };
+            },
+            remove: async (_folder, path) => {
+                removedWorktrees.push(path);
+            },
+            claim: async () => undefined
         },
-        claimWorktree: async () => undefined,
-        modeOf: (nodeId) => modes[nodeId] ?? 'full-access',
-        terminalModePreference: () => terminalPreference,
-        installedAgents: async () => installed,
-        holdPrompt: async (projectId, nodeId, prompt) => {
-            held.push({ projectId, nodeId, prompt });
+        starts: {
+            modeOf: (nodeId) => modes[nodeId] ?? 'full-access',
+            terminalModePreference: () => terminalPreference,
+            installedAgents: async () => installed,
+            holdPrompt: async (projectId, nodeId, prompt) => {
+                held.push({ projectId, nodeId, prompt });
+            },
+            startAgent: async (start) => {
+                started.push(start);
+                await onStart?.(start);
+            },
+            openedCount: (callerId) => lineage.openedCount(callerId)
         },
-        startAgent: async (start) => {
-            started.push(start);
-            await onStart?.(start);
-        },
-        depthOf: (nodeId) => lineage.depthOf(nodeId),
-        openedCount: (callerId) => lineage.openedCount(callerId),
-        recordMade: (record) => lineage.put(record),
-        madeBy: (nodeId) => lineage.madeBy(nodeId),
-        agentsDeleteAnyView: () => deleteAnyView,
-        showView: (projectId, viewId, by) => store.showView(projectId, viewId, by),
+        lineage,
+        machine: { agentsDeleteAnyView: deleteAnyView },
         endSession: async (kind, nodeId) => {
             ended.push(`${kind}\t${nodeId}`);
         },
-        alert: (nodeId, text) => {
-            alerts.push({ nodeId, text });
+        messages: {
+            alert: (nodeId, text) => {
+                alerts.push({ nodeId, text });
+            },
+            notify: async (notice) => {
+                notified.push(notice);
+                return delivery;
+            }
         },
-        notify: async (notice) => {
-            notified.push(notice);
-            return delivery;
-        },
-        writeDiagram: (projectId, viewId, content) => diagrams.write(projectId, viewId, content),
+        diagrams,
         tasks: {
             open: (record) => tasks.open(record, 1),
             give: (record) => tasks.open(record, 1),

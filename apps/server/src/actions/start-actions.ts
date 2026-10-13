@@ -55,7 +55,7 @@ const startAgent: StartHandler = async (input, call) => {
     if (hidden && host.hiddenAgents === undefined) {
         throw new VerbRefusal('view-required', OPENING_OFF_CANVAS);
     }
-    requireInstalled(await host.installedAgents(), kind);
+    requireInstalled(await host.starts.installedAgents(), kind);
 
     // Everything that touches the disk or git runs before the lock, so a slow repository holds up no save.
     const prompt = await startPrompt(input.prompt, input.promptFile, host, place.folder);
@@ -68,7 +68,7 @@ const startAgent: StartHandler = async (input, call) => {
             `The prompt is ${prompt.length} characters and a task takes at most ${MAX_TASK_PROMPT_LENGTH}, since the child is also told how to report back; put the rest in a file and tell the agent to read it`
         );
     }
-    let cwd = input.cwd === null ? undefined : await checkCwd(place.folder, input.cwd, (folder) => host.worktreePaths(folder));
+    let cwd = input.cwd === null ? undefined : await checkCwd(place.folder, input.cwd, (folder) => host.checkouts.paths(folder));
     const runtimeMode = chat ? (input.mode ?? undefined) : terminalMode(caller, input.mode ?? undefined, ceiling);
     const account = inheritedAccount(caller, kind);
     let undoWorktrees = async (): Promise<void> => undefined;
@@ -83,7 +83,7 @@ const startAgent: StartHandler = async (input, call) => {
         }
     }
 
-    return host
+    return host.projects
         .mutate<{ output: ActionOutput<'agent.start'>; operation?: { id: string; status: 'running' } }>(place.projectId, async (content) => {
             // Counted again under the lock the last start wrote its node down in: a call at the same moment read the same count.
             depthForOpening(caller, 'agent', 1);
@@ -177,9 +177,9 @@ const startAgent: StartHandler = async (input, call) => {
                 if (hidden) {
                     await host.hiddenAgents!.put({ projectId: place.projectId, openedBy: caller.caller, node: { ...node, kind: kindName } });
                 }
-                await host.recordMade({ projectId: place.projectId, nodeId: id, openedBy: caller.caller, depth, agent: true, ceiling });
+                await host.lineage.put({ projectId: place.projectId, nodeId: id, openedBy: caller.caller, depth, agent: true, ceiling });
                 if (input.worktree && cwd !== undefined) {
-                    await host.claimWorktree(place.folder, cwd, id);
+                    await host.checkouts.claim(place.folder, cwd, id);
                 }
                 // Before the agent starts, so a child that is done at once finds its task open.
                 if (input.task !== null && prompt !== null) {
@@ -193,9 +193,9 @@ const startAgent: StartHandler = async (input, call) => {
                     output.taskId = task.id;
                 }
                 if (prompt !== null) {
-                    await host.holdPrompt(place.projectId, id, input.task === null ? prompt : `${prompt}${taskBrief(chat)}`);
+                    await host.starts.holdPrompt(place.projectId, id, input.task === null ? prompt : `${prompt}${taskBrief(chat)}`);
                 }
-                await host.startAgent({
+                await host.starts.startAgent({
                     projectId: place.projectId,
                     nodeId: id,
                     openedBy: caller.caller,
@@ -280,11 +280,11 @@ export const startActions: ActionHandlers<ServerActionContext> = {
             throw new VerbRefusal('worktree-and-cwd', '--worktree and --cwd both say where the agents start; give one of them');
         }
 
-        const installed = await host.installedAgents();
+        const installed = await host.starts.installedAgents();
         roles.forEach((role, index) => requireInstalled(installed, role.provider, `role ${index} (${role.provider})`));
 
         // Everything that touches the disk or git runs before the lock, so a slow repository holds up no save.
-        const cwd = input.cwd === null ? undefined : await checkCwd(place.folder, input.cwd, (folder) => host.worktreePaths(folder));
+        const cwd = input.cwd === null ? undefined : await checkCwd(place.folder, input.cwd, (folder) => host.checkouts.paths(folder));
         const roleCwds: Array<string | undefined> = roles.map(() => cwd);
         let undoWorktrees = async (): Promise<void> => undefined;
         if (input.worktree) {
@@ -303,7 +303,7 @@ export const startActions: ActionHandlers<ServerActionContext> = {
         );
         const accounts = roles.map((role) => inheritedAccount(caller, role.provider));
 
-        return host
+        return host.projects
             .mutate<{ output: ActionOutput<'team.start'>; operation?: { id: string; status: 'running' } }>(place.projectId, async (content) => {
                 depthForOpening(caller, 'team', roles.length);
                 if (input.task) {
@@ -411,10 +411,10 @@ export const startActions: ActionHandlers<ServerActionContext> = {
                             const node = nodes.find((candidate) => candidate.id === made.nodeId)!;
                             await host.hiddenAgents!.put({ projectId: place.projectId, openedBy: caller.caller, node: { ...node, kind: made.kind } });
                         }
-                        await host.recordMade({ projectId: place.projectId, nodeId: made.nodeId, openedBy: caller.caller, depth, agent: true, ceiling });
+                        await host.lineage.put({ projectId: place.projectId, nodeId: made.nodeId, openedBy: caller.caller, depth, agent: true, ceiling });
                         const roleCwd = roleCwds[index];
                         if (input.worktree && roleCwd !== undefined) {
-                            await host.claimWorktree(place.folder, roleCwd, made.nodeId);
+                            await host.checkouts.claim(place.folder, roleCwd, made.nodeId);
                         }
                         if (batchId !== undefined) {
                             const task = await host.tasks.open({
@@ -431,8 +431,8 @@ export const startActions: ActionHandlers<ServerActionContext> = {
                     for (const [index, made] of output.agents.entries()) {
                         const chat = made.kind === 'chat';
                         const prompt = roles[index]!.prompt;
-                        await host.holdPrompt(place.projectId, made.nodeId, input.task ? `${prompt}${taskBrief(chat)}` : prompt);
-                        await host.startAgent({
+                        await host.starts.holdPrompt(place.projectId, made.nodeId, input.task ? `${prompt}${taskBrief(chat)}` : prompt);
+                        await host.starts.startAgent({
                             projectId: place.projectId,
                             nodeId: made.nodeId,
                             openedBy: caller.caller,

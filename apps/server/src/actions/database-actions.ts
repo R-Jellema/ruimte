@@ -65,7 +65,7 @@ export const databaseActions: ActionHandlers<ServerActionContext> = {
         };
     },
     'database.execute': async ({ connection, sql, schema }, { actor, context }) => {
-        const mode = context.host.modeOf(actor.id);
+        const mode = context.host.starts.modeOf(actor.id);
         // The narrowest mode promises the person that nothing changes without asking them, and a statement cannot ask.
         if (mode === MODE_ORDER[0]) {
             throw new VerbRefusal(

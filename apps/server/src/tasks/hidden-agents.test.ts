@@ -90,7 +90,7 @@ test('a chat view delegates to the requested provider and model without adding a
     const page = await daemon.chats.subagent('client', { chatId: 'chat-lead', toolUseId: row.toolUseId });
     expect(page.items.some((item) => item.kind === 'assistant' && item.text.includes('count primes'))).toBe(true);
     expect(daemon.tasks.get(taskId)?.result?.text).toContain('count primes');
-    expect(daemon.host.openedCount('chat-lead')).toBe(0);
+    expect(daemon.host.starts.openedCount('chat-lead')).toBe(0);
 });
 
 test('hidden agent and team previews leave no sessions, records or project writes', async () => {

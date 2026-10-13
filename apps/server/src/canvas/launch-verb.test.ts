@@ -69,7 +69,7 @@ beforeEach(() => {
     startResult = { outcome: 'started' };
     calls = [];
     host = {
-        locate: (id: string) => (id === 'chat-1' ? { projectId: 'p1', folder: '/tmp/p1', canvasId: 'main' } : null),
+        projects: { locate: (id: string) => (id === 'chat-1' ? { projectId: 'p1', folder: '/tmp/p1', canvasId: 'main' } : null) },
         launches: launchHost()
     } as unknown as CanvasHost;
 });

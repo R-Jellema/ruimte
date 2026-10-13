@@ -56,13 +56,13 @@ export function agentNode(spec: AgentNodeSpec): ProjectNode {
  * it under that pick. Never one the agent picks, since an account is someone's costs.
  */
 export function inheritedAccount(call: VerbCall, kind: AgentKind): string | undefined {
-    const opener = call.host.accountOf?.(call.caller) ?? null;
+    const opener = call.host.starts.accountOf?.(call.caller) ?? null;
     return opener !== null && opener.kind === kind ? (opener.account ?? kind) : undefined;
 }
 
 /* The mode a terminal agent is written down with: the one asked for, else the person's default narrowed to the caller's. */
 export function terminalMode(call: VerbCall, requested: RuntimeMode | undefined, ceiling: RuntimeMode): RuntimeMode {
-    return requested ?? narrowerMode(call.host.terminalModePreference() ?? DEFAULT_RUNTIME_MODE, ceiling);
+    return requested ?? narrowerMode(call.host.starts.terminalModePreference() ?? DEFAULT_RUNTIME_MODE, ceiling);
 }
 
 export function groupLines(canvas: ProjectCanvasView): string[] {
@@ -115,7 +115,7 @@ export async function startPrompt(prompt: string | null, promptFile: string | nu
     }
     let text = prompt;
     if (promptFile !== null) {
-        text = await readPromptFile(folder, promptFile, (path) => host.worktreePaths(path));
+        text = await readPromptFile(folder, promptFile, (path) => host.checkouts.paths(path));
     }
     if (text === null) {
         return null;

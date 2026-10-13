@@ -12,7 +12,7 @@ function languageOf(context: ServerActionContext): LanguageAgentHost {
 
 /* The file the call names, held to the project folder and its worktrees the way every verb's path is. */
 function fileOf(context: ServerActionContext, path: string): Promise<string> {
-    return checkInsideFile(context.place.folder, path, context.host.worktreePaths);
+    return checkInsideFile(context.place.folder, path, context.host.checkouts.paths);
 }
 
 export const languageActions: ActionHandlers<ServerActionContext> = {
