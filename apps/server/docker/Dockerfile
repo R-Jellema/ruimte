@@ -1,6 +1,6 @@
 # A second Ruimte daemon, on Linux, so a client on macOS can reach a machine that is not its
 # own. Build from the repository root: `docker compose -f apps/server/docker/compose.yml build`.
-FROM oven/bun:1.4.0-debian
+FROM oven/bun:1.4.2-debian
 
 # git for `git.status` and the seeded repositories, procps so a test can see the shell's children.
 RUN apt-get update \

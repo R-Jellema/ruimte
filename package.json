@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "packageManager": "bun@1.4.0",
+  "packageManager": "bun@1.4.2",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -17,7 +17,7 @@
     "dev:client": "bun run --cwd apps/client dev",
     "dev:server": "bun run --cwd apps/server dev",
     "build": "bun run --cwd apps/client build && bun run --cwd apps/desktop build",
-    "check": "bun run check:types && bun run check:generated && bun run lint",
+    "check": "bun run check:types && bun run check:generated && bun run lint && bun run format:check",
     "check:types": "tsc -p tsconfig.scripts.json && bun run --filter '*' typecheck",
     "check:generated": "bun run --cwd packages/contracts check:swift",
     "lint": "oxlint --deny-warnings && bun scripts/check-client-conventions.ts",
