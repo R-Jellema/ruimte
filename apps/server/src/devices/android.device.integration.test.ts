@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import type { LiveStreamFrame } from '@ruimte/contracts';
 import { AndroidBackend } from './android.ts';
 import { locateAndroidSdk } from './android-sdk.ts';
+import { centerOf, flattenTree, type DeviceElement } from './device-tree.ts';
 import { ScrcpyServerFile, scrcpyServerDirectory } from './scrcpy-server.ts';
 import { adbScrcpyHost, ScrcpySource } from './scrcpy-source.ts';
 
@@ -10,9 +11,22 @@ import { adbScrcpyHost, ScrcpySource } from './scrcpy-source.ts';
  * Against an Android device that is already running on this machine, an emulator or a phone; booting
  * one takes longer than a test should wait. Without one the suite skips.
  */
+const sdk = locateAndroidSdk();
 const server = new ScrcpyServerFile(scrcpyServerDirectory(false, process.execPath, join(import.meta.dir, '..', '..')), true);
 const backend = new AndroidBackend({ createSource: (adb, serial) => new ScrcpySource(adbScrcpyHost(adb, serial), () => server.path()) });
-const booted = locateAndroidSdk() === null ? undefined : (await backend.list().catch(() => [])).find((device) => device.state === 'booted');
+const booted = sdk === null ? undefined : (await backend.list().catch(() => [])).find((device) => device.state === 'booted');
+
+/* The adb serial of a device: a phone's id is its serial, an emulator answers its AVD name on its console. */
+async function serialOf(deviceId: string): Promise<string> {
+    const adb = async (arguments_: string[]): Promise<string> => new Response(Bun.spawn([sdk!.adb, ...arguments_]).stdout).text();
+    for (const line of (await adb(['devices'])).split('\n')) {
+        const serial = line.split('\t')[0]!;
+        if (serial === deviceId || (serial.startsWith('emulator-') && (await adb(['-s', serial, 'emu', 'avd', 'name'])).split('\n')[0]!.trim() === deviceId)) {
+            return serial;
+        }
+    }
+    throw new Error(`adb does not list ${deviceId}`);
+}
 
 async function waitFor(condition: () => boolean, ms: number): Promise<void> {
     const deadline = Date.now() + ms;
@@ -58,4 +72,57 @@ describe.skipIf(booted === undefined)('Android screen', () => {
         expect(tree.screen).toEqual({ width: view.getUint32(16), height: view.getUint32(20) });
         expect(tree.root.children.length).toBeGreaterThan(0);
     }, 30_000);
+
+    // An emulator only: the draft goes to the emulator's own number, which a phone would really text.
+    test.skipIf(booted?.kind !== 'simulator')(
+        'types text in any script and with emoji into a field as it was given',
+        async () => {
+            const deviceId = booted!.deviceId;
+            const target = { backendId: booted!.backendId, platform: booted!.platform, deviceId };
+            // A draft to the emulator's own number. A Return would send it, so the text holds none, and the draft is cleared after.
+            await backend.action(deviceId, { ...target, action: 'openUrl', url: 'sms:5554' });
+            const field = async (): Promise<{ element: DeviceElement; screen: { width: number; height: number } } | null> => {
+                for (let attempt = 0; attempt < 20; attempt += 1) {
+                    const tree = await backend.tree(deviceId);
+                    const element = flattenTree(tree).find((candidate) => candidate.role === 'EditText');
+                    if (element) {
+                        return { element, screen: tree.screen };
+                    }
+                    await Bun.sleep(500);
+                }
+                return null;
+            };
+            const before = await field();
+            expect(before).not.toBeNull();
+
+            const source = backend.createSource(deviceId);
+            await source.start(() => undefined);
+            const text = 'Grüße, Ελλάδα, привет, 日本語 and עברית 🎉👩‍💻';
+            try {
+                const center = centerOf(before!.element);
+                const point = { x: center.x / before!.screen.width, y: center.y / before!.screen.height };
+                await source.input({ kind: 'pointer', phase: 'down', ...point });
+                await Bun.sleep(60);
+                await source.input({ kind: 'pointer', phase: 'up', ...point });
+                await Bun.sleep(1000);
+
+                await backend.type(deviceId, text, async () => ({
+                    keys: async (usages) => source.keys!(usages),
+                    paste: (run) => source.paste!(run)
+                }));
+                let typed: string | null | undefined;
+                for (let attempt = 0; attempt < 10 && typed !== text; attempt += 1) {
+                    await Bun.sleep(500);
+                    typed = (await field())?.element.value;
+                }
+                expect(typed).toBe(text);
+            } finally {
+                await source.stop();
+                // The draft would stay in the conversation: select it all, delete it and leave.
+                const serial = await serialOf(deviceId);
+                await Bun.spawn([sdk!.adb, '-s', serial, 'shell', 'input keycombination 113 29; input keyevent 67; input keyevent 4; input keyevent 4']).exited;
+            }
+        },
+        60_000
+    );
 });

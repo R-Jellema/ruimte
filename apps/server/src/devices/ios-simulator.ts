@@ -16,7 +16,7 @@ import {
 } from '@ruimte/contracts';
 import { simulatorTree, type DeviceTree } from './device-tree.ts';
 import { DeviceHelperSource, type DeviceHelperLauncher } from './helper-source.ts';
-import { DeviceError, type DeviceBackend, type DeviceKeyboard } from './manager.ts';
+import { DeviceError, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard } from './manager.ts';
 import type { SimulatorTreeReader } from './simulator-tree.ts';
 
 interface CommandResult {
@@ -65,13 +65,8 @@ async function defaultRunner(arguments_: string[], stdin?: string): Promise<Comm
 const IOS_BUTTONS: DeviceButton[] = ['home', 'swipeHome', 'appSwitcher', 'lock', 'siri'];
 
 /* USB HID keyboard usages (page 7). */
-const KEY_RETURN = 0x28;
-const KEY_TAB = 0x2b;
 const KEY_V = 0x19;
 const KEY_LEFT_COMMAND = 0xe3;
-
-/* The app reads the pasteboard on its own time after the paste, so the next piece waits before it writes the pasteboard again. */
-const PASTE_SETTLE_MS = 150;
 
 const IOS_TEXT_SIZES: Record<DeviceTextSize, string> = {
     small: 'small',
@@ -335,23 +330,18 @@ export class IosSimulatorBackend implements DeviceBackend {
         this.readers.delete(deviceId);
     }
 
-    /*
-     * Pastes the text in through the simulator's pasteboard, which it replaces: a key per character
-     * would follow the keyboard layout and could not type an accent or an emoji at all.
-     */
+    /* Pastes the text in through the simulator's pasteboard, which it replaces. */
     async type(deviceId: string, text: string, keyboard: () => Promise<DeviceKeyboard>): Promise<void> {
-        const keys = await keyboard();
-        for (const part of text.replace(/\r\n?/g, '\n').split(/(\n|\t)/)) {
-            if (part === '\n') {
-                await keys([KEY_RETURN]);
-            } else if (part === '\t') {
-                await keys([KEY_TAB]);
-            } else if (part !== '') {
-                await this.command(['pbcopy', deviceId], part);
-                await keys([KEY_LEFT_COMMAND, KEY_V]);
+        const session = await keyboard();
+        await typeInRuns(
+            text,
+            (usage) => session.keys([usage]),
+            async (run) => {
+                await this.command(['pbcopy', deviceId], run);
+                await session.keys([KEY_LEFT_COMMAND, KEY_V]);
                 await this.sleep(PASTE_SETTLE_MS);
             }
-        }
+        );
     }
 
     private async ax(deviceId: string, arguments_: string[]): Promise<void> {

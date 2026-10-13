@@ -2,23 +2,34 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import type { ProjectContent } from '@ruimte/contracts';
+import type { DeviceInfo, ProjectContent } from '@ruimte/contracts';
 import type { CanvasHost, Noun } from '../canvas/verb.ts';
 import { verbNamed } from '../canvas/verbs.ts';
 import { DeviceDriver } from './agent-driver.ts';
+import { AndroidBackend } from './android.ts';
 import { createDeviceHelperLauncher } from './helper-source.ts';
 import { IosSimulatorBackend } from './ios-simulator.ts';
 import { DeviceManager } from './manager.ts';
+import { ScrcpyServerFile, scrcpyServerDirectory } from './scrcpy-server.ts';
+import { adbScrcpyHost, ScrcpySource } from './scrcpy-source.ts';
 
-/* A simulator somebody booted already: this suite never boots or shuts one down, and says so when there is none. */
+/* A simulator and an emulator somebody booted already: this suite never boots or shuts one down, and says so when there is none. */
 const simulators =
     process.platform === 'darwin'
         ? new IosSimulatorBackend(undefined, createDeviceHelperLauncher([process.execPath, resolve(import.meta.dir, '../main.ts'), 'device-helper']))
         : null;
-const booted = simulators === null ? undefined : (await simulators.list().catch(() => [])).find((device) => device.state === 'booted');
+const screenServer = new ScrcpyServerFile(scrcpyServerDirectory(false, process.execPath, resolve(import.meta.dir, '..', '..')), true);
+const emulators = new AndroidBackend({ createSource: (adb, serial) => new ScrcpySource(adbScrcpyHost(adb, serial), () => screenServer.path()) });
+
+async function bootedOn(backend: { list(): Promise<DeviceInfo[]> } | null): Promise<DeviceInfo | undefined> {
+    return backend === null ? undefined : (await backend.list().catch(() => [])).find((device) => device.state === 'booted' && device.kind === 'simulator');
+}
+
+const simulator = await bootedOn(simulators);
+const emulator = await bootedOn(emulators);
 
 const home = await mkdtemp(join(tmpdir(), 'ruimte-device-trial-'));
-const manager = new DeviceManager(simulators === null ? [] : [simulators]);
+const manager = new DeviceManager(simulators === null ? [emulators] : [simulators, emulators]);
 const driver = new DeviceDriver({ home, manager });
 
 afterAll(async () => {
@@ -26,6 +37,8 @@ afterAll(async () => {
     manager.closeAll();
     await rm(home, { recursive: true, force: true });
 });
+
+let booted: DeviceInfo | undefined;
 
 function content(): ProjectContent {
     return {
@@ -46,7 +59,7 @@ function content(): ProjectContent {
                         y: 0,
                         w: 400,
                         h: 800,
-                        device: { platform: 'ios', kind: 'simulator', name: booted?.name ?? '-', runtime: booted?.runtime ?? '-' }
+                        device: { platform: booted?.platform ?? 'ios', kind: 'simulator', name: booted?.name ?? '-', runtime: booted?.runtime ?? '-' }
                     }
                 ],
                 texts: [],
@@ -69,39 +82,53 @@ function device(argv: string[]) {
     return (verbNamed('device') as Noun).run(argv, { caller: 'chat-1', host });
 }
 
-describe.skipIf(booted === undefined)('ruimte-context device on a booted simulator', () => {
-    test('goes home, photographs it, opens Settings, scrolls and goes home again, with nobody showing the node', async () => {
-        expect((await device(['button', 'phone-1', '--name', 'home']))[0]).toStartWith('done\tbutton');
-        await Bun.sleep(1500);
-        const [line] = await device(['shot', 'phone-1']);
-        const [, path, size] = line!.split('\t');
-        const [width, height] = size!.split('x').map(Number);
-        expect(width).toBeGreaterThan(0);
-        const start = await readFile(path!);
-        const shotNow = async (): Promise<Buffer> => readFile((await device(['shot', 'phone-1']))[0]!.split('\t')[1]!);
-        const swipe = (from: number, to: number) =>
-            device(['swipe', 'phone-1', '--from', `${width! / 2},${height! * from}`, '--to', `${width! / 2},${height! * to}`]);
+/* The same run on each kind of device, against the Settings app of its platform. */
+for (const [name, target, settings] of [
+    ['a booted iOS simulator', simulator, 'com.apple.Preferences'],
+    ['a booted Android emulator', emulator, 'com.android.settings']
+] as const) {
+    describe.skipIf(target === undefined)(`ruimte-context device on ${name}`, () => {
+        test('goes home, photographs it, opens Settings, reads it, scrolls and goes home again, with nobody showing the node', async () => {
+            booted = target;
+            expect((await device(['button', 'phone-1', '--name', 'home']))[0]).toStartWith('done\tbutton');
+            await Bun.sleep(1500);
+            const [line] = await device(['shot', 'phone-1']);
+            const [, path, size] = line!.split('\t');
+            const [width, height] = size!.split('x').map(Number);
+            expect(width).toBeGreaterThan(0);
+            const start = await readFile(path!);
+            const shotNow = async (): Promise<Buffer> => readFile((await device(['shot', 'phone-1']))[0]!.split('\t')[1]!);
+            const swipe = (from: number, to: number) =>
+                device(['swipe', 'phone-1', '--from', `${width! / 2},${height! * from}`, '--to', `${width! / 2},${height! * to}`]);
 
-        // A Settings left on a page of its own, such as search results, has no list to scroll; a fresh one opens on the list.
-        await manager
-            .action({ action: 'terminateApp', appId: 'com.apple.Preferences', backendId: booted!.backendId, platform: 'ios', deviceId: booted!.deviceId })
-            .catch(() => undefined);
-        expect((await device(['launch', 'phone-1', '--app', 'com.apple.Preferences']))[0]).toStartWith('done\tlaunch');
-        await Bun.sleep(1500);
-        expect((await shotNow()).equals(start)).toBe(false);
+            // A Settings left on a page of its own, such as search results, has no list to scroll; a fresh one opens on the list.
+            await manager
+                .action({ action: 'terminateApp', appId: settings, backendId: target!.backendId, platform: target!.platform, deviceId: target!.deviceId })
+                .catch(() => undefined);
+            expect((await device(['launch', 'phone-1', '--app', settings]))[0]).toStartWith('done\tlaunch');
+            await Bun.sleep(1500);
+            expect((await shotNow()).equals(start)).toBe(false);
+            const state = await device(['state', 'phone-1']);
+            expect(state).toContain('state\tbooted');
+            expect(state).toContain('can\ttype\tyes');
+            // This suite gives a simulator no device bridge, so only an emulator reads its elements here.
+            if (target!.platform === 'android') {
+                expect(state.some((row) => row.startsWith('elements\t'))).toBe(true);
+            }
 
-        // One of the two moves the list whichever end it stood at, so the pictures after them differ.
-        expect((await swipe(0.3, 0.8))[0]).toStartWith('done\tswipe');
-        await Bun.sleep(1200);
-        const towardTop = await shotNow();
-        expect((await swipe(0.8, 0.3))[0]).toStartWith('done\tswipe');
-        await Bun.sleep(1200);
-        const scrolled = await shotNow();
-        expect(scrolled.equals(towardTop)).toBe(false);
+            // One of the two moves the list whichever end it stood at, so the pictures after them differ.
+            expect((await swipe(0.3, 0.8))[0]).toStartWith('done\tswipe');
+            await Bun.sleep(1200);
+            const towardTop = await shotNow();
+            expect((await swipe(0.8, 0.3))[0]).toStartWith('done\tswipe');
+            await Bun.sleep(1200);
+            const scrolled = await shotNow();
+            expect(scrolled.equals(towardTop)).toBe(false);
 
-        await device(['button', 'phone-1', '--name', 'home']);
-        await Bun.sleep(1500);
-        const back = await shotNow();
-        expect(back.equals(scrolled)).toBe(false);
-    }, 60_000);
-});
+            await device(['button', 'phone-1', '--name', 'home']);
+            await Bun.sleep(1500);
+            const back = await shotNow();
+            expect(back.equals(scrolled)).toBe(false);
+        }, 60_000);
+    });
+}

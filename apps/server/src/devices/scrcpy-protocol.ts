@@ -17,8 +17,16 @@ const MAX_PACKET_BYTES = 8 * 1024 * 1024;
 const TYPE_INJECT_KEYCODE = 0;
 const TYPE_INJECT_TOUCH_EVENT = 2;
 const TYPE_INJECT_SCROLL_EVENT = 3;
+const TYPE_SET_CLIPBOARD = 9;
 const TYPE_ROTATE_DEVICE = 11;
 const TYPE_RESET_VIDEO = 17;
+
+const DEVICE_CLIPBOARD = 0;
+const DEVICE_ACK_CLIPBOARD = 1;
+const DEVICE_UHID_OUTPUT = 2;
+
+/* The server reads a control message of at most 256 KiB, of which a clipboard message spends 14 bytes before its text. */
+const CLIPBOARD_TEXT_MAX_BYTES = (1 << 18) - 14;
 
 const ACTION_DOWN = 0;
 const ACTION_UP = 1;
@@ -32,6 +40,12 @@ const KEYCODES = {
     appSwitcher: 187,
     siri: 219
 } as const;
+
+/* Android `KeyEvent` codes of the USB HID keyboard usages Ruimte presses on a device. */
+const HID_KEYCODES: ReadonlyMap<number, number> = new Map([
+    [0x28, 66],
+    [0x2b, 61]
+]);
 
 /* Pixels of the scroll delta that make one wheel step on the device. */
 const SCROLL_PIXELS_PER_STEP = 120;
@@ -130,6 +144,53 @@ export class ScrcpyVideoReader {
     }
 }
 
+/*
+ * Reads what the server sends back on the control socket. Only the acknowledgement of a clipboard
+ * write matters to Ruimte; a clipboard the device copied and a keyboard's output are read past.
+ */
+export class ScrcpyDeviceMessageReader {
+    private buffer: Uint8Array = new Uint8Array();
+
+    /* The sequences of the clipboard writes this chunk acknowledges. */
+    push(chunk: Uint8Array): bigint[] {
+        this.buffer = this.buffer.byteLength === 0 ? chunk : concat(this.buffer, chunk);
+        const acknowledged: bigint[] = [];
+        let offset = 0;
+        for (;;) {
+            const available = this.buffer.byteLength - offset;
+            if (available < 1) {
+                break;
+            }
+            const message = view(this.buffer, offset);
+            const size = deviceMessageSize(message, available);
+            if (size === null || available < size) {
+                break;
+            }
+            if (message.getUint8(0) === DEVICE_ACK_CLIPBOARD) {
+                acknowledged.push(message.getBigUint64(1));
+            }
+            offset += size;
+        }
+        this.buffer = offset === 0 ? this.buffer : this.buffer.slice(offset);
+        return acknowledged;
+    }
+}
+
+/* The bytes of the device message `message` starts with, or null while its header has not all arrived. */
+function deviceMessageSize(message: DataView, available: number): number | null {
+    const type = message.getUint8(0);
+    switch (type) {
+        case DEVICE_ACK_CLIPBOARD:
+            return 9;
+        case DEVICE_CLIPBOARD:
+            return available < 5 ? null : 5 + message.getUint32(1);
+        case DEVICE_UHID_OUTPUT:
+            return available < 5 ? null : 5 + message.getUint16(3);
+        default:
+            throw new ScrcpyProtocolError(`The device sent a message of unknown type ${type}`);
+    }
+}
+
 export interface ScreenSize {
     width: number;
     height: number;
@@ -171,6 +232,32 @@ export function encodeScroll(x: number, y: number, horizontal: number, vertical:
     message.setInt16(15, toScrollFixedPoint(vertical));
     message.setInt32(17, 0);
     return new Uint8Array(message.buffer);
+}
+
+/* The key presses of a chord of USB HID usages, let go in reverse; null when the chord holds a key Ruimte does not know on Android. */
+export function encodeKeyChord(usages: readonly number[]): Uint8Array[] | null {
+    const keycodes = usages.map((usage) => HID_KEYCODES.get(usage));
+    if (keycodes.some((keycode) => keycode === undefined)) {
+        return null;
+    }
+    const pressed = keycodes as number[];
+    return [...pressed.map((keycode) => encodeKeycode(ACTION_DOWN, keycode)), ...pressed.toReversed().map((keycode) => encodeKeycode(ACTION_UP, keycode))];
+}
+
+/* Sets the device clipboard and presses paste; a non-zero sequence asks the server to acknowledge it. */
+export function encodeSetClipboard(sequence: bigint, text: string, paste: boolean): Uint8Array {
+    const bytes = new TextEncoder().encode(text);
+    if (bytes.byteLength > CLIPBOARD_TEXT_MAX_BYTES) {
+        throw new ScrcpyProtocolError('The text is too long for the device clipboard');
+    }
+    const message = new Uint8Array(14 + bytes.byteLength);
+    const header = new DataView(message.buffer);
+    header.setUint8(0, TYPE_SET_CLIPBOARD);
+    header.setBigUint64(1, sequence);
+    header.setUint8(9, paste ? 1 : 0);
+    header.setUint32(10, bytes.byteLength);
+    message.set(bytes, 14);
+    return message;
 }
 
 export function encodeRotate(): Uint8Array {

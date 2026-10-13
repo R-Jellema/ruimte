@@ -69,7 +69,7 @@ export const OPEN_GATE: DeviceGate = { admit: () => null, recheck: () => null };
 
 type Manager = Pick<
     DeviceManager,
-    'find' | 'hold' | 'release' | 'input' | 'keys' | 'canType' | 'type' | 'screenshot' | 'action' | 'canTree' | 'tree' | 'closeTree'
+    'find' | 'hold' | 'release' | 'input' | 'keys' | 'paste' | 'canType' | 'type' | 'screenshot' | 'action' | 'canTree' | 'tree' | 'closeTree'
 >;
 
 export interface DeviceDriverOptions {
@@ -258,7 +258,10 @@ export class DeviceDriver {
             await this.manager.type(device.backendId, device.platform, device.deviceId, text, async () => {
                 await this.hold(device, holder);
                 held = true;
-                return (usages) => this.manager.keys(device.backendId, device.deviceId, holder, usages);
+                return {
+                    keys: (usages) => this.manager.keys(device.backendId, device.deviceId, holder, usages),
+                    paste: (run) => this.manager.paste(device.backendId, device.deviceId, holder, run)
+                };
             });
         } finally {
             if (held) {

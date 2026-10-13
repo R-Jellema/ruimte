@@ -1,5 +1,14 @@
 import { describe, expect, test } from 'bun:test';
-import { controlMessages, encodeScroll, encodeTouch, ScrcpyProtocolError, ScrcpyVideoReader } from './scrcpy-protocol.ts';
+import {
+    controlMessages,
+    encodeKeyChord,
+    encodeScroll,
+    encodeSetClipboard,
+    encodeTouch,
+    ScrcpyDeviceMessageReader,
+    ScrcpyProtocolError,
+    ScrcpyVideoReader
+} from './scrcpy-protocol.ts';
 
 const codecH264 = new Uint8Array([0x68, 0x32, 0x36, 0x34]);
 
@@ -108,5 +117,54 @@ describe('control messages', () => {
         expect(pinch.map((message) => new DataView(message.buffer).getBigInt64(2))).toEqual([0n, 1n]);
         expect(pinch.map((message) => message[1])).toEqual([2, 2]);
         expect(controlMessages({ kind: 'rotate', direction: 'left' }, screen)).toEqual([new Uint8Array([11])]);
+    });
+});
+
+describe('typing messages', () => {
+    test('sets the clipboard as UTF-8 behind its sequence, the paste flag and its length', () => {
+        const message = encodeSetClipboard(7n, 'Grüße 🎉', true);
+        const header = new DataView(message.buffer);
+        const text = new TextEncoder().encode('Grüße 🎉');
+
+        expect([header.getUint8(0), header.getBigUint64(1), header.getUint8(9), header.getUint32(10)]).toEqual([9, 7n, 1, text.byteLength]);
+        expect(message.slice(14)).toEqual(text);
+        expect(encodeSetClipboard(1n, 'x', false)[9]).toBe(0);
+        expect(() => encodeSetClipboard(1n, 'x'.repeat(1 << 18), true)).toThrow(ScrcpyProtocolError);
+    });
+
+    test('presses Return and Tab as Android key codes, let go in reverse, and knows no other key', () => {
+        const chord = encodeKeyChord([0x2b, 0x28])!;
+
+        expect(chord.map((message) => [message[1], new DataView(message.buffer).getInt32(2)])).toEqual([
+            [0, 61],
+            [0, 66],
+            [1, 66],
+            [1, 61]
+        ]);
+        expect(encodeKeyChord([0xe3, 0x19])).toBeNull();
+    });
+});
+
+describe('ScrcpyDeviceMessageReader', () => {
+    function ack(sequence: bigint): Uint8Array {
+        const message = new DataView(new ArrayBuffer(9));
+        message.setUint8(0, 1);
+        message.setBigUint64(1, sequence);
+        return new Uint8Array(message.buffer);
+    }
+
+    test('reads acknowledgements split anywhere and reads past a copied clipboard and keyboard output', () => {
+        const reader = new ScrcpyDeviceMessageReader();
+        const clipboard = new Uint8Array([0, 0, 0, 0, 2, 0x68, 0x69]);
+        const uhid = new Uint8Array([2, 0, 1, 0, 3, 9, 9, 9]);
+        const stream = join(clipboard, ack(3n), uhid, ack(4n));
+
+        const acknowledged = [...stream].flatMap((byte) => reader.push(new Uint8Array([byte])));
+
+        expect(acknowledged).toEqual([3n, 4n]);
+    });
+
+    test('refuses a message it cannot size', () => {
+        expect(() => new ScrcpyDeviceMessageReader().push(new Uint8Array([9, 0]))).toThrow(ScrcpyProtocolError);
     });
 });

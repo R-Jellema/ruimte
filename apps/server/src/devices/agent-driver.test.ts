@@ -6,7 +6,7 @@ import { ManualTimers } from '../computer/computer-test-helpers.ts';
 import { AGENT_HOLD_IDLE_MS, DeviceDriver, type AgentStep, type DeviceGate } from './agent-driver.ts';
 import { DeviceControl } from './control.ts';
 import { ReadingBackend, RecordingBackend, SAMPLE_TREE, SIMULATOR, pngOf } from './device-test-helpers.ts';
-import { DeviceManager } from './manager.ts';
+import { DeviceManager, type DeviceKeyboard } from './manager.ts';
 
 let home: string;
 let backend: RecordingBackend;
@@ -45,6 +45,8 @@ beforeEach(async () => {
 afterEach(async () => {
     await rm(home, { recursive: true, force: true });
 });
+
+const EMULATOR = { ...SIMULATOR, deviceId: 'Pixel_10_Pro', backendId: 'android', platform: 'android' as const, name: 'Pixel 10 Pro' };
 
 function settle() {
     return new Promise((resolve) => setTimeout(resolve, 0));
@@ -195,6 +197,23 @@ describe('DeviceDriver', () => {
         timers.advance(AGENT_HOLD_IDLE_MS);
         await settle();
         expect(backend.source.stops).toBe(1);
+    });
+
+    test('pastes through the clipboard of a session it holds, the way an Android device takes text', async () => {
+        const android = new (class extends RecordingBackend {
+            override async type(_deviceId: string, text: string, keyboard: () => Promise<DeviceKeyboard>): Promise<void> {
+                this.typed.push(text);
+                await (await keyboard()).paste(text);
+            }
+        })(EMULATOR);
+        const emulators = new DeviceDriver({ home, manager: new DeviceManager([android]), timers, sleep: async () => undefined });
+
+        await emulators.type('chat-1', EMULATOR, 'Grüße 🎉 你好');
+
+        expect(android.source.pasted).toEqual(['Grüße 🎉 你好']);
+        timers.advance(AGENT_HOLD_IDLE_MS);
+        await settle();
+        expect(android.source.stops).toBe(1);
     });
 
     test('refuses to type where the backend has no way to, or the gate says no', async () => {

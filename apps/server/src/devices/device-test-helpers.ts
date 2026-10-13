@@ -37,6 +37,7 @@ export class RecordingSource implements DeviceSource {
     stops = 0;
     readonly inputs: DeviceInput[] = [];
     readonly chords: number[][] = [];
+    readonly pasted: string[] = [];
 
     start(_publish: (frame: LiveStreamFrame) => void): Promise<void> {
         this.starts += 1;
@@ -60,6 +61,14 @@ export class RecordingSource implements DeviceSource {
             throw new Error('keys reached a source that is not running');
         }
         this.chords.push([...usages]);
+    }
+
+    paste(text: string): Promise<void> {
+        if (this.starts === this.stops) {
+            return Promise.reject(new Error('a paste reached a source that is not running'));
+        }
+        this.pasted.push(text);
+        return Promise.resolve();
     }
 }
 
@@ -96,9 +105,7 @@ export class RecordingBackend implements DeviceBackend {
     /* Types the way a simulator does: a paste chord through the session for each text. */
     async type(_deviceId: string, text: string, keyboard: () => Promise<DeviceKeyboard>): Promise<void> {
         this.typed.push(text);
-        await (
-            await keyboard()
-        )([0xe3, 0x19]);
+        await (await keyboard()).keys([0xe3, 0x19]);
     }
 
     action(_deviceId: string, action: DeviceAction): Promise<DeviceSettings> {

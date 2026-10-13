@@ -1,6 +1,15 @@
 import type { DeviceInput, LiveStreamFrame } from '@ruimte/contracts';
 import { DeviceError, type DeviceSource } from './manager.ts';
-import { controlMessages, encodeResetVideo, SCRCPY_PROTOCOL_VERSION, ScrcpyVideoReader, type ScreenSize } from './scrcpy-protocol.ts';
+import {
+    controlMessages,
+    encodeKeyChord,
+    encodeResetVideo,
+    encodeSetClipboard,
+    SCRCPY_PROTOCOL_VERSION,
+    ScrcpyDeviceMessageReader,
+    ScrcpyVideoReader,
+    type ScreenSize
+} from './scrcpy-protocol.ts';
 
 export interface CommandResult {
     exitCode: number;
@@ -32,6 +41,8 @@ const CONNECT_RETRY_MS = 100;
 const FIRST_BYTE_TIMEOUT_MS = 1_000;
 /* How long input waits for the first frame, which is what gives a touch its pixels. */
 const FIRST_FRAME_TIMEOUT_MS = 5_000;
+/* How long a paste waits for the server to say it set the clipboard. */
+const CLIPBOARD_ACK_TIMEOUT_MS = 5_000;
 
 function writeInput(control: ScrcpyConnection, screen: ScreenSize, input: DeviceInput): void {
     for (const message of controlMessages(input, screen)) {
@@ -48,6 +59,8 @@ interface Session {
     /* Settles with the first frame or the end of the session, whichever comes first. */
     firstFrame: Promise<void>;
     settleFirstFrame: () => void;
+    /* The pastes waiting for their acknowledgement, by sequence; each settles true when it came and false when the session ended. */
+    acks: Map<bigint, (acknowledged: boolean) => void>;
     ended: boolean;
 }
 
@@ -62,6 +75,7 @@ export class ScrcpySource implements DeviceSource {
     private readonly serverPath: () => Promise<string>;
     private session: Session | null = null;
     private sequence = 0;
+    private clipboardSequence = 0n;
 
     constructor(host: ScrcpyHost, serverPath: () => Promise<string>) {
         this.host = host;
@@ -104,7 +118,17 @@ export class ScrcpySource implements DeviceSource {
         const firstFrame = new Promise<void>((resolve) => {
             settleFirstFrame = resolve;
         });
-        const session: Session = { serverProcess, port, video: null, control: null, screen: null, firstFrame, settleFirstFrame, ended: false };
+        const session: Session = {
+            serverProcess,
+            port,
+            video: null,
+            control: null,
+            screen: null,
+            firstFrame,
+            settleFirstFrame,
+            acks: new Map(),
+            ended: false
+        };
         this.session = session;
         const reader = new ScrcpyVideoReader({ dummyByte: true });
         const onVideo = (bytes: Uint8Array): void => {
@@ -124,7 +148,20 @@ export class ScrcpySource implements DeviceSource {
         };
         try {
             session.video = await this.connectVideo(session, onVideo);
-            session.control = await this.host.connect(port, { data: () => undefined, close: () => void this.end(session) });
+            const messages = new ScrcpyDeviceMessageReader();
+            const onControl = (bytes: Uint8Array): void => {
+                let acknowledged;
+                try {
+                    acknowledged = messages.push(bytes);
+                } catch {
+                    void this.end(session);
+                    return;
+                }
+                for (const sequence of acknowledged) {
+                    session.acks.get(sequence)?.(true);
+                }
+            };
+            session.control = await this.host.connect(port, { data: onControl, close: () => void this.end(session) });
         } catch (error) {
             await this.end(session);
             throw error;
@@ -139,10 +176,7 @@ export class ScrcpySource implements DeviceSource {
     }
 
     input(input: DeviceInput): void | Promise<void> {
-        const session = this.session;
-        if (session === null || session.control === null) {
-            throw new DeviceError('device-not-streaming', 'Open the device stream before sending input');
-        }
+        const session = this.controlled();
         if (session.screen === null) {
             // A tap right after the stream opened, as an agent's first one is, waits for the pixels instead of vanishing.
             return this.inputAfterFirstFrame(session, input);
@@ -158,8 +192,47 @@ export class ScrcpySource implements DeviceSource {
         writeInput(session.control, session.screen, input);
     }
 
+    keys(usages: readonly number[]): void {
+        const { control } = this.controlled();
+        const messages = encodeKeyChord(usages);
+        if (messages === null) {
+            throw new DeviceError('device-input-unavailable', 'Ruimte presses only Return and Tab on an Android device');
+        }
+        for (const message of messages) {
+            control.write(message);
+        }
+    }
+
+    /* Waits for the server's acknowledgement, which it sends once the clipboard is set and the paste key is on its way. */
+    async paste(text: string): Promise<void> {
+        const session = this.controlled();
+        this.clipboardSequence += 1n;
+        const sequence = this.clipboardSequence;
+        const acknowledged = new Promise<boolean>((resolve) => {
+            session.acks.set(sequence, resolve);
+        });
+        try {
+            session.control.write(encodeSetClipboard(sequence, text, true));
+            if (!(await Promise.race([acknowledged, this.host.sleep(CLIPBOARD_ACK_TIMEOUT_MS).then(() => false)]))) {
+                throw session.ended
+                    ? new DeviceError('device-not-streaming', 'The Android screen closed before the text was pasted')
+                    : new DeviceError('scrcpy-failed', 'The Android screen server did not confirm the text it was given');
+            }
+        } finally {
+            session.acks.delete(sequence);
+        }
+    }
+
     requestKeyFrame(): void {
         this.session?.control?.write(encodeResetVideo());
+    }
+
+    private controlled(): Session & { control: ScrcpyConnection } {
+        const session = this.session;
+        if (session === null || session.control === null) {
+            throw new DeviceError('device-not-streaming', 'Open the device stream before sending input');
+        }
+        return session as Session & { control: ScrcpyConnection };
     }
 
     /*
@@ -208,6 +281,9 @@ export class ScrcpySource implements DeviceSource {
         }
         session.ended = true;
         session.settleFirstFrame();
+        for (const settle of session.acks.values()) {
+            settle(false);
+        }
         if (this.session === session) {
             this.session = null;
         }

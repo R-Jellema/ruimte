@@ -147,9 +147,12 @@ describe('IosSimulatorBackend', () => {
             }
         );
 
-        await backend.type('phone-1', 'Grüße 🎉\r\nnext\tlast', async () => async (usages) => {
-            events.push(`keys ${usages.join(',')}`);
-        });
+        await backend.type('phone-1', 'Grüße 🎉\r\nnext\tlast', async () => ({
+            keys: async (usages) => {
+                events.push(`keys ${usages.join(',')}`);
+            },
+            paste: () => Promise.reject(new Error('a simulator pastes through simctl'))
+        }));
         expect(events).toEqual([
             'pbcopy phone-1 <Grüße 🎉>',
             'keys 227,25',

@@ -40,6 +40,7 @@ class FakeHost implements ScrcpyHost {
     /* What `sleep` answers once the source started, so a test decides when a wait runs out. */
     wait: Promise<void> | null = null;
     private video: ((bytes: Uint8Array) => void) | null = null;
+    private controlData: ((bytes: Uint8Array) => void) | null = null;
     private started = false;
     private exit: (code: number) => void = () => undefined;
 
@@ -66,6 +67,9 @@ class FakeHost implements ScrcpyHost {
         this.connections += 1;
         const attempt = this.connections;
         // The first connection lands before the server listens, the second is the video and the third the control socket.
+        if (attempt === 3) {
+            this.controlData = handlers.data;
+        }
         queueMicrotask(() => {
             if (attempt === 1) {
                 handlers.close();
@@ -95,6 +99,14 @@ class FakeHost implements ScrcpyHost {
 
     sendVideo() {
         this.video?.(opening.slice(5));
+    }
+
+    /* The server's acknowledgement of the clipboard write with this sequence. */
+    acknowledge(sequence: bigint) {
+        const message = new DataView(new ArrayBuffer(9));
+        message.setUint8(0, 1);
+        message.setBigUint64(1, sequence);
+        this.controlData?.(new Uint8Array(message.buffer));
     }
 
     markStarted() {
@@ -171,5 +183,58 @@ describe('ScrcpySource', () => {
         expect(host.killed).toBe(true);
         expect(host.adbCalls.at(-1)).toEqual(['forward', '--remove', 'tcp:27183']);
         expect(() => source.input({ kind: 'button', button: 'home' })).toThrow('Open the device stream before sending input');
+    });
+
+    test('pastes through the device clipboard and returns once the server acknowledged that write', async () => {
+        const host = new FakeHost();
+        host.wait = new Promise(() => undefined);
+        const source = new ScrcpySource(host, () => Promise.resolve('/native/scrcpy-server'));
+        await source.start(() => undefined);
+        host.markStarted();
+
+        let done = false;
+        const pasted = source.paste('Grüße 🎉').then(() => {
+            done = true;
+        });
+        await Promise.resolve();
+        const message = new DataView(host.control[0]!.buffer);
+        expect([message.getUint8(0), message.getBigUint64(1), message.getUint8(9)]).toEqual([9, 1n, 1]);
+        expect(new TextDecoder().decode(host.control[0]!.slice(14))).toBe('Grüße 🎉');
+        host.acknowledge(2n);
+        await Promise.resolve();
+        expect(done).toBe(false);
+
+        host.acknowledge(1n);
+        await pasted;
+        expect(done).toBe(true);
+    });
+
+    test('says so when the server never acknowledges a paste, or the stream ends while it waits', async () => {
+        const host = new FakeHost();
+        host.wait = Promise.resolve();
+        const source = new ScrcpySource(host, () => Promise.resolve('/native/scrcpy-server'));
+        await source.start(() => undefined);
+        host.markStarted();
+        await expect(source.paste('hi')).rejects.toMatchObject({ code: 'scrcpy-failed' });
+
+        host.wait = new Promise(() => undefined);
+        const waiting = source.paste('hi');
+        await source.stop();
+        await expect(waiting).rejects.toMatchObject({ code: 'device-not-streaming' });
+        await expect(source.paste('hi')).rejects.toMatchObject({ code: 'device-not-streaming' });
+    });
+
+    test('presses Return and Tab, and refuses a key it does not know on Android', async () => {
+        const host = new FakeHost();
+        const source = new ScrcpySource(host, () => Promise.resolve('/native/scrcpy-server'));
+        await source.start(() => undefined);
+
+        source.keys([0x28]);
+
+        expect(host.control.map((message) => [message[0], message[1], new DataView(message.buffer).getInt32(2)])).toEqual([
+            [0, 0, 66],
+            [0, 1, 66]
+        ]);
+        expect(() => source.keys([0xe3, 0x19])).toThrow('Ruimte presses only Return and Tab on an Android device');
     });
 });

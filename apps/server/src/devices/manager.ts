@@ -25,10 +25,38 @@ export interface DeviceSource extends LiveFrameSource {
     input(input: DeviceInput): void | Promise<void>;
     /* A chord of USB HID keyboard usages, pressed in order and let go in reverse; absent on a source without a keyboard. */
     keys?(usages: readonly number[]): void | Promise<void>;
+    /* Puts the text on the device's clipboard and pastes it where the focus is; absent on a source that cannot. */
+    paste?(text: string): Promise<void>;
 }
 
-/* Presses a chord on a device through a session held for whoever types. */
-export type DeviceKeyboard = (usages: readonly number[]) => Promise<void>;
+/* The keys and the clipboard of a device, through a session held for whoever types. */
+export interface DeviceKeyboard {
+    keys(usages: readonly number[]): Promise<void>;
+    paste(text: string): Promise<void>;
+}
+
+/* USB HID keyboard usages (page 7) of the keys typing presses itself. */
+export const KEY_RETURN = 0x28;
+export const KEY_TAB = 0x2b;
+
+/* The app reads the clipboard on its own time after a paste, so the next run waits before it writes the clipboard again. */
+export const PASTE_SETTLE_MS = 150;
+
+/*
+ * Types text a run at a time, a newline as Return and a tab as Tab and every run between them pasted:
+ * a key per character would follow the keyboard layout and could not type an accent or an emoji at all.
+ */
+export async function typeInRuns(text: string, press: (usage: number) => Promise<void>, paste: (run: string) => Promise<void>): Promise<void> {
+    for (const part of text.replace(/\r\n?/g, '\n').split(/(\n|\t)/)) {
+        if (part === '\n') {
+            await press(KEY_RETURN);
+        } else if (part === '\t') {
+            await press(KEY_TAB);
+        } else if (part !== '') {
+            await paste(part);
+        }
+    }
+}
 
 export interface DeviceBackend {
     readonly id: string;
@@ -328,6 +356,21 @@ export class DeviceManager {
         }
         try {
             await session.source.keys(usages);
+        } catch (error) {
+            throw this.sourceError(error);
+        }
+    }
+
+    async paste(backendId: string, deviceId: string, clientId: string, text: string): Promise<void> {
+        const session = this.sessions.get(sessionKey(backendId, deviceId));
+        if (!session || !session.clients.has(clientId)) {
+            throw new DeviceError('device-not-open', 'Open the device before sending input');
+        }
+        if (!session.source.paste) {
+            throw new DeviceError('device-input-unavailable', 'This device takes no pasted text from Ruimte');
+        }
+        try {
+            await session.source.paste(text);
         } catch (error) {
             throw this.sourceError(error);
         }

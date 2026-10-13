@@ -259,7 +259,7 @@ const typeAction = defineActionVerb('device', {
     params: [NODE_PARAM, { syntax: '--text T', need: 'required', field: 'text' }],
     detail: [
         'note\tThe text goes wherever the focus is, so tap the field first and take a shot to see it has the cursor',
-        'note\tA simulator takes the text through its pasteboard, which it replaces, so any character goes; Android takes plain ASCII only, and a phone takes no text',
+        'note\tA simulator and an Android device take the text through their clipboard, which it replaces, so any character goes; a newline is Return and a tab is Tab. An iPhone takes no text',
         'prints\tdone\ttype\tid\tdevice',
         ...COMMON_DETAIL
     ],
