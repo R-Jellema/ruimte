@@ -3,7 +3,7 @@ export interface FrameClock {
     cancel(handle: number): void;
 }
 
-const windowFrames: FrameClock = {
+export const windowFrames: FrameClock = {
     request: (callback) => window.requestAnimationFrame(callback),
     cancel: (handle) => window.cancelAnimationFrame(handle)
 };

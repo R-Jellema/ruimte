@@ -6,6 +6,7 @@ import { focusCellOfView, watchGuestFocus } from '@/browser/guest-focus';
 import { browserRegistry, useBrowser } from '@/browser/registry';
 import { nodesOverBrowsers } from '@/canvas/stacking';
 import { isSpaceDown, subscribeSpacePan } from '@/canvas/space-pan';
+import { oncePerFrame } from '@/browser/once-per-frame';
 import { pageClipPath, type PageHole } from '@/browser/page-clip';
 import { cellElement, subscribeCells } from '@/shell/cell-rects';
 import { shownViewIdsIn } from '@/shell/split';
@@ -44,6 +45,24 @@ interface Covering {
     selection: unknown;
     aimed: unknown;
     over: Record<string, PageHole[]>;
+}
+
+/* Where a cell stands on screen, read before anything is written, so placing every page lays the window out once. */
+interface CellBox {
+    rect: DOMRect;
+    radius: string;
+}
+
+function cellBoxOf(measured: Map<HTMLElement, CellBox>, cell: HTMLElement | null): CellBox | null {
+    if (cell === null) {
+        return null;
+    }
+    let cellBox = measured.get(cell);
+    if (cellBox === undefined) {
+        cellBox = { rect: cell.getBoundingClientRect(), radius: getComputedStyle(cell).borderRadius };
+        measured.set(cell, cellBox);
+    }
+    return cellBox;
 }
 
 /* Answered once per canvas and kept until its nodes change, since it is asked again on every pan. */
@@ -105,15 +124,21 @@ function DesktopWebviewParking() {
          */
         const place = (): void => {
             const box = root.current?.getBoundingClientRect();
+            if (!box) {
+                return;
+            }
             const open = shownViewIds();
-            for (const [key, host] of hosts.current) {
+            const cells = new Map<HTMLElement, CellBox>();
+            const pages = [...hosts.current].flatMap(([key, host]) => {
                 const nodeId = splitKey(key).id;
                 const clip = clips.current.get(key);
-                if (!clip || !box) {
-                    continue;
+                if (!clip) {
+                    return [];
                 }
                 const view = pageViewOf(nodeId, open);
-                const cell = view === null ? null : cellElement(view.viewId);
+                return [{ key, host, clip, nodeId, view, cell: view === null ? null : cellBoxOf(cells, cellElement(view.viewId)) }];
+            });
+            for (const { key, host, clip, nodeId, view, cell } of pages) {
                 if (view === null || cell === null) {
                     inputs.get(key)?.end();
                     tellCanvas(key, false, false);
@@ -123,12 +148,12 @@ function DesktopWebviewParking() {
                     host.style.pointerEvents = 'none';
                     continue;
                 }
-                const rect = cell.getBoundingClientRect();
+                const { rect } = cell;
                 clip.style.visibility = 'visible';
                 clip.style.transform = `translate(${rect.left - box.left}px, ${rect.top - box.top}px)`;
                 clip.style.width = `${rect.width}px`;
                 clip.style.height = `${rect.height}px`;
-                clip.style.borderRadius = getComputedStyle(cell).borderRadius;
+                clip.style.borderRadius = cell.radius;
 
                 // A view of its own is one page over the whole cell; there is no canvas under it.
                 if (!view.onCanvas) {
@@ -194,6 +219,8 @@ function DesktopWebviewParking() {
                 host.style.clipPath = pageClipPath(width, height, holes) ?? '';
             }
         };
+        const frame = oncePerFrame(place);
+        const schedule = (): void => frame.request();
         const offGuests: Array<() => void> = [];
         for (const key of keys) {
             const element = browserRegistry.get(key);
@@ -223,7 +250,7 @@ function DesktopWebviewParking() {
             const ready = (): void => {
                 input.end();
                 configurations.delete(key);
-                place();
+                schedule();
             };
             element.addEventListener('ipc-message', message);
             element.addEventListener('dom-ready', ready);
@@ -235,13 +262,14 @@ function DesktopWebviewParking() {
             });
         }
         place();
-        const offCanvas = subscribeCanvases(place);
-        const offDocument = useDocument.subscribe(place);
-        const offCells = subscribeCells(place);
-        const offSpace = subscribeSpacePan(place);
+        const offCanvas = subscribeCanvases(schedule);
+        const offDocument = useDocument.subscribe(schedule);
+        const offCells = subscribeCells(schedule);
+        const offSpace = subscribeSpacePan(schedule);
         // The grid moves with the window as well, and a resize moves no state at all.
-        window.addEventListener('resize', place);
+        window.addEventListener('resize', schedule);
         return () => {
+            frame.dispose();
             offCanvas();
             offDocument();
             offCells();
@@ -249,7 +277,7 @@ function DesktopWebviewParking() {
             for (const off of offGuests) {
                 off();
             }
-            window.removeEventListener('resize', place);
+            window.removeEventListener('resize', schedule);
         };
     }, [keys]);
 
