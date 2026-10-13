@@ -24,9 +24,11 @@ application version. Shared libraries come from Adecore at the version pinned in
 `bun.lock`; Ruimte's application version moves on its own.
 
 `.github/workflows/npm.yml` runs on `release: published`, on the dispatch sent by `release.yml`, or
-by hand (`gh workflow run npm.yml -f version=0.2.0`, for an existing tag). It compiles the daemon
-for `darwin-arm64` on macOS and `linux-x64`/`linux-arm64` on Ubuntu, then prepares the packages
-with `packages/npm/scripts/build.ts`. `publish.ts` publishes the platform binaries before the
+by hand (`gh workflow run npm.yml -f version=0.2.0`, for an existing tag). The dispatch from
+`release.yml` names its own run in `release_run`, and npm.yml publishes the daemons that run
+compiled for the desktop builds, kept as artifacts for 7 days. Without `release_run` it compiles
+the daemon itself, for `darwin-arm64` on macOS and `linux-x64`/`linux-arm64` on Ubuntu. Either way
+`packages/npm/scripts/build.ts` prepares the packages. `publish.ts` publishes the platform binaries before the
 launcher, skips versions already on npm and uses `next` for prereleases.
 
 This repository no longer publishes libraries: the `libraries-v*` trigger, the library jobs, their

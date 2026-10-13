@@ -10,6 +10,9 @@ on:
             version:
                 description: The release to publish, without the v (0.2.0); its tag has to exist
                 required: true
+            release_run:
+                description: The release.yml run whose daemons to publish; without one this run compiles them
+                required: false
 
 permissions:
     contents: read
@@ -39,8 +42,10 @@ jobs:
 
     # A macOS binary has to be re-signed with codesign after Bun writes it, or the kernel kills it on
     # launch, so the darwin targets build on macOS. Bun cross-compiles the Linux ones from anywhere.
+    # A release run already compiled all three, so only a publish without one builds them here.
     binaries:
         needs: version
+        if: ${{ !inputs.release_run }}
         strategy:
             matrix:
                 include:
@@ -75,11 +80,14 @@ jobs:
 
     publish:
         needs: [version, binaries]
+        if: ${{ !cancelled() && needs.version.result == 'success' && (needs.binaries.result == 'success' || needs.binaries.result == 'skipped') }}
         runs-on: ubuntu-latest
         environment: npm
         permissions:
             contents: read
             id-token: write
+            # Reads the artifacts of the release run.
+            actions: read
         steps:
             - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
               with:
@@ -95,8 +103,15 @@ jobs:
             # Trusted Publishing needs npm 11.5.1 or newer. Pinned, since this job holds the OIDC token npm publishes with.
             - run: npm install -g npm@11.20.0 && npm --version
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              if: ${{ !inputs.release_run }}
               with:
                   path: binaries
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              if: ${{ inputs.release_run }}
+              with:
+                  path: binaries
+                  run-id: ${{ inputs.release_run }}
+                  github-token: ${{ github.token }}
             - name: Lay out the packages
               env:
                   VERSION: ${{ needs.version.outputs.version }}
