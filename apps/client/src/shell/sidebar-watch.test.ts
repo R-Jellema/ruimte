@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, jest, test } from 'bun:test';
 import type { EventMap, EventType, RequestMap, RequestType } from '@ruimte/contracts';
 import { TransportError, type Transport, type TransportStatus } from '../transport/transport';
-import { SidebarWatch } from './sidebar-watch';
+import { SidebarWatch, type SidebarWatchOptions } from './sidebar-watch';
 
 class FakeTransport implements Transport {
     status: TransportStatus = 'open';
@@ -35,9 +35,13 @@ class FakeTransport implements Transport {
     }
 }
 
+function summary(projectId: string) {
+    return { projectId, name: projectId, color: 'blue', folder: `/${projectId}`, lastOpenedAt: 0, closedAt: null, available: true };
+}
+
 const watchers: SidebarWatch[] = [];
-function watch(transport: FakeTransport) {
-    const watcher = new SidebarWatch(transport);
+function watch(transport: FakeTransport, options: SidebarWatchOptions = {}) {
+    const watcher = new SidebarWatch(transport, { polls: () => true, ...options });
     watchers.push(watcher);
     return watcher;
 }
@@ -93,21 +97,110 @@ describe('background sidebar updates', () => {
         expect(watcher.getSnapshot().state).toBe('ready');
     });
 
-    test('external edits are refreshed and disposal removes listeners and timers', async () => {
+    test('a change to a listed project takes its rows from the document without asking', async () => {
+        const transport = new FakeTransport();
+        transport.answer = (type) =>
+            type === 'project.sidebar' ? { projects: [{ summary: summary('p1'), views: [] }] } : type === 'session.list' ? { sessions: [] } : { chats: [] };
+        const watcher = watch(transport);
+        await settle();
+        const before = transport.calls.length;
+        transport.emit('project.changed', {
+            projectId: 'p1',
+            document: { views: [{ id: 'chat', kind: 'chat', name: 'Discussion', node: { provider: 'claude' } }], shared: ['chat'], flags: { chat: 'red' } }
+        });
+        await settle();
+        expect(transport.calls).toHaveLength(before);
+        expect(watcher.getSnapshot().projects[0]?.views).toEqual([
+            expect.objectContaining({ id: 'chat', name: 'Discussion', shared: true, flag: 'red', self: expect.objectContaining({ id: 'chat', kind: 'chat' }) })
+        ]);
+    });
+
+    test('a project the sidebar does not list yet asks for the projects alone', async () => {
+        const transport = new FakeTransport();
+        watch(transport);
+        await settle();
+        transport.calls = [];
+        transport.emit('project.changed', { projectId: 'new', document: { views: [], shared: [] } });
+        transport.emit('project.summary', { summary: summary('other') });
+        await settle();
+        expect(transport.calls).toEqual(['project.sidebar']);
+    });
+
+    test('a new summary of a listed project is taken as it comes, and a closed one asks again', async () => {
+        const transport = new FakeTransport();
+        transport.answer = (type) =>
+            type === 'project.sidebar' ? { projects: [{ summary: summary('p1'), views: [] }] } : type === 'session.list' ? { sessions: [] } : { chats: [] };
+        const watcher = watch(transport);
+        await settle();
+        transport.calls = [];
+        transport.emit('project.summary', { summary: { ...summary('p1'), name: 'Renamed' } });
+        await settle();
+        expect(transport.calls).toEqual([]);
+        expect(watcher.getSnapshot().projects[0]?.summary.name).toBe('Renamed');
+        transport.emit('project.summary', { summary: { ...summary('p1'), closedAt: 1 } });
+        await settle();
+        expect(transport.calls).toEqual(['project.sidebar']);
+    });
+
+    test('a changed list of sessions asks for the sessions alone, once for a burst', async () => {
+        const transport = new FakeTransport();
+        watch(transport);
+        await settle();
+        transport.calls = [];
+        transport.emit('session.list-changed', {});
+        transport.emit('session.list-changed', {});
+        await settle();
+        expect(transport.calls).toEqual(['session.list']);
+    });
+
+    test('a status an event set while the list was out stays, and the list replaces only its own kind', async () => {
+        const transport = new FakeTransport();
+        const watcher = watch(transport);
+        await settle();
+        transport.emit('chat.status', { chatId: 'chat', info: { status: 'needs-you' } });
+        let reply: (value: unknown) => void = () => {};
+        transport.answer = () =>
+            new Promise((resolve) => {
+                reply = resolve;
+            });
+        transport.emit('session.list-changed', {});
+        await settle();
+        transport.emit('session.status', { sessionId: 'fresh', agent: { status: 'idle' } });
+        reply({
+            sessions: [
+                { sessionId: 'fresh', exited: false, agent: { live: true, status: 'running' } },
+                { sessionId: 'other', exited: true }
+            ]
+        });
+        await settle();
+        expect(watcher.getSnapshot().statuses).toEqual({ 'chat:chat': 'needs-you', 'terminal:fresh': 'idle', 'terminal:other': 'error' });
+    });
+
+    test('only a page that polls asks, and then for the projects alone', async () => {
+        jest.useFakeTimers();
+        let polls = false;
+        const transport = new FakeTransport();
+        watch(transport, { polls: () => polls });
+        await settle();
+        transport.calls = [];
+        jest.advanceTimersByTime(15_000);
+        await settle();
+        expect(transport.calls).toEqual([]);
+        polls = true;
+        jest.advanceTimersByTime(15_000);
+        await settle();
+        expect(transport.calls).toEqual(['project.sidebar']);
+    });
+
+    test('disposal removes listeners and timers', async () => {
         jest.useFakeTimers();
         const transport = new FakeTransport();
         const watcher = watch(transport);
         await settle();
-        transport.emit('project.changed', {});
-        jest.advanceTimersByTime(150);
-        await settle();
-        expect(transport.calls.filter((type) => type === 'project.sidebar')).toHaveLength(2);
-        jest.advanceTimersByTime(15_000);
-        await settle();
-        expect(transport.calls.filter((type) => type === 'project.sidebar')).toHaveLength(3);
         watcher.dispose();
         const count = transport.calls.length;
         jest.advanceTimersByTime(30_000);
+        transport.emit('session.list-changed', {});
         await settle();
         expect(transport.calls).toHaveLength(count);
         expect(transport.statusListeners.size).toBe(0);
