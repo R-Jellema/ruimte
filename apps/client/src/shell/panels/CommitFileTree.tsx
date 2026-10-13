@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { GitTreeMarks } from './GitTreeMarks';
 import type { GitDiffFile } from '@ruimte/contracts';
 import { diffFileParts, firstFile, folderParts } from '@/shell/panels/commit-tree';
-import { dirPathOf, mergeCollapsedPaths, type DecorationPart } from '@/shell/panels/git-tree';
-const { applyExpansion, focusRow, selectOnly, visibleRows } = FileTree;
+import type { DecorationPart } from '@/shell/panels/git-tree';
+const { applyExpansion, dirPathOf, focusRow, mergeCollapsedPaths, selectOnly, visibleRows } = FileTree;
 
 interface CommitFileTreeProps {
     files: readonly GitDiffFile[];

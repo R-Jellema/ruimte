@@ -9,12 +9,10 @@ import {
     checkOfAll,
     checkOfItems,
     checkPart,
-    collapsedPathsOf,
     compareGitRows,
     entriesOf,
     entriesUnder,
     entryParts,
-    expansionChanges,
     fileId,
     flattenPaths,
     foldedBranches,
@@ -22,7 +20,6 @@ import {
     gitTreeScope,
     groupKey,
     itemsOfNodes,
-    mergeCollapsedPaths,
     nodeOf,
     repoKey,
     shownFile,
@@ -32,8 +29,7 @@ import {
     toggleItems,
     toggleOf,
     type GitGroup,
-    type GitTreeNode,
-    type GitTreeRow
+    type GitTreeNode
 } from './git-tree.ts';
 
 function file(path: string, state: GitFileState = 'unstaged', status = 'M', added = 1, deleted = 0): GitFile {
@@ -45,10 +41,6 @@ function file(path: string, state: GitFileState = 'unstaged', status = 'M', adde
         deleted,
         binary: false
     };
-}
-
-function dir(path: string, isExpanded: boolean): GitTreeRow {
-    return { path, kind: 'directory', isExpanded };
 }
 
 describe('the groups of the list', () => {
@@ -348,37 +340,6 @@ describe('the folders a group folds', () => {
         expect(branches.map((path) => (layout.nodes.get(path) as { path: string }).path)).toEqual(['src/state', 'src/state/deep']);
         expect(foldedBranches(layout, [keyOfPath('src')], [keyOfPath('src')])).toEqual([]);
         expect(foldedBranches(layout, [], [groupKey('changes'), repoKey('/one', 'changes')])).toEqual([]);
-    });
-});
-
-describe('which rows stand folded up', () => {
-    const keys: Record<string, string> = { 'g/': 'group', 'g/src/': 'folder:src', 'g/docs/': 'folder:docs' };
-    const keyOf = (path: string): string | null => keys[path] ?? null;
-
-    test('a row that is closed is one, and the trailing slash of a directory is not part of it', () => {
-        expect(collapsedPathsOf([dir('src/', false), dir('apps/client/', true), { path: 'a.ts', kind: 'file', isExpanded: false }])).toEqual(['src']);
-    });
-
-    test('rows read back under the key the list names them by, and a row without one is left out', () => {
-        expect(collapsedPathsOf([dir('g/', false), dir('g/src/', false), dir('g/inner/', false)], keyOf)).toEqual(['group', 'folder:src']);
-    });
-
-    test('selection notifications leave unchanged folds alone', () => {
-        const current = ['folder:src', 'elsewhere'];
-        expect(mergeCollapsedPaths(current, [dir('g/', true), dir('g/src/', false)], keyOf)).toBe(current);
-    });
-
-    test('fold changes keep the keys of rows the tree does not show', () => {
-        const current = ['folder:src', 'hidden', 'group'];
-        const next = mergeCollapsedPaths(current, [dir('g/', true), dir('g/src/', true), dir('g/docs/', false)], keyOf);
-        expect(next).toEqual(['hidden', 'folder:docs']);
-        expect(current).toEqual(['folder:src', 'hidden', 'group']);
-    });
-
-    test('only the rows that differ from the set move', () => {
-        const rows = [dir('g/', true), dir('g/src/', true), dir('g/docs/', false), dir('g/inner/', false)];
-        expect(expansionChanges(rows, new Set(['folder:src', 'elsewhere']), keyOf)).toEqual({ collapse: ['g/src/'], expand: ['g/docs/'] });
-        expect(expansionChanges([dir('src/', false), dir('apps/', true)], new Set(['src']))).toEqual({ collapse: [], expand: [] });
     });
 });
 

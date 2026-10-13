@@ -1,4 +1,5 @@
 import type { FileTreeRowDecoration } from '@pierre/trees';
+import { FileTree } from '@adecore/ui';
 import type { GitFile } from '@ruimte/contracts';
 import { compareRows, treeGitStatus, type SortRow } from '@/shell/panels/files-tree';
 import type { FileTab } from '@/state/files';
@@ -343,7 +344,7 @@ export function buildGitTree(sources: readonly GitTreeSource[], labelOf: (group:
                     continue;
                 }
                 paths.push(treePath);
-                nodes.set(dirPathOf(treePath), { kind: 'file', group, parent, cwd, path: flat.path, item: byPath.get(flat.path)! });
+                nodes.set(FileTree.dirPathOf(treePath), { kind: 'file', group, parent, cwd, path: flat.path, item: byPath.get(flat.path)! });
                 if (!files.has(fileId(cwd, flat.path))) {
                     files.set(fileId(cwd, flat.path), treePath);
                 }
@@ -355,7 +356,7 @@ export function buildGitTree(sources: readonly GitTreeSource[], labelOf: (group:
 
 /* The row a tree path stands for; the tree names a directory with a trailing slash. */
 export function nodeOf(layout: GitTreeLayout, rowPath: string): GitTreeNode | undefined {
-    return layout.nodes.get(dirPathOf(rowPath));
+    return layout.nodes.get(FileTree.dirPathOf(rowPath));
 }
 
 /* Groups and repositories in the order they are listed in, and below them the order of the Files panel. */
@@ -420,40 +421,6 @@ export function allCollapseKeys(files: readonly GitFile[], checkout: string): st
     return keys;
 }
 
-/* The tree names a directory with a trailing slash and the collapse set does not. */
-export function dirPathOf(rowPath: string): string {
-    return rowPath.endsWith('/') ? rowPath.slice(0, -1) : rowPath;
-}
-
-/* The key the collapse set names a row by, or null for a row that does not fold there. */
-export type FoldKeyOf = (rowPath: string) => string | null;
-
-function plainKey(rowPath: string): string | null {
-    return dirPathOf(rowPath);
-}
-
-/* The rows that stand folded up, which is what a panel remembers between visits. */
-export function collapsedPathsOf(rows: readonly GitTreeRow[], keyOf: FoldKeyOf = plainKey): string[] {
-    return rows.flatMap((row) => {
-        const key = row.kind === 'directory' && !row.isExpanded ? keyOf(row.path) : null;
-        return key === null ? [] : [key];
-    });
-}
-
-export function mergeCollapsedPaths(current: string[], rows: readonly GitTreeRow[], keyOf: FoldKeyOf = plainKey): string[] {
-    const known = new Set(rows.flatMap((row) => (row.kind === 'directory' ? [keyOf(row.path)] : [])));
-    const folded = new Set(collapsedPathsOf(rows, keyOf));
-    const next = current.filter((dir) => !known.has(dir) || folded.has(dir));
-    const existing = new Set(current);
-    for (const dir of folded) {
-        if (!existing.has(dir)) {
-            next.push(dir);
-        }
-    }
-    // Selection also notifies subscribers; unchanged folds must not restart the shared-state cycle.
-    return next.length === current.length && next.every((dir, index) => dir === current[index]) ? current : next;
-}
-
 /*
  * The folders under the ones that just folded, however deep, that do not stand folded yet, as tree
  * paths. The tree keeps a folder under a closed one open, so it would open again together with its
@@ -480,29 +447,6 @@ export function foldedBranches(layout: GitTreeLayout, before: readonly string[],
         }
     }
     return branches;
-}
-
-/* Which rows have to move for a tree to stand the way the collapse set says. */
-export function expansionChanges(
-    rows: readonly GitTreeRow[],
-    collapsed: ReadonlySet<string>,
-    keyOf: FoldKeyOf = plainKey
-): { collapse: string[]; expand: string[] } {
-    const changes: { collapse: string[]; expand: string[] } = { collapse: [], expand: [] };
-    for (const row of rows) {
-        const key = row.kind === 'directory' ? keyOf(row.path) : null;
-        if (key === null) {
-            continue;
-        }
-        const folded = collapsed.has(key);
-        if (folded && row.isExpanded) {
-            changes.collapse.push(row.path);
-        }
-        if (!folded && !row.isExpanded) {
-            changes.expand.push(row.path);
-        }
-    }
-    return changes;
 }
 
 /* The changed file a diff tab shows and its checkout, so the list can mark the row a person is reading. */

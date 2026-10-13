@@ -2,7 +2,7 @@ import { revealFile } from './reveal-file';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FileTreeVisibleRow } from '@pierre/trees';
-import { FileTree, useFileTree } from '@adecore/ui';
+import { FileTree, useFileTree, type FoldKeyOf } from '@adecore/ui';
 import { GitTreeMarks } from './GitTreeMarks';
 import { ChevronsDownUp, ChevronsUpDown, CornerUpRight, EyeOff, FileDiff, FileText, FileX, Folder, GitBranch, Minus, Plus, Trash2 } from 'lucide-react';
 import type { GitFile } from '@ruimte/contracts';
@@ -19,12 +19,10 @@ import {
     fileId,
     foldedBranches,
     itemsOfNodes,
-    mergeCollapsedPaths,
     nodeOf,
     shownFile,
     toggleItems,
     type DecorationPart,
-    type FoldKeyOf,
     type GitEntry,
     type GitItem,
     type GitTreeLayout,
@@ -39,7 +37,7 @@ import { fileManagerName, useServer } from '@/state/server';
 import { useTransport } from '@/transport/context';
 import { Icon, PanelEmpty, ContextMenu } from '@adecore/ui';
 
-const { applyExpansion, directoryHandle, focusRow, menuTargetsOf, rowPathOf, selectOnly, visibleRows } = FileTree;
+const { applyExpansion, directoryHandle, focusRow, menuTargetsOf, mergeCollapsedPaths, rowPathOf, selectOnly, visibleRows } = FileTree;
 
 const COUNT_COLOR = 'var(--text-faint)';
 const BRANCH_COLOR = 'var(--text-muted)';
