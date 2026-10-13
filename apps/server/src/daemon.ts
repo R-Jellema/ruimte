@@ -489,6 +489,9 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     const databaseConnections = new DatabaseConnectionStore({
         projects: { folderOf: (projectId) => projects.index.folderOf(projectId), holdersOf: (projectId) => projects.holdersOf(projectId) },
         onChanged: (projectId, connections) => {
+            void agentDatabases
+                .connectionsChanged(projectId, connections)
+                .catch((e: unknown) => console.warn('Following a change of the connections for agents failed:', errorText(e)));
             void sqlAnalysis
                 .connectionsChanged(projectId, connections)
                 .catch((e: unknown) => console.warn('Following a change of the connections failed:', errorText(e)));
@@ -518,7 +521,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
             service: databases,
             passwordOf: (projectId, connectionId, target) => databasePasswords.passwordOf(projectId, connectionId, target)
         }),
-        access: databaseAccess
+        access: agentDatabases
     });
     const prWatches = new PrWatchStore({
         path: join(config.home, 'pr-watches.json'),

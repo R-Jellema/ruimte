@@ -177,7 +177,7 @@ export interface SqlAnalysisOptions {
     };
     connections: { connectionsOf(projectId: string): Promise<DatabaseConnection[]> };
     snapshots: SchemaSnapshots;
-    access: { levelOf(projectId: string, connectionId: string): DatabaseAgentAccess };
+    access: { levelOf(projectId: string, connection: DatabaseConnection): Promise<DatabaseAgentAccess> };
     /* Where a snapshot taken in the background that failed is told; the console by default. */
     warn?: (line: string) => void;
 }
@@ -333,7 +333,7 @@ export class SqlAnalysis {
             return { choice, snapshot: null, access: 'read' };
         }
         const snapshot = snapshots.find((candidate) => candidate.connectionId === choice.connection.id && candidate.database === choice.database) ?? null;
-        return { choice, snapshot, access: this.options.access.levelOf(projectId, choice.connection.id) };
+        return { choice, snapshot, access: await this.options.access.levelOf(projectId, choice.connection) };
     }
 
     private requireHolder(projectId: string, clientId: string): string {

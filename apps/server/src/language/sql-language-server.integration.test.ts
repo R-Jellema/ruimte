@@ -143,7 +143,7 @@ describe.skipIf(!ready)('the SQL servers against a snapshot of the project datab
                 service,
                 passwordOf: (_projectId, connectionId) => passwords[connectionId] ?? null
             }),
-            access: { levelOf: () => 'read' }
+            access: { levelOf: async () => 'read' }
         });
         host = new LanguageHost({
             root: join(home, 'language-servers'),

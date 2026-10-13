@@ -157,9 +157,9 @@ export class AgentDatabases {
     }
 
     /* What a client of the project reads in its connections dialog. */
-    accessFor(projectId: string, clientId: string): { access: Record<string, DatabaseAgentAccess> } {
+    async accessFor(projectId: string, clientId: string): Promise<{ access: Record<string, DatabaseAgentAccess> }> {
         this.requireHolder(projectId, clientId);
-        return { access: this.options.access.levels(projectId) };
+        return { access: await this.levels(projectId) };
     }
 
     /* `local` is true only for a client that presented the local secret, the one that may let agents write. */
@@ -174,14 +174,31 @@ export class AgentDatabases {
         if (access === 'write' && !local) {
             refuse('forbidden', 'Only a person on this machine can let agents write to a database');
         }
-        const levels = await this.options.access.set(projectId, connectionId, access);
-        const event: SessionEvent = { event: 'database.agentAccess.changed', payload: { projectId, access: levels } };
-        for (const holder of this.options.projects.holdersOf(projectId)) {
-            if (holder !== clientId) {
-                this.sinks.to(holder, event);
+        if (access === 'write') {
+            const connection = (await this.options.connections.connectionsOf(projectId)).find((candidate) => candidate.id === connectionId);
+            if (!connection) {
+                refuse('unknown-connection', `This project has no database connection ${connectionId}`);
             }
+            await this.options.access.set(projectId, connectionId, { access, destination: await this.destinationOf(connection) });
+        } else {
+            await this.options.access.set(projectId, connectionId, { access });
         }
+        const levels = await this.levels(projectId);
+        this.announceAccess(projectId, levels, clientId);
         return { access: levels };
+    }
+
+    /* What agents may do with a connection as it points now. */
+    async levelOf(projectId: string, connection: DatabaseConnection): Promise<DatabaseAgentAccess> {
+        return this.options.access.levelOf(projectId, connection.id, await this.destinationOf(connection));
+    }
+
+    /* The project's connections changed: what was set for one that is gone, or a write for where one no longer points, lapses. */
+    async connectionsChanged(projectId: string, connections: readonly DatabaseConnection[]): Promise<void> {
+        const destinations = await Promise.all(connections.map(async (connection) => [connection.id, await this.destinationOf(connection)] as const));
+        if (await this.options.access.keep(projectId, Object.fromEntries(destinations))) {
+            this.announceAccess(projectId, await this.levels(projectId));
+        }
     }
 
     /* Each password is bound to where its connection points as it stands now; one that points elsewhere later gets none. */
@@ -227,12 +244,13 @@ export class AgentDatabases {
         if (place.folder === this.options.scratchFolder) {
             return [];
         }
-        const levels = this.options.access.levels(place.projectId);
-        return (await this.connectionsOf(place)).map((connection) => ({
-            id: connection.id,
-            target: this.uiTarget(connection),
-            access: levels[connection.id] ?? 'read'
-        }));
+        return Promise.all(
+            (await this.connectionsOf(place)).map(async (connection) => ({
+                id: connection.id,
+                target: this.uiTarget(connection),
+                access: await this.levelOf(place.projectId, connection)
+            }))
+        );
     }
 
     async authorizeUiRead(place: DatabasePlace, wanted: string, grants: readonly UiDatabaseGrant[]): Promise<void> {
@@ -305,6 +323,22 @@ export class AgentDatabases {
         });
     }
 
+    /* Only the levels a person set that still hold; a connection that is not in it is `read`. */
+    private async levels(projectId: string): Promise<Record<string, DatabaseAgentAccess>> {
+        const connections = await this.options.connections.connectionsOf(projectId);
+        const levels = await Promise.all(connections.map(async (connection) => [connection.id, await this.levelOf(projectId, connection)] as const));
+        return Object.fromEntries(levels.filter(([, access]) => access !== 'read'));
+    }
+
+    private announceAccess(projectId: string, access: Record<string, DatabaseAgentAccess>, except?: string): void {
+        const event: SessionEvent = { event: 'database.agentAccess.changed', payload: { projectId, access } };
+        for (const holder of this.options.projects.holdersOf(projectId)) {
+            if (holder !== except) {
+                this.sinks.to(holder, event);
+            }
+        }
+    }
+
     private requireHolder(projectId: string, clientId: string): void {
         if (!this.options.projects.holdersOf(projectId).includes(clientId)) {
             refuse('project-not-found', `Project ${projectId} is not open on this client`);
@@ -327,7 +361,7 @@ export class AgentDatabases {
             name: connection.name,
             engine: connection.config.engine,
             target: describeTarget(connection.config),
-            access: this.options.access.levelOf(place.projectId, connection.id),
+            access: await this.levelOf(place.projectId, connection),
             outsideProject: connection.config.engine === 'sqlite' && (await this.insideFile(place, connection.config.path)) === null
         };
     }
@@ -367,6 +401,19 @@ export class AgentDatabases {
         refuse('unknown-connection', `This project has no database connection ${wanted}`, connectionLines(listed));
     }
 
+    /*
+     * Where a write grant holds: the server, its way in and the user, or the real file of a SQLite
+     * connection, and the database it starts in. A MySQL grant is the server as that user, with the
+     * start database part of its name, so pointing it at another database asks a person again.
+     */
+    private async destinationOf(connection: DatabaseConnection): Promise<string> {
+        if (connection.config.engine !== 'sqlite') {
+            return this.uiTarget(connection);
+        }
+        const file = await realpath(connection.config.path).catch(() => connection.config.path);
+        return this.uiTarget({ ...connection, config: { ...connection.config, path: file } });
+    }
+
     private uiTarget(connection: DatabaseConnection): string {
         // UI access travels to clients; keep a fingerprint instead of connection secrets.
         return createHash('sha256')
@@ -381,7 +428,7 @@ export class AgentDatabases {
             !original ||
             original.access === 'off' ||
             original.target !== this.uiTarget(connection) ||
-            this.options.access.levelOf(place.projectId, connection.id) === 'off'
+            (await this.levelOf(place.projectId, connection)) === 'off'
         ) {
             refuse('database-access-off', 'This database was not readable for the agent that wrote this, or is no longer readable.');
         }
@@ -436,7 +483,7 @@ export class AgentDatabases {
         uiAccess?: readonly UiDatabaseGrant[]
     ): Promise<T> {
         const connection = await this.named(place, wanted);
-        const access = this.options.access.levelOf(place.projectId, connection.id);
+        const access = await this.levelOf(place.projectId, connection);
         if (access === 'off') {
             refuse(
                 'database-access-off',

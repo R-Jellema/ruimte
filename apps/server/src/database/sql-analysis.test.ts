@@ -161,7 +161,7 @@ function analysisRig(connections: DatabaseConnection[] = [SHOP, LOCAL]) {
         },
         connections: { connectionsOf: async () => connections },
         snapshots: snapshots as unknown as SchemaSnapshots,
-        access: { levelOf: (_projectId, connectionId) => access[connectionId] ?? 'read' },
+        access: { levelOf: async (_projectId, connection) => access[connection.id] ?? 'read' },
         warn: () => undefined
     });
     analysis.attach({
