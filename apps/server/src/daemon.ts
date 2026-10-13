@@ -11,7 +11,8 @@ import { runGh } from './git/github.ts';
 import { registerSnoozeHandlers } from './handlers/snooze.ts';
 import { dirname, join, resolve } from 'node:path';
 import { userInfo } from 'node:os';
-import type { Server, ServerWebSocket } from 'bun';
+import type { ServerWebSocket } from 'bun';
+import { answerRoute, type Route } from './http-routes.ts';
 import {
     isIdle,
     MACHINE_HEALTH_PATH,
@@ -221,7 +222,7 @@ const MACHINE_REGISTRATION_PATH = '/machine/registration';
 // What `ruimte logout` asks: the machine leaves its account, as `endpoint.leaveAccount` does for the app.
 const MACHINE_LEAVE_ACCOUNT_PATH = '/machine/leave-account';
 // Where a client of before account-only paired and signed for a ticket over HTTP; each answers that pairing links are gone.
-const LEGACY_PAIRING_PATHS = new Set(['/auth/pair', '/auth/pairing-token', '/auth/challenge', '/auth/ticket']);
+const LEGACY_PAIRING_PATHS = ['/auth/pair', '/auth/pairing-token', '/auth/challenge', '/auth/ticket'];
 const RegistrationRequestSchema = z.object({ accountId: AccountSchema.shape.id });
 
 // Past anything a hook or a verb sends, a visual of 16 MiB with its JSON escaping included, and the ceiling on what an unauthenticated request can make the daemon buffer.
@@ -1316,157 +1317,155 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     };
 
     // Every HTTP route and the upgrade, before the cross-origin headers the desktop app's page needs.
-    const route = async (request: Request, server: Server<SocketData>): Promise<Response | undefined> => {
-        const url = new URL(request.url);
-        const remote = server.requestIP(request)?.address ?? '';
-
-        if (url.pathname === MACHINE_HEALTH_PATH) {
-            if (request.method !== 'GET') {
-                return new Response('Method not allowed', { status: 405 });
+    const routes: Route<SocketData>[] = [
+        {
+            exact: [MACHINE_HEALTH_PATH],
+            handle: ({ request }) => {
+                if (request.method !== 'GET') {
+                    return new Response('Method not allowed', { status: 405 });
+                }
+                return Response.json({ ok: true, version: VERSION, build: BUILD, service: config.underService } satisfies HealthResult);
             }
-            return Response.json({ ok: true, version: VERSION, build: BUILD, service: config.underService } satisfies HealthResult);
-        }
-
-        if (url.pathname === MACHINE_PROOF_PATH) {
-            return handleLocalProofRequest(request, { localSecret: access.localSecret, port: server.port ?? config.port });
-        }
-
+        },
+        {
+            exact: [MACHINE_PROOF_PATH],
+            handle: ({ request, server }) => handleLocalProofRequest(request, { localSecret: access.localSecret, port: server.port ?? config.port })
+        },
         // todo(bas): drop with `PAIRING_REMOVED` one release after pairing links went.
-        if (LEGACY_PAIRING_PATHS.has(url.pathname)) {
-            return new Response(PAIRING_REMOVED, { status: 410 });
-        }
-
-        if (url.pathname === '/auth/local-ticket') {
-            return handleLocalTicketRequest(request, access, handshake);
-        }
-
-        if (url.pathname === MACHINE_WORK_PATH) {
+        { exact: LEGACY_PAIRING_PATHS, handle: () => new Response(PAIRING_REMOVED, { status: 410 }) },
+        { exact: ['/auth/local-ticket'], handle: ({ request }) => handleLocalTicketRequest(request, access, handshake) },
+        {
+            exact: [MACHINE_WORK_PATH],
             // The desktop app asks before it restarts the service, and nobody else needs to know.
-            return (await refuseUnlessOwner(request, remote, 'GET')) ?? Response.json(machineWork());
-        }
-
-        if (url.pathname === MACHINE_LEAVE_ACCOUNT_PATH) {
-            const refused = await refuseUnlessOwner(request, remote, 'POST');
-            if (refused) {
-                return refused;
+            handle: async ({ request, remote }) => (await refuseUnlessOwner(request, remote, 'GET')) ?? Response.json(machineWork())
+        },
+        {
+            exact: [MACHINE_LEAVE_ACCOUNT_PATH],
+            handle: async ({ request, remote }) => {
+                const refused = await refuseUnlessOwner(request, remote, 'POST');
+                if (refused) {
+                    return refused;
+                }
+                const revoked = await auth.leaveAccount();
+                revoked.forEach(disconnectSession);
+                return Response.json({ revoked: revoked.length });
             }
-            const revoked = await auth.leaveAccount();
-            revoked.forEach(disconnectSession);
-            return Response.json({ revoked: revoked.length });
-        }
-
-        if (url.pathname === MACHINE_STATUS_PATH) {
+        },
+        {
+            exact: [MACHINE_STATUS_PATH],
             // `ruimte status` on the local secret; a client sees the same through `endpoint.info`.
-            const refused = await refuseUnlessOwner(request, remote, 'GET');
-            if (refused) {
-                return refused;
-            }
-            const binding = await auth.accountBinding();
-            return Response.json({
-                version: VERSION,
-                service: config.underService,
-                label: identity.label,
-                onAccount: binding !== undefined && binding !== null,
-                broker: { url: brokerSwitch.describe().brokerUrl, connected: brokerSwitch.isReady },
-                ...describeLanDoor(),
-                keepAwake: {
-                    mode: identity.keepAwake.mode,
-                    onBattery: identity.keepAwake.onBattery,
-                    holding: keepAwake.holding,
-                    lid: closedLid.available ? { on: identity.keepAwake.lidClosed, rule: await closedLid.refreshRule(), holding: closedLid.holding } : null
+            handle: async ({ request, remote }) => {
+                const refused = await refuseUnlessOwner(request, remote, 'GET');
+                if (refused) {
+                    return refused;
                 }
-            } satisfies MachineStatus);
-        }
-
-        if (url.pathname === MACHINE_LINK_PATH || url.pathname === MACHINE_REGISTRATION_PATH) {
+                const binding = await auth.accountBinding();
+                return Response.json({
+                    version: VERSION,
+                    service: config.underService,
+                    label: identity.label,
+                    onAccount: binding !== undefined && binding !== null,
+                    broker: { url: brokerSwitch.describe().brokerUrl, connected: brokerSwitch.isReady },
+                    ...describeLanDoor(),
+                    keepAwake: {
+                        mode: identity.keepAwake.mode,
+                        onBattery: identity.keepAwake.onBattery,
+                        holding: keepAwake.holding,
+                        lid: closedLid.available ? { on: identity.keepAwake.lidClosed, rule: await closedLid.refreshRule(), holding: closedLid.holding } : null
+                    }
+                } satisfies MachineStatus);
+            }
+        },
+        {
+            exact: [MACHINE_LINK_PATH, MACHINE_REGISTRATION_PATH],
             // `ruimte login` on the local secret: the machine signs, the terminal talks to the address book.
-            const refused = await refuseUnlessOwner(request, remote, 'POST');
-            if (refused) {
-                return refused;
-            }
-            const { brokerUrl } = brokerSwitch.describe();
-            if (url.pathname === MACHINE_LINK_PATH) {
-                return Response.json(signLinkRequest(identity, brokerUrl));
-            }
-            const parsed = RegistrationRequestSchema.safeParse(await request.json().catch(() => null));
-            if (!parsed.success) {
-                return new Response('Expected an account id', { status: 400 });
-            }
-            try {
-                return Response.json(await signForAccount(auth, identity, brokerUrl, parsed.data.accountId, disconnectSession));
-            } catch (e) {
-                if (e instanceof MachineAccountError) {
-                    return Response.json({ code: e.code, message: e.message }, { status: 409 });
+            handle: async ({ request, url, remote }) => {
+                const refused = await refuseUnlessOwner(request, remote, 'POST');
+                if (refused) {
+                    return refused;
                 }
-                throw e;
-            }
-        }
-
-        if (url.pathname === '/ws') {
-            const decision = await decideAccess(request, remote, access, 'socket');
-            if (!decision.ok) {
-                return new Response(decision.reason, { status: decision.status });
-            }
-            // Upgraded and then closed, since a browser reads the code and reason of a close but never the status of a refused upgrade.
-            const protocolRefused = !acceptsOfferedProtocol(url.searchParams.get(PROTOCOL_PARAM));
-            if (server.upgrade(request, { data: { ...decision.access, protocolRefused, ticket: decision.ticket ?? null } })) {
-                return undefined;
-            }
-            if (decision.ticket !== undefined) {
-                handshake.socketClosed(decision.ticket);
-            }
-            return new Response('Expected a WebSocket upgrade', { status: 426 });
-        }
-
-        if (url.pathname.startsWith(`${ATTACHMENTS_PATH}/`)) {
-            return handleAttachmentRequest(request, url, remote, access, (chatId, id) => chats.findAttachment(chatId, id));
-        }
-
-        if (url.pathname.startsWith(`${PROJECTS_PATH}/`)) {
-            return handleProjectRequest(request, url, remote, access, projects);
-        }
-
-        if (url.pathname === FS_FILE_PATH) {
-            return handleFsFileRequest(request, url, remote, access, machineHome);
-        }
-
-        if (url.pathname.startsWith(`${LIVE_STREAM_PATH}/`)) {
-            return handleLiveStreamRequest(request, url, remote, access, liveStreams, () => identity.streamingAllowed);
-        }
-
-        if (url.pathname.startsWith(`${HOOKS_PATH}/`)) {
-            return handleHookRequest(request, url.pathname, manager, (token, event, kind) => {
-                const sessionId = manager.sessionIdForToken(token);
-                if (!sessionId) {
-                    return null;
+                const { brokerUrl } = brokerSwitch.describe();
+                if (url.pathname === MACHINE_LINK_PATH) {
+                    return Response.json(signLinkRequest(identity, brokerUrl));
                 }
-                // Asked on every event that can carry an answer, so the memory of what this
-                // agent was told keeps up with its turns even where nothing is printed.
-                const changed = context.changeSince(sessionId);
-                // A CLI the node launched got the verbs on its line; one typed by hand in the shell did not.
-                const verbs = !(takesNoteOnLine(kind) && manager.get(sessionId)?.launch?.kind === kind);
-                return hookContext(event, context.list(sessionId), {
-                    changed,
-                    messages: messagesFor(sessionId),
-                    depth: lineage.depthOf(sessionId),
-                    standalone: projects.index.locate(sessionId)?.canvasId === null,
-                    verbs,
-                    computer: computer.usable
-                });
-            });
+                const parsed = RegistrationRequestSchema.safeParse(await request.json().catch(() => null));
+                if (!parsed.success) {
+                    return new Response('Expected an account id', { status: 400 });
+                }
+                try {
+                    return Response.json(await signForAccount(auth, identity, brokerUrl, parsed.data.accountId, disconnectSession));
+                } catch (e) {
+                    if (e instanceof MachineAccountError) {
+                        return Response.json({ code: e.code, message: e.message }, { status: 409 });
+                    }
+                    throw e;
+                }
+            }
+        },
+        {
+            exact: ['/ws'],
+            handle: async ({ request, url, remote, server }) => {
+                const decision = await decideAccess(request, remote, access, 'socket');
+                if (!decision.ok) {
+                    return new Response(decision.reason, { status: decision.status });
+                }
+                // Upgraded and then closed, since a browser reads the code and reason of a close but never the status of a refused upgrade.
+                const protocolRefused = !acceptsOfferedProtocol(url.searchParams.get(PROTOCOL_PARAM));
+                if (server.upgrade(request, { data: { ...decision.access, protocolRefused, ticket: decision.ticket ?? null } })) {
+                    return undefined;
+                }
+                if (decision.ticket !== undefined) {
+                    handshake.socketClosed(decision.ticket);
+                }
+                return new Response('Expected a WebSocket upgrade', { status: 426 });
+            }
+        },
+        {
+            below: ATTACHMENTS_PATH,
+            handle: ({ request, url, remote }) => handleAttachmentRequest(request, url, remote, access, (chatId, id) => chats.findAttachment(chatId, id))
+        },
+        { below: PROJECTS_PATH, handle: ({ request, url, remote }) => handleProjectRequest(request, url, remote, access, projects) },
+        { exact: [FS_FILE_PATH], handle: ({ request, url, remote }) => handleFsFileRequest(request, url, remote, access, machineHome) },
+        {
+            below: LIVE_STREAM_PATH,
+            handle: ({ request, url, remote }) => handleLiveStreamRequest(request, url, remote, access, liveStreams, () => identity.streamingAllowed)
+        },
+        {
+            below: HOOKS_PATH,
+            handle: ({ request, url }) =>
+                handleHookRequest(request, url.pathname, manager, (token, event, kind) => {
+                    const sessionId = manager.sessionIdForToken(token);
+                    if (!sessionId) {
+                        return null;
+                    }
+                    // Asked on every event that can carry an answer, so the memory of what this
+                    // agent was told keeps up with its turns even where nothing is printed.
+                    const changed = context.changeSince(sessionId);
+                    // A CLI the node launched got the verbs on its line; one typed by hand in the shell did not.
+                    const verbs = !(takesNoteOnLine(kind) && manager.get(sessionId)?.launch?.kind === kind);
+                    return hookContext(event, context.list(sessionId), {
+                        changed,
+                        messages: messagesFor(sessionId),
+                        depth: lineage.depthOf(sessionId),
+                        standalone: projects.index.locate(sessionId)?.canvasId === null,
+                        verbs,
+                        computer: computer.usable
+                    });
+                })
+        },
+        {
+            below: CANVAS_PATH,
+            handle: ({ request, url, server }) => {
+                server.timeout(request, CANVAS_REQUEST_TIMEOUT_S);
+                return handleCanvasRequest(request, url.pathname, { targetForToken, host: canvasHost });
+            }
+        },
+        {
+            exact: [CONTEXT_PATH],
+            below: CONTEXT_PATH,
+            handle: ({ request, url }) => handleContextRequest(request, url.pathname, { targetForToken, host: canvasHost })
         }
-
-        if (url.pathname.startsWith(`${CANVAS_PATH}/`)) {
-            server.timeout(request, CANVAS_REQUEST_TIMEOUT_S);
-            return handleCanvasRequest(request, url.pathname, { targetForToken, host: canvasHost });
-        }
-
-        if (url.pathname === CONTEXT_PATH || url.pathname.startsWith(`${CONTEXT_PATH}/`)) {
-            return handleContextRequest(request, url.pathname, { targetForToken, host: canvasHost });
-        }
-
-        return new Response('Not found', { status: 404 });
-    };
+    ];
 
     const server = Bun.serve<SocketData>({
         hostname: config.host,
@@ -1477,7 +1476,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
             if (cors !== null && request.method === 'OPTIONS') {
                 return new Response(null, { status: 204, headers: preflightHeaders(cors) });
             }
-            const response = await route(request, server);
+            const response = await answerRoute(routes, request, server);
             return cors === null || response === undefined ? response : withHeaders(response, cors);
         },
         websocket: {
