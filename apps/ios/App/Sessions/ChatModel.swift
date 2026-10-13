@@ -84,6 +84,9 @@ final class ChatModel {
     private var attachTask: Task<Void, Never>?
     @ObservationIgnored private var attachment: MachineAttachment?
     private var positions: [String: Int] = [:]
+    /// The place of the last event applied here in the chat's stream, offered as `since` on the next attach so the
+    /// machine answers only what came after it.
+    @ObservationIgnored private(set) var lastSeq: Int?
     private var generation = 0
     /// One reattach per connection is enough, since the snapshot brings the thread up to date. A machine that keeps
     /// sending unreadable events would otherwise cause a reattach on every one.
@@ -132,10 +135,11 @@ final class ChatModel {
         attachment = client.acquireAttachment("chat", id: chatID)
         unsubscribe.append(
             client.subscribe("chat.event") { [weak self] payload in
-                guard let self, payload["chatId"]?.stringValue == self.chatID, let event = payload["event"] else {
-                    return
-                }
-                if !self.loading { self.receive(event) }
+                guard let self, payload["chatId"]?.stringValue == self.chatID, let event = payload["event"],
+                    !self.loading
+                else { return }
+                self.receive(event)
+                if let seq = payload["seq"]?.numberValue { self.lastSeq = Int(seq) }
             })
         unsubscribe.append(
             client.subscribe(WireEvent.accountsChanged.rawValue) { [weak self] payload in
@@ -167,6 +171,8 @@ final class ChatModel {
                     !self.reattachedOverRejectedEvent
                 else { return }
                 self.reattachedOverRejectedEvent = true
+                // With `since` the machine would answer with the very event this app could not read.
+                self.lastSeq = nil
                 self.attach()
             })
         unsubscribe.append(
@@ -210,10 +216,12 @@ final class ChatModel {
                 guard let attachment else { throw CancellationError() }
                 async let providerResult = loadProviders()
                 async let accountResult = loadAccounts()
-                _ = try await attachment.snapshot(payload: target(["historyLimit": .number(60)])) {
-                    [weak self] snapshot in
+                let since = lastSeq
+                var payload: [String: JSONValue] = ["historyLimit": .number(60)]
+                if let since { payload["since"] = .number(Double(since)) }
+                _ = try await attachment.snapshot(payload: target(payload)) { [weak self] result in
                     guard let self, self.generation == current else { return }
-                    self.replace(snapshot)
+                    self.attached(result, since: since)
                     self.loading = false
                     self.error = nil
                 }
@@ -239,6 +247,22 @@ final class ChatModel {
     /// Nil from a machine before accounts, which does not know the request.
     private func loadAccounts() async -> JSONValue? {
         try? await client.request(WireRequest.accountsList.rawValue, payload: .object([:]))
+    }
+
+    /// Applies what came after `since` when the machine still held all of it, and its snapshot otherwise.
+    func attached(_ result: JSONValue, since: Int?) {
+        if since != nil, let events = result["events"]?.arrayValue {
+            for event in events { receive(event) }
+            if let info = result["info"], info != self.info {
+                self.info = info
+                presentation.setInfo(info)
+            }
+            presentation.setBookmarks(ChatBookmarks.parse(result["bookmarks"]?.arrayValue ?? []))
+            presentation.setVisuals(ChatVisuals.parse(result.list("visuals")))
+        } else {
+            replace(result)
+        }
+        lastSeq = result["seq"]?.numberValue.map { Int($0) }
     }
 
     func replace(_ snapshot: JSONValue) {
@@ -342,6 +366,7 @@ final class ChatModel {
         } catch {
             guard generation == current, historyRevision == currentHistory else { return }
             if case MachineClientError.server(code: "history-expired", message: _) = error {
+                lastSeq = nil
                 attach()
             } else {
                 failedHistoryCursor = cursor

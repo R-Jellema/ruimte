@@ -118,6 +118,10 @@ top and goes in when the finger lifts, so the row being read stays put. The daem
 a larger item travels alone without truncation. An older daemon returns its full snapshot; the app accepts it and
 asks no history request it does not support.
 
+A reconnect offers the `seq` of the last event it applied as `since`. The machine then answers only the events after
+it, which go onto the thread as it stands; only when its log no longer holds them does a new snapshot replace the
+thread. An event the app could not read, or a page the machine no longer knows, reads the whole thread again.
+
 Text deltas update observable message records without rebuilding the timeline. Completed Markdown segments are
 cached, and code highlighting runs on the latest text at bounded intervals.
 
