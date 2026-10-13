@@ -1,6 +1,6 @@
 import { rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import type { AgentLaunch } from '@ruimte/contracts';
 import { verbsNote } from '../context/context-note.ts';
 import { CLAUDE_ALLOW_CONTEXT } from '../providers/claude-provider.ts';
@@ -155,6 +155,31 @@ describe('agent status via hooks', () => {
         await harness.manager.applyHook('claude', token, hook('Stop'));
         await harness.manager.applyHook('claude', token, hook('SubagentStop', { agent_id: 'recap' }));
         expect(harness.manager.list()[0]?.agent?.status).toBe('idle');
+    });
+
+    test('a hook that changes nothing but the time writes no record and sends no status', async () => {
+        const recorder = new Recorder();
+        harness.manager.subscribe('c1', recorder.sink());
+        await createAgent('s1', { kind: 'claude' });
+        const session = harness.manager.get('s1')!;
+        const writes = spyOn(harness.agents, 'write');
+        const apply = (event: string, extra: Record<string, unknown> = {}) => harness.manager.applyHook('claude', session.hookToken, hook(event, extra));
+
+        await apply('UserPromptSubmit');
+        await apply('PreToolUse', { tool_name: 'Bash' });
+        await apply('PostToolUse', { tool_name: 'Bash', permission_mode: 'plan' });
+        expect(recorder.statusesOf('s1')).toEqual(['running']);
+        expect(writes).toHaveBeenCalledTimes(1);
+        // The mode lives on the session, so a hook that only reports one still lands.
+        expect(session.reportedMode).toBe('supervised');
+
+        await apply('PermissionRequest', { tool_name: 'Bash', tool_input: { command: 'ls' } });
+        await apply('PostToolUse', { tool_name: 'Bash' });
+        await apply('Stop');
+        await apply('Stop', { transcript_path: join(harness.home, 'other.jsonl') });
+        expect(recorder.statusesOf('s1')).toEqual(['running', 'needs-you', 'running', 'idle', 'idle']);
+        expect(writes).toHaveBeenCalledTimes(5);
+        expect((await harness.agents.read('s1'))?.transcriptPath).toBe(join(harness.home, 'other.jsonl'));
     });
 
     test('the permission mode the hooks last reported is kept per session until the CLI leaves', async () => {

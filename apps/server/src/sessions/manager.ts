@@ -50,6 +50,14 @@ function sizeOf(session: Session): { cols: number; rows: number } {
     return { cols: session.cols, rows: session.rows };
 }
 
+/* Whether two agent records say the same thing; `updatedAt` moves on every hook and says nothing by itself. */
+function sameAgent(current: AgentInfo | null, next: AgentInfo | null): boolean {
+    if (current === null || next === null) {
+        return current === next;
+    }
+    return Bun.deepEquals({ ...current, updatedAt: 0 }, { ...next, updatedAt: 0 });
+}
+
 interface CreateSessionOptions {
     sessionId: string;
     cols: number;
@@ -780,6 +788,9 @@ export class SessionManager {
     }
 
     private async setAgent(session: Session, agent: AgentInfo | null): Promise<void> {
+        if (sameAgent(session.agent, agent)) {
+            return;
+        }
         session.agent = agent;
         this.broadcast({ event: 'session.status', payload: { sessionId: session.id, agent } });
         try {
