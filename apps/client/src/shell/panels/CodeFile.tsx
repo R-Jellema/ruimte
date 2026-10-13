@@ -5,7 +5,7 @@ import type { Editor } from '@adecore/editor';
 import { FindBar } from '@/find/FindBar';
 import { registerFocusedLanguage } from '@/language/focused-language';
 import { registerFocusedEditor } from '@/shell/panels/focused-editor';
-import { LanguagePopups } from '@/language/RuimteLanguagePopups';
+import { RuimteLanguagePopups } from '@/language/RuimteLanguagePopups';
 import { useFind } from '@/find/use-find';
 import { formatBytes, formatNumber } from '@adecore/ui/format';
 import { Button, ErrorBoundary, lazyNamed, Pill, Tooltip } from '@adecore/ui';
@@ -407,7 +407,7 @@ export function CodeFile({ path, read, toolbarExtra, onEditor, frame }: CodeFile
             )}
             {editorLanguage !== null && (
                 <ErrorBoundary label={t('file.edit.failed')} resetKeys={[editorLanguage]}>
-                    <LanguagePopups language={editorLanguage} />
+                    <RuimteLanguagePopups language={editorLanguage} />
                 </ErrorBoundary>
             )}
             {editor !== null && (

@@ -1,22 +1,6 @@
-import { useEffect, useReducer } from 'react';
 import { useStore } from 'zustand';
 import { useTranslation } from 'react-i18next';
-import {
-    AnchoredPopup,
-    CallHierarchyPanel,
-    CodeAuthorsCard,
-    CompletionPopup,
-    EditorContextMenu,
-    EditorRenderingProvider,
-    HoverCard,
-    PeekPanel,
-    PickPopup,
-    RenderedDocs,
-    RenameCard,
-    SignatureCard,
-    SymbolPicker,
-    type HoverView
-} from '@adecore/editor-react';
+import { EditorRenderingProvider, LanguagePopups, type HoverView } from '@adecore/editor-react';
 import { AgentIcon } from '@adecore/agents-react/providers';
 import { Button, ContextMenu, Icon, Kbd, Tooltip } from '@adecore/ui';
 import { Cpu, MapPin, MessageSquarePlus, Sparkles } from 'lucide-react';
@@ -35,7 +19,7 @@ function HoverActions({ language, view }: { language: EditorLanguage; view: Hove
     return (
         <>
             {explain.phase !== 'idle' && (
-                <div className="flex max-w-[520px] flex-col gap-1.5 border-t border-border px-3 py-2.5 text-xs/[19px]">
+                <div className="flex max-w-[520px] flex-col gap-1.5 px-3 py-2.5 text-xs/[19px]">
                     <Tooltip label={t('language.onDevice.note')}>
                         <span className="flex items-center gap-1.5 text-text-faint">
                             <Icon icon={Cpu} size={12} /> {t('language.onDevice.explanation')}
@@ -50,7 +34,7 @@ function HoverActions({ language, view }: { language: EditorLanguage; view: Hove
                 </div>
             )}
             {(explain.offered || view.problems.length > 0) && (
-                <div className="flex flex-wrap gap-1 border-t border-border px-3 py-2">
+                <div className="flex flex-wrap gap-1 px-3 py-2">
                     {explain.offered && (
                         <Button size="xs" variant="secondary" onClick={() => void language.explain.explainCard()}>
                             {t('language.onDevice.explain')}
@@ -104,45 +88,18 @@ function MenuActions({ language }: { language: EditorLanguage }) {
     );
 }
 
-export function LanguagePopups({ language }: { language: EditorLanguage }) {
+/* The shared cards, with Ruimte's actions in the hover card and the context menu and its inline edit over the editor. */
+export function RuimteLanguagePopups({ language }: { language: EditorLanguage }) {
     const theme = useCodeTheme();
-    const [, redraw] = useReducer((count: number) => count + 1, 0);
-    const state = useStore(language.popups);
-    useEffect(() => language.editor.onViewChange(redraw), [language]);
-    const { hover, completion, signature, pick, rename, peek, callHierarchy, symbols, menu, authors } = state;
-    const hoverRect = hover === null ? null : language.editor.rectAt(hover.anchor);
-    const completionRect = completion === null ? null : language.editor.rectAt(completion.anchor);
-    const signatureRect = signature === null ? null : language.editor.rectAt(signature.anchor);
-    const pickRect = pick === null ? null : language.editor.rectAt(pick.anchor);
-    const renameRect = rename === null ? null : language.editor.rectAt(rename.range.start);
-    const renameEnd = rename === null ? null : language.editor.rectAt(rename.range.end);
     return (
         <EditorRenderingProvider value={{ theme, highlight: highlightCode }}>
-            {hover !== null && hoverRect !== null && (
-                <AnchoredPopup rect={hoverRect} onPointerEnter={() => language.hover.holdCard(true)} onPointerLeave={() => language.hover.holdCard(false)}>
-                    <HoverCard language={language} problems={hover.problems} info={hover.info} anchor={hover.anchor} position={hover.position} />
-                    <HoverActions language={language} view={hover} />
-                </AnchoredPopup>
-            )}
-            {signature !== null && signatureRect !== null && (
-                <AnchoredPopup rect={signatureRect} placement={{ prefer: 'above' }}>
-                    <SignatureCard model={signature.model} />
-                </AnchoredPopup>
-            )}
-            {completion !== null && completionRect !== null && <CompletionPopup language={language} view={completion} rect={completionRect} />}
-            {pick !== null && pickRect !== null && <PickPopup language={language} view={pick} rect={pickRect} />}
-            {menu !== null && (
-                <EditorContextMenu language={language} view={menu}>
-                    <MenuActions language={language} />
-                </EditorContextMenu>
-            )}
-            {symbols !== null && <SymbolPicker language={language} view={symbols} />}
-            {peek !== null && <PeekPanel language={language} view={peek} />}
-            {callHierarchy !== undefined && callHierarchy !== null && <CallHierarchyPanel language={language} view={callHierarchy} />}
-            {authors !== null && <CodeAuthorsCard language={language} view={authors} />}
-            <RenderedDocs language={language} />
-            <InlineEditLayer language={language} />
-            {rename !== null && renameRect !== null && <RenameCard language={language} view={rename} rect={renameRect} endRect={renameEnd} />}
+            <LanguagePopups
+                language={language}
+                hoverFooter={(view, shown) => <HoverActions language={shown} view={view} />}
+                contextMenuItems={(shown) => <MenuActions language={shown} />}
+            >
+                <InlineEditLayer language={language} />
+            </LanguagePopups>
         </EditorRenderingProvider>
     );
 }
