@@ -5,6 +5,8 @@ import { DrawingContentSchema, DrawingDocumentSchema } from '@adecore/drawing/pr
 export {
     DrawingColorSchema,
     type DrawingColor,
+    DrawingFontSchema,
+    type DrawingFont,
     DRAWING_COLORS,
     DrawingFillSchema,
     type DrawingFill,

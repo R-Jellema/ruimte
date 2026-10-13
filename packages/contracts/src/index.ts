@@ -350,7 +350,6 @@ export * from './database.ts';
 export * from './diagram-host.ts';
 export * from './drawing-host.ts';
 export * from './envelope.ts';
-export * from './font.ts';
 export * from './fs.ts';
 export * from './git.ts';
 export * from './ids.ts';

@@ -4,7 +4,7 @@ import { GitDiffScopeSchema } from './git.ts';
 import { RuntimeModeSchema } from './model.ts';
 import { ProviderAccountIdSchema } from './provider-accounts.ts';
 import { DeviceReferenceSchema } from './device.ts';
-import { DrawingFontSchema } from './font.ts';
+import { DrawingFontSchema } from '@adecore/drawing/protocol';
 
 export const ProjectIdSchema = z.string().min(1);
 export type ProjectId = z.infer<typeof ProjectIdSchema>;

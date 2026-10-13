@@ -29,7 +29,7 @@ import * as signing from '../../pulsar/src/signing.ts';
 import * as liveness from '../src/direct-liveness.ts';
 import * as agent from '../src/agent.ts';
 import * as task from '../src/task.ts';
-import * as plan from '../src/plan.ts';
+import * as plan from '@adecore/plan/protocol';
 import * as chat from '../src/chat.ts';
 import { PLAN_STATE_MARKERS } from '@adecore/plan';
 import { PROTOCOL_VERSION } from '../src/protocol.ts';
