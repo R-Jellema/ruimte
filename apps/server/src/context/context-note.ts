@@ -76,8 +76,7 @@ function uiNote(databases: boolean): string {
     return (
         uiSessionNote({ fenceLanguage: RUIMTE_UI_FENCE }) +
         [
-            'Write a block when the answer has structure a person scans or acts on (numbers to compare, rows, steps, a status, optional next steps); what a sentence or a short list says stays prose. `ruimte-context help ui` describes every component.',
-            "When you need information or a decision from the person before you act, ask it with your CLI's built-in question tool if it has one, otherwise in plain text. Choices only offer optional next steps after a finished answer.",
+            'Write a block when the answer has structure a person scans or acts on (numbers to compare, rows, steps, a status, shortcuts after finished work); what a sentence or a short list says stays prose. `ruimte-context help ui` describes every component.',
             'Children sit in their parent: Stat in Stats, Column in Table, Option in Segmented, Item in Checklist, Choice in Choices, Step in Steps, Entry in EntityList, Tab in Tabs, Section in Sections, Source in Sources.',
             'Each items={$rows} as="row" names each item, read without $ as {row.name}. Chart data rows are {label: "Core", passed: 32, failed: 1}. File and Diff paths are relative to your working folder; a Node id is one ruimte-context printed.',
             `Live data: $name = @Query("source", {args}), with these sources and arguments: ${sources}. git.status gives the branch, ahead, behind, counts per state and the first files.${databases ? ' database.query rows are records for Table and Chart.' : ''} Sources are literal; arguments may reference local inputs. Queries only read, never start work or run writes.`
