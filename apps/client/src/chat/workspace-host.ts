@@ -1,6 +1,6 @@
 import i18next from 'i18next';
 import { createElement, useMemo } from 'react';
-import { chatHost, setChatHost } from '@adecore/agents-react/host';
+import { chatHost, setChatHost } from '@adecore/agents-react';
 import { answerComputerAsPerson } from '@/actions/client-actions';
 import { ComposerDictation } from '@/chat/ComposerDictation';
 import { prepareCodeBlockAction } from '@/chat/prepare-code-block';

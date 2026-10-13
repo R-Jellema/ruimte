@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { composerEditorExtensions } from '@adecore/agents-react/chat/ui/composer/editor';
+import { composerEditorExtensions } from '@adecore/agents-react/chat/ui';
 import { dictationRange, dictationRangeEffect, dictationPreview, dictationPreviewEffect } from '@/dictation/editor';
 import { createElement } from 'react';
 import { flushSync } from 'react-dom';

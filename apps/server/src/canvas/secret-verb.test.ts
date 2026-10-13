@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { refusalBody } from '@adecore/agents/context/refusal';
+import { refusalBody } from '@adecore/agents/context';
 import type { SecretAsk, SecretOutcome } from '../secrets/secret-requests.ts';
 import { VerbRefusal, type CanvasHost, type LaunchReading, type Noun, type Verb } from './verb.ts';
 import { verbNamed } from './verbs.ts';

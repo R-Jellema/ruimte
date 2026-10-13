@@ -58,8 +58,8 @@ import { LOCK_KEYS } from '@/canvas/locks';
 import { toWorld, type Point } from '@/canvas/math';
 import { centerOf } from '@adecore/drawing';
 import { nearestFreeNodeRect } from '@/canvas/place-node';
-import type { ChatSendExtras } from '@adecore/agents-react/chat/chat-client';
-import { recentChatMessages } from '@adecore/agents-react/chat/recent-messages';
+import type { ChatSendExtras } from '@adecore/agents-react/chat';
+import { recentChatMessages } from '@adecore/agents-react/chat';
 import {
     liveViewDeletion,
     nodeDeletionFacts,
@@ -72,7 +72,7 @@ import {
 import { lastFlagColor, rememberFlagColor } from '@/project/flag-color';
 import { offerViewUndo } from '@/project/view-trash';
 import { openInNewWindow, wantsNewWindow } from '@/project/windows';
-import type { ChatPromptClients } from '@adecore/agents-react/prompts/logic/subjects';
+import type { ChatPromptClients } from '@adecore/agents-react/prompts';
 import { looseTabLabel } from '@/shell/panels/tab-label';
 import { basenameOf, storedPathOf } from '@/shell/panels/files-tree';
 import {
@@ -91,7 +91,7 @@ import {
 import { positionAfterLifting } from '@/shell/tab-drop';
 import { sightOf, visibleNodes } from '@/state/attention';
 import { defaultCanvases, focusedCanvas, liveCanvas, NODE_SIZE, type AddNodeOptions, type CanvasState, type Locks, type NodeKind } from '@/state/canvas';
-import { useChats } from '@adecore/agents-react/state/chats';
+import { useChats, providersOf } from '@adecore/agents-react/state';
 import { liveDiagram } from '@/state/diagram';
 import { activeViewOf, cellViewOf, useDocument, viewOfNode, type DocumentState } from '@/state/document';
 import { liveDrawing } from '@/state/drawing';
@@ -100,7 +100,6 @@ import { openTab, useFiles } from '@/state/files';
 import { useSettings } from '@/state/settings';
 import { currentEndpointId, endpointKey } from '@/state/keys';
 import { useProject } from '@/state/project';
-import { providersOf } from '@adecore/agents-react/state/providers';
 import { chatClient, diagramClient, drawingClient, sessionClient } from '@/transport/connections';
 import { listed } from '@/actions/words';
 

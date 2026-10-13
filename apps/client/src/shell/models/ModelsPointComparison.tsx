@@ -2,7 +2,7 @@ import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { IconButton, Select } from '@adecore/ui';
 import { formatDecimal, formatRounded } from '@adecore/ui/format';
-import { ProviderLogo } from '@adecore/agents-react/agents/ProviderLogo';
+import { ProviderLogo } from '@adecore/agents-react/providers';
 import type { ChartModel, ModelMark } from './chart';
 import { formatMetric, metricChange, metricValue, METRICS, shortModelName, type ModelPoint } from './comparison';
 

@@ -1,10 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { Laptop, LogIn, RefreshCw, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { accountStatusLine, ACCOUNT_TONE_CLASSES } from '@adecore/agents-react/agents/accounts';
-import { CliMark } from '@adecore/agents-react/providers/parts';
-import { useProviderAccountsStore } from '@adecore/agents-react/state/provider-accounts';
-import { useProviders, useProvidersStore } from '@adecore/agents-react/state/providers';
+import { accountStatusLine, ACCOUNT_TONE_CLASSES, CliMark } from '@adecore/agents-react/providers';
+import { useProviderAccountsStore, useProviders, useProvidersStore } from '@adecore/agents-react/state';
 import { joinNames, type CliRow } from '@/onboarding/tasks';
 import { RowTile, TaskNote, TaskPane } from '@/onboarding/TaskPane';
 import { useAppleFoundation } from '@/shell/settings/providers/use-apple-foundation';

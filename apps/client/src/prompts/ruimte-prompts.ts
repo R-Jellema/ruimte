@@ -1,7 +1,6 @@
 import i18next from 'i18next';
 import type { AgentRequest, ComputerApproval, ComputerApprovalChoice, SecretRequest } from '@ruimte/contracts';
-import type { PromptAction } from '@adecore/agents-react/prompts/logic/prompts';
-import type { ApprovalButtonSpec, HostPrompt, PromptSubject } from '@adecore/agents-react/prompts/logic/subjects';
+import type { PromptAction, ApprovalButtonSpec, HostPrompt, PromptSubject } from '@adecore/agents-react/prompts';
 import type { SecretAnswers } from '@/secrets/answer';
 
 /*

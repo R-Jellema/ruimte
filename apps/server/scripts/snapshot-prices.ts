@@ -1,7 +1,7 @@
 /* Retained during cutover validation. Pricing snapshots are maintained in Adecore;
    this script is no longer exposed by Ruimte's package commands. */
 import { join } from 'node:path';
-import { LITELLM_URL } from '@adecore/agents/usage/pricing';
+import { LITELLM_URL } from '@adecore/agents/usage';
 
 const PROVIDERS = new Set(['anthropic', 'openai']);
 const MODES = new Set(['chat', 'responses']);

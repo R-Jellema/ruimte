@@ -2,8 +2,7 @@ import { mkdir, readFile, realpath, rename, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import type { AgentIntegrationFile, AgentIntegrationReport, AgentIntegrationsSummary, AgentKind } from '@ruimte/contracts';
-import { isNotFound, writeAtomic } from '@adecore/agents/fs';
-import { Serializer } from '@adecore/agents/serializer';
+import { isNotFound, writeAtomic, Serializer } from '@adecore/agents';
 import { errorText } from '../error-text.ts';
 import {
     CODEX_RULES,

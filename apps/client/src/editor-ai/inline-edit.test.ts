@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import type { Editor } from '@adecore/editor';
-import { useProviderAccountsStore } from '@adecore/agents-react/state/provider-accounts';
-import { useProvidersStore } from '@adecore/agents-react/state/providers';
+import { useProviderAccountsStore, useProvidersStore } from '@adecore/agents-react/state';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { EditorLanguage } from '@/language/ruimte-editor-language';
 import { FakeLanguageTransport } from '@/language/fake-daemon';

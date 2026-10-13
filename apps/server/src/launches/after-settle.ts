@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import type { ChatItem, ChatTurnItem, LaunchStatus } from '@ruimte/contracts';
-import { writeAtomicSync } from '@adecore/agents/fs';
-import { runningInBackground } from '@adecore/agents/chat/background-work';
-import type { AgentEvent } from '@adecore/agents/events';
+import { writeAtomicSync } from '@adecore/agents';
+import { runningInBackground } from '@adecore/agents/chat';
+import type { AgentEvent } from '@adecore/agents/host';
 import { z } from 'zod';
 import { isInside } from '../canvas/project-paths.ts';
 import type { ChatManager } from '../chat/chat-manager.ts';

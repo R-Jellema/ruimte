@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ServerFrame } from '@ruimte/contracts';
-import { FakeWatch } from '@adecore/agents/watch-test-helpers';
+import { FakeWatch } from '@adecore/agents/testing';
 import { DatabaseAccessStore } from '../database/agent-access.ts';
 import { AgentDatabases, connectionTarget } from '../database/agent-databases.ts';
 import { DatabasePasswords } from '../database/agent-passwords.ts';

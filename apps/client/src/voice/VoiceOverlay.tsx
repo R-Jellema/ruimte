@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FadingWords } from '@adecore/agents-react/chat/ui/FadingWords';
+import { FadingWords } from '@adecore/agents-react/chat/ui';
 import { ErrorBoundary } from '@adecore/ui';
 import { useVoice } from '@/voice/state';
 import { VoiceWaveform } from '@/voice/VoiceWaveform';

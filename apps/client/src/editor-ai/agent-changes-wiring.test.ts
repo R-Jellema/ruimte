@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import type { ProvenanceReadResult } from '@ruimte/contracts';
-import { useChats } from '@adecore/agents-react/state/chats';
+import { useChats } from '@adecore/agents-react/state';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { FakeLanguageTransport } from '@/language/fake-daemon';
 import { endpointKey } from '@/state/keys';

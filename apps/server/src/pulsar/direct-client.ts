@@ -1,4 +1,4 @@
-import { wait, withTimeout } from '@adecore/agents/async';
+import { wait, withTimeout } from '@adecore/agents';
 import {
     ChannelLiveness,
     channelBinding,

@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { DatabaseConnection } from '@ruimte/contracts';
-import { FakeWatch } from '@adecore/agents/watch-test-helpers';
+import { FakeWatch } from '@adecore/agents/testing';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { PROJECT_WRITE_IO, type ProjectWriteIO } from '../projects/project-write.ts';
 import { DatabaseConnectionStore } from './connection-store.ts';

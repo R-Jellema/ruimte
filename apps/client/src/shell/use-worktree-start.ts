@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { AgentKind, GitRefsResult, ModelSelection, Worktree } from '@ruimte/contracts';
-import { branchRefusal } from '@adecore/agents-react/chat/logic/fork';
-import { defaultProvider, readChatPreferences, startingSelection } from '@adecore/agents-react/chat/preferences';
-import { useProviders } from '@adecore/agents-react/state/providers';
+import { branchRefusal, defaultProvider, readChatPreferences, startingSelection } from '@adecore/agents-react/chat';
+import { useProviders } from '@adecore/agents-react/state';
 import { messageOf } from '@adecore/ui';
 import { proposedBranch } from '@/shell/new-worktree-chat';
 import { useTransport } from '@/transport/context';

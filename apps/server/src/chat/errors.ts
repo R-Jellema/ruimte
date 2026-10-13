@@ -1,4 +1,4 @@
-import { ChatError as AgentChatError, type ChatErrorCode } from '@adecore/agents/chat/errors';
+import { ChatError as AgentChatError, type ChatErrorCode } from '@adecore/agents/chat';
 
 type RuimteChatErrorCode =
     | ChatErrorCode

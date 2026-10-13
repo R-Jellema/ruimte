@@ -55,7 +55,7 @@ test.skipIf(browser === null || node === null)(
             expect(exitCode, `${output}\n${errors}`).toBe(0);
             const result = JSON.parse(output).probe;
             expect(result.ok).toBe(true);
-            const composerSource = Bun.resolveSync('@adecore/agents-react/chat/ui/composer/editor', import.meta.dir);
+            const composerSource = Bun.resolveSync('@adecore/agents-react/chat/ui', import.meta.dir);
             const appSource = fileURLToPath(new URL('./src/dictation/editor.ts', import.meta.url));
             for (const name of sharedEditorRuntime) {
                 const [appModule, sharedModule] = await Promise.all([

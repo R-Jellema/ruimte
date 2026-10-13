@@ -1,12 +1,11 @@
 import { mkdir, readdir, rm } from 'node:fs/promises';
 import { basename } from 'node:path';
-import { settled, SYSTEM_WATCH, type DirectoryWatcher, type Settled, type WatchSeams } from '@adecore/agents/watch-seam';
+import { settled, SYSTEM_WATCH, type DirectoryWatcher, type Settled, type WatchSeams, Serializer } from '@adecore/agents';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 import { tooNewMessage, viewFilePathIn, viewFilePathOf, viewIdOfFile, type JsonDocumentRead, type JsonDocumentReadOptions } from './project-files.ts';
 import type { ProjectPlace, ProjectStore, ProjectViewFiles } from './project-store.ts';
 import { ClientSinks } from '../client-sinks.ts';
 import { errorText } from '../error-text.ts';
-import { Serializer } from '@adecore/agents/serializer';
 
 // The same burst rule the project file follows: an editor or git writes more than once per save.
 const WATCH_SETTLE_MS = 150;

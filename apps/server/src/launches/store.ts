@@ -17,9 +17,7 @@ import {
     type LaunchesPrivateFile,
     type LaunchesSharedFile
 } from '@ruimte/contracts';
-import { CodedError } from '@adecore/agents/coded-error';
-import { Serializer } from '@adecore/agents/serializer';
-import { settled, SYSTEM_WATCH, type DirectoryWatcher, type Settled, type WatchSeams } from '@adecore/agents/watch-seam';
+import { CodedError, Serializer, settled, SYSTEM_WATCH, type DirectoryWatcher, type Settled, type WatchSeams } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
 import { listRepos } from '../git/repos.ts';
 import { ClientSinks } from '../client-sinks.ts';

@@ -1,4 +1,4 @@
-import type { TaskWords } from '@adecore/agents/tasks/wiring';
+import type { TaskWords } from '@adecore/agents/coordination';
 import { taskBrief } from '../canvas/task-verbs.ts';
 
 /* Sent to the child's CLI: the assignment plus the line a child opened with --task also gets. */

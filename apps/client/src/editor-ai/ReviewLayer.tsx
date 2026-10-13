@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { useStore } from 'zustand';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { Button, ButtonGroup, IconButton } from '@adecore/ui';
-import { ProviderLogo } from '@adecore/agents-react/agents/ProviderLogo';
+import { ProviderLogo } from '@adecore/agents-react/providers';
 import type { Editor } from '@adecore/editor';
 import { focusChat } from '@/plan/plan-actions';
 import { colorOfChat } from './agent-runs';

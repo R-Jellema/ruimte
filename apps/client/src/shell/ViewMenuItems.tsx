@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { canShareView, isCanvasView, type ProjectView } from '@ruimte/contracts';
 import { useDatabaseViewShareRefusal } from '@/database/view-sharing';
-import { BookmarkSubmenu } from '@adecore/agents-react/chat/ui/BookmarkSubmenu';
+import { BookmarkSubmenu } from '@adecore/agents-react/chat/ui';
 import { ForkMenuItem } from '@/chat/ForkMenuItem';
 import { useOffersFork } from '@/chat/use-offers-fork';
 import {
@@ -37,10 +37,9 @@ import { sessionHandoffs, viewOffers } from '@/shell/view-offers';
 import { FileActionItems } from '@/shell/panels/FileActionItems';
 import { resolveStoredPath } from '@/shell/panels/files-tree';
 import { canSplit, cellAt, cellCount, cellsRightOf, freeViewFor, isTabHost, maximizedCell, type CellAt } from '@/shell/split';
-import { useChatRow } from '@adecore/agents-react/state/chats';
+import { useChatRow, useProviders } from '@adecore/agents-react/state';
 import { cellViewOf, hasActiveCanvas, useDocument } from '@/state/document';
 import { isScratchProject, useProject } from '@/state/project';
-import { useProviders } from '@adecore/agents-react/state/providers';
 import { useSessionRow } from '@/state/sessions';
 import { fileManagerName, useServer } from '@/state/server';
 import { useTransport } from '@/transport/context';

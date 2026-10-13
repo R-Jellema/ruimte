@@ -4,8 +4,7 @@ import { basename, dirname, join, relative, sep } from 'node:path';
 import { FS_READ_MAX_TEXT_BYTES, type FsWriteResult } from '@ruimte/contracts';
 import { isInside } from '../canvas/project-paths.ts';
 import { isRuimteState } from '../projects/project-files.ts';
-import { CodedError } from '@adecore/agents/coded-error';
-import { KeyedSerializer } from '@adecore/agents/serializer';
+import { CodedError, KeyedSerializer } from '@adecore/agents';
 import { ReadError, UTF8_BOM, inspect } from './read.ts';
 
 type WriteErrorCode = 'stale' | 'too-large' | 'not-text' | 'outside-project' | 'ruimte-state' | 'not-writable';

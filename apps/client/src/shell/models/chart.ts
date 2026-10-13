@@ -1,6 +1,6 @@
 import type { UsageProvider } from '@ruimte/contracts';
 import type { BenchmarkMeasurement, BenchmarkModel } from '@ruimte/pulsar';
-import { niceScale } from '@adecore/agents-react/usage/summary';
+import { niceScale } from '@adecore/agents-react/usage';
 
 export type CostScale = 'log' | 'linear';
 

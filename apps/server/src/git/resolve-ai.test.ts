@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { splitBlocks, splitLines } from '@adecore/merge';
-import type { ChatProvider } from '@adecore/agents/providers/provider';
+import type { ChatProvider } from '@adecore/agents/providers';
 import { buildResolvePrompt, oneShotRun, parseResolution } from './resolve-ai.ts';
 import { streamCommand } from './run.ts';
 

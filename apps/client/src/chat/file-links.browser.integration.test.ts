@@ -10,15 +10,15 @@ const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimati
 async function fixture(run: (view: View) => Promise<void>): Promise<void> {
     await withBrowserFixture(
         `
-        import { Markdown, MessageMarkdown } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat/ui/Markdown', clientDirectory))};
-        import { FileLinkContext } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat/ui/file-links', clientDirectory))};
-        import { TimelineMenuPopup } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat/ui/TimelineMenu', clientDirectory))};
-        import { readTimelineTarget, EMPTY_TARGET } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat/logic/timeline-target', clientDirectory))};
-        import { SubagentTimeline } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat/ui/SubagentTimeline', clientDirectory))};
+        import { Markdown, MessageMarkdown } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat/ui', clientDirectory))};
+        import { FileLinkContext } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat/ui', clientDirectory))};
+        import { TimelineMenuPopup } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat/ui', clientDirectory))};
+        import { readTimelineTarget, EMPTY_TARGET } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat', clientDirectory))};
+        import { SubagentTimeline } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/chat/ui', clientDirectory))};
         import { machineFor } from ${JSON.stringify(join(import.meta.dir, '../transport/connections.ts'))};
         import { ContextMenu } from ${JSON.stringify(Bun.resolveSync('@adecore/ui', clientDirectory))};
         import { connectWorkspaceChatHost } from ${JSON.stringify(join(import.meta.dir, 'workspace-host.ts'))};
-        import { ChatScopeContext } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react/scope', clientDirectory))};
+        import { ChatScopeContext } from ${JSON.stringify(Bun.resolveSync('@adecore/agents-react', clientDirectory))};
         import { chatScopeOf } from ${JSON.stringify(join(import.meta.dir, '../transport/chat-scope.ts'))};
         import { useFiles } from ${JSON.stringify(join(import.meta.dir, '../state/files.ts'))};
         import { useWindow } from ${JSON.stringify(join(import.meta.dir, '../state/window.ts'))};

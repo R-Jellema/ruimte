@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { fileExists } from '@adecore/agents/fs';
+import { fileExists } from '@adecore/agents';
 import { basename, join, relative } from 'node:path';
 import type { GitRepo, GitReposResult } from '@ruimte/contracts';
 import { climbsOut, isBelow, parseSharedFile, PROJECT_DIR, PROJECT_FILE } from '../projects/project-files.ts';

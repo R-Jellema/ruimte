@@ -1,5 +1,5 @@
-import { accountHandlers } from '@adecore/agents/host/handlers';
-import type { ProviderAccountsService } from '@adecore/agents/providers/accounts/service';
+import { accountHandlers } from '@adecore/agents/host';
+import type { ProviderAccountsService } from '@adecore/agents/providers';
 import type { Dispatcher } from '../dispatcher.ts';
 import { registerAgentHandlers } from './agent.ts';
 

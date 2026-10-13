@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { DatabaseConnection } from '@ruimte/contracts';
 import type { Cell, DatabaseResponse } from '@adecore/database/protocol';
-import { CodedError } from '@adecore/agents/coded-error';
+import { CodedError } from '@adecore/agents';
 import { MachineHome } from '../fs/machine-home.ts';
 import { DatabaseAccessStore } from './agent-access.ts';
 import { AgentDatabases, type DatabasePlace } from './agent-databases.ts';

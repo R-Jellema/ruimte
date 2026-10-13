@@ -2,7 +2,7 @@ import i18next from 'i18next';
 import { createStore, type StoreApi } from 'zustand';
 import type { AgentKind, ProjectNewInlineChatPayload, ProjectNewInlineChatResult } from '@ruimte/contracts';
 import type { Editor, EditorRange, EditorTrackedRange } from '@adecore/editor';
-import { waitingRequestsOf, type ChatState } from '@adecore/agents-react/state/chats';
+import { waitingRequestsOf, type ChatState } from '@adecore/agents-react/state';
 import { endOfInsertion, fitReplacement, locateSelection, parseAnswer, replaceRange, type InlineProblem, type LineSpan } from '@adecore/editor-react/models';
 import type { DiskText } from '@/state/text-drafts';
 import type { InlineEditRecord } from './inline-edit-record';

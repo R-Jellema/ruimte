@@ -1,10 +1,8 @@
 import type { ChatItem } from '@ruimte/contracts';
 import { compileFind, matchesIn, MATCH_LIMIT, type FindQuery } from '@/find/query';
-import { handbackReportOf } from '@adecore/agents-react/chat/logic/handback';
-import type { TimelineRow } from '@adecore/agents-react/chat/logic/timeline';
-import { toolSummary } from '@adecore/agents-react/chat/logic/tools';
-import type { ChatFindField } from '@adecore/agents-react/chat/ui/find-reveal';
-import { stripAnsi } from '@adecore/agents-react/chat/logic/ansi';
+import { handbackReportOf, toolSummary, stripAnsi } from '@adecore/agents-react/chat';
+import type { TimelineRow } from '@adecore/agents-react/chat';
+import type { ChatFindField } from '@adecore/agents-react/chat/ui';
 
 /*
  * Find in a chat, over the thread's data and not its DOM: the timeline only draws the rows on screen,

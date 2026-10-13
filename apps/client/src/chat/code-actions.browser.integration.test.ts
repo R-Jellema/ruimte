@@ -16,11 +16,11 @@ async function fixture(run: (view: View) => Promise<void>): Promise<void> {
     const resolve = (name: string) => JSON.stringify(Bun.resolveSync(name, clientDirectory));
     await withBrowserFixture(
         `
-        import { Markdown, MessageMarkdown } from ${resolve('@adecore/agents-react/chat/ui/Markdown')};
-        import { AssistantRow } from ${resolve('@adecore/agents-react/chat/ui/rows/MessageRows')};
-        import { ChatScopeContext } from ${resolve('@adecore/agents-react/scope')};
-        import { ReplyContext } from ${resolve('@adecore/agents-react/chat/ui/reply-context')};
-        import { setChatHost } from ${resolve('@adecore/agents-react/host')};
+        import { Markdown, MessageMarkdown } from ${resolve('@adecore/agents-react/chat/ui')};
+        import { AssistantRow } from ${resolve('@adecore/agents-react/chat/ui')};
+        import { ChatScopeContext } from ${resolve('@adecore/agents-react')};
+        import { ReplyContext } from ${resolve('@adecore/agents-react/chat/ui')};
+        import { setChatHost } from ${resolve('@adecore/agents-react')};
         import { connectWorkspaceChatHost } from ${JSON.stringify(join(clientDirectory, 'src/chat/workspace-host.ts'))};
         import { useTheme } from ${JSON.stringify(join(clientDirectory, 'src/state/theme.ts'))};
         import { useEndpoints } from ${JSON.stringify(join(clientDirectory, 'src/state/endpoints.ts'))};

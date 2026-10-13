@@ -23,13 +23,9 @@ import type {
     Task
 } from '@ruimte/contracts';
 import { generatedImageAttachment } from '@ruimte/contracts';
-import { ChatCore, type ChatCoreOptions } from '@adecore/agents/chat/chat-core';
-import type { ChatReferences, ChatSession, PromptNotes, ResumeWords } from '@adecore/agents/chat/chat-session';
-import type { ChatRecord, ChatRecordExtras } from '@adecore/agents/chat/chat-store';
-import { claudeProjectSlug } from '@adecore/agents/chat/claude-transcript';
-import { limitedTurn } from '@adecore/agents/chat/limit-resume';
-import { storedAccount } from '@adecore/agents/providers/accounts/launch';
-import { narrowerMode } from '@adecore/agents/modes';
+import { ChatCore, type ChatCoreOptions, claudeProjectSlug, limitedTurn } from '@adecore/agents/chat';
+import type { ChatReferences, ChatSession, PromptNotes, ResumeWords, ChatRecord, ChatRecordExtras } from '@adecore/agents/chat';
+import { storedAccount, narrowerMode } from '@adecore/agents/providers';
 import { chatReferenceNote, resolveChatReferences } from '../context/chat-references.ts';
 import { chatPrompt, contextChangeNote, contextPrompt, VISUAL_RESUME_NOTE } from '../context/context-note.ts';
 import { errorText } from '../error-text.ts';
@@ -39,7 +35,7 @@ import { ChatError } from './errors.ts';
 import { RUIMTE_UI_FENCE } from './ui-fence.ts';
 import { InlineEditNotes } from './inline-edit.ts';
 
-export type { InterruptedRun } from '@adecore/agents/chat/chat-core';
+export type { InterruptedRun } from '@adecore/agents/chat';
 
 // Why a task a person stopped from the list of the chat that gave it ended, in that chat's note and the child's thread.
 export const STOPPED_TASK_REASON = 'a person stopped it';

@@ -1,6 +1,6 @@
 import { stat } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { CodedError } from '@adecore/agents/coded-error';
+import { CodedError } from '@adecore/agents';
 
 type RevealErrorCode = 'path-not-found' | 'reveal-failed';
 

@@ -1,6 +1,6 @@
 import { isCanvasView, isSessionView, type ChatExternalResult, type ChatExternalSession, type ProjectView } from '@ruimte/contracts';
-import { listClaudeSessions, listCodexSessions, type ExternalSession, type SessionFs } from '@adecore/agents/chat/external-sessions';
-import type { UsageRootPath } from '@adecore/agents/usage/roots';
+import { listClaudeSessions, listCodexSessions, type ExternalSession, type SessionFs } from '@adecore/agents/chat';
+import type { UsageRootPath } from '@adecore/agents/usage';
 
 import { ChatSearchError, chatsOfViews } from './project-search.ts';
 

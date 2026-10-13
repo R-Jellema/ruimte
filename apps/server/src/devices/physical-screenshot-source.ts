@@ -1,4 +1,4 @@
-import { wait } from '@adecore/agents/async';
+import { wait } from '@adecore/agents';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

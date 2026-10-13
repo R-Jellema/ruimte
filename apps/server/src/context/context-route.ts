@@ -4,7 +4,7 @@ import { serverActions } from '../actions/server-actions.ts';
 import { linesOf } from '../canvas/action-verb.ts';
 import { bearerCaller } from '../canvas/canvas-route.ts';
 import type { CanvasHost } from '../canvas/verb.ts';
-import { refusalRows } from '@adecore/agents/context/refusal';
+import { refusalRows } from '@adecore/agents/context';
 import { CONTEXT_PATH } from './context-store.ts';
 
 /* The refusals of a read that the CLI prints as its own, with what `list` would have said under them. */

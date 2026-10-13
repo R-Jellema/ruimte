@@ -4,13 +4,12 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ChatItem, ContextSource } from '@ruimte/contracts';
 import { ProviderRegistry } from '../providers/registry.ts';
-import { AttachmentStore } from '@adecore/agents/chat/attachment-store';
+import { AttachmentStore } from '@adecore/agents/chat';
 import { ChatManager } from './chat-manager.ts';
 import { ChatRecorder, RecordingStore } from './chat-test-helpers.ts';
-import { fakeClaude } from '@adecore/agents/chat/fake-claude';
-import { inProcess } from '@adecore/agents/chat/fake-cli';
+import { fakeClaude, inProcess } from '@adecore/agents/testing';
 
-const FIXTURE = join(dirname(fileURLToPath(import.meta.resolve('@adecore/agents/chat/subagent-reader'))), 'fixtures', 'claude-projects');
+const FIXTURE = join(dirname(fileURLToPath(import.meta.resolve('@adecore/agents/chat'))), 'fixtures', 'claude-projects');
 const LINKED: ContextSource[] = [{ id: 'dev-1', kind: 'device', title: 'iPhone 18 Pro Max' }];
 // A chat's title timer and its CLI outlive a shutdown; only a dispose ends them.
 export async function retire(target: ChatManager): Promise<void> {

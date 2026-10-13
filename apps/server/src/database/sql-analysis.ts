@@ -10,7 +10,7 @@ import {
     type SqlBinding,
     type SqlSnapshotInfo
 } from '@ruimte/contracts';
-import { CodedError } from '@adecore/agents/coded-error';
+import { CodedError } from '@adecore/agents';
 import { ClientSinks } from '../client-sinks.ts';
 import { errorText } from '../error-text.ts';
 import type { FileChange } from '../language/file-watch.ts';

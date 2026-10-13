@@ -1,4 +1,4 @@
-import { describeError, setErrorStacks } from '@adecore/agents/error-text';
+import { describeError, setErrorStacks } from '@adecore/agents';
 
 export { describeError };
 

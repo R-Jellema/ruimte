@@ -2,15 +2,14 @@ import { mkdir, readFile, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { AgentKind } from '@ruimte/contracts';
-import { isNotFound, writeAtomic } from '@adecore/agents/fs';
-import { KeyedSerializer } from '@adecore/agents/serializer';
+import { isNotFound, writeAtomic, KeyedSerializer } from '@adecore/agents';
 import {
     codexRulesPathIn as codexRulesPathInFolder,
     codexRulesText,
     defaultCodexHome,
     installCodexRules as installCodexRulesAt,
     type CodexRules
-} from '@adecore/agents/providers/codex-rules';
+} from '@adecore/agents/providers';
 import { HOOK_EVENTS } from './hooks.ts';
 import { errorText } from '../error-text.ts';
 

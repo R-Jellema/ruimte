@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { rm } from 'node:fs/promises';
 import type { ChatBookmark } from '@ruimte/contracts';
 import type { SessionEvent } from '../sessions/manager.ts';
-import { BookmarkStore } from '@adecore/agents/chat/bookmark-store';
+import { BookmarkStore } from '@adecore/agents/chat';
 import { ChatManager } from './chat-manager.ts';
 import { INLINE_EDIT_PREAMBLE } from './inline-edit.ts';
 import { ChatRecorder } from './chat-test-helpers.ts';

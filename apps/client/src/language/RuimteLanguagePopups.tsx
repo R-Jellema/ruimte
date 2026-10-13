@@ -17,7 +17,7 @@ import {
     SymbolPicker,
     type HoverView
 } from '@adecore/editor-react';
-import { AgentIcon } from '@adecore/agents-react/agents/AgentIcon';
+import { AgentIcon } from '@adecore/agents-react/providers';
 import { Button, ContextMenu, Icon, Kbd, Tooltip } from '@adecore/ui';
 import { Cpu, MapPin, MessageSquarePlus, Sparkles } from 'lucide-react';
 import { InlineEditLayer } from '@/editor-ai/InlineEditLayer';

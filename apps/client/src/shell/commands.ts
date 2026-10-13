@@ -60,7 +60,7 @@ import { prReposOfCurrent, type PrRepo } from '@/state/pr-repos';
 import { isScratchProject, shownFolderOf, useProject } from '@/state/project';
 import { windowWorkspace } from '@/state/window';
 import { hasLocalMachine } from '@/state/local-machine';
-import { providersOf } from '@adecore/agents-react/state/providers';
+import { providersOf } from '@adecore/agents-react/state';
 import { fileManagerName, serverInfoOf } from '@/state/server';
 import { useTheme } from '@/state/theme';
 import { useFiles } from '@/state/files';
@@ -71,8 +71,7 @@ import { runAppShortcut } from '@/shell/app-shortcuts';
 import { APP_SHORTCUTS } from '@/shell/shortcuts';
 import { canSplit, cellAt, cellCount, cellsRightOf, isTabHost, maximizedCell } from '@/shell/split';
 import type { Shortcut } from '@adecore/ui';
-import { sendFromComposer } from '@adecore/agents-react/chat/composer-send';
-import { SEND_AND_NEW_SHORTCUT } from '@adecore/agents-react/chat/send-key';
+import { sendFromComposer, SEND_AND_NEW_SHORTCUT } from '@adecore/agents-react/chat';
 import { focusedChatId } from '@/chat/focused-chat';
 import { restartChatSession } from '@/chat/restart-session';
 

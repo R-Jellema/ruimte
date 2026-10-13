@@ -29,7 +29,7 @@ import type { SecretAsk, SecretOutcome } from '../secrets/secret-requests.ts';
 import type { DeviceDriver } from '../devices/agent-driver.ts';
 import type { DatabaseAgentHost } from '../database/agent-databases.ts';
 import type { AgentLanguage } from '../language/agent-language.ts';
-import type { Notice } from '@adecore/agents/messages/notice-store';
+import type { Notice, ChatRequests, TaskVerbs } from '@adecore/agents/coordination';
 import type { NoticeDelivery } from '../context/notices.ts';
 import type { PlanStore } from '../plans/plan-store.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
@@ -37,10 +37,8 @@ import type { HiddenAgentStore } from '../agents/hidden-agents.ts';
 import type { StartClaims } from '../actions/start-claims.ts';
 import type { VisualPreview } from '../visuals/renderer.ts';
 import type { ProjectMutation } from '../projects/project-store.ts';
-import { field } from '@adecore/agents/context/refusal';
-import type { ChatRequests } from '@adecore/agents/tasks/waiting-child';
-import type { TaskVerbs } from '@adecore/agents/tasks/wiring';
 import {
+    field,
     REVISION_FLAG,
     VerbRefusal,
     createVerbRegistry,
@@ -50,10 +48,10 @@ import {
     type Noun as RegistryNoun,
     type Verb as RegistryVerb,
     type VerbEntry as RegistryVerbEntry
-} from '@adecore/agents/context/verb';
+} from '@adecore/agents/context';
 
 // The verbs reach the one sanitizer and the registry through the toolkit they already import.
-export { field } from '@adecore/agents/context/refusal';
+export { field } from '@adecore/agents/context';
 export {
     DRY_RUN_FLAG,
     DRY_RUN_PREVIEW,
@@ -64,7 +62,7 @@ export {
     requiredField,
     type ContextVerb,
     type VerbHelp
-} from '@adecore/agents/context/verb';
+} from '@adecore/agents/context';
 
 /* A worktree a verb asks for: a new branch named after a title, or the branch it was given. */
 export type WorktreeWant = ({ fresh: string } | { branch: string }) & { base?: string };

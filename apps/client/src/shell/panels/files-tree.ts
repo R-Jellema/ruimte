@@ -1,7 +1,7 @@
 import type { GitStatus, GitStatusEntry } from '@pierre/trees';
 import { FileTree } from '@adecore/ui';
 import { absoluteOf, isAbsolutePath, relativeTo, resolveStoredPath, storedPathOf, type FsEntry, type GitFile } from '@ruimte/contracts';
-import { chipText } from '@adecore/agents-react/chat/mentions';
+import { chipText } from '@adecore/agents-react/chat';
 
 /* A directory whose children have not arrived yet gets one child nobody sees, so the row keeps its
    chevron. The rule that hides it is in `FilesPanel`. */

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { canvasPrompts, samePrompts, type CanvasPrompt } from '@/canvas/prompts';
 import { useCanvasStore } from '@/state/canvas';
-import { useChats } from '@adecore/agents-react/state/chats';
+import { useChats } from '@adecore/agents-react/state';
 import { computerApprovalsOf, useComputer } from '@/state/computer';
 import { useEndpointId } from '@/state/keys';
 import { secretRequestsOf, useSecrets } from '@/state/secrets';

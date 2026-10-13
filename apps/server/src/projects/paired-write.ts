@@ -1,7 +1,7 @@
 import { mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { z } from 'zod';
-import { isNotFound } from '@adecore/agents/fs';
+import { isNotFound } from '@adecore/agents';
 import { PROJECT_WRITE_IO, type ProjectWriteIO } from './project-write.ts';
 
 const IntentSchema = z.object({

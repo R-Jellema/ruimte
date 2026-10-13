@@ -1,8 +1,7 @@
 import { rmSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { fileExists, writeAtomic } from '@adecore/agents/fs';
-import { runProcess } from '@adecore/agents/run-process';
+import { fileExists, writeAtomic, runProcess } from '@adecore/agents';
 import {
     POWER_STREAM_COMMAND,
     PMSET,

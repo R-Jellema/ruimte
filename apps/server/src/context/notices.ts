@@ -1,5 +1,5 @@
-import { deliverToChat, type ChatDelivery, type ChatNoticeTargets, type MessageWords } from '@adecore/agents/messages/deliver-notice';
-import type { Notice, NoticeStore } from '@adecore/agents/messages/notice-store';
+import { deliverToChat, type ChatDelivery, type ChatNoticeTargets, type MessageWords } from '@adecore/agents/coordination';
+import type { Notice, NoticeStore } from '@adecore/agents/coordination';
 import type { AgentInfo } from '@ruimte/contracts';
 import { takesHookContext } from '../agents/hooks.ts';
 

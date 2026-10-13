@@ -1,6 +1,6 @@
 import i18next from 'i18next';
 import { Bot, CodeXml, Folder, Info, Keyboard, LayoutGrid, Mic, MousePointer2, Palette, Server, SquareTerminal, type LucideIcon } from 'lucide-react';
-import { PROVIDERS_SECTION, USAGE_SECTION, type AgentsSettingsSection } from '@adecore/agents-react/settings/sections';
+import { PROVIDERS_SECTION, USAGE_SECTION, type AgentsSettingsSection } from '@adecore/agents-react';
 import type { SettingsSectionId } from '@/state/ui';
 
 export interface SettingsSectionMeta {

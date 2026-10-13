@@ -6,13 +6,11 @@ import { generatedImageAttachment, type ChatInfo, type ChatItem, type ChatSubage
 import type { ContextSource } from '@ruimte/contracts';
 import { CONTEXT_LEAD, chatPrompt, contextPrompt, verbsNote } from '../context/context-note.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
-import { AttachmentStore } from '@adecore/agents/chat/attachment-store';
+import { AttachmentStore, ChatStore } from '@adecore/agents/chat';
 import { ChatManager } from './chat-manager.ts';
-import { ChatStore } from '@adecore/agents/chat/chat-store';
 import { ChatRecorder } from './chat-test-helpers.ts';
-import { inProcess, type InProcessCli } from '@adecore/agents/chat/fake-cli';
-import { FAKE_CHILD_STEPS, fakeCodexWith } from '@adecore/agents/chat/fake-codex';
-import nativeApprovalCapture from '@adecore/agents/chat/fixtures/codex-0.159.2-native-approval.json';
+import { inProcess, type InProcessCli, FAKE_CHILD_STEPS, fakeCodexWith } from '@adecore/agents/testing';
+import nativeApprovalCapture from '@adecore/agents/testing/fixtures/codex-0.159.2-native-approval.json';
 
 let home: string;
 let store: ChatStore;

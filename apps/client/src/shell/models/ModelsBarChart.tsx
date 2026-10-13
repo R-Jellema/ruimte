@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useContentSize } from '@adecore/ui';
-import { ProviderLogo } from '@adecore/agents-react/agents/ProviderLogo';
+import { ProviderLogo } from '@adecore/agents-react/providers';
 import type { Axis, ChartModel, ModelMark } from './chart';
 import { barGroups, formatMetric, metricValue, shortModelName, VIEW_METRICS, type BarMetric, type PointInteraction } from './comparison';
 import { usePointNavigation } from './use-point-navigation';

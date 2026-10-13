@@ -2,7 +2,7 @@ import { realpath, stat } from 'node:fs/promises';
 import { basename, dirname, relative, resolve } from 'node:path';
 import type { ChatInfo } from '@ruimte/contracts';
 import type { UiLinkResolution, UiLinkTarget } from '@adecore/intelligent-ui/links';
-import { ChatUiRefusal } from '@adecore/agents/chat/ui-queries';
+import { ChatUiRefusal } from '@adecore/agents/chat';
 import { checkCwd, isInside } from '../canvas/project-paths.ts';
 import { listRepos } from '../git/repos.ts';
 import { git, toplevel } from '../git/run.ts';

@@ -1,9 +1,9 @@
 import { DIAGRAM_VERSION, EMPTY_DIAGRAM, diagramProblemIn, isDiagramView, type DiagramContent, type DiagramDocument } from '@ruimte/contracts';
-import type { WatchSeams } from '@adecore/agents/watch-seam';
+import type { WatchSeams } from '@adecore/agents';
 import { diagramsDirOf, privateDiagramsDirOf, readDiagram, tooNewMessage, viewFilePathOf, writeDiagram } from './project-files.ts';
 import { ProjectError, type ProjectPlace, type ProjectStore } from './project-store.ts';
 import { ProjectViewFileStore, type ViewFileKind } from './view-file-store.ts';
-import { CodedError } from '@adecore/agents/coded-error';
+import { CodedError } from '@adecore/agents';
 
 type DiagramErrorCode = 'project-not-found' | 'diagram-not-found' | 'diagram-invalid' | 'rev-conflict';
 

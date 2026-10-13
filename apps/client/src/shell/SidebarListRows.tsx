@@ -31,7 +31,7 @@ import { useUi } from '@/state/ui';
 import { useEndpointId } from '@/state/keys';
 import { SnoozeButton, SnoozedMark, SnoozeMenuItems } from '@/shell/Snooze';
 import { heaviestWork, waitsOnYou, type SidebarGroup, type SidebarNodeRow, type SidebarRow, type SidebarViewRow } from '@/shell/sidebar-rows';
-import { AgentIcon } from '@adecore/agents-react/agents/AgentIcon';
+import { AgentIcon } from '@adecore/agents-react/providers';
 import { UnseenMark } from '@/attention/UnseenMark';
 import { WorkingMark } from '@/attention/WorkingMark';
 import { TaskMark } from '@/tasks/TaskMark';

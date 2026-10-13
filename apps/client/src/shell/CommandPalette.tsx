@@ -27,7 +27,7 @@ import {
     Zap
 } from 'lucide-react';
 import { isCanvasView, isOpenableView, type FsBrowseResult, viewIconOf, type CanvasNodeKind } from '@ruimte/contracts';
-import { AgentIcon } from '@adecore/agents-react/agents/AgentIcon';
+import { AgentIcon } from '@adecore/agents-react/providers';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
 import { ViewGlyph } from '@/project/ViewGlyph';

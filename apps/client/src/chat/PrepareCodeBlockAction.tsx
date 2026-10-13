@@ -1,4 +1,4 @@
-import type { ShellCodeBlockContext } from '@adecore/agents-react/host';
+import type { ShellCodeBlockContext } from '@adecore/agents-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ErrorBoundary, IconButton, lazyNamed } from '@adecore/ui';

@@ -3,8 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { VISUAL_MEASURE_WIDTHS } from '@ruimte/contracts';
-import { AttachmentStore } from '@adecore/agents/chat/attachment-store';
-import { VisualStore } from '@adecore/agents/chat/visual-store';
+import { AttachmentStore, VisualStore } from '@adecore/agents/chat';
 import type { RenderAnswer } from './render-protocol.ts';
 import { previewVisual, renderCommand, VisualRenderer, type RenderJob, type RenderProcess } from './renderer.ts';
 

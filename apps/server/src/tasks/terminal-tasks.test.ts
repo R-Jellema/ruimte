@@ -3,8 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Task } from '@ruimte/contracts';
-import { TaskCoordinator } from '@adecore/agents/tasks/task-coordinator';
-import { TaskStore } from '@adecore/agents/tasks/task-store';
+import { TaskCoordinator, TaskStore } from '@adecore/agents/coordination';
 import { terminalTasks, type TerminalTasks } from './terminal-tasks.ts';
 
 let home: string;

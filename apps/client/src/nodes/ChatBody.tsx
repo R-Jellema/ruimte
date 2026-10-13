@@ -3,15 +3,19 @@ import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import type { AgentKind, ModelSelection } from '@ruimte/contracts';
 import { performAsPerson } from '@/actions/client-actions';
-import type { ChatSendExtras } from '@adecore/agents-react/chat/chat-client';
-import { providersOf } from '@adecore/agents-react/state/providers';
-import { defaultProvider, readChatPreferences, selectionFor, startingSelection, rememberChatSelection } from '@adecore/agents-react/chat/preferences';
-import { composerWrites, useSubagentTrail } from '@adecore/agents-react/chat/subagent-view';
+import type { ChatSendExtras } from '@adecore/agents-react/chat';
+import { providersOf, useChats, useChatRow } from '@adecore/agents-react/state';
+import {
+    defaultProvider,
+    readChatPreferences,
+    selectionFor,
+    startingSelection,
+    rememberChatSelection,
+    composerWrites,
+    useSubagentTrail
+} from '@adecore/agents-react/chat';
 import { deriveNodeTitle } from '@/chat/title';
-import { Composer } from '@adecore/agents-react/chat/ui/Composer';
-import { SubagentTimeline } from '@adecore/agents-react/chat/ui/SubagentTimeline';
-import { Timeline } from '@adecore/agents-react/chat/ui/Timeline';
-import { useChats, useChatRow } from '@adecore/agents-react/state/chats';
+import { Composer, SubagentTimeline, Timeline } from '@adecore/agents-react/chat/ui';
 import { useProject } from '@/state/project';
 import { endpointKey, useEndpointId } from '@/state/keys';
 import { chatClientFor } from '@/transport/connections';

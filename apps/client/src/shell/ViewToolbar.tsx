@@ -3,7 +3,7 @@ import { useNodeComputerSession } from '@/computer/indicator';
 import { TerminalDictationButton } from '@/dictation/TerminalDictationButton';
 import { useDictation } from '@/dictation/controller';
 import { isLooseView, type CellView } from '@/shell/cell-view';
-import { runtimeModeHint, runtimeModeLabel } from '@adecore/agents-react/chat/runtime-modes';
+import { runtimeModeHint, runtimeModeLabel } from '@adecore/agents-react/chat';
 import { ForkPill } from '@/chat/ForkPill';
 import { PlanPill } from '@/plan/PlanPill';
 import { BrowserToolbar } from '@/nodes/BrowserBody';

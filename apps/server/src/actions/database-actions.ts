@@ -1,6 +1,6 @@
 import { DATABASE_QUERY_ROWS, type ActionHandlers } from '@ruimte/actions';
-import { MODE_ORDER } from '@adecore/agents/modes';
-import { CodedError } from '@adecore/agents/coded-error';
+import { MODE_ORDER } from '@adecore/agents/providers';
+import { CodedError } from '@adecore/agents';
 import { VerbRefusal } from '../canvas/verb.ts';
 import type { AgentQuery, DatabaseAgentHost } from '../database/agent-databases.ts';
 import { tableVisual } from '../database/table-visual.ts';

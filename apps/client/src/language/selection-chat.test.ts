@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { ProjectDocument } from '@ruimte/contracts';
 import { FakeEditorEngine } from '@adecore/editor/fake';
-import { EMPTY_DRAFT, readDraft, writeDraft } from '@adecore/agents-react/chat/drafts';
+import { EMPTY_DRAFT, readDraft, writeDraft } from '@adecore/agents-react/chat';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { useChatChooser } from '@/chat/chat-chooser';
 import { useDocument } from '@/state/document';

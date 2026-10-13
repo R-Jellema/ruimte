@@ -29,8 +29,7 @@ import { followSpaceRelease, holdSpace, releaseSpace, spaceWorksTarget } from '@
 import { setGapModifierDown } from '@/canvas/gap-modifier';
 import { cancelCanvasGesture } from '@/canvas/gesture-cancel';
 import { focusPromptStack, isInPromptStack, leavePromptStack } from '@/canvas/prompt-stack';
-import { useSubagentView } from '@adecore/agents-react/chat/subagent-view';
-import { stepTimelineMessage } from '@adecore/agents-react/chat/timeline-scroll';
+import { useSubagentView, stepTimelineMessage } from '@adecore/agents-react/chat';
 import { openFocusedFind } from '@/find/hosts';
 import { focusedCanvas, maximizeTargetOf, zoomNodeTargetOf, type CanvasState } from '@/state/canvas';
 import { focusedDiagram } from '@/state/diagram';

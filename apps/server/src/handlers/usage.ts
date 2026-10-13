@@ -1,6 +1,5 @@
-import { usageHandlers } from '@adecore/agents/host/handlers';
-import type { UsageMonitor } from '@adecore/agents/usage/limits/monitor';
-import type { UsageService } from '@adecore/agents/usage/usage-service';
+import { usageHandlers } from '@adecore/agents/host';
+import type { UsageMonitor, UsageService } from '@adecore/agents/usage';
 import type { Dispatcher } from '../dispatcher.ts';
 import { registerAgentHandlers } from './agent.ts';
 

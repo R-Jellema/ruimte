@@ -3,10 +3,9 @@ import { join } from 'node:path';
 import { PLAN_LIMITS, PlanSchema, type Plan, type PlanActor, type PlanMeta, type PlanOfChat, type PlanOp } from '@ruimte/contracts';
 import { applyPlanOps, canDeletePlan, createPlan, planProgress, randomItemId, refuse, type PlanApplied, type PlanDraft, type PlanRefusal } from '@adecore/plan';
 import { z } from 'zod';
-import { isNotFound, writeAtomic } from '@adecore/agents/fs';
+import { isNotFound, writeAtomic, KeyedSerializer } from '@adecore/agents';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 import { ClientSinks } from '../client-sinks.ts';
-import { KeyedSerializer } from '@adecore/agents/serializer';
 
 const SUFFIX = '.plans.json';
 

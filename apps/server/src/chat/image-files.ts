@@ -11,7 +11,7 @@ import {
     type ChatImageTargetResult,
     sniffImageMime
 } from '@ruimte/contracts';
-import { CodedError } from '@adecore/agents/coded-error';
+import { CodedError } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
 import { isRuimteState } from '../projects/project-files.ts';
 

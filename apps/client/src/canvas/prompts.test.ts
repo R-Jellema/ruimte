@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { AgentInfo, ChatInfo, ChatItem, ComputerApproval, SecretRequest } from '@ruimte/contracts';
-import { PROMPT_SAMPLES } from '@adecore/agents-react/prompts/logic/prompts.fixtures';
-import type { ChatsById } from '@adecore/agents-react/state/chats';
+import { PROMPT_SAMPLES } from '@adecore/agents-react/testing';
+import type { ChatsById } from '@adecore/agents-react/state';
 import { endpointKey } from '@/state/keys';
 import type { SessionsByKey } from '@/state/sessions';
 import { isRuimtePrompt, waitingPrompt } from '@/prompts/ruimte-prompts';

@@ -3,23 +3,19 @@ import { mkdir, mkdtemp, readdir, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ChatItem, ProjectContent } from '@ruimte/contracts';
-import { AgentLineageStore } from '@adecore/agents/lineage';
+import { AgentLineageStore, OutboxWorker, type OutboxClock } from '@adecore/agents/coordination';
 import { PendingPromptStore } from '../agents/pending-prompts.ts';
 import { CANVAS_PATH, handleCanvasRequest } from '../canvas/canvas-route.ts';
 import { startCwdGuard } from '../canvas/project-paths.ts';
 import type { AgentStart, CanvasHost } from '../canvas/verb.ts';
-import { AttachmentStore } from '@adecore/agents/chat/attachment-store';
+import { AttachmentStore, ChatStore } from '@adecore/agents/chat';
 import { ChatManager } from '../chat/chat-manager.ts';
-import { ChatStore } from '@adecore/agents/chat/chat-store';
-import { fakeClaude } from '@adecore/agents/chat/fake-claude';
-import { fakeCodex } from '@adecore/agents/chat/fake-codex';
-import { inProcess, type InProcessCli } from '@adecore/agents/chat/fake-cli';
+import { fakeClaude, fakeCodex, inProcess, type InProcessCli } from '@adecore/agents/testing';
 import { ProjectStore } from '../projects/project-store.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
 import { FakePtyAdapter } from '../pty/fake-pty.ts';
 import { SessionManager } from '../sessions/manager.ts';
 import { OutboxStore, type OutboxWork, type StartAgentEntry } from './outbox.ts';
-import { OutboxWorker, type OutboxClock } from '@adecore/agents/outbox/outbox-worker';
 import { HEADLESS_TERMINAL, nodeMode, startAgentHandler, startAgentWork, type StartAgentDeps } from './start-agent.ts';
 
 /* Nothing here fails, so no retry is ever timed; the clock only has to say one moment. */

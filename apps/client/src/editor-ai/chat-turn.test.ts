@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { registerTurnJumper } from '@adecore/agents-react/chat/timeline-scroll';
+import { registerTurnJumper } from '@adecore/agents-react/chat';
 import { endpointKey } from '@/state/keys';
 import { openChatAtTurn } from './chat-turn';
 

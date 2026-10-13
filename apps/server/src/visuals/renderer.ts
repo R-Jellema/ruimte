@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { VISUAL_MEASURE_WIDTHS, type VisualAppearance, type VisualHeight } from '@ruimte/contracts';
-import { CodedError } from '@adecore/agents/coded-error';
+import { CodedError } from '@adecore/agents';
 import { errorText } from '../error-text.ts';
 import type { ConsoleEntry } from './page-console.ts';
 import { RENDER_COMMAND, RenderAnswerSchema, type RenderAnswer, type RenderRequest } from './render-protocol.ts';

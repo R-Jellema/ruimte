@@ -1,5 +1,5 @@
-import { readChatPreferences, rememberChatPreferences, rememberChatSelection } from '@adecore/agents-react/chat/preferences';
-import { useChats } from '@adecore/agents-react/state/chats';
+import { readChatPreferences, rememberChatPreferences, rememberChatSelection } from '@adecore/agents-react/chat';
+import { useChats } from '@adecore/agents-react/state';
 import { createNodeAction, createViewAction } from '@/actions/client-actions';
 import { readNodeHost } from '@/nodes/node-host';
 import { newChatOn } from '@/project/new-chat';

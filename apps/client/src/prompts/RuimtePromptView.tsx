@@ -1,9 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Input } from '@adecore/ui';
-import type { PromptViewProps } from '@adecore/agents-react/prompts/logic/subjects';
-import { ApprovalActions, PromptPrimary } from '@adecore/agents-react/prompts/ui/PromptActions';
-import { PromptCard } from '@adecore/agents-react/prompts/ui/PromptCard';
+import type { PromptViewProps } from '@adecore/agents-react/prompts';
+import { ApprovalActions, PromptPrimary, PromptCard } from '@adecore/agents-react/prompts';
 import type { SecretRequest } from '@ruimte/contracts';
 import { isRuimteApp } from '@/computer/ruimte-app';
 import { computerButtons, SECRET_ANSWER_FIELD, SECRET_DECLINE, type RuimtePrompt } from '@/prompts/ruimte-prompts';

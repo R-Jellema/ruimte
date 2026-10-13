@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { refusalBody } from '@adecore/agents/context/refusal';
+import { refusalBody } from '@adecore/agents/context';
 import type { LanguageAgentHost } from './verb.ts';
 import { VerbRefusal, type CanvasHost, type Noun, type Verb } from './verb.ts';
 import { verbNamed } from './verbs.ts';

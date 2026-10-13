@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GitBranch } from 'lucide-react';
 import { performAsPerson } from '@/actions/client-actions';
-import { rememberChatSelection } from '@adecore/agents-react/chat/preferences';
+import { rememberChatSelection } from '@adecore/agents-react/chat';
 import { Button, Dialog, ErrorBoundary, FormError, Icon } from '@adecore/ui';
 import { createWorktreeChat } from '@/shell/worktree-chat';
 import { useWorktreeStart } from '@/shell/use-worktree-start';

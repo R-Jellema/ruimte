@@ -2,7 +2,7 @@ import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useContentSize } from '@adecore/ui';
 import { formatDecimal } from '@adecore/ui/format';
-import { ProviderLogo } from '@adecore/agents-react/agents/ProviderLogo';
+import { ProviderLogo } from '@adecore/agents-react/providers';
 import { costAxis, frontier, intelligenceAxis, nearestPoint, type ChartModel, type CostScale, type ModelMark } from './chart';
 import { effortSegments, formatMetric, metricValue, pointKey, shortModelName, type PointInteraction } from './comparison';
 import { usePointNavigation } from './use-point-navigation';

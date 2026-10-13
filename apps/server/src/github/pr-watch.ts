@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { writeAtomicSync } from '@adecore/agents/fs';
-import { systemClock, type OutboxClock } from '@adecore/agents/outbox/outbox-worker';
+import { writeAtomicSync } from '@adecore/agents';
+import { systemClock, type OutboxClock } from '@adecore/agents/coordination';
 import { GitPrWatchSchema, type GitPrWatch, type GitPrWatchEndReason, type GitPullRequest } from '@ruimte/contracts';
 import { z } from 'zod';
 import { ClientSinks } from '../client-sinks.ts';

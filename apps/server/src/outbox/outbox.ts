@@ -1,7 +1,13 @@
-import { OutboxStore as BaseOutboxStore, type OutboxEntryOf } from '@adecore/agents/outbox/outbox';
-import { DeliverMessageWorkSchema } from '@adecore/agents/messages/deliver-message';
-import { EndChildrenWorkSchema } from '@adecore/agents/tasks/end-children';
-import { BackgroundLimitWorkSchema, DeliverWaitingWorkSchema, GiveTaskWorkSchema, WakeParentWorkSchema } from '@adecore/agents/tasks/task-work';
+import {
+    OutboxStore as BaseOutboxStore,
+    type OutboxEntryOf,
+    DeliverMessageWorkSchema,
+    EndChildrenWorkSchema,
+    BackgroundLimitWorkSchema,
+    DeliverWaitingWorkSchema,
+    GiveTaskWorkSchema,
+    WakeParentWorkSchema
+} from '@adecore/agents/coordination';
 import { AgentKindSchema, ModelSelectionSchema, ProviderAccountIdSchema, RuntimeModeSchema } from '@ruimte/contracts';
 import { z } from 'zod';
 

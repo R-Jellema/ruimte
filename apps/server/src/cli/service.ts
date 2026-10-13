@@ -6,7 +6,7 @@ import { definitionRunsProgram, diskFiles, serviceDefinition, type ServiceFiles,
 import { commandLineServiceProgram, daemonServiceSpec, platformServiceManager } from '@ruimte/service/host';
 import { buildFileOf, readBuildFile } from '../service/self-update.ts';
 import { describeError } from '../error-text.ts';
-import { replaceSync, tempNameFor } from '@adecore/agents/fs';
+import { replaceSync, tempNameFor } from '@adecore/agents';
 
 /*
  * `ruimte service install|uninstall|status`: the background service for a machine without the app.

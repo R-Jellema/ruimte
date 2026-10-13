@@ -1,6 +1,6 @@
 import type { ActionHandlers } from '@ruimte/actions';
 import { VISUAL_LIMITS, type ChatVisual, type VisualLayout } from '@ruimte/contracts';
-import { CodedError } from '@adecore/agents/coded-error';
+import { CodedError } from '@adecore/agents';
 import { callerKind } from '../canvas/tasks.ts';
 import { VerbRefusal, field, orNote, type VisualHost } from '../canvas/verb.ts';
 import { PREVIEW_WIDTH } from '../visuals/renderer.ts';

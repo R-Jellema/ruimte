@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { LucideIcon } from 'lucide-react';
 import { CircleCheck, CircleDashed, CircleX, ExternalLink, Eye, EyeOff, GitPullRequest, MessagesSquare, RefreshCw } from 'lucide-react';
 import type { GitPrCheck, GitPrThread, GitPullRequest as PullRequest } from '@ruimte/contracts';
-import { AgentIcon } from '@adecore/agents-react/agents/AgentIcon';
+import { AgentIcon } from '@adecore/agents-react/providers';
 import { Button, ButtonGroup, Dialog, EmptyState, ErrorBoundary, FormError, Icon, IconButton, Menu, Pill, SectionLabel, Switch, Tooltip } from '@adecore/ui';
 import { useChooserSections } from '@/chat/chat-chooser';
 import { sendToChat } from '@/chat/selection-to-chat';

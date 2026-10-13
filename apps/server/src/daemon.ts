@@ -33,15 +33,24 @@ import {
     type VisualLayout
 } from '@ruimte/contracts';
 import { AgentStore } from './agents/agent-store.ts';
-import { ClaudeTitleReader } from '@adecore/agents/chat/claude-title';
+import { ClaudeTitleReader, suggestChatTitle, AttachmentStore, ChatStore, BookmarkStore, VisualStore, nodeSessionFs } from '@adecore/agents/chat';
 import { CodexTitleReader } from './agents/codex-title.ts';
-import { AgentLineageStore } from '@adecore/agents/lineage';
+import {
+    AgentLineageStore,
+    restartBackgroundLimits,
+    TaskStore,
+    chatNoticeTargets,
+    showNotices,
+    NoticeNotes,
+    unshownNotes,
+    NoticeStore,
+    type Notice,
+    chatRequests
+} from '@adecore/agents/coordination';
 import { PendingPromptStore } from './agents/pending-prompts.ts';
 import { OutboxStore } from './outbox/outbox.ts';
 import { nodeAccount, nodeMode, startAgentWork } from './outbox/start-agent.ts';
 import { OutboxLink, wireOutbox } from './outbox/wiring.ts';
-import { restartBackgroundLimits } from '@adecore/agents/tasks/background-limit';
-import { TaskStore } from '@adecore/agents/tasks/task-store';
 import { registerTaskHandlers } from './handlers/tasks.ts';
 import { registerPlanHandlers } from './handlers/plan.ts';
 import { registerProvenanceHandlers } from './handlers/provenance.ts';
@@ -64,7 +73,6 @@ import { DirectPeers } from './pulsar/peers.ts';
 import { greetingLines } from './cli/greeting.ts';
 import { guardWeriftTurn } from './pulsar/turn-guard.ts';
 import { registerDirectHandlers } from './handlers/direct.ts';
-import { suggestChatTitle } from '@adecore/agents/chat/chat-title';
 import { crossOriginHeaders, decideAccess, handleLocalTicketRequest, isOwner, preflightHeaders, reachabilityOf, withHeaders } from './auth/access.ts';
 import { handleLocalProofRequest } from './auth/local-proof.ts';
 import { readOrCreateLocalSecret } from './auth/local-secret.ts';
@@ -79,19 +87,12 @@ import { HOOK_EVENTS } from './agents/hooks.ts';
 import { StartClaims } from './actions/start-claims.ts';
 import { AgentIntegrations } from './agents/integrations.ts';
 import { ATTACHMENTS_PATH, handleAttachmentRequest } from './chat/attachment-route.ts';
-import { AttachmentStore } from '@adecore/agents/chat/attachment-store';
 import { CANVAS_PATH, CANVAS_REQUEST_TIMEOUT_S, handleCanvasRequest } from './canvas/canvas-route.ts';
 import { ChatManager } from './chat/chat-manager.ts';
 import { hookContext } from './context/context-note.ts';
 import { handleContextRequest } from './context/context-route.ts';
 import { CONTEXT_PATH, ContextStore } from './context/context-store.ts';
-import { chatNoticeTargets, showNotices } from '@adecore/agents/messages/deliver-notice';
-import { NoticeNotes, unshownNotes } from '@adecore/agents/messages/notice-notes';
-import { NoticeStore, type Notice } from '@adecore/agents/messages/notice-store';
 import { deliverNotice, MESSAGE_WORDS, renderNotice } from './context/notices.ts';
-import { ChatStore } from '@adecore/agents/chat/chat-store';
-import { BookmarkStore } from '@adecore/agents/chat/bookmark-store';
-import { VisualStore } from '@adecore/agents/chat/visual-store';
 import { childLauncher, previewVisual, renderCommand, VisualRenderer } from './visuals/renderer.ts';
 import type { ServerConfig } from './config.ts';
 import { Dispatcher, type ClientAccess } from './dispatcher.ts';
@@ -109,7 +110,6 @@ import { registerChatImageHandlers } from './handlers/chat-image.ts';
 import { registerChatSearchHandlers } from './handlers/chat-search.ts';
 import { ExternalChatSessions, ownSessionSources } from './chat/external.ts';
 import { chatsLocatedIn, chatsOfViews, ProjectChatSearch } from './chat/project-search.ts';
-import { nodeSessionFs } from '@adecore/agents/chat/external-sessions';
 import { ChatImageFiles } from './chat/image-files.ts';
 import { continueOn } from './chat/continue-on.ts';
 import { chatForkDeps, forkChat, readForkInfo } from './chat/fork.ts';
@@ -165,7 +165,6 @@ import { GitStatusWatcher } from './git/status-watcher.ts';
 import { worktreeAgents } from './git/worktree-agents.ts';
 import { worktreeHost } from './git/worktree-host.ts';
 import { agentStates } from './agents/agent-state.ts';
-import { chatRequests } from '@adecore/agents/tasks/waiting-child';
 import { WorktreeMerge } from './git/worktree-merge.ts';
 import { Worktrees } from './git/worktrees.ts';
 import { foregroundGroup, holdsForeground } from './processes/foreground.ts';
@@ -184,19 +183,17 @@ import { dropEmptyMark } from './projects/scratch-project.ts';
 import { probeCodexNoDaemon, takesNoteOnLine } from './providers/launch.ts';
 import { ModelCatalogFeed } from './providers/model-catalogs.ts';
 import { ProviderRegistry } from './providers/registry.ts';
-import { ProviderAccountsService } from '@adecore/agents/providers/accounts/service';
+import { ProviderAccountsService } from '@adecore/agents/providers';
 import { BunPtyAdapter } from './pty/bun-pty.ts';
 import { SessionError, SessionManager } from './sessions/manager.ts';
 import { CommandApprovals, commandsSet } from './sessions/command-approvals.ts';
 import { ModeApprovals, modesSet, personModeOf } from './sessions/mode-approvals.ts';
 import { checkCwd, startCwdGuard } from './canvas/project-paths.ts';
 import { SnapshotStore, scheduleSnapshots } from './sessions/snapshot-store.ts';
-import { limitAccountsOf, usageAccountsOf, usageRootsOf } from '@adecore/agents/usage/accounts';
+import { limitAccountsOf, usageAccountsOf, usageRootsOf, UsageMonitor, UsageService } from '@adecore/agents/usage';
 import { sessionAccountsOf } from './usage/session-accounts.ts';
 import { RUIMTE_ACCOUNTS_HOST } from './providers/accounts-host.ts';
 import { RUIMTE_CODEX_CLIENT } from './providers/codex-provider.ts';
-import { UsageMonitor } from '@adecore/agents/usage/limits/monitor';
-import { UsageService } from '@adecore/agents/usage/usage-service';
 import { errorText } from './error-text.ts';
 import { BrowserDriver } from './browser/drive.ts';
 import { BrowserManager } from './browser/manager.ts';

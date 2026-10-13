@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AgentIntegration, AgentIntegrationFile, AgentIntegrationReport } from '@ruimte/contracts';
-import { CliMark } from '@adecore/agents-react/providers/parts';
+import { CliMark } from '@adecore/agents-react/providers';
 import { useLocalTilde } from '@/format/home-path';
 import { INTEGRATION_NAMES, loadIntegrationFiles, pendingReview, providersToKeep, setAgentIntegration, useAgentIntegrations } from '@/state/agent-integrations';
 import { useUi } from '@/state/ui';

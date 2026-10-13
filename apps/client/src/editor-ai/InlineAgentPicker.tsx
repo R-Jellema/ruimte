@@ -2,10 +2,10 @@ import { useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown } from 'lucide-react';
 import type { AgentKind } from '@ruimte/contracts';
-import { AccountDot } from '@adecore/agents-react/agents/AccountDot';
-import { useAccountChoice, type AccountChoice } from '@adecore/agents-react/chat/account-choice';
-import { ModelPicker } from '@adecore/agents-react/chat/ui/Pickers';
-import { useProviders } from '@adecore/agents-react/state/providers';
+import { AccountDot } from '@adecore/agents-react/providers';
+import { useAccountChoice, type AccountChoice } from '@adecore/agents-react/chat';
+import { ModelPicker } from '@adecore/agents-react/chat/ui';
+import { useProviders } from '@adecore/agents-react/state';
 import { Icon, Menu } from '@adecore/ui';
 import { availableAgents } from '@/agents/creation';
 

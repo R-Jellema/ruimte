@@ -1,5 +1,5 @@
 import { clipText, FS_GREP_MAX_RESULTS, type FsGrepMatch, type FsGrepResult } from '@ruimte/contracts';
-import { CodedError } from '@adecore/agents/coded-error';
+import { CodedError } from '@adecore/agents';
 import { COMPILED } from '../version.ts';
 import { contextOf, MAX_FILE_BYTES, MAX_LINE_LENGTH, type GrepWorkerMessage, type GrepWorkerRequest } from './grep-lines.ts';
 import { holdsMachineHome, NO_MACHINE_HOME, type MachineHomePolicy } from './machine-home.ts';

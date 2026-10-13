@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { z } from 'zod';
 import type { ChatInfo, GitFileState, GitLogResult, GitStatus, Task } from '@ruimte/contracts';
 import { GitFileSchema, GitFileStateSchema, GitLogResultSchema, GitOperationSchema, TaskSchema } from '@ruimte/contracts';
-import { ChatUiRefusal, type ChatUiHost, type ChatUiSource } from '@adecore/agents/chat/ui-queries';
+import { ChatUiRefusal, type ChatUiHost, type ChatUiSource } from '@adecore/agents/chat';
 import { checkCwd, isInside } from '../canvas/project-paths.ts';
 import type { LaunchReading } from '../canvas/verb.ts';
 import type { AgentDatabases, DatabasePlace } from '../database/agent-databases.ts';

@@ -28,7 +28,7 @@ import type {
     LanguageEditAnswerPayload,
     LanguageRequestPayload
 } from '@ruimte/contracts';
-import { CodedError } from '@adecore/agents/coded-error';
+import { CodedError } from '@adecore/agents';
 import {
     applyContentChanges,
     ErrorCodes,
@@ -48,7 +48,7 @@ import {
     type WorkspaceEditPlan,
     type WorkspaceEditSource
 } from '@adecore/lsp';
-import type { WatchSeams } from '@adecore/agents/watch-seam';
+import type { WatchSeams } from '@adecore/agents';
 import { ClientSinks } from '../client-sinks.ts';
 import { errorText } from '../error-text.ts';
 import { ProjectFileWatcher, type FileChange, type StatPath } from './file-watch.ts';

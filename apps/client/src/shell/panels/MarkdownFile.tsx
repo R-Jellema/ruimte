@@ -10,7 +10,7 @@ import { useDomFind } from '@/find/use-dom-find';
 import { useFind } from '@/find/use-find';
 import { FileMarkdown } from '@/shell/panels/FileMarkdown';
 import { CodeFile } from '@/shell/panels/CodeFile';
-import { FileLinkContext } from '@adecore/agents-react/chat/ui/file-links';
+import { FileLinkContext } from '@adecore/agents-react/chat/ui';
 import { FileScroll } from '@/shell/panels/FileScroll';
 import { dirnameOf } from '@/shell/panels/files-tree';
 import { FileToolbar, FileToolbarToggle } from '@/shell/panels/FileToolbar';

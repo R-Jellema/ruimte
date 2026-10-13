@@ -1,5 +1,5 @@
 import { ActionRegistry } from '@ruimte/actions';
-import { CodedError } from '@adecore/agents/coded-error';
+import { CodedError } from '@adecore/agents';
 import { agentActions } from './agent-actions.ts';
 import { browserActions } from './browser-actions.ts';
 import { computerActions } from './computer-actions.ts';

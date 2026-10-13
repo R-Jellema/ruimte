@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { AgentEvent } from '@adecore/agents/events';
+import type { AgentEvent } from '@adecore/agents/host';
 import type { ChatTurnItem } from '@ruimte/contracts';
 import { Checkpoints } from '../git/checkpoints.ts';
 import { gitIn, repoTemplate, type RepoTemplate } from '../git/test-repo.ts';

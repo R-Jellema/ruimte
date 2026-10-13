@@ -23,7 +23,7 @@ import { StatusDot } from '@/canvas/NodeFrame';
 import { nodesInWorktree, originLabel, removeVerdict, workBadges, workBadgesLabel, type RemoveVerdict, type WorkBadgeKind } from '@/shell/panels/worktree-rows';
 import { nodeWorking } from '@/state/agent-work';
 import { hasActiveCanvas, useDocument } from '@/state/document';
-import { useChats } from '@adecore/agents-react/state/chats';
+import { useChats } from '@adecore/agents-react/state';
 import { useEndpointId } from '@/state/keys';
 import { useSessions } from '@/state/sessions';
 import { useTransport } from '@/transport/context';

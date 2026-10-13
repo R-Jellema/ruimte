@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { PLAN_LIMITS, type Plan, type PlanStepState } from '@ruimte/contracts';
 import { effectiveChecks, planProgress } from '@adecore/plan';
-import { Markdown } from '@adecore/agents-react/chat/ui/Markdown';
+import { Markdown } from '@adecore/agents-react/chat/ui';
 import { formatMoment } from '@adecore/ui/format';
 import { copyText, EmptyState, Icon, IconButton, Menu, TextArea, TextMenu, Tooltip, ContextMenu } from '@adecore/ui';
 import {
@@ -50,7 +50,7 @@ import {
     type PlanRow
 } from '@/plan/plan-view';
 import { chatWorking } from '@/state/agent-work';
-import { useChatRow } from '@adecore/agents-react/state/chats';
+import { useChatRow } from '@adecore/agents-react/state';
 
 const STATE_ICON: Record<PlanStepState, LucideIcon> = {
     open: Circle,

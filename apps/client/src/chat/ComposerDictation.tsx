@@ -1,4 +1,4 @@
-import type { ComposerDictationProps } from '@adecore/agents-react/host';
+import type { ComposerDictationProps } from '@adecore/agents-react';
 import { DictationControl } from '@/dictation/DictationControl';
 import { captureEditor } from '@/dictation/editor';
 

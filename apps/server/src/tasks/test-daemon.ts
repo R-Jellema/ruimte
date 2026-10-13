@@ -1,23 +1,24 @@
 import type { AgentKind, ServerFrame } from '@ruimte/contracts';
 import { agentStates } from '../agents/agent-state.ts';
-import { chatRequests } from '@adecore/agents/tasks/waiting-child';
-import { AgentLineageStore } from '@adecore/agents/lineage';
+import {
+    chatRequests,
+    AgentLineageStore,
+    chatNoticeTargets,
+    showNotices,
+    NoticeNotes,
+    NoticeStore,
+    restartBackgroundLimits,
+    TaskStore
+} from '@adecore/agents/coordination';
 import { PendingPromptStore } from '../agents/pending-prompts.ts';
 import { CANVAS_PATH, handleCanvasRequest } from '../canvas/canvas-route.ts';
 import type { AgentStart, CanvasHost, VisualHost } from '../canvas/verb.ts';
 import { addWanted } from '../canvas/worktree.ts';
-import { AttachmentStore } from '@adecore/agents/chat/attachment-store';
+import { AttachmentStore, ChatStore, VisualStore } from '@adecore/agents/chat';
 import { ChatManager } from '../chat/chat-manager.ts';
-import { ChatStore } from '@adecore/agents/chat/chat-store';
-import { VisualStore } from '@adecore/agents/chat/visual-store';
 import { continueOn } from '../chat/continue-on.ts';
 import { chatForkDeps, forkChat, readForkInfo } from '../chat/fork.ts';
-import { fakeClaude } from '@adecore/agents/chat/fake-claude';
-import { fakeCodex } from '@adecore/agents/chat/fake-codex';
-import { inProcess, type FakeCli, type InProcessCli } from '@adecore/agents/chat/fake-cli';
-import { chatNoticeTargets, showNotices } from '@adecore/agents/messages/deliver-notice';
-import { NoticeNotes } from '@adecore/agents/messages/notice-notes';
-import { NoticeStore } from '@adecore/agents/messages/notice-store';
+import { fakeClaude, fakeCodex, inProcess, type FakeCli, type InProcessCli } from '@adecore/agents/testing';
 import { deliverNotice, MESSAGE_WORDS } from '../context/notices.ts';
 import { Dispatcher } from '../dispatcher.ts';
 import { Checkpoints, type CheckpointService } from '../git/checkpoints.ts';
@@ -31,9 +32,9 @@ import { registerChatHandlers } from '../handlers/chat.ts';
 import { registerSessionHandlers } from '../handlers/session.ts';
 import { registerPlanHandlers } from '../handlers/plan.ts';
 import { registerTaskHandlers } from '../handlers/tasks.ts';
-import type { ManualClock } from '@adecore/agents/outbox/manual-clock';
+import type { ManualClock } from '@adecore/agents/testing';
 import { OutboxStore, type OutboxWork } from '../outbox/outbox.ts';
-import type { OutboxWorker } from '@adecore/agents/outbox/outbox-worker';
+import type { OutboxWorker } from '@adecore/agents/coordination';
 import type { EndChildrenWiring } from '../outbox/end-children.ts';
 import type { TaskWiring } from './wiring.ts';
 import { isPlanFileName, PlanStore } from '../plans/plan-store.ts';
@@ -41,14 +42,12 @@ import { nodeAccount, nodeMode, startAgentWork } from '../outbox/start-agent.ts'
 import { OutboxLink, wireOutbox } from '../outbox/wiring.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 import { openedAgentCount } from '../agents/hidden-agents.ts';
-import type { AccountLaunches } from '@adecore/agents/providers/accounts/launch';
-import type { LimitsUpdate } from '@adecore/agents/usage/limits/normalize';
+import type { AccountLaunches } from '@adecore/agents/providers';
+import type { LimitsUpdate } from '@adecore/agents/usage';
 import { ProviderRegistry } from '../providers/registry.ts';
 import { FakePtyAdapter } from '../pty/fake-pty.ts';
 import type { PtyAdapter } from '../pty/pty.ts';
 import { SessionManager } from '../sessions/manager.ts';
-import { restartBackgroundLimits } from '@adecore/agents/tasks/background-limit';
-import { TaskStore } from '@adecore/agents/tasks/task-store';
 
 const providers = new ProviderRegistry({ detect: async () => ({ installed: true, version: '0.0.0' }) });
 

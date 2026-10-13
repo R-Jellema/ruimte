@@ -14,7 +14,7 @@ import {
 import { BrokerSettingSchema, type BrokerSetting } from '@ruimte/pulsar';
 import { z } from 'zod';
 import { generateKeyPair, signMessage } from './auth/keys.ts';
-import { isNotFound, writeAtomic } from '@adecore/agents/fs';
+import { isNotFound, writeAtomic } from '@adecore/agents';
 import type { SessionEvent, SessionSink } from './sessions/manager.ts';
 import { ClientSinks } from './client-sinks.ts';
 

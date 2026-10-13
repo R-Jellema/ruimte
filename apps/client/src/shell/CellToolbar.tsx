@@ -10,7 +10,7 @@ import { FileToolbarSlotProvider } from '@/shell/panels/file-toolbar-slot';
 import { FileMenuItems } from '@/shell/panels/FileMenuItems';
 import { LooseGlyph } from '@/shell/panels/LooseGlyph';
 import { TabStrip } from '@/shell/TabStrip';
-import { SubagentTitleCrumb } from '@adecore/agents-react/chat/ui/SubagentControls';
+import { SubagentTitleCrumb } from '@adecore/agents-react/chat/ui';
 import { SplitItems, ViewMenuItems } from '@/shell/ViewMenuItems';
 import { ViewToolbar } from '@/shell/ViewToolbar';
 import { useHasViewToolbar, useViewToolbarLeads } from '@/shell/view-toolbar';

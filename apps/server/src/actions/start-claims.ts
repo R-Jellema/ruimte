@@ -2,8 +2,7 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { ActionRefusal } from '@ruimte/actions';
-import { RecordDirectory } from '@adecore/agents/record-directory';
-import { KeyedSerializer } from '@adecore/agents/serializer';
+import { RecordDirectory, KeyedSerializer } from '@adecore/agents';
 import { VerbRefusal } from '../canvas/verb.ts';
 
 // How long a request id answers a retry; a claim older than this is forgotten at load and ignored after.

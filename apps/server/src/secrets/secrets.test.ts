@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { LAUNCH_SECRET_REFERENCE, type LaunchConfigEntry } from '@ruimte/contracts';
-import { FakeWatch } from '@adecore/agents/watch-test-helpers';
+import { FakeWatch } from '@adecore/agents/testing';
 import { MachineHome } from '../fs/machine-home.ts';
 import { LaunchRunner, type LaunchSessions } from '../launches/runner.ts';
 import { LaunchStore } from '../launches/store.ts';

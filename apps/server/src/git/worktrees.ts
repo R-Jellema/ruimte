@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { mkdir, realpath, rm } from 'node:fs/promises';
-import { fileExists } from '@adecore/agents/fs';
+import { fileExists } from '@adecore/agents';
 import { basename, isAbsolute, join, resolve } from 'node:path';
 import type { Worktree, WorktreeWork } from '@ruimte/contracts';
 import type { SessionSink } from '../sessions/manager.ts';

@@ -1,7 +1,7 @@
 import { constants } from 'node:fs';
 import { open, stat } from 'node:fs/promises';
 import { VISUAL_LIMITS } from '@ruimte/contracts';
-import { field } from '@adecore/agents/context/refusal';
+import { field } from '@adecore/agents/context';
 
 /*
  * A visual's page may name a local image by its absolute path, and the CLI puts that image in the page

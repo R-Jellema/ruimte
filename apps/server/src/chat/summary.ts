@@ -11,13 +11,13 @@ import { newId } from '../canvas/nodes.ts';
 import type { CanvasHost } from '../canvas/verb.ts';
 import { errorText } from '../error-text.ts';
 import type { DeliverSummaryEntry, OutboxEntry, OutboxWork } from '../outbox/outbox.ts';
-import type { OutboxOutcome } from '@adecore/agents/outbox/outbox-worker';
+import type { OutboxOutcome } from '@adecore/agents/coordination';
 import type { IndexedPlace } from '../projects/project-index.ts';
 import type { ProjectMutation } from '../projects/project-store.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
 import type { ChatManager } from './chat-manager.ts';
 import { ChatError } from './errors.ts';
-import { readableAssistantText } from '@adecore/agents/chat/readable-text';
+import { readableAssistantText } from '@adecore/agents/chat';
 
 /* What the original reads of a summary; the fork itself is one read away for the rest. */
 export const SUMMARY_MAX_BYTES = 8 * 1024;

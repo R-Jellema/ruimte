@@ -1,6 +1,6 @@
 import type { AgentKind, ProviderInfo } from '@ruimte/contracts';
 import type { Editor } from '@adecore/editor';
-import { useChats } from '@adecore/agents-react/state/chats';
+import { useChats } from '@adecore/agents-react/state';
 import { joinReviewGroup } from '@adecore/editor-react';
 import { endpointKey } from '@/state/keys';
 import { type TextDraft, useTextDrafts } from '@/state/text-drafts';

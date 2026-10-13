@@ -5,7 +5,7 @@ import { performAsPerson } from '@/actions/client-actions';
 import { focusChat } from '@/plan/plan-actions';
 import { endpointKey } from '@/state/keys';
 import { useToasts } from '@/state/toasts';
-import { jumpToTimelineItem } from '@adecore/agents-react/chat/timeline-scroll';
+import { jumpToTimelineItem } from '@adecore/agents-react/chat';
 import { currentEndpointId } from '@/state/keys';
 import { machineFor } from '@/transport/connections';
 

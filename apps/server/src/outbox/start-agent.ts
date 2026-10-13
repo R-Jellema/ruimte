@@ -1,8 +1,8 @@
 import type { AgentInfo, AgentLaunch, ChatCreatePayload, ChatInfo, RuntimeMode } from '@ruimte/contracts';
 import type { AgentStart, NodeAccount } from '../canvas/verb.ts';
 import { errorText } from '../error-text.ts';
-import type { ComposerPreference } from '@adecore/agents/chat/composer-preferences';
-import { narrowerMode } from '@adecore/agents/modes';
+import type { ComposerPreference } from '@adecore/agents/chat';
+import { narrowerMode } from '@adecore/agents/providers';
 import { DEFAULT_RUNTIME_MODE, launchedMode } from '../providers/launch.ts';
 import type { OutboxWork, StartAgentEntry } from './outbox.ts';
 

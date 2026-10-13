@@ -11,8 +11,7 @@ import {
     type LanguageCustomCheckResult,
     type LanguageErrorCode
 } from '@ruimte/contracts';
-import { CodedError } from '@adecore/agents/coded-error';
-import { isNotFound, writeAtomic } from '@adecore/agents/fs';
+import { CodedError, isNotFound, writeAtomic } from '@adecore/agents';
 import { z } from 'zod';
 import type { KindProfile } from './profiles.ts';
 

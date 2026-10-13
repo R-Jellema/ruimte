@@ -1,4 +1,4 @@
-import type { AgentHandler, AgentHandlers } from '@adecore/agents/host/handlers';
+import type { AgentHandler, AgentHandlers } from '@adecore/agents/host';
 import { translate, type Dispatcher } from '../dispatcher.ts';
 
 /* Registers requests the chat host in `@adecore/agents` answers as well, through the very same handlers. */

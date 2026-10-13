@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ManualClock } from '@adecore/agents/outbox/manual-clock';
+import { ManualClock } from '@adecore/agents/testing';
 import { GitError } from '../git/run.ts';
 import type { GhRunner } from '../git/github.ts';
 import type { OutboxEntry, OutboxWork } from '../outbox/outbox.ts';

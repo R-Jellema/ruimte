@@ -3,8 +3,7 @@ import { createStore, type StoreApi } from 'zustand';
 import { storedPathOf, type AgentKind } from '@ruimte/contracts';
 import { fileUriToPath } from '@adecore/lsp';
 import type { EditorRange, EditorTrackedRange } from '@adecore/editor';
-import { knownAccounts, providerAccountsOf } from '@adecore/agents-react/state/provider-accounts';
-import { providersOf } from '@adecore/agents-react/state/providers';
+import { knownAccounts, providerAccountsOf, providersOf } from '@adecore/agents-react/state';
 import { highlightLayers } from '@adecore/editor-react';
 import {
     codeLabelOf,

@@ -3,10 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { GitFork } from 'lucide-react';
 import { CHAT_FORK_TITLE_MAX, clipText, type ChatForkInfoResult, type ProviderInfo } from '@ruimte/contracts';
 import { performAsPerson } from '@/actions/client-actions';
-import { AccountDot } from '@adecore/agents-react/agents/AccountDot';
-import { canContinueOn } from '@adecore/agents-react/agents/accounts';
-import { useAccountChoice, type AccountChoice } from '@adecore/agents-react/chat/account-choice';
+import { AccountDot, canContinueOn } from '@adecore/agents-react/providers';
 import {
+    useAccountChoice,
+    type AccountChoice,
     branchRefusal,
     FORKABLE_PROVIDERS,
     forkPayload,
@@ -15,18 +15,18 @@ import {
     forkRefusal,
     forkShapes,
     type ForkCliChoice,
-    type ForkShape
-} from '@adecore/agents-react/chat/logic/fork';
-import { accountFor, readChatPreferences, selectionFor } from '@adecore/agents-react/chat/preferences';
+    type ForkShape,
+    accountFor,
+    readChatPreferences,
+    selectionFor
+} from '@adecore/agents-react/chat';
 import { forkOriginIn } from '@/chat/fork-origin';
-import { ModelPicker } from '@adecore/agents-react/chat/ui/Pickers';
-import { useProviders } from '@adecore/agents-react/state/providers';
+import { ModelPicker } from '@adecore/agents-react/chat/ui';
+import { useProviders, useChatRow, knownAccounts, providerAccountsOf } from '@adecore/agents-react/state';
 import { Switch, Button, ErrorBoundary, FieldHint, FormError, Icon, Input, Select, Dialog } from '@adecore/ui';
 import { canvasOfNode } from '@/state/canvas';
-import { useChatRow } from '@adecore/agents-react/state/chats';
 import { useDocument } from '@/state/document';
 import { useEndpointId } from '@/state/keys';
-import { knownAccounts, providerAccountsOf } from '@adecore/agents-react/state/provider-accounts';
 import { useUi } from '@/state/ui';
 import { useTransport } from '@/transport/context';
 

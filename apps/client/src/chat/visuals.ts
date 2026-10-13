@@ -1,4 +1,4 @@
-import type { VisualHost } from '@adecore/agents-react/host';
+import type { VisualHost } from '@adecore/agents-react';
 import { VISUAL_HOST_PATH } from '@ruimte/csp';
 import type { DesktopBridge } from '@/desktop/bridge';
 

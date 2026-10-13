@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Menu as MenuGlyph } from 'lucide-react';
 import type { MenuNode, MenuSpec } from '@ruimte/desktop-bridge';
-import { AgentIcon } from '@adecore/agents-react/agents/AgentIcon';
+import { AgentIcon } from '@adecore/agents-react/providers';
 import { runMenuCommand } from '@/shell/menu/actions';
 import { menuContext } from '@/shell/menu/context';
 import { menuIconOf } from '@/shell/menu/icons';

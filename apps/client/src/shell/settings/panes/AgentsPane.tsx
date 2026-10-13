@@ -1,10 +1,21 @@
 import { useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { CLOSED_LID_BATTERY_FLOOR, type AgentIntegrationFile, type AgentIntegrationReport, type AgentKind, type RuntimeMode } from '@ruimte/contracts';
-import { rememberChatPreferences, rememberReadingWidth, rememberSendKey, useChatPreferences } from '@adecore/agents-react/chat/preferences';
-import { CHAT_SEND_KEYS, sendKeyHint, sendKeyLabel } from '@adecore/agents-react/chat/send-key';
-import { CHAT_READING_WIDTHS, readingWidthHint, readingWidthLabel } from '@adecore/agents-react/chat/reading-width';
-import { RUNTIME_MODES, runtimeModeHint, runtimeModeLabel } from '@adecore/agents-react/chat/runtime-modes';
+import {
+    rememberChatPreferences,
+    rememberReadingWidth,
+    rememberSendKey,
+    useChatPreferences,
+    CHAT_SEND_KEYS,
+    sendKeyHint,
+    sendKeyLabel,
+    CHAT_READING_WIDTHS,
+    readingWidthHint,
+    readingWidthLabel,
+    RUNTIME_MODES,
+    runtimeModeHint,
+    runtimeModeLabel
+} from '@adecore/agents-react/chat';
 import {
     setClosedLidRule,
     setKeepAwake,
@@ -15,7 +26,7 @@ import {
     useMachineKeepsAwake
 } from '@/state/keep-awake';
 import { IntegrationDetails, IntegrationReports } from '@/shell/AgentIntegrationsDialog';
-import { CliMark } from '@adecore/agents-react/providers/parts';
+import { CliMark } from '@adecore/agents-react/providers';
 import { INTEGRATION_NAMES, loadIntegrationFiles, setAgentIntegration, useAgentIntegrations } from '@/state/agent-integrations';
 import { isApplePlatform } from '@/desktop/bridge';
 import { hasLocalMachine } from '@/state/local-machine';

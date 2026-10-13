@@ -1,7 +1,7 @@
 import { mkdir, readFile, realpath, rm, stat } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { AgentIntegrationReport, AgentKind } from '@ruimte/contracts';
-import { isNotFound, writeAtomic } from '@adecore/agents/fs';
+import { isNotFound, writeAtomic } from '@adecore/agents';
 import { errorText } from '../error-text.ts';
 import { CODEX_RULES, HOOK_FILE_RETRIES, editingHookFile, hookEntry, isOurs, isRecord, sameEntry, textOrNull } from './install.ts';
 

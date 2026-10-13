@@ -7,7 +7,7 @@ import type {
     ChatForkResult,
     ChatSummarizeResult
 } from '@ruimte/contracts';
-import { chatHandlers } from '@adecore/agents/host/handlers';
+import { chatHandlers } from '@adecore/agents/host';
 import { translate, type Dispatcher } from '../dispatcher.ts';
 import { ChatError } from '../chat/errors.ts';
 import type { ChatManager } from '../chat/chat-manager.ts';

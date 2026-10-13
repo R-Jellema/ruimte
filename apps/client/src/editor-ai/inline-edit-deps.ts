@@ -1,4 +1,4 @@
-import { useChats } from '@adecore/agents-react/state/chats';
+import { useChats } from '@adecore/agents-react/state';
 import { draftFiles } from '@/language/project-files';
 import { focusChat } from '@/plan/plan-actions';
 import { useDocument } from '@/state/document';

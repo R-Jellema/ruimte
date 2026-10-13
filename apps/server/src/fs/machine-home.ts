@@ -1,6 +1,6 @@
 import { realpath } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
-import { CodedError } from '@adecore/agents/coded-error';
+import { CodedError } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
 
 export class MachineHomeError extends CodedError<'machine-state'> {}

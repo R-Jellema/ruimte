@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ModelPicker } from '@adecore/agents-react/chat/ui/Pickers';
-import { useProviders } from '@adecore/agents-react/state/providers';
+import { ModelPicker } from '@adecore/agents-react/chat/ui';
+import { useProviders } from '@adecore/agents-react/state';
 import { Dialog, Field, FormError, Input } from '@adecore/ui';
 import type { WorktreeStart } from '@/shell/use-worktree-start';
 

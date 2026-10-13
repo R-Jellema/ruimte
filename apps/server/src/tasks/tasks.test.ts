@@ -4,12 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ChatItem, ChatSubagentItem, ChatTurnItem, ProjectContent } from '@ruimte/contracts';
 import { nextLine } from '../canvas/task-verbs.ts';
-import { claudeStoppingOnResume } from '@adecore/agents/chat/fake-claude';
-import type { FakeCli } from '@adecore/agents/chat/fake-cli';
-import { ManualClock } from '@adecore/agents/outbox/manual-clock';
+import { claudeStoppingOnResume, ManualClock } from '@adecore/agents/testing';
+import type { FakeCli } from '@adecore/agents/testing';
 import { ProjectStore } from '../projects/project-store.ts';
 import { bootTestDaemon, runVerb, type TestDaemon } from './test-daemon.ts';
-import { WAITING_GRACE_MS } from '@adecore/agents/tasks/waiting-child';
+import { WAITING_GRACE_MS } from '@adecore/agents/coordination';
 
 type Daemon = TestDaemon;
 

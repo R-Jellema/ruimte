@@ -1,5 +1,5 @@
 import type { ChatItem } from '@ruimte/contracts';
-import type { ChatState } from '@adecore/agents-react/state/chats';
+import type { ChatState } from '@adecore/agents-react/state';
 
 export interface VoiceChatFollowUp {
     key: string;

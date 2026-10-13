@@ -5,7 +5,7 @@ import type { ChatExternalSession, ChatSearchHit } from '@ruimte/contracts';
 import { groupByChat } from '@/shell/palette-chats';
 import { Icon, SectionLabel } from '@adecore/ui';
 import { formatAgo } from '@adecore/ui/format';
-import { CliMark } from '@adecore/agents-react/providers/parts';
+import { CliMark } from '@adecore/agents-react/providers';
 import type { ChatSearchState } from '@/shell/palette-chats';
 
 /* The snippet with the match picked out. */

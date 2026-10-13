@@ -1,6 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import { join, basename } from 'node:path';
-import { writeAtomic } from '@adecore/agents/fs';
+import { writeAtomic } from '@adecore/agents';
 
 export type ShellEnvironment = (shell: string, env: Record<string, string>) => void;
 

@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { DatabaseConnection, ProjectContent, RuntimeMode } from '@ruimte/contracts';
-import { refusalBody } from '@adecore/agents/context/refusal';
+import { refusalBody } from '@adecore/agents/context';
 import { DatabaseAccessStore } from '../database/agent-access.ts';
 import { AgentDatabases, connectionTarget } from '../database/agent-databases.ts';
 import { DatabasePasswords } from '../database/agent-passwords.ts';

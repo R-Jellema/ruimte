@@ -30,7 +30,7 @@ import { UI_DETAIL, UI_SUMMARY } from './ui-verb.ts';
 import { VIEW_ACTIONS, VIEW_DETAIL, VIEW_SUMMARY } from './view-verb.ts';
 import { VISUAL_ACTIONS, VISUAL_DETAIL, VISUAL_SUMMARY } from './visual-verb.ts';
 import { worktreeVerb } from './worktree-verb.ts';
-import { summaryLines } from '@adecore/agents/context/verb';
+import { summaryLines } from '@adecore/agents/context';
 import { SCOPE_LINE, SNOOZE_LINE, defineHelp, defineNoun, dryRunLine, type ContextVerb, type VerbCall, type VerbEntry } from './verb.ts';
 
 /* The one line about failure every help output ends with; the codes are the CLI's, which is what runs the verb. */

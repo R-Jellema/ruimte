@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { lstat, mkdir, realpath, rmdir, stat } from 'node:fs/promises';
 import type { Stats } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { CodedError } from '@adecore/agents/coded-error';
+import { CodedError } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
 import { renameNoReplace } from './no-replace-rename.ts';
 import { trashPath } from './trash.ts';

@@ -9,7 +9,7 @@ import type { ViewOffers } from '@/shell/view-offers';
 import type { KeepAwakeMode } from '@/state/settings';
 import type { PanelKind } from '@/state/ui';
 import { formatShortcut, type Shortcut } from '@adecore/ui';
-import { SEND_AND_NEW_SHORTCUT } from '@adecore/agents-react/chat/send-key';
+import { SEND_AND_NEW_SHORTCUT } from '@adecore/agents-react/chat';
 import { AFTER_SETTLE_PREFIX, GO_VIEW_PREFIX, LAUNCH_CHOOSE_PREFIX, PR_SHOW_IN_PREFIX, type MenuActionId, type PaletteId } from '@/shell/menu/ids';
 
 export type MenuHost = 'desktop' | 'station';

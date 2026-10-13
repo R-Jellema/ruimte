@@ -4,7 +4,7 @@ import { ActionRefusal } from '@ruimte/actions';
 import type { Worktree } from '@ruimte/contracts';
 import { performAsPerson } from '@/actions/client-actions';
 import { PromptDialog } from '@adecore/ui';
-import { useChats } from '@adecore/agents-react/state/chats';
+import { useChats } from '@adecore/agents-react/state';
 import { nodeWorking } from '@/state/agent-work';
 import { useSessions } from '@/state/sessions';
 import { useProjectNodes } from '@/state/worktrees';

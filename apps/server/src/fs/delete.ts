@@ -1,5 +1,5 @@
 import { relative, sep } from 'node:path';
-import { CodedError } from '@adecore/agents/coded-error';
+import { CodedError } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
 import { trashPath } from './trash.ts';
 import { realEntryPath, realRoots, stateRefusal, type WriteBoundary } from './write.ts';

@@ -1,7 +1,6 @@
 import type { AgentKind, ProviderInfo } from '@ruimte/contracts';
-import type { CliDetection } from '@adecore/agents/providers/detect';
-import type { ChatProvider } from '@adecore/agents/providers/provider';
-import { ProviderRegistry as AgentProviderRegistry } from '@adecore/agents/providers/registry';
+import type { CliDetection, ChatProvider } from '@adecore/agents/providers';
+import { ProviderRegistry as AgentProviderRegistry } from '@adecore/agents/providers';
 import { createAppleProvider, appleProvider } from './apple-provider.ts';
 import { claudeProvider } from './claude-provider.ts';
 import { codexProvider } from './codex-provider.ts';

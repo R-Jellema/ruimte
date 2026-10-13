@@ -4,7 +4,7 @@ import { Search, RotateCcw, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button, IconButton, Input, Switch, Tooltip } from '@adecore/ui';
 import { formatNumber } from '@adecore/ui/format';
-import { ProviderLogo } from '@adecore/agents-react/agents/ProviderLogo';
+import { ProviderLogo } from '@adecore/agents-react/providers';
 import type { UsageProvider } from '@ruimte/contracts';
 import type { ChartModel, ModelMark } from './chart';
 import { shortModelName } from './comparison';

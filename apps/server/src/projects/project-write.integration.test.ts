@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FakeWatch } from '@adecore/agents/watch-test-helpers';
+import { FakeWatch } from '@adecore/agents/testing';
 import { ProjectStore } from './project-store.ts';
 import { documentPathInFolder, viewFilePathOf } from './project-files.ts';
 import { writeDrawing } from './project-files.ts';
@@ -30,7 +30,7 @@ test('a process killed at each durable save boundary recovers on a fresh daemon'
             const program = `
                 import { ProjectStore } from './apps/server/src/projects/project-store.ts';
                 import { PROJECT_WRITE_IO } from './apps/server/src/projects/project-write.ts';
-                import { FakeWatch } from ${JSON.stringify(import.meta.resolve('@adecore/agents/watch-test-helpers'))};
+                import { FakeWatch } from ${JSON.stringify(import.meta.resolve('@adecore/agents/testing'))};
                 let operations = 0;
                 let armed = false;
                 const stop = () => { if (armed && ++operations === ${boundary}) { process.kill(process.pid, 'SIGKILL'); } };

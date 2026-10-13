@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import type { Editor } from '@adecore/editor';
-import { offerDraft } from '@adecore/agents-react/chat/drafts';
-import { useProviders } from '@adecore/agents-react/state/providers';
+import { offerDraft } from '@adecore/agents-react/chat';
+import { useProviders } from '@adecore/agents-react/state';
 import { createHolder } from '@adecore/editor-react';
 import { chooserChats } from '@/chat/chat-chooser';
 import { focusChat } from '@/plan/plan-actions';

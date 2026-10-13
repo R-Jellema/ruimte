@@ -14,7 +14,7 @@ import {
     shareViewAction,
     showViewOnCanvasAction
 } from '@/actions/client-actions';
-import { offerDraft } from '@adecore/agents-react/chat/drafts';
+import { offerDraft } from '@adecore/agents-react/chat';
 import { GRID, type Point } from '@/canvas/math';
 import { databaseTargetOf, databaseViewName } from '@/database/view-name';
 import { filesOfView, nodesOfView } from '@/project/view-deletion';

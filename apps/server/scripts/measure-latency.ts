@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { Subprocess } from 'bun';
 import { PROTOCOL_VERSION, type ProjectContent } from '@ruimte/contracts';
-import { ManualClock } from '@adecore/agents/outbox/manual-clock';
+import { ManualClock } from '@adecore/agents/testing';
 import { AuthStore } from '../src/auth/auth-store.ts';
 import { Handshake } from '../src/auth/handshake.ts';
 import { generateKeyPair, signMessage } from '../src/auth/keys.ts';
@@ -202,7 +202,14 @@ interface Link {
     close(): void;
 }
 
-function parseFrame(raw: string): { id?: string | null; ok?: boolean; result?: unknown; error?: { code: string; message: string }; event?: string; payload?: Record<string, unknown> } {
+function parseFrame(raw: string): {
+    id?: string | null;
+    ok?: boolean;
+    result?: unknown;
+    error?: { code: string; message: string };
+    event?: string;
+    payload?: Record<string, unknown>;
+} {
     return JSON.parse(raw);
 }
 
@@ -484,7 +491,11 @@ async function measure(): Promise<void> {
         chatMs: 2000
     };
 
-    const child: Subprocess<'pipe', 'pipe', 'inherit'> = Bun.spawn([process.execPath, import.meta.path, 'serve'], { stdin: 'pipe', stdout: 'pipe', stderr: 'inherit' });
+    const child: Subprocess<'pipe', 'pipe', 'inherit'> = Bun.spawn([process.execPath, import.meta.path, 'serve'], {
+        stdin: 'pipe',
+        stdout: 'pipe',
+        stderr: 'inherit'
+    });
     const send = (message: ParentMessage): void => {
         child.stdin.write(`${JSON.stringify(message)}\n`);
         void child.stdin.flush();

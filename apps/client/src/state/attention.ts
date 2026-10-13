@@ -8,7 +8,7 @@ import { nodeWorking } from '@/state/agent-work';
 import { nodesInSight, seenNodes, sightOf, type CanvasSight } from '@/state/in-sight';
 import { seePushNotifications, subscribePushAttention, unreadOnMachine } from '@/state/push-attention';
 import { liveCanvas, subscribeCanvases } from '@/state/canvas';
-import { useChats, type ChatStatuses } from '@adecore/agents-react/state/chats';
+import { useChats, type ChatStatuses } from '@adecore/agents-react/state';
 import { useDocument } from '@/state/document';
 import { currentEndpointId, endpointKey, useEndpointId } from '@/state/keys';
 import { nodeStatus, useSessions, type SessionsByKey, type StatusOf } from '@/state/sessions';

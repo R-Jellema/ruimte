@@ -4,14 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ChatAttachResult, ChatEvent, Task } from '@ruimte/contracts';
 import { ProviderRegistry } from '../providers/registry.ts';
-import { AttachmentStore } from '@adecore/agents/chat/attachment-store';
+import { AttachmentStore, ChatStore, COMPACT_ABOVE_BYTES, ChatThread } from '@adecore/agents/chat';
 import { ChatManager } from './chat-manager.ts';
-import { ChatStore } from '@adecore/agents/chat/chat-store';
-import { COMPACT_ABOVE_BYTES } from '@adecore/agents/chat/chat-log';
 import { ChatRecorder, RecordingStore } from './chat-test-helpers.ts';
-import { fakeClaude } from '@adecore/agents/chat/fake-claude';
-import { inProcess, type InProcessCli } from '@adecore/agents/chat/fake-cli';
-import { ChatThread } from '@adecore/agents/chat/thread';
+import { fakeClaude, inProcess, type InProcessCli } from '@adecore/agents/testing';
 
 let home: string;
 let attachments: AttachmentStore;

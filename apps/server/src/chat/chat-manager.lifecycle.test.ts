@@ -3,8 +3,7 @@ import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ChatCheckpointDiff } from '@ruimte/contracts';
 import { ChatRecorder, FakeCheckpoints } from './chat-test-helpers.ts';
-import { fakeClaude } from '@adecore/agents/chat/fake-claude';
-import { inProcess } from '@adecore/agents/chat/fake-cli';
+import { fakeClaude, inProcess } from '@adecore/agents/testing';
 import { makeChatFixture, retire } from './chat-manager.fixture.test.ts';
 
 type ChatFixture = Awaited<ReturnType<typeof makeChatFixture>>;

@@ -24,7 +24,7 @@ import {
     Trash2
 } from 'lucide-react';
 import { PATHS_DRAG_TYPE } from '@/canvas/drop';
-import { writeMentionDrag } from '@adecore/agents-react/chat/mentions';
+import { writeMentionDrag } from '@adecore/agents-react/chat';
 import { createViewAction } from '@/actions/client-actions';
 import { showFileOnCanvas } from '@/project/views';
 import { FILE_TOOLBAR } from '@/shell/panels/classes';

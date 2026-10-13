@@ -1,11 +1,8 @@
 import type { Task } from '@ruimte/contracts';
-import type { TaskCoordinator, TaskCoordinatorDeps } from '@adecore/agents/tasks/task-coordinator';
-import type { TaskStore } from '@adecore/agents/tasks/task-store';
-import type { WaitingObserver } from '@adecore/agents/tasks/waiting-child';
-import { wireTasks as wireTaskCore, type TaskVerbs } from '@adecore/agents/tasks/wiring';
+import type { TaskCoordinator, TaskCoordinatorDeps, TaskStore, WaitingObserver, OutboxHandlers } from '@adecore/agents/coordination';
+import { wireTasks as wireTaskCore, type TaskVerbs } from '@adecore/agents/coordination';
 import type { ChatManager } from '../chat/chat-manager.ts';
 import type { OutboxEntry, OutboxWork, StartAgentEntry } from '../outbox/outbox.ts';
-import type { OutboxHandlers } from '@adecore/agents/outbox/outbox-worker';
 import { parkedNote } from './parked-note.ts';
 import { terminalTasks, type TerminalTasks } from './terminal-tasks.ts';
 import { TASK_WORDS } from './words.ts';

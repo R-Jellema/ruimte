@@ -129,11 +129,7 @@ function packageDirectory(name: string, from = import.meta.url, entry = name): s
 }
 
 // The desktop's own table, chart and label rules, which the hand-ported Swift in the app is checked against.
-const agentsReact = packageDirectory(
-    '@adecore/agents-react',
-    resolve(ruimte, 'apps/client/package.json'),
-    '@adecore/agents-react/chat/ui/intelligent-ui/chart-data'
-);
+const agentsReact = packageDirectory('@adecore/agents-react', resolve(ruimte, 'apps/client/package.json'), '@adecore/agents-react/chat/ui');
 const exportsOf = JSON.parse(readFileSync(resolve(agentsReact, 'package.json'), 'utf8')).exports as Record<string, { source: string }>;
 const desktopModule = (path: string) => import(resolve(agentsReact, exportsOf[`./chat/ui/intelligent-ui/${path}`]!.source));
 const { uiTableColumns } = await desktopModule('table-data');
@@ -194,8 +190,9 @@ function sourceName(path: string): readonly [name: string, contents: string] {
 }
 
 // Minified output differs between Bun versions, so a check compares what went in rather than the bytes that came out.
-const sources = [...new Map(Object.keys(bundle.metafile!.inputs).map((input) => sourceName(resolve(process.cwd(), input))))]
-    .sort(([left], [right]) => left.localeCompare(right));
+const sources = [...new Map(Object.keys(bundle.metafile!.inputs).map((input) => sourceName(resolve(process.cwd(), input))))].sort(([left], [right]) =>
+    left.localeCompare(right)
+);
 const digest = createHash('sha256');
 for (const [name, contents] of sources) {
     digest.update(`${name}\0${contents}\0`);

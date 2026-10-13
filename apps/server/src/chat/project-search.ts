@@ -1,6 +1,6 @@
 import { isCanvasView, type ChatItem, type ChatSearchHit, type ChatSearchPayload, type ChatSearchResult, type ProjectView } from '@ruimte/contracts';
-import { CodedError } from '@adecore/agents/coded-error';
-import { searchThreadItems } from '@adecore/agents/chat/thread-search';
+import { CodedError } from '@adecore/agents';
+import { searchThreadItems } from '@adecore/agents/chat';
 
 export class ChatSearchError extends CodedError<'not-open'> {}
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import type { ChatInfo, ChatItem } from '@ruimte/contracts';
-import type { ChatState } from '@adecore/agents-react/state/chats';
+import type { ChatState } from '@adecore/agents-react/state';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import type { Editor } from '@adecore/editor';
 import type { InlineEditRecord } from './inline-edit-record';

@@ -1,8 +1,7 @@
 import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { isNotFound, writeAtomic } from '@adecore/agents/fs';
-import { Serializer } from '@adecore/agents/serializer';
+import { isNotFound, writeAtomic, Serializer } from '@adecore/agents';
 
 const RecordSchema = z.object({
     branch: z.string().min(1),

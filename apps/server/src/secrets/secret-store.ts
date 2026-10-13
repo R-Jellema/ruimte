@@ -2,8 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isSecretReference } from '@ruimte/contracts';
-import { isNotFound, writeAtomic } from '@adecore/agents/fs';
-import { Serializer } from '@adecore/agents/serializer';
+import { isNotFound, writeAtomic, Serializer } from '@adecore/agents';
 
 export const SECRETS_DIR = 'secrets';
 

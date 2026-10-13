@@ -1,8 +1,7 @@
 import type { AgentKind, ComputerApproval, SecretRequest } from '@ruimte/contracts';
-import { orderPrompts } from '@adecore/agents-react/prompts/logic/prompts';
-import { isBlockingSubject, promptCreatedAt, promptIdOf, type PromptSubject } from '@adecore/agents-react/prompts/logic/subjects';
+import { orderPrompts, isBlockingSubject, promptCreatedAt, promptIdOf, type PromptSubject } from '@adecore/agents-react/prompts';
 import type { CanvasNode } from '@/state/canvas';
-import { waitingRequestsOf, type ChatsById } from '@adecore/agents-react/state/chats';
+import { waitingRequestsOf, type ChatsById } from '@adecore/agents-react/state';
 import { endpointKey } from '@/state/keys';
 import { computerPrompt, ruimtePayloadOf, secretPrompt, waitingPrompt } from '@/prompts/ruimte-prompts';
 import { nodeStatus, type SessionsByKey } from '@/state/sessions';
