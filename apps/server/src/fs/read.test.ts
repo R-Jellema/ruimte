@@ -60,6 +60,14 @@ describe('the binary sniff', () => {
         expect(looksBinary(new Uint8Array([0x68, 0x69, 0xe9, 0x21]))).toBe(true);
     });
 
+    test('a head cut inside a character is still text, wherever the cut falls', () => {
+        const bytes = new TextEncoder().encode('日本語のテキスト'.repeat(4));
+        for (let end = bytes.length - 3; end <= bytes.length; end++) {
+            expect(looksBinary(bytes.subarray(0, end), true)).toBe(false);
+        }
+        expect(looksBinary(new Uint8Array([0x68, 0xe9, 0x21, 0x68]), true)).toBe(true);
+    });
+
     test('names the formats it knows by their first bytes', () => {
         expect(sniffMime(new Uint8Array(PNG))).toBe('image/png');
         expect(sniffMime(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe('image/jpeg');

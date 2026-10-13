@@ -99,7 +99,7 @@ export class FolderWatcher {
             return;
         }
         // The `@` picker reads the same folder from a cache of its own; a write there is stale news.
-        forgetSearchCache();
+        forgetSearchCache(paths);
         this.sinks.to(clientId, { event: 'fs.changed', payload: { root: state.root, paths } });
     }
 }

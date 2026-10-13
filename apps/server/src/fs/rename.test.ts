@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { link, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { rename } from 'node:fs/promises';
+import { renameNoReplace } from './no-replace-rename.ts';
 import { planRename, renamePath } from './rename.ts';
 import type { WriteBoundary } from './write.ts';
 
@@ -92,6 +92,126 @@ describe('fs.rename', () => {
     });
 });
 
+describe('fs.rename when the disk moved after the plan', () => {
+    test('never overwrites a file that took the name in between', async () => {
+        const plan = await planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'c.ts'), boundary());
+        await writeFile(join(project, 'src', 'c.ts'), 'newcomer');
+
+        expect(await codeOf(plan.run())).toBe('exists');
+
+        expect(await readFile(join(project, 'src', 'c.ts'), 'utf8')).toBe('newcomer');
+        expect(await readFile(join(project, 'src', 'a.ts'), 'utf8')).toBe('a');
+    });
+
+    test('never overwrites a name a file takes in the very moment of the move', async () => {
+        const plan = await planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'c.ts'), boundary(), {
+            rename: async (from, to) => {
+                await writeFile(to, 'newcomer');
+                await renameNoReplace(from, to);
+            }
+        });
+
+        expect(await codeOf(plan.run())).toBe('exists');
+
+        expect(await readFile(join(project, 'src', 'c.ts'), 'utf8')).toBe('newcomer');
+        expect(await readFile(join(project, 'src', 'a.ts'), 'utf8')).toBe('a');
+    });
+
+    test('never moves a folder over one made in between', async () => {
+        const plan = await planRename(join(project, 'src'), join(project, 'lib'), boundary());
+        await mkdir(join(project, 'lib'));
+
+        expect(await codeOf(plan.run())).toBe('exists');
+
+        expect(await readdir(join(project, 'lib'))).toEqual([]);
+        expect((await readdir(join(project, 'src'))).sort()).toEqual(['a.ts', 'b.ts']);
+    });
+
+    test('an overwrite refuses a folder that took the place of the file it was to replace', async () => {
+        const plan = await planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'b.ts'), boundary(), {
+            overwrite: true,
+            trash: async () => undefined
+        });
+        await rm(join(project, 'src', 'b.ts'));
+        await mkdir(join(project, 'src', 'b.ts'));
+
+        expect(await codeOf(plan.run())).toBe('exists');
+
+        expect(await readFile(join(project, 'src', 'a.ts'), 'utf8')).toBe('a');
+    });
+
+    test('never moves a folder over one made in the very moment of the move', async () => {
+        const plan = await planRename(join(project, 'src'), join(project, 'lib'), boundary(), {
+            rename: async (from, to) => {
+                await mkdir(to);
+                await renameNoReplace(from, to);
+            }
+        });
+
+        expect(await codeOf(plan.run())).toBe('exists');
+
+        expect(await readdir(join(project, 'lib'))).toEqual([]);
+        expect((await readdir(join(project, 'src'))).sort()).toEqual(['a.ts', 'b.ts']);
+    });
+
+    test('never moves a link over a file made in the very moment of the move', async () => {
+        await symlink(outside, join(project, 'link'));
+        const plan = await planRename(join(project, 'link'), join(project, 'other'), boundary(), {
+            rename: async (from, to) => {
+                await writeFile(to, 'newcomer');
+                await renameNoReplace(from, to);
+            }
+        });
+
+        expect(await codeOf(plan.run())).toBe('exists');
+
+        expect(await readFile(join(project, 'other'), 'utf8')).toBe('newcomer');
+    });
+
+    test('changes only the case of a name, through a spare name it leaves nothing of', async () => {
+        await renamePath(join(project, 'src', 'a.ts'), join(project, 'src', 'A.ts'), boundary());
+
+        expect((await readdir(join(project, 'src'))).sort()).toEqual(['A.ts', 'b.ts']);
+        expect(await readFile(join(project, 'src', 'A.ts'), 'utf8')).toBe('a');
+    });
+
+    test('puts a name back when its new case cannot be had', async () => {
+        const plan = await planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'A.ts'), boundary(), {
+            rename: async (from, to) => {
+                if (to.endsWith('A.ts')) {
+                    throw Object.assign(new Error('busy'), { code: 'EBUSY' });
+                }
+                await renameNoReplace(from, to);
+            }
+        });
+
+        expect(await codeOf(plan.run())).toBe('EBUSY');
+
+        expect(await readdir(join(project, 'src'))).toContain('a.ts');
+        expect((await readdir(join(project, 'src'))).some((name) => name.startsWith('.ruimte-rename-'))).toBe(false);
+    });
+
+    test('never folds one hard link of a file into another', async () => {
+        await rm(join(project, 'src', 'b.ts'));
+        await link(join(project, 'src', 'a.ts'), join(project, 'src', 'b.ts'));
+
+        expect(await codeOf(renamePath(join(project, 'src', 'a.ts'), join(project, 'src', 'b.ts'), boundary()))).toBe('exists');
+
+        expect((await readdir(join(project, 'src'))).sort()).toEqual(['a.ts', 'b.ts']);
+    });
+
+    test('fails closed where a volume cannot refuse a taken name', async () => {
+        const unsupported = async (): Promise<void> => {
+            throw Object.assign(new Error('not supported'), { code: 'ENOTSUP' });
+        };
+        const plan = await planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'c.ts'), boundary(), { rename: unsupported });
+
+        expect(await codeOf(plan.run())).toBe('unsupported');
+
+        expect((await readdir(join(project, 'src'))).sort()).toEqual(['a.ts', 'b.ts']);
+    });
+});
+
 describe('fs.rename with overwrite', () => {
     test('trashes the file at the target and moves the source over it', async () => {
         const trashed: string[] = [];
@@ -124,6 +244,26 @@ describe('fs.rename with overwrite', () => {
 
         expect(await readFile(join(project, 'src', 'b.ts'), 'utf8')).toBe('b');
         expect(await readdir(join(project, 'src'))).toEqual(['b.ts']);
+    });
+
+    test('puts the replaced file back without overwriting what took its name in the meantime', async () => {
+        const plan = await planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'b.ts'), boundary(), {
+            overwrite: true,
+            trash: async (path) => rm(path),
+            rename: async (from, to) => {
+                if (from.endsWith('a.ts')) {
+                    await writeFile(to, 'newcomer');
+                }
+                await renameNoReplace(from, to);
+            }
+        });
+
+        expect(await codeOf(plan.run())).toBe('exists');
+
+        expect(await readFile(join(project, 'src', 'b.ts'), 'utf8')).toBe('newcomer');
+        expect(await readFile(join(project, 'src', 'a.ts'), 'utf8')).toBe('a');
+        const [holder] = (await readdir(join(project, 'src'))).filter((name) => name.startsWith('.ruimte-overwrite-'));
+        expect(await readFile(join(project, 'src', holder!, 'b.ts'), 'utf8')).toBe('b');
     });
 
     test('leaves the replaced file where it is when the trash refuses it', async () => {
@@ -202,7 +342,7 @@ describe('fs.rename across volumes', () => {
         const plan = await planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'b.ts'), boundary(), {
             overwrite: true,
             trash: async () => undefined,
-            rename: async (from, to) => (from.endsWith('a.ts') ? exdev() : rename(from, to))
+            rename: async (from, to) => (from.endsWith('a.ts') ? exdev() : renameNoReplace(from, to))
         });
         expect(await codeOf(plan.run())).toBe('other-volume');
         expect(await readFile(join(project, 'src', 'b.ts'), 'utf8')).toBe('b');

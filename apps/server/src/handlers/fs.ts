@@ -45,7 +45,12 @@ export function registerFsHandlers(
 ): void {
     dispatcher.register('fs.browse', (payload) => translate(() => browseDirectories(payload.partialPath, payload.cwd, { hidden: payload.hidden })));
 
-    dispatcher.register('fs.search', (payload) => searchFiles(payload.cwd, payload.query, payload.limit));
+    dispatcher.register('fs.search', (payload) =>
+        translate(async () => {
+            await machineHome.refuse(payload.cwd);
+            return searchFiles(payload.cwd, payload.query, payload.limit, await machineHome.policy());
+        })
+    );
 
     dispatcher.register('fs.grep', (payload) =>
         translate(async () => {
@@ -54,7 +59,8 @@ export function registerFsHandlers(
                 regex: payload.regex,
                 caseSensitive: payload.caseSensitive,
                 wholeWord: payload.wholeWord,
-                limit: payload.limit
+                limit: payload.limit,
+                policy: await machineHome.policy()
             });
         })
     );

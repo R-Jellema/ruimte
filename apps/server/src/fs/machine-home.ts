@@ -26,6 +26,23 @@ function isMachineState(home: string, path: string): boolean {
     return isInside(home, path) && !OPEN_FOLDERS.some((folder) => isInside(join(home, folder), path)) && !isChatVisuals(home, path);
 }
 
+/* The home as it is named and as it really is: what a search that cannot ask `MachineHome` itself (a worker) judges paths by. */
+export interface MachineHomePolicy {
+    homes: string[];
+}
+
+export const NO_MACHINE_HOME: MachineHomePolicy = { homes: [] };
+
+/* Whether an absolute, resolved path is the machine's own state under either name of the home. */
+export function isMachineStatePath(policy: MachineHomePolicy, path: string): boolean {
+    return policy.homes.some((home) => isMachineState(home, path));
+}
+
+/* Whether a walk from `folder` reaches into the home, so that every name it meets has to be judged on its own. */
+export function holdsMachineHome(policy: MachineHomePolicy, folder: string): boolean {
+    return policy.homes.some((home) => isInside(folder, home));
+}
+
 /*
  * The line a client's file requests stop at. A client the machine let in is not its owner, so
  * nothing it asks for by path may hand it what only the local secret grants. A path is judged by its
@@ -40,11 +57,16 @@ export class MachineHome {
         this.home = resolve(home);
     }
 
+    async policy(): Promise<MachineHomePolicy> {
+        this.realHome ??= realpath(this.home).catch(() => this.home);
+        const realHome = await this.realHome;
+        return { homes: realHome === this.home ? [this.home] : [this.home, realHome] };
+    }
+
     async refuse(path: string): Promise<void> {
         const lexical = resolve(path);
-        this.realHome ??= realpath(this.home).catch(() => this.home);
-        const [realHome, real] = await Promise.all([this.realHome, realpath(lexical).catch(() => lexical)]);
-        if (isMachineState(this.home, lexical) || isMachineState(realHome, real)) {
+        const [policy, real] = await Promise.all([this.policy(), realpath(lexical).catch(() => lexical)]);
+        if (isMachineStatePath(policy, lexical) || isMachineStatePath(policy, real)) {
             throw new MachineHomeError('machine-state', `${path} belongs to this machine's own state and is not handed out`);
         }
     }

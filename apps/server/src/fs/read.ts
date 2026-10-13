@@ -23,7 +23,7 @@ function isTextControl(byte: number): boolean {
  * Whether the head of a file reads as text. A NUL settles it (that is what UTF-16 and every
  * executable carry), and so does a head that will not decode as UTF-8; a burst of other control
  * bytes is the last tell for the formats that pass both. A head cut off at the sniff length can
- * split a multi-byte character in half, so its last three bytes are not evidence of anything.
+ * split a multi-byte character in half, which a streaming decode keeps for later instead of refusing.
  */
 export function looksBinary(bytes: Uint8Array, truncated = false): boolean {
     if (bytes.length === 0) {
@@ -42,7 +42,7 @@ export function looksBinary(bytes: Uint8Array, truncated = false): boolean {
         return true;
     }
     try {
-        new TextDecoder('utf-8', { fatal: true }).decode(truncated ? bytes.subarray(0, bytes.length - 3) : bytes);
+        new TextDecoder('utf-8', { fatal: true }).decode(bytes, { stream: truncated });
         return false;
     } catch {
         return true;

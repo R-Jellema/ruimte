@@ -1,6 +1,8 @@
 import { readdir } from 'node:fs/promises';
-import { join, relative, sep } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import { FS_SEARCH_MAX_RESULTS, type FsSearchResult } from '@ruimte/contracts';
+import { NO_MACHINE_HOME, type MachineHomePolicy } from './machine-home.ts';
+import { isOpenName, isOpenPath, searchRoot } from './searchable.ts';
 import { classifyEntry } from './visibility.ts';
 
 // A walk outside a git repo cannot read .gitignore cheaply; it stops here and skips the usual weight.
@@ -9,11 +11,15 @@ const WALK_MAX_DEPTH = 12;
 
 // Every keystroke searches again; the file list is the expensive part, the ranking is not.
 const CACHE_TTL_MS = 10000;
+// Folders a machine searches at once: its open projects, their worktrees and the odd folder above one.
+const CACHE_MAX_FOLDERS = 32;
 
 type Listing = { files: string[]; truncated: boolean };
+type Remembered = { listing: Promise<Listing>; at: number };
 
-const trackedCache = new Map<string, Listing & { at: number }>();
-const ignoredCache = new Map<string, Listing & { at: number }>();
+// Keyed by the resolved folder, oldest use first, so the first key is the one to drop.
+const trackedCache = new Map<string, Remembered>();
+const ignoredCache = new Map<string, Remembered>();
 
 function isWordStart(path: string, index: number): boolean {
     if (index === 0) {
@@ -133,14 +139,33 @@ async function walk(root: string, from = root, max = WALK_MAX_FILES): Promise<Li
     return { files, truncated: false };
 }
 
-async function remembered(cache: Map<string, Listing & { at: number }>, cwd: string, load: () => Promise<Listing>): Promise<Listing> {
-    const cached = cache.get(cwd);
+/* One listing per folder at a time: the keystrokes that follow share the one already running. */
+function remembered(cache: Map<string, Remembered>, cwd: string, load: () => Promise<Listing>): Promise<Listing> {
+    const key = resolve(cwd);
+    const cached = cache.get(key);
+    cache.delete(key);
     if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
-        return cached;
+        cache.set(key, cached);
+        return cached.listing;
     }
-    const listed = await load();
-    cache.set(cwd, { ...listed, at: Date.now() });
-    return listed;
+    const entry: Remembered = { listing: load(), at: Date.now() };
+    cache.set(key, entry);
+    entry.listing.catch(() => {
+        if (cache.get(key) === entry) {
+            cache.delete(key);
+        }
+    });
+    for (const oldest of cache.keys()) {
+        if (cache.size <= CACHE_MAX_FOLDERS) {
+            break;
+        }
+        cache.delete(oldest);
+    }
+    return entry.listing;
+}
+
+function isUnder(path: string, ancestor: string): boolean {
+    return path === ancestor || path.startsWith(ancestor.endsWith(sep) ? ancestor : `${ancestor}${sep}`);
 }
 
 /* The files a search of this folder walks: what git tracks, or the walk that stands in for it. */
@@ -182,17 +207,45 @@ function listIgnoredFiles(cwd: string): Promise<Listing> {
     });
 }
 
-/* `fs.grep` keeps to `listSearchableFiles`: a match inside an ignored file is noise, naming one is not. */
-export async function searchFiles(cwd: string, query: string, limit = 20): Promise<FsSearchResult> {
-    const [tracked, ignored] = await Promise.all([listSearchableFiles(cwd), listIgnoredFiles(cwd)]);
-    return {
-        files: rankFiles(tracked.files, query.trim(), Math.min(limit, FS_SEARCH_MAX_RESULTS), ignored.files),
-        truncated: tracked.truncated || ignored.truncated
-    };
+/*
+ * `fs.grep` keeps to `listSearchableFiles`: a match inside an ignored file is noise, naming one is not.
+ * No name of the machine's own state is handed out: every listed name is judged before the ranking,
+ * and the ones that make the list once more on where they lead now.
+ */
+export async function searchFiles(cwd: string, query: string, limit = 20, policy: MachineHomePolicy = NO_MACHINE_HOME): Promise<FsSearchResult> {
+    const root = await searchRoot(cwd, policy);
+    const [tracked, ignored] = await Promise.all([listSearchableFiles(root.cwd), listIgnoredFiles(root.cwd)]);
+    const open = (paths: string[]): string[] => paths.filter((path) => isOpenName(root, path));
+    const files: string[] = [];
+    const wanted = Math.min(limit, FS_SEARCH_MAX_RESULTS);
+    for (const path of rankFiles(open(tracked.files), query.trim(), Number.POSITIVE_INFINITY, open(ignored.files))) {
+        if (files.length >= wanted) {
+            break;
+        }
+        if (await isOpenPath(root, path)) {
+            files.push(path);
+        }
+    }
+    return { files, truncated: tracked.truncated || ignored.truncated };
 }
 
-/* Tests and a daemon that watches a folder change can drop what the last search saw. */
-export function forgetSearchCache(): void {
-    trackedCache.clear();
-    ignoredCache.clear();
+/*
+ * Drops what the last search saw of the folders a change touched: every folder that holds a changed
+ * directory, and every folder inside one, since a move above a folder changes what it lists too.
+ * Without `changed`, everything goes.
+ */
+export function forgetSearchCache(changed?: readonly string[]): void {
+    if (changed === undefined) {
+        trackedCache.clear();
+        ignoredCache.clear();
+        return;
+    }
+    const paths = changed.map((path) => resolve(path));
+    for (const cache of [trackedCache, ignoredCache]) {
+        for (const key of [...cache.keys()]) {
+            if (paths.some((path) => isUnder(path, key) || isUnder(key, path))) {
+                cache.delete(key);
+            }
+        }
+    }
 }

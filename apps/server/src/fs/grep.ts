@@ -1,29 +1,38 @@
-import { clipText, FS_GREP_CONTEXT_LINES, FS_GREP_MAX_RESULTS, type FsGrepMatch, type FsGrepResult } from '@ruimte/contracts';
+import { clipText, FS_GREP_MAX_RESULTS, type FsGrepMatch, type FsGrepResult } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents/coded-error';
+import { COMPILED } from '../version.ts';
+import { contextOf, MAX_FILE_BYTES, MAX_LINE_LENGTH, type GrepWorkerMessage, type GrepWorkerRequest } from './grep-lines.ts';
+import { holdsMachineHome, NO_MACHINE_HOME, type MachineHomePolicy } from './machine-home.ts';
 import { listSearchableFiles } from './search.ts';
+import { isOpenName, readSearchable, searchRoot, type SearchRoot } from './searchable.ts';
 
-// A file larger than this is generated, minified or data; searching it costs more than it answers.
-const MAX_FILE_BYTES = 2 * 1024 * 1024;
-// A hit on a line this long is one nothing can show; the line is a minified bundle, not source.
-const MAX_LINE_LENGTH = 500;
-
-// A pattern that backtracks without end holds the event loop one line at a time, not one search.
-const JS_SLICE_MS = 50;
 // Past this the search without ripgrep answers with what it found so far.
 const JS_BUDGET_MS = 10_000;
+
+// `scripts/compile.ts` bundles the worker as an entry point of its own, which a binary finds by its place under `src`.
+const WORKER_URL = COMPILED ? './fs/grep-worker.ts' : new URL('./grep-worker.ts', import.meta.url).href;
+
+// A word character as ripgrep's Unicode `\w` has it, which JavaScript's `\b` only knows for ASCII.
+const WORD = '[\\p{Alphabetic}\\p{M}\\p{Nd}\\p{Pc}\\p{Join_Control}]';
 
 export interface GrepOptions {
     regex?: boolean;
     caseSensitive?: boolean;
     wholeWord?: boolean;
     limit?: number;
-    /* The clock the search without ripgrep keeps its budget by, in milliseconds. */
-    now?: () => number;
+    /* Starts the clock of the search without ripgrep: `stop` ends it, and what this returns cancels the clock. */
+    budget?: (stop: () => void) => () => void;
+    /* The machine's own state, which no name, line or context of a result may come from. */
+    policy?: MachineHomePolicy;
 }
 
 type GrepErrorCode = 'invalid-query';
 
 export class GrepError extends CodedError<GrepErrorCode> {}
+
+function invalidQuery(): GrepError {
+    return new GrepError('invalid-query', 'That is not a valid search pattern');
+}
 
 function escapeLiteral(query: string): string {
     return query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -33,34 +42,20 @@ function escapeLiteral(query: string): string {
    when the pattern itself is the problem. */
 function toRegExp(query: string, options: GrepOptions): RegExp {
     const source = options.regex ? query : escapeLiteral(query);
+    const caseFlag = options.caseSensitive ? '' : 'i';
+    if (options.wholeWord) {
+        try {
+            return new RegExp(`(?<!${WORD})(?:${source})(?!${WORD})`, `u${caseFlag}`);
+        } catch {
+            // A pattern that only parses without the `u` flag (`\-`, `\8`) keeps the ASCII word edge.
+        }
+    }
     const pattern = options.wholeWord ? `\\b(?:${source})\\b` : source;
     try {
-        return new RegExp(pattern, options.caseSensitive ? '' : 'i');
+        return new RegExp(pattern, caseFlag);
     } catch {
-        throw new GrepError('invalid-query', 'That is not a valid search pattern');
+        throw invalidQuery();
     }
-}
-
-/*
- * The lines a hit is read in. `before` runs nearest last and `after` nearest first, and a line the
- * source does not have (the top or the bottom of the file) is simply absent.
- */
-function contextOf(lineOf: (line: number) => string | undefined, line: number): Pick<FsGrepMatch, 'before' | 'after'> {
-    const before: string[] = [];
-    const after: string[] = [];
-    for (let offset = FS_GREP_CONTEXT_LINES; offset >= 1; offset -= 1) {
-        const text = lineOf(line - offset);
-        if (text !== undefined) {
-            before.push(clipText(text, MAX_LINE_LENGTH));
-        }
-    }
-    for (let offset = 1; offset <= FS_GREP_CONTEXT_LINES; offset += 1) {
-        const text = lineOf(line + offset);
-        if (text !== undefined) {
-            after.push(clipText(text, MAX_LINE_LENGTH));
-        }
-    }
-    return { before, after };
 }
 
 const decoder = new TextDecoder();
@@ -89,8 +84,8 @@ interface Collected {
     end: number;
 }
 
-/* One file's hits and the lines around them, turned into the matches the wire carries. */
-function matchesOfFile(path: string, hits: Collected[], lines: Map<number, string>): FsGrepMatch[] {
+/* One file's hits, turned into the matches the wire carries; `lineOf` reads the file as the daemon itself read it. */
+function matchesOfFile(path: string, hits: Collected[], lineOf: (line: number) => string | undefined): FsGrepMatch[] {
     return hits.map((hit) => {
         const text = clipText(hit.text, MAX_LINE_LENGTH);
         const column = toUnits(hit.text, hit.start);
@@ -100,26 +95,37 @@ function matchesOfFile(path: string, hits: Collected[], lines: Map<number, strin
             column: Math.min(column, text.length),
             length: Math.min(toUnits(hit.text, hit.end) - column, Math.max(text.length - column, 0)),
             text,
-            ...contextOf((line) => lines.get(line), hit.line)
+            ...contextOf(lineOf, hit.line)
         };
     });
 }
 
+interface CollectedFile {
+    path: string;
+    hits: Collected[];
+}
+
 /*
- * Ripgrep's JSON stream, one event per line: `begin` opens a file, `match` and `context` carry a
- * line each, `end` closes it. Both line kinds are kept, because the context of one hit is another
- * hit as often as not. The walk stops at the limit and the process is killed where it stands.
+ * Ripgrep's JSON stream, one event per line: `begin` opens a file, `match` carries a hit, `end`
+ * closes it. The walk stops at the limit and the process is killed where it stands. Ripgrep only says
+ * where the hits are; the lines that go out are read again by `confirmed`.
  */
-async function searchWithRipgrep(binary: string, cwd: string, query: string, options: GrepOptions, limit: number): Promise<FsGrepResult> {
+async function searchWithRipgrep(
+    binary: string,
+    cwd: string,
+    query: string,
+    options: GrepOptions,
+    limit: number
+): Promise<{ files: CollectedFile[]; truncated: boolean }> {
     const args = [
         binary,
         '--json',
-        `--context=${FS_GREP_CONTEXT_LINES}`,
         // Lookaround and backreferences need PCRE2, which `auto` picks only for a pattern that does.
         ...(options.regex ? ['--engine=auto'] : ['--fixed-strings']),
         options.caseSensitive ? '--case-sensitive' : '--ignore-case',
         ...(options.wholeWord ? ['--word-regexp'] : []),
         `--max-filesize=${MAX_FILE_BYTES}`,
+        `--max-count=${limit}`,
         '--no-messages',
         '--',
         query,
@@ -127,29 +133,17 @@ async function searchWithRipgrep(binary: string, cwd: string, query: string, opt
         '.'
     ];
     const proc = Bun.spawn(args, { cwd, stdin: 'ignore', stdout: 'pipe', stderr: 'ignore' });
-    const matches: FsGrepMatch[] = [];
-    const files = new Set<string>();
-    let truncated = false;
+    const files: CollectedFile[] = [];
+    let found = 0;
     let finished = false;
-    let path: string | null = null;
-    let hits: Collected[] = [];
-    let lines = new Map<number, string>();
+    let current: CollectedFile | null = null;
     let rest = '';
 
-    const flush = (): void => {
-        if (path !== null && hits.length > 0) {
-            files.add(path);
-            for (const match of matchesOfFile(path, hits, lines)) {
-                if (matches.length >= limit) {
-                    truncated = true;
-                    break;
-                }
-                matches.push(match);
-            }
+    const close = (): void => {
+        if (current !== null && current.hits.length > 0) {
+            files.push(current);
         }
-        path = null;
-        hits = [];
-        lines = new Map();
+        current = null;
     };
 
     const handle = (line: string): void => {
@@ -164,13 +158,14 @@ async function searchWithRipgrep(binary: string, cwd: string, query: string, opt
         }
         const data = event.data ?? {};
         if (event.type === 'begin') {
-            flush();
+            close();
             // Searching `.` prefixes every path with it, and nothing else on the wire carries that.
-            path = data.path?.text?.replace(/^\.\//, '') ?? null;
+            const path = data.path?.text?.replace(/^\.\//, '');
+            current = path === undefined ? null : { path, hits: [] };
             return;
         }
         if (event.type === 'end') {
-            flush();
+            close();
             return;
         }
         if (event.type === 'summary') {
@@ -180,17 +175,15 @@ async function searchWithRipgrep(binary: string, cwd: string, query: string, opt
         // A line without text is binary, and a file that holds one has nothing to read anyway.
         const text = data.lines?.text;
         const number = data.line_number;
-        if (text === undefined || number === undefined) {
+        const submatch = data.submatches?.[0];
+        if (event.type !== 'match' || current === null || text === undefined || number === undefined || submatch === undefined || found >= limit) {
             return;
         }
-        const stripped = text.replace(/\r?\n$/, '');
-        lines.set(number, stripped);
-        const submatch = event.type === 'match' ? data.submatches?.[0] : undefined;
-        if (submatch) {
-            hits.push({ line: number, text: stripped, start: submatch.start, end: submatch.end });
-        }
+        current.hits.push({ line: number, text: text.replace(/\r?\n$/, ''), start: submatch.start, end: submatch.end });
+        found += 1;
     };
 
+    let truncated = false;
     for await (const chunk of proc.stdout) {
         rest += decoder.decode(chunk, { stream: true });
         const parts = rest.split('\n');
@@ -198,80 +191,92 @@ async function searchWithRipgrep(binary: string, cwd: string, query: string, opt
         for (const part of parts) {
             handle(part);
         }
-        if (matches.length >= limit) {
+        if (found >= limit) {
             truncated = true;
+            rest = '';
             proc.kill();
             break;
         }
     }
     handle(rest);
-    flush();
+    close();
     await proc.exited;
-    // Ripgrep that turned the pattern away searched nothing, which is not the same as finding nothing.
     if (!finished && !truncated) {
+        // Exit code 2 before any search is ripgrep turning the pattern away; the search without it would only accept what ripgrep refused.
+        if (proc.exitCode === 2) {
+            throw invalidQuery();
+        }
         throw new Error(`ripgrep stopped with code ${proc.exitCode} before it searched`);
     }
-    return { matches: matches.slice(0, limit), files: files.size, truncated };
+    return { files, truncated };
 }
 
-/* The same search without ripgrep: over the file list `fs.search` already keeps, one file at a
-   time. Slower on a large tree, and the only way a machine without the binary searches at all. */
-async function searchInJs(cwd: string, query: string, options: GrepOptions, limit: number): Promise<FsGrepResult> {
-    const now = options.now ?? (() => performance.now());
-    const started = now();
-    let sliceStarted = started;
-    let outOfTime = false;
-    const pattern = toRegExp(query, options);
-    const { files: paths, truncated: walkTruncated } = await listSearchableFiles(cwd);
+/*
+ * What ripgrep found, read again by the daemon the way the search without it reads: a file that is
+ * not open to the client, or that a link led ripgrep to for a moment, is dropped, and every line that
+ * goes out (a hit and its context) is one the daemon read from a file it judged itself.
+ */
+async function confirmed(root: SearchRoot, files: CollectedFile[]): Promise<FsGrepMatch[]> {
     const matches: FsGrepMatch[] = [];
-    const files = new Set<string>();
-    let truncated = walkTruncated;
-    for (const path of paths) {
-        if (matches.length >= limit || outOfTime) {
-            truncated = true;
-            break;
-        }
-        const file = Bun.file(`${cwd}/${path}`);
-        if (file.size > MAX_FILE_BYTES) {
-            continue;
-        }
-        let content: string;
-        try {
-            content = await file.text();
-        } catch {
-            continue;
-        }
-        // A NUL in the first block is what every other tool calls binary, and it reads as one.
-        if (content.slice(0, 1024).includes('\0')) {
+    for (const file of files) {
+        const content = await readSearchable(root, file.path);
+        if (content === null) {
             continue;
         }
         const lines = content.split('\n');
-        for (let index = 0; index < lines.length && matches.length < limit; index += 1) {
-            if (now() - sliceStarted > JS_SLICE_MS) {
-                await new Promise((resolve) => setImmediate(resolve));
-                if (now() - started > JS_BUDGET_MS) {
-                    outOfTime = true;
-                    break;
-                }
-                sliceStarted = now();
-            }
-            const text = lines[index]!.replace(/\r$/, '');
-            const found = pattern.exec(text);
-            if (!found) {
-                continue;
-            }
-            files.add(path);
-            matches.push({
-                path,
-                line: index + 1,
-                column: Math.min(found.index, MAX_LINE_LENGTH),
-                length: Math.min(found[0].length, MAX_LINE_LENGTH - Math.min(found.index, MAX_LINE_LENGTH)),
-                text: clipText(text, MAX_LINE_LENGTH),
-                ...contextOf((line) => lines[line - 1]?.replace(/\r$/, ''), index + 1)
-            });
-        }
+        const lineOf = (line: number): string | undefined => lines[line - 1]?.replace(/\r$/, '');
+        const hits = file.hits.filter((hit) => lineOf(hit.line) === hit.text);
+        matches.push(...matchesOfFile(file.path, hits, lineOf));
     }
-    return { matches, files: files.size, truncated: truncated || outOfTime };
+    return matches;
+}
+
+function startBudget(stop: () => void): () => void {
+    const timer = setTimeout(stop, JS_BUDGET_MS);
+    return () => clearTimeout(timer);
+}
+
+/* The same search without ripgrep: over the file list `fs.search` already keeps, on a worker that
+   is terminated when its time is up. Slower on a large tree, and the only way a machine without the
+   binary searches at all. */
+async function searchInJs(root: SearchRoot, query: string, options: GrepOptions, limit: number): Promise<FsGrepResult> {
+    const pattern = toRegExp(query, options);
+    const listed = await listSearchableFiles(root.cwd);
+    const walkTruncated = listed.truncated;
+    const paths = listed.files.filter((path) => isOpenName(root, path));
+    const matches: FsGrepMatch[] = [];
+    const worker = new Worker(WORKER_URL);
+    return new Promise<FsGrepResult>((resolve, reject) => {
+        let settled = false;
+        let cancel = (): void => undefined;
+        const settle = (outcome: () => void): void => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            cancel();
+            worker.terminate();
+            outcome();
+        };
+        const answer = (truncated: boolean): void => {
+            const result = { matches: matches.slice(0, limit), files: new Set(matches.map((match) => match.path)).size, truncated: truncated || walkTruncated };
+            settle(() => resolve(result));
+        };
+        worker.onmessage = (event: MessageEvent<GrepWorkerMessage>) => {
+            const message = event.data;
+            if (message.kind === 'file') {
+                matches.push(...message.matches);
+            } else if (message.kind === 'done') {
+                answer(message.truncated);
+            } else {
+                settle(() => reject(new Error(message.message)));
+            }
+        };
+        worker.onerror = (event) => settle(() => reject(new Error(event.message)));
+        worker.postMessage({ root, paths, source: pattern.source, flags: pattern.flags, limit } satisfies GrepWorkerRequest);
+        // A pattern that backtracks without end never yields, so only terminating its thread stops it.
+        cancel = (options.budget ?? startBudget)(() => answer(true));
+    });
 }
 
 /*
@@ -287,14 +292,22 @@ export async function grepFiles(cwd: string, query: string, options: GrepOptions
     const limit = Math.min(options.limit ?? FS_GREP_MAX_RESULTS, FS_GREP_MAX_RESULTS);
     // The pattern is checked here as well, so a broken regex fails the same way on both paths.
     toRegExp(trimmed, options);
+    const root = await searchRoot(cwd, options.policy ?? NO_MACHINE_HOME);
     // The PATH as it is now: Bun's own lookup keeps the one the process started with.
     const binary = Bun.which('rg', { PATH: process.env.PATH ?? '' });
-    if (binary === null) {
-        return searchInJs(cwd, trimmed, options, limit);
+    // Below a folder that holds the home every name is judged before it is read, which only the search without ripgrep can.
+    if (binary === null || holdsMachineHome(root.policy, root.cwd) || holdsMachineHome(root.policy, root.realCwd)) {
+        return searchInJs(root, trimmed, options, limit);
     }
+    let found: { files: CollectedFile[]; truncated: boolean };
     try {
-        return await searchWithRipgrep(binary, cwd, trimmed, options, limit);
-    } catch {
-        return searchInJs(cwd, trimmed, options, limit);
+        found = await searchWithRipgrep(binary, root.cwd, trimmed, options, limit);
+    } catch (e) {
+        if (e instanceof GrepError) {
+            throw e;
+        }
+        return searchInJs(root, trimmed, options, limit);
     }
+    const matches = await confirmed(root, found.files);
+    return { matches, files: new Set(matches.map((match) => match.path)).size, truncated: found.truncated };
 }

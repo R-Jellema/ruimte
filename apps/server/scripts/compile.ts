@@ -50,6 +50,8 @@ const args = [
     `--target=bun-${bunOs[values.os]}-${values.arch}`,
     '--minify',
     join(root, 'src', 'main.ts'),
+    // A worker is a module of its own in the binary; `src/fs/grep.ts` finds it at `./fs/grep-worker.ts`.
+    join(root, 'src', 'fs', 'grep-worker.ts'),
     '--outfile',
     binary
 ];

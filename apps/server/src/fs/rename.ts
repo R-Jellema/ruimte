@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { lstat, mkdir, realpath, rename, rmdir, stat } from 'node:fs/promises';
+import { lstat, mkdir, realpath, rmdir, stat } from 'node:fs/promises';
+import type { Stats } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { CodedError } from '@adecore/agents/coded-error';
 import { isInside } from '../canvas/project-paths.ts';
+import { renameNoReplace } from './no-replace-rename.ts';
 import { trashPath } from './trash.ts';
 import { realEntryPath, realRoots, stateRefusal, type WriteBoundary } from './write.ts';
 
@@ -17,7 +19,8 @@ type RenameErrorCode =
     | 'git-state'
     | 'ruimte-state'
     | 'not-writable'
-    | 'other-volume';
+    | 'other-volume'
+    | 'unsupported';
 
 export class RenameError extends CodedError<RenameErrorCode> {}
 
@@ -51,8 +54,14 @@ async function realTarget(path: string): Promise<string> {
     }
 }
 
-function failure(e: unknown, path: string): unknown {
+function failure(e: unknown, path: string, to: string): unknown {
     const code = (e as NodeJS.ErrnoException).code;
+    if (code === 'EEXIST' || code === 'ENOTEMPTY') {
+        return new RenameError('exists', `${to} is already there`);
+    }
+    if (code === 'ENOTSUP' || code === 'EOPNOTSUPP' || code === 'ENOSYS') {
+        return new RenameError('unsupported', `${path} cannot be moved here without the risk of replacing what is there`);
+    }
     if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS') {
         return new RenameError('not-writable', `${path} cannot be moved`);
     }
@@ -77,6 +86,27 @@ function assertOpenGround(segments: readonly string[], path: string): void {
 
 type Rename = (from: string, to: string) => Promise<void>;
 type Trash = (path: string, original: string) => Promise<void>;
+
+function sameEntry(left: Stats, right: Stats): boolean {
+    return left.dev === right.dev && left.ino === right.ino;
+}
+
+/*
+ * A new case of the same name (or another hard link of the same file), through a spare name, since a
+ * rename that refuses a taken name sees the target taken by the source itself.
+ */
+async function throughSpareName(source: string, target: string, move: Rename): Promise<void> {
+    const spare = join(dirname(source), `.ruimte-rename-${randomUUID()}`);
+    await move(source, spare);
+    try {
+        await move(spare, target);
+    } catch (e) {
+        await move(spare, source).catch((restoreError: unknown) => {
+            console.warn(`Could not put ${source} back; it was left at ${spare}`, restoreError);
+        });
+        throw e;
+    }
+}
 
 /* The device of the deepest folder that exists along `path`, which is where a move to it lands. */
 async function deviceOfPlace(path: string): Promise<number> {
@@ -139,29 +169,32 @@ export async function planRename(
         throw new RenameError('other-volume', `${path} cannot be moved to another volume from here`);
     }
     const taken = await lstat(target).catch(() => null);
-    let replaced = false;
     if (taken !== null) {
         const moving = await lstat(source);
-        if (taken.dev !== moving.dev || taken.ino !== moving.ino) {
-            // Only a plain file replaces a plain file; the trash keeps what it replaced.
-            if (options.overwrite !== true || !taken.isFile() || !moving.isFile()) {
-                throw new RenameError('exists', `${to} is already there`);
-            }
-            replaced = true;
+        // Only a plain file replaces a plain file; the trash keeps what it replaced.
+        if (!sameEntry(taken, moving) && (options.overwrite !== true || !taken.isFile() || !moving.isFile())) {
+            throw new RenameError('exists', `${to} is already there`);
         }
     }
-    const move = options.rename ?? rename;
+    // Every move refuses a taken name in the call itself; whatever runs between the plan and `run` (a language server's edits) can fill it.
+    const move = options.rename ?? renameNoReplace;
     return {
         run: async () => {
             try {
                 await mkdir(dirname(target), { recursive: true });
-                if (replaced) {
+                const moving = await lstat(source);
+                const there = await lstat(target).catch(() => null);
+                if (there !== null && sameEntry(there, moving)) {
+                    if (target !== source) {
+                        await throughSpareName(source, target, move);
+                    }
+                } else if (there !== null && options.overwrite === true && there.isFile() && moving.isFile()) {
                     await replace(source, target, options.trash ?? trashReplaced, move);
                 } else {
                     await move(source, target);
                 }
             } catch (e) {
-                throw failure(e, path);
+                throw failure(e, path, to);
             }
         }
     };
@@ -184,6 +217,7 @@ async function replace(source: string, target: string, trash: Trash, move: Renam
     try {
         await move(source, target);
     } catch (e) {
+        // Whatever took the name in between stays, and the old file waits in its hidden folder.
         await move(aside, target).catch((restoreError: unknown) => {
             console.warn(`Could not put ${target} back from ${aside}`, restoreError);
         });

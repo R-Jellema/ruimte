@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GrepError, grepFiles } from './grep.ts';
+import { MachineHome } from './machine-home.ts';
 import { forgetSearchCache } from './search.ts';
 
 let root = '';
@@ -27,6 +28,36 @@ beforeEach(async () => {
 afterEach(async () => {
     await rm(root, { recursive: true, force: true });
 });
+
+/* A home without a dot under the folder searched, with its state beside the folders that stay open. */
+async function homeInside(): Promise<MachineHome> {
+    const home = join(root, 'machine');
+    await mkdir(join(home, 'scratch'), { recursive: true });
+    await mkdir(join(home, 'chats', 'c1.visuals'), { recursive: true });
+    await mkdir(join(home, 'worktrees', 'w1'), { recursive: true });
+    await writeFile(join(home, 'local.key'), 'session secret\n');
+    await writeFile(join(home, 'chats', 'c1.jsonl'), 'session thread\n');
+    await writeFile(join(home, 'scratch', 'notes.md'), 'session scratch\n');
+    await writeFile(join(home, 'chats', 'c1.visuals', 'page.html'), 'session visual\n');
+    await writeFile(join(home, 'worktrees', 'w1', 'a.ts'), 'session worktree\n');
+    return new MachineHome(home);
+}
+
+/* Every path, line and context line a search hands out. */
+function everything(result: { matches: Array<{ path: string; text: string; before: string[]; after: string[] }> }): string {
+    return result.matches.map((match) => [match.path, match.text, ...match.before, ...match.after].join('\n')).join('\n');
+}
+
+async function expectHomeKept(home: MachineHome): Promise<void> {
+    const result = await grepFiles(root, 'session', { policy: await home.policy() });
+    const paths = result.matches.map((match) => match.path);
+    expect(paths).toEqual(
+        expect.arrayContaining(['machine/scratch/notes.md', 'machine/chats/c1.visuals/page.html', 'machine/worktrees/w1/a.ts', 'src/notes.md'])
+    );
+    expect(everything(result)).not.toContain('secret');
+    expect(everything(result)).not.toContain('thread');
+    expect(everything(result)).not.toContain('local.key');
+}
 
 /* A hit and the line above it, each with an emoji across the 500th and 501st unit, where a line is cut. */
 async function longLines(): Promise<void> {
@@ -92,10 +123,37 @@ describe('grepFiles', () => {
         expect(result.matches.map((match) => [match.path, match.line])).toEqual([['src/session.ts', 3]]);
     });
 
-    test('a pattern ripgrep turns away is searched without it, never answered with nothing', async () => {
-        // `[^]` is any character to JavaScript and an unclosed class to ripgrep.
-        const result = await grepFiles(root, 'sess[^]on', { regex: true });
-        expect(result.matches.map((match) => match.path).sort()).toEqual(['src/notes.md', 'src/session.ts']);
+    test('a home below the folder searched gives nothing of its own state, and its open folders still answer', async () => {
+        await expectHomeKept(await homeInside());
+    });
+
+    test('a link in the folder searched leads nowhere into the home', async () => {
+        const home = await homeInside();
+        const elsewhere = await mkdtemp(join(tmpdir(), 'ruimte-grep-project-'));
+        try {
+            await writeFile(join(elsewhere, 'own.md'), 'session own\n');
+            await symlink(join(root, 'machine'), join(elsewhere, 'state'));
+            await symlink(join(root, 'machine', 'local.key'), join(elsewhere, 'key.md'));
+            const result = await grepFiles(elsewhere, 'session', { policy: await home.policy() });
+            expect(result.matches.map((match) => match.path)).toEqual(['own.md']);
+        } finally {
+            await rm(elsewhere, { recursive: true, force: true });
+        }
+    });
+
+    test.skipIf(Bun.which('rg') === null)('a pattern ripgrep turns away is refused, never searched another way', async () => {
+        // `\8` is a backreference ripgrep refuses and JavaScript reads as a literal.
+        await expect(grepFiles(root, 'session|\\8', { regex: true })).rejects.toThrow(GrepError);
+    });
+
+    test.skipIf(Bun.which('rg') === null)('reads the lines after the last hit of a file and no further', async () => {
+        await writeFile(join(root, 'src', 'many.txt'), Array.from({ length: 5000 }, (_, index) => `needle ${index + 1}`).join('\n'));
+        const result = await grepFiles(root, 'needle', { limit: 2 });
+        expect(result.truncated).toBe(true);
+        expect(result.matches.map((match) => [match.line, match.after])).toEqual([
+            [1, ['needle 2', 'needle 3']],
+            [2, ['needle 3', 'needle 4']]
+        ]);
     });
 });
 
@@ -128,9 +186,49 @@ describe('grepFiles without ripgrep', () => {
     });
 
     test('a search that runs out of time says so rather than hold the machine', async () => {
-        let clock = 0;
-        const result = await grepFiles(root, 'e', { now: () => (clock += 20_000) });
+        const result = await grepFiles(root, 'e', {
+            budget: (stop) => {
+                stop();
+                return () => undefined;
+            }
+        });
         expect(result).toEqual({ matches: [], files: 0, truncated: true });
+    });
+
+    test('a pattern that backtracks without end is stopped and the machine keeps answering', async () => {
+        await writeFile(join(root, 'src', 'trap.txt'), `${'a'.repeat(48)}b\n`);
+        const result = await grepFiles(root, '^(a+)+$', {
+            regex: true,
+            // The callback only runs while the daemon's own thread is free.
+            budget: (stop) => {
+                const timer = setTimeout(stop, 0);
+                return () => clearTimeout(timer);
+            }
+        });
+        expect(result).toEqual({ matches: [], files: 0, truncated: true });
+    });
+
+    test('never follows a link, to a file or to a folder', async () => {
+        const secrets = await mkdtemp(join(tmpdir(), 'ruimte-grep-secret-'));
+        try {
+            await writeFile(join(secrets, 'key.txt'), 'session secret\n');
+            await symlink(join(secrets, 'key.txt'), join(root, 'src', 'link.txt'));
+            await symlink(secrets, join(root, 'linked'));
+            const result = await grepFiles(root, 'secret');
+            expect(result.matches).toEqual([]);
+        } finally {
+            await rm(secrets, { recursive: true, force: true });
+        }
+    });
+
+    test('a home below the folder searched gives nothing of its own state, and its open folders still answer', async () => {
+        await expectHomeKept(await homeInside());
+    });
+
+    test('a whole word is whole in every script', async () => {
+        await writeFile(join(root, 'src', 'cafe.md'), ['caféteria', 'een café', ''].join('\n'));
+        const result = await grepFiles(root, 'café', { wholeWord: true });
+        expect(result.matches.map((match) => match.text)).toEqual(['een café']);
     });
 
     test('cuts a long line between two characters', async () => {
