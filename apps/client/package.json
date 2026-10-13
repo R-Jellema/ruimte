@@ -22,7 +22,7 @@
         "@adecore/plan": "0.23.1",
         "@adecore/terminal": "0.23.1",
         "@adecore/ui": "0.23.1",
-        "@base-ui-components/react": "^1.0.0-rc.0",
+        "@base-ui/react": "^1.9.0",
         "@codemirror/commands": "^6.11.1",
         "@codemirror/language": "^6.12.4",
         "@codemirror/state": "^6.7.6",

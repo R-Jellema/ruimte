@@ -154,7 +154,7 @@ export default defineConfig(({ mode }) => ({
             'react-dom',
             'i18next',
             'react-i18next',
-            '@base-ui-components/react',
+            '@base-ui/react',
             '@codemirror/state',
             '@codemirror/view',
             '@codemirror/language',
@@ -171,7 +171,7 @@ export default defineConfig(({ mode }) => ({
     optimizeDeps: {
         // Source exports in the shared React packages are TSX and can import CommonJS dependencies.
         extensions: ['.tsx'],
-        include: ['@base-ui-components/react/menu', '@base-ui-components/react/dialog', 'lucide-react', 'clsx']
+        include: ['@base-ui/react/menu', '@base-ui/react/dialog', 'lucide-react', 'clsx']
     },
     server: {
         port,

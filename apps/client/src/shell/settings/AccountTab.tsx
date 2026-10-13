@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Tabs } from '@base-ui-components/react/tabs';
+import { Tabs } from '@base-ui/react/tabs';
 import { useTranslation } from 'react-i18next';
 import { usePulsarAccount } from '@/pulsar/account';
 import { accountName } from '@/pulsar/account-name';
