@@ -166,7 +166,7 @@ function opened(): Record<string, unknown>[] {
 
 describe('ruimte-context database', () => {
     test('lists the connections with where they point and what agents may do, never a password', async () => {
-        await access.set('p1', 'local', 'write');
+        await agents.setAccess('p1', 'local', 'write', 'client-1', true);
         const lines = await run(['list']);
         expect(lines).toEqual([
             'shop\tShop\tmysql\troot@127.0.0.1:3306/shop\tread',
@@ -254,7 +254,7 @@ describe('ruimte-context database', () => {
                 : undefined;
         const sql = ['execute', 'local', '--sql', 'UPDATE orders SET total = 0 WHERE id = 1; SELECT id FROM orders'];
         expect((await run(sql))[0]).toStartWith('refused\tdatabase-write-off\tAgents may only read Local;');
-        await access.set('p1', 'local', 'write');
+        await agents.setAccess('p1', 'local', 'write', 'client-1', true);
         mode = 'supervised';
         expect((await run(sql))[0]).toStartWith('refused\tdatabase-write-mode\tYou run in supervised');
         expect(opened()).toEqual([]);
@@ -274,7 +274,7 @@ describe('ruimte-context database', () => {
     });
 
     test('a statement that fails ends execute with its code and what ran before it', async () => {
-        await access.set('p1', 'local', 'write');
+        await agents.setAccess('p1', 'local', 'write', 'client-1', true);
         script = (method) =>
             method === 'execute'
                 ? {
@@ -303,7 +303,7 @@ describe('ruimte-context database', () => {
     });
 
     test('a connection a person turned off refuses every action, and a file outside the project is never opened', async () => {
-        await access.set('p1', 'shop', 'off');
+        await agents.setAccess('p1', 'shop', 'off', 'client-1', true);
         expect((await run(['tables', 'shop']))[0]).toStartWith('refused\tdatabase-access-off\tA person turned Shop off for agents');
         expect((await run(['query', 'away', '--sql', 'SELECT 1']))[0]).toStartWith('refused\tdatabase-outside-project\t');
         expect((await run(['describe', 'linked', 'orders']))[0]).toStartWith('refused\tdatabase-outside-project\t');
@@ -435,9 +435,9 @@ describe('ruimte-context database', () => {
 describe('UI database access', () => {
     const place = () => ({ projectId: 'p1', folder });
     test('an originally denied connection stays denied after a later grant', async () => {
-        await access.set('p1', 'local', 'off');
+        await agents.setAccess('p1', 'local', 'off', 'client-1', true);
         const grants = await agents.captureUiAccess(place());
-        await access.set('p1', 'local', 'read');
+        await agents.setAccess('p1', 'local', 'read', 'client-1', true);
         await expect(agents.authorizeUiRead(place(), 'local', grants)).rejects.toThrow('not readable');
     });
     test('a changed target or a connection added later cannot use the captured rights', async () => {
@@ -465,9 +465,9 @@ describe('UI database access', () => {
     });
     test('the read itself rechecks its captured target and current access', async () => {
         const grants = await agents.captureUiAccess(place());
-        await access.set('p1', 'local', 'off');
+        await agents.setAccess('p1', 'local', 'off', 'client-1', true);
         await expect(agents.query(place(), 'chat-1', 'local', 'SELECT 1', { schema: null, limit: 1, uiAccess: grants })).rejects.toThrow('off');
-        await access.set('p1', 'local', 'read');
+        await agents.setAccess('p1', 'local', 'read', 'client-1', true);
         await expect(agents.query(place(), 'chat-1', 'local', 'SELECT 1', { schema: null, limit: 1, uiAccess: [] })).rejects.toThrow('not readable');
     });
     test('an aborted UI read never opens a helper session', async () => {
@@ -475,6 +475,88 @@ describe('UI database access', () => {
         controller.abort();
         await expect(agents.query(place(), 'chat-1', 'local', 'SELECT 1', { schema: null, limit: 1, signal: controller.signal })).rejects.toThrow('stopped');
         expect(helper.written).toEqual([]);
+    });
+});
+
+describe('a write grant follows where the connection points', () => {
+    const write = ['execute', 'local', '--sql', 'DELETE FROM orders'];
+
+    function point(id: string, config: Record<string, unknown>): void {
+        const index = connections.findIndex((connection) => connection.id === id);
+        connections[index] = { ...connections[index]!, config: { ...connections[index]!.config, ...config } as DatabaseConnection['config'] };
+    }
+
+    async function levelOf(id: string): Promise<string> {
+        return agents.levelOf(
+            'p1',
+            connections.find((connection) => connection.id === id)!
+        );
+    }
+
+    test('a SQLite file pointed elsewhere in the project loses the grant, also once pointed back', async () => {
+        await writeFile(join(folder, 'data', 'other.sqlite'), '');
+        await agents.setAccess('p1', 'local', 'write', 'client-1', true);
+        point('local', { path: join(folder, 'data', 'other.sqlite') });
+        expect((await run(write))[0]).toStartWith('refused\tdatabase-write-off\t');
+        expect(opened()).toEqual([]);
+        expect(await agents.accessFor('p1', 'client-1')).toEqual({ access: {} });
+
+        await agents.connectionsChanged('p1', connections);
+        point('local', { path: join(folder, 'data', 'local.sqlite') });
+        await agents.connectionsChanged('p1', connections);
+        expect((await run(write))[0]).toStartWith('refused\tdatabase-write-off\t');
+    });
+
+    test('a link whose file changes under the same path loses the grant', async () => {
+        await writeFile(join(folder, 'data', 'other.sqlite'), '');
+        await symlink(join(folder, 'data', 'local.sqlite'), join(folder, 'data', 'current.sqlite'));
+        point('local', { path: join(folder, 'data', 'current.sqlite') });
+        await agents.setAccess('p1', 'local', 'write', 'client-1', true);
+        expect(await levelOf('local')).toBe('write');
+        await rm(join(folder, 'data', 'current.sqlite'));
+        await symlink(join(folder, 'data', 'other.sqlite'), join(folder, 'data', 'current.sqlite'));
+        expect(await levelOf('local')).toBe('read');
+    });
+
+    test('a server loses the grant with another host, port, user, tunnel or database, and keeps it with a new password', async () => {
+        await agents.setAccess('p1', 'shop', 'write', 'client-1', true);
+        expect(await levelOf('shop')).toBe('write');
+        point('shop', { password: 'another' });
+        expect(await levelOf('shop')).toBe('write');
+        const changes: Record<string, unknown>[] = [
+            { host: 'db.example' },
+            { port: 3307 },
+            { user: 'admin' },
+            { tunnel: { kind: 'ssh', host: 'jump.example', user: 'me' } },
+            { database: 'other' }
+        ];
+        for (const change of changes) {
+            const before = connections[0]!;
+            point('shop', change);
+            expect(await levelOf('shop')).toBe('read');
+            connections[0] = before;
+            expect(await levelOf('shop')).toBe('write');
+        }
+    });
+
+    test('a connection removed and made again under the same id does not get its grant back', async () => {
+        await agents.setAccess('p1', 'local', 'write', 'client-1', true);
+        const heard: unknown[] = [];
+        agents.subscribe('client-1', (event) => heard.push(event));
+        const local = connections.splice(1, 1)[0]!;
+        await agents.connectionsChanged('p1', connections);
+        expect(heard).toEqual([{ event: 'database.agentAccess.changed', payload: { projectId: 'p1', access: {} } }]);
+        connections.splice(1, 0, local);
+        await agents.connectionsChanged('p1', connections);
+        expect(heard).toHaveLength(1);
+        expect(await levelOf('local')).toBe('read');
+        expect((await run(write))[0]).toStartWith('refused\tdatabase-write-off\t');
+    });
+
+    test('a write is granted only for a connection the project has, and only by the local secret', async () => {
+        await expect(agents.setAccess('p1', 'gone', 'write', 'client-1', true)).rejects.toThrow('no database connection gone');
+        await expect(agents.setAccess('p1', 'local', 'write', 'client-1', false)).rejects.toThrow('Only a person on this machine');
+        expect(await agents.setAccess('p1', 'gone', 'off', 'client-1', false)).toEqual({ access: {} });
     });
 });
 

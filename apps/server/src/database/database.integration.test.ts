@@ -46,7 +46,7 @@ async function agentDatabases(service: DatabaseService, home: string, connection
         passwords,
         scratchFolder: join(home, 'scratch')
     });
-    return { agents, access };
+    return { agents };
 }
 
 /* The code an agent's call is refused with, or null when it went through. */
@@ -155,7 +155,7 @@ describe.skipIf(databaseHelperPath() === null)('the database helper on SQLite', 
         );
         await service.release('client-9');
         const place: DatabasePlace = { projectId: 'p1', folder: project };
-        const { agents, access } = await agentDatabases(service, home, [{ id: 'shop', name: 'Shop', shared: false, config: { engine: 'sqlite', path: file } }]);
+        const { agents } = await agentDatabases(service, home, [{ id: 'shop', name: 'Shop', shared: false, config: { engine: 'sqlite', path: file } }]);
 
         const query = await agents.query(place, 'chat-1', 'shop', 'SELECT id, total FROM orders WHERE total > 1000 ORDER BY id DESC', {
             schema: null,
@@ -172,7 +172,7 @@ describe.skipIf(databaseHelperPath() === null)('the database helper on SQLite', 
         expect(await refusedWith(agents.execute(place, 'chat-1', 'shop', 'DELETE FROM orders', null))).toBe('database-write-off');
         expect((await agents.query(place, 'chat-1', 'shop', 'SELECT COUNT(*) AS n FROM orders', { schema: null, limit: 1 })).result.rows).toEqual([[4]]);
 
-        await access.set('p1', 'shop', 'write');
+        await agents.setAccess('p1', 'shop', 'write', 'client-1', true);
         const executed = await agents.execute(place, 'chat-1', 'shop', 'DELETE FROM orders WHERE total < 1000; SELECT COUNT(*) AS n FROM orders', null);
         expect(executed.results.map((result) => result.kind)).toEqual(['done', 'rows']);
         expect(executed.results[0]).toMatchObject({ affected: 2 });
@@ -247,7 +247,7 @@ describe.skipIf(!MYSQL_URL || databaseHelperPath() === null)('the database helpe
         const home = join(root, 'agent-home');
         const config = { engine: 'mysql' as const, host: url.hostname, port: Number(url.port || 3306), user: account.user, database };
         const place: DatabasePlace = { projectId: 'p1', folder: root };
-        const { agents, access } = await agentDatabases(service, home, [{ id: 'db', name: 'Test database', shared: true, config }]);
+        const { agents } = await agentDatabases(service, home, [{ id: 'db', name: 'Test database', shared: true, config }]);
 
         if (account.password !== '') {
             expect(await refusedWith(agents.tables(place, 'chat-1', 'db', null))).toBe('database-locked');
@@ -271,7 +271,7 @@ describe.skipIf(!MYSQL_URL || databaseHelperPath() === null)('the database helpe
         const own = `${table}_agent`;
         expect(await refusedWith(agents.execute(place, 'chat-1', 'db', `CREATE TABLE \`${own}\` (id INT PRIMARY KEY)`, null))).toBe('database-write-off');
 
-        await access.set('p1', 'db', 'write');
+        await agents.setAccess('p1', 'db', 'write', 'client-1', true);
         try {
             const executed = await agents.execute(
                 place,

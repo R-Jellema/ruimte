@@ -410,7 +410,8 @@ export class AgentDatabases {
         if (connection.config.engine !== 'sqlite') {
             return this.uiTarget(connection);
         }
-        const file = await realpath(connection.config.path).catch(() => connection.config.path);
+        const { path } = connection.config;
+        const file = await realpath(path).catch(() => path);
         return this.uiTarget({ ...connection, config: { ...connection.config, path: file } });
     }
 

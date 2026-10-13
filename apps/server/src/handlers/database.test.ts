@@ -88,6 +88,8 @@ describe('database handlers', () => {
     });
 
     test('agents read by default, and only the local secret lets them write', async () => {
+        const shop = { id: 'shop', name: 'Shop', config: { engine: 'mysql' as const, host: '127.0.0.1', user: 'root' }, shared: false };
+        await call('client-1', 'database.connections.save', { projectId: 'p1', baseRev: 0, connections: [shop] }, OWNER);
         expect(await call('client-2', 'database.agentAccess', { projectId: 'p1' }, GUEST)).toMatchObject({ ok: true, result: { access: {} } });
         expect(await call('client-2', 'database.agentAccess.set', { projectId: 'p1', connectionId: 'shop', access: 'off' }, GUEST)).toMatchObject({
             ok: true,
