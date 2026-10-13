@@ -1,1532 +1,209 @@
-import { projectTerminalPrepareHost, registerTerminalPrepareHandlers } from './handlers/terminal-prepare.ts';
-import { PrepareTerminal, shellSyntax } from './sessions/prepare-terminal.ts';
-import { prepareShellIntegration } from './sessions/shell-integration.ts';
-import { PushService } from './push/service.ts';
-import { registerPushHandlers } from './handlers/push.ts';
-import { SnoozeStore } from './push/snoozes.ts';
-import { AfterSettleLaunches, AfterSettleStore } from './launches/after-settle.ts';
-import { toplevel } from './git/run.ts';
-import { PrWatchStore } from './github/pr-watch.ts';
-import { runGh } from './git/github.ts';
-import { registerSnoozeHandlers } from './handlers/snooze.ts';
-import { dirname, join, resolve } from 'node:path';
-import { userInfo } from 'node:os';
-import type { ServerWebSocket } from 'bun';
-import { answerRoute, type Route } from './http-routes.ts';
-import {
-    isIdle,
-    MACHINE_HEALTH_PATH,
-    MACHINE_PROOF_PATH,
-    MACHINE_STATUS_PATH,
-    MACHINE_WORK_PATH,
-    PROTOCOL_PARAM,
-    PROTOCOL_REFUSED_CLOSE_CODE,
-    acceptsOfferedProtocol,
-    protocolRefusalReason,
-    type AgentKind,
-    type DiagramContent,
-    type HealthResult,
-    type MachineStatus,
-    type MachineWork,
-    type RuntimeMode,
-    type VisualAppearance,
-    type VisualHeight,
-    type VisualLayout
-} from '@ruimte/contracts';
-import { AgentStore } from './agents/agent-store.ts';
-import { ClaudeTitleReader, suggestChatTitle, AttachmentStore, ChatStore, BookmarkStore, VisualStore, nodeSessionFs } from '@adecore/agents/chat';
-import { CodexTitleReader } from './agents/codex-title.ts';
-import {
-    AgentLineageStore,
-    restartBackgroundLimits,
-    TaskStore,
-    chatNoticeTargets,
-    showNotices,
-    NoticeNotes,
-    unshownNotes,
-    NoticeStore,
-    type Notice,
-    chatRequests
-} from '@adecore/agents/coordination';
-import { PendingPromptStore } from './agents/pending-prompts.ts';
-import { OutboxStore } from './outbox/outbox.ts';
-import { nodeAccount, nodeMode, startAgentWork } from './outbox/start-agent.ts';
-import { OutboxLink, wireOutbox } from './outbox/wiring.ts';
-import { registerTaskHandlers } from './handlers/tasks.ts';
-import { registerPlanHandlers } from './handlers/plan.ts';
-import { registerProvenanceHandlers } from './handlers/provenance.ts';
-import { isPlanFileName, PlanStore } from './plans/plan-store.ts';
-import { provenanceChat } from './provenance/chat-facts.ts';
-import { ProvenanceService } from './provenance/provenance-service.ts';
-import type { AgentStart, WorktreeWant } from './canvas/verb.ts';
-import { addWanted } from './canvas/worktree.ts';
-import { SOCKET_BACKPRESSURE_LIMIT } from './backpressure.ts';
-import { connectionOpener, socketChannel, type ClientChannel, type OpenConnection, type SocketChannel } from './connection.ts';
-import { authenticateChannel } from './pulsar/channel-auth.ts';
-import { AUTHENTICATED_FRAME_CHARS } from './pulsar/data-channel.ts';
-import { BrokerRelay } from './pulsar/broker-relay.ts';
-import { BrokerSwitch } from './pulsar/broker-switch.ts';
-import { lanAddresses } from './pulsar/lan-addresses.ts';
-import { LanDoor } from './pulsar/lan-door.ts';
-import { SignalGate } from './pulsar/signal-gate.ts';
-import { StatementGate, TEST_STATEMENT_KEY_VARIABLE, trustedStatementKeys } from './pulsar/statement.ts';
-import { DirectPeers } from './pulsar/peers.ts';
+import { dirname, resolve } from 'node:path';
 import { greetingLines } from './cli/greeting.ts';
-import { guardWeriftTurn } from './pulsar/turn-guard.ts';
-import { registerDirectHandlers } from './handlers/direct.ts';
-import { crossOriginHeaders, decideAccess, handleLocalTicketRequest, isOwner, preflightHeaders, reachabilityOf, withHeaders } from './auth/access.ts';
-import { handleLocalProofRequest } from './auth/local-proof.ts';
-import { readOrCreateLocalSecret } from './auth/local-secret.ts';
-import { MachineAccountError, signForAccount, signLinkRequest } from './auth/registration.ts';
-import { AccountSchema } from '@ruimte/pulsar';
-import { z } from 'zod';
-import { AuthStore } from './auth/auth-store.ts';
-import { Handshake } from './auth/handshake.ts';
-import type { Relay } from './auth/relay.ts';
-import { HOOKS_PATH, handleHookRequest } from './agents/hook-receiver.ts';
-import { HOOK_EVENTS } from './agents/hooks.ts';
-import { StartClaims } from './actions/start-claims.ts';
-import { AgentIntegrations } from './agents/integrations.ts';
-import { ATTACHMENTS_PATH, handleAttachmentRequest } from './chat/attachment-route.ts';
-import { CANVAS_PATH, CANVAS_REQUEST_TIMEOUT_S, handleCanvasRequest } from './canvas/canvas-route.ts';
-import { ChatManager } from './chat/chat-manager.ts';
-import { hookContext } from './context/context-note.ts';
-import { handleContextRequest } from './context/context-route.ts';
-import { CONTEXT_PATH, ContextStore } from './context/context-store.ts';
-import { deliverNotice, MESSAGE_WORDS, renderNotice } from './context/notices.ts';
-import { childLauncher, previewVisual, renderCommand, VisualRenderer } from './visuals/renderer.ts';
 import type { ServerConfig } from './config.ts';
-import { Dispatcher, type ClientAccess } from './dispatcher.ts';
-import { readOrCreateEndpointIdentity } from './endpoint-id.ts';
-import { SelfUpdater, buildFileOf, readBuildFile } from './service/self-update.ts';
-import { childCounter, workOf } from './service/work.ts';
-import { KeepAwake, agentsWorking } from './power/keep-awake.ts';
-import { ClosedLid } from './power/closed-lid.ts';
-import { macClosedLidSystem } from './power/closed-lid-system.ts';
-import { MachineUpdates, workEndedByInstall } from './power/machine-update.ts';
-import { BUILD, COMPILED as compiled, VERSION } from './version.ts';
-import { PAIRING_REMOVED, registerAuthHandlers } from './handlers/auth.ts';
-import { registerChatHandlers } from './handlers/chat.ts';
-import { registerChatImageHandlers } from './handlers/chat-image.ts';
-import { registerChatSearchHandlers } from './handlers/chat-search.ts';
-import { ExternalChatSessions, ownSessionSources } from './chat/external.ts';
-import { chatsLocatedIn, chatsOfViews, ProjectChatSearch } from './chat/project-search.ts';
-import { ChatImageFiles } from './chat/image-files.ts';
-import { continueOn } from './chat/continue-on.ts';
-import { chatForkDeps, forkChat, readForkInfo } from './chat/fork.ts';
-import { withForkOrigin } from './context/fork-origin.ts';
-import { openedChildSource } from './context/opened-child.ts';
-import { referencedChats } from './context/chat-references.ts';
-import { FS_FILE_PATH, handleFsFileRequest } from './fs/file-route.ts';
-import { MachineHome } from './fs/machine-home.ts';
-import { FolderWatcher } from './fs/watch.ts';
-import { SharedWatch } from './fs/shared-watch.ts';
-import { registerBytesHandlers } from './handlers/bytes.ts';
-import { registerFsHandlers } from './handlers/fs.ts';
-import { readServedFile } from './fs/read.ts';
-import { registerGitHandlers } from './handlers/git.ts';
-import { registerDiagramHandlers } from './handlers/diagram.ts';
-import { registerDatabaseHandlers } from './handlers/database.ts';
-import { DatabaseConnectionStore, hasDatabaseConnections } from './database/connection-store.ts';
-import { DatabaseService } from './database/database-service.ts';
-import { DatabaseAccessStore } from './database/agent-access.ts';
-import { AgentDatabases } from './database/agent-databases.ts';
-import { DatabasePasswords } from './database/agent-passwords.ts';
-import { SchemaSnapshots } from './database/schema-snapshots.ts';
-import { SqlAnalysis } from './database/sql-analysis.ts';
-import { registerLaunchHandlers } from './handlers/launches.ts';
-import { registerLanguageHandlers } from './handlers/language.ts';
-import { registerOnDeviceHandlers } from './handlers/ondevice.ts';
-import { OnDeviceModel } from './ondevice/model.ts';
-import { AgentLanguage } from './language/agent-language.ts';
-import { LanguageHost } from './language/host.ts';
-import { NativePolicy, phpLanguageServerCheckout, sqlLanguageServerCheckout } from './language/native.ts';
-import { ruimteUiSources } from './chat/ui-sources.ts';
-import { readLog } from './git/log.ts';
-import { agentLaunches } from './launches/agent-host.ts';
-import { LaunchRunner } from './launches/runner.ts';
-import { managerSessions } from './launches/sessions.ts';
-import { LaunchStore } from './launches/store.ts';
-import { registerDrawingHandlers } from './handlers/drawing.ts';
-import { registerProjectHandlers } from './handlers/project.ts';
-import { registerServerHandlers } from './handlers/server.ts';
-import { readMachineModel } from './machine-model.ts';
-import { registerSessionHandlers } from './handlers/session.ts';
-import { registerProcessHandlers } from './handlers/processes.ts';
-import { registerUsageHandlers } from './handlers/usage.ts';
-import { registerProviderAccountHandlers } from './handlers/accounts.ts';
-import { registerComputerHandlers } from './handlers/computer.ts';
-import { registerSecretHandlers } from './handlers/secrets.ts';
-import { SecretService } from './secrets/secret-service.ts';
-import { SecretStore } from './secrets/secret-store.ts';
-import { ComputerUse } from './computer/computer-use.ts';
-import { ComputerHelper, locateHelperApp } from './computer/helper.ts';
-import { ComputerUseStore } from './computer/store.ts';
-import { Checkpoints } from './git/checkpoints.ts';
-import { GitStatusWatcher } from './git/status-watcher.ts';
-import { worktreeAgents } from './git/worktree-agents.ts';
-import { worktreeHost } from './git/worktree-host.ts';
-import { agentStates } from './agents/agent-state.ts';
-import { WorktreeMerge } from './git/worktree-merge.ts';
-import { Worktrees } from './git/worktrees.ts';
-import { foregroundGroup, holdsForeground } from './processes/foreground.ts';
-import { ProcessMonitor } from './processes/monitor.ts';
-import { createSampler } from './processes/sampler.ts';
-import { DarwinListenerProbe } from './processes/listeners.ts';
-import { SessionPorts } from './sessions/ports.ts';
-import { registerSessionPortHandlers } from './handlers/session-ports.ts';
-import { handleProjectRequest, PROJECTS_PATH } from './projects/icon-route.ts';
-import { DiagramStore } from './projects/diagram-store.ts';
-import { DrawingStore } from './projects/drawing-store.ts';
-import { isTrackedPath } from './git/ignore.ts';
-import { ProjectStore } from './projects/project-store.ts';
-import { openedAgentCount } from './agents/hidden-agents.ts';
-import { dropEmptyMark } from './projects/scratch-project.ts';
-import { probeCodexNoDaemon, takesNoteOnLine } from './providers/launch.ts';
-import { ModelCatalogFeed } from './providers/model-catalogs.ts';
-import { ProviderRegistry } from './providers/registry.ts';
-import { ProviderAccountsService } from '@adecore/agents/providers';
-import { BunPtyAdapter } from './pty/bun-pty.ts';
-import { SessionError, SessionManager } from './sessions/manager.ts';
-import { CommandApprovals, commandsSet } from './sessions/command-approvals.ts';
-import { ModeApprovals, modesSet, personModeOf } from './sessions/mode-approvals.ts';
-import { checkCwd, startCwdGuard } from './canvas/project-paths.ts';
-import { SnapshotStore, scheduleSnapshots } from './sessions/snapshot-store.ts';
-import { limitAccountsOf, usageAccountsOf, usageRootsOf, UsageMonitor, UsageService } from '@adecore/agents/usage';
-import { sessionAccountsOf } from './usage/session-accounts.ts';
-import { RUIMTE_ACCOUNTS_HOST } from './providers/accounts-host.ts';
-import { RUIMTE_CODEX_CLIENT } from './providers/codex-provider.ts';
+import { CONTEXT_PATH } from './context/context-store.ts';
+import { Dispatcher } from './dispatcher.ts';
 import { errorText } from './error-text.ts';
-import { BrowserDriver } from './browser/drive.ts';
-import { BrowserManager } from './browser/manager.ts';
-import { BrowserPages } from './browser/pages.ts';
-import { registerBrowserHandlers } from './handlers/browser.ts';
-import { handleLiveStreamRequest, LIVE_STREAM_PATH } from './streams/http-stream.ts';
-import { DeviceManager } from './devices/manager.ts';
-import { DeviceDriver } from './devices/agent-driver.ts';
-import { DeviceControl } from './devices/control.ts';
-import { IosPhysicalBackend } from './devices/ios-physical.ts';
-import { IosSimulatorBackend } from './devices/ios-simulator.ts';
-import { createDeviceHelperLauncher } from './devices/helper-source.ts';
-import { createPhysicalStreamSourceFactory, physicalStreamHelperPath } from './devices/physical-stream-source.ts';
-import { createTreeLauncher, SimulatorTreeReader } from './devices/simulator-tree.ts';
-import { AndroidBackend } from './devices/android.ts';
-import { ScrcpyServerFile, scrcpyServerDirectory } from './devices/scrcpy-server.ts';
-import { adbScrcpyHost, ScrcpySource } from './devices/scrcpy-source.ts';
-import { registerDeviceControlHandlers, registerDeviceHandlers } from './handlers/device.ts';
-import { LiveStreamHub } from './streams/live-stream.ts';
+import { HOOKS_PATH } from './agents/hook-receiver.ts';
+import { dropEmptyMark } from './projects/scratch-project.ts';
+import { probeCodexNoDaemon } from './providers/launch.ts';
+import { COMPILED as compiled, VERSION } from './version.ts';
+import { loadAgentStores, wireAgents } from './wiring/agents.ts';
+import { wireAgentWork } from './wiring/agent-work.ts';
+import { wireCanvasHost } from './wiring/canvas-host.ts';
+import { wireClients } from './wiring/clients.ts';
+import { wireDatabases } from './wiring/databases.ts';
+import { createComputer, wireDevices } from './wiring/devices.ts';
+import { wireGit } from './wiring/git.ts';
+import { registerEditorHandlers, registerHandlers } from './wiring/handlers.ts';
+import { serveDaemon } from './wiring/http.ts';
+import { wireLanguage } from './wiring/language.ts';
+import { wireLaunches } from './wiring/launches.ts';
+import { wireMachine } from './wiring/machine.ts';
+import { wireNetwork } from './wiring/network.ts';
+import { wirePower } from './wiring/power.ts';
+import { wireProjects } from './wiring/projects.ts';
+import { wireProviders } from './wiring/providers.ts';
+import { wirePush } from './wiring/push.ts';
+import type { DaemonRuntime } from './wiring/runtime.ts';
+import { wireProcesses } from './wiring/processes.ts';
+import { wireUsage } from './wiring/usage.ts';
 
-// What `ruimte login` has the machine sign; local secret only, like the work.
-const MACHINE_LINK_PATH = '/machine/link-request';
-const MACHINE_REGISTRATION_PATH = '/machine/registration';
-// What `ruimte logout` asks: the machine leaves its account, as `endpoint.leaveAccount` does for the app.
-const MACHINE_LEAVE_ACCOUNT_PATH = '/machine/leave-account';
-// Where a client of before account-only paired and signed for a ticket over HTTP; each answers that pairing links are gone.
-const LEGACY_PAIRING_PATHS = ['/auth/pair', '/auth/pairing-token', '/auth/challenge', '/auth/ticket'];
-const RegistrationRequestSchema = z.object({ accountId: AccountSchema.shape.id });
-
-// Past anything a hook or a verb sends, a visual of 16 MiB with its JSON escaping included, and the ceiling on what an unauthenticated request can make the daemon buffer.
-const MAX_REQUEST_BODY_BYTES = 24 * 1024 * 1024;
-
-/* Runs the daemon until a signal ends the process. */
+/*
+ * Runs the daemon until a signal ends the process. The wiring modules are called in boot order; a
+ * module that needs one wired after it reaches it through `later`, which only runs once the daemon
+ * is up, and a call before then throws instead of answering for a service that is not there.
+ */
 export async function startDaemon(config: ServerConfig): Promise<void> {
-    // `ruimte-context` lives next to the binary, or next to the source in dev; it goes on the PATH of every shell and chat.
-    const binDir = compiled ? dirname(process.execPath) : resolve(import.meta.dir, '..', 'bin');
-    const contextUrl = `http://127.0.0.1:${config.port}${CONTEXT_PATH}`;
+    const runtime: DaemonRuntime = {
+        config,
+        compiled,
+        sourceDir: import.meta.dir,
+        // `ruimte-context` lives next to the binary, or next to the source in dev.
+        binDir: compiled ? dirname(process.execPath) : resolve(import.meta.dir, '..', 'bin'),
+        contextUrl: `http://127.0.0.1:${config.port}${CONTEXT_PATH}`
+    };
+    const { home } = config;
 
-    // Runs while the stores load; it never rejects, and the managers below await it before any launch.
+    // Runs while the stores load; it never rejects, and the managers await it before any launch.
     const codexProbe = probeCodexNoDaemon();
-    // `--label` and `RUIMTE_LABEL` are the name a machine nobody has named yet answers to; a name
-    // typed in a client wins over both, or renaming from another machine would not survive a restart.
-    const [identity, localSecret] = await Promise.all([readOrCreateEndpointIdentity(config.home, config.label), readOrCreateLocalSecret(config.home)]);
-    const auth = new AuthStore(config.home);
-    const handshake = new Handshake(auth, identity);
-    const access = { localSecret, tickets: handshake };
-
-    const snapshots = new SnapshotStore(config.home);
-    // Loaded before anything can take one: a node made just before a restart still starts on its prompt.
-    const prompts = new PendingPromptStore(config.home);
-    // The same for the chain of agents that opened agents: a restart must not start the count over.
-    const lineage = new AgentLineageStore(config.home);
-    // And for the messages one node left for another: they outlive the CLI they are waiting for.
-    const notices = new NoticeStore(config.home);
-    // And for the agents a verb made that the daemon still has to start.
-    const outbox = new OutboxStore(config.home);
-    // And for the tasks a chat gave, whose results still have to wake it.
-    const tasks = new TaskStore(config.home);
-    // And for the commands a person let a terminal type, which a node's first start asks about.
-    const commandApprovals = new CommandApprovals(config.home);
-    // And for the mode a person gave each terminal agent, which an edit of the project file cannot widen.
-    const modeApprovals = new ModeApprovals(config.home);
-    // And for whether agents may operate this machine's apps, and which ones a person let them into for good.
-    const computerStore = new ComputerUseStore(config.home);
-    // Each store reads a file of its own, so they load side by side.
-    const [shellEnvironment] = await Promise.all([
-        prepareShellIntegration(config.home),
-        prompts.load(),
-        lineage.load(),
-        notices.load(),
-        outbox.load().then(() => restartBackgroundLimits(outbox, Date.now())),
-        tasks.load(),
-        commandApprovals.load(),
-        modeApprovals.load(),
-        computerStore.load()
-    ]);
-    const computer: ComputerUse = new ComputerUse({
-        home: config.home,
-        store: computerStore,
-        helper: new ComputerHelper({
-            home: config.home,
-            appPath: locateHelperApp({ platform: process.platform, compiled, execPath: process.execPath, sourceDir: import.meta.dir })
-        }),
-        // A grant for this time ends with the shell or the CLI conversation it was given to.
-        runOf: (id) => {
-            const session = manager.get(id);
-            if (session && !session.exited) {
-                return `terminal:${session.hookToken}`;
-            }
-            const chat = chats.get(id);
-            return chat ? `chat:${chat.info.agentSessionId ?? id}` : null;
-        },
-        describe: async (id) => {
-            const place = projects.index.locate(id);
-            const project = place === null ? undefined : (await projects.known()).find((known) => known.projectId === place.projectId);
-            return {
-                surface: manager.get(id) ? 'terminal' : 'chat',
-                nodeTitle: projects.index.titleFor(id),
-                projectId: place?.projectId ?? null,
-                projectName: project?.name ?? null
-            };
-        }
-    });
-    const folderOf = (nodeId: string): string | null => projects.index.locate(nodeId)?.folder ?? null;
-    const startCwd = startCwdGuard({
-        madeByAgent: (nodeId) => lineage.madeBy(nodeId) !== null,
-        folderOf,
-        worktreePaths: (folder) => canvasHost.worktreePaths(folder)
-    });
-    /* What a terminal's agent hears the moment it can: taken here, so whichever channel gets there first
-       is the only one that delivers it. */
-    const messagesFor = (targetId: string): string[] => notices.take(targetId).map(renderNotice);
-    const providers = new ProviderRegistry({ appleEnabled: () => identity.appleFoundationEnabled, onList: () => void modelCatalogs.refresh() });
-    const modelCatalogs = new ModelCatalogFeed({
-        home: config.home,
-        allowFetch: config.modelFetch,
-        catalogs: { claude: providers.catalogFor('claude'), codex: providers.catalogFor('codex') }
-    });
-    // What a person allowed in the CLIs' global settings; the accounts below ask it before they write anywhere.
-    const integrations = new AgentIntegrations({
-        home: config.home,
-        fixed: !config.installHooks,
-        accountHomes: (kind) =>
-            Object.entries(providerAccounts.snapshot().accounts)
-                .filter(([id, account]) => account.kind === kind && id !== kind && account.home !== undefined)
-                .map(([, account]) => account.home!)
-    });
-    await Promise.all([integrations.load(), modelCatalogs.load(), computer.start()]);
-    void modelCatalogs.refresh();
-    identity.attachAgentIntegrations({ describe: () => ({ agentIntegrations: integrations.summary() }) });
-    integrations.onChanged(() => identity.announce());
-    // Before the managers, which start every CLI under the account its node or chat names.
-    const providerAccounts = new ProviderAccountsService({
-        home: config.home,
-        host: RUIMTE_ACCOUNTS_HOST,
-        client: RUIMTE_CODEX_CLIENT,
-        providers,
-        install: (kind, folder) => integrations.installFolder(kind, folder)
-    });
-    await providerAccounts.load();
-    // One reader for chats and terminals, so a transcript both look at is only read on from where either stopped.
-    const claudeTitles = new ClaudeTitleReader();
-    const manager = new SessionManager({
-        adapter: new BunPtyAdapter(),
-        shellEnvironment,
-        snapshots,
-        agents: new AgentStore(config.home),
-        contextUrl,
-        binDir,
-        contextFor: (sessionId) => context.list(sessionId),
-        firstPrompt: (sessionId) => prompts.take(sessionId),
-        firstNotices: messagesFor,
-        depthOf: (sessionId) => lineage.depthOf(sessionId),
-        standalone: (sessionId) => projects.index.locate(sessionId)?.canvasId === null,
-        computerUse: () => computer.usable,
-        // A node no project places yet has no folder to approve against, so its command waits for the save that adds it.
-        commands: {
-            approved: (sessionId, command) => {
-                const folder = folderOf(sessionId);
-                return folder !== null && commandApprovals.has(folder, sessionId, command);
-            },
-            approve: async (sessionId, command) => {
-                const folder = folderOf(sessionId);
-                if (folder === null) {
-                    throw new SessionError('session-not-found', `No project this machine knows places ${sessionId}`);
-                }
-                await commandApprovals.approve(folder, sessionId, command);
-            }
-        },
-        modeCeiling: (sessionId) => lineage.ceilingOf(sessionId),
-        personMode: (sessionId) => {
-            const folder = folderOf(sessionId);
-            return personModeOf(folder === null ? null : modeApprovals.modeOf(folder, sessionId), chats.composerPreferences.terminalMode());
-        },
-        checkCwd: startCwd,
-        claudeTitles,
-        codexTitles: new CodexTitleReader(),
-        accounts: providerAccounts,
-        preferredAccount: (kind) => chats.composerPreferences.for(kind).account
-    });
-    const snapshotSchedule = scheduleSnapshots(manager, snapshots);
-    await codexProbe;
-    // A bearer token speaks for a terminal session or a chat, for reading context and for agent commands alike.
-    const targetForToken = (token: string): string | null => manager.sessionIdForToken(token) ?? chats.chatIdForToken(token);
-    const context: ContextStore = new ContextStore({
-        sources: (targetId) =>
-            withForkOrigin(targetId, projects.index.sourcesFor(targetId), {
-                forkedFrom: (id) => lineage.forkedFrom(id),
-                forksOf: (id) => lineage.forksOf(id),
-                locate: (id) => projects.index.locate(id),
-                titleFor: (id) => projects.index.titleFor(id)
-            }),
-        referenced: (targetId) => referencedChats(chats.get(targetId)?.thread.list() ?? [], (id) => projects.index.chatTitleBeside(targetId, id)),
-        opened: (targetId, sourceId) =>
-            openedChildSource(targetId, sourceId, { startedBy: (id) => lineage.startedBy(id), agentSource: (id) => projects.index.agentSource(id) }),
-        terminalText: (sessionId) => manager.get(sessionId)?.plainText() ?? Promise.resolve(null),
-        chatItems: (chatId) => chats.get(chatId)?.thread.list() ?? null,
-        browserPage: (browserId) => browserDriver.read(browserId),
-        devices: () => devices.list(),
-        chatPlans: (chatId) => plans.read(chatId),
-        subagentItems: (chatId, toolUseId) => chats.subagentItems(chatId, toolUseId),
-        drawingElements: (viewId) => drawings.elementsOf(viewId),
-        diagramDocument: async (targetId, viewId) => {
-            const place = projects.index.locate(targetId);
-            return place ? diagrams.read(place.projectId, viewId) : null;
-        },
-        canvasOf: (targetId) => projects.index.canvasOf(targetId)
-    });
-    const outboxLink = new OutboxLink({ outbox, projectOf: (id) => projects.index.locate(id)?.projectId ?? null });
-    const attachments = new AttachmentStore(config.home);
-    const checkpoints = new Checkpoints(config.home);
-    const plans = new PlanStore(config.home);
-    const bookmarks = new BookmarkStore(config.home);
-    const visuals = new VisualStore(config.home, attachments);
-    const chats: ChatManager = new ChatManager({
-        providers,
-        intelligentUi: ruimteUiSources({
-            place: (chatId) => projects.index.locate(chatId),
-            node: (id) => {
-                const place = projects.index.locate(id);
-                return !place || projects.index.isHiddenChat(id)
-                    ? null
-                    : {
-                          projectId: place.projectId,
-                          canvasId: place.canvasId,
-                          title: projects.index.titleFor(id) ?? id,
-                          hidden: projects.hiddenAgents.get(id) !== undefined
-                      };
-            },
-            worktreePaths: (folder) => canvasHost.worktreePaths(folder),
-            gitStatus: (cwd) => statuses.status(cwd),
-            gitLog: readLog,
-            launches: (projectId) => launchHost.list(projectId),
-            tasks: (chatId) => tasks.ofParent(chatId),
-            databases: () => agentDatabases
-        }),
-        store: new ChatStore(config.home, { attachments, isSidecar: isPlanFileName }),
-        attachments,
-        checkpoints,
-        contextUrl,
-        binDir,
-        depthOf: (chatId) => lineage.depthOf(chatId),
-        computer: () => computer.usable,
-        visualReplies: () => identity.visualReplies,
-        databases: (chatId) => {
-            const folder = projects.index.locate(chatId)?.folder;
-            return folder !== undefined && hasDatabaseConnections(folder);
-        },
-        modeCeiling: (chatId) => lineage.ceilingOf(chatId),
-        checkCwd: startCwd,
-        holdsProject: async (chatId, clientId) => {
-            const place = projects.index.locate(chatId);
-            return place !== null && (await projects.heldFolders(clientId)).includes(place.folder);
-        },
-        contextSources: (chatId) => context.list(chatId),
-        chatTitle: (chatId, id) => projects.index.chatTitleBeside(chatId, id),
-        standalone: (chatId) => projects.index.locate(chatId)?.canvasId === null,
-        inlineChat: (chatId) => projects.index.isHiddenChat(chatId),
-        openingSelection: (chatId, provider) => {
-            const entry = outbox.list().find((entry) => entry.kind === 'start-agent' && entry.target === chatId);
-            return entry?.kind === 'start-agent' && entry.payload.provider === provider ? entry.payload.selection : undefined;
-        },
-        messageNotes: (chatId) => new NoticeNotes(notices, chatId, MESSAGE_WORDS),
-        // The other reader: what a chat has to show a person in its thread, which is never taken from the model.
-        unshownMessages: (chatId) => unshownNotes(notices, chatId, MESSAGE_WORDS),
-        firstPrompt: (chatId) => prompts.take(chatId),
-        // A turn reports what is left of its plan in passing; that belongs to the machine's numbers.
-        onLimits: (update) => limits.applyLive(update),
-        claudeTitles,
-        // One one-shot call per Codex chat, on whichever CLI here answers a single prompt.
-        nameChat: (provider, input) => suggestChatTitle(providers, provider, input),
-        onInterruptedRun: outboxLink.onInterruptedRun,
-        taskRows: (chatId) => tasks.ofParent(chatId),
-        dropWakes: (chatId) => tasks.dropWake(chatId),
-        endChildren: (chatId) => endChildren.stopNode(chatId, 'a person cleared this chat'),
-        endedAt: (chatId) => lineage.endedAt(chatId),
-        plans,
-        bookmarks,
-        visuals,
-        limitResume: {
-            allowed: () => identity.resumeAtReset,
-            now: () => Date.now(),
-            owe: (chatId, turnId, at) => outboxLink.oweLimitResume(chatId, turnId, at),
-            lapse: (chatId) => outboxLink.lapseLimitResume(chatId),
-            owed: (chatId) => outboxLink.owesLimitResume(chatId)
-        },
-        accounts: providerAccounts
-    });
-    const projects = new ProjectStore(config.home);
-    await projects.hiddenAgents.load();
-    const startClaims = new StartClaims(config.home);
-    await startClaims.load();
-    projects.attachTracked(isTrackedPath);
-    const machineHome = new MachineHome(config.home);
-    const databases = new DatabaseService({ machineHome });
-    const databaseConnections = new DatabaseConnectionStore({
-        projects: { folderOf: (projectId) => projects.index.folderOf(projectId), holdersOf: (projectId) => projects.holdersOf(projectId) },
-        onChanged: (projectId, connections) => {
-            void agentDatabases
-                .connectionsChanged(projectId, connections)
-                .catch((e: unknown) => console.warn('Following a change of the connections for agents failed:', errorText(e)));
-            void sqlAnalysis
-                .connectionsChanged(projectId, connections)
-                .catch((e: unknown) => console.warn('Following a change of the connections failed:', errorText(e)));
-        }
-    });
-    const databaseAccess = new DatabaseAccessStore(config.home);
-    await databaseAccess.load();
-    const databasePasswords = new DatabasePasswords();
-    const agentDatabases = new AgentDatabases({
-        service: databases,
-        connections: databaseConnections,
-        projects,
-        access: databaseAccess,
-        passwords: databasePasswords,
-        scratchFolder: projects.scratchFolder
-    });
-    const sqlAnalysis = new SqlAnalysis({
-        projects: {
-            folderOf: (projectId) => projects.index.folderOf(projectId),
-            holdersOf: (projectId) => projects.holdersOf(projectId),
-            read: (projectId) => projects.read(projectId),
-            mutate: (projectId, apply) => projects.mutate(projectId, apply)
-        },
-        connections: databaseConnections,
-        snapshots: new SchemaSnapshots({
-            root: join(config.home, 'database-snapshots'),
-            service: databases,
-            passwordOf: (projectId, connectionId, target) => databasePasswords.passwordOf(projectId, connectionId, target)
-        }),
-        access: agentDatabases
-    });
-    const prWatches = new PrWatchStore({
-        path: join(config.home, 'pr-watches.json'),
-        gh: runGh,
-        enqueue: (projectId, chatId, work) => outboxLink.enqueue(projectId, chatId, work),
-        entries: () => outbox.list(),
-        removeEntry: (id) => outbox.remove(id),
-        onError: (what, error) => console.error(`${what}:`, errorText(error))
-    });
-    const outboxWiring = wireOutbox({
-        link: outboxLink,
-        outbox,
-        projects,
-        lineage,
-        prompts,
-        notices,
-        prWatches,
-        tasks,
-        chats,
-        sessions: manager,
-        alert: (target, nodeId, title, body) => push.alert(target, nodeId, title, body),
-        checkCwd: startCwd,
-        resumeAtReset: () => identity.resumeAtReset,
-        runAfterSettle: (entry) => afterSettle.handle(entry)
-    });
-    const outboxWorker = outboxWiring.worker;
-    const taskWiring = outboxWiring.tasks;
-    const endChildren = outboxWiring.endChildren;
-    const summaries = outboxWiring.summaries;
-    const snoozes = new SnoozeStore({ path: join(config.home, 'snoozes.json') });
-    const afterSettleStore = new AfterSettleStore({ path: join(config.home, 'launch-after-settle.json') });
-    projects.index.onPlaces = (projectId, ids) => {
-        outboxWiring.places(projectId, ids);
-        snoozes.places(projectId, ids);
-        afterSettleStore.places(projectId, ids);
-    };
-    /* A node that has never been shown has no session, and a project going down is not the place to
-       fail over one, so an id neither manager knows is already ended as far as the caller goes. */
-    const endSession = async (kind: 'terminal' | 'chat', nodeId: string): Promise<void> => {
-        computer.nodeClosed(nodeId);
-        secrets.nodeClosed(nodeId);
-        await endChildren.owe(nodeId);
-        await (kind === 'terminal' ? manager.kill(nodeId) : chats.kill(nodeId)).catch(() => undefined);
-    };
-    projects.attachSessionEnder(endSession);
-    projects.attachSaveListener(async (folder, before, after) => {
-        for (const { nodeId, command } of commandsSet(before, after)) {
-            try {
-                await commandApprovals.approve(folder, nodeId, command);
-            } catch (e) {
-                // Not approved is only asked again; the save itself already landed.
-                console.error(`Approving the command of ${nodeId} failed:`, errorText(e));
-                continue;
-            }
-            manager.runApproved(nodeId, command);
-        }
-        for (const { nodeId, mode } of modesSet(before, after)) {
-            // Not written down narrows the node to the mode its person picks for new terminals, which is safe to retry.
-            await modeApprovals.approve(folder, nodeId, mode).catch((e: unknown) => console.error(`Approving the mode of ${nodeId} failed:`, errorText(e)));
-        }
-    });
-    const drawings = new DrawingStore(projects);
-    projects.attachDrawings(drawings);
-    const diagrams = new DiagramStore(projects);
-    projects.attachDiagrams(diagrams);
-    const secretStore = new SecretStore(config.home);
-    const launchStore = new LaunchStore({
-        projects: { folderOf: (projectId) => projects.index.folderOf(projectId), worktreePaths: (folder) => canvasHost.worktreePaths(folder) },
-        approvals: commandApprovals,
-        secrets: secretStore,
-        afterSettle: afterSettleStore
-    });
-    const launches = new LaunchRunner({
-        store: launchStore,
-        sessions: managerSessions(manager, foregroundGroup),
-        checkCwd: (folder, cwd) => checkCwd(folder, cwd, (inside) => canvasHost.worktreePaths(inside)),
-        resolveEnv: (projectId, launchId, env) => secretStore.resolveEnv(projectId, launchId, env)
-    });
-    const secrets = new SecretService({
-        store: secretStore,
-        launches: launchStore,
-        chats: { hold: (nodeId, key) => void chats.holdForPerson(nodeId, key), release: (nodeId, key) => chats.releaseHold(nodeId, key) }
-    });
-    const launchHost = agentLaunches(launchStore, launches, (sessionId) => manager.get(sessionId)?.plainText() ?? Promise.resolve(null));
-    projects.attachLaunches({
-        opened: (projectId) => void launches.opened(projectId),
-        running: (projectId) => launches.running(projectId),
-        end: (projectId) => launches.end(projectId)
-    });
-    // Before the socket answers, so an agent whose project nobody opened since the restart still reads its links.
-    await projects.warmIndex();
-    // One platform watcher per folder for the file tree, git status and the language servers together.
-    const watches = new SharedWatch();
-    const folders = new FolderWatcher(process.platform, watches);
-    const liveStreams = new LiveStreamHub();
-    const browsers = BrowserManager.withBun(config.home, liveStreams);
-    // The pages the clients draw themselves, which this machine can only reach by asking them.
-    const browserPages = new BrowserPages();
-    const browserDriver = new BrowserDriver(config.home, browsers, browserPages);
-    const deviceHelperCommand = compiled ? [process.execPath, 'device-helper'] : [process.execPath, resolve(import.meta.dir, 'main.ts'), 'device-helper'];
-    // Visuals are rendered in children with a Chrome of their own, never in the one above, whose profile holds a person's cookies.
-    const visualRenderer = new VisualRenderer(childLauncher(renderCommand(compiled, process.execPath, process.execArgv, import.meta.dir)));
-    const deviceBridge = physicalStreamHelperPath(compiled, process.execPath, resolve(import.meta.dir, '../..'));
-    const physicalStreamSource = createPhysicalStreamSourceFactory(deviceBridge);
-    const treeLauncher = createTreeLauncher(deviceBridge);
-    // A development checkout fetches the pinned screen server on first use; a build carries it.
-    const scrcpyServer = new ScrcpyServerFile(scrcpyServerDirectory(compiled, process.execPath, resolve(import.meta.dir, '..')), !compiled);
-    const android = new AndroidBackend({
-        createSource: scrcpyServer.available ? (adb, serial) => new ScrcpySource(adbScrcpyHost(adb, serial), () => scrcpyServer.path()) : null
-    });
-    const devices = new DeviceManager(
-        process.platform === 'darwin'
-            ? [
-                  new IosSimulatorBackend(
-                      undefined,
-                      createDeviceHelperLauncher(deviceHelperCommand),
-                      undefined,
-                      treeLauncher === null ? null : (udid) => new SimulatorTreeReader(udid, treeLauncher)
-                  ),
-                  new IosPhysicalBackend(undefined, undefined, physicalStreamSource),
-                  android
-              ]
-            : process.platform === 'linux'
-              ? [android]
-              : [],
-        liveStreams
-    );
-    const deviceControl = new DeviceControl();
-    const deviceDriver = new DeviceDriver({ home: config.home, manager: devices, gate: deviceControl });
-    const statuses = new GitStatusWatcher(process.platform, watches);
-    const nameOfCli = (kind: AgentKind): string => providers.get(kind).name;
-    const usage = new UsageService({
-        home: config.home,
-        allowPriceFetch: config.priceFetch,
-        knownProjects: () => projects.known(),
-        roots: () => usageRootsOf(providerAccounts),
-        sessionAccounts: () =>
-            sessionAccountsOf(
-                chats.list(),
-                manager.list().map(({ sessionId }) => ({ agent: manager.get(sessionId)?.agent ?? null, launch: manager.get(sessionId)?.launch ?? null }))
-            ),
-        accounts: () => usageAccountsOf(providerAccounts, nameOfCli)
-    });
-    const limits = new UsageMonitor({ providers, accounts: limitAccountsOf(providerAccounts, nameOfCli, process.env), client: RUIMTE_CODEX_CLIENT });
-    providerAccounts.listen(() => limits.accountsChanged());
-    const sampler = await createSampler(process.platform, config.home);
-    const sessionPorts = new SessionPorts({
-        machineId: identity.id,
-        sampler,
-        probe: process.platform === 'darwin' ? new DarwinListenerProbe() : null,
-        sessions: () => manager.list().flatMap(({ sessionId }) => manager.live(sessionId) ?? []),
-        current: (id) => manager.live(id),
-        uid: process.getuid?.() ?? -1
-    });
-    manager.observeLifecycle((session, phase) => {
-        if (phase === 'created') {
-            sessionPorts.track(session);
-        } else {
-            sessionPorts.forget(session);
-        }
-    });
-    const processes = new ProcessMonitor({
-        sampler,
-        sessions: () =>
-            manager.list().map((session) => ({
-                id: session.sessionId,
-                pid: session.pid,
-                exited: session.exited,
-                agent: session.agent ?? null,
-                label: launches.labelOf(session.sessionId) ?? manager.labelOf(session.sessionId) ?? undefined
-            })),
-        chats: () => chats.processTargets(),
-        contextUrl: () => manager.contextUrl,
-        projectOf: (nodeId) => projects.index.locate(nodeId)?.projectId ?? null,
-        // Without a SessionEnd a clean exit and a crash look the same, so only these CLIs can be missed.
-        reportsEnd: (kind) => HOOK_EVENTS[kind]?.includes('SessionEnd') === true
-    });
-    /* One reading of the process table per question, taken only when a question is asked. */
-    const machineWork = (): MachineWork => {
-        let children: ((pid: number) => number) | null = null;
-        try {
-            children = sampler === null ? null : childCounter(sampler.sample().processes);
-        } catch {
-            children = null;
-        }
-        const sessions = manager.list().map((session) => ({ ...session, launch: launches.labelOf(session.sessionId) !== null }));
-        return workOf({ sessions, chats: chats.list(), children });
-    };
-    const selfUpdate = new SelfUpdater({
-        underService: config.underService,
-        running: BUILD,
-        readOnDisk: () => readBuildFile(buildFileOf(process.execPath)),
-        idle: () => isIdle(machineWork()),
-        exit: () => void shutdown('a newer build on disk'),
-        log: (line) => console.log(line)
-    });
-    manager.onProcessChange = (sessionId, phase) => {
-        if (phase === 'before-kill') {
-            processes.beforeKill();
-            return;
-        }
-        processes.nudge();
-        selfUpdate.nudge();
-        if (manager.get(sessionId)?.exited !== false) {
-            taskWiring.terminals.ended(sessionId);
-        }
-    };
-    manager.isAgentGone = (sessionId) => processes.isAgentGone(sessionId);
-    manager.holdsForeground = holdsForeground;
-
-    const worktrees = new Worktrees(config.home, Date.now, () => identity.worktreeRoot);
-    const afterSettle = new AfterSettleLaunches({
-        store: afterSettleStore,
-        chats,
-        launches: launchStore,
-        runner: launches,
-        projectOf: (chatId) => projects.index.locate(chatId)?.projectId ?? null,
-        folderOf: (projectId) => projects.index.folderOf(projectId),
-        worktreesOf: (folder) =>
-            worktrees
-                .list(folder)
-                .then((list) => list.filter((worktree) => worktree.missing !== true).map((worktree) => worktree.path))
-                .catch(() => []),
-        repoRootOf: (folder) => toplevel(folder),
-        entries: () => outbox.list(),
-        enqueue: (projectId, chatId, work) => outboxLink.enqueue(projectId, chatId, work)
-    });
-    const agentsInWorktrees = worktreeAgents({
-        chats: () => chats.list(),
-        sessions: () => manager.list(),
-        stopNode: (nodeId, reason) => endChildren.stopNode(nodeId, reason)
-    });
-    worktrees.attachAgents(agentsInWorktrees);
-    const merges = new WorktreeMerge(worktrees, agentsInWorktrees);
-    const modes = {
-        chatMode: (id: string) => chats.get(id)?.info.runtimeMode,
-        launch: (id: string) => manager.get(id)?.launch,
-        reportedMode: (id: string) => manager.get(id)?.reportedMode,
-        ceiling: (id: string) => lineage.ceilingOf(id)
-    };
-    /* Where a message a person has not seen goes: the thread of the chat left under that node id. */
-    const noticeChat = {
-        has: (id: string) => chats.hasStored(id),
-        note: (id: string, text: string) => chats.addNote(id, 'info', text)
-    };
-    const canvasHost = {
-        hiddenAgents: projects.hiddenAgents,
-        startClaims,
-        locate: (id: string) => projects.index.locate(id),
-        read: (projectId: string) => projects.read(projectId),
-        revision: (projectId: string) => projects.revision(projectId),
-        mutate: projects.mutate.bind(projects),
-        worktreePaths: (folder: string) =>
-            worktrees
-                .list(folder)
-                .then((list) => list.map((worktree) => worktree.path))
-                .catch(() => []),
-        installedAgents: async () => (await providers.list()).filter((provider) => provider.installed).map((provider) => provider.kind),
-        holdPrompt: (projectId: string, nodeId: string, prompt: string) => prompts.put(projectId, nodeId, prompt),
-        startAgent: (start: AgentStart) => outboxWorker.enqueue(start.projectId, start.nodeId, startAgentWork(start, modes)),
-        modeOf: nodeMode(modes),
-        accountOf: nodeAccount({ chat: (id) => chats.get(id)?.info, session: (id) => manager.get(id) }),
-        terminalModePreference: () => chats.composerPreferences.terminalMode(),
-        branchesOf: (folder: string) => worktrees.branches(folder).catch(() => null),
-        addWorktree: (folder: string, want: WorktreeWant, projectId: string) => addWanted(worktrees, folder, want, projectId),
-        claimWorktree: (folder: string, path: string, nodeId: string) => worktrees.claim(folder, path, nodeId),
-        removeWorktree: (folder: string, path: string) => worktrees.remove(folder, path),
-        worktrees: worktreeHost(worktrees, merges),
-        browsers: browserDriver,
-        devices: deviceDriver,
-        agents: agentStates({ outbox, lineage, chats, sessions: manager }),
-        requests: chatRequests(chats),
-        computer,
-        launches: launchHost,
-        secrets,
-        snoozedUntil: (nodeId: string) => snoozes.until(nodeId),
-        databases: agentDatabases,
-        language: new AgentLanguage({
-            host: { forAgent: (projectId, request, work) => language.forAgent(projectId, request, work), programOf: (kind) => language.programOf(kind) },
-            sql: sqlAnalysis
-        }),
-        visuals: {
-            enabled: () => identity.visualReplies,
-            writeSource: (chatId: string, name: string, html: string) => visuals.writeSource(chatId, name, html),
-            publish: (chatId: string, input: { title: string; html: string; maxHeight?: number; layout?: VisualLayout; heights?: VisualHeight[] }) =>
-                chats.publishVisual(chatId, input),
-            list: (chatId: string) => chats.listVisuals(chatId),
-            remove: (chatId: string, visualId: string) => chats.removeVisual(chatId, visualId),
-            preview: (chatId: string, input: { html: string; width: number; appearance: VisualAppearance }) =>
-                previewVisual(visualRenderer, (png) => visuals.writePreview(chatId, png), input),
-            measure: (html: string) => visualRenderer.measure(html)
-        },
-        context: {
-            list: (targetId: string) => context.list(targetId),
-            read: (targetId: string, sourceId: string, tail: number | null, subagent: string | null) => context.answer(targetId, sourceId, tail, subagent)
-        },
-        depthOf: (nodeId: string) => lineage.depthOf(nodeId),
-        openedCount: (callerId: string) =>
-            openedAgentCount({ lineage, hiddenAgents: projects.hiddenAgents, tasks, outbox, chats, sessions: manager }, callerId),
-        recordMade: (record: { projectId: string; nodeId: string; openedBy: string; depth: number; agent: boolean; ceiling?: RuntimeMode }) =>
-            lineage.put(record),
-        madeBy: (nodeId: string) => lineage.madeBy(nodeId),
-        agentsDeleteAnyView: () => identity.agentsDeleteAnyView,
-        showView: (projectId: string, viewId: string, by: string) => projects.showView(projectId, viewId, by),
-        writeDiagram: (projectId: string, viewId: string, content: DiagramContent) => diagrams.write(projectId, viewId, content),
-        tasks: taskWiring.host,
-        plans,
-        endSession,
-        alert: (nodeId: string, text: string) => {
-            const place = projects.index.locate(nodeId);
-            if (!place) {
-                throw new Error('The notifying session is no longer in a project');
-            }
-            push.notify(chats.get(nodeId) ? 'chat' : 'terminal', nodeId, projects.index.titleFor(nodeId) ?? 'Agent', text, {
-                projectId: place.projectId,
-                viewId: place.canvasId ?? nodeId
-            });
-        },
-        notify: async (notice: Omit<Notice, 'createdAt'>) => {
-            const delivery = await deliverNotice(
-                notices,
-                {
-                    /* An exited session still lists its last screen, but nobody is reading it; its
-                   message waits for the shell that takes the id over. */
-                    terminal: (id) => {
-                        const session = manager.get(id);
-                        return session && !session.exited ? { agent: session.agent, notice: (text: string) => session.notice(text) } : null;
-                    },
-                    ...chatNoticeTargets(chats)
-                },
-                notice
-            );
-            /* A chat shows it to a person the moment it lands. Never in the way of the answer to the
-               sender: the message is in the queue by now, so the model hears it whatever a thread does. */
-            await showNotices(notices, noticeChat, MESSAGE_WORDS, notice.targetId).catch((e) =>
-                console.error(`Showing a message in chat ${notice.targetId} failed:`, errorText(e))
-            );
-            /* After the line in the thread, so a person sees the message itself above the turn it opens. */
-            if (delivery.wake) {
-                await outboxWorker.enqueue(notice.projectId, notice.targetId, { kind: 'deliver-message', payload: { from: notice.from } });
-            }
-            return delivery;
-        }
-    };
-
-    const push = new PushService({
-        auth,
-        attentionPath: join(config.home, 'push-attention.json'),
+    const machine = await wireMachine(config);
+    const { identity } = machine;
+    const stores = await loadAgentStores(home);
+    const computer = createComputer(runtime, stores.computerStore, { agents: () => agents, projects: () => projects });
+    const providers = await wireProviders(config, identity, () => computer.start());
+    const agents = await wireAgents({
+        runtime,
         identity,
-        titleFor: (nodeId) => projects.index.titleFor(nodeId),
-        projectOf: (nodeId) => projects.index.locate(nodeId)?.projectId ?? null,
-        targetOf: (nodeId) => (chats.get(nodeId) ? 'chat' : 'terminal'),
-        machineName: () => identity.label,
-        activityNodes: () => [
-            ...manager.list().flatMap((session) =>
-                !session.exited && session.agent
-                    ? [
-                          {
-                              nodeId: session.sessionId,
-                              target: 'terminal' as const,
-                              title: session.agent.suggestedTitle ?? 'Terminal agent',
-                              status: session.agent.status
-                          }
-                      ]
-                    : []
-            ),
-            ...chats.list().map((chat) => ({ nodeId: chat.chatId, target: 'chat' as const, title: chat.suggestedTitle ?? 'AI chat', status: chat.status }))
-        ],
-        onError: (error) => console.error('Push delivery failed:', errorText(error)),
-        snoozes
+        stores,
+        providers,
+        computer,
+        codexProbe,
+        later: {
+            projects: () => projects,
+            git: () => git,
+            devices: () => devices,
+            databases: () => databases,
+            launches: () => launches,
+            usage: () => usage,
+            work: () => work
+        }
     });
-    manager.observe((event) => push.consume(event));
-    manager.observe((event) => taskWiring.terminals.sessionEvent(event));
+    const projects = await wireProjects({ home, stores, agents, computer, later: { launches: () => launches, work: () => work } });
+    const databases = await wireDatabases(home, machine.machineHome, projects.store);
+    const work = wireAgentWork({ home, identity, stores, agents, projects: projects.store, later: { push: () => push, launches: () => launches } });
+    const launches = wireLaunches({ home, stores, agents, work, projects: projects.store, later: { git: () => git } });
+    // Before the socket answers, so an agent whose project nobody opened since the restart still reads its links.
+    await projects.store.warmIndex();
+    const git = wireGit(home, identity, agents, work);
+    const devices = wireDevices(runtime, computer);
+    const usage = wireUsage(config, providers, agents, projects.store);
+    const processes = await wireProcesses({
+        config,
+        machineId: identity.id,
+        agents,
+        work,
+        launches,
+        projects: projects.store,
+        shutdown: (reason) => shutdown(reason)
+    });
+    const canvasHost = wireCanvasHost({
+        identity,
+        stores,
+        providers,
+        agents,
+        projects,
+        work,
+        launches,
+        git,
+        devices,
+        databases,
+        later: { language: () => language.host, push: () => push }
+    });
+
+    const { sessions, chats } = agents;
+    const push = wirePush(home, machine.auth, identity, agents, projects.store, work.snoozes);
+    sessions.observe((event) => push.consume(event));
+    sessions.observe((event) => work.tasks.terminals.sessionEvent(event));
     chats.observe((event) => push.consume(event));
-    processes.observeAlerts((alerts) => push.processAlerts(alerts));
-    // Held by the daemon, so the machine stays awake with no window open and for a daemon from npm.
-    const keepAwake = new KeepAwake({
-        platform: process.platform,
-        pid: process.pid,
-        setting: () => identity.keepAwake,
-        work: () => ({ sessions: manager.list(), chats: chats.list() }),
-        spawn: (command) => Bun.spawn(command, { stdin: 'ignore', stdout: 'ignore', stderr: 'ignore' }),
-        log: (line) => console.log(line)
-    });
-    const uid = process.getuid?.() ?? -1;
-    // Beside the block, for a closed lid; it never holds root, only a sudoers rule a person installed.
-    const closedLid = new ClosedLid({
-        platform: process.platform,
-        uid,
-        user: userInfo().username,
-        setting: () => identity.keepAwake,
-        working: () => agentsWorking({ sessions: manager.list(), chats: chats.list() }),
-        system: macClosedLidSystem(config.home, uid),
-        // A rule that went takes the switch with it, so a new rule never turns sleep off on a choice made before it.
-        ruleChanged: (present) => {
-            if (!present && identity.keepAwake.lidClosed) {
-                void identity
-                    .setSwitches({ keepAwakeLidClosed: false })
-                    .catch((e: unknown) => console.error('Turning the closed-lid switch off failed:', errorText(e)));
-                return;
-            }
-            identity.announce();
-        },
-        log: (line) => console.log(line)
-    });
-    identity.attachClosedLid({ describe: () => ({ keepAwakeLidRule: closedLid.ruleInstalled }) });
-    const checkAwake = (): void => {
-        keepAwake.check();
-        closedLid.check();
-    };
-    manager.observe((event) => {
-        if (event.event === 'session.status' || event.event === 'session.exit' || event.event === 'session.list-changed') {
-            checkAwake();
-        }
-    });
-    chats.observe((event) => {
-        if (event.event === 'chat.event' && (event.payload.event.type === 'info' || event.payload.event.type === 'reset')) {
-            checkAwake();
-        }
-    });
-    const updates = new MachineUpdates();
-    manager.observe((event) => computer.observe(event));
+    processes.processes.observeAlerts((alerts) => push.processAlerts(alerts));
+    const power = wirePower(home, identity, agents);
+    sessions.observe((event) => computer.observe(event));
     chats.observe((event) => computer.observe(event));
-    chats.observe((event) => secrets.observe(event));
-    chats.observe((event) => afterSettle.chatEvent(event));
+    chats.observe((event) => launches.secrets.observe(event));
+    chats.observe((event) => launches.afterSettle.chatEvent(event));
     chats.observe((event) => {
         if (event.event === 'chat.event' && event.payload.event.type === 'item' && event.payload.event.item.kind === 'user') {
-            dropEmptyMark(projects, event.payload.chatId).catch((e: unknown) => console.error('Listing a written chat failed:', errorText(e)));
+            dropEmptyMark(projects.store, event.payload.chatId).catch((e: unknown) => console.error('Listing a written chat failed:', errorText(e)));
         }
     });
 
     const dispatcher = new Dispatcher();
-    registerPushHandlers(dispatcher, auth, () => push.synchronizeActivities(), push);
-    registerSnoozeHandlers(dispatcher, snoozes, (nodeId) => projects.index.locate(nodeId));
-    registerServerHandlers(dispatcher, { version: VERSION, home: config.home, model: await readMachineModel() });
-    registerSessionHandlers(dispatcher, manager, endChildren.owe, { commandOf: (kind) => providers.get(kind).home?.loginCommand, nameOf: nameOfCli });
-    registerTerminalPrepareHandlers(
-        dispatcher,
-        new PrepareTerminal({
-            machineId: identity.id,
-            machine: identity.label,
-            sessions: manager,
-            syntax: shellSyntax,
-            ...projectTerminalPrepareHost(projects.index, chats)
-        })
-    );
-    registerBrowserHandlers(dispatcher, browsers, browserPages, () => identity.streamingAllowed);
-    registerDeviceHandlers(dispatcher, devices, () => identity.streamingAllowed);
-    registerDeviceControlHandlers(dispatcher, deviceControl);
-    const forkDeps = chatForkDeps({ chats, host: canvasHost, titleFor: (id) => projects.index.titleFor(id), lineage, worktrees, checkpoints });
-    const beforeChatKill = (chatId: string): Promise<unknown> => {
-        computer.nodeClosed(chatId);
-        secrets.nodeClosed(chatId);
-        return endChildren.owe(chatId);
-    };
-    registerChatHandlers(
-        dispatcher,
-        chats,
+    await registerHandlers(dispatcher, {
+        runtime,
+        machine,
+        stores,
         providers,
-        beforeChatKill,
-        endChildren.stopNode,
-        {
-            fork: (payload) => forkChat(forkDeps, payload),
-            info: (payload) => readForkInfo(forkDeps, payload),
-            summarize: (chatId) => summaries.summarize(chatId),
-            continueOn: (payload) => continueOn({ chats, fork: (fork) => forkChat(forkDeps, fork) }, payload)
-        },
-        (chatId) => prWatches.stop(chatId)
-    );
-    registerTaskHandlers(dispatcher, tasks, endChildren.children);
-    registerChatImageHandlers(
-        dispatcher,
-        new ChatImageFiles({
-            project: async (chatId, clientId) => {
-                const place = projects.index.locate(chatId);
-                if (place === null || place.folder === projects.scratchFolder || !(await projects.heldFolders(clientId)).includes(place.folder)) {
-                    return null;
-                }
-                const project = (await projects.known()).find((entry) => entry.projectId === place.projectId);
-                return project === undefined ? null : { folder: place.folder, name: project.name };
-            },
-            attachment: (chatId, attachmentId) => chats.findAttachment(chatId, attachmentId),
-            refusePath: (path) => machineHome.refuse(path)
-        })
-    );
-    const clientHoldsProject = async (clientId: string, projectId: string): Promise<boolean> => {
-        const folder = projects.index.folderOf(projectId);
-        return folder !== null && (await projects.heldFolders(clientId)).includes(folder);
-    };
-    registerChatSearchHandlers(
-        dispatcher,
-        new ProjectChatSearch({
-            holds: clientHoldsProject,
-            // The same rule holdsProject applies: a chat id written into this project's file may be another project's chat.
-            chatsOf: (projectId) => chatsLocatedIn(chatsOfViews(projects.index.viewsOf(projectId) ?? []), projectId, (chatId) => projects.index.locate(chatId)),
-            loadedItems: (chatId) => chats.get(chatId)?.thread.list() ?? null,
-            readStored: async (chatId) => (await chats.readChat(chatId))?.items ?? null
-        }),
-        new ExternalChatSessions({
-            holds: clientHoldsProject,
-            folderOf: (projectId) => projects.index.folderOf(projectId),
-            roots: () => usageRootsOf(providerAccounts),
-            ownSessionIds: async (projectId) => {
-                const { chatIds, resumes } = ownSessionSources(
-                    projects.index.viewsOf(projectId) ?? [],
-                    projects.hiddenAgents.inProject(projectId).map((agent) => agent.node)
-                );
-                const own = new Set(resumes);
-                for (const chatId of chatIds) {
-                    const sessionId = (await chats.readChat(chatId))?.info.agentSessionId;
-                    if (sessionId !== null && sessionId !== undefined) {
-                        own.add(sessionId);
-                    }
-                }
-                return own;
-            },
-            fs: await nodeSessionFs()
-        })
-    );
-    registerPlanHandlers(dispatcher, plans);
-    registerProjectHandlers(dispatcher, projects, async (chatId) => (await chats.readChat(chatId))?.items.some((item) => item.kind === 'user') ?? false, {
-        start: (payload) => chats.create(payload),
-        // Loaded first: a chat nobody opened since a restart has no session to end, only a record to remove.
-        end: async (chatId) => {
-            await chats.create({ chatId }).catch(() => undefined);
-            await endSession('chat', chatId);
-        },
-        worktreePaths: (folder) => canvasHost.worktreePaths(folder)
+        agents,
+        projects,
+        work,
+        launches,
+        git,
+        devices,
+        processes,
+        power,
+        push,
+        canvasHost,
+        later: { network: () => network, clients: () => clients }
     });
-    registerDrawingHandlers(dispatcher, drawings);
-    registerDiagramHandlers(dispatcher, diagrams);
-    registerLaunchHandlers(dispatcher, launchStore, launches);
-    // Revoking must take effect now, not at the next connection, so a session's sockets and channels close here.
-    const disconnectSession = (sessionId: string): void => {
-        handshake.revoke(sessionId);
-        for (const { channel, connection } of [...connections.values(), ...directConnections]) {
-            if (connection.client.access?.sessionId === sessionId) {
-                channel.close(4001, 'Access revoked');
-            }
-        }
-    };
-    registerAuthHandlers(dispatcher, auth, {
-        identity,
-        home: config.home,
-        version: VERSION,
-        broker: () => brokerSwitch.describe(),
-        lanDoor: () => describeLanDoor(),
-        streamingChanged: (allowed) => {
-            if (!allowed) {
-                browsers.closeAll();
-                devices.closeAll();
-            }
-        },
-        appleFoundationChanged: async (on) => {
-            providers.invalidate('apple');
-            if (!on) {
-                await Promise.all(
-                    chats
-                        .list()
-                        .filter((chat) => chat.provider === 'apple')
-                        .map((chat) => chats.stop(chat.chatId, 'Apple Foundation Models was turned off in Settings.'))
-                );
-            }
-            await providerAccounts.refresh();
-        },
-        agentIntegrations: { summary: () => integrations.summary(), files: () => integrations.files(), set: (kind, on) => integrations.set(kind, on) },
-        keepAwake: { available: keepAwake.available, changed: checkAwake },
-        closedLid: {
-            available: closedLid.available,
-            rule: () => closedLid.refreshRule(),
-            setRule: (install, prompt) => closedLid.setRule(install, prompt)
-        },
-        updates: {
-            state: () => updates.state(),
-            report: (clientId, report) => updates.report(clientId, report),
-            requestInstall: () => updates.requestInstall(),
-            ending: () => workEndedByInstall(config.underService, machineWork())
-        },
-        resumeChanged: (on) => {
-            chats.resumeSettingChanged();
-            // A chat nobody loaded owes a resume only on disk, so turning the switch off drops those there.
-            if (!on) {
-                void outboxLink.lapseLimitResume().catch((e: unknown) => console.error('Dropping the resumes after a limit failed:', errorText(e)));
-            }
-        },
-        disconnect: disconnectSession
+    const language = await wireLanguage({
+        home,
+        compiled,
+        machineHome: machine.machineHome,
+        watches: git.watches,
+        projects: projects.store,
+        sqlAnalysis: databases.sqlAnalysis,
+        agents
     });
-    const language = new LanguageHost({
-        root: join(config.home, 'language-servers'),
-        watch: { seams: watches },
-        folderOf: (projectId) => projects.index.folderOf(projectId),
-        holders: (projectId) => projects.holdersOf(projectId),
-        machineHome,
-        // A compiled daemon ignores local sources and installs the pinned native releases.
-        native: new NativePolicy({ checkouts: { 'php-native': phpLanguageServerCheckout(compiled), 'sql-native': sqlLanguageServerCheckout(compiled) } }),
-        sqlSettings: (projectId) => sqlAnalysis.settingsOf(projectId)
-    });
-    await language.load();
-    sqlAnalysis.attach(language);
-    projects.attachLanguage(language);
-    registerLanguageHandlers(dispatcher, language);
-    const onDevice = new OnDeviceModel();
-    registerOnDeviceHandlers(dispatcher, onDevice);
-    const provenance = new ProvenanceService({
-        home: config.home,
-        locate: (chatId) => projects.index.locate(chatId),
-        folderOf: (projectId) => projects.index.folderOf(projectId),
-        holders: (projectId) => projects.holdersOf(projectId),
-        chat: (chatId) => provenanceChat(chats, chatId)
-    });
-    chats.observe((event) => provenance.consume(event));
-    projects.attachProvenance(provenance);
-    registerProvenanceHandlers(dispatcher, provenance, machineHome);
-    projects.attachDatabases({
-        closeProject: (projectId) => {
-            databaseConnections.closeProject(projectId);
-            agentDatabases.letGo(projectId);
-        }
-    });
-    registerDatabaseHandlers(dispatcher, databases, databaseConnections, agentDatabases, sqlAnalysis);
-    registerFsHandlers(
-        dispatcher,
-        folders,
-        async (clientId) => ({
-            folders: await projects.heldFolders(clientId),
-            worktreesOf: canvasHost.worktreePaths,
-            worktreesRoot: worktrees.root,
-            registeredWorktrees: (folder) => worktrees.registeredPaths(folder)
-        }),
-        machineHome,
-        language
-    );
-    registerBytesHandlers(
-        dispatcher,
-        {
-            attachment: (chatId, id) => chats.findAttachment(chatId, id),
-            projectIcon: (projectId, theme) => projects.iconFile(projectId, theme),
-            file: readServedFile
-        },
-        machineHome
-    );
-    registerUsageHandlers(dispatcher, usage, limits);
-    registerProviderAccountHandlers(dispatcher, providerAccounts);
-    registerProcessHandlers(dispatcher, processes);
-    registerSessionPortHandlers(dispatcher, sessionPorts);
-    registerComputerHandlers(dispatcher, computer);
-    registerSecretHandlers(dispatcher, secrets);
-    registerGitHandlers(dispatcher, worktrees, merges, statuses, providers, prWatches, (id) => projects.index.locate(id));
+    registerEditorHandlers(dispatcher, { machine, providers, projects, work, launches, git, devices, databases, usage, processes, language, agents });
+    const network = wireNetwork(config, compiled, machine, dispatcher, { clients: () => clients });
 
-    // A TURN server that restarts under an allocation must not take the daemon with it.
-    guardWeriftTurn(process);
-    // A direct channel gets its access from its own handshake, never from the socket its signals came over.
-    const peers = new DirectPeers({
-        // The broker's TURN credentials are asked for per attempt, since they expire and the broker can change.
-        iceServers: () => [...config.stun.map((urls) => ({ urls })), ...brokerSwitch.iceServers()],
-        portRange: config.directPorts,
-        hostAddresses: config.directHostAddresses,
-        authenticate: (channel, binding, remoteAddress) =>
-            authenticateChannel({
-                channel,
-                binding,
-                handshake,
-                daemonId: identity.id,
-                localSecret: access.localSecret,
-                reachability: reachabilityOf(remoteAddress ?? '')
-            }),
-        open: (channel, channelAccess) => {
-            const state = { channel, connection: openConnection(channel, channelAccess) };
-            directConnections.add(state);
-            channel.receiveWith((frame) => state.connection.receive(frame), AUTHENTICATED_FRAME_CHARS);
-            channel.onClose(() => directConnections.delete(state));
-        }
-    });
-    registerDirectHandlers(dispatcher, peers);
-    const statementKeys = trustedStatementKeys(process.env, compiled);
-    if (statementKeys.length === 1 && statementKeys[0] === process.env[TEST_STATEMENT_KEY_VARIABLE]?.trim()) {
-        console.warn(`Believing statements signed by the test key in ${TEST_STATEMENT_KEY_VARIABLE} instead of the address book`);
-    }
-    // What lets a key the machine does not know yet in on a statement from the address book, when the machine takes them.
-    const statements = new StatementGate({
-        machineId: identity.id,
-        machinePublicKey: identity.publicKey,
-        trustedKeys: statementKeys,
-        store: auth
-    });
-    // One gate for the broker and the door on the local network, so an attempt belongs to the key that offered it on both.
-    const gate = new SignalGate({
-        publicKey: identity.publicKey,
-        isPaired: async (publicKey) => (await auth.sessionForPublicKey(publicKey)) !== null,
-        admitStatement: (publicKey, statementAccess) => statements.admit(publicKey, statementAccess),
-        receive: (envelope, reply) => peers.receive(envelope, reply)
-    });
-    /* The broker is the second way a signal reaches `peers`, next to `direct.signal` on a socket. The
-       switch follows the machine's setting, so a client that changes it needs no restart here. */
-    const brokerSwitch = new BrokerSwitch({
-        override: config.broker,
-        advertise: config.brokerAdvertise,
-        setting: () => identity.broker,
-        relayFor: (url) =>
-            new BrokerRelay({
-                url,
-                publicKey: identity.publicKey,
-                sign: (message) => identity.sign(message),
-                gate
-            })
-    });
-    identity.attachBroker(brokerSwitch);
-    const relay: Relay = brokerSwitch;
+    void providers.integrations.installDefaults();
 
-    /* The door on the local network, open unless a person closed it or `--no-lan` keeps it closed. The
-       addresses are read per answer, so a machine that moved to another network says so without a timer. */
-    const lanDoor = new LanDoor({
-        port: config.lanPort,
-        identity: { machineId: identity.id, publicKey: identity.publicKey, sign: (message) => identity.sign(message) },
-        gate
-    });
-    const lanDoorWanted = (): boolean => !config.lanDoorOff && identity.lanDoor;
-    const describeLanDoor = () => {
-        const port = lanDoor.port;
-        return { lan: port === null ? null : { port, addresses: lanAddresses() }, lanDoorFixed: config.lanDoorOff };
-    };
-    identity.attachLanDoor({
-        apply: () => {
-            if (lanDoorWanted()) {
-                lanDoor.start();
-            } else {
-                lanDoor.stop();
-            }
-        },
-        describe: describeLanDoor
-    });
-
-    void integrations.installDefaults();
-
-    interface ConnectionState {
-        channel: SocketChannel;
-        connection: OpenConnection;
-    }
-
-    const connections = new Map<ServerWebSocket<ClientAccess>, ConnectionState>();
-    const directConnections = new Set<{ channel: ClientChannel; connection: OpenConnection }>();
-    const openConnection = connectionOpener({
+    const clients = wireClients(machine.handshake, {
         dispatcher,
         presence: push,
-        snoozes,
-        prWatches,
-        sessions: manager,
+        snoozes: work.snoozes,
+        prWatches: work.prWatches,
+        sessions,
         chats,
-        browsers,
-        browserPages,
-        devices,
-        deviceControl,
+        browsers: devices.browsers,
+        browserPages: devices.browserPages,
+        devices: devices.devices,
+        deviceControl: devices.deviceControl,
         identity,
-        updates,
-        projects,
-        drawings,
-        diagrams,
-        launchStore,
-        launches,
-        databases,
-        databaseConnections,
-        databaseAgents: agentDatabases,
-        language,
-        sqlAnalysis,
-        folders,
-        statuses,
-        usage,
-        limits,
-        providerAccounts,
-        processes,
-        tasks,
-        worktrees,
-        plans,
-        provenance,
+        updates: power.updates,
+        projects: projects.store,
+        drawings: projects.drawings,
+        diagrams: projects.diagrams,
+        launchStore: launches.store,
+        launches: launches.runner,
+        databases: databases.service,
+        databaseConnections: databases.connections,
+        databaseAgents: databases.agents,
+        language: language.host,
+        sqlAnalysis: databases.sqlAnalysis,
+        folders: git.folders,
+        statuses: git.statuses,
+        usage: usage.usage,
+        limits: usage.limits,
+        providerAccounts: providers.accounts,
+        processes: processes.processes,
+        tasks: stores.tasks,
+        worktrees: git.worktrees,
+        plans: agents.plans,
+        provenance: language.provenance,
         computer,
-        secrets
+        secrets: launches.secrets
     });
-
-    type SocketData = ClientAccess & { protocolRefused: boolean; ticket: string | null };
-
-    // What a route only the local secret reaches answers before it does anything: null to go on.
-    const refuseUnlessOwner = async (request: Request, remote: string, method: 'GET' | 'POST'): Promise<Response | null> => {
-        if (request.method !== method) {
-            return new Response('Method not allowed', { status: 405 });
-        }
-        const decision = await decideAccess(request, remote, access, 'local');
-        return decision.ok && isOwner(decision.access) ? null : new Response('Forbidden', { status: 403 });
-    };
-
-    // Every HTTP route and the upgrade, before the cross-origin headers the desktop app's page needs.
-    const routes: Route<SocketData>[] = [
-        {
-            exact: [MACHINE_HEALTH_PATH],
-            handle: ({ request }) => {
-                if (request.method !== 'GET') {
-                    return new Response('Method not allowed', { status: 405 });
-                }
-                return Response.json({ ok: true, version: VERSION, build: BUILD, service: config.underService } satisfies HealthResult);
-            }
-        },
-        {
-            exact: [MACHINE_PROOF_PATH],
-            handle: ({ request, server }) => handleLocalProofRequest(request, { localSecret: access.localSecret, port: server.port ?? config.port })
-        },
-        // todo(bas): drop with `PAIRING_REMOVED` one release after pairing links went.
-        { exact: LEGACY_PAIRING_PATHS, handle: () => new Response(PAIRING_REMOVED, { status: 410 }) },
-        { exact: ['/auth/local-ticket'], handle: ({ request }) => handleLocalTicketRequest(request, access, handshake) },
-        {
-            exact: [MACHINE_WORK_PATH],
-            // The desktop app asks before it restarts the service, and nobody else needs to know.
-            handle: async ({ request, remote }) => (await refuseUnlessOwner(request, remote, 'GET')) ?? Response.json(machineWork())
-        },
-        {
-            exact: [MACHINE_LEAVE_ACCOUNT_PATH],
-            handle: async ({ request, remote }) => {
-                const refused = await refuseUnlessOwner(request, remote, 'POST');
-                if (refused) {
-                    return refused;
-                }
-                const revoked = await auth.leaveAccount();
-                revoked.forEach(disconnectSession);
-                return Response.json({ revoked: revoked.length });
-            }
-        },
-        {
-            exact: [MACHINE_STATUS_PATH],
-            // `ruimte status` on the local secret; a client sees the same through `endpoint.info`.
-            handle: async ({ request, remote }) => {
-                const refused = await refuseUnlessOwner(request, remote, 'GET');
-                if (refused) {
-                    return refused;
-                }
-                const binding = await auth.accountBinding();
-                return Response.json({
-                    version: VERSION,
-                    service: config.underService,
-                    label: identity.label,
-                    onAccount: binding !== undefined && binding !== null,
-                    broker: { url: brokerSwitch.describe().brokerUrl, connected: brokerSwitch.isReady },
-                    ...describeLanDoor(),
-                    keepAwake: {
-                        mode: identity.keepAwake.mode,
-                        onBattery: identity.keepAwake.onBattery,
-                        holding: keepAwake.holding,
-                        lid: closedLid.available ? { on: identity.keepAwake.lidClosed, rule: await closedLid.refreshRule(), holding: closedLid.holding } : null
-                    }
-                } satisfies MachineStatus);
-            }
-        },
-        {
-            exact: [MACHINE_LINK_PATH, MACHINE_REGISTRATION_PATH],
-            // `ruimte login` on the local secret: the machine signs, the terminal talks to the address book.
-            handle: async ({ request, url, remote }) => {
-                const refused = await refuseUnlessOwner(request, remote, 'POST');
-                if (refused) {
-                    return refused;
-                }
-                const { brokerUrl } = brokerSwitch.describe();
-                if (url.pathname === MACHINE_LINK_PATH) {
-                    return Response.json(signLinkRequest(identity, brokerUrl));
-                }
-                const parsed = RegistrationRequestSchema.safeParse(await request.json().catch(() => null));
-                if (!parsed.success) {
-                    return new Response('Expected an account id', { status: 400 });
-                }
-                try {
-                    return Response.json(await signForAccount(auth, identity, brokerUrl, parsed.data.accountId, disconnectSession));
-                } catch (e) {
-                    if (e instanceof MachineAccountError) {
-                        return Response.json({ code: e.code, message: e.message }, { status: 409 });
-                    }
-                    throw e;
-                }
-            }
-        },
-        {
-            exact: ['/ws'],
-            handle: async ({ request, url, remote, server }) => {
-                const decision = await decideAccess(request, remote, access, 'socket');
-                if (!decision.ok) {
-                    return new Response(decision.reason, { status: decision.status });
-                }
-                // Upgraded and then closed, since a browser reads the code and reason of a close but never the status of a refused upgrade.
-                const protocolRefused = !acceptsOfferedProtocol(url.searchParams.get(PROTOCOL_PARAM));
-                if (server.upgrade(request, { data: { ...decision.access, protocolRefused, ticket: decision.ticket ?? null } })) {
-                    return undefined;
-                }
-                if (decision.ticket !== undefined) {
-                    handshake.socketClosed(decision.ticket);
-                }
-                return new Response('Expected a WebSocket upgrade', { status: 426 });
-            }
-        },
-        {
-            below: ATTACHMENTS_PATH,
-            handle: ({ request, url, remote }) => handleAttachmentRequest(request, url, remote, access, (chatId, id) => chats.findAttachment(chatId, id))
-        },
-        { below: PROJECTS_PATH, handle: ({ request, url, remote }) => handleProjectRequest(request, url, remote, access, projects) },
-        { exact: [FS_FILE_PATH], handle: ({ request, url, remote }) => handleFsFileRequest(request, url, remote, access, machineHome) },
-        {
-            below: LIVE_STREAM_PATH,
-            handle: ({ request, url, remote }) => handleLiveStreamRequest(request, url, remote, access, liveStreams, () => identity.streamingAllowed)
-        },
-        {
-            below: HOOKS_PATH,
-            handle: ({ request, url }) =>
-                handleHookRequest(request, url.pathname, manager, (token, event, kind) => {
-                    const sessionId = manager.sessionIdForToken(token);
-                    if (!sessionId) {
-                        return null;
-                    }
-                    // Asked on every event that can carry an answer, so the memory of what this
-                    // agent was told keeps up with its turns even where nothing is printed.
-                    const changed = context.changeSince(sessionId);
-                    // A CLI the node launched got the verbs on its line; one typed by hand in the shell did not.
-                    const verbs = !(takesNoteOnLine(kind) && manager.get(sessionId)?.launch?.kind === kind);
-                    return hookContext(event, context.list(sessionId), {
-                        changed,
-                        messages: messagesFor(sessionId),
-                        depth: lineage.depthOf(sessionId),
-                        standalone: projects.index.locate(sessionId)?.canvasId === null,
-                        verbs,
-                        computer: computer.usable
-                    });
-                })
-        },
-        {
-            below: CANVAS_PATH,
-            handle: ({ request, url, server }) => {
-                server.timeout(request, CANVAS_REQUEST_TIMEOUT_S);
-                return handleCanvasRequest(request, url.pathname, { targetForToken, host: canvasHost });
-            }
-        },
-        {
-            exact: [CONTEXT_PATH],
-            below: CONTEXT_PATH,
-            handle: ({ request, url }) => handleContextRequest(request, url.pathname, { targetForToken, host: canvasHost })
-        }
-    ];
-
-    const server = Bun.serve<SocketData>({
-        hostname: config.host,
-        port: config.port,
-        maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
-        async fetch(request, server) {
-            const cors = crossOriginHeaders(request);
-            if (cors !== null && request.method === 'OPTIONS') {
-                return new Response(null, { status: 204, headers: preflightHeaders(cors) });
-            }
-            const response = await answerRoute(routes, request, server);
-            return cors === null || response === undefined ? response : withHeaders(response, cors);
-        },
-        websocket: {
-            backpressureLimit: SOCKET_BACKPRESSURE_LIMIT,
-            closeOnBackpressureLimit: true,
-            open(ws) {
-                if (ws.data.protocolRefused) {
-                    ws.close(PROTOCOL_REFUSED_CLOSE_CODE, protocolRefusalReason());
-                    return;
-                }
-                const channel = socketChannel(ws);
-                connections.set(ws, { channel, connection: openConnection(channel, ws.data) });
-            },
-            drain(ws) {
-                // The socket has room again: every session that lost output gets a fresh screen.
-                connections.get(ws)?.channel.drained();
-            },
-            message(ws, message) {
-                connections.get(ws)?.connection.receive(message);
-            },
-            close(ws) {
-                if (ws.data.ticket !== null) {
-                    handshake.socketClosed(ws.data.ticket);
-                }
-                const state = connections.get(ws);
-                if (!state) {
-                    return;
-                }
-                connections.delete(ws);
-                state.channel.closed();
-            }
-        }
-    });
+    const server = serveDaemon({ runtime, machine, stores, agents, projects, devices, processes, power, network, clients, canvasHost });
 
     // The first read runs now, so a page opened straight after a start already has the plan on it.
-    limits.start();
-    providerAccounts.start();
-    processes.start();
+    usage.limits.start();
+    providers.accounts.start();
+    processes.processes.start();
 
     // Hooks and context always go over loopback, whatever interface the socket listens on.
-    manager.hookUrl = `http://127.0.0.1:${server.port}${HOOKS_PATH}`;
-    manager.contextUrl = `http://127.0.0.1:${server.port}${CONTEXT_PATH}`;
+    sessions.hookUrl = `http://127.0.0.1:${server.port}${HOOKS_PATH}`;
+    sessions.contextUrl = `http://127.0.0.1:${server.port}${CONTEXT_PATH}`;
     // Only once `hookUrl` is set: a terminal the worker starts before that runs without hooks for good.
-    await taskWiring.recover();
-    outboxWorker.start();
-    endChildren.start();
+    await work.tasks.recover();
+    work.worker.start();
+    work.endChildren.start();
     // Beside the daemon answering: a turn a restart interrupted is taken up again without waiting for a client.
     void chats.recoverInterrupted().catch((e) => console.error('Resuming interrupted turns failed:', errorText(e)));
 
-    void relay.publish({ host: config.host, port: server.port ?? config.port });
+    void network.brokerSwitch.publish({ host: config.host, port: server.port ?? config.port });
 
     let shuttingDown = false;
     const shutdown = async (reason: string): Promise<void> => {
@@ -1535,21 +212,21 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         }
         shuttingDown = true;
         console.log(`ruimte server stopping for ${reason}, writing snapshots`);
-        selfUpdate.stop();
-        keepAwake.stop();
-        closedLid.stop();
-        snoozes.stop();
-        prWatches.close();
-        outboxWorker.stop();
-        taskWiring.coordinator.stop();
-        taskWiring.waiting.stop();
-        summaries.coordinator.stop();
-        snapshotSchedule.stop();
-        usage.stop();
-        limits.stop();
-        providerAccounts.stop();
-        processes.stop();
-        sessionPorts.stop();
+        processes.selfUpdate.stop();
+        power.keepAwake.stop();
+        power.closedLid.stop();
+        work.snoozes.stop();
+        work.prWatches.close();
+        work.worker.stop();
+        work.tasks.coordinator.stop();
+        work.tasks.waiting.stop();
+        work.summaries.coordinator.stop();
+        agents.snapshotSchedule.stop();
+        usage.usage.stop();
+        usage.limits.stop();
+        providers.accounts.stop();
+        processes.processes.stop();
+        processes.sessionPorts.stop();
         // Before anything is awaited: a `bun --watch` reload restarts the module during the first
         // await, so a turn in flight would otherwise never reach its file.
         chats.persistAllSync();
@@ -1561,53 +238,53 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
                 console.error(`${what} on shutdown failed:`, errorText(e));
             }
         };
-        await step('Settling tasks', () => taskWiring.coordinator.settled());
-        await step('Writing terminal snapshots', () => snapshotSchedule.flush());
+        await step('Settling tasks', () => work.tasks.coordinator.settled());
+        await step('Writing terminal snapshots', () => agents.snapshotSchedule.flush());
         await step('Writing chats', () => chats.shutdown());
         await computer.stop();
-        manager.killAll();
-        browsers.closeAll();
-        await step('Stopping visual previews', () => visualRenderer.stop());
-        deviceDriver.releaseAll();
-        deviceControl.stop();
-        devices.closeAll();
-        projects.closeAll();
-        drawings.closeAll();
-        diagrams.closeAll();
-        launches.close();
-        launchStore.closeAll();
-        databaseConnections.closeAll();
-        agentDatabases.close();
-        await step('Stopping the database helper', () => databases.dispose());
-        await step('Stopping language servers', () => language.close());
-        await step('Stopping the on-device helper', () => onDevice.dispose());
-        peers.closeAll();
-        lanDoor.stop();
-        await relay.stop();
+        sessions.killAll();
+        devices.browsers.closeAll();
+        await step('Stopping visual previews', () => devices.visualRenderer.stop());
+        devices.deviceDriver.releaseAll();
+        devices.deviceControl.stop();
+        devices.devices.closeAll();
+        projects.store.closeAll();
+        projects.drawings.closeAll();
+        projects.diagrams.closeAll();
+        launches.runner.close();
+        launches.store.closeAll();
+        databases.connections.closeAll();
+        databases.agents.close();
+        await step('Stopping the database helper', () => databases.service.dispose());
+        await step('Stopping language servers', () => language.host.close());
+        await step('Stopping the on-device helper', () => language.onDevice.dispose());
+        network.peers.closeAll();
+        network.lanDoor.stop();
+        await network.brokerSwitch.stop();
         void server.stop(true);
         process.exit(0);
     };
 
     process.on('SIGINT', () => void shutdown('SIGINT'));
     process.on('SIGTERM', () => void shutdown('SIGTERM'));
-    selfUpdate.start();
+    processes.selfUpdate.start();
     // `always` holds from the start, before any agent has moved.
-    keepAwake.check();
+    power.keepAwake.check();
     // Puts back what a daemon before this one left, and only then decides for the lid.
-    void closedLid.start();
+    void power.closedLid.start();
 
     const greeting = greetingLines({
         version: VERSION,
         host: server.hostname ?? config.host,
         port: server.port ?? config.port,
-        home: config.home,
+        home,
         interactive: process.stdout.isTTY === true && !config.underService
     });
     for (const line of greeting) {
         console.log(line);
     }
     // After the greeting, so a person who just ran `npx ruimte` reads what runs before where it is reachable.
-    if (lanDoorWanted()) {
-        lanDoor.start();
+    if (network.lanDoorWanted()) {
+        network.lanDoor.start();
     }
 }

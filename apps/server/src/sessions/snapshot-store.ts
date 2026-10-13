@@ -52,7 +52,7 @@ interface SnapshotSource {
     snapshotAll(final: boolean): Promise<SessionSnapshot[]>;
 }
 
-interface SnapshotSchedule {
+export interface SnapshotSchedule {
     /* Writes every screen that changed, busy or not; what the shutdown path awaits. */
     flush(): Promise<void>;
     stop(): void;

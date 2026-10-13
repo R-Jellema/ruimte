@@ -1,0 +1,301 @@
+import { AgentLineageStore, NoticeNotes, NoticeStore, TaskStore, restartBackgroundLimits, unshownNotes } from '@adecore/agents/coordination';
+import { AttachmentStore, BookmarkStore, ChatStore, ClaudeTitleReader, VisualStore, suggestChatTitle } from '@adecore/agents/chat';
+import { AgentStore } from '../agents/agent-store.ts';
+import { CodexTitleReader } from '../agents/codex-title.ts';
+import { PendingPromptStore } from '../agents/pending-prompts.ts';
+import { startCwdGuard } from '../canvas/project-paths.ts';
+import { ChatManager } from '../chat/chat-manager.ts';
+import { ruimteUiSources } from '../chat/ui-sources.ts';
+import type { ComputerUse } from '../computer/computer-use.ts';
+import { ComputerUseStore } from '../computer/store.ts';
+import { referencedChats } from '../context/chat-references.ts';
+import { ContextStore } from '../context/context-store.ts';
+import { withForkOrigin } from '../context/fork-origin.ts';
+import { MESSAGE_WORDS, renderNotice } from '../context/notices.ts';
+import { openedChildSource } from '../context/opened-child.ts';
+import { hasDatabaseConnections } from '../database/connection-store.ts';
+import type { EndpointIdentity } from '../endpoint-id.ts';
+import { Checkpoints } from '../git/checkpoints.ts';
+import { readLog } from '../git/log.ts';
+import { OutboxStore } from '../outbox/outbox.ts';
+import { OutboxLink } from '../outbox/wiring.ts';
+import { isPlanFileName, PlanStore } from '../plans/plan-store.ts';
+import { BunPtyAdapter } from '../pty/bun-pty.ts';
+import { CommandApprovals } from '../sessions/command-approvals.ts';
+import { SessionError, SessionManager } from '../sessions/manager.ts';
+import { ModeApprovals, personModeOf } from '../sessions/mode-approvals.ts';
+import { prepareShellIntegration, type ShellEnvironment } from '../sessions/shell-integration.ts';
+import { SnapshotStore, scheduleSnapshots, type SnapshotSchedule } from '../sessions/snapshot-store.ts';
+import type { AgentWorkBundle } from './agent-work.ts';
+import type { DatabasesBundle } from './databases.ts';
+import type { DevicesBundle } from './devices.ts';
+import type { GitBundle } from './git.ts';
+import type { LaunchesBundle } from './launches.ts';
+import type { ProjectsBundle } from './projects.ts';
+import type { ProvidersBundle } from './providers.ts';
+import type { DaemonRuntime } from './runtime.ts';
+import type { UsageBundle } from './usage.ts';
+
+/* What the daemon keeps for agents across a restart, loaded before anything can take from it. */
+export interface AgentStores {
+    shellEnvironment: ShellEnvironment;
+    snapshots: SnapshotStore;
+    prompts: PendingPromptStore;
+    lineage: AgentLineageStore;
+    notices: NoticeStore;
+    outbox: OutboxStore;
+    tasks: TaskStore;
+    commandApprovals: CommandApprovals;
+    modeApprovals: ModeApprovals;
+    computerStore: ComputerUseStore;
+}
+
+export async function loadAgentStores(home: string): Promise<AgentStores> {
+    const snapshots = new SnapshotStore(home);
+    // Loaded before anything can take one: a node made just before a restart still starts on its prompt.
+    const prompts = new PendingPromptStore(home);
+    // The same for the chain of agents that opened agents: a restart must not start the count over.
+    const lineage = new AgentLineageStore(home);
+    // And for the messages one node left for another: they outlive the CLI they are waiting for.
+    const notices = new NoticeStore(home);
+    // And for the agents a verb made that the daemon still has to start.
+    const outbox = new OutboxStore(home);
+    // And for the tasks a chat gave, whose results still have to wake it.
+    const tasks = new TaskStore(home);
+    // And for the commands a person let a terminal type, which a node's first start asks about.
+    const commandApprovals = new CommandApprovals(home);
+    // And for the mode a person gave each terminal agent, which an edit of the project file cannot widen.
+    const modeApprovals = new ModeApprovals(home);
+    // And for whether agents may operate this machine's apps, and which ones a person let them into for good.
+    const computerStore = new ComputerUseStore(home);
+    // Each store reads a file of its own, so they load side by side.
+    const [shellEnvironment] = await Promise.all([
+        prepareShellIntegration(home),
+        prompts.load(),
+        lineage.load(),
+        notices.load(),
+        outbox.load().then(() => restartBackgroundLimits(outbox, Date.now())),
+        tasks.load(),
+        commandApprovals.load(),
+        modeApprovals.load(),
+        computerStore.load()
+    ]);
+    return { shellEnvironment, snapshots, prompts, lineage, notices, outbox, tasks, commandApprovals, modeApprovals, computerStore };
+}
+
+/* What the agents reach that is wired after them, asked only once a session or a chat runs. */
+export interface AgentsLater {
+    projects(): ProjectsBundle;
+    git(): GitBundle;
+    devices(): DevicesBundle;
+    databases(): DatabasesBundle;
+    launches(): LaunchesBundle;
+    usage(): UsageBundle;
+    work(): AgentWorkBundle;
+}
+
+export interface AgentsInput {
+    runtime: DaemonRuntime;
+    identity: EndpointIdentity;
+    stores: AgentStores;
+    providers: ProvidersBundle;
+    computer: ComputerUse;
+    /* Runs while the stores load; it never rejects, and the managers await it before any launch. */
+    codexProbe: Promise<void>;
+    later: AgentsLater;
+}
+
+/* The terminals and chats, and what an agent in one of them reads. */
+export interface AgentsBundle {
+    sessions: SessionManager;
+    snapshotSchedule: SnapshotSchedule;
+    chats: ChatManager;
+    context: ContextStore;
+    outboxLink: OutboxLink;
+    attachments: AttachmentStore;
+    checkpoints: Checkpoints;
+    plans: PlanStore;
+    bookmarks: BookmarkStore;
+    visuals: VisualStore;
+    /* Refuses a directory an agent node may not start in, at every start. */
+    startCwd(nodeId: string, cwd: string): Promise<void>;
+    /* A bearer token speaks for a terminal session or a chat, for reading context and for agent commands alike. */
+    targetForToken(token: string): string | null;
+    /* What a terminal's agent hears the moment it can: taken here, so whichever channel gets there first is the only one that delivers it. */
+    messagesFor(targetId: string): string[];
+}
+
+export async function wireAgents({ runtime, identity, stores, providers, computer, codexProbe, later }: AgentsInput): Promise<AgentsBundle> {
+    const { config } = runtime;
+    const { snapshots, prompts, lineage, notices, outbox, tasks, commandApprovals, modeApprovals } = stores;
+    const index = () => later.projects().store.index;
+    const folderOf = (nodeId: string): string | null => index().locate(nodeId)?.folder ?? null;
+    const startCwd = startCwdGuard({
+        madeByAgent: (nodeId) => lineage.madeBy(nodeId) !== null,
+        folderOf,
+        worktreePaths: (folder) => later.git().worktreePaths(folder)
+    });
+    const messagesFor = (targetId: string): string[] => notices.take(targetId).map(renderNotice);
+    // One reader for chats and terminals, so a transcript both look at is only read on from where either stopped.
+    const claudeTitles = new ClaudeTitleReader();
+    const sessions = new SessionManager({
+        adapter: new BunPtyAdapter(),
+        shellEnvironment: stores.shellEnvironment,
+        snapshots,
+        agents: new AgentStore(config.home),
+        contextUrl: runtime.contextUrl,
+        binDir: runtime.binDir,
+        contextFor: (sessionId) => context.list(sessionId),
+        firstPrompt: (sessionId) => prompts.take(sessionId),
+        firstNotices: messagesFor,
+        depthOf: (sessionId) => lineage.depthOf(sessionId),
+        standalone: (sessionId) => index().locate(sessionId)?.canvasId === null,
+        computerUse: () => computer.usable,
+        // A node no project places yet has no folder to approve against, so its command waits for the save that adds it.
+        commands: {
+            approved: (sessionId, command) => {
+                const folder = folderOf(sessionId);
+                return folder !== null && commandApprovals.has(folder, sessionId, command);
+            },
+            approve: async (sessionId, command) => {
+                const folder = folderOf(sessionId);
+                if (folder === null) {
+                    throw new SessionError('session-not-found', `No project this machine knows places ${sessionId}`);
+                }
+                await commandApprovals.approve(folder, sessionId, command);
+            }
+        },
+        modeCeiling: (sessionId) => lineage.ceilingOf(sessionId),
+        personMode: (sessionId) => {
+            const folder = folderOf(sessionId);
+            return personModeOf(folder === null ? null : modeApprovals.modeOf(folder, sessionId), chats.composerPreferences.terminalMode());
+        },
+        checkCwd: startCwd,
+        claudeTitles,
+        codexTitles: new CodexTitleReader(),
+        accounts: providers.accounts,
+        preferredAccount: (kind) => chats.composerPreferences.for(kind).account
+    });
+    const snapshotSchedule = scheduleSnapshots(sessions, snapshots);
+    await codexProbe;
+    const targetForToken = (token: string): string | null => sessions.sessionIdForToken(token) ?? chats.chatIdForToken(token);
+    const context: ContextStore = new ContextStore({
+        sources: (targetId) =>
+            withForkOrigin(targetId, index().sourcesFor(targetId), {
+                forkedFrom: (id) => lineage.forkedFrom(id),
+                forksOf: (id) => lineage.forksOf(id),
+                locate: (id) => index().locate(id),
+                titleFor: (id) => index().titleFor(id)
+            }),
+        referenced: (targetId) => referencedChats(chats.get(targetId)?.thread.list() ?? [], (id) => index().chatTitleBeside(targetId, id)),
+        opened: (targetId, sourceId) =>
+            openedChildSource(targetId, sourceId, { startedBy: (id) => lineage.startedBy(id), agentSource: (id) => index().agentSource(id) }),
+        terminalText: (sessionId) => sessions.get(sessionId)?.plainText() ?? Promise.resolve(null),
+        chatItems: (chatId) => chats.get(chatId)?.thread.list() ?? null,
+        browserPage: (browserId) => later.devices().browserDriver.read(browserId),
+        devices: () => later.devices().devices.list(),
+        chatPlans: (chatId) => plans.read(chatId),
+        subagentItems: (chatId, toolUseId) => chats.subagentItems(chatId, toolUseId),
+        drawingElements: (viewId) => later.projects().drawings.elementsOf(viewId),
+        diagramDocument: async (targetId, viewId) => {
+            const place = index().locate(targetId);
+            return place ? later.projects().diagrams.read(place.projectId, viewId) : null;
+        },
+        canvasOf: (targetId) => index().canvasOf(targetId)
+    });
+    const outboxLink = new OutboxLink({ outbox, projectOf: (id) => index().locate(id)?.projectId ?? null });
+    const attachments = new AttachmentStore(config.home);
+    const checkpoints = new Checkpoints(config.home);
+    const plans = new PlanStore(config.home);
+    const bookmarks = new BookmarkStore(config.home);
+    const visuals = new VisualStore(config.home, attachments);
+    const chats: ChatManager = new ChatManager({
+        providers: providers.providers,
+        intelligentUi: ruimteUiSources({
+            place: (chatId) => index().locate(chatId),
+            node: (id) => {
+                const place = index().locate(id);
+                return !place || index().isHiddenChat(id)
+                    ? null
+                    : {
+                          projectId: place.projectId,
+                          canvasId: place.canvasId,
+                          title: index().titleFor(id) ?? id,
+                          hidden: later.projects().store.hiddenAgents.get(id) !== undefined
+                      };
+            },
+            worktreePaths: (folder) => later.git().worktreePaths(folder),
+            gitStatus: (cwd) => later.git().statuses.status(cwd),
+            gitLog: readLog,
+            launches: (projectId) => later.launches().agentHost.list(projectId),
+            tasks: (chatId) => tasks.ofParent(chatId),
+            databases: () => later.databases().agents
+        }),
+        store: new ChatStore(config.home, { attachments, isSidecar: isPlanFileName }),
+        attachments,
+        checkpoints,
+        contextUrl: runtime.contextUrl,
+        binDir: runtime.binDir,
+        depthOf: (chatId) => lineage.depthOf(chatId),
+        computer: () => computer.usable,
+        visualReplies: () => identity.visualReplies,
+        databases: (chatId) => {
+            const folder = index().locate(chatId)?.folder;
+            return folder !== undefined && hasDatabaseConnections(folder);
+        },
+        modeCeiling: (chatId) => lineage.ceilingOf(chatId),
+        checkCwd: startCwd,
+        holdsProject: async (chatId, clientId) => {
+            const place = index().locate(chatId);
+            return place !== null && (await later.projects().store.heldFolders(clientId)).includes(place.folder);
+        },
+        contextSources: (chatId) => context.list(chatId),
+        chatTitle: (chatId, id) => index().chatTitleBeside(chatId, id),
+        standalone: (chatId) => index().locate(chatId)?.canvasId === null,
+        inlineChat: (chatId) => index().isHiddenChat(chatId),
+        openingSelection: (chatId, provider) => {
+            const entry = outbox.list().find((entry) => entry.kind === 'start-agent' && entry.target === chatId);
+            return entry?.kind === 'start-agent' && entry.payload.provider === provider ? entry.payload.selection : undefined;
+        },
+        messageNotes: (chatId) => new NoticeNotes(notices, chatId, MESSAGE_WORDS),
+        // The other reader: what a chat has to show a person in its thread, which is never taken from the model.
+        unshownMessages: (chatId) => unshownNotes(notices, chatId, MESSAGE_WORDS),
+        firstPrompt: (chatId) => prompts.take(chatId),
+        // A turn reports what is left of its plan in passing; that belongs to the machine's numbers.
+        onLimits: (update) => later.usage().limits.applyLive(update),
+        claudeTitles,
+        // One one-shot call per Codex chat, on whichever CLI here answers a single prompt.
+        nameChat: (provider, input) => suggestChatTitle(providers.providers, provider, input),
+        onInterruptedRun: outboxLink.onInterruptedRun,
+        taskRows: (chatId) => tasks.ofParent(chatId),
+        dropWakes: (chatId) => tasks.dropWake(chatId),
+        endChildren: (chatId) => later.work().endChildren.stopNode(chatId, 'a person cleared this chat'),
+        endedAt: (chatId) => lineage.endedAt(chatId),
+        plans,
+        bookmarks,
+        visuals,
+        limitResume: {
+            allowed: () => identity.resumeAtReset,
+            now: () => Date.now(),
+            owe: (chatId, turnId, at) => outboxLink.oweLimitResume(chatId, turnId, at),
+            lapse: (chatId) => outboxLink.lapseLimitResume(chatId),
+            owed: (chatId) => outboxLink.owesLimitResume(chatId)
+        },
+        accounts: providers.accounts
+    });
+    return {
+        sessions,
+        snapshotSchedule,
+        chats,
+        context,
+        outboxLink,
+        attachments,
+        checkpoints,
+        plans,
+        bookmarks,
+        visuals,
+        startCwd,
+        targetForToken,
+        messagesFor
+    };
+}
