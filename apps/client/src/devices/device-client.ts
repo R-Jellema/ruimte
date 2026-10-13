@@ -1,7 +1,8 @@
 import i18next from 'i18next';
-import type { DeviceAction, DeviceDetail, DeviceFrame, DeviceInfo, DeviceInput, DeviceVideoFormat, LiveStreamFrame } from '@ruimte/contracts';
+import type { DeviceAction, DeviceDetail, DeviceInfo, DeviceInput, DeviceVideoFormat, LiveFrameHeader, LiveStreamFrame } from '@ruimte/contracts';
 import { useDevices } from '@/devices/state';
 import { HandlerTable } from '@/transport/handler-table';
+import { decodeBase64 } from '@/transport/piece';
 import { MountedRegistry, type MountedEntry } from '@adecore/agents-react';
 import { isConnectionError, type Transport, type TransportStatus } from '@/transport/transport';
 
@@ -38,7 +39,11 @@ export class DeviceClient {
     constructor(endpointId: string, transport: Transport) {
         this.endpointId = endpointId;
         this.transport = transport;
-        this.unsubscribe = [transport.on('device.frame', (frame) => this.receiveFrame(frame)), transport.subscribeStatus((status) => this.onStatus(status))];
+        this.unsubscribe = [
+            transport.on('device.frame', ({ data, ...header }) => this.receiveFrame(header, decodeBase64(data))),
+            transport.onLiveFrame?.('device.frame', (header, bytes) => this.receiveFrame(header, bytes)) ?? (() => undefined),
+            transport.subscribeStatus((status) => this.onStatus(status))
+        ];
     }
 
     async refresh(background = false): Promise<DeviceInfo[]> {
@@ -194,7 +199,7 @@ export class DeviceClient {
     private async attach(mounted: MountedDevice): Promise<string> {
         const opened = await this.transport.request('device.open', {
             ...targetOf(mounted.device),
-            ...(mounted.stream === 'events' ? { stream: 'events' as const } : {}),
+            ...(mounted.stream === 'events' ? { stream: 'events' as const, ...(this.transport.onLiveFrame ? { binary: true } : {}) } : {}),
             formats: DRAWABLE_FORMATS
         });
         mounted.attached = true;
@@ -222,19 +227,18 @@ export class DeviceClient {
         });
     }
 
-    private receiveFrame(frame: DeviceFrame): void {
+    private receiveFrame(frame: LiveFrameHeader<'device.frame'>, data: Uint8Array): void {
         const key = keyOf(frame);
         const mounted = this.mounted.get(key);
         if (!mounted || mounted.stream !== 'events') {
             return;
         }
-        const binary = atob(frame.data);
         const decoded = {
             sequence: frame.sequence,
             width: frame.width,
             height: frame.height,
             ...(frame.format ? { format: frame.format } : {}),
-            data: Uint8Array.from(binary, (character) => character.charCodeAt(0))
+            data
         };
         this.latestFrames.set(key, decoded);
         this.frameHandlers.fanOut(key, decoded);

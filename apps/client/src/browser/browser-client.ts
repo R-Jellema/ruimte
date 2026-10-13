@@ -1,8 +1,9 @@
-import type { BrowserFrame, BrowserInfo, BrowserInput, LiveStreamFrame } from '@ruimte/contracts';
+import type { BrowserInfo, BrowserInput, LiveFrameHeader, LiveStreamFrame } from '@ruimte/contracts';
 import i18next from 'i18next';
 import { endpointKey } from '@/state/keys';
 import { useBrowser } from './registry';
 import { HandlerTable } from '@/transport/handler-table';
+import { decodeBase64 } from '@/transport/piece';
 import { MountedRegistry, type MountedEntry } from '@adecore/agents-react';
 import { isConnectionError, type Transport, type TransportStatus } from '@/transport/transport';
 
@@ -28,7 +29,8 @@ export class BrowserClient {
         this.transport = transport;
         this.unsubscribe = [
             transport.on('browser.status', (info) => this.apply(info)),
-            transport.on('browser.frame', (frame) => this.receiveFrame(frame)),
+            transport.on('browser.frame', ({ data, ...header }) => this.receiveFrame(header, decodeBase64(data))),
+            transport.onLiveFrame?.('browser.frame', (header, bytes) => this.receiveFrame(header, bytes)) ?? (() => undefined),
             transport.subscribeStatus((status) => this.onStatus(status))
         ];
     }
@@ -226,17 +228,15 @@ export class BrowserClient {
             width: mounted.width,
             height: mounted.height,
             deviceScaleFactor: mounted.deviceScaleFactor,
-            ...(mounted.stream === 'events' ? { stream: 'events' as const } : {})
+            ...(mounted.stream === 'events' ? { stream: 'events' as const, ...(this.transport.onLiveFrame ? { binary: true } : {}) } : {})
         };
     }
 
-    private receiveFrame(frame: BrowserFrame): void {
+    private receiveFrame(frame: LiveFrameHeader<'browser.frame'>, data: Uint8Array): void {
         const mounted = this.mounted.get(frame.browserId);
         if (!mounted || mounted.stream !== 'events') {
             return;
         }
-        const binary = atob(frame.data);
-        const data = Uint8Array.from(binary, (character) => character.charCodeAt(0));
         const decoded: LiveStreamFrame = {
             sequence: frame.sequence,
             width: frame.width,

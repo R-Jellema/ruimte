@@ -11,6 +11,7 @@ import {
     DirectVerdictFrameSchema,
     FrameAssembler,
     isBinaryPiece,
+    LIVE_FRAME_MAX_BYTES,
     protocolMismatch,
     splitFrame,
     type DirectChallengeFrame,
@@ -30,6 +31,9 @@ const GATHER_TIMEOUT_MS = 5_000;
 // The same ceiling the daemon holds a channel to once it is in; the handshake frames are a few hundred bytes.
 const FRAME_CHARS = 16 * 1024 * 1024;
 const HANDSHAKE_FRAME_CHARS = 4_096;
+
+// A binary frame is a `bytes.read` reply or a live frame, and only ever one this client asked for.
+const BINARY_FRAME_BYTES = Math.max(BYTES_REPLY_MAX_BYTES, LIVE_FRAME_MAX_BYTES);
 
 // How long a close waits for the channel to report closed before the peer goes anyway.
 const CLOSE_GRACE_MS = 2_000;
@@ -236,9 +240,9 @@ export function webRtcLink(options: WebRtcLinkOptions): LinkOpener {
             events.open();
         };
 
-        // Only a reply that asked for binary comes this way, so nothing reads one before the handshake.
+        // Only what a request asked for in binary comes this way, so nothing reads one before the handshake.
         const onBinaryPiece = (piece: Uint8Array): void => {
-            const result = authenticated ? binaryAssembler.push(piece, BYTES_REPLY_MAX_BYTES) : ({ kind: 'invalid' } as const);
+            const result = authenticated ? binaryAssembler.push(piece, BINARY_FRAME_BYTES) : ({ kind: 'invalid' } as const);
             if (result.kind === 'invalid') {
                 end(i18next.t('machines:direct.badFrame'));
                 return;

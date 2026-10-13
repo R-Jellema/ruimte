@@ -7275,6 +7275,9 @@
           "http",
           "events"
         ]
+      },
+      "binary": {
+        "type": "boolean"
       }
     },
     "required": [
@@ -8437,6 +8440,9 @@
           "http",
           "events"
         ]
+      },
+      "binary": {
+        "type": "boolean"
       },
       "formats": {
         "maxItems": 8,

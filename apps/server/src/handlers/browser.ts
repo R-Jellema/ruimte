@@ -10,7 +10,7 @@ export function registerBrowserHandlers(dispatcher: Dispatcher, browsers: Browse
     dispatcher.register('browser.open', (payload, client) => {
         requireStreaming();
         return translate(() =>
-            browsers.open(payload.browserId, client.id, payload.url, payload.width, payload.height, payload.stream, payload.deviceScaleFactor)
+            browsers.open(payload.browserId, client.id, payload.url, payload.width, payload.height, payload.stream, payload.deviceScaleFactor, payload.binary)
         );
     });
     // Detach and kill let a client clean up after the policy changed, so they stay open.

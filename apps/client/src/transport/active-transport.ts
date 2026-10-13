@@ -1,7 +1,7 @@
 import i18next from 'i18next';
-import type { BytesReadPayload, EventMap, EventType, RequestMap, RequestType } from '@ruimte/contracts';
+import type { BytesReadPayload, EventMap, EventType, LiveFrameEvent, RequestMap, RequestType } from '@ruimte/contracts';
 import { readPiece, type BytesPiece } from './piece';
-import { TransportError, type ConnectionState, type Transport, type TransportStatus } from './transport';
+import { TransportError, type ConnectionState, type LiveFrameHandler, type Transport, type TransportStatus } from './transport';
 
 /* What the facade needs of the pool: the socket of one endpoint, and word when any of them changes. */
 export interface ActiveSource {
@@ -18,8 +18,7 @@ export interface ActiveTransportOptions {
 }
 
 interface Registration {
-    event: EventType;
-    handler: (payload: never) => void;
+    bind(transport: Transport): () => void;
     /* How to take this handler off the socket it is on now; null while there is no socket. */
     off: (() => void) | null;
 }
@@ -101,21 +100,26 @@ export class ActiveTransport implements Transport {
     }
 
     on<E extends EventType>(event: E, handler: (payload: EventMap[E]) => void): () => void {
-        const registration: Registration = { event, handler: handler as (payload: never) => void, off: null };
-        this.registrations.add(registration);
-        if (this.bound) {
-            registration.off = this.bound.on(event, handler);
-        }
-        return () => {
-            registration.off?.();
-            this.registrations.delete(registration);
-        };
+        return this.register((transport) => transport.on(event, handler));
+    }
+
+    onLiveFrame<E extends LiveFrameEvent>(event: E, handler: LiveFrameHandler<E>): () => void {
+        return this.register((transport) => transport.onLiveFrame?.(event, handler) ?? (() => undefined));
     }
 
     subscribeStatus(handler: (status: TransportStatus) => void): () => void {
         this.statusHandlers.add(handler);
         return () => {
             this.statusHandlers.delete(handler);
+        };
+    }
+
+    private register(bind: Registration['bind']): () => void {
+        const registration: Registration = { bind, off: this.bound ? bind(this.bound) : null };
+        this.registrations.add(registration);
+        return () => {
+            registration.off?.();
+            this.registrations.delete(registration);
         };
     }
 
@@ -132,7 +136,7 @@ export class ActiveTransport implements Transport {
         this.offBoundStatus = null;
         for (const registration of this.registrations) {
             registration.off?.();
-            registration.off = next ? next.on(registration.event, registration.handler as (payload: EventMap[EventType]) => void) : null;
+            registration.off = next ? registration.bind(next) : null;
         }
         this.bound = next;
         this.announced = null;

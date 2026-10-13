@@ -51,24 +51,47 @@ const BytesReplyHeadSchema = z.object({ id: z.string().min(1), result: BytesRead
 // The first byte of a binary reply, so a later kind of binary frame can be told apart.
 export const BYTES_REPLY_KIND = 1;
 
-const REPLY_PREFIX_BYTES = 5;
+const HEADED_PREFIX_BYTES = 5;
 
 // The largest binary reply a client reads: a whole piece and room for its header.
 export const BYTES_REPLY_MAX_BYTES = BYTES_CHUNK_MAX + 16 * 1024;
 
 /*
- * A successful `bytes.read` as one binary message, for a request that set `binary`: the kind byte, the
- * length of a JSON header as a big-endian uint32, the header (`{ id, result }`, the result without
- * `data`), then the piece's bytes as they are. An error still answers in JSON.
+ * A binary frame of any kind: the kind byte, the length of a JSON head as a big-endian uint32, the
+ * head, then the bytes as they are.
+ */
+export function encodeHeadedFrame(kind: number, head: unknown, bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+    const encodedHead = new TextEncoder().encode(JSON.stringify(head));
+    const frame = new Uint8Array(HEADED_PREFIX_BYTES + encodedHead.byteLength + bytes.byteLength);
+    frame[0] = kind;
+    new DataView(frame.buffer).setUint32(1, encodedHead.byteLength);
+    frame.set(encodedHead, HEADED_PREFIX_BYTES);
+    frame.set(bytes, HEADED_PREFIX_BYTES + encodedHead.byteLength);
+    return frame;
+}
+
+/* The JSON head and the bytes of a frame of that kind, or null for any other frame. */
+export function decodeHeadedFrame(frame: Uint8Array, kind: number): { head: unknown; bytes: Uint8Array<ArrayBuffer> } | null {
+    if (frame.byteLength < HEADED_PREFIX_BYTES || frame[0] !== kind) {
+        return null;
+    }
+    const headEnd = HEADED_PREFIX_BYTES + new DataView(frame.buffer, frame.byteOffset, frame.byteLength).getUint32(1);
+    if (headEnd > frame.byteLength) {
+        return null;
+    }
+    try {
+        return { head: JSON.parse(new TextDecoder().decode(frame.subarray(HEADED_PREFIX_BYTES, headEnd))), bytes: frame.slice(headEnd) };
+    } catch {
+        return null;
+    }
+}
+
+/*
+ * A successful `bytes.read` as one binary message, for a request that set `binary`: a headed frame
+ * whose head is `{ id, result }`, the result without `data`. An error still answers in JSON.
  */
 export function encodeBytesReply(id: string, header: BytesReadHeader, bytes: Uint8Array): Uint8Array<ArrayBuffer> {
-    const head = new TextEncoder().encode(JSON.stringify({ id, result: header }));
-    const frame = new Uint8Array(REPLY_PREFIX_BYTES + head.byteLength + bytes.byteLength);
-    frame[0] = BYTES_REPLY_KIND;
-    new DataView(frame.buffer).setUint32(1, head.byteLength);
-    frame.set(head, REPLY_PREFIX_BYTES);
-    frame.set(bytes, REPLY_PREFIX_BYTES + head.byteLength);
-    return frame;
+    return encodeHeadedFrame(BYTES_REPLY_KIND, { id, result: header }, bytes);
 }
 
 export interface BytesReply {
@@ -79,19 +102,10 @@ export interface BytesReply {
 
 /* A binary reply read back, or null for a frame that is not one this version knows. */
 export function decodeBytesReply(frame: Uint8Array): BytesReply | null {
-    if (frame.byteLength < REPLY_PREFIX_BYTES || frame[0] !== BYTES_REPLY_KIND) {
+    const decoded = decodeHeadedFrame(frame, BYTES_REPLY_KIND);
+    if (decoded === null) {
         return null;
     }
-    const headEnd = REPLY_PREFIX_BYTES + new DataView(frame.buffer, frame.byteOffset, frame.byteLength).getUint32(1);
-    if (headEnd > frame.byteLength) {
-        return null;
-    }
-    let json: unknown;
-    try {
-        json = JSON.parse(new TextDecoder().decode(frame.subarray(REPLY_PREFIX_BYTES, headEnd)));
-    } catch {
-        return null;
-    }
-    const head = BytesReplyHeadSchema.safeParse(json);
-    return head.success ? { id: head.data.id, result: head.data.result, bytes: frame.slice(headEnd) } : null;
+    const head = BytesReplyHeadSchema.safeParse(decoded.head);
+    return head.success ? { id: head.data.id, result: head.data.result, bytes: decoded.bytes } : null;
 }

@@ -97,6 +97,8 @@ export const DeviceTargetPayloadSchema = z.object({
 
 export const DeviceOpenPayloadSchema = DeviceTargetPayloadSchema.extend({
     stream: z.enum(['http', 'events']).optional(),
+    // Asks for the frames of `events` as binary live frames; a daemon from before those ignores it and sends base64 in JSON.
+    binary: z.boolean().optional(),
     /* What the client can draw. Absent means a client from before H.264, which draws JPEG and HEVC. */
     formats: z.array(DeviceVideoFormatSchema).max(8).optional()
 });

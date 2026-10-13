@@ -1,4 +1,4 @@
-import type { BytesReadPayload, EventMap, EventType, RequestMap, RequestType } from '@ruimte/contracts';
+import type { BytesReadPayload, EventMap, EventType, LiveFrameEvent, LiveFrameHeader, RequestMap, RequestType } from '@ruimte/contracts';
 import type { BytesPiece } from './piece';
 
 export type TransportStatus = 'connecting' | 'open' | 'closed';
@@ -22,11 +22,15 @@ export interface ConnectionState {
     signaled?: SignalRoute | null;
 }
 
+export type LiveFrameHandler<E extends LiveFrameEvent> = (header: LiveFrameHeader<E>, bytes: Uint8Array) => void;
+
 export interface Transport {
     request<T extends RequestType>(type: T, payload: RequestMap[T]['payload']): Promise<RequestMap[T]['result']>;
     /* `bytes.read` answered as a binary reply, by a transport that reads those; see `readPiece`. */
     readBytes?(payload: BytesReadPayload): Promise<BytesPiece>;
     on<E extends EventType>(event: E, handler: (payload: EventMap[E]) => void): () => void;
+    /* The frames of a stream opened with `binary`, by a transport that reads those; without it a client asks for JSON. */
+    onLiveFrame?<E extends LiveFrameEvent>(event: E, handler: LiveFrameHandler<E>): () => void;
     readonly status: TransportStatus;
     /* The status plus the reconnect loop behind it. A transport without a loop leaves this out;
        the object identity only changes when the state does, so a store can read it as a snapshot. */

@@ -358,6 +358,7 @@ export * from './ondevice.ts';
 export * from './launches.ts';
 export * from './secrets.ts';
 export * from './live-stream.ts';
+export * from './live-frame.ts';
 export * from './lan-door.ts';
 export * from './machine-http.ts';
 export * from './machine-update.ts';

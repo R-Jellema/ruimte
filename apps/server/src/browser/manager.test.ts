@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { BrowserFrame, BrowserInfo } from '@ruimte/contracts';
+import type { BrowserFrame, BrowserInfo, LiveFrame, LiveFrameHeader } from '@ruimte/contracts';
 import { BrowserManager, type BrowserPage } from './manager.ts';
 import { LiveStreamHub } from '../streams/live-stream.ts';
 
@@ -206,7 +206,7 @@ describe('BrowserManager', () => {
     test('sends replaceable frames through the client connection when requested', async () => {
         const page = new FakePage();
         const manager = new BrowserManager(new LiveStreamHub(), () => page);
-        const frames: BrowserFrame[] = [];
+        const frames: Array<LiveFrameHeader<'browser.frame'>> = [];
         manager.subscribe('client-1', (event) => {
             if (event.event === 'browser.frame') {
                 frames.push(event.payload);
@@ -224,6 +224,36 @@ describe('BrowserManager', () => {
         manager.detach('node-1', 'client-1');
         await until(() => page.calls.at(-1)?.[0] === 'Page.stopScreencast');
         expect(page.calls.at(-1)?.[0]).toBe('Page.stopScreencast');
+        manager.closeAll();
+    });
+
+    test('a client that asked for binary frames gets the bytes, one that did not gets base64', async () => {
+        const pages = [new FakePage(), new FakePage()];
+        let created = 0;
+        const manager = new BrowserManager(new LiveStreamHub(), () => pages[created++]!);
+        const live: LiveFrame[] = [];
+        const json: BrowserFrame[] = [];
+        manager.subscribe('client-1', (event) => {
+            if ('bytes' in event) {
+                live.push(event);
+            }
+        });
+        manager.subscribe('client-2', (event) => {
+            if (event.event === 'browser.frame' && !('bytes' in event)) {
+                json.push(event.payload);
+            }
+        });
+
+        await manager.open('node-1', 'client-1', 'https://example.com', 800, 600, 'events', 1, true);
+        await manager.open('node-1', 'client-2', 'https://example.com', 800, 600, 'events');
+        for (const page of pages) {
+            page.emitFrame();
+        }
+        await until(() => live.length > 0 && json.length > 0);
+
+        expect(live[0]).toMatchObject({ event: 'browser.frame', payload: { browserId: 'node-1' }, bytes: new Uint8Array([1, 2, 3]) });
+        expect(live[0]!.payload).not.toHaveProperty('data');
+        expect(json[0]!.data).toBe(Buffer.from([1, 2, 3]).toString('base64'));
         manager.closeAll();
     });
 

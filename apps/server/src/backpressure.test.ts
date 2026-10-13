@@ -1,15 +1,20 @@
 import { describe, expect, test } from 'bun:test';
-import type { ServerFrame } from '@ruimte/contracts';
+import { decodeLiveFrame, type LiveFrame, type ServerFrame } from '@ruimte/contracts';
 import { HIGH_WATER_MARK, LOW_WATER_MARK, OutputGate, type BackpressuredSocket } from './backpressure.ts';
 
 class FakeSocket implements BackpressuredSocket {
     readonly frames: ServerFrame[] = [];
+    readonly live: LiveFrame[] = [];
     buffered = 0;
     // What the next send answers: 0 dropped, -1 queued under backpressure, else bytes sent.
     status = 1;
 
-    send(data: string): number {
-        this.frames.push(JSON.parse(data) as ServerFrame);
+    send(data: string | Uint8Array): number {
+        if (typeof data === 'string') {
+            this.frames.push(JSON.parse(data) as ServerFrame);
+        } else {
+            this.live.push(decodeLiveFrame(data)!);
+        }
         return this.status;
     }
 
@@ -301,5 +306,42 @@ describe('OutputGate', () => {
             { sessionId: 'a', screen: 'screen-a' },
             { sessionId: 'b', screen: 'screen-b' }
         ]);
+    });
+
+    test('binary live frames are dropped and skip to a key frame exactly as their JSON twins', async () => {
+        const { socket, gate, keyFrameRequests } = setup();
+        const video = (sequence: number, keyFrame: boolean): LiveFrame => ({
+            event: 'device.frame',
+            payload: { deviceId: 'phone-1', backendId: 'android', platform: 'android', sequence, width: 800, height: 600, format: 'h264', keyFrame },
+            bytes: new Uint8Array([sequence])
+        });
+        const picture = (sequence: number): LiveFrame => ({
+            event: 'browser.frame',
+            payload: { browserId: 'browser-1', sequence, width: 800, height: 600 },
+            bytes: new Uint8Array([sequence])
+        });
+        gate.sendLive(video(1, true));
+        gate.sendLive(picture(1));
+        socket.buffered = HIGH_WATER_MARK + 1;
+        gate.sendLive(video(2, false));
+        gate.sendLive(picture(2));
+        gate.send(output('a', 'lost'));
+
+        socket.buffered = 0;
+        gate.onDrain();
+        await flush();
+        expect(keyFrameRequests).toEqual(['android/phone-1']);
+        gate.sendLive(video(3, false));
+        gate.sendLive(video(4, true));
+        gate.sendLive(picture(3));
+
+        expect(socket.live.map((frame) => `${frame.event}:${frame.payload.sequence}`)).toEqual([
+            'device.frame:1',
+            'browser.frame:1',
+            'device.frame:4',
+            'browser.frame:3'
+        ]);
+        expect(socket.live[0]!.bytes).toEqual(new Uint8Array([1]));
+        expect(socket.of('session.resync')).toEqual([{ sessionId: 'a', screen: 'screen-a' }]);
     });
 });

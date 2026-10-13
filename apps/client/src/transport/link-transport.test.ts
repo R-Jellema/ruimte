@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
-import { encodeBytesReply } from '@ruimte/contracts';
+import { encodeBytesReply, encodeLiveFrame } from '@ruimte/contracts';
 import i18next from 'i18next';
 import { LinkTransport, type Link, type LinkEvents } from './link-transport';
 import type { TransportStatus } from './transport';
@@ -91,6 +91,20 @@ describe('LinkTransport', () => {
         links[0]!.events.message(encodeBytesReply(id, piece, new Uint8Array([7, 8, 9])));
         await tick();
         expect(settled).toBe(false);
+    });
+
+    test('a live frame reaches the handlers of its event with its header and bytes', async () => {
+        const { transport, links } = setup();
+        await tick();
+        links[0]!.events.open();
+        const received: Array<[unknown, number[]]> = [];
+        const stop = transport.onLiveFrame('browser.frame', (header, bytes) => received.push([header, [...bytes]]));
+        transport.onLiveFrame('device.frame', () => received.push(['device', []]));
+        const header = { browserId: 'node-1', sequence: 3, width: 800, height: 600 };
+        links[0]!.events.message(encodeLiveFrame({ event: 'browser.frame', payload: header, bytes: new Uint8Array([4, 5]) }));
+        stop();
+        links[0]!.events.message(encodeLiveFrame({ event: 'browser.frame', payload: header, bytes: new Uint8Array([6]) }));
+        expect(received).toEqual([[header, [4, 5]]]);
     });
 
     test('a request goes out on the link and its reply comes back', async () => {

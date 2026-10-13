@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { EventMap, EventType, RequestMap, RequestType } from '@ruimte/contracts';
+import type { EventMap, EventType, LiveFrameHeader, RequestMap, RequestType } from '@ruimte/contracts';
 import type { Endpoint } from '../state/endpoints';
 import { ActiveTransport } from './active-transport';
 import { TransportPool, type PooledTransport } from './pool';
@@ -28,6 +28,7 @@ class FakeTransport implements PooledTransport {
     readonly pending: Pending[] = [];
     private readonly statusHandlers = new Set<(status: TransportStatus) => void>();
     private readonly eventHandlers = new Map<EventType, Set<(payload: never) => void>>();
+    private readonly browserFrameHandlers = new Set<(header: never, bytes: Uint8Array) => void>();
 
     get status(): TransportStatus {
         return this.connection.status;
@@ -45,6 +46,25 @@ class FakeTransport implements PooledTransport {
         for (const handler of this.eventHandlers.get(event) ?? []) {
             (handler as (value: EventMap[E]) => void)(payload);
         }
+    }
+
+    emitBrowserFrame(browserId: string): void {
+        for (const handler of this.browserFrameHandlers) {
+            (handler as (header: LiveFrameHeader<'browser.frame'>, bytes: Uint8Array) => void)(
+                { browserId, sequence: 1, width: 1, height: 1 },
+                new Uint8Array()
+            );
+        }
+    }
+
+    onLiveFrame(event: 'device.frame' | 'browser.frame', handler: (header: never, bytes: Uint8Array) => void): () => void {
+        if (event !== 'browser.frame') {
+            return () => undefined;
+        }
+        this.browserFrameHandlers.add(handler);
+        return () => {
+            this.browserFrameHandlers.delete(handler);
+        };
     }
 
     request<T extends RequestType>(type: T): Promise<RequestMap[T]['result']> {
@@ -163,6 +183,23 @@ describe('ActiveTransport', () => {
         activate('b');
         socketOf('a').emit('session.output', output('on-a'));
         socketOf('b').emit('session.output', output('on-b'));
+
+        expect(seen).toEqual(['on-a', 'on-b']);
+    });
+
+    test('a live frame handler follows the active machine and unsubscribes from every socket', () => {
+        const { pool, transport, socketOf, activate } = setup();
+        pool.hold(endpoint('a'));
+        pool.hold(endpoint('b'));
+        const seen: string[] = [];
+        const off = transport.onLiveFrame('browser.frame', (header) => seen.push(header.browserId));
+
+        socketOf('a').emitBrowserFrame('on-a');
+        activate('b');
+        socketOf('a').emitBrowserFrame('on-a');
+        socketOf('b').emitBrowserFrame('on-b');
+        off();
+        socketOf('b').emitBrowserFrame('on-b');
 
         expect(seen).toEqual(['on-a', 'on-b']);
     });

@@ -1,4 +1,4 @@
-import type { DeviceFrame, ServerFrame, SessionOutputEvent } from '@ruimte/contracts';
+import { encodeLiveFrame, type DeviceFrame, type LiveFrame, type ServerFrame, type SessionOutputEvent } from '@ruimte/contracts';
 
 // A client that is this far behind is not going to catch up by having more frames queued for it;
 // its terminal output is dropped from here on and repaired with a screen instead.
@@ -87,7 +87,7 @@ export class OutputGate {
     send(frame: ServerFrame): void {
         const device = deviceFrameOf(frame);
         if (device !== null) {
-            this.sendDeviceFrame(frame, device);
+            this.sendDeviceFrame(device, () => frame);
             return;
         }
         if (replaceableFrame(frame) && this.behind()) {
@@ -100,6 +100,19 @@ export class OutputGate {
             return;
         }
         this.write(frame, sessionId);
+    }
+
+    /* A live frame in binary goes or is dropped exactly as the same frame in JSON would. */
+    sendLive(live: LiveFrame): void {
+        if (live.event === 'device.frame') {
+            this.sendDeviceFrame(live.payload, () => encodeLiveFrame(live));
+            return;
+        }
+        if (this.behind()) {
+            this.paused = true;
+            return;
+        }
+        this.write(encodeLiveFrame(live), null);
     }
 
     /* A binary reply is never dropped, as no reply is. */
@@ -124,7 +137,7 @@ export class OutputGate {
     }
 
     // A picture stands in for the one before it; a video frame without `keyFrame` cannot be skipped to.
-    private sendDeviceFrame(frame: ServerFrame, device: DeviceFrame): void {
+    private sendDeviceFrame(device: Pick<DeviceFrame, 'backendId' | 'deviceId' | 'keyFrame'>, frame: () => ServerFrame | Uint8Array): void {
         const key = deviceStreamKey(device);
         if (this.awaitingKeyFrame.has(key) && device.keyFrame !== true) {
             return;
@@ -138,7 +151,7 @@ export class OutputGate {
             return;
         }
         this.awaitingKeyFrame.delete(key);
-        if (this.write(frame, null) === 0 && video) {
+        if (this.write(frame(), null) === 0 && video) {
             this.awaitingKeyFrame.set(key, { backendId: device.backendId, deviceId: device.deviceId });
         }
     }

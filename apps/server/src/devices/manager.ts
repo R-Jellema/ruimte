@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import {
     deviceMatches,
     type DeviceAction,
-    type DeviceFrame,
     type DeviceInfo,
     type DeviceInput,
     type DeviceKind,
@@ -13,13 +12,13 @@ import {
     type DeviceSettings,
     type DeviceUnavailable,
     type DeviceVideoFormat,
+    type LiveFrameHeader,
     type LiveStreamFrame
 } from '@ruimte/contracts';
-import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 import { LiveStreamHub, type LiveFrameSource } from '../streams/live-stream.ts';
 import { CodedError } from '@adecore/agents';
 import { FrameFanout, streamKeyOf } from '../streams/frame-fanout.ts';
-import { ClientSinks } from '../client-sinks.ts';
+import { LiveSinks, type LiveEvent, type LiveSink } from '../client-sinks.ts';
 import type { DeviceTree } from './device-tree.ts';
 
 export interface DeviceSource extends LiveFrameSource {
@@ -117,7 +116,7 @@ export class DeviceManager {
     readonly streams: LiveStreamHub;
     private readonly backends: Map<string, DeviceBackend>;
     private readonly sessions = new Map<string, DeviceSession>();
-    private readonly sinks = new ClientSinks();
+    private readonly sinks = new LiveSinks();
     private readonly frames: FrameFanout;
 
     constructor(backends: DeviceBackend[], streams = new LiveStreamHub()) {
@@ -126,7 +125,7 @@ export class DeviceManager {
         this.frames = new FrameFanout(streams, this.sinks);
     }
 
-    subscribe(clientId: string, sink: SessionSink): () => void {
+    subscribe(clientId: string, sink: LiveSink): () => void {
         return this.sinks.subscribe(clientId, sink);
     }
 
@@ -196,13 +195,14 @@ export class DeviceManager {
         deviceId: string,
         clientId: string,
         stream: 'http' | 'events' = 'http',
-        formats: readonly DeviceVideoFormat[] = FORMATS_BEFORE_H264
+        formats: readonly DeviceVideoFormat[] = FORMATS_BEFORE_H264,
+        binary = false
     ): Promise<DeviceOpenResult> {
         const session = await this.sessionFor(backendId, platform, deviceId, formats);
         session.clients.add(clientId);
         try {
             if (stream === 'events') {
-                await this.startFrameEvents(session, clientId);
+                await this.startFrameEvents(session, clientId, binary);
             } else {
                 this.frames.stop(sessionKey(backendId, deviceId), clientId);
             }
@@ -447,9 +447,12 @@ export class DeviceManager {
         return backend;
     }
 
-    private async startFrameEvents(session: DeviceSession, clientId: string): Promise<void> {
+    private async startFrameEvents(session: DeviceSession, clientId: string, binary: boolean): Promise<void> {
         const key = sessionKey(session.info.backendId, session.info.deviceId);
-        const events = (frame: LiveStreamFrame): SessionEvent => ({ event: 'device.frame', payload: eventFrame(session.info, frame) });
+        const events = (frame: LiveStreamFrame): LiveEvent =>
+            binary
+                ? { event: 'device.frame', payload: frameHeader(session.info, frame), bytes: frame.data }
+                : { event: 'device.frame', payload: { ...frameHeader(session.info, frame), data: Buffer.from(frame.data).toString('base64') } };
         try {
             await this.frames.start(key, session.streamId, clientId, events);
         } catch (error) {
@@ -489,7 +492,7 @@ function requireFormat(source: DeviceSource, formats: readonly DeviceVideoFormat
     }
 }
 
-function eventFrame(device: DeviceInfo, frame: LiveStreamFrame): DeviceFrame {
+function frameHeader(device: DeviceInfo, frame: LiveStreamFrame): LiveFrameHeader<'device.frame'> {
     return {
         deviceId: device.deviceId,
         backendId: device.backendId,
@@ -498,7 +501,6 @@ function eventFrame(device: DeviceInfo, frame: LiveStreamFrame): DeviceFrame {
         width: frame.width,
         height: frame.height,
         ...(frame.format ? { format: frame.format } : {}),
-        ...(frame.keyFrame !== undefined ? { keyFrame: frame.keyFrame } : {}),
-        data: Buffer.from(frame.data).toString('base64')
+        ...(frame.keyFrame !== undefined ? { keyFrame: frame.keyFrame } : {})
     };
 }

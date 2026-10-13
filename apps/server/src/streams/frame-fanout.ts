@@ -1,6 +1,5 @@
 import type { LiveStreamFrame } from '@ruimte/contracts';
-import type { ClientSinks } from '../client-sinks.ts';
-import type { SessionEvent } from '../sessions/manager.ts';
+import type { LiveEvent, LiveSinks } from '../client-sinks.ts';
 import type { LiveStreamHub } from './live-stream.ts';
 
 /* Cancellable before `subscribe` returns its release; a frame arriving in between reads the flag. */
@@ -20,10 +19,10 @@ export function streamKeyOf(...parts: string[]): string {
  */
 export class FrameFanout {
     private readonly streams: LiveStreamHub;
-    private readonly sinks: ClientSinks;
+    private readonly sinks: LiveSinks;
     private readonly byStream = new Map<string, Map<string, FrameSubscription>>();
 
-    constructor(streams: LiveStreamHub, sinks: ClientSinks) {
+    constructor(streams: LiveStreamHub, sinks: LiveSinks) {
         this.streams = streams;
         this.sinks = sinks;
     }
@@ -32,7 +31,7 @@ export class FrameFanout {
      * Sends this client the frames of one stream, replacing whatever it heard before. A subscribe
      * that fails leaves nothing behind and throws on: the caller says what that failure is called.
      */
-    async start(streamKey: string, streamId: string, clientId: string, toEvent: (frame: LiveStreamFrame) => SessionEvent): Promise<void> {
+    async start(streamKey: string, streamId: string, clientId: string, toEvent: (frame: LiveStreamFrame) => LiveEvent): Promise<void> {
         this.stop(streamKey, clientId);
         const subscription: FrameSubscription = { cancelled: false, release: null };
         const byClient = this.byStream.get(streamKey) ?? new Map<string, FrameSubscription>();

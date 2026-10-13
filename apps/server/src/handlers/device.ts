@@ -20,7 +20,7 @@ export function registerDeviceHandlers(dispatcher: Dispatcher, devices: DeviceMa
     });
     dispatcher.register('device.open', (payload, client) => {
         requireStreaming();
-        return translate(() => devices.open(payload.backendId, payload.platform, payload.deviceId, client.id, payload.stream, payload.formats));
+        return translate(() => devices.open(payload.backendId, payload.platform, payload.deviceId, client.id, payload.stream, payload.formats, payload.binary));
     });
     // Detach lets a client clean up after the policy changed, so it stays open.
     dispatcher.register('device.detach', (payload, client) => {

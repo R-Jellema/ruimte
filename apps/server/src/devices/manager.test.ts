@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { DeviceFrame, DeviceInfo, DeviceInput, LiveStreamFrame } from '@ruimte/contracts';
+import type { DeviceInfo, DeviceInput, LiveFrame, LiveFrameHeader, LiveStreamFrame } from '@ruimte/contracts';
 import { DeviceError, DeviceManager, type DeviceBackend, type DeviceSource } from './manager.ts';
 
 const phone: DeviceInfo = {
@@ -107,8 +107,8 @@ describe('DeviceManager', () => {
         const backend = new FakeBackend();
         backend.info = { ...phone, state: 'booted' };
         const manager = new DeviceManager([backend]);
-        const first: DeviceFrame[] = [];
-        const second: DeviceFrame[] = [];
+        const first: Array<LiveFrameHeader<'device.frame'>> = [];
+        const second: Array<LiveFrameHeader<'device.frame'>> = [];
         manager.subscribe('client-1', (event) => {
             if (event.event === 'device.frame') {
                 first.push(event.payload);
@@ -144,7 +144,7 @@ describe('DeviceManager', () => {
         let keyFrameRequests = 0;
         Object.assign(backend.source, { format: 'h264', requestKeyFrame: () => (keyFrameRequests += 1) });
         const manager = new DeviceManager([backend]);
-        const frames: DeviceFrame[] = [];
+        const frames: Array<LiveFrameHeader<'device.frame'>> = [];
         manager.subscribe('client-1', (event) => {
             if (event.event === 'device.frame') {
                 frames.push(event.payload);
@@ -163,12 +163,45 @@ describe('DeviceManager', () => {
         manager.closeAll();
     });
 
+    test('a client that asked for binary frames gets the bytes, one that did not gets base64', async () => {
+        const backend = new FakeBackend();
+        backend.info = { ...phone, state: 'booted' };
+        Object.assign(backend.source, { format: 'h264' });
+        const manager = new DeviceManager([backend]);
+        const live: LiveFrame[] = [];
+        const json: string[] = [];
+        manager.subscribe('client-1', (event) => {
+            if ('bytes' in event) {
+                live.push(event);
+            }
+        });
+        manager.subscribe('client-2', (event) => {
+            if (event.event === 'device.frame' && !('bytes' in event)) {
+                json.push(event.payload.data);
+            }
+        });
+
+        await manager.open('simctl', 'ios', 'phone-1', 'client-1', 'events', ['jpeg', 'hevc', 'h264'], true);
+        await manager.open('simctl', 'ios', 'phone-1', 'client-2', 'events', ['jpeg', 'hevc', 'h264']);
+        backend.source.publish?.({ sequence: 1, width: 2, height: 3, format: 'h264', keyFrame: true, data: new Uint8Array([7, 8]) });
+
+        expect(live).toEqual([
+            {
+                event: 'device.frame',
+                payload: { deviceId: 'phone-1', backendId: 'simctl', platform: 'ios', sequence: 1, width: 2, height: 3, format: 'h264', keyFrame: true },
+                bytes: new Uint8Array([7, 8])
+            }
+        ]);
+        expect(json).toEqual([Buffer.from([7, 8]).toString('base64')]);
+        manager.closeAll();
+    });
+
     test('a client that subscribed again keeps its newer sink when the older one lets go', async () => {
         const backend = new FakeBackend();
         backend.info = { ...phone, state: 'booted' };
         const manager = new DeviceManager([backend]);
-        const first: DeviceFrame[] = [];
-        const second: DeviceFrame[] = [];
+        const first: Array<LiveFrameHeader<'device.frame'>> = [];
+        const second: Array<LiveFrameHeader<'device.frame'>> = [];
         const off = manager.subscribe('client-1', (event) => {
             if (event.event === 'device.frame') {
                 first.push(event.payload);

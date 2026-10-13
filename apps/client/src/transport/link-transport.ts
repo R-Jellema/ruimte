@@ -3,19 +3,21 @@ import {
     EVENT_SCHEMAS,
     REQUEST_SCHEMAS,
     decodeBytesReply,
+    decodeLiveFrame,
     isEventType,
     parseServerFrame,
     type BytesReadPayload,
     type BytesReadResult,
     type EventMap,
     type EventType,
+    type LiveFrameEvent,
     type RequestMap,
     type RequestType
 } from '@ruimte/contracts';
 import { decodeBase64, type BytesPiece } from './piece';
 import { messageOf } from './signaling';
 import type { PooledTransport } from './pool';
-import { TransportError, type ConnectionState, type SignalRoute, type TransportStatus } from './transport';
+import { TransportError, type ConnectionState, type LiveFrameHandler, type SignalRoute, type TransportStatus } from './transport';
 
 const RECONNECT_MIN_MS = 500;
 const RECONNECT_MAX_MS = 10_000;
@@ -76,6 +78,7 @@ export class LinkTransport implements PooledTransport {
     private currentConnection: ConnectionState = { status: 'connecting', attempts: 0, retryAt: null, failure: null };
     private readonly statusHandlers = new Set<(status: TransportStatus) => void>();
     private readonly eventHandlers = new Map<EventType, Set<(payload: never) => void>>();
+    private readonly liveHandlers = new Map<LiveFrameEvent, Set<(header: never, bytes: Uint8Array) => void>>();
     private readonly pending = new Map<string, Pending>();
     private readonly openLink: LinkOpener;
     private readonly addressTimeoutMs: number;
@@ -160,6 +163,18 @@ export class LinkTransport implements PooledTransport {
         if (!handlers) {
             handlers = new Set();
             this.eventHandlers.set(event, handlers);
+        }
+        handlers.add(handler);
+        return () => {
+            handlers.delete(handler);
+        };
+    }
+
+    onLiveFrame<E extends LiveFrameEvent>(event: E, handler: LiveFrameHandler<E>): () => void {
+        let handlers = this.liveHandlers.get(event);
+        if (!handlers) {
+            handlers = new Set();
+            this.liveHandlers.set(event, handlers);
         }
         handlers.add(handler);
         return () => {
@@ -368,7 +383,7 @@ export class LinkTransport implements PooledTransport {
     private receiveBytes(raw: Uint8Array): void {
         const reply = decodeBytesReply(raw);
         if (reply === null) {
-            console.warn('Dropped a binary server frame this client cannot read');
+            this.receiveLiveFrame(raw);
             return;
         }
         const entry = this.pending.get(reply.id);
@@ -377,6 +392,17 @@ export class LinkTransport implements PooledTransport {
         }
         this.pending.delete(reply.id);
         entry.resolve({ ...reply.result, bytes: reply.bytes } satisfies BytesPiece);
+    }
+
+    private receiveLiveFrame(raw: Uint8Array): void {
+        const frame = decodeLiveFrame(raw);
+        if (frame === null) {
+            console.warn('Dropped a binary server frame this client cannot read');
+            return;
+        }
+        for (const handler of this.liveHandlers.get(frame.event) ?? []) {
+            (handler as (header: unknown, bytes: Uint8Array) => void)(frame.payload, frame.bytes);
+        }
     }
 
     private dispatchEvent(event: string, payload: unknown): void {

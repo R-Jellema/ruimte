@@ -2,6 +2,7 @@ import type { EventMap, PushAttentionEntry, ServerFrame } from '@ruimte/contract
 import type { ServerWebSocket } from 'bun';
 import { OutputGate } from './backpressure.ts';
 import { sendEvent, type ClientAccess, type ClientConnection, type Dispatcher } from './dispatcher.ts';
+import { isLiveFrame, type LiveSink } from './client-sinks.ts';
 import type { SessionSink } from './sessions/manager.ts';
 
 /* What a connected client needs from whatever carries its frames, a Bun WebSocket or a WebRTC DataChannel. */
@@ -25,6 +26,11 @@ interface Attachable extends Subscribable {
     detachAll(clientId: string): void;
 }
 
+interface LiveAttachable {
+    subscribe(clientId: string, sink: LiveSink): () => void;
+    detachAll(clientId: string): void;
+}
+
 interface ScreenSource {
     isAttached(clientId: string): boolean;
     snapshotFor(clientId: string, onScreen: (screen: string) => void): void;
@@ -40,10 +46,10 @@ export interface ConnectionServices {
     };
     sessions: Attachable & { get(sessionId: string): ScreenSource | undefined };
     chats: Attachable;
-    browsers?: Attachable;
+    browsers?: LiveAttachable;
     /* The pages the clients hold themselves, which the daemon only knows of while they say so. */
     browserPages?: Attachable;
-    devices?: Attachable & { requestKeyFrame(backendId: string, deviceId: string): void };
+    devices?: LiveAttachable & { requestKeyFrame(backendId: string, deviceId: string): void };
     /* Who has each device an agent operates, which every client hears. */
     deviceControl?: Subscribable;
     identity: Subscribable;
@@ -121,7 +127,13 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
                 gate.sendBinary(frame);
             }
         };
-        const sink: SessionSink = ({ event, payload }) => sendEvent(client, event, payload);
+        const sink: LiveSink = (event) => {
+            if (isLiveFrame(event)) {
+                gate.sendLive(event);
+                return;
+            }
+            sendEvent(client, event.event, event.payload);
+        };
         const unsubscribes = [
             services.presence?.connected(access.sessionId) ?? (() => undefined),
             services.presence?.observeAttention?.((entry) => sendEvent(client, 'push.attention', entry)) ?? (() => undefined),

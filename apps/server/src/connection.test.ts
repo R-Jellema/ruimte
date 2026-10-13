@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import type { EventMap, ServerFrame } from '@ruimte/contracts';
+import { decodeLiveFrame, type EventMap, type LiveFrame, type ServerFrame } from '@ruimte/contracts';
+import type { LiveSink } from './client-sinks.ts';
 import { HIGH_WATER_MARK } from './backpressure.ts';
 import { connectionOpener, type ClientChannel, type ConnectionServices } from './connection.ts';
 import { Dispatcher } from './dispatcher.ts';
@@ -7,12 +8,17 @@ import type { SessionEvent, SessionSink } from './sessions/manager.ts';
 
 class FakeChannel implements ClientChannel {
     readonly frames: ServerFrame[] = [];
+    readonly binary: Uint8Array[] = [];
     buffered = 0;
     closedWith: { code: number; reason: string } | null = null;
     private readonly closeListeners: Array<() => void> = [];
     private readonly drainListeners: Array<() => void> = [];
 
-    send(data: string): number {
+    send(data: string | Uint8Array): number {
+        if (typeof data !== 'string') {
+            this.binary.push(data);
+            return data.byteLength;
+        }
         this.frames.push(JSON.parse(data) as ServerFrame);
         return data.length;
     }
@@ -131,6 +137,32 @@ describe('connectionOpener', () => {
         sources.processes.emit(connection.client.id, { event: 'processes.alerts', payload: { alerts: [] } } as unknown as SessionEvent);
 
         expect(channel.frames).toEqual([{ type: 'event', event: 'processes.alerts', payload: { alerts: [] } }]);
+    });
+
+    test('sends a live frame from a device as one binary frame, and its JSON twin as an event', () => {
+        const { sources } = setup();
+        let deviceSink: LiveSink | null = null;
+        const devices = {
+            subscribe: (_clientId: string, sink: LiveSink) => {
+                deviceSink = sink;
+                return () => undefined;
+            },
+            detachAll: () => undefined,
+            requestKeyFrame: () => undefined
+        };
+        const channel = new FakeChannel();
+        connectionOpener({ ...sources, sessions: Object.assign(sources.sessions, { get: () => undefined }), dispatcher: new Dispatcher(), devices })(channel, {
+            reachability: 'loopback',
+            sessionId: null
+        });
+        const header = { deviceId: 'phone-1', backendId: 'simctl', platform: 'ios' as const, sequence: 1, width: 2, height: 3 };
+        const live: LiveFrame = { event: 'device.frame', payload: header, bytes: new Uint8Array([9]) };
+
+        deviceSink!(live);
+        deviceSink!({ event: 'device.frame', payload: { ...header, sequence: 2, data: 'CQ==' } });
+
+        expect(channel.binary.map((frame) => decodeLiveFrame(frame))).toEqual([live]);
+        expect(channel.frames).toEqual([{ type: 'event', event: 'device.frame', payload: { ...header, sequence: 2, data: 'CQ==' } }]);
     });
 
     test('detaches and unsubscribes once when the channel closes, and ignores what arrives after', async () => {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
-import type { DeviceInfo, EventMap, EventType, RequestMap, RequestType } from '@ruimte/contracts';
-import type { Transport, TransportStatus } from '@/transport/transport';
+import type { DeviceInfo, EventMap, EventType, LiveFrameHeader, RequestMap, RequestType } from '@ruimte/contracts';
+import type { LiveFrameHandler, Transport, TransportStatus } from '@/transport/transport';
 import { DeviceClient } from './device-client';
 import { useDevices } from './state';
 
@@ -70,6 +70,26 @@ class FakeTransport implements Transport {
         this.status = status;
         for (const handler of this.statusHandlers) {
             handler(status);
+        }
+    }
+}
+
+// A transport that reads live frames, so a client asks for its pictures in binary.
+class LiveTransport extends FakeTransport {
+    private readonly liveHandlers = new Set<LiveFrameHandler<'device.frame'>>();
+
+    onLiveFrame<E extends 'device.frame' | 'browser.frame'>(event: E, handler: LiveFrameHandler<E>): () => void {
+        if (event !== 'device.frame') {
+            return () => undefined;
+        }
+        const live = handler as unknown as LiveFrameHandler<'device.frame'>;
+        this.liveHandlers.add(live);
+        return () => this.liveHandlers.delete(live);
+    }
+
+    emitLive(header: LiveFrameHeader<'device.frame'>, bytes: Uint8Array): void {
+        for (const handler of this.liveHandlers) {
+            handler(header, bytes);
         }
     }
 }
@@ -154,6 +174,27 @@ describe('DeviceClient', () => {
         expect(transport.calls).toContainEqual({
             type: 'device.open',
             payload: { backendId: 'simctl', platform: 'ios', deviceId: 'phone-1', stream: 'events', formats: ['jpeg', 'hevc', 'h264'] }
+        });
+        stop();
+        client.dispose();
+    });
+
+    test('asks for binary frames over a transport that reads them, and draws their bytes', async () => {
+        const transport = new LiveTransport();
+        const client = new DeviceClient('machine-1', transport);
+        const frames: number[][] = [];
+        const stop = client.onFrame(phone, (frame) => frames.push([...frame.data]));
+
+        await client.open(phone, 'events');
+        transport.emitLive(
+            { deviceId: phone.deviceId, backendId: phone.backendId, platform: phone.platform, sequence: 1, width: 1179, height: 2556 },
+            new Uint8Array([4, 5])
+        );
+
+        expect(frames).toEqual([[4, 5]]);
+        expect(transport.calls).toContainEqual({
+            type: 'device.open',
+            payload: { backendId: 'simctl', platform: 'ios', deviceId: 'phone-1', stream: 'events', binary: true, formats: ['jpeg', 'hevc', 'h264'] }
         });
         stop();
         client.dispose();

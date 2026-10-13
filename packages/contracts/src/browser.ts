@@ -17,7 +17,9 @@ export const BrowserOpenPayloadSchema = BrowserTargetPayloadSchema.extend({
     width: BrowserSizeSchema,
     height: BrowserSizeSchema,
     deviceScaleFactor: BrowserDeviceScaleFactorSchema.optional(),
-    stream: z.enum(['http', 'events']).optional()
+    stream: z.enum(['http', 'events']).optional(),
+    // Asks for the frames of `events` as binary live frames; a daemon from before those ignores it and sends base64 in JSON.
+    binary: z.boolean().optional()
 });
 
 export const BrowserNavigatePayloadSchema = BrowserTargetPayloadSchema.extend({ url: z.string().max(8192) });
