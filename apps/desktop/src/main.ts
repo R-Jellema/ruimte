@@ -1,78 +1,34 @@
-import { spawn, type ChildProcess } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, openSync, readFileSync } from 'node:fs';
-import { readFile, rm, writeFile } from 'node:fs/promises';
 import { Socket } from 'node:net';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { buildIdentityOf, MACHINE_HEALTH_PATH, type BuildIdentity } from '@ruimte/contracts';
 import { answerAppRequest, createDesktopAppScheme } from './app-scheme';
 import { installBrowserRoutes } from './browser-routes';
 import { LAUNCHER_PIPE_VARIABLE } from './launcher-pipe';
 import { moveLegacyStorage } from './legacy-storage';
-import {
-    createMenuCommands,
-    createPageKeys,
-    createTheme,
-    createUpdater,
-    createWindows,
-    type WindowOrigin,
-    createWindowState,
-    devToolsAccelerator,
-    fileStorage,
-    menuTemplateOf,
-    staticMenuTemplate
-} from '@adecore/shell';
+import { createPageKeys, createTheme, createUpdater, createWindows, type WindowOrigin, createWindowState, fileStorage } from '@adecore/shell';
 import type { ThemeState } from '@adecore/shell/bridge';
-import { type AgentActivity, type BackgroundServiceState, type KeepAwakeRequest, type MenuShellAction, type MenuSpec } from '@ruimte/desktop-bridge';
+import { type AgentActivity, type KeepAwakeRequest } from '@ruimte/desktop-bridge';
 import { isWindowKey, isWindowState, isWindowView, tabStripOf, totalActivity, windowPointOf, windowUrl } from './app-windows';
 import { createTabDrag } from './tab-drag';
-import { AddressBookClient, ADDRESS_BOOK_URL, SessionLoginCodeSchema, SessionVault } from '@ruimte/pulsar';
-import { copyablePaths, fileClipboard, osClipboardFormat } from './file-clipboard';
-import { openImageCopy } from './open-image';
-import { allFilesLabel, databaseSecretFile, openDialogPlan, parseOpenPathRequest, parseSavePathRequest, parseSecret, parseSecretKey } from './database-bridge';
 import { editFrameOf, runGuestEdit } from './guest-edit';
 import { contextMenuPayload, editableMenuTemplate, PREVIEW_ACTIONS, type BrowserContextAction, type GuestKind } from './guest-menu';
-import { askDaemonWork, proveDaemon, type DaemonPort } from './daemon-proof';
+import { askDaemonWork } from './daemon-proof';
 import { createKeepAwakeHold, keepAwakeBlocker, keepAwakeRequestFrom, LEGACY_KEEP_AWAKE, mergeKeepAwake } from './keep-awake';
-import { askLoginShellPath, fileLoginPathCache, loadLoginPath } from './login-path';
-import { listenForLogin, type LoopbackLogin } from './pulsar-login';
-import { fileSessionKey, fileSessionStore } from './pulsar-store';
+import { installDialogs } from './main/dialogs';
+import { electron } from './main/electron';
+import { createAppIpc } from './main/ipc';
+import { installLogin } from './main/login';
+import { installMenu } from './main/menu';
+import { installSecrets } from './main/secrets';
+import { createMachine } from './main/service';
+import { installSpeech } from './main/speech';
 import { quitQuestion } from './quit-question';
 import { createReleaseNotes } from './release-notes';
-import { createServiceController } from './service/controller';
-import { serviceDefinition as definitionFor, type ServiceManager } from '@adecore/service';
-import { commandLineServiceProgram, daemonServiceSpec, platformServiceManager } from '@ruimte/service/host';
-import { keepRunningSetting, serviceSupport } from './service/settings';
-import { fileSecretStore, type SecretStore } from './secret-store';
-import { createOpenAiLiveSession, parseOpenAiLivePreferences } from './openai-live';
-import { SpeechService, speechHelperPath } from './speech';
-import { SpeechModel } from './speech-model';
 import { runSmoke } from './smoke';
-import { createSecretGate, startApp } from './startup';
-import { appSubframeNavigation, BROWSER_PARTITION, createGestureGate, isExternalLink, isWebLink, isSystemSettingsPane, PREVIEW_PARTITION } from './web-guards';
+import { startApp } from './startup';
+import { appSubframeNavigation, BROWSER_PARTITION, createGestureGate, isExternalLink, PREVIEW_PARTITION } from './web-guards';
 
-// A plain require: the bundler's ESM interop copies enumerable keys, and electron's are getters.
-const {
-    app,
-    BrowserWindow,
-    clipboard,
-    ClipboardItem,
-    dialog,
-    ipcMain,
-    Menu,
-    nativeTheme,
-    net,
-    powerMonitor,
-    powerSaveBlocker,
-    protocol,
-    safeStorage,
-    screen,
-    session,
-    shell,
-    systemPreferences,
-    webContents
-} = require('electron') as typeof import('electron');
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, powerMonitor, powerSaveBlocker, protocol, screen, session, shell, webContents } = electron;
 
 // Nothing crosses IPC that the WebSocket already carries.
 
@@ -96,259 +52,25 @@ const port = Number(process.env.RUIMTE_PORT ?? DEFAULT_PORT);
 // The home the daemon runs with, where its local secret lives; a checkout uses the dev home, as the server's `bun dev` does.
 const ruimteHome = app.isPackaged ? (process.env.RUIMTE_HOME ?? join(homedir(), '.ruimte')) : (process.env.RUIMTE_DEV_HOME ?? join(homedir(), '.ruimte-dev'));
 
+function clientRoot(): string {
+    return app.isPackaged ? join(process.resourcesPath, 'client') : join(repoRoot, 'apps', 'client', 'dist');
+}
+
 // The page is the shell's own, from the build in its resources; only `bun dev` serves it from Vite.
 const scheme = createDesktopAppScheme(clientRoot(), devUrl ?? undefined);
 const daemonUrl = `http://127.0.0.1:${port}`;
 
 protocol.registerSchemesAsPrivileged([scheme.privileged]);
 
-let daemon: ChildProcess | null = null;
 const devtoolsWindows = new Map<number, Electron.BrowserWindow>();
 
-/*
- * Every channel answers the app's own pages and nothing else. A guest cannot reach one (its preload
- * only talks to its host), but a page the window was navigated to would inherit the bridge.
- */
 function fromAppWindow(event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): boolean {
     return scheme.isAppSender(windows.fromPage(event.sender) !== null, event.senderFrame);
 }
 
-function senderWindow(event: { sender: Electron.WebContents }): Electron.BrowserWindow | null {
-    return windows.fromPage(event.sender);
-}
+const ipc = createAppIpc(ipcMain, fromAppWindow, (contents) => windows.fromPage(contents));
 
-function refuseOtherPages(): never {
-    throw new Error('Only the app window may ask this');
-}
-
-function handleFromApp<Args extends unknown[]>(channel: string, handler: (event: Electron.IpcMainInvokeEvent, ...args: Args) => unknown): void {
-    ipcMain.handle(channel, (event, ...args) => (fromAppWindow(event) ? handler(event, ...(args as Args)) : refuseOtherPages()));
-}
-
-function onFromApp<Args extends unknown[]>(channel: string, listener: (event: Electron.IpcMainEvent, ...args: Args) => void): void {
-    ipcMain.on(channel, (event, ...args) => {
-        if (fromAppWindow(event)) {
-            listener(event, ...(args as Args));
-        }
-    });
-}
-
-// The login shell's PATH for a packaged app, loaded before the machine starts (`login-path.ts`).
-let loginPath: string | null = null;
-
-function daemonCommand(): { command: string; args: string[] } | null {
-    if (app.isPackaged) {
-        const bin = join(process.resourcesPath, 'bin');
-        return { command: join(bin, process.platform === 'win32' ? 'ruimte.exe' : 'ruimte'), args: ['--port', String(port)] };
-    }
-    const entry = join(repoRoot, 'apps', 'server', 'src', 'main.ts');
-    if (!existsSync(entry)) {
-        return null;
-    }
-    return { command: 'bun', args: [entry, '--port', String(port)] };
-}
-
-function clientRoot(): string {
-    return app.isPackaged ? join(process.resourcesPath, 'client') : join(repoRoot, 'apps', 'client', 'dist');
-}
-
-const MISSING_DAEMON = 'The background service is missing. Run the desktop app from the repository or install a release.';
-
-/* A child that ends with the app, used in development or when the service fails to start. */
-function spawnDaemon(onExit: () => void): void {
-    const target = daemonCommand();
-    if (!target) {
-        throw new Error(MISSING_DAEMON);
-    }
-    const env = { ...process.env };
-    if (app.isPackaged) {
-        if (loginPath) {
-            env.PATH = loginPath;
-            process.env.PATH = loginPath;
-        }
-    }
-    env.RUIMTE_HOME = ruimteHome;
-    // A packaged app has no terminal; the daemon's output goes to the app's log directory instead.
-    let stdio: 'inherit' | ['ignore', number, number] = 'inherit';
-    if (app.isPackaged) {
-        const logs = app.getPath('logs');
-        mkdirSync(logs, { recursive: true });
-        const log = openSync(join(logs, 'daemon.log'), 'a');
-        stdio = ['ignore', log, log];
-    }
-    daemon = spawn(target.command, target.args, { stdio, env });
-    daemon.on('error', (e) => {
-        dialog.showErrorBox('Ruimte', `The background service could not start: ${e.message}`);
-        app.quit();
-    });
-    daemon.on('exit', (code) => {
-        daemon = null;
-        if (!app.isPackaged && code !== 0 && code !== null) {
-            console.error(`The daemon exited with code ${code}`);
-        }
-        onExit();
-    });
-}
-
-/* One ask of the port, bounded, so a daemon that hangs is no answer rather than a start that never ends. */
-async function probeDaemon(): Promise<BuildIdentity | null> {
-    try {
-        const response = await fetch(`http://127.0.0.1:${port}${MACHINE_HEALTH_PATH}`, { signal: AbortSignal.timeout(1000) });
-        return response.ok ? buildIdentityOf(await response.json()) : null;
-    } catch {
-        return null;
-    }
-}
-
-// Read on every ask: the daemon mints it on its first start, which under `bun dev` may come after this window.
-async function readLocalSecret(): Promise<string | null> {
-    try {
-        return (await readFile(join(ruimteHome, 'local.key'), 'utf8')).trim() || null;
-    } catch {
-        return null;
-    }
-}
-
-const daemonPort: DaemonPort = {
-    port,
-    readSecret: readLocalSecret,
-    fetch: (url, init) => fetch(url, init),
-    nonce: () => randomBytes(32).toString('base64url')
-};
-
-/* Asked before restarting a daemon of an earlier build, which cannot prove it holds the local secret. A window may stand already, still without the secret. */
-async function askRestartUnproven(): Promise<boolean> {
-    const { response } = await dialog.showMessageBox({
-        type: 'question',
-        buttons: ['Restart Now', 'Quit'],
-        defaultId: 1,
-        cancelId: 1,
-        message: 'Ruimte was updated, and this machine still runs the previous version.',
-        detail: 'That version cannot prove to Ruimte that it belongs to you, so Ruimte connects only after a restart, which ends the terminals and agents running on it. If you quit instead, the machine restarts itself as soon as nothing runs on it.'
-    });
-    return response === 0;
-}
-
-/* Long enough for a daemon that is snapshotting its sessions on the way out of a restart. */
-async function waitForDaemon(accept: (health: BuildIdentity) => boolean): Promise<void> {
-    const deadline = Date.now() + 20_000;
-    while (Date.now() < deadline) {
-        const health = await probeDaemon();
-        if (health && accept(health)) {
-            return;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 150));
-    }
-    throw new Error('The background service did not come up');
-}
-
-/* The id `apps/server/scripts/compile.ts` wrote beside the binary this bundle carries. */
-function bundledBuild(): string | null {
-    if (!app.isPackaged) {
-        return null;
-    }
-    try {
-        return readFileSync(join(process.resourcesPath, 'bin', 'ruimte.build'), 'utf8').trim() || null;
-    } catch {
-        return null;
-    }
-}
-
-const support = serviceSupport({ packaged: app.isPackaged, platform: process.platform, appImage: process.env.APPIMAGE });
-
-// The dev app never touches launchd or systemd, whatever it is asked.
-function createServiceManager(): ServiceManager | null {
-    return support === 'supported' ? platformServiceManager(process.platform) : null;
-}
-
-function serviceDefinition(): string {
-    const target = daemonCommand();
-    if (!target) {
-        throw new Error(MISSING_DAEMON);
-    }
-    const spec = daemonServiceSpec({
-        program: target.command,
-        args: target.args,
-        home: homedir(),
-        ruimteHome,
-        // A packaged app inherits the launcher's PATH, which is not the one a terminal of this person finds.
-        path: loginPath ?? process.env.PATH ?? '/usr/bin:/bin'
-    });
-    return definitionFor(process.platform, spec);
-}
-
-/* `bun dev` runs the daemon itself; the shell only opens the dev URL. */
-async function startMachine(): Promise<boolean> {
-    if (devUrl) {
-        return true;
-    }
-    if (app.isPackaged) {
-        loginPath = (
-            await loadLoginPath(fileLoginPathCache(join(app.getPath('userData'), 'login-path.json')), () =>
-                askLoginShellPath(process.env.SHELL, process.platform)
-            )
-        ).path;
-    }
-    return serviceController.start();
-}
-
-const serviceController = createServiceController({
-    support,
-    manager: createServiceManager(),
-    setting: keepRunningSetting(join(app.getPath('userData'), 'background-service.json'), support),
-    definition: serviceDefinition,
-    commandLineProgram: commandLineServiceProgram(ruimteHome),
-    ruimteHome,
-    expected: { version: app.getVersion(), build: bundledBuild() },
-    probe: probeDaemon,
-    work: () => askDaemonWork(daemonPort),
-    verify: () => proveDaemon(daemonPort),
-    askRestart: askRestartUnproven,
-    waitForHealth: waitForDaemon,
-    spawnDaemon,
-    killDaemon: () => daemon?.kill('SIGTERM'),
-    now: () => Date.now(),
-    after: (ms, run) => void setTimeout(run, ms),
-    publish: (state) => void pushServiceState(state)
-});
-
-function pushServiceState(state: BackgroundServiceState): BackgroundServiceState {
-    windows.send('service:state', state);
-    return state;
-}
-
-/* Set by "Stop the machine", which is a quit that takes the service down with it. */
-let stopMachineOnQuit = false;
-
-function stopMachine(): void {
-    stopMachineOnQuit = true;
-    app.quit();
-}
-
-handleFromApp('service:state', () => serviceController.state());
-handleFromApp('service:set-keep-running', (_event, keepRunning: boolean) => pushServiceState(serviceController.setKeepRunning(keepRunning === true)));
-handleFromApp('service:enable-linger', () => pushServiceState(serviceController.enableLinger()));
-/*
- * While an older build or an older definition keeps the machine, the port is asked now and then, so
- * the question and the row in the settings go away once the daemon restarted onto the new one.
- */
-function watchPendingRestart(): void {
-    if (!serviceController.unsettled()) {
-        return;
-    }
-    const timer = setInterval(() => {
-        void serviceController.refresh().then((state) => {
-            if (!serviceController.unsettled()) {
-                clearInterval(timer);
-                pushServiceState(state);
-            }
-        });
-    }, 30_000);
-}
-
-handleFromApp('service:restart-now', async () => pushServiceState(await serviceController.restartNow()));
-handleFromApp('service:restart-when-idle', () => pushServiceState(serviceController.restartWhenIdle()));
-onFromApp('service:stop-machine', () => stopMachine());
+const machine = createMachine({ ipc, port, ruimteHome, repoRoot, devUrl, publish: (state) => windows.send('service:state', state) });
 
 // The band the client reserves across the sidebar's strip and the toolbar, which the overlay controls share on Windows and Linux.
 const TITLEBAR_HEIGHT = 48;
@@ -453,14 +175,14 @@ function setKeepAwake(windowId: number, request: KeepAwakeRequest | null): void 
     applyKeepAwake();
 }
 
-onFromApp('power:keep-awake', (event, keep: boolean) => {
-    const window = senderWindow(event);
+ipc.on('power:keep-awake', (event, keep: boolean) => {
+    const window = ipc.senderWindow(event);
     if (window) {
         setKeepAwake(window.id, keep === true ? LEGACY_KEEP_AWAKE : null);
     }
 });
-onFromApp('power:keep-awake-request', (event, request: unknown) => {
-    const window = senderWindow(event);
+ipc.on('power:keep-awake-request', (event, request: unknown) => {
+    const window = ipc.senderWindow(event);
     if (window) {
         setKeepAwake(window.id, keepAwakeRequestFrom(request));
     }
@@ -483,8 +205,8 @@ function setAgentActivity(windowId: number, activity: AgentActivity | null): voi
     }
 }
 
-onFromApp('agents:activity', (event, activity: AgentActivity) => {
-    const window = senderWindow(event);
+ipc.on('agents:activity', (event, activity: AgentActivity) => {
+    const window = ipc.senderWindow(event);
     if (window) {
         setAgentActivity(window.id, typeof activity === 'object' && activity !== null ? activity : null);
     }
@@ -499,7 +221,7 @@ function dropWindowShares(windowId: number): void {
 /* Set when a quit needs no question: an install asked before it closed the windows, or the launcher's pipe closed. */
 let quitConfirmed = false;
 let interfaceLanguage: string | null = null;
-onFromApp('app:language', (_event, language: unknown) => {
+ipc.on('app:language', (_event, language: unknown) => {
     if (language === 'en' || language === 'nl') {
         interfaceLanguage = language;
     }
@@ -523,12 +245,12 @@ if (launcherPipe !== undefined) {
 
 // The machine is asked what runs on it only when the quit ends it; the last window may be gone already.
 async function askBeforeQuit(): Promise<boolean> {
-    const survives = serviceController.survivesQuit(stopMachineOnQuit);
+    const survives = machine.controller.survivesQuit(machine.stopsOnQuit());
     const question = quitQuestion({
         language: interfaceLanguage ?? app.getPreferredSystemLanguages()[0],
         survives,
         windows: agentActivity,
-        machine: survives ? null : await askDaemonWork(daemonPort)
+        machine: survives ? null : await askDaemonWork(machine.daemonPort)
     });
     if (question === null) {
         return true;
@@ -540,14 +262,22 @@ async function askBeforeQuit(): Promise<boolean> {
 
 const pageKeys = createPageKeys();
 
+const menu = installMenu(ipc, {
+    pageKeys,
+    focused: () => windows.focused(),
+    keyBypassesPage: () => {
+        const focused = webContents.getFocusedWebContents();
+        return focused !== null && (isBrowserGuest(focused) || isPreviewGuest(focused));
+    },
+    support: machine.support,
+    stopMachine: () => machine.stopAndQuit()
+});
+
 const windowState = createWindowState({
     storage: fileStorage(join(app.getPath('userData'), 'window-state.json')),
     displays: () => screen.getAllDisplays(),
     defaults: { width: 1440, height: 900 }
 });
-
-// By window id; the one in front is drawn.
-const menuTemplates = new Map<number, Electron.MenuItemConstructorOptions[]>();
 
 // `windows.open` calls `createWindow` in the same tick, which takes this.
 let openingView: string | null = null;
@@ -592,11 +322,11 @@ function createWindow(
     window.once('ready-to-show', () => (inactive ? window.showInactive() : window.show()));
     contents.on('before-input-event', (_event, input) => pageKeys.saw(input));
     window.on('closed', () => {
-        menuTemplates.delete(id);
+        menu.forget(id);
         dropWindowShares(id);
         // The last window took the page that answers the menu with it, and Quit still has to be there.
         if (windows.all().every((other) => other === window)) {
-            setStaticMenu();
+            menu.setStatic();
         }
     });
     // Reset client-owned state on main-frame reload; subframe loads must not release the power block.
@@ -605,16 +335,16 @@ function createWindow(
             return;
         }
         dropWindowShares(id);
-        menuTemplates.delete(id);
+        menu.forget(id);
         if (windows.focused() === window) {
-            setStaticMenu();
+            menu.setStatic();
         }
     });
     // Without a page nobody answers a command, but Quit still has to be there.
     contents.on('render-process-gone', () => {
-        menuTemplates.delete(id);
+        menu.forget(id);
         if (windows.focused() === window) {
-            setStaticMenu();
+            menu.setStatic();
         }
     });
     // In fullscreen macOS hides the traffic lights, so the client can take the room back.
@@ -641,7 +371,7 @@ const windows = createWindows({
     formerKey: 'main',
     session: fileStorage(join(app.getPath('userData'), 'window-session.json')),
     create: createWindow,
-    onFront: (window) => applyMenuOf(window)
+    onFront: (window) => menu.applyOf(window)
 });
 
 // Audio for the app's own pages only. Set once on the shared session: a handler per window would leave only the last one able to ask.
@@ -738,7 +468,7 @@ function guestContextMenu(contents: Electron.WebContents, params: Electron.Conte
 }
 
 // What the renderer cannot reach itself. Editing rows never get here: an editable field's menu stays native.
-onFromApp('browser:context-action', (_event, request: BrowserContextAction) => {
+ipc.on('browser:context-action', (_event, request: BrowserContextAction) => {
     const contents = webContents.fromId(request.webContentsId);
     if (!contents || contents.isDestroyed()) {
         return;
@@ -772,101 +502,12 @@ onFromApp('browser:context-action', (_event, request: BrowserContextAction) => {
     }
 });
 
-handleFromApp('dialog:pick-folder', async (event, initialPath?: string) => {
-    const window = senderWindow(event);
-    if (!window) {
-        return null;
-    }
-    const result = await dialog.showOpenDialog(window, {
-        properties: ['openDirectory', 'createDirectory'],
-        ...(initialPath ? { defaultPath: initialPath } : {})
-    });
-    return result.canceled ? null : (result.filePaths[0] ?? null);
-});
+installDialogs(ipc, () => interfaceLanguage ?? undefined);
 
-handleFromApp('dialog:save-file', async (event, suggestedName: string, bytes: Uint8Array, mime: string) => {
-    const window = senderWindow(event);
-    if (!window) {
-        return null;
-    }
-    const extension = suggestedName.split('.').pop() ?? '';
-    const result = await dialog.showSaveDialog(window, {
-        defaultPath: suggestedName,
-        ...(extension ? { filters: [{ name: mime, extensions: [extension] }] } : {})
-    });
-    if (result.canceled || !result.filePath) {
-        return null;
-    }
-    await writeFile(result.filePath, Buffer.from(bytes));
-    return result.filePath;
-});
-
-const openedImagesFolder = join(app.getPath('temp'), `ruimte-images-${process.pid}-${randomBytes(8).toString('hex')}`);
-app.on('will-quit', () => void rm(openedImagesFolder, { recursive: true, force: true }).catch(() => undefined));
-handleFromApp('image:open', async (_event, suggestedName: string, bytes: Uint8Array, mime: string) => {
-    await openImageCopy(openedImagesFolder, suggestedName, bytes, mime, (path) => shell.openPath(path));
-});
-
-/* Where a database export goes. Only the path comes back: the machine writes the file, and only for a page on this computer. */
-handleFromApp('dialog:choose-save-path', async (event, request: unknown) => {
-    const { suggestedName, extension } = parseSavePathRequest(request);
-    const window = senderWindow(event);
-    if (!window) {
-        return null;
-    }
-    const result = await dialog.showSaveDialog(window, {
-        defaultPath: suggestedName,
-        filters: [
-            { name: extension.toUpperCase(), extensions: [extension] },
-            { name: allFilesLabel(interfaceLanguage ?? undefined), extensions: ['*'] }
-        ]
-    });
-    return result.canceled || !result.filePath ? null : result.filePath;
-});
-
-/* A file to import, a SQLite database or an SSH key. Only the path comes back; nothing is read here. */
-handleFromApp('dialog:choose-open-path', async (event, request: unknown) => {
-    const plan = openDialogPlan(parseOpenPathRequest(request), app.getPath('home'), allFilesLabel(interfaceLanguage ?? undefined));
-    const window = senderWindow(event);
-    if (!window) {
-        return null;
-    }
-    const result = await dialog.showOpenDialog(window, {
-        properties: plan.showHiddenFiles ? ['openFile', 'showHiddenFiles'] : ['openFile'],
-        filters: plan.filters,
-        ...(plan.defaultPath === undefined ? {} : { defaultPath: plan.defaultPath })
-    });
-    return result.canceled ? null : (result.filePaths[0] ?? null);
-});
-
-handleFromApp('shell:open-external', async (_event, url: string) => {
-    if (isWebLink(url)) {
-        await shell.openExternal(url);
-    }
-});
-
-handleFromApp('shell:open-system-settings', async (_event, url: string) => {
-    if (process.platform === 'darwin' && isSystemSettingsPane(url)) {
-        await shell.openExternal(url);
-    }
-});
-
-// One path that is relative or gone refuses the whole copy.
-handleFromApp('clipboard:copy-files', async (_event, requested: unknown) => {
-    const paths = copyablePaths(requested);
-    const contents = paths === null ? null : fileClipboard(process.platform, paths);
-    if (paths === null || contents === null || !paths.every((path) => existsSync(path))) {
-        return false;
-    }
-    const formats = Object.entries(contents.formats).map(([format, value]) => [osClipboardFormat(format), new Blob([value])] as const);
-    await clipboard.write([new ClipboardItem({ 'text/plain': contents.text, ...Object.fromEntries(formats) })]);
-    return true;
-});
-
-onFromApp('devtools:guest', (_event, id: number) => guestDevTools(id));
+ipc.on('devtools:guest', (_event, id: number) => guestDevTools(id));
 
 // For an agent that asked what the page it drives looks like. A guest's own preload has none of this.
-handleFromApp('browser:capture', async (_event, id: number) => {
+ipc.handle('browser:capture', async (_event, id: number) => {
     const guest = webContents.fromId(id);
     if (!guest) {
         return null;
@@ -875,249 +516,18 @@ handleFromApp('browser:capture', async (_event, id: number) => {
     return image.toPNG();
 });
 
-/* Only the app's own page gets the local secret, and only once the daemon on the port proved it holds it (`serviceController.start`). */
-const localSecret = createSecretGate(readLocalSecret);
+installSecrets(ipc);
+installSpeech(ipc, { ruimteHome, repoRoot, send: (channel, payload) => windows.send(channel, payload), windows: () => windows.all() });
+installLogin(ipc);
 
-handleFromApp('daemon:local-secret', () => localSecret.read());
-
-/*
- * The page runs the login (PKCE, state, start URL); this side listens on loopback for the redirect and
- * holds the refresh token and the session key, encrypted with the OS keychain. The page only gets access tokens.
- */
-const addressBookUrl = process.env.RUIMTE_PULSAR_URL ?? ADDRESS_BOOK_URL;
-let pulsarVault: SessionVault | null = null;
-let pendingLogin: LoopbackLogin | null = null;
-
-function pulsarSessions(): SessionVault {
-    pulsarVault ??= new SessionVault({
-        client: new AddressBookClient({ baseUrl: addressBookUrl, fetch: (input, init) => net.fetch(input, init) }),
-        store: fileSessionStore(join(app.getPath('userData'), 'pulsar-session.bin'), safeStorage),
-        signer: fileSessionKey(join(app.getPath('userData'), 'pulsar-key.bin'), safeStorage)
-    });
-    return pulsarVault;
-}
-
-type OpenAiCredentialStatus = {
-    configured: boolean;
-    persistent: boolean;
-};
-
-let openAiKeyStore: SecretStore | null = null;
-
-function openAiKeys(): SecretStore {
-    openAiKeyStore ??= fileSecretStore(join(app.getPath('userData'), 'openai-api-key.bin'), safeStorage);
-    return openAiKeyStore;
-}
-
-async function openAiCredentialStatus(): Promise<OpenAiCredentialStatus> {
-    const store = openAiKeys();
-    if ((await store.read()) !== null) {
-        return { configured: true, persistent: store.persistent() };
-    }
-    return { configured: false, persistent: false };
-}
-
-handleFromApp('openai:credential-status', () => openAiCredentialStatus());
-
-// One file per key. Kept so a store without encryption still holds its secrets in memory until the app quits.
-const databaseSecretStores = new Map<string, SecretStore>();
-
-function databaseSecrets(key: string): SecretStore {
-    const path = databaseSecretFile(join(app.getPath('userData'), 'database-secrets'), key);
-    let store = databaseSecretStores.get(path);
-    if (store === undefined) {
-        // A password the keychain no longer opens is said, or a person only sees the server turn the login down.
-        store = fileSecretStore(path, safeStorage, { reportUnreadable: true });
-        databaseSecretStores.set(path, store);
-    }
-    return store;
-}
-
-handleFromApp('database:secret-read', (_event, key: unknown) => databaseSecrets(parseSecretKey(key)).read());
-
-handleFromApp('database:secret-write', (_event, key: unknown, secret: unknown) => databaseSecrets(parseSecretKey(key)).write(parseSecret(secret)));
-
-handleFromApp('database:secret-persistent', () => safeStorage.isEncryptionAvailable());
-
-handleFromApp('openai:save-api-key', async (_event, apiKey: unknown) => {
-    if (typeof apiKey !== 'string' || apiKey.trim() === '') {
-        throw new Error('Enter an API key');
-    }
-    await openAiKeys().write(apiKey.trim());
-    return openAiCredentialStatus();
-});
-
-handleFromApp('openai:clear-api-key', async () => {
-    await openAiKeys().write(null);
-    return openAiCredentialStatus();
-});
-
-handleFromApp('openai:create-live-session', async (_event, sdp: unknown, preferences: unknown) => {
-    if (typeof sdp !== 'string') {
-        throw new Error('The microphone session offer is invalid');
-    }
-    const requested = parseOpenAiLivePreferences(preferences);
-    if (!requested) {
-        throw new Error('The GPT-Live voice settings are invalid');
-    }
-    const apiKey = await openAiKeys().read();
-    if (apiKey === null) {
-        throw new Error('Add an OpenAI API key in Settings first');
-    }
-    return createOpenAiLiveSession((input, init) => net.fetch(input, init), apiKey, sdp, requested);
-});
-
-const speechHelper = speechHelperPath(app.isPackaged, join(process.resourcesPath, 'bin', 'ruimte'), repoRoot);
-const speechModel = new SpeechModel(
-    ruimteHome,
-    speechHelper,
-    (state) => windows.send('speech:state', state),
-    (input, init) => net.fetch(input instanceof URL ? input.toString() : input, init)
-);
-/* A run's words go back to the page that started it. There is one helper, so one run at a time. */
-const speechService = new SpeechService<Electron.WebContents>(speechHelper, speechModel.directory, speechModel.cacheDirectory, (event, owner) => {
-    if (owner && !owner.isDestroyed()) {
-        owner.send('speech:event', event);
-    }
-});
-app.on('before-quit', () => {
-    speechService.dispose();
-    speechModel.dispose();
-});
-app.on('web-contents-created', (_event, contents) => {
-    contents.on('render-process-gone', () => {
-        if (contents === speechService.owner) {
-            speechService.dispose();
-        }
-    });
-    contents.on('did-start-navigation', (_event, _url, _inPlace, isMainFrame) => {
-        if (isMainFrame && contents === speechService.owner) {
-            speechService.dispose();
-        }
-    });
-    contents.on('destroyed', () => {
-        if (contents === speechService.owner) {
-            speechService.dispose();
-        }
-    });
-});
-handleFromApp('speech:state', async () => {
-    await speechModel.initialized;
-    return speechModel.state;
-});
-handleFromApp('speech:enable', async (_event, enabled: unknown) => {
-    if (typeof enabled !== 'boolean') {
-        throw new Error('Invalid speech setting');
-    }
-    const state = await speechModel.setEnabled(enabled);
-    if (!enabled) {
-        speechService.dispose();
-    }
-    return state;
-});
-handleFromApp('speech:remove', async () => {
-    await speechModel.setEnabled(false);
-    speechService.dispose();
-    return speechModel.remove();
-});
-handleFromApp('speech:start', async (event, id: unknown, language: unknown) => {
-    await speechModel.initialized;
-    if (!speechModel.state.enabled || speechModel.state.phase !== 'ready') {
-        throw new Error('Enable speech to text in Settings first');
-    }
-    if (typeof id !== 'string' || typeof language !== 'string') {
-        throw new Error('Invalid dictation request');
-    }
-    return speechService.start(id, language, event.sender);
-});
-function dictationId(id: unknown): string {
-    if (typeof id !== 'string') {
-        throw new Error('Invalid dictation request');
-    }
-    return id;
-}
-
-handleFromApp('speech:samples', async (_event, id: unknown, samples: unknown) => speechService.samples(dictationId(id), samples));
-handleFromApp('speech:stop', async (_event, id: unknown) => speechService.stop(dictationId(id)));
-handleFromApp('speech:cancel', (_event, id: unknown) => speechService.cancel(dictationId(id)));
-
-// The window that takes the microphone ends what listens in every other one, its dictation run included.
-onFromApp('microphone:claim', (event) => {
-    if (speechService.owner !== undefined && speechService.owner !== event.sender) {
-        speechService.dispose();
-    }
-    for (const window of windows.all()) {
-        if (!window.isDestroyed() && window.webContents !== event.sender) {
-            window.webContents.send('microphone:claimed');
-        }
-    }
-});
-
-handleFromApp('media:request-microphone', async () => {
-    if (process.platform !== 'darwin') {
-        return true;
-    }
-    const status = systemPreferences.getMediaAccessStatus('microphone');
-    if (status === 'granted') {
-        return true;
-    }
-    return status === 'not-determined' ? systemPreferences.askForMediaAccess('microphone') : false;
-});
-
-handleFromApp('pulsar:address-book', () => addressBookUrl);
-
-handleFromApp('pulsar:login-listen', async () => {
-    // One login at a time: a second click starts over rather than leaving a port open for the first.
-    pendingLogin?.cancel();
-    pendingLogin = await listenForLogin();
-    return { redirectUri: pendingLogin.redirectUri };
-});
-
-handleFromApp('pulsar:login-callback', async (event) => {
-    const login = pendingLogin;
-    if (!login) {
-        throw new Error('No sign-in is waiting');
-    }
-    try {
-        const callback = await login.callback;
-        // The login ended in the system browser, which keeps the focus while the answer lands in the window that asked.
-        const window = senderWindow(event);
-        if (window) {
-            if (window.isMinimized()) {
-                window.restore();
-            }
-            window.show();
-            if (process.platform === 'darwin') {
-                app.focus({ steal: true });
-            }
-            window.focus();
-        }
-        return callback;
-    } finally {
-        if (pendingLogin === login) {
-            pendingLogin = null;
-        }
-    }
-});
-
-handleFromApp('pulsar:login-cancel', () => {
-    pendingLogin?.cancel();
-    pendingLogin = null;
-});
-
-handleFromApp('pulsar:exchange', (_event, payload: unknown) => pulsarSessions().exchange(SessionLoginCodeSchema.parse(payload)));
-handleFromApp('pulsar:refresh', () => pulsarSessions().refresh());
-handleFromApp('pulsar:restore', () => pulsarSessions().restore());
-handleFromApp('pulsar:sign-out', () => pulsarSessions().signOut());
-
-handleFromApp('window:is-fullscreen', (event) => senderWindow(event)?.isFullScreen() ?? false);
+ipc.handle('window:is-fullscreen', (event) => ipc.senderWindow(event)?.isFullScreen() ?? false);
 
 /*
  * A project is in one window at a time: when another window has it, that one comes to the front and
  * the page stays where it was. Null lets the window's project go.
  */
-handleFromApp('window:claim', (event, key: unknown) => {
-    const window = senderWindow(event);
+ipc.handle('window:claim', (event, key: unknown) => {
+    const window = ipc.senderWindow(event);
     if (window === null || (key !== null && !isWindowKey(key))) {
         return false;
     }
@@ -1137,8 +547,8 @@ function showOnHolder(key: string | null): void {
 }
 
 // The tabs a window keeps; a project another window keeps stays there, so the answer is what this window has.
-handleFromApp('window:hold', (event, keys: unknown) => {
-    const window = senderWindow(event);
+ipc.handle('window:hold', (event, keys: unknown) => {
+    const window = ipc.senderWindow(event);
     if (window === null || !Array.isArray(keys) || keys.length > 512 || !keys.every(isWindowKey)) {
         return [];
     }
@@ -1157,8 +567,8 @@ function onScreen(at: { x: number; y: number }, size: { width: number; height: n
 /* Where each window's page draws its tab strip, in the page's coordinates, for a tab dragged over it. */
 const tabStrips = new Map<number, { x: number; y: number; width: number; height: number }>();
 
-onFromApp('window:tab-strip', (event, rect: unknown) => {
-    const window = senderWindow(event);
+ipc.on('window:tab-strip', (event, rect: unknown) => {
+    const window = ipc.senderWindow(event);
     if (window === null) {
         return;
     }
@@ -1207,8 +617,8 @@ const tabDrag = createTabDrag<Electron.BrowserWindow>({
 });
 
 // The page that holds the press says when a tab leaves its window and when the press lets go.
-handleFromApp('window:tab-drag', (event, phase: unknown, key: unknown, grab: unknown, whole: unknown, tabWidth: unknown) => {
-    const window = senderWindow(event);
+ipc.handle('window:tab-drag', (event, phase: unknown, key: unknown, grab: unknown, whole: unknown, tabWidth: unknown) => {
+    const window = ipc.senderWindow(event);
     if (window === null) {
         return false;
     }
@@ -1222,7 +632,7 @@ handleFromApp('window:tab-drag', (event, phase: unknown, key: unknown, grab: unk
 });
 
 // Null opens the start screen. A view goes in a new window's address, or as a message to one that already shows the project.
-onFromApp('window:open', (_event, key: unknown, view: unknown, at: unknown) => {
+ipc.on('window:open', (_event, key: unknown, view: unknown, at: unknown) => {
     if (key !== null && !isWindowKey(key)) {
         return;
     }
@@ -1245,14 +655,14 @@ onFromApp('window:open', (_event, key: unknown, view: unknown, at: unknown) => {
 });
 
 // Handed over in one tick, so nobody ever holds the project; the asking page goes to the start screen on true.
-handleFromApp('window:move-to-new', (event, at: unknown) => {
-    const window = senderWindow(event);
+ipc.handle('window:move-to-new', (event, at: unknown) => {
+    const window = ipc.senderWindow(event);
     return window !== null && windows.move(window, windowPointOf(at)) !== null;
 });
 
 // A window whose last tab closed goes, as long as it is not the last window.
-handleFromApp('window:close-if-others', (event) => {
-    const window = senderWindow(event);
+ipc.handle('window:close-if-others', (event) => {
+    const window = ipc.senderWindow(event);
     if (window === null || windows.all().length < 2) {
         return false;
     }
@@ -1261,14 +671,14 @@ handleFromApp('window:close-if-others', (event) => {
 });
 
 // What the page keeps of itself, such as its tabs, comes back in its address at the next start.
-onFromApp('window:state', (event, state: unknown) => {
-    const window = senderWindow(event);
+ipc.on('window:state', (event, state: unknown) => {
+    const window = ipc.senderWindow(event);
     if (window !== null && isWindowState(state)) {
         windows.setState(window, state);
     }
 });
 
-onFromApp('window:theme', (_event, state: ThemeState) => theme.apply(state));
+ipc.on('window:theme', (_event, state: ThemeState) => theme.apply(state));
 
 // A state machine the client watches, not a dialog that interrupts.
 const updater = createUpdater({
@@ -1281,20 +691,20 @@ const updater = createUpdater({
     beforeCheck: () => void releaseNotes.list(true)
 });
 
-handleFromApp('update:state', () => updater.state());
+ipc.handle('update:state', () => updater.state());
 
-handleFromApp('update:configure', (_event, autoDownload: unknown) => updater.configure(autoDownload));
+ipc.handle('update:configure', (_event, autoDownload: unknown) => updater.configure(autoDownload));
 
-handleFromApp('update:check', () => updater.check());
+ipc.handle('update:check', () => updater.check());
 
-handleFromApp('update:download', () => updater.download());
+ipc.handle('update:download', () => updater.download());
 
 /*
  * Installing closes every window before it quits, so a quit that ends work is asked about while they
  * are still there. Not when `confirmed`: a person asked from another client after being told what ends.
  */
 async function installUpdate(confirmed: boolean): Promise<void> {
-    if (!confirmed && !serviceController.survivesQuit(false) && !(await askBeforeQuit())) {
+    if (!confirmed && !machine.controller.survivesQuit(false) && !(await askBeforeQuit())) {
         return;
     }
     quitConfirmed = true;
@@ -1303,7 +713,7 @@ async function installUpdate(confirmed: boolean): Promise<void> {
     }
 }
 
-onFromApp('update:install', (_event, confirmed: unknown) => void installUpdate(confirmed === true));
+ipc.on('update:install', (_event, confirmed: unknown) => void installUpdate(confirmed === true));
 
 /* From the REST API: the updater's atom feed carries rendered HTML, only the versions up to the next one,
    and tags whose release is still a draft. */
@@ -1312,75 +722,7 @@ const releaseNotes = createReleaseNotes({
     cacheFile: join(app.getPath('userData'), 'release-notes.json')
 });
 
-handleFromApp('releases:list', (_event, refresh?: boolean) => releaseNotes.list(refresh === true));
-
-// What stands until the page sends its own menu, and again after a reload or a crash.
-function setStaticMenu(): void {
-    const openSettings = (section: string | null): void => {
-        const window = windows.focused();
-        window?.show();
-        window?.webContents.send('menu:settings', section);
-    };
-    // Only where a service can run: anywhere else quitting already stops the machine.
-    const quitItems: Electron.MenuItemConstructorOptions[] =
-        support === 'supported' ? [{ label: 'Stop the Machine and Quit', click: () => stopMachine() }] : [];
-    const template = staticMenuTemplate({
-        appName: app.name,
-        // Replace macOS's stock About and Settings with client routes.
-        appItems: [
-            { label: `About ${app.name}…`, click: () => openSettings('about') },
-            { type: 'separator' },
-            { label: 'Settings…', accelerator: 'CommandOrControl+,', click: () => openSettings(null) }
-        ],
-        quitItems,
-        toggleDevTools: () => windows.focused()?.webContents.toggleDevTools()
-    });
-    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-}
-
-/* A page in a browser node or an HTML preview never sees the key, so there the menu answers. */
-const runMenuCommand = createMenuCommands({
-    pageKeys,
-    window: () => windows.focused(),
-    keyBypassesPage: () => {
-        const focused = webContents.getFocusedWebContents();
-        return focused !== null && (isBrowserGuest(focused) || isPreviewGuest(focused));
-    }
-});
-
-function shellMenuItem(action: MenuShellAction, label: string): Electron.MenuItemConstructorOptions | null {
-    if (action === 'devtools') {
-        return { label, accelerator: devToolsAccelerator(), click: () => windows.focused()?.webContents.toggleDevTools() };
-    }
-    // Only where a service can run: anywhere else quitting already stops the machine.
-    return action === 'stop-machine-and-quit' && support === 'supported' ? { label, click: () => stopMachine() } : null;
-}
-
-function applyMenuOf(window: Electron.BrowserWindow): void {
-    const template = menuTemplates.get(window.id);
-    if (!template) {
-        setStaticMenu();
-        return;
-    }
-    try {
-        Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-    } catch (error) {
-        console.error('[ruimte] menu refused', error);
-    }
-}
-
-// Every page builds the menu from what has the focus in it (`apps/client/src/shell/menu`); the shell draws the one in front.
-onFromApp('menu:set', (event, spec: MenuSpec) => {
-    const window = senderWindow(event);
-    const template = menuTemplateOf(spec, { run: runMenuCommand, shellItem: shellMenuItem });
-    if (!window || !template) {
-        return;
-    }
-    menuTemplates.set(window.id, template);
-    if (windows.focused() === window) {
-        applyMenuOf(window);
-    }
-});
+ipc.handle('releases:list', (_event, refresh?: boolean) => releaseNotes.list(refresh === true));
 
 /* One window on what the page remembers, whatever the last session left open. */
 async function runSmokeWindow(): Promise<void> {
@@ -1417,16 +759,16 @@ if (!app.requestSingleInstanceLock()) {
     windows.attach(app, {
         confirmQuit: async ({ update }) => {
             if (!update && !quitConfirmed && !(await askBeforeQuit().catch(() => true))) {
-                stopMachineOnQuit = false;
+                machine.keepOnQuit();
                 return false;
             }
-            serviceController.quit(stopMachineOnQuit);
+            machine.controller.quit(machine.stopsOnQuit());
             return true;
         }
     });
 
     void app.whenReady().then(async () => {
-        setStaticMenu();
+        menu.setStatic();
         protocol.handle(scheme.scheme, (request) => answerAppRequest(scheme, request));
         sealAppSession();
         sealPreviewSession();
@@ -1434,17 +776,12 @@ if (!app.requestSingleInstanceLock()) {
         powerMonitor.on('on-battery', applyKeepAwake);
         powerMonitor.on('on-ac', applyKeepAwake);
         await startApp({
-            startMachine,
+            startMachine: () => machine.start(),
             moveStorage: () =>
                 devUrl ? Promise.resolve(() => undefined) : moveLegacyStorage(port, join(app.getPath('userData'), 'storage-moved-to-app-scheme')),
             restoreWindows: () => windows.restore(),
             startUpdater: () => updater.start(),
-            machineReady: () => {
-                localSecret.open();
-                // A window that asked while the machine came up holds the state from before it.
-                pushServiceState(serviceController.state());
-                watchPendingRestart();
-            },
+            machineReady: () => machine.ready(),
             fail: (message) => dialog.showErrorBox('Ruimte', message),
             quit: () => {
                 quitConfirmed = true;

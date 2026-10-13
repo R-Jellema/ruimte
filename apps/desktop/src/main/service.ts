@@ -1,0 +1,275 @@
+import { spawn, type ChildProcess } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import { existsSync, mkdirSync, openSync, readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { serviceDefinition as definitionFor, type ServiceManager } from '@adecore/service';
+import { buildIdentityOf, MACHINE_HEALTH_PATH, type BuildIdentity } from '@ruimte/contracts';
+import type { BackgroundServiceState, ServiceSupport } from '@ruimte/desktop-bridge';
+import { commandLineServiceProgram, daemonServiceSpec, platformServiceManager } from '@ruimte/service/host';
+import { askDaemonWork, proveDaemon, type DaemonPort } from '../daemon-proof';
+import { askLoginShellPath, fileLoginPathCache, loadLoginPath } from '../login-path';
+import { createServiceController, type ServiceController } from '../service/controller';
+import { keepRunningSetting, serviceSupport } from '../service/settings';
+import { createSecretGate } from '../startup';
+import { electron } from './electron';
+import type { AppIpc } from './ipc';
+
+const { app, dialog } = electron;
+
+export interface MachineOptions {
+    ipc: AppIpc;
+    port: number;
+    /* The home the daemon runs with, where its local secret lives. */
+    ruimteHome: string;
+    repoRoot: string;
+    /* Under `bun dev`, which runs the daemon itself. */
+    devUrl: string | null;
+    /* To every window. */
+    publish(state: BackgroundServiceState): void;
+}
+
+/* The daemon behind the port: the background service, the app's own child, or one `bun dev` runs. */
+export interface Machine {
+    readonly support: ServiceSupport;
+    readonly controller: ServiceController;
+    readonly daemonPort: DaemonPort;
+    /* Brings a daemon up behind the port that proved it holds the local secret; false when the person chose to quit. */
+    start(): Promise<boolean>;
+    /* Hands the page the local secret from now on, and watches a restart that is still pending. */
+    ready(): void;
+    /* "Stop the machine", which is a quit that takes the service down with it. */
+    stopAndQuit(): void;
+    stopsOnQuit(): boolean;
+    /* A quit that was turned down stops nothing at the next one. */
+    keepOnQuit(): void;
+}
+
+const MISSING_DAEMON = 'The background service is missing. Run the desktop app from the repository or install a release.';
+
+/* Asked before restarting a daemon of an earlier build, which cannot prove it holds the local secret. A window may stand already, still without the secret. */
+async function askRestartUnproven(): Promise<boolean> {
+    const { response } = await dialog.showMessageBox({
+        type: 'question',
+        buttons: ['Restart Now', 'Quit'],
+        defaultId: 1,
+        cancelId: 1,
+        message: 'Ruimte was updated, and this machine still runs the previous version.',
+        detail: 'That version cannot prove to Ruimte that it belongs to you, so Ruimte connects only after a restart, which ends the terminals and agents running on it. If you quit instead, the machine restarts itself as soon as nothing runs on it.'
+    });
+    return response === 0;
+}
+
+/* The id `apps/server/scripts/compile.ts` wrote beside the binary this bundle carries. */
+function bundledBuild(): string | null {
+    if (!app.isPackaged) {
+        return null;
+    }
+    try {
+        return readFileSync(join(process.resourcesPath, 'bin', 'ruimte.build'), 'utf8').trim() || null;
+    } catch {
+        return null;
+    }
+}
+
+export function createMachine(options: MachineOptions): Machine {
+    const { ipc, port, ruimteHome } = options;
+    let daemon: ChildProcess | null = null;
+    // The login shell's PATH for a packaged app, loaded before the machine starts.
+    let loginPath: string | null = null;
+    let stopMachineOnQuit = false;
+
+    const daemonCommand = (): { command: string; args: string[] } | null => {
+        if (app.isPackaged) {
+            const bin = join(process.resourcesPath, 'bin');
+            return { command: join(bin, process.platform === 'win32' ? 'ruimte.exe' : 'ruimte'), args: ['--port', String(port)] };
+        }
+        const entry = join(options.repoRoot, 'apps', 'server', 'src', 'main.ts');
+        if (!existsSync(entry)) {
+            return null;
+        }
+        return { command: 'bun', args: [entry, '--port', String(port)] };
+    };
+
+    /* A child that ends with the app, used in development or when the service fails to start. */
+    const spawnDaemon = (onExit: () => void): void => {
+        const target = daemonCommand();
+        if (!target) {
+            throw new Error(MISSING_DAEMON);
+        }
+        const env = { ...process.env };
+        if (app.isPackaged && loginPath) {
+            env.PATH = loginPath;
+            process.env.PATH = loginPath;
+        }
+        env.RUIMTE_HOME = ruimteHome;
+        // A packaged app has no terminal; the daemon's output goes to the app's log directory instead.
+        let stdio: 'inherit' | ['ignore', number, number] = 'inherit';
+        if (app.isPackaged) {
+            const logs = app.getPath('logs');
+            mkdirSync(logs, { recursive: true });
+            const log = openSync(join(logs, 'daemon.log'), 'a');
+            stdio = ['ignore', log, log];
+        }
+        daemon = spawn(target.command, target.args, { stdio, env });
+        daemon.on('error', (e) => {
+            dialog.showErrorBox('Ruimte', `The background service could not start: ${e.message}`);
+            app.quit();
+        });
+        daemon.on('exit', (code) => {
+            daemon = null;
+            if (!app.isPackaged && code !== 0 && code !== null) {
+                console.error(`The daemon exited with code ${code}`);
+            }
+            onExit();
+        });
+    };
+
+    /* One ask of the port, bounded, so a daemon that hangs is no answer rather than a start that never ends. */
+    const probeDaemon = async (): Promise<BuildIdentity | null> => {
+        try {
+            const response = await fetch(`http://127.0.0.1:${port}${MACHINE_HEALTH_PATH}`, { signal: AbortSignal.timeout(1000) });
+            return response.ok ? buildIdentityOf(await response.json()) : null;
+        } catch {
+            return null;
+        }
+    };
+
+    /* Long enough for a daemon that is snapshotting its sessions on the way out of a restart. */
+    const waitForDaemon = async (accept: (health: BuildIdentity) => boolean): Promise<void> => {
+        const deadline = Date.now() + 20_000;
+        while (Date.now() < deadline) {
+            const health = await probeDaemon();
+            if (health && accept(health)) {
+                return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+        throw new Error('The background service did not come up');
+    };
+
+    // Read on every ask: the daemon mints it on its first start, which under `bun dev` may come after this window.
+    const readLocalSecret = async (): Promise<string | null> => {
+        try {
+            return (await readFile(join(ruimteHome, 'local.key'), 'utf8')).trim() || null;
+        } catch {
+            return null;
+        }
+    };
+
+    const daemonPort: DaemonPort = {
+        port,
+        readSecret: readLocalSecret,
+        fetch: (url, init) => fetch(url, init),
+        nonce: () => randomBytes(32).toString('base64url')
+    };
+
+    const support = serviceSupport({ packaged: app.isPackaged, platform: process.platform, appImage: process.env.APPIMAGE });
+
+    const serviceDefinition = (): string => {
+        const target = daemonCommand();
+        if (!target) {
+            throw new Error(MISSING_DAEMON);
+        }
+        const spec = daemonServiceSpec({
+            program: target.command,
+            args: target.args,
+            home: homedir(),
+            ruimteHome,
+            // A packaged app inherits the launcher's PATH, which is not the one a terminal of this person finds.
+            path: loginPath ?? process.env.PATH ?? '/usr/bin:/bin'
+        });
+        return definitionFor(process.platform, spec);
+    };
+
+    const publish = (state: BackgroundServiceState): BackgroundServiceState => {
+        options.publish(state);
+        return state;
+    };
+
+    // The dev app never touches launchd or systemd, whatever it is asked.
+    const manager: ServiceManager | null = support === 'supported' ? platformServiceManager(process.platform) : null;
+
+    const controller = createServiceController({
+        support,
+        manager,
+        setting: keepRunningSetting(join(app.getPath('userData'), 'background-service.json'), support),
+        definition: serviceDefinition,
+        commandLineProgram: commandLineServiceProgram(ruimteHome),
+        ruimteHome,
+        expected: { version: app.getVersion(), build: bundledBuild() },
+        probe: probeDaemon,
+        work: () => askDaemonWork(daemonPort),
+        verify: () => proveDaemon(daemonPort),
+        askRestart: askRestartUnproven,
+        waitForHealth: waitForDaemon,
+        spawnDaemon,
+        killDaemon: () => daemon?.kill('SIGTERM'),
+        now: () => Date.now(),
+        after: (ms, run) => void setTimeout(run, ms),
+        publish: (state) => void publish(state)
+    });
+
+    /*
+     * While an older build or an older definition keeps the machine, the port is asked now and then, so
+     * the question and the row in the settings go away once the daemon restarted onto the new one.
+     */
+    const watchPendingRestart = (): void => {
+        if (!controller.unsettled()) {
+            return;
+        }
+        const timer = setInterval(() => {
+            void controller.refresh().then((state) => {
+                if (!controller.unsettled()) {
+                    clearInterval(timer);
+                    publish(state);
+                }
+            });
+        }, 30_000);
+    };
+
+    const stopAndQuit = (): void => {
+        stopMachineOnQuit = true;
+        app.quit();
+    };
+
+    /* Only the app's own page gets the local secret, and only once the daemon on the port proved it holds it (`controller.start`). */
+    const localSecret = createSecretGate(readLocalSecret);
+
+    ipc.handle('daemon:local-secret', () => localSecret.read());
+    ipc.handle('service:state', () => controller.state());
+    ipc.handle('service:set-keep-running', (_event, keepRunning: boolean) => publish(controller.setKeepRunning(keepRunning === true)));
+    ipc.handle('service:enable-linger', () => publish(controller.enableLinger()));
+    ipc.handle('service:restart-now', async () => publish(await controller.restartNow()));
+    ipc.handle('service:restart-when-idle', () => publish(controller.restartWhenIdle()));
+    ipc.on('service:stop-machine', () => stopAndQuit());
+
+    return {
+        support,
+        controller,
+        daemonPort,
+        async start() {
+            // `bun dev` runs the daemon itself; the shell only opens the dev URL.
+            if (options.devUrl) {
+                return true;
+            }
+            if (app.isPackaged) {
+                const cache = fileLoginPathCache(join(app.getPath('userData'), 'login-path.json'));
+                loginPath = (await loadLoginPath(cache, () => askLoginShellPath(process.env.SHELL, process.platform))).path;
+            }
+            return controller.start();
+        },
+        ready() {
+            localSecret.open();
+            // A window that asked while the machine came up holds the state from before it.
+            publish(controller.state());
+            watchPendingRestart();
+        },
+        stopAndQuit,
+        stopsOnQuit: () => stopMachineOnQuit,
+        keepOnQuit() {
+            stopMachineOnQuit = false;
+        }
+    };
+}

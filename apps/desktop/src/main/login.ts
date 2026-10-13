@@ -1,0 +1,73 @@
+import { join } from 'node:path';
+import { AddressBookClient, ADDRESS_BOOK_URL, SessionLoginCodeSchema, SessionVault } from '@ruimte/pulsar';
+import { listenForLogin, type LoopbackLogin } from '../pulsar-login';
+import { fileSessionKey, fileSessionStore } from '../pulsar-store';
+import { electron } from './electron';
+import type { AppIpc } from './ipc';
+
+const { app, net, safeStorage } = electron;
+
+/*
+ * The page runs the login (PKCE, state, start URL); this side listens on loopback for the redirect and
+ * holds the refresh token and the session key, encrypted with the OS keychain. The page only gets access tokens.
+ */
+export function installLogin(ipc: AppIpc): void {
+    const addressBookUrl = process.env.RUIMTE_PULSAR_URL ?? ADDRESS_BOOK_URL;
+    let pulsarVault: SessionVault | null = null;
+    let pendingLogin: LoopbackLogin | null = null;
+
+    const pulsarSessions = (): SessionVault => {
+        pulsarVault ??= new SessionVault({
+            client: new AddressBookClient({ baseUrl: addressBookUrl, fetch: (input, init) => net.fetch(input, init) }),
+            store: fileSessionStore(join(app.getPath('userData'), 'pulsar-session.bin'), safeStorage),
+            signer: fileSessionKey(join(app.getPath('userData'), 'pulsar-key.bin'), safeStorage)
+        });
+        return pulsarVault;
+    };
+
+    ipc.handle('pulsar:address-book', () => addressBookUrl);
+
+    ipc.handle('pulsar:login-listen', async () => {
+        // One login at a time: a second click starts over rather than leaving a port open for the first.
+        pendingLogin?.cancel();
+        pendingLogin = await listenForLogin();
+        return { redirectUri: pendingLogin.redirectUri };
+    });
+
+    ipc.handle('pulsar:login-callback', async (event) => {
+        const login = pendingLogin;
+        if (!login) {
+            throw new Error('No sign-in is waiting');
+        }
+        try {
+            const callback = await login.callback;
+            // The login ended in the system browser, which keeps the focus while the answer lands in the window that asked.
+            const window = ipc.senderWindow(event);
+            if (window) {
+                if (window.isMinimized()) {
+                    window.restore();
+                }
+                window.show();
+                if (process.platform === 'darwin') {
+                    app.focus({ steal: true });
+                }
+                window.focus();
+            }
+            return callback;
+        } finally {
+            if (pendingLogin === login) {
+                pendingLogin = null;
+            }
+        }
+    });
+
+    ipc.handle('pulsar:login-cancel', () => {
+        pendingLogin?.cancel();
+        pendingLogin = null;
+    });
+
+    ipc.handle('pulsar:exchange', (_event, payload: unknown) => pulsarSessions().exchange(SessionLoginCodeSchema.parse(payload)));
+    ipc.handle('pulsar:refresh', () => pulsarSessions().refresh());
+    ipc.handle('pulsar:restore', () => pulsarSessions().restore());
+    ipc.handle('pulsar:sign-out', () => pulsarSessions().signOut());
+}
