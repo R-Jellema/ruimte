@@ -466,18 +466,25 @@ export async function runRenderChild(): Promise<number> {
     const rendering = render(parsed.data, controller.signal).catch((e: unknown): RenderAnswer => ({ ok: false, code: 'render-failed', message: errorText(e) }));
     // The daemon keeps stdin open until it has the answer; its end means the daemon went, and the browser and the profile go with this process.
     const leaving: { done: Promise<void> | null } = { done: null };
-    void untilClosed(reader).then(() => {
-        controller.abort();
-        Bun.WebView.closeAll();
-        leaving.done = (async () => {
-            // Pending view operations must finish before cleanup, or they can recreate the profile.
-            await rendering;
+    const leaveAfter = (e: unknown): never => {
+        // An unhandled rejection would end this process without a word; the daemon only sees a missing answer.
+        console.error('The render child could not clean up:', errorText(e));
+        process.exit(1);
+    };
+    void untilClosed(reader)
+        .then(() => {
+            controller.abort();
             Bun.WebView.closeAll();
-            await stopBrowserChildren();
-            await rm(parsed.data.profile, { recursive: true, force: true, maxRetries: 3 }).catch(() => undefined);
-            process.exit(0);
-        })();
-    });
+            leaving.done = (async () => {
+                // Pending view operations must finish before cleanup, or they can recreate the profile.
+                await rendering;
+                Bun.WebView.closeAll();
+                await stopBrowserChildren();
+                await rm(parsed.data.profile, { recursive: true, force: true, maxRetries: 3 }).catch(() => undefined);
+                process.exit(0);
+            })().catch(leaveAfter);
+        })
+        .catch(leaveAfter);
     const result = await rendering;
     // Closing the browser ends the render at once; the profile still has to go before this process does.
     await leaving.done;
