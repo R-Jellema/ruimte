@@ -4133,6 +4133,3853 @@ public struct ProjectCanvasDefaultsLayoutsItemTextsValue: Codable, Sendable, Equ
     }
 }
 
+public enum ChatItem: Codable, Sendable, Equatable {
+    case `user`(ChatUserItem)
+    case `assistant`(ChatAssistantItem)
+    case `thinking`(ChatThinkingItem)
+    case `tool`(ChatToolItem)
+    case `subagent`(ChatSubagentItem)
+    case `approval`(ChatApprovalItem)
+    case `question`(ChatQuestionItem)
+    case `turn`(ChatTurnItem)
+    case `note`(ChatNoteItem)
+    case `compaction`(ChatCompactionItem)
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: Tag.self)
+        switch try container.decode(String.self, forKey: .value) {
+        case "user": self = .`user`(try ChatUserItem(from: decoder))
+        case "assistant": self = .`assistant`(try ChatAssistantItem(from: decoder))
+        case "thinking": self = .`thinking`(try ChatThinkingItem(from: decoder))
+        case "tool": self = .`tool`(try ChatToolItem(from: decoder))
+        case "subagent": self = .`subagent`(try ChatSubagentItem(from: decoder))
+        case "approval": self = .`approval`(try ChatApprovalItem(from: decoder))
+        case "question": self = .`question`(try ChatQuestionItem(from: decoder))
+        case "turn": self = .`turn`(try ChatTurnItem(from: decoder))
+        case "note": self = .`note`(try ChatNoteItem(from: decoder))
+        case "compaction": self = .`compaction`(try ChatCompactionItem(from: decoder))
+        default: throw WireValidationError.invalid("Unknown ChatItem tag")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .`user`(let value): try value.encode(to: encoder)
+        case .`assistant`(let value): try value.encode(to: encoder)
+        case .`thinking`(let value): try value.encode(to: encoder)
+        case .`tool`(let value): try value.encode(to: encoder)
+        case .`subagent`(let value): try value.encode(to: encoder)
+        case .`approval`(let value): try value.encode(to: encoder)
+        case .`question`(let value): try value.encode(to: encoder)
+        case .`turn`(let value): try value.encode(to: encoder)
+        case .`note`(let value): try value.encode(to: encoder)
+        case .`compaction`(let value): try value.encode(to: encoder)
+        }
+    }
+
+    private enum Tag: String, CodingKey { case value = "kind" }
+}
+
+public struct ChatUserItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `createdAt`: Double
+    public let `turnId`: String?
+    public let `kind`: String
+    public let `text`: String
+    public let `mentions`: [String]?
+    public let `skills`: [String]?
+    public let `chats`: [String]?
+    public let `attachments`: [ChatUserItemAttachmentsItem]?
+    public let `uiChoice`: ChatUserItemUiChoice?
+    public let `quoteSource`: ChatUserItemQuoteSource?
+
+    public init(`id`: String, `createdAt`: Double, `turnId`: String?, `kind`: String = "user", `text`: String, `mentions`: [String]? = nil, `skills`: [String]? = nil, `chats`: [String]? = nil, `attachments`: [ChatUserItemAttachmentsItem]? = nil, `uiChoice`: ChatUserItemUiChoice? = nil, `quoteSource`: ChatUserItemQuoteSource? = nil) {
+        self.`id` = `id`
+        self.`createdAt` = `createdAt`
+        self.`turnId` = `turnId`
+        self.`kind` = `kind`
+        self.`text` = `text`
+        self.`mentions` = `mentions`
+        self.`skills` = `skills`
+        self.`chats` = `chats`
+        self.`attachments` = `attachments`
+        self.`uiChoice` = `uiChoice`
+        self.`quoteSource` = `quoteSource`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `createdAt` = try container.decode(Double.self, forKey: .`createdAt`)
+        `turnId` = try container.decode(String?.self, forKey: .`turnId`)
+        `kind` = try container.decode(String.self, forKey: .`kind`)
+        `text` = try container.decode(String.self, forKey: .`text`)
+        `mentions` = try container.decodeIfPresent([String].self, forKey: .`mentions`)
+        `skills` = try container.decodeIfPresent([String].self, forKey: .`skills`)
+        `chats` = try container.decodeIfPresent([String].self, forKey: .`chats`)
+        `attachments` = try container.decodeIfPresent([ChatUserItemAttachmentsItem].self, forKey: .`attachments`)
+        `uiChoice` = try container.decodeIfPresent(ChatUserItemUiChoice.self, forKey: .`uiChoice`)
+        `quoteSource` = try container.decodeIfPresent(ChatUserItemQuoteSource.self, forKey: .`quoteSource`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`createdAt`, forKey: .`createdAt`)
+        try container.encode(`turnId`, forKey: .`turnId`)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`text`, forKey: .`text`)
+        try container.encodeIfPresent(`mentions`, forKey: .`mentions`)
+        try container.encodeIfPresent(`skills`, forKey: .`skills`)
+        try container.encodeIfPresent(`chats`, forKey: .`chats`)
+        try container.encodeIfPresent(`attachments`, forKey: .`attachments`)
+        try container.encodeIfPresent(`uiChoice`, forKey: .`uiChoice`)
+        try container.encodeIfPresent(`quoteSource`, forKey: .`quoteSource`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `createdAt` = "createdAt"
+        case `turnId` = "turnId"
+        case `kind` = "kind"
+        case `text` = "text"
+        case `mentions` = "mentions"
+        case `skills` = "skills"
+        case `chats` = "chats"
+        case `attachments` = "attachments"
+        case `uiChoice` = "uiChoice"
+        case `quoteSource` = "quoteSource"
+    }
+}
+
+public struct ChatUserItemAttachmentsItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `name`: String
+    public let `mime`: String
+    public let `size`: Int64
+    public let `path`: String
+    public let `width`: Int64?
+    public let `height`: Int64?
+
+    public init(`id`: String, `name`: String, `mime`: String, `size`: Int64, `path`: String, `width`: Int64? = nil, `height`: Int64? = nil) {
+        self.`id` = `id`
+        self.`name` = `name`
+        self.`mime` = `mime`
+        self.`size` = `size`
+        self.`path` = `path`
+        self.`width` = `width`
+        self.`height` = `height`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `name` = try container.decode(String.self, forKey: .`name`)
+        `mime` = try container.decode(String.self, forKey: .`mime`)
+        `size` = try container.decode(Int64.self, forKey: .`size`)
+        `path` = try container.decode(String.self, forKey: .`path`)
+        `width` = try container.decodeIfPresent(Int64.self, forKey: .`width`)
+        `height` = try container.decodeIfPresent(Int64.self, forKey: .`height`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`name`, forKey: .`name`)
+        try container.encode(`mime`, forKey: .`mime`)
+        try container.encode(`size`, forKey: .`size`)
+        try container.encode(`path`, forKey: .`path`)
+        try container.encodeIfPresent(`width`, forKey: .`width`)
+        try container.encodeIfPresent(`height`, forKey: .`height`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `name` = "name"
+        case `mime` = "mime"
+        case `size` = "size"
+        case `path` = "path"
+        case `width` = "width"
+        case `height` = "height"
+    }
+}
+
+public struct ChatUserItemUiChoice: Codable, Sendable, Equatable {
+    public let `itemId`: String
+    public let `blockId`: String
+    public let `revision`: String
+    public let `choiceId`: String
+    public let `label`: String
+    public let `sourceAt`: Double
+    public let `older`: Bool
+    public let `values`: [String: JSONValue]?
+    public let `at`: Double
+
+    public init(`itemId`: String, `blockId`: String, `revision`: String, `choiceId`: String, `label`: String, `sourceAt`: Double, `older`: Bool, `values`: [String: JSONValue]? = nil, `at`: Double) {
+        self.`itemId` = `itemId`
+        self.`blockId` = `blockId`
+        self.`revision` = `revision`
+        self.`choiceId` = `choiceId`
+        self.`label` = `label`
+        self.`sourceAt` = `sourceAt`
+        self.`older` = `older`
+        self.`values` = `values`
+        self.`at` = `at`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `itemId` = try container.decode(String.self, forKey: .`itemId`)
+        `blockId` = try container.decode(String.self, forKey: .`blockId`)
+        `revision` = try container.decode(String.self, forKey: .`revision`)
+        `choiceId` = try container.decode(String.self, forKey: .`choiceId`)
+        `label` = try container.decode(String.self, forKey: .`label`)
+        `sourceAt` = try container.decode(Double.self, forKey: .`sourceAt`)
+        `older` = try container.decode(Bool.self, forKey: .`older`)
+        `values` = try container.decodeIfPresent([String: JSONValue].self, forKey: .`values`)
+        `at` = try container.decode(Double.self, forKey: .`at`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`itemId`, forKey: .`itemId`)
+        try container.encode(`blockId`, forKey: .`blockId`)
+        try container.encode(`revision`, forKey: .`revision`)
+        try container.encode(`choiceId`, forKey: .`choiceId`)
+        try container.encode(`label`, forKey: .`label`)
+        try container.encode(`sourceAt`, forKey: .`sourceAt`)
+        try container.encode(`older`, forKey: .`older`)
+        try container.encodeIfPresent(`values`, forKey: .`values`)
+        try container.encode(`at`, forKey: .`at`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `itemId` = "itemId"
+        case `blockId` = "blockId"
+        case `revision` = "revision"
+        case `choiceId` = "choiceId"
+        case `label` = "label"
+        case `sourceAt` = "sourceAt"
+        case `older` = "older"
+        case `values` = "values"
+        case `at` = "at"
+    }
+}
+
+public struct ChatUserItemQuoteSource: Codable, Sendable, Equatable {
+    public let `itemId`: String
+
+    public init(`itemId`: String) {
+        self.`itemId` = `itemId`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `itemId` = try container.decode(String.self, forKey: .`itemId`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`itemId`, forKey: .`itemId`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `itemId` = "itemId"
+    }
+}
+
+public struct ChatAssistantItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `createdAt`: Double
+    public let `turnId`: String?
+    public let `kind`: String
+    public let `ui`: [ChatUiBlock]?
+    public let `uiAnswers`: [String: ChatUiAnswer]?
+    public let `uiQueries`: ChatUiQueryState?
+    public let `phase`: String?
+    public let `text`: String
+    public let `streaming`: Bool
+    public let `parentToolUseId`: Presence<String>
+
+    public init(`id`: String, `createdAt`: Double, `turnId`: String?, `kind`: String = "assistant", `ui`: [ChatUiBlock]? = nil, `uiAnswers`: [String: ChatUiAnswer]? = nil, `uiQueries`: ChatUiQueryState? = nil, `phase`: String? = nil, `text`: String, `streaming`: Bool, `parentToolUseId`: Presence<String> = .missing) {
+        self.`id` = `id`
+        self.`createdAt` = `createdAt`
+        self.`turnId` = `turnId`
+        self.`kind` = `kind`
+        self.`ui` = `ui`
+        self.`uiAnswers` = `uiAnswers`
+        self.`uiQueries` = `uiQueries`
+        self.`phase` = `phase`
+        self.`text` = `text`
+        self.`streaming` = `streaming`
+        self.`parentToolUseId` = `parentToolUseId`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `createdAt` = try container.decode(Double.self, forKey: .`createdAt`)
+        `turnId` = try container.decode(String?.self, forKey: .`turnId`)
+        `kind` = try container.decode(String.self, forKey: .`kind`)
+        `ui` = try container.decodeIfPresent([ChatUiBlock].self, forKey: .`ui`)
+        `uiAnswers` = try container.decodeIfPresent([String: ChatUiAnswer].self, forKey: .`uiAnswers`)
+        `uiQueries` = try container.decodeIfPresent(ChatUiQueryState.self, forKey: .`uiQueries`)
+        `phase` = try container.decodeIfPresent(String.self, forKey: .`phase`)
+        `text` = try container.decode(String.self, forKey: .`text`)
+        `streaming` = try container.decode(Bool.self, forKey: .`streaming`)
+        `parentToolUseId` = try container.contains(.`parentToolUseId`) ? (container.decodeNil(forKey: .`parentToolUseId`) ? .null : .value(container.decode(String.self, forKey: .`parentToolUseId`))) : .missing
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`createdAt`, forKey: .`createdAt`)
+        try container.encode(`turnId`, forKey: .`turnId`)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encodeIfPresent(`ui`, forKey: .`ui`)
+        try container.encodeIfPresent(`uiAnswers`, forKey: .`uiAnswers`)
+        try container.encodeIfPresent(`uiQueries`, forKey: .`uiQueries`)
+        try container.encodeIfPresent(`phase`, forKey: .`phase`)
+        try container.encode(`text`, forKey: .`text`)
+        try container.encode(`streaming`, forKey: .`streaming`)
+        switch `parentToolUseId` {
+        case .missing: break
+        case .null: try container.encodeNil(forKey: .`parentToolUseId`)
+        case .value(let value): try container.encode(value, forKey: .`parentToolUseId`)
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `createdAt` = "createdAt"
+        case `turnId` = "turnId"
+        case `kind` = "kind"
+        case `ui` = "ui"
+        case `uiAnswers` = "uiAnswers"
+        case `uiQueries` = "uiQueries"
+        case `phase` = "phase"
+        case `text` = "text"
+        case `streaming` = "streaming"
+        case `parentToolUseId` = "parentToolUseId"
+    }
+}
+
+public struct ChatUiBlock: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `catalogVersion`: Int64
+    public let `revision`: String?
+    public let `start`: Int64
+    public let `end`: Int64
+    public let `complete`: Bool
+    public let `defaults`: [String: JSONValue]
+    public let `queries`: [String: ChatUiBlockQueriesValue]
+    public let `nodes`: [JSONValue]
+    public let `diagnostics`: [ChatUiBlockDiagnosticsItem]
+    public let `fallback`: String
+
+    public init(`id`: String, `catalogVersion`: Int64, `revision`: String? = nil, `start`: Int64, `end`: Int64, `complete`: Bool, `defaults`: [String: JSONValue], `queries`: [String: ChatUiBlockQueriesValue], `nodes`: [JSONValue], `diagnostics`: [ChatUiBlockDiagnosticsItem], `fallback`: String) {
+        self.`id` = `id`
+        self.`catalogVersion` = `catalogVersion`
+        self.`revision` = `revision`
+        self.`start` = `start`
+        self.`end` = `end`
+        self.`complete` = `complete`
+        self.`defaults` = `defaults`
+        self.`queries` = `queries`
+        self.`nodes` = `nodes`
+        self.`diagnostics` = `diagnostics`
+        self.`fallback` = `fallback`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `catalogVersion` = try container.decode(Int64.self, forKey: .`catalogVersion`)
+        `revision` = try container.decodeIfPresent(String.self, forKey: .`revision`)
+        `start` = try container.decode(Int64.self, forKey: .`start`)
+        `end` = try container.decode(Int64.self, forKey: .`end`)
+        `complete` = try container.decode(Bool.self, forKey: .`complete`)
+        `defaults` = try container.decode([String: JSONValue].self, forKey: .`defaults`)
+        `queries` = try container.decode([String: ChatUiBlockQueriesValue].self, forKey: .`queries`)
+        `nodes` = try container.decode([JSONValue].self, forKey: .`nodes`)
+        `diagnostics` = try container.decode([ChatUiBlockDiagnosticsItem].self, forKey: .`diagnostics`)
+        `fallback` = try container.decode(String.self, forKey: .`fallback`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`catalogVersion`, forKey: .`catalogVersion`)
+        try container.encodeIfPresent(`revision`, forKey: .`revision`)
+        try container.encode(`start`, forKey: .`start`)
+        try container.encode(`end`, forKey: .`end`)
+        try container.encode(`complete`, forKey: .`complete`)
+        try container.encode(`defaults`, forKey: .`defaults`)
+        try container.encode(`queries`, forKey: .`queries`)
+        try container.encode(`nodes`, forKey: .`nodes`)
+        try container.encode(`diagnostics`, forKey: .`diagnostics`)
+        try container.encode(`fallback`, forKey: .`fallback`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `catalogVersion` = "catalogVersion"
+        case `revision` = "revision"
+        case `start` = "start"
+        case `end` = "end"
+        case `complete` = "complete"
+        case `defaults` = "defaults"
+        case `queries` = "queries"
+        case `nodes` = "nodes"
+        case `diagnostics` = "diagnostics"
+        case `fallback` = "fallback"
+    }
+}
+
+public struct ChatUiBlockQueriesValue: Codable, Sendable, Equatable {
+    public let `source`: String
+    public let `args`: [String: JSONValue]
+    public let `expression`: JSONValue?
+
+    public init(`source`: String, `args`: [String: JSONValue], `expression`: JSONValue? = nil) {
+        self.`source` = `source`
+        self.`args` = `args`
+        self.`expression` = `expression`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `source` = try container.decode(String.self, forKey: .`source`)
+        `args` = try container.decode([String: JSONValue].self, forKey: .`args`)
+        `expression` = try container.decodeIfPresent(JSONValue.self, forKey: .`expression`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`source`, forKey: .`source`)
+        try container.encode(`args`, forKey: .`args`)
+        try container.encodeIfPresent(`expression`, forKey: .`expression`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `source` = "source"
+        case `args` = "args"
+        case `expression` = "expression"
+    }
+}
+
+public struct ChatUiBlockDiagnosticsItem: Codable, Sendable, Equatable {
+    public let `code`: String
+    public let `message`: String
+    public let `start`: Int64
+    public let `end`: Int64
+    public let `nodeId`: String?
+
+    public init(`code`: String, `message`: String, `start`: Int64, `end`: Int64, `nodeId`: String? = nil) {
+        self.`code` = `code`
+        self.`message` = `message`
+        self.`start` = `start`
+        self.`end` = `end`
+        self.`nodeId` = `nodeId`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `code` = try container.decode(String.self, forKey: .`code`)
+        `message` = try container.decode(String.self, forKey: .`message`)
+        `start` = try container.decode(Int64.self, forKey: .`start`)
+        `end` = try container.decode(Int64.self, forKey: .`end`)
+        `nodeId` = try container.decodeIfPresent(String.self, forKey: .`nodeId`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`code`, forKey: .`code`)
+        try container.encode(`message`, forKey: .`message`)
+        try container.encode(`start`, forKey: .`start`)
+        try container.encode(`end`, forKey: .`end`)
+        try container.encodeIfPresent(`nodeId`, forKey: .`nodeId`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `code` = "code"
+        case `message` = "message"
+        case `start` = "start"
+        case `end` = "end"
+        case `nodeId` = "nodeId"
+    }
+}
+
+public struct ChatUiAnswer: Codable, Sendable, Equatable {
+    public let `itemId`: String
+    public let `blockId`: String
+    public let `revision`: String
+    public let `choiceId`: String
+    public let `label`: String
+    public let `sourceAt`: Double
+    public let `older`: Bool
+    public let `values`: [String: JSONValue]?
+    public let `at`: Double
+    public let `queued`: Bool
+    public let `turnId`: String
+
+    public init(`itemId`: String, `blockId`: String, `revision`: String, `choiceId`: String, `label`: String, `sourceAt`: Double, `older`: Bool, `values`: [String: JSONValue]? = nil, `at`: Double, `queued`: Bool, `turnId`: String) {
+        self.`itemId` = `itemId`
+        self.`blockId` = `blockId`
+        self.`revision` = `revision`
+        self.`choiceId` = `choiceId`
+        self.`label` = `label`
+        self.`sourceAt` = `sourceAt`
+        self.`older` = `older`
+        self.`values` = `values`
+        self.`at` = `at`
+        self.`queued` = `queued`
+        self.`turnId` = `turnId`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `itemId` = try container.decode(String.self, forKey: .`itemId`)
+        `blockId` = try container.decode(String.self, forKey: .`blockId`)
+        `revision` = try container.decode(String.self, forKey: .`revision`)
+        `choiceId` = try container.decode(String.self, forKey: .`choiceId`)
+        `label` = try container.decode(String.self, forKey: .`label`)
+        `sourceAt` = try container.decode(Double.self, forKey: .`sourceAt`)
+        `older` = try container.decode(Bool.self, forKey: .`older`)
+        `values` = try container.decodeIfPresent([String: JSONValue].self, forKey: .`values`)
+        `at` = try container.decode(Double.self, forKey: .`at`)
+        `queued` = try container.decode(Bool.self, forKey: .`queued`)
+        `turnId` = try container.decode(String.self, forKey: .`turnId`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`itemId`, forKey: .`itemId`)
+        try container.encode(`blockId`, forKey: .`blockId`)
+        try container.encode(`revision`, forKey: .`revision`)
+        try container.encode(`choiceId`, forKey: .`choiceId`)
+        try container.encode(`label`, forKey: .`label`)
+        try container.encode(`sourceAt`, forKey: .`sourceAt`)
+        try container.encode(`older`, forKey: .`older`)
+        try container.encodeIfPresent(`values`, forKey: .`values`)
+        try container.encode(`at`, forKey: .`at`)
+        try container.encode(`queued`, forKey: .`queued`)
+        try container.encode(`turnId`, forKey: .`turnId`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `itemId` = "itemId"
+        case `blockId` = "blockId"
+        case `revision` = "revision"
+        case `choiceId` = "choiceId"
+        case `label` = "label"
+        case `sourceAt` = "sourceAt"
+        case `older` = "older"
+        case `values` = "values"
+        case `at` = "at"
+        case `queued` = "queued"
+        case `turnId` = "turnId"
+    }
+}
+
+public struct ChatUiQueryState: Codable, Sendable, Equatable {
+    public let `authorChatId`: String
+    public let `blocks`: [String: ChatUiQueryStateBlocksValue]
+
+    public init(`authorChatId`: String, `blocks`: [String: ChatUiQueryStateBlocksValue]) {
+        self.`authorChatId` = `authorChatId`
+        self.`blocks` = `blocks`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `authorChatId` = try container.decode(String.self, forKey: .`authorChatId`)
+        `blocks` = try container.decode([String: ChatUiQueryStateBlocksValue].self, forKey: .`blocks`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`authorChatId`, forKey: .`authorChatId`)
+        try container.encode(`blocks`, forKey: .`blocks`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `authorChatId` = "authorChatId"
+        case `blocks` = "blocks"
+    }
+}
+
+public struct ChatUiQueryStateBlocksValue: Codable, Sendable, Equatable {
+    public let `revision`: String
+    public let `readings`: [String: ChatUiQueryStateBlocksValueReadingsValue]
+    public let `fallback`: String
+    public let `links`: [String: ChatUiQueryStateBlocksValueLinksValue]?
+
+    public init(`revision`: String, `readings`: [String: ChatUiQueryStateBlocksValueReadingsValue], `fallback`: String, `links`: [String: ChatUiQueryStateBlocksValueLinksValue]? = nil) {
+        self.`revision` = `revision`
+        self.`readings` = `readings`
+        self.`fallback` = `fallback`
+        self.`links` = `links`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `revision` = try container.decode(String.self, forKey: .`revision`)
+        `readings` = try container.decode([String: ChatUiQueryStateBlocksValueReadingsValue].self, forKey: .`readings`)
+        `fallback` = try container.decode(String.self, forKey: .`fallback`)
+        `links` = try container.decodeIfPresent([String: ChatUiQueryStateBlocksValueLinksValue].self, forKey: .`links`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`revision`, forKey: .`revision`)
+        try container.encode(`readings`, forKey: .`readings`)
+        try container.encode(`fallback`, forKey: .`fallback`)
+        try container.encodeIfPresent(`links`, forKey: .`links`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `revision` = "revision"
+        case `readings` = "readings"
+        case `fallback` = "fallback"
+        case `links` = "links"
+    }
+}
+
+public struct ChatUiQueryStateBlocksValueReadingsValue: Codable, Sendable, Equatable {
+    public let `state`: ChatUiQueryStateBlocksValueReadingsValueState
+    public let `value`: JSONValue?
+    public let `readId`: String?
+    public let `readAt`: Double
+    public let `code`: String?
+    public let `reason`: String?
+
+    public init(`state`: ChatUiQueryStateBlocksValueReadingsValueState, `value`: JSONValue? = nil, `readId`: String? = nil, `readAt`: Double, `code`: String? = nil, `reason`: String? = nil) {
+        self.`state` = `state`
+        self.`value` = `value`
+        self.`readId` = `readId`
+        self.`readAt` = `readAt`
+        self.`code` = `code`
+        self.`reason` = `reason`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `state` = try container.decode(ChatUiQueryStateBlocksValueReadingsValueState.self, forKey: .`state`)
+        `value` = try container.decodeIfPresent(JSONValue.self, forKey: .`value`)
+        `readId` = try container.decodeIfPresent(String.self, forKey: .`readId`)
+        `readAt` = try container.decode(Double.self, forKey: .`readAt`)
+        `code` = try container.decodeIfPresent(String.self, forKey: .`code`)
+        `reason` = try container.decodeIfPresent(String.self, forKey: .`reason`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`state`, forKey: .`state`)
+        try container.encodeIfPresent(`value`, forKey: .`value`)
+        try container.encodeIfPresent(`readId`, forKey: .`readId`)
+        try container.encode(`readAt`, forKey: .`readAt`)
+        try container.encodeIfPresent(`code`, forKey: .`code`)
+        try container.encodeIfPresent(`reason`, forKey: .`reason`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `state` = "state"
+        case `value` = "value"
+        case `readId` = "readId"
+        case `readAt` = "readAt"
+        case `code` = "code"
+        case `reason` = "reason"
+    }
+}
+
+public enum ChatUiQueryStateBlocksValueReadingsValueState: String, CaseIterable, Codable, Sendable, Equatable {
+    case `fresh` = "fresh"
+    case `failed` = "failed"
+    case `refused` = "refused"
+}
+
+public struct ChatUiQueryStateBlocksValueLinksValue: Codable, Sendable, Equatable {
+    public let `state`: ChatUiQueryStateBlocksValueLinksValueState
+    public let `target`: ChatUiQueryStateBlocksValueLinksValueTarget?
+    public let `cwd`: String?
+    public let `viewId`: String?
+    public let `projectId`: String?
+    public let `staged`: Bool?
+    public let `conflicted`: Bool?
+    public let `relativePath`: String?
+    public let `label`: String?
+    public let `code`: String?
+    public let `reason`: String?
+
+    public init(`state`: ChatUiQueryStateBlocksValueLinksValueState, `target`: ChatUiQueryStateBlocksValueLinksValueTarget? = nil, `cwd`: String? = nil, `viewId`: String? = nil, `projectId`: String? = nil, `staged`: Bool? = nil, `conflicted`: Bool? = nil, `relativePath`: String? = nil, `label`: String? = nil, `code`: String? = nil, `reason`: String? = nil) {
+        self.`state` = `state`
+        self.`target` = `target`
+        self.`cwd` = `cwd`
+        self.`viewId` = `viewId`
+        self.`projectId` = `projectId`
+        self.`staged` = `staged`
+        self.`conflicted` = `conflicted`
+        self.`relativePath` = `relativePath`
+        self.`label` = `label`
+        self.`code` = `code`
+        self.`reason` = `reason`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `state` = try container.decode(ChatUiQueryStateBlocksValueLinksValueState.self, forKey: .`state`)
+        `target` = try container.decodeIfPresent(ChatUiQueryStateBlocksValueLinksValueTarget.self, forKey: .`target`)
+        `cwd` = try container.decodeIfPresent(String.self, forKey: .`cwd`)
+        `viewId` = try container.decodeIfPresent(String.self, forKey: .`viewId`)
+        `projectId` = try container.decodeIfPresent(String.self, forKey: .`projectId`)
+        `staged` = try container.decodeIfPresent(Bool.self, forKey: .`staged`)
+        `conflicted` = try container.decodeIfPresent(Bool.self, forKey: .`conflicted`)
+        `relativePath` = try container.decodeIfPresent(String.self, forKey: .`relativePath`)
+        `label` = try container.decodeIfPresent(String.self, forKey: .`label`)
+        `code` = try container.decodeIfPresent(String.self, forKey: .`code`)
+        `reason` = try container.decodeIfPresent(String.self, forKey: .`reason`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`state`, forKey: .`state`)
+        try container.encodeIfPresent(`target`, forKey: .`target`)
+        try container.encodeIfPresent(`cwd`, forKey: .`cwd`)
+        try container.encodeIfPresent(`viewId`, forKey: .`viewId`)
+        try container.encodeIfPresent(`projectId`, forKey: .`projectId`)
+        try container.encodeIfPresent(`staged`, forKey: .`staged`)
+        try container.encodeIfPresent(`conflicted`, forKey: .`conflicted`)
+        try container.encodeIfPresent(`relativePath`, forKey: .`relativePath`)
+        try container.encodeIfPresent(`label`, forKey: .`label`)
+        try container.encodeIfPresent(`code`, forKey: .`code`)
+        try container.encodeIfPresent(`reason`, forKey: .`reason`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `state` = "state"
+        case `target` = "target"
+        case `cwd` = "cwd"
+        case `viewId` = "viewId"
+        case `projectId` = "projectId"
+        case `staged` = "staged"
+        case `conflicted` = "conflicted"
+        case `relativePath` = "relativePath"
+        case `label` = "label"
+        case `code` = "code"
+        case `reason` = "reason"
+    }
+}
+
+public enum ChatUiQueryStateBlocksValueLinksValueState: String, CaseIterable, Codable, Sendable, Equatable {
+    case `chip` = "chip"
+    case `plain` = "plain"
+}
+
+public enum ChatUiQueryStateBlocksValueLinksValueTarget: Codable, Sendable, Equatable {
+    case `File`(ChatUiQueryStateBlocksValueLinksValueTargetVariant0)
+    case `Diff`(ChatUiQueryStateBlocksValueLinksValueTargetVariant1)
+    case `Commit`(ChatUiQueryStateBlocksValueLinksValueTargetVariant2)
+    case `Node`(ChatUiQueryStateBlocksValueLinksValueTargetVariant3)
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: Tag.self)
+        switch try container.decode(String.self, forKey: .value) {
+        case "File": self = .`File`(try ChatUiQueryStateBlocksValueLinksValueTargetVariant0(from: decoder))
+        case "Diff": self = .`Diff`(try ChatUiQueryStateBlocksValueLinksValueTargetVariant1(from: decoder))
+        case "Commit": self = .`Commit`(try ChatUiQueryStateBlocksValueLinksValueTargetVariant2(from: decoder))
+        case "Node": self = .`Node`(try ChatUiQueryStateBlocksValueLinksValueTargetVariant3(from: decoder))
+        default: throw WireValidationError.invalid("Unknown ChatUiQueryStateBlocksValueLinksValueTarget tag")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .`File`(let value): try value.encode(to: encoder)
+        case .`Diff`(let value): try value.encode(to: encoder)
+        case .`Commit`(let value): try value.encode(to: encoder)
+        case .`Node`(let value): try value.encode(to: encoder)
+        }
+    }
+
+    private enum Tag: String, CodingKey { case value = "type" }
+}
+
+public struct ChatUiQueryStateBlocksValueLinksValueTargetVariant0: Codable, Sendable, Equatable {
+    public let `type`: String
+    public let `path`: String
+    public let `line`: Int64?
+
+    public init(`type`: String = "File", `path`: String, `line`: Int64? = nil) {
+        self.`type` = `type`
+        self.`path` = `path`
+        self.`line` = `line`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `type` = try container.decode(String.self, forKey: .`type`)
+        `path` = try container.decode(String.self, forKey: .`path`)
+        `line` = try container.decodeIfPresent(Int64.self, forKey: .`line`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`type`, forKey: .`type`)
+        try container.encode(`path`, forKey: .`path`)
+        try container.encodeIfPresent(`line`, forKey: .`line`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `type` = "type"
+        case `path` = "path"
+        case `line` = "line"
+    }
+}
+
+public struct ChatUiQueryStateBlocksValueLinksValueTargetVariant1: Codable, Sendable, Equatable {
+    public let `type`: String
+    public let `path`: String
+
+    public init(`type`: String = "Diff", `path`: String) {
+        self.`type` = `type`
+        self.`path` = `path`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `type` = try container.decode(String.self, forKey: .`type`)
+        `path` = try container.decode(String.self, forKey: .`path`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`type`, forKey: .`type`)
+        try container.encode(`path`, forKey: .`path`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `type` = "type"
+        case `path` = "path"
+    }
+}
+
+public struct ChatUiQueryStateBlocksValueLinksValueTargetVariant2: Codable, Sendable, Equatable {
+    public let `type`: String
+    public let `sha`: String
+
+    public init(`type`: String = "Commit", `sha`: String) {
+        self.`type` = `type`
+        self.`sha` = `sha`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `type` = try container.decode(String.self, forKey: .`type`)
+        `sha` = try container.decode(String.self, forKey: .`sha`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`type`, forKey: .`type`)
+        try container.encode(`sha`, forKey: .`sha`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `type` = "type"
+        case `sha` = "sha"
+    }
+}
+
+public struct ChatUiQueryStateBlocksValueLinksValueTargetVariant3: Codable, Sendable, Equatable {
+    public let `type`: String
+    public let `id`: String
+
+    public init(`type`: String = "Node", `id`: String) {
+        self.`type` = `type`
+        self.`id` = `id`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `type` = try container.decode(String.self, forKey: .`type`)
+        `id` = try container.decode(String.self, forKey: .`id`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`type`, forKey: .`type`)
+        try container.encode(`id`, forKey: .`id`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `type` = "type"
+        case `id` = "id"
+    }
+}
+
+public struct ChatThinkingItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `createdAt`: Double
+    public let `turnId`: String?
+    public let `kind`: String
+    public let `text`: String
+    public let `streaming`: Bool
+    public let `endedAt`: Double?
+
+    public init(`id`: String, `createdAt`: Double, `turnId`: String?, `kind`: String = "thinking", `text`: String, `streaming`: Bool, `endedAt`: Double?) {
+        self.`id` = `id`
+        self.`createdAt` = `createdAt`
+        self.`turnId` = `turnId`
+        self.`kind` = `kind`
+        self.`text` = `text`
+        self.`streaming` = `streaming`
+        self.`endedAt` = `endedAt`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `createdAt` = try container.decode(Double.self, forKey: .`createdAt`)
+        `turnId` = try container.decode(String?.self, forKey: .`turnId`)
+        `kind` = try container.decode(String.self, forKey: .`kind`)
+        `text` = try container.decode(String.self, forKey: .`text`)
+        `streaming` = try container.decode(Bool.self, forKey: .`streaming`)
+        `endedAt` = try container.decode(Double?.self, forKey: .`endedAt`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`createdAt`, forKey: .`createdAt`)
+        try container.encode(`turnId`, forKey: .`turnId`)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`text`, forKey: .`text`)
+        try container.encode(`streaming`, forKey: .`streaming`)
+        try container.encode(`endedAt`, forKey: .`endedAt`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `createdAt` = "createdAt"
+        case `turnId` = "turnId"
+        case `kind` = "kind"
+        case `text` = "text"
+        case `streaming` = "streaming"
+        case `endedAt` = "endedAt"
+    }
+}
+
+public struct ChatToolItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `createdAt`: Double
+    public let `turnId`: String?
+    public let `kind`: String
+    public let `toolUseId`: String
+    public let `name`: String
+    public let `input`: JSONValue
+    public let `output`: String?
+    public let `state`: ChatToolState
+    public let `parentToolUseId`: String?
+    public let `progress`: ChatToolItemProgress?
+    public let `changes`: [ChatToolItemChangesItem]?
+    public let `workflow`: ChatToolItemWorkflow?
+
+    public init(`id`: String, `createdAt`: Double, `turnId`: String?, `kind`: String = "tool", `toolUseId`: String, `name`: String, `input`: JSONValue, `output`: String?, `state`: ChatToolState, `parentToolUseId`: String?, `progress`: ChatToolItemProgress? = nil, `changes`: [ChatToolItemChangesItem]? = nil, `workflow`: ChatToolItemWorkflow? = nil) {
+        self.`id` = `id`
+        self.`createdAt` = `createdAt`
+        self.`turnId` = `turnId`
+        self.`kind` = `kind`
+        self.`toolUseId` = `toolUseId`
+        self.`name` = `name`
+        self.`input` = `input`
+        self.`output` = `output`
+        self.`state` = `state`
+        self.`parentToolUseId` = `parentToolUseId`
+        self.`progress` = `progress`
+        self.`changes` = `changes`
+        self.`workflow` = `workflow`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `createdAt` = try container.decode(Double.self, forKey: .`createdAt`)
+        `turnId` = try container.decode(String?.self, forKey: .`turnId`)
+        `kind` = try container.decode(String.self, forKey: .`kind`)
+        `toolUseId` = try container.decode(String.self, forKey: .`toolUseId`)
+        `name` = try container.decode(String.self, forKey: .`name`)
+        `input` = try container.decode(JSONValue.self, forKey: .`input`)
+        `output` = try container.decode(String?.self, forKey: .`output`)
+        `state` = try container.decode(ChatToolState.self, forKey: .`state`)
+        `parentToolUseId` = try container.decode(String?.self, forKey: .`parentToolUseId`)
+        `progress` = try container.decodeIfPresent(ChatToolItemProgress.self, forKey: .`progress`)
+        `changes` = try container.decodeIfPresent([ChatToolItemChangesItem].self, forKey: .`changes`)
+        `workflow` = try container.decodeIfPresent(ChatToolItemWorkflow.self, forKey: .`workflow`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`createdAt`, forKey: .`createdAt`)
+        try container.encode(`turnId`, forKey: .`turnId`)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`toolUseId`, forKey: .`toolUseId`)
+        try container.encode(`name`, forKey: .`name`)
+        try container.encode(`input`, forKey: .`input`)
+        try container.encode(`output`, forKey: .`output`)
+        try container.encode(`state`, forKey: .`state`)
+        try container.encode(`parentToolUseId`, forKey: .`parentToolUseId`)
+        try container.encodeIfPresent(`progress`, forKey: .`progress`)
+        try container.encodeIfPresent(`changes`, forKey: .`changes`)
+        try container.encodeIfPresent(`workflow`, forKey: .`workflow`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `createdAt` = "createdAt"
+        case `turnId` = "turnId"
+        case `kind` = "kind"
+        case `toolUseId` = "toolUseId"
+        case `name` = "name"
+        case `input` = "input"
+        case `output` = "output"
+        case `state` = "state"
+        case `parentToolUseId` = "parentToolUseId"
+        case `progress` = "progress"
+        case `changes` = "changes"
+        case `workflow` = "workflow"
+    }
+}
+
+public struct ChatToolItemProgress: Codable, Sendable, Equatable {
+    public let `startedAt`: Double?
+    public let `description`: String?
+    public let `output`: String?
+
+    public init(`startedAt`: Double?, `description`: String?, `output`: String?) {
+        self.`startedAt` = `startedAt`
+        self.`description` = `description`
+        self.`output` = `output`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `startedAt` = try container.decode(Double?.self, forKey: .`startedAt`)
+        `description` = try container.decode(String?.self, forKey: .`description`)
+        `output` = try container.decode(String?.self, forKey: .`output`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`startedAt`, forKey: .`startedAt`)
+        try container.encode(`description`, forKey: .`description`)
+        try container.encode(`output`, forKey: .`output`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `startedAt` = "startedAt"
+        case `description` = "description"
+        case `output` = "output"
+    }
+}
+
+public struct ChatToolItemChangesItem: Codable, Sendable, Equatable {
+    public let `path`: String
+    public let `kind`: ChatToolItemChangesItemKind
+    public let `diff`: String
+
+    public init(`path`: String, `kind`: ChatToolItemChangesItemKind, `diff`: String) {
+        self.`path` = `path`
+        self.`kind` = `kind`
+        self.`diff` = `diff`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `path` = try container.decode(String.self, forKey: .`path`)
+        `kind` = try container.decode(ChatToolItemChangesItemKind.self, forKey: .`kind`)
+        `diff` = try container.decode(String.self, forKey: .`diff`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`path`, forKey: .`path`)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`diff`, forKey: .`diff`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `path` = "path"
+        case `kind` = "kind"
+        case `diff` = "diff"
+    }
+}
+
+public enum ChatToolItemChangesItemKind: String, CaseIterable, Codable, Sendable, Equatable {
+    case `add` = "add"
+    case `update` = "update"
+    case `delete` = "delete"
+}
+
+public struct ChatToolItemWorkflow: Codable, Sendable, Equatable {
+    public let `name`: String?
+    public let `taskId`: String?
+    public let `phases`: [ChatToolItemWorkflowPhasesItem]
+    public let `agents`: [ChatToolItemWorkflowAgentsItem]
+    public let `lastProgressAt`: Double?
+    public let `stalledAt`: Double?
+
+    public init(`name`: String?, `taskId`: String? = nil, `phases`: [ChatToolItemWorkflowPhasesItem], `agents`: [ChatToolItemWorkflowAgentsItem], `lastProgressAt`: Double? = nil, `stalledAt`: Double? = nil) {
+        self.`name` = `name`
+        self.`taskId` = `taskId`
+        self.`phases` = `phases`
+        self.`agents` = `agents`
+        self.`lastProgressAt` = `lastProgressAt`
+        self.`stalledAt` = `stalledAt`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `name` = try container.decode(String?.self, forKey: .`name`)
+        `taskId` = try container.decodeIfPresent(String.self, forKey: .`taskId`)
+        `phases` = try container.decode([ChatToolItemWorkflowPhasesItem].self, forKey: .`phases`)
+        `agents` = try container.decode([ChatToolItemWorkflowAgentsItem].self, forKey: .`agents`)
+        `lastProgressAt` = try container.decodeIfPresent(Double.self, forKey: .`lastProgressAt`)
+        `stalledAt` = try container.decodeIfPresent(Double.self, forKey: .`stalledAt`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`name`, forKey: .`name`)
+        try container.encodeIfPresent(`taskId`, forKey: .`taskId`)
+        try container.encode(`phases`, forKey: .`phases`)
+        try container.encode(`agents`, forKey: .`agents`)
+        try container.encodeIfPresent(`lastProgressAt`, forKey: .`lastProgressAt`)
+        try container.encodeIfPresent(`stalledAt`, forKey: .`stalledAt`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `name` = "name"
+        case `taskId` = "taskId"
+        case `phases` = "phases"
+        case `agents` = "agents"
+        case `lastProgressAt` = "lastProgressAt"
+        case `stalledAt` = "stalledAt"
+    }
+}
+
+public struct ChatToolItemWorkflowPhasesItem: Codable, Sendable, Equatable {
+    public let `index`: Int64
+    public let `title`: String
+
+    public init(`index`: Int64, `title`: String) {
+        self.`index` = `index`
+        self.`title` = `title`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `index` = try container.decode(Int64.self, forKey: .`index`)
+        `title` = try container.decode(String.self, forKey: .`title`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`index`, forKey: .`index`)
+        try container.encode(`title`, forKey: .`title`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `index` = "index"
+        case `title` = "title"
+    }
+}
+
+public struct ChatToolItemWorkflowAgentsItem: Codable, Sendable, Equatable {
+    public let `index`: Int64
+    public let `label`: String
+    public let `phaseIndex`: Int64?
+    public let `agentId`: String?
+    public let `status`: ChatSubagentStatus
+    public let `startedAt`: Double?
+    public let `durationMs`: Int64?
+    public let `lastTool`: String?
+
+    public init(`index`: Int64, `label`: String, `phaseIndex`: Int64?, `agentId`: String?, `status`: ChatSubagentStatus, `startedAt`: Double?, `durationMs`: Int64?, `lastTool`: String?) {
+        self.`index` = `index`
+        self.`label` = `label`
+        self.`phaseIndex` = `phaseIndex`
+        self.`agentId` = `agentId`
+        self.`status` = `status`
+        self.`startedAt` = `startedAt`
+        self.`durationMs` = `durationMs`
+        self.`lastTool` = `lastTool`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `index` = try container.decode(Int64.self, forKey: .`index`)
+        `label` = try container.decode(String.self, forKey: .`label`)
+        `phaseIndex` = try container.decode(Int64?.self, forKey: .`phaseIndex`)
+        `agentId` = try container.decode(String?.self, forKey: .`agentId`)
+        `status` = try container.decode(ChatSubagentStatus.self, forKey: .`status`)
+        `startedAt` = try container.decode(Double?.self, forKey: .`startedAt`)
+        `durationMs` = try container.decode(Int64?.self, forKey: .`durationMs`)
+        `lastTool` = try container.decode(String?.self, forKey: .`lastTool`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`index`, forKey: .`index`)
+        try container.encode(`label`, forKey: .`label`)
+        try container.encode(`phaseIndex`, forKey: .`phaseIndex`)
+        try container.encode(`agentId`, forKey: .`agentId`)
+        try container.encode(`status`, forKey: .`status`)
+        try container.encode(`startedAt`, forKey: .`startedAt`)
+        try container.encode(`durationMs`, forKey: .`durationMs`)
+        try container.encode(`lastTool`, forKey: .`lastTool`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `index` = "index"
+        case `label` = "label"
+        case `phaseIndex` = "phaseIndex"
+        case `agentId` = "agentId"
+        case `status` = "status"
+        case `startedAt` = "startedAt"
+        case `durationMs` = "durationMs"
+        case `lastTool` = "lastTool"
+    }
+}
+
+public struct ChatSubagentItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `createdAt`: Double
+    public let `turnId`: String?
+    public let `kind`: String
+    public let `toolUseId`: String
+    public let `description`: String
+    public let `subagentType`: String?
+    public let `model`: String?
+    public let `prompt`: String?
+    public let `background`: Bool
+    public let `status`: ChatSubagentStatus
+    public let `startedAt`: Double
+    public let `finishedAt`: Double?
+    public let `summary`: String?
+    public let `result`: String?
+    public let `usage`: ChatSubagentItemUsage?
+    public let `lastTool`: String?
+    public let `outputFile`: String?
+    public let `itemsTruncated`: Bool
+    public let `native`: ChatSubagentItemNative?
+    public let `origin`: ChatSubagentItemOrigin?
+    public let `childId`: String?
+    public let `parentToolUseId`: String?
+
+    public init(`id`: String, `createdAt`: Double, `turnId`: String?, `kind`: String = "subagent", `toolUseId`: String, `description`: String, `subagentType`: String?, `model`: String? = nil, `prompt`: String?, `background`: Bool, `status`: ChatSubagentStatus, `startedAt`: Double, `finishedAt`: Double?, `summary`: String?, `result`: String?, `usage`: ChatSubagentItemUsage?, `lastTool`: String?, `outputFile`: String? = nil, `itemsTruncated`: Bool, `native`: ChatSubagentItemNative? = nil, `origin`: ChatSubagentItemOrigin? = nil, `childId`: String? = nil, `parentToolUseId`: String? = nil) {
+        self.`id` = `id`
+        self.`createdAt` = `createdAt`
+        self.`turnId` = `turnId`
+        self.`kind` = `kind`
+        self.`toolUseId` = `toolUseId`
+        self.`description` = `description`
+        self.`subagentType` = `subagentType`
+        self.`model` = `model`
+        self.`prompt` = `prompt`
+        self.`background` = `background`
+        self.`status` = `status`
+        self.`startedAt` = `startedAt`
+        self.`finishedAt` = `finishedAt`
+        self.`summary` = `summary`
+        self.`result` = `result`
+        self.`usage` = `usage`
+        self.`lastTool` = `lastTool`
+        self.`outputFile` = `outputFile`
+        self.`itemsTruncated` = `itemsTruncated`
+        self.`native` = `native`
+        self.`origin` = `origin`
+        self.`childId` = `childId`
+        self.`parentToolUseId` = `parentToolUseId`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `createdAt` = try container.decode(Double.self, forKey: .`createdAt`)
+        `turnId` = try container.decode(String?.self, forKey: .`turnId`)
+        `kind` = try container.decode(String.self, forKey: .`kind`)
+        `toolUseId` = try container.decode(String.self, forKey: .`toolUseId`)
+        `description` = try container.decode(String.self, forKey: .`description`)
+        `subagentType` = try container.decode(String?.self, forKey: .`subagentType`)
+        `model` = try container.decodeIfPresent(String.self, forKey: .`model`)
+        `prompt` = try container.decode(String?.self, forKey: .`prompt`)
+        `background` = try container.decode(Bool.self, forKey: .`background`)
+        `status` = try container.decode(ChatSubagentStatus.self, forKey: .`status`)
+        `startedAt` = try container.decode(Double.self, forKey: .`startedAt`)
+        `finishedAt` = try container.decode(Double?.self, forKey: .`finishedAt`)
+        `summary` = try container.decode(String?.self, forKey: .`summary`)
+        `result` = try container.decode(String?.self, forKey: .`result`)
+        `usage` = try container.decode(ChatSubagentItemUsage?.self, forKey: .`usage`)
+        `lastTool` = try container.decode(String?.self, forKey: .`lastTool`)
+        `outputFile` = try container.decodeIfPresent(String.self, forKey: .`outputFile`)
+        `itemsTruncated` = try container.decode(Bool.self, forKey: .`itemsTruncated`)
+        `native` = try container.decodeIfPresent(ChatSubagentItemNative.self, forKey: .`native`)
+        `origin` = try container.decodeIfPresent(ChatSubagentItemOrigin.self, forKey: .`origin`)
+        `childId` = try container.decodeIfPresent(String.self, forKey: .`childId`)
+        `parentToolUseId` = try container.decodeIfPresent(String.self, forKey: .`parentToolUseId`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`createdAt`, forKey: .`createdAt`)
+        try container.encode(`turnId`, forKey: .`turnId`)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`toolUseId`, forKey: .`toolUseId`)
+        try container.encode(`description`, forKey: .`description`)
+        try container.encode(`subagentType`, forKey: .`subagentType`)
+        try container.encodeIfPresent(`model`, forKey: .`model`)
+        try container.encode(`prompt`, forKey: .`prompt`)
+        try container.encode(`background`, forKey: .`background`)
+        try container.encode(`status`, forKey: .`status`)
+        try container.encode(`startedAt`, forKey: .`startedAt`)
+        try container.encode(`finishedAt`, forKey: .`finishedAt`)
+        try container.encode(`summary`, forKey: .`summary`)
+        try container.encode(`result`, forKey: .`result`)
+        try container.encode(`usage`, forKey: .`usage`)
+        try container.encode(`lastTool`, forKey: .`lastTool`)
+        try container.encodeIfPresent(`outputFile`, forKey: .`outputFile`)
+        try container.encode(`itemsTruncated`, forKey: .`itemsTruncated`)
+        try container.encodeIfPresent(`native`, forKey: .`native`)
+        try container.encodeIfPresent(`origin`, forKey: .`origin`)
+        try container.encodeIfPresent(`childId`, forKey: .`childId`)
+        try container.encodeIfPresent(`parentToolUseId`, forKey: .`parentToolUseId`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `createdAt` = "createdAt"
+        case `turnId` = "turnId"
+        case `kind` = "kind"
+        case `toolUseId` = "toolUseId"
+        case `description` = "description"
+        case `subagentType` = "subagentType"
+        case `model` = "model"
+        case `prompt` = "prompt"
+        case `background` = "background"
+        case `status` = "status"
+        case `startedAt` = "startedAt"
+        case `finishedAt` = "finishedAt"
+        case `summary` = "summary"
+        case `result` = "result"
+        case `usage` = "usage"
+        case `lastTool` = "lastTool"
+        case `outputFile` = "outputFile"
+        case `itemsTruncated` = "itemsTruncated"
+        case `native` = "native"
+        case `origin` = "origin"
+        case `childId` = "childId"
+        case `parentToolUseId` = "parentToolUseId"
+    }
+}
+
+public struct ChatSubagentItemUsage: Codable, Sendable, Equatable {
+    public let `totalTokens`: Int64
+    public let `toolUses`: Int64
+    public let `durationMs`: Int64
+
+    public init(`totalTokens`: Int64, `toolUses`: Int64, `durationMs`: Int64) {
+        self.`totalTokens` = `totalTokens`
+        self.`toolUses` = `toolUses`
+        self.`durationMs` = `durationMs`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `totalTokens` = try container.decode(Int64.self, forKey: .`totalTokens`)
+        `toolUses` = try container.decode(Int64.self, forKey: .`toolUses`)
+        `durationMs` = try container.decode(Int64.self, forKey: .`durationMs`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`totalTokens`, forKey: .`totalTokens`)
+        try container.encode(`toolUses`, forKey: .`toolUses`)
+        try container.encode(`durationMs`, forKey: .`durationMs`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `totalTokens` = "totalTokens"
+        case `toolUses` = "toolUses"
+        case `durationMs` = "durationMs"
+    }
+}
+
+public struct ChatSubagentItemNative: Codable, Sendable, Equatable {
+    public let `agentId`: String?
+    public let `threadId`: String?
+
+    public init(`agentId`: String? = nil, `threadId`: String? = nil) {
+        self.`agentId` = `agentId`
+        self.`threadId` = `threadId`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `agentId` = try container.decodeIfPresent(String.self, forKey: .`agentId`)
+        `threadId` = try container.decodeIfPresent(String.self, forKey: .`threadId`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(`agentId`, forKey: .`agentId`)
+        try container.encodeIfPresent(`threadId`, forKey: .`threadId`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `agentId` = "agentId"
+        case `threadId` = "threadId"
+    }
+}
+
+public enum ChatSubagentItemOrigin: String, CaseIterable, Codable, Sendable, Equatable {
+    case `native` = "native"
+    case `ruimte` = "ruimte"
+}
+
+public struct ChatApprovalItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `createdAt`: Double
+    public let `turnId`: String?
+    public let `kind`: String
+    public let `requestId`: String
+    public let `toolUseId`: String?
+    public let `toolName`: String
+    public let `input`: JSONValue
+    public let `description`: String?
+    public let `canAllowAlways`: Bool
+    public let `allowAlways`: ChatApprovalItemAllowAlways?
+    public let `decision`: ChatApprovalDecision
+
+    public init(`id`: String, `createdAt`: Double, `turnId`: String?, `kind`: String = "approval", `requestId`: String, `toolUseId`: String?, `toolName`: String, `input`: JSONValue, `description`: String?, `canAllowAlways`: Bool, `allowAlways`: ChatApprovalItemAllowAlways? = nil, `decision`: ChatApprovalDecision) {
+        self.`id` = `id`
+        self.`createdAt` = `createdAt`
+        self.`turnId` = `turnId`
+        self.`kind` = `kind`
+        self.`requestId` = `requestId`
+        self.`toolUseId` = `toolUseId`
+        self.`toolName` = `toolName`
+        self.`input` = `input`
+        self.`description` = `description`
+        self.`canAllowAlways` = `canAllowAlways`
+        self.`allowAlways` = `allowAlways`
+        self.`decision` = `decision`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `createdAt` = try container.decode(Double.self, forKey: .`createdAt`)
+        `turnId` = try container.decode(String?.self, forKey: .`turnId`)
+        `kind` = try container.decode(String.self, forKey: .`kind`)
+        `requestId` = try container.decode(String.self, forKey: .`requestId`)
+        `toolUseId` = try container.decode(String?.self, forKey: .`toolUseId`)
+        `toolName` = try container.decode(String.self, forKey: .`toolName`)
+        `input` = try container.decode(JSONValue.self, forKey: .`input`)
+        `description` = try container.decode(String?.self, forKey: .`description`)
+        `canAllowAlways` = try container.decode(Bool.self, forKey: .`canAllowAlways`)
+        `allowAlways` = try container.decodeIfPresent(ChatApprovalItemAllowAlways.self, forKey: .`allowAlways`)
+        `decision` = try container.decode(ChatApprovalDecision.self, forKey: .`decision`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`createdAt`, forKey: .`createdAt`)
+        try container.encode(`turnId`, forKey: .`turnId`)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`requestId`, forKey: .`requestId`)
+        try container.encode(`toolUseId`, forKey: .`toolUseId`)
+        try container.encode(`toolName`, forKey: .`toolName`)
+        try container.encode(`input`, forKey: .`input`)
+        try container.encode(`description`, forKey: .`description`)
+        try container.encode(`canAllowAlways`, forKey: .`canAllowAlways`)
+        try container.encodeIfPresent(`allowAlways`, forKey: .`allowAlways`)
+        try container.encode(`decision`, forKey: .`decision`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `createdAt` = "createdAt"
+        case `turnId` = "turnId"
+        case `kind` = "kind"
+        case `requestId` = "requestId"
+        case `toolUseId` = "toolUseId"
+        case `toolName` = "toolName"
+        case `input` = "input"
+        case `description` = "description"
+        case `canAllowAlways` = "canAllowAlways"
+        case `allowAlways` = "allowAlways"
+        case `decision` = "decision"
+    }
+}
+
+public struct ChatApprovalItemAllowAlways: Codable, Sendable, Equatable {
+    public let `label`: String
+    public let `description`: String
+
+    public init(`label`: String, `description`: String) {
+        self.`label` = `label`
+        self.`description` = `description`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `label` = try container.decode(String.self, forKey: .`label`)
+        `description` = try container.decode(String.self, forKey: .`description`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`label`, forKey: .`label`)
+        try container.encode(`description`, forKey: .`description`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `label` = "label"
+        case `description` = "description"
+    }
+}
+
+public struct ChatQuestionItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `createdAt`: Double
+    public let `turnId`: String?
+    public let `kind`: String
+    public let `requestId`: String
+    public let `questions`: [ChatQuestionItemQuestionsItem]
+    public let `async`: Bool?
+    public let `answers`: [String: String]?
+    public let `state`: ChatQuestionItemState
+
+    public init(`id`: String, `createdAt`: Double, `turnId`: String?, `kind`: String = "question", `requestId`: String, `questions`: [ChatQuestionItemQuestionsItem], `async`: Bool? = nil, `answers`: [String: String]?, `state`: ChatQuestionItemState) {
+        self.`id` = `id`
+        self.`createdAt` = `createdAt`
+        self.`turnId` = `turnId`
+        self.`kind` = `kind`
+        self.`requestId` = `requestId`
+        self.`questions` = `questions`
+        self.`async` = `async`
+        self.`answers` = `answers`
+        self.`state` = `state`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `createdAt` = try container.decode(Double.self, forKey: .`createdAt`)
+        `turnId` = try container.decode(String?.self, forKey: .`turnId`)
+        `kind` = try container.decode(String.self, forKey: .`kind`)
+        `requestId` = try container.decode(String.self, forKey: .`requestId`)
+        `questions` = try container.decode([ChatQuestionItemQuestionsItem].self, forKey: .`questions`)
+        `async` = try container.decodeIfPresent(Bool.self, forKey: .`async`)
+        `answers` = try container.decode([String: String]?.self, forKey: .`answers`)
+        `state` = try container.decode(ChatQuestionItemState.self, forKey: .`state`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`createdAt`, forKey: .`createdAt`)
+        try container.encode(`turnId`, forKey: .`turnId`)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`requestId`, forKey: .`requestId`)
+        try container.encode(`questions`, forKey: .`questions`)
+        try container.encodeIfPresent(`async`, forKey: .`async`)
+        try container.encode(`answers`, forKey: .`answers`)
+        try container.encode(`state`, forKey: .`state`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `createdAt` = "createdAt"
+        case `turnId` = "turnId"
+        case `kind` = "kind"
+        case `requestId` = "requestId"
+        case `questions` = "questions"
+        case `async` = "async"
+        case `answers` = "answers"
+        case `state` = "state"
+    }
+}
+
+public struct ChatQuestionItemQuestionsItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `header`: String
+    public let `question`: String
+    public let `choices`: [ChatQuestionItemQuestionsItemChoicesItem]
+    public let `multiSelect`: Bool
+
+    public init(`id`: String, `header`: String, `question`: String, `choices`: [ChatQuestionItemQuestionsItemChoicesItem], `multiSelect`: Bool) {
+        self.`id` = `id`
+        self.`header` = `header`
+        self.`question` = `question`
+        self.`choices` = `choices`
+        self.`multiSelect` = `multiSelect`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `header` = try container.decode(String.self, forKey: .`header`)
+        `question` = try container.decode(String.self, forKey: .`question`)
+        `choices` = try container.decode([ChatQuestionItemQuestionsItemChoicesItem].self, forKey: .`choices`)
+        `multiSelect` = try container.decode(Bool.self, forKey: .`multiSelect`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`header`, forKey: .`header`)
+        try container.encode(`question`, forKey: .`question`)
+        try container.encode(`choices`, forKey: .`choices`)
+        try container.encode(`multiSelect`, forKey: .`multiSelect`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `header` = "header"
+        case `question` = "question"
+        case `choices` = "choices"
+        case `multiSelect` = "multiSelect"
+    }
+}
+
+public struct ChatQuestionItemQuestionsItemChoicesItem: Codable, Sendable, Equatable {
+    public let `label`: String
+    public let `description`: String
+
+    public init(`label`: String, `description`: String) {
+        self.`label` = `label`
+        self.`description` = `description`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `label` = try container.decode(String.self, forKey: .`label`)
+        `description` = try container.decode(String.self, forKey: .`description`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`label`, forKey: .`label`)
+        try container.encode(`description`, forKey: .`description`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `label` = "label"
+        case `description` = "description"
+    }
+}
+
+public enum ChatQuestionItemState: String, CaseIterable, Codable, Sendable, Equatable {
+    case `pending` = "pending"
+    case `answered` = "answered"
+    case `cancelled` = "cancelled"
+    case `dismissed` = "dismissed"
+}
+
+public struct ChatTurnItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `createdAt`: Double
+    public let `turnId`: String?
+    public let `kind`: String
+    public let `state`: ChatTurnItemState
+    public let `origin`: ChatTurnItemOrigin?
+    public let `label`: String?
+    public let `taskToolUseId`: String?
+    public let `endedAt`: Double?
+    public let `costUsd`: Double
+    public let `checkpoint`: String?
+    public let `checkpointHead`: String?
+    public let `checkpointHeadAfter`: String?
+    public let `checkpointDiff`: ChatTurnItemCheckpointDiff?
+    public let `attempt`: Int64?
+    public let `resumePending`: Bool?
+    public let `deliveryPending`: Bool?
+    public let `taskIds`: [String]?
+    public let `messageFrom`: [String]?
+    public let `native`: ChatTurnItemNative?
+    public let `checkpointAfter`: String?
+    public let `summaryFor`: String?
+    public let `limit`: ChatTurnItemLimit?
+
+    public init(`id`: String, `createdAt`: Double, `turnId`: String?, `kind`: String = "turn", `state`: ChatTurnItemState, `origin`: ChatTurnItemOrigin? = nil, `label`: String? = nil, `taskToolUseId`: String? = nil, `endedAt`: Double?, `costUsd`: Double, `checkpoint`: String? = nil, `checkpointHead`: String? = nil, `checkpointHeadAfter`: String? = nil, `checkpointDiff`: ChatTurnItemCheckpointDiff? = nil, `attempt`: Int64? = nil, `resumePending`: Bool? = nil, `deliveryPending`: Bool? = nil, `taskIds`: [String]? = nil, `messageFrom`: [String]? = nil, `native`: ChatTurnItemNative? = nil, `checkpointAfter`: String? = nil, `summaryFor`: String? = nil, `limit`: ChatTurnItemLimit? = nil) {
+        self.`id` = `id`
+        self.`createdAt` = `createdAt`
+        self.`turnId` = `turnId`
+        self.`kind` = `kind`
+        self.`state` = `state`
+        self.`origin` = `origin`
+        self.`label` = `label`
+        self.`taskToolUseId` = `taskToolUseId`
+        self.`endedAt` = `endedAt`
+        self.`costUsd` = `costUsd`
+        self.`checkpoint` = `checkpoint`
+        self.`checkpointHead` = `checkpointHead`
+        self.`checkpointHeadAfter` = `checkpointHeadAfter`
+        self.`checkpointDiff` = `checkpointDiff`
+        self.`attempt` = `attempt`
+        self.`resumePending` = `resumePending`
+        self.`deliveryPending` = `deliveryPending`
+        self.`taskIds` = `taskIds`
+        self.`messageFrom` = `messageFrom`
+        self.`native` = `native`
+        self.`checkpointAfter` = `checkpointAfter`
+        self.`summaryFor` = `summaryFor`
+        self.`limit` = `limit`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `createdAt` = try container.decode(Double.self, forKey: .`createdAt`)
+        `turnId` = try container.decode(String?.self, forKey: .`turnId`)
+        `kind` = try container.decode(String.self, forKey: .`kind`)
+        `state` = try container.decode(ChatTurnItemState.self, forKey: .`state`)
+        `origin` = try container.decodeIfPresent(ChatTurnItemOrigin.self, forKey: .`origin`)
+        `label` = try container.decodeIfPresent(String.self, forKey: .`label`)
+        `taskToolUseId` = try container.decodeIfPresent(String.self, forKey: .`taskToolUseId`)
+        `endedAt` = try container.decode(Double?.self, forKey: .`endedAt`)
+        `costUsd` = try container.decode(Double.self, forKey: .`costUsd`)
+        `checkpoint` = try container.decodeIfPresent(String.self, forKey: .`checkpoint`)
+        `checkpointHead` = try container.decodeIfPresent(String.self, forKey: .`checkpointHead`)
+        `checkpointHeadAfter` = try container.decodeIfPresent(String.self, forKey: .`checkpointHeadAfter`)
+        `checkpointDiff` = try container.decodeIfPresent(ChatTurnItemCheckpointDiff.self, forKey: .`checkpointDiff`)
+        `attempt` = try container.decodeIfPresent(Int64.self, forKey: .`attempt`)
+        `resumePending` = try container.decodeIfPresent(Bool.self, forKey: .`resumePending`)
+        `deliveryPending` = try container.decodeIfPresent(Bool.self, forKey: .`deliveryPending`)
+        `taskIds` = try container.decodeIfPresent([String].self, forKey: .`taskIds`)
+        `messageFrom` = try container.decodeIfPresent([String].self, forKey: .`messageFrom`)
+        `native` = try container.decodeIfPresent(ChatTurnItemNative.self, forKey: .`native`)
+        `checkpointAfter` = try container.decodeIfPresent(String.self, forKey: .`checkpointAfter`)
+        `summaryFor` = try container.decodeIfPresent(String.self, forKey: .`summaryFor`)
+        `limit` = try container.decodeIfPresent(ChatTurnItemLimit.self, forKey: .`limit`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`createdAt`, forKey: .`createdAt`)
+        try container.encode(`turnId`, forKey: .`turnId`)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`state`, forKey: .`state`)
+        try container.encodeIfPresent(`origin`, forKey: .`origin`)
+        try container.encodeIfPresent(`label`, forKey: .`label`)
+        try container.encodeIfPresent(`taskToolUseId`, forKey: .`taskToolUseId`)
+        try container.encode(`endedAt`, forKey: .`endedAt`)
+        try container.encode(`costUsd`, forKey: .`costUsd`)
+        try container.encodeIfPresent(`checkpoint`, forKey: .`checkpoint`)
+        try container.encodeIfPresent(`checkpointHead`, forKey: .`checkpointHead`)
+        try container.encodeIfPresent(`checkpointHeadAfter`, forKey: .`checkpointHeadAfter`)
+        try container.encodeIfPresent(`checkpointDiff`, forKey: .`checkpointDiff`)
+        try container.encodeIfPresent(`attempt`, forKey: .`attempt`)
+        try container.encodeIfPresent(`resumePending`, forKey: .`resumePending`)
+        try container.encodeIfPresent(`deliveryPending`, forKey: .`deliveryPending`)
+        try container.encodeIfPresent(`taskIds`, forKey: .`taskIds`)
+        try container.encodeIfPresent(`messageFrom`, forKey: .`messageFrom`)
+        try container.encodeIfPresent(`native`, forKey: .`native`)
+        try container.encodeIfPresent(`checkpointAfter`, forKey: .`checkpointAfter`)
+        try container.encodeIfPresent(`summaryFor`, forKey: .`summaryFor`)
+        try container.encodeIfPresent(`limit`, forKey: .`limit`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `createdAt` = "createdAt"
+        case `turnId` = "turnId"
+        case `kind` = "kind"
+        case `state` = "state"
+        case `origin` = "origin"
+        case `label` = "label"
+        case `taskToolUseId` = "taskToolUseId"
+        case `endedAt` = "endedAt"
+        case `costUsd` = "costUsd"
+        case `checkpoint` = "checkpoint"
+        case `checkpointHead` = "checkpointHead"
+        case `checkpointHeadAfter` = "checkpointHeadAfter"
+        case `checkpointDiff` = "checkpointDiff"
+        case `attempt` = "attempt"
+        case `resumePending` = "resumePending"
+        case `deliveryPending` = "deliveryPending"
+        case `taskIds` = "taskIds"
+        case `messageFrom` = "messageFrom"
+        case `native` = "native"
+        case `checkpointAfter` = "checkpointAfter"
+        case `summaryFor` = "summaryFor"
+        case `limit` = "limit"
+    }
+}
+
+public enum ChatTurnItemState: String, CaseIterable, Codable, Sendable, Equatable {
+    case `running` = "running"
+    case `done` = "done"
+    case `aborted` = "aborted"
+    case `error` = "error"
+}
+
+public enum ChatTurnItemOrigin: String, CaseIterable, Codable, Sendable, Equatable {
+    case `user` = "user"
+    case `agent` = "agent"
+}
+
+public struct ChatTurnItemCheckpointDiff: Codable, Sendable, Equatable {
+    public let `files`: [ChatTurnItemCheckpointDiffFilesItem]
+    public let `truncated`: Bool
+
+    public init(`files`: [ChatTurnItemCheckpointDiffFilesItem], `truncated`: Bool) {
+        self.`files` = `files`
+        self.`truncated` = `truncated`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `files` = try container.decode([ChatTurnItemCheckpointDiffFilesItem].self, forKey: .`files`)
+        `truncated` = try container.decode(Bool.self, forKey: .`truncated`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`files`, forKey: .`files`)
+        try container.encode(`truncated`, forKey: .`truncated`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `files` = "files"
+        case `truncated` = "truncated"
+    }
+}
+
+public struct ChatTurnItemCheckpointDiffFilesItem: Codable, Sendable, Equatable {
+    public let `path`: String
+    public let `kind`: ChatTurnItemCheckpointDiffFilesItemKind
+    public let `added`: Int64
+    public let `deleted`: Int64
+    public let `diff`: String
+    public let `omitted`: ChatTurnItemCheckpointDiffFilesItemOmitted?
+
+    public init(`path`: String, `kind`: ChatTurnItemCheckpointDiffFilesItemKind, `added`: Int64, `deleted`: Int64, `diff`: String, `omitted`: ChatTurnItemCheckpointDiffFilesItemOmitted? = nil) {
+        self.`path` = `path`
+        self.`kind` = `kind`
+        self.`added` = `added`
+        self.`deleted` = `deleted`
+        self.`diff` = `diff`
+        self.`omitted` = `omitted`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `path` = try container.decode(String.self, forKey: .`path`)
+        `kind` = try container.decode(ChatTurnItemCheckpointDiffFilesItemKind.self, forKey: .`kind`)
+        `added` = try container.decode(Int64.self, forKey: .`added`)
+        `deleted` = try container.decode(Int64.self, forKey: .`deleted`)
+        `diff` = try container.decode(String.self, forKey: .`diff`)
+        `omitted` = try container.decodeIfPresent(ChatTurnItemCheckpointDiffFilesItemOmitted.self, forKey: .`omitted`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`path`, forKey: .`path`)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`added`, forKey: .`added`)
+        try container.encode(`deleted`, forKey: .`deleted`)
+        try container.encode(`diff`, forKey: .`diff`)
+        try container.encodeIfPresent(`omitted`, forKey: .`omitted`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `path` = "path"
+        case `kind` = "kind"
+        case `added` = "added"
+        case `deleted` = "deleted"
+        case `diff` = "diff"
+        case `omitted` = "omitted"
+    }
+}
+
+public enum ChatTurnItemCheckpointDiffFilesItemKind: String, CaseIterable, Codable, Sendable, Equatable {
+    case `add` = "add"
+    case `update` = "update"
+    case `delete` = "delete"
+}
+
+public enum ChatTurnItemCheckpointDiffFilesItemOmitted: String, CaseIterable, Codable, Sendable, Equatable {
+    case `binary` = "binary"
+    case `tooLarge` = "too-large"
+}
+
+public struct ChatTurnItemNative: Codable, Sendable, Equatable {
+    public let `turnId`: String?
+    public let `lastUuid`: String?
+
+    public init(`turnId`: String? = nil, `lastUuid`: String? = nil) {
+        self.`turnId` = `turnId`
+        self.`lastUuid` = `lastUuid`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `turnId` = try container.decodeIfPresent(String.self, forKey: .`turnId`)
+        `lastUuid` = try container.decodeIfPresent(String.self, forKey: .`lastUuid`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(`turnId`, forKey: .`turnId`)
+        try container.encodeIfPresent(`lastUuid`, forKey: .`lastUuid`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `turnId` = "turnId"
+        case `lastUuid` = "lastUuid"
+    }
+}
+
+public struct ChatTurnItemLimit: Codable, Sendable, Equatable {
+    public let `kind`: ChatTurnItemLimitKind
+    public let `resetsAt`: Double?
+
+    public init(`kind`: ChatTurnItemLimitKind, `resetsAt`: Double? = nil) {
+        self.`kind` = `kind`
+        self.`resetsAt` = `resetsAt`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `kind` = try container.decode(ChatTurnItemLimitKind.self, forKey: .`kind`)
+        `resetsAt` = try container.decodeIfPresent(Double.self, forKey: .`resetsAt`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encodeIfPresent(`resetsAt`, forKey: .`resetsAt`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `kind` = "kind"
+        case `resetsAt` = "resetsAt"
+    }
+}
+
+public enum ChatTurnItemLimitKind: String, CaseIterable, Codable, Sendable, Equatable {
+    case `usage` = "usage"
+    case `overload` = "overload"
+}
+
+public struct ChatNoteItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `createdAt`: Double
+    public let `turnId`: String?
+    public let `kind`: String
+    public let `level`: ChatNoteItemLevel
+    public let `text`: String
+    public let `from`: String?
+
+    public init(`id`: String, `createdAt`: Double, `turnId`: String?, `kind`: String = "note", `level`: ChatNoteItemLevel, `text`: String, `from`: String? = nil) {
+        self.`id` = `id`
+        self.`createdAt` = `createdAt`
+        self.`turnId` = `turnId`
+        self.`kind` = `kind`
+        self.`level` = `level`
+        self.`text` = `text`
+        self.`from` = `from`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `createdAt` = try container.decode(Double.self, forKey: .`createdAt`)
+        `turnId` = try container.decode(String?.self, forKey: .`turnId`)
+        `kind` = try container.decode(String.self, forKey: .`kind`)
+        `level` = try container.decode(ChatNoteItemLevel.self, forKey: .`level`)
+        `text` = try container.decode(String.self, forKey: .`text`)
+        `from` = try container.decodeIfPresent(String.self, forKey: .`from`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`createdAt`, forKey: .`createdAt`)
+        try container.encode(`turnId`, forKey: .`turnId`)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`level`, forKey: .`level`)
+        try container.encode(`text`, forKey: .`text`)
+        try container.encodeIfPresent(`from`, forKey: .`from`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `createdAt` = "createdAt"
+        case `turnId` = "turnId"
+        case `kind` = "kind"
+        case `level` = "level"
+        case `text` = "text"
+        case `from` = "from"
+    }
+}
+
+public enum ChatNoteItemLevel: String, CaseIterable, Codable, Sendable, Equatable {
+    case `info` = "info"
+    case `warning` = "warning"
+    case `error` = "error"
+}
+
+public struct ChatCompactionItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `createdAt`: Double
+    public let `turnId`: String?
+    public let `kind`: String
+    public let `preTokens`: Int64?
+
+    public init(`id`: String, `createdAt`: Double, `turnId`: String?, `kind`: String = "compaction", `preTokens`: Int64?) {
+        self.`id` = `id`
+        self.`createdAt` = `createdAt`
+        self.`turnId` = `turnId`
+        self.`kind` = `kind`
+        self.`preTokens` = `preTokens`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `createdAt` = try container.decode(Double.self, forKey: .`createdAt`)
+        `turnId` = try container.decode(String?.self, forKey: .`turnId`)
+        `kind` = try container.decode(String.self, forKey: .`kind`)
+        `preTokens` = try container.decode(Int64?.self, forKey: .`preTokens`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`createdAt`, forKey: .`createdAt`)
+        try container.encode(`turnId`, forKey: .`turnId`)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`preTokens`, forKey: .`preTokens`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `createdAt` = "createdAt"
+        case `turnId` = "turnId"
+        case `kind` = "kind"
+        case `preTokens` = "preTokens"
+    }
+}
+
+public struct ChatInfo: Codable, Sendable, Equatable {
+    public let `chatId`: String
+    public let `provider`: String
+    public let `account`: String?
+    public let `cwd`: String
+    public let `agentSessionId`: String?
+    public let `model`: String?
+    public let `selection`: ChatInfoSelection
+    public let `runtimeMode`: String
+    public let `effectiveRuntimeMode`: String?
+    public let `permissionMode`: String?
+    public let `status`: String
+    public let `running`: Bool
+    public let `activeTurnId`: String?
+    public let `slashCommands`: [String]
+    public let `skills`: [String]?
+    public let `queue`: [ChatInfoQueueItem]?
+    public let `queuePaused`: Bool?
+    public let `background`: [ChatInfoBackgroundItem]?
+    public let `delegating`: Bool?
+    public let `usage`: ChatInfoUsage
+    public let `suggestedTitle`: String?
+    public let `hidden`: Bool?
+    public let `forkOf`: ChatInfoForkOf?
+    public let `resumeAtReset`: Bool?
+    public let `limit`: ChatInfoLimit?
+    public let `resumeAt`: Double?
+    public let `requests`: [ChatInfoRequestsItem]?
+    public let `goal`: ChatInfoGoal?
+    public let `createdAt`: Double
+
+    public init(`chatId`: String, `provider`: String, `account`: String? = nil, `cwd`: String, `agentSessionId`: String?, `model`: String?, `selection`: ChatInfoSelection, `runtimeMode`: String, `effectiveRuntimeMode`: String? = nil, `permissionMode`: String? = nil, `status`: String, `running`: Bool, `activeTurnId`: String?, `slashCommands`: [String], `skills`: [String]? = nil, `queue`: [ChatInfoQueueItem]? = nil, `queuePaused`: Bool? = nil, `background`: [ChatInfoBackgroundItem]? = nil, `delegating`: Bool? = nil, `usage`: ChatInfoUsage, `suggestedTitle`: String? = nil, `hidden`: Bool? = nil, `forkOf`: ChatInfoForkOf? = nil, `resumeAtReset`: Bool? = nil, `limit`: ChatInfoLimit? = nil, `resumeAt`: Double? = nil, `requests`: [ChatInfoRequestsItem]? = nil, `goal`: ChatInfoGoal? = nil, `createdAt`: Double) {
+        self.`chatId` = `chatId`
+        self.`provider` = `provider`
+        self.`account` = `account`
+        self.`cwd` = `cwd`
+        self.`agentSessionId` = `agentSessionId`
+        self.`model` = `model`
+        self.`selection` = `selection`
+        self.`runtimeMode` = `runtimeMode`
+        self.`effectiveRuntimeMode` = `effectiveRuntimeMode`
+        self.`permissionMode` = `permissionMode`
+        self.`status` = `status`
+        self.`running` = `running`
+        self.`activeTurnId` = `activeTurnId`
+        self.`slashCommands` = `slashCommands`
+        self.`skills` = `skills`
+        self.`queue` = `queue`
+        self.`queuePaused` = `queuePaused`
+        self.`background` = `background`
+        self.`delegating` = `delegating`
+        self.`usage` = `usage`
+        self.`suggestedTitle` = `suggestedTitle`
+        self.`hidden` = `hidden`
+        self.`forkOf` = `forkOf`
+        self.`resumeAtReset` = `resumeAtReset`
+        self.`limit` = `limit`
+        self.`resumeAt` = `resumeAt`
+        self.`requests` = `requests`
+        self.`goal` = `goal`
+        self.`createdAt` = `createdAt`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `chatId` = try container.decode(String.self, forKey: .`chatId`)
+        `provider` = try container.decode(String.self, forKey: .`provider`)
+        `account` = try container.decodeIfPresent(String.self, forKey: .`account`)
+        `cwd` = try container.decode(String.self, forKey: .`cwd`)
+        `agentSessionId` = try container.decode(String?.self, forKey: .`agentSessionId`)
+        `model` = try container.decode(String?.self, forKey: .`model`)
+        `selection` = try container.decode(ChatInfoSelection.self, forKey: .`selection`)
+        `runtimeMode` = try container.decode(String.self, forKey: .`runtimeMode`)
+        `effectiveRuntimeMode` = try container.decodeIfPresent(String.self, forKey: .`effectiveRuntimeMode`)
+        `permissionMode` = try container.decodeIfPresent(String.self, forKey: .`permissionMode`)
+        `status` = try container.decode(String.self, forKey: .`status`)
+        `running` = try container.decode(Bool.self, forKey: .`running`)
+        `activeTurnId` = try container.decode(String?.self, forKey: .`activeTurnId`)
+        `slashCommands` = try container.decode([String].self, forKey: .`slashCommands`)
+        `skills` = try container.decodeIfPresent([String].self, forKey: .`skills`)
+        `queue` = try container.decodeIfPresent([ChatInfoQueueItem].self, forKey: .`queue`)
+        `queuePaused` = try container.decodeIfPresent(Bool.self, forKey: .`queuePaused`)
+        `background` = try container.decodeIfPresent([ChatInfoBackgroundItem].self, forKey: .`background`)
+        `delegating` = try container.decodeIfPresent(Bool.self, forKey: .`delegating`)
+        `usage` = try container.decode(ChatInfoUsage.self, forKey: .`usage`)
+        `suggestedTitle` = try container.decodeIfPresent(String.self, forKey: .`suggestedTitle`)
+        `hidden` = try container.decodeIfPresent(Bool.self, forKey: .`hidden`)
+        `forkOf` = try container.decodeIfPresent(ChatInfoForkOf.self, forKey: .`forkOf`)
+        `resumeAtReset` = try container.decodeIfPresent(Bool.self, forKey: .`resumeAtReset`)
+        `limit` = try container.decodeIfPresent(ChatInfoLimit.self, forKey: .`limit`)
+        `resumeAt` = try container.decodeIfPresent(Double.self, forKey: .`resumeAt`)
+        `requests` = try container.decodeIfPresent([ChatInfoRequestsItem].self, forKey: .`requests`)
+        `goal` = try container.decodeIfPresent(ChatInfoGoal.self, forKey: .`goal`)
+        `createdAt` = try container.decode(Double.self, forKey: .`createdAt`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`chatId`, forKey: .`chatId`)
+        try container.encode(`provider`, forKey: .`provider`)
+        try container.encodeIfPresent(`account`, forKey: .`account`)
+        try container.encode(`cwd`, forKey: .`cwd`)
+        try container.encode(`agentSessionId`, forKey: .`agentSessionId`)
+        try container.encode(`model`, forKey: .`model`)
+        try container.encode(`selection`, forKey: .`selection`)
+        try container.encode(`runtimeMode`, forKey: .`runtimeMode`)
+        try container.encodeIfPresent(`effectiveRuntimeMode`, forKey: .`effectiveRuntimeMode`)
+        try container.encodeIfPresent(`permissionMode`, forKey: .`permissionMode`)
+        try container.encode(`status`, forKey: .`status`)
+        try container.encode(`running`, forKey: .`running`)
+        try container.encode(`activeTurnId`, forKey: .`activeTurnId`)
+        try container.encode(`slashCommands`, forKey: .`slashCommands`)
+        try container.encodeIfPresent(`skills`, forKey: .`skills`)
+        try container.encodeIfPresent(`queue`, forKey: .`queue`)
+        try container.encodeIfPresent(`queuePaused`, forKey: .`queuePaused`)
+        try container.encodeIfPresent(`background`, forKey: .`background`)
+        try container.encodeIfPresent(`delegating`, forKey: .`delegating`)
+        try container.encode(`usage`, forKey: .`usage`)
+        try container.encodeIfPresent(`suggestedTitle`, forKey: .`suggestedTitle`)
+        try container.encodeIfPresent(`hidden`, forKey: .`hidden`)
+        try container.encodeIfPresent(`forkOf`, forKey: .`forkOf`)
+        try container.encodeIfPresent(`resumeAtReset`, forKey: .`resumeAtReset`)
+        try container.encodeIfPresent(`limit`, forKey: .`limit`)
+        try container.encodeIfPresent(`resumeAt`, forKey: .`resumeAt`)
+        try container.encodeIfPresent(`requests`, forKey: .`requests`)
+        try container.encodeIfPresent(`goal`, forKey: .`goal`)
+        try container.encode(`createdAt`, forKey: .`createdAt`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `chatId` = "chatId"
+        case `provider` = "provider"
+        case `account` = "account"
+        case `cwd` = "cwd"
+        case `agentSessionId` = "agentSessionId"
+        case `model` = "model"
+        case `selection` = "selection"
+        case `runtimeMode` = "runtimeMode"
+        case `effectiveRuntimeMode` = "effectiveRuntimeMode"
+        case `permissionMode` = "permissionMode"
+        case `status` = "status"
+        case `running` = "running"
+        case `activeTurnId` = "activeTurnId"
+        case `slashCommands` = "slashCommands"
+        case `skills` = "skills"
+        case `queue` = "queue"
+        case `queuePaused` = "queuePaused"
+        case `background` = "background"
+        case `delegating` = "delegating"
+        case `usage` = "usage"
+        case `suggestedTitle` = "suggestedTitle"
+        case `hidden` = "hidden"
+        case `forkOf` = "forkOf"
+        case `resumeAtReset` = "resumeAtReset"
+        case `limit` = "limit"
+        case `resumeAt` = "resumeAt"
+        case `requests` = "requests"
+        case `goal` = "goal"
+        case `createdAt` = "createdAt"
+    }
+}
+
+public struct ChatInfoSelection: Codable, Sendable, Equatable {
+    public let `model`: String
+    public let `options`: [String: JSONValue]
+
+    public init(`model`: String, `options`: [String: JSONValue]) {
+        self.`model` = `model`
+        self.`options` = `options`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `model` = try container.decode(String.self, forKey: .`model`)
+        `options` = try container.decode([String: JSONValue].self, forKey: .`options`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`model`, forKey: .`model`)
+        try container.encode(`options`, forKey: .`options`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `model` = "model"
+        case `options` = "options"
+    }
+}
+
+public struct ChatInfoQueueItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `turnId`: String?
+    public let `text`: String
+    public let `mentions`: [String]?
+    public let `skills`: [String]?
+    public let `chats`: [String]?
+    public let `attachments`: [ChatInfoQueueItemAttachmentsItem]?
+    public let `createdAt`: Double
+    public let `uiChoice`: ChatInfoQueueItemUiChoice?
+    public let `quoteSource`: ChatInfoQueueItemQuoteSource?
+
+    public init(`id`: String, `turnId`: String? = nil, `text`: String, `mentions`: [String]? = nil, `skills`: [String]? = nil, `chats`: [String]? = nil, `attachments`: [ChatInfoQueueItemAttachmentsItem]? = nil, `createdAt`: Double, `uiChoice`: ChatInfoQueueItemUiChoice? = nil, `quoteSource`: ChatInfoQueueItemQuoteSource? = nil) {
+        self.`id` = `id`
+        self.`turnId` = `turnId`
+        self.`text` = `text`
+        self.`mentions` = `mentions`
+        self.`skills` = `skills`
+        self.`chats` = `chats`
+        self.`attachments` = `attachments`
+        self.`createdAt` = `createdAt`
+        self.`uiChoice` = `uiChoice`
+        self.`quoteSource` = `quoteSource`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `turnId` = try container.decodeIfPresent(String.self, forKey: .`turnId`)
+        `text` = try container.decode(String.self, forKey: .`text`)
+        `mentions` = try container.decodeIfPresent([String].self, forKey: .`mentions`)
+        `skills` = try container.decodeIfPresent([String].self, forKey: .`skills`)
+        `chats` = try container.decodeIfPresent([String].self, forKey: .`chats`)
+        `attachments` = try container.decodeIfPresent([ChatInfoQueueItemAttachmentsItem].self, forKey: .`attachments`)
+        `createdAt` = try container.decode(Double.self, forKey: .`createdAt`)
+        `uiChoice` = try container.decodeIfPresent(ChatInfoQueueItemUiChoice.self, forKey: .`uiChoice`)
+        `quoteSource` = try container.decodeIfPresent(ChatInfoQueueItemQuoteSource.self, forKey: .`quoteSource`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encodeIfPresent(`turnId`, forKey: .`turnId`)
+        try container.encode(`text`, forKey: .`text`)
+        try container.encodeIfPresent(`mentions`, forKey: .`mentions`)
+        try container.encodeIfPresent(`skills`, forKey: .`skills`)
+        try container.encodeIfPresent(`chats`, forKey: .`chats`)
+        try container.encodeIfPresent(`attachments`, forKey: .`attachments`)
+        try container.encode(`createdAt`, forKey: .`createdAt`)
+        try container.encodeIfPresent(`uiChoice`, forKey: .`uiChoice`)
+        try container.encodeIfPresent(`quoteSource`, forKey: .`quoteSource`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `turnId` = "turnId"
+        case `text` = "text"
+        case `mentions` = "mentions"
+        case `skills` = "skills"
+        case `chats` = "chats"
+        case `attachments` = "attachments"
+        case `createdAt` = "createdAt"
+        case `uiChoice` = "uiChoice"
+        case `quoteSource` = "quoteSource"
+    }
+}
+
+public struct ChatInfoQueueItemAttachmentsItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `name`: String
+    public let `mime`: String
+    public let `size`: Int64
+    public let `path`: String
+    public let `width`: Int64?
+    public let `height`: Int64?
+
+    public init(`id`: String, `name`: String, `mime`: String, `size`: Int64, `path`: String, `width`: Int64? = nil, `height`: Int64? = nil) {
+        self.`id` = `id`
+        self.`name` = `name`
+        self.`mime` = `mime`
+        self.`size` = `size`
+        self.`path` = `path`
+        self.`width` = `width`
+        self.`height` = `height`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `name` = try container.decode(String.self, forKey: .`name`)
+        `mime` = try container.decode(String.self, forKey: .`mime`)
+        `size` = try container.decode(Int64.self, forKey: .`size`)
+        `path` = try container.decode(String.self, forKey: .`path`)
+        `width` = try container.decodeIfPresent(Int64.self, forKey: .`width`)
+        `height` = try container.decodeIfPresent(Int64.self, forKey: .`height`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`name`, forKey: .`name`)
+        try container.encode(`mime`, forKey: .`mime`)
+        try container.encode(`size`, forKey: .`size`)
+        try container.encode(`path`, forKey: .`path`)
+        try container.encodeIfPresent(`width`, forKey: .`width`)
+        try container.encodeIfPresent(`height`, forKey: .`height`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `name` = "name"
+        case `mime` = "mime"
+        case `size` = "size"
+        case `path` = "path"
+        case `width` = "width"
+        case `height` = "height"
+    }
+}
+
+public struct ChatInfoQueueItemUiChoice: Codable, Sendable, Equatable {
+    public let `itemId`: String
+    public let `blockId`: String
+    public let `revision`: String
+    public let `choiceId`: String
+    public let `label`: String
+    public let `sourceAt`: Double
+    public let `older`: Bool
+    public let `values`: [String: JSONValue]?
+    public let `at`: Double
+
+    public init(`itemId`: String, `blockId`: String, `revision`: String, `choiceId`: String, `label`: String, `sourceAt`: Double, `older`: Bool, `values`: [String: JSONValue]? = nil, `at`: Double) {
+        self.`itemId` = `itemId`
+        self.`blockId` = `blockId`
+        self.`revision` = `revision`
+        self.`choiceId` = `choiceId`
+        self.`label` = `label`
+        self.`sourceAt` = `sourceAt`
+        self.`older` = `older`
+        self.`values` = `values`
+        self.`at` = `at`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `itemId` = try container.decode(String.self, forKey: .`itemId`)
+        `blockId` = try container.decode(String.self, forKey: .`blockId`)
+        `revision` = try container.decode(String.self, forKey: .`revision`)
+        `choiceId` = try container.decode(String.self, forKey: .`choiceId`)
+        `label` = try container.decode(String.self, forKey: .`label`)
+        `sourceAt` = try container.decode(Double.self, forKey: .`sourceAt`)
+        `older` = try container.decode(Bool.self, forKey: .`older`)
+        `values` = try container.decodeIfPresent([String: JSONValue].self, forKey: .`values`)
+        `at` = try container.decode(Double.self, forKey: .`at`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`itemId`, forKey: .`itemId`)
+        try container.encode(`blockId`, forKey: .`blockId`)
+        try container.encode(`revision`, forKey: .`revision`)
+        try container.encode(`choiceId`, forKey: .`choiceId`)
+        try container.encode(`label`, forKey: .`label`)
+        try container.encode(`sourceAt`, forKey: .`sourceAt`)
+        try container.encode(`older`, forKey: .`older`)
+        try container.encodeIfPresent(`values`, forKey: .`values`)
+        try container.encode(`at`, forKey: .`at`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `itemId` = "itemId"
+        case `blockId` = "blockId"
+        case `revision` = "revision"
+        case `choiceId` = "choiceId"
+        case `label` = "label"
+        case `sourceAt` = "sourceAt"
+        case `older` = "older"
+        case `values` = "values"
+        case `at` = "at"
+    }
+}
+
+public struct ChatInfoQueueItemQuoteSource: Codable, Sendable, Equatable {
+    public let `itemId`: String
+
+    public init(`itemId`: String) {
+        self.`itemId` = `itemId`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `itemId` = try container.decode(String.self, forKey: .`itemId`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`itemId`, forKey: .`itemId`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `itemId` = "itemId"
+    }
+}
+
+public struct ChatInfoBackgroundItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `kind`: ChatInfoBackgroundItemKind
+    public let `description`: String
+    public let `command`: String?
+    public let `startedAt`: Double
+
+    public init(`id`: String, `kind`: ChatInfoBackgroundItemKind, `description`: String, `command`: String?, `startedAt`: Double) {
+        self.`id` = `id`
+        self.`kind` = `kind`
+        self.`description` = `description`
+        self.`command` = `command`
+        self.`startedAt` = `startedAt`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `kind` = try container.decode(ChatInfoBackgroundItemKind.self, forKey: .`kind`)
+        `description` = try container.decode(String.self, forKey: .`description`)
+        `command` = try container.decode(String?.self, forKey: .`command`)
+        `startedAt` = try container.decode(Double.self, forKey: .`startedAt`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`description`, forKey: .`description`)
+        try container.encode(`command`, forKey: .`command`)
+        try container.encode(`startedAt`, forKey: .`startedAt`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `kind` = "kind"
+        case `description` = "description"
+        case `command` = "command"
+        case `startedAt` = "startedAt"
+    }
+}
+
+public enum ChatInfoBackgroundItemKind: String, CaseIterable, Codable, Sendable, Equatable {
+    case `shell` = "shell"
+    case `monitor` = "monitor"
+}
+
+public struct ChatInfoUsage: Codable, Sendable, Equatable {
+    public let `contextTokens`: Int64
+    public let `contextWindow`: Int64?
+    public let `costUsd`: Double
+    public let `turns`: Int64
+    public let `breakdown`: ChatInfoUsageBreakdown?
+
+    public init(`contextTokens`: Int64, `contextWindow`: Int64?, `costUsd`: Double, `turns`: Int64, `breakdown`: ChatInfoUsageBreakdown? = nil) {
+        self.`contextTokens` = `contextTokens`
+        self.`contextWindow` = `contextWindow`
+        self.`costUsd` = `costUsd`
+        self.`turns` = `turns`
+        self.`breakdown` = `breakdown`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `contextTokens` = try container.decode(Int64.self, forKey: .`contextTokens`)
+        `contextWindow` = try container.decode(Int64?.self, forKey: .`contextWindow`)
+        `costUsd` = try container.decode(Double.self, forKey: .`costUsd`)
+        `turns` = try container.decode(Int64.self, forKey: .`turns`)
+        `breakdown` = try container.decodeIfPresent(ChatInfoUsageBreakdown.self, forKey: .`breakdown`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`contextTokens`, forKey: .`contextTokens`)
+        try container.encode(`contextWindow`, forKey: .`contextWindow`)
+        try container.encode(`costUsd`, forKey: .`costUsd`)
+        try container.encode(`turns`, forKey: .`turns`)
+        try container.encodeIfPresent(`breakdown`, forKey: .`breakdown`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `contextTokens` = "contextTokens"
+        case `contextWindow` = "contextWindow"
+        case `costUsd` = "costUsd"
+        case `turns` = "turns"
+        case `breakdown` = "breakdown"
+    }
+}
+
+public struct ChatInfoUsageBreakdown: Codable, Sendable, Equatable {
+    public let `toolOutput`: Int64
+    public let `filesRead`: Int64
+    public let `conversation`: Int64
+    public let `system`: Int64
+
+    public init(`toolOutput`: Int64, `filesRead`: Int64, `conversation`: Int64, `system`: Int64) {
+        self.`toolOutput` = `toolOutput`
+        self.`filesRead` = `filesRead`
+        self.`conversation` = `conversation`
+        self.`system` = `system`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `toolOutput` = try container.decode(Int64.self, forKey: .`toolOutput`)
+        `filesRead` = try container.decode(Int64.self, forKey: .`filesRead`)
+        `conversation` = try container.decode(Int64.self, forKey: .`conversation`)
+        `system` = try container.decode(Int64.self, forKey: .`system`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`toolOutput`, forKey: .`toolOutput`)
+        try container.encode(`filesRead`, forKey: .`filesRead`)
+        try container.encode(`conversation`, forKey: .`conversation`)
+        try container.encode(`system`, forKey: .`system`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `toolOutput` = "toolOutput"
+        case `filesRead` = "filesRead"
+        case `conversation` = "conversation"
+        case `system` = "system"
+    }
+}
+
+public struct ChatInfoForkOf: Codable, Sendable, Equatable {
+    public let `chatId`: String
+    public let `turnId`: String
+    public let `at`: Double
+
+    public init(`chatId`: String, `turnId`: String, `at`: Double) {
+        self.`chatId` = `chatId`
+        self.`turnId` = `turnId`
+        self.`at` = `at`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `chatId` = try container.decode(String.self, forKey: .`chatId`)
+        `turnId` = try container.decode(String.self, forKey: .`turnId`)
+        `at` = try container.decode(Double.self, forKey: .`at`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`chatId`, forKey: .`chatId`)
+        try container.encode(`turnId`, forKey: .`turnId`)
+        try container.encode(`at`, forKey: .`at`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `chatId` = "chatId"
+        case `turnId` = "turnId"
+        case `at` = "at"
+    }
+}
+
+public struct ChatInfoLimit: Codable, Sendable, Equatable {
+    public let `kind`: ChatInfoLimitKind
+    public let `resetsAt`: Double?
+
+    public init(`kind`: ChatInfoLimitKind, `resetsAt`: Double? = nil) {
+        self.`kind` = `kind`
+        self.`resetsAt` = `resetsAt`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `kind` = try container.decode(ChatInfoLimitKind.self, forKey: .`kind`)
+        `resetsAt` = try container.decodeIfPresent(Double.self, forKey: .`resetsAt`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encodeIfPresent(`resetsAt`, forKey: .`resetsAt`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `kind` = "kind"
+        case `resetsAt` = "resetsAt"
+    }
+}
+
+public enum ChatInfoLimitKind: String, CaseIterable, Codable, Sendable, Equatable {
+    case `usage` = "usage"
+    case `overload` = "overload"
+}
+
+public struct ChatInfoRequestsItem: Codable, Sendable, Equatable {
+    public let `requestId`: String
+    public let `itemId`: String
+    public let `kind`: String
+    public let `createdAt`: Double
+    public let `approval`: ChatInfoRequestsItemApproval?
+    public let `question`: ChatInfoRequestsItemQuestion?
+
+    public init(`requestId`: String, `itemId`: String, `kind`: String, `createdAt`: Double, `approval`: ChatInfoRequestsItemApproval? = nil, `question`: ChatInfoRequestsItemQuestion? = nil) {
+        self.`requestId` = `requestId`
+        self.`itemId` = `itemId`
+        self.`kind` = `kind`
+        self.`createdAt` = `createdAt`
+        self.`approval` = `approval`
+        self.`question` = `question`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `requestId` = try container.decode(String.self, forKey: .`requestId`)
+        `itemId` = try container.decode(String.self, forKey: .`itemId`)
+        `kind` = try container.decode(String.self, forKey: .`kind`)
+        `createdAt` = try container.decode(Double.self, forKey: .`createdAt`)
+        `approval` = try container.decodeIfPresent(ChatInfoRequestsItemApproval.self, forKey: .`approval`)
+        `question` = try container.decodeIfPresent(ChatInfoRequestsItemQuestion.self, forKey: .`question`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`requestId`, forKey: .`requestId`)
+        try container.encode(`itemId`, forKey: .`itemId`)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`createdAt`, forKey: .`createdAt`)
+        try container.encodeIfPresent(`approval`, forKey: .`approval`)
+        try container.encodeIfPresent(`question`, forKey: .`question`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `requestId` = "requestId"
+        case `itemId` = "itemId"
+        case `kind` = "kind"
+        case `createdAt` = "createdAt"
+        case `approval` = "approval"
+        case `question` = "question"
+    }
+}
+
+public struct ChatInfoRequestsItemApproval: Codable, Sendable, Equatable {
+    public let `toolName`: String
+    public let `subject`: String
+    public let `description`: String?
+    public let `path`: String?
+    public let `files`: Int64?
+    public let `diff`: String?
+    public let `command`: String?
+    public let `truncated`: Bool?
+    public let `canAllowAlways`: Bool
+    public let `allowAlways`: ChatInfoRequestsItemApprovalAllowAlways?
+
+    public init(`toolName`: String, `subject`: String, `description`: String?, `path`: String? = nil, `files`: Int64? = nil, `diff`: String? = nil, `command`: String? = nil, `truncated`: Bool? = nil, `canAllowAlways`: Bool, `allowAlways`: ChatInfoRequestsItemApprovalAllowAlways? = nil) {
+        self.`toolName` = `toolName`
+        self.`subject` = `subject`
+        self.`description` = `description`
+        self.`path` = `path`
+        self.`files` = `files`
+        self.`diff` = `diff`
+        self.`command` = `command`
+        self.`truncated` = `truncated`
+        self.`canAllowAlways` = `canAllowAlways`
+        self.`allowAlways` = `allowAlways`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `toolName` = try container.decode(String.self, forKey: .`toolName`)
+        `subject` = try container.decode(String.self, forKey: .`subject`)
+        `description` = try container.decode(String?.self, forKey: .`description`)
+        `path` = try container.decodeIfPresent(String.self, forKey: .`path`)
+        `files` = try container.decodeIfPresent(Int64.self, forKey: .`files`)
+        `diff` = try container.decodeIfPresent(String.self, forKey: .`diff`)
+        `command` = try container.decodeIfPresent(String.self, forKey: .`command`)
+        `truncated` = try container.decodeIfPresent(Bool.self, forKey: .`truncated`)
+        `canAllowAlways` = try container.decode(Bool.self, forKey: .`canAllowAlways`)
+        `allowAlways` = try container.decodeIfPresent(ChatInfoRequestsItemApprovalAllowAlways.self, forKey: .`allowAlways`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`toolName`, forKey: .`toolName`)
+        try container.encode(`subject`, forKey: .`subject`)
+        try container.encode(`description`, forKey: .`description`)
+        try container.encodeIfPresent(`path`, forKey: .`path`)
+        try container.encodeIfPresent(`files`, forKey: .`files`)
+        try container.encodeIfPresent(`diff`, forKey: .`diff`)
+        try container.encodeIfPresent(`command`, forKey: .`command`)
+        try container.encodeIfPresent(`truncated`, forKey: .`truncated`)
+        try container.encode(`canAllowAlways`, forKey: .`canAllowAlways`)
+        try container.encodeIfPresent(`allowAlways`, forKey: .`allowAlways`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `toolName` = "toolName"
+        case `subject` = "subject"
+        case `description` = "description"
+        case `path` = "path"
+        case `files` = "files"
+        case `diff` = "diff"
+        case `command` = "command"
+        case `truncated` = "truncated"
+        case `canAllowAlways` = "canAllowAlways"
+        case `allowAlways` = "allowAlways"
+    }
+}
+
+public struct ChatInfoRequestsItemApprovalAllowAlways: Codable, Sendable, Equatable {
+    public let `label`: String
+    public let `description`: String
+
+    public init(`label`: String, `description`: String) {
+        self.`label` = `label`
+        self.`description` = `description`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `label` = try container.decode(String.self, forKey: .`label`)
+        `description` = try container.decode(String.self, forKey: .`description`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`label`, forKey: .`label`)
+        try container.encode(`description`, forKey: .`description`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `label` = "label"
+        case `description` = "description"
+    }
+}
+
+public struct ChatInfoRequestsItemQuestion: Codable, Sendable, Equatable {
+    public let `questions`: [ChatInfoRequestsItemQuestionQuestionsItem]
+    public let `async`: Bool?
+
+    public init(`questions`: [ChatInfoRequestsItemQuestionQuestionsItem], `async`: Bool? = nil) {
+        self.`questions` = `questions`
+        self.`async` = `async`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `questions` = try container.decode([ChatInfoRequestsItemQuestionQuestionsItem].self, forKey: .`questions`)
+        `async` = try container.decodeIfPresent(Bool.self, forKey: .`async`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`questions`, forKey: .`questions`)
+        try container.encodeIfPresent(`async`, forKey: .`async`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `questions` = "questions"
+        case `async` = "async"
+    }
+}
+
+public struct ChatInfoRequestsItemQuestionQuestionsItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `header`: String
+    public let `question`: String
+    public let `choices`: [ChatInfoRequestsItemQuestionQuestionsItemChoicesItem]
+    public let `multiSelect`: Bool
+
+    public init(`id`: String, `header`: String, `question`: String, `choices`: [ChatInfoRequestsItemQuestionQuestionsItemChoicesItem], `multiSelect`: Bool) {
+        self.`id` = `id`
+        self.`header` = `header`
+        self.`question` = `question`
+        self.`choices` = `choices`
+        self.`multiSelect` = `multiSelect`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `header` = try container.decode(String.self, forKey: .`header`)
+        `question` = try container.decode(String.self, forKey: .`question`)
+        `choices` = try container.decode([ChatInfoRequestsItemQuestionQuestionsItemChoicesItem].self, forKey: .`choices`)
+        `multiSelect` = try container.decode(Bool.self, forKey: .`multiSelect`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`header`, forKey: .`header`)
+        try container.encode(`question`, forKey: .`question`)
+        try container.encode(`choices`, forKey: .`choices`)
+        try container.encode(`multiSelect`, forKey: .`multiSelect`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `header` = "header"
+        case `question` = "question"
+        case `choices` = "choices"
+        case `multiSelect` = "multiSelect"
+    }
+}
+
+public struct ChatInfoRequestsItemQuestionQuestionsItemChoicesItem: Codable, Sendable, Equatable {
+    public let `label`: String
+    public let `description`: String
+
+    public init(`label`: String, `description`: String) {
+        self.`label` = `label`
+        self.`description` = `description`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `label` = try container.decode(String.self, forKey: .`label`)
+        `description` = try container.decode(String.self, forKey: .`description`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`label`, forKey: .`label`)
+        try container.encode(`description`, forKey: .`description`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `label` = "label"
+        case `description` = "description"
+    }
+}
+
+public struct ChatInfoGoal: Codable, Sendable, Equatable {
+    public let `objective`: String
+    public let `status`: ChatGoalStatus
+    public let `checks`: Int64?
+    public let `lastCheck`: String?
+    public let `tokensUsed`: Int64?
+    public let `tokenBudget`: Int64?
+    public let `secondsUsed`: Int64?
+
+    public init(`objective`: String, `status`: ChatGoalStatus, `checks`: Int64? = nil, `lastCheck`: String? = nil, `tokensUsed`: Int64? = nil, `tokenBudget`: Int64? = nil, `secondsUsed`: Int64? = nil) {
+        self.`objective` = `objective`
+        self.`status` = `status`
+        self.`checks` = `checks`
+        self.`lastCheck` = `lastCheck`
+        self.`tokensUsed` = `tokensUsed`
+        self.`tokenBudget` = `tokenBudget`
+        self.`secondsUsed` = `secondsUsed`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `objective` = try container.decode(String.self, forKey: .`objective`)
+        `status` = try container.decode(ChatGoalStatus.self, forKey: .`status`)
+        `checks` = try container.decodeIfPresent(Int64.self, forKey: .`checks`)
+        `lastCheck` = try container.decodeIfPresent(String.self, forKey: .`lastCheck`)
+        `tokensUsed` = try container.decodeIfPresent(Int64.self, forKey: .`tokensUsed`)
+        `tokenBudget` = try container.decodeIfPresent(Int64.self, forKey: .`tokenBudget`)
+        `secondsUsed` = try container.decodeIfPresent(Int64.self, forKey: .`secondsUsed`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`objective`, forKey: .`objective`)
+        try container.encode(`status`, forKey: .`status`)
+        try container.encodeIfPresent(`checks`, forKey: .`checks`)
+        try container.encodeIfPresent(`lastCheck`, forKey: .`lastCheck`)
+        try container.encodeIfPresent(`tokensUsed`, forKey: .`tokensUsed`)
+        try container.encodeIfPresent(`tokenBudget`, forKey: .`tokenBudget`)
+        try container.encodeIfPresent(`secondsUsed`, forKey: .`secondsUsed`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `objective` = "objective"
+        case `status` = "status"
+        case `checks` = "checks"
+        case `lastCheck` = "lastCheck"
+        case `tokensUsed` = "tokensUsed"
+        case `tokenBudget` = "tokenBudget"
+        case `secondsUsed` = "secondsUsed"
+    }
+}
+
+public enum ChatEvent: Codable, Sendable, Equatable {
+    case `item`(ChatItemEvent)
+    case `delta`(ChatDeltaEvent)
+    case `info`(ChatInfoEvent)
+    case `reset`(ChatResetEvent)
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: Tag.self)
+        switch try container.decode(String.self, forKey: .value) {
+        case "item": self = .`item`(try ChatItemEvent(from: decoder))
+        case "delta": self = .`delta`(try ChatDeltaEvent(from: decoder))
+        case "info": self = .`info`(try ChatInfoEvent(from: decoder))
+        case "reset": self = .`reset`(try ChatResetEvent(from: decoder))
+        default: throw WireValidationError.invalid("Unknown ChatEvent tag")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .`item`(let value): try value.encode(to: encoder)
+        case .`delta`(let value): try value.encode(to: encoder)
+        case .`info`(let value): try value.encode(to: encoder)
+        case .`reset`(let value): try value.encode(to: encoder)
+        }
+    }
+
+    private enum Tag: String, CodingKey { case value = "type" }
+}
+
+public struct ChatItemEvent: Codable, Sendable, Equatable {
+    public let `type`: String
+    public let `item`: ChatItem
+    public let `historyIndex`: Int64?
+
+    public init(`type`: String = "item", `item`: ChatItem, `historyIndex`: Int64? = nil) {
+        self.`type` = `type`
+        self.`item` = `item`
+        self.`historyIndex` = `historyIndex`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `type` = try container.decode(String.self, forKey: .`type`)
+        `item` = try container.decode(ChatItem.self, forKey: .`item`)
+        `historyIndex` = try container.decodeIfPresent(Int64.self, forKey: .`historyIndex`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`type`, forKey: .`type`)
+        try container.encode(`item`, forKey: .`item`)
+        try container.encodeIfPresent(`historyIndex`, forKey: .`historyIndex`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `type` = "type"
+        case `item` = "item"
+        case `historyIndex` = "historyIndex"
+    }
+}
+
+public struct ChatDeltaEvent: Codable, Sendable, Equatable {
+    public let `type`: String
+    public let `itemId`: String
+    public let `text`: String
+    public let `ui`: [ChatUiBlock]?
+    public let `uiQueries`: ChatUiQueryState?
+    public let `textLength`: Int64?
+
+    public init(`type`: String = "delta", `itemId`: String, `text`: String, `ui`: [ChatUiBlock]? = nil, `uiQueries`: ChatUiQueryState? = nil, `textLength`: Int64? = nil) {
+        self.`type` = `type`
+        self.`itemId` = `itemId`
+        self.`text` = `text`
+        self.`ui` = `ui`
+        self.`uiQueries` = `uiQueries`
+        self.`textLength` = `textLength`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `type` = try container.decode(String.self, forKey: .`type`)
+        `itemId` = try container.decode(String.self, forKey: .`itemId`)
+        `text` = try container.decode(String.self, forKey: .`text`)
+        `ui` = try container.decodeIfPresent([ChatUiBlock].self, forKey: .`ui`)
+        `uiQueries` = try container.decodeIfPresent(ChatUiQueryState.self, forKey: .`uiQueries`)
+        `textLength` = try container.decodeIfPresent(Int64.self, forKey: .`textLength`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`type`, forKey: .`type`)
+        try container.encode(`itemId`, forKey: .`itemId`)
+        try container.encode(`text`, forKey: .`text`)
+        try container.encodeIfPresent(`ui`, forKey: .`ui`)
+        try container.encodeIfPresent(`uiQueries`, forKey: .`uiQueries`)
+        try container.encodeIfPresent(`textLength`, forKey: .`textLength`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `type` = "type"
+        case `itemId` = "itemId"
+        case `text` = "text"
+        case `ui` = "ui"
+        case `uiQueries` = "uiQueries"
+        case `textLength` = "textLength"
+    }
+}
+
+public struct ChatInfoEvent: Codable, Sendable, Equatable {
+    public let `type`: String
+    public let `info`: ChatInfo
+
+    public init(`type`: String = "info", `info`: ChatInfo) {
+        self.`type` = `type`
+        self.`info` = `info`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `type` = try container.decode(String.self, forKey: .`type`)
+        `info` = try container.decode(ChatInfo.self, forKey: .`info`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`type`, forKey: .`type`)
+        try container.encode(`info`, forKey: .`info`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `type` = "type"
+        case `info` = "info"
+    }
+}
+
+public struct ChatResetEvent: Codable, Sendable, Equatable {
+    public let `type`: String
+    public let `info`: ChatInfo
+    public let `items`: [ChatItem]
+
+    public init(`type`: String = "reset", `info`: ChatInfo, `items`: [ChatItem]) {
+        self.`type` = `type`
+        self.`info` = `info`
+        self.`items` = `items`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `type` = try container.decode(String.self, forKey: .`type`)
+        `info` = try container.decode(ChatInfo.self, forKey: .`info`)
+        `items` = try container.decode([ChatItem].self, forKey: .`items`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`type`, forKey: .`type`)
+        try container.encode(`info`, forKey: .`info`)
+        try container.encode(`items`, forKey: .`items`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `type` = "type"
+        case `info` = "info"
+        case `items` = "items"
+    }
+}
+
+public struct ChatHistoryPage: Codable, Sendable, Equatable {
+    public let `start`: Int64
+    public let `cursor`: String?
+
+    public init(`start`: Int64, `cursor`: String?) {
+        self.`start` = `start`
+        self.`cursor` = `cursor`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `start` = try container.decode(Int64.self, forKey: .`start`)
+        `cursor` = try container.decode(String?.self, forKey: .`cursor`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`start`, forKey: .`start`)
+        try container.encode(`cursor`, forKey: .`cursor`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `start` = "start"
+        case `cursor` = "cursor"
+    }
+}
+
+public struct ChatAttachResult: Codable, Sendable, Equatable {
+    public let `info`: ChatInfo
+    public let `items`: [ChatItem]
+    public let `history`: ChatHistoryPage?
+    public let `pending`: [ChatItem]?
+    public let `seq`: Int64?
+    public let `events`: [ChatEvent]?
+    public let `bookmarks`: [ChatAttachResultBookmarksItem]?
+    public let `visuals`: [ChatAttachResultVisualsItem]?
+
+    public init(`info`: ChatInfo, `items`: [ChatItem], `history`: ChatHistoryPage? = nil, `pending`: [ChatItem]? = nil, `seq`: Int64? = nil, `events`: [ChatEvent]? = nil, `bookmarks`: [ChatAttachResultBookmarksItem]? = nil, `visuals`: [ChatAttachResultVisualsItem]? = nil) {
+        self.`info` = `info`
+        self.`items` = `items`
+        self.`history` = `history`
+        self.`pending` = `pending`
+        self.`seq` = `seq`
+        self.`events` = `events`
+        self.`bookmarks` = `bookmarks`
+        self.`visuals` = `visuals`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `info` = try container.decode(ChatInfo.self, forKey: .`info`)
+        `items` = try container.decode([ChatItem].self, forKey: .`items`)
+        `history` = try container.decodeIfPresent(ChatHistoryPage.self, forKey: .`history`)
+        `pending` = try container.decodeIfPresent([ChatItem].self, forKey: .`pending`)
+        `seq` = try container.decodeIfPresent(Int64.self, forKey: .`seq`)
+        `events` = try container.decodeIfPresent([ChatEvent].self, forKey: .`events`)
+        `bookmarks` = try container.decodeIfPresent([ChatAttachResultBookmarksItem].self, forKey: .`bookmarks`)
+        `visuals` = try container.decodeIfPresent([ChatAttachResultVisualsItem].self, forKey: .`visuals`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`info`, forKey: .`info`)
+        try container.encode(`items`, forKey: .`items`)
+        try container.encodeIfPresent(`history`, forKey: .`history`)
+        try container.encodeIfPresent(`pending`, forKey: .`pending`)
+        try container.encodeIfPresent(`seq`, forKey: .`seq`)
+        try container.encodeIfPresent(`events`, forKey: .`events`)
+        try container.encodeIfPresent(`bookmarks`, forKey: .`bookmarks`)
+        try container.encodeIfPresent(`visuals`, forKey: .`visuals`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `info` = "info"
+        case `items` = "items"
+        case `history` = "history"
+        case `pending` = "pending"
+        case `seq` = "seq"
+        case `events` = "events"
+        case `bookmarks` = "bookmarks"
+        case `visuals` = "visuals"
+    }
+}
+
+public struct ChatAttachResultBookmarksItem: Codable, Sendable, Equatable {
+    public let `itemId`: String
+    public let `name`: String?
+    public let `excerpt`: String
+    public let `createdAt`: Double
+
+    public init(`itemId`: String, `name`: String? = nil, `excerpt`: String, `createdAt`: Double) {
+        self.`itemId` = `itemId`
+        self.`name` = `name`
+        self.`excerpt` = `excerpt`
+        self.`createdAt` = `createdAt`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `itemId` = try container.decode(String.self, forKey: .`itemId`)
+        `name` = try container.decodeIfPresent(String.self, forKey: .`name`)
+        `excerpt` = try container.decode(String.self, forKey: .`excerpt`)
+        `createdAt` = try container.decode(Double.self, forKey: .`createdAt`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`itemId`, forKey: .`itemId`)
+        try container.encodeIfPresent(`name`, forKey: .`name`)
+        try container.encode(`excerpt`, forKey: .`excerpt`)
+        try container.encode(`createdAt`, forKey: .`createdAt`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `itemId` = "itemId"
+        case `name` = "name"
+        case `excerpt` = "excerpt"
+        case `createdAt` = "createdAt"
+    }
+}
+
+public struct ChatAttachResultVisualsItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `title`: String
+    public let `at`: Double
+    public let `maxHeight`: Double
+    public let `layout`: ChatAttachResultVisualsItemLayout?
+    public let `heights`: [[JSONValue]]?
+    public let `size`: Int64
+    public let `turnId`: String?
+
+    public init(`id`: String, `title`: String, `at`: Double, `maxHeight`: Double, `layout`: ChatAttachResultVisualsItemLayout? = nil, `heights`: [[JSONValue]]? = nil, `size`: Int64, `turnId`: String? = nil) {
+        self.`id` = `id`
+        self.`title` = `title`
+        self.`at` = `at`
+        self.`maxHeight` = `maxHeight`
+        self.`layout` = `layout`
+        self.`heights` = `heights`
+        self.`size` = `size`
+        self.`turnId` = `turnId`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `title` = try container.decode(String.self, forKey: .`title`)
+        `at` = try container.decode(Double.self, forKey: .`at`)
+        `maxHeight` = try container.decode(Double.self, forKey: .`maxHeight`)
+        `layout` = try container.decodeIfPresent(ChatAttachResultVisualsItemLayout.self, forKey: .`layout`)
+        `heights` = try container.decodeIfPresent([[JSONValue]].self, forKey: .`heights`)
+        `size` = try container.decode(Int64.self, forKey: .`size`)
+        `turnId` = try container.decodeIfPresent(String.self, forKey: .`turnId`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`title`, forKey: .`title`)
+        try container.encode(`at`, forKey: .`at`)
+        try container.encode(`maxHeight`, forKey: .`maxHeight`)
+        try container.encodeIfPresent(`layout`, forKey: .`layout`)
+        try container.encodeIfPresent(`heights`, forKey: .`heights`)
+        try container.encode(`size`, forKey: .`size`)
+        try container.encodeIfPresent(`turnId`, forKey: .`turnId`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `title` = "title"
+        case `at` = "at"
+        case `maxHeight` = "maxHeight"
+        case `layout` = "layout"
+        case `heights` = "heights"
+        case `size` = "size"
+        case `turnId` = "turnId"
+    }
+}
+
+public enum ChatAttachResultVisualsItemLayout: String, CaseIterable, Codable, Sendable, Equatable {
+    case `inline` = "inline"
+    case `wide` = "wide"
+}
+
+public struct ChatHistoryResult: Codable, Sendable, Equatable {
+    public let `items`: [ChatItem]
+    public let `history`: ChatHistoryPage
+
+    public init(`items`: [ChatItem], `history`: ChatHistoryPage) {
+        self.`items` = `items`
+        self.`history` = `history`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `items` = try container.decode([ChatItem].self, forKey: .`items`)
+        `history` = try container.decode(ChatHistoryPage.self, forKey: .`history`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`items`, forKey: .`items`)
+        try container.encode(`history`, forKey: .`history`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `items` = "items"
+        case `history` = "history"
+    }
+}
+
+public struct ChatEventEnvelope: Codable, Sendable, Equatable {
+    public let `chatId`: String
+    public let `event`: ChatEvent
+    public let `seq`: Int64?
+
+    public init(`chatId`: String, `event`: ChatEvent, `seq`: Int64? = nil) {
+        self.`chatId` = `chatId`
+        self.`event` = `event`
+        self.`seq` = `seq`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `chatId` = try container.decode(String.self, forKey: .`chatId`)
+        `event` = try container.decode(ChatEvent.self, forKey: .`event`)
+        `seq` = try container.decodeIfPresent(Int64.self, forKey: .`seq`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`chatId`, forKey: .`chatId`)
+        try container.encode(`event`, forKey: .`event`)
+        try container.encodeIfPresent(`seq`, forKey: .`seq`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `chatId` = "chatId"
+        case `event` = "event"
+        case `seq` = "seq"
+    }
+}
+
+public struct SessionAgent: Codable, Sendable, Equatable {
+    public let `kind`: String
+    public let `agentSessionId`: String
+    public let `transcriptPath`: String?
+    public let `suggestedTitle`: String?
+    public let `status`: String
+    public let `requests`: [SessionAgentRequestsItem]?
+    public let `live`: Bool
+    public let `updatedAt`: Double
+
+    public init(`kind`: String, `agentSessionId`: String, `transcriptPath`: String?, `suggestedTitle`: String? = nil, `status`: String, `requests`: [SessionAgentRequestsItem]? = nil, `live`: Bool, `updatedAt`: Double) {
+        self.`kind` = `kind`
+        self.`agentSessionId` = `agentSessionId`
+        self.`transcriptPath` = `transcriptPath`
+        self.`suggestedTitle` = `suggestedTitle`
+        self.`status` = `status`
+        self.`requests` = `requests`
+        self.`live` = `live`
+        self.`updatedAt` = `updatedAt`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `kind` = try container.decode(String.self, forKey: .`kind`)
+        `agentSessionId` = try container.decode(String.self, forKey: .`agentSessionId`)
+        `transcriptPath` = try container.decode(String?.self, forKey: .`transcriptPath`)
+        `suggestedTitle` = try container.decodeIfPresent(String.self, forKey: .`suggestedTitle`)
+        `status` = try container.decode(String.self, forKey: .`status`)
+        `requests` = try container.decodeIfPresent([SessionAgentRequestsItem].self, forKey: .`requests`)
+        `live` = try container.decode(Bool.self, forKey: .`live`)
+        `updatedAt` = try container.decode(Double.self, forKey: .`updatedAt`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`agentSessionId`, forKey: .`agentSessionId`)
+        try container.encode(`transcriptPath`, forKey: .`transcriptPath`)
+        try container.encodeIfPresent(`suggestedTitle`, forKey: .`suggestedTitle`)
+        try container.encode(`status`, forKey: .`status`)
+        try container.encodeIfPresent(`requests`, forKey: .`requests`)
+        try container.encode(`live`, forKey: .`live`)
+        try container.encode(`updatedAt`, forKey: .`updatedAt`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `kind` = "kind"
+        case `agentSessionId` = "agentSessionId"
+        case `transcriptPath` = "transcriptPath"
+        case `suggestedTitle` = "suggestedTitle"
+        case `status` = "status"
+        case `requests` = "requests"
+        case `live` = "live"
+        case `updatedAt` = "updatedAt"
+    }
+}
+
+public struct SessionAgentRequestsItem: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `source`: String
+    public let `kind`: ChatRequestKind
+    public let `toolName`: String
+    public let `title`: String?
+    public let `text`: String
+    public let `createdAt`: Double
+
+    public init(`id`: String, `source`: String, `kind`: ChatRequestKind, `toolName`: String, `title`: String?, `text`: String, `createdAt`: Double) {
+        self.`id` = `id`
+        self.`source` = `source`
+        self.`kind` = `kind`
+        self.`toolName` = `toolName`
+        self.`title` = `title`
+        self.`text` = `text`
+        self.`createdAt` = `createdAt`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `source` = try container.decode(String.self, forKey: .`source`)
+        `kind` = try container.decode(ChatRequestKind.self, forKey: .`kind`)
+        `toolName` = try container.decode(String.self, forKey: .`toolName`)
+        `title` = try container.decode(String?.self, forKey: .`title`)
+        `text` = try container.decode(String.self, forKey: .`text`)
+        `createdAt` = try container.decode(Double.self, forKey: .`createdAt`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`source`, forKey: .`source`)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`toolName`, forKey: .`toolName`)
+        try container.encode(`title`, forKey: .`title`)
+        try container.encode(`text`, forKey: .`text`)
+        try container.encode(`createdAt`, forKey: .`createdAt`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `source` = "source"
+        case `kind` = "kind"
+        case `toolName` = "toolName"
+        case `title` = "title"
+        case `text` = "text"
+        case `createdAt` = "createdAt"
+    }
+}
+
+public struct SessionStatusEvent: Codable, Sendable, Equatable {
+    public let `sessionId`: String
+    public let `agent`: SessionAgent?
+
+    public init(`sessionId`: String, `agent`: SessionAgent?) {
+        self.`sessionId` = `sessionId`
+        self.`agent` = `agent`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `sessionId` = try container.decode(String.self, forKey: .`sessionId`)
+        `agent` = try container.decode(SessionAgent?.self, forKey: .`agent`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`sessionId`, forKey: .`sessionId`)
+        try container.encode(`agent`, forKey: .`agent`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `sessionId` = "sessionId"
+        case `agent` = "agent"
+    }
+}
+
+public struct GitStatusFile: Codable, Sendable, Equatable {
+    public let `path`: String
+    public let `oldPath`: String?
+    public let `state`: GitStatusFileState
+    public let `status`: String
+    public let `added`: Int64
+    public let `deleted`: Int64
+    public let `binary`: Bool
+
+    public init(`path`: String, `oldPath`: String? = nil, `state`: GitStatusFileState, `status`: String, `added`: Int64, `deleted`: Int64, `binary`: Bool) {
+        self.`path` = `path`
+        self.`oldPath` = `oldPath`
+        self.`state` = `state`
+        self.`status` = `status`
+        self.`added` = `added`
+        self.`deleted` = `deleted`
+        self.`binary` = `binary`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `path` = try container.decode(String.self, forKey: .`path`)
+        `oldPath` = try container.decodeIfPresent(String.self, forKey: .`oldPath`)
+        `state` = try container.decode(GitStatusFileState.self, forKey: .`state`)
+        `status` = try container.decode(String.self, forKey: .`status`)
+        `added` = try container.decode(Int64.self, forKey: .`added`)
+        `deleted` = try container.decode(Int64.self, forKey: .`deleted`)
+        `binary` = try container.decode(Bool.self, forKey: .`binary`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`path`, forKey: .`path`)
+        try container.encodeIfPresent(`oldPath`, forKey: .`oldPath`)
+        try container.encode(`state`, forKey: .`state`)
+        try container.encode(`status`, forKey: .`status`)
+        try container.encode(`added`, forKey: .`added`)
+        try container.encode(`deleted`, forKey: .`deleted`)
+        try container.encode(`binary`, forKey: .`binary`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `path` = "path"
+        case `oldPath` = "oldPath"
+        case `state` = "state"
+        case `status` = "status"
+        case `added` = "added"
+        case `deleted` = "deleted"
+        case `binary` = "binary"
+    }
+}
+
+public enum GitStatusFileState: String, CaseIterable, Codable, Sendable, Equatable {
+    case `staged` = "staged"
+    case `unstaged` = "unstaged"
+    case `untracked` = "untracked"
+    case `conflicted` = "conflicted"
+}
+
+public struct GitStatus: Codable, Sendable, Equatable {
+    public let `repo`: Bool
+    public let `operation`: GitStatusOperation?
+    public let `root`: String?
+    public let `branch`: String?
+    public let `detached`: Bool
+    public let `upstream`: String?
+    public let `ahead`: Int64
+    public let `behind`: Int64
+    public let `base`: String?
+    public let `mergeBase`: String?
+    public let `files`: [GitStatusFile]
+    public let `truncated`: Bool
+    public let `live`: Bool
+
+    public init(`repo`: Bool, `operation`: GitStatusOperation? = nil, `root`: String?, `branch`: String?, `detached`: Bool, `upstream`: String?, `ahead`: Int64, `behind`: Int64, `base`: String?, `mergeBase`: String?, `files`: [GitStatusFile], `truncated`: Bool, `live`: Bool) {
+        self.`repo` = `repo`
+        self.`operation` = `operation`
+        self.`root` = `root`
+        self.`branch` = `branch`
+        self.`detached` = `detached`
+        self.`upstream` = `upstream`
+        self.`ahead` = `ahead`
+        self.`behind` = `behind`
+        self.`base` = `base`
+        self.`mergeBase` = `mergeBase`
+        self.`files` = `files`
+        self.`truncated` = `truncated`
+        self.`live` = `live`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `repo` = try container.decode(Bool.self, forKey: .`repo`)
+        `operation` = try container.decodeIfPresent(GitStatusOperation.self, forKey: .`operation`)
+        `root` = try container.decode(String?.self, forKey: .`root`)
+        `branch` = try container.decode(String?.self, forKey: .`branch`)
+        `detached` = try container.decode(Bool.self, forKey: .`detached`)
+        `upstream` = try container.decode(String?.self, forKey: .`upstream`)
+        `ahead` = try container.decode(Int64.self, forKey: .`ahead`)
+        `behind` = try container.decode(Int64.self, forKey: .`behind`)
+        `base` = try container.decode(String?.self, forKey: .`base`)
+        `mergeBase` = try container.decode(String?.self, forKey: .`mergeBase`)
+        `files` = try container.decode([GitStatusFile].self, forKey: .`files`)
+        `truncated` = try container.decode(Bool.self, forKey: .`truncated`)
+        `live` = try container.decode(Bool.self, forKey: .`live`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`repo`, forKey: .`repo`)
+        try container.encodeIfPresent(`operation`, forKey: .`operation`)
+        try container.encode(`root`, forKey: .`root`)
+        try container.encode(`branch`, forKey: .`branch`)
+        try container.encode(`detached`, forKey: .`detached`)
+        try container.encode(`upstream`, forKey: .`upstream`)
+        try container.encode(`ahead`, forKey: .`ahead`)
+        try container.encode(`behind`, forKey: .`behind`)
+        try container.encode(`base`, forKey: .`base`)
+        try container.encode(`mergeBase`, forKey: .`mergeBase`)
+        try container.encode(`files`, forKey: .`files`)
+        try container.encode(`truncated`, forKey: .`truncated`)
+        try container.encode(`live`, forKey: .`live`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `repo` = "repo"
+        case `operation` = "operation"
+        case `root` = "root"
+        case `branch` = "branch"
+        case `detached` = "detached"
+        case `upstream` = "upstream"
+        case `ahead` = "ahead"
+        case `behind` = "behind"
+        case `base` = "base"
+        case `mergeBase` = "mergeBase"
+        case `files` = "files"
+        case `truncated` = "truncated"
+        case `live` = "live"
+    }
+}
+
+public enum GitStatusOperation: String, CaseIterable, Codable, Sendable, Equatable {
+    case `merge` = "merge"
+    case `rebase` = "rebase"
+    case `cherryPick` = "cherry-pick"
+    case `revert` = "revert"
+}
+
+public struct GitStatusEvent: Codable, Sendable, Equatable {
+    public let `cwd`: String
+    public let `status`: GitStatus
+
+    public init(`cwd`: String, `status`: GitStatus) {
+        self.`cwd` = `cwd`
+        self.`status` = `status`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `cwd` = try container.decode(String.self, forKey: .`cwd`)
+        `status` = try container.decode(GitStatus.self, forKey: .`status`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`cwd`, forKey: .`cwd`)
+        try container.encode(`status`, forKey: .`status`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `cwd` = "cwd"
+        case `status` = "status"
+    }
+}
+
+public struct ProjectSummary: Codable, Sendable, Equatable {
+    public let `projectId`: String
+    public let `name`: String
+    public let `color`: String
+    public let `folder`: String
+    public let `lastOpenedAt`: Double
+    public let `closedAt`: Presence<Double>
+    public let `available`: Bool
+    public let `icon`: ProjectSummaryIcon
+    public let `nameSource`: ProjectSummaryNameSource
+    public let `scratch`: Bool?
+
+    public init(`projectId`: String, `name`: String, `color`: String, `folder`: String, `lastOpenedAt`: Double, `closedAt`: Presence<Double> = .missing, `available`: Bool, `icon`: ProjectSummaryIcon, `nameSource`: ProjectSummaryNameSource, `scratch`: Bool? = nil) {
+        self.`projectId` = `projectId`
+        self.`name` = `name`
+        self.`color` = `color`
+        self.`folder` = `folder`
+        self.`lastOpenedAt` = `lastOpenedAt`
+        self.`closedAt` = `closedAt`
+        self.`available` = `available`
+        self.`icon` = `icon`
+        self.`nameSource` = `nameSource`
+        self.`scratch` = `scratch`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `projectId` = try container.decode(String.self, forKey: .`projectId`)
+        `name` = try container.decode(String.self, forKey: .`name`)
+        `color` = try container.decode(String.self, forKey: .`color`)
+        `folder` = try container.decode(String.self, forKey: .`folder`)
+        `lastOpenedAt` = try container.decode(Double.self, forKey: .`lastOpenedAt`)
+        `closedAt` = try container.contains(.`closedAt`) ? (container.decodeNil(forKey: .`closedAt`) ? .null : .value(container.decode(Double.self, forKey: .`closedAt`))) : .missing
+        `available` = try container.decode(Bool.self, forKey: .`available`)
+        `icon` = try container.decode(ProjectSummaryIcon.self, forKey: .`icon`)
+        `nameSource` = try container.decode(ProjectSummaryNameSource.self, forKey: .`nameSource`)
+        `scratch` = try container.decodeIfPresent(Bool.self, forKey: .`scratch`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`projectId`, forKey: .`projectId`)
+        try container.encode(`name`, forKey: .`name`)
+        try container.encode(`color`, forKey: .`color`)
+        try container.encode(`folder`, forKey: .`folder`)
+        try container.encode(`lastOpenedAt`, forKey: .`lastOpenedAt`)
+        switch `closedAt` {
+        case .missing: break
+        case .null: try container.encodeNil(forKey: .`closedAt`)
+        case .value(let value): try container.encode(value, forKey: .`closedAt`)
+        }
+        try container.encode(`available`, forKey: .`available`)
+        try container.encode(`icon`, forKey: .`icon`)
+        try container.encode(`nameSource`, forKey: .`nameSource`)
+        try container.encodeIfPresent(`scratch`, forKey: .`scratch`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `projectId` = "projectId"
+        case `name` = "name"
+        case `color` = "color"
+        case `folder` = "folder"
+        case `lastOpenedAt` = "lastOpenedAt"
+        case `closedAt` = "closedAt"
+        case `available` = "available"
+        case `icon` = "icon"
+        case `nameSource` = "nameSource"
+        case `scratch` = "scratch"
+    }
+}
+
+public enum ProjectSummaryIcon: Codable, Sendable, Equatable {
+    case `lucide`(ProjectSummaryIconVariant0)
+    case `image`(ProjectSummaryIconVariant1)
+    case `initial`(ProjectSummaryIconVariant2)
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: Tag.self)
+        switch try container.decode(String.self, forKey: .value) {
+        case "lucide": self = .`lucide`(try ProjectSummaryIconVariant0(from: decoder))
+        case "image": self = .`image`(try ProjectSummaryIconVariant1(from: decoder))
+        case "initial": self = .`initial`(try ProjectSummaryIconVariant2(from: decoder))
+        default: throw WireValidationError.invalid("Unknown ProjectSummaryIcon tag")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .`lucide`(let value): try value.encode(to: encoder)
+        case .`image`(let value): try value.encode(to: encoder)
+        case .`initial`(let value): try value.encode(to: encoder)
+        }
+    }
+
+    private enum Tag: String, CodingKey { case value = "kind" }
+}
+
+public struct ProjectSummaryIconVariant0: Codable, Sendable, Equatable {
+    public let `kind`: String
+    public let `value`: String
+
+    public init(`kind`: String = "lucide", `value`: String) {
+        self.`kind` = `kind`
+        self.`value` = `value`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `kind` = try container.decode(String.self, forKey: .`kind`)
+        `value` = try container.decode(String.self, forKey: .`value`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`value`, forKey: .`value`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `kind` = "kind"
+        case `value` = "value"
+    }
+}
+
+public struct ProjectSummaryIconVariant1: Codable, Sendable, Equatable {
+    public let `kind`: String
+    public let `value`: String
+    public let `version`: String
+
+    public init(`kind`: String = "image", `value`: String, `version`: String) {
+        self.`kind` = `kind`
+        self.`value` = `value`
+        self.`version` = `version`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `kind` = try container.decode(String.self, forKey: .`kind`)
+        `value` = try container.decode(String.self, forKey: .`value`)
+        `version` = try container.decode(String.self, forKey: .`version`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`value`, forKey: .`value`)
+        try container.encode(`version`, forKey: .`version`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `kind` = "kind"
+        case `value` = "value"
+        case `version` = "version"
+    }
+}
+
+public struct ProjectSummaryIconVariant2: Codable, Sendable, Equatable {
+    public let `kind`: String
+    public let `value`: String
+
+    public init(`kind`: String = "initial", `value`: String) {
+        self.`kind` = `kind`
+        self.`value` = `value`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `kind` = try container.decode(String.self, forKey: .`kind`)
+        `value` = try container.decode(String.self, forKey: .`value`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`kind`, forKey: .`kind`)
+        try container.encode(`value`, forKey: .`value`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `kind` = "kind"
+        case `value` = "value"
+    }
+}
+
+public enum ProjectSummaryNameSource: String, CaseIterable, Codable, Sendable, Equatable {
+    case `chosen` = "chosen"
+    case `folder` = "folder"
+}
+
+public struct ProjectSummaryEvent: Codable, Sendable, Equatable {
+    public let `summary`: ProjectSummary
+
+    public init(`summary`: ProjectSummary) {
+        self.`summary` = `summary`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `summary` = try container.decode(ProjectSummary.self, forKey: .`summary`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`summary`, forKey: .`summary`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `summary` = "summary"
+    }
+}
+
 public extension PlanStepState {
     /// The marker of this state, as `PLAN_STATE_MARKERS` in `@adecore/plan` writes it.
     var marker: String {

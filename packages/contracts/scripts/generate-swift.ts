@@ -91,6 +91,8 @@ const names = new Map(
     Object.entries(schemas).map(([name, schema]) => [canonical(schema), name.replace(/Schema$/, '') === 'Error' ? 'WireError' : name.replace(/Schema$/, '')])
 );
 const declarations = new Map<string, string>();
+// Off for the typed hot paths, which the client validated as a whole frame before anything decodes them.
+let validatingStructs = true;
 function camel(name: string): string {
     return name.replace(/[-. ]+(\w)/g, (_match, letter) => letter.toUpperCase());
 }
@@ -137,7 +139,7 @@ function typeOf(schema: Schema, suggested: string, force = false): string {
             const type = optional && isNullable ? `Presence<${base}>` : optional || isNullable ? `${base}?` : base;
             return { key, value, optional, isNullable, base, type };
         });
-        const schemaName = Object.entries(schemas).find(([, value]) => canonical(value) === canonical(schema))?.[0];
+        const schemaName = validatingStructs ? Object.entries(schemas).find(([, value]) => canonical(value) === canonical(schema))?.[0] : undefined;
         const fields = properties.map(({ key, type }) => `    public let ${identifier(key)}: ${type}`).join('\n');
         const parameters = properties
             .map(
@@ -207,7 +209,8 @@ function typeOf(schema: Schema, suggested: string, force = false): string {
     if (schema.type === 'boolean' || typeof schema.const === 'boolean') {
         return 'Bool';
     }
-    if (Object.keys(schema).every((key) => ['$schema', 'default'].includes(key))) {
+    // A value of more than one primitive type, such as a model option that is a word or a switch.
+    if (Object.keys(schema).every((key) => ['$schema', 'default'].includes(key)) || Array.isArray(schema.type)) {
         return 'JSONValue';
     }
     throw new Error(`Unsupported schema ${suggested}: ${JSON.stringify(schema)}`);
@@ -302,6 +305,81 @@ for (const [name, schema] of Object.entries(apiRoots)) {
         schemas[name]!['x-follow-dimensions'] = true;
     }
 }
+/*
+ * The payloads the app reads on its hot paths become structs, so a renamed field stops the app's build instead of
+ * reading as an empty string. They come from the API's own JSON Schemas, open vocabularies included, so a newer
+ * machine's word still decodes. A `$ref` only reaches the recursive blocks of an intelligent UI reply, which the app
+ * reads as JSON.
+ */
+function typedSchema(value: unknown): any {
+    if (Array.isArray(value)) {
+        return value.map(typedSchema);
+    }
+    if (!value || typeof value !== 'object') {
+        return value;
+    }
+    if ('$ref' in value) {
+        return {};
+    }
+    return Object.fromEntries(
+        Object.entries(value)
+            .filter(([key]) => key !== '$defs' && key !== '$schema')
+            .map(([key, child]) => [key, typedSchema(child)])
+    );
+}
+function pascal(word: string): string {
+    return camel(word).charAt(0).toUpperCase() + camel(word).slice(1);
+}
+const typedRoots: [name: string, source: string, path: (string | number)[]][] = [
+    ['ChatItem', 'request.chat.attach.result', ['properties', 'items', 'items']],
+    ['ChatInfo', 'request.chat.attach.result', ['properties', 'info']],
+    ['ChatEvent', 'request.chat.attach.result', ['properties', 'events', 'items']],
+    ['ChatHistoryPage', 'request.chat.attach.result', ['properties', 'history']],
+    ['ChatAttachResult', 'request.chat.attach.result', []],
+    ['ChatHistoryResult', 'request.chat.history.result', []],
+    ['ChatEventEnvelope', 'event.chat.event', []],
+    ['SessionAgent', 'event.session.status', ['properties', 'agent', 'anyOf', 0]],
+    ['SessionStatusEvent', 'event.session.status', []],
+    ['GitStatusFile', 'request.git.status.result', ['properties', 'files', 'items']],
+    ['GitStatus', 'request.git.status.result', []],
+    ['GitStatusEvent', 'event.git.status', []],
+    ['ProjectSummary', 'event.project.summary', ['properties', 'summary']],
+    ['ProjectSummaryEvent', 'event.project.summary', []]
+];
+const typed = typedRoots.map(([name, source, path]) => {
+    const schema = path.reduce((node: any, key) => node?.[key], typedSchema(schemas[source]));
+    if (!schema) {
+        throw new Error(`No schema at ${source} ${path.join('.')}`);
+    }
+    names.set(canonical(schema), name);
+    return [name, schema] as const;
+});
+function typedMembers(union: string, tag: string): Map<string, Schema> {
+    const schema = typed.find(([name]) => name === union)![1];
+    return new Map((schema.oneOf ?? schema.anyOf).map((member: Schema) => [member.properties[tag].const, member]));
+}
+// The members of a union are named after their tag: `ChatUserItem`, `ChatDeltaEvent`.
+for (const [union, tag, suffix] of [
+    ['ChatItem', 'kind', 'Item'],
+    ['ChatEvent', 'type', 'Event']
+] as const) {
+    for (const [value, member] of typedMembers(union, tag)) {
+        names.set(canonical(member), `Chat${pascal(value)}${suffix}`);
+    }
+}
+// Named once, so an assistant message and a delta share the shapes of an intelligent UI reply.
+const assistant = typedMembers('ChatItem', 'kind').get('assistant')!.properties;
+names.set(canonical(assistant.ui.items), 'ChatUiBlock');
+names.set(canonical(assistant.uiQueries), 'ChatUiQueryState');
+names.set(canonical(assistant.uiAnswers.additionalProperties), 'ChatUiAnswer');
+validatingStructs = false;
+for (const [name, schema] of typed) {
+    const type = typeOf(schema, name);
+    if (type !== name) {
+        declarations.set(name, `public typealias ${name} = ${type}`);
+    }
+}
+validatingStructs = true;
 function tableSource(name: string, entries: string[], methods: string): string {
     return `public enum ${name}: String, CaseIterable, Sendable {\n${entries.map((entry) => `    case ${identifier(entry)} = ${JSON.stringify(entry)}`).join('\n')}\n\n${methods}\n}`;
 }
@@ -514,6 +592,155 @@ validationInputs.push({
         }
     }
 });
+// The typed hot paths decode these in Swift: every chat item kind and event type once.
+const chatInfoFixture = {
+    chatId: 'chat-1',
+    provider: 'claude',
+    cwd: '/work',
+    agentSessionId: null,
+    model: null,
+    selection: { model: 'opus', options: { effort: 'high', thinking: true } },
+    runtimeMode: 'auto',
+    status: 'needs-you',
+    running: true,
+    activeTurnId: 'turn-1',
+    slashCommands: ['compact'],
+    usage: { contextTokens: 1200, contextWindow: null, costUsd: 0.25, turns: 1 },
+    createdAt: 1000
+};
+const turnBase = { createdAt: 1000, turnId: 'turn-1' };
+const chatItemsFixture = [
+    { ...turnBase, id: 'turn-1', kind: 'turn', state: 'running', endedAt: null, costUsd: 0 },
+    { ...turnBase, id: 'user-1', kind: 'user', text: 'Hello 📱', mentions: ['src/app.ts'] },
+    { ...turnBase, id: 'thinking-1', kind: 'thinking', text: 'Hm', streaming: false, endedAt: 1001 },
+    { ...turnBase, id: 'assistant-1', kind: 'assistant', text: 'Hi', streaming: true, parentToolUseId: null },
+    {
+        ...turnBase,
+        id: 'tool-1',
+        kind: 'tool',
+        toolUseId: 'use-1',
+        name: 'Bash',
+        input: { command: 'ls', nested: [1, null] },
+        output: null,
+        state: 'running',
+        parentToolUseId: null
+    },
+    {
+        ...turnBase,
+        id: 'subagent-1',
+        kind: 'subagent',
+        toolUseId: 'use-2',
+        description: 'Explore',
+        subagentType: null,
+        prompt: null,
+        background: false,
+        status: 'running',
+        startedAt: 1000,
+        finishedAt: null,
+        summary: null,
+        result: null,
+        usage: null,
+        lastTool: null,
+        itemsTruncated: false
+    },
+    {
+        ...turnBase,
+        id: 'approval-1',
+        kind: 'approval',
+        requestId: 'request-1',
+        toolUseId: null,
+        toolName: 'Write',
+        input: null,
+        description: null,
+        canAllowAlways: true,
+        decision: 'pending'
+    },
+    {
+        ...turnBase,
+        id: 'question-1',
+        kind: 'question',
+        requestId: 'request-2',
+        questions: [{ id: 'q', header: 'Pick', question: 'Which?', choices: [{ label: 'A', description: '' }], multiSelect: false }],
+        answers: null,
+        state: 'pending'
+    },
+    { ...turnBase, id: 'note-1', kind: 'note', level: 'warning', text: 'Careful' },
+    { ...turnBase, turnId: null, id: 'compaction-1', kind: 'compaction', preTokens: 90000 }
+];
+validationInputs.push(
+    {
+        schema: 'request.chat.attach.result',
+        input: { info: chatInfoFixture, items: chatItemsFixture, history: { start: 0, cursor: 'c1' }, pending: [], seq: 12 }
+    },
+    {
+        schema: 'request.chat.attach.result',
+        input: {
+            info: chatInfoFixture,
+            items: [],
+            seq: 14,
+            events: [
+                { type: 'item', item: chatItemsFixture[3], historyIndex: 4 },
+                { type: 'delta', itemId: 'assistant-1', text: ' there' },
+                { type: 'info', info: { ...chatInfoFixture, activeTurnId: null } },
+                { type: 'reset', info: chatInfoFixture, items: [] }
+            ]
+        }
+    },
+    { schema: 'event.chat.event', input: { chatId: 'chat-1', event: { type: 'delta', itemId: 'tool-1', text: 'out' }, seq: 15 } },
+    {
+        schema: 'event.session.status',
+        input: {
+            sessionId: 'session-1',
+            agent: {
+                kind: 'codex',
+                agentSessionId: 'agent-1',
+                transcriptPath: null,
+                status: 'needs-you',
+                requests: [{ id: 'r', source: 'hook', kind: 'approval', toolName: 'Bash', title: null, text: 'ls', createdAt: 1000 }],
+                live: true,
+                updatedAt: 1000
+            }
+        }
+    },
+    { schema: 'event.session.status', input: { sessionId: 'session-1', agent: null } },
+    {
+        schema: 'event.git.status',
+        input: {
+            cwd: '/work',
+            status: {
+                repo: true,
+                operation: 'merge',
+                root: '/work',
+                branch: 'main',
+                detached: false,
+                upstream: 'origin/main',
+                ahead: 2,
+                behind: 0,
+                base: null,
+                mergeBase: null,
+                files: [{ path: 'b.ts', oldPath: 'a.ts', state: 'staged', status: 'R', added: 3, deleted: 1, binary: false }],
+                truncated: false,
+                live: true
+            }
+        }
+    },
+    {
+        schema: 'event.project.summary',
+        input: {
+            summary: {
+                projectId: 'project-1',
+                name: 'Ruimte',
+                color: 'blue',
+                folder: '/work',
+                lastOpenedAt: 1000,
+                closedAt: null,
+                available: true,
+                icon: { kind: 'lucide', value: 'box' },
+                nameSource: 'folder'
+            }
+        }
+    }
+);
 const validations = validationInputs.map((entry) => {
     const parsed = roots[entry.schema]!.safeParse(entry.input);
     return { ...entry, valid: parsed.success, ...(parsed.success ? { output: parsed.data } : {}) };
