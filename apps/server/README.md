@@ -141,6 +141,7 @@ $RUIMTE_HOME/
   mode-approvals/<hash>.json       0700, the permission mode a person's save gave a terminal agent
   notices/<nodeId>.json            0700, messages left for a node until its agent picks them up
   database-access/<projectId>.json 0700, what agents may do with each connection (see "Databases")
+  secrets/<hash>.json              0700 folder, 0600 files: the secrets of a project's launches (see "Launch secrets")
   database-snapshots/<projectId>/<connectionId>/<database>.json
                                    schema snapshots the SQL language servers read
   chats/                           0700
@@ -206,6 +207,14 @@ Passwords reach the daemon only through `database.passwords`, from a client of t
 What agents may do with each connection is a person's choice kept outside the project, in `$RUIMTE_HOME/database-access/<projectId>.json` (`src/database/agent-access.ts`). It lists `off` or `write` per connection, and a connection not listed is `read`. Any client of the project may set `off` or `read`; only the local secret may set `write`. No verb reads or writes that file.
 
 The SQL language servers read a database through a schema snapshot the daemon takes (`src/database/schema-snapshots.ts`) into `database-snapshots/`. A snapshot holds no credential and no row, and is taken on a read-only session of its own. Which connection a `.sql` file or the SQL in a PHP file reads is one person's choice in the private project file (`src/database/sql-analysis.ts`).
+
+## Launch secrets
+
+An agent in an AI chat asks for a secret a launch needs with `ruimte-context secret request` (`src/canvas/secret-verb.ts`, `src/actions/secret-actions.ts`). The daemon raises a card in that chat (`secret.requests`, `src/secrets/secret-requests.ts`) and holds the chat at `needs-you` while it stands, so its status, the stack and push treat it like a question. One card stands per chat, launch and variable; a turn that ends, a chat that stops and 15 minutes without a new ask take it down. The verb answers only `saved`, `declined`, `cancelled`, `timed-out` or `waiting`, never the value.
+
+A person answers with `secret.save` or `secret.decline`. The value goes into `$RUIMTE_HOME/secrets/<hash>.json` (`src/secrets/secret-store.ts`), one file per project named after a hash of its id, written whole with mode 0600. The launch gets `ruimte:secret` as the value of that variable (`LAUNCH_SECRET_REFERENCE`), in this machine's own launch file: the overlay of a shared launch, or the launch itself when it is private. That marker, not the value, is what the launch's approval covers. A Save keeps a launch approved that was approved before, and approves nothing else; a new value for the same variable changes nothing an approval covers, and a marker added or removed outside a person's save asks again. The daemon swaps the marker for the value only in the environment of the process it starts (`resolveEnv` in `src/launches/runner.ts`); a marker without a secret leaves the variable unset. A person's save of the launches drops the secrets no variable refers to any more.
+
+The value is never in a project file, the chat log, an event, a reply to an agent or a log line, and no verb reads it. `secrets/` is the machine's state, so no file request of a client reaches it (`src/fs/machine-home.ts`). What the launched process does with it, printing it included, is that process's.
 
 ## Sessions
 

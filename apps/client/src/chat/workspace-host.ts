@@ -14,10 +14,12 @@ import { useContextSources } from '@/context/sources';
 import { isApplePlatform } from '@/desktop/bridge';
 import { DictationTextarea } from '@/dictation/DictationTextarea';
 import { dictationPreview, dictationRange } from '@/dictation/editor';
-import { answerRuimtePrompt, computerPrompt, isRuimtePrompt } from '@/prompts/ruimte-prompts';
+import { answerRuimtePrompt, computerPrompt, isRuimtePrompt, secretPrompt } from '@/prompts/ruimte-prompts';
 import { RuimtePromptView } from '@/prompts/RuimtePromptView';
 import { openFileLink, parseFileRef, resolveFileRef, type FileRef } from '@/shell/panels/file-links';
+import { secretAnswers } from '@/secrets/answer';
 import { useNodeComputerApprovals } from '@/state/computer';
+import { useNodeSecretRequests } from '@/state/secrets';
 import { useToasts } from '@/state/toasts';
 import { isShellShortcut } from '@/terminal/keymap';
 
@@ -52,10 +54,17 @@ export function connectWorkspaceChatHost(): void {
         prompts: {
             useExtra: (endpointId, chatId) => {
                 const requests = useNodeComputerApprovals(endpointId, chatId);
-                return useMemo(() => requests.map((request) => computerPrompt(chatId, request)), [requests, chatId]);
+                const secrets = useNodeSecretRequests(endpointId, chatId);
+                return useMemo(
+                    () => [
+                        ...requests.map((request) => computerPrompt(chatId, request)),
+                        ...secrets.map((request) => secretPrompt(endpointId, chatId, request))
+                    ],
+                    [requests, secrets, endpointId, chatId]
+                );
             },
             render: (prompt, props) => (isRuimtePrompt(prompt) ? createElement(RuimtePromptView, { prompt, props }) : null),
-            answer: (prompt, action) => answerRuimtePrompt(prompt, action, answerComputerAsPerson)
+            answer: (prompt, action) => answerRuimtePrompt(prompt, action, answerComputerAsPerson, secretAnswers)
         },
         openNewChat: (endpointId, chatId) => void openNewChatAfterSend(endpointId, chatId),
         useReferableChats: useProjectChats,

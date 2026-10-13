@@ -73,6 +73,8 @@ export interface ConnectionServices {
     plans?: Subscribable;
     provenance?: Subscribable;
     computer?: Subscribable;
+    /* The cards in which agents ask for the secrets of launches, which every client hears. */
+    secrets?: Subscribable;
     snoozes?: Subscribable;
     prWatches?: Subscribable;
 }
@@ -152,6 +154,7 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
             services.plans?.subscribe(clientId, sink) ?? (() => undefined),
             services.provenance?.subscribe(clientId, sink) ?? (() => undefined),
             services.computer?.subscribe(clientId, sink) ?? (() => undefined),
+            services.secrets?.subscribe(clientId, sink) ?? (() => undefined),
             services.snoozes?.subscribe(clientId, sink) ?? (() => undefined),
             services.prWatches?.subscribe(clientId, sink) ?? (() => undefined)
         ];

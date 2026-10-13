@@ -152,6 +152,9 @@ import { registerProcessHandlers } from './handlers/processes.ts';
 import { registerUsageHandlers } from './handlers/usage.ts';
 import { registerProviderAccountHandlers } from './handlers/accounts.ts';
 import { registerComputerHandlers } from './handlers/computer.ts';
+import { registerSecretHandlers } from './handlers/secrets.ts';
+import { SecretService } from './secrets/secret-service.ts';
+import { SecretStore } from './secrets/secret-store.ts';
 import { ComputerUse } from './computer/computer-use.ts';
 import { ComputerHelper, locateHelperApp } from './computer/helper.ts';
 import { ComputerUseStore } from './computer/store.ts';
@@ -554,6 +557,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
        fail over one, so an id neither manager knows is already ended as far as the caller goes. */
     const endSession = async (kind: 'terminal' | 'chat', nodeId: string): Promise<void> => {
         computer.nodeClosed(nodeId);
+        secrets.nodeClosed(nodeId);
         await endChildren.owe(nodeId);
         await (kind === 'terminal' ? manager.kill(nodeId) : chats.kill(nodeId)).catch(() => undefined);
     };
@@ -578,14 +582,22 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     projects.attachDrawings(drawings);
     const diagrams = new DiagramStore(projects);
     projects.attachDiagrams(diagrams);
+    const secretStore = new SecretStore(config.home);
     const launchStore = new LaunchStore({
         projects: { folderOf: (projectId) => projects.index.folderOf(projectId), worktreePaths: (folder) => canvasHost.worktreePaths(folder) },
-        approvals: commandApprovals
+        approvals: commandApprovals,
+        secrets: secretStore
     });
     const launches = new LaunchRunner({
         store: launchStore,
         sessions: managerSessions(manager, foregroundGroup),
-        checkCwd: (folder, cwd) => checkCwd(folder, cwd, (inside) => canvasHost.worktreePaths(inside))
+        checkCwd: (folder, cwd) => checkCwd(folder, cwd, (inside) => canvasHost.worktreePaths(inside)),
+        resolveEnv: (projectId, launchId, env) => secretStore.resolveEnv(projectId, launchId, env)
+    });
+    const secrets = new SecretService({
+        store: secretStore,
+        launches: launchStore,
+        chats: { hold: (nodeId, key) => void chats.holdForPerson(nodeId, key), release: (nodeId, key) => chats.releaseHold(nodeId, key) }
     });
     const launchHost = agentLaunches(launchStore, launches, (sessionId) => manager.get(sessionId)?.plainText() ?? Promise.resolve(null));
     projects.attachLaunches({
@@ -760,6 +772,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         requests: chatRequests(chats),
         computer,
         launches: launchHost,
+        secrets,
         databases: agentDatabases,
         language: new AgentLanguage({
             host: { forAgent: (projectId, request, work) => language.forAgent(projectId, request, work), programOf: (kind) => language.programOf(kind) },
@@ -907,6 +920,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     const updates = new MachineUpdates();
     manager.observe((event) => computer.observe(event));
     chats.observe((event) => computer.observe(event));
+    chats.observe((event) => secrets.observe(event));
     chats.observe((event) => {
         if (event.event === 'chat.event' && event.payload.event.type === 'item' && event.payload.event.item.kind === 'user') {
             dropEmptyMark(projects, event.payload.chatId).catch((e: unknown) => console.error('Listing a written chat failed:', errorText(e)));
@@ -934,6 +948,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     const forkDeps = chatForkDeps({ chats, host: canvasHost, titleFor: (id) => projects.index.titleFor(id), lineage, worktrees, checkpoints });
     const beforeChatKill = (chatId: string): Promise<unknown> => {
         computer.nodeClosed(chatId);
+        secrets.nodeClosed(chatId);
         return endChildren.owe(chatId);
     };
     registerChatHandlers(
@@ -1126,6 +1141,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     registerProcessHandlers(dispatcher, processes);
     registerSessionPortHandlers(dispatcher, sessionPorts);
     registerComputerHandlers(dispatcher, computer);
+    registerSecretHandlers(dispatcher, secrets);
     registerGitHandlers(dispatcher, worktrees, merges, statuses, providers, prWatches, (id) => projects.index.locate(id));
 
     // A TURN server that restarts under an allocation must not take the daemon with it.
@@ -1253,7 +1269,8 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         worktrees,
         plans,
         provenance,
-        computer
+        computer,
+        secrets
     });
 
     type SocketData = ClientAccess & { protocolRefused: boolean; ticket: string | null };

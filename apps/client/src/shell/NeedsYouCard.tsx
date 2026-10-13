@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { ChatAttachResult, ComputerApproval } from '@ruimte/contracts';
+import type { ChatAttachResult, ComputerApproval, SecretRequest } from '@ruimte/contracts';
 import { ButtonGroup, ErrorBoundary, IconButton, PreviewCard } from '@adecore/ui';
 import { answerPrompt, type ChatPromptClients } from '@adecore/agents-react/prompts/logic/subjects';
 import { usePromptSession } from '@adecore/agents-react/prompts/logic/usePromptSession';
@@ -13,6 +13,7 @@ import { useProviders } from '@adecore/agents-react/state/providers';
 import { PERSON_PROMPT_CLIENTS } from '@/actions/client-actions';
 import { canvasPrompts, stackFront, type CanvasPrompt } from '@/canvas/prompts';
 import { useComputer } from '@/state/computer';
+import { useSecrets } from '@/state/secrets';
 import { endpointKey, useEndpointId } from '@/state/keys';
 import { useSessions } from '@/state/sessions';
 import { machineTransport } from '@/transport';
@@ -22,6 +23,7 @@ import { useEndpointConnection } from '@/transport/status';
 import type { SidebarNode } from './sidebar-rows';
 
 const NO_APPROVALS: readonly ComputerApproval[] = [];
+const NO_SECRETS: readonly SecretRequest[] = [];
 
 function idOf(prompt: CanvasPrompt): string {
     return prompt.id;
@@ -75,6 +77,7 @@ function useWaitingPrompts(endpointId: string, node: SidebarNode): WaitingPrompt
     const heldChat = useChats((state) => (held ? state.byKey[key] : undefined));
     // The machine's cards are only answered through the workspace's own actions.
     const computer = useComputer((state) => (local ? (state.approvals[endpointId] ?? NO_APPROVALS) : NO_APPROVALS));
+    const secrets = useSecrets((state) => state.requests[endpointId] ?? NO_SECRETS);
     const [read, setRead] = useState<{ chat: ChatState | null; failed: boolean } | null>(null);
     const [revision, setRevision] = useState(0);
 
@@ -124,9 +127,10 @@ function useWaitingPrompts(endpointId: string, node: SidebarNode): WaitingPrompt
             sessions: session ? { [key]: session } : {},
             chats: chat ? { [key]: chat } : {},
             computer,
+            secrets,
             waitingSince: new Map()
         }).prompts;
-    }, [inspects, read, chat, session, computer, endpointId, key, node.id, node.kind, node.title, node.provider]);
+    }, [inspects, read, chat, session, computer, secrets, endpointId, key, node.id, node.kind, node.title, node.provider]);
 
     return { prompts, failed: read?.failed ?? false, reread: () => setRevision((before) => before + 1) };
 }

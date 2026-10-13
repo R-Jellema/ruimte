@@ -8,8 +8,8 @@ export class MachineHomeError extends CodedError<'machine-state'> {}
 /*
  * What under `$RUIMTE_HOME` a person's own work or a picture made for them sits in: the Chats project,
  * the agents' worktrees, the shots agents take, the files people attach and the visuals of a chat. The
- * rest is the machine's: its key pair, the local secret, the approvals, the accounts of the CLIs, the
- * browser profile and the threads of the chats beside their visuals.
+ * rest is the machine's: its key pair, the local secret, the approvals, the secrets of launches, the
+ * accounts of the CLIs, the browser profile and the threads of the chats beside their visuals.
  */
 const OPEN_FOLDERS = ['scratch', 'worktrees', 'screenshots', join('computer-use', 'screenshots'), 'attachments'];
 

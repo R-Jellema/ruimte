@@ -93,6 +93,7 @@
         "envValue": "Waarde",
         "addVariable": "Variabele toevoegen",
         "removeVariable": "{{key}} verwijderen",
+        "secret": "Secret, bewaard op deze machine",
         "members": "Launches",
         "noMembers": "Voeg eerst een service of een task toe.",
         "autostart": "Starten als het project opent",

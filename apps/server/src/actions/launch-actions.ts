@@ -3,14 +3,14 @@ import { MAX_SCREEN_LINES } from '../context/context-store.ts';
 import { VerbRefusal, field, orNote, type LaunchHost, type LaunchReading } from '../canvas/verb.ts';
 import type { ServerActionContext } from './context.ts';
 
-function launchHostOf(context: ServerActionContext): LaunchHost {
+export function launchHostOf(context: ServerActionContext): LaunchHost {
     if (!context.host.launches) {
         throw new VerbRefusal('no-launches', 'This machine runs no launches');
     }
     return context.host.launches;
 }
 
-function launchLines(launches: readonly LaunchReading[]): string[] {
+export function launchLines(launches: readonly LaunchReading[]): string[] {
     return orNote(
         launches.map((launch) => `launch\t${field(launch.launchId)}\t${field(launch.name)}`),
         'This project has no launches; a person adds them from the launch chip in the toolbar'
@@ -18,7 +18,7 @@ function launchLines(launches: readonly LaunchReading[]): string[] {
 }
 
 /* A launch by its id, or by a name no other launch of the project carries; names are what a person sees, ids are what stays unique. */
-function named(launches: readonly LaunchReading[], wanted: string): LaunchReading {
+export function named(launches: readonly LaunchReading[], wanted: string): LaunchReading {
     const byId = launches.find((launch) => launch.launchId === wanted);
     if (byId) {
         return byId;

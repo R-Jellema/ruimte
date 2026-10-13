@@ -93,6 +93,7 @@
         "envValue": "Value",
         "addVariable": "Add variable",
         "removeVariable": "Remove {{key}}",
+        "secret": "Secret, kept on this machine",
         "members": "Launches",
         "noMembers": "Add a service or a task first.",
         "autostart": "Launch when the project opens",

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Circle, CircleAlert, CircleCheck, CircleDot, CircleX, OctagonX, Play, RotateCw, Square, type LucideIcon } from 'lucide-react';
 import { Icon, IconButton, Spinner, type IconButtonSize } from '@adecore/ui';
 import { startLaunch, stopLaunch } from '@/launches/actions';
-import type { LaunchHeld } from '@ruimte/contracts';
+import { isSecretReference, type LaunchHeld } from '@ruimte/contracts';
 import type { LaunchPhase, LaunchView } from '@/launches/model';
 
 const STATUS_ICON: Record<Exclude<LaunchPhase, 'starting' | 'stopping'>, { icon: LucideIcon; className: string }> = {
@@ -35,12 +35,13 @@ function dotClass(view: LaunchView): string {
 
 /* One launch waiting on approval, with every variable the approval covers, since a change to those alone asks again. */
 export function HeldCommand({ held }: { held: LaunchHeld }) {
+    const { t } = useTranslation('launches');
     return (
         <code className="block rounded-md bg-surface-sunken px-2 py-1.5 font-mono break-all text-text">
             {Object.entries(held.env ?? {}).map(([key, value]) => (
                 <span key={key} className="block">
                     <span className="text-text-faint">{key}=</span>
-                    {value}
+                    {isSecretReference(value) ? <span className="text-text-muted">{t('edit.secret')}</span> : value}
                 </span>
             ))}
             <span className="text-text-faint">{held.cwd} $ </span>

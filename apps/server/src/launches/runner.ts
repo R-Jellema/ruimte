@@ -62,6 +62,12 @@ export async function tcpProbe(host: string, port: number): Promise<boolean> {
     return answers.includes(true);
 }
 
+/*
+ * The environment a process starts with, from the one a launch is approved with: a secret's reference
+ * becomes its value here and only here, so neither the files, the approval nor a client sees it.
+ */
+export type LaunchEnvResolver = (projectId: string, launchId: string, env: Readonly<Record<string, string>>) => Promise<Record<string, string>>;
+
 /* Who asked, which decides what a start may approve and what a stop may do. */
 export type LaunchActor = 'person' | 'agent';
 
@@ -124,6 +130,7 @@ export class LaunchRunner {
     private readonly checkCwd: (folder: string, cwd: string) => Promise<unknown>;
     private readonly clock: LaunchClock;
     private readonly probe: LaunchProbe;
+    private readonly resolveEnv: LaunchEnvResolver;
     private readonly sinks = new ClientSinks();
     private readonly runs = new Map<string, Run>();
     // The projects whose autostart already ran since they were opened, so a second client opening one starts nothing.
@@ -136,12 +143,14 @@ export class LaunchRunner {
         checkCwd: (folder: string, cwd: string) => Promise<unknown>;
         clock?: LaunchClock;
         probe?: LaunchProbe;
+        resolveEnv?: LaunchEnvResolver;
     }) {
         this.store = options.store;
         this.sessions = options.sessions;
         this.checkCwd = options.checkCwd;
         this.clock = options.clock ?? realClock;
         this.probe = options.probe ?? tcpProbe;
+        this.resolveEnv = options.resolveEnv ?? ((_projectId, _launchId, env) => Promise.resolve({ ...env }));
         this.stopExit = this.sessions.observeExit((sessionId, exitCode) => this.exited(sessionId, exitCode));
     }
 
@@ -316,6 +325,7 @@ export class LaunchRunner {
 
     private async spawn(resolved: ResolvedLaunch): Promise<void> {
         const sessionId = launchSessionIdOf(resolved.projectId, resolved.launch.id);
+        const env = await this.resolveEnv(resolved.projectId, resolved.launch.id, resolved.env);
         let markExited = (): void => undefined;
         const exited = new Promise<void>((resolve) => {
             markExited = resolve;
@@ -342,7 +352,7 @@ export class LaunchRunner {
         // In the map before the shell exists, since a command that is not found exits at once.
         this.runs.set(sessionId, run);
         try {
-            await this.sessions.create({ sessionId, cwd: resolved.cwd, exec: resolved.command, env: resolved.env });
+            await this.sessions.create({ sessionId, cwd: resolved.cwd, exec: resolved.command, env });
         } catch (e) {
             this.runs.delete(sessionId);
             markExited();

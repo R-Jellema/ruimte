@@ -1,13 +1,24 @@
 import i18next from 'i18next';
-import type { AgentRequest, ComputerApproval, ComputerApprovalChoice } from '@ruimte/contracts';
+import type { AgentRequest, ComputerApproval, ComputerApprovalChoice, SecretRequest } from '@ruimte/contracts';
 import type { PromptAction } from '@adecore/agents-react/prompts/logic/prompts';
 import type { ApprovalButtonSpec, HostPrompt, PromptSubject } from '@adecore/agents-react/prompts/logic/subjects';
+import type { SecretAnswers } from '@/secrets/answer';
 
 /*
- * What Ruimte asks beside a chat's own prompts: the machine's approval for an agent to operate an app,
- * which the machine asks and not the CLI, and a terminal whose TUI waits, which only the TUI answers.
+ * What Ruimte asks beside a chat's own prompts: the machine's approval for an agent to operate an app
+ * and an agent's ask for a launch's secret, which the machine asks and not the CLI, and a terminal
+ * whose TUI waits, which only the TUI answers.
  */
-export type RuimtePromptData = { kind: 'computer-approval'; request: ComputerApproval } | { kind: 'terminal-waiting'; since: number; request?: AgentRequest };
+export type RuimtePromptData =
+    | { kind: 'computer-approval'; request: ComputerApproval }
+    | { kind: 'secret-request'; endpointId: string; request: SecretRequest }
+    | { kind: 'terminal-waiting'; since: number; request?: AgentRequest };
+
+/* The field of a secret card's answer; the value travels in it only from the card to the machine. */
+export const SECRET_ANSWER_FIELD = 'value';
+
+/* Decline is the one choice a secret card offers besides Save. */
+export const SECRET_DECLINE = 'decline';
 
 export interface RuimtePrompt extends HostPrompt {
     data: RuimtePromptData;
@@ -29,6 +40,16 @@ export function computerPrompt(nodeId: string, request: ComputerApproval): Ruimt
     };
 }
 
+export function secretPrompt(endpointId: string, nodeId: string, request: SecretRequest): RuimtePrompt {
+    return {
+        id: `secret:${nodeId}:${request.requestId}`,
+        createdAt: request.createdAt,
+        blocking: true,
+        asks: 'question',
+        data: { kind: 'secret-request', endpointId, request }
+    };
+}
+
 export function waitingPrompt(nodeId: string, since: number, request?: AgentRequest): RuimtePrompt {
     return {
         id: `waiting:${nodeId}${request ? `:${request.id}` : ''}`,
@@ -41,7 +62,7 @@ export function waitingPrompt(nodeId: string, since: number, request?: AgentRequ
 
 export function isRuimtePrompt(prompt: HostPrompt): prompt is RuimtePrompt {
     const data = prompt.data as Partial<RuimtePromptData> | null;
-    return data?.kind === 'computer-approval' || data?.kind === 'terminal-waiting';
+    return data?.kind === 'computer-approval' || data?.kind === 'secret-request' || data?.kind === 'terminal-waiting';
 }
 
 /* Terminal status snapshots rebuild requests, so equal content must still keep the stack steady. */
@@ -53,7 +74,7 @@ export function ruimtePayloadOf(subject: PromptSubject): unknown {
         return subject.prompt.data;
     }
     const { data } = subject.prompt;
-    if (data.kind === 'computer-approval') {
+    if (data.kind === 'computer-approval' || data.kind === 'secret-request') {
         return data.request;
     }
     return data.request ? JSON.stringify(data.request) : data.since;
@@ -70,18 +91,35 @@ export function computerButtons(): ApprovalButtonSpec[] {
 }
 
 /*
- * Sends a card's choice to the machine, which says whether it still waited. A waiting terminal is
+ * Sends a card's answer to the machine, which says whether it still waited. A waiting terminal is
  * answered only in its TUI, so it sends nothing.
  */
 export async function answerRuimtePrompt(
     prompt: HostPrompt,
     action: PromptAction,
-    answerComputer: (requestId: string, choice: ComputerApprovalChoice) => Promise<boolean>
+    answerComputer: (requestId: string, choice: ComputerApprovalChoice) => Promise<boolean>,
+    secrets: SecretAnswers
 ): Promise<void> {
-    if (!isRuimtePrompt(prompt) || prompt.data.kind === 'terminal-waiting' || action.kind !== 'choose') {
+    if (!isRuimtePrompt(prompt) || prompt.data.kind === 'terminal-waiting') {
         throw new Error(i18next.t('prompts:error.terminalOnly'));
     }
-    if (!isComputerChoice(action.choiceId) || !(await answerComputer(prompt.data.request.requestId, action.choiceId))) {
+    if (prompt.data.kind === 'secret-request') {
+        const { endpointId, request } = prompt.data;
+        const value = action.kind === 'answer' ? action.answers[SECRET_ANSWER_FIELD] : undefined;
+        let accepted: boolean;
+        if (value !== undefined && value !== '') {
+            accepted = await secrets.save(endpointId, request.requestId, value);
+        } else if (action.kind === 'choose' && action.choiceId === SECRET_DECLINE) {
+            accepted = await secrets.decline(endpointId, request.requestId);
+        } else {
+            throw new Error(i18next.t('prompts:error.expired'));
+        }
+        if (!accepted) {
+            throw new Error(i18next.t('prompts:error.expired'));
+        }
+        return;
+    }
+    if (action.kind !== 'choose' || !isComputerChoice(action.choiceId) || !(await answerComputer(prompt.data.request.requestId, action.choiceId))) {
         throw new Error(i18next.t('prompts:error.expired'));
     }
 }

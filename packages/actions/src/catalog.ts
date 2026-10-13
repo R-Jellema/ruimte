@@ -65,6 +65,8 @@ import {
     ProcessSignalSchema,
     ProviderAccountIdSchema,
     RuntimeModeSchema,
+    SECRET_LIMITS,
+    SECRET_VARIABLE_PATTERN,
     TaskSchema,
     UNKNOWN_KIND,
     UsageProviderSchema,
@@ -3075,6 +3077,40 @@ export const ACTION_DEFINITIONS = {
         input: z.object({ launch: launchName }),
         // How many of its launches ran and are being stopped.
         output: z.object({ launchId: z.string(), name: z.string(), stopping: z.number().int() })
+    },
+    'secret.request': {
+        title: 'Ask for a secret',
+        description:
+            "Asks the person, in a private card of the caller's chat, for the value of a variable of a launch; the value stays on this machine and only that launch's process gets it.",
+        effect: 'external',
+        domain: 'developer',
+        actors: AGENT,
+        input: z.object({
+            launch: launchName,
+            variable: z
+                .string()
+                .regex(SECRET_VARIABLE_PATTERN, 'A variable is letters, digits and underscores, not starting with a digit')
+                .max(SECRET_LIMITS.variable)
+                .describe('The environment variable of the launch the secret is bound to'),
+            label: z.string().trim().min(1).max(SECRET_LIMITS.label).describe('What the person is asked for, such as the name of a service and its key'),
+            reason: z.string().trim().min(1).max(SECRET_LIMITS.reason).describe('Why the launch needs it, in one or two sentences'),
+            placeholder: z.string().trim().min(1).max(SECRET_LIMITS.placeholder).nullish().describe('A hint inside the field, such as the shape of the key'),
+            wait: z
+                .number()
+                .int()
+                .min(1)
+                .max(110)
+                .nullish()
+                .describe('Seconds the call holds for the answer; 6 without it. A card that still waits after that is answered by asking again')
+        }),
+        // Never the value: only what became of the card, and on saved the variable now bound.
+        output: z.object({
+            requestId: z.string(),
+            outcome: z.enum(['saved', 'declined', 'cancelled', 'timed-out', 'waiting']),
+            launchId: z.string(),
+            name: z.string(),
+            variable: z.string()
+        })
     },
     'file.list': {
         title: 'List a folder',

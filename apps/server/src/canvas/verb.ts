@@ -25,6 +25,7 @@ import { MAX_TITLE_LENGTH } from '@ruimte/actions';
 import { z } from 'zod';
 import type { DriveOutcome, ShotOutcome } from '../browser/drive.ts';
 import type { ComputerUse } from '../computer/computer-use.ts';
+import type { SecretAsk, SecretOutcome } from '../secrets/secret-requests.ts';
 import type { DeviceDriver } from '../devices/agent-driver.ts';
 import type { DatabaseAgentHost } from '../database/agent-databases.ts';
 import type { AgentLanguage } from '../language/agent-language.ts';
@@ -150,6 +151,13 @@ export interface CanvasHost {
     databases?: DatabaseAgentHost;
     /* The project's running language servers as an agent may ask them; absent on a host without them. */
     language?: LanguageAgentHost;
+    /* The cards in which an agent asks a person for a launch's secret; absent on a host that keeps none. */
+    secrets?: SecretHost;
+}
+
+/* Only what became of a card ever comes back; the value goes from the person's card to the store. */
+export interface SecretHost {
+    ask(ask: SecretAsk, waitMs?: number): Promise<{ requestId: string; outcome: SecretOutcome }>;
 }
 
 export type LanguageAgentHost = Pick<AgentLanguage, 'diagnostics' | 'hover' | 'definition' | 'references' | 'symbols' | 'sqlFile'>;
@@ -290,7 +298,7 @@ export const { defineVerb, defineAction, defineNoun, defineHelp, dryRunVerbNames
 
 /* Two things an agent keeps mixing up, so the line is in the root of `help` and in the detail of each verb it is about. */
 export const SCOPE_LINE =
-    'scope\tlist and read are what a person linked into this session; node, link, browser, device, view, task, agent, team, done, notify, alert, answer, worktree, launches, database and language are the project itself, and plan and visual are the chat of the caller, computer the apps of this machine\ta node you add is readable through read only once a line joins it to you, and a terminal or a chat only once that line runs from it into you';
+    'scope\tlist and read are what a person linked into this session; node, link, browser, device, view, task, agent, team, done, notify, alert, answer, worktree, launches, database and language are the project itself, plan and visual are the chat of the caller, secret is a card in that chat for a launch, computer the apps of this machine\ta node you add is readable through read only once a line joins it to you, and a terminal or a chat only once that line runs from it into you';
 
 /* What `help` says of the last row of every list of the project file. */
 export const REVISION_ROW = `revision\tThe last row is revision and the revision of the project file; --${REVISION_FLAG} on a write that follows refuses it once the project moved on`;

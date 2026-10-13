@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
-import { Lock, Plus, Rocket, Search, TriangleAlert, Users, X } from 'lucide-react';
-import type { LaunchConfigEntry, LaunchConfigKind, LaunchesDocument, LaunchSuggestion } from '@ruimte/contracts';
+import { KeyRound, Lock, Plus, Rocket, Search, TriangleAlert, Users, X } from 'lucide-react';
+import { isSecretReference, type LaunchConfigEntry, type LaunchConfigKind, type LaunchesDocument, type LaunchSuggestion } from '@ruimte/contracts';
 import {
     Button,
     Checkbox,
@@ -425,7 +425,15 @@ function LaunchForm({
                             <Input mono placeholder="http://localhost:8000" value={entry.url ?? ''} onChange={(e) => set({ url: e.target.value })} />
                         </Field>
                     )}
-                    <EnvironmentField rows={draft.env} onChange={setEnv} />
+                    <EnvironmentField
+                        rows={draft.env}
+                        onChange={setEnv}
+                        machineSecrets={Object.keys(entry.overlay?.env ?? {}).filter((key) => isSecretReference(entry.overlay?.env?.[key]))}
+                        onRemoveMachineSecret={(key) => {
+                            const { [key]: _gone, ...env } = entry.overlay?.env ?? {};
+                            set({ overlay: { ...entry.overlay, env } });
+                        }}
+                    />
                 </>
             )}
             <Field orientation="horizontal" group>
@@ -444,7 +452,22 @@ function LaunchForm({
     );
 }
 
-function EnvironmentField({ rows, onChange }: { rows: readonly EnvRow[]; onChange(rows: EnvRow[]): void }) {
+/*
+ * A variable that refers to a secret shows that it is set and never its value, which only this
+ * machine's daemon holds. A shared launch keeps its secrets in what this machine lays over it, so
+ * those are listed apart; removing either removes the secret on the next save.
+ */
+function EnvironmentField({
+    rows,
+    onChange,
+    machineSecrets,
+    onRemoveMachineSecret
+}: {
+    rows: readonly EnvRow[];
+    onChange(rows: EnvRow[]): void;
+    machineSecrets: readonly string[];
+    onRemoveMachineSecret(key: string): void;
+}) {
     const { t } = useTranslation('launches');
     const edit = (id: number, fields: Partial<EnvRow>): void => onChange(rows.map((row) => (row.id === id ? { ...row, ...fields } : row)));
 
@@ -459,22 +482,34 @@ function EnvironmentField({ rows, onChange }: { rows: readonly EnvRow[]; onChang
                             aria-label={t('edit.envKey')}
                             placeholder={t('edit.envKey')}
                             value={row.key}
+                            readOnly={isSecretReference(row.value)}
                             onChange={(e) => edit(row.id, { key: e.target.value })}
                         />
-                        <Input
-                            mono
-                            className="grow"
-                            aria-label={t('edit.envValue')}
-                            placeholder={t('edit.envValue')}
-                            value={row.value}
-                            onChange={(e) => edit(row.id, { value: e.target.value })}
-                        />
+                        {isSecretReference(row.value) ? (
+                            <SecretValue />
+                        ) : (
+                            <Input
+                                mono
+                                className="grow"
+                                aria-label={t('edit.envValue')}
+                                placeholder={t('edit.envValue')}
+                                value={row.value}
+                                onChange={(e) => edit(row.id, { value: e.target.value })}
+                            />
+                        )}
                         <IconButton
                             icon={X}
                             size="sm"
                             label={t('edit.removeVariable', { key: row.key })}
                             onClick={() => onChange(rows.filter((other) => other.id !== row.id))}
                         />
+                    </div>
+                ))}
+                {machineSecrets.map((key) => (
+                    <div key={`machine:${key}`} className="flex items-center gap-2">
+                        <Input mono readOnly className="w-44 shrink-0" aria-label={t('edit.envKey')} value={key} />
+                        <SecretValue />
+                        <IconButton icon={X} size="sm" label={t('edit.removeVariable', { key })} onClick={() => onRemoveMachineSecret(key)} />
                     </div>
                 ))}
                 <div className="flex h-8 items-center">
@@ -484,6 +519,16 @@ function EnvironmentField({ rows, onChange }: { rows: readonly EnvRow[]; onChang
                 </div>
             </div>
         </Field>
+    );
+}
+
+function SecretValue() {
+    const { t } = useTranslation('launches');
+    return (
+        <span className="flex h-8 min-w-0 grow items-center gap-1.5 text-sm text-text-muted">
+            <Icon icon={KeyRound} size={14} className="shrink-0" />
+            <span className="truncate">{t('edit.secret')}</span>
+        </span>
     );
 }
 

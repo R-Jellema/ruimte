@@ -4,6 +4,7 @@ import { useCanvasStore } from '@/state/canvas';
 import { useChats } from '@adecore/agents-react/state/chats';
 import { computerApprovalsOf, useComputer } from '@/state/computer';
 import { useEndpointId } from '@/state/keys';
+import { secretRequestsOf, useSecrets } from '@/state/secrets';
 import { useSessions } from '@/state/sessions';
 
 const NONE: CanvasPrompt[] = [];
@@ -26,13 +27,20 @@ export function useCanvasPrompts(): CanvasPrompt[] {
                 sessions: useSessions.getState().byKey,
                 chats: useChats.getState().byKey,
                 computer: computerApprovalsOf(endpointId),
+                secrets: secretRequestsOf(endpointId),
                 waitingSince: waitingSince.current
             });
             waitingSince.current = next.waitingSince;
             setPrompts((current) => (samePrompts(current, next.prompts) ? current : next.prompts));
         };
         update();
-        const unsubscribe = [canvasStore.subscribe(update), useChats.subscribe(update), useSessions.subscribe(update), useComputer.subscribe(update)];
+        const unsubscribe = [
+            canvasStore.subscribe(update),
+            useChats.subscribe(update),
+            useSessions.subscribe(update),
+            useComputer.subscribe(update),
+            useSecrets.subscribe(update)
+        ];
         return () => {
             for (const off of unsubscribe) {
                 off();

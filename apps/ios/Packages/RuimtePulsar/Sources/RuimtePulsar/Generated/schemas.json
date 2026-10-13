@@ -48840,6 +48840,138 @@
       "removed"
     ]
   },
+  "request.secret.requests.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.secret.requests.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "requests": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "nodeId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "projectId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "launchId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "launchName": {
+              "type": "string"
+            },
+            "variable": {
+              "type": "string",
+              "minLength": 1
+            },
+            "label": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "placeholder": {
+              "type": "string"
+            },
+            "replaces": {
+              "type": "boolean"
+            },
+            "createdAt": {
+              "type": "number"
+            },
+            "expiresAt": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "requestId",
+            "nodeId",
+            "projectId",
+            "launchId",
+            "launchName",
+            "variable",
+            "label",
+            "reason",
+            "replaces",
+            "createdAt",
+            "expiresAt"
+          ]
+        }
+      }
+    },
+    "required": [
+      "requests"
+    ]
+  },
+  "request.secret.save.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "requestId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "value": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 16384
+      }
+    },
+    "required": [
+      "requestId",
+      "value"
+    ]
+  },
+  "request.secret.save.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "accepted": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "accepted"
+    ]
+  },
+  "request.secret.decline.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "requestId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "requestId"
+    ]
+  },
+  "request.secret.decline.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "accepted": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "accepted"
+    ]
+  },
   "request.endpoint.info.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -66830,6 +66962,77 @@
       "always",
       "terminals",
       "thisTime"
+    ]
+  },
+  "event.secret.requests": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "requests": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "nodeId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "projectId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "launchId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "launchName": {
+              "type": "string"
+            },
+            "variable": {
+              "type": "string",
+              "minLength": 1
+            },
+            "label": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "placeholder": {
+              "type": "string"
+            },
+            "replaces": {
+              "type": "boolean"
+            },
+            "createdAt": {
+              "type": "number"
+            },
+            "expiresAt": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "requestId",
+            "nodeId",
+            "projectId",
+            "launchId",
+            "launchName",
+            "variable",
+            "label",
+            "reason",
+            "replaces",
+            "createdAt",
+            "expiresAt"
+          ]
+        }
+      }
+    },
+    "required": [
+      "requests"
     ]
   },
   "event.task.changed": {

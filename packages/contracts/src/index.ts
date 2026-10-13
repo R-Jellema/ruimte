@@ -329,6 +329,7 @@ import {
     ComputerUseSetEnabledPayloadSchema,
     ComputerUseStatusSchema
 } from './computer.ts';
+import { SecretAnswerResultSchema, SecretDeclinePayloadSchema, SecretRequestsSchema, SecretSavePayloadSchema } from './secrets.ts';
 
 export * from './agent.ts';
 export * from './agent-integrations.ts';
@@ -355,6 +356,7 @@ export * from './ids.ts';
 export * from './language.ts';
 export * from './ondevice.ts';
 export * from './launches.ts';
+export * from './secrets.ts';
 export * from './live-stream.ts';
 export * from './lan-door.ts';
 export * from './machine-http.ts';
@@ -620,6 +622,9 @@ export const REQUEST_SCHEMAS = {
     'computer.setLanguage': { payload: ComputerSetLanguagePayloadSchema, result: EmptySchema },
     'computer.grants': { payload: EmptySchema, result: ComputerAppGrantsSchema },
     'computer.revoke': { payload: ComputerRevokePayloadSchema, result: ComputerRevokeResultSchema },
+    'secret.requests': { payload: EmptySchema, result: SecretRequestsSchema },
+    'secret.save': { payload: SecretSavePayloadSchema, result: SecretAnswerResultSchema },
+    'secret.decline': { payload: SecretDeclinePayloadSchema, result: SecretAnswerResultSchema },
     'endpoint.info': { payload: EmptySchema, result: EndpointInfoSchema },
     'endpoint.setIdentity': { payload: EndpointSetIdentityPayloadSchema, result: EndpointInfoSchema },
     'endpoint.agentIntegrations': { payload: EmptySchema, result: AgentIntegrationsResultSchema },
@@ -722,6 +727,7 @@ export const EVENT_SCHEMAS = {
     'computer.status': ComputerUseStatusSchema,
     'computer.approvals': ComputerApprovalsSchema,
     'computer.grants': ComputerAppGrantsSchema,
+    'secret.requests': SecretRequestsSchema,
     'task.changed': TaskChangedEventSchema,
     'plan.changed': PlanChangedEventSchema,
     'plan.removed': PlanRemovedEventSchema,

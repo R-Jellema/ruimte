@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import type { ComputerApprovalChoice } from '@ruimte/contracts';
+import type { ComputerApprovalChoice, SecretRequest } from '@ruimte/contracts';
 import { isBlockingSubject, promptCreatedAt, promptIdOf, type PromptSubject } from '@adecore/agents-react/prompts/logic/subjects';
-import { answerRuimtePrompt, computerButtons, computerPrompt, ruimtePayloadOf, waitingPrompt } from '@/prompts/ruimte-prompts';
+import { answerRuimtePrompt, computerButtons, computerPrompt, ruimtePayloadOf, secretPrompt, waitingPrompt } from '@/prompts/ruimte-prompts';
+import type { SecretAnswers } from '@/secrets/answer';
 
 const request = {
     requestId: 'computer-1',
@@ -25,6 +26,23 @@ function machine(accepted = true) {
     return { calls, answer };
 }
 
+function secretMachine(accepted = true) {
+    const calls: unknown[][] = [];
+    const answers: SecretAnswers = {
+        save: async (endpointId, requestId, value) => {
+            calls.push(['save', endpointId, requestId, value]);
+            return accepted;
+        },
+        decline: async (endpointId, requestId) => {
+            calls.push(['decline', endpointId, requestId]);
+            return accepted;
+        }
+    };
+    return { calls, answers };
+}
+
+const NO_SECRETS = secretMachine().answers;
+
 describe('a computer use card', () => {
     const card: PromptSubject = { kind: 'host', nodeId: 'chat-1', prompt: computerPrompt('chat-1', request) };
 
@@ -39,10 +57,10 @@ describe('a computer use card', () => {
     test('answers the machine with the choice, and a card that is gone is an error', async () => {
         const { calls, answer } = machine();
         const prompt = computerPrompt('chat-1', request);
-        await answerRuimtePrompt(prompt, { kind: 'choose', choiceId: 'always' }, answer);
+        await answerRuimtePrompt(prompt, { kind: 'choose', choiceId: 'always' }, answer, NO_SECRETS);
         expect(calls).toEqual([['computer-1', 'always']]);
-        await expect(answerRuimtePrompt(prompt, { kind: 'choose', choiceId: 'once' }, machine(false).answer)).rejects.toThrow('already answered');
-        await expect(answerRuimtePrompt(prompt, { kind: 'choose', choiceId: 'allow' }, answer)).rejects.toThrow();
+        await expect(answerRuimtePrompt(prompt, { kind: 'choose', choiceId: 'once' }, machine(false).answer, NO_SECRETS)).rejects.toThrow('already answered');
+        await expect(answerRuimtePrompt(prompt, { kind: 'choose', choiceId: 'allow' }, answer, NO_SECRETS)).rejects.toThrow();
         expect(calls).toHaveLength(1);
     });
 
@@ -60,7 +78,7 @@ describe('a computer use card', () => {
 describe('a waiting terminal', () => {
     test('sends nothing, since only its TUI answers', async () => {
         const { calls, answer } = machine();
-        await expect(answerRuimtePrompt(waitingPrompt('terminal-1', 1), { kind: 'choose', choiceId: 'allow' }, answer)).rejects.toThrow();
+        await expect(answerRuimtePrompt(waitingPrompt('terminal-1', 1), { kind: 'choose', choiceId: 'allow' }, answer, NO_SECRETS)).rejects.toThrow();
         expect(calls).toEqual([]);
     });
 
@@ -69,5 +87,48 @@ describe('a waiting terminal', () => {
         expect(promptIdOf(waiting)).toBe('waiting:node');
         expect(promptCreatedAt(waiting)).toBe(5);
         expect(isBlockingSubject(waiting)).toBe(true);
+    });
+});
+
+describe('a secret card', () => {
+    const secret: SecretRequest = {
+        requestId: 'secret-1',
+        nodeId: 'chat-1',
+        projectId: 'p1',
+        launchId: 'api',
+        launchName: 'API',
+        variable: 'API_KEY',
+        label: 'Stripe test key',
+        reason: 'Checkout calls Stripe',
+        replaces: false,
+        createdAt: 9,
+        expiresAt: 900_009
+    };
+    const card: PromptSubject = { kind: 'host', nodeId: 'chat-1', prompt: secretPrompt('m1', 'chat-1', secret) };
+
+    test('saves the typed value to the machine that asked, or declines', async () => {
+        const { calls, answers } = secretMachine();
+        const prompt = secretPrompt('m1', 'chat-1', secret);
+        await answerRuimtePrompt(prompt, { kind: 'answer', answers: { value: 'sk_test_1' } }, machine().answer, answers);
+        await answerRuimtePrompt(prompt, { kind: 'choose', choiceId: 'decline' }, machine().answer, answers);
+        expect(calls).toEqual([
+            ['save', 'm1', 'secret-1', 'sk_test_1'],
+            ['decline', 'm1', 'secret-1']
+        ]);
+    });
+
+    test('an empty value sends nothing, and a card that is gone is an error', async () => {
+        const { calls, answers } = secretMachine(false);
+        const prompt = secretPrompt('m1', 'chat-1', secret);
+        await expect(answerRuimtePrompt(prompt, { kind: 'answer', answers: { value: '' } }, machine().answer, answers)).rejects.toThrow();
+        expect(calls).toEqual([]);
+        await expect(answerRuimtePrompt(prompt, { kind: 'choose', choiceId: 'decline' }, machine().answer, answers)).rejects.toThrow('already answered');
+    });
+
+    test('blocks, is dated by when the agent asked, and stands for its request', () => {
+        expect(isBlockingSubject(card)).toBe(true);
+        expect(promptCreatedAt(card)).toBe(9);
+        expect(promptIdOf(card)).toBe('secret:chat-1:secret-1');
+        expect(ruimtePayloadOf(card)).toBe(secret);
     });
 });

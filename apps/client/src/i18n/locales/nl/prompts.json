@@ -10,6 +10,15 @@
         "always": "Altijd toestaan",
         "deny": "Weigeren"
     },
+    "secret": {
+        "body": "De agent vraagt een secret voor de launch {{launch}}.",
+        "variable": "Bewaard op deze machine als {{variable}} voor {{launch}}. Alleen die launch krijgt het bij het starten; de agent ziet het nooit.",
+        "replaces": "Dit vervangt de waarde die {{variable}} nu heeft.",
+        "field": "Secret",
+        "save": "Bewaren",
+        "decline": "Weigeren",
+        "approval": "Bewaren keurt deze variabele goed voor de launch, als je de launch eerder goedkeurde."
+    },
     "waiting": {
         "approval": "Toestemming gevraagd door {{tool}}",
         "question": "Vraag van {{tool}}",

@@ -1,10 +1,10 @@
-import type { AgentKind, ComputerApproval } from '@ruimte/contracts';
+import type { AgentKind, ComputerApproval, SecretRequest } from '@ruimte/contracts';
 import { orderPrompts } from '@adecore/agents-react/prompts/logic/prompts';
 import { isBlockingSubject, promptCreatedAt, promptIdOf, type PromptSubject } from '@adecore/agents-react/prompts/logic/subjects';
 import type { CanvasNode } from '@/state/canvas';
 import { waitingRequestsOf, type ChatsById } from '@adecore/agents-react/state/chats';
 import { endpointKey } from '@/state/keys';
-import { computerPrompt, ruimtePayloadOf, waitingPrompt } from '@/prompts/ruimte-prompts';
+import { computerPrompt, ruimtePayloadOf, secretPrompt, waitingPrompt } from '@/prompts/ruimte-prompts';
 import { nodeStatus, type SessionsByKey } from '@/state/sessions';
 
 export interface CanvasPrompt {
@@ -22,6 +22,8 @@ export interface CanvasPromptsInput {
     chats: ChatsById;
     /* The cards of this machine about operating its apps; each belongs to the chat or terminal whose agent asks. */
     computer: readonly ComputerApproval[];
+    /* The cards of this machine in which an agent asks for a launch's secret; each belongs to the chat that asks. */
+    secrets?: readonly SecretRequest[];
     /* When each waiting terminal was first seen waiting, by session key, as the previous call returned it. */
     waitingSince: ReadonlyMap<string, number>;
 }
@@ -37,7 +39,7 @@ export interface CanvasPrompts {
  * A waiting terminal is dated by when it was first seen waiting rather than by the agent's
  * `updatedAt`, which every later hook of the same prompt moves forward.
  */
-export function canvasPrompts({ nodes, endpointId, sessions, chats, computer, waitingSince }: CanvasPromptsInput): CanvasPrompts {
+export function canvasPrompts({ nodes, endpointId, sessions, chats, computer, secrets = [], waitingSince }: CanvasPromptsInput): CanvasPrompts {
     const prompts: CanvasPrompt[] = [];
     const since = new Map(waitingSince);
     const add = (node: CanvasPromptsInput['nodes'][number], subject: PromptSubject, provider: AgentKind | null, surface: CanvasPrompt['surface']) =>
@@ -54,6 +56,11 @@ export function canvasPrompts({ nodes, endpointId, sessions, chats, computer, wa
             }
         }
         if (node.kind === 'chat') {
+            for (const request of secrets) {
+                if (request.nodeId === node.id) {
+                    add(node, { kind: 'host', nodeId: node.id, prompt: secretPrompt(endpointId, node.id, request) }, provider, 'chat');
+                }
+            }
             for (const item of waitingRequestsOf(chats[key])) {
                 add(node, { kind: 'chat', nodeId: node.id, item }, provider, 'chat');
             }

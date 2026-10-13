@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { AgentInfo, ChatInfo, ChatItem, ComputerApproval } from '@ruimte/contracts';
+import type { AgentInfo, ChatInfo, ChatItem, ComputerApproval, SecretRequest } from '@ruimte/contracts';
 import { PROMPT_SAMPLES } from '@adecore/agents-react/prompts/logic/prompts.fixtures';
 import type { ChatsById } from '@adecore/agents-react/state/chats';
 import { endpointKey } from '@/state/keys';
@@ -123,6 +123,28 @@ describe('canvasPrompts', () => {
             ['terminal-waiting', 'ios', 'terminal'],
             ['chat', 'docs', 'chat']
         ]);
+    });
+
+    test('a secret card stands on the chat that asks, never on a terminal, blocking', () => {
+        const card = (nodeId: string, createdAt: number): SecretRequest => ({
+            requestId: `secret-${nodeId}`,
+            nodeId,
+            projectId: 'p1',
+            launchId: 'api',
+            launchName: 'API',
+            variable: 'API_KEY',
+            label: 'Stripe key',
+            reason: 'Checkout',
+            replaces: false,
+            createdAt,
+            expiresAt: createdAt + 900_000
+        });
+        const { prompts } = canvasPrompts(input({ secrets: [card('docs', 10), card('ios', 20)] }));
+        expect(prompts.map((prompt) => [kindOf(prompt), prompt.title, prompt.surface]).slice(0, 2)).toEqual([
+            ['secret-request', 'docs', 'chat'],
+            ['terminal-waiting', 'api', 'terminal']
+        ]);
+        expect(prompts.some((prompt) => kindOf(prompt) === 'secret-request' && prompt.title === 'ios')).toBe(false);
     });
 
     test('nodes of another canvas are not asked about', () => {

@@ -10,6 +10,15 @@
         "always": "Always allow",
         "deny": "Deny"
     },
+    "secret": {
+        "body": "The agent asks for a secret for the launch {{launch}}.",
+        "variable": "Saved on this machine as {{variable}} for {{launch}}. Only that launch gets it when it starts; the agent never sees it.",
+        "replaces": "This replaces the value {{variable}} has now.",
+        "field": "Secret",
+        "save": "Save",
+        "decline": "Decline",
+        "approval": "Saving approves this variable for the launch, if you approved the launch before."
+    },
     "waiting": {
         "heading": "Waiting for you in its terminal",
         "approval": "Approval requested by {{tool}}",

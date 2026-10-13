@@ -1,5 +1,7 @@
 import { isAbsolute, join, resolve } from 'node:path';
 import {
+    isSecretReference,
+    LAUNCH_SECRET_REFERENCE,
     LAUNCHES_VERSION,
     LaunchesPrivateFileSchema,
     LaunchesSharedFileSchema,
@@ -65,6 +67,11 @@ export interface LaunchProjects {
 export interface LaunchApprovals {
     has(folder: string, nodeId: string, command: string): boolean;
     approve(folder: string, nodeId: string, command: string): Promise<void>;
+}
+
+/* What the store tells the secrets: which of them the launches still refer to, after a person's save. */
+export interface LaunchSecrets {
+    retain(projectId: string, referenced: readonly { launchId: string; variable: string }[]): Promise<void>;
 }
 
 /* A launch as it runs on this machine: its overlay laid over it and its folder made absolute. */
@@ -178,14 +185,16 @@ function digestOf(resolved: Pick<ResolvedLaunch, 'command' | 'cwd' | 'env'>): st
 export class LaunchStore {
     private readonly projects: LaunchProjects;
     private readonly approvals: LaunchApprovals;
+    private readonly secrets: LaunchSecrets | null;
     private readonly seams: WatchSeams;
     private readonly sinks = new ClientSinks();
     private readonly loaded = new Map<string, LoadedLaunches>();
     private readonly writes = new Serializer();
 
-    constructor(options: { projects: LaunchProjects; approvals: LaunchApprovals; seams?: WatchSeams }) {
+    constructor(options: { projects: LaunchProjects; approvals: LaunchApprovals; secrets?: LaunchSecrets; seams?: WatchSeams }) {
         this.projects = options.projects;
         this.approvals = options.approvals;
+        this.secrets = options.secrets ?? null;
         this.seams = options.seams ?? SYSTEM_WATCH;
     }
 
@@ -244,13 +253,65 @@ export class LaunchStore {
             state.order = privateFile.order;
             state.overlays = overlays;
 
-            for (const resolved of this.resolvedAll(projectId, state)) {
+            const after = this.resolvedAll(projectId, state);
+            for (const resolved of after) {
                 if (resolved.launch.kind !== 'group' && !imported.includes(resolved.launch.id) && before.get(resolved.launch.id) !== digestOf(resolved)) {
                     await this.approvals.approve(state.folder, approvalKeyOf(resolved.launch.id), digestOf(resolved));
                 }
             }
+            // A person removing a secret's variable, or its launch, removes the secret too.
+            await this.secrets?.retain(projectId, secretSlotsOf(after)).catch((e: unknown) => {
+                console.error(`Dropping the unused secrets of ${projectId} failed:`, errorText(e));
+            });
             this.emitChanged(projectId, state);
             return state.rev;
+        });
+    }
+
+    /*
+     * A person saved a secret for a variable of a launch through a card: the variable becomes a
+     * reference to it, in this machine's own file, since the secret never travels with the project.
+     * That save is the person's yes to the change in environment, but only for a launch that was
+     * approved as it stood; anything else about it still waits on the launch chip.
+     */
+    bindSecret(projectId: string, launchId: string, variable: string): Promise<void> {
+        return this.writes.run(async () => {
+            const state = await this.load(projectId);
+            await this.takeOutsideEdits(projectId, state);
+            const current = this.resolvedAll(projectId, state).find((resolved) => resolved.launch.id === launchId);
+            if (!current || current.launch.kind === 'group') {
+                throw new LaunchError('launch-not-found', `This project has no launch ${launchId} to keep a secret for`);
+            }
+            if (isSecretReference(current.env[variable])) {
+                return;
+            }
+            const wasApproved = current.approved;
+            let overlays = state.overlays;
+            let own = launchesOf(state.private);
+            if (current.shared) {
+                const overlay = state.overlays[launchId] ?? {};
+                overlays = { ...state.overlays, [launchId]: { ...overlay, env: { ...overlay.env, [variable]: LAUNCH_SECRET_REFERENCE } } };
+            } else {
+                own = own.map((launch) => (launch.id === launchId ? { ...launch, env: { ...launch.env, [variable]: LAUNCH_SECRET_REFERENCE } } : launch));
+            }
+            const privateFile = {
+                version: LAUNCHES_VERSION,
+                ...state.privateRest,
+                rev: state.rev + 1,
+                order: state.order,
+                launches: [...own, ...rawOf(state.private)],
+                overlays
+            };
+            await writeGitignoreIfMissing(join(state.folder, PROJECT_DIR, PROJECT_FILE));
+            state.privateText = await writeJsonDocument(privatePathIn(state.folder), privateFile, serialize);
+            state.rev = privateFile.rev;
+            state.private = readLaunchEntries(privateFile.launches);
+            state.overlays = overlays;
+            if (wasApproved) {
+                const bound = this.resolvedAll(projectId, state).find((resolved) => resolved.launch.id === launchId)!;
+                await this.approvals.approve(state.folder, approvalKeyOf(launchId), digestOf(bound));
+            }
+            this.emitChanged(projectId, state);
         });
     }
 
@@ -445,6 +506,15 @@ export class LaunchStore {
             })
             .filter((watcher) => watcher !== null);
     }
+}
+
+/* The variables of every launch that refer to a secret. */
+function secretSlotsOf(launches: readonly ResolvedLaunch[]): { launchId: string; variable: string }[] {
+    return launches.flatMap((resolved) =>
+        Object.entries(resolved.env)
+            .filter(([, value]) => isSecretReference(value))
+            .map(([variable]) => ({ launchId: resolved.launch.id, variable }))
+    );
 }
 
 /* A file from a newer Ruimte is refused, never set aside: a later release reads it. */
