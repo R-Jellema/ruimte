@@ -311,7 +311,7 @@ describe('proving the local secret', () => {
 });
 
 describe('a service the command line installed', () => {
-    const COMMAND_LINE = `<plist><string>${COMMAND_LINE_PROGRAM}</string><string>--host</string><string>0.0.0.0</string></plist>`;
+    const COMMAND_LINE = `<plist><dict><key>ProgramArguments</key><array><string>${COMMAND_LINE_PROGRAM}</string><string>--host</string><string>0.0.0.0</string></array></dict></plist>`;
 
     test('is used as it is with the switch on, and nothing is written, started or stopped', async () => {
         const { controller, fake, events } = setup({ fake: fakeManager({ onDisk: COMMAND_LINE, running: EXPECTED }) });
@@ -344,7 +344,9 @@ describe('a service the command line installed', () => {
 
     test("a definition of an app elsewhere is the app's own and is rewritten", async () => {
         const { controller, fake } = setup({
-            fake: fakeManager({ onDisk: '<plist><string>/Volumes/Ruimte/Ruimte.app/Contents/Resources/bin/ruimte</string></plist>' })
+            fake: fakeManager({
+                onDisk: '<plist><dict><key>ProgramArguments</key><array><string>/Volumes/Ruimte/Ruimte.app/Contents/Resources/bin/ruimte</string></array></dict></plist>'
+            })
         });
         await controller.start();
         expect(fake.calls).toEqual(['install', 'start']);
