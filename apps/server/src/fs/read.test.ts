@@ -3,7 +3,7 @@ import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FS_READ_MAX_TEXT_BYTES } from '@ruimte/contracts';
-import { ReadError, languageOf, looksBinary, readFile, readServedFile } from './read.ts';
+import { ReadError, SNIFF_BYTES, languageOf, looksBinary, readFile, readServedFile } from './read.ts';
 import { looksLikeSvg, sniffMime } from './sniff.ts';
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
@@ -66,6 +66,19 @@ describe('the binary sniff', () => {
             expect(looksBinary(bytes.subarray(0, end), true)).toBe(false);
         }
         expect(looksBinary(new Uint8Array([0x68, 0xe9, 0x21, 0x68]), true)).toBe(true);
+    });
+
+    test('a two- or four-byte character split by the sniff length is text only while the head was cut', () => {
+        for (const character of ['é', '😀']) {
+            const encoded = new TextEncoder().encode(character);
+            for (let inHead = 1; inHead < encoded.length; inHead++) {
+                const head = new Uint8Array(SNIFF_BYTES);
+                head.fill(0x61, 0, SNIFF_BYTES - inHead);
+                head.set(encoded.subarray(0, inHead), SNIFF_BYTES - inHead);
+                expect(looksBinary(head, true)).toBe(false);
+                expect(looksBinary(head, false)).toBe(true);
+            }
+        }
     });
 
     test('names the formats it knows by their first bytes', () => {
@@ -187,6 +200,16 @@ describe('fs.read', () => {
     test('a byte past the sniff that is not UTF-8 makes the file binary, never lossy text', async () => {
         const path = await write('legacy.txt', Buffer.concat([Buffer.from('a'.repeat(9000)), Buffer.from(latin1('caf\u00e9\n'))]));
         expect(await readFile(path)).toMatchObject({ kind: 'binary', mime: 'application/octet-stream', size: 9005 });
+    });
+
+    test('reads a two- or four-byte character as text wherever it falls around the sniff length', async () => {
+        for (const character of ['é', '😀']) {
+            const width = new TextEncoder().encode(character).length;
+            for (let start = SNIFF_BYTES - width - 1; start <= SNIFF_BYTES + 1; start++) {
+                const text = `${'a'.repeat(start)}${character} tail\n`;
+                expect(await readFile(await write('boundary.txt', text))).toMatchObject({ kind: 'text', text });
+            }
+        }
     });
 
     test('answers a text file past the cap with its size and mtime, for the bytes to be fetched', async () => {
