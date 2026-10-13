@@ -14,7 +14,7 @@ import type { TaskStore } from '@adecore/agents/tasks/task-store';
 import { wireTasks, type TaskWiring } from '../tasks/wiring.ts';
 import { errorText } from '../error-text.ts';
 import { wireEndChildren, type EndChildrenWiring } from './end-children.ts';
-import type { OutboxStore, OutboxWork } from './outbox.ts';
+import type { OutboxStore, OutboxWork, RunAfterSettleEntry } from './outbox.ts';
 import { OutboxWorker, type OutboxClock } from '@adecore/agents/outbox/outbox-worker';
 import { oweResume, resumeRunHandler, resumeRunParked } from './resume-run.ts';
 import { startAgentHandler } from './start-agent.ts';
@@ -119,6 +119,8 @@ export interface OutboxWiringDeps {
     onDropped?: (drop: Promise<void>) => void;
     /* What a prune that failed does; the daemon logs it, a test stays quiet. */
     onFailed?: (what: string, error: unknown) => void;
+    /* Starts the task a chat's project runs after it settled in a worktree; absent on a host that runs no launches, where the entry lapses. */
+    runAfterSettle?: (entry: RunAfterSettleEntry) => Promise<void>;
 }
 
 export interface OutboxWiring {
@@ -233,7 +235,8 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
                     return;
                 }
                 return chat.wake({ text: entry.payload.text, label: entry.payload.label, taskIds: [] }) ? undefined : 'wait';
-            }
+            },
+            'run-after-settle': (entry) => deps.runAfterSettle?.(entry) ?? Promise.resolve()
         },
         onParked: (entry, error) => {
             resumeRunParked(chats)(entry, error);

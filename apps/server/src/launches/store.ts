@@ -1,4 +1,4 @@
-import { isAbsolute, join, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import {
     isSecretReference,
     LAUNCH_SECRET_REFERENCE,
@@ -51,7 +51,9 @@ export type LaunchErrorCode =
     | 'cwd-outside-project'
     | 'bad-cwd'
     | 'launch-held'
-    | 'launch-stuck';
+    | 'launch-stuck'
+    | 'launch-not-a-task'
+    | 'no-after-settle';
 
 export class LaunchError extends CodedError<LaunchErrorCode> {}
 
@@ -72,6 +74,12 @@ export interface LaunchApprovals {
 /* What the store tells the secrets: which of them the launches still refer to, after a person's save. */
 export interface LaunchSecrets {
     retain(projectId: string, referenced: readonly { launchId: string; variable: string }[]): Promise<void>;
+}
+
+/* The task a person chose to run after a worktree chat settles, per project, under `$RUIMTE_HOME` (`after-settle.ts`). */
+export interface AfterSettleChoices {
+    choiceOf(projectId: string): { launchId: string } | null;
+    choose(projectId: string, launchId: string | null): Promise<void>;
 }
 
 /* A launch as it runs on this machine: its overlay laid over it and its folder made absolute. */
@@ -170,6 +178,40 @@ function approvalKeyOf(launchId: string): string {
     return `launch:${launchId}`;
 }
 
+function worktreesKeyOf(launchId: string): string {
+    return `launch-worktrees:${launchId}`;
+}
+
+/*
+ * What a run in a worktree is approved as: the command, the environment and the folder relative to the
+ * project, since the worktree itself differs from run to run. Null for a launch that runs outside the
+ * project folder, which has no place in a worktree.
+ */
+function worktreesDigestOf(resolved: Pick<ResolvedLaunch, 'folder' | 'command' | 'cwd' | 'env'>): string | null {
+    const inside = relative(resolved.folder, resolved.cwd);
+    if (inside.startsWith('..') || isAbsolute(inside)) {
+        return null;
+    }
+    return JSON.stringify([
+        'worktrees',
+        resolved.command,
+        inside.split(sep).join('/'),
+        Object.entries(resolved.env).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    ]);
+}
+
+/* The digest of a launch that may run in a worktree at all, refused for any other. */
+function worktreesDigestIn(resolved: ResolvedLaunch): string {
+    if (resolved.launch.kind !== 'task' || resolved.command.trim() === '') {
+        throw new LaunchError('launch-not-a-task', `${resolved.launch.name} is no task with a command, and only a task runs after a chat settles`);
+    }
+    const digest = worktreesDigestOf(resolved);
+    if (digest === null) {
+        throw new LaunchError('cwd-outside-project', `${resolved.launch.name} runs outside the project folder, so it has no place in a worktree`);
+    }
+    return digest;
+}
+
 /* Everything that decides what runs, approved as one, so a change to any of it asks again. */
 function digestOf(resolved: Pick<ResolvedLaunch, 'command' | 'cwd' | 'env'>): string {
     return JSON.stringify([resolved.command, resolved.cwd, Object.entries(resolved.env).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))]);
@@ -186,15 +228,23 @@ export class LaunchStore {
     private readonly projects: LaunchProjects;
     private readonly approvals: LaunchApprovals;
     private readonly secrets: LaunchSecrets | null;
+    private readonly afterSettle: AfterSettleChoices | null;
     private readonly seams: WatchSeams;
     private readonly sinks = new ClientSinks();
     private readonly loaded = new Map<string, LoadedLaunches>();
     private readonly writes = new Serializer();
 
-    constructor(options: { projects: LaunchProjects; approvals: LaunchApprovals; secrets?: LaunchSecrets; seams?: WatchSeams }) {
+    constructor(options: {
+        projects: LaunchProjects;
+        approvals: LaunchApprovals;
+        secrets?: LaunchSecrets;
+        afterSettle?: AfterSettleChoices;
+        seams?: WatchSeams;
+    }) {
         this.projects = options.projects;
         this.approvals = options.approvals;
         this.secrets = options.secrets ?? null;
+        this.afterSettle = options.afterSettle ?? null;
         this.seams = options.seams ?? SYSTEM_WATCH;
     }
 
@@ -328,6 +378,46 @@ export class LaunchStore {
         });
     }
 
+    /*
+     * A person's choice of the task to run in a worktree chat's worktree once its turn settles, or of
+     * none. Choosing one approves its command and environment for the project's worktrees as they
+     * stand now, the way a save approves what it changes.
+     */
+    chooseAfterSettle(projectId: string, launchId: string | null): Promise<void> {
+        return this.writes.run(async () => {
+            if (this.afterSettle === null) {
+                throw new LaunchError('no-after-settle', 'This machine runs no launch after a chat settles');
+            }
+            const state = await this.load(projectId);
+            if (launchId !== null) {
+                const resolved = this.resolvedAll(projectId, state).find((candidate) => candidate.launch.id === launchId);
+                if (!resolved) {
+                    throw new LaunchError('launch-not-found', `This project has no launch ${launchId}`);
+                }
+                await this.approvals.approve(state.folder, worktreesKeyOf(launchId), worktreesDigestIn(resolved));
+            }
+            await this.afterSettle.choose(projectId, launchId);
+            this.emitChanged(projectId, state);
+        });
+    }
+
+    /* A task as it would run in the project folder of a worktree, and whether a person approved it for worktrees as it stands. */
+    inWorktree(projectId: string, launchId: string, worktreeFolder: string): Promise<ResolvedLaunch> {
+        return this.writes.run(async () => {
+            const state = await this.load(projectId);
+            const resolved = this.resolvedAll(projectId, state).find((candidate) => candidate.launch.id === launchId);
+            if (!resolved) {
+                throw new LaunchError('launch-not-found', `This project has no launch ${launchId}`);
+            }
+            const digest = worktreesDigestIn(resolved);
+            return {
+                ...resolved,
+                cwd: join(worktreeFolder, relative(state.folder, resolved.cwd)),
+                approved: this.approvals.has(state.folder, worktreesKeyOf(launchId), digest)
+            };
+        });
+    }
+
     /* Every launch of a project as it would run here, in the order of the menu. */
     resolveAll(projectId: string): Promise<ResolvedLaunch[]> {
         return this.writes.run(async () => this.resolvedAll(projectId, await this.load(projectId)));
@@ -413,8 +503,20 @@ export class LaunchStore {
                 const overlay = shared ? state.overlays[launch.id] : undefined;
                 return { ...launch, shared, ...(overlay ? { overlay } : {}) };
             }),
-            approved: resolved.filter((entry) => approvedIds.has(entry.launch.id)).map((entry) => entry.launch.id)
+            approved: resolved.filter((entry) => approvedIds.has(entry.launch.id)).map((entry) => entry.launch.id),
+            ...this.afterSettleOf(projectId, state.folder, resolved)
         };
+    }
+
+    private afterSettleOf(projectId: string, folder: string, resolved: readonly ResolvedLaunch[]): Pick<LaunchesDocument, 'afterSettle'> {
+        const launchId = this.afterSettle?.choiceOf(projectId)?.launchId;
+        const chosen = resolved.find((entry) => entry.launch.id === launchId);
+        if (!chosen) {
+            return {};
+        }
+        const digest = worktreesDigestOf(chosen);
+        const approved = chosen.launch.kind === 'task' && digest !== null && this.approvals.has(folder, worktreesKeyOf(chosen.launch.id), digest);
+        return { afterSettle: { launchId: chosen.launch.id, approved } };
     }
 
     private emitChanged(projectId: string, state: LoadedLaunches): void {

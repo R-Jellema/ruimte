@@ -8,7 +8,7 @@ import { keepAwakeAvailable, keepAwakeChoice } from '@/state/keep-awake';
 import { newChatMachine, offersNewChat, useNewChat } from '@/project/new-chat';
 import { canOpenWindows } from '@/project/windows';
 import { canOpenAsView, type SessionHandoff } from '@/project/views';
-import { chosenLaunchId } from '@/launches/actions';
+import { afterSettleCandidates, chosenLaunchId } from '@/launches/actions';
 import { launchViews } from '@/launches/model';
 import { useLaunches } from '@/launches/state';
 import type { MenuContext, MenuHost, MenuLaunch } from '@/shell/menu/model';
@@ -95,6 +95,19 @@ function menuLaunches(endpointId: string): MenuLaunch[] {
     return document.launches.map((launch) => ({ id: launch.id, name: launch.name, live: views.get(launch.id)?.live === true }));
 }
 
+/* The tasks of the project on screen that may run after a worktree chat settles, and the one that does. */
+function menuAfterSettle(endpointId: string): MenuContext['afterSettle'] {
+    const projectId = useProject.getState().current?.projectId;
+    const document = projectId === undefined ? undefined : useLaunches.getState().documents[endpointKey(endpointId, projectId)];
+    if (document === undefined) {
+        return { tasks: [], chosen: null };
+    }
+    return {
+        tasks: afterSettleCandidates(document).map((launch) => ({ id: launch.id, name: launch.name })),
+        chosen: document.afterSettle?.launchId ?? null
+    };
+}
+
 /* The focused cell as a host of tabs, which the Tab commands of the menu read. */
 function tabsOf(layout: SplitLayout | null): MenuContext['tabs'] {
     const cell = layout === null ? null : cellAt(layout, layout.focus);
@@ -163,6 +176,7 @@ export function menuContext(host: MenuHost): MenuContext {
             .map((provider) => ({ kind: provider.kind, name: provider.name, chat: provider.capabilities.chat, terminal: provider.capabilities.terminal })),
         launches: menuLaunches(endpointId),
         chosenLaunch: chosenLaunchId(),
+        afterSettle: menuAfterSettle(endpointId),
         releaseNotes: typeof desktop()?.releaseNotes === 'function',
         fullscreen: typeof document !== 'undefined' && document.fullscreenElement !== null,
         keepAwake: host === 'desktop' && keepAwakeAvailable() ? keepAwakeChoice().keepAwake : null,

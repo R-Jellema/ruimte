@@ -244,6 +244,7 @@ import {
     LaunchStartResultSchema,
     LaunchStatusSchema,
     LaunchStopPayloadSchema,
+    LaunchesAfterSettlePayloadSchema,
     LaunchesChangedEventSchema,
     LaunchesDetectResultSchema,
     LaunchesDetectPayloadSchema,
@@ -542,6 +543,8 @@ export const REQUEST_SCHEMAS = {
     // A person's save; it approves on this machine every launch it adds or changes.
     'launches.save': { payload: LaunchesSavePayloadSchema, result: LaunchesSaveResultSchema },
     'launches.detect': { payload: LaunchesDetectPayloadSchema, result: LaunchesDetectResultSchema },
+    // A person's choice, which approves the task for the project's worktrees as it stands now.
+    'launches.afterSettle': { payload: LaunchesAfterSettlePayloadSchema, result: EmptySchema },
     'launch.start': { payload: LaunchStartPayloadSchema, result: LaunchStartResultSchema },
     'launch.restart': { payload: LaunchStartPayloadSchema, result: LaunchStartResultSchema },
     'launch.stop': { payload: LaunchStopPayloadSchema, result: EmptySchema },

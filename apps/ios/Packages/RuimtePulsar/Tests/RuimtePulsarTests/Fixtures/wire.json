@@ -232,6 +232,7 @@
     "launches.read",
     "launches.save",
     "launches.detect",
+    "launches.afterSettle",
     "launch.start",
     "launch.restart",
     "launch.stop",

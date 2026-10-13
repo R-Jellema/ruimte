@@ -71,6 +71,9 @@ export type LaunchEnvResolver = (projectId: string, launchId: string, env: Reado
 /* Who asked, which decides what a start may approve and what a stop may do. */
 export type LaunchActor = 'person' | 'agent';
 
+/* A run in a worktree either started, with how it ends, or found the launch already running and started nothing. */
+export type WorktreeRun = { outcome: 'started'; ended: Promise<LaunchStatus> } | { outcome: 'running' };
+
 export interface LaunchStartOptions {
     actor: LaunchActor;
     approve?: boolean;
@@ -91,6 +94,7 @@ interface Run {
     url: string | null;
     host: string | null;
     stopped: boolean;
+    worktree: string | null;
     exited: Promise<void>;
     markExited: () => void;
     cancelProbe: (() => void) | null;
@@ -175,6 +179,20 @@ export class LaunchRunner {
 
     async start(projectId: string, launchId: string, options: LaunchStartOptions): Promise<LaunchStartResult> {
         return this.run(projectId, launchId, options, false);
+    }
+
+    /*
+     * Runs a task in a worktree for the daemon itself, after a chat there settled; the caller checked its
+     * approval for worktrees. A launch that runs already, wherever it runs, is left alone.
+     */
+    async startIn(resolved: ResolvedLaunch, worktree: string): Promise<WorktreeRun> {
+        await this.checkCwd(resolved.folder, resolved.cwd);
+        const previous = this.runs.get(launchSessionIdOf(resolved.projectId, resolved.launch.id));
+        if (previous && previous.state !== 'exited') {
+            return { outcome: 'running' };
+        }
+        const run = await this.spawn(resolved, worktree);
+        return { outcome: 'started', ended: run.exited.then(() => statusOf(run)) };
     }
 
     /* Stops what runs of the launch and starts it again; a launch that did not run just starts. */
@@ -323,7 +341,7 @@ export class LaunchRunner {
         return (launch.launch.launches ?? []).map((id) => all.find((candidate) => candidate.launch.id === id)).filter((member) => member !== undefined);
     }
 
-    private async spawn(resolved: ResolvedLaunch): Promise<void> {
+    private async spawn(resolved: ResolvedLaunch, worktree: string | null = null): Promise<Run> {
         const sessionId = launchSessionIdOf(resolved.projectId, resolved.launch.id);
         const env = await this.resolveEnv(resolved.projectId, resolved.launch.id, resolved.env);
         let markExited = (): void => undefined;
@@ -344,6 +362,7 @@ export class LaunchRunner {
             url: resolved.url,
             host: hostOf(resolved.url),
             stopped: false,
+            worktree,
             exited,
             markExited,
             cancelProbe: null,
@@ -362,6 +381,7 @@ export class LaunchRunner {
         if (run.state === 'starting') {
             void this.probeRun(run);
         }
+        return run;
     }
 
     private async probeRun(run: Run): Promise<void> {
@@ -443,7 +463,8 @@ function statusOf(run: Run): LaunchStatus {
         endedAt: run.endedAt,
         port: run.port,
         url: run.url,
-        stopped: run.stopped
+        stopped: run.stopped,
+        ...(run.worktree === null ? {} : { worktree: run.worktree })
     };
 }
 

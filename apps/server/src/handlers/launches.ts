@@ -12,6 +12,13 @@ export function registerLaunchHandlers(dispatcher: Dispatcher, store: LaunchStor
 
     dispatcher.register('launches.detect', (payload) => translate(async () => ({ suggestions: await store.detect(payload.projectId, payload.sources) })));
 
+    dispatcher.register('launches.afterSettle', (payload) =>
+        translate(async () => {
+            await store.chooseAfterSettle(payload.projectId, payload.launchId);
+            return {};
+        })
+    );
+
     dispatcher.register('launch.start', (payload) =>
         translate(() => runner.start(payload.projectId, payload.launchId, { actor: 'person', approve: payload.approve, replace: payload.replace }))
     );

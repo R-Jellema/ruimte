@@ -1,5 +1,5 @@
 import i18next from 'i18next';
-import { isCanvasView } from '@ruimte/contracts';
+import { isCanvasView, type LaunchConfigEntry, type LaunchesDocument } from '@ruimte/contracts';
 import { createNodeAction } from '@/actions/client-actions';
 import { chosenLaunch } from '@/launches/model';
 import { useLaunches, type LaunchOwner } from '@/launches/state';
@@ -105,6 +105,25 @@ export function stopAllLaunches(): void {
             void stopLaunch(status.launchId);
         }
     }
+}
+
+/* A person's choice of the task to run after a worktree chat settles, or of none; choosing one approves it for worktrees. */
+export async function chooseAfterSettle(launchId: string | null): Promise<void> {
+    const at = target();
+    const link = at === null ? null : transportFor(at.endpointId);
+    if (at === null || link === null) {
+        return;
+    }
+    try {
+        await link.request('launches.afterSettle', { projectId: at.projectId, launchId });
+    } catch (e) {
+        failed(i18next.t('launches:afterSettle.failed'), e);
+    }
+}
+
+/* The tasks that may run after a worktree chat settles: a task with a command, never a service or a group. */
+export function afterSettleCandidates(document: LaunchesDocument): LaunchConfigEntry[] {
+    return document.launches.filter((launch) => launch.kind === 'task' && (launch.command ?? '').trim() !== '');
 }
 
 export function chooseLaunch(launchId: string): void {

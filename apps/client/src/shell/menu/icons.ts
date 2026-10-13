@@ -44,6 +44,7 @@ import {
     ChevronsRight,
     CircleAlert,
     CircleHelp,
+    CircleOff,
     CircleStop,
     CodeXml,
     Command,
@@ -339,7 +340,9 @@ const ICONS: Partial<Record<string, LucideIcon>> = {
     'launch-stop': Square,
     'launches-stop-all': CircleStop,
     'launches-output': SquareTerminal,
-    'launches-edit': Pencil
+    'launches-edit': Pencil,
+    'launches-after-settle': GitBranch,
+    'launches-after-settle-off': CircleOff
 };
 
 /* Rows that exist once per agent, layout, view or format, by the start of their id. */
@@ -349,6 +352,7 @@ const PREFIXES: [prefix: string, icon: LucideIcon][] = [
     ['view-move-', ArrowRight],
     ['go-view-', Layers],
     ['launch-choose-', Rocket],
+    ['launch-after-settle-', ListChecks],
     ['diagram-copy-', Copy],
     ['drawing-copy-', Copy],
     ['diagram-save-', Download],

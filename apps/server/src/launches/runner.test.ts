@@ -294,3 +294,47 @@ describe('LaunchRunner', () => {
         expect(manager.list()).toEqual([]);
     });
 });
+
+describe('a run in a worktree', () => {
+    let worktree: string;
+    let inWorktrees: LaunchRunner;
+
+    beforeEach(async () => {
+        worktree = join(root, 'wt');
+        await mkdir(join(worktree, 'backend'), { recursive: true });
+        inWorktrees = new LaunchRunner({
+            store,
+            sessions: managerSessions(manager, () => Promise.resolve(null)),
+            checkCwd: (inside, cwd) => checkCwd(inside, cwd, () => Promise.resolve([worktree])),
+            clock: { now: () => timers.now, set: (run, ms) => timers.set(run, ms) }
+        });
+        inWorktrees.subscribe('c1', (event) => {
+            if (event.event === 'launch.status') {
+                statuses.push(event.payload);
+            }
+        });
+    });
+
+    afterEach(() => {
+        inWorktrees.close();
+    });
+
+    test('starts in the worktree, says so in its status and resolves with how it ended', async () => {
+        await store.save('p1', 0, [tests]);
+        const resolved = { ...(await store.resolve('p1', 'run-tests')), cwd: join(worktree, 'backend') };
+        const run = await inWorktrees.startIn(resolved, worktree);
+        expect(run.outcome).toBe('started');
+        expect(ptyOf('run-tests').options.cwd).toBe(join(worktree, 'backend'));
+        expect(lastOf('run-tests')).toMatchObject({ state: 'running', worktree });
+        ptyOf('run-tests').exit(2);
+        expect(run.outcome === 'started' ? await run.ended : null).toMatchObject({ state: 'exited', exitCode: 2, worktree });
+    });
+
+    test('leaves a launch that already runs alone', async () => {
+        await store.save('p1', 0, [tests]);
+        await inWorktrees.start('p1', 'run-tests', { actor: 'person' });
+        const resolved = { ...(await store.resolve('p1', 'run-tests')), cwd: join(worktree, 'backend') };
+        expect(await inWorktrees.startIn(resolved, worktree)).toEqual({ outcome: 'running' });
+        expect(adapter.spawned).toHaveLength(1);
+    });
+});

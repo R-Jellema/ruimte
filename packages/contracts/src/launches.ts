@@ -72,12 +72,25 @@ export const LaunchConfigEntrySchema = LaunchConfigSchema.extend({
 });
 export type LaunchConfigEntry = z.infer<typeof LaunchConfigEntrySchema>;
 
+/*
+ * The task a person on this machine chose to run in a worktree chat's worktree once its turn settles.
+ * Choosing it approves its command and environment for the project's worktrees; a change to either
+ * since makes `approved` false until a person chooses it again.
+ */
+export const LaunchAfterSettleSchema = z.object({
+    launchId: z.string().min(1),
+    approved: z.boolean()
+});
+export type LaunchAfterSettle = z.infer<typeof LaunchAfterSettleSchema>;
+
 export const LaunchesDocumentSchema = z.object({
     rev: z.number().int().nonnegative(),
     // In the order of the menu.
     launches: z.array(LaunchConfigEntrySchema),
     // The launches a person on this machine approved as they stand now; a group is approved when all it starts is.
-    approved: z.array(z.string())
+    approved: z.array(z.string()),
+    // Absent while nothing is chosen, and from a daemon before it.
+    afterSettle: LaunchAfterSettleSchema.optional()
 });
 export type LaunchesDocument = z.infer<typeof LaunchesDocumentSchema>;
 
@@ -127,6 +140,13 @@ export const LaunchesDetectResultSchema = z.object({
     suggestions: z.array(LaunchSuggestionSchema)
 });
 export type LaunchesDetectResult = z.infer<typeof LaunchesDetectResultSchema>;
+
+/* A person's choice of the task to run after a worktree chat settles; null runs nothing. */
+export const LaunchesAfterSettlePayloadSchema = z.object({
+    projectId: ProjectIdSchema,
+    launchId: z.string().min(1).nullable()
+});
+export type LaunchesAfterSettlePayload = z.infer<typeof LaunchesAfterSettlePayloadSchema>;
 
 export const LaunchStartPayloadSchema = z.object({
     projectId: ProjectIdSchema,
@@ -192,7 +212,9 @@ export const LaunchStatusSchema = z.object({
     port: z.number().int().nullable(),
     url: z.string().nullable(),
     // Stopped by a person or an agent rather than on its own.
-    stopped: z.boolean()
+    stopped: z.boolean(),
+    // Absolute: the worktree it runs in, when the daemon ran it there after a chat in it settled.
+    worktree: z.string().optional()
 });
 export type LaunchStatus = z.infer<typeof LaunchStatusSchema>;
 

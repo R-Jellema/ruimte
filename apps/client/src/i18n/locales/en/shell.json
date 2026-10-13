@@ -891,6 +891,8 @@
         "launchesStopAll": "Stop All Launches",
         "launchesOutput": "Show Output",
         "launchesEdit": "Edit Launches…",
+        "launchesAfterSettle": "After a Worktree Chat Settles",
+        "launchesAfterSettleOff": "Run Nothing",
         "newWindow": "New Window",
         "newChat": "New Chat",
         "newChatInWorktree": "New Chat in Worktree…",

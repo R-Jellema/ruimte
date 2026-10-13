@@ -134,6 +134,17 @@
     "palette": {
         "start": "Starten: {{name}}",
         "restart": "Herstarten: {{name}}",
-        "stop": "Stoppen: {{name}}"
+        "stop": "Stoppen: {{name}}",
+        "afterSettle": "Als een worktree-chat klaar is: {{name}} uitvoeren",
+        "afterSettleApprove": "Als een worktree-chat klaar is: {{name}} opnieuw goedkeuren",
+        "afterSettleOff": "Als een worktree-chat klaar is: niets uitvoeren"
+    },
+    "afterSettle": {
+        "title": "Als een worktree-chat klaar is",
+        "none": "Niets uitvoeren",
+        "description": "Draait in de worktree van die chat, telkens als een turn eindigt en er niets meer loopt. Een taak kiezen keurt de opdracht en omgeving goed voor de worktrees van dit project.",
+        "approve": "{{name}} opnieuw goedkeuren voor worktrees",
+        "inWorktree": "in {{name}}",
+        "failed": "Kon niet kiezen wat er draait als een worktree-chat klaar is"
     }
 }

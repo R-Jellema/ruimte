@@ -1,10 +1,10 @@
 import { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, OctagonX, Pencil, Play, Plus, RotateCw, Search, Square, SquareTerminal } from 'lucide-react';
+import { ChevronDown, GitBranch, OctagonX, Pencil, Play, Plus, RotateCw, Search, ShieldCheck, Square, SquareTerminal } from 'lucide-react';
 import type { GitRepo, LaunchesDocument } from '@ruimte/contracts';
 import { Button, Icon, IconButton, Menu, Popover, PromptDialog, useNow } from '@adecore/ui';
 import { formatAgo } from '@adecore/ui/format';
-import { chooseLaunch, showLaunchOutput, startLaunch, stopLaunch } from '@/launches/actions';
+import { afterSettleCandidates, chooseAfterSettle, chooseLaunch, showLaunchOutput, startLaunch, stopLaunch } from '@/launches/actions';
 import { HeldCommand, LaunchDot, LaunchStatusIcon } from '@/launches/LaunchControls';
 import { foundText, newSuggestions } from '@/launches/editing';
 import { headlineOf, launchSections, type LaunchView } from '@/launches/model';
@@ -123,6 +123,7 @@ export function LaunchMenu({ repos, showOutput = true }: { repos: readonly GitRe
                 </Menu.Group>
             ))}
             {sections.length > 0 && <Menu.Separator />}
+            {document !== null && <AfterSettleMenu document={document} />}
             {sections.length > 0 && showOutput && (
                 <Menu.Item onClick={() => showLaunchOutput()}>
                     <Icon icon={SquareTerminal} size={14} /> {t('showOutput')}
@@ -131,6 +132,56 @@ export function LaunchMenu({ repos, showOutput = true }: { repos: readonly GitRe
             <Menu.Item onClick={() => useLaunches.getState().setDialog({ kind: 'edit', launchId: null })}>
                 <Icon icon={Plus} size={14} /> {t('menu.new')}
             </Menu.Item>
+        </>
+    );
+}
+
+const NO_TASK = '';
+
+/*
+ * The task that runs in a worktree chat's worktree once its turn settles. Picking one approves it for
+ * the project's worktrees; after its command or environment changed, the approve row picks it again.
+ */
+function AfterSettleMenu({ document }: { document: LaunchesDocument }) {
+    const { t } = useTranslation('launches');
+    const candidates = afterSettleCandidates(document);
+    const chosen = document.afterSettle;
+    const chosenName = candidates.find((launch) => launch.id === chosen?.launchId)?.name ?? null;
+
+    if (candidates.length === 0) {
+        return null;
+    }
+    return (
+        <>
+            <Menu.SubmenuRoot>
+                <Menu.SubmenuTrigger>
+                    <span className="flex min-w-0 grow items-center gap-2">
+                        <Icon icon={GitBranch} size={14} />
+                        <span className="truncate">{t('afterSettle.title')}</span>
+                    </span>
+                    {chosenName !== null && <Menu.Hint className="max-w-32 truncate">{chosen?.approved === false ? t('phase.held') : chosenName}</Menu.Hint>}
+                </Menu.SubmenuTrigger>
+                <Menu.Popup className="min-w-56">
+                    <Menu.RadioGroup
+                        value={chosen?.launchId ?? NO_TASK}
+                        onValueChange={(next: string) => void chooseAfterSettle(next === NO_TASK ? null : next)}
+                    >
+                        <Menu.RadioItem value={NO_TASK}>{t('afterSettle.none')}</Menu.RadioItem>
+                        {candidates.map((launch) => (
+                            <Menu.RadioItem key={launch.id} value={launch.id}>
+                                {launch.name}
+                            </Menu.RadioItem>
+                        ))}
+                    </Menu.RadioGroup>
+                    <p className="max-w-72 px-2.5 pt-1 pb-1.5 text-xs text-text-muted">{t('afterSettle.description')}</p>
+                </Menu.Popup>
+            </Menu.SubmenuRoot>
+            {chosen?.approved === false && chosenName !== null && (
+                <Menu.Item onClick={() => void chooseAfterSettle(chosen.launchId)}>
+                    <Icon icon={ShieldCheck} size={14} /> {t('afterSettle.approve', { name: chosenName })}
+                </Menu.Item>
+            )}
+            <Menu.Separator />
         </>
     );
 }

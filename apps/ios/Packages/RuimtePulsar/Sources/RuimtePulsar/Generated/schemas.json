@@ -42612,6 +42612,22 @@
         "items": {
           "type": "string"
         }
+      },
+      "afterSettle": {
+        "type": "object",
+        "properties": {
+          "launchId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "approved": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "launchId",
+          "approved"
+        ]
       }
     },
     "required": [
@@ -42899,6 +42915,36 @@
     "required": [
       "suggestions"
     ]
+  },
+  "request.launches.afterSettle.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "launchId": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "projectId",
+      "launchId"
+    ]
+  },
+  "request.launches.afterSettle.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
   },
   "request.launch.start.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -43196,6 +43242,9 @@
             },
             "stopped": {
               "type": "boolean"
+            },
+            "worktree": {
+              "type": "string"
             }
           },
           "required": [
@@ -65391,6 +65440,9 @@
       },
       "stopped": {
         "type": "boolean"
+      },
+      "worktree": {
+        "type": "string"
       }
     },
     "required": [
@@ -65527,6 +65579,22 @@
             "items": {
               "type": "string"
             }
+          },
+          "afterSettle": {
+            "type": "object",
+            "properties": {
+              "launchId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "approved": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "launchId",
+              "approved"
+            ]
           }
         },
         "required": [

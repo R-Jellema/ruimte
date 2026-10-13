@@ -34,14 +34,15 @@ function pickerDetail(view: LaunchView, now: number, t: Translate): string {
         return '';
     }
     const ran = (status.endedAt ?? now) - status.startedAt;
+    const where = status.worktree === undefined ? [] : [t('afterSettle.inWorktree', { name: status.worktree.split('/').at(-1) })];
     if (phase === 'starting' || phase === 'stopping') {
-        return [t(`phase.${phase}`), formatDuration(ran)].join(' · ');
+        return [t(`phase.${phase}`), formatDuration(ran), ...where].join(' · ');
     }
     if (phase === 'running') {
-        return [formatDuration(ran), ...(view.port === null ? [] : [`:${view.port}`])].join(' · ');
+        return [formatDuration(ran), ...(view.port === null ? [] : [`:${view.port}`]), ...where].join(' · ');
     }
     if (phase === 'passed' || phase === 'failed') {
-        return [phase === 'passed' ? t('phase.passed') : t('exit', { code: status.exitCode ?? '?' }), formatDuration(ran)].join(' · ');
+        return [phase === 'passed' ? t('phase.passed') : t('exit', { code: status.exitCode ?? '?' }), formatDuration(ran), ...where].join(' · ');
     }
     return status.endedAt === null ? '' : t('ended', { outcome: t('panel.stopped'), ago: formatAgo(now - status.endedAt) });
 }

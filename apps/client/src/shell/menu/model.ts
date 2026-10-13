@@ -10,7 +10,7 @@ import type { KeepAwakeMode } from '@/state/settings';
 import type { PanelKind } from '@/state/ui';
 import { formatShortcut, type Shortcut } from '@adecore/ui';
 import { SEND_AND_NEW_SHORTCUT } from '@adecore/agents-react/chat/send-key';
-import { GO_VIEW_PREFIX, LAUNCH_CHOOSE_PREFIX, PR_SHOW_IN_PREFIX, type MenuActionId, type PaletteId } from '@/shell/menu/ids';
+import { AFTER_SETTLE_PREFIX, GO_VIEW_PREFIX, LAUNCH_CHOOSE_PREFIX, PR_SHOW_IN_PREFIX, type MenuActionId, type PaletteId } from '@/shell/menu/ids';
 
 export type MenuHost = 'desktop' | 'station';
 
@@ -81,6 +81,8 @@ export interface MenuContext {
     launches: MenuLaunch[];
     /* The launch on the chip, which the Run menu's first rows act on. */
     chosenLaunch: string | null;
+    /* The tasks that may run after a worktree chat settles, and the one that does, or null for none. */
+    afterSettle: { tasks: { id: string; name: string }[]; chosen: string | null };
     releaseNotes: boolean;
     /* The page fills the screen, which only the web client asks the page itself. */
     fullscreen: boolean;
@@ -564,10 +566,19 @@ function runMenu(context: MenuContext, command: MenuCommand): MenuSection {
                 command(`${LAUNCH_CHOOSE_PREFIX}${launch.id}`, launch.name, { checked: launch.id === chosen?.id, radio: true })
             ),
             separator,
+            ...only(context.afterSettle.tasks.length > 0, afterSettleMenu(context.afterSettle, command)),
             command('launches-output', t('launchesOutput'), { enabled: chosen !== null }),
             command('launches-edit', t('launchesEdit'))
         ]
     };
+}
+
+function afterSettleMenu({ tasks, chosen }: MenuContext['afterSettle'], command: MenuCommand): MenuNode {
+    return submenu('launches-after-settle', t('launchesAfterSettle'), [
+        command('launches-after-settle-off', t('launchesAfterSettleOff'), { checked: chosen === null, radio: true }),
+        separator,
+        ...tasks.map((task) => command(`${AFTER_SETTLE_PREFIX}${task.id}`, task.name, { checked: task.id === chosen, radio: true }))
+    ]);
 }
 
 function helpMenu(context: MenuContext, command: MenuCommand): MenuSection {

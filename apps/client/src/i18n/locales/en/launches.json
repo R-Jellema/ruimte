@@ -134,6 +134,17 @@
     "palette": {
         "start": "Launch: {{name}}",
         "restart": "Restart: {{name}}",
-        "stop": "Stop: {{name}}"
+        "stop": "Stop: {{name}}",
+        "afterSettle": "After a worktree chat settles: run {{name}}",
+        "afterSettleApprove": "After a worktree chat settles: approve {{name}} again",
+        "afterSettleOff": "After a worktree chat settles: run nothing"
+    },
+    "afterSettle": {
+        "title": "After a worktree chat settles",
+        "none": "Run nothing",
+        "description": "Runs in that chat's worktree each time its turn ends with nothing left running. Choosing a task approves its command and environment for this project's worktrees.",
+        "approve": "Approve {{name}} for worktrees again",
+        "inWorktree": "in {{name}}",
+        "failed": "Could not choose what runs after a worktree chat settles"
     }
 }

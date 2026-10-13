@@ -140,6 +140,7 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `launchesRead` = "launches.read"
     case `launchesSave` = "launches.save"
     case `launchesDetect` = "launches.detect"
+    case `launchesAfterSettle` = "launches.afterSettle"
     case `launchStart` = "launch.start"
     case `launchRestart` = "launch.restart"
     case `launchStop` = "launch.stop"

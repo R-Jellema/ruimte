@@ -7,7 +7,7 @@ import { menuIconOf } from './icons';
 import { LANGUAGE_COMMAND_IDS } from '@/language/command-table';
 import { languageCommandRows } from '@/language/language-commands';
 import { EDITOR_COMMAND_IDS, editorCommandRows } from '@/shell/editor-commands';
-import { GO_VIEW_PREFIX, isPaletteId, LAUNCH_CHOOSE_PREFIX, MENU_ACTION_IDS, PALETTE_IDS } from './ids';
+import { AFTER_SETTLE_PREFIX, GO_VIEW_PREFIX, isPaletteId, LAUNCH_CHOOSE_PREFIX, MENU_ACTION_IDS, PALETTE_IDS } from './ids';
 import { menuModel, toAccelerator, type MenuContext } from './model';
 
 const NO_OFFERS = {
@@ -51,6 +51,7 @@ function context(patch: Partial<MenuContext> = {}): MenuContext {
         agents: [{ kind: 'claude', name: 'Claude Code', chat: true, terminal: true }],
         launches: [],
         chosenLaunch: null,
+        afterSettle: { tasks: [], chosen: null },
         releaseNotes: true,
         fullscreen: false,
         keepAwake: null,
@@ -102,7 +103,8 @@ const EVERY_CONTEXT: MenuContext[] = [
                     moveTargets: [{ id: 'v2', name: 'Other' }],
                     cells: 2,
                     launches: [{ id: 'dev', name: 'Dev', live: true }],
-                    chosenLaunch: 'dev'
+                    chosenLaunch: 'dev',
+                    afterSettle: { tasks: [{ id: 'dev', name: 'Dev' }], chosen: 'dev' }
                 })
             )
         )
@@ -390,6 +392,12 @@ describe('the menus', () => {
         expect(find(menuModel(context({ launches: [{ id: 'dev', name: 'Dev', live: true }], chosenLaunch: 'dev' })), 'launch-run')?.label).toBe('Restart Dev');
     });
 
+    test('Run offers the tasks that may run after a worktree chat settles, with the one that does checked', () => {
+        const spec = menuModel(context({ afterSettle: { tasks: [{ id: 'tests', name: 'Run tests' }], chosen: 'tests' } }));
+        expect(find(spec, `${AFTER_SETTLE_PREFIX}tests`)).toMatchObject({ label: 'Run tests', checked: true, radio: true });
+        expect(find(spec, 'launches-after-settle-off')).toMatchObject({ label: 'Run Nothing', checked: false });
+    });
+
     test('without launches Run still offers to add one', () => {
         const ids = menu(menuModel(context()), 'Run').flatMap((node) => (node.kind === 'command' ? [node.id] : []));
         expect(ids).toEqual(['launch-run', 'launch-stop', 'launches-stop-all', 'launches-output', 'launches-edit']);
@@ -416,7 +424,11 @@ describe('the commands behind the menu', () => {
         const ids = new Set(EVERY_CONTEXT.flatMap((entry) => commandIds(menuModel(entry))));
         for (const id of ids) {
             const handled =
-                (MENU_ACTION_IDS as readonly string[]).includes(id) || isPaletteId(id) || id.startsWith(GO_VIEW_PREFIX) || id.startsWith(LAUNCH_CHOOSE_PREFIX);
+                (MENU_ACTION_IDS as readonly string[]).includes(id) ||
+                isPaletteId(id) ||
+                id.startsWith(GO_VIEW_PREFIX) ||
+                id.startsWith(LAUNCH_CHOOSE_PREFIX) ||
+                id.startsWith(AFTER_SETTLE_PREFIX);
             expect(handled ? id : `${id} has no handler`).toBe(id);
         }
     });

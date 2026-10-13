@@ -4,6 +4,8 @@ import { prepareShellIntegration } from './sessions/shell-integration.ts';
 import { PushService } from './push/service.ts';
 import { registerPushHandlers } from './handlers/push.ts';
 import { SnoozeStore } from './push/snoozes.ts';
+import { AfterSettleLaunches, AfterSettleStore } from './launches/after-settle.ts';
+import { toplevel } from './git/run.ts';
 import { PrWatchStore } from './github/pr-watch.ts';
 import { runGh } from './git/github.ts';
 import { registerSnoozeHandlers } from './handlers/snooze.ts';
@@ -542,16 +544,19 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         sessions: manager,
         alert: (target, nodeId, title, body) => push.alert(target, nodeId, title, body),
         checkCwd: startCwd,
-        resumeAtReset: () => identity.resumeAtReset
+        resumeAtReset: () => identity.resumeAtReset,
+        runAfterSettle: (entry) => afterSettle.handle(entry)
     });
     const outboxWorker = outboxWiring.worker;
     const taskWiring = outboxWiring.tasks;
     const endChildren = outboxWiring.endChildren;
     const summaries = outboxWiring.summaries;
     const snoozes = new SnoozeStore({ path: join(config.home, 'snoozes.json') });
+    const afterSettleStore = new AfterSettleStore({ path: join(config.home, 'launch-after-settle.json') });
     projects.index.onPlaces = (projectId, ids) => {
         outboxWiring.places(projectId, ids);
         snoozes.places(projectId, ids);
+        afterSettleStore.places(projectId, ids);
     };
     /* A node that has never been shown has no session, and a project going down is not the place to
        fail over one, so an id neither manager knows is already ended as far as the caller goes. */
@@ -586,7 +591,8 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     const launchStore = new LaunchStore({
         projects: { folderOf: (projectId) => projects.index.folderOf(projectId), worktreePaths: (folder) => canvasHost.worktreePaths(folder) },
         approvals: commandApprovals,
-        secrets: secretStore
+        secrets: secretStore,
+        afterSettle: afterSettleStore
     });
     const launches = new LaunchRunner({
         store: launchStore,
@@ -725,6 +731,22 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     manager.holdsForeground = holdsForeground;
 
     const worktrees = new Worktrees(config.home, Date.now, () => identity.worktreeRoot);
+    const afterSettle = new AfterSettleLaunches({
+        store: afterSettleStore,
+        chats,
+        launches: launchStore,
+        runner: launches,
+        projectOf: (chatId) => projects.index.locate(chatId)?.projectId ?? null,
+        folderOf: (projectId) => projects.index.folderOf(projectId),
+        worktreesOf: (folder) =>
+            worktrees
+                .list(folder)
+                .then((list) => list.filter((worktree) => worktree.missing !== true).map((worktree) => worktree.path))
+                .catch(() => []),
+        repoRootOf: (folder) => toplevel(folder),
+        entries: () => outbox.list(),
+        enqueue: (projectId, chatId, work) => outboxLink.enqueue(projectId, chatId, work)
+    });
     const agentsInWorktrees = worktreeAgents({
         chats: () => chats.list(),
         sessions: () => manager.list(),
@@ -922,6 +944,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     manager.observe((event) => computer.observe(event));
     chats.observe((event) => computer.observe(event));
     chats.observe((event) => secrets.observe(event));
+    chats.observe((event) => afterSettle.chatEvent(event));
     chats.observe((event) => {
         if (event.event === 'chat.event' && event.payload.event.type === 'item' && event.payload.event.item.kind === 'user') {
             dropEmptyMark(projects, event.payload.chatId).catch((e: unknown) => console.error('Listing a written chat failed:', errorText(e)));

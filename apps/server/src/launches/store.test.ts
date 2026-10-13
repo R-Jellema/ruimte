@@ -180,3 +180,64 @@ describe('LaunchStore', () => {
         expect((await store.read('p1')).approved).toEqual(['run-server']);
     });
 });
+
+describe('after a worktree chat settles', () => {
+    let chosen: Record<string, string>;
+    let choosing: LaunchStore;
+
+    beforeEach(() => {
+        chosen = {};
+        choosing = new LaunchStore({
+            projects: { folderOf: (projectId) => (projectId === 'p1' ? folder : null), worktreePaths: () => Promise.resolve([]) },
+            approvals,
+            afterSettle: {
+                choiceOf: (projectId) => (chosen[projectId] === undefined ? null : { launchId: chosen[projectId] }),
+                choose: async (projectId, launchId) => {
+                    if (launchId === null) {
+                        delete chosen[projectId];
+                    } else {
+                        chosen[projectId] = launchId;
+                    }
+                }
+            },
+            seams: fake
+        });
+    });
+
+    afterEach(() => {
+        choosing.closeAll();
+    });
+
+    test('choosing a task approves it for worktrees, and the document says so', async () => {
+        await choosing.save('p1', 0, [tests]);
+        await choosing.chooseAfterSettle('p1', 'run-tests');
+        expect(chosen).toEqual({ p1: 'run-tests' });
+        expect((await choosing.read('p1')).afterSettle).toEqual({ launchId: 'run-tests', approved: true });
+        const inWorktree = await choosing.inWorktree('p1', 'run-tests', join(root, 'wt'));
+        expect(inWorktree).toMatchObject({ cwd: join(root, 'wt', 'backend'), approved: true, command: 'vendor/bin/pest' });
+    });
+
+    test('a later change to its environment withdraws the approval until a person chooses it again', async () => {
+        await choosing.save('p1', 0, [tests]);
+        await choosing.chooseAfterSettle('p1', 'run-tests');
+        await choosing.save('p1', 1, [{ ...tests, env: { CI: '1' } }]);
+        expect((await choosing.read('p1')).afterSettle).toEqual({ launchId: 'run-tests', approved: false });
+        expect((await choosing.inWorktree('p1', 'run-tests', join(root, 'wt'))).approved).toBe(false);
+        await choosing.chooseAfterSettle('p1', 'run-tests');
+        expect((await choosing.read('p1')).afterSettle?.approved).toBe(true);
+    });
+
+    test('a service is refused, and choosing nothing turns it off', async () => {
+        await choosing.save('p1', 0, [server, tests]);
+        await expect(choosing.chooseAfterSettle('p1', 'run-server')).rejects.toMatchObject({ code: 'launch-not-a-task' });
+        await choosing.chooseAfterSettle('p1', 'run-tests');
+        await choosing.chooseAfterSettle('p1', null);
+        expect((await choosing.read('p1')).afterSettle).toBeUndefined();
+    });
+
+    test('the approval for worktrees is not the approval to run in the project folder', async () => {
+        await choosing.save('p1', 0, [tests], ['run-tests']);
+        await choosing.chooseAfterSettle('p1', 'run-tests');
+        expect((await choosing.read('p1')).approved).toEqual([]);
+    });
+});

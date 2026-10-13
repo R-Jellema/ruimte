@@ -891,6 +891,8 @@
         "launchesStopAll": "Alle launches stoppen",
         "launchesOutput": "Output tonen",
         "launchesEdit": "Launches bewerken…",
+        "launchesAfterSettle": "Als een worktree-chat klaar is",
+        "launchesAfterSettleOff": "Niets uitvoeren",
         "newWindow": "Nieuw venster",
         "newChat": "Nieuwe chat",
         "newChatInWorktree": "Nieuwe chat in worktree…",

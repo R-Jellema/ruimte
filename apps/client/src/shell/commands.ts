@@ -1,5 +1,14 @@
 import i18next from 'i18next';
-import { isCanvasView, isDiagramView, isDrawingView, isSessionView, type AgentKind, type ProviderInfo, type SplitLayout } from '@ruimte/contracts';
+import {
+    isCanvasView,
+    isDiagramView,
+    isDrawingView,
+    isSessionView,
+    type AgentKind,
+    type LaunchesDocument,
+    type ProviderInfo,
+    type SplitLayout
+} from '@ruimte/contracts';
 import type { AgentTarget } from '@/agents/nodes';
 import {
     applyLayoutAction,
@@ -39,7 +48,7 @@ import { copyDrawing, exportDrawing } from '@/drawing/drawing-actions';
 import { focusedCanvas, maximizedNodeOf, maximizeTargetOf, zoomNodeTargetOf, type CanvasState } from '@/state/canvas';
 import { focusedDiagram } from '@/state/diagram';
 import { focusedDrawing } from '@/state/drawing';
-import { chosenLaunchId, startLaunch, stopLaunch } from '@/launches/actions';
+import { afterSettleCandidates, chooseAfterSettle, chosenLaunchId, startLaunch, stopLaunch } from '@/launches/actions';
 import { launchViews } from '@/launches/model';
 import { useLaunches } from '@/launches/state';
 import { activeViewOf, useDocument } from '@/state/document';
@@ -188,7 +197,31 @@ function launchCommands(): Command[] {
             id: 'launches-edit',
             label: i18next.t('launches:menu.edit'),
             run: () => useLaunches.getState().setDialog({ kind: 'edit', launchId: chosenLaunchId() })
-        }
+        },
+        ...afterSettleCommands(document)
+    ];
+}
+
+/* Choosing the task that runs after a worktree chat settles; the chosen one comes back only while it waits on approval again. */
+function afterSettleCommands(document: LaunchesDocument): Command[] {
+    const chosen = document.afterSettle;
+    return [
+        ...afterSettleCandidates(document).flatMap((launch): Command[] =>
+            chosen?.launchId === launch.id && chosen.approved
+                ? []
+                : [
+                      {
+                          id: `launch-after-settle-${launch.id}`,
+                          label: i18next.t(chosen?.launchId === launch.id ? 'launches:palette.afterSettleApprove' : 'launches:palette.afterSettle', {
+                              name: launch.name
+                          }),
+                          run: () => void chooseAfterSettle(launch.id)
+                      }
+                  ]
+        ),
+        ...(chosen === undefined
+            ? []
+            : [{ id: 'launches-after-settle-off', label: i18next.t('launches:palette.afterSettleOff'), run: () => void chooseAfterSettle(null) }])
     ];
 }
 

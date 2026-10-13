@@ -120,6 +120,7 @@ $RUIMTE_HOME/
   providers.json                   the accounts of each agent CLI: kind, label, color, config folder; never a credential
   accounts/<id>/                   0700, the config folder of an account the daemon made (a shadow home for Codex)
   snoozes.json                     the nodes a person put aside, with when each snooze ends
+  launch-after-settle.json         per project, the task a person chose to run after a worktree chat settles, and the last turn each chat ran it for
   push-attention.json              the alerts pushed in the last 30 days, which clients mark nodes from
   apple-mcp.json                   optional, written by a person: the MCP servers the Apple chat provider may use
   bin/                             the copy of the binaries `ruimte service install` runs
@@ -137,7 +138,7 @@ $RUIMTE_HOME/
   outbox/<id>.json                 0700, work the daemon still owes (src/outbox/CLAUDE.md)
   tasks/<taskId>.json              0700, a task a chat gave a node it opened
   lineage/<nodeId>.json            0700, who opened a node, its depth, its mode ceiling and when it was ended
-  command-approvals/<hash>.json    0700, a command or launch a person approved for a node
+  command-approvals/<hash>.json    0700, a command or launch a person approved for a node, or a task for the project's worktrees
   mode-approvals/<hash>.json       0700, the permission mode a person's save gave a terminal agent
   notices/<nodeId>.json            0700, messages left for a node until its agent picks them up
   database-access/<projectId>.json 0700, what agents may do with each connection (see "Databases")

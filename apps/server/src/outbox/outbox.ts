@@ -46,6 +46,12 @@ const DeliverPrWatchSchema = z.object({
     payload: z.object({ watchId: z.string().min(1), key: z.string().min(1), text: z.string(), label: z.string() })
 });
 
+const RunAfterSettleSchema = z.object({
+    kind: z.literal('run-after-settle'),
+    // The target is the chat that settled in `worktree`; `launchId` is the task its project ran after it then.
+    payload: z.object({ turnId: z.string().min(1), launchId: z.string().min(1), worktree: z.string().min(1) })
+});
+
 // The kinds of tasks, ending children and delivering a message are @adecore/agents' own, each at the place it always had.
 const OutboxWorkSchema = z.discriminatedUnion('kind', [
     StartAgentSchema,
@@ -58,7 +64,8 @@ const OutboxWorkSchema = z.discriminatedUnion('kind', [
     EndChildrenWorkSchema,
     DeliverSummarySchema,
     DeliverWaitingWorkSchema,
-    DeliverPrWatchSchema
+    DeliverPrWatchSchema,
+    RunAfterSettleSchema
 ]);
 
 export type OutboxWork = z.infer<typeof OutboxWorkSchema>;
@@ -74,12 +81,14 @@ export type EndChildrenEntry = Extract<OutboxEntry, { kind: 'end-children' }>;
 export type DeliverSummaryEntry = Extract<OutboxEntry, { kind: 'deliver-summary' }>;
 export type DeliverWaitingEntry = Extract<OutboxEntry, { kind: 'deliver-waiting' }>;
 export type DeliverPrWatchEntry = Extract<OutboxEntry, { kind: 'deliver-pr-watch' }>;
+export type RunAfterSettleEntry = Extract<OutboxEntry, { kind: 'run-after-settle' }>;
 
 /*
  * Work the daemon still owes, under `$RUIMTE_HOME/outbox`. Only a verb or a restart puts something
  * here, never a clock; the exceptions are a `resume-limit`, only where a person turned it on, a
  * `background-limit` and the grace of a `deliver-waiting`, each due at a time. A `deliver-pr-watch`
- * is due at once: the poll that wrote it is the PR-watch's own clock, not the outbox's.
+ * is due at once: the poll that wrote it is the PR-watch's own clock, not the outbox's. A
+ * `run-after-settle` is due at once too, owed when a chat in a worktree settles.
  */
 export class OutboxStore extends BaseOutboxStore<OutboxWork> {
     constructor(home: string) {
