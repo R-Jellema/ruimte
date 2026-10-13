@@ -1,7 +1,7 @@
 import { splitLines } from '@adecore/merge';
 import type { AgentKind, ProvenanceChangedEvent, ProvenanceReadResult, ProvenanceRun } from '@ruimte/contracts';
 import type { Editor, EditorRect } from '@adecore/editor';
-import { realTimers, type Timers } from '@/language/timers';
+import { realTimers, type Timers } from '@adecore/editor-react';
 import type { AgentChangesMode } from '@/state/ai-settings';
 import { colorOfChat, drawnRuns, lastWritten, removalRuns, type DrawnRun, type RemovalRun } from './agent-runs';
 
