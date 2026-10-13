@@ -266,6 +266,35 @@ An agent operates the apps of this Mac through `ruimte-context computer`, which 
 
 The helper is `Contents/Helpers/Ruimte Computer Use.app` in Ruimte.app and `apps/computer-use/dist/Ruimte Computer Use Dev.app` in a checkout. The daemon starts it with `open -g <app> --args --home $RUIMTE_HOME` the first time it needs it and quits it when the feature is turned off or the daemon stops. A daemon from npm and one on Linux have no helper and refuse with `unavailable`. `computer.restart` relaunches the helper, since macOS applies a Screen Recording grant only to a fresh launch.
 
+## Devices
+
+A device node shows a simulator, an emulator or a phone that runs on this machine (`src/devices`). `DeviceManager` has a backend per kind and keeps one capture session per device, shared by every client that shows it and every agent that holds it. A person starts and stops a simulator or an emulator from its node, and drives it with the pointer, its buttons and the tools panel (appearance, text size, color filters, permissions, location, opening a link or an app). An agent with a line to the node goes through `DeviceDriver` (`src/devices/agent-driver.ts`, `ruimte-context device`): it reads the elements, takes shots, taps, swipes, presses buttons, types and opens apps, with no approval card, and never starts or stops a device. Only an agent types: a client sends no keys.
+
+| | iOS simulator | Android emulator |
+| --- | --- | --- |
+| Needs | macOS with Xcode (`xcrun simctl`) | the Android SDK on macOS or Linux: `adb` from `ANDROID_HOME`, `ANDROID_SDK_ROOT`, the `adb` on PATH or the default folder, the `emulator` package to start one, and the AVDs in `ANDROID_AVD_HOME` or `~/.android/avd` |
+| Start and stop | `simctl boot` and `shutdown` | `emulator -avd <name> -no-window` on a free console port, its output in `$TMPDIR/ruimte-emulator-<avd>.log`, so a start that fails says why; `adb emu kill` |
+| Screen and touch | the native helper the daemon starts as `device-helper`, JPEG or HEVC | the pinned scrcpy server (`src/devices/scrcpy-server.ts`), H.264, pushed to `/data/local/tmp` for each session and gone after it |
+| Shot | `simctl io screenshot` | `adb exec-out screencap -p` |
+| Elements | the device bridge (`apps/ios-device-bridge`) | `uiautomator dump`, which needs nothing installed |
+| Typing | each run pasted through the simulator pasteboard and Cmd+V | each run pasted through the device clipboard over the scrcpy control socket, which presses paste |
+| Settings | `simctl ui` and the accessibility helper of `serve-sim` | `settings`, `cmd uimode`, `setprop` and `pm` in the device shell |
+
+Typing on either replaces the device's clipboard. A newline is Return and a tab is Tab, so what a Return does is the app's: a chat sends, a note adds a line. Nothing is installed on an Android device, no app and no keyboard.
+
+An Android phone on USB or Wi-Fi debugging is listed by its serial and takes the same shots, touch, typing, elements and tools; it cannot be started, stopped or given a location. An iPhone streams through the device bridge and takes touch and shots, but no text and no elements.
+
+What an Android emulator cannot do that a simulator can, and stays out of scope:
+
+- Clear a simulated location: the emulator console only sets one.
+- Send a push: Android has no local push without the app's own Firebase sender.
+- Liquid Glass, Reduce Transparency, and the Reminders and Face ID permissions, which have no Android counterpart.
+- Rotate to a chosen side: the screen server turns between portrait and landscape whichever direction is asked.
+- Show borders on a screen already drawn: Android draws them from the next screen on.
+- Read elements on a screen that never stands still, such as one with an endless animation: `uiautomator` gives up, the agent gets `tree none`, and a shot still works.
+
+TalkBack shows up as a tool only on an image that has it, and typing needs Android 7 or later, the first with a paste key. A development checkout downloads the scrcpy server on first use into `.native`, checked against its pinned checksum; a build carries it in `native/`, and without it a device is listed with its shots, elements and tools but without a screen, touch or typing.
+
 ## Providers and models
 
 Each agent CLI is one `ChatProvider` value (`@adecore/agents/providers/provider.ts`). The daemon's list is `src/providers/registry.ts`, with `terminal-providers.ts` and `apple-provider.ts` beside it: Claude Code, Codex, Gemini, GitHub Copilot and the Apple on-device model (`src/chat/apple-backend.ts`, when the machine turned it on). Gemini and Copilot are terminal only. `provider.list` answers per CLI whether it is installed, its version, its models, its resume template and its capabilities.

@@ -300,8 +300,8 @@ existing binary reply path, range streaming and explicit direct-connection failu
 ## 11. iOS, devices and worktrees
 
 1. Add typing to physical iOS devices behind the existing backend input capability. Verify Unicode,
-   multiline text and the taken-over/stopped state on an actual device. Android's current text
-   path is limited to ASCII, so do not claim Unicode parity without a fix.
+   multiline text and the taken-over/stopped state on an actual device. Android emulators and
+   phones paste any text through the device clipboard since issue #56.
 2. Decide how to merge into a branch checked out nowhere. The current code refuses that on purpose
    with `target-not-checked-out`. A ref-only merge needs its own conflict/result path and must never
    move a ref behind a working tree; implement it only after a deliberate update of that invariant.
