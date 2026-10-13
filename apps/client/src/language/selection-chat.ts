@@ -8,7 +8,7 @@ import { basenameOf } from '@/shell/panels/files-tree';
 import { useProject } from '@/state/project';
 import type { HostLanguage as EditorLanguage } from './host-language';
 import type { Problem } from '@adecore/editor-react/models';
-import { shikiLanguageOf } from './language-ids-host';
+import { shikiLanguageOf } from '@adecore/editor-react';
 import { isShortcut } from './shortcut-keys';
 
 const PLAIN_IDS = new Set(['plaintext', 'text']);

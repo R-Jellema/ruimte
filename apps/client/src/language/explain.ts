@@ -2,7 +2,7 @@ import i18next from 'i18next';
 import { createStore, type StoreApi } from 'zustand';
 import { fileUriToPath } from '@adecore/lsp';
 import type { EditorRange } from '@adecore/editor';
-import type { HoverView } from '@adecore/editor-react';
+import { shikiLanguageOf, type HoverView } from '@adecore/editor-react';
 import { isEmptyRange } from '@adecore/editor-react/models';
 import { useSettings } from '@/state/settings';
 import { useToasts } from '@/state/toasts';
@@ -10,7 +10,6 @@ import { functionSourceAt, isFunctionSignature } from '@/ondevice/explain-model'
 import { onDeviceClientFor, type OnDeviceClient } from '@/ondevice/ondevice-client';
 import { explainPrompt } from '@/ondevice/prompts';
 import type { HostLanguage as EditorLanguage } from './host-language';
-import { shikiLanguageOf } from './language-ids-host';
 
 const TOAST_ID = 'language-explain';
 

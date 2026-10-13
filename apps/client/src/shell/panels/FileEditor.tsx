@@ -8,7 +8,7 @@ import { useCodeTheme } from '@/state/code-theme';
 import type { RevealLineRequest } from '@/state/files';
 import { foldRolesFor } from '@/state/code-folding';
 import { useSettings } from '@/state/settings';
-import { forgetMovesFrom, openingPlace, viewStateKey, viewStates } from '@/shell/panels/editor-view-state-host';
+import { forgetMovesFrom, openingPlace, viewStateKey, viewStates } from '@adecore/editor-react';
 import { endpointKey } from '@/state/keys';
 import { type DiskText, textDrafts } from '@/state/text-drafts';
 

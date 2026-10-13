@@ -1,10 +1,10 @@
-import { createHolder } from '@adecore/editor-react';
+import { createHolder, lspLanguageIdOf } from '@adecore/editor-react';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { storedPathOf } from '@ruimte/contracts';
 import { pathToFileUri } from '@adecore/lsp';
 import type { Editor } from '@adecore/editor';
 import { EditorLanguage } from '@/language/ruimte-editor-language';
-import { customLanguageIdOf, lspLanguageIdOf } from '@/language/language-ids-host';
+import { customLanguageIdOf } from '@/language/language-ids-host';
 import { draftFiles } from '@/language/project-files';
 import { acquireProjectLanguage } from '@/language/ruimte-project-language';
 import { useEndpointId } from '@/state/keys';

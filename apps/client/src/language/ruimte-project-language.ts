@@ -1,6 +1,12 @@
 import { createSnippetTransformWorker } from './snippet-transform-worker';
 import i18next from 'i18next';
-import { ProjectLanguage as SharedProjectLanguage, type LanguageDocumentHandle, type ProjectFiles, type RenameSuggestionsRequest } from '@adecore/editor-react';
+import {
+    ProjectLanguage as SharedProjectLanguage,
+    shikiLanguageOf,
+    type LanguageDocumentHandle,
+    type ProjectFiles,
+    type RenameSuggestionsRequest
+} from '@adecore/editor-react';
 import type { Editor } from '@adecore/editor';
 import { fileUriToPath, type Diagnostic } from '@adecore/lsp';
 import { onDeviceClientFor } from '@/ondevice/ondevice-client';
@@ -14,7 +20,6 @@ import { useToasts } from '@/state/toasts';
 import type { Transport } from '@/transport/transport';
 import { LanguageStatusTracker } from './status';
 import { WireLanguageService, type WireLanguageServiceOptions } from './wire-service';
-import { shikiLanguageOf } from './language-ids-host';
 import { readPanelHeight, writePanelHeight } from './panel-height';
 
 export class ProjectLanguage extends SharedProjectLanguage {

@@ -4,7 +4,7 @@ import { storedPathOf, type AgentKind } from '@ruimte/contracts';
 import { fileUriToPath } from '@adecore/lsp';
 import type { EditorRange, EditorTrackedRange } from '@adecore/editor';
 import { knownAccounts, providerAccountsOf, providersOf } from '@adecore/agents-react/state';
-import { highlightLayers } from '@adecore/editor-react';
+import { highlightLayers, shikiLanguageOf } from '@adecore/editor-react';
 import {
     codeLabelOf,
     inlineRangeOf,
@@ -19,7 +19,6 @@ import {
 import { availableAgents } from '@/agents/creation';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import type { HostLanguage as EditorLanguage } from '@/language/host-language';
-import { shikiLanguageOf } from '@/language/language-ids-host';
 import { isShortcut } from '@/language/shortcut-keys';
 import { currentEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';

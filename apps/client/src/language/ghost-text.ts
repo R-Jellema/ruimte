@@ -11,7 +11,7 @@ import { useSettings } from '@/state/settings';
 import { useToasts } from '@/state/toasts';
 import type { HostLanguage as EditorLanguage } from './host-language';
 import { GhostHint } from './GhostHint';
-import { shikiLanguageOf } from './language-ids-host';
+import { shikiLanguageOf } from '@adecore/editor-react';
 import { isShortcut } from './shortcut-keys';
 
 const TOAST_ID = 'language-ghost';

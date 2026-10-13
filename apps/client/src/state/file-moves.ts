@@ -1,6 +1,6 @@
 import i18next from 'i18next';
 import type { Transport } from '@/transport/transport';
-import { followViewStates } from '@/shell/panels/editor-view-state-host';
+import { followViewStates } from '@adecore/editor-react';
 import { useDocument } from '@/state/document';
 import { isDatabaseTab, useFiles } from '@/state/files';
 import { endpointKey, splitKey } from '@/state/keys';

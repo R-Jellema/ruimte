@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { LanguageServerStatus } from '@ruimte/contracts';
-import { customLanguageIdOf, lspLanguageIdOf } from './language-ids-host';
+import { lspLanguageIdOf } from '@adecore/editor-react';
+import { customLanguageIdOf } from './language-ids-host';
 
 function own(languages: string[], patterns: string[]): LanguageServerStatus {
     return { server: 'custom:a', state: 'stopped', version: '', documents: 0, name: 'Zig', languages, patterns };
