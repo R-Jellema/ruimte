@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { GitFork, MessageSquareShare, Undo2 } from 'lucide-react';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import { forkRefusal, lastSettledTurn, summaryRefusal } from '@adecore/agents-react/chat';
 import { useChatPlace } from '@/chat/use-chat-place';
 import { useChatRow } from '@adecore/agents-react/state';
@@ -38,7 +38,7 @@ function ForkBackItems({ chatId }: { chatId: string }) {
     const original = useChatPlace(originalId);
     const refusal = summaryRefusal({ busy, originalPresent: original.title !== null });
     const summarize = (): void => {
-        performAsPerson('chat.summarize', { chatId }).catch((e: unknown) => {
+        perform('chat.summarize', { chatId }).catch((e: unknown) => {
             useToasts.getState().show({ title: t('fork.menu.summaryFailed'), description: e instanceof Error ? e.message : String(e), kind: 'error' });
         });
     };

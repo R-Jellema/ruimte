@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import i18next from 'i18next';
 import type { FsGrepMatch } from '@ruimte/contracts';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 
 // Long enough that a typed word is one search, short enough that the list feels like it follows.
 const GREP_DEBOUNCE_MS = 140;
@@ -99,7 +99,7 @@ export function useGrepSearch(folder: string | null, query: string, options: Gre
         }
         const asked = { folder, query: trimmed, options: { caseSensitive, wholeWord, regex } };
         const timer = window.setTimeout(() => {
-            performAsPerson('file.grep', { query: trimmed, limit: GREP_LIMIT, caseSensitive, wholeWord, regex })
+            perform('file.grep', { query: trimmed, limit: GREP_LIMIT, caseSensitive, wholeWord, regex })
                 .then((result) => {
                     if (mine === generation.current) {
                         setAnswer({ ...result, ...asked, failure: null });

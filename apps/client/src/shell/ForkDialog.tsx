@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GitFork } from 'lucide-react';
 import { CHAT_FORK_TITLE_MAX, clipText, type ChatForkInfoResult, type ProviderInfo } from '@ruimte/contracts';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import { AccountDot, canContinueOn } from '@adecore/agents-react/providers';
 import {
     useAccountChoice,
@@ -132,7 +132,7 @@ function ForkForm({ chatId, turnId, onDone }: { chatId: string; turnId: string; 
                 worktree: worktree ? { branch: branchName.trim(), filesAfterTurn: filesAfterTurn && folder.filesAfterTurn } : null,
                 ...(originalCli && chosenCli ? { cli: { original: originalCli, chosen: chosenCli } } : {})
             });
-            await performAsPerson('chat.fork', {
+            await perform('chat.fork', {
                 chatId,
                 turnId,
                 title: payload.title ?? null,

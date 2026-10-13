@@ -4,7 +4,7 @@ import { codeHighlighter } from '@/code-highlighter';
 import DiffSyntaxWorker from '@/chat/diff-syntax.worker?worker';
 import { configureChatStorage, type ChatActions, type ChatHost, setLazyPrefetch } from '@adecore/agents-react';
 import { useChats } from '@adecore/agents-react/state';
-import { performAsPerson, PERSON_PROMPT_CLIENTS } from '@/actions/client-actions';
+import { perform, PERSON_PROMPT_CLIENTS } from '@/actions/client-actions';
 import { askBeforeStoppingSubagents, askBeforeStoppingTask } from '@/agents/end-children';
 import { FEATURED_ACCENTS, NODE_ACCENTS, accentLabel, type AccentId } from '@/canvas/accents';
 import { searchFiles } from '@/chat/file-search';
@@ -35,35 +35,35 @@ import { prefetcher } from '@adecore/ui';
 const PERSON_CHAT_ACTIONS: ChatActions = {
     ...PERSON_PROMPT_CLIENTS,
     clear: async (chatId, force) => {
-        await performAsPerson('chat.clear', { chatId, force });
+        await perform('chat.clear', { chatId, force });
     },
     stopTurn: async (chatId, subagents) => {
-        await performAsPerson('chat.stopTurn', { chatId, subagents });
+        await perform('chat.stopTurn', { chatId, subagents });
     },
     unqueue: async (chatId, messageId) => {
-        await performAsPerson('chat.unqueue', { chatId, messageId });
+        await perform('chat.unqueue', { chatId, messageId });
     },
     sendNow: async (chatId, messageId) => {
-        await performAsPerson('chat.sendNow', { chatId, messageId });
+        await perform('chat.sendNow', { chatId, messageId });
     },
     compact: async (chatId) => {
-        await performAsPerson('chat.compact', { chatId });
+        await perform('chat.compact', { chatId });
     },
     configure: async (chatId, patch) => {
-        await performAsPerson('chat.configure', { chatId, model: null, option: null, ...patch });
+        await perform('chat.configure', { chatId, model: null, option: null, ...patch });
     },
     continueOn: async (chatId, account) => {
-        await performAsPerson('chat.continueOn', { chatId, account });
+        await perform('chat.continueOn', { chatId, account });
     },
-    turnDiff: async (chatId, turnId) => (await performAsPerson('chat.turnDiff', { chatId, turnId })).diff,
+    turnDiff: async (chatId, turnId) => (await perform('chat.turnDiff', { chatId, turnId })).diff,
     stopSubagent: async (chatId, toolUseId) => {
-        await performAsPerson('chat.stopSubagent', { chatId, toolUseId });
+        await perform('chat.stopSubagent', { chatId, toolUseId });
     },
     stopTask: async (chatId, taskId) => {
-        await performAsPerson('chat.stopTask', { chatId, taskId });
+        await perform('chat.stopTask', { chatId, taskId });
     },
     goal: async (chatId, action) => {
-        await performAsPerson('chat.goal', { chatId, change: action });
+        await perform('chat.goal', { chatId, change: action });
     }
 };
 
@@ -133,7 +133,7 @@ export const CHAT_HOST: Partial<ChatHost> = {
             if (endpointId !== currentEndpointId()) {
                 throw new Error(i18next.t('chat:offline'));
             }
-            const result = await performAsPerson('chat.uiChoice', payload);
+            const result = await perform('chat.uiChoice', payload);
             return result.queued ? 'queued' : 'sent';
         }
     },

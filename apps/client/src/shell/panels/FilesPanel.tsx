@@ -1,6 +1,6 @@
 import { revealFile } from './reveal-file';
 import { ActionRefusal } from '@ruimte/actions';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FileTreeDropResult } from '@pierre/trees';
@@ -227,7 +227,7 @@ export function FilesPanel() {
         async (dir: string): Promise<void> => {
             try {
                 // Always with the hidden entries: the eye button then rebuilds from the cache alone.
-                const result = await performAsPerson('file.list', { path: dir, hidden: true });
+                const result = await perform('file.list', { path: dir, hidden: true });
                 setListed((current) => ({ folder, byDir: new Map(current.folder === folder ? current.byDir : []).set(dir, result.entries) }));
             } catch {
                 // A folder that went away keeps the rows it had until the next refresh.
@@ -427,7 +427,7 @@ export function FilesPanel() {
         }
         const timer = window.setTimeout(() => {
             void flow
-                .search(() => performAsPerson('file.search', { query: query.trim(), limit: SEARCH_LIMIT }))
+                .search(() => perform('file.search', { query: query.trim(), limit: SEARCH_LIMIT }))
                 .then((result) => {
                     if (result !== null) {
                         setSearchResult({ key: searchKey, result });
@@ -510,7 +510,7 @@ export function FilesPanel() {
         const path = newEntryPathOf(parentPath, entryName, kind);
         setEntryBusy(true);
         try {
-            await performAsPerson('file.create', { path, kind, text: null });
+            await perform('file.create', { path, kind, text: null });
         } catch (error: unknown) {
             setEntryFailure(failureOf(error, 'create'));
             submittingRef.current = false;
@@ -584,7 +584,7 @@ export function FilesPanel() {
             throw new Error(t(`files.create.problem.${problem.problem}`, { name: problem.name }));
         }
         try {
-            await performAsPerson('file.rename', { path: renaming.absolute, to: newEntryPathOf(parent, name, kind) });
+            await perform('file.rename', { path: renaming.absolute, to: newEntryPathOf(parent, name, kind) });
         } catch (error: unknown) {
             throw new Error(failureOf(error, 'rename'));
         }
@@ -602,7 +602,7 @@ export function FilesPanel() {
         void (async () => {
             try {
                 for (const move of moves) {
-                    await performAsPerson('file.rename', { path: move.from, to: move.to });
+                    await perform('file.rename', { path: move.from, to: move.to });
                 }
             } catch (error: unknown) {
                 const message = failureOf(error, 'rename');
@@ -620,7 +620,7 @@ export function FilesPanel() {
             return;
         }
         setDeleteBusy(true);
-        performAsPerson('file.delete', { paths: deleting.absolutes })
+        perform('file.delete', { paths: deleting.absolutes })
             .then(() => setDeleting(null))
             .catch((error: unknown) => {
                 const message = error instanceof Error ? error.message : t('error.generic');

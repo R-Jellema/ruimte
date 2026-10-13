@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { chatsProjects, menuProjects, openableRows, type ProjectMenuRow } from '@/project/list';
 import { useOffersNewChat } from '@/project/new-chat';
-import { performAsPerson, runAsPerson } from '@/actions/client-actions';
+import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { closingProject } from '@/project/open';
 import { closeWarning, sessionNodesOf } from '@/project/project-sessions';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
@@ -64,7 +64,7 @@ export function useProjectMenu() {
         const answer = await closingProject(row.endpointId, row.summary, local);
         if (answer === null) {
             // A machine out of reach has nothing to say about it; the row goes here and that is all.
-            await runAsPerson('project.close', { endpointId: row.endpointId, projectId: row.summary.projectId });
+            await perform('project.close', { endpointId: row.endpointId, projectId: row.summary.projectId }).catch(ignoreRefusal);
             return;
         }
         setClosing({ row, name: (here ? current?.name : null) ?? row.summary.name, ...answer });
@@ -74,7 +74,7 @@ export function useProjectMenu() {
         const target = closing;
         setClosing(null);
         if (target) {
-            await runAsPerson('project.close', { endpointId: target.row.endpointId, projectId: target.row.summary.projectId });
+            await perform('project.close', { endpointId: target.row.endpointId, projectId: target.row.summary.projectId }).catch(ignoreRefusal);
         }
     };
 
@@ -189,7 +189,7 @@ function useProjectSettings(endpoints: readonly Endpoint[], isCurrent: (row: Pro
         if (target === null) {
             return;
         }
-        const done = await performAsPerson('project.setAppearance', {
+        const done = await perform('project.setAppearance', {
             endpointId: target.endpointId,
             projectId: target.summary.projectId,
             name: change.name ?? null,

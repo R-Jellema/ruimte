@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleDot } from 'lucide-react';
 import type { GitIssue } from '@ruimte/contracts';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import { rememberChatSelection, offerDraft } from '@adecore/agents-react/chat';
 import { useChats } from '@adecore/agents-react/state';
 import { Button, Dialog, ErrorBoundary, Field, FormError, Icon, Input, Pill, TextArea } from '@adecore/ui';
@@ -119,7 +119,7 @@ function IssueStartForm({ onDone }: { onDone(): void }) {
         setBusy(true);
         setFailure(null);
         try {
-            const { worktree } = await performAsPerson('worktree.create', {
+            const { worktree } = await perform('worktree.create', {
                 branch: start.branch.trim(),
                 ...(start.reuses ? {} : { base: start.base.trim() })
             });
@@ -143,7 +143,7 @@ function IssueStartForm({ onDone }: { onDone(): void }) {
                 throw new Error(t('newWorktreeChat.noCanvas'));
             }
             if (await whenChatOpens(endpointId, chatId)) {
-                await performAsPerson('chat.send', { chatId, prompt: prompt.trim() });
+                await perform('chat.send', { chatId, prompt: prompt.trim() });
             } else {
                 offerDraft(chatId, prompt);
             }

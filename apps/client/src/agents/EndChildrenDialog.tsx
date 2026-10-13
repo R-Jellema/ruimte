@@ -2,7 +2,7 @@ import { useState } from 'react';
 import i18next from 'i18next';
 import { Square, Trash } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import { endingTitle, endsAgentsWarning, stopsSubagentsWarning, stopsTaskWarning, useEndingAgents, type PendingEnd } from '@/agents/end-children';
 import { hasWork, leftBehindLine, removedToast } from '@/shell/panels/worktree-rows';
 import { Switch, Button, Icon, Dialog } from '@adecore/ui';
@@ -86,7 +86,7 @@ export function EndChildrenDialog() {
 async function removeClean(worktrees: readonly PendingEndWorktree[]): Promise<void> {
     for (const worktree of worktrees) {
         try {
-            const result = await performAsPerson('worktree.remove', { branch: worktree.branch, force: false });
+            const result = await perform('worktree.remove', { branch: worktree.branch, force: false });
             useToasts.getState().show({
                 title: i18next.t('agents:dialog.worktreeRemoved', { branch: worktree.branch }),
                 ...(removedToast(worktree.branch, result) ?? {}),

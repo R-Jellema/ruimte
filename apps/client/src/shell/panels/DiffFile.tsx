@@ -5,7 +5,7 @@ import { Columns2, FileWarning, GitCompare, RefreshCw, Rows2 } from 'lucide-reac
 import type { ActionInput } from '@ruimte/actions';
 import type { DiffContents } from '@adecore/agents-react/chat/ui';
 import type { GitDiffFile, GitDiffResult, GitDiffScope } from '@ruimte/contracts';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import { FILE_TOOLBAR } from '@/shell/panels/classes';
 import { relativeTime } from '@/shell/panels/commit-log';
 import { CommitFileTree } from '@/shell/panels/CommitFileTree';
@@ -74,7 +74,7 @@ function FileDiffView({ tabKey, path, name, view }: { tabKey: string; path: stri
 
     useEffect(() => {
         let alive = true;
-        performAsPerson('git.diff', {
+        perform('git.diff', {
             repository: view.cwd,
             path: relative,
             scope: view.scope,
@@ -223,7 +223,7 @@ function CommitDiff({ tabKey, cwd, commit, base }: { tabKey: string; cwd: string
             commit === undefined
                 ? { repository: cwd, path: null, scope: 'base', commit: null, staged: null, ignoreWhitespace: null, base: base ?? null }
                 : { repository: cwd, path: null, scope: 'commit', commit, staged: null, ignoreWhitespace: null, base: null };
-        performAsPerson('git.diff', ask)
+        perform('git.diff', ask)
             .then((diff) => {
                 if (alive) {
                     setHeld({ asked, state: { status: 'ready', diff } });

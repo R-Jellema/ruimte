@@ -1,7 +1,7 @@
 import { revealFile } from './reveal-file';
 import { useTranslation } from 'react-i18next';
 import { Columns2, CornerUpRight, Folder, Frame, Globe, RefreshCw } from 'lucide-react';
-import { createNodeAction, createViewAction, runAsPerson } from '@/actions/client-actions';
+import { createNodeAction, createViewAction, ignoreRefusal, perform } from '@/actions/client-actions';
 import { showFileOnCanvas } from '@/project/views';
 import { isHtmlName } from '@/shell/panels/file-kind';
 import { localFileUrl } from '@/shell/panels/file-url';
@@ -46,7 +46,7 @@ export function FileActionItems({ path, on, onRefresh }: FileActionItemsProps) {
 
     return (
         <>
-            <Menu.Item disabled={!revealableInFiles(folder, path)} onClick={() => void runAsPerson('file.reveal', { path })}>
+            <Menu.Item disabled={!revealableInFiles(folder, path)} onClick={() => void perform('file.reveal', { path }).catch(ignoreRefusal)}>
                 <Icon icon={Folder} size={14} /> {t('file.menu.revealInFiles')}
             </Menu.Item>
             <Menu.Item

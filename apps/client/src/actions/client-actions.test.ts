@@ -1,7 +1,16 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { MAX_TITLE_LENGTH, type ActionInput, type ActionRegistry } from '@ruimte/actions';
+import { ActionRefusal, ActionRegistry, MAX_TITLE_LENGTH, type ActionInput } from '@ruimte/actions';
 import type { ProjectCanvasView, ProjectDocument, ProjectSummary, ProviderInfo } from '@ruimte/contracts';
-import { clientActions, createClientActionRegistry, PERSON_ACTION_CALL, selectAllAction, toggleFlagAction, VOICE_ACTION_CALL } from './client-actions';
+import {
+    clientActions,
+    createClientActionRegistry,
+    ignoreRefusal,
+    performIn,
+    PERSON_ACTION_CALL,
+    selectAllAction,
+    toggleFlagAction,
+    VOICE_ACTION_CALL
+} from './client-actions';
 import { defaultCanvases } from '@/state/canvas';
 import { defaultDiagrams } from '@/state/diagram';
 import { useDocument } from '@/state/document';
@@ -1372,5 +1381,41 @@ describe('client actions', () => {
                 confirmation: { consequences: ['The view and its 1 node will be removed.', '1 chat or terminal session may be ended.'] }
             });
         });
+    });
+});
+
+describe('perform', () => {
+    /* Dismissing asks first, refuses an alert that is gone, and answers with the alert otherwise. */
+    function dismissing(): ActionRegistry<void> {
+        return new ActionRegistry<void>({
+            'process.dismissAlert': ({ alertId }, { confirmed }) => {
+                if (alertId === 'gone') {
+                    throw new ActionRefusal('unknown-alert', 'No such warning.');
+                }
+                if (!confirmed) {
+                    return { confirmation: { title: 'Dismiss?', consequences: [] } };
+                }
+                return { output: { alertId, kind: 'memory' as const } };
+            }
+        });
+    }
+
+    test('answers the question the person already answered in their own dialog', async () => {
+        expect(await performIn(dismissing(), 'process.dismissAlert', { alertId: 'one' }, { confirmed: true })).toEqual({ alertId: 'one', kind: 'memory' });
+    });
+
+    test('throws when an action asks a question nobody answered', async () => {
+        await expect(performIn(dismissing(), 'process.dismissAlert', { alertId: 'one' })).rejects.toMatchObject({ code: 'confirmation-required' });
+    });
+
+    test('throws the refusal with its own code', async () => {
+        await expect(performIn(dismissing(), 'process.dismissAlert', { alertId: 'gone' }, { confirmed: true })).rejects.toMatchObject({
+            name: 'ActionRefusal',
+            code: 'unknown-alert'
+        });
+    });
+
+    test('a surface that stays quiet catches a refusal into null', async () => {
+        expect(await performIn(dismissing(), 'process.dismissAlert', { alertId: 'gone' }, { confirmed: true }).catch(ignoreRefusal)).toBeNull();
     });
 });

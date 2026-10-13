@@ -2,7 +2,7 @@ import i18next from 'i18next';
 import { create } from 'zustand';
 import { isCanvasView, type Plan, type PlanStepState } from '@ruimte/contracts';
 import { planToMarkdown } from '@adecore/plan';
-import { focusNodeAction, performAsPerson } from '@/actions/client-actions';
+import { focusNodeAction, perform } from '@/actions/client-actions';
 import { offerDraft } from '@adecore/agents-react/chat';
 import { foldableIds, resultsText, revealOptions, type PlanFilter } from '@/plan/plan-view';
 import { revealNode, showView } from '@/project/views';
@@ -138,14 +138,14 @@ function notChanged(error: unknown): void {
 }
 
 export function setPlanStepsAction(chatId: string, planId: string, stepIds: string[], state: PlanStepState): void {
-    performAsPerson('plan.setStepState', { chatId, planId, stepIds, state, note: null }).catch(notChanged);
+    perform('plan.setStepState', { chatId, planId, stepIds, state, note: null }).catch(notChanged);
 }
 
 export function notePlanStepAction(chatId: string, planId: string, stepId: string, text: string): void {
-    performAsPerson('plan.addNote', { chatId, planId, stepId, text }).catch(notChanged);
+    perform('plan.addNote', { chatId, planId, stepId, text }).catch(notChanged);
 }
 
 /* Null lifts the lock of every step of the plan. */
 export function unlockPlanStepsAction(chatId: string, planId: string, stepIds: string[] | null): void {
-    performAsPerson('plan.unlock', { chatId, planId, stepIds }).catch(notChanged);
+    perform('plan.unlock', { chatId, planId, stepIds }).catch(notChanged);
 }

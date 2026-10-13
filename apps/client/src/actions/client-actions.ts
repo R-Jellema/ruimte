@@ -1502,41 +1502,30 @@ export const VOICE_ACTION_CALL: ActionCall<void> = {
     context: undefined
 };
 
-/* A person sees what happened on screen, so a refusal stays as quiet as the store call it replaced. */
-export async function runAsPerson<Name extends ActionName>(name: Name, input: ActionInput<Name>): Promise<ActionOutput<Name> | null> {
-    const result = await clientActions.execute(name, input, PERSON_ACTION_CALL);
-    return result.status === 'completed' ? result.output : null;
-}
-
-/* The person already answered the app's own dialogs before this runs, so the confirmation is theirs to give. */
-async function runConfirmedAsPerson<Name extends ActionName>(name: Name, input: ActionInput<Name>): Promise<ActionOutput<Name> | null> {
-    const asked = await clientActions.execute(name, input, PERSON_ACTION_CALL);
-    if (asked.status === 'needs_confirmation') {
-        const confirmed = await clientActions.confirm(asked.confirmationToken, true, PERSON_ACTION_CALL);
-        return confirmed.status === 'completed' ? (confirmed.output as ActionOutput<Name>) : null;
-    }
-    return asked.status === 'completed' ? asked.output : null;
+export interface PerformOptions {
+    /* The person already answered the app's own dialog before this runs, so the action's question is theirs to answer. */
+    confirmed?: boolean;
 }
 
 /*
- * For a surface that says itself how an action went, such as a toast of the git panel: the output, or
- * the refusal thrown with the machine's own code, so a diverged branch still reads apart from a failure.
+ * Runs an action as the person at this window. Throws the refusal with the machine's own code, so a
+ * surface that says how it went can tell a diverged branch from a failure.
  */
-export async function performAsPerson<Name extends ActionName>(name: Name, input: ActionInput<Name>): Promise<ActionOutput<Name>> {
-    const result = await clientActions.execute(name, input, PERSON_ACTION_CALL);
-    if (result.status === 'failed') {
-        throw new ActionRefusal(result.error.code, result.error.message, result.error.details);
-    }
-    if (result.status === 'needs_confirmation') {
-        throw new ActionRefusal('confirmation-required', `“${name}” asked a person for a confirmation their own dialog should have given.`);
-    }
-    return result.output;
+export async function perform<Name extends ActionName>(name: Name, input: ActionInput<Name>, options: PerformOptions = {}): Promise<ActionOutput<Name>> {
+    return performIn(clientActions, name, input, options);
 }
 
-/* `performAsPerson` for an action whose question the person's own dialog already answered. */
-export async function performConfirmedAsPerson<Name extends ActionName>(name: Name, input: ActionInput<Name>): Promise<ActionOutput<Name>> {
-    const asked = await clientActions.execute(name, input, PERSON_ACTION_CALL);
-    const result = asked.status === 'needs_confirmation' ? await clientActions.confirm(asked.confirmationToken, true, PERSON_ACTION_CALL) : asked;
+export async function performIn<Name extends ActionName>(
+    registry: ActionRegistry<void>,
+    name: Name,
+    input: ActionInput<Name>,
+    { confirmed = false }: PerformOptions = {}
+): Promise<ActionOutput<Name>> {
+    const asked = await registry.execute(name, input, PERSON_ACTION_CALL);
+    if (asked.status === 'needs_confirmation' && !confirmed) {
+        throw new ActionRefusal('confirmation-required', `“${name}” asked a person for a confirmation their own dialog should have given.`);
+    }
+    const result = asked.status === 'needs_confirmation' ? await registry.confirm(asked.confirmationToken, true, PERSON_ACTION_CALL) : asked;
     if (result.status === 'failed') {
         throw new ActionRefusal(result.error.code, result.error.message, result.error.details);
     }
@@ -1546,26 +1535,31 @@ export async function performConfirmedAsPerson<Name extends ActionName>(name: Na
     return result.output as ActionOutput<Name>;
 }
 
+/* A person sees what happened on screen, so a surface that says nothing itself catches a refusal with this. */
+export function ignoreRefusal(): null {
+    return null;
+}
+
 /* The prompt cards answer as the person whose click it was, through the actions Voice asks for too. */
 export const PERSON_PROMPT_CLIENTS: ChatPromptClients = {
     approve: async (chatId, requestId, decision, message) => {
-        await performAsPerson('chat.approve', { chatId, requestId, decision, message: message ?? null });
+        await perform('chat.approve', { chatId, requestId, decision, message: message ?? null });
     },
     answer: async (chatId, requestId, answers) => {
-        await performAsPerson('chat.answer', {
+        await perform('chat.answer', {
             chatId,
             requestId,
             answers: Object.entries(answers).map(([questionId, answer]) => ({ questionId, answer }))
         });
     },
     dismiss: async (chatId, itemId) => {
-        await performAsPerson('chat.dismissQuestion', { chatId, itemId });
+        await perform('chat.dismissQuestion', { chatId, itemId });
     }
 };
 
 /* The machine's own card about operating an app, answered the same way; false when it no longer waited. */
 export async function answerComputerAsPerson(requestId: string, choice: ComputerApprovalChoice): Promise<boolean> {
-    return (await performAsPerson('computer.answerApproval', { requestId, choice })).accepted;
+    return (await perform('computer.answerApproval', { requestId, choice })).accepted;
 }
 
 function activeViewId(): string | null {
@@ -1573,7 +1567,7 @@ function activeViewId(): string | null {
 }
 
 export function focusViewAction(viewId: string): void {
-    void runAsPerson('view.focus', { viewId });
+    void perform('view.focus', { viewId }).catch(ignoreRefusal);
 }
 
 /*
@@ -1593,7 +1587,7 @@ export function openInNewTabAction(viewId: string): void {
 }
 
 export function renameViewAction(viewId: string, name: string): void {
-    void runAsPerson('view.rename', { viewId, name });
+    void perform('view.rename', { viewId, name }).catch(ignoreRefusal);
 }
 
 /* A name carried over from something that already has one may predate the limit; it is cut, never refused. */
@@ -1611,7 +1605,7 @@ export interface CreateViewOptions extends AgentSession {
 }
 
 export async function createViewAction(kind: CreatableViewKind, options: CreateViewOptions = {}): Promise<string | null> {
-    const created = await runAsPerson('view.create', {
+    const created = await perform('view.create', {
         kind,
         name: carriedName(options.name),
         url: options.url ?? null,
@@ -1623,29 +1617,29 @@ export async function createViewAction(kind: CreatableViewKind, options: CreateV
         device: options.device ?? null,
         resume: options.resume ?? null,
         cwd: options.cwd ?? null
-    });
+    }).catch(ignoreRefusal);
     return created?.viewId ?? null;
 }
 
 /* Null puts the view at the top of the list. */
 export async function moveViewAction(viewId: string, afterViewId: string | null): Promise<void> {
-    await runAsPerson('view.move', { viewId, afterViewId });
+    await perform('view.move', { viewId, afterViewId }).catch(ignoreRefusal);
 }
 
 export function deleteViewAction(viewId: string): void {
-    void runConfirmedAsPerson('view.delete', { viewId });
+    void perform('view.delete', { viewId }, { confirmed: true }).catch(ignoreRefusal);
 }
 
 export function duplicateViewAction(viewId: string): void {
-    void runAsPerson('view.duplicate', { viewId });
+    void perform('view.duplicate', { viewId }).catch(ignoreRefusal);
 }
 
 export function placeViewOnCanvasAction(viewId: string): void {
-    void runAsPerson('view.placeOnCanvas', { viewId });
+    void perform('view.placeOnCanvas', { viewId }).catch(ignoreRefusal);
 }
 
 export async function showViewOnCanvasAction(viewId: string): Promise<string | null> {
-    return (await runAsPerson('view.showOnCanvas', { viewId }))?.nodeId ?? null;
+    return (await perform('view.showOnCanvas', { viewId }).catch(ignoreRefusal))?.nodeId ?? null;
 }
 
 /* Resolves how to take it back, or null when nothing happened. */
@@ -1667,25 +1661,25 @@ export async function shareViewAction(viewId: string, shared: boolean): Promise<
 
 export function focusNodeAction(viewId: string | null, nodeId: string): void {
     if (viewId !== null) {
-        void runAsPerson('node.focus', { viewId, nodeId });
+        void perform('node.focus', { viewId, nodeId }).catch(ignoreRefusal);
     }
 }
 
 export function duplicateNodeAction(viewId: string | null, nodeId: string): void {
     if (viewId !== null) {
-        void runAsPerson('node.duplicate', { viewId, nodeId });
+        void perform('node.duplicate', { viewId, nodeId }).catch(ignoreRefusal);
     }
 }
 
 export function renameNodeAction(viewId: string | null, nodeId: string, name: string): void {
     if (viewId !== null) {
-        void runAsPerson('node.rename', { viewId, nodeId, name });
+        void perform('node.rename', { viewId, nodeId, name }).catch(ignoreRefusal);
     }
 }
 
 export function colorNoteAction(viewId: string | null, nodeId: string, color: NoteColor): void {
     if (viewId !== null) {
-        void runAsPerson('note.setColor', { viewId, nodeId, color });
+        void perform('note.setColor', { viewId, nodeId, color }).catch(ignoreRefusal);
     }
 }
 
@@ -1693,14 +1687,14 @@ export function colorNoteAction(viewId: string | null, nodeId: string, color: No
 export function promoteNodeAction(nodeId: string): void {
     const viewId = viewOfNode(useDocument.getState().views, nodeId)?.id ?? activeViewId();
     if (viewId !== null) {
-        void runConfirmedAsPerson('node.promoteToView', { viewId, nodeId });
+        void perform('node.promoteToView', { viewId, nodeId }, { confirmed: true }).catch(ignoreRefusal);
     }
 }
 
 export function moveNodeToViewAction(nodeId: string, targetViewId: string): void {
     const viewId = activeViewId();
     if (viewId !== null) {
-        void runConfirmedAsPerson('node.moveToView', { viewId, nodeId, targetViewId });
+        void perform('node.moveToView', { viewId, nodeId, targetViewId }, { confirmed: true }).catch(ignoreRefusal);
     }
 }
 
@@ -1711,7 +1705,7 @@ export function moveNodeToViewAction(nodeId: string, targetViewId: string): void
 export function deleteNodesAction(store: StoreApi<CanvasState>, ids: readonly string[]): void {
     const canvas = store.getState();
     if (canvas.viewId !== null && defaultCanvases.peek(canvas.viewId) === store && ids.length > 0 && ids.every((id) => canvas.nodes[id] !== undefined)) {
-        void runConfirmedAsPerson('node.delete', { viewId: canvas.viewId, nodeIds: [...ids] });
+        void perform('node.delete', { viewId: canvas.viewId, nodeIds: [...ids] }, { confirmed: true }).catch(ignoreRefusal);
         return;
     }
     canvas.select([...ids]);
@@ -1720,7 +1714,7 @@ export function deleteNodesAction(store: StoreApi<CanvasState>, ids: readonly st
 
 export function fitAction(viewId: string | null = activeViewId()): void {
     if (viewId !== null) {
-        void runAsPerson('canvas.fit', { viewId });
+        void perform('canvas.fit', { viewId }).catch(ignoreRefusal);
     }
 }
 
@@ -1748,7 +1742,7 @@ export async function createNodeAction(kind: CreatableNodeKind, options: CreateN
     if (viewId === null) {
         return null;
     }
-    const created = await runAsPerson('node.create', {
+    const created = await perform('node.create', {
         viewId,
         kind,
         title: carriedName(options.title),
@@ -1763,19 +1757,19 @@ export async function createNodeAction(kind: CreatableNodeKind, options: CreateN
         resume: options.resume ?? null,
         cwd: options.cwd ?? null,
         issue: options.issue ?? null
-    });
+    }).catch(ignoreRefusal);
     return created?.nodeId ?? null;
 }
 
 export async function linkNodesAction(viewId: string, from: string, to: string): Promise<void> {
-    await runAsPerson('link.create', { viewId, from, to: [to] });
+    await perform('link.create', { viewId, from, to: [to] }).catch(ignoreRefusal);
 }
 
 /* Empty and open for typing, the way a double-click on the canvas starts one. */
 export function createTextAction(at: Point | null = null): void {
     const viewId = activeViewId();
     if (viewId !== null) {
-        void runAsPerson('canvasText.create', { viewId, text: null, at });
+        void perform('canvasText.create', { viewId, text: null, at }).catch(ignoreRefusal);
     }
 }
 
@@ -1790,7 +1784,7 @@ export function groupSelectionAction(): void {
     if (viewId === null || nodeIds.length === 0) {
         return;
     }
-    void runAsPerson('group.create', { viewId, nodeIds });
+    void perform('group.create', { viewId, nodeIds }).catch(ignoreRefusal);
 }
 
 /* A refusal is the answer here: nothing moved, and the toast says why. */
@@ -1798,7 +1792,7 @@ export function arrangeGroupAction(viewId: string | null, groupId: string): void
     if (viewId === null) {
         return;
     }
-    performAsPerson('group.arrange', { viewId, groupId }).catch((error: unknown) => {
+    perform('group.arrange', { viewId, groupId }).catch((error: unknown) => {
         useToasts
             .getState()
             .show({ kind: 'error', title: i18next.t('canvas:group.arrange'), description: error instanceof Error ? error.message : String(error) });
@@ -1809,28 +1803,28 @@ export function historyAction(step: 'undo' | 'redo', viewId: string | null = act
     if (viewId === null) {
         return;
     }
-    void runAsPerson(step === 'undo' ? 'history.undo' : 'history.redo', { viewId });
+    void perform(step === 'undo' ? 'history.undo' : 'history.redo', { viewId }).catch(ignoreRefusal);
 }
 
 /* The layout dialog and the dock's delete corner are the person's answer; neither asks about replacing or losing one. */
 export function saveLayoutAction(name: string): void {
     const viewId = activeViewId();
     if (viewId !== null) {
-        void runConfirmedAsPerson('layout.save', { viewId, name });
+        void perform('layout.save', { viewId, name }, { confirmed: true }).catch(ignoreRefusal);
     }
 }
 
 export function applyLayoutAction(name: string): void {
     const viewId = activeViewId();
     if (viewId !== null) {
-        void runAsPerson('layout.apply', { viewId, name });
+        void perform('layout.apply', { viewId, name }).catch(ignoreRefusal);
     }
 }
 
 export function deleteLayoutAction(name: string): void {
     const viewId = activeViewId();
     if (viewId !== null) {
-        void runConfirmedAsPerson('layout.delete', { viewId, name });
+        void perform('layout.delete', { viewId, name }, { confirmed: true }).catch(ignoreRefusal);
     }
 }
 
@@ -1838,17 +1832,17 @@ export function deleteLayoutAction(name: string): void {
 export function setLocksAction(locked: boolean, gestures: (keyof Locks)[] | null = null): void {
     const viewId = activeViewId();
     if (viewId !== null) {
-        void runAsPerson('canvas.setLocks', { viewId, locked, gestures });
+        void perform('canvas.setLocks', { viewId, locked, gestures }).catch(ignoreRefusal);
     }
 }
 
 export function splitAction(direction: 'right' | 'down'): void {
-    void runAsPerson('split.create', { direction, viewId: null });
+    void perform('split.create', { direction, viewId: null }).catch(ignoreRefusal);
 }
 
 /* Null closes the focused cell. */
 export function closeCellAction(viewId: string | null = null): void {
-    void runAsPerson('split.close', { viewId });
+    void perform('split.close', { viewId }).catch(ignoreRefusal);
 }
 
 /* Every cell but the one at `at`, through the questions of their loose tabs. */
@@ -1874,17 +1868,19 @@ export function closeTabAction(viewId: string): void {
 }
 
 export function focusCellAction(direction: SplitDirection): void {
-    void runAsPerson('split.focus', { direction });
+    void perform('split.focus', { direction }).catch(ignoreRefusal);
 }
 
 /* A drop on a cell: `cellViewId` is the view standing in the cell it landed on. */
 export function placeViewAction(viewId: string, cellViewId: string, zone: SplitZone): void {
-    void runAsPerson('split.placeView', { viewId, paths: null, cellViewId, zone });
+    void perform('split.placeView', { viewId, paths: null, cellViewId, zone }).catch(ignoreRefusal);
 }
 
 export function placeFilesAction(paths: readonly string[], cellViewId: string, zone: SplitZone, tabGap?: number | null): void {
     if (paths.length > 0) {
-        void runAsPerson('split.placeView', { viewId: null, paths: [...paths], cellViewId, zone, ...(tabGap === undefined ? {} : { tabGap }) });
+        void perform('split.placeView', { viewId: null, paths: [...paths], cellViewId, zone, ...(tabGap === undefined ? {} : { tabGap }) }).catch(
+            ignoreRefusal
+        );
     }
 }
 
@@ -1896,7 +1892,7 @@ export function selectAllAction(store: StoreApi<CanvasState>): void {
     const canvas = store.getState();
     const ids = [...canvas.order, ...Object.keys(canvas.texts)];
     if (canvas.viewId !== null && defaultCanvases.peek(canvas.viewId) === store && ids.length > 0) {
-        void runAsPerson('canvas.select', { viewId: canvas.viewId, nodeIds: ids });
+        void perform('canvas.select', { viewId: canvas.viewId, nodeIds: ids }).catch(ignoreRefusal);
         return;
     }
     canvas.select(ids);
@@ -1904,7 +1900,7 @@ export function selectAllAction(store: StoreApi<CanvasState>): void {
 
 /* The switch screen says how an open goes, so a refusal here stays quiet like every other person's action. */
 export function openProjectAction(endpointId: string, projectId: string): void {
-    void runAsPerson('project.switch', { endpointId, projectId });
+    void perform('project.switch', { endpointId, projectId }).catch(ignoreRefusal);
 }
 
 /* A click on a project row. Cmd-click (Ctrl-click off macOS) opens it in a window of its own. */
@@ -1917,17 +1913,17 @@ export function openProjectClickAction(event: { metaKey: boolean; ctrlKey: boole
 }
 
 export function openFolderAction(endpointId: string, folder: string, createFolder: boolean): void {
-    void runAsPerson('project.create', { endpointId, folder, createFolder });
+    void perform('project.create', { endpointId, folder, createFolder }).catch(ignoreRefusal);
 }
 
 /* The cancel button of a git run: the run is named by the id its progress streams under. */
 export function cancelGitRunAction(runId: string): void {
-    void runAsPerson('operation.cancel', { operationId: `${GIT_OPERATION}${runId}` });
+    void perform('operation.cancel', { operationId: `${GIT_OPERATION}${runId}` }).catch(ignoreRefusal);
 }
 
 /* Null takes the mark away. */
 export function setViewIconAction(viewId: string, icon: ProjectIconChoice | null): void {
-    void runAsPerson('view.setIcon', { viewId, icon: icon?.value ?? null });
+    void perform('view.setIcon', { viewId, icon: icon?.value ?? null }).catch(ignoreRefusal);
 }
 
 /* A color a person picks is the one the shortcut sets next; null takes the flags off. */
@@ -1935,7 +1931,7 @@ export function flagAction(ids: readonly string[], color: NodeAccent | null): vo
     if (color !== null) {
         rememberFlagColor(color);
     }
-    void runAsPerson('flag.set', { ids: [...ids], color });
+    void perform('flag.set', { ids: [...ids], color }).catch(ignoreRefusal);
 }
 
 /*
@@ -1951,19 +1947,19 @@ export function toggleFlagAction(): void {
     const selection = isCanvasView(view) ? focusedCanvas().getState().selection : [];
     const ids = selection.length > 0 ? selection : [view.id];
     const flagged = ids.every((id) => flagOf(state.flags, id) !== null);
-    void runAsPerson('flag.set', { ids, color: flagged ? null : lastFlagColor() });
+    void perform('flag.set', { ids, color: flagged ? null : lastFlagColor() }).catch(ignoreRefusal);
 }
 
 /* A person's key or menu row is the answer, as a terminal's own Cmd+K always was. */
 export function clearTerminalAction(terminalId: string): void {
-    void runConfirmedAsPerson('terminal.clear', { terminalId });
+    void perform('terminal.clear', { terminalId }, { confirmed: true }).catch(ignoreRefusal);
 }
 
 /* The body rebuilds its terminal once the fresh session is asked for; the action only asks. */
 export function restartTerminalAction(terminalId: string): void {
-    void runAsPerson('terminal.restart', { terminalId });
+    void perform('terminal.restart', { terminalId }).catch(ignoreRefusal);
 }
 
 export function resumeTerminalAgentAction(terminalId: string): void {
-    void runAsPerson('terminal.resumeAgent', { terminalId });
+    void perform('terminal.resumeAgent', { terminalId }).catch(ignoreRefusal);
 }

@@ -3,7 +3,7 @@ import i18next from 'i18next';
 import { ActionRefusal, type ActionOutput } from '@ruimte/actions';
 import type { GitActionKind, GitActionPayload, GitActionResult } from '@ruimte/contracts';
 import type { ToastAction } from '@adecore/ui';
-import { cancelGitRunAction, performAsPerson } from '@/actions/client-actions';
+import { cancelGitRunAction, perform } from '@/actions/client-actions';
 import { actionTitle, manySummary, manyTitle, nextActionId, phaseLabel } from '@/shell/panels/git-actions';
 import { useToasts } from '@/state/toasts';
 import { useTransport } from '@/transport/context';
@@ -45,18 +45,18 @@ export async function runGitKind({
 }: GitActionPayload): Promise<GitActionResult> {
     switch (kind) {
         case 'fetch':
-            return firstOf(run, await performAsPerson('git.fetch', { repository, run }));
+            return firstOf(run, await perform('git.fetch', { repository, run }));
         case 'pull':
-            return firstOf(run, await performAsPerson('git.pull', { repository, strategy: strategy ?? null, run }));
+            return firstOf(run, await perform('git.pull', { repository, strategy: strategy ?? null, run }));
         case 'sync':
-            return firstOf(run, await performAsPerson('git.sync', { repository, strategy: strategy ?? null, run }));
+            return firstOf(run, await perform('git.sync', { repository, strategy: strategy ?? null, run }));
         case 'push':
-            return firstOf(run, await performAsPerson('git.push', { repository, run }));
+            return firstOf(run, await perform('git.push', { repository, run }));
         case 'commit':
         case 'commit-push':
             return firstOf(
                 run,
-                await performAsPerson('git.commit', {
+                await perform('git.commit', {
                     repository,
                     message: subject ?? '',
                     body: body ?? null,
@@ -66,27 +66,27 @@ export async function runGitKind({
                 })
             );
         case 'publish':
-            return resultOf(run, await performAsPerson('git.publishBranch', { repository, run }));
+            return resultOf(run, await perform('git.publishBranch', { repository, run }));
         case 'force-push':
-            return resultOf(run, await performAsPerson('git.forcePush', { repository, run }));
+            return resultOf(run, await perform('git.forcePush', { repository, run }));
         case 'checkout':
-            return resultOf(run, await performAsPerson('git.checkout', { repository, branch: ref ?? '', stashFirst: stash ?? false, run }));
+            return resultOf(run, await perform('git.checkout', { repository, branch: ref ?? '', stashFirst: stash ?? false, run }));
         case 'create-branch':
-            return resultOf(run, await performAsPerson('git.createBranch', { repository, name: name ?? '', run }));
+            return resultOf(run, await perform('git.createBranch', { repository, name: name ?? '', run }));
         case 'rename-branch':
-            return resultOf(run, await performAsPerson('git.renameBranch', { repository, name: name ?? '', run }));
+            return resultOf(run, await perform('git.renameBranch', { repository, name: name ?? '', run }));
         case 'delete-branch':
-            return resultOf(run, await performAsPerson('git.deleteBranch', { repository, branch: ref ?? '', force: force ?? false, run }));
+            return resultOf(run, await perform('git.deleteBranch', { repository, branch: ref ?? '', force: force ?? false, run }));
         case 'merge':
-            return resultOf(run, await performAsPerson('git.merge', { repository, branch: ref ?? '', run }));
+            return resultOf(run, await perform('git.merge', { repository, branch: ref ?? '', run }));
         case 'rebase':
-            return resultOf(run, await performAsPerson('git.rebase', { repository, onto: ref ?? '', run }));
+            return resultOf(run, await perform('git.rebase', { repository, onto: ref ?? '', run }));
         case 'stash':
-            return resultOf(run, await performAsPerson('git.stash', { repository, message: subject?.trim() || null, run }));
+            return resultOf(run, await perform('git.stash', { repository, message: subject?.trim() || null, run }));
         case 'stash-pop':
-            return resultOf(run, await performAsPerson('git.popStash', { repository, stash: ref ?? '', run }));
+            return resultOf(run, await perform('git.popStash', { repository, stash: ref ?? '', run }));
         case 'create-pr':
-            return resultOf(run, await performAsPerson('git.createPullRequest', { repository, title: subject ?? '', body: body ?? null, run }));
+            return resultOf(run, await perform('git.createPullRequest', { repository, title: subject ?? '', body: body ?? null, run }));
     }
 }
 

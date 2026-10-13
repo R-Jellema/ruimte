@@ -3,7 +3,7 @@ import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowUp, ChevronsDownUp, ChevronsUpDown, Eye, Folder, GitMerge, GitPullRequest, MoreHorizontal, RefreshCw } from 'lucide-react';
 import { type GitActionKind, type GitCapabilitiesResult, type GitFile, type GitRef, type GitStash, type Worktree } from '@ruimte/contracts';
-import { performAsPerson, runAsPerson } from '@/actions/client-actions';
+import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { desktop } from '@/desktop/bridge';
 import { startDiffDrag, type DraggedDiff } from '@/shell/diff-drag';
 import { BranchMenu, type CheckoutRefs } from '@/shell/panels/BranchMenu';
@@ -160,7 +160,7 @@ export function GitPanel() {
                 ...previous,
                 [key]: { refs: previous[key]?.refs ?? [], stashes: previous[key]?.stashes ?? [], loading: true, error: null }
             }));
-            performAsPerson('git.refs', { repository: path })
+            perform('git.refs', { repository: path })
                 .then((answer) => {
                     if (refsRequests.get(key) === generation) {
                         setRefsByCwd((previous) => ({ ...previous, [key]: { refs: answer.refs, stashes: answer.stashes, loading: false, error: null } }));
@@ -284,7 +284,7 @@ export function GitPanel() {
 
     const discardIn = (path: string, files: GitFile[]): Promise<void> => {
         const name = nameOf(files);
-        return performAsPerson('git.discard', { repository: path, paths: files.map((file) => file.path) })
+        return perform('git.discard', { repository: path, paths: files.map((file) => file.path) })
             .then(({ stash }) => {
                 useToasts.getState().show({
                     title: stash === null ? t('git.panel.discardNothing', { path: name }) : t('git.panel.discardStashed', { path: name }),
@@ -304,9 +304,9 @@ export function GitPanel() {
     /* A file that was added to the index is taken out of it first, or the index would keep a file that is gone. */
     const deleteIn = (path: string, files: GitFile[]): Promise<void> => {
         const staged = files.filter((file) => file.state === 'staged').map((file) => file.path);
-        const unstaged = staged.length > 0 ? performAsPerson('git.unstage', { repository: path, paths: staged }) : Promise.resolve();
+        const unstaged = staged.length > 0 ? perform('git.unstage', { repository: path, paths: staged }) : Promise.resolve();
         return unstaged
-            .then(() => performAsPerson('file.delete', { paths: files.map((file) => `${path}/${file.path}`) }))
+            .then(() => perform('file.delete', { paths: files.map((file) => `${path}/${file.path}`) }))
             .then(() => {
                 useToasts.getState().show({ title: t('git.panel.deleteDone', { path: nameOf(files) }), kind: 'success' });
             })
@@ -349,7 +349,7 @@ export function GitPanel() {
 
     /* The file next to its diff, for a change a person wants to read whole rather than as a patch. */
     const openFile = (path: string, file: GitFile): void => {
-        void runAsPerson('file.preview', { path: `${path}/${file.path}`, line: null });
+        void perform('file.preview', { path: `${path}/${file.path}`, line: null }).catch(ignoreRefusal);
     };
 
     const openCommit = (path: string, commit: { hash: string }): void => {
@@ -390,7 +390,7 @@ export function GitPanel() {
     };
 
     const openPullRequest = (path: string): void => {
-        performAsPerson('git.log', { repository: path, limit: 1, cursor: null })
+        perform('git.log', { repository: path, limit: 1, cursor: null })
             .then((answer) => setDialog({ kind: 'pull-request', cwd: path, subject: answer.commits[0]?.subject ?? '' }))
             .catch(() => setDialog({ kind: 'pull-request', cwd: path, subject: '' }));
     };

@@ -2,7 +2,7 @@ import i18next from 'i18next';
 import { useToasts } from '@/state/toasts';
 import { FileLocationSchema, type FileLocation } from '@ruimte/contracts';
 import { currentEndpointId } from '@/state/keys';
-import { runAsPerson } from '@/actions/client-actions';
+import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { absoluteOf, basenameOf, isAbsolutePath } from '@/shell/panels/files-tree';
 
 export interface FileRef extends FileLocation {
@@ -184,8 +184,8 @@ export async function openFileLink(cwd: string | null, ref: FileRef, endpointId 
         return;
     }
     if (ref.directory) {
-        await runAsPerson('file.reveal', { path });
+        await perform('file.reveal', { path }).catch(ignoreRefusal);
         return;
     }
-    await runAsPerson('file.preview', { path, line: ref.line, column: ref.column, endLine: ref.endLine, endpointId });
+    await perform('file.preview', { path, line: ref.line, column: ref.column, endLine: ref.endLine, endpointId }).catch(ignoreRefusal);
 }

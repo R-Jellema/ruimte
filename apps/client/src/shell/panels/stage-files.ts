@@ -1,5 +1,5 @@
 import i18next from 'i18next';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import { useToasts } from '@/state/toasts';
 
 /*
@@ -11,7 +11,7 @@ export async function stageFiles(cwd: string, paths: readonly string[], staged: 
         return false;
     }
     try {
-        await performAsPerson(staged ? 'git.stage' : 'git.unstage', { repository: cwd, paths: [...paths] });
+        await perform(staged ? 'git.stage' : 'git.unstage', { repository: cwd, paths: [...paths] });
         return true;
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : i18next.t('panels:error.generic');

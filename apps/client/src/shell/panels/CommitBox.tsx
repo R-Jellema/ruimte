@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { FolderGit2, LoaderCircle, Sparkles } from 'lucide-react';
 import type { GitCapabilitiesResult } from '@ruimte/contracts';
 import { Button, Icon, TextArea, Tooltip, KEY_SHORTCUTS, matchesShortcut } from '@adecore/ui';
-import { cancelGitRunAction, performAsPerson } from '@/actions/client-actions';
+import { cancelGitRunAction, perform } from '@/actions/client-actions';
 import { commitTargets, nextActionId, splitMessage, type CommitCandidate } from '@/shell/panels/git-actions';
 import { CommitSuggestion } from './commit-suggestion';
 import { useGit } from '@/state/git';
@@ -87,7 +87,7 @@ export function CommitBox({ messageKey, checkouts, named, capabilities, busy, on
         setOffered(null);
         writingId.current = actionId;
         setWriting(true);
-        performAsPerson('git.suggestCommitMessage', { repository: writeFrom, run: actionId })
+        perform('git.suggestCommitMessage', { repository: writeFrom, run: actionId })
             .then((suggestion) => {
                 const text = suggestion.body === '' ? suggestion.subject : `${suggestion.subject}\n\n${suggestion.body}`;
                 // Read the store too: another panel may edit the draft before this component renders.

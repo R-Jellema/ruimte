@@ -1,5 +1,5 @@
 import type { StoreApi } from 'zustand';
-import { runAsPerson } from '@/actions/client-actions';
+import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { diagramJsonPath } from '@/diagram/export';
 import type { DiagramState } from '@/state/diagram';
 
@@ -10,14 +10,14 @@ type DiagramStore = Pick<StoreApi<DiagramState>, 'getState'>;
 export function copyDiagram(store: DiagramStore, format: 'png' | 'svg' | 'json'): void {
     const viewId = store.getState().viewId;
     if (viewId !== null) {
-        void runAsPerson('diagram.copy', { viewId, format });
+        void perform('diagram.copy', { viewId, format }).catch(ignoreRefusal);
     }
 }
 
 export function exportDiagram(store: DiagramStore, format: 'png' | 'svg'): void {
     const viewId = store.getState().viewId;
     if (viewId !== null) {
-        void runAsPerson('diagram.export', { viewId, format });
+        void perform('diagram.export', { viewId, format }).catch(ignoreRefusal);
     }
 }
 
@@ -25,6 +25,6 @@ export function exportDiagram(store: DiagramStore, format: 'png' | 'svg'): void 
 export function openDiagramJson(viewId: string): void {
     const path = diagramJsonPath(viewId);
     if (path !== null) {
-        void runAsPerson('file.preview', { path, line: null });
+        void perform('file.preview', { path, line: null }).catch(ignoreRefusal);
     }
 }

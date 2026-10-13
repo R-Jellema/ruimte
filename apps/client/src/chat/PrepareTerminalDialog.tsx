@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next';
 import { ActionRefusal } from '@ruimte/actions';
 import { Button, Dialog } from '@adecore/ui';
 import type { TerminalPreparePreview } from '@ruimte/contracts';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import { useToasts } from '@/state/toasts';
 import type { PrepareDestination } from '@/terminal/prepare-destination';
 
@@ -50,7 +50,7 @@ export function PrepareTerminalDialog({
                 close();
                 return;
             }
-            const result = await performAsPerson('terminal.prepare', { endpointId, machineId: preview.machineId, token });
+            const result = await perform('terminal.prepare', { endpointId, machineId: preview.machineId, token });
             setInserted(true);
             useToasts.getState().show({
                 kind: 'success',

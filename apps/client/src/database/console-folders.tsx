@@ -4,7 +4,7 @@ import { Pencil, SquareTerminal, Trash2 } from 'lucide-react';
 import { ActionRefusal } from '@ruimte/actions';
 import type { ExplorerFolder } from '@adecore/database';
 import { ContextMenu, Icon, PromptDialog } from '@adecore/ui';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import { openConsoleFile } from '@/database/console-file';
 import { useConsoleFiles } from '@/database/use-console-files';
 import { newEntryPathOf, segmentsOf, validateNewEntry } from '@/shell/panels/file-create';
@@ -95,7 +95,7 @@ export function useConsoleFolders(): { folders: Record<string, readonly Explorer
             throw new Error(t('console.rename.noFolders'));
         }
         try {
-            await performAsPerson('file.rename', { path, to: newEntryPathOf(parent, name, 'file') });
+            await perform('file.rename', { path, to: newEntryPathOf(parent, name, 'file') });
         } catch (error: unknown) {
             throw new Error(failureOf(error));
         }
@@ -104,7 +104,7 @@ export function useConsoleFolders(): { folders: Record<string, readonly Explorer
 
     const remove = (path: string): void => {
         setBusy(true);
-        performAsPerson('file.delete', { paths: [path] })
+        perform('file.delete', { paths: [path] })
             .then(() => setQuestion(null))
             .catch((error: unknown) => {
                 const message = error instanceof Error ? error.message : t('panels:error.generic');

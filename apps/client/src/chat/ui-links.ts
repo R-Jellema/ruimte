@@ -1,6 +1,6 @@
 import i18next from 'i18next';
 import type { ChatUiLinkReading } from '@ruimte/contracts';
-import { runAsPerson } from '@/actions/client-actions';
+import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { desktop } from '@/desktop/bridge';
 import { useFiles } from '@/state/files';
 import { currentEndpointId } from '@/state/keys';
@@ -23,7 +23,7 @@ export function openUiLink(endpointId: string, reading: ChatUiLinkReading): void
     }
     const target = reading.target;
     if (target.type === 'File') {
-        void runAsPerson('file.preview', { path: target.path, line: target.line, endpointId });
+        void perform('file.preview', { path: target.path, line: target.line, endpointId }).catch(ignoreRefusal);
     } else if (target.type === 'Diff' && reading.cwd) {
         if (reading.conflicted && reading.relativePath) {
             useUi.getState().setConflicts({ cwd: reading.cwd, path: reading.relativePath });
@@ -40,7 +40,9 @@ export function openUiLink(endpointId: string, reading: ChatUiLinkReading): void
             .getState()
             .open(reading.cwd, useSettings.getState().filesTabLimit, { kind: 'diff', cwd: reading.cwd, scope: 'commit', staged: false, commit: target.sha });
     } else if (target.type === 'Node') {
-        void (reading.viewId ? runAsPerson('node.focus', { viewId: reading.viewId, nodeId: target.id }) : runAsPerson('view.focus', { viewId: target.id }));
+        void (reading.viewId
+            ? perform('node.focus', { viewId: reading.viewId, nodeId: target.id }).catch(ignoreRefusal)
+            : perform('view.focus', { viewId: target.id }).catch(ignoreRefusal));
     }
 }
 

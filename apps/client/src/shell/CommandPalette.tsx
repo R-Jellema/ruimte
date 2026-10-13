@@ -32,7 +32,7 @@ import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
 import { ViewGlyph } from '@/project/ViewGlyph';
 import { ensureMachine } from '@/endpoint/reach';
-import { createViewAction, openFolderAction, openProjectAction, performAsPerson, runAsPerson } from '@/actions/client-actions';
+import { createViewAction, ignoreRefusal, openFolderAction, openProjectAction, perform } from '@/actions/client-actions';
 import { newChatOn } from '@/project/new-chat';
 import { revealNode, showFileOnCanvas, showView } from '@/project/views';
 import { openInNewWindow, wantsNewWindow } from '@/project/windows';
@@ -549,7 +549,7 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
             return;
         }
         const timer = window.setTimeout(() => {
-            performAsPerson('file.search', { query: trimmed, limit: FILE_RESULTS })
+            perform('file.search', { query: trimmed, limit: FILE_RESULTS })
                 .then((result) => {
                     if (mine === fileGeneration.current) {
                         setFileMatches(result.files);
@@ -580,7 +580,7 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                 void createViewAction('file', { path: absolute });
                 return;
             }
-            void runAsPerson('file.preview', { path: absolute, line });
+            void perform('file.preview', { path: absolute, line }).catch(ignoreRefusal);
         },
         [filePick, folder]
     );

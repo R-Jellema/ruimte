@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { GitBranch } from 'lucide-react';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import { focusedCanvas, useCanvas } from '@/state/canvas';
 import { useProject } from '@/state/project';
 import { useUi } from '@/state/ui';
@@ -19,7 +19,7 @@ export function WorktreeDialog() {
         if (!groupId || !folder) {
             return;
         }
-        const result = await performAsPerson('worktree.create', { branch });
+        const result = await perform('worktree.create', { branch });
         focusedCanvas().getState().setGroupWorktree(groupId, result.worktree);
         close(null);
     };

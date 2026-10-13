@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { AtSign, ChevronRight, Copy, type LucideIcon } from 'lucide-react';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import { canCopyFilesOn, copiedText, copyableFiles, type CopyTarget, type CopyTextKind } from '@/shell/panels/file-copy';
 import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
@@ -21,7 +21,7 @@ export function FileCopyRow({ targets }: { targets: readonly CopyTarget[] }) {
     const mentionLabel = many ? t('files.copyMentions') : t('file.menu.copyMention');
 
     const copyFiles = (): void => {
-        performAsPerson('file.copy', { paths: files }).catch((e: unknown) => {
+        perform('file.copy', { paths: files }).catch((e: unknown) => {
             useToasts.getState().show({ title: t('file.menu.copyFailed'), description: e instanceof Error ? e.message : String(e), kind: 'error' });
         });
     };

@@ -20,7 +20,7 @@ import {
 } from '@/conflicts/conflict-model';
 import type { ConflictDraft } from '@/conflicts/editor';
 import { basenameOf } from '@/shell/panels/files-tree';
-import { cancelGitRunAction, performAsPerson } from '@/actions/client-actions';
+import { cancelGitRunAction, perform } from '@/actions/client-actions';
 import { nextActionId } from '@/shell/panels/git-actions';
 import { useGitStatus } from '@/state/git-watch';
 import { useToasts } from '@/state/toasts';
@@ -84,7 +84,7 @@ export function ConflictOverlay() {
         if (cwd === null) {
             return;
         }
-        performAsPerson('git.conflicts', { repository: cwd })
+        perform('git.conflicts', { repository: cwd })
             .then((next) => setReading({ cwd, answer: next }))
             .catch((error: unknown) => setReading({ cwd, failure: errorText(error) }));
     }, [cwd, errorText]);
@@ -125,7 +125,7 @@ export function ConflictOverlay() {
         }
         let cancelled = false;
         setLoading(true);
-        performAsPerson('git.conflict', { repository: cwd, path: activeFile })
+        perform('git.conflict', { repository: cwd, path: activeFile })
             .then((result) => {
                 if (cancelled) {
                     return;
@@ -205,7 +205,7 @@ export function ConflictOverlay() {
         if (cwd === null) {
             return 0;
         }
-        const result = await performAsPerson('git.proposeResolution', { repository: cwd, path: target.path, run: actionId });
+        const result = await perform('git.proposeResolution', { repository: cwd, path: target.path, run: actionId });
         const usable = usableBlocks(target, result.blocks);
         // Read when the answer lands, not when it was asked for: the file on screen may have changed since.
         const onScreen = editor.current;
@@ -230,7 +230,7 @@ export function ConflictOverlay() {
         if (known !== undefined) {
             return known;
         }
-        const result = await performAsPerson('git.conflict', { repository: cwd, path });
+        const result = await perform('git.conflict', { repository: cwd, path });
         const made = fileOf(result);
         files.current.set(path, made);
         return made;
@@ -259,7 +259,7 @@ export function ConflictOverlay() {
     };
 
     const cache = (): ConflictCache => ({ files: files.current, drafts: drafts.current });
-    const readerOf = (repository: string) => (path: string) => performAsPerson('git.conflict', { repository, path });
+    const readerOf = (repository: string) => (path: string) => perform('git.conflict', { repository, path });
 
     /* A file read again after a refusal: the editor takes it up only when what it draws changed. */
     const showReread = (): void => {
@@ -275,7 +275,7 @@ export function ConflictOverlay() {
             return;
         }
         await writeConflict(cache(), path, {
-            resolve: (target, content, hash) => performAsPerson('git.resolveConflict', { repository: cwd, path: target, content, take: null, hash }),
+            resolve: (target, content, hash) => perform('git.resolveConflict', { repository: cwd, path: target, content, take: null, hash }),
             read: readerOf(cwd)
         });
         setOpen((previous) => Object.fromEntries(Object.entries(previous).filter(([key]) => key !== path)));
@@ -306,7 +306,7 @@ export function ConflictOverlay() {
         }
         setBusy(true);
         try {
-            await performAsPerson('git.resolveConflict', { repository: cwd, path, content: null, take: side, hash: files.current.get(path)?.hash ?? null });
+            await perform('git.resolveConflict', { repository: cwd, path, content: null, take: side, hash: files.current.get(path)?.hash ?? null });
             files.current.delete(path);
             drafts.current.delete(path);
             setActivePath(null);
@@ -328,7 +328,7 @@ export function ConflictOverlay() {
         }
         setBusy(true);
         try {
-            const result = await performAsPerson('git.operation', { repository: cwd, step: action, run: nextActionId() });
+            const result = await perform('git.operation', { repository: cwd, step: action, run: nextActionId() });
             const left = result.conflicts.length;
             // The daemon's summary is English; the toast says it in the overlay's language instead.
             const title =

@@ -31,7 +31,7 @@ import {
     groupTitle,
     type AlertAction
 } from '@/processes/format';
-import { performAsPerson, performConfirmedAsPerson, runAsPerson } from '@/actions/client-actions';
+import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { messageOf, Segmented, Button, Icon, IconButton, ListRow, Menu, Tooltip, PanelEmpty, PromptDialog, SectionLabel, ContextMenu } from '@adecore/ui';
 import { projectNodes, revealNode } from '@/project/views';
 import { PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
@@ -261,7 +261,7 @@ export function ProcessesPanel() {
     };
     /* SIGKILL only comes here after the force dialog, which is the person's answer to the action's question. */
     const signal = (target: Target, kind: ProcessSignal): void => {
-        performConfirmedAsPerson('process.signal', { pid: target.pid, startTime: target.startTime, name: target.name, signal: kind }).catch((e: unknown) =>
+        perform('process.signal', { pid: target.pid, startTime: target.startTime, name: target.name, signal: kind }, { confirmed: true }).catch((e: unknown) =>
             fail(t('processes.signalFailed', { name: target.name }), e)
         );
     };
@@ -280,13 +280,13 @@ export function ProcessesPanel() {
             return;
         }
         if (action === 'resume' && alert.nodeId !== null) {
-            performAsPerson('terminal.resumeAgent', { terminalId: alert.nodeId }).catch((e: unknown) => fail(t('processes.resumeFailed'), e));
+            perform('terminal.resumeAgent', { terminalId: alert.nodeId }).catch((e: unknown) => fail(t('processes.resumeFailed'), e));
             return;
         }
         const chat = alert.nodeId !== null && groups.some((group) => group.kind === 'chat' && group.nodeId === alert.nodeId);
         if (action === 'interrupt' && chat) {
             // A chat has a turn to cancel, which is the interrupt its CLI understands.
-            performAsPerson('chat.stopTurn', { chatId: alert.nodeId!, subagents: false }).catch((e: unknown) => fail(t('processes.interruptFailed'), e));
+            perform('chat.stopTurn', { chatId: alert.nodeId!, subagents: false }).catch((e: unknown) => fail(t('processes.interruptFailed'), e));
             return;
         }
         if (target !== null) {
@@ -294,7 +294,7 @@ export function ProcessesPanel() {
         }
     };
     const dismiss = (alert: ProcessAlert): void => {
-        void runAsPerson('process.dismissAlert', { alertId: alert.id });
+        void perform('process.dismissAlert', { alertId: alert.id }).catch(ignoreRefusal);
     };
 
     return (

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { runAsPerson } from '@/actions/client-actions';
+import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { promoteLooseDatabase } from '@/project/views';
 import { Copy, FileText, ListX, Minus, PanelLeftOpen, Pin, PinOff, Plus, RefreshCw, SquareX, X } from 'lucide-react';
 import { FileActionItems } from '@/shell/panels/FileActionItems';
@@ -87,7 +87,7 @@ export function FileMenuItems({ tabKey, onRefresh }: { tabKey: string; onRefresh
             {aboutFile && (
                 <>
                     {view !== undefined && (
-                        <Menu.Item onClick={() => void runAsPerson('file.preview', { path, line: null })}>
+                        <Menu.Item onClick={() => void perform('file.preview', { path, line: null }).catch(ignoreRefusal)}>
                             <Icon icon={FileText} size={14} /> {t('file.tab.openItself')}
                         </Menu.Item>
                     )}

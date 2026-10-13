@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActionRefusal } from '@ruimte/actions';
 import type { Worktree } from '@ruimte/contracts';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import { PromptDialog } from '@adecore/ui';
 import { useChats } from '@adecore/agents-react/state';
 import { nodeWorking } from '@/state/agent-work';
@@ -92,7 +92,7 @@ export function RemoveWorktreeDialog() {
         try {
             // One after the other, stopping at the first refusal so what follows it stays as it was.
             for (const worktree of shown.worktrees) {
-                const result = await performAsPerson('worktree.remove', {
+                const result = await perform('worktree.remove', {
                     branch: worktree.branch,
                     force: question.force,
                     stopAgent: stopping

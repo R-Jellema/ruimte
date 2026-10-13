@@ -5,7 +5,7 @@ import { ErrorBoundary, IconButton, lazyNamed } from '@adecore/ui';
 import { SquareTerminal } from 'lucide-react';
 import type { TerminalPreparePreview } from '@ruimte/contracts';
 import { preparableShell } from '@/chat/preparable-shell';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import { endpointById } from '@/state/endpoints';
 import { useToasts } from '@/state/toasts';
 import { prepareDestination, type PrepareDestination } from '@/terminal/prepare-destination';
@@ -43,7 +43,7 @@ export function PrepareCodeBlockAction({ context }: { context: ShellCodeBlockCon
             if (scope && !scope.current()) {
                 return;
             }
-            const result = await performAsPerson('terminal.preparePreview', {
+            const result = await perform('terminal.preparePreview', {
                 endpointId,
                 machineId,
                 chatId: context.chatId,

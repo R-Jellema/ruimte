@@ -2,7 +2,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import type { AgentKind, ModelSelection } from '@ruimte/contracts';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import type { ChatSendExtras } from '@adecore/agents-react/chat';
 import { providersOf, useChats, useChatRow } from '@adecore/agents-react/state';
 import {
@@ -79,9 +79,7 @@ export function ChatBody({ id, focused, onCanvas = false }: { id: string; focuse
 
     // The chat is gone on the machine until it opened again on the other CLI, so a send or another switch meanwhile waits for that.
     const retarget = (provider: AgentKind, selection: ModelSelection): Promise<void> => {
-        const changed = switched.current
-            .then(() => performAsPerson('chat.setProvider', { chatId: id, provider, model: null, selection }))
-            .then(() => undefined);
+        const changed = switched.current.then(() => perform('chat.setProvider', { chatId: id, provider, model: null, selection })).then(() => undefined);
         switched.current = changed.catch((e: unknown) => setFailure(messageOf(e, t('chat.retargetFailed'))));
         return changed;
     };
@@ -99,7 +97,7 @@ export function ChatBody({ id, focused, onCanvas = false }: { id: string; focuse
             .then(async () => {
                 // An older chat may use a different model from the last picker choice.
                 const info = useChats.getState().byKey[endpointKey(endpointId, id)]?.info;
-                await performAsPerson('chat.send', { chatId: id, prompt: text, ...extras });
+                await perform('chat.send', { chatId: id, prompt: text, ...extras });
                 if (info !== undefined) {
                     rememberChatSelection(info.provider, info.selection);
                 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import i18next from 'i18next';
 import type { ChatExternalResult, ChatExternalSession, ChatSearchHit, ChatSearchResult } from '@ruimte/contracts';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import { focusChat } from '@/plan/plan-actions';
 import { endpointKey } from '@/state/keys';
 import { useToasts } from '@/state/toasts';
@@ -99,7 +99,7 @@ export function useChatSearch(projectId: string | null, query: string): ChatSear
         let started = false;
         const timer = window.setTimeout(() => {
             started = true;
-            performAsPerson('chat.search', { query: trimmed, searchId })
+            perform('chat.search', { query: trimmed, searchId })
                 .then((result) => {
                     if (mine === generation.current) {
                         setAnswer({ ...result, projectId, query: trimmed, failure: null });
@@ -150,7 +150,7 @@ export function useExternalSessions(projectId: string | null): ExternalSessionsS
             return;
         }
         let current = true;
-        performAsPerson('chat.external', {})
+        perform('chat.external', {})
             .then((result) => current && setState({ projectId, value: { sessions: result.sessions, failed: result.failed, failure: null } }))
             .catch((e: unknown) => current && setState({ projectId, value: { ...NO_EXTERNAL, failure: e instanceof Error ? e.message : '' } }));
         return () => {
@@ -175,7 +175,7 @@ export function externalMatching(sessions: readonly ChatExternalSession[], query
 
 /* A chat view that goes on with the session, in the account whose folder holds it. */
 export function resumeExternal(session: ChatExternalSession): Promise<unknown> {
-    return performAsPerson('view.create', {
+    return perform('view.create', {
         kind: 'chat',
         name: session.title === '' ? null : session.title,
         url: null,

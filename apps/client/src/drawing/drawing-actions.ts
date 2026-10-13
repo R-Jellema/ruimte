@@ -1,6 +1,6 @@
 import type { ActionInput } from '@ruimte/actions';
 import type { StoreApi } from 'zustand';
-import { runAsPerson } from '@/actions/client-actions';
+import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { readDrawingElements } from '@/drawing/export';
 import type { DrawingState, DrawingStyle } from '@/state/drawing';
 import { readClipboardText } from '@adecore/ui';
@@ -32,21 +32,21 @@ const NO_STYLE: NonNullable<ActionInput<'drawing.updateElements'>['style']> = {
 export async function deleteSelection(store: DrawingStore): Promise<void> {
     const viewId = viewOf(store);
     if (viewId !== null) {
-        await runAsPerson('drawing.deleteElements', { viewId, elementIds: null });
+        await perform('drawing.deleteElements', { viewId, elementIds: null }).catch(ignoreRefusal);
     }
 }
 
 export function duplicateSelection(store: DrawingStore): void {
     const viewId = viewOf(store);
     if (viewId !== null) {
-        void runAsPerson('drawing.duplicateElements', { viewId, elementIds: null });
+        void perform('drawing.duplicateElements', { viewId, elementIds: null }).catch(ignoreRefusal);
     }
 }
 
 export function reorderSelection(store: DrawingStore, to: 'front' | 'back'): void {
     const viewId = viewOf(store);
     if (viewId !== null) {
-        void runAsPerson('drawing.reorderElements', { viewId, elementIds: null, to });
+        void perform('drawing.reorderElements', { viewId, elementIds: null, to }).catch(ignoreRefusal);
     }
 }
 
@@ -57,14 +57,14 @@ export function toggleLockSelection(store: DrawingStore): void {
         return;
     }
     const locked = elements.some((element) => selection.includes(element.id) && !element.locked);
-    void runAsPerson('drawing.lockElements', { viewId, elementIds: null, locked });
+    void perform('drawing.lockElements', { viewId, elementIds: null, locked }).catch(ignoreRefusal);
 }
 
 export function unlockEverything(store: DrawingStore): void {
     const { viewId, elements } = store.getState();
     const locked = elements.filter((element) => element.locked).map((element) => element.id);
     if (viewId !== null && locked.length > 0) {
-        void runAsPerson('drawing.lockElements', { viewId, elementIds: locked, locked: false });
+        void perform('drawing.lockElements', { viewId, elementIds: locked, locked: false }).catch(ignoreRefusal);
     }
 }
 
@@ -72,20 +72,22 @@ export function unlockEverything(store: DrawingStore): void {
 export function styleSelection(store: DrawingStore, patch: Partial<DrawingStyle>): void {
     const viewId = viewOf(store);
     if (viewId !== null) {
-        void runAsPerson('drawing.updateElements', { viewId, elementIds: null, style: { ...NO_STYLE, ...patch }, text: null, dx: null, dy: null });
+        void perform('drawing.updateElements', { viewId, elementIds: null, style: { ...NO_STYLE, ...patch }, text: null, dx: null, dy: null }).catch(
+            ignoreRefusal
+        );
     }
 }
 
 export function moveSelection(store: DrawingStore, dx: number, dy: number): void {
     const viewId = viewOf(store);
     if (viewId !== null) {
-        void runAsPerson('drawing.updateElements', { viewId, elementIds: null, style: null, text: null, dx, dy });
+        void perform('drawing.updateElements', { viewId, elementIds: null, style: null, text: null, dx, dy }).catch(ignoreRefusal);
     }
 }
 
 export async function copyDrawing(store: DrawingStore, format: 'png' | 'svg' | 'elements'): Promise<boolean> {
     const viewId = viewOf(store);
-    return viewId !== null && (await runAsPerson('drawing.copy', { viewId, format })) !== null;
+    return viewId !== null && (await perform('drawing.copy', { viewId, format }).catch(ignoreRefusal)) !== null;
 }
 
 export async function cutSelection(store: DrawingStore): Promise<void> {
@@ -98,13 +100,13 @@ export async function pasteInto(store: DrawingStore): Promise<void> {
     const viewId = viewOf(store);
     const copies = readDrawingElements(await readClipboardText());
     if (viewId !== null && copies !== null && copies.length > 0) {
-        await runAsPerson('drawing.addElements', { viewId, elements: null, copies });
+        await perform('drawing.addElements', { viewId, elements: null, copies }).catch(ignoreRefusal);
     }
 }
 
 export function exportDrawing(store: DrawingStore, format: 'png' | 'svg'): void {
     const viewId = viewOf(store);
     if (viewId !== null) {
-        void runAsPerson('drawing.export', { viewId, format });
+        void perform('drawing.export', { viewId, format }).catch(ignoreRefusal);
     }
 }

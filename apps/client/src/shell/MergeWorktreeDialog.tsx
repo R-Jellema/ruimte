@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import type { Worktree, WorktreeMergeResult, WorktreeMergeStrategy } from '@ruimte/contracts';
-import { cancelGitRunAction, performAsPerson } from '@/actions/client-actions';
+import { cancelGitRunAction, perform } from '@/actions/client-actions';
 import { agentsEndedWith } from '@/agents/end-children';
 import { nextActionId, phaseLabel } from '@/shell/panels/git-actions';
 import {
@@ -355,12 +355,12 @@ async function stashTarget(transport: Transport, folder: string, worktree: Workt
     if (cwd === null) {
         throw new Error(i18next.t('shell:merge.notCheckedOut', { branch: worktree.from?.branch ?? i18next.t('shell:merge.targetBranch') }));
     }
-    await performAsPerson('git.stash', { repository: cwd, message: `Before merging ${worktree.branch}`, run: nextActionId() });
+    await perform('git.stash', { repository: cwd, message: `Before merging ${worktree.branch}`, run: nextActionId() });
 }
 
 /* One worktree merged as the person set it up in the dialog, by the branch the catalog names a worktree with. */
 async function mergeAsPerson({ worktree, payload }: MergeRun, actionId: string): Promise<WorktreeMergeResult> {
-    const merged = await performAsPerson('worktree.merge', {
+    const merged = await perform('worktree.merge', {
         branch: worktree.branch,
         strategy: payload.strategy,
         message: payload.subject?.trim() || null,

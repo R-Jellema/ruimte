@@ -1,6 +1,6 @@
 import { createDatabaseClient, type DatabaseClient } from '@adecore/database';
 import type { DatabaseResponse } from '@adecore/database/protocol';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import { databaseConnections, useDatabaseConnections } from '@/database/connections';
 import { snapshotTrigger } from '@/database/snapshot-triggers';
 import { ensureSqlBindings, sqlBindings } from '@/database/sql-bindings';
@@ -44,7 +44,7 @@ export function databaseClientFor(key: string): DatabaseClient {
         (connectionId) => sqlBindings.refresh(connectionId)
     );
     const client = createDatabaseClient(async (request) => {
-        const response = (await performAsPerson('database.request', { request })).response as DatabaseResponse;
+        const response = (await perform('database.request', { request })).response as DatabaseResponse;
         observe({ request, response });
         return response;
     });

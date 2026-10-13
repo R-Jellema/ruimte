@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, GitCommitHorizontal } from 'lucide-react';
 import { GIT_GROUP } from '@/shell/panels/classes';
-import { performAsPerson } from '@/actions/client-actions';
+import { perform } from '@/actions/client-actions';
 import { groupCommits, mergeLogs, relativeTime, type LoadedLog, type LogRow } from '@/shell/panels/commit-log';
 import { useTransport } from '@/transport/context';
 import { Button, copyText, Icon, ListRow, Pill, PanelEmpty, SectionLabel, Tooltip, ContextMenu, useNow } from '@adecore/ui';
@@ -56,7 +56,7 @@ export function CommitLog({ sources, reading, onOpen }: CommitLogProps) {
         Promise.all(
             list.map(async (source): Promise<LoadedLog | null> => {
                 try {
-                    const answer = await performAsPerson('git.log', { repository: source.cwd, limit: PAGE, cursor: null });
+                    const answer = await perform('git.log', { repository: source.cwd, limit: PAGE, cursor: null });
                     return { cwd: source.cwd, repo: source.repo, commits: answer.commits, cursor: answer.cursor };
                 } catch {
                     return null;
@@ -87,7 +87,7 @@ export function CommitLog({ sources, reading, onOpen }: CommitLogProps) {
                     return log;
                 }
                 try {
-                    const answer = await performAsPerson('git.log', { repository: log.cwd, limit: PAGE, cursor: log.cursor });
+                    const answer = await perform('git.log', { repository: log.cwd, limit: PAGE, cursor: log.cursor });
                     return { ...log, commits: [...log.commits, ...answer.commits], cursor: answer.cursor };
                 } catch {
                     return { ...log, cursor: null };

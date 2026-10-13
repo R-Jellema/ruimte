@@ -10,7 +10,7 @@ import { useWheelCamera } from '@/canvas/use-wheel-camera';
 import { DiagramDock } from '@/diagram/DiagramDock';
 import { DiagramScene } from '@/diagram/DiagramScene';
 import { exampleDiagram } from '@/diagram/example';
-import { runAsPerson } from '@/actions/client-actions';
+import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { copyDiagram, openDiagramJson } from '@/diagram/diagram-actions';
 import { askAgentAboutDiagram } from '@/project/views';
 import { Swatches } from '@/drawing/DrawingDock';
@@ -84,7 +84,7 @@ function RenameField({ id, onDone }: { id: string; onDone: () => void }) {
         done.current = true;
         const viewId = store.getState().viewId;
         if (value !== null && viewId !== null) {
-            void runAsPerson('diagram.updateNode', { viewId, diagramNodeId: id, label: value, tone: null });
+            void perform('diagram.updateNode', { viewId, diagramNodeId: id, label: value, tone: null }).catch(ignoreRefusal);
         }
         onDone();
     };
@@ -129,7 +129,7 @@ function NodeMenuPopup({ id, onRename }: { id: string; onRename: () => void }) {
     const run = <Name extends 'diagram.updateNode' | 'diagram.resetPosition'>(name: Name, input: Omit<ActionInput<Name>, 'viewId'>): void => {
         const viewId = store.getState().viewId;
         if (viewId !== null) {
-            void runAsPerson(name, { ...input, viewId } as ActionInput<Name>);
+            void perform(name, { ...input, viewId } as ActionInput<Name>).catch(ignoreRefusal);
         }
     };
     return (
@@ -182,7 +182,9 @@ function EmptyDiagram({ viewId }: { viewId: string }) {
                     title={t('diagram.empty.example.title')}
                     description={t('diagram.empty.example.description')}
                     onClick={() =>
-                        void runAsPerson('diagram.replaceContent', { viewId, document: JSON.stringify(exampleDiagram(store.getState().content.meta.title)) })
+                        void perform('diagram.replaceContent', { viewId, document: JSON.stringify(exampleDiagram(store.getState().content.meta.title)) }).catch(
+                            ignoreRefusal
+                        )
                     }
                 />
             </div>
