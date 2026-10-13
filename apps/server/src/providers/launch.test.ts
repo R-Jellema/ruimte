@@ -77,6 +77,21 @@ describe('terminalCommand', () => {
         expect(terminalCommand({ kind: 'codex', runtimeMode: 'auto' })).toBe('codex --ask-for-approval on-request --sandbox workspace-write');
     });
 
+    test('a Codex that never answers its help is stopped and counts as one without the flag', async () => {
+        let stopped = false;
+        await probeCodexNoDaemon(
+            (signal) =>
+                new Promise<string>(() => {
+                    signal.addEventListener('abort', () => {
+                        stopped = true;
+                    });
+                }),
+            0
+        );
+        expect(stopped).toBe(true);
+        expect(terminalCommand({ kind: 'codex', runtimeMode: 'auto' })).toBe('codex --ask-for-approval on-request --sandbox workspace-write');
+    });
+
     test('says which kinds carry the note, so their start hook leaves it out', () => {
         expect(takesNoteOnLine('codex')).toBe(true);
         expect(takesNoteOnLine('claude')).toBe(false);

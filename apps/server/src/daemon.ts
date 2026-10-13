@@ -233,39 +233,44 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     const binDir = compiled ? dirname(process.execPath) : resolve(import.meta.dir, '..', 'bin');
     const contextUrl = `http://127.0.0.1:${config.port}${CONTEXT_PATH}`;
 
+    // Runs while the stores load; it never rejects, and the managers below await it before any launch.
+    const codexProbe = probeCodexNoDaemon();
     // `--label` and `RUIMTE_LABEL` are the name a machine nobody has named yet answers to; a name
     // typed in a client wins over both, or renaming from another machine would not survive a restart.
-    const identity = await readOrCreateEndpointIdentity(config.home, config.label);
+    const [identity, localSecret] = await Promise.all([readOrCreateEndpointIdentity(config.home, config.label), readOrCreateLocalSecret(config.home)]);
     const auth = new AuthStore(config.home);
     const handshake = new Handshake(auth, identity);
-    const access = { localSecret: await readOrCreateLocalSecret(config.home), tickets: handshake };
+    const access = { localSecret, tickets: handshake };
 
     const snapshots = new SnapshotStore(config.home);
     // Loaded before anything can take one: a node made just before a restart still starts on its prompt.
     const prompts = new PendingPromptStore(config.home);
-    await prompts.load();
     // The same for the chain of agents that opened agents: a restart must not start the count over.
     const lineage = new AgentLineageStore(config.home);
-    await lineage.load();
     // And for the messages one node left for another: they outlive the CLI they are waiting for.
     const notices = new NoticeStore(config.home);
-    await notices.load();
     // And for the agents a verb made that the daemon still has to start.
     const outbox = new OutboxStore(config.home);
-    await outbox.load();
-    await restartBackgroundLimits(outbox, Date.now());
     // And for the tasks a chat gave, whose results still have to wake it.
     const tasks = new TaskStore(config.home);
-    await tasks.load();
     // And for the commands a person let a terminal type, which a node's first start asks about.
     const commandApprovals = new CommandApprovals(config.home);
-    await commandApprovals.load();
     // And for the mode a person gave each terminal agent, which an edit of the project file cannot widen.
     const modeApprovals = new ModeApprovals(config.home);
-    await modeApprovals.load();
     // And for whether agents may operate this machine's apps, and which ones a person let them into for good.
     const computerStore = new ComputerUseStore(config.home);
-    await computerStore.load();
+    // Each store reads a file of its own, so they load side by side.
+    const [shellEnvironment] = await Promise.all([
+        prepareShellIntegration(config.home),
+        prompts.load(),
+        lineage.load(),
+        notices.load(),
+        outbox.load().then(() => restartBackgroundLimits(outbox, Date.now())),
+        tasks.load(),
+        commandApprovals.load(),
+        modeApprovals.load(),
+        computerStore.load()
+    ]);
     const computer: ComputerUse = new ComputerUse({
         home: config.home,
         store: computerStore,
@@ -293,7 +298,6 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
             };
         }
     });
-    await computer.start();
     const folderOf = (nodeId: string): string | null => projects.index.locate(nodeId)?.folder ?? null;
     const startCwd = startCwdGuard({
         madeByAgent: (nodeId) => lineage.madeBy(nodeId) !== null,
@@ -309,8 +313,6 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         allowFetch: config.modelFetch,
         catalogs: { claude: providers.catalogFor('claude'), codex: providers.catalogFor('codex') }
     });
-    await modelCatalogs.load();
-    void modelCatalogs.refresh();
     // What a person allowed in the CLIs' global settings; the accounts below ask it before they write anywhere.
     const integrations = new AgentIntegrations({
         home: config.home,
@@ -320,7 +322,8 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
                 .filter(([id, account]) => account.kind === kind && id !== kind && account.home !== undefined)
                 .map(([, account]) => account.home!)
     });
-    await integrations.load();
+    await Promise.all([integrations.load(), modelCatalogs.load(), computer.start()]);
+    void modelCatalogs.refresh();
     identity.attachAgentIntegrations({ describe: () => ({ agentIntegrations: integrations.summary() }) });
     integrations.onChanged(() => identity.announce());
     // Before the managers, which start every CLI under the account its node or chat names.
@@ -336,7 +339,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     const claudeTitles = new ClaudeTitleReader();
     const manager = new SessionManager({
         adapter: new BunPtyAdapter(),
-        shellEnvironment: await prepareShellIntegration(config.home),
+        shellEnvironment,
         snapshots,
         agents: new AgentStore(config.home),
         contextUrl,
@@ -373,7 +376,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         preferredAccount: (kind) => chats.composerPreferences.for(kind).account
     });
     const snapshotSchedule = scheduleSnapshots(manager, snapshots);
-    await probeCodexNoDaemon();
+    await codexProbe;
     // A bearer token speaks for a terminal session or a chat, for reading context and for agent commands alike.
     const targetForToken = (token: string): string | null => manager.sessionIdForToken(token) ?? chats.chatIdForToken(token);
     const context: ContextStore = new ContextStore({

@@ -70,14 +70,28 @@ function quote(value: string): string {
  */
 let codexNoDaemon = false;
 
-async function codexHelp(): Promise<string> {
-    const proc = Bun.spawn(['codex', '--help'], { stdout: 'pipe', stderr: 'ignore' });
+// The daemon's boot waits on the probe, so a Codex that hangs counts as one without the flag.
+const CODEX_PROBE_TIMEOUT_MS = 5_000;
+
+async function codexHelp(signal: AbortSignal): Promise<string> {
+    const proc = Bun.spawn(['codex', '--help'], { stdout: 'pipe', stderr: 'ignore', signal });
     return await new Response(proc.stdout).text();
 }
 
-/* Asks the installed Codex once whether it takes `--no-daemon`; a Codex that is not there takes nothing. */
-export async function probeCodexNoDaemon(help: () => Promise<string> = codexHelp): Promise<void> {
-    codexNoDaemon = (await help().catch(() => '')).includes('--no-daemon');
+/* Asks the installed Codex once whether it takes `--no-daemon`; a Codex that is not there, or does not answer in time, takes nothing. */
+export async function probeCodexNoDaemon(
+    help: (signal: AbortSignal) => Promise<string> = codexHelp,
+    timeoutMs: number = CODEX_PROBE_TIMEOUT_MS
+): Promise<void> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timedOut = new Promise<string>((resolve) => controller.signal.addEventListener('abort', () => resolve(''), { once: true }));
+    try {
+        codexNoDaemon = (await Promise.race([help(controller.signal).catch(() => ''), timedOut])).includes('--no-daemon');
+    } finally {
+        clearTimeout(timer);
+        controller.abort();
+    }
 }
 
 // What a CLI gets on every line, fresh or resumed, whatever the mode.
