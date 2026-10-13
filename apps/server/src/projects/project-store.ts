@@ -49,7 +49,7 @@ import {
     KeyedSerializer,
     Serializer
 } from '@adecore/agents';
-import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
+import type { SessionSink } from '../sessions/manager.ts';
 import {
     diagramsDirOf,
     documentPathInFolder,
@@ -267,9 +267,8 @@ export class ProjectStore {
     readonly hiddenAgents: HiddenAgentStore;
     private readonly sinks = new ClientSinks((clientId) => this.dropClient(clientId));
     private readonly open = new Map<string, OpenProject>();
-    /* Which client has which project on screen. `project.changed` goes to every socket, since a
-       client that let go of a project may still hold its document, but showing a view is aimed at a
-       person: a client without the project in a workspace has nothing to do with it and is not told. */
+    /* Which client has which project on screen. Only those hear `project.changed` and `project.showView`;
+       every other client hears a change of the document as the rows of its sidebar (`announceChange`). */
     private readonly holds = new ProjectHolds();
     private registry: RegistryEntry[] | null = null;
     private readonly identity = new IdentityCache();
@@ -847,7 +846,7 @@ export class ProjectStore {
         this.index.set(entry.projectId, entry.folder, daemonSide);
         await this.removeOrphanedFiles(entry, before, document.views);
         await announce(daemonSide);
-        this.emit({ event: 'project.changed', payload: { projectId: entry.projectId, document: daemonSide } }, origin);
+        await this.announceChange(entry, daemonSide, origin);
     }
 
     /*
@@ -998,7 +997,7 @@ export class ProjectStore {
         }
         this.identity.invalidate(entry.folder);
         const summary = await this.summarize(entry);
-        this.emit({ event: 'project.summary', payload: { summary } });
+        this.sinks.emit({ event: 'project.summary', payload: { summary } });
         return summary;
     }
 
@@ -1293,7 +1292,7 @@ export class ProjectStore {
         remember(state, { text, private: privateText }, rev, loaded.shared, document.views);
         state.entry = { ...state.entry, name: document.name, color: document.color, icon: document.icon ?? null };
         this.index.set(state.entry.projectId, state.entry.folder, fromPortable(document, state.entry.folder));
-        this.emit({ event: 'project.changed', payload: { projectId: state.entry.projectId, document: fromPortable(document, state.entry.folder) } });
+        await this.announceChange(state.entry, fromPortable(document, state.entry.folder));
         this.publish(state.entry);
     }
 
@@ -1317,26 +1316,44 @@ export class ProjectStore {
         }
         const daemonSide = fromPortable(document, entry.folder);
         this.index.set(entry.projectId, entry.folder, daemonSide);
-        this.emit({ event: 'project.changed', payload: { projectId: entry.projectId, document: daemonSide } });
+        await this.announceChange(entry, daemonSide);
         return true;
     }
 
     /* Tells every client what a project looks like now; too small a change to ship a document for. */
     private publish(entry: RegistryEntry): void {
         void this.summarize(entry)
-            .then((summary) => this.emit({ event: 'project.summary', payload: { summary } }))
+            .then((summary) => this.sinks.emit({ event: 'project.summary', payload: { summary } }))
             .catch(() => undefined);
     }
 
-    private emit(event: SessionEvent, except: string | null = null): void {
-        if (except === null) {
-            this.sinks.emit(event);
+    /*
+     * The whole document goes only to the clients that hold the project. Every other client but `origin`
+     * gets the summary with the rows of its sidebar, which is all a client without the project shows of it.
+     */
+    private async announceChange(entry: RegistryEntry, document: ProjectDocument, origin: string | null = null): Promise<void> {
+        const { projectId } = entry;
+        const bystanders: string[] = [];
+        for (const clientId of this.sinks.clientIds()) {
+            if (clientId === origin) {
+                continue;
+            }
+            if (this.holds.has(clientId, projectId)) {
+                this.sinks.to(clientId, { event: 'project.changed', payload: { projectId, document } });
+            } else {
+                bystanders.push(clientId);
+            }
+        }
+        if (bystanders.length === 0) {
             return;
         }
-        for (const clientId of this.sinks.clientIds()) {
-            if (clientId !== except) {
-                this.sinks.to(clientId, event);
-            }
+        const summary = await this.summarize(entry).catch(() => null);
+        if (summary === null) {
+            return;
+        }
+        const views = projectSidebarViews(document.views, document.shared ?? [], document.flags);
+        for (const clientId of bystanders) {
+            this.sinks.to(clientId, { event: 'project.summary', payload: { summary, views } });
         }
     }
 

@@ -40,6 +40,7 @@ test(
     'a project file replaced by a rename is reported',
     async () => {
         const opened = await store.openProject({ folder });
+        store.hold('c1', opened.summary.projectId);
         const path = documentPathInFolder(folder);
         const pulled = { ...(JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>), name: 'from git' };
         const pull = async (): Promise<void> => {

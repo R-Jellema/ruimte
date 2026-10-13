@@ -1,4 +1,4 @@
-import { projectSidebarViews, type AgentStatus, type ProjectChangedEvent, type ProjectSidebarResult, type ProjectSummary } from '@ruimte/contracts';
+import { projectSidebarViews, type AgentStatus, type ProjectChangedEvent, type ProjectSidebarResult, type ProjectSummaryEvent } from '@ruimte/contracts';
 import { TransportError, type Transport } from '@/transport/transport';
 
 export interface SidebarMachineSnapshot {
@@ -54,7 +54,7 @@ export class SidebarWatch {
                 }
             }),
             transport.on('project.changed', (event) => this.changed(event)),
-            transport.on('project.summary', ({ summary }) => this.summary(summary)),
+            transport.on('project.summary', (event) => this.summary(event)),
             transport.on('session.list-changed', () => this.queue(['sessions'])),
             transport.on('session.status', ({ sessionId, agent }) => this.status(`terminal:${sessionId}`, agent?.status ?? 'running')),
             transport.on('session.exit', ({ sessionId }) => this.status(`terminal:${sessionId}`, 'exited')),
@@ -92,7 +92,7 @@ export class SidebarWatch {
         this.set({ ...this.snapshot, statuses: { ...this.snapshot.statuses, [key]: status } });
     }
 
-    /* The document comes along, so a project this sidebar lists takes its rows from it without asking. */
+    /* The document comes along to a client that holds the project, so its rows come from it without asking. */
     private changed({ projectId, document }: ProjectChangedEvent): void {
         const known = this.snapshot.projects.some((project) => project.summary.projectId === projectId);
         if (!known || this.snapshot.state !== 'ready') {
@@ -106,7 +106,8 @@ export class SidebarWatch {
         });
     }
 
-    private summary(summary: ProjectSummary): void {
+    /* Every other client gets the rows of a changed document here, from a machine that sends them. */
+    private summary({ summary, views }: ProjectSummaryEvent): void {
         const known = this.snapshot.projects.some((project) => project.summary.projectId === summary.projectId);
         // A closed project leaves the list and a new one joins it, which only the machine's list says in full.
         if (!known || summary.closedAt != null || this.snapshot.state !== 'ready') {
@@ -115,7 +116,9 @@ export class SidebarWatch {
         }
         this.set({
             ...this.snapshot,
-            projects: this.snapshot.projects.map((project) => (project.summary.projectId === summary.projectId ? { ...project, summary } : project))
+            projects: this.snapshot.projects.map((project) =>
+                project.summary.projectId === summary.projectId ? { ...project, summary, ...(views ? { views } : {}) } : project
+            )
         });
     }
 

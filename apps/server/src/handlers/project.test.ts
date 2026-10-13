@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ProjectCanvasView, ProjectContent, ProjectDocument, ServerFrame } from '@ruimte/contracts';
+import type { ProjectCanvasView, ProjectContent, ProjectDocument, ProjectSummaryEvent, ServerFrame } from '@ruimte/contracts';
 import { connectionOpener, type ClientChannel, type ConnectionServices, type OpenConnection } from '../connection.ts';
 import { Dispatcher } from '../dispatcher.ts';
 import { FakeWatch } from '@adecore/agents/testing';
@@ -248,7 +248,15 @@ describe('project identity', () => {
 
         expect(summary).toMatchObject({ name: 'Renamed', icon: { kind: 'lucide', value: 'rocket' }, lastOpenedAt });
         expect(store.openProjectIds()).toEqual([]);
-        expect(changesIn(clients.a.channel).at(-1)).toMatchObject({ name: 'Renamed', icon: { kind: 'lucide', value: 'rocket' } });
+        // A client that let go of the project hears the rename as a summary with its rows, not as the document.
+        expect(changesIn(clients.a.channel)).toEqual([]);
+        const heard = clients.a.channel.frames.flatMap((frame) =>
+            'event' in frame && frame.event === 'project.summary' ? [frame.payload as ProjectSummaryEvent] : []
+        );
+        expect(heard.find((event) => event.views !== undefined)).toMatchObject({
+            summary: { name: 'Renamed', icon: { kind: 'lucide', value: 'rocket' } },
+            views: []
+        });
     });
 });
 

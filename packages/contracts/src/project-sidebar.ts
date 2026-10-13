@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { AgentKindSchema, AgentStatusSchema } from './agent.ts';
 import { flagOf } from './project-flags.ts';
 import {
+    ProjectSummaryResultSchema,
     isCanvasView,
     isSessionView,
     isUnlistedChatView,
@@ -48,6 +49,16 @@ export const ProjectSidebarResultSchema = z.object({
 
 export type ProjectSidebarView = z.infer<typeof ProjectSidebarViewSchema>;
 export type ProjectSidebarResult = z.infer<typeof ProjectSidebarResultSchema>;
+
+/*
+ * The name, color, icon or availability of a project changed; too small to ship a document for. A client
+ * that does not hold the project hears no `project.changed`, so a change of its document reaches it here,
+ * with the rows of its sidebar.
+ */
+export const ProjectSummaryEventSchema = ProjectSummaryResultSchema.extend({
+    views: z.array(ProjectSidebarViewSchema).optional()
+});
+export type ProjectSummaryEvent = z.infer<typeof ProjectSummaryEventSchema>;
 
 /* Keep canvas geometry, note text and embedded files off background sidebar requests. A chat nobody
    wrote in yet and a chat an inline edit runs in are not listed, so the rows a client builds for its own project read the same. */

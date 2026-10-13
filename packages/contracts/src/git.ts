@@ -78,6 +78,9 @@ export type GitFile = z.infer<typeof GitFileSchema>;
 export const GitOperationSchema = z.enum(['merge', 'rebase', 'cherry-pick', 'revert']);
 export type GitOperation = z.infer<typeof GitOperationSchema>;
 
+// A list past this is one nobody reads, and a status that carries it is one nobody wants on the wire.
+export const GIT_STATUS_MAX_FILES = 1000;
+
 export const GitStatusSchema = z.object({
     // False when the folder is not inside a repository; everything below is then empty.
     repo: z.boolean(),
@@ -94,7 +97,7 @@ export const GitStatusSchema = z.object({
     base: z.string().nullable(),
     // Where this branch left the base; null without a base or without shared history.
     mergeBase: z.string().nullable(),
-    files: z.array(GitFileSchema),
+    files: z.array(GitFileSchema).max(GIT_STATUS_MAX_FILES),
     // Set when more files changed than the list carries, so a missing name is not proof of absence.
     truncated: z.boolean(),
     // False once the daemon gave up watching this repository (too slow, or too many tracked files):

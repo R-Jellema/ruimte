@@ -15,7 +15,7 @@ import {
     ChatSearchResultSchema
 } from './chat-search.ts';
 import { ChatImageTargetPayloadSchema, ChatImageTargetResultSchema, ChatImageSavePayloadSchema, ChatImageSaveResultSchema } from './chat-image.ts';
-import { ProjectSidebarResultSchema } from './project-sidebar.ts';
+import { ProjectSidebarResultSchema, ProjectSummaryEventSchema } from './project-sidebar.ts';
 import { z } from 'zod';
 import { SessionPortsResultSchema, SessionPortVerifyPayloadSchema, SessionPortVerifyResultSchema } from './session-ports.ts';
 import {
@@ -278,7 +278,6 @@ import {
     ProjectSetIconPayloadSchema,
     ProjectSetIdentityPayloadSchema,
     ProjectShowViewEventSchema,
-    ProjectSummaryEventSchema,
     ProjectSummaryResultSchema,
     ProjectTargetPayloadSchema
 } from './project.ts';

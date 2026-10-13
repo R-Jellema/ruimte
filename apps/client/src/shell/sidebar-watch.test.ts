@@ -154,6 +154,33 @@ describe('background sidebar updates', () => {
         expect(transport.calls).toEqual(['project.sidebar']);
     });
 
+    test('a client that does not hold a listed project takes its new rows from the summary without asking', async () => {
+        const transport = new FakeTransport();
+        transport.answer = (type) =>
+            type === 'project.sidebar' ? { projects: [{ summary: summary('p1'), views: [] }] } : type === 'session.list' ? { sessions: [] } : { chats: [] };
+        const watcher = watch(transport);
+        await settle();
+        transport.calls = [];
+        const row = {
+            id: 'chat',
+            name: 'Discussion',
+            kind: 'chat' as const,
+            icon: null,
+            provider: 'claude' as const,
+            path: null,
+            shared: false,
+            nodes: [],
+            self: null
+        };
+        transport.emit('project.summary', { summary: summary('p1'), views: [row] });
+        await settle();
+        expect(transport.calls).toEqual([]);
+        expect(watcher.getSnapshot().projects[0]?.views).toEqual([row]);
+        transport.emit('project.summary', { summary: { ...summary('p1'), name: 'Renamed' } });
+        await settle();
+        expect(watcher.getSnapshot().projects[0]).toMatchObject({ summary: { name: 'Renamed' }, views: [row] });
+    });
+
     test('a changed list of sessions asks for the sessions alone, and a burst waits for the round that is out', async () => {
         const transport = new FakeTransport();
         watch(transport);

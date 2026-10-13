@@ -44799,6 +44799,7 @@
         ]
       },
       "files": {
+        "maxItems": 1000,
         "type": "array",
         "items": {
           "type": "object",
@@ -63531,6 +63532,411 @@
           "icon",
           "nameSource"
         ]
+      },
+      "views": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "titleSource": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "user"
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "canvas",
+                "terminal",
+                "chat",
+                "browser",
+                "device",
+                "drawing",
+                "diagram",
+                "file",
+                "database",
+                "separator",
+                "subheader",
+                "unknown"
+              ]
+            },
+            "icon": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "lucide"
+                    },
+                    "value": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "x-open-enum": [
+                        "box",
+                        "boxes",
+                        "package",
+                        "layers",
+                        "code",
+                        "terminal",
+                        "cpu",
+                        "circuit-board",
+                        "memory-stick",
+                        "pc-case",
+                        "laptop",
+                        "monitor",
+                        "smartphone",
+                        "tablet",
+                        "webcam",
+                        "printer",
+                        "hard-drive",
+                        "usb",
+                        "database",
+                        "server",
+                        "container",
+                        "network",
+                        "router",
+                        "ethernet-port",
+                        "cable",
+                        "plug",
+                        "wifi",
+                        "radio-tower",
+                        "satellite-dish",
+                        "cloud",
+                        "globe",
+                        "rocket",
+                        "zap",
+                        "flame",
+                        "sparkles",
+                        "star",
+                        "heart",
+                        "flag",
+                        "bookmark",
+                        "folder",
+                        "file-text",
+                        "book",
+                        "puzzle",
+                        "palette",
+                        "brush",
+                        "camera",
+                        "music",
+                        "video",
+                        "gamepad-2",
+                        "bot",
+                        "brain",
+                        "beaker",
+                        "wrench",
+                        "hammer",
+                        "shield",
+                        "key",
+                        "compass",
+                        "map",
+                        "leaf",
+                        "coffee",
+                        "pin",
+                        "target",
+                        "lightbulb",
+                        "archive",
+                        "inbox",
+                        "house",
+                        "briefcase",
+                        "code-xml",
+                        "braces",
+                        "square-terminal",
+                        "file-code",
+                        "binary",
+                        "regex",
+                        "variable",
+                        "blocks",
+                        "component",
+                        "git-branch",
+                        "git-merge",
+                        "git-pull-request",
+                        "git-fork",
+                        "bug",
+                        "test-tube-diagonal",
+                        "flask-conical",
+                        "workflow",
+                        "webhook",
+                        "bot-message-square",
+                        "brain-circuit",
+                        "wand-sparkles",
+                        "messages-square",
+                        "scan-eye",
+                        "audio-waveform",
+                        "app-window",
+                        "layout-dashboard",
+                        "layout-template",
+                        "panels-top-left",
+                        "mouse-pointer-click",
+                        "shopping-cart",
+                        "store",
+                        "mail",
+                        "server-cog",
+                        "cloud-cog",
+                        "gauge",
+                        "activity",
+                        "scroll-text",
+                        "bell",
+                        "lock",
+                        "fingerprint-pattern",
+                        "chart-line",
+                        "chart-column",
+                        "chart-pie",
+                        "table",
+                        "sheet",
+                        "calculator",
+                        "sigma",
+                        "atom",
+                        "dna",
+                        "telescope",
+                        "orbit",
+                        "microchip",
+                        "keyboard",
+                        "mouse",
+                        "headphones",
+                        "watch",
+                        "battery",
+                        "bluetooth",
+                        "thermometer",
+                        "pen-tool",
+                        "pencil-ruler",
+                        "shapes",
+                        "frame",
+                        "swatch-book",
+                        "type",
+                        "image",
+                        "film",
+                        "clapperboard",
+                        "mic",
+                        "notebook",
+                        "notebook-pen",
+                        "library-big",
+                        "newspaper",
+                        "graduation-cap",
+                        "languages",
+                        "quote",
+                        "presentation",
+                        "megaphone",
+                        "list-todo",
+                        "square-kanban",
+                        "clipboard-list",
+                        "calendar",
+                        "milestone",
+                        "trophy",
+                        "hourglass",
+                        "timer",
+                        "users",
+                        "handshake",
+                        "wallet",
+                        "sprout",
+                        "trees",
+                        "mountain",
+                        "sun",
+                        "moon",
+                        "plane",
+                        "ship",
+                        "anchor",
+                        "life-buoy",
+                        "pizza",
+                        "gift",
+                        "dumbbell",
+                        "bike",
+                        "paw-print"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "value"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provider": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "x-open-enum": [
+                    "claude",
+                    "codex",
+                    "gemini",
+                    "copilot",
+                    "apple"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "shared": {
+              "type": "boolean"
+            },
+            "flag": {
+              "type": "string"
+            },
+            "nodes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "titleSource": {
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "user"
+                    ]
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "terminal",
+                      "chat",
+                      "browser",
+                      "device"
+                    ]
+                  },
+                  "provider": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "x-open-enum": [
+                          "claude",
+                          "codex",
+                          "gemini",
+                          "copilot",
+                          "apple"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "x-open-enum": [
+                      "running",
+                      "needs-you",
+                      "idle",
+                      "error",
+                      "exited"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "title",
+                  "kind",
+                  "provider"
+                ]
+              }
+            },
+            "self": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "titleSource": {
+                      "type": "string",
+                      "enum": [
+                        "auto",
+                        "user"
+                      ]
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "terminal",
+                        "chat",
+                        "browser",
+                        "device"
+                      ]
+                    },
+                    "provider": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "x-open-enum": [
+                            "claude",
+                            "codex",
+                            "gemini",
+                            "copilot",
+                            "apple"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "x-open-enum": [
+                        "running",
+                        "needs-you",
+                        "idle",
+                        "error",
+                        "exited"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "kind",
+                    "provider"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "kind",
+            "icon",
+            "provider",
+            "path",
+            "shared",
+            "nodes",
+            "self"
+          ]
+        }
       }
     },
     "required": [
@@ -65634,6 +66040,7 @@
             ]
           },
           "files": {
+            "maxItems": 1000,
             "type": "array",
             "items": {
               "type": "object",

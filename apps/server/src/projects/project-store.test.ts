@@ -141,6 +141,7 @@ describe('ProjectStore', () => {
 
     test('an outside edit is reported once with what is on disk, and our own write is not', async () => {
         const opened = await store.openProject({ folder });
+        store.hold('c1', opened.summary.projectId);
         // Saved by the one client listening, which already holds what it wrote.
         await store.save(opened.summary.projectId, 0, content(), undefined, 'c1');
         projectDirWatcher().emit('project.json');
@@ -858,6 +859,7 @@ describe('mutate', () => {
     test('writes a released project to disk, tells every sink, and updates the index', async () => {
         const opened = await store.openProject({ folder });
         const projectId = opened.summary.projectId;
+        store.hold('c1', projectId);
         await store.save(projectId, opened.document.rev, content());
         store.release(projectId);
         changed = [];
@@ -879,9 +881,32 @@ describe('mutate', () => {
         expect(canvas(reopened.document).nodes[0]!.cwd).toBe(join(folder, 'apps', 'server'));
     });
 
+    test('a client without the project hears the change as its sidebar rows, never as the document', async () => {
+        const opened = await store.openProject({ folder });
+        const projectId = opened.summary.projectId;
+        store.hold('c1', projectId);
+        const heard: { event: string; payload: unknown }[] = [];
+        const off = store.subscribe('c2', (event) => heard.push(event));
+        changed = [];
+
+        await store.mutate(projectId, addNote('note-1'));
+
+        off();
+        expect(changed.map((event) => event.event)).toEqual(['project.changed']);
+        // A summary the open published may land here too; only the one with rows answers the write.
+        expect(heard.map((event) => event.event)).not.toContain('project.changed');
+        expect(heard.filter((event) => 'views' in (event.payload as object))).toEqual([
+            {
+                event: 'project.summary',
+                payload: { summary: expect.objectContaining({ projectId }), views: [expect.objectContaining({ id: 'main', kind: 'canvas', nodes: [] })] }
+            }
+        ]);
+    });
+
     test('an open project takes the new rev, so the next save and the watcher agree with it', async () => {
         const opened = await store.openProject({ folder });
         const projectId = opened.summary.projectId;
+        store.hold('c1', projectId);
         changed = [];
         await store.mutate(projectId, addNote('note-1'));
         projectDirWatcher().emit('project.json');
@@ -908,6 +933,7 @@ describe('mutate', () => {
     test('landed runs after the write and before the event, and never for a refused change', async () => {
         const opened = await store.openProject({ folder });
         const projectId = opened.summary.projectId;
+        store.hold('c1', projectId);
         store.release(projectId);
         changed = [];
         const seen: Array<{ rev: number; events: number }> = [];
@@ -1148,6 +1174,7 @@ describe('what the shared file may decide', () => {
     const splitMine = async (): Promise<string> => {
         store.attachTracked(async () => true);
         const opened = await store.openProject({ folder });
+        store.hold('c1', opened.summary.projectId);
         const mine = content();
         canvas(mine).nodes[0] = { ...canvas(mine).nodes[0]!, runtimeMode: 'auto', resume: 'sess-mine' };
         mine.views = [...mine.views, { kind: 'canvas', id: 'mine', name: 'Mine', nodes: [], texts: [], edges: [], layouts: [] }];
@@ -1198,6 +1225,7 @@ describe('saves and outside edits', () => {
     test('after a pull, a node an agent adds is not lost to an autosave based on the pull', async () => {
         const opened = await store.openProject({ folder });
         const projectId = opened.summary.projectId;
+        store.hold('c1', projectId);
         await store.save(projectId, 0, content(), ['main'], 'c1');
 
         await pull('from git');
@@ -1219,6 +1247,7 @@ describe('saves and outside edits', () => {
     test('a save right after an outside edit is refused, and the edit is taken in for every client', async () => {
         const opened = await store.openProject({ folder });
         const projectId = opened.summary.projectId;
+        store.hold('c1', projectId);
         await store.save(projectId, 0, content(), ['main'], 'c1');
 
         // Pulled, but the watcher has not settled yet.
@@ -1361,6 +1390,7 @@ describe('kinds a newer Ruimte wrote', () => {
         store.attachDiagrams(new DiagramStore(store, fake));
         const opened = await store.openProject({ folder });
         const { projectId } = opened.summary;
+        store.hold('c1', projectId);
         const { version: _version, rev, ...sent } = opened.document;
         const views = [...sent.views, { kind: 'drawing' as const, id: 'kept', name: 'Kept' }];
         await store.save(projectId, rev, { ...sent, views }, ['main', 'sketch', 'kept']);

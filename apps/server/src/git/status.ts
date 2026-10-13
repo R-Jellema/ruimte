@@ -1,11 +1,9 @@
-import type { GitFile, GitStatus } from '@ruimte/contracts';
+import { GIT_STATUS_MAX_FILES, type GitFile, type GitStatus } from '@ruimte/contracts';
 import { operationOf } from './conflict.ts';
 import { parseNumstat, type Numstat } from './diff.ts';
 import { git, readGit } from './run.ts';
 import { untrackedNumstat } from './untracked-lines.ts';
 
-// A list past this is one nobody reads, and a status that carries it is one nobody wants on the wire.
-const MAX_FILES = 1000;
 // Every untracked file is read whole on every run, so only the first ones get real counts.
 const MAX_UNTRACKED_COUNTS = 100;
 // How many of those are open at once, so a folder of new files does not hold a descriptor each.
@@ -219,7 +217,7 @@ export async function readStatusAt(root: string): Promise<GitStatus> {
         return EMPTY;
     }
     const parsed = parsePorcelain(porcelain);
-    const entries = parsed.entries.slice(0, MAX_FILES);
+    const entries = parsed.entries.slice(0, GIT_STATUS_MAX_FILES);
     const [staged, unstaged, base, operation] = await Promise.all([
         readGit(['diff', '--cached', '--numstat', '-z'], root).then(byPath),
         readGit(['diff', '--numstat', '-z'], root).then(byPath),

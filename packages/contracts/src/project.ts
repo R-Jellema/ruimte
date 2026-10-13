@@ -1149,7 +1149,3 @@ export const ProjectSummaryResultSchema = z.object({
     summary: ProjectSummarySchema
 });
 export type ProjectSummaryResult = z.infer<typeof ProjectSummaryResultSchema>;
-
-// The name, color, icon or availability of a project changed; too small to ship a document for.
-export const ProjectSummaryEventSchema = ProjectSummaryResultSchema;
-export type ProjectSummaryEvent = z.infer<typeof ProjectSummaryEventSchema>;
