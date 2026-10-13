@@ -38,6 +38,19 @@ After changing a dependency, run `bun install` in the repository whose manifest 
 
 In linked mode, the full status also compares installed peer versions, plus the shared runtime `zod` and `zustand`, transitive ADE CORE packages included. It reports concrete differences between Ruimte and ADE CORE without failing the command or changing dedupe. Electron differences only concern types, because the desktop bundler keeps its runtime external. A missing or equal peer version produces no advice; this is not a peer-range compatibility check. `adecore:status --brief` prints only the startup banner.
 
+## Taking a new ADE CORE release
+
+```sh
+bun run adecore:npm
+bun run adecore:bump 0.24.0
+```
+
+`adecore:bump` sets every `@adecore/*` entry in the root and workspace manifests to the given version, in every dependency section, then runs `bun install` and the check of `adecore:status --npm`. Every entry has to be an exact version; a range or a `workspace:` entry stops it before any manifest changes. When the install fails, the manifests and `bun.lock` go back to what they were.
+
+It fails when an entry was missed: a manifest pin that is not on the new version, a package in `bun.lock` that is (ADE CORE releases every package under one version, so a transitive package on another version means two copies of it), or an installed package that is not the npm version its manifest pins. It leaves the files in place then, so you can see what went wrong.
+
+A linked checkout is refused, with the package that is linked. `bun install` resolves the declared versions and so ends every link, and the check after it has to see the registry packages. Switch with `adecore:npm` first, bump, and run `adecore:link` again to continue on the local folder. Commit the manifests and `bun.lock` together.
+
 ## Source changes
 
 The Vite client, the development daemon, the desktop bundler, the Pulsar development worker, the daemon compiler, the TypeScript checks and the Bun tests all select ADE CORE's `source` exports, so there is no need to build ADE CORE between changes to imported TypeScript. Vite keeps one instance of React, i18next, CodeMirror and Lezer when the library has its own dependencies installed. The linked composer and the app's dictation extensions must use the same CodeMirror classes, also when Vite serves their sources without prebundling.
