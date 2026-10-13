@@ -13,7 +13,6 @@ import { useLaunches } from '@/launches/state';
 import { askViewSettings, openSessionInKind, setViewShared, showView, stepView, viewAtIndex } from '@/project/views';
 import { undoLatestDeletion } from '@/project/view-trash';
 import { runAppShortcut } from '@/shell/app-shortcuts';
-import { appCommands } from '@/shell/commands';
 import { activeViewFacts } from '@/shell/menu/context';
 import { AFTER_SETTLE_PREFIX, GO_VIEW_PREFIX, isPaletteId, LAUNCH_CHOOSE_PREFIX, type MenuActionId } from '@/shell/menu/ids';
 import type { SplitDirection } from '@/shell/split';
@@ -108,6 +107,14 @@ function isMenuActionId(id: string): id is MenuActionId {
     return Object.hasOwn(MENU_ACTIONS, id);
 }
 
+/* The palette's commands reach the editor, drawings and databases, so they load with the first click that needs one. */
+export async function runPaletteCommand(id: string): Promise<void> {
+    const { appCommands } = await import('@/shell/commands');
+    appCommands()
+        .find((command) => command.id === id)
+        ?.run();
+}
+
 /* A click in the application menu. The palette's rows run through the palette, so both do the same thing. */
 export function runMenuCommand(id: string): void {
     if (isMenuActionId(id)) {
@@ -130,8 +137,6 @@ export function runMenuCommand(id: string): void {
         return;
     }
     if (isPaletteId(id)) {
-        appCommands()
-            .find((command) => command.id === id)
-            ?.run();
+        void runPaletteCommand(id);
     }
 }
