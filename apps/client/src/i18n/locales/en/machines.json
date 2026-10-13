@@ -285,7 +285,8 @@
         "unknownMachine": "This machine is not known here",
         "openFailed": "Could not open a connection: {{reason}}",
         "badReply": "The reply to {{type}} does not match its contract",
-        "noAddress": "No address within {{seconds}} seconds"
+        "noAddress": "No address within {{seconds}} seconds",
+        "timedOut": "The machine did not answer {{type}} within {{seconds}} seconds"
     },
     "file": {
         "tooLarge": "This file is {{size}} MB; at most {{max}} MB loads over a direct connection",

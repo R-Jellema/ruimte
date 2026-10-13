@@ -297,6 +297,59 @@ describe('LinkTransport', () => {
         transport.dispose();
     });
 
+    describe('request timeout', () => {
+        async function opened() {
+            const links: FakeLink[] = [];
+            const transport = new LinkTransport(
+                'ws://machine/ws',
+                (_url, events) => {
+                    const link = new FakeLink(events);
+                    links.push(link);
+                    return link;
+                },
+                { requestTimeoutMs: 50 }
+            );
+            await tick();
+            links[0]!.events.open();
+            return { transport, link: links[0]! };
+        }
+
+        function idOf(link: FakeLink, index: number): string {
+            return (JSON.parse(link.sent[index]!) as { id: string }).id;
+        }
+
+        test('a request the machine never answers fails once its time is up, and a late reply is dropped', async () => {
+            const { transport, link } = await opened();
+            const reply = transport.request('session.list', {});
+            let settled = false;
+            reply.catch(() => undefined).finally(() => (settled = true));
+            await tick(49);
+            expect(settled).toBe(false);
+            await tick(1);
+            await expect(reply).rejects.toMatchObject({ code: 'timeout' });
+            link.events.message(JSON.stringify({ id: idOf(link, 0), ok: true, result: { sessions: [] } }));
+        });
+
+        test('a reply in time settles the request and no timeout follows it', async () => {
+            const { transport, link } = await opened();
+            const reply = transport.request('session.list', {});
+            link.events.message(JSON.stringify({ id: idOf(link, 0), ok: true, result: { sessions: [] } }));
+            expect(await reply).toEqual({ sessions: [] });
+            await tick(60);
+        });
+
+        test('a long request waits past the timeout for its answer', async () => {
+            const { transport } = await opened();
+            const reply = transport.request('ondevice.generate', { id: 'g1', purpose: 'explain', prompt: 'What does this do?' });
+            let settled = false;
+            reply.catch(() => undefined).finally(() => (settled = true));
+            await tick(60);
+            expect(settled).toBe(false);
+            transport.dispose();
+            await expect(reply).rejects.toThrow(/closed before the machine answered/);
+        });
+    });
+
     test('pending requests fail when the link goes, and a disposed transport stays down', async () => {
         const { transport, links } = setup();
         await tick();

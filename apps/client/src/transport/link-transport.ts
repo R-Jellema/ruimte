@@ -25,6 +25,26 @@ const RECONNECT_MAX_MS = 10_000;
 // A daemon address that has not resolved by then (a fetch for a ticket that hangs) is an attempt that failed, not one to wait on.
 const ADDRESS_TIMEOUT_MS = 20_000;
 
+// A request with no answer by then fails, so a handler that hangs is an error and not a spinner forever.
+const REQUEST_TIMEOUT_MS = 60_000;
+
+// Requests whose answer waits on a network, a model or a person's database, and that a caller ends itself when it has to.
+const UNBOUNDED_REQUESTS: ReadonlySet<RequestType> = new Set<RequestType>([
+    'chat.continueOn',
+    'chat.summarize',
+    'database.request',
+    'device.boot',
+    'git.action',
+    'git.operation',
+    'git.resolveAi',
+    'git.suggestMessage',
+    'git.worktree-add',
+    'git.worktree-merge',
+    'language.install',
+    'language.rollback',
+    'ondevice.generate'
+]);
+
 /* Where the next connection opens. A function, because the address carries a credential that is signed for per connection. */
 export type SocketAddress = string | (() => Promise<string>);
 
@@ -51,6 +71,7 @@ export type LinkOpener = (url: string, events: LinkEvents) => Link;
 
 export interface LinkTransportOptions {
     addressTimeoutMs?: number;
+    requestTimeoutMs?: number;
     // Spreads the reconnects of many clients after a daemon restart; a test passes a fixed one.
     random?: () => number;
     now?: () => number;
@@ -63,6 +84,7 @@ interface Pending {
     reject(error: TransportError): void;
     // Asked by `readBytes`, which resolves with a `BytesPiece` whether the machine answers in binary or, from before those, in JSON.
     bytes?: true;
+    timer?: ReturnType<typeof setTimeout>;
 }
 
 /*
@@ -82,6 +104,7 @@ export class LinkTransport implements PooledTransport {
     private readonly pending = new Map<string, Pending>();
     private readonly openLink: LinkOpener;
     private readonly addressTimeoutMs: number;
+    private readonly requestTimeoutMs: number;
     private readonly log: Pick<Console, 'info' | 'warn'>;
     private nextId = 1;
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -96,6 +119,7 @@ export class LinkTransport implements PooledTransport {
         this.address = address;
         this.openLink = openLink;
         this.addressTimeoutMs = options.addressTimeoutMs ?? ADDRESS_TIMEOUT_MS;
+        this.requestTimeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
         this.log = options.log ?? console;
         this.random = options.random ?? Math.random;
         this.now = options.now ?? Date.now;
@@ -316,16 +340,37 @@ export class LinkTransport implements PooledTransport {
         }
         const id = String(this.nextId++);
         const promise = new Promise<R>((resolve, reject) => {
-            this.pending.set(id, { type, resolve: resolve as (result: unknown) => void, reject, ...(bytes ? { bytes: true as const } : {}) });
+            const entry: Pending = { type, resolve: resolve as (result: unknown) => void, reject, ...(bytes ? { bytes: true as const } : {}) };
+            if (!UNBOUNDED_REQUESTS.has(type)) {
+                entry.timer = setTimeout(() => {
+                    this.pending.delete(id);
+                    reject(
+                        new TransportError('timeout', i18next.t('machines:connection.timedOut', { type, seconds: Math.round(this.requestTimeoutMs / 1000) }))
+                    );
+                }, this.requestTimeoutMs);
+            }
+            this.pending.set(id, entry);
         });
         this.link.send(JSON.stringify({ id, type, payload }));
         return promise;
+    }
+
+    /* Hands back the request waiting on this id and forgets it, so a reply and its timeout never both settle it. */
+    private takePending(id: string): Pending | undefined {
+        const entry = this.pending.get(id);
+        if (!entry) {
+            return undefined;
+        }
+        this.pending.delete(id);
+        clearTimeout(entry.timer);
+        return entry;
     }
 
     private rejectPending(code: string, message: string): void {
         const entries = [...this.pending.values()];
         this.pending.clear();
         for (const entry of entries) {
+            clearTimeout(entry.timer);
             entry.reject(new TransportError(code, message));
         }
     }
@@ -358,11 +403,10 @@ export class LinkTransport implements PooledTransport {
             console.warn('Server refused a frame', frame);
             return;
         }
-        const entry = this.pending.get(id);
+        const entry = this.takePending(id);
         if (!entry) {
             return;
         }
-        this.pending.delete(id);
         if (!frame.ok) {
             entry.reject(new TransportError(frame.error.code, frame.error.message));
             return;
@@ -390,7 +434,7 @@ export class LinkTransport implements PooledTransport {
         if (!entry?.bytes) {
             return;
         }
-        this.pending.delete(reply.id);
+        this.takePending(reply.id);
         entry.resolve({ ...reply.result, bytes: reply.bytes } satisfies BytesPiece);
     }
 

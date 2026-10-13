@@ -285,7 +285,8 @@
         "unknownMachine": "Deze machine is hier niet bekend",
         "openFailed": "Een verbinding openen lukte niet: {{reason}}",
         "badReply": "Het antwoord op {{type}} past niet bij het contract",
-        "noAddress": "Geen adres binnen {{seconds}} seconden"
+        "noAddress": "Geen adres binnen {{seconds}} seconden",
+        "timedOut": "De machine antwoordde niet binnen {{seconds}} seconden op {{type}}"
     },
     "file": {
         "tooLarge": "Dit bestand is {{size}} MB; over een directe verbinding laadt hoogstens {{max}} MB",
