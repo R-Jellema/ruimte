@@ -58,11 +58,6 @@ export function highlightCode(code: string, language: string, theme: string): Pr
     return result;
 }
 
-/* A whole file as highlighted HTML, which differs from a snippet for a language that is a document around its code, such as PHP in HTML. */
-export function highlightDocument(code: string, language: string, theme: string): Promise<string> {
-    return loadHighlighter().then((highlight) => highlight(code, language, theme, true));
-}
-
 export function highlightDocumentChunks(blocks: readonly string[], language: string, theme: string): (index: number) => Promise<string> {
     let loading: Promise<(index: number) => Promise<string>> | undefined;
     return (index) => {

@@ -102,10 +102,3 @@ export function cameraOfView(view: ViewCamera, viewport: { w: number; h: number 
           }
         : null;
 }
-
-export const ZOOM_PRESETS = [25, 50, 75, 100, 150, 200] as const;
-
-/* Compared on the rounded percent the readout shows, so 0.999 still ticks 100%. */
-export function activeZoomPreset(zoom: number): number | null {
-    return ZOOM_PRESETS.find((p) => p === Math.round(zoom * 100)) ?? null;
-}

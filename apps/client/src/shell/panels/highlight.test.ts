@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { getSingletonHighlighter } from 'shiki';
 import { codeHighlighter } from '@/code-highlighter';
 import { CODE_PALETTES } from './code-themes';
-import { highlightCode, highlightDocument, highlightDocumentChunks } from './highlight';
+import { highlightCode, highlightDocumentChunks } from './highlight';
 
 // The grammar compiles its patterns on first use, which on a loaded runner outlasts the 500 ms Shiki gives a line
 // and leaves the rest of it one token. The shorthand `highlightCode` draws with shares this singleton.
@@ -25,13 +25,13 @@ describe('highlighting code', () => {
 describe('highlighting a whole file', () => {
     test('draws the open tag of a PHP file as a tag and not as code', async () => {
         const snippet = await highlightCode('<?php\necho 1;', 'php', 'github-dark');
-        const document = await highlightDocument('<?php\necho 1;', 'php', 'github-dark');
+        const document = await highlightDocumentChunks(['<?php\necho 1;'], 'php', 'github-dark')(0);
         expect(document).not.toEqual(snippet);
         expect(document).toContain('<span');
     });
 
     test('draws the styles of a Vue file in a language its grammar embeds on demand', async () => {
-        const html = await highlightDocument('<style lang="scss">\n.a { .b { margin: 4px; } }\n</style>', 'vue', 'github-dark');
+        const html = await highlightDocumentChunks(['<style lang="scss">\n.a { .b { margin: 4px; } }\n</style>'], 'vue', 'github-dark')(0);
         expect(html).toMatch(/<span style="color:#[0-9A-F]{6}">margin/i);
     });
 
