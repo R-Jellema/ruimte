@@ -1,7 +1,7 @@
 /* Which guest a right-click came from, so the client draws a preview's menu without a page's history. */
 export type GuestKind = 'browser' | 'preview';
 
-/* What the client may ask the shell to do on a guest page. Mirrors `apps/client/src/desktop/bridge.ts`. */
+/* What the client may ask the shell to do on a guest page, as `BrowserContextAction` in `@ruimte/desktop-bridge` before it is checked. */
 export interface BrowserContextAction {
     webContentsId: number;
     action: string;
