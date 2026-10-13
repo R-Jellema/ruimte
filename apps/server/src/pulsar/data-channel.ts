@@ -1,6 +1,6 @@
 import { FrameAssembler, splitBinaryFrame, splitFrame } from '@ruimte/contracts';
 import type { RTCDataChannel } from 'werift';
-import { LOW_WATER_MARK } from '../backpressure.ts';
+import { LOW_WATER_MARK, SOCKET_BACKPRESSURE_LIMIT } from '../backpressure.ts';
 import type { ClientChannel } from '../connection.ts';
 import { errorText } from '../error-text.ts';
 
@@ -67,9 +67,10 @@ export interface DirectChannel extends ClientChannel {
  * `splitFrame` and `splitBinaryFrame`). The rest is shaped after Bun's socket, because the output gate reads it that way:
  * `send` answers the bytes of the whole frame once every piece is queued and 0 when the frame did
  * not go out, `bufferedAmount` is the channel's own, and a drain is the channel's
- * `bufferedamountlow`, which fires at the gate's low-water mark.
+ * `bufferedamountlow`, which fires at the gate's low-water mark. A frame that would take the queue past
+ * the socket's backpressure limit closes the channel, as Bun closes a socket there.
  */
-export function directChannel(raw: RawDataChannel): DirectChannel {
+export function directChannel(raw: RawDataChannel, backpressureLimit: number = SOCKET_BACKPRESSURE_LIMIT): DirectChannel {
     const closeListeners: Array<() => void> = [];
     const drainListeners: Array<() => void> = [];
     const assembler = new FrameAssembler();
@@ -154,6 +155,12 @@ export function directChannel(raw: RawDataChannel): DirectChannel {
             if (closed || raw.readyState !== 'open') {
                 return 0;
             }
+            const bytes = typeof data === 'string' ? Buffer.byteLength(data) : data.byteLength;
+            if (raw.bufferedAmount + bytes > backpressureLimit) {
+                console.warn(`A direct channel closed with ${raw.bufferedAmount} bytes still queued for a client that does not keep up.`);
+                close();
+                return 0;
+            }
             try {
                 for (const piece of typeof data === 'string' ? splitFrame(data) : splitBinaryFrame(data)) {
                     raw.send(piece);
@@ -166,7 +173,7 @@ export function directChannel(raw: RawDataChannel): DirectChannel {
                 close();
                 return 0;
             }
-            return typeof data === 'string' ? Buffer.byteLength(data) : data.byteLength;
+            return bytes;
         },
         bufferedAmount: () => raw.bufferedAmount,
         // A DataChannel has no close code or reason on the wire; the peer only sees the channel end.

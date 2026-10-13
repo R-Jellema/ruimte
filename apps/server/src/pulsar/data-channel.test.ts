@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { BinaryFrameAssembler, DIRECT_BINARY_PIECE_BYTES, DIRECT_PIECE_CHARS, splitFrame } from '@ruimte/contracts';
-import { LOW_WATER_MARK } from '../backpressure.ts';
+import { LOW_WATER_MARK, SOCKET_BACKPRESSURE_LIMIT } from '../backpressure.ts';
 import { AUTHENTICATED_FRAME_CHARS, directChannel, type RawDataChannel } from './data-channel.ts';
 
 class FakeRawChannel implements RawDataChannel {
@@ -115,6 +115,42 @@ describe('directChannel', () => {
         }
         expect(closed).toBe(1);
         expect(channel.send('{}')).toBe(0);
+    });
+
+    test('a frame that would take the queue past the backpressure limit closes the channel and counts as dropped', () => {
+        const raw = new FakeRawChannel();
+        const channel = directChannel(raw, 1000);
+        let closed = 0;
+        channel.onClose(() => {
+            closed += 1;
+        });
+        expect(channel.send('x'.repeat(600))).toBe(600);
+        const warn = console.warn;
+        console.warn = () => undefined;
+        try {
+            expect(channel.send('y'.repeat(600))).toBe(0);
+        } finally {
+            console.warn = warn;
+        }
+        expect(raw.sent).toHaveLength(1);
+        expect(raw.closeCalls).toBe(1);
+        expect(closed).toBe(1);
+    });
+
+    test('the backpressure limit is the socket one by default', () => {
+        const raw = new FakeRawChannel();
+        const channel = directChannel(raw);
+        raw.bufferedAmount = SOCKET_BACKPRESSURE_LIMIT - 10;
+        expect(channel.send('x'.repeat(10))).toBe(10);
+        expect(raw.closeCalls).toBe(0);
+        const warn = console.warn;
+        console.warn = () => undefined;
+        try {
+            expect(channel.send('x')).toBe(0);
+        } finally {
+            console.warn = warn;
+        }
+        expect(raw.closeCalls).toBe(1);
     });
 
     test('bufferedAmount is the channel own, so the output gate pauses on it', () => {
