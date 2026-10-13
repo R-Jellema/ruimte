@@ -71,10 +71,12 @@ jobs:
       - uses: ./.github/actions/install
       - run: bun run check:generated
       - run: bun run build
+      # The unit shards run on Linux; a case-insensitive volume is what only a Mac has under these tests.
+      - run: bun test --conditions=source apps/server/src/fs
 
   unit:
     name: unit (${{ matrix.shard }}/2)
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
