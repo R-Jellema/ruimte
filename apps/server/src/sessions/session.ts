@@ -16,6 +16,9 @@ const OUTPUT_TICK_MS = 16;
 // A shell that traps SIGHUP would otherwise keep a killed session alive forever.
 const KILL_ESCALATION_MS = 2000;
 
+// A screen that keeps changing waits for a snapshot pass that finds it quiet, but never more passes than this.
+export const SNAPSHOT_BUSY_PASSES = 11;
+
 /*
  * A line typed before the shell reads input sits in the tty's canonical queue, which macOS caps at
  * `MAX_CANON` (1024 bytes) and silently cuts, newline included. A longer line goes through the
@@ -65,6 +68,12 @@ interface ClientStream {
     snapshot: PendingSnapshot | null;
 }
 
+interface AskedScreen {
+    take(): string;
+    // For a marker whose screen nobody needs any more: a later marker of the same client takes it.
+    drop(): void;
+}
+
 interface PendingSnapshot {
     // The screen is taken at the last marker, so every caller gets one that holds what came before its own call.
     markers: number;
@@ -101,8 +110,16 @@ export class Session {
     private readonly claims = new Map<string, { cols: number; rows: number }>();
     // A disposed terminal never calls back, so `dispose` runs whatever still waits on the parser itself.
     private readonly parsedWaiters = new Set<() => void>();
-    // Whether the screen moved since the snapshot file last took it; a new session has never been taken.
-    private dirty = true;
+    // Every change to the screen, counted, so a screen taken twice with no change between is one serialization.
+    private changes = 0;
+    // `changes` when the snapshot file last took the screen; -1 for never, or a write that failed.
+    private savedChanges = -1;
+    // `changes` as the previous snapshot pass found it, and how many passes in a row found it moving.
+    private seenChanges = -1;
+    private busyPasses = 0;
+    // The last screen serialized, kept only while another marker may still ask for it.
+    private lastScreen: { changes: number; screen: string } | null = null;
+    private screensAsked = 0;
     private restoring = false;
     private flushTimer: ReturnType<typeof setTimeout> | null = null;
     private killTimer: ReturnType<typeof setTimeout> | null = null;
@@ -138,6 +155,7 @@ export class Session {
             this.terminal.write(options.restoredScreen + '\r\n\x1b]7;unknown\x07' + RESTORED_MARKER, () => {
                 this.restoring = false;
                 this.terminal.resize(this.cols, this.rows);
+                this.reshaped();
             });
         }
         if (options.motd) {
@@ -189,21 +207,33 @@ export class Session {
 
     /* The screen once the emulator has parsed everything fed so far. A screen for a client comes from `snapshotFor` only. */
     serializeScreen(): Promise<string> {
-        return new Promise((resolve) => this.whenParsed(() => resolve(this.serialize())));
+        const asked = this.askScreen();
+        return new Promise((resolve) => this.whenParsed(() => resolve(asked.take())));
     }
 
-    /* The screen for the snapshot file, or null when nothing changed since the last one was taken. */
-    changedScreen(): Promise<string> | null {
-        if (!this.dirty) {
+    /*
+     * The screen for the snapshot file, or null when nothing changed since the last one was taken. A
+     * screen still changing since the previous pass waits for a quiet one, up to `SNAPSHOT_BUSY_PASSES`;
+     * the final pass takes every change.
+     */
+    changedScreen(final = false): Promise<string> | null {
+        if (this.changes === this.savedChanges) {
             return null;
         }
-        this.dirty = false;
+        if (!final && this.changes !== this.seenChanges && this.busyPasses < SNAPSHOT_BUSY_PASSES) {
+            this.seenChanges = this.changes;
+            this.busyPasses += 1;
+            return null;
+        }
+        this.savedChanges = this.changes;
+        this.seenChanges = this.changes;
+        this.busyPasses = 0;
         return this.serializeScreen();
     }
 
     /* A screen that was taken but never reached the disk, so the next pass takes it again. */
     markChanged(): void {
-        this.dirty = true;
+        this.savedChanges = -1;
     }
 
     /* The screen and scrollback as text, for an agent that was linked to this session. */
@@ -238,12 +268,14 @@ export class Session {
         snapshot.markers += 1;
         snapshot.waiters.push(onScreen);
         const owner = stream;
+        const asked = this.askScreen();
         this.whenParsed(() => {
             snapshot.markers -= 1;
             if (snapshot.markers > 0) {
+                asked.drop();
                 return;
             }
-            const screen = this.serialize();
+            const screen = asked.take();
             owner.snapshot = null;
             for (const waiter of snapshot.waiters) {
                 waiter(screen);
@@ -297,11 +329,11 @@ export class Session {
      */
     clear(resync: (clientId: string, screen: string) => void): Promise<void> {
         this.flush();
-        this.dirty = true;
         return new Promise((resolve) => {
             this.whenParsed(() => {
                 this.outputCwd.clear();
                 this.terminal.clear();
+                this.reshaped();
                 const clientIds = this.attachedClients();
                 let open = clientIds.length;
                 if (open === 0) {
@@ -344,7 +376,7 @@ export class Session {
         }
         this.cols = cols;
         this.rows = rows;
-        this.dirty = true;
+        this.reshaped();
         if (!this.restoring) {
             this.terminal.resize(cols, rows);
         }
@@ -416,6 +448,38 @@ export class Session {
         return fitScreen((scrollback) => this.serializer.serialize({ scrollback }) + this.outputCwd.snapshot(scrollback), SCROLLBACK_LINES);
     }
 
+    /*
+     * A screen to take once a marker written now is parsed. Two markers with no write between them see
+     * the same bytes, so the later one gets the screen the first one serialized, whichever client asked.
+     */
+    private askScreen(): AskedScreen {
+        const changes = this.changes;
+        this.screensAsked += 1;
+        const drop = (): void => {
+            this.screensAsked -= 1;
+            if (this.screensAsked === 0) {
+                this.lastScreen = null;
+            }
+        };
+        return {
+            take: () => {
+                if (this.lastScreen?.changes !== changes) {
+                    this.lastScreen = { changes, screen: this.serialize() };
+                }
+                const screen = this.lastScreen.screen;
+                drop();
+                return screen;
+            },
+            drop
+        };
+    }
+
+    // A resize or a clear changes the screen at once, not in parsing order, so no screen from before it may be handed out again.
+    private reshaped(): void {
+        this.changes += 1;
+        this.lastScreen = null;
+    }
+
     // xterm calls back in the middle of its write loop: every earlier write is parsed there, no later one is.
     private whenParsed(callback: () => void): void {
         const run = (): void => {
@@ -434,7 +498,7 @@ export class Session {
     }
 
     private append(text: string): void {
-        this.dirty = true;
+        this.changes += 1;
         this.terminal.write(text);
         for (const stream of this.clients.values()) {
             stream.buffered += text;
@@ -457,7 +521,7 @@ export class Session {
         }
         this.exitCode = exitCode;
         this.shellPrompt.dispose();
-        this.dirty = true;
+        this.changes += 1;
         this.clearTimers();
         this.flush();
         this.onExit(exitCode);

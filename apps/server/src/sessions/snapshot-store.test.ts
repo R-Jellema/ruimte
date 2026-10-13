@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import { readdir, stat } from 'node:fs/promises';
-import { RESTORED_TEXT } from './session.ts';
+import { RESTORED_TEXT, SNAPSHOT_BUSY_PASSES } from './session.ts';
 import { SnapshotStore, scheduleSnapshots } from './snapshot-store.ts';
 import { Recorder, makeHarness, type Harness } from './test-helpers.ts';
 
@@ -152,25 +152,58 @@ describe('snapshot and restore', () => {
         }
     });
 
-    test('the schedule writes on its timer', async () => {
+    test('a session that keeps writing waits for a quiet pass, and the final pass takes it at once', async () => {
+        await harness.manager.create({ sessionId: 'busy', cols: 80, rows: 24, cwd: harness.home });
+        const pty = harness.adapter.forSession('busy');
+        const takenIds = async (final: boolean): Promise<string[]> => (await harness.manager.snapshotAll(final)).map((snapshot) => snapshot.sessionId);
+
+        // The first pass saw it change since it never saw it at all.
+        expect(await takenIds(false)).toEqual([]);
+        pty.emit('one\r\n');
+        expect(await takenIds(false)).toEqual([]);
+        expect(await takenIds(false)).toEqual(['busy']);
+        expect(await takenIds(false)).toEqual([]);
+
+        pty.emit('two\r\n');
+        expect(await takenIds(true)).toEqual(['busy']);
+        expect(await takenIds(true)).toEqual([]);
+    });
+
+    test('a session that never goes quiet is still taken every so many passes', async () => {
+        await harness.manager.create({ sessionId: 'busy', cols: 80, rows: 24, cwd: harness.home });
+        const pty = harness.adapter.forSession('busy');
+        const taken: number[] = [];
+        for (let pass = 0; pass < 2 * (SNAPSHOT_BUSY_PASSES + 1); pass++) {
+            pty.emit(`pass ${pass}\r\n`);
+            if ((await harness.manager.snapshotAll(false)).length > 0) {
+                taken.push(pass);
+            }
+        }
+        expect(taken).toEqual([SNAPSHOT_BUSY_PASSES, 2 * SNAPSHOT_BUSY_PASSES + 1]);
+    });
+
+    test('the timer asks for quiet screens, and a flush asks for every change once the pass in flight is done', async () => {
         jest.useFakeTimers();
-        let passes = 0;
+        const asked: boolean[] = [];
         const source = {
-            snapshotAll: () => {
-                passes += 1;
-                return Promise.resolve([{ sessionId: 't1', screen: `pass ${passes}`, deleted: () => false, unsaved: () => undefined }]);
+            snapshotAll: (final: boolean) => {
+                asked.push(final);
+                return Promise.resolve([{ sessionId: 't1', screen: `pass ${asked.length}`, deleted: () => false, unsaved: () => undefined }]);
             }
         };
         const schedule = scheduleSnapshots(source, harness.snapshots, 20);
         try {
             jest.advanceTimersByTime(19);
-            expect(passes).toBe(0);
+            expect(asked).toEqual([]);
             jest.advanceTimersByTime(1);
-            expect(passes).toBe(1);
-            // The pass the timer started is in flight, so this awaits that one instead of starting another.
-            await schedule.flush();
-            expect(passes).toBe(1);
-            expect(await harness.snapshots.read('t1')).toBe('pass 1');
+            expect(asked).toEqual([false]);
+            const flushing = schedule.flush();
+            // A second flush meanwhile joins the first instead of queueing a third pass.
+            const again = schedule.flush();
+            expect(asked).toEqual([false]);
+            await Promise.all([flushing, again]);
+            expect(asked).toEqual([false, true]);
+            expect(await harness.snapshots.read('t1')).toBe('pass 2');
         } finally {
             schedule.stop();
         }

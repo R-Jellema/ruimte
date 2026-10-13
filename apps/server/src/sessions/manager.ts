@@ -644,12 +644,12 @@ export class SessionManager {
         session.kill();
     }
 
-    /* The screens that changed since the last pass; a quiet session costs nothing. */
-    async snapshotAll(): Promise<SessionSnapshot[]> {
+    /* The screens that changed since the last pass; a quiet session costs nothing, and the final pass takes every change. */
+    async snapshotAll(final = false): Promise<SessionSnapshot[]> {
         const result: SessionSnapshot[] = [];
         for (const session of [...this.sessions.values()]) {
             // A session opened for one client is never attached again after that client, so its screen is worth nothing on disk.
-            const screen = this.deleted.has(session) || this.clientSessions.has(session.id) ? null : session.changedScreen();
+            const screen = this.deleted.has(session) || this.clientSessions.has(session.id) ? null : session.changedScreen(final);
             if (screen === null) {
                 continue;
             }

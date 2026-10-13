@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
+import { SerializeAddon } from '@xterm/addon-serialize';
 import { Terminal } from '@xterm/headless';
 import type { ServerFrame } from '@ruimte/contracts';
 import { HIGH_WATER_MARK, OutputGate, type BackpressuredSocket } from '../backpressure.ts';
@@ -158,6 +159,53 @@ describe('Session.snapshotFor', () => {
 
         expect(screens).toHaveLength(1);
         await expect(serialized).resolves.toBeString();
+    });
+});
+
+describe('Session screens shared between clients', () => {
+    test('clients that ask at the same moment share one serialization', async () => {
+        await create('s1');
+        emitLines('s1', 0, 50);
+        const serialize = spyOn(SerializeAddon.prototype, 'serialize');
+        try {
+            const attached = await Promise.all(['c1', 'c2', 'c3', 'c4', 'c5'].map((clientId) => harness.manager.attach('s1', clientId, 80, 24)));
+            expect(serialize).toHaveBeenCalledTimes(1);
+            expect(new Set(attached.map(({ screen }) => screen)).size).toBe(1);
+
+            serialize.mockClear();
+            const resynced: string[] = [];
+            await harness.manager.get('s1')!.clear((_, screen) => resynced.push(screen));
+            expect(resynced).toHaveLength(5);
+            expect(serialize).toHaveBeenCalledTimes(1);
+        } finally {
+            serialize.mockRestore();
+        }
+    });
+
+    test('output between two asks gives each client a screen of its own, in step with its stream', async () => {
+        const first = new Recorder();
+        const second = new Recorder();
+        harness.manager.subscribe('c1', first.sink());
+        harness.manager.subscribe('c2', second.sink());
+        await create('s1');
+        const lines = emitLines('s1', 0, 500);
+        const serialize = spyOn(SerializeAddon.prototype, 'serialize');
+        try {
+            const attachingFirst = harness.manager.attach('s1', 'c1', 80, 24);
+            const between = emitLines('s1', 500, 1000);
+            const attachingSecond = harness.manager.attach('s1', 'c2', 80, 24);
+            const after = emitLines('s1', 1000, 1500);
+            const [{ screen: firstScreen }, { screen: secondScreen }] = await Promise.all([attachingFirst, attachingSecond]);
+            harness.manager.get('s1')!.flush();
+
+            expect(serialize).toHaveBeenCalledTimes(2);
+            expect(firstScreen).not.toBe(secondScreen);
+            const all = [...lines, ...between, ...after];
+            expect(await replay([{ screen: firstScreen }, { output: first.output }])).toEqual(all);
+            expect(await replay([{ screen: secondScreen }, { output: second.output }])).toEqual(all);
+        } finally {
+            serialize.mockRestore();
+        }
     });
 });
 
