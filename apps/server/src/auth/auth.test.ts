@@ -108,6 +108,11 @@ describe('access', () => {
         expect(originAllowed('https://evil.example', 'box:4210')).toBe(false);
         expect(originAllowed('https://app.example', null)).toBe(false);
         expect(originAllowed('not a url', 'box:4210')).toBe(false);
+        expect(originAllowed('http://[::1]:5173', 'box:4210')).toBe(true);
+        expect(originAllowed('http://127.0.0.2:5173', 'box:4210')).toBe(true);
+        expect(originAllowed('http://[::2]:5173', 'box:4210')).toBe(false);
+        expect(originAllowed('http://127.evil.example', 'box:4210')).toBe(false);
+        expect(originAllowed('http://localhost.evil.example', 'box:4210')).toBe(false);
     });
 
     test('the local secret gets in, a loopback address alone does not', async () => {

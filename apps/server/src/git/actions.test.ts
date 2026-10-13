@@ -112,6 +112,41 @@ describe('branches', () => {
         expect((await listRefs(repo)).current).toBe('published');
         expect((await readStatus(repo)).upstream).toBe('origin/published');
     });
+
+    test('a ref or a name with a leading dash never reaches git as an option', async () => {
+        await act({ kind: 'create-branch', name: 'other' });
+        await act({ kind: 'checkout', ref: 'main' });
+        await write('one.txt', 'changed\n');
+        const progress: Progress = { phases: [], lines: [] };
+
+        await expect(act({ kind: 'checkout', ref: '--force' }, progress)).rejects.toThrow(/dash/);
+        await expect(act({ kind: 'merge', ref: '--abort' })).rejects.toThrow(/dash/);
+        await expect(act({ kind: 'rebase', ref: `--exec=touch ${join(root, 'ran')}` })).rejects.toThrow(/dash/);
+        await expect(act({ kind: 'stash-pop', ref: '--index' })).rejects.toThrow(/dash/);
+        await expect(act({ kind: 'create-branch', name: '-f' })).rejects.toThrow(/dash/);
+        await expect(act({ kind: 'create-branch', name: 'next', ref: '--orphan' })).rejects.toThrow(/dash/);
+        await expect(act({ kind: 'rename-branch', name: '--force' })).rejects.toThrow(/dash/);
+        await expect(act({ kind: 'delete-branch', ref: '--remotes' })).rejects.toThrow(/dash/);
+
+        expect(progress.phases).toEqual([]);
+        expect(await Bun.file(join(repo, 'one.txt')).text()).toBe('changed\n');
+        expect(await Bun.file(join(root, 'ran')).exists()).toBe(false);
+        expect((await listRefs(repo)).current).toBe('main');
+    });
+
+    test('a named stash and a rebase onto a branch still read their operand as a ref', async () => {
+        await act({ kind: 'create-branch', name: 'base' });
+        await write('two.txt', 'two\n');
+        await act({ kind: 'commit', subject: 'add two', stageAll: true });
+        await act({ kind: 'checkout', ref: 'main' });
+        await act({ kind: 'rebase', ref: 'base' });
+        expect(await Bun.file(join(repo, 'two.txt')).exists()).toBe(true);
+
+        await write('one.txt', 'changed\n');
+        await act({ kind: 'stash' });
+        await act({ kind: 'stash-pop', ref: 'stash@{0}' });
+        expect(await isDirty(repo)).toBe(true);
+    });
 });
 
 describe('stashing', () => {

@@ -152,10 +152,20 @@ interface ProjectLanguage {
     /* Whether the project uses Vue, which sends its scripts to the Vue kind; unknown until its `package.json` was read or a `.vue` file opened. */
     vue: boolean | undefined;
     vueCheck: Promise<boolean> | undefined;
-    /* The clients whose command is running, newest last: the one a server's request for an edit goes to. */
-    commands: Array<{ clientId: string }>;
+    /* Per server, the commands of clients in the order they came. */
+    commands: Map<LanguageServer, CommandLine>;
     /* Watches the project's files while a server of it asked to hear about them. */
     watcher: ProjectFileWatcher | null;
+}
+
+/*
+ * LSP ties no `workspace/applyEdit` to the request that caused it, so a server runs one command at a
+ * time and an edit it asks for goes to the client of that command.
+ */
+interface CommandLine {
+    clientId: string | null;
+    tail: Promise<void>;
+    waiting: number;
 }
 
 /* An edit a server asked for and a client has not answered yet. */
@@ -396,10 +406,22 @@ export class LanguageHost {
     }
 
     async open(clientId: string, payload: LanguageDocumentOpenPayload): Promise<LanguageDocumentOpenResult> {
+        return await this.openFor(clientId, payload, () => this.sinks.clientIds().includes(clientId));
+    }
+
+    /* `holding` says whether the client is still there once the paths are read; an agent's owner always is. */
+    private async openFor(clientId: string, payload: LanguageDocumentOpenPayload, holding: () => boolean): Promise<LanguageDocumentOpenResult> {
         const project = this.projectFor(payload.projectId);
         const absolutePath = await this.pathOf(project, payload.path);
         const storedPath = storedPathOf(project.folder, absolutePath);
         const kinds = await this.kindsFor(project, payload.languageId, storedPath);
+        // A client that went or a project that ended meanwhile was already cleaned up, and would leave this document behind.
+        if (this.projects.get(payload.projectId) !== project) {
+            throw new LanguageError(LANGUAGE_ERROR_CODES.projectNotFound, `No project ${payload.projectId}`);
+        }
+        if (!holding()) {
+            throw new LanguageError(LANGUAGE_ERROR_CODES.unavailable, 'The client went away');
+        }
         let document = project.documents.get(absolutePath);
         if (document) {
             document.clients.add(clientId);
@@ -549,14 +571,32 @@ export class LanguageHost {
             (payload.server ? servers.find((candidate) => candidate.hasComponent(payload.server!)) : undefined) ??
             servers.find((candidate) => candidate.canAnswer(document, 'workspace/executeCommand')) ??
             servers[0]!;
-        const running = { clientId };
-        project.commands.push(running);
+        const line = project.commands.get(server) ?? { clientId: null, tail: Promise.resolve(), waiting: 0 };
+        project.commands.set(server, line);
+        line.waiting++;
+        const turn = line.tail.then(async () => {
+            if (!this.sinks.clientIds().includes(clientId)) {
+                throw new LanguageError(LANGUAGE_ERROR_CODES.unavailable, 'The client went away');
+            }
+            line.clientId = clientId;
+            try {
+                return await server.executeCommand(document, payload.command, payload.arguments, payload.server);
+            } finally {
+                line.clientId = null;
+            }
+        });
+        line.tail = turn
+            .catch(() => undefined)
+            .then(() => {
+                line.waiting--;
+                if (line.waiting === 0 && project.commands.get(server) === line) {
+                    project.commands.delete(server);
+                }
+            });
         try {
-            return await server.executeCommand(document, payload.command, payload.arguments, payload.server);
+            return await turn;
         } catch (error) {
             throw translated(error);
-        } finally {
-            project.commands.splice(project.commands.indexOf(running), 1);
         }
     }
 
@@ -609,7 +649,7 @@ export class LanguageHost {
         if (document) {
             document.clients.add(request.owner);
         } else {
-            await this.open(request.owner, { projectId, path: storedPath, languageId: request.languageId, text: request.disk });
+            await this.openFor(request.owner, { projectId, path: storedPath, languageId: request.languageId, text: request.disk }, () => true);
             document = project.documents.get(absolutePath)!;
         }
         const held = document;
@@ -717,7 +757,7 @@ export class LanguageHost {
             servers: new Map(),
             vue: undefined,
             vueCheck: undefined,
-            commands: [],
+            commands: new Map(),
             watcher: null
         };
         this.projects.set(projectId, project);
@@ -954,13 +994,13 @@ export class LanguageHost {
         project.watcher = watcher;
     }
 
-    /* The edit goes to the client whose command is running, which makes it or says why not; a request with no command to answer for is refused. */
+    /* The edit goes to the client whose command this server runs, which makes it or says why not; a request with no command to answer for is refused. */
     private askForEdit(server: LanguageServer, params: ApplyWorkspaceEditParams): Promise<ApplyWorkspaceEditResult> {
-        const running = this.projects.get(server.projectId)?.commands.at(-1);
-        if (!running) {
+        const clientId = this.projects.get(server.projectId)?.commands.get(server)?.clientId ?? null;
+        if (clientId === null) {
             return Promise.resolve({ applied: false, failureReason: 'No command of a client is running' });
         }
-        return this.sendEdit(server.projectId, running.clientId, params.edit, params.label);
+        return this.sendEdit(server.projectId, clientId, params.edit, params.label);
     }
 
     /* Hands an edit to one client, which makes it in its editors and answers with `language.edit.answer`. */

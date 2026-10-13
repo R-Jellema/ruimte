@@ -134,6 +134,41 @@ describe('on-device model', () => {
         await Promise.all(held);
     });
 
+    test('counts requests that arrive while the helper is still starting', async () => {
+        const rig = harness();
+        const calls = Array.from({ length: 6 }, () =>
+            rig.model.generate({ purpose: 'ghost', prompt: 'x' }).then(
+                () => 'sent',
+                (error: { code?: string }) => error.code
+            )
+        );
+        await new Promise((resolve) => setImmediate(resolve));
+        expect(rig.requests.filter((request) => request.type === 'generate')).toHaveLength(4);
+        await rig.model.dispose();
+        expect((await Promise.all(calls)).filter((outcome) => outcome === 'busy')).toHaveLength(2);
+    });
+
+    test('a spawn that throws leaves the next request free to start a helper', async () => {
+        const rig = harness({ answer: (request, out) => out({ type: 'done', id: request.id, state: 'done', text: 'ok' }) });
+        let attempts = 0;
+        const model = new OnDeviceModel({
+            command: () => 'fake-helper',
+            supported: () => true,
+            spawn: (...args) => {
+                attempts += 1;
+                if (attempts === 1) {
+                    throw new Error('spawn failed');
+                }
+                return rig.fake.spawn(...args);
+            },
+            env: {}
+        });
+        await expect(model.generate({ purpose: 'names', prompt: 'x' })).rejects.toMatchObject({ code: 'unavailable' });
+        expect(await model.generate({ purpose: 'names', prompt: 'x' })).toMatchObject({ text: 'ok' });
+        expect(attempts).toBe(2);
+        await model.dispose();
+    });
+
     test('status says whether the model is there and why not', async () => {
         const unsupported = new OnDeviceModel({ supported: () => false });
         expect(await unsupported.status()).toEqual({ available: false, reason: 'On-device models need a Mac with Apple silicon.' });

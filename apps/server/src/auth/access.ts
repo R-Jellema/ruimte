@@ -4,12 +4,9 @@ import { sameSecret } from './local-secret.ts';
 
 const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1', 'localhost']);
 
+// A dotted quad only: an origin's host can be a name like `127.example.com`.
 export function isLoopbackAddress(address: string): boolean {
-    return LOOPBACK.has(address) || address.startsWith('127.');
-}
-
-function isLoopbackHost(host: string): boolean {
-    return LOOPBACK.has(host.replace(/^\[|\]$/g, '').replace(/:\d+$/, ''));
+    return LOOPBACK.has(address) || /^127(\.\d{1,3}){3}$/.test(address);
 }
 
 function isPrivateAddress(address: string): boolean {
@@ -35,7 +32,8 @@ export function originAllowed(origin: string | null, host: string | null): boole
     } catch {
         return false;
     }
-    if (isLoopbackHost(parsed.host)) {
+    // An IPv6 hostname keeps its brackets in a URL, `[::1]`.
+    if (isLoopbackAddress(parsed.hostname.replace(/^\[|\]$/g, ''))) {
         return true;
     }
     return host !== null && parsed.host === host;

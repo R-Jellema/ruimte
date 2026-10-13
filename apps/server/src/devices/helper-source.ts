@@ -55,6 +55,7 @@ export class DeviceHelperSource implements LiveFrameSource {
     private readonly stopGraceMs: number;
     private process: DeviceHelperProcess | null = null;
     private outputTask: Promise<void> | null = null;
+    private abandonStart: ((error: unknown) => void) | null = null;
     private ready = false;
     private stderr = '';
 
@@ -103,22 +104,7 @@ export class DeviceHelperSource implements LiveFrameSource {
             readySettled = true;
             rejectReady(error);
         };
-        this.outputTask = this.readProtocol(child, publish, () => {
-            if (readySettled) {
-                throw new DeviceHelperFailure('device-helper-protocol', 'The device capture helper became ready more than once');
-            }
-            this.ready = true;
-            readySettled = true;
-            resolveReady();
-        }).catch((error: unknown) => {
-            failReady(error);
-            if (this.process === child) {
-                this.process = null;
-                this.ready = false;
-                child.kill('SIGTERM');
-            }
-        });
-        void child.exited.then(async (exitCode) => {
+        const exitHandled = child.exited.then(async (exitCode) => {
             await stderrTask;
             if (this.process !== child) {
                 return;
@@ -130,7 +116,30 @@ export class DeviceHelperSource implements LiveFrameSource {
                 new DeviceHelperFailure('device-helper-exited', detail || `The device capture helper exited${exitCode === 0 ? '' : ` with code ${exitCode}`}`)
             );
         });
+        this.outputTask = this.readProtocol(child, publish, () => {
+            if (readySettled) {
+                throw new DeviceHelperFailure('device-helper-protocol', 'The device capture helper became ready more than once');
+            }
+            this.ready = true;
+            readySettled = true;
+            resolveReady();
+        }).then(
+            async () => {
+                // The exit that usually follows says why, with stderr; a helper that lives on without output gets the stop grace.
+                await settledWithin(exitHandled, this.stopGraceMs);
+                failReady(new DeviceHelperFailure('device-helper-exited', 'The device capture helper closed its output before it was ready'));
+            },
+            (error: unknown) => {
+                failReady(error);
+                if (this.process === child) {
+                    this.process = null;
+                    this.ready = false;
+                    child.kill('SIGTERM');
+                }
+            }
+        );
 
+        this.abandonStart = failReady;
         try {
             await ready;
         } catch (error) {
@@ -139,6 +148,10 @@ export class DeviceHelperSource implements LiveFrameSource {
                 child.kill('SIGTERM');
             }
             throw error;
+        } finally {
+            if (this.abandonStart === failReady) {
+                this.abandonStart = null;
+            }
         }
     }
 
@@ -165,6 +178,7 @@ export class DeviceHelperSource implements LiveFrameSource {
         }
         this.process = null;
         this.ready = false;
+        this.abandonStart?.(new DeviceHelperFailure('device-helper-stopped', 'The device capture helper was stopped before it was ready'));
         try {
             child.stdin.write(encodeDeviceHelperMessage({ type: 'stop' }));
             child.stdin.flush();
@@ -208,4 +222,14 @@ export class DeviceHelperSource implements LiveFrameSource {
             this.stderr = text.slice(-4096);
         }
     }
+}
+
+function settledWithin(task: Promise<unknown>, ms: number): Promise<void> {
+    return new Promise((resolve) => {
+        const timer = setTimeout(resolve, ms);
+        void task.finally(() => {
+            clearTimeout(timer);
+            resolve();
+        });
+    });
 }

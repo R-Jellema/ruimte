@@ -23,20 +23,19 @@ beforeEach(async () => {
     await writeFile(join(home, 'endpoint.json'), '{}');
     await writeFile(join(home, 'scratch', 'notes.md'), '# Notes');
     dispatcher = new Dispatcher();
-    registerLanguageHandlers(
-        dispatcher,
-        new LanguageHost({
-            root: join(home, 'language-servers'),
-            folderOf: (projectId) => (projectId === 'p1' ? root : null),
-            holders: () => [],
-            machineHome: new MachineHome(home),
-            spawn: fakeSpawner().spawn,
-            custom: new CustomLanguageServers({
-                path: join(home, 'language-servers', 'custom.json'),
-                resolve: (command) => (command === 'zls' ? '/bin/zls' : null)
-            })
+    const host = new LanguageHost({
+        root: join(home, 'language-servers'),
+        folderOf: (projectId) => (projectId === 'p1' ? root : null),
+        holders: () => [],
+        machineHome: new MachineHome(home),
+        spawn: fakeSpawner().spawn,
+        custom: new CustomLanguageServers({
+            path: join(home, 'language-servers', 'custom.json'),
+            resolve: (command) => (command === 'zls' ? '/bin/zls' : null)
         })
-    );
+    });
+    host.subscribe('client-1', () => undefined);
+    registerLanguageHandlers(dispatcher, host);
     frames = [];
 });
 

@@ -41,6 +41,7 @@ export class OnDeviceModel {
     private child: ChatChild | null = null;
     private ready: Promise<void> | null = null;
     private readonly pending = new Map<string, Pending>();
+    private outstanding = 0;
     private sequence = 0;
     private disposed = false;
     private onReady: ((error: Error | null) => void) | null = null;
@@ -70,21 +71,34 @@ export class OnDeviceModel {
         if (signal?.aborted) {
             return { state: 'aborted', text: '' };
         }
-        if (this.pending.size >= MAX_PENDING) {
+        // Taken before the first await, so requests that all arrive while the helper starts count too.
+        if (this.outstanding >= MAX_PENDING) {
             throw new CodedError('busy', 'The on-device model is busy with other requests.');
         }
-        await this.start();
-        if (signal?.aborted) {
-            return { state: 'aborted', text: '' };
+        this.outstanding += 1;
+        try {
+            await this.start();
+            if (signal?.aborted) {
+                return { state: 'aborted', text: '' };
+            }
+            const id = `g${++this.sequence}`;
+            const spec = PURPOSES[request.purpose];
+            const outcome = new Promise<OnDeviceGenerateResult>((settle, fail) => {
+                this.pending.set(id, { request, settle, fail });
+            });
+            signal?.addEventListener('abort', () => this.write({ type: 'cancel', id }), { once: true });
+            this.write({
+                type: 'generate',
+                id,
+                instructions: spec.instructions,
+                prompt: request.prompt,
+                maxTokens: spec.maxTokens,
+                temperature: spec.temperature
+            });
+            return await outcome;
+        } finally {
+            this.outstanding -= 1;
         }
-        const id = `g${++this.sequence}`;
-        const spec = PURPOSES[request.purpose];
-        const outcome = new Promise<OnDeviceGenerateResult>((settle, fail) => {
-            this.pending.set(id, { request, settle, fail });
-        });
-        signal?.addEventListener('abort', () => this.write({ type: 'cancel', id }), { once: true });
-        this.write({ type: 'generate', id, instructions: spec.instructions, prompt: request.prompt, maxTokens: spec.maxTokens, temperature: spec.temperature });
-        return outcome;
     }
 
     async dispose(): Promise<void> {
@@ -126,26 +140,27 @@ export class OnDeviceModel {
                     reject(error);
                 }
             };
-            try {
-                const child = new ChatChild({
-                    command: [this.command(), '--oneshot'],
-                    cwd: '/',
-                    env: Object.fromEntries(Object.entries(this.environment()).filter((entry): entry is [string, string] => entry[1] !== undefined)),
-                    ...(this.options.spawn ? { spawn: this.options.spawn } : {}),
-                    onExit: () => {
-                        if (this.child === child) {
-                            this.lose(new CodedError('failed', 'The on-device helper stopped.'));
-                        }
-                    }
-                });
-                this.child = child;
-                void this.read(child.process.stdout);
-            } catch {
-                this.lose(new CodedError('unavailable', 'The on-device helper could not start.'));
-            }
         });
+        // Set before the spawn, so a spawn that throws clears it again through `lose` and the next request retries.
         this.ready = ready;
         ready.catch(() => undefined);
+        try {
+            const child = new ChatChild({
+                command: [this.command(), '--oneshot'],
+                cwd: '/',
+                env: Object.fromEntries(Object.entries(this.environment()).filter((entry): entry is [string, string] => entry[1] !== undefined)),
+                ...(this.options.spawn ? { spawn: this.options.spawn } : {}),
+                onExit: () => {
+                    if (this.child === child) {
+                        this.lose(new CodedError('failed', 'The on-device helper stopped.'));
+                    }
+                }
+            });
+            this.child = child;
+            void this.read(child.process.stdout);
+        } catch {
+            this.lose(new CodedError('unavailable', 'The on-device helper could not start.'));
+        }
         return ready;
     }
 

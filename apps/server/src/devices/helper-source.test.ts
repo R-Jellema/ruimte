@@ -53,6 +53,10 @@ class FakeHelperProcess implements DeviceHelperProcess {
         this.resolveExit(code);
     }
 
+    closeOutput(): void {
+        this.output.close();
+    }
+
     kill(signal: 'SIGTERM' | 'SIGKILL'): void {
         this.signals.push(signal);
     }
@@ -90,6 +94,36 @@ describe('DeviceHelperSource', () => {
         process.exit(9, 'CoreSimulator could not be loaded');
 
         await expect(started).rejects.toEqual(new DeviceHelperFailure('device-helper-exited', 'CoreSimulator could not be loaded'));
+    });
+
+    test('a helper that closes its output before ready fails the start even when it lives on', async () => {
+        const process = new FakeHelperProcess();
+        const source = new DeviceHelperSource('phone-1', () => process, 0);
+        const started = source.start(() => undefined);
+        process.closeOutput();
+
+        await expect(started).rejects.toMatchObject({ code: 'device-helper-exited' });
+        expect(process.signals).toEqual(['SIGTERM']);
+    });
+
+    test('a stop while the helper starts fails the start instead of leaving it open', async () => {
+        const process = new FakeHelperProcess();
+        const source = new DeviceHelperSource('phone-1', () => process, 0);
+        const started = source.start(() => undefined);
+        const stopping = source.stop();
+        process.exit(0);
+        await stopping;
+
+        await expect(started).rejects.toMatchObject({ code: 'device-helper-stopped' });
+    });
+
+    test('a launch that throws is a start failure', async () => {
+        const source = new DeviceHelperSource('phone-1', () => {
+            throw new Error('no helper');
+        });
+
+        await expect(source.start(() => undefined)).rejects.toEqual(new DeviceHelperFailure('device-helper-unavailable', 'no helper'));
+        await source.stop();
     });
 
     test('marks frames from a native physical stream as HEVC, and says which ones a decoder can start from', async () => {

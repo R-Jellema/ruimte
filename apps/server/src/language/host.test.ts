@@ -326,6 +326,27 @@ describe('documents', () => {
         expect(spawner.processes[0].server.exited).toBe(false);
     });
 
+    it('holds no document for a client whose socket went while the open was under way', async () => {
+        const { host, spawner } = await installed();
+        const unsubscribe = host.subscribe('client-3', () => undefined);
+        const opening = open(host, 'src/a.ts', 'let a = 1;\n', 'client-3');
+        unsubscribe();
+        await expect(opening).rejects.toMatchObject({ code: LANGUAGE_ERROR_CODES.unavailable });
+        await expect(host.change({ projectId: 'p1', path: 'src/a.ts', baseVersion: 1, changes: [{ text: '' }] })).rejects.toMatchObject({
+            code: LANGUAGE_ERROR_CODES.documentNotOpen
+        });
+        expect(spawner.processes).toHaveLength(0);
+    });
+
+    it('starts no server for a project that ended while a document opened', async () => {
+        const { host, spawner } = await installed();
+        const opening = open(host);
+        await host.end('p1');
+        await expect(opening).rejects.toMatchObject({ code: LANGUAGE_ERROR_CODES.projectNotFound });
+        await settle();
+        expect(spawner.processes).toHaveLength(0);
+    });
+
     it('holds a document of a language no server serves, so a client calls it the same way', async () => {
         const { host } = await installed();
         expect(await open(host, 'src/main.rs', 'fn main() {}', 'client-1', 'rust')).toEqual({ version: 1, servers: [], providers: {} });
@@ -750,6 +771,7 @@ describe('language servers of a person', () => {
             spawn: spawner.spawn,
             custom: second
         });
+        held.subscribe('client-1', () => undefined);
         expect((await held.open('client-1', { projectId: 'p1', path: 'a.zig', languageId: 'zig', text: '' })).servers).toEqual([]);
         expect((await held.status('p1')).find((status) => status.server === saved.id)).toMatchObject({ state: 'crashed' });
         expect(spawner.processes).toHaveLength(0);
@@ -815,6 +837,47 @@ describe('commands', () => {
         await settle();
         clock.fire();
         expect((await running).result).toEqual({ applied: false, failureReason: 'The client did not answer' });
+    });
+
+    it('runs the commands of two clients on one server one after the other, so an edit goes to the client whose command asked', async () => {
+        const { host, server, events } = await commandRig();
+        server.handle('workspace/executeCommand', async (params) => ({
+            applied: await server.request('workspace/applyEdit', { label: (params as { command: string }).command, edit })
+        }));
+        const first = host.command('client-1', { projectId: 'p1', path: 'src/a.ts', command: 'first' });
+        const second = host.command('client-2', { projectId: 'p1', path: 'src/a.ts', command: 'second' });
+        await settle();
+        expect(server.paramsOf('workspace/executeCommand')).toEqual([{ command: 'first' }]);
+        const [asked] = kinds(events['client-1'], 'language.edit');
+        expect(asked).toMatchObject({ payload: { label: 'first' } });
+        expect(kinds(events['client-2'], 'language.edit')).toHaveLength(0);
+
+        host.answerEdit('client-1', { projectId: 'p1', editId: (asked as { payload: { editId: string } }).payload.editId, applied: true });
+        expect((await first).result).toEqual({ applied: { applied: true } });
+        await settle();
+        const [next] = kinds(events['client-2'], 'language.edit');
+        expect(next).toMatchObject({ payload: { label: 'second' } });
+        host.answerEdit('client-2', { projectId: 'p1', editId: (next as { payload: { editId: string } }).payload.editId, applied: true });
+        expect((await second).result).toEqual({ applied: { applied: true } });
+        expect(await server.request('workspace/applyEdit', { edit })).toMatchObject({ applied: false });
+    });
+
+    it('skips a waiting command of a client that went away before its turn', async () => {
+        const { host, server } = await commandRig();
+        const leave = host.subscribe('client-3', () => undefined);
+        const { promise: release, resolve } = Promise.withResolvers<void>();
+        server.handle('workspace/executeCommand', async (params) => {
+            await release;
+            return (params as { command: string }).command;
+        });
+        const first = host.command('client-1', { projectId: 'p1', path: 'src/a.ts', command: 'first' });
+        const waiting = host.command('client-3', { projectId: 'p1', path: 'src/a.ts', command: 'waiting' });
+        await settle();
+        leave();
+        resolve();
+        expect((await first).result).toBe('first');
+        await expect(waiting).rejects.toMatchObject({ code: LANGUAGE_ERROR_CODES.unavailable });
+        expect(server.paramsOf('workspace/executeCommand')).toEqual([{ command: 'first' }]);
     });
 
     it('stops waiting for a client that went away', async () => {

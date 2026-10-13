@@ -1,0 +1,34 @@
+import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { streamWithTimeout } from './run.ts';
+
+let root: string;
+let pidFile: string;
+
+beforeEach(async () => {
+    root = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-stream-timeout-')));
+    pidFile = join(root, 'child.pid');
+});
+
+afterEach(async () => {
+    const pid = Number.parseInt((await readFile(pidFile, 'utf8').catch(() => '')).trim(), 10);
+    if (Number.isFinite(pid)) {
+        try {
+            process.kill(pid, 'SIGKILL');
+        } catch {
+            // Gone already, which is what the timeout is for.
+        }
+    }
+    await rm(root, { recursive: true, force: true });
+});
+
+test('a timeout ends the children that keep the output open, not only the command', async () => {
+    // The background sleep inherits stdout, the way an MCP server a CLI started does.
+    const script = `sleep 30 & echo $! > '${pidFile}'; exec sleep 30`;
+
+    const result = await streamWithTimeout('sh', ['-c', script], root, 100);
+
+    expect(result.code).not.toBe(0);
+});

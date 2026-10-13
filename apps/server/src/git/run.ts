@@ -177,7 +177,11 @@ export async function streamCommand(command: string, args: string[], cwd: string
     return { code, stdout, stderr };
 }
 
-/* A command that is ended once it runs past `timeoutMs`, for a one-shot agent CLI a person waits on. */
+/*
+ * A command that is ended once it runs past `timeoutMs`, for a one-shot agent CLI a person waits on.
+ * The end is one SIGTERM to its group and never a SIGKILL: a stuck process gets no signal a person did
+ * not press.
+ */
 export async function streamWithTimeout(
     command: string,
     args: string[],
@@ -193,6 +197,7 @@ export async function streamWithTimeout(
                 kill = stop;
                 options.onSpawn?.(stop);
             },
+            group: true,
             ...(options.stdin === undefined ? {} : { stdin: options.stdin }),
             ...(options.env === undefined ? {} : { env: options.env })
         });

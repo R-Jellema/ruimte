@@ -185,7 +185,7 @@ export class GitActions {
                 return done(`Synced ${branch}.`);
             }
             case 'checkout': {
-                const ref = required(payload.ref, 'a branch to check out');
+                const ref = operand(payload.ref, 'a branch to check out');
                 if (payload.stash === true) {
                     await step('stash', ['stash', 'push', '--include-untracked', '--message', `ruimte-switch-${stamp()}`]);
                 }
@@ -193,27 +193,28 @@ export class GitActions {
                 return done(`Now on ${ref}.`);
             }
             case 'create-branch': {
-                const name = required(payload.name, 'a name for the branch');
-                await step('branch', ['checkout', '-b', name, ...(payload.ref ? [payload.ref] : [])]);
+                const name = operand(payload.name, 'a name for the branch');
+                const start = payload.ref ? [operand(payload.ref, 'a branch to start from')] : [];
+                await step('branch', ['checkout', '-b', name, '--end-of-options', ...start]);
                 return done(`Created ${name}.`);
             }
             case 'rename-branch': {
-                const name = required(payload.name, 'a name for the branch');
-                await step('branch', ['branch', '--move', name]);
+                const name = operand(payload.name, 'a name for the branch');
+                await step('branch', ['branch', '--move', '--end-of-options', name]);
                 return done(`${branch} is now ${name}.`);
             }
             case 'delete-branch': {
-                const ref = required(payload.ref, 'a branch to delete');
-                await step('branch', ['branch', '--delete', ...(payload.force === true ? ['--force'] : []), ref]);
+                const ref = operand(payload.ref, 'a branch to delete');
+                await step('branch', ['branch', '--delete', ...(payload.force === true ? ['--force'] : []), '--end-of-options', ref]);
                 return done(`Deleted ${ref}.`);
             }
             case 'merge': {
-                const ref = required(payload.ref, 'a branch to merge');
-                return await joining('merge', ['merge', '--no-edit', ref], (text) => summaryOf(text, `Merged ${ref} into ${branch}.`));
+                const ref = operand(payload.ref, 'a branch to merge');
+                return await joining('merge', ['merge', '--no-edit', '--end-of-options', ref], (text) => summaryOf(text, `Merged ${ref} into ${branch}.`));
             }
             case 'rebase': {
-                const ref = required(payload.ref, 'a branch to rebase onto');
-                return await joining('rebase', ['rebase', ref], (text) => summaryOf(text, `Rebased ${branch} onto ${ref}.`));
+                const ref = operand(payload.ref, 'a branch to rebase onto');
+                return await joining('rebase', ['rebase', '--end-of-options', ref], (text) => summaryOf(text, `Rebased ${branch} onto ${ref}.`));
             }
             case 'stash': {
                 const args = ['stash', 'push', '--include-untracked'];
@@ -224,7 +225,8 @@ export class GitActions {
                 return done(text.includes('No local changes') ? 'There was nothing to stash.' : 'Changes are in a stash.');
             }
             case 'stash-pop': {
-                return await joining('stash', ['stash', 'pop', ...(payload.ref ? [payload.ref] : [])], () => `Took ${payload.ref ?? 'the newest stash'} back.`);
+                const stash = payload.ref ? [operand(payload.ref, 'a stash to take back')] : [];
+                return await joining('stash', ['stash', 'pop', '--end-of-options', ...stash], () => `Took ${payload.ref ?? 'the newest stash'} back.`);
             }
             case 'commit': {
                 const commit = await this.commit(payload, step, top);
@@ -307,6 +309,18 @@ function required(value: string | undefined, what: string): string {
     return value;
 }
 
+/*
+ * A ref or a name from the client, which git would read as an option when it starts with a dash:
+ * `--force` on a checkout throws work away and `--exec=` on a rebase runs a command.
+ */
+function operand(value: string | undefined, what: string): string {
+    const text = required(value, what);
+    if (text.startsWith('-')) {
+        throw new GitError('git-failed', `A branch or ref never starts with a dash: ${text}`);
+    }
+    return text;
+}
+
 function stamp(): string {
     return new Date().toISOString().replace(/[:.]/g, '-').replace(/Z$/, '');
 }
@@ -318,15 +332,15 @@ function stamp(): string {
 async function checkoutArgs(top: string, ref: string): Promise<string[]> {
     const local = (await git(['rev-parse', '--verify', '--quiet', `refs/heads/${ref}`], top))?.trim();
     if (local) {
-        return ['checkout', ref];
+        return ['checkout', '--end-of-options', ref];
     }
     const short = ref.slice(ref.indexOf('/') + 1);
     const tracked = (await git(['rev-parse', '--verify', '--quiet', `refs/remotes/${ref}`], top))?.trim();
     if (tracked) {
         const existing = (await git(['rev-parse', '--verify', '--quiet', `refs/heads/${short}`], top))?.trim();
-        return existing ? ['checkout', short] : ['checkout', '--track', ref];
+        return existing ? ['checkout', '--end-of-options', short] : ['checkout', '--track', '--end-of-options', ref];
     }
-    return ['checkout', ref];
+    return ['checkout', '--end-of-options', ref];
 }
 
 /* Whether the branch and its upstream have each gained commits the other lacks. */
