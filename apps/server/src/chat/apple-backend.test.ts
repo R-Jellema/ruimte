@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, jest, test } from 'bun:test';
 import type { AppleFoundationRequest } from '@ruimte/contracts';
 import { AppleBackend, type AppleBackendOptions } from './apple-backend.ts';
 import type { executeAppleTool } from './apple-tools.ts';
@@ -173,13 +173,20 @@ describe('Apple Foundation Models backend', () => {
     });
 
     test('malformed tool arguments fail closed', async () => {
-        const rig = harness();
-        await rig.backend.start();
-        rig.backend.sendTurn(turn);
-        rig.out({ ...call, path: 42 });
-        await rig.until(() => rig.events.some((event) => event.type === 'failed'));
-        expect(rig.events.some((event) => event.type === 'approval.requested')).toBe(false);
-        expect(rig.requests.filter((request) => request.type === 'tool.result')).toHaveLength(0);
+        // The backend stops reading a helper that broke the protocol, so the fake never reports its exit and ending it waits out the kill grace.
+        jest.useFakeTimers();
+        try {
+            const rig = harness();
+            await rig.backend.start();
+            rig.backend.sendTurn(turn);
+            rig.out({ ...call, path: 42 });
+            await rig.until(() => rig.events.some((event) => event.type === 'failed'));
+            expect(rig.events.some((event) => event.type === 'approval.requested')).toBe(false);
+            expect(rig.requests.filter((request) => request.type === 'tool.result')).toHaveLength(0);
+            jest.runOnlyPendingTimers();
+        } finally {
+            jest.useRealTimers();
+        }
     });
 
     test.each(['list_files', 'read_file'] as const)('executes %s only after approval and delivers its output', async (name) => {

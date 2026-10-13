@@ -569,7 +569,7 @@ test('reading an assistant UI block returns its fallback between the surrounding
         turnId: null,
         text,
         streaming: false,
-        ui: compileUi(text, { id: 'reply', final: true, fenceLanguage: RUIMTE_UI_FENCE })
+        ui: compileUi(text, { id: 'reply', final: true, fenceLanguage: RUIMTE_UI_FENCE, now: () => 0 })
     };
     const transcript = renderTranscript([item]);
     expect(transcript).toContain('Before');

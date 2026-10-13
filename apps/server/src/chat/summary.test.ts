@@ -216,7 +216,7 @@ test('a summary reads a UI block of the answer as its readable fallback, never i
             turnId: 'turn',
             text,
             streaming: false,
-            ui: compileUi(text, { id: 'answer', final: true, fenceLanguage: RUIMTE_UI_FENCE })
+            ui: compileUi(text, { id: 'answer', final: true, fenceLanguage: RUIMTE_UI_FENCE, now: () => 0 })
         }
     ];
     const answer = answerOf(items, 'turn');

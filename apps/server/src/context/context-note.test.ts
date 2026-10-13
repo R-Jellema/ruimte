@@ -62,7 +62,7 @@ describe('verbsNote', () => {
         expect(advertised.map(([, name]) => name).toSorted()).toEqual(Object.keys(sources).toSorted());
         for (const [, name, args] of advertised) {
             const block = `\`\`\`${RUIMTE_UI_FENCE}\n$data = @Query("${name}", ${args})\n<Summary>{@Count($data)}</Summary>\n\`\`\``;
-            const [compiled] = compileUi(block, { id: name!, final: true, fenceLanguage: RUIMTE_UI_FENCE, querySchemas });
+            const [compiled] = compileUi(block, { id: name!, final: true, fenceLanguage: RUIMTE_UI_FENCE, querySchemas, now: () => 0 });
             expect(compiled?.diagnostics).toEqual([]);
             expect(Object.values(compiled?.queries ?? {}).map((query) => query.source)).toEqual([name!]);
         }
