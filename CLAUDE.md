@@ -49,6 +49,7 @@ One WebSocket (or the same frames over a WebRTC DataChannel), JSON frames valida
 - Request: `{ id, type, payload }`. Reply: `{ id, ok: true, result }` or `{ id, ok: false, error: { code, message } }`. Event: `{ type: 'event', event, payload }`.
 - `REQUEST_SCHEMAS` and `EVENT_SCHEMAS` in `packages/contracts` are the tables both sides derive `RequestMap` and `EventMap` from.
 - `PROTOCOL_VERSION` (`packages/contracts/src/protocol.ts`) is bumped only for an incompatible change, and both ends refuse any other version.
+- A new request or event is named `<area>.<name>` in two parts, the area in the singular and the name in lowerCamelCase (`session.runHeld`, `chat.status`), never kebab-case or a third level, and a subscription is `<area>.watch` with `<area>.unwatch`.
 - A session id is chosen by the client (the node id), so a node reattaches after a reload.
 - `session.attach` answers with the serialized screen from `@xterm/headless`, then streams raw output. A client never replays history. A byte is in the screen or in the stream, never both. A client gets a screen only through `Session.snapshotFor` (attach, resync, clear). It holds back that client's output from the moment of the call until the screen is taken, with no await in between.
 - Agent status comes from the CLIs' hooks only (`POST /hooks/<kind>`, `apps/server/src/agents`), never from parsing output. A chat is the CLI's stream-json protocol, no SDK.

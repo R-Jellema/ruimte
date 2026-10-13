@@ -54,6 +54,41 @@ describe('envelope', () => {
             expect(bad.message).toContain('id');
         }
     });
+
+    test('a new request or event is named <area>.<name> in lowerCamelCase', () => {
+        // Names from before the rule; they stay, since a client still sends or hears them.
+        const older = [
+            'database.agentAccess.changed',
+            'database.agentAccess.set',
+            'database.connections.changed',
+            'database.connections.save',
+            'database.snapshot.refresh',
+            'git.pr-unwatch',
+            'git.pr-watch',
+            'git.pr-watches',
+            'git.ref-commit',
+            'git.worktree-abort',
+            'git.worktree-add',
+            'git.worktree-list',
+            'git.worktree-merge',
+            'git.worktree-remove',
+            'language.custom.changed',
+            'language.custom.check',
+            'language.custom.list',
+            'language.custom.remove',
+            'language.custom.save',
+            'language.document.change',
+            'language.document.close',
+            'language.document.open',
+            'language.edit.answer',
+            'language.sql.bind',
+            'language.sql.changed',
+            'project.save-local',
+            'session.list-changed'
+        ];
+        const names = new Set([...Object.keys(REQUEST_SCHEMAS), ...Object.keys(EVENT_SCHEMAS)]);
+        expect([...names].filter((name) => !/^[a-z]+\.[a-z][a-zA-Z]*$/.test(name)).sort()).toEqual(older);
+    });
 });
 
 describe('server', () => {
