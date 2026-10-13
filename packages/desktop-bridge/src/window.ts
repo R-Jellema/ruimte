@@ -13,3 +13,6 @@ export const WINDOW_VIEW_PARAM = 'view';
 
 /* What the page keeps of itself across a reload and a quit (`setWindowState`), opaque to the shell. */
 export const WINDOW_STATE_PARAM = 'state';
+
+/* A window the shell brought back from the last session, which opens its project only once it has the focus. */
+export const WINDOW_DORMANT_PARAM = 'dormant';

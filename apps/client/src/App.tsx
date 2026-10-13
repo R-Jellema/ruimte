@@ -3,7 +3,7 @@ import { Suspense, useEffect } from 'react';
 import { desktop } from '@/desktop/bridge';
 import { useAppShortcuts } from '@/shell/app-shortcuts';
 import { ALL_SETTINGS_SECTIONS } from '@/shell/settings/sections';
-import { ProjectSwitchScreen } from '@/shell/ProjectSwitchScreen';
+import { DormantScreen, ProjectSwitchScreen } from '@/shell/ProjectSwitchScreen';
 import { StartScreen } from '@/shell/StartScreen';
 import { FLOATING_FAILURE, failed } from '@/shell/surface-failure';
 import { MachineUpdateDialog } from '@/shell/MachineUpdateDialog';
@@ -96,6 +96,7 @@ function WindowContent() {
     return (
         <div className="relative h-full w-full bg-bg">
             {!booting && <StartScreen />}
+            <DormantScreen />
             <ProjectSwitchScreen />
         </div>
     );

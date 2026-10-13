@@ -261,7 +261,7 @@ describe('one project in one window', () => {
 describe('the cold start', () => {
     beforeEach(() => {
         useEndpoints.setState({ endpoints: [endpoint('local'), endpoint('daemon-b')], activeId: 'local' });
-        useWindow.setState({ content: { kind: 'start' }, booting: true, bootFailure: null });
+        useWindow.setState({ content: { kind: 'start' }, booting: true, bootFailure: null, dormant: null });
     });
 
     test('nothing remembered goes to the start screen at once', async () => {
@@ -310,6 +310,28 @@ describe('the cold start', () => {
             { kind: 'project', endpointId: 'daemon-b', projectId: 'q1' }
         );
         expect(opened).toEqual(['daemon-b:q1']);
+    });
+
+    test('a dormant window opens its project only once it has the focus', async () => {
+        let focus!: () => void;
+        const opened: string[] = [];
+        const booted = bootWindow(
+            fakeStorage(new Map()),
+            async (endpointId, projectId) => {
+                opened.push(`${endpointId}:${projectId}`);
+                return 'done';
+            },
+            true,
+            { kind: 'project', endpointId: 'daemon-b', projectId: 'q1', dormant: true },
+            () => new Promise((resolve) => (focus = resolve))
+        );
+        expect(opened).toEqual([]);
+        expect(useWindow.getState().dormant).toEqual({ endpointId: 'daemon-b', projectId: 'q1' });
+        expect(useWindow.getState().booting).toBe(true);
+        focus();
+        expect(await booted).toBe('done');
+        expect(opened).toEqual(['daemon-b:q1']);
+        expect(useWindow.getState().dormant).toBeNull();
     });
 
     test('a window the shell opened on the start screen opens nothing', async () => {

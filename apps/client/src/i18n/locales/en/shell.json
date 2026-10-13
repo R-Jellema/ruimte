@@ -396,7 +396,8 @@
         "connecting": "Connecting to {{machine}}…",
         "opening": "Opening {{title}}…",
         "returning": "Going back…",
-        "goBack": "Go back"
+        "goBack": "Go back",
+        "dormant": "Opens when you switch to this window"
     },
     "releaseNotes": {
         "title": "Release notes",

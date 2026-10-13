@@ -292,6 +292,13 @@ export async function deleteProject(endpointId: string, projectId: string, remov
     await listProjects(endpointId).catch(() => undefined);
 }
 
+function untilFocused(): Promise<void> {
+    if (document.hasFocus()) {
+        return Promise.resolve();
+    }
+    return new Promise((resolve) => window.addEventListener('focus', () => resolve(), { once: true }));
+}
+
 /*
  * The first thing a window opens, through the same switch as any other, so a machine that takes a
  * while reads as waiting and one that does not answer says why. A window the shell opened on a
@@ -303,7 +310,8 @@ export async function bootWindow(
     storage: LastProjectStorage | null = browserStorage(),
     open: (endpointId: string, projectId: string) => Promise<SwitchOutcome> = openProject,
     local = hasLocalMachine(),
-    target: WindowTarget = pageWindowTarget()
+    target: WindowTarget = pageWindowTarget(),
+    focused: () => Promise<void> = untilFocused
 ): Promise<SwitchOutcome | null> {
     const wanted = target.kind === 'project' ? target : target.kind === 'last' ? readLastProject(storage) : null;
     const known =
@@ -311,6 +319,12 @@ export async function bootWindow(
     try {
         if (!known) {
             return null;
+        }
+        // Every window of the last session comes back, but only the ones a person goes to start their terminals and agents.
+        if (target.kind === 'project' && target.dormant === true) {
+            useWindow.getState().setDormant({ endpointId: wanted.endpointId, projectId: wanted.projectId });
+            await focused();
+            useWindow.getState().setDormant(null);
         }
         const outcome = await open(wanted.endpointId, wanted.projectId);
         if (outcome === 'done' && target.kind === 'project' && target.viewId !== undefined) {

@@ -638,7 +638,8 @@ function createWindow(
     guardAppNavigation(contents);
     browserRoutes.attachApp(contents);
     // The smoke run opens its one window the way a start without a session does.
-    void window.loadURL(windowUrl(scheme.url, key, origin === 'first' || smoke, view, state)).catch(() => undefined);
+    // A window back from the last session starts nothing until a person comes to it.
+    void window.loadURL(windowUrl(scheme.url, key, origin === 'first' || smoke, view, state, origin === 'session' && !smoke)).catch(() => undefined);
     return window;
 }
 

@@ -1,11 +1,19 @@
-import { WINDOW_PROJECT_PARAM, WINDOW_START_PARAM, WINDOW_STATE_PARAM, WINDOW_VIEW_PARAM, type AgentActivity } from '@ruimte/desktop-bridge';
+import {
+    WINDOW_DORMANT_PARAM,
+    WINDOW_PROJECT_PARAM,
+    WINDOW_START_PARAM,
+    WINDOW_STATE_PARAM,
+    WINDOW_VIEW_PARAM,
+    type AgentActivity
+} from '@ruimte/desktop-bridge';
 
 /*
  * The address a window loads for its key. Without a key it opens on the start screen, except the
  * one window of a start without a session (`first`): that one loads the bare address, where the
- * page opens the project it remembers, as the app did before it had more than one window.
+ * page opens the project it remembers, as the app did before it had more than one window. A
+ * `dormant` window leaves its project closed until it has the focus.
  */
-export function windowUrl(base: string, key: string | null, first: boolean, view: string | null = null, state: string | null = null): string {
+export function windowUrl(base: string, key: string | null, first: boolean, view: string | null = null, state: string | null = null, dormant = false): string {
     if (key === null && first && state === null) {
         return base;
     }
@@ -18,6 +26,9 @@ export function windowUrl(base: string, key: string | null, first: boolean, view
         url.searchParams.set(WINDOW_PROJECT_PARAM, key);
         if (view !== null) {
             url.searchParams.set(WINDOW_VIEW_PARAM, view);
+        }
+        if (dormant) {
+            url.searchParams.set(WINDOW_DORMANT_PARAM, '1');
         }
     }
     if (state !== null) {

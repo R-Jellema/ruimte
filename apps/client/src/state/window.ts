@@ -19,9 +19,12 @@ interface WindowState {
     /* The cold start is still trying the last project, so the start screen waits rather than flashing. */
     booting: boolean;
     bootFailure: BootFailure | null;
+    /* The project a window back from the last session waits to open until it has the focus. */
+    dormant: { endpointId: string; projectId: string } | null;
     show(content: WindowContent): void;
     setBooting(booting: boolean): void;
     setBootFailure(failure: BootFailure | null): void;
+    setDormant(dormant: { endpointId: string; projectId: string } | null): void;
 }
 
 const START: WindowContent = { kind: 'start' };
@@ -30,6 +33,7 @@ export const useWindow = create<WindowState>((set) => ({
     content: START,
     booting: true,
     bootFailure: null,
+    dormant: null,
     show(content) {
         // A project that opens is past whatever the cold start could not do.
         set(content.kind === 'workspace' ? { content, bootFailure: null } : { content });
@@ -39,6 +43,9 @@ export const useWindow = create<WindowState>((set) => ({
     },
     setBootFailure(bootFailure) {
         set({ bootFailure });
+    },
+    setDormant(dormant) {
+        set({ dormant });
     }
 }));
 

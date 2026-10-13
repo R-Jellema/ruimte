@@ -25,6 +25,12 @@ describe('windowUrl', () => {
         expect(windowUrl(base, null, false, 'chat-1')).toBe('http://127.0.0.1:4210/?start=1');
     });
 
+    test('marks a project window back from the last session as dormant, and never a window without a project', () => {
+        expect(new URL(windowUrl(base, 'local:p1', false, null, null, true)).searchParams.get('dormant')).toBe('1');
+        expect(new URL(windowUrl(base, 'local:p1', false)).searchParams.has('dormant')).toBe(false);
+        expect(windowUrl(base, null, false, null, null, true)).toBe('http://127.0.0.1:4210/?start=1');
+    });
+
     test('carries what the page kept of itself, with a project and without one', () => {
         expect(new URL(windowUrl(base, 'local:p1', false, null, '["local:p1"]')).searchParams.get('state')).toBe('["local:p1"]');
         expect(new URL(windowUrl(base, null, true, null, 'x')).searchParams.has('start')).toBe(false);

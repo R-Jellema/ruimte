@@ -25,6 +25,17 @@ describe('readWindowTarget', () => {
     });
 });
 
+describe('a dormant window', () => {
+    test('reads dormant only beside a project', () => {
+        expect(readWindowTarget('?project=local%3Ap1&dormant=1')).toEqual({ kind: 'project', endpointId: 'local', projectId: 'p1', dormant: true });
+        expect(readWindowTarget('?start=1&dormant=1')).toEqual({ kind: 'start' });
+    });
+
+    test('is awake once it claims its project', () => {
+        expect(windowSearch('?project=local%3Ap1&dormant=1', 'local:p1')).toBe('?project=local%3Ap1');
+    });
+});
+
 describe('windowSearch', () => {
     test('writes a project and reads back the same', () => {
         expect(readWindowTarget(windowSearch('', 'daemon-b:q1'))).toEqual({ kind: 'project', endpointId: 'daemon-b', projectId: 'q1' });

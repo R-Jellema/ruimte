@@ -396,7 +396,8 @@
         "connecting": "Verbinden met {{machine}}…",
         "opening": "{{title}} openen…",
         "returning": "Terug…",
-        "goBack": "Terug"
+        "goBack": "Terug",
+        "dormant": "Opent zodra je naar dit venster overschakelt"
     },
     "releaseNotes": {
         "title": "Release notes",
