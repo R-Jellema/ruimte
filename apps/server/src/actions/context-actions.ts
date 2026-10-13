@@ -1,5 +1,5 @@
 import type { ActionHandlers } from '@ruimte/actions';
-import { VerbRefusal, type ContextHost } from '../canvas/verb.ts';
+import { VerbRefusal, snoozedAt, type ContextHost } from '../canvas/verb.ts';
 import type { ServerActionContext } from './context.ts';
 
 function contextOf(context: ServerActionContext): ContextHost {
@@ -11,7 +11,16 @@ function contextOf(context: ServerActionContext): ContextHost {
 
 /* What a person linked into the caller: only a line it sits on, or the frame of a group, makes a source readable. */
 export const contextActions: ActionHandlers<ServerActionContext> = {
-    'context.list': (_input, { actor, context }) => ({ output: { sources: contextOf(context).list(actor.id) } }),
+    'context.list': (_input, { actor, context }) => ({
+        output: {
+            sources: contextOf(context)
+                .list(actor.id)
+                .map((source) => {
+                    const snoozedUntil = snoozedAt(context.host, source.id);
+                    return snoozedUntil === null ? source : { ...source, snoozedUntil };
+                })
+        }
+    }),
     'context.read': async ({ sourceId, tail, subagent }, { actor, context }) => ({
         output: { text: await contextOf(context).read(actor.id, sourceId, tail ?? null, subagent ?? null) }
     })

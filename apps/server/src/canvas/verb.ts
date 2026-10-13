@@ -153,6 +153,8 @@ export interface CanvasHost {
     language?: LanguageAgentHost;
     /* The cards in which an agent asks a person for a launch's secret; absent on a host that keeps none. */
     secrets?: SecretHost;
+    /* When a person's snooze on a node ends, in epoch milliseconds; null when it has none, absent on a host without snoozes. */
+    snoozedUntil?(nodeId: string): number | null;
 }
 
 /* Only what became of a card ever comes back; the value goes from the person's card to the store. */
@@ -299,6 +301,16 @@ export const { defineVerb, defineAction, defineNoun, defineHelp, dryRunVerbNames
 /* Two things an agent keeps mixing up, so the line is in the root of `help` and in the detail of each verb it is about. */
 export const SCOPE_LINE =
     'scope\tlist and read are what a person linked into this session; node, link, browser, device, view, task, agent, team, done, notify, alert, answer, worktree, launches, database and language are the project itself, plan and visual are the chat of the caller, secret is a card in that chat for a launch, computer the apps of this machine\ta node you add is readable through read only once a line joins it to you, and a terminal or a chat only once that line runs from it into you';
+
+/* What a snooze means to an agent, said wherever a list prints the column. */
+export const SNOOZE_LINE =
+    'snoozed\tThe moment, an ISO time in UTC, until which the person put that node aside, or - for none: until then they get no alert when it waits on them, so a question or an approval from it may sit unanswered that long; it ends early once the person answered what it waited on. Only a person snoozes a node or wakes it, no verb does';
+
+/* The snooze on a node as the actions hand it on: an ISO time, or null for none. */
+export function snoozedAt(host: Pick<CanvasHost, 'snoozedUntil'>, nodeId: string): string | null {
+    const until = host.snoozedUntil?.(nodeId) ?? null;
+    return until === null ? null : new Date(until).toISOString();
+}
 
 /* What `help` says of the last row of every list of the project file. */
 export const REVISION_ROW = `revision\tThe last row is revision and the revision of the project file; --${REVISION_FLAG} on a write that follows refuses it once the project moved on`;

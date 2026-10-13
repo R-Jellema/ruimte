@@ -12,7 +12,7 @@ let stdout: string;
 let stderr: string;
 let restore: Array<() => void>;
 let seen: { verb: string; argv: unknown; authorization: string | null }[];
-let sources: { id: string; kind: string; title: string }[];
+let sources: { id: string; kind: string; title: string; flag?: string; snoozedUntil?: string }[];
 let tails: string[];
 
 /* The daemon's side of `/context` and `/canvas`, answered in the process instead of on a port. */
@@ -125,8 +125,14 @@ describe('runContext', () => {
     test('bare and list still list the linked sources', async () => {
         expect(await runContext([], env)).toBe(0);
         expect(await runContext(['list'], env)).toBe(0);
-        expect(stdout).toBe('n1\ttext\tPlan\t-\nn1\ttext\tPlan\t-\n');
+        expect(stdout).toBe('n1\ttext\tPlan\t-\t-\nn1\ttext\tPlan\t-\t-\n');
         expect(seen).toEqual([]);
+    });
+
+    test('list prints until when a person snoozed a source', async () => {
+        sources = [{ id: 'c1', kind: 'chat', title: 'Lead', flag: 'red', snoozedUntil: '2026-10-13T15:30:00.000Z' }];
+        expect(await runContext(['list'], env)).toBe(0);
+        expect(stdout).toBe('c1\tchat\tLead\tred\t2026-10-13T15:30:00.000Z\n');
     });
 
     test('read prints one source from /context and never posts to /canvas', async () => {

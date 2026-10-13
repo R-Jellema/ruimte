@@ -25,7 +25,7 @@ import { MAX_CANVAS_NODES, NOT_A_GROUP, canvasFull, checkUrl, newId, nodeLines, 
 import { ownViewOf, refuseMissingNodes, refuseOwnView } from '../canvas/own-view.ts';
 import { arrangeRects, containersOf, gridColumns, groupMembers, placeBeside, placeFree } from '../canvas/placement.ts';
 import { checkCwd, checkPath, isInside } from '../canvas/project-paths.ts';
-import { NEW_NODE, VerbRefusal, canvasNamed, field, orNote, type VerbCall } from '../canvas/verb.ts';
+import { NEW_NODE, VerbRefusal, canvasNamed, field, orNote, snoozedAt, type VerbCall } from '../canvas/verb.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
 import { verbCallOf, type ServerActionContext } from './context.ts';
 
@@ -118,7 +118,8 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
                     w: node.w,
                     h: node.h,
                     groupId: containers.get(node.id)?.id ?? null,
-                    flag: flagOf(content.flags, node.id)
+                    flag: flagOf(content.flags, node.id),
+                    snoozedUntil: snoozedAt(context.host, node.id)
                 })),
                 self: canvas.nodes.some((node) => node.id === actor.id) ? actor.id : null,
                 revision

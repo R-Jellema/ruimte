@@ -1554,7 +1554,8 @@ export const ACTION_DEFINITIONS = {
                     w: z.number(),
                     h: z.number(),
                     groupId: z.string().nullable(),
-                    flag: flagColor.nullable()
+                    flag: flagColor.nullable(),
+                    snoozedUntil: z.iso.datetime().nullable().describe('When the snooze a person put on the node ends; null for none')
                 })
             ),
             // The caller when it is one of these nodes.
@@ -2409,7 +2410,13 @@ export const ACTION_DEFINITIONS = {
         domain: 'communicate',
         actors: AGENT,
         input: z.object({}),
-        output: z.object({ sources: z.array(ContextSourceSchema.pick({ id: true, kind: true, title: true, flag: true })) })
+        output: z.object({
+            sources: z.array(
+                ContextSourceSchema.pick({ id: true, kind: true, title: true, flag: true }).extend({
+                    snoozedUntil: z.iso.datetime().optional().describe('When the snooze a person put on the node ends; absent for none')
+                })
+            )
+        })
     },
     'context.read': {
         title: 'Read linked context',

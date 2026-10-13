@@ -100,6 +100,7 @@ let shotPath: string;
 let madeWorktrees: Worktree[];
 let removedWorktrees: string[];
 let databases: AgentDatabases;
+let snoozed: Record<string, number>;
 
 /* A change the store's own check refuses after the verb had its say: `note-1` a second time, on the board. */
 function withRepeatedId(current: ProjectContent): ProjectContent {
@@ -142,6 +143,7 @@ function content(): ProjectContent {
 
 beforeEach(async () => {
     alerts = [];
+    snoozed = {};
     root = await mkdtemp(join(tmpdir(), 'ruimte-verbs-'));
     folder = join(root, 'repo');
     outside = join(root, 'elsewhere');
@@ -222,6 +224,7 @@ function host(): CanvasHost {
         hiddenAgents: store.hiddenAgents,
         startClaims,
         databases,
+        snoozedUntil: (nodeId) => snoozed[nodeId] ?? null,
         locate: (id) => store.index.locate(id),
         read: (id) => store.read(id),
         revision: (id) => store.revision(id),
@@ -895,11 +898,24 @@ describe('scoping', () => {
         const { status, lines } = await post('node', ['list']);
         expect(status).toBe(200);
         expect(lines).toEqual([
-            'term-1\tterminal\tshell\t0\t0\t560\t360\t\t-',
-            'note-1\tnote\tPlan with a tab\t0\t601\t320\t240\t\t-',
+            'term-1\tterminal\tshell\t0\t0\t560\t360\t\t-\t-',
+            'note-1\tnote\tPlan with a tab\t0\t601\t320\t240\t\t-\t-',
             'self\tterm-1',
             'revision\t1'
         ]);
+    });
+
+    test('a node a person snoozed says until when, in UTC', async () => {
+        snoozed['term-1'] = Date.UTC(2026, 9, 13, 15, 30);
+        const { lines } = await post('node', ['list']);
+        expect(lines[0]).toBe('term-1\tterminal\tshell\t0\t0\t560\t360\t\t-\t2026-10-13T15:30:00.000Z');
+        expect(lines[1]).toEndWith('\t-\t-');
+    });
+
+    test('help node list says what a snooze means and that no verb sets one', async () => {
+        const lines = (await post('help', ['node', 'list'])).lines;
+        expect(lines.some((line) => line.startsWith('prints\t') && line.includes('\tflag\tsnoozed\t'))).toBe(true);
+        expect(lines.find((line) => line.startsWith('snoozed\t'))).toContain('Only a person snoozes a node or wakes it');
     });
 
     test('--view picks another canvas, where the caller is nobody', async () => {
@@ -2286,7 +2302,7 @@ describe('flag', () => {
         expect((await post('flag', ['board', 'red'])).lines).toEqual(['flagged\tboard\tview\tred']);
         expect((await post('flag', ['note-1', 'blue'])).lines).toEqual(['flagged\tnote-1\tnode\tblue']);
         expect((await post('view', ['list'])).lines.find((line) => line.startsWith('board\t'))).toBe('board\tcanvas\tBoard\tno\ta person made it\t-\tred');
-        expect((await post('node', ['list'])).lines).toContain('note-1\tnote\tPlan with a tab\t0\t601\t320\t240\t\tblue');
+        expect((await post('node', ['list'])).lines).toContain('note-1\tnote\tPlan with a tab\t0\t601\t320\t240\t\tblue\t-');
         expect((await post('flag', ['board', 'null'])).lines).toEqual(['flagged\tboard\tview\tnull']);
         expect((await onDisk()).flags).toEqual({ 'note-1': 'blue' });
     });
@@ -2767,14 +2783,14 @@ describe('node group', () => {
         expect(lines.at(-1)).toBe(`edges\t1\t${edges[1]!.id}`);
         // The new frame stands in the old one, whose own line says nothing about what is inside it.
         const row = (await post('node', ['list'])).lines.find((line) => line.startsWith(`${inner}\t`))!;
-        expect(row.split('\t').at(-2)).toBe(outer);
+        expect(row.split('\t').at(-3)).toBe(outer);
     });
 });
 
 describe('node arrange', () => {
     test('lays the nodes out from the corner they already occupied and prints where each one went', async () => {
         await seed(box('a', 1000, 1000), box('b', 4000, 2000), box('c', 2000, 3000));
-        expect((await post('node', ['list'])).lines).toContain('b\tnote\tb\t4000\t2000\t200\t100\t\t-');
+        expect((await post('node', ['list'])).lines).toContain('b\tnote\tb\t4000\t2000\t200\t100\t\t-\t-');
 
         const { status, lines } = await post('node', ['arrange', '--nodes', 'a,b,c']);
         expect(status).toBe(200);

@@ -31,7 +31,7 @@ import { VIEW_ACTIONS, VIEW_DETAIL, VIEW_SUMMARY } from './view-verb.ts';
 import { VISUAL_ACTIONS, VISUAL_DETAIL, VISUAL_SUMMARY } from './visual-verb.ts';
 import { worktreeVerb } from './worktree-verb.ts';
 import { summaryLines } from '@adecore/agents/context/verb';
-import { SCOPE_LINE, defineHelp, defineNoun, dryRunLine, type ContextVerb, type VerbCall, type VerbEntry } from './verb.ts';
+import { SCOPE_LINE, SNOOZE_LINE, defineHelp, defineNoun, dryRunLine, type ContextVerb, type VerbCall, type VerbEntry } from './verb.ts';
 
 /* The one line about failure every help output ends with; the codes are the CLI's, which is what runs the verb. */
 const REFUSAL_LINE =
@@ -56,7 +56,8 @@ const listVerb: ContextVerb = {
     usage: '',
     summary: `${actionDescription('context.list', 'agent')} Also what ruimte-context prints without a verb.`,
     detail: [
-        'prints\tid\tkind\ttitle\tflag\tone line per linked source, nothing when the person linked none; flag is the color the person flagged it with, or -',
+        'prints\tid\tkind\ttitle\tflag\tsnoozed\tone line per linked source, nothing when the person linked none; flag is the color the person flagged it with, or -',
+        SNOOZE_LINE,
         `kinds\t${ContextSourceSchema.shape.kind.options.join('\t')}\ta note and a text on the canvas both arrive as text`,
         'note\tThe id is what ruimte-context read takes; this list is what your lines let you read, and besides it only a chat a person attached to your message and an agent you opened yourself',
         'note\tA line from a group lists what lies inside that frame, each on a line of its own, a frame inside it included; the group itself is never a line here',

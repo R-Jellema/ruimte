@@ -49,6 +49,15 @@ describe('a snooze on the machine', () => {
         expect(events.at(-1)).toEqual({ event: 'snooze.changed', payload: { snoozes: [] } });
     });
 
+    test('says until when a node is snoozed, and nothing for one that is not', () => {
+        const until = clock.now() + 30_000;
+        store.set('project-1', 'node-1', until);
+        expect(store.until('node-1')).toBe(until);
+        expect(store.until('node-2')).toBeNull();
+        clock.advance(30_000);
+        expect(store.until('node-1')).toBeNull();
+    });
+
     test('reads the clock again at least once a minute, so a machine that slept ends it late by no more than that', () => {
         store.set('project-1', 'node-1', clock.now() + 10 * MAX_WAIT_MS);
         // Only the timer of the first minute fires, but the clock has moved past the snooze by then.

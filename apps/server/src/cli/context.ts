@@ -56,7 +56,7 @@ async function runList(url: string, headers: Record<string, string>, env: Enviro
         console.log('Nothing is linked to this session.');
     }
     for (const source of sources) {
-        console.log(`${source.id}\t${source.kind}\t${source.title}\t${source.flag ?? '-'}`);
+        console.log(`${source.id}\t${source.kind}\t${source.title}\t${source.flag ?? '-'}\t${source.snoozedUntil ?? '-'}`);
     }
     return 0;
 }
@@ -165,6 +165,7 @@ interface ContextRow {
     kind: string;
     title: string;
     flag?: string;
+    snoozedUntil?: string;
 }
 
 const READ_USAGE = 'usage\tread\t<id> [--tail N] [--subagent T]';

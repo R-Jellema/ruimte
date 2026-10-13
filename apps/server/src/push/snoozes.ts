@@ -79,8 +79,13 @@ export class SnoozeStore {
     }
 
     isSnoozed(nodeId: string): boolean {
+        return this.until(nodeId) !== null;
+    }
+
+    /* When the snooze on a node ends, in epoch milliseconds; null when it has none. */
+    until(nodeId: string): number | null {
         const now = this.clock.now();
-        return this.list().some((entry) => entry.nodeId === nodeId && entry.until > now);
+        return this.list().find((entry) => entry.nodeId === nodeId && entry.until > now)?.until ?? null;
     }
 
     set(projectId: string, nodeId: string, until: number): void {

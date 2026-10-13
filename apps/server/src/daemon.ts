@@ -773,6 +773,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         computer,
         launches: launchHost,
         secrets,
+        snoozedUntil: (nodeId: string) => snoozes.until(nodeId),
         databases: agentDatabases,
         language: new AgentLanguage({
             host: { forAgent: (projectId, request, work) => language.forAgent(projectId, request, work), programOf: (kind) => language.programOf(kind) },

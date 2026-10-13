@@ -536,4 +536,11 @@ describe('the daemon actions', () => {
         });
         expect(await serverActions.execute('node.list', { viewId: 'main' }, unplaced)).toMatchObject({ status: 'failed', error: { code: 'not-in-project' } });
     });
+
+    test('context.list says until when a person snoozed a source', async () => {
+        const snoozing = { ...host(), snoozedUntil: (nodeId: string) => (nodeId === 'note-1' ? Date.UTC(2026, 9, 13, 15, 30) : null) };
+        expect(await serverActions.execute('context.list', {}, serverActionCall(snoozing, null, 'term-1'))).toMatchObject({
+            output: { sources: [{ id: 'note-1', snoozedUntil: '2026-10-13T15:30:00.000Z' }] }
+        });
+    });
 });
