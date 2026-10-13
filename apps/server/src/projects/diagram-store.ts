@@ -45,14 +45,14 @@ export class DiagramStore extends ProjectViewFileStore<DiagramDocument, DiagramC
      * A file under the name that is not a diagram is refused, never written over.
      */
     write(projectId: string, viewId: string, content: DiagramContent): Promise<number> {
-        return this.lockedInPlace(async (placeOf) => {
+        return this.lockedInPlace(projectId, async (placeOf) => {
             const problem = diagramProblemIn(content);
             if (problem) {
                 throw new DiagramError('diagram-invalid', problem);
             }
             let place: ProjectPlace;
             try {
-                place = await placeOf(projectId);
+                place = await placeOf();
             } catch (e) {
                 if (e instanceof ProjectError && (e.code === 'project-not-found' || e.code === 'project-missing')) {
                     throw new DiagramError('project-not-found', e.message);

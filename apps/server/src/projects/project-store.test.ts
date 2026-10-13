@@ -1443,6 +1443,82 @@ describe('reading the combined sidebar', () => {
     });
 });
 
+describe('locks and reads from memory', () => {
+    test('a change that takes long on one project holds up no other, and both land in the registry', async () => {
+        const first = await store.openProject({ folder });
+        const second = await store.openProject({ folder: join(root, 'Second'), createFolder: true, name: 'Second' });
+        const gate = Promise.withResolvers<void>();
+        const slow = store.mutate(first.summary.projectId, async (current) => {
+            await gate.promise;
+            return { content: { ...current, name: 'slow' }, result: null };
+        });
+        await store.mutate(second.summary.projectId, (current) => ({ content: { ...current, name: 'quick' }, result: null }));
+        expect((await store.read(second.summary.projectId)).name).toBe('quick');
+        gate.resolve();
+        await slow;
+        const fresh = new ProjectStore(home, new FakeWatch());
+        expect((await fresh.list()).map((project) => project.name).sort()).toEqual(['quick', 'slow']);
+    });
+
+    test('an open project answers from memory until its watcher takes an outside edit in', async () => {
+        const opened = await store.openProject({ folder });
+        const projectId = opened.summary.projectId;
+        await store.save(projectId, 0, content(), undefined, 'c1');
+        expect((await store.read(projectId)).name).toBe('repo');
+
+        const path = documentPathInFolder(folder);
+        const pulled = { ...(JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>), name: 'from git' };
+        await writeFile(path, JSON.stringify(pulled, null, 2));
+        expect((await store.read(projectId)).name).toBe('repo');
+        expect(await store.revision(projectId)).toBe(1);
+
+        projectDirWatcher().emit('project.json');
+        await fake.settle();
+        expect((await store.read(projectId)).name).toBe('from git');
+        expect(await store.revision(projectId)).toBe(2);
+
+        // What a caller gets is its own copy.
+        (await store.read(projectId)).views.length = 0;
+        expect((await store.read(projectId)).views).toHaveLength(1);
+    });
+
+    test('a write of this daemon is read back at once', async () => {
+        const opened = await store.openProject({ folder });
+        const projectId = opened.summary.projectId;
+        expect(await store.revision(projectId)).toBe(0);
+        await store.mutate(projectId, (current) => ({ content: { ...current, name: 'by verb' }, result: null }));
+        expect((await store.read(projectId)).name).toBe('by verb');
+        await store.save(projectId, 1, content('by person'));
+        expect((await store.read(projectId)).name).toBe('by person');
+        expect(await store.revision(projectId)).toBe(2);
+    });
+
+    test('a project that is not open, or open without a watcher, is read from disk', async () => {
+        const path = documentPathInFolder(folder);
+        const rename = async (name: string) => {
+            await writeFile(path, JSON.stringify({ ...(JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>), name }, null, 2));
+        };
+        const opened = await store.openProject({ folder });
+        const projectId = opened.summary.projectId;
+        await store.read(projectId);
+        store.release(projectId);
+        await rename('released');
+        expect((await store.read(projectId)).name).toBe('released');
+
+        const blind = new ProjectStore(home, {
+            watch: () => {
+                throw new Error('no watcher here');
+            },
+            schedule: fake.schedule
+        });
+        await blind.openProject({ projectId });
+        await blind.read(projectId);
+        await rename('unseen');
+        expect((await blind.read(projectId)).name).toBe('unseen');
+        blind.closeAll();
+    });
+});
+
 test('opening without a folder or project id is refused', async () => {
     for (const payload of [{}, { name: 'Loose' }, { folder: '' }]) {
         await expect(store.openProject(payload)).rejects.toMatchObject({ code: 'project-invalid' });

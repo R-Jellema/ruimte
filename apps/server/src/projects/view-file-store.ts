@@ -84,7 +84,7 @@ export abstract class ProjectViewFileStore<TDocument extends TContent & { rev: n
      * leaves no file behind, so opening one never writes.
      */
     open(projectId: string, viewId: string): Promise<TDocument> {
-        return this.lockedInPlace(async () => {
+        return this.lockedInPlace(projectId, async () => {
             const state = await this.stateOf(projectId, viewId);
             const outcome = await this.kind.read(this.pathOf(projectId, viewId));
             if (outcome.kind === 'invalid') {
@@ -108,7 +108,7 @@ export abstract class ProjectViewFileStore<TDocument extends TContent & { rev: n
     }
 
     save(projectId: string, viewId: string, baseRev: number, content: TContent, origin: string | null = null): Promise<number> {
-        return this.lockedInPlace(async () => {
+        return this.lockedInPlace(projectId, async () => {
             const state = await this.stateOf(projectId, viewId);
             const current = state.open.get(viewId) ?? { rev: 0, lastText: '' };
             if (baseRev !== current.rev) {
@@ -144,7 +144,7 @@ export abstract class ProjectViewFileStore<TDocument extends TContent & { rev: n
 
     /* A duplicated view starts from the same content at rev 0; ids are unique inside a file only. */
     copy(projectId: string, from: string, to: string): Promise<void> {
-        return this.lockedInPlace(async () => {
+        return this.lockedInPlace(projectId, async () => {
             const state = await this.stateOf(projectId, to);
             const outcome = await this.kind.read(this.pathOf(projectId, from));
             if (outcome.kind !== 'ok') {
@@ -210,8 +210,8 @@ export abstract class ProjectViewFileStore<TDocument extends TContent & { rev: n
     }
 
     /* Under the project's lock as well, which a save that shares or unshares the view moves its file under. */
-    protected lockedInPlace<T>(work: (place: (projectId: string) => Promise<ProjectPlace>) => Promise<T>): Promise<T> {
-        return this.writes.run(() => this.projects.viewFileWork(work));
+    protected lockedInPlace<T>(projectId: string, work: (place: () => Promise<ProjectPlace>) => Promise<T>): Promise<T> {
+        return this.writes.run(() => this.projects.viewFileWork(projectId, work));
     }
 
     /* A view that is open here saves against this rev from now on, and its watcher stays quiet. */
