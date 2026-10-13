@@ -52,7 +52,10 @@ export function describeUpdate(state: UpdateState): { headline: string; detail: 
         case 'ready':
             return { headline: i18next.t('state:update.ready', { version }), detail: i18next.t('state:update.readyDetail') };
         case 'error':
-            return { headline: i18next.t('state:update.failed'), detail: state.error ?? i18next.t('state:update.failedDetail') };
+            return {
+                headline: i18next.t('state:update.failed'),
+                detail: state.errorCode === 'no-feed' ? i18next.t('state:update.noFeed') : (state.error ?? i18next.t('state:update.failedDetail'))
+            };
         default:
             return { headline: i18next.t('state:update.current'), detail: '' };
     }

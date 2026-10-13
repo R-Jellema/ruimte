@@ -9,6 +9,7 @@
         "readyDetail": "Ruimte restarts to install it. Nothing you have open is lost.",
         "failed": "The last check did not finish",
         "failedDetail": "No reason given.",
+        "noFeed": "No release feed found. There is no published release yet, or the repository is private.",
         "current": "Ruimte is up to date",
         "unknownVersion": "unknown",
         "theUpdate": "the update",
