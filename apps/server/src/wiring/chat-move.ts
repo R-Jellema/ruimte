@@ -1,6 +1,6 @@
 import { stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 import type { AgentLineageStore, NoticeStore, TaskStore } from '@adecore/agents/coordination';
 import type { ChatManager } from '../chat/chat-manager.ts';
 import type { ChatMoveHandlers } from '../handlers/chat.ts';
@@ -9,6 +9,7 @@ import { repositoryRoot } from '../git/status.ts';
 import type { PrWatchStore } from '../github/pr-watch.ts';
 import type { OutboxStore } from '../outbox/outbox.ts';
 import { chatMoveInfo, type MoveInfoDeps } from '../projects/move-info.ts';
+import { ownFolderOf } from '../projects/own-files.ts';
 import { moveRefusal, type MoveRefusalDeps } from '../projects/move-refusal.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 
@@ -79,7 +80,7 @@ export function chatMoveHandlers(wiring: ChatMoveWiring): ChatMoveHandlers {
             const stored = await chats.readChat(chatId);
             return stored === null ? null : { cwd: stored.info.cwd, items: stored.items };
         },
-        ownFolder: (chatId) => join(store.scratchFolder, chatId),
+        ownFolder: (chatId) => ownFolderOf(store.scratchFolder, chatId),
         chatsInChats: async () => {
             const scratch = (await registry()).find((project) => project.folder === store.scratchFolder);
             return (store.index.viewsOf(scratch?.projectId ?? '') ?? [])

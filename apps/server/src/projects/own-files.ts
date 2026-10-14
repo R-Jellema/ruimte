@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { ChatError } from '../chat/errors.ts';
 import { errorText } from '../error-text.ts';
 import { renameNoReplace } from '../fs/no-replace-rename.ts';
+import { isPathSegment } from '../fs/path-segment.ts';
 
 export interface MovedOwnFiles {
     /* The top-level names that arrived in the target. */
@@ -22,6 +23,14 @@ const SYSTEM_IO: OwnFilesIO = {
     // `force: false` with `errorOnExist` makes the copy refuse a name that is taken, as the rename does.
     copy: (from, to) => cp(from, to, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true, preserveTimestamps: true })
 };
+
+/* The folder a chat in Chats keeps its own files in; an id that is not one name never becomes a path. */
+export function ownFolderOf(scratchFolder: string, chatId: string): string {
+    if (!isPathSegment(chatId)) {
+        throw new ChatError('chat-not-found', `${chatId} is not a chat id`);
+    }
+    return join(scratchFolder, chatId);
+}
 
 function codeOf(error: unknown): string | undefined {
     return typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string' ? error.code : undefined;

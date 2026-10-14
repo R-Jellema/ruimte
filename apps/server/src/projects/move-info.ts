@@ -100,7 +100,17 @@ async function linkedChats(chatId: string, items: readonly ChatItem[], deps: Mov
  */
 export async function chatMoveInfo(payload: ChatMoveInfoPayload, deps: MoveInfoDeps): Promise<ChatMoveInfoResult> {
     const { chatId } = payload;
-    const [thread, projects] = await Promise.all([deps.thread(chatId), deps.projects()]);
+    const projects = await deps.projects();
+    const refusal = deps.refusal(chatId);
+    const newFolderParent = commonParent(
+        projects.map((project) => project.folder),
+        deps.home
+    );
+    // Nothing is read for an id that is no chat of Chats: it may name any folder.
+    if (refusal?.reason === 'not-in-chats') {
+        return { folders: [], ownFiles: { folder: '', count: 0, names: [] }, conflicts: [], references: 0, newFolderParent, refusal };
+    }
+    const thread = await deps.thread(chatId);
     const items = thread?.items ?? [];
     const ownFolder = deps.ownFolder(chatId);
     const names = await ownFileNames(ownFolder);
@@ -123,10 +133,7 @@ export async function chatMoveInfo(payload: ChatMoveInfoPayload, deps: MoveInfoD
         ownFiles: { folder: ownFolder, count: names.length, names: names.slice(0, MAX_NAMES) },
         conflicts: payload.to === undefined ? [] : await ownFileConflicts(names, targetFolder(payload.to, projects)),
         references: await linkedChats(chatId, items, deps),
-        newFolderParent: commonParent(
-            projects.map((project) => project.folder),
-            deps.home
-        ),
-        refusal: deps.refusal(chatId)
+        newFolderParent,
+        refusal
     };
 }

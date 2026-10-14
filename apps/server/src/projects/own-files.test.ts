@@ -3,7 +3,7 @@ import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/pr
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { renameNoReplace } from '../fs/no-replace-rename.ts';
-import { moveOwnFiles, type OwnFilesIO } from './own-files.ts';
+import { moveOwnFiles, ownFolderOf, type OwnFilesIO } from './own-files.ts';
 
 let root: string;
 let from: string;
@@ -33,6 +33,18 @@ const copyIO: OwnFilesIO['copy'] = (source, target) => cp(source, target, { recu
 async function names(folder: string): Promise<string[]> {
     return (await readdir(folder).catch(() => [])).sort();
 }
+
+describe('ownFolderOf', () => {
+    test('is the folder of a chat id in the scratch folder', () => {
+        expect(ownFolderOf('/home/.ruimte/scratch', 'chat-1')).toBe('/home/.ruimte/scratch/chat-1');
+    });
+
+    test('refuses an id that is more than one name', () => {
+        for (const chatId of ['..', '../..', '../../etc', 'a/b', 'a\\b', '', '.']) {
+            expect(() => ownFolderOf('/home/.ruimte/scratch', chatId)).toThrow(expect.objectContaining({ code: 'chat-not-found' }));
+        }
+    });
+});
 
 describe('moveOwnFiles', () => {
     test('moves every top-level entry, hidden ones included, and removes the emptied folder', async () => {

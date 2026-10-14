@@ -2,6 +2,7 @@ import { mkdir, rmdir, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { claudeProjectSlug, findClaudeSession } from '@adecore/agents/chat';
 import { renameNoReplace } from '../fs/no-replace-rename.ts';
+import { isPathSegment } from '../fs/path-segment.ts';
 import { errorText } from '../error-text.ts';
 import { ChatError } from './errors.ts';
 
@@ -31,6 +32,9 @@ async function isDirectory(path: string): Promise<boolean> {
  */
 export async function moveClaudeTranscript(options: MoveTranscriptOptions): Promise<MovedTranscript> {
     const { projectsDir, sessionId, fromCwd, toCwd, rename = renameNoReplace } = options;
+    if (!isPathSegment(sessionId)) {
+        throw new ChatError('move-failed', 'The session id is not one name, so no conversation file is moved');
+    }
     const found = await findClaudeSession(projectsDir, sessionId, fromCwd);
     const targetDir = join(projectsDir, claudeProjectSlug(toCwd));
     // No file: a chat nobody wrote in, or a CLI that keeps none here. Already there: the folders share a slug.

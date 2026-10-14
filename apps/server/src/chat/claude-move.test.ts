@@ -59,12 +59,18 @@ describe('moveClaudeTranscript', () => {
         expect(await readdir(target)).toEqual([`${SESSION}.jsonl`]);
     });
 
-    test('does nothing for a chat that has no transcript, and for an id that would leave the folder', async () => {
+    test('does nothing for a chat that has no transcript', async () => {
         const none = await moveClaudeTranscript({ projectsDir, sessionId: SESSION, fromCwd: scratch, toCwd: project });
         await none.undo();
-        const outside = await moveClaudeTranscript({ projectsDir, sessionId: '../escape', fromCwd: scratch, toCwd: project });
-        await outside.undo();
         expect(await readdir(projectsDir)).toEqual([]);
+    });
+
+    test('refuses an id that would leave the projects folder, and touches nothing', async () => {
+        const old = await transcript(scratch, false);
+        for (const sessionId of ['../escape', '..', 'a/b', '']) {
+            await expect(moveClaudeTranscript({ projectsDir, sessionId, fromCwd: scratch, toCwd: project })).rejects.toMatchObject({ code: 'move-failed' });
+        }
+        expect(await readdir(old)).toEqual([`${SESSION}.jsonl`]);
     });
 
     test('refuses a taken name and puts back what already moved', async () => {

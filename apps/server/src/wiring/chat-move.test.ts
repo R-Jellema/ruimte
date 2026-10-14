@@ -40,6 +40,13 @@ describe('what the machine says about moving a chat', () => {
         expect(info.newFolderParent).not.toBe('');
     });
 
+    test('lists no folder for an id that climbs out of the scratch folder', async () => {
+        for (const id of ['..', '../..', '../../../../etc']) {
+            const info = await moves().info({ chatId: id });
+            expect(info).toMatchObject({ refusal: { reason: 'not-in-chats' }, folders: [], ownFiles: { folder: '', count: 0, names: [] }, conflicts: [] });
+        }
+    });
+
     test('refuses a chat that opened an agent', async () => {
         await daemon.lineage.put({ projectId: 'p1', nodeId: 'child', openedBy: chatId, depth: 1, agent: true });
         expect((await moves().info({ chatId })).refusal).toEqual({ reason: 'agents' });

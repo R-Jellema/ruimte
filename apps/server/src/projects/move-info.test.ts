@@ -118,6 +118,31 @@ describe('chatMoveInfo', () => {
         expect((await chatMoveInfo({ chatId: 'chat-1' }, deps({ 'chat-1': [] }, { projects }))).newFolderParent).toBe('/work');
     });
 
+    test('reads nothing for an id that is no chat of Chats, however it is spelled', async () => {
+        await own('chat-1', ['secret.md']);
+        const asked: string[] = [];
+        const guarded = deps(
+            {},
+            {
+                refusal: () => ({ reason: 'not-in-chats' }),
+                ownFolder: (chatId) => (asked.push(chatId), join(root, 'scratch', chatId)),
+                thread: async (chatId) => (asked.push(chatId), null),
+                chatsInChats: async () => (asked.push('list'), [])
+            }
+        );
+        for (const chatId of ['../../../../etc', '..', 'chat-1/../chat-1']) {
+            const to = { folder: root, name: 'Root', createFolder: false, initGit: false };
+            expect(await chatMoveInfo({ chatId, to }, guarded)).toMatchObject({
+                folders: [],
+                ownFiles: { folder: '', count: 0, names: [] },
+                conflicts: [],
+                references: 0,
+                refusal: { reason: 'not-in-chats' }
+            });
+        }
+        expect(asked).toEqual([]);
+    });
+
     test('carries the refusal', async () => {
         const info = await chatMoveInfo({ chatId: 'chat-1' }, deps({ 'chat-1': [] }, { refusal: () => ({ reason: 'working' }) }));
         expect(info.refusal).toEqual({ reason: 'working' });
