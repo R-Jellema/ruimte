@@ -36,15 +36,21 @@ export async function makeDefaultSize(endpointId: string, kind: NodeKind, frame:
     }
 }
 
-/* Puts a kind back to its built-in size on the machine; a failure is said in a toast, since the row has no room for it. */
-export async function resetDefaultSize(endpointId: string, kind: NodeKind): Promise<void> {
+/*
+ * Sets the size of a kind on the machine from settings, null putting it back to the built-in one. A
+ * failure is said in a toast, since the row has no room for it.
+ */
+export async function setDefaultSize(endpointId: string, kind: NodeKind, size: NodeSize | null): Promise<void> {
     try {
-        await perform('machine.setNodeSize', { endpointId, kind, size: null });
+        await perform('machine.setNodeSize', { endpointId, kind, size });
     } catch (e) {
         useToasts.getState().show({
             id: `node-size-${endpointId}-${kind}`,
             kind: 'error',
-            title: i18next.t('canvas:defaultSize.resetFailed', { kind: kindName(kind) }),
+            title:
+                size === null
+                    ? i18next.t('canvas:defaultSize.resetFailed', { kind: kindName(kind) })
+                    : i18next.t('canvas:defaultSize.failed', { kind: kindName(kind) }),
             description: e instanceof Error ? e.message : undefined
         });
     }

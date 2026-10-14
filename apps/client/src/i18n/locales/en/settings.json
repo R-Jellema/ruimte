@@ -475,10 +475,17 @@
     "views": {
         "nodeSizes": {
             "title": "New nodes on {{machine}}",
-            "description": "The size a new node of a kind starts at, the nodes agents add included. Right-click a node and choose Make this the default size to set one.",
+            "description": "The size a new node of a kind starts at, the nodes agents add included. Type one here, or right-click a node and choose Make this the default size.",
             "searchLabel": "Default node sizes",
-            "empty": "New nodes use the built-in size of their kind.",
-            "size": "{{size}}, built in {{builtIn}}",
+            "builtIn": "Built in",
+            "custom": "Custom, built in {{builtIn}}",
+            "width": "Width",
+            "height": "Height",
+            "widthLabel": "Width of {{kind}} nodes on {{machine}}",
+            "heightLabel": "Height of {{kind}} nodes on {{machine}}",
+            "notWhole": "{{side}} takes a whole number of pixels",
+            "tooSmall": "{{side}} is at least {{min}} pixels",
+            "tooLarge": "{{side}} is at most {{max}} pixels",
             "reset": "Reset",
             "resetLabel": "Reset the size of {{kind}} nodes on {{machine}}"
         },

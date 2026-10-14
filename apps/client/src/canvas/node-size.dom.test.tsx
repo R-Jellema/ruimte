@@ -1,14 +1,15 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { act } from 'react';
 import type { EndpointInfo, NodeSizes, ProjectCanvasView, ProjectNode } from '@ruimte/contracts';
 import { startEndpointWatch } from '@/endpoint/watch';
 import { serverInfoOf, useServers } from '@/state/server';
 import { useUi } from '@/state/ui';
 import { windowWorkspace } from '@/state/window';
+import { pool } from '@/transport';
 import { startServerInfo } from '@/transport/server-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
-import { clickOn, mount, until, type Mounted } from '../../testing/dom';
+import { clickOn, mount, pressKey, until, type Mounted } from '../../testing/dom';
 
 const MACHINE = 'fake-machine';
 const PLAN: ProjectNode = { id: 'plan', kind: 'note', title: 'Plan', body: 'Ship it', x: 0, y: 0, w: 400, h: 320 };
@@ -85,6 +86,42 @@ function settingsSection(): HTMLElement | null {
     );
 }
 
+async function openSettings(): Promise<void> {
+    await open(true);
+    await act(async () => useUi.getState().setSettings({ open: true, section: 'views' }));
+    await until(() => settingsSection() !== null);
+}
+
+/* The row is the card's child that holds the kind's fields. */
+function rowOf(kind: string): HTMLElement {
+    let row: HTMLElement = sideField('Width', kind);
+    while (!row.parentElement!.classList.contains('divide-y')) {
+        row = row.parentElement!;
+    }
+    return row;
+}
+
+function sideField(side: 'Width' | 'Height', kind: string): HTMLInputElement {
+    return settingsSection()!.querySelector(`input[aria-label="${side} of ${kind} nodes on Fake machine"]`)!;
+}
+
+function sizeOf(kind: string): string[] {
+    return [sideField('Width', kind).value, sideField('Height', kind).value];
+}
+
+function resetButton(kind: string): HTMLButtonElement | null {
+    return settingsSection()!.querySelector(`button[aria-label="Reset the size of ${kind} nodes on Fake machine"]`);
+}
+
+async function typeInto(input: HTMLInputElement, text: string): Promise<void> {
+    await act(async () => {
+        input.focus();
+        // React tracks the value it set, so the browser's own setter is what makes the change show.
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, text);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+}
+
 beforeEach(() => {
     machine = new FakeMachine();
     machine.answer('project.save', ({ baseRev }) => ({ rev: baseRev + 1 }) as never);
@@ -129,21 +166,98 @@ describe('a default size per node kind', () => {
         expect(document.body.textContent).not.toContain('New nodes on Fake machine');
     });
 
-    test('settings list only the kinds with a size of their own, and Reset puts one back to the built-in size', async () => {
+    test('settings list every kind on its size, and Reset puts a custom one back to the built-in size', async () => {
+        sizes = { terminal: { w: 640, h: 400 } };
+        await openSettings();
+
+        expect(sizeOf('Terminal')).toEqual(['640', '400']);
+        expect(rowOf('Terminal').textContent).toContain('Custom, built in 560 × 360');
+        expect(sizeOf('Chat')).toEqual(['480', '520']);
+        expect(rowOf('Chat').textContent).toContain('Built in');
+        expect(resetButton('Chat')).toBeNull();
+
+        await clickOn(resetButton('Terminal'));
+        await until(() => resetButton('Terminal') === null);
+        expect(machine.requests('endpoint.setNodeSize')).toEqual([{ kind: 'terminal', size: null }]);
+        expect(sizeOf('Terminal')).toEqual(['560', '360']);
+        expect(rowOf('Terminal').textContent).toContain('Built in');
+    });
+
+    test('a width typed and confirmed with Enter becomes the size of its kind', async () => {
+        await openSettings();
+
+        await typeInto(sideField('Width', 'Terminal'), '640');
+        await pressKey(sideField('Width', 'Terminal'), 'Enter');
+
+        await until(() => machine.requests('endpoint.setNodeSize').length === 1);
+        expect(machine.requests('endpoint.setNodeSize')).toEqual([{ kind: 'terminal', size: { w: 640, h: 360 } }]);
+        await until(() => resetButton('Terminal') !== null);
+        expect(sizeOf('Terminal')).toEqual(['640', '360']);
+    });
+
+    test('a height typed back to the built-in size on leaving the field puts the kind back to it', async () => {
+        sizes = { note: { w: 320, h: 400 } };
+        await openSettings();
+
+        const height = sideField('Height', 'Note');
+        await typeInto(height, '240');
+        await act(async () => height.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+
+        await until(() => machine.requests('endpoint.setNodeSize').length === 1);
+        expect(machine.requests('endpoint.setNodeSize')).toEqual([{ kind: 'note', size: null }]);
+        await until(() => resetButton('Note') === null);
+    });
+
+    test('a size out of bounds is not sent, says why, and goes back to the kept size on leaving the field', async () => {
+        await openSettings();
+
+        const width = sideField('Width', 'Browser');
+        await typeInto(width, '100');
+        expect(rowOf('Browser').textContent).toContain('Width is at least 240 pixels');
+        expect(width.getAttribute('aria-invalid')).toBe('true');
+        await pressKey(width, 'Enter');
+
+        await typeInto(width, '12.5');
+        expect(rowOf('Browser').textContent).toContain('Width takes a whole number of pixels');
+
+        await act(async () => width.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+        await until(() => sizeOf('Browser')[0] === '720');
+        expect(rowOf('Browser').textContent).not.toContain('Width takes a whole number of pixels');
+        expect(width.getAttribute('aria-invalid')).toBeNull();
+        expect(machine.requests('endpoint.setNodeSize')).toEqual([]);
+    });
+
+    test('Escape takes a typed size back', async () => {
+        await openSettings();
+
+        const height = sideField('Height', 'Group');
+        await typeInto(height, '9000');
+        expect(rowOf('Group').textContent).toContain('Height is at most 4,000 pixels');
+        await pressKey(height, 'Escape');
+
+        expect(sizeOf('Group')).toEqual(['800', '600']);
+        expect(rowOf('Group').textContent).not.toContain('at most');
+        expect(settingsSection()).not.toBeNull();
+        expect(machine.requests('endpoint.setNodeSize')).toEqual([]);
+    });
+
+    test('a machine that is not connected shows its sizes but takes none', async () => {
         sizes = { terminal: { w: 640, h: 400 } };
         await open(true);
-        await act(async () => useUi.getState().setSettings({ open: true, section: 'views' }));
-        await until(() => settingsSection() !== null);
+        const statusOf = pool.statusOf.bind(pool);
+        // One object, since a snapshot that changes on every read never settles.
+        const gone = { status: 'closed', attempts: 1, retryAt: null } as const;
+        const closed = spyOn(pool, 'statusOf').mockImplementation((endpointId) => (endpointId === MACHINE ? gone : statusOf(endpointId)));
+        try {
+            await act(async () => useUi.getState().setSettings({ open: true, section: 'views' }));
+            await until(() => settingsSection() !== null);
 
-        const section = settingsSection()!;
-        expect(section.textContent).toContain('Terminal');
-        expect(section.textContent).toContain('640 × 400, built in 560 × 360');
-        expect(section.textContent).not.toContain('Chat');
-        expect(section.textContent).not.toContain('New nodes use the built-in size of their kind.');
-
-        await clickOn(section.querySelector('button[aria-label="Reset the size of Terminal nodes on Fake machine"]'));
-        await until(() => settingsSection()?.textContent?.includes('New nodes use the built-in size of their kind.') === true);
-        expect(machine.requests('endpoint.setNodeSize')).toEqual([{ kind: 'terminal', size: null }]);
-        expect(settingsSection()!.textContent).not.toContain('640 × 400');
+            expect(sizeOf('Terminal')).toEqual(['640', '400']);
+            expect(sideField('Width', 'Terminal').disabled).toBe(true);
+            expect(sideField('Height', 'Chat').disabled).toBe(true);
+            expect(resetButton('Terminal')!.disabled).toBe(true);
+        } finally {
+            closed.mockRestore();
+        }
     });
 });

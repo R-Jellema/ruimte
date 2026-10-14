@@ -475,10 +475,17 @@
     "views": {
         "nodeSizes": {
             "title": "Nieuwe nodes op {{machine}}",
-            "description": "De grootte waarmee een nieuwe node van een soort begint, ook de nodes die agents toevoegen. Klik met rechts op een node en kies Maak dit de standaardgrootte om er een te kiezen.",
+            "description": "De grootte waarmee een nieuwe node van een soort begint, ook de nodes die agents toevoegen. Typ er hier een, of klik met rechts op een node en kies Maak dit de standaardgrootte.",
             "searchLabel": "Standaardgrootte van nodes",
-            "empty": "Nieuwe nodes krijgen de ingebouwde grootte van hun soort.",
-            "size": "{{size}}, ingebouwd {{builtIn}}",
+            "builtIn": "Ingebouwd",
+            "custom": "Eigen grootte, ingebouwd {{builtIn}}",
+            "width": "Breedte",
+            "height": "Hoogte",
+            "widthLabel": "Breedte van {{kind}}-nodes op {{machine}}",
+            "heightLabel": "Hoogte van {{kind}}-nodes op {{machine}}",
+            "notWhole": "{{side}} is een heel aantal pixels",
+            "tooSmall": "{{side}} is minstens {{min}} pixels",
+            "tooLarge": "{{side}} is hoogstens {{max}} pixels",
             "reset": "Herstellen",
             "resetLabel": "De grootte van {{kind}}-nodes op {{machine}} herstellen"
         },

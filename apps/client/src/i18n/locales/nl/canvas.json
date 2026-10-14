@@ -287,7 +287,7 @@
     },
     "defaultSize": {
         "saved": "{{kind}}-nodes beginnen nu op {{size}}",
-        "savedDescription": "Op {{machine}}, ook voor de nodes die agents daar toevoegen. Zet het terug in Instellingen, onder Weergaven.",
+        "savedDescription": "Op {{machine}}, ook voor de nodes die agents daar toevoegen. Wijzig of herstel het in Instellingen, onder Weergaven.",
         "failed": "De standaardgrootte van {{kind}}-nodes is niet veranderd",
         "resetFailed": "De grootte van {{kind}}-nodes is niet teruggezet"
     }
