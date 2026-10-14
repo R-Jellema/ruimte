@@ -672,6 +672,11 @@ export function Canvas() {
        marks a drop as refused unless both handlers say otherwise, hence the preventDefault on the
        drag as well as on the drop. */
     const onDragOver = (e: React.DragEvent): void => {
+        /* A node under the pointer that took the drag (a terminal types a Finder file's path) keeps it. */
+        if (e.defaultPrevented) {
+            setDropping(false);
+            return;
+        }
         /* Along the edge of the cell the grid takes the file as a view of its own, so the canvas
            neither lights up nor makes a node of it (`shell/SplitGrid.tsx`). */
         if (gridTakesPath()) {
@@ -695,7 +700,7 @@ export function Canvas() {
 
     const onDrop = (e: React.DragEvent): void => {
         setDropping(false);
-        if (gridTakesPath() || (!carriesPaths(e.dataTransfer.types) && !carriesFiles(e.dataTransfer.types))) {
+        if (e.defaultPrevented || gridTakesPath() || (!carriesPaths(e.dataTransfer.types) && !carriesFiles(e.dataTransfer.types))) {
             return;
         }
         e.preventDefault();

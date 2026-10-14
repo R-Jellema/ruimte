@@ -1,7 +1,9 @@
-import { afterEach, beforeEach, describe, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import type { ProjectCanvasView, ProjectNode } from '@ruimte/contracts';
 import { isApplePlatform } from '@/desktop/bridge';
+import { useServers } from '@/state/server';
+import { useToasts } from '@/state/toasts';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { mount, pressKey, until, type Mounted } from '../../testing/dom';
@@ -39,5 +41,68 @@ describe('find in a terminal node', () => {
         const field = page.host.querySelector<HTMLInputElement>('[data-find-bar] input')!;
         await pressKey(field, 'Escape');
         await until(() => page.host.querySelector('[data-find-bar]') === null);
+    });
+});
+
+/* A drag out of the file manager as a browser delivers it: bytes with a name, and the shell can say where each one lives. */
+function finderDrag(type: 'dragover' | 'drop', ...paths: string[]): DragEvent {
+    const event = new Event(type, { bubbles: true, cancelable: true }) as DragEvent;
+    Object.defineProperty(event, 'dataTransfer', {
+        value: {
+            types: ['Files'],
+            effectAllowed: 'all',
+            dropEffect: 'none',
+            items: paths.map((path) => ({ kind: 'file', getAsFile: () => ({ name: path }), webkitGetAsEntry: () => ({ isDirectory: path.endsWith('/dir') }) }))
+        }
+    });
+    return event;
+}
+
+async function dispatch(target: Element, event: DragEvent): Promise<void> {
+    await act(async () => {
+        target.dispatchEvent(event);
+    });
+}
+
+describe('a file dropped on a terminal node', () => {
+    const bodyOf = (): Element => page.host.querySelector(`[data-node-id="${SHELL.id}"] .bg-term-bg`)!;
+
+    async function serve(reachability: 'loopback' | 'lan', label: string): Promise<void> {
+        await act(async () => useServers.setState({ byEndpoint: { 'fake-machine': { platform: 'darwin', reachability, label } as never } }));
+    }
+
+    beforeEach(async () => {
+        await serve('loopback', 'Fake machine');
+        await act(async () => useToasts.setState({ toasts: [] }));
+    });
+
+    afterEach(async () => {
+        window.ruimteDesktop = undefined;
+        await act(async () => useServers.setState({ byEndpoint: {} }));
+    });
+
+    test('types its quoted path without Enter, shows the ring while it is over and makes no node', async () => {
+        window.ruimteDesktop = { platform: 'darwin', pathForFile: (file: { name: string }) => file.name } as never;
+
+        const over = finderDrag('dragover', '/path/with space/file.png');
+        await dispatch(bodyOf(), over);
+        expect(over.defaultPrevented).toBe(true);
+        expect(page.host.querySelector(`[data-node-id="${SHELL.id}"] .ring-accent`)).not.toBeNull();
+
+        await dispatch(bodyOf(), finderDrag('drop', '/path/with space/file.png', '/work/dir'));
+        await until(() => machine.requests('session.write').length > 0);
+        expect(machine.requests('session.write')).toEqual([{ sessionId: SHELL.id, data: "'/path/with space/file.png' /work/dir " }]);
+        expect(page.host.querySelector(`[data-node-id="${SHELL.id}"] .ring-accent`)).toBeNull();
+        expect(machine.requests('project.save')).toEqual([]);
+    });
+
+    test('on a project of another machine it types nothing and tells why', async () => {
+        window.ruimteDesktop = { platform: 'darwin', pathForFile: (file: { name: string }) => file.name } as never;
+        await serve('lan', 'Build server');
+
+        await dispatch(bodyOf(), finderDrag('drop', '/work/a.png'));
+
+        expect(machine.requests('session.write')).toEqual([]);
+        expect(useToasts.getState().toasts[0]?.description).toBe('That machine cannot read files from Finder, so their paths would mean nothing in its shell.');
     });
 });

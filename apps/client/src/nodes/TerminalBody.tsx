@@ -2,6 +2,8 @@ import { openFileLink } from '@/shell/panels/file-links';
 import type { TerminalFileLink } from '@/terminal/file-links';
 import { TerminalDictation } from '@/dictation/TerminalDictation';
 import { clearTerminalAction, restartTerminalAction, resumeTerminalAgentAction } from '@/actions/client-actions';
+import { carriesFiles } from '@/canvas/drop';
+import { finderPaths } from '@/canvas/finder-drop';
 import { FindBar } from '@/find/FindBar';
 import { openFocusedFind } from '@/find/hosts';
 import { useFind } from '@/find/use-find';
@@ -15,10 +17,14 @@ import { ClipboardPaste, Copy, Eraser, Eye, Play, RotateCw, Scan } from 'lucide-
 import { useTranslation } from 'react-i18next';
 import { useEndpointId } from '@/state/keys';
 import { useSessionRestarts, useSessionRow } from '@/state/sessions';
+import { canvasOfNode, useCanvas } from '@/state/canvas';
+import { useDocument } from '@/state/document';
 import { useProject } from '@/state/project';
+import { serverInfoOf } from '@/state/server';
 import { useSettings } from '@/state/settings';
 import { osc52Text } from '@/terminal/osc52';
 import { lastScreenOf, registerTerminal } from '@/terminal/registry';
+import { shellQuotedPaths } from '@/terminal/drop-path';
 import { CLEAR_SHORTCUT, platformShortcut } from '@/terminal/keymap';
 import { useTerminalFind } from '@/terminal/use-terminal-find';
 import { bindTerminalKeys, fittedGrid } from '@/terminal/xterm';
@@ -67,6 +73,9 @@ export function TerminalBody({ id, focused }: { id: string; focused: boolean }) 
     const [selected, setSelected] = useState(false);
     const fileHover = useRef<TerminalFileLink | null>(null);
     const [menuLink, setMenuLink] = useState<TerminalFileLink | null>(null);
+    // A file out of the file manager is over the terminal.
+    const [dropping, setDropping] = useState(false);
+    const onCanvas = useCanvas((s) => s.nodes[id] !== undefined);
     const onFileLinkHover = useCallback((link: TerminalFileLink | null) => {
         fileHover.current = link;
     }, []);
@@ -94,6 +103,48 @@ export function TerminalBody({ id, focused }: { id: string; focused: boolean }) 
         setGeneration((g) => g + 1);
     };
 
+    // A terminal that has ended or failed has no program to type to; the drop is still claimed (the canvas leaves a claimed drag alone), or it would make nodes of it.
+    const takesDrop = exited === undefined && failure === null;
+
+    const onDragOver = (e: React.DragEvent): void => {
+        if (!carriesFiles(e.dataTransfer.types)) {
+            return;
+        }
+        e.preventDefault();
+        e.dataTransfer.dropEffect = takesDrop ? 'copy' : 'none';
+        setDropping(takesDrop);
+    };
+
+    const onDragLeave = (e: React.DragEvent): void => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+            setDropping(false);
+        }
+    };
+
+    // Typed after the prompt and never sent, so the person reads the line and presses Enter.
+    const onDrop = (e: React.DragEvent): void => {
+        setDropping(false);
+        if (!carriesFiles(e.dataTransfer.types)) {
+            return;
+        }
+        e.preventDefault();
+        if (!takesDrop) {
+            return;
+        }
+        const paths = finderPaths(e.dataTransfer, endpointId, { folders: true, refusal: 'terminal' });
+        if (paths.length === 0) {
+            return;
+        }
+        viewRef.current?.paste(shellQuotedPaths(paths, serverInfoOf(endpointId).platform));
+        const canvas = canvasOfNode(id);
+        if (canvas === null) {
+            useDocument.getState().setBodyFocused(true);
+        } else {
+            canvas.getState().activateNode(id);
+        }
+        viewRef.current?.focus();
+    };
+
     const paste = async (): Promise<void> => {
         const text = await readClipboardText();
         if (text !== '') {
@@ -110,7 +161,7 @@ export function TerminalBody({ id, focused }: { id: string; focused: boolean }) 
                 }
             }}
         >
-            <ContextMenu.Trigger className="absolute inset-0 bg-term-bg">
+            <ContextMenu.Trigger className="absolute inset-0 bg-term-bg" onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
                 <div ref={dictationRoot} className="absolute inset-0 flex min-h-0 flex-col">
                     <div ref={surfaceRef} className="relative min-h-0 flex-1">
                         <TerminalSession
@@ -146,6 +197,12 @@ export function TerminalBody({ id, focused }: { id: string; focused: boolean }) 
                         }}
                     />
                 </div>
+                {dropping && (
+                    <div
+                        className={clsx('pointer-events-none absolute inset-0 ring-2 ring-accent ring-inset', onCanvas && 'rounded-b-xl')}
+                        aria-hidden="true"
+                    />
+                )}
             </ContextMenu.Trigger>
             <ContextMenu.Popup>
                 {menuLink !== null && (

@@ -1,0 +1,39 @@
+import { describe, expect, test } from 'bun:test';
+import { shellQuotedPaths } from './drop-path';
+
+describe('shellQuotedPaths on a POSIX shell', () => {
+    test('a plain path is typed as it is, with a space after it', () => {
+        expect(shellQuotedPaths(['/Users/bas/Pictures/shot-1.png'], 'darwin')).toBe('/Users/bas/Pictures/shot-1.png ');
+        expect(shellQuotedPaths(['/srv/app@2/v1.0+beta,x=y:z%'], 'linux')).toBe('/srv/app@2/v1.0+beta,x=y:z% ');
+    });
+
+    test('a path with a space, a dollar sign, a bang or non-ASCII letters is wrapped in single quotes', () => {
+        expect(shellQuotedPaths(['/path/with space/file.png'], 'darwin')).toBe("'/path/with space/file.png' ");
+        expect(shellQuotedPaths(['/tmp/$HOME'], 'linux')).toBe("'/tmp/$HOME' ");
+        expect(shellQuotedPaths(['/tmp/wow!.txt'], 'linux')).toBe("'/tmp/wow!.txt' ");
+        expect(shellQuotedPaths(['/Users/bas/Bureaublad/één.png'], 'darwin')).toBe("'/Users/bas/Bureaublad/één.png' ");
+    });
+
+    test('a single quote in a path is closed, escaped and opened again', () => {
+        expect(shellQuotedPaths(["/tmp/bas's file"], 'darwin')).toBe("'/tmp/bas'\\''s file' ");
+    });
+
+    test('several paths are joined with one space and end on one', () => {
+        expect(shellQuotedPaths(['/a/b.png', '/c d/e.png'], 'darwin')).toBe("/a/b.png '/c d/e.png' ");
+    });
+
+    test('an unknown platform is POSIX', () => {
+        expect(shellQuotedPaths(['/a b'], null)).toBe("'/a b' ");
+    });
+});
+
+describe('shellQuotedPaths on Windows', () => {
+    test('a plain path is typed as it is', () => {
+        expect(shellQuotedPaths(['C:\\Users\\bas\\shot.png'], 'win32')).toBe('C:\\Users\\bas\\shot.png ');
+    });
+
+    test('a path with a space or a character a shell reads is wrapped in double quotes', () => {
+        expect(shellQuotedPaths(['C:\\My Files\\shot.png'], 'win32')).toBe('"C:\\My Files\\shot.png" ');
+        expect(shellQuotedPaths(['C:\\a&b\\c.png', 'C:\\x(1)\\y.png'], 'win32')).toBe('"C:\\a&b\\c.png" "C:\\x(1)\\y.png" ');
+    });
+});

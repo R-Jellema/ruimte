@@ -196,11 +196,13 @@
     "drop": {
         "noBridge": {
             "title": "Files from {{app}} only drop in the desktop app",
-            "description": "Open the file from the Files panel instead."
+            "description": "Open the file from the Files panel instead.",
+            "terminalDescription": "Type or paste the path instead."
         },
         "otherMachine": {
             "title": "This project runs on {{machine}}",
             "description": "That machine cannot read files from {{app}}. Open the file from the Files panel instead.",
+            "terminalDescription": "That machine cannot read files from {{app}}, so their paths would mean nothing in its shell.",
             "unknown": "another machine"
         }
     },

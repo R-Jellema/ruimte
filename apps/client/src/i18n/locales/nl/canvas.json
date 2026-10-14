@@ -196,11 +196,13 @@
     "drop": {
         "noBridge": {
             "title": "Bestanden uit {{app}} kun je alleen in de desktop-app neerzetten",
-            "description": "Open het bestand via het paneel Bestanden."
+            "description": "Open het bestand via het paneel Bestanden.",
+            "terminalDescription": "Typ of plak het pad zelf."
         },
         "otherMachine": {
             "title": "Dit project draait op {{machine}}",
             "description": "Die machine kan geen bestanden uit {{app}} lezen. Open het bestand via het paneel Bestanden.",
+            "terminalDescription": "Die machine kan geen bestanden uit {{app}} lezen, dus hun paden zeggen niets in de shell daar.",
             "unknown": "een andere machine"
         }
     },
