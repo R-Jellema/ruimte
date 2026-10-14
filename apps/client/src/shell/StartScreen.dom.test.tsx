@@ -1,3 +1,4 @@
+import { machineBridge } from '../../testing/machine-bridge';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import type { Account, Machine } from '@ruimte/pulsar';
@@ -24,7 +25,7 @@ const bridge: DesktopBridge = {
     isFullscreen: async () => false,
     onFullscreen: () => () => undefined,
     requestKeepAwake: () => undefined,
-    machine: { mode: 'none' }
+    machine: machineBridge('none')
 };
 
 const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
@@ -70,7 +71,7 @@ describe('the start screen of an app that runs no machine', () => {
     test('the same window with a machine of its own does not wait for the account', async () => {
         const waiting = button('Open folder')?.disabled;
         await page.unmount();
-        scope.window.ruimteDesktop = { ...bridge, machine: { mode: 'local' } };
+        scope.window.ruimteDesktop = { ...bridge, machine: machineBridge('local') };
         page = mount();
         await page.renderApp();
         expect(waiting).toBe(true);

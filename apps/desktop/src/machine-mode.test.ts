@@ -9,7 +9,9 @@ import {
     machineModeFile,
     parseModeOverride,
     parseStoredMode,
+    planSwitch,
     secretFor,
+    tildeHome,
     type MachineModeFacts
 } from './machine-mode';
 
@@ -123,5 +125,38 @@ describe('secretFor', () => {
 
     test('hands out the secret of a local machine', async () => {
         expect(await secretFor('local', async () => 'secret')).toBe('secret');
+    });
+});
+
+describe('planSwitch', () => {
+    test('leaving local for none takes the machine down', () => {
+        expect(planSwitch('local', 'none')).toEqual({ write: 'none', stopMachine: true });
+    });
+
+    test('choosing local from none or ask has no machine to stop', () => {
+        expect(planSwitch('none', 'local')).toEqual({ write: 'local', stopMachine: false });
+        expect(planSwitch('ask', 'local')).toEqual({ write: 'local', stopMachine: false });
+        expect(planSwitch('ask', 'none')).toEqual({ write: 'none', stopMachine: false });
+    });
+
+    test('choosing the current mode again still restarts without stopping anything', () => {
+        expect(planSwitch('local', 'local')).toEqual({ write: 'local', stopMachine: false });
+        expect(planSwitch('none', 'none')).toEqual({ write: 'none', stopMachine: false });
+    });
+});
+
+describe('tildeHome', () => {
+    test('writes the home folder as a tilde', () => {
+        expect(tildeHome('/Users/bas/.ruimte', '/Users/bas')).toBe('~/.ruimte');
+        expect(tildeHome('/Users/bas', '/Users/bas')).toBe('~');
+    });
+
+    test('leaves a path outside the home folder, or one that only shares its prefix, as it is', () => {
+        expect(tildeHome('/data/ruimte', '/Users/bas')).toBe('/data/ruimte');
+        expect(tildeHome('/Users/basement/.ruimte', '/Users/bas')).toBe('/Users/basement/.ruimte');
+    });
+
+    test('follows the separator of a Windows path', () => {
+        expect(tildeHome(String.raw`C:\Users\bas\.ruimte`, String.raw`C:\Users\bas`)).toBe(String.raw`~\.ruimte`);
     });
 });

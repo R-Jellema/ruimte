@@ -1,3 +1,4 @@
+import { machineBridge } from '../../testing/machine-bridge';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { AgentInfo, AgentStatus } from '@ruimte/contracts';
 import { useChats, type ChatState } from '@adecore/agents-react/state';
@@ -149,7 +150,7 @@ describe('what the shell is told', () => {
     });
 
     test('no block for agents elsewhere when this app runs no machine', () => {
-        scope.window = { ruimteDesktop: { platform: 'darwin', machine: { mode: 'none' } } };
+        scope.window = { ruimteDesktop: { platform: 'darwin', machine: machineBridge('none') } };
         useSettings.setState({ keepAwake: 'always' });
         expect(startKeepAwake(() => undefined)).toBeNull();
     });
@@ -214,13 +215,13 @@ describe('whether keep awake is offered', () => {
     });
 
     test('a Mac shell that runs a machine can hold a block of its own', () => {
-        scope.window = { ruimteDesktop: { platform: 'darwin', requestKeepAwake: () => undefined, machine: { mode: 'local' } } };
+        scope.window = { ruimteDesktop: { platform: 'darwin', requestKeepAwake: () => undefined, machine: machineBridge('local') } };
         expect(keepAwakeAvailable()).toBe(true);
     });
 
     test('not when this app runs no machine, whatever the shell can do', () => {
         for (const mode of ['none', 'ask'] as const) {
-            scope.window = { ruimteDesktop: { platform: 'darwin', requestKeepAwake: () => undefined, machine: { mode } } };
+            scope.window = { ruimteDesktop: { platform: 'darwin', requestKeepAwake: () => undefined, machine: machineBridge(mode) } };
             expect(keepAwakeAvailable()).toBe(false);
         }
     });

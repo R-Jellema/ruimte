@@ -1,3 +1,4 @@
+import { machineBridge } from '../../testing/machine-bridge';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { ProjectSummary } from '@ruimte/contracts';
 import type { DesktopBridge } from '@/desktop/bridge';
@@ -239,7 +240,7 @@ describe('following the window', () => {
     });
 
     test('leaves out the tabs of this computer when the app runs no machine, and keeps the rest', async () => {
-        scope.window = { ruimteDesktop: { platform: 'darwin', machine: { mode: 'none' } } };
+        scope.window = { ruimteDesktop: { platform: 'darwin', machine: machineBridge('none') } };
         const shell = fakeShell();
         await start(memoryPlace('["local:a","m1:b","local:c","m2:d"]'), shell);
         expect(useWindowTabs.getState().tabs).toEqual(tabs(['m1:b', 'm2:d'], null));

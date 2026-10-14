@@ -1,3 +1,4 @@
+import { machineBridge } from '../../testing/machine-bridge';
 import { afterEach, describe, expect, test } from 'bun:test';
 import type { DesktopBridge } from '@/desktop/bridge';
 import { hasLocalMachine, isRealMachine, listedEndpoints, startScreenMachine } from './local-machine';
@@ -48,11 +49,11 @@ describe('hasLocalMachine', () => {
     });
 
     test('follows the mode the shell names', () => {
-        scope.window = { ruimteDesktop: { platform: 'darwin', machine: { mode: 'local' } } };
+        scope.window = { ruimteDesktop: { platform: 'darwin', machine: machineBridge('local') } };
         expect(hasLocalMachine()).toBe(true);
-        scope.window = { ruimteDesktop: { platform: 'darwin', machine: { mode: 'none' } } };
+        scope.window = { ruimteDesktop: { platform: 'darwin', machine: machineBridge('none') } };
         expect(hasLocalMachine()).toBe(false);
-        scope.window = { ruimteDesktop: { platform: 'darwin', machine: { mode: 'ask' } } };
+        scope.window = { ruimteDesktop: { platform: 'darwin', machine: machineBridge('ask') } };
         expect(hasLocalMachine()).toBe(false);
     });
 });

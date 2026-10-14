@@ -10,6 +10,7 @@ import type {
     OpenAiBridge,
     OpenAiCredentialStatus,
     OpenAiLivePreferences,
+    MachineStopPreview,
     OpenPathRequest,
     ReleaseNotesState,
     SavePathRequest,
@@ -204,7 +205,12 @@ const bridge = {
             return () => ipcRenderer.removeListener('microphone:claimed', handler);
         }
     },
-    machine: { mode: machineMode },
+    machine: {
+        mode: machineMode,
+        found: (): Promise<boolean> => ipcRenderer.invoke('machine:found'),
+        stopPreview: (): Promise<MachineStopPreview> => ipcRenderer.invoke('machine:stop-preview'),
+        choose: (mode: 'local' | 'none'): Promise<void> => ipcRenderer.invoke('machine:choose', mode)
+    },
     ...(machineMode === 'local' ? localMachineBridge : {}),
     pulsar: {
         addressBook: (): Promise<string> => ipcRenderer.invoke('pulsar:address-book'),

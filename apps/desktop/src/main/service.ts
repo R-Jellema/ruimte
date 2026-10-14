@@ -6,11 +6,11 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { serviceDefinition as definitionFor, type ServiceManager } from '@adecore/service';
 import { buildIdentityOf, MACHINE_HEALTH_PATH, type BuildIdentity } from '@ruimte/contracts';
-import type { BackgroundServiceState, MachineMode, ServiceSupport } from '@ruimte/desktop-bridge';
+import type { BackgroundServiceState, MachineMode, MachineStopPreview, ServiceSupport } from '@ruimte/desktop-bridge';
 import { commandLineServiceProgram, daemonServiceSpec, platformServiceManager, serviceLogFile } from '@ruimte/service/host';
 import { askDaemonWork, proveDaemon, type DaemonPort } from '../daemon-proof';
 import { askLoginShellPath, fileLoginPathCache, loadLoginPath } from '../login-path';
-import { secretFor } from '../machine-mode';
+import { secretFor, tildeHome } from '../machine-mode';
 import { createServiceController, type ServiceController } from '../service/controller';
 import { keepRunningSetting, serviceSupport } from '../service/settings';
 import { createSecretGate } from '../startup';
@@ -47,6 +47,12 @@ export interface Machine {
     stopsOnQuit(): boolean;
     /* A quit that was turned down stops nothing at the next one. */
     keepOnQuit(): void;
+    /* Marks the next quit as one that takes the machine down, without quitting. */
+    stopOnQuit(): void;
+    /* Whether a daemon answers on the port; only its health is asked, never the local secret. */
+    found(): Promise<boolean>;
+    /* What a switch to `none` ends. */
+    stopPreview(): Promise<MachineStopPreview>;
 }
 
 const MISSING_DAEMON = 'The background service is missing. Run the desktop app from the repository or install a release.';
@@ -280,6 +286,17 @@ export function createMachine(options: MachineOptions): Machine {
             watchPendingRestart();
         },
         stopAndQuit,
+        stopOnQuit() {
+            stopMachineOnQuit = true;
+        },
+        found: async () => options.mode !== 'local' && (await probeDaemon()) !== null,
+        async stopPreview() {
+            const home = tildeHome(ruimteHome, homedir());
+            if (options.mode !== 'local') {
+                return { work: null, home, commandLine: false };
+            }
+            return { work: await askDaemonWork(daemonPort), home, commandLine: controller.state().commandLineService === true };
+        },
         stopsOnQuit: () => stopMachineOnQuit,
         keepOnQuit() {
             stopMachineOnQuit = false;

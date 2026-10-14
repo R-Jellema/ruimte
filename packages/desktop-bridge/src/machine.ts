@@ -4,6 +4,26 @@
  */
 export type MachineMode = 'local' | 'none' | 'ask';
 
+export interface MachineWorkCount {
+    terminals: number;
+    agents: number;
+}
+
+export interface MachineStopPreview {
+    /* What ends, as the quit question counts it; null when the machine cannot say. */
+    work: MachineWorkCount | null;
+    /* `$RUIMTE_HOME` with the home folder written as `~`, which stays as it is. */
+    home: string;
+    /* The machine is a service `npx ruimte service install` set up, which keeps running. */
+    commandLine: boolean;
+}
+
 export interface MachineModeBridge {
     mode: MachineMode;
+    /* Whether a daemon answers on this computer's port. Only its health is asked, never the local secret; false in `local`. */
+    found(): Promise<boolean>;
+    /* What a switch to `none` ends. In `none` and `ask` there is no work and nothing to say. */
+    stopPreview(): Promise<MachineStopPreview>;
+    /* Writes the choice and restarts the app. From `local` to `none` the service the app owns stops and goes, as "Stop the Machine and Quit" does. Rejects when the choice could not be written, and then nothing stopped. */
+    choose(mode: 'local' | 'none'): Promise<void>;
 }

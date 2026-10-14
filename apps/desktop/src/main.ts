@@ -21,6 +21,7 @@ import { installDialogs } from './main/dialogs';
 import { electron } from './main/electron';
 import { createAppIpc } from './main/ipc';
 import { installLogin } from './main/login';
+import { installMachineMode } from './main/machine-mode';
 import { installMenu } from './main/menu';
 import { installSecrets } from './main/secrets';
 import { createMachine } from './main/service';
@@ -285,6 +286,15 @@ async function askBeforeQuit(): Promise<boolean> {
 }
 
 const pageKeys = createPageKeys();
+
+/* The page already asked, so the quit that follows asks nothing; it still takes down the service this installation owns when the choice said so. */
+function relaunchApp(): void {
+    quitConfirmed = true;
+    app.relaunch(process.env.APPIMAGE ? { execPath: process.env.APPIMAGE } : undefined);
+    app.quit();
+}
+
+installMachineMode(ipc, { mode: machineMode, machine, relaunch: relaunchApp });
 
 const menu = installMenu(ipc, {
     pageKeys,
