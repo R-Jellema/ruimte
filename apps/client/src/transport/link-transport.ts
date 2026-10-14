@@ -273,11 +273,15 @@ export class LinkTransport implements PooledTransport {
         this.linkToken = token;
         let link: Link | null = null;
         let signaled: SignalRoute | null = null;
+        // The path as the link last said it, which can change while the protocol check is still out.
+        let relayed = false;
+        // A link that opens before the opener returned cannot be written to yet.
+        let openedEarly = false;
         const gate = protocolGate({
             send: (data) => link?.send(data),
             open: (features) => {
                 if (this.linkToken === token) {
-                    this.setConnection({ status: 'open', attempts: 0, retryAt: null, failure: null, relayed: false, signaled, features });
+                    this.setConnection({ status: 'open', attempts: 0, retryAt: null, failure: null, relayed, signaled, features });
                 }
             },
             message: (data) => {
@@ -294,11 +298,19 @@ export class LinkTransport implements PooledTransport {
             open: (route) => {
                 if (this.linkToken === token) {
                     signaled = route ?? null;
+                    if (link === null) {
+                        openedEarly = true;
+                        return;
+                    }
                     gate.opened();
                 }
             },
-            route: (relayed) => {
-                if (this.linkToken === token && this.currentConnection.status === 'open') {
+            route: (next) => {
+                if (this.linkToken !== token) {
+                    return;
+                }
+                relayed = next;
+                if (this.currentConnection.status === 'open') {
                     this.setConnection({ relayed });
                 }
             },
@@ -332,6 +344,9 @@ export class LinkTransport implements PooledTransport {
         // A link that failed while it was being opened already reported, and is no link to keep.
         if (this.linkToken === token) {
             this.link = link;
+            if (openedEarly) {
+                gate.opened();
+            }
         }
     }
 

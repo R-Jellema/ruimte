@@ -189,6 +189,32 @@ describe('LinkTransport', () => {
         transport.dispose();
     });
 
+    test('a route the link names while the protocol check is out is the route the open link has', async () => {
+        const { transport, links } = setup();
+        await tick();
+        links[0]!.events.open();
+        links[0]!.events.route?.(true);
+        expect(transport.status).toBe('connecting');
+        answerCheck(links[0]!, ['chat.list']);
+        expect(transport.connection).toMatchObject({ status: 'open', relayed: true });
+        transport.dispose();
+    });
+
+    test('a link that opens before the opener returned still gets the protocol check', async () => {
+        const links: FakeLink[] = [];
+        const transport = new LinkTransport('ws://machine/ws', (_url, events) => {
+            events.open();
+            const link = new FakeLink(events);
+            links.push(link);
+            return link;
+        });
+        await tick();
+        expect(links[0]!.checks).toHaveLength(1);
+        answerCheck(links[0]!, ['chat.list']);
+        expect(transport.status).toBe('open');
+        transport.dispose();
+    });
+
     test('a link that fails says why, and the reason stays until a link opens again', async () => {
         const { transport, links } = setup();
         const statuses: TransportStatus[] = [];
