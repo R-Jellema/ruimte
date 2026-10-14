@@ -1,4 +1,6 @@
 export interface StartupDeps {
+    /* False when the person's app runs no machine of its own: nothing starts, nothing waits on a proof. */
+    localMachine: boolean;
     /* Brings a daemon up behind the port that proved it holds the local secret; false when the person chose to quit. */
     startMachine(): Promise<boolean>;
     /* Moves what the page kept under its old origin; the answer closes the window that did it. */
@@ -19,6 +21,10 @@ export interface StartupDeps {
  * page reads of its storage has to be moved before it loads, and the local secret waits for the proof.
  */
 export async function startApp(deps: StartupDeps): Promise<void> {
+    if (!deps.localMachine) {
+        await startWithoutMachine(deps);
+        return;
+    }
     let stopped = false;
     const machine = deps.startMachine().then(
         (started) => {
@@ -56,6 +62,19 @@ export async function startApp(deps: StartupDeps): Promise<void> {
     if (await machine) {
         deps.machineReady();
     }
+}
+
+async function startWithoutMachine(deps: StartupDeps): Promise<void> {
+    if (deps.smoke) {
+        await deps.smoke();
+        deps.quit();
+        return;
+    }
+    const closeStorageMove = await deps.moveStorage();
+    deps.restoreWindows();
+    // Only now: the last window closing quits the app on Linux.
+    closeStorageMove();
+    deps.startUpdater();
 }
 
 export interface SecretGate {

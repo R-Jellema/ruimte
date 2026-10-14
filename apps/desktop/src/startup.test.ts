@@ -16,11 +16,12 @@ function settle(): Promise<void> {
     return new Promise((resolve) => setImmediate(resolve));
 }
 
-function setup(options: { smoke?: boolean } = {}) {
+function setup(options: { smoke?: boolean; localMachine?: boolean } = {}) {
     const events: string[] = [];
     const machine = deferred<boolean>();
     const storage = deferred<() => void>();
     const deps: StartupDeps = {
+        localMachine: options.localMachine ?? true,
         startMachine: () => {
             events.push('start machine');
             return machine.promise;
@@ -92,6 +93,21 @@ describe('startApp', () => {
         machine.reject(new Error('missing'));
         await run;
         expect(events).toEqual(['start machine', 'fail: missing', 'quit']);
+    });
+});
+
+describe('startApp without a machine', () => {
+    test('moves the storage, restores the windows and starts the updater, and starts no machine', async () => {
+        const { events, storage, run } = setup({ localMachine: false });
+        storage.resolve(() => events.push('close storage move'));
+        await run;
+        expect(events).toEqual(['move storage', 'restore windows', 'close storage move', 'start updater']);
+    });
+
+    test('the smoke run runs its window and quits', async () => {
+        const { events, run } = setup({ localMachine: false, smoke: true });
+        await run;
+        expect(events).toEqual(['smoke', 'quit']);
     });
 });
 

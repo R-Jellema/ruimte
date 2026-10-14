@@ -1,6 +1,7 @@
 import type { SessionLoginCode } from '@ruimte/pulsar';
 import type { BrowserRouteBinding, BrowserRouteBlocked } from './browser.ts';
 import type { DatabaseSecretsBridge, OpenPathRequest, SavePathRequest } from './database.ts';
+import type { MachineModeBridge } from './machine.ts';
 import type { MenuSpec } from './menu.ts';
 import type { MicrophoneBridge } from './microphone.ts';
 import type { KeepAwakeRequest } from './power.ts';
@@ -228,4 +229,6 @@ export interface DesktopBridge {
     backgroundService?: BackgroundServiceBridge;
     /* Without it the account section says signing in works in the desktop app. */
     pulsar?: PulsarBridge;
+    /* Absent from a shell from before the mode, which always ran a machine. */
+    machine?: MachineModeBridge;
 }

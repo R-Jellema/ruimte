@@ -777,6 +777,7 @@ if (!app.requestSingleInstanceLock()) {
         powerMonitor.on('on-battery', applyKeepAwake);
         powerMonitor.on('on-ac', applyKeepAwake);
         await startApp({
+            localMachine: true,
             startMachine: () => machine.start(),
             moveStorage: () =>
                 devUrl ? Promise.resolve(() => undefined) : moveLegacyStorage(port, join(app.getPath('userData'), 'storage-moved-to-app-scheme')),
