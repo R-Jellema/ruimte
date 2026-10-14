@@ -120,6 +120,16 @@ describeWrites('machine', {
             'no machine': { name: 'Studio' }
         }
     },
+    'machine.setNodeSize': {
+        actors: ['person'],
+        input: { endpointId: 'endpoint-1', kind: 'terminal', size: { w: 640, h: 400 } },
+        refused: {
+            'a kind it has not': { endpointId: 'endpoint-1', kind: 'hologram', size: { w: 640, h: 400 } },
+            'a size below what a frame is dragged to': { endpointId: 'endpoint-1', kind: 'terminal', size: { w: 100, h: 400 } },
+            'a size of part of a pixel': { endpointId: 'endpoint-1', kind: 'terminal', size: { w: 640.5, h: 400 } },
+            'no machine': { kind: 'terminal', size: null }
+        }
+    },
     'machine.revokeAccess': {
         actors: ['person'],
         input: { endpointId: 'endpoint-1', sessionId: 'session-1' },

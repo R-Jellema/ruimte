@@ -232,6 +232,26 @@ describe('machine actions', () => {
             });
             expect(sent).toEqual([]);
         });
+
+        test('sets and resets the size new nodes of a kind take, and takes the whole answer', async () => {
+            const { registry, sent, adopted } = onMachine();
+            const size = { w: 640, h: 400 };
+            expect(await registry.execute('machine.setNodeSize', { endpointId: 'mac', kind: 'terminal', size }, PERSON_ACTION_CALL)).toMatchObject({
+                output: { endpointId: 'mac', kind: 'terminal', size }
+            });
+            await registry.execute('machine.setNodeSize', { endpointId: 'mac', kind: 'terminal', size: null }, PERSON_ACTION_CALL);
+            expect(sent).toEqual([
+                { type: 'endpoint.setNodeSize', payload: { kind: 'terminal', size } },
+                { type: 'endpoint.setNodeSize', payload: { kind: 'terminal', size: null } }
+            ]);
+            expect(adopted).toEqual([
+                { endpointId: 'mac', info: answer },
+                { endpointId: 'mac', info: answer }
+            ]);
+            expect(await registry.execute('machine.setNodeSize', { endpointId: 'mac', kind: 'note', size }, VOICE_ACTION_CALL)).toMatchObject({
+                error: { code: 'forbidden-action' }
+            });
+        });
     });
 
     describe("a person's hand on a machine", () => {

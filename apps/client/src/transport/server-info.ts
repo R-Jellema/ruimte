@@ -1,4 +1,4 @@
-import type { EndpointInfo, EndpointNameSource } from '@ruimte/contracts';
+import { knownNodeSizes, type EndpointInfo, type EndpointNameSource } from '@ruimte/contracts';
 import { noteDaemonIdentity } from '@/endpoint/identity';
 import { LOCAL_ENDPOINT_ID, localMachineLabel, useEndpoints } from '@/state/endpoints';
 import { serverInfoOf, useServers } from '@/state/server';
@@ -21,6 +21,8 @@ function load(endpointId: string): void {
         .then(async (info) => {
             const settled = noteDaemonIdentity(endpointId, info);
             adoptEndpointInfo(settled, info);
+            // Only here: an answer to a change leaves the list out, which says nothing about what the machine answers.
+            useServers.getState().setFeatures(settled, info.features ?? null);
             void link
                 .request('provider.list', {})
                 .then(({ providers }) => useProvidersStore.getState().setProviders(settled, providers))
@@ -62,7 +64,8 @@ export function adoptEndpointInfo(endpointId: string, info: EndpointInfo): void 
         reachability: info.reachability,
         publicKey: info.publicKey ?? null,
         accountId: info.accountId,
-        worktreeRoot: info.worktreeRoot
+        worktreeRoot: info.worktreeRoot,
+        nodeSizes: knownNodeSizes(info.nodeSizes)
     });
     adoptMachineName(endpointId, info.label, info.nameSource ?? null);
 }

@@ -3,12 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { canSwipeBetweenPages } from '@/desktop/bridge';
 import { SettingsRow } from '@adecore/ui/settings';
 import { Switch, Keys, shortcut } from '@adecore/ui';
+import { NodeSizeSections } from '@/shell/settings/NodeSizeSection';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { useSettings } from '@/state/settings';
 
 const MOD_HELD = shortcut('Mod');
 
-/* A section per kind of view. Zoom, locks and layouts act on the canvas that is open, so they stay in the dock and the palette instead of here. */
+/* What new nodes start at, then a section per kind of view. Zoom, locks and layouts act on the canvas that is open, so they stay in the dock and the palette instead of here. */
 export function ViewsPane() {
     const { t } = useTranslation('settings');
     const drawingSnap = useSettings((s) => s.drawingSnap);
@@ -17,6 +18,7 @@ export function ViewsPane() {
 
     return (
         <>
+            <NodeSizeSections />
             <SettingsSection title={t('views.drawing.title')} icon={PenTool}>
                 <SettingsRow
                     searchId="views.drawing.snap"

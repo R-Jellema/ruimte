@@ -1,5 +1,44 @@
 import { describe, expect, test } from 'bun:test';
-import { CANVAS_GRID, GROUP_HEADER, GROUP_PADDING, groupFrame, groupMemberIds } from './node-defaults.ts';
+import {
+    CANVAS_GRID,
+    GROUP_HEADER,
+    GROUP_PADDING,
+    NODE_SIZE,
+    NODE_SIZE_MAX,
+    NODE_SIZE_MIN,
+    fitNodeSize,
+    groupFrame,
+    groupMemberIds,
+    knownNodeSizes,
+    nodeSizeOf
+} from './node-defaults.ts';
+
+describe('default node sizes', () => {
+    test('a kind takes the size a machine keeps for it, and its built-in size without one', () => {
+        const sizes = { terminal: { w: 800, h: 480 } };
+        expect(nodeSizeOf(sizes, 'terminal')).toEqual({ w: 800, h: 480 });
+        expect(nodeSizeOf(sizes, 'chat')).toEqual(NODE_SIZE.chat);
+        expect(nodeSizeOf(undefined, 'note')).toEqual(NODE_SIZE.note);
+    });
+
+    test('a frame becomes whole pixels within the smallest a frame drags to and the largest a default may be', () => {
+        expect(fitNodeSize({ w: 640.4, h: 399.6 })).toEqual({ w: 640, h: 400 });
+        expect(fitNodeSize({ w: 100, h: 9000 })).toEqual({ w: NODE_SIZE_MIN.w, h: NODE_SIZE_MAX });
+    });
+
+    test('reads the kinds this version knows and drops a size that will not read without the others', () => {
+        const raw = {
+            terminal: { w: 640, h: 400 },
+            chat: { w: 640.5, h: 400 },
+            note: { w: 640, h: 100 },
+            browser: '640x400',
+            hologram: { w: 640, h: 400 }
+        };
+        expect(knownNodeSizes(raw)).toEqual({ terminal: { w: 640, h: 400 } });
+        expect(knownNodeSizes(null)).toEqual({});
+        expect(knownNodeSizes([1, 2])).toEqual({});
+    });
+});
 
 describe('groupFrame', () => {
     test('keeps room on every side and a title band above what it holds', () => {

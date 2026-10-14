@@ -6,7 +6,8 @@ import { chatsLinkedTo } from '@/context/sources';
 import { createNodeAction, linkNodesAction } from '@/actions/client-actions';
 import { focusChat } from '@/plan/plan-actions';
 import { showFileOnCanvas } from '@/project/views';
-import { canvasOfNode, NODE_SIZE } from '@/state/canvas';
+import { canvasOfNode } from '@/state/canvas';
+import { defaultNodeSize } from '@/state/node-size';
 import { useToasts } from '@/state/toasts';
 import { useChatChooser } from '@/chat/chat-chooser';
 
@@ -71,7 +72,7 @@ export async function startLinkedChat(offer: SelectionOffer, provider: AgentKind
     if (nodeId === null || canvas === undefined || canvas.viewId === null || box === undefined) {
         return null;
     }
-    const at = { x: box.x + box.w + 40 + NODE_SIZE.chat.w / 2, y: box.y + box.h / 2 };
+    const at = { x: box.x + box.w + 40 + defaultNodeSize('chat').w / 2, y: box.y + box.h / 2 };
     const chatId = await createNodeAction('chat', { viewId: canvas.viewId, at, ...(provider === null ? {} : { provider }) });
     if (chatId === null) {
         return null;

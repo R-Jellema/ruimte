@@ -1,3 +1,4 @@
+import { NODE_SIZE_MIN } from '@ruimte/contracts';
 import { GRID, snapToGrid, type Rect } from '@/canvas/math';
 
 export interface ResizeModifiers {
@@ -5,7 +6,7 @@ export interface ResizeModifiers {
     proportional?: boolean;
 }
 
-export function resizedRect(rect: Rect, edge: string, dx: number, dy: number, modifiers: ResizeModifiers = {}, minimum = { w: 240, h: 160 }): Rect {
+export function resizedRect(rect: Rect, edge: string, dx: number, dy: number, modifiers: ResizeModifiers = {}, minimum = NODE_SIZE_MIN): Rect {
     const horizontal = edge.includes('e') ? 1 : edge.includes('w') ? -1 : 0;
     const vertical = edge.includes('s') ? 1 : edge.includes('n') ? -1 : 0;
     const factor = modifiers.centered ? 2 : 1;

@@ -1,3 +1,4 @@
+import { knownNodeSizes } from '@ruimte/contracts';
 import { useEndpoints } from '@/state/endpoints';
 import { useServers } from '@/state/server';
 import { watchPool } from '@/transport/pool-watch';
@@ -27,7 +28,8 @@ export function startEndpointWatch(): () => void {
                     ...(payload.keepAwakeLidRule === undefined ? {} : { keepAwakeLidRule: payload.keepAwakeLidRule }),
                     ...(payload.broker === undefined ? {} : { broker: payload.broker, brokerFixed: payload.brokerFixed === true }),
                     ...(payload.lanDoor === undefined ? {} : { lanDoor: payload.lanDoor, lanDoorFixed: payload.lanDoorFixed === true }),
-                    ...(payload.agentIntegrations === undefined ? {} : { agentIntegrations: payload.agentIntegrations })
+                    ...(payload.agentIntegrations === undefined ? {} : { agentIntegrations: payload.agentIntegrations }),
+                    ...(payload.nodeSizes === undefined ? {} : { nodeSizes: knownNodeSizes(payload.nodeSizes) })
                 });
                 // A daemon from before the broker setting sends no URL, which says nothing about its broker; the same for the door.
                 if (payload.brokerUrl !== undefined) {

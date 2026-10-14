@@ -30,8 +30,9 @@ import { framePressHandsKeyboard } from '@/canvas/frame-press';
 import { stackingOrder } from '@/canvas/stacking';
 import { useWheelCamera } from '@/canvas/use-wheel-camera';
 import { notePointer } from '@/canvas/pointer';
-import { carriedByGroups, isNodeActive, maximizedNodeOf, NODE_SIZE, useCanvas, useCanvasStore, type CanvasState } from '@/state/canvas';
+import { carriedByGroups, isNodeActive, maximizedNodeOf, useCanvas, useCanvasStore, type CanvasState } from '@/state/canvas';
 import { useEndpointId } from '@/state/keys';
+import { defaultNodeSize } from '@/state/node-size';
 import { createTextAction } from '@/actions/client-actions';
 import { showFileOnCanvas } from '@/project/views';
 import { CanvasMenuPopup } from '@/canvas/CanvasMenu';
@@ -61,7 +62,9 @@ type Gesture =
 
 /* World units between two files dropped at once: a node's own width and a gutter, so the second one
    stands beside the first instead of over it. */
-const DROP_STEP = NODE_SIZE.file.w + 24;
+function dropStep(): number {
+    return defaultNodeSize('file').w + 24;
+}
 
 /*
  * What a line being drawn would land on: whatever the canvas shows under the pointer. The pointer is
@@ -703,7 +706,7 @@ export function Canvas() {
         if (paths.length === 0) {
             return;
         }
-        const points = dropPoints(toWorld(canvasStore.getState().camera, screenPoint(e)), paths.length, DROP_STEP);
+        const points = dropPoints(toWorld(canvasStore.getState().camera, screenPoint(e)), paths.length, dropStep());
         for (const [index, path] of paths.entries()) {
             void showFileOnCanvas(path, points[index]!);
         }

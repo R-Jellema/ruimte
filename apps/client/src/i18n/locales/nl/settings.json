@@ -440,7 +440,7 @@
         },
         "views": {
             "label": "Weergaven",
-            "description": "Hoe tekeningen en browserpagina's zich gedragen."
+            "description": "Hoe groot nieuwe nodes beginnen, en hoe tekeningen en browserpagina's zich gedragen."
         },
         "files": {
             "label": "Bestanden en Git",
@@ -473,6 +473,15 @@
         "click": "klikken"
     },
     "views": {
+        "nodeSizes": {
+            "title": "Nieuwe nodes op {{machine}}",
+            "description": "De grootte waarmee een nieuwe node van een soort begint, ook de nodes die agents toevoegen. Klik met rechts op een node en kies Maak dit de standaardgrootte om er een te kiezen.",
+            "searchLabel": "Standaardgrootte van nodes",
+            "empty": "Nieuwe nodes krijgen de ingebouwde grootte van hun soort.",
+            "size": "{{size}}, ingebouwd {{builtIn}}",
+            "reset": "Herstellen",
+            "resetLabel": "De grootte van {{kind}}-nodes op {{machine}} herstellen"
+        },
         "drawing": {
             "title": "Tekening",
             "snap": {

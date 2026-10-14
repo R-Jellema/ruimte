@@ -105,7 +105,8 @@
         "noteColor": "Note color",
         "color": "Color",
         "noAccent": "None",
-        "stopPrWatch": "Stop watching pull request"
+        "stopPrWatch": "Stop watching pull request",
+        "makeDefaultSize": "Make this the default size"
     },
     "kinds": {
         "terminal": "Terminal",
@@ -283,5 +284,11 @@
     "gaps": {
         "adjust": "Adjust gap between {{from}} and {{to}}: {{value}}",
         "shared": "Adjust equal gaps: {{value}}"
+    },
+    "defaultSize": {
+        "saved": "{{kind}} nodes now start at {{size}}",
+        "savedDescription": "On {{machine}}, the nodes agents add there included. Reset it in Settings, under Views.",
+        "failed": "The default size of {{kind}} nodes did not change",
+        "resetFailed": "The size of {{kind}} nodes did not reset"
     }
 }

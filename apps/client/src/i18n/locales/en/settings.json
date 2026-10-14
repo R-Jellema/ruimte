@@ -440,7 +440,7 @@
         },
         "views": {
             "label": "Views",
-            "description": "How drawings and browser pages behave."
+            "description": "What new nodes start at, and how drawings and browser pages behave."
         },
         "files": {
             "label": "Files and Git",
@@ -473,6 +473,15 @@
         "click": "click"
     },
     "views": {
+        "nodeSizes": {
+            "title": "New nodes on {{machine}}",
+            "description": "The size a new node of a kind starts at, the nodes agents add included. Right-click a node and choose Make this the default size to set one.",
+            "searchLabel": "Default node sizes",
+            "empty": "New nodes use the built-in size of their kind.",
+            "size": "{{size}}, built in {{builtIn}}",
+            "reset": "Reset",
+            "resetLabel": "Reset the size of {{kind}} nodes on {{machine}}"
+        },
         "drawing": {
             "title": "Drawing",
             "snap": {

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AgentIntegrationsSummary, EndpointNameSource, KeepAwakeMode, MachineUpdate, ProjectIconChoice, Reachability } from '@ruimte/contracts';
+import type { AgentIntegrationsSummary, EndpointNameSource, KeepAwakeMode, MachineUpdate, NodeSizes, ProjectIconChoice, Reachability } from '@ruimte/contracts';
 import type { BrokerSetting } from '@ruimte/pulsar';
 import { useEndpointId } from '@/state/keys';
 
@@ -58,6 +58,10 @@ export interface ServerInfo {
     accountId: string | null | undefined;
     /* The folder new worktrees are made in, null for the data folder. Only the app on the machine is told; undefined for any other. */
     worktreeRoot: string | null | undefined;
+    /* The sizes a person gave new nodes of a kind on the machine, only the kinds they changed. */
+    nodeSizes: NodeSizes;
+    /* Every request the machine answers; null for a daemon from before it said, or one that has not answered yet. */
+    features: readonly string[] | null;
 }
 
 /* One object for a machine that has not said hello yet, so a selector gets a stable snapshot. */
@@ -90,7 +94,9 @@ const UNKNOWN: ServerInfo = {
     reachability: null,
     publicKey: null,
     accountId: undefined,
-    worktreeRoot: undefined
+    worktreeRoot: undefined,
+    nodeSizes: {},
+    features: null
 };
 
 interface ServersStore {
@@ -125,8 +131,11 @@ interface ServersStore {
             | 'publicKey'
             | 'accountId'
             | 'worktreeRoot'
+            | 'nodeSizes'
         >
     ): void;
+    /* What `endpoint.info` said the machine answers, on every connection. */
+    setFeatures(endpointId: string, features: readonly string[] | null): void;
     /* What a person allowed in the CLIs' settings, after this client changed it. */
     setAgentIntegrations(endpointId: string, summary: AgentIntegrationsSummary): void;
     /* The account the machine is on now, after this client put it on one or took it off. */
@@ -153,6 +162,7 @@ interface ServersStore {
                     | 'lanDoorFixed'
                     | 'agentIntegrations'
                     | 'worktreeRoot'
+                    | 'nodeSizes'
                 >
             >
     ): void;
@@ -172,6 +182,9 @@ export const useServers = create<ServersStore>((set, get) => {
         byEndpoint: {},
         setInfo: merge,
         setEndpoint: merge,
+        setFeatures(endpointId, features) {
+            merge(endpointId, { features });
+        },
         setAgentIntegrations(endpointId, summary) {
             merge(endpointId, { agentIntegrations: summary });
         },

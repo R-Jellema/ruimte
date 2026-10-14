@@ -16,6 +16,7 @@ import {
     MessageSquare,
     Palette,
     Pencil,
+    Scaling,
     Shrink,
     Sparkles,
     Terminal,
@@ -50,6 +51,8 @@ import { useGroupWorktrees, useWorktreeOf } from '@/state/worktrees';
 import { useTransport } from '@/transport/context';
 import { ColorSwatch, DisabledReason, Icon, Tooltip, Kbd, ContextMenu } from '@adecore/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
+import { formatNodeSize, makeDefaultSize } from '@/canvas/default-size';
+import { keepsNodeSizes } from '@/state/node-size';
 
 /*
  * The context menu of one node, the same from its frame and from its row in the sidebar. `snooze`
@@ -70,6 +73,7 @@ export function NodeMenuPopup({ id, onRename, snooze }: { id: string; onRename()
     const chatProvider = useChatRow(id, (row) => row?.info.provider);
     const chatAccount = useChatRow(id, (row) => row?.info.account);
     const platform = useServer((s) => s.platform);
+    const keepsSizes = useServer(keepsNodeSizes);
     const providers = useProviders((s) => s.providers);
     const projectFolder = useProject((s) => s.current?.folder ?? null);
     const scratch = useProject((s) => isScratchProject(s.current));
@@ -88,6 +92,7 @@ export function NodeMenuPopup({ id, onRename, snooze }: { id: string; onRename()
     if (node.kind === 'unknown') {
         return <UnknownNodeMenuPopup id={id} onDelete={remove} />;
     }
+    const kind = node.kind;
     // The same CLI session can continue in the other kind of node, next to this one.
     const beside = { x: node.x + node.w + 40 + 260, y: node.y + node.h / 2 };
     // Any CLI the daemon has a chat backend for can go on in a chat node.
@@ -163,6 +168,13 @@ export function NodeMenuPopup({ id, onRename, snooze }: { id: string; onRename()
                 <ContextMenu.Item onClick={() => canvasStore.getState().toggleMaximizedNode(id)}>
                     <Icon icon={maximized ? Shrink : Expand} size={14} /> {t(maximized ? 'node.restore' : 'node.maximize')}{' '}
                     <Kbd shortcut={CANVAS_SHORTCUTS.maximizeCell} />
+                </ContextMenu.Item>
+            )}
+            {/* A collapsed group is only its header, which is no size to start a group at. */}
+            {keepsSizes && !(node.kind === 'group' && node.collapsed) && (
+                <ContextMenu.Item onClick={() => void makeDefaultSize(endpointId, kind, { w: node.w, h: node.h })}>
+                    <Icon icon={Scaling} size={14} /> {t('menu.makeDefaultSize')}
+                    <ContextMenu.Hint>{formatNodeSize(node)}</ContextMenu.Hint>
                 </ContextMenu.Item>
             )}
             <ContextMenu.Item onClick={() => canvasStore.getState().startLink(id)}>

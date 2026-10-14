@@ -1,10 +1,11 @@
 import { createNodeAction, createViewAction } from '@/actions/client-actions';
-import { canvasOfNode, NODE_SIZE, type CanvasNode } from '@/state/canvas';
+import { canvasOfNode, type CanvasNode } from '@/state/canvas';
+import { defaultNodeSize } from '@/state/node-size';
 import { windowWorkspace } from '@/state/window';
 
 /* The center of a browser opened from a terminal: 32px to its right, top edges aligned. */
 export function browserBeside(source: Pick<CanvasNode, 'x' | 'y' | 'w'>): { x: number; y: number } {
-    const size = NODE_SIZE.browser;
+    const size = defaultNodeSize('browser');
     return { x: source.x + source.w + 32 + size.w / 2, y: source.y + size.h / 2 };
 }
 

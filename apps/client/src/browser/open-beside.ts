@@ -1,6 +1,7 @@
 import { createNodeAction, createViewAction } from '@/actions/client-actions';
 import { browserRegistry } from '@/browser/registry';
-import { canvasOfNode, NODE_SIZE } from '@/state/canvas';
+import { canvasOfNode } from '@/state/canvas';
+import { defaultNodeSize } from '@/state/node-size';
 import { currentEndpointId, splitKey } from '@/state/keys';
 
 // The room between a page and the one a link opened beside it, the same step a duplicate takes.
@@ -24,7 +25,7 @@ export function openLinkBeside(url: string, webContentsId: number): void {
         void createViewAction('browser', { url, browserOwner });
         return;
     }
-    const size = NODE_SIZE.browser;
+    const size = defaultNodeSize('browser');
     void createNodeAction('browser', {
         viewId: canvas!.viewId!,
         url,

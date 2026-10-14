@@ -105,7 +105,8 @@
         "noteColor": "Kleur van de notitie",
         "color": "Kleur",
         "noAccent": "Geen",
-        "stopPrWatch": "Pull request niet meer volgen"
+        "stopPrWatch": "Pull request niet meer volgen",
+        "makeDefaultSize": "Maak dit de standaardgrootte"
     },
     "kinds": {
         "terminal": "Terminal",
@@ -283,5 +284,11 @@
     "gaps": {
         "adjust": "Pas afstand tussen {{from}} en {{to}} aan: {{value}}",
         "shared": "Pas gelijke afstanden aan: {{value}}"
+    },
+    "defaultSize": {
+        "saved": "{{kind}}-nodes beginnen nu op {{size}}",
+        "savedDescription": "Op {{machine}}, ook voor de nodes die agents daar toevoegen. Zet het terug in Instellingen, onder Weergaven.",
+        "failed": "De standaardgrootte van {{kind}}-nodes is niet veranderd",
+        "resetFailed": "De grootte van {{kind}}-nodes is niet teruggezet"
     }
 }

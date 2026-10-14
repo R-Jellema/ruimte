@@ -93,6 +93,7 @@ What a person sets for the machine lives in `endpoint.json`, next to the id and 
 | `broker` | The broker this machine announces itself to, or off. |
 | `lanDoor` | Whether the door on the local network is open. |
 | `worktreeRoot` | The folder new worktrees are made in; absent is `worktrees` in the data folder. Only the local secret sets it. |
+| `nodeSizes` | The size a new node of a kind starts at, by kind, for a person's nodes and an agent's (`node new`, `agent`, `team`, a fork) alike. Only the kinds a person changed are written; a missing kind takes its built-in size (`NODE_SIZE` in `packages/contracts`). Set and reset one kind at a time through `endpoint.setNodeSize`; no verb changes it. |
 
 Keep awake is the daemon's own (`src/power/keep-awake.ts`), so it holds with no window open and when a phone set it. On macOS it is a `caffeinate -w <daemon pid>` child, so a daemon that dies never leaves the Mac awake. Elsewhere `keepAwakeAvailable` is false and nothing is held.
 

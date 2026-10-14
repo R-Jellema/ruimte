@@ -1,23 +1,5 @@
 import { useState, type KeyboardEvent as ReactKeyboardEvent, type ReactElement, type ReactNode } from 'react';
-import {
-    AppWindow,
-    ChevronRight,
-    CircleQuestionMark,
-    FileText,
-    Globe,
-    LayoutGrid,
-    MessageSquare,
-    PanelTop,
-    Pencil,
-    PenTool,
-    StickyNote,
-    Smartphone,
-    Terminal,
-    Trash,
-    TriangleAlert,
-    Users,
-    Workflow
-} from 'lucide-react';
+import { AppWindow, ChevronRight, Globe, PanelTop, Pencil, Trash, TriangleAlert, Users } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { MAX_TITLE_LENGTH } from '@ruimte/actions';
@@ -53,21 +35,7 @@ import { useServers } from '@/state/server';
 import { useSidebarProjects } from '@/shell/sidebar-projects';
 import { openSidebarTarget } from '@/shell/sidebar-navigation';
 import { useUnsavedStoredPath } from '@/shell/panels/use-unsaved';
-
-/* Every kind a node on a canvas can be. A view row draws itself through `ViewGlyph`, which starts
-   from the icon a person picked and falls back to the same marks. */
-const ROW_ICON: Record<CanvasNodeKind, typeof Terminal> = {
-    terminal: Terminal,
-    chat: MessageSquare,
-    browser: Globe,
-    device: Smartphone,
-    group: LayoutGrid,
-    note: StickyNote,
-    drawing: PenTool,
-    diagram: Workflow,
-    file: FileText,
-    unknown: CircleQuestionMark
-};
+import { NODE_KIND_ICONS } from '@/canvas/node-icons';
 
 const ROW = 'w-full gap-2 text-left text-sm';
 
@@ -97,7 +65,7 @@ function RowIcon({ id, kind, provider, className }: { id: string; kind: CanvasNo
     if (provider && (kind === 'chat' || kind === 'terminal')) {
         return <AgentIcon kind={provider} size={14} className={className} />;
     }
-    return <Icon icon={ROW_ICON[kind]} size={14} className={className} />;
+    return <Icon icon={NODE_KIND_ICONS[kind]} size={14} className={className} />;
 }
 
 /* The whole text of a row that truncates it, on hover; a row with nothing more to say has no tooltip. */

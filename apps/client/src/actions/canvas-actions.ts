@@ -10,10 +10,11 @@ import { liesWithin, nearestFreeNodeRect } from '@/canvas/place-node';
 import { nodeDeletionFacts, saveNodeFiles, type ViewDeletionMachine } from '@/project/view-deletion';
 import { nodesOfView } from '@/project/view-nodes';
 import { basenameOf } from '@/shell/panels/files-tree';
-import { liveCanvas, NODE_SIZE, type AddNodeOptions, type CanvasState, type Locks, type NodeKind } from '@/state/canvas';
+import { liveCanvas, type AddNodeOptions, type CanvasState, type Locks, type NodeKind } from '@/state/canvas';
 import { liveDiagram } from '@/state/diagram';
 import type { DocumentState } from '@/state/document';
 import { liveDrawing } from '@/state/drawing';
+import { defaultNodeSize } from '@/state/node-size';
 import {
     agentFor,
     canvasNow,
@@ -50,7 +51,7 @@ function nodeToName(document: StoreApi<DocumentState>, viewId: string, nodeId: s
 
 function addNodeInFreeSpace(canvas: CanvasState, kind: NodeKind, options: AddNodeOptions): string | null {
     const visible = isMeasured(canvas.viewport) ? visibleRect(canvas.camera, canvas.viewport) : undefined;
-    const placed = nearestFreeNodeRect(Object.values(canvas.nodes), NODE_SIZE[kind], centerWorld(canvas), visible);
+    const placed = nearestFreeNodeRect(Object.values(canvas.nodes), defaultNodeSize(kind), centerWorld(canvas), visible);
     const id = canvas.addNode(kind, centerOf(placed), options);
     // With no free room in view it lands beside the rest, and the camera goes to it.
     if (id !== null && visible !== undefined && !liesWithin(visible, placed)) {

@@ -1,8 +1,8 @@
 import { isCanvasView, isSessionView, withNodeAsView, withNodeOnView, withViewAsNode, type SplitLayout } from '@ruimte/contracts';
 import { activateTab, closeTab, locateView, replaceViewId } from '@/shell/split';
-import { NODE_SIZE } from '@/state/canvas';
 import type { DocumentState } from '@/state/document';
 import { centerOfView, withRenamedNode, type DocumentKit } from '@/state/document-model';
+import { defaultNodeSize, machineNodeSizes } from '@/state/node-size';
 
 /*
  * A view that became a node leaves the grid with the list: the cell it stood in takes the canvas,
@@ -100,9 +100,9 @@ export function createDocumentNodesSlice({
             const state = get();
             const views = state.exportViews();
             const source = views.find((view) => view.id === viewId);
-            const size = source && isSessionView(source) ? NODE_SIZE[source.kind] : { w: 0, h: 0 };
+            const size = source && isSessionView(source) ? defaultNodeSize(source.kind) : { w: 0, h: 0 };
             const at = centerOfView(canvasViewId, state.viewLocal[canvasViewId], size, peers) ?? { x: 0, y: 0 };
-            const landed = withViewAsNode(views, viewId, canvasViewId, at);
+            const landed = withViewAsNode(views, viewId, canvasViewId, at, machineNodeSizes());
             if (landed === null) {
                 return false;
             }

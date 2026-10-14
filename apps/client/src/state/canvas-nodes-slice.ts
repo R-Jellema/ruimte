@@ -1,7 +1,8 @@
-import { DEFAULT_TITLES, NODE_SIZE, groupFrame, isUnknownNode } from '@ruimte/contracts';
+import { DEFAULT_TITLES, groupFrame, isUnknownNode } from '@ruimte/contracts';
 import { arrangeGroupMembers } from '@/canvas/arrange-group';
 import { snapToGrid } from '@/canvas/math';
 import type { CanvasState } from '@/state/canvas';
+import { defaultNodeSize } from '@/state/node-size';
 import { contains, GROUP_HEADER_PX, hiddenIn, membersOf, nextId, remember, type CanvasGet, type CanvasNode, type CanvasSet } from '@/state/canvas-model';
 
 /* Adding, changing, grouping and removing the nodes of the canvas. */
@@ -71,7 +72,7 @@ export function createCanvasNodesSlice(
                 return null;
             }
             const id = nextId(kind);
-            const size = NODE_SIZE[kind];
+            const size = defaultNodeSize(kind);
             // Made inside a group that is bound to a worktree, a node starts in that checkout.
             const host = Object.values(get().nodes)
                 .filter((node) => node.kind === 'group' && node.worktree && contains(node, at))

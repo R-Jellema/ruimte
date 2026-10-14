@@ -229,6 +229,10 @@ export function machineActions(overrides: Partial<MachineReach> = {}): ActionHan
             machine.adoptInfo(endpointId, answer);
             return { output: { endpointId, machine: answer.label } };
         },
+        'machine.setNodeSize': async ({ endpointId, kind, size }) => {
+            machine.adoptInfo(endpointId, await askOn(endpointId, (link) => link.request('endpoint.setNodeSize', { kind, size })));
+            return { output: { endpointId, kind, size } };
+        },
         'machine.revokeAccess': async ({ endpointId, sessionId }) => {
             await askOn(endpointId, (link) => link.request('auth.revoke', { id: sessionId }));
             return { output: { endpointId, sessionId } };

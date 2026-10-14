@@ -8,6 +8,8 @@ import { anyMachineShows } from '@/shell/settings/machine-switches';
 import { shortcutRowId, type ShortcutGroup } from '@/shell/settings/shortcuts';
 import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 import { hasLocalMachine } from '@/state/local-machine';
+import { keepsNodeSizes } from '@/state/node-size';
+import { useServers } from '@/state/server';
 import type { SettingsSectionId } from '@/state/ui';
 import { formatShortcut } from '@adecore/ui';
 
@@ -266,6 +268,13 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         description: 'settings:terminal.font.lineHeight.description'
     },
     { id: 'terminal.links', section: 'terminal', label: 'settings:terminal.links.label', description: 'settings:terminal.links.description' },
+    {
+        id: 'views.nodeSizes',
+        section: 'views',
+        label: 'settings:views.nodeSizes.searchLabel',
+        description: 'settings:views.nodeSizes.description',
+        available: () => Object.values(useServers.getState().byEndpoint).some(keepsNodeSizes)
+    },
     { id: 'views.drawing.snap', section: 'views', label: 'settings:views.drawing.snap.label', description: 'settings:views.drawing.snap.description' },
     {
         id: 'views.browser.swipe',

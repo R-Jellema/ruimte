@@ -21,7 +21,8 @@ import { filesOfView } from '@/project/view-deletion';
 import { nodesOfView } from '@/project/view-nodes';
 import { basenameOf, storedPathOf } from '@/shell/panels/files-tree';
 import { closeAfterSaving } from '@/shell/panels/unsaved-close';
-import { NODE_SIZE, focusedCanvas, liveCanvas } from '@/state/canvas';
+import { focusedCanvas, liveCanvas } from '@/state/canvas';
+import { defaultNodeSize } from '@/state/node-size';
 import { fileTabOf, isDatabaseTab, useFiles } from '@/state/files';
 import { currentEndpointId } from '@/state/keys';
 import { useDocument, viewOfNode } from '@/state/document';
@@ -93,7 +94,7 @@ export async function askAgentAboutDiagram(viewId: string): Promise<string | nul
     if (canvasViewId === null || !box) {
         return null;
     }
-    const at = { x: box.x - GRID * 4 - NODE_SIZE.chat.w / 2, y: box.y + box.h / 2 };
+    const at = { x: box.x - GRID * 4 - defaultNodeSize('chat').w / 2, y: box.y + box.h / 2 };
     const chat = await createNodeAction('chat', { viewId: canvasViewId, at });
     if (chat === null) {
         return null;

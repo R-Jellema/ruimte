@@ -35,6 +35,7 @@ import {
     DrawingFontSchema,
     DrawingStrokeStyleSchema,
     EndpointSetIdentityPayloadSchema,
+    EndpointSetNodeSizePayloadSchema,
     DRAWING_TEXT_SIZE_MAX,
     DRAWING_TEXT_SIZE_MIN,
     FS_GREP_MAX_RESULTS,
@@ -3591,6 +3592,17 @@ export const ACTION_DEFINITIONS = {
             endpointId: givenMachine
         }),
         output: z.object({ endpointId: z.string(), machine: z.string() })
+    },
+    'machine.setNodeSize': {
+        title: 'Set the default size of a node kind',
+        description:
+            'Sets the size new nodes of a kind take on a machine, the ones agents add included; null puts the kind back to its built-in size. Nodes already on a canvas keep theirs.',
+        effect: 'external',
+        domain: 'machine',
+        // What an agent's nodes look like on a machine is a person's call, so no verb changes it.
+        actors: PERSON,
+        input: EndpointSetNodeSizePayloadSchema.extend({ endpointId: givenMachine }),
+        output: EndpointSetNodeSizePayloadSchema.extend({ endpointId: z.string() })
     },
     'machine.revokeAccess': {
         title: 'Revoke access to a machine',
