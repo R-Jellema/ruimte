@@ -35,6 +35,7 @@ function HitRow({ hit, active, id, onHover, onRun }: { hit: ChatSearchHit; activ
             ref={ref}
             id={id}
             role="option"
+            tabIndex={-1}
             aria-selected={active}
             data-active={active}
             className="cursor-row flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm"
@@ -65,6 +66,7 @@ function ExternalRow({ session, active, id, onHover, onRun }: { session: ChatExt
             ref={ref}
             id={id}
             role="option"
+            tabIndex={-1}
             aria-selected={active}
             data-active={active}
             className="cursor-row flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm"

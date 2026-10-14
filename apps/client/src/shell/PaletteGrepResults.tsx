@@ -56,6 +56,7 @@ function GrepBlock({ match, active, onHover, onRun, id }: BlockProps) {
             ref={ref}
             id={id}
             role="option"
+            tabIndex={-1}
             aria-selected={active}
             data-active={active}
             className="cursor-row block w-full rounded-md px-2.5 py-1 text-left"

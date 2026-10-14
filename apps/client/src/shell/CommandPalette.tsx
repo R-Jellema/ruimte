@@ -156,7 +156,25 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                     {view.trailing}
                     {!browsing && <Kbd shortcut={KEY_SHORTCUTS.escape} variant="inline" />}
                 </div>
-                <div id={LIST_ID} className="max-h-[50vh] overflow-auto p-1.5" role="listbox" aria-label={t('palette.results')}>
+                {/* The field keeps the keys, and the highlight is only `aria-activedescendant`. Chromium reports
+                    that row as the focused element, so an assistive tool that focuses it before typing would
+                    otherwise pull the keys out of the field. */}
+                <div
+                    id={LIST_ID}
+                    className="max-h-[50vh] overflow-auto p-1.5"
+                    role="listbox"
+                    aria-label={t('palette.results')}
+                    onMouseDown={(e) => {
+                        if (isOption(e.target)) {
+                            e.preventDefault();
+                        }
+                    }}
+                    onFocus={(e) => {
+                        if (isOption(e.target)) {
+                            inputRef.current?.focus();
+                        }
+                    }}
+                >
                     <div aria-live="polite">{view.notes}</div>
                     {view.results}
                 </div>
@@ -164,4 +182,8 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
             </Dialog.Popup>
         </Dialog.Root>
     );
+}
+
+function isOption(target: EventTarget): boolean {
+    return target instanceof Element && target.closest('[role="option"]') !== null;
 }
