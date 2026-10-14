@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { groupFrame, ProjectCanvasViewSchema, type ProjectCanvasView } from '@ruimte/contracts';
+import { groupFrame, NodeKindSchema, ProjectCanvasViewSchema, ProjectNodeSchema, ProjectTextSchema, type ProjectCanvasView } from '@ruimte/contracts';
 import { toWorld } from '@/canvas/math';
 import { forgetCameraHistories } from '@/state/camera-history';
 import type { CanvasPatch } from '@/project/merge';
@@ -626,5 +626,32 @@ describe('the camera history of a view', () => {
             );
         second.getState().setCamera(moved);
         expect(second.getState().stepCamera(-1)).toBe(true);
+    });
+});
+
+describe('what an editor writes back', () => {
+    /* The daemon used to strip a key the schemas did not know, which hid a leak. Now it would reach the file. */
+    test('every key of a node or text made here is a field of the stored schemas', () => {
+        const store = createCanvasStore();
+        store.getState().loadView({ kind: 'canvas', id: 'view', name: 'Canvas', nodes: [], texts: [], edges: [], layouts: [] }, null);
+        const made = NodeKindSchema.options.map((kind) => store.getState().addNode(kind, { x: 0, y: 0 }));
+        store.getState().addText({ x: 0, y: 0 });
+        store.getState().select(made.filter((id): id is string => id !== null));
+        store.getState().groupSelection();
+        // The runtime status of a node is not stored, however it got there.
+        store.setState((state) => ({ nodes: { ...state.nodes, [made[0]!]: { ...state.nodes[made[0]!]!, status: 'idle' } } }));
+
+        const content = store.getState().exportContent();
+        expect(content.nodes.length).toBeGreaterThan(NodeKindSchema.options.length);
+        const nodeFields = Object.keys(ProjectNodeSchema.shape);
+        const textFields = Object.keys(ProjectTextSchema.shape);
+        for (const node of content.nodes) {
+            expect(Object.keys(node).filter((key) => !nodeFields.includes(key))).toEqual([]);
+        }
+        expect(content.texts).toHaveLength(1);
+        for (const text of content.texts) {
+            expect(Object.keys(text).filter((key) => !textFields.includes(key))).toEqual([]);
+        }
+        expect(Object.keys(content).filter((key) => !(key in ProjectCanvasViewSchema.shape))).toEqual([]);
     });
 });

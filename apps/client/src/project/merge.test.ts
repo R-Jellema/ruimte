@@ -160,6 +160,28 @@ describe('flags', () => {
     });
 });
 
+describe('a field this version does not know', () => {
+    // A key a newer Ruimte added, which the types do not carry but the runtime keeps.
+    const located = (patch: Record<string, unknown>): ProjectNode => node('a', patch as Partial<ProjectNode>);
+
+    test('theirs changes it while mine moves the node, and the result has both', () => {
+        const base = content([canvas('main', { nodes: [located({ location: { line: 3 } })] })]);
+        const mine = content([canvas('main', { nodes: [located({ location: { line: 3 }, x: 400 })] })]);
+        const theirs = content([canvas('main', { nodes: [located({ location: { line: 9 } })] })]);
+
+        const merge = mergeProject(base, mine, theirs);
+        expect(canvasOf(merge, 'main').nodes).toEqual([located({ location: { line: 9 }, x: 400 })]);
+    });
+
+    test('both sides changing it differently is a conflict', () => {
+        const base = content([canvas('main', { nodes: [located({ location: { line: 3 } })] })]);
+        const mine = content([canvas('main', { nodes: [located({ location: { line: 5 } })] })]);
+        const theirs = content([canvas('main', { nodes: [located({ location: { line: 9 } })] })]);
+
+        expect(mergeProject(base, mine, theirs)).toEqual({ ok: false, reason: 'the location of the node a changed both here and there' });
+    });
+});
+
 describe('what is a conflict', () => {
     test('both sides moving the same node', () => {
         const base = content([canvas('main', { nodes: [node('a')] })]);

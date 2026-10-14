@@ -18,6 +18,7 @@ import { useFiles } from '../state/files';
 import { useUi } from '../state/ui';
 import { createWorkspaceStores, defaultWorkspaceStores } from '../state/workspace';
 import type { WorkspaceStores } from '../state/workspace-stores';
+import { ProjectDocumentSchema } from '@ruimte/contracts';
 import type { StoreApi } from 'zustand';
 import { TransportError, type Transport, type TransportStatus } from '../transport/transport';
 import { PanelsPort } from './panels-port';
@@ -1228,6 +1229,113 @@ describe('a deleted view waiting on its undo', () => {
         await client.leave();
         const saved = transport.of('project.save').at(-1)?.payload as { content: ProjectContent };
         expect(saved.content.views.map((view) => view.id)).toEqual(['main']);
+        dispose();
+    });
+});
+
+describe('fields this version does not know', () => {
+    // Parsed the way the link hands a document over, so the keys only survive if the schemas keep them.
+    function newerViews(): ProjectDocument['views'] {
+        return ProjectDocumentSchema.parse({
+            ...document(3),
+            views: [
+                {
+                    kind: 'canvas',
+                    id: 'main',
+                    name: 'main',
+                    nodes: [
+                        { id: 'file', kind: 'file', title: 'File', x: 0, y: 0, w: 320, h: 200, path: 'a.ts', location: { line: 3 } },
+                        { id: 'other', kind: 'note', title: 'Other', x: 0, y: 300, w: 320, h: 200 }
+                    ],
+                    texts: [{ id: 'label', x: 0, y: 600, text: 'Note', size: 16, futureStyle: 'wavy' }],
+                    edges: [],
+                    layouts: []
+                },
+                { kind: 'chat', id: 'chat', name: 'Chat', node: { futureFlag: true } }
+            ]
+        }).views;
+    }
+
+    function newerDocument(rev: number, patch: { location?: unknown; futureKey?: unknown } = {}): ProjectDocument {
+        const views = newerViews().map((view) => {
+            if (view.kind !== 'canvas') {
+                return view;
+            }
+            return {
+                ...view,
+                nodes: view.nodes.map((each) => {
+                    if (each.id === 'file' && patch.location !== undefined) {
+                        return { ...each, location: patch.location };
+                    }
+                    return each.id === 'other' && patch.futureKey !== undefined ? { ...each, futureKey: patch.futureKey } : each;
+                })
+            };
+        });
+        return ProjectDocumentSchema.parse({ ...document(rev), views });
+    }
+
+    function savedViews(transport: FakeTransport): ProjectView[] {
+        return (transport.of('project.save').at(-1)!.payload as { content: ProjectContent }).content.views;
+    }
+
+    function expectNewerFields(views: readonly ProjectView[], location: unknown = { line: 3 }): void {
+        const main = views.find((view) => view.id === 'main') as ProjectCanvasView;
+        expect(main.nodes.find((each) => each.id === 'file')).toMatchObject({ location });
+        expect(main.texts[0]).toMatchObject({ futureStyle: 'wavy' });
+        expect(views.find((view) => view.id === 'chat')).toMatchObject({ node: { futureFlag: true } });
+    }
+
+    test('a drag of another node saves with all of them', async () => {
+        const { transport, dispose } = setup();
+        transport.views = newerViews();
+        await tick();
+        focusedCanvas().getState().updateNode('other', { body: 'edited' });
+        await tick(10);
+
+        expectNewerFields(savedViews(transport));
+        expect((savedViews(transport)[0] as ProjectCanvasView).nodes.find((each) => each.id === 'other')).toMatchObject({ body: 'edited' });
+        dispose();
+    });
+
+    test('a save refused on a stale rev is made again on the merge, and the merge takes what the other side added', async () => {
+        const { transport, state, dispose } = setup();
+        transport.views = newerViews();
+        await tick();
+        let release = (): void => undefined;
+        transport.holdSave = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        focusedCanvas().getState().updateNode('other', { body: 'edited' });
+        await tick(10);
+
+        transport.rev = 4;
+        transport.emit('project.changed', { projectId: 'p1', document: newerDocument(4, { location: { line: 9 }, futureKey: 'added' }) });
+        transport.holdSave = null;
+        release();
+        await tick(20);
+
+        const saves = transport.of('project.save').map((call) => (call.payload as { baseRev: number }).baseRev);
+        expect(saves).toEqual([3, 4]);
+        expect(state.conflict).toBeNull();
+        expectNewerFields(savedViews(transport), { line: 9 });
+        expect((savedViews(transport)[0] as ProjectCanvasView).nodes.find((each) => each.id === 'other')).toMatchObject({ body: 'edited', futureKey: 'added' });
+        dispose();
+    });
+
+    test('keeping mine after a conflict still sends them', async () => {
+        const { transport, state, client, dispose } = setup();
+        transport.views = newerViews();
+        await tick();
+        focusedCanvas().getState().updateNode('other', { body: 'edited' });
+        transport.rev = 12;
+        // A rename of the project is nothing a merge can take in, so this is the dialog.
+        transport.emit('project.changed', { projectId: 'p1', document: { ...newerDocument(12), name: 'renamed' } });
+        await tick(10);
+        expect(state.conflict?.rev).toBe(12);
+
+        await client.resolveConflict('mine');
+        expect(transport.of('project.save').at(-1)?.payload).toMatchObject({ baseRev: 12 });
+        expectNewerFields(savedViews(transport));
         dispose();
     });
 });
