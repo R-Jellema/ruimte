@@ -47,7 +47,7 @@ export function kindsIn(views: readonly ProjectView[], nodesOf: NodesOfView<Pick
     return new Set(views.flatMap((view) => [view.kind, ...nodesOf(view).map((node) => node.kind)]));
 }
 
-/* A machine from before `git.repos` still has the folder, which the git panel then shows as its one repository. */
+/* A question the machine cannot answer offers the repository tools anyway; each of them refuses by itself. */
 async function hasRepository(folder: string): Promise<boolean> {
     const transport = windowWorkspace()?.connection.transport ?? null;
     if (transport === null) {

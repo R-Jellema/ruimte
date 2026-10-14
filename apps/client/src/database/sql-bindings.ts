@@ -108,7 +108,7 @@ export function createSqlBindings(deps: SqlBindingsDeps): SqlBindingsModel {
         if (of === null) {
             return;
         }
-        // A machine from before SQL choices has no such request, and its files read against nothing.
+        // A failed ask leaves the files reading against nothing.
         const state = await of.transport.request('language.sql', { projectId: of.projectId }).catch(() => null);
         if (state !== null) {
             take(of, state);

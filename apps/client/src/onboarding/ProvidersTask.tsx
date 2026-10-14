@@ -29,7 +29,7 @@ async function checkAgain(): Promise<void> {
     }
     const [{ providers }, accounts] = await Promise.all([
         link.request('provider.list', {}),
-        // A machine from before accounts keeps none to ask about.
+        // The accounts are secondary: a refresh that fails keeps the providers.
         link.request('accounts.refresh', {}).catch(() => null)
     ]);
     useProvidersStore.getState().setProviders(LOCAL_ENDPOINT_ID, providers);

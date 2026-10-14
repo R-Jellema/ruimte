@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { GitRepo } from '@ruimte/contracts';
 import type { GitFile, GitStatus } from '@ruimte/contracts';
-import { headMoved, soleRepo, visibleRepos, withoutNestedRepos } from './git-repos.ts';
+import { headMoved, visibleRepos, withoutNestedRepos } from './git-repos.ts';
 
 function file(path: string, state: GitFile['state']): GitFile {
     return {
@@ -48,10 +48,6 @@ describe('which repositories the panel draws', () => {
 
     test('hiding every one of them leaves the panel with none, not with all', () => {
         expect(visibleRepos(repos, ['app', 'backend', 'frontend'])).toEqual([]);
-    });
-
-    test('a machine without the verb answers with the folder itself', () => {
-        expect(soleRepo('/work/app')).toEqual([{ path: '/work/app', label: 'app', kind: 'root' }]);
     });
 });
 

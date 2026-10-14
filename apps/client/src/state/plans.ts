@@ -182,7 +182,7 @@ export class PlanSync {
                 usePlans.getState().setMachinePlans(this.endpointId, plans);
             }
         } catch {
-            // A daemon from before plans does not know the request; it simply has none.
+            // A failed ask leaves the plans as they were; the next fresh link asks again.
         }
     }
 }

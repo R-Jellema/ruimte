@@ -33,7 +33,7 @@ export function UnsupportedFile({ path, name, read }: { path: string; name: stri
                 }
             >
                 {read.kind === 'too-large'
-                    ? t('file.tooLarge', { name, size: formatBytes(read.size), limit: formatBytes(textLimitFor(endpointId, read)) })
+                    ? t('file.tooLarge', { name, size: formatBytes(read.size), limit: formatBytes(textLimitFor(endpointId)) })
                     : t('file.cannotShow', { name, mime: read.mime, size: formatBytes(read.size) })}
             </EmptyState>
         </FileTextMenu>

@@ -5,26 +5,9 @@ type DiffKind = NonNullable<GitDiffFile['kind']>;
 
 const KIND_LETTERS: Record<DiffKind, string> = { add: 'A', update: 'M', delete: 'D' };
 
-/*
- * What a file of a commit went through. A daemon from before `kind` leaves it to the patch, whose
- * header says so above the first hunk; a file it left the patch out of says nothing then.
- */
+/* What a file of a commit went through, or null for a file whose answer carries no kind. */
 export function diffKindOf(file: GitDiffFile): DiffKind | null {
-    if (file.kind !== undefined) {
-        return file.kind;
-    }
-    if (file.diff === '') {
-        return null;
-    }
-    const start = file.diff.search(/^@@/m);
-    const header = start === -1 ? file.diff : file.diff.slice(0, start);
-    if (/^new file mode /m.test(header) || /^--- \/dev\/null$/m.test(header)) {
-        return 'add';
-    }
-    if (/^deleted file mode /m.test(header) || /^\+\+\+ \/dev\/null$/m.test(header)) {
-        return 'delete';
-    }
-    return 'update';
+    return file.kind ?? null;
 }
 
 /* A file's row after its name, the way a row of the git panel's changes reads. */

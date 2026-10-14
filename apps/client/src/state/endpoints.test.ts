@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { forgetTicket, rememberLocalSecret, rememberSecretForUrls, rememberTicket } from '@/endpoint/credentials';
+import { forgetTicket, rememberLocalSecret, rememberTicket } from '@/endpoint/credentials';
 import {
     LOCAL_ENDPOINT_ID,
     endpointForDaemon,
@@ -60,11 +60,6 @@ describe('endpoints', () => {
         expect(socketUrlFor(local)).toBe('ws://127.0.0.1:4211/ws?token=local-ticket');
         forgetTicket('local');
         rememberLocalSecret('local', null);
-
-        // A daemon from before the trade takes the secret or nothing.
-        rememberSecretForUrls('local', 'secret-1');
-        expect(socketUrlFor(local)).toBe('ws://127.0.0.1:4211/ws?token=secret-1');
-        rememberSecretForUrls('local', null);
         expect(socketUrlFor(local)).toBe('ws://127.0.0.1:4211/ws');
     });
 });

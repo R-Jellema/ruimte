@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { DesktopBridge } from '@/desktop/bridge';
 import { httpUrlFor } from '@/transport/machine-url';
 import { LOCAL_ENDPOINT_ID, useEndpoints, type Endpoint } from '@/state/endpoints';
-import { forgetTicket, rememberLocalSecret, rememberSecretForUrls, rememberTicket } from './credentials';
+import { forgetTicket, rememberLocalSecret, rememberTicket } from './credentials';
 import { socketAddressFor } from './handshake';
 
 const DAEMON_ID = 'daemon-xyz';
@@ -68,7 +68,6 @@ describe('the address of the local row', () => {
         scope.window = { ruimteDesktop: { localSecret: async () => SECRET } };
         headers = [];
         forgetTicket(LOCAL_ENDPOINT_ID);
-        rememberSecretForUrls(LOCAL_ENDPOINT_ID, null);
         useEndpoints.setState({ endpoints: [local], activeId: LOCAL_ENDPOINT_ID });
     });
 
@@ -100,16 +99,20 @@ describe('the address of the local row', () => {
         expect(await socketAddressFor(LOCAL_ENDPOINT_ID)).toBe('ws://127.0.0.1:4211/ws?token=local-ticket-2');
     });
 
-    test('a daemon from before the trade still gets the secret, and a refusal gets nothing new', async () => {
-        answer(() => new Response('<!doctype html>', { status: 200, headers: { 'content-type': 'text/html' } }));
-        expect(await socketAddressFor(LOCAL_ENDPOINT_ID)).toBe(`ws://127.0.0.1:4211/ws?token=${SECRET}`);
+    test('a failed trade never puts the secret in the URL, and leaves the last ticket', async () => {
+        answer(() => Response.json({ ticket: 'local-ticket-1', expiresIn: 1000 }));
+        expect(await socketAddressFor(LOCAL_ENDPOINT_ID)).toBe('ws://127.0.0.1:4211/ws?token=local-ticket-1');
 
-        rememberSecretForUrls(LOCAL_ENDPOINT_ID, null);
-        answer(() => new Response('Not found', { status: 404 }));
-        expect(await socketAddressFor(LOCAL_ENDPOINT_ID)).toBe(`ws://127.0.0.1:4211/ws?token=${SECRET}`);
+        for (const failure of [
+            () => new Response('<!doctype html>', { status: 200, headers: { 'content-type': 'text/html' } }),
+            () => new Response('Not found', { status: 404 }),
+            () => new Response('That is not the secret of this machine', { status: 401 })
+        ]) {
+            answer(failure);
+            expect(await socketAddressFor(LOCAL_ENDPOINT_ID)).toBe('ws://127.0.0.1:4211/ws?token=local-ticket-1');
+        }
 
-        rememberSecretForUrls(LOCAL_ENDPOINT_ID, null);
-        answer(() => new Response('That is not the secret of this machine', { status: 401 }));
+        forgetTicket(LOCAL_ENDPOINT_ID);
         expect(await socketAddressFor(LOCAL_ENDPOINT_ID)).toBe('ws://127.0.0.1:4211/ws');
     });
 });

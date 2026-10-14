@@ -215,7 +215,7 @@ export function createDatabaseConnections(deps: ConnectionsDeps): DatabaseConnec
             return;
         }
         handed = text;
-        // A machine from before agents read databases has no such request, and an agent there never asks.
+        // A failed hand-over leaves the agent without passwords; the next change of the list sends them again.
         await of.transport.request('database.passwords', { projectId: of.projectId, passwords: listed }).catch(() => undefined);
     };
 
@@ -226,7 +226,7 @@ export function createDatabaseConnections(deps: ConnectionsDeps): DatabaseConnec
                 store.setState({ agentAccess: answer.access });
             }
         } catch {
-            // The same older machine: agents there reach no database, which the dialog leaves unsaid.
+            // A failed ask leaves the dialog as it was.
         }
     };
 

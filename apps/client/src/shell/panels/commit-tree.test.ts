@@ -16,17 +16,8 @@ describe('what a file of a commit went through', () => {
         expect(diffKindOf(file('a.ts', { kind: 'delete', omitted: 'binary' }))).toBe('delete');
     });
 
-    test('a daemon from before it leaves the patch header to say so', () => {
-        expect(diffKindOf(file('a.ts', { diff: patch('new file mode 100644\n--- /dev/null\n+++ b/x') }))).toBe('add');
-        expect(diffKindOf(file('a.ts', { diff: patch('deleted file mode 100644\n--- a/x\n+++ /dev/null') }))).toBe('delete');
-        expect(diffKindOf(file('a.ts', { diff: patch('--- a/x\n+++ b/x') }))).toBe('update');
-    });
-
-    test('a line of the file that looks like a header changes nothing', () => {
-        expect(diffKindOf(file('a.ts', { diff: `--- a/x\n+++ b/x\n@@ -1 +1 @@\n-x\n+new file mode 100644\n` }))).toBe('update');
-    });
-
-    test('a file left out of the answer of such a daemon has no letter', () => {
+    test('a file with no kind has no letter, whatever its patch says', () => {
+        expect(diffKindOf(file('a.ts', { diff: patch('new file mode 100644\n--- /dev/null\n+++ b/x') }))).toBeNull();
         expect(diffKindOf(file('a.png', { omitted: 'binary' }))).toBeNull();
         expect(diffFileParts(file('a.png', { omitted: 'binary', added: 2 })).map((part) => part.text)).toEqual(['+2']);
     });

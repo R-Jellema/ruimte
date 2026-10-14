@@ -18,14 +18,14 @@ export function startComputerWatch(source: WatchablePool = pool): () => void {
             }
             language = next;
             if (useComputer.getState().statuses[endpointId]?.enabled) {
-                // A daemon from before this request keeps the words it has.
+                // A failed ask keeps the words the overlay has.
                 link.request('computer.setLanguage', { language: next }).catch(() => undefined);
             }
         };
         i18next.on('languageChanged', onLanguage);
         return {
             onOpen: () => {
-                // A daemon from before computer use does not know the requests; it simply has no cards and no status.
+                // A failed ask leaves the cards and the status as they were; the next open link asks again.
                 link.request('computer.approvals', {})
                     .then((result) => useComputer.getState().setApprovals(endpointId, result.approvals))
                     .catch(() => undefined);

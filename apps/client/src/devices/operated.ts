@@ -110,7 +110,7 @@ export function startDeviceOperatedWatch(source: WatchablePool = pool): () => vo
     return watchPool(
         (link, endpointId) => ({
             onOpen: () => {
-                // A daemon from before the strip does not know the request, and has no agent on a device to show.
+                // A failed ask leaves the strip as it was; the next open link asks again.
                 link.request('device.operations', {})
                     .then((result) => useDeviceOperated.getState().setAll(endpointId, result.devices))
                     .catch(() => undefined);

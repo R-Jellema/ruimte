@@ -21,7 +21,7 @@ export function startTaskWatch(): () => void {
                 }
                 const projectId = row.summary.projectId;
                 asked.add(projectId);
-                // A daemon from before tasks does not know the request; it simply has none.
+                // A failed ask leaves the tasks as they were; the next open link asks again.
                 link.request('task.list', { projectId })
                     .then((result) => useTasks.getState().setProjectTasks(endpointId, projectId, result.tasks))
                     .catch(() => undefined);

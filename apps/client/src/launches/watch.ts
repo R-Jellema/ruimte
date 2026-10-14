@@ -74,7 +74,7 @@ function announceFailure(endpointId: string, previous: LaunchStatus | undefined,
 export function startLaunchWatch(): () => void {
     const offPool = watchPool((link, endpointId) => ({
         onOpen: () => {
-            // A daemon from before launches does not know the request and simply runs none.
+            // A failed ask leaves the list as it was; the next open link asks again.
             link.request('launch.list', {})
                 .then((result) => useLaunches.getState().setList(endpointId, result.launches))
                 .catch(() => undefined);

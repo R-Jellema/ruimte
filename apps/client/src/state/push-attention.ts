@@ -9,7 +9,7 @@ export class PushAttentionSync {
     private readonly pending = new Set<string>();
     private readonly off: (() => void)[];
     private generation = 0;
-    // What the machine holds from before it said when marks start is left alone; null until it says, and for a machine that never does.
+    // What the machine holds from before its marks start is left alone; null until it says.
     private marksFrom: number | null = null;
     private disposed = false;
 
@@ -101,7 +101,7 @@ export class PushAttentionSync {
                 this.receive(entry);
             }
         } catch {
-            // Older daemons have no shared notification state yet.
+            // A failed ask leaves the marks as they were; the next fresh link asks again.
         }
     }
 }

@@ -7,14 +7,13 @@ import {
     isEventType,
     parseServerFrame,
     type BytesReadPayload,
-    type BytesReadResult,
     type EventMap,
     type EventType,
     type LiveFrameEvent,
     type RequestMap,
     type RequestType
 } from '@ruimte/contracts';
-import { decodeBase64, type BytesPiece } from './piece';
+import type { BytesPiece } from './piece';
 import { protocolGate } from './protocol';
 import { messageOf } from './signaling';
 import type { PooledTransport } from './pool';
@@ -83,7 +82,7 @@ interface Pending {
     type: RequestType;
     resolve(result: unknown): void;
     reject(error: TransportError): void;
-    // Asked by `readBytes`, which resolves with a `BytesPiece` whether the machine answers in binary or, from before those, in JSON.
+    // Asked by `readBytes`, which resolves with the `BytesPiece` of a binary reply; a JSON answer is no reply to it.
     bytes?: true;
     timer?: ReturnType<typeof setTimeout>;
 }
@@ -428,13 +427,8 @@ export class LinkTransport implements PooledTransport {
             return;
         }
         const result = REQUEST_SCHEMAS[entry.type].result.safeParse(frame.result);
-        if (!result.success) {
+        if (!result.success || entry.bytes) {
             entry.reject(new TransportError('bad-reply', i18next.t('machines:connection.badReply', { type: entry.type })));
-            return;
-        }
-        if (entry.bytes) {
-            const { data, ...header } = result.data as BytesReadResult;
-            entry.resolve({ ...header, bytes: decodeBase64(data) } satisfies BytesPiece);
             return;
         }
         entry.resolve(result.data);

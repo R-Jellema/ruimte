@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test';
-import { FS_READ_MAX_TEXT_BYTES, type FsReadText, type FsReadTooLarge } from '@ruimte/contracts';
+import type { FsReadText, FsReadTooLarge } from '@ruimte/contracts';
 import { useEndpoints, type Endpoint } from '@/state/endpoints';
 import { readLargeText, textLimitFor } from './large-text';
 
@@ -53,13 +53,7 @@ describe('text past the frame cap', () => {
     test('leaves a file of 16 MB on another machine too large, without fetching it', async () => {
         expect(await readLargeText(studio.id, '/repo/report.html', tooLarge(16 * MB), null)).toEqual(tooLarge(16 * MB));
         expect(fetched).toEqual([]);
-        expect(textLimitFor(studio.id, tooLarge(16 * MB))).toBe(8 * MB);
-    });
-
-    test('keeps a daemon that predates the route at its own cap', async () => {
-        const old: FsReadTooLarge = { kind: 'too-large', size: 3 * MB };
-        expect(await readLargeText(here.id, '/repo/report.html', old, null)).toEqual(old);
-        expect(textLimitFor(here.id, old)).toBe(FS_READ_MAX_TEXT_BYTES);
+        expect(textLimitFor(studio.id)).toBe(8 * MB);
     });
 
     test('takes bytes that are not UTF-8 as binary, never as lossy text', async () => {

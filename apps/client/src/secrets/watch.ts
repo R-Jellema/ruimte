@@ -10,7 +10,7 @@ export function startSecretWatch(source: WatchablePool = pool): () => void {
     return watchPool(
         (link, endpointId) => ({
             onOpen: () => {
-                // A daemon from before secrets does not know the request; it simply has no cards.
+                // A failed ask leaves the cards as they were; the next open link asks again.
                 link.request('secret.requests', {})
                     .then((result) => useSecrets.getState().setRequests(endpointId, result.requests))
                     .catch(() => undefined);

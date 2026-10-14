@@ -2,35 +2,29 @@ import i18next from 'i18next';
 import { AuthTicketResultSchema } from '@ruimte/contracts';
 import { desktop } from '@/desktop/bridge';
 import { LOCAL_ENDPOINT_ID, socketUrlFor, useEndpoints, type Endpoint } from '@/state/endpoints';
-import { forgetTicket, rememberLocalSecret, rememberSecretForUrls, rememberTicket } from './credentials';
+import { rememberLocalSecret, rememberTicket } from './credentials';
 
 /*
  * Trades the local secret for a ticket over the Authorization header, so the secret never sits in a
- * URL. A daemon from before the trade answers with its app shell or a 404; that one is sent the
- * secret in the URL as before. A refusal or a daemon that does not answer leaves the last ticket.
+ * URL. A refusal, an answer that is no ticket or a daemon that does not answer leaves the last ticket.
  */
 export async function tradeLocalSecret(endpoint: Endpoint, secret: string): Promise<void> {
     const response = await fetch(`${endpoint.httpBaseUrl}/auth/local-ticket`, {
         method: 'POST',
         headers: { authorization: `Bearer ${secret}` }
     }).catch(() => null);
-    if (response === null || (!response.ok && response.status !== 404)) {
+    if (response === null || !response.ok) {
         return;
     }
-    const ticket = AuthTicketResultSchema.safeParse(response.ok ? await response.json().catch(() => null) : null);
+    const ticket = AuthTicketResultSchema.safeParse(await response.json().catch(() => null));
     if (ticket.success) {
         rememberTicket(endpoint.id, ticket.data.ticket);
-        rememberSecretForUrls(endpoint.id, null);
-        return;
     }
-    forgetTicket(endpoint.id);
-    rememberSecretForUrls(endpoint.id, secret);
 }
 
 /*
  * Runs before every connection and reconnect, because a ticket opens one socket only. The URL carries
- * a ticket and not the local secret (except for a daemon from before the trade), so a leaked address
- * never opens a second socket. Only this machine's row has an address; every other one has a route.
+ * a ticket and never the local secret, so a leaked address never opens a second socket. Only this machine's row has an address; every other one has a route.
  */
 export async function socketAddressFor(endpointId: string): Promise<string> {
     const endpoint = useEndpoints.getState().endpoints.find((entry) => entry.id === endpointId);

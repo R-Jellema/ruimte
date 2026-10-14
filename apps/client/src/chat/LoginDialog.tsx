@@ -26,7 +26,6 @@ type Phase =
     | { kind: 'landed' }
     // The shell ended, or the connection did, which ends a login on the machine as well.
     | { kind: 'ended'; dropped: boolean }
-    // A machine from before `session.login`.
     | { kind: 'failed'; reason: string };
 
 function noop(): void {

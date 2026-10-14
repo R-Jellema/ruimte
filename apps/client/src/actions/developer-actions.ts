@@ -26,7 +26,7 @@ import { nodesInWorktree } from '@/shell/panels/worktree-rows';
 import { nodesOfView } from '@/project/view-nodes';
 import type { DocumentState } from '@/state/document';
 import { useGit } from '@/state/git';
-import { soleRepo, visibleRepos } from '@/state/git-repos';
+import { visibleRepos } from '@/state/git-repos';
 import { useProject } from '@/state/project';
 import { windowWorkspace } from '@/state/window';
 import { TransportError, type Transport } from '@/transport/transport';
@@ -157,13 +157,7 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
         }
     };
 
-    /* A machine from before `git.repos` still has the folder itself, which is what the panel shows then too. */
-    const allRepos = async (): Promise<GitRepo[]> => {
-        const folder = projectFolder();
-        return ask('git.repos', { folder })
-            .then((answer) => answer.repos)
-            .catch(() => soleRepo(folder));
-    };
+    const allRepos = async (): Promise<GitRepo[]> => (await ask('git.repos', { folder: projectFolder() })).repos;
 
     const shownRepos = async (): Promise<Checkout[]> => visibleRepos(await allRepos(), machine.hiddenRepos());
 

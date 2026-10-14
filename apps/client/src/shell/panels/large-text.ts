@@ -1,4 +1,4 @@
-import { BYTES_READ_MAX_BYTES, FS_READ_MAX_TEXT_BYTES, type FsReadResult, type FsReadText, type FsReadTooLarge } from '@ruimte/contracts';
+import { BYTES_READ_MAX_BYTES, type FsReadResult, type FsReadText, type FsReadTooLarge } from '@ruimte/contracts';
 import { endpointById } from '@/state/endpoints';
 import { readMachineFile } from '@/transport/machine-url';
 
@@ -8,11 +8,8 @@ const LOCAL_TEXT_MAX_BYTES = BYTES_READ_MAX_BYTES;
 // Another machine's file comes in pieces that never hold up a terminal, but over a slow line every megabyte is a wait.
 const REMOTE_TEXT_MAX_BYTES = 8 * 1024 * 1024;
 
-/* The largest text file this client opens from a machine. A daemon that leaves `mtime` off serves no text as bytes, so its own cap is the limit. */
-export function textLimitFor(endpointId: string, read: FsReadTooLarge): number {
-    if (read.mtime === undefined) {
-        return FS_READ_MAX_TEXT_BYTES;
-    }
+/* The largest text file this client opens from a machine. */
+export function textLimitFor(endpointId: string): number {
     return endpointById(endpointId)?.reachability === 'loopback' ? LOCAL_TEXT_MAX_BYTES : REMOTE_TEXT_MAX_BYTES;
 }
 
@@ -24,7 +21,7 @@ export function textLimitFor(endpointId: string, read: FsReadTooLarge): number {
  */
 export async function readLargeText(endpointId: string, path: string, read: FsReadTooLarge, previous: FsReadText | null): Promise<FsReadResult> {
     const { mtime, size } = read;
-    const limit = textLimitFor(endpointId, read);
+    const limit = textLimitFor(endpointId);
     if (mtime === undefined || size > limit) {
         return read;
     }

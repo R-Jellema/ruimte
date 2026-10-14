@@ -81,14 +81,14 @@ describe('LinkTransport', () => {
         expect(await read).toEqual({ ...piece, bytes: new Uint8Array([7, 8, 9]) });
     });
 
-    test('readBytes takes base64 in JSON from a machine that sends no binary replies', async () => {
+    test('readBytes rejects a JSON answer, since a machine answers a binary request in binary', async () => {
         const { transport, links } = setup();
         await tick();
         open(links[0]!);
         const read = transport.readBytes({ resource, offset: 0, length: 3 });
         const { id } = JSON.parse(links[0]!.sent[0]!) as { id: string };
         links[0]!.events.message(JSON.stringify({ id, ok: true, result: { ...piece, data: Buffer.from([7, 8, 9]).toString('base64') } }));
-        expect(await read).toEqual({ ...piece, bytes: new Uint8Array([7, 8, 9]) });
+        await expect(read).rejects.toMatchObject({ code: 'bad-reply' });
     });
 
     test('a binary reply to a request that did not ask for one is dropped', async () => {

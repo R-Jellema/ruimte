@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import i18next from 'i18next';
 import type { GitRepo, GitRepoKind, GitStatus } from '@ruimte/contracts';
-import { basenameOf } from '@/shell/panels/files-tree';
 import { GIT_PANEL_PACE_MS, paced, type Pace } from '@/shell/panels/pace';
 import { watchGit } from '@/state/git-watch';
 import { endpointKey, useEndpointId } from '@/state/keys';
@@ -54,11 +53,6 @@ const BLANK: Entry = { status: null, failure: null, revision: 0 };
 
 // One object for "nothing read yet", so the lists below are not rebuilt on a render that changed nothing.
 const NOTHING: Record<string, Entry> = {};
-
-/* The project folder as the only repository, which is what a machine without `git.repos` answers to. */
-export function soleRepo(folder: string): GitRepo[] {
-    return [{ path: folder, label: basenameOf(folder), kind: 'root' }];
-}
 
 /* The repositories the panel draws: the ones a person hid are out, by the label they were hidden under. */
 export function visibleRepos(repos: readonly GitRepo[], hidden: readonly string[]): GitRepo[] {
@@ -121,10 +115,10 @@ export function useProjectRepos(folder: string | null): ProjectRepos {
                     setList({ key, repos: answer.repos, truncated: answer.truncated });
                 }
             })
-            // A machine from before this verb still has the folder itself, which is what the panel used to show.
+            // A failed ask draws no repository; the refresh button asks again.
             .catch(() => {
                 if (!cancelled) {
-                    setList({ key, repos: soleRepo(folder), truncated: false });
+                    setList({ key, repos: [], truncated: false });
                 }
             });
         return () => {

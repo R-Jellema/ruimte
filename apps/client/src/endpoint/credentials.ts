@@ -25,8 +25,7 @@ export function rekeyTicket(oldId: string, newId: string): void {
 /*
  * The local secret the desktop shell read from the daemon's home, for the row of the daemon that
  * served this page. It lives in memory only, like a ticket, and is asked for again on every connection.
- * It is traded for a ticket over a header or proved on a direct channel; only a daemon from before
- * the trade gets it in a URL (`secretsForUrls`).
+ * It is traded for a ticket over a header or proved on a direct channel, and never goes in a URL.
  */
 const localSecrets = new Map<string, string>();
 
@@ -43,18 +42,7 @@ export function localSecretOf(endpointId: string): string | null {
     return localSecrets.get(endpointId) ?? null;
 }
 
-/* The local secret of a daemon from before the ticket trade, which takes nothing else in a URL. A newer daemon gets a ticket instead. */
-const secretsForUrls = new Map<string, string>();
-
-export function rememberSecretForUrls(endpointId: string, secret: string | null): void {
-    if (secret === null) {
-        secretsForUrls.delete(endpointId);
-        return;
-    }
-    secretsForUrls.set(endpointId, secret);
-}
-
 /* What goes in the `token` query of a socket URL or of a URL an `<img>` fetches, the name the daemon reads it under. */
 export function credentialFor(endpoint: { id: string }): string | null {
-    return tickets.get(endpoint.id) ?? secretsForUrls.get(endpoint.id) ?? null;
+    return tickets.get(endpoint.id) ?? null;
 }
