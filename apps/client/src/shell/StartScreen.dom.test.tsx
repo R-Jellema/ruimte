@@ -64,8 +64,18 @@ afterEach(async () => {
 describe('the start screen of an app that runs no machine', () => {
     test('signed out it leads with signing in, says it is about this app, and opens no folder', () => {
         expect(text()).toContain('Sign in to open the machines on your account from this app.');
-        expect(button('Open folder')?.disabled).toBe(true);
         expect(text()).not.toContain('This machine');
+    });
+
+    test('the same window with a machine of its own does not wait for the account', async () => {
+        const waiting = button('Open folder')?.disabled;
+        await page.unmount();
+        scope.window.ruimteDesktop = { ...bridge, machine: { mode: 'local' } };
+        page = mount();
+        await page.renderApp();
+        expect(waiting).toBe(true);
+        expect(button('Open folder')?.disabled).toBe(false);
+        expect(text()).not.toContain('from this app');
     });
 
     test('signed in it lists the machines of the account and no row for this computer', async () => {

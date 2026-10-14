@@ -238,6 +238,14 @@ describe('following the window', () => {
         expect(place.written).toEqual(['["local:a","local:b","local:c"]']);
     });
 
+    test('leaves out the tabs of this computer when the app runs no machine, and keeps the rest', async () => {
+        scope.window = { ruimteDesktop: { platform: 'darwin', machine: { mode: 'none' } } };
+        const shell = fakeShell();
+        await start(memoryPlace('["local:a","m1:b","local:c","m2:d"]'), shell);
+        expect(useWindowTabs.getState().tabs).toEqual(tabs(['m1:b', 'm2:d'], null));
+        expect(shell.held[0]).toEqual(['m1:b', 'm2:d']);
+    });
+
     test('does nothing while the switcher is chosen, and lets go when it is chosen again', () => {
         useSettings.setState({ projectNavigation: 'switcher' });
         stop = startWindowTabs({
