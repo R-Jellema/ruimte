@@ -18,3 +18,12 @@ export function listedEndpoints<T extends Pick<Endpoint, 'id'>>(endpoints: reado
 export function isRealMachine(endpointId: string, local: boolean = hasLocalMachine()): boolean {
     return local || endpointId !== LOCAL_ENDPOINT_ID;
 }
+
+/*
+ * The machine a start screen keeps a link to: this machine on the desktop, a socket on loopback, so
+ * its projects read as they stand. Every other machine is a channel over the broker and connects
+ * only when it is used.
+ */
+export function startScreenMachine<T extends Pick<Endpoint, 'id'>>(endpoints: readonly T[], local: boolean = hasLocalMachine()): T | null {
+    return local ? (endpoints.find((endpoint) => endpoint.id === LOCAL_ENDPOINT_ID) ?? null) : null;
+}

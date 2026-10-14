@@ -25,13 +25,13 @@ import { useMachineIcon } from '@/shell/settings/machine-icon';
 import { mergeMachines, nameOf, type MachineEntry } from '@/shell/settings/machine-list';
 import { stationBoot } from '@/station';
 import { useEndpoints } from '@/state/endpoints';
-import { hasLocalMachine } from '@/state/local-machine';
+import { hasLocalMachine, startScreenMachine } from '@/state/local-machine';
 import { useProjectList } from '@/state/project-list';
 import { canShowReleaseNotes, openReleaseNotes } from '@/state/release-notes';
 import { useUi } from '@/state/ui';
 import { useUpdates } from '@/state/updates';
 import { useWindow, type BootFailure } from '@/state/window';
-import { useEndpointConnection, useOpenEndpoints } from '@/transport/status';
+import { useEndpointConnection, useMachineHold, useOpenEndpoints } from '@/transport/status';
 import { BrandIntro } from '@/ui/Brand';
 import { Button, ErrorBoundary, Icon, Kbd, SectionLabel, Tile, ContextMenu } from '@adecore/ui';
 
@@ -216,6 +216,7 @@ function StartContent() {
     const failure = useWindow((s) => s.bootFailure);
     const [dialog, setDialog] = useState<'add' | 'link' | null>(null);
     const offersChat = useOffersNewChat();
+    useMachineHold(useEndpoints((s) => startScreenMachine(s.endpoints)));
 
     const station = !hasLocalMachine();
     const boot = stationBoot({ station, accountStatus, machines: accountMachines });

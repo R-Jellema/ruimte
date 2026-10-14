@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { isRealMachine, listedEndpoints } from './local-machine';
+import { isRealMachine, listedEndpoints, startScreenMachine } from './local-machine';
 
 const rows = [{ id: 'local' }, { id: 'studio' }, { id: 'attic' }];
 
@@ -16,5 +16,16 @@ describe('the machine that served the page', () => {
         expect(isRealMachine('local', false)).toBe(false);
         expect(isRealMachine('studio', false)).toBe(true);
         expect(isRealMachine('local', true)).toBe(true);
+    });
+});
+
+describe('the start screen', () => {
+    test('keeps a link to this machine on the desktop, so its projects do not read as not connected', () => {
+        expect(startScreenMachine(rows, true)).toEqual({ id: 'local' });
+    });
+
+    test('keeps no link on the web client, and none to another machine', () => {
+        expect(startScreenMachine(rows, false)).toBeNull();
+        expect(startScreenMachine([{ id: 'studio' }], true)).toBeNull();
     });
 });

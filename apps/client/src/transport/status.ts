@@ -47,8 +47,9 @@ export function useEndpointConnection(endpointId: string): ConnectionState {
 
 /*
  * Keeps one machine's link up for as long as this is on screen, opening it when there is none. Only
- * for a surface that is an explicit look at that machine (its detail in settings): a list, a dot or a page about
- * every machine never holds, or opening settings would connect to all of them.
+ * for a surface that is an explicit look at that machine (its detail in settings) or the start screen's
+ * hold on this machine: a list, a dot or a page about every machine never holds, or opening settings
+ * would connect to all of them.
  */
 export function useMachineHold(endpoint: Endpoint | null): void {
     useEffect(() => (endpoint === null ? undefined : pool.hold(endpoint)), [endpoint]);
