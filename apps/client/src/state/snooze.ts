@@ -8,18 +8,12 @@ import { isConnectionError, type Transport } from '@/transport/transport';
 /*
  * A node that needs you, put aside for a while. It leaves every count and every notification until
  * its time runs out. The machine keeps it (`snooze.set`), so every client and a phone's push alerts
- * share it; it never reaches `project.json`. A machine from before that answers `unknown-request`,
- * and its snoozes stay in this client's storage as they always did. The store only ever holds
- * snoozes that still stand: the clock below takes each out as it runs out, so a render reads
- * presence and never the time.
+ * share it; it never reaches `project.json`. The store only ever holds snoozes that still stand:
+ * the clock below takes each out as it runs out, so a render reads presence and never the time.
  */
 
-const storedSnoozes = storedJson(
-    'ruimte.snoozes',
-    z
-        .record(z.string(), z.unknown())
-        .transform((stored) => Object.fromEntries(Object.entries(stored).filter((entry): entry is [string, number] => typeof entry[1] === 'number')))
-);
+// Snoozes used to be kept in this client for a machine that could not keep them; the key is cleared once so it does not sit in storage.
+storedJson('ruimte.snoozes', z.unknown()).remove();
 
 /* Keyed with `endpointKey`, each the moment the snooze runs out, epoch ms. */
 export type Snoozes = Readonly<Record<string, number>>;
@@ -73,77 +67,33 @@ export function withoutExpired(snoozes: Snoozes, now: number): Snoozes {
     return kept.length === Object.keys(snoozes).length ? snoozes : Object.fromEntries(kept);
 }
 
-/*
- * Which snoozes end early because their node stopped needing you, and which snoozed nodes have been
- * seen waiting. Only a node seen waiting under its snooze can stop: after a reload a terminal reads as
- * running until its agent reports again, and that is not a person having answered.
- */
-export function observeWaiting(
-    snoozes: Snoozes,
-    waiting: ReadonlySet<string>,
-    observed: ReadonlyMap<string, boolean>
-): { waiting: Set<string>; forget: string[] } {
-    const next = new Set([...waiting].filter((key) => snoozes[key] !== undefined));
-    const forget: string[] = [];
-    for (const [key, needsYou] of observed) {
-        if (snoozes[key] === undefined) {
-            continue;
-        }
-        if (needsYou) {
-            next.add(key);
-        } else if (next.has(key)) {
-            next.delete(key);
-            forget.push(key);
-        }
-    }
-    return { waiting: next, forget };
-}
-
 /* Snoozes set for a machine while the link to it was down, by key, until the machine has them. */
 const unsent = new Set<string>();
 
-/* Only what this client keeps itself; a machine's own snoozes come back from the machine. */
-function write(byKey: Snoozes, onMachine: OnMachine): void {
-    const kept = Object.entries(byKey).filter(([key]) => onMachine[splitKey(key).endpointId] !== true || unsent.has(key));
-    storedSnoozes.write(Object.fromEntries(kept));
-}
-
-/* The machines that keep the snoozes themselves, by endpoint id. */
-type OnMachine = Readonly<Record<string, true>>;
-
 interface SnoozeStore {
     byKey: Snoozes;
-    onMachine: OnMachine;
     snooze(endpointId: string, nodeId: string, until: number): void;
     unsnooze(endpointId: string, nodeId: string): void;
-    /* Every snooze a machine holds, which makes it the one that keeps them from now on. */
+    /* Every snooze a machine holds. */
     receive(endpointId: string, snoozes: readonly Pick<Snooze, 'nodeId' | 'until'>[]): void;
-    /* Needs you or not, per key, for the nodes whose status is known right now. */
-    observe(observed: ReadonlyMap<string, boolean>): void;
     prune(now: number): void;
     forget(endpointId: string): void;
 }
 
-/* Not state anything draws, so a pass that only notes a node waiting renders nothing. */
-let waiting: ReadonlySet<string> = new Set<string>();
-
-/* The link to each machine that keeps snoozes, which is where a change on that machine is sent. */
+/* The link to each machine, which is where a change on that machine is sent. */
 const machines = new Map<string, SnoozeSync>();
 
 export const useSnoozes = create<SnoozeStore>((set, get) => {
-    const put = (byKey: Snoozes, onMachine: OnMachine = get().onMachine): void => {
-        if (byKey !== get().byKey || onMachine !== get().onMachine) {
-            set({ byKey, onMachine });
-            write(byKey, onMachine);
+    const put = (byKey: Snoozes): void => {
+        if (byKey !== get().byKey) {
+            set({ byKey });
         }
     };
-    const kept = (endpointId: string): SnoozeSync | null => (get().onMachine[endpointId] === true ? (machines.get(endpointId) ?? null) : null);
     return {
-        byKey: withoutExpired(storedSnoozes.read() ?? {}, Date.now()),
-        onMachine: {},
+        byKey: {},
         snooze(endpointId, nodeId, until) {
             put({ ...get().byKey, [endpointKey(endpointId, nodeId)]: until });
-            kept(endpointId)?.set(nodeId, until);
+            machines.get(endpointId)?.set(nodeId, until);
         },
         unsnooze(endpointId, nodeId) {
             const key = endpointKey(endpointId, nodeId);
@@ -151,47 +101,33 @@ export const useSnoozes = create<SnoozeStore>((set, get) => {
                 const { [key]: _gone, ...byKey } = get().byKey;
                 put(byKey);
             }
-            kept(endpointId)?.clear(nodeId);
+            machines.get(endpointId)?.clear(nodeId);
         },
         receive(endpointId, snoozes) {
             const byKey: Record<string, number> = dropEndpoint(get().byKey, endpointId);
             for (const { nodeId, until } of snoozes) {
                 byKey[endpointKey(endpointId, nodeId)] = until;
             }
-            put(byKey, get().onMachine[endpointId] === true ? get().onMachine : { ...get().onMachine, [endpointId]: true });
-        },
-        observe(observed) {
-            // A machine that keeps the snoozes ends them itself when their node stops waiting.
-            const onMachine = get().onMachine;
-            const local = new Map([...observed].filter(([key]) => onMachine[splitKey(key).endpointId] !== true));
-            const result = observeWaiting(get().byKey, waiting, local);
-            waiting = result.waiting;
-            if (result.forget.length > 0) {
-                put(Object.fromEntries(Object.entries(get().byKey).filter(([key]) => !result.forget.includes(key))));
-            }
+            put(byKey);
         },
         prune(now) {
             put(withoutExpired(get().byKey, now));
         },
         forget(endpointId) {
-            const { [endpointId]: _gone, ...onMachine } = get().onMachine;
-            put(dropEndpoint(get().byKey, endpointId), onMachine);
+            put(dropEndpoint(get().byKey, endpointId));
         }
     };
 });
 
 /*
  * One machine's side of the snoozes: the list it holds on every fresh link, and every change after.
- * What this client kept itself for a machine that turns out to keep them goes over once and leaves
- * the storage, and so does a snooze set or ended while the link was down, once it is back.
+ * A snooze set or ended while the link was down goes over once it is back.
  */
 export class SnoozeSync {
     private readonly endpointId: string;
     private readonly transport: Transport;
     private readonly off: (() => void)[];
     private generation = 0;
-    /* A change heard before the first list would take the machine over before what this client kept went across. */
-    private listed = false;
     /* Nodes whose snooze a person ended while the link was down. */
     private readonly unsentClears = new Set<string>();
 
@@ -199,11 +135,7 @@ export class SnoozeSync {
         this.endpointId = endpointId;
         this.transport = transport;
         this.off = [
-            transport.on('snooze.changed', ({ snoozes }) => {
-                if (this.listed) {
-                    useSnoozes.getState().receive(endpointId, snoozes);
-                }
-            }),
+            transport.on('snooze.changed', ({ snoozes }) => useSnoozes.getState().receive(endpointId, snoozes)),
             transport.subscribeStatus((status) => {
                 this.generation++;
                 if (status === 'open') {
@@ -251,11 +183,8 @@ export class SnoozeSync {
         this.off.forEach((off) => off());
     }
 
-    /* Kept in this client's storage too, so a reload before the link is back does not lose it. */
     private hold(key: string): void {
         unsent.add(key);
-        const { byKey, onMachine } = useSnoozes.getState();
-        write(byKey, onMachine);
     }
 
     private async refresh(): Promise<void> {
@@ -265,10 +194,8 @@ export class SnoozeSync {
             if (generation !== this.generation) {
                 return;
             }
-            this.listed = true;
             const state = useSnoozes.getState();
-            const onMachine = state.onMachine[this.endpointId] === true;
-            const mine = Object.entries(state.byKey).filter(([key]) => isOfEndpoint(key, this.endpointId) && (!onMachine || unsent.has(key)));
+            const mine = Object.entries(state.byKey).filter(([key]) => isOfEndpoint(key, this.endpointId) && unsent.has(key));
             for (const key of [...unsent].filter((entry) => isOfEndpoint(entry, this.endpointId))) {
                 unsent.delete(key);
             }
@@ -288,7 +215,7 @@ export class SnoozeSync {
             }
             this.unsentClears.clear();
         } catch {
-            // A machine from before answers `unknown-request`, so this client goes on keeping its snoozes; a link that went asks again once it is back.
+            // A link that went asks again once it is back.
         }
     }
 }

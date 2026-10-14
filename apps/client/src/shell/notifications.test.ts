@@ -88,7 +88,7 @@ test('a snooze that runs out announces the wait again, one a person ended does n
     let now = 1_000_000;
     let stopNotifications = () => {};
     try {
-        useSnoozes.setState({ byKey: {}, onMachine: {} });
+        useSnoozes.setState({ byKey: {} });
         useDocument
             .getState()
             .load(
@@ -110,7 +110,7 @@ test('a snooze that runs out announces the wait again, one a person ended does n
     } finally {
         stopNotifications();
         useSessions.getState().forget(key);
-        useSnoozes.setState({ byKey: {}, onMachine: {} });
+        useSnoozes.setState({ byKey: {} });
         useDocument.getState().load(null, null);
         for (const [key, descriptor] of originals) {
             if (descriptor) {

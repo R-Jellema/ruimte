@@ -8,7 +8,6 @@ import {
     readableNodes,
     seenNodes,
     settledSince,
-    snoozeObservations,
     visibleNodes,
     type AttentionPass
 } from '@/state/attention';
@@ -228,13 +227,5 @@ describe('the counts', () => {
     test('a snooze on another machine leaves this node counted', () => {
         const groups = groupAttention(nodes, { 'local:t1': session(agent('needs-you')) }, {}, 'local', {}, { 'Xk3p:t1': 2_000 });
         expect(groups.needsYou).toEqual(['t1']);
-    });
-
-    test('what a snooze learns of a node is whether it needs you, and nothing for a node with no status yet', () => {
-        const observed = snoozeObservations(nodes, { 'local:t1': session(agent('needs-you')), 'local:t2': session(agent('running')) }, {}, 'local');
-        expect([...observed]).toEqual([
-            ['local:t1', true],
-            ['local:t2', false]
-        ]);
     });
 });

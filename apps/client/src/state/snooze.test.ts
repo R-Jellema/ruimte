@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import type { EventMap, EventType, RequestMap, RequestType, Snooze } from '@ruimte/contracts';
-import { TransportError, type Transport, type TransportStatus } from '@/transport/transport';
-import { isSnoozed, MAX_TICK_MS, snoozeOf, nextWake, observeWaiting, snoozeUntil, startSnoozeClock, useSnoozes, watchSnoozes, withoutExpired } from './snooze';
+import type { Transport, TransportStatus } from '@/transport/transport';
+import { isSnoozed, MAX_TICK_MS, snoozeOf, nextWake, snoozeUntil, startSnoozeClock, useSnoozes, watchSnoozes, withoutExpired } from './snooze';
 
 function at(year: number, month: number, day: number, hour: number, minute = 0): number {
     return new Date(year, month - 1, day, hour, minute).getTime();
@@ -54,31 +54,6 @@ describe('whether a node is snoozed', () => {
     });
 });
 
-describe('a snooze that ends early', () => {
-    const snoozes = { 'local:t1': 10_000 };
-
-    test('ends once the node was seen waiting and then stops', () => {
-        const first = observeWaiting(snoozes, new Set(), new Map([['local:t1', true]]));
-        expect(first.forget).toEqual([]);
-        const second = observeWaiting(snoozes, first.waiting, new Map([['local:t1', false]]));
-        expect(second.forget).toEqual(['local:t1']);
-        expect(second.waiting.has('local:t1')).toBe(false);
-    });
-
-    test('stays while the node was never seen waiting, as right after a reload', () => {
-        expect(observeWaiting(snoozes, new Set(), new Map([['local:t1', false]])).forget).toEqual([]);
-    });
-
-    test('a node nobody snoozed is not remembered', () => {
-        expect(observeWaiting(snoozes, new Set(), new Map([['local:t2', true]])).waiting.size).toBe(0);
-    });
-
-    test('a node that is not observed keeps its snooze', () => {
-        const first = observeWaiting(snoozes, new Set(), new Map([['local:t1', true]]));
-        expect(observeWaiting(snoozes, first.waiting, new Map()).forget).toEqual([]);
-    });
-});
-
 describe('the snooze clock', () => {
     let now = 0;
     let stop: () => void = () => {};
@@ -86,7 +61,7 @@ describe('the snooze clock', () => {
     beforeEach(() => {
         jest.useFakeTimers();
         now = 0;
-        useSnoozes.setState({ byKey: {}, onMachine: {} });
+        useSnoozes.setState({ byKey: {} });
     });
 
     afterEach(() => {
@@ -128,16 +103,11 @@ describe('the snooze clock', () => {
 class FakeTransport implements Transport {
     status: TransportStatus = 'closed';
     held: Snooze[] = [];
-    /* A machine from before snoozes reached it. */
-    older = false;
     readonly sent: { type: RequestType; payload: unknown }[] = [];
     private readonly handlers = new Map<string, Set<(payload: unknown) => void>>();
     private readonly statusHandlers = new Set<(status: TransportStatus) => void>();
 
     request<T extends RequestType>(type: T, payload: RequestMap[T]['payload']): Promise<RequestMap[T]['result']> {
-        if (this.older) {
-            return Promise.reject(new TransportError('unknown-request', `Unknown request type: ${type}`));
-        }
         this.sent.push({ type, payload });
         if (type === 'snooze.list') {
             return Promise.resolve({ snoozes: this.held } as RequestMap[T]['result']);
@@ -178,26 +148,15 @@ function settle(): Promise<void> {
 describe('snoozes a machine keeps', () => {
     let transport: FakeTransport;
     let stop: () => void = () => {};
-    let stored: Map<string, string>;
-    const before = globalThis.localStorage;
     const later = Date.now() + 3_600_000;
-    const storedSnoozes = (): unknown => JSON.parse(stored.get('ruimte.snoozes') ?? '{}');
 
     beforeEach(() => {
         transport = new FakeTransport();
-        stored = new Map();
-        globalThis.localStorage = {
-            getItem: (key: string) => stored.get(key) ?? null,
-            setItem: (key: string, value: string) => {
-                stored.set(key, value);
-            }
-        } as Storage;
-        useSnoozes.setState({ byKey: {}, onMachine: {} });
+        useSnoozes.setState({ byKey: {} });
     });
 
     afterEach(() => {
         stop();
-        globalThis.localStorage = before;
     });
 
     test('come from the machine and follow its changes', async () => {
@@ -210,7 +169,7 @@ describe('snoozes a machine keeps', () => {
         expect(useSnoozes.getState().byKey).toEqual({ 'Xk3p:t2': later });
     });
 
-    test('a snooze set or ended here is sent to the machine and kept out of this client storage', async () => {
+    test('a snooze set or ended here is sent to the machine', async () => {
         stop = watchSnoozes('Xk3p', transport);
         transport.open();
         await settle();
@@ -222,25 +181,9 @@ describe('snoozes a machine keeps', () => {
             { type: 'snooze.clear', payload: { nodeId: 't1' } },
             { type: 'snooze.set', payload: { nodeId: 't2', until: later } }
         ]);
-        expect(storedSnoozes()).toEqual({});
     });
 
-    test('what this client kept before goes to the machine once and leaves the storage', async () => {
-        useSnoozes.getState().snooze('Xk3p', 't1', later);
-        useSnoozes.getState().snooze('local', 't9', later);
-        transport.held = [];
-        stop = watchSnoozes('Xk3p', transport);
-        transport.open();
-        await settle();
-        expect(transport.sent.filter((request) => request.type === 'snooze.set')).toEqual([{ type: 'snooze.set', payload: { nodeId: 't1', until: later } }]);
-        expect(useSnoozes.getState().byKey).toEqual({ 'Xk3p:t1': later, 'local:t9': later });
-        expect(storedSnoozes()).toEqual({ 'local:t9': later });
-        transport.open();
-        await settle();
-        expect(transport.sent.filter((request) => request.type === 'snooze.set')).toHaveLength(1);
-    });
-
-    test('a snooze set while the link is down is kept here and goes over once it is back', async () => {
+    test('a snooze set while the link is down is held here and goes over once it is back', async () => {
         transport.held = [{ projectId: 'p1', nodeId: 't3', until: later }];
         stop = watchSnoozes('Xk3p', transport);
         transport.open();
@@ -251,44 +194,11 @@ describe('snoozes a machine keeps', () => {
         useSnoozes.getState().snooze('Xk3p', 't2', Date.now() - 1);
         useSnoozes.getState().unsnooze('Xk3p', 't3');
         expect(transport.sent.filter((request) => request.type !== 'snooze.list')).toEqual([]);
-        expect(storedSnoozes()).toEqual({ 'Xk3p:t1': later, 'Xk3p:t2': expect.any(Number) });
         transport.open();
         await settle();
         expect(transport.sent.filter((request) => request.type !== 'snooze.list')).toEqual([
             { type: 'snooze.set', payload: { nodeId: 't1', until: later } },
             { type: 'snooze.clear', payload: { nodeId: 't3' } }
         ]);
-        expect(storedSnoozes()).toEqual({});
-    });
-
-    test('a machine from before keeps them in this client, as always', async () => {
-        transport.older = true;
-        stop = watchSnoozes('Xk3p', transport);
-        transport.open();
-        await settle();
-        useSnoozes.getState().snooze('Xk3p', 't1', later);
-        expect(useSnoozes.getState().onMachine).toEqual({});
-        expect(storedSnoozes()).toEqual({ 'Xk3p:t1': later });
-    });
-
-    test('only a snooze this client keeps ends here when its node stops waiting', async () => {
-        stop = watchSnoozes('Xk3p', transport);
-        transport.open();
-        await settle();
-        useSnoozes.getState().snooze('Xk3p', 't1', later);
-        useSnoozes.getState().snooze('local', 't1', later);
-        useSnoozes.getState().observe(
-            new Map([
-                ['Xk3p:t1', true],
-                ['local:t1', true]
-            ])
-        );
-        useSnoozes.getState().observe(
-            new Map([
-                ['Xk3p:t1', false],
-                ['local:t1', false]
-            ])
-        );
-        expect(useSnoozes.getState().byKey).toEqual({ 'Xk3p:t1': later });
     });
 });

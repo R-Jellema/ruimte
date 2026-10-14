@@ -200,18 +200,6 @@ export function useUnseen(nodeId: string): boolean {
     return useAttention((s) => isUnseen(s.unseen, endpointId, nodeId));
 }
 
-/* Whether each node needs you, keyed for the snoozes; a node with no status yet says nothing either way. */
-export function snoozeObservations(nodes: readonly StatusOf[], sessions: SessionsByKey, chats: ChatStatuses, endpointId: string): Map<string, boolean> {
-    const observed = new Map<string, boolean>();
-    for (const node of nodes) {
-        const status = nodeStatus(node, sessions, chats, endpointId);
-        if (status !== undefined) {
-            observed.set(endpointKey(endpointId, node.id), status === 'needs-you');
-        }
-    }
-    return observed;
-}
-
 /*
  * Keeps the marks, the counts and what the shell is told in step with the stores the hooks write
  * into. Every pass counts the project from scratch, so a subscription that misses a change only ever
@@ -250,8 +238,6 @@ export function startAttentionWatch(): () => void {
             told = line;
             desktop()?.setAgentActivity?.(activity);
         }
-        // Last, since a snooze it ends runs this pass again, and that one has to start from this one's `previous`.
-        useSnoozes.getState().observe(snoozeObservations(nodes, sessions, chats, endpointId));
     };
 
     /*
