@@ -94,6 +94,7 @@ jobs:
       - run: bun run test:dom
 
   integration:
+    name: integration (macOS)
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -101,11 +102,34 @@ jobs:
       - run: bun run test:integration --suite core
 
   packaged:
+    name: packaged (macOS)
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Release tags can restore main's cache, but cannot restore another tag's cache.
       - uses: ./.github/actions/cache-native-builds
+      - uses: ./.github/actions/install
+      - run: bun run test:package
+
+  integration-linux:
+    name: integration (Linux)
+    runs-on: ubuntu-latest
+    # Until its first runs are understood; a later step makes it required.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The shell tests start /bin/zsh, which the runner image does not promise.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh
+      - uses: ./.github/actions/install
+      - run: bun run test:integration --suite core
+
+  # The release's own Linux runner, so the compiled daemon is proven on the glibc floor it claims.
+  packaged-linux:
+    name: packaged (Linux)
+    runs-on: ubuntu-22.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/install
       - run: bun run test:package
 
