@@ -1229,7 +1229,29 @@
             "short": "Toevoegen"
         },
         "listLabel": "Account en machines",
-        "failed": "De instellingen van het account konden niet worden getekend"
+        "failed": "De instellingen van het account konden niet worden getekend",
+        "thisComputer": {
+            "row": "Deze computer",
+            "none": "Hier draait geen machine",
+            "foundRow": "Hier draait een machine, niet verbonden",
+            "subtitle": "Ruimte verbindt alleen met de machines op je account.",
+            "setUp": {
+                "label": "Een machine op deze computer draaien",
+                "description": "Projecten, terminals en agents draaien hier, bereikbaar vanaf je andere clients. Ruimte start opnieuw om hem in te stellen.",
+                "action": "Instellen"
+            },
+            "use": {
+                "label": "De machine op deze computer gebruiken",
+                "description": "Hier draait al een machine, buiten deze app. Ruimte maakt er na een herstart verbinding mee.",
+                "action": "Deze machine gebruiken"
+            },
+            "confirm": {
+                "title": "Ruimte opnieuw starten om hier een machine te draaien?",
+                "description": "Alle vensters sluiten en openen opnieuw. Agents op je andere machines werken door.",
+                "action": "Opnieuw starten",
+                "unavailable": "Ruimte kon niet opnieuw starten om een machine in te stellen."
+            }
+        }
     },
     "nav": {
         "groups": {

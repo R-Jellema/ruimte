@@ -1,6 +1,6 @@
 import i18next from 'i18next';
 import { RENDERED_DOC_COMMENTS } from '@/features';
-import { canSwipeBetweenPages, desktop } from '@/desktop/bridge';
+import { canSwipeBetweenPages, desktop, isDesktop } from '@/desktop/bridge';
 import { closedLidOffered, keepAwakeAvailable } from '@/state/keep-awake';
 import { ALL_SETTINGS_SECTIONS, sectionDescription, sectionLabel } from '@/shell/settings/sections';
 import { FOLDING_GROUPS } from '@/shell/settings/folding-rows';
@@ -400,6 +400,13 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
     },
     // On the account row of the Account pane.
     { id: 'machines.signIn', section: 'machines', label: 'settings:machines.account.title', description: 'settings:machines.account.description' },
+    {
+        id: 'machines.thisComputer',
+        section: 'machines',
+        label: 'settings:machines.thisComputer.setUp.label',
+        description: 'settings:machines.thisComputer.setUp.description',
+        available: () => isDesktop() && !hasLocalMachine()
+    },
     { id: 'machines.add', section: 'machines', label: 'settings:machines.add.title', description: 'settings:machines.add.description' },
     // On the detail of a machine this client opened: the one picked, else this machine.
     {

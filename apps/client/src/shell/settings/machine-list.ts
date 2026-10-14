@@ -69,15 +69,18 @@ export function nameOf(entry: MachineEntry): string {
     return entry.endpoint?.label ?? entry.machine?.name ?? entry.id;
 }
 
-/* What the Account pane shows: the account row, or one machine by its id. */
-export type MachinePick = { kind: 'account' } | { kind: 'machine'; id: string };
+/* What the Account pane shows: the account row, one machine by its id, or what this computer offers while its app runs no machine. */
+export type MachinePick = { kind: 'account' } | { kind: 'machine'; id: string } | { kind: 'this-computer' };
 
 /*
  * What was picked while it is still in the list, else this machine, else the account. Never another
  * machine by itself: its detail holds a link to it, and opening settings must not reach out to one.
  */
-export function currentPick(picked: MachinePick | null, entries: readonly MachineEntry[]): MachinePick {
-    if (picked?.kind === 'account' || (picked !== null && entries.some((entry) => entry.id === picked.id))) {
+export function currentPick(picked: MachinePick | null, entries: readonly MachineEntry[], offersThisComputer = false): MachinePick {
+    if (picked?.kind === 'account' || (picked?.kind === 'this-computer' && offersThisComputer)) {
+        return picked;
+    }
+    if (picked?.kind === 'machine' && entries.some((entry) => entry.id === picked.id)) {
         return picked;
     }
     const local = entries.find((entry) => entry.local);
@@ -92,6 +95,9 @@ export function currentPick(picked: MachinePick | null, entries: readonly Machin
 export function pickForTarget(target: string, entries: readonly MachineEntry[], picked: MachineEntry | null): MachinePick | null {
     if (target === 'machines.signIn' || target === 'machines.add') {
         return { kind: 'account' };
+    }
+    if (target === 'machines.thisComputer') {
+        return { kind: 'this-computer' };
     }
     if (!target.startsWith('machines.machine.')) {
         return null;

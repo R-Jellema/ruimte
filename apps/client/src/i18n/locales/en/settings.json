@@ -1229,7 +1229,29 @@
             "short": "Add"
         },
         "listLabel": "Account and machines",
-        "failed": "The account settings failed to render"
+        "failed": "The account settings failed to render",
+        "thisComputer": {
+            "row": "This computer",
+            "none": "No machine runs here",
+            "foundRow": "A machine runs here, not connected",
+            "subtitle": "Ruimte only connects to the machines on your account.",
+            "setUp": {
+                "label": "Run a machine on this computer",
+                "description": "Projects, terminals and agents run here, reachable from your other clients. Ruimte restarts to set it up.",
+                "action": "Set up"
+            },
+            "use": {
+                "label": "Use the machine on this computer",
+                "description": "A machine already runs here, outside this app. Ruimte connects to it after a restart.",
+                "action": "Use this machine"
+            },
+            "confirm": {
+                "title": "Restart Ruimte to run a machine here?",
+                "description": "Every window closes and opens again. Agents on your other machines keep working.",
+                "action": "Restart",
+                "unavailable": "Ruimte could not restart to set up a machine."
+            }
+        }
     },
     "nav": {
         "groups": {

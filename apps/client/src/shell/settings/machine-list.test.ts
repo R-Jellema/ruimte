@@ -97,7 +97,14 @@ describe('what the Account pane shows', () => {
         expect(currentPick({ kind: 'account' }, entries)).toEqual({ kind: 'account' });
     });
 
+    test('keeps the pick of this computer only while it is offered', () => {
+        expect(currentPick({ kind: 'this-computer' }, remoteOnly, true)).toEqual({ kind: 'this-computer' });
+        expect(currentPick({ kind: 'this-computer' }, remoteOnly, false)).toEqual({ kind: 'account' });
+        expect(currentPick(null, remoteOnly, true)).toEqual({ kind: 'account' });
+    });
+
     test('a search result lands on the account, on this machine, or on the machine picked', () => {
+        expect(pickForTarget('machines.thisComputer', remoteOnly, null)).toEqual({ kind: 'this-computer' });
         const studio = entries[1]!;
         const attic = entries[2]!;
         expect(pickForTarget('machines.add', entries, studio)).toEqual({ kind: 'account' });

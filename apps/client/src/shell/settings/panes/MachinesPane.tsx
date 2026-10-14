@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Laptop, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { isDesktop } from '@/desktop/bridge';
 import { usePulsarAccount } from '@/pulsar/account';
 import { accountName } from '@/pulsar/account-name';
 import { forgetAccountMachines, refreshAccountMachines, usePulsarMachines } from '@/pulsar/machines';
@@ -11,6 +12,8 @@ import { MachineDetail } from '@/shell/settings/MachineDetail';
 import { MachineListItem } from '@/shell/settings/MachineListItem';
 import { currentPick, mergeMachines, pickForTarget, type MachinePick } from '@/shell/settings/machine-list';
 import { RuimteAccountDetail } from '@/shell/settings/RuimteAccountDetail';
+import { ThisComputerDetail } from '@/shell/settings/ThisComputerDetail';
+import { useMachineFound } from '@/shell/settings/use-machine-found';
 import { useEndpoints } from '@/state/endpoints';
 import { hasLocalMachine } from '@/state/local-machine';
 import { useUi } from '@/state/ui';
@@ -41,7 +44,10 @@ export function MachinesPane() {
 
     const signedIn = status === 'signed-in';
     const entries = mergeMachines({ endpoints, accountMachines: signedIn ? machines : null, showLocal: hasLocalMachine() });
-    const current = currentPick(picked, entries);
+    // An app that runs no machine of its own offers to run one, or to use the one it finds.
+    const offersThisComputer = isDesktop() && !hasLocalMachine();
+    const found = useMachineFound(offersThisComputer);
+    const current = currentPick(picked, entries, offersThisComputer);
     const currentEntry = current.kind === 'machine' ? (entries.find((entry) => entry.id === current.id) ?? null) : null;
 
     const [seenTarget, setSeenTarget] = useState<string | null>(null);
@@ -68,6 +74,17 @@ export function MachinesPane() {
                     )}
                 </span>
             </MasterItem>
+            {offersThisComputer && (
+                <MasterItem selected={current.kind === 'this-computer'} onSelect={() => setPicked({ kind: 'this-computer' })} className="mt-1 min-h-14">
+                    <span className="grid size-7.5 shrink-0 place-items-center rounded-lg bg-surface-hover">
+                        <Icon icon={Laptop} size={16} className="text-text-muted" />
+                    </span>
+                    <span className="flex min-w-0 grow flex-col">
+                        <span className="truncate text-sm text-text">{t('machines.thisComputer.row')}</span>
+                        <span className="truncate text-xs text-text-muted">{t(found ? 'machines.thisComputer.foundRow' : 'machines.thisComputer.none')}</span>
+                    </span>
+                </MasterItem>
+            )}
             <div className="mt-2 flex min-w-0 shrink-0 items-center gap-2 border-t border-border pt-2.5 pl-3">
                 <SectionLabel className="grow">{t('machines.title')}</SectionLabel>
                 <Button size="sm" onClick={addMachine}>
@@ -111,7 +128,13 @@ export function MachinesPane() {
             detail={
                 <ErrorBoundary label={t('machines.failed')} resetKeys={[current.kind, currentEntry?.id]}>
                     <div className="flex min-w-0 flex-col gap-7">
-                        {currentEntry !== null ? <MachineDetail key={currentEntry.id} entry={currentEntry} /> : <RuimteAccountDetail />}
+                        {current.kind === 'this-computer' ? (
+                            <ThisComputerDetail found={found} />
+                        ) : currentEntry !== null ? (
+                            <MachineDetail key={currentEntry.id} entry={currentEntry} />
+                        ) : (
+                            <RuimteAccountDetail />
+                        )}
                     </div>
                 </ErrorBoundary>
             }
