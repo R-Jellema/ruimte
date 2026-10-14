@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { desktop } from '@/desktop/bridge';
 import { leaveWorkspace, showStart } from '@/transport/connections';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import { useProjectSwitch } from '@/project/open';
 import { describeLastSeen } from '@/shell/connection-info';
-import { machineLost } from '@/shell/machine-lost';
+import { machineLost, offersMachineRestart } from '@/shell/machine-lost';
 import { StatusCard } from '@/shell/ProjectSwitchScreen';
 import { useMachineEntry } from '@/shell/use-machine-entry';
 import { useMachineIcon } from '@/shell/settings/machine-icon';
@@ -12,6 +14,7 @@ import { useEndpointId } from '@/state/keys';
 import { pool } from '@/transport';
 import { useEndpointConnection, useLastSeenAt } from '@/transport/status';
 import { Button, useNow } from '@adecore/ui';
+import { ConfirmDialog } from '@adecore/ui/settings';
 
 const MINUTE_MS = 60_000;
 
@@ -21,7 +24,7 @@ const MINUTE_MS = 60_000;
  * is back. Opening another project is a choice a person makes here, never something that happens.
  */
 export function MachineLostScreen() {
-    const { t } = useTranslation(['shell', 'common']);
+    const { t } = useTranslation(['shell', 'common', 'settings']);
     const endpointId = useEndpointId();
     const connection = useEndpointConnection(endpointId);
     const switching = useProjectSwitch((s) => s.kind !== 'idle');
@@ -29,6 +32,7 @@ export function MachineLostScreen() {
     const icon = useMachineIcon(entry);
     const lastSeen = useLastSeenAt(endpointId);
     const now = useNow(MINUTE_MS);
+    const [confirming, setConfirming] = useState(false);
 
     // A switch has a screen of its own, which says more about the same wait.
     if (switching || !machineLost(connection)) {
@@ -36,6 +40,7 @@ export function MachineLostScreen() {
     }
     const seen = describeLastSeen(lastSeen, now);
     const retrying = connection.status === 'connecting';
+    const service = desktop()?.backgroundService ?? null;
     return (
         <div className="absolute inset-0 z-10 grid place-items-center bg-surface" role="status" aria-live="polite">
             <StatusCard
@@ -57,6 +62,24 @@ export function MachineLostScreen() {
                 <Button size="sm" variant="primary" disabled={retrying} onClick={() => pool.reconnect(endpointId)}>
                     {t('common:action.retry')}
                 </Button>
+                {offersMachineRestart(endpointId, connection, service) && (
+                    <Button size="sm" variant="secondary" onClick={() => setConfirming(true)}>
+                        {t('machineLost.restart')}
+                    </Button>
+                )}
+                <ConfirmDialog
+                    open={confirming}
+                    onOpenChange={setConfirming}
+                    title={t('settings:backgroundService.confirmRestart.title')}
+                    description={t('settings:backgroundService.confirmRestart.description')}
+                    confirmLabel={t('settings:backgroundService.confirmRestart.action')}
+                    onConfirm={async () => {
+                        const next = await service?.restartNow?.();
+                        if (next?.failure) {
+                            throw new Error(next.failure);
+                        }
+                    }}
+                />
             </StatusCard>
         </div>
     );

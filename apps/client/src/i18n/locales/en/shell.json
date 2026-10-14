@@ -66,7 +66,8 @@
     "machineLost": {
         "retrying": "Trying to reach the machine again…",
         "silent": "This machine is not answering.",
-        "openAnother": "Open another project"
+        "openAnother": "Open another project",
+        "restart": "Restart this machine"
     },
     "signIn": {
         "signInWith": "Sign in with {{provider}}",

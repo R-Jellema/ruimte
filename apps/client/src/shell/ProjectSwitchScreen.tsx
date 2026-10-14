@@ -63,7 +63,7 @@ export function StatusCard({ glyph, title, meta, line, failed, icon, children }:
                 />
                 <span>{line}</span>
             </p>
-            {children && <div className="mt-2 flex items-center gap-2">{children}</div>}
+            {children && <div className="mt-2 flex flex-wrap items-center justify-center gap-2">{children}</div>}
         </div>
     );
 }
