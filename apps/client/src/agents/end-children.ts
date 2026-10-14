@@ -7,7 +7,7 @@ export interface PendingEnd {
     /* What a delete or a stop names in its title; stopping a turn with its sub-agents has a title of its own. */
     what?: string;
     agents: number;
-    /* A stop keeps the node where it is; without one the question is about a delete. */
+    /* A stop and a clear keep the node where it is; without an action the question is about a delete. */
     action?: 'delete' | 'stop' | 'stop-subagents' | 'clear';
     worktrees?: { folder: string; worktrees: readonly Worktree[] };
     run(): void;
