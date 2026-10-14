@@ -1013,6 +1013,12 @@
             "notTerminal": "Geen terminal",
             "notTerminalLabel": "{{app}} is geen terminal",
             "notTerminalHint": "Een agent vraagt er weer om. Draait de app een shell, dan telt die weer als terminal."
+        },
+        "thisMac": {
+            "label": "Computer Use toestaan op deze Mac",
+            "description": "Vraagt een machine op deze computer. Agents bedienen de apps van de computer waarop hun machine draait.",
+            "reason": "Op deze computer draait geen machine",
+            "setUp": "Machine instellen…"
         }
     },
     "identity": {

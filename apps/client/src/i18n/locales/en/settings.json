@@ -1013,6 +1013,12 @@
             "notTerminal": "Not a terminal",
             "notTerminalLabel": "{{app}} is not a terminal",
             "notTerminalHint": "An agent asks for it again. If it runs a shell, it counts as a terminal again."
+        },
+        "thisMac": {
+            "label": "Allow computer use on this Mac",
+            "description": "Needs a machine on this computer. Agents operate the apps of the computer their machine runs on.",
+            "reason": "No machine runs on this computer",
+            "setUp": "Set up a machine…"
         }
     },
     "identity": {

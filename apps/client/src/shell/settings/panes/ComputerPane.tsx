@@ -1,15 +1,18 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ComputerGrant } from '@ruimte/contracts';
 import { canSwitch, showsGrants, type ComputerSetup } from '@/computer/setup';
 import { GrantRows, SetupLine } from '@/computer/ComputerSetupRows';
 import { useComputerMachine } from '@/computer/use-computer-machine';
+import { desktop, isDesktop } from '@/desktop/bridge';
 import { SettingsRow } from '@adecore/ui/settings';
 import { Switch, Button, ErrorBoundary, FormError } from '@adecore/ui';
+import { SetUpMachineDialog } from '@/shell/settings/SetUpMachineDialog';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
+import { WithReason } from '@/shell/settings/MachineSettings';
 import { ComputerAppGrants } from '@/shell/settings/panes/ComputerAppGrants';
 import { LOCAL_ENDPOINT_ID, useEndpoints, type Endpoint } from '@/state/endpoints';
-import { listedEndpoints } from '@/state/local-machine';
+import { hasLocalMachine, listedEndpoints } from '@/state/local-machine';
 
 export function ComputerPane() {
     const { t } = useTranslation('settings');
@@ -28,12 +31,41 @@ function ComputerSection() {
         ...endpoints.filter((endpoint) => endpoint.id === LOCAL_ENDPOINT_ID),
         ...endpoints.filter((endpoint) => endpoint.id !== LOCAL_ENDPOINT_ID)
     ];
+    // Computer use acts on the computer its machine runs on, so a Mac whose app runs none has nothing to switch on.
+    const thisMac = isDesktop() && !hasLocalMachine() && desktop()?.platform === 'darwin';
     return (
         <>
+            {thisMac && <ThisMacUnavailable />}
             {ordered.map((endpoint, index) => (
-                <ComputerMachine key={endpoint.id} endpoint={endpoint} first={index === 0} />
+                <ComputerMachine key={endpoint.id} endpoint={endpoint} first={index === 0 && !thisMac} />
             ))}
         </>
+    );
+}
+
+function ThisMacUnavailable() {
+    const { t } = useTranslation('settings');
+    const [confirming, setConfirming] = useState(false);
+    return (
+        <SettingsSection>
+            <SettingsRow
+                searchId="computer.enable"
+                muted
+                label={t('computer.thisMac.label')}
+                description={t('computer.thisMac.description')}
+                control={
+                    <span className="flex items-center gap-2">
+                        <Button variant="secondary" onClick={() => setConfirming(true)}>
+                            {t('computer.thisMac.setUp')}
+                        </Button>
+                        <WithReason reason={t('computer.thisMac.reason')}>
+                            <Switch checked={false} disabled label={t('computer.thisMac.label')} onCheckedChange={() => undefined} />
+                        </WithReason>
+                    </span>
+                }
+            />
+            <SetUpMachineDialog open={confirming} onOpenChange={setConfirming} />
+        </SettingsSection>
     );
 }
 
