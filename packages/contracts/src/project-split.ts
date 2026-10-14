@@ -5,6 +5,7 @@ import {
     EMPTY_PRIVATE_FILE,
     PROJECT_PRIVATE_VERSION,
     PROJECT_VERSION,
+    ProjectNodeSchema,
     isCanvasView,
     isDividerView,
     type NodeKind,
@@ -29,9 +30,25 @@ const OVERLAY_FIELDS = ['resume', 'account', 'runtimeMode', 'worktree'] as const
 // One machine's only when they name a place outside the project folder.
 const PATH_FIELDS = ['cwd', 'path'] as const;
 
+// Every key this version has a field for. A key outside it that sits in the overlay is a newer Ruimte's private field.
+const KNOWN_CARRIER_KEYS: ReadonlySet<string> = new Set([...Object.keys(ProjectNodeSchema.shape), 'title', 'name']);
+
 type CarrierOverlay = Omit<ProjectNodeOverlay, 'title' | 'name'>;
 
 type Carrier = { [K in keyof CarrierOverlay]?: CarrierOverlay[K] };
+
+function privateFieldsAmong(fields: Iterable<string>): string[] {
+    return [...new Set(fields)].filter((field) => !KNOWN_CARRIER_KEYS.has(field)).sort();
+}
+
+/*
+ * The fields of a node that are one person's although this version has no field for them: the ones the
+ * private file declares, and every one found in the overlay. Known keys are filtered out of both, so a
+ * newer Ruimte cannot turn a field this version relies on private.
+ */
+export function privateFieldsOf(file: ProjectPrivateFile): string[] {
+    return privateFieldsAmong([...(file.overlayFields ?? []), ...Object.values(file.overlay).flatMap((entry) => Object.keys(entry))]);
+}
 
 // Either separator, so it holds on both kinds of machine.
 function climbsOut(path: string): boolean {
@@ -53,11 +70,17 @@ function isPortablePath(path: string): boolean {
     return !isAbsolutePath(path) && !climbsOut(path);
 }
 
-function overlayOfCarrier(carrier: Carrier): CarrierOverlay | null {
+function overlayOfCarrier(carrier: Carrier, privateFields: readonly string[]): CarrierOverlay | null {
     const overlay: CarrierOverlay = {};
     for (const field of OVERLAY_FIELDS) {
         if (carrier[field] !== undefined) {
             overlay[field] = carrier[field] as never;
+        }
+    }
+    for (const field of privateFields) {
+        const value = (carrier as Record<string, unknown>)[field];
+        if (value !== undefined) {
+            (overlay as Record<string, unknown>)[field] = value;
         }
     }
     for (const field of PATH_FIELDS) {
@@ -73,10 +96,13 @@ function overlayOfCarrier(carrier: Carrier): CarrierOverlay | null {
  * Anyone who can push can write the shared file, so a mode, session, worktree or folder off this disk
  * found there is not this person's and must not start anything: drop all `splitContent` never writes.
  */
-function trustedOfShared<T extends Carrier>(carrier: T): T {
+function trustedOfShared<T extends Carrier>(carrier: T, privateFields: readonly string[]): T {
     const trusted = { ...carrier };
     for (const field of OVERLAY_FIELDS) {
         delete trusted[field];
+    }
+    for (const field of privateFields) {
+        delete (trusted as Record<string, unknown>)[field];
     }
     for (const field of PATH_FIELDS) {
         const value = trusted[field];
@@ -95,14 +121,18 @@ function withoutOverlay<T extends Carrier>(carrier: T, overlay: CarrierOverlay):
     return stripped;
 }
 
-function carrierPartOf(overlay: ProjectNodeOverlay | undefined): CarrierOverlay | null {
+// Only what a person's overlay may hold: the overlay is loose, so a hand-edited `x` must not move a shared node.
+function carrierPartOf(overlay: ProjectNodeOverlay | undefined, privateFields: readonly string[]): CarrierOverlay | null {
     if (!overlay) {
         return null;
     }
-    const part: ProjectNodeOverlay = { ...overlay };
-    delete part.title;
-    delete part.name;
-    return Object.keys(part).length === 0 ? null : part;
+    const part: Record<string, unknown> = {};
+    for (const field of [...OVERLAY_FIELDS, ...PATH_FIELDS, ...privateFields]) {
+        if (Object.hasOwn(overlay, field)) {
+            part[field] = (overlay as Record<string, unknown>)[field];
+        }
+    }
+    return Object.keys(part).length === 0 ? null : (part as CarrierOverlay);
 }
 
 function defaultTitleOf(kind: string): string | null {
@@ -212,7 +242,8 @@ export interface ProjectSplit {
     private: ProjectPrivateFile;
 }
 
-export function splitContent(content: ProjectContent, shared: readonly string[], rev: number): ProjectSplit {
+export function splitContent(content: ProjectContent, shared: readonly string[], rev: number, overlayFields: readonly string[] = []): ProjectSplit {
+    const privateFields = privateFieldsAmong(overlayFields);
     const ids = sharedIdsOf(content.views, shared);
     const overlay: Record<string, ProjectNodeOverlay> = {};
     const travelling: ProjectView[] = [];
@@ -223,7 +254,7 @@ export function splitContent(content: ProjectContent, shared: readonly string[],
             continue;
         }
         const carried = withCarriers(view, (id, carrier) => {
-            const held = overlayOfCarrier(carrier);
+            const held = overlayOfCarrier(carrier, privateFields);
             if (!held) {
                 return carrier;
             }
@@ -248,6 +279,7 @@ export function splitContent(content: ProjectContent, shared: readonly string[],
             views: rest,
             order: content.views.map((view) => view.id),
             overlay,
+            ...(privateFields.length > 0 ? { overlayFields: privateFields } : {}),
             ...(Object.keys(flags).length > 0 ? { flags } : {}),
             ...(content.sql && !isEmptySql(content.sql) ? { sql: content.sql } : {})
         }
@@ -294,16 +326,17 @@ export function mergeFiles(
     shared: ProjectSharedFile | null,
     file: ProjectPrivateFile,
     fallback: { name: string; color: string }
-): { content: ProjectContent; shared: string[] } {
+): { content: ProjectContent; shared: string[]; overlayFields: string[] } {
     const overlay = file.overlay;
+    const overlayFields = privateFieldsOf(file);
     // Ruimte never writes a file view off the folder there, so one that is came from whoever pushed it.
     const sharedViews = (shared?.views ?? [])
         .filter((view) => viewShareRefusal(view) !== 'path-outside-project')
         .map((view) =>
             withSessionTitles(
                 withCarriers(view, (id, carrier) => {
-                    const trusted = trustedOfShared(carrier);
-                    const held = carrierPartOf(overlay[id]);
+                    const trusted = trustedOfShared(carrier, overlayFields);
+                    const held = carrierPartOf(overlay[id], overlayFields);
                     return held ? { ...trusted, ...held } : trusted;
                 }),
                 overlay
@@ -318,7 +351,8 @@ export function mergeFiles(
             ...(file.flags ? { flags: file.flags } : {}),
             ...(file.sql ? { sql: file.sql } : {})
         },
-        shared: sharedViews.map((view) => view.id)
+        shared: sharedViews.map((view) => view.id),
+        overlayFields
     };
 }
 
@@ -327,7 +361,7 @@ export function overlayOfLegacy(views: readonly ProjectView[]): Record<string, P
     const overlay: Record<string, ProjectNodeOverlay> = {};
     for (const view of views) {
         withCarriers(view, (id, carrier) => {
-            const held = overlayOfCarrier(carrier);
+            const held = overlayOfCarrier(carrier, []);
             if (held) {
                 overlay[id] = held;
             }

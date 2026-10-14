@@ -786,6 +786,8 @@ export const ProjectPrivateFileSchema = z.object({
     // the shared file, so a colleague's view lands in place without merging an order.
     order: z.array(z.string()),
     overlay: z.record(z.string(), ProjectNodeOverlaySchema).default({}),
+    // Node fields a newer Ruimte keeps one person's. This version keeps them in the overlay too and never takes them from the shared file.
+    overlayFields: z.array(z.string().min(1)).optional(),
     flags: ProjectFlagsSchema.optional(),
     sql: ProjectSqlSchema.optional()
 });

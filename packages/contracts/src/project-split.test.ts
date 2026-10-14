@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { EMPTY_PRIVATE_FILE, PROJECT_VERSION, type ProjectCanvasView, type ProjectContent, type ProjectSharedFile, type ProjectView } from './project.ts';
-import { canShareView, mergeFiles, overlayOfLegacy, privateFileOf, splitContent, viewShareRefusal } from './project-split.ts';
+import { canShareView, mergeFiles, overlayOfLegacy, privateFieldsOf, privateFileOf, splitContent, viewShareRefusal } from './project-split.ts';
 
 function canvas(id: string, nodes: ProjectCanvasView['nodes'] = []): ProjectView {
     return {
@@ -199,7 +199,7 @@ describe('mergeFiles', () => {
     test('what the split took apart comes back the same, overlay and order included', () => {
         const before = content([canvas('main', [node('n1', { resume: 'sess-1', cwd: '/etc' })]), chatView('c1', { resume: 'sess-2' }), canvas('own')]);
         const split = splitContent(before, ['main', 'c1'], 3);
-        expect(mergeFiles(split.shared, split.private, fallback)).toEqual({ content: before, shared: ['main', 'c1'] });
+        expect(mergeFiles(split.shared, split.private, fallback)).toEqual({ content: before, shared: ['main', 'c1'], overlayFields: [] });
     });
 
     test('the names sessions gave come back over the shared file', () => {
@@ -307,5 +307,83 @@ describe('overlayOfLegacy', () => {
     test('takes what an old single file held for this person, and only that', () => {
         const views = [canvas('main', [node('n1', { resume: 'sess-1', runtimeMode: 'auto-accept-edits', cwd: '/elsewhere' }), node('n2', { cwd: './apps' })])];
         expect(overlayOfLegacy(views)).toEqual({ n1: { resume: 'sess-1', runtimeMode: 'auto-accept-edits', cwd: '/elsewhere' } });
+    });
+});
+
+describe("fields a newer Ruimte keeps one person's", () => {
+    const overlayFile = (overlayFields?: string[]) => ({
+        ...EMPTY_PRIVATE_FILE,
+        overlay: { n1: { machine: 'B' } as never },
+        order: ['main'],
+        ...(overlayFields ? { overlayFields } : {})
+    });
+    const sharedOf = (...nodes: ProjectCanvasView['nodes']): ProjectSharedFile => ({
+        version: PROJECT_VERSION,
+        name: 'repo',
+        color: '#7c74ff',
+        views: [canvas('main', nodes)]
+    });
+    const nodesOf = (file: { views: ProjectView[] }) => (file.views[0] as ProjectCanvasView).nodes;
+
+    test('a listed field in the overlay merges onto the node and splits back without reaching the shared file', () => {
+        const merged = mergeFiles(sharedOf(node('n1')), overlayFile(['machine']), fallback);
+        expect(nodesOf(merged.content)[0]).toEqual(node('n1', { machine: 'B' }));
+        const split = splitContent(merged.content, merged.shared, 2, merged.overlayFields);
+        expect(nodesOf(split.shared)[0]).toEqual(node('n1'));
+        expect(split.private.overlay.n1).toEqual({ machine: 'B' } as never);
+        expect(split.private.overlayFields).toEqual(['machine']);
+    });
+
+    test('a duplicate under a new id moves its private field into the overlay too', () => {
+        const split = splitContent(content([canvas('main', [node('copy', { machine: 'B' })])]), ['main'], 1, ['machine']);
+        expect(nodesOf(split.shared)[0]).toEqual(node('copy'));
+        expect(split.private.overlay.copy).toEqual({ machine: 'B' } as never);
+    });
+
+    test('a field found in the overlay is private without a list, and the written file names it', () => {
+        const merged = mergeFiles(sharedOf(node('n1')), overlayFile(), fallback);
+        expect(merged.overlayFields).toEqual(['machine']);
+        const split = splitContent(merged.content, merged.shared, 2, merged.overlayFields);
+        expect(split.private.overlay.n1).toEqual({ machine: 'B' } as never);
+        expect(split.private.overlayFields).toEqual(['machine']);
+    });
+
+    test('the field is dropped from the shared file when listed', () => {
+        const merged = mergeFiles(sharedOf(node('n1', { machine: 'theirs' }), node('n2', { machine: 'theirs' })), overlayFile(['machine']), fallback);
+        expect(nodesOf(merged.content)[0]).toEqual(node('n1', { machine: 'B' }));
+        expect(nodesOf(merged.content)[1]).toEqual(node('n2'));
+    });
+
+    test('a listed field this version knows stays where it was', () => {
+        const file = { ...EMPTY_PRIVATE_FILE, overlayFields: ['command', 'machine'] };
+        expect(privateFieldsOf(file)).toEqual(['machine']);
+        const split = splitContent(content([canvas('main', [node('n1', { command: 'ls' })])]), ['main'], 1, ['command']);
+        expect(nodesOf(split.shared)[0]).toEqual(node('n1', { command: 'ls' }));
+        expect(split.private.overlay).toEqual({});
+        expect('overlayFields' in split.private).toBe(false);
+    });
+
+    test('a view moved to the private file keeps the field inline, and sharing it again puts it back in the overlay', () => {
+        const before = content([canvas('main', [node('n1', { machine: 'B' })])]);
+        const privateSplit = splitContent(before, [], 1, ['machine']);
+        expect(nodesOf({ views: privateSplit.private.views })[0]).toEqual(node('n1', { machine: 'B' }));
+        expect(privateSplit.private.overlayFields).toEqual(['machine']);
+        const merged = mergeFiles(null, privateSplit.private, fallback);
+        const again = splitContent(merged.content, ['main'], 2, merged.overlayFields);
+        expect(nodesOf(again.shared)[0]).toEqual(node('n1'));
+        expect(again.private.overlay.n1).toEqual({ machine: 'B' } as never);
+    });
+
+    test('an unknown field that is not private goes to the shared file', () => {
+        const split = splitContent(content([canvas('main', [node('n1', { location: { line: 3 } })])]), ['main'], 1, ['machine']);
+        expect(nodesOf(split.shared)[0]).toEqual(node('n1', { location: { line: 3 } }));
+        expect(split.private.overlay).toEqual({});
+    });
+
+    test('a known key in the overlay never moves a shared node', () => {
+        const file = { ...EMPTY_PRIVATE_FILE, overlay: { n1: { x: 900, resume: 'mine' } as never } };
+        const merged = mergeFiles(sharedOf(node('n1')), file, fallback);
+        expect(nodesOf(merged.content)[0]).toEqual(node('n1', { resume: 'mine' }));
+        expect(merged.overlayFields).toEqual([]);
     });
 });
