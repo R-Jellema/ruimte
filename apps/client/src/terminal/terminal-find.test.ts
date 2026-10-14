@@ -54,8 +54,9 @@ describe('findResultOf', () => {
         expect(findResultOf({ resultIndex: -1, resultCount: 0 }, 1000)).toEqual({ total: 0, current: null, limited: false });
     });
 
-    test('an index of -1 at the limit means there are more matches than the addon keeps', () => {
+    test('a count that reaches the limit is a floor, whether or not a match is current', () => {
         expect(findResultOf({ resultIndex: -1, resultCount: 1000 }, 1000)).toEqual({ total: 1000, current: null, limited: true });
-        expect(findResultOf({ resultIndex: 3, resultCount: 1000 }, 1000)).toMatchObject({ limited: false });
+        expect(findResultOf({ resultIndex: 3, resultCount: 1000 }, 1000)).toEqual({ total: 1000, current: 3, limited: true });
+        expect(findResultOf({ resultIndex: -1, resultCount: 999 }, 1000)).toMatchObject({ limited: false });
     });
 });

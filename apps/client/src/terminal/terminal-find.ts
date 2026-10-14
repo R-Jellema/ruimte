@@ -77,11 +77,11 @@ export interface TerminalFindResult {
     limited: boolean;
 }
 
-/* The addon reports -1 for the index when it counted more than it keeps, and the bar wants null there. */
+/* The addon stops counting at its highlight limit, so a count that reaches it is a floor. It reports -1 for the index when no match is current, and the bar wants null there. */
 export function findResultOf(event: { resultIndex: number; resultCount: number }, limit: number): TerminalFindResult {
     return {
         total: event.resultCount,
         current: event.resultIndex < 0 ? null : event.resultIndex,
-        limited: event.resultIndex === -1 && event.resultCount >= limit
+        limited: event.resultCount >= limit
     };
 }

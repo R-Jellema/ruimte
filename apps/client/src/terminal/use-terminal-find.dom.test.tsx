@@ -3,6 +3,8 @@ import { act, useEffect } from 'react';
 import type { ISearchOptions } from '@xterm/addon-search';
 import type { TerminalViewHandle } from '@adecore/terminal';
 import { EMPTY_FIND_QUERY, type FindQuery } from '@adecore/editor-react/models';
+import { FindBar } from '@/find/FindBar';
+import type { FindState } from '@/find/use-find';
 import { mount, until, type Mounted } from '../../testing/dom';
 import { useTerminalFind, type SearchLoader, type TerminalFind, type TerminalSearch } from './use-terminal-find';
 
@@ -41,6 +43,20 @@ class FakeSearch implements TerminalSearch {
         this.listener?.({ resultIndex, resultCount });
     }
 }
+
+const FIND = {
+    open: true,
+    query: { ...EMPTY_FIND_QUERY, text: 'a' },
+    summons: 0,
+    replaceOpen: false,
+    replaceText: '',
+    preserveCase: false,
+    setReplaceOpen: () => {},
+    setPreserveCase: () => {},
+    setReplaceText: () => {},
+    setQuery: () => {},
+    close: () => {}
+} satisfies FindState;
 
 let page: Mounted;
 let addons: FakeSearch[];
@@ -123,8 +139,12 @@ describe('find in a terminal', () => {
         await act(async () => addons[0]!.report(1, 4));
         expect(latest).toMatchObject({ total: 4, current: 1, limited: false, invalid: false });
 
-        await act(async () => addons[0]!.report(-1, 1000));
-        expect(latest).toMatchObject({ total: 1000, current: null, limited: true });
+        await act(async () => addons[0]!.report(3, 1000));
+        expect(latest).toMatchObject({ total: 1000, current: 3, limited: true });
+        const bar = mount();
+        await bar.render(<FindBar find={FIND} total={latest.total} current={latest.current} limited={latest.limited} onStep={() => {}} />);
+        expect(bar.host.querySelector('[data-find-bar]')?.textContent).toContain('4 / 1,000+');
+        await bar.unmount();
 
         query = EMPTY_FIND_QUERY;
         await render();
