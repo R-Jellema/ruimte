@@ -373,7 +373,6 @@ struct MachineUsagePage: View {
         await state.load {
             let result = try await client.request(WireRequest.usageSummary.rawValue, payload: period.payload())
             limits = try? await client.request(WireRequest.usageLimits.rawValue)
-            // A machine from before accounts does not know the request, and its limits read as they always did.
             let list = try? await client.request(WireRequest.accountsList.rawValue)
             accounts = list.map(ProviderAccountList.init)
             loginCommands = (list?["loginCommands"]?.objectValue ?? [:]).compactMapValues(\.stringValue)

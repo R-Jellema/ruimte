@@ -73,7 +73,7 @@ struct ProjectViewPage: View {
 }
 
 /// A notification's chat or terminal, opened in its project once the machine says which one holds it. A node no
-/// open project holds, such as one on a machine from before `project.sidebar`, opens on its own as it always did.
+/// open project holds opens on its own.
 struct NotificationRoutePage: View {
     let runtime: AppRuntime
     let now: NowModel

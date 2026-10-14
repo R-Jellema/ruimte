@@ -98,7 +98,7 @@ final class TerminalModel {
             guard let self else { return }
             do {
                 guard let attachment else { throw CancellationError() }
-                _ = try await TerminalSnapshot.load(attachment: attachment, client: client, sessionID: sessionID) {
+                _ = try await TerminalSnapshot.load(attachment: attachment, sessionID: sessionID) {
                     [weak self] snapshot in
                     guard let self, self.generation == current else { return }
                     self.cols = Int(snapshot["cols"]?.numberValue ?? 80)
@@ -125,15 +125,11 @@ final class TerminalModel {
             let result = try await client.request("session.list", payload: .object([:]))
             guard !Task.isCancelled, connected else { return }
             if let info = result["sessions"]?.arrayValue?.first(where: { $0["sessionId"]?.stringValue == sessionID }) {
-                cols = Int(info["cols"]?.numberValue ?? Double(cols))
-                rows = Int(info["rows"]?.numberValue ?? Double(rows))
                 exited = info["exited"]?.boolValue ?? exited
-                resizeDisplay?(cols, rows)
             }
         } catch { self.error = error.localizedDescription }
     }
 
-    // A machine from before `session.size` still reports a new grid through the list.
     func follow(_ size: JSONValue) {
         guard let cols = size["cols"]?.numberValue, let rows = size["rows"]?.numberValue else { return }
         self.cols = Int(cols)

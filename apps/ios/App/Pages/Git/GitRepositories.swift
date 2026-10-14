@@ -80,10 +80,7 @@ import SwiftUI
         } catch is CancellationError {
             return
         } catch {
-            // A machine from before `git.repos` still has the folder itself, which is what the page used to show.
-            if checkouts.isEmpty {
-                checkouts = [GitCheckout(path: folder, label: GitPanel.label(folder: folder, path: folder), kind: "root")]
-            }
+            problem = error.localizedDescription
         }
         loading = false
         await watchAll(client: client)

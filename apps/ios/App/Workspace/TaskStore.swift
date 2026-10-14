@@ -75,7 +75,6 @@ final class TaskStore {
 
     private func ask(_ projectID: String) {
         Task { [weak self, client] in
-            // A machine from before tasks does not know the request; it simply has none.
             guard
                 let result = try? await client.request("task.list", payload: .object(["projectId": .string(projectID)]))
             else { return }

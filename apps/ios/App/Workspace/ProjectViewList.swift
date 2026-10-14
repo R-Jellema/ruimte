@@ -156,7 +156,6 @@ final class ProjectListState {
     }
 
     private func readWarnings() async {
-        // A machine from before the warnings simply has none.
         guard let client, let result = try? await client.request("processes.listAlerts", payload: .object([:])) else {
             return
         }

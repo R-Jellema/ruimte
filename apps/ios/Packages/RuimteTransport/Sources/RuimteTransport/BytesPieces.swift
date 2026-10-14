@@ -1,8 +1,8 @@
 import Foundation
 import RuimtePulsar
 
-/// A piece of a resource on a machine with its bytes as they are, whether the machine sent a binary reply or, from
-/// before those, base64 in JSON.
+/// A piece of a resource on a machine with its bytes as they are, whether the machine sent a binary reply or base64
+/// in JSON.
 public struct BytesPiece: Sendable, Equatable {
     public let mime: String
     public let size: Int

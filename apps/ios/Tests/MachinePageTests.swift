@@ -79,7 +79,7 @@ final class MachinePageTests: XCTestCase {
         machine.answers["endpoint.info"] = { _ in self.info(["keepAwakeAvailable": .bool(false)]) }
         let endpoint = await started(machine)
         XCTAssertNil(endpoint.keepAwake)
-        XCTAssertNil(MachineEndpoint.keepAwake(in: info(["keepAwake": .null])), "An older daemon says nothing")
+        XCTAssertNil(MachineEndpoint.keepAwake(in: info(["keepAwake": .null])), "Without a mode there is nothing to show")
         endpoint.stop()
     }
 
@@ -161,6 +161,14 @@ final class MachinePageTests: XCTestCase {
         machine.emit("endpoint.changed", .object(["lan": .null, "lanDoor": .bool(false)]))
         XCTAssertEqual(learned.last, .some(nil))
         XCTAssertEqual(endpoint.lanDoor, false)
+        endpoint.stop()
+    }
+
+    @MainActor func testAnAnswerWithoutTheDoorSwitchReadsItOpen() async {
+        let machine = FakeMachine()
+        machine.answers["endpoint.info"] = { _ in self.info() }
+        let endpoint = await started(machine)
+        XCTAssertEqual(endpoint.lanDoor, true)
         endpoint.stop()
     }
 

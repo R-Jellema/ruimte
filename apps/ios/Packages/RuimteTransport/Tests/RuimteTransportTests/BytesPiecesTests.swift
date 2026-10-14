@@ -93,7 +93,7 @@ import Testing
         #expect(try await read.value == BytesPiece(mime: "video/mp4", size: 10, version: "1-10", offset: 4, data: Data([4, 5, 6])))
     }
 
-    @Test func readBytesTakesBase64FromAMachineWithoutBinaryReplies() async throws {
+    @Test func aJSONAnswerToABinaryReadIsInvalid() async throws {
         var sent: [String] = []
         let client = MachineClient(send: { sent.append($0) }, connected: true)
         let read = Task { try await client.readBytes(payload) }
@@ -106,7 +106,7 @@ import Testing
             ]),
         ]).encoded()
         await client.receiveInOrder(String(decoding: frame, as: UTF8.self)).value
-        #expect(try await read.value == BytesPiece(mime: "video/mp4", size: 10, version: "1-10", offset: 4, data: Data([4, 5, 6])))
+        await #expect(throws: MachineClientError.self) { try await read.value }
     }
 
     @Test func aBinaryReplyToARequestThatDidNotAskIsDropped() async throws {

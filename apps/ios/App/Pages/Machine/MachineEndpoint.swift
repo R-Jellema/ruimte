@@ -157,7 +157,7 @@ enum MachineInstallStep: Equatable, Sendable {
 final class MachineEndpoint {
     private(set) var info: JSONValue?
     private(set) var update: MachineUpdate?
-    /// Nil on a machine that cannot hold a block on sleep, or whose daemon predates the setting.
+    /// Nil on a machine that cannot hold a block on sleep.
     private(set) var keepAwake: MachineKeepAwake?
     /// Nil where the machine does not offer keep awake with the lid closed, which only a Mac does.
     private(set) var closedLid: MachineClosedLid?
@@ -204,10 +204,11 @@ final class MachineEndpoint {
         else { return nil }
         return MachineIcon(kind: kind, value: name)
     }
-    /// Whether this machine hands out browser and device pictures; an older daemon that does not say did.
+    /// Whether this machine hands out browser and device pictures.
     var streamingAllowed: Bool { info?["streamingAllowed"]?.boolValue ?? true }
-    /// Whether a person keeps the door on the local network open; nil on a machine from before the door.
-    var lanDoor: Bool? { info?["lanDoor"]?.boolValue }
+    /// Whether a person keeps the door on the local network open, which it is unless the machine says otherwise; nil
+    /// while nothing was read.
+    var lanDoor: Bool? { info.map { $0["lanDoor"]?.boolValue ?? true } }
     /// A flag the machine started with decides the door, so the switch changes nothing.
     var lanDoorFixed: Bool { info?["lanDoorFixed"]?.boolValue == true }
 

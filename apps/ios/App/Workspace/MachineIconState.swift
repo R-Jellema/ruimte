@@ -7,7 +7,7 @@ import RuimteTransport
 final class MachineIconState {
     private(set) var icon: MachineIcon?
     /// Whether the machine may take up a chat that stopped on a limit on a clock, `resumeAtReset` in `endpoint.info`.
-    /// Read beside the icon since both come from there; a machine from before the setting never does.
+    /// Read beside the icon since both come from there.
     private(set) var resumeAtReset = false
     @ObservationIgnored private let client: any MachineRequesting
     @ObservationIgnored private var unsubscribe: (() -> Void)?

@@ -264,8 +264,10 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
         let id = UUID().uuidString
         let result = try await routedRequest(
             WireRequest.bytesRead.rawValue, payload: .object(fields), onResult: nil, id: id, binary: true)
-        if let data = binaryBodies.removeValue(forKey: id) { return try BytesPiece(header: result, data: data) }
-        return try BytesPiece(json: result)
+        guard let data = binaryBodies.removeValue(forKey: id) else {
+            throw MachineClientError.invalid(String(localized: "The machine sent an invalid resource piece.", bundle: .module))
+        }
+        return try BytesPiece(header: result, data: data)
     }
 
     private func routedRequest(

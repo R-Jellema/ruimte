@@ -3,7 +3,7 @@ import RuimtePulsar
 import RuimteTransport
 
 /// The plans a machine keeps beside its chats. The machine tells every connection about every change, so one
-/// `plan.list` per connection is enough; a machine from before plans does not know the request and has none.
+/// `plan.list` per connection is enough.
 @MainActor @Observable
 final class PlanStore {
     private(set) var plans: [String: [PlanDocument]] = [:]

@@ -84,7 +84,7 @@ final class MachineIconTests: XCTestCase {
         await client.waitForRequest(2)
         client.finish(1, icon: "laptop")
         await settle()
-        XCTAssertFalse(state.resumeAtReset, "A machine from before the setting never resumes")
+        XCTAssertFalse(state.resumeAtReset, "An answer without the switch has it off")
     }
 
     @MainActor private func settle() async {

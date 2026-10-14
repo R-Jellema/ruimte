@@ -48,7 +48,8 @@ enum DeviceView {
         ]
     }
 
-    /// The buttons the device announces that this version knows; a machine from before the list had an iPhone's.
+    /// The buttons the device announces that this version knows; a device that announces none, such as a physical
+    /// iPhone, has an iPhone's.
     static func buttons(_ device: JSONValue) -> [String] {
         guard let announced = device["capabilities"]?["buttons"]?.arrayValue else { return iosButtons }
         return announced.compactMap(\.stringValue).filter(knownButtons.contains)
