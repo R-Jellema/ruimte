@@ -1,46 +1,78 @@
+import {
+    AlignLeft,
+    ArrowDown,
+    ArrowLeft,
+    ArrowRight,
+    ArrowUp,
+    AtSign,
+    Blocks,
+    BookOpen,
+    Cpu,
+    FileSearch,
+    History,
+    Info,
+    Lightbulb,
+    ListChecks,
+    ListOrdered,
+    LocateFixed,
+    MapPin,
+    MessageSquarePlus,
+    Network,
+    Parentheses,
+    Rows3,
+    ScanSearch,
+    Sparkles,
+    TextCursorInput,
+    Type,
+    Wand2,
+    WandSparkles,
+    type LucideIcon
+} from 'lucide-react';
 import type { Shortcut } from '@adecore/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { RENDERED_DOC_COMMENTS } from '@/features';
 
 /*
  * The commands that act on the editor with the keyboard in it: the id the menu and the palette share, the
- * key of its words (`shell:menu.<key>` and `shell:palette.commands.<key>`) and its shortcut. What each one does
- * is in `language-commands.ts`, so a menu can list them without loading an editor.
+ * key of its words (`shell:menu.<key>` and `shell:palette.commands.<key>`), its icon and its shortcut. What
+ * each one does is in `language-commands.ts`, so a menu can list them without loading an editor. The command
+ * table (`shell/command-table.ts`) takes them in.
  */
 interface LanguageCommandSpec {
     readonly menu: 'code' | 'go';
     readonly key: string;
+    readonly icon: LucideIcon;
     readonly shortcut?: Shortcut;
 }
 
 const TABLE = {
-    'trigger-completion': { menu: 'code', key: 'triggerCompletion', shortcut: CANVAS_SHORTCUTS.triggerCompletion },
-    'parameter-info': { menu: 'code', key: 'parameterInfo', shortcut: CANVAS_SHORTCUTS.parameterInfo },
-    'quick-info': { menu: 'code', key: 'quickInfo', shortcut: CANVAS_SHORTCUTS.quickInfo },
-    'code-actions': { menu: 'code', key: 'codeActions', shortcut: CANVAS_SHORTCUTS.codeActions },
-    'refactor-this': { menu: 'code', key: 'refactorThis', shortcut: CANVAS_SHORTCUTS.refactorThis },
-    'rename-symbol': { menu: 'code', key: 'renameSymbol', shortcut: CANVAS_SHORTCUTS.rename },
-    'organize-imports': { menu: 'code', key: 'organizeImports', shortcut: CANVAS_SHORTCUTS.organizeImports },
-    'format-document': { menu: 'code', key: 'formatDocument', shortcut: CANVAS_SHORTCUTS.formatDocument },
-    'next-agent-change': { menu: 'code', key: 'nextAgentChange' },
-    'previous-agent-change': { menu: 'code', key: 'previousAgentChange' },
-    'selection-to-chat': { menu: 'code', key: 'selectionToChat', shortcut: CANVAS_SHORTCUTS.selectionToChat },
-    'inline-edit': { menu: 'code', key: 'inlineEdit', shortcut: CANVAS_SHORTCUTS.inlineEdit },
-    'show-inline-edit': { menu: 'code', key: 'showInlineEdit' },
-    explain: { menu: 'code', key: 'explain' },
-    'toggle-rendered-docs': { menu: 'code', key: 'toggleRenderedDocs', shortcut: CANVAS_SHORTCUTS.toggleRenderedDocs },
-    'suggest-inline': { menu: 'code', key: 'suggestInline', shortcut: CANVAS_SHORTCUTS.suggestInline },
-    'go-to-symbol': { menu: 'go', key: 'goToSymbol', shortcut: CANVAS_SHORTCUTS.goToSymbol },
-    'go-to-definition': { menu: 'go', key: 'goToDefinition', shortcut: CANVAS_SHORTCUTS.goToDefinition },
-    'go-to-declaration': { menu: 'go', key: 'goToDeclaration' },
-    'go-to-type-definition': { menu: 'go', key: 'goToTypeDefinition', shortcut: CANVAS_SHORTCUTS.goToTypeDefinition },
-    'peek-definition': { menu: 'go', key: 'peekDefinition', shortcut: CANVAS_SHORTCUTS.peekDefinition },
-    'peek-references': { menu: 'go', key: 'peekReferences', shortcut: CANVAS_SHORTCUTS.peekReferences },
-    'call-hierarchy': { menu: 'go', key: 'callHierarchy', shortcut: CANVAS_SHORTCUTS.callHierarchy },
-    'go-to-implementation': { menu: 'go', key: 'goToImplementation', shortcut: CANVAS_SHORTCUTS.goToImplementation },
-    'history-back': { menu: 'go', key: 'historyBack', shortcut: CANVAS_SHORTCUTS.historyBack },
-    'history-forward': { menu: 'go', key: 'historyForward', shortcut: CANVAS_SHORTCUTS.historyForward },
-    'recent-locations': { menu: 'go', key: 'recentLocations', shortcut: CANVAS_SHORTCUTS.recentLocations }
+    'trigger-completion': { icon: ListChecks, menu: 'code', key: 'triggerCompletion', shortcut: CANVAS_SHORTCUTS.triggerCompletion },
+    'parameter-info': { icon: Parentheses, menu: 'code', key: 'parameterInfo', shortcut: CANVAS_SHORTCUTS.parameterInfo },
+    'quick-info': { icon: Info, menu: 'code', key: 'quickInfo', shortcut: CANVAS_SHORTCUTS.quickInfo },
+    'code-actions': { icon: Lightbulb, menu: 'code', key: 'codeActions', shortcut: CANVAS_SHORTCUTS.codeActions },
+    'refactor-this': { icon: Wand2, menu: 'code', key: 'refactorThis', shortcut: CANVAS_SHORTCUTS.refactorThis },
+    'rename-symbol': { icon: TextCursorInput, menu: 'code', key: 'renameSymbol', shortcut: CANVAS_SHORTCUTS.rename },
+    'organize-imports': { icon: ListOrdered, menu: 'code', key: 'organizeImports', shortcut: CANVAS_SHORTCUTS.organizeImports },
+    'format-document': { icon: AlignLeft, menu: 'code', key: 'formatDocument', shortcut: CANVAS_SHORTCUTS.formatDocument },
+    'next-agent-change': { icon: ArrowDown, menu: 'code', key: 'nextAgentChange' },
+    'previous-agent-change': { icon: ArrowUp, menu: 'code', key: 'previousAgentChange' },
+    'selection-to-chat': { icon: MessageSquarePlus, menu: 'code', key: 'selectionToChat', shortcut: CANVAS_SHORTCUTS.selectionToChat },
+    'inline-edit': { icon: Sparkles, menu: 'code', key: 'inlineEdit', shortcut: CANVAS_SHORTCUTS.inlineEdit },
+    'show-inline-edit': { icon: ScanSearch, menu: 'code', key: 'showInlineEdit' },
+    explain: { icon: Cpu, menu: 'code', key: 'explain' },
+    'toggle-rendered-docs': { icon: BookOpen, menu: 'code', key: 'toggleRenderedDocs', shortcut: CANVAS_SHORTCUTS.toggleRenderedDocs },
+    'suggest-inline': { icon: WandSparkles, menu: 'code', key: 'suggestInline', shortcut: CANVAS_SHORTCUTS.suggestInline },
+    'go-to-symbol': { icon: AtSign, menu: 'go', key: 'goToSymbol', shortcut: CANVAS_SHORTCUTS.goToSymbol },
+    'go-to-definition': { icon: LocateFixed, menu: 'go', key: 'goToDefinition', shortcut: CANVAS_SHORTCUTS.goToDefinition },
+    'go-to-declaration': { icon: MapPin, menu: 'go', key: 'goToDeclaration' },
+    'go-to-type-definition': { icon: Type, menu: 'go', key: 'goToTypeDefinition', shortcut: CANVAS_SHORTCUTS.goToTypeDefinition },
+    'peek-definition': { icon: FileSearch, menu: 'go', key: 'peekDefinition', shortcut: CANVAS_SHORTCUTS.peekDefinition },
+    'peek-references': { icon: Rows3, menu: 'go', key: 'peekReferences', shortcut: CANVAS_SHORTCUTS.peekReferences },
+    'call-hierarchy': { icon: Network, menu: 'go', key: 'callHierarchy', shortcut: CANVAS_SHORTCUTS.callHierarchy },
+    'go-to-implementation': { icon: Blocks, menu: 'go', key: 'goToImplementation', shortcut: CANVAS_SHORTCUTS.goToImplementation },
+    'history-back': { icon: ArrowLeft, menu: 'go', key: 'historyBack', shortcut: CANVAS_SHORTCUTS.historyBack },
+    'history-forward': { icon: ArrowRight, menu: 'go', key: 'historyForward', shortcut: CANVAS_SHORTCUTS.historyForward },
+    'recent-locations': { icon: History, menu: 'go', key: 'recentLocations', shortcut: CANVAS_SHORTCUTS.recentLocations }
 } satisfies Record<string, LanguageCommandSpec>;
 
 export type LanguageCommandId = keyof typeof TABLE;

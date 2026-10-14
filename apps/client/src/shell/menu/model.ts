@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 import type { ProjectView } from '@ruimte/contracts';
 import type { MenuNode, MenuRole, MenuShellAction, MenuSpec } from '@ruimte/desktop-bridge';
-import { ADD_NODE_SHORTCUTS, CANVAS_SHORTCUTS, FOCUS_SHORTCUTS, NODE_NAVIGATION_SHORTCUTS, viewShortcut } from '@/canvas/shortcuts';
+import { ADD_NODE_SHORTCUTS, CANVAS_SHORTCUTS, viewShortcut } from '@/canvas/shortcuts';
 import { LANGUAGE_COMMANDS, languageCommandsOf } from '@/language/command-table';
 import { EDITOR_COMMANDS, editorCommandsOf } from '@/shell/editor-commands';
 import { APP_SHORTCUTS, BROWSER_KEEPS } from '@/shell/shortcuts';
@@ -11,6 +11,7 @@ import type { PanelKind } from '@/state/ui';
 import { formatShortcut, type Shortcut } from '@adecore/ui';
 import { SEND_AND_NEW_SHORTCUT } from '@adecore/agents-react/chat';
 import { AFTER_SETTLE_PREFIX, GO_VIEW_PREFIX, LAUNCH_CHOOSE_PREFIX, PR_SHOW_IN_PREFIX, type MenuActionId, type PaletteId } from '@/shell/menu/ids';
+import { COMMAND_IDS, COMMANDS, menuPlacesOf, type CommandId as TableCommandId, type MenuContainer, type MenuPlace } from '@/shell/command-table';
 
 export type MenuHost = 'desktop' | 'station';
 
@@ -194,6 +195,111 @@ export function tidy(items: MenuNode[]): MenuNode[] {
 
 function only(condition: boolean, ...items: MenuNode[]): MenuNode[] {
     return condition ? items : [];
+}
+
+/* What a group draws besides the table's rows: a role, a submenu or a row per view, launch or agent. */
+interface MenuExtra {
+    readonly order: number;
+    readonly build: (context: MenuContext, command: MenuCommand) => MenuNode[];
+}
+
+/* A run of rows between two lines. Its table rows say they belong to it (`MenuPlace` in `shell/command-table.ts`). */
+interface MenuGroup {
+    readonly id: string;
+    readonly when?: (context: MenuContext) => boolean;
+    readonly extras?: readonly MenuExtra[];
+}
+
+function inWorkspace(context: MenuContext): boolean {
+    return context.workspace;
+}
+
+function isDesktop(context: MenuContext): boolean {
+    return context.host === 'desktop';
+}
+
+/* The groups of every menu and submenu with a fixed place, top to bottom. */
+const LAYOUT: Partial<Record<MenuContainer, readonly MenuGroup[]>> = {
+    view: [
+        { id: 'sidebar', when: inWorkspace },
+        { id: 'panels', when: inWorkspace },
+        // The tabs of a host get a line of their own; without them maximizing follows splitting.
+        { id: 'split', when: inWorkspace, extras: [{ order: 65, build: (context) => only(context.tabs.hosted, separator) }] },
+        { id: 'zoom', when: inWorkspace },
+        { id: 'theme' },
+        {
+            id: 'screen',
+            extras: [
+                {
+                    order: 10,
+                    build: (context) => only(isDesktop(context), role('togglefullscreen', t('fullScreen')), shell('devtools', t('developerTools')))
+                }
+            ]
+        }
+    ],
+    go: [
+        { id: 'palette' },
+        { id: 'views', when: inWorkspace },
+        {
+            id: 'go-view',
+            when: inWorkspace,
+            extras: [
+                {
+                    order: 10,
+                    build: (context, command) =>
+                        context.views.slice(0, 9).map((name, index) => command(`${GO_VIEW_PREFIX}${index + 1}`, name, { shortcut: viewShortcut(index) }))
+                }
+            ]
+        },
+        { id: 'focus', when: inWorkspace },
+        { id: 'nodes', when: (context) => context.workspace && context.view === 'canvas' },
+        { id: 'prompts', when: inWorkspace },
+        { id: 'language', when: (context) => context.workspace && !context.settingsOpen }
+    ]
+};
+
+interface PlacedCommand {
+    id: TableCommandId;
+    place: MenuPlace;
+}
+
+/* The table's rows per container and group, in their order. */
+const PLACED = new Map<string, PlacedCommand[]>();
+for (const id of COMMAND_IDS) {
+    for (const place of menuPlacesOf(id)) {
+        const at = `${place.menu}/${place.group}`;
+        PLACED.set(
+            at,
+            [...(PLACED.get(at) ?? []), { id, place }].sort((one, other) => one.place.order - other.place.order)
+        );
+    }
+}
+
+function tableRow({ id, place }: PlacedCommand, context: MenuContext, command: MenuCommand): MenuNode {
+    const spec = COMMANDS[id];
+    const words = place.words?.(context) ?? { key: spec.key };
+    const enabled = place.enabled?.(context);
+    return command(id, t(words.key, words.values), {
+        shortcut: (place.showsShortcut?.(context) ?? true) ? spec.shortcut : undefined,
+        ...(enabled === undefined ? {} : { enabled }),
+        checked: place.checked?.(context),
+        radio: place.radio === true
+    });
+}
+
+/* The rows of a menu or submenu, a line before every group but the first; `tidy` drops the lines empty groups leave. */
+function itemsOf(container: MenuContainer, context: MenuContext, command: MenuCommand): MenuNode[] {
+    return (LAYOUT[container] ?? []).flatMap((group, index) => {
+        if (group.when && !group.when(context)) {
+            return [];
+        }
+        const rows = (PLACED.get(`${container}/${group.id}`) ?? [])
+            .filter(({ place }) => place.when?.(context) ?? true)
+            .map((placed) => ({ order: placed.place.order, nodes: [tableRow(placed, context, command)] }));
+        const extras = (group.extras ?? []).map((extra) => ({ order: extra.order, nodes: extra.build(context, command) }));
+        const nodes = [...rows, ...extras].sort((one, other) => one.order - other.order).flatMap((entry) => entry.nodes);
+        return index === 0 ? nodes : [separator, ...nodes];
+    });
 }
 
 const ZOOMABLE: readonly ProjectView['kind'][] = ['canvas', 'drawing', 'diagram'];
@@ -412,118 +518,11 @@ function codeMenu(context: MenuContext, command: MenuCommand): MenuSection {
 }
 
 function viewMenu(context: MenuContext, command: MenuCommand): MenuSection {
-    const { workspace } = context;
-    const desktop = context.host === 'desktop';
-    const hosted = context.tabs.hosted;
-    const zoomable = isZoomable(context);
-    return {
-        id: 'view',
-        label: t('view'),
-        items: [
-            ...only(
-                workspace,
-                command('sidebar', t('sidebar'), { shortcut: APP_SHORTCUTS.sidebar, checked: context.sidebar }),
-                separator,
-                ...only(
-                    !context.scratch,
-                    command('panel-files', t('files'), { checked: context.panel === 'files' }),
-                    command('panel-databases', t('databases'), { checked: context.panel === 'databases' }),
-                    command('panel-git', t('git'), { checked: context.panel === 'git' }),
-                    command('panel-devices', t('devices'), { checked: context.panel === 'devices' })
-                ),
-                command('panel-toggle', t('togglePanel'), { shortcut: CANVAS_SHORTCUTS.togglePanel }),
-                separator,
-                command('split-right', t('splitRight'), { shortcut: CANVAS_SHORTCUTS.splitRight, enabled: context.split.right }),
-                command('split-down', t('splitDown'), { shortcut: CANVAS_SHORTCUTS.splitDown, enabled: context.split.down }),
-                ...only(
-                    hosted,
-                    command('tab-move-left', t('moveTabLeft'), { shortcut: CANVAS_SHORTCUTS.moveTabLeft, enabled: context.tabs.index > 0 }),
-                    command('tab-move-right', t('moveTabRight'), {
-                        shortcut: CANVAS_SHORTCUTS.moveTabRight,
-                        enabled: context.tabs.index < context.tabs.count - 1
-                    }),
-                    command('tab-split-off', t('moveTabToNewCell'), { enabled: context.tabs.splitOff }),
-                    command('tab-ungroup', t('ungroup'), { enabled: context.tabs.count === 1 }),
-                    separator
-                ),
-                command('cell-maximize', t('maximizeCell'), {
-                    shortcut: context.nodeMaximizable ? undefined : CANVAS_SHORTCUTS.maximizeCell,
-                    enabled: context.cells > 1,
-                    checked: context.maximized
-                }),
-                command('node-maximize', t('maximizeNode'), {
-                    shortcut: context.nodeMaximizable ? CANVAS_SHORTCUTS.maximizeCell : undefined,
-                    enabled: context.nodeMaximizable,
-                    checked: context.nodeMaximized
-                }),
-                separator,
-                command('fit', t('zoomToFit'), { shortcut: CANVAS_SHORTCUTS.fitAll, enabled: zoomable }),
-                command('zoom-selection', t('zoomToSelection'), { shortcut: CANVAS_SHORTCUTS.zoomSelection, enabled: zoomable }),
-                ...only(
-                    context.view === 'canvas',
-                    command('zoom-node', t('zoomToNode'), { shortcut: CANVAS_SHORTCUTS.zoomNode, enabled: context.nodeZoomable && !context.nodeMaximized })
-                ),
-                command('zoom-reset', t('actualSize'), { shortcut: CANVAS_SHORTCUTS.zoomReset, enabled: zoomable })
-            ),
-            separator,
-            command('theme', t('toggleTheme')),
-            separator,
-            ...only(desktop, role('togglefullscreen', t('fullScreen')), shell('devtools', t('developerTools'))),
-            ...only(!desktop, command('fullscreen', t('fullScreen'), { checked: context.fullscreen }))
-        ]
-    };
+    return { id: 'view', label: t('view'), items: itemsOf('view', context, command) };
 }
 
 function goMenu(context: MenuContext, command: MenuCommand): MenuSection {
-    const { workspace } = context;
-    const hosted = context.tabs.hosted;
-    return {
-        id: 'go',
-        label: t('go'),
-        items: [
-            command('palette', t('palette'), { shortcut: APP_SHORTCUTS.palette }),
-            ...only(
-                workspace,
-                separator,
-                command('view-previous', t('previousView'), { shortcut: CANVAS_SHORTCUTS.previousView }),
-                command('view-next', t('nextView'), { shortcut: CANVAS_SHORTCUTS.nextView }),
-                ...only(
-                    context.view === 'canvas',
-                    command('camera-back', t('cameraBack'), { shortcut: CANVAS_SHORTCUTS.cameraBack }),
-                    command('camera-forward', t('cameraForward'), { shortcut: CANVAS_SHORTCUTS.cameraForward })
-                ),
-                ...only(
-                    hosted,
-                    command('tab-previous', t('previousTab'), { shortcut: CANVAS_SHORTCUTS.previousTab, enabled: context.tabs.count > 1 }),
-                    command('tab-next', t('nextTab'), { shortcut: CANVAS_SHORTCUTS.nextTab, enabled: context.tabs.count > 1 })
-                ),
-                separator,
-                ...context.views.slice(0, 9).map((name, index) => command(`${GO_VIEW_PREFIX}${index + 1}`, name, { shortcut: viewShortcut(index) })),
-                separator,
-                command('focus-left', t('focusLeft'), { shortcut: FOCUS_SHORTCUTS.left, enabled: context.cells > 1 }),
-                command('focus-right', t('focusRight'), { shortcut: FOCUS_SHORTCUTS.right, enabled: context.cells > 1 }),
-                command('focus-up', t('focusUp'), { shortcut: FOCUS_SHORTCUTS.up, enabled: context.cells > 1 }),
-                command('focus-down', t('focusDown'), { shortcut: FOCUS_SHORTCUTS.down, enabled: context.cells > 1 }),
-                separator,
-                ...only(
-                    context.view === 'canvas',
-                    ...(['left', 'right', 'up', 'down'] as const).map((direction) =>
-                        command(`node-${direction}`, t(`node${direction[0]!.toUpperCase()}${direction.slice(1)}`), {
-                            shortcut: NODE_NAVIGATION_SHORTCUTS[direction],
-                            enabled: !context.nodeMaximized
-                        })
-                    ),
-                    separator
-                ),
-                command('prompts', t('prompts'), { shortcut: CANVAS_SHORTCUTS.focusPrompts }),
-                ...only(
-                    !context.settingsOpen,
-                    separator,
-                    ...languageCommandsOf('go').map((id) => command(id, t(LANGUAGE_COMMANDS[id].key), { shortcut: LANGUAGE_COMMANDS[id].shortcut }))
-                )
-            )
-        ]
-    };
+    return { id: 'go', label: t('go'), items: itemsOf('go', context, command) };
 }
 
 function windowMenu(context: MenuContext, command: MenuCommand): MenuSection {
