@@ -1,3 +1,4 @@
+import type { z } from 'zod';
 import { nodeSizeOf, type NodeSizes } from './node-defaults.ts';
 import {
     isCanvasView,
@@ -7,9 +8,17 @@ import {
     isSessionView,
     isUnknownView,
     type NodeTitleSource,
+    ProjectBrowserViewSchema,
+    ProjectCanvasViewSchema,
+    ProjectChatViewSchema,
     type ProjectCanvasView,
+    ProjectDeviceViewSchema,
+    ProjectDiagramViewSchema,
+    ProjectDrawingViewSchema,
     type ProjectIconChoice,
     type ProjectNode,
+    ProjectNodeSchema,
+    ProjectTerminalViewSchema,
     type ProjectView
 } from './project.ts';
 
@@ -17,6 +26,11 @@ import {
  * Shared view-list rules used by the client and canvas verbs. Viewport state stays client-side;
  * these functions preserve project-wide ids and edges.
  */
+
+/* The keys of a stored entry that its schema has no field for: what a newer Ruimte added and this one carries along. */
+function extraFieldsOf(entry: object, schema: z.ZodObject): Record<string, unknown> {
+    return Object.fromEntries(Object.entries(entry).filter(([key]) => !(key in schema.shape)));
+}
 
 export function emptyCanvasView(id: string, name: string): ProjectCanvasView {
     return {
@@ -111,7 +125,12 @@ export function withDuplicatedView(views: readonly ProjectView[], id: string, ne
     }
     const copy: ProjectView = isCanvasView(source)
         ? copyOfCanvas(source, `${source.name} copy`, nextId)
-        : { kind: source.kind, id: nextId('view'), name: `${source.name} copy` };
+        : {
+              ...extraFieldsOf(source, source.kind === 'drawing' ? ProjectDrawingViewSchema : ProjectDiagramViewSchema),
+              kind: source.kind,
+              id: nextId('view'),
+              name: `${source.name} copy`
+          };
     return { views: withView(views, copy, id), id: copy.id };
 }
 
@@ -126,6 +145,7 @@ function copyOfCanvas(view: ProjectCanvasView, name: string, nextId: (prefix: st
     const idOf = (id: string): string => renamed.get(id) ?? id;
     const remap = <T>(record: Record<string, T>): Record<string, T> => Object.fromEntries(Object.entries(record).map(([id, value]) => [idOf(id), value]));
     return {
+        ...extraFieldsOf(view, ProjectCanvasViewSchema),
         kind: 'canvas',
         id: nextId('view'),
         name,
@@ -159,24 +179,34 @@ export function withNodeAsView(views: readonly ProjectView[], nodeId: string): {
     if (node.kind !== 'chat' && node.kind !== 'terminal' && node.kind !== 'browser' && node.kind !== 'device') {
         return null;
     }
+    const extras = extraFieldsOf(node, ProjectNodeSchema);
     let view: ProjectView;
     if (node.kind === 'browser') {
-        view = { kind: 'browser', id: node.id, name: node.title, url: node.url ?? '', ...(node.browserOwner ? { browserOwner: node.browserOwner } : {}) };
+        view = {
+            ...extras,
+            kind: 'browser',
+            id: node.id,
+            name: node.title,
+            url: node.url ?? '',
+            ...(node.browserOwner ? { browserOwner: node.browserOwner } : {})
+        };
     } else if (node.kind === 'device') {
         if (!node.device) {
             return null;
         }
-        view = { kind: 'device', id: node.id, name: node.title, device: node.device };
+        view = { ...extras, kind: 'device', id: node.id, name: node.title, device: node.device };
     } else {
         view = {
             kind: node.kind,
             id: node.id,
             name: node.title,
             node: {
+                ...extras,
                 cwd: node.cwd,
                 command: node.command,
                 resume: node.resume,
                 provider: node.provider,
+                account: node.account,
                 providerFixed: node.providerFixed,
                 runtimeMode: node.runtimeMode,
                 accent: node.accent,
@@ -194,6 +224,13 @@ export function withNodeAsView(views: readonly ProjectView[], nodeId: string): {
         view
     };
 }
+
+const VIEW_SCHEMAS_OF_SESSIONS = {
+    chat: ProjectChatViewSchema,
+    terminal: ProjectTerminalViewSchema,
+    browser: ProjectBrowserViewSchema,
+    device: ProjectDeviceViewSchema
+} as const;
 
 /*
  * The way back: a view of its own becomes a node on a canvas again, under the same id. `at` is
@@ -214,6 +251,7 @@ export function withViewAsNode(
         return null;
     }
     const node: ProjectNode = {
+        ...extraFieldsOf(source, VIEW_SCHEMAS_OF_SESSIONS[source.kind]),
         id: source.id,
         kind: source.kind,
         title: source.name,

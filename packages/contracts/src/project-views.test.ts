@@ -130,6 +130,20 @@ describe('duplicating', () => {
         expect(copy.edges[0]).toMatchObject({ from: copy.nodes[0]!.id, to: copy.texts[0]!.id });
     });
 
+    test('a copy carries the fields this version does not know', () => {
+        const source = {
+            ...canvas('a', [{ ...node('n1'), resume: 'session-1', location: { line: 3 } } as ProjectCanvasView['nodes'][number]]),
+            futureView: { nested: true }
+        } as ProjectCanvasView;
+        const copy = withDuplicatedView([source], 'a', ids())!.views[1] as ProjectCanvasView;
+        expect(copy).toMatchObject({ futureView: { nested: true } });
+        expect(copy.nodes[0]).toMatchObject({ location: { line: 3 } });
+        expect(copy.nodes[0]!.resume).toBeUndefined();
+
+        const drawing = { kind: 'drawing', id: 'd', name: 'Sketch', futureView: 1, icon: undefined } as ProjectView;
+        expect(withDuplicatedView([drawing], 'd', ids())!.views[1]).toMatchObject({ kind: 'drawing', futureView: 1 });
+    });
+
     test('only a canvas, a drawing and a diagram are copied; a view of its own holds a session nobody can clone', () => {
         const views: ProjectView[] = [
             { kind: 'drawing', id: 'd', name: 'Sketch' },
@@ -200,6 +214,24 @@ describe('a node and a view of its own', () => {
 
         const restored = withViewAsNode(promoted.views, 'phone', 'a', { x: 20, y: 30 })!;
         expect(restored.node).toMatchObject({ id: 'phone', kind: 'device', device, x: 20, y: 30, w: 360, h: 720 });
+    });
+
+    test('a chat keeps its account and the fields this version does not know through a view of its own and back', () => {
+        const chat = { ...node('c1', 'chat'), provider: 'claude', account: 'work', futureFlag: 1 } as ProjectCanvasView['nodes'][number];
+        const promoted = withNodeAsView([canvas('a', [chat]), canvas('b')], 'c1')!;
+        expect(promoted.view).toMatchObject({ kind: 'chat', node: { provider: 'claude', account: 'work', futureFlag: 1 } });
+
+        const restored = withViewAsNode(promoted.views, 'c1', 'b', { x: 0, y: 0 })!;
+        expect(restored.node).toMatchObject({ id: 'c1', kind: 'chat', provider: 'claude', account: 'work', futureFlag: 1 });
+    });
+
+    test('a browser keeps an unknown field through a view of its own and back', () => {
+        const browser = { ...node('page', 'browser'), url: 'https://example.com', futureFlag: 'a' } as ProjectCanvasView['nodes'][number];
+        const promoted = withNodeAsView([canvas('a', [browser])], 'page')!;
+        expect(promoted.view).toMatchObject({ kind: 'browser', url: 'https://example.com', futureFlag: 'a' });
+
+        const restored = withViewAsNode(promoted.views, 'page', 'a', { x: 0, y: 0 })!;
+        expect(restored.node).toMatchObject({ id: 'page', kind: 'browser', url: 'https://example.com', futureFlag: 'a' });
     });
 
     test('a drawing is a file, so it is never put on a canvas as itself', () => {
