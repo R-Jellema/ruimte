@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ProjectCanvasView, ProjectContent, ProjectDocument, ProjectSummaryEvent, ServerFrame } from '@ruimte/contracts';
@@ -172,6 +172,41 @@ describe('a save in one client', () => {
             .filter((frame) => !('event' in frame && frame.event === 'project.summary'))
             .map((frame) => ('event' in frame ? frame.event : 'reply'));
         expect(kinds).toEqual(['project.changed', 'reply']);
+    });
+});
+
+describe('a field this version does not know', () => {
+    const withLocation = (x: number): ProjectCanvasView => ({
+        ...canvas('main', 'Main'),
+        nodes: [
+            { id: 'f1', kind: 'file', title: 'a.ts', x, y: 0, w: 320, h: 200, path: 'a.ts', location: { line: 3 } } as ProjectCanvasView['nodes'][number],
+            { id: 'n2', kind: 'note', title: 'Note', x: 0, y: 300, w: 320, h: 240, body: 'hi' }
+        ]
+    });
+
+    test('survives a save of the document a client received, in the other client and on disk', async () => {
+        const clients = twoClients();
+        const { projectId, rev, start } = await openOnBoth(clients);
+        const { rev: seeded } = await request<{ rev: number }>(clients.a, 'project.save', {
+            projectId,
+            baseRev: rev,
+            content: { ...start, views: [withLocation(0), start.views[1]!] },
+            shared: ['main']
+        });
+        const reopened = await request<{ document: ProjectDocument }>(clients.a, 'project.open', { projectId });
+        expect((reopened.document.views[0] as ProjectCanvasView).nodes[0]).toMatchObject({ location: { line: 3 } });
+        clients.b.channel.frames.length = 0;
+
+        const main = reopened.document.views[0] as ProjectCanvasView;
+        const moved = {
+            ...contentOf(reopened.document),
+            views: [{ ...main, nodes: main.nodes.map((node) => (node.id === 'f1' ? { ...node, x: 200 } : node)) }, reopened.document.views[1]!]
+        };
+        await request(clients.a, 'project.save', { projectId, baseRev: seeded, content: moved });
+
+        const [change] = changesIn(clients.b.channel);
+        expect((change!.views[0] as ProjectCanvasView).nodes[0]).toMatchObject({ x: 200, location: { line: 3 } });
+        expect(await readFile(join(folder, '.ruimte', 'project.json'), 'utf8')).toContain('"location"');
     });
 });
 

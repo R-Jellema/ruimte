@@ -13,6 +13,8 @@ export type TrackedProbe = (path: string) => Promise<boolean>;
 export interface LoadedFiles {
     content: ProjectContent;
     shared: string[];
+    // Node fields the private file keeps one person's; handed back to every write so the split puts them in the overlay again.
+    overlayFields: string[];
     rev: number;
     privateText: string | null;
 }
@@ -39,5 +41,5 @@ export async function splitLegacy(
     const shared = tracked ? read.file.views.filter((view) => !own.includes(view)).map((view: ProjectView) => view.id) : [];
     const file = { ...privateFileOf(own, read.legacyRev), order: read.file.views.map((view: ProjectView) => view.id) };
     const merged = mergeFiles(read.file, tracked ? { ...file, overlay: overlayOfLegacy(read.file.views) } : file, fallback);
-    return { content: merged.content, shared, rev: read.legacyRev, privateText: null };
+    return { content: merged.content, shared, overlayFields: merged.overlayFields, rev: read.legacyRev, privateText: null };
 }

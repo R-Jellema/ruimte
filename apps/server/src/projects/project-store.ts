@@ -142,6 +142,8 @@ interface OpenProject {
        from someone else's. The private file has no watcher: nothing but this daemon writes it. */
     lastText: string;
     lastPrivate: string;
+    // The node fields the private file keeps one person's, which a write has to hand to the split again.
+    overlayFields: string[];
     // The views that live in the shared file, which is what a save has to be told to change.
     shared: string[];
     watcher: DirectoryWatcher | null;
@@ -188,9 +190,17 @@ function viewIdsIn(views: readonly ProjectView[], kind: 'drawing' | 'diagram'): 
 }
 
 /* Takes in a write or read of both files, so the watcher can tell the next outside edit from this one. */
-function remember(state: OpenProject, written: { text: string; private: string }, rev: number, shared: readonly string[], views: ProjectView[]): void {
+function remember(
+    state: OpenProject,
+    written: { text: string; private: string },
+    rev: number,
+    shared: readonly string[],
+    views: ProjectView[],
+    overlayFields: readonly string[] = state.overlayFields
+): void {
     state.lastText = written.text;
     state.lastPrivate = written.private;
+    state.overlayFields = [...overlayFields];
     state.rev = rev;
     state.shared = [...shared];
     state.drawingIds = viewIdsIn(views, 'drawing');
@@ -263,7 +273,13 @@ export class ProjectStore {
         }
         const file = outcome.kind === 'ok' ? outcome.document : EMPTY_PRIVATE_FILE;
         const merged = mergeFiles(read?.file ?? null, file, fallback);
-        return { content: merged.content, shared: merged.shared, rev: file.rev, privateText: outcome.kind === 'ok' ? outcome.text : null };
+        return {
+            content: merged.content,
+            shared: merged.shared,
+            overlayFields: merged.overlayFields,
+            rev: file.rev,
+            privateText: outcome.kind === 'ok' ? outcome.text : null
+        };
     }
 
     /*
@@ -309,9 +325,10 @@ export class ProjectStore {
         content: ProjectContent,
         shared: readonly string[],
         rev: number,
-        moved: readonly string[] = []
+        moved: readonly string[],
+        overlayFields: readonly string[]
     ): Promise<{ text: string; private: string }> {
-        const split = splitContent(content, shared, rev);
+        const split = splitContent(content, shared, rev, overlayFields);
         const sharedText = serializeSharedFile(split.shared);
         const privateText = serializePrivateFile(split.private);
         await writeProjectFiles(path, { text: sharedText, private: privateText }, moved, shared, this.writeIO).catch((e: unknown) => {
@@ -473,7 +490,7 @@ export class ProjectStore {
         /* A folder that has no private file yet is one this daemon never wrote: a fresh project, a
            clone of a repository with a canvas in it, or a version-2 file this open is splitting. */
         if (missing || loaded.privateText === null) {
-            const written = await this.writeFiles(path, toPortable(content, entry.folder), loaded.shared, loaded.rev);
+            const written = await this.writeFiles(path, toPortable(content, entry.folder), loaded.shared, loaded.rev, [], loaded.overlayFields);
             text = written.text;
             privateText = written.private;
         }
@@ -501,6 +518,7 @@ export class ProjectStore {
             rev: document.rev,
             lastText: text,
             lastPrivate: privateText,
+            overlayFields: loaded.overlayFields,
             shared: loaded.shared,
             watcher: null,
             cancelSettle: null,
@@ -550,11 +568,11 @@ export class ProjectStore {
                 const path = this.documentPath(entry);
                 const loaded = await this.loadFiles(path, entry, null);
                 const content: ProjectContent = { name: entry.name, color: entry.color, icon: entry.icon ?? seed.icon, views: [] };
-                const written = await this.writeFiles(path, toPortable(content, folder), [], loaded.rev);
+                const written = await this.writeFiles(path, toPortable(content, folder), [], loaded.rev, [], loaded.overlayFields);
                 await writeGitignoreIfMissing(path);
                 const state = this.open.get(entry.projectId);
                 if (state) {
-                    remember(state, written, loaded.rev, [], []);
+                    remember(state, written, loaded.rev, [], [], loaded.overlayFields);
                 }
                 this.index.set(entry.projectId, folder, content);
                 if (!known) {
@@ -600,7 +618,7 @@ export class ProjectStore {
         const sql = content.sql ?? this.index.sqlOf(projectId);
         const portable = toPortable({ ...content, ...(flags ? { flags } : {}), ...(sql ? { sql } : {}) }, state.entry.folder);
         const document: ProjectDocument = { version: PROJECT_VERSION, rev: state.rev + 1, ...portable, shared: ids };
-        const written = await this.writeFiles(this.documentPath(state.entry), portable, ids, document.rev, moved);
+        const written = await this.writeFiles(this.documentPath(state.entry), portable, ids, document.rev, moved, state.overlayFields);
         remember(state, written, document.rev, ids, document.views);
         /* Not the sender: its screen is already ahead of this document, and taking it in would undo a
            drag that went on while the save was out. */
@@ -653,7 +671,7 @@ export class ProjectStore {
         apply: (content: ProjectContent) => ProjectMutation<T> | Promise<ProjectMutation<T>>,
         expectedRev?: number
     ): Promise<T> {
-        const { entry, path, rev, content, shared } = await this.readCurrent(projectId);
+        const { entry, path, rev, content, shared, overlayFields } = await this.readCurrent(projectId);
         if (expectedRev !== undefined && expectedRev !== rev) {
             throw new ProjectError('rev-conflict', revisionConflictMessage('The project', expectedRev, rev));
         }
@@ -672,7 +690,7 @@ export class ProjectStore {
             throw new ProjectError('project-invalid', `The change would give two things the id "${duplicate}"`);
         }
         const state = this.open.get(projectId);
-        const written = await this.writeFiles(path, toPortable(mutation.content, entry.folder), shared, document.rev);
+        const written = await this.writeFiles(path, toPortable(mutation.content, entry.folder), shared, document.rev, [], overlayFields);
         const icon = mutation.content.icon ?? null;
         const identityChanged = mutation.content.name !== entry.name || mutation.content.color !== entry.color || !sameIcon(icon, entry.icon ?? null);
         const nextEntry = identityChanged ? { ...entry, name: mutation.content.name, color: mutation.content.color, icon } : entry;
@@ -681,7 +699,7 @@ export class ProjectStore {
         }
         if (state) {
             state.entry = nextEntry;
-            remember(state, written, document.rev, shared, document.views);
+            remember(state, written, document.rev, shared, document.views, overlayFields);
         }
         // Every sink, open or not: a client that released the project may still have it on screen in another workspace.
         await this.afterWrite(nextEntry, before, document, async () => {
@@ -784,7 +802,7 @@ export class ProjectStore {
     private async readCurrent(
         projectId: string,
         readOnly = false
-    ): Promise<{ entry: RegistryEntry; path: string; rev: number; content: ProjectContent; shared: string[] }> {
+    ): Promise<{ entry: RegistryEntry; path: string; rev: number; content: ProjectContent; shared: string[]; overlayFields: string[] }> {
         const entry = await this.registry.entry(projectId);
         const path = this.documentPath(entry);
         await this.recover(entry);
@@ -808,7 +826,14 @@ export class ProjectStore {
             throw new ProjectError('project-invalid', `${path} does not parse as a canvas`);
         }
         const loaded = await this.loadFiles(path, entry, parsed.document, readOnly);
-        return { entry, path, rev: loaded.rev, content: fromPortable(loaded.content, entry.folder), shared: loaded.shared };
+        return {
+            entry,
+            path,
+            rev: loaded.rev,
+            content: fromPortable(loaded.content, entry.folder),
+            shared: loaded.shared,
+            overlayFields: loaded.overlayFields
+        };
     }
 
     async saveLocal(projectId: string, local: ProjectLocal): Promise<void> {
@@ -1132,13 +1157,13 @@ export class ProjectStore {
     private async takeOutsideEdit(state: OpenProject, path: string, text: string, read: SharedFileRead): Promise<void> {
         const loaded = await this.loadFiles(path, state.entry, read);
         const rev = state.rev + 1;
-        const privateFile = splitContent(loaded.content, loaded.shared, rev).private;
+        const privateFile = splitContent(loaded.content, loaded.shared, rev, loaded.overlayFields).private;
         const privateText = serializePrivateFile(privateFile);
         if (privateText !== state.lastPrivate) {
             await writePrivateFile(privatePathOf(path), privateFile);
         }
         const document: ProjectDocument = { version: PROJECT_VERSION, rev, ...loaded.content, shared: loaded.shared };
-        remember(state, { text, private: privateText }, rev, loaded.shared, document.views);
+        remember(state, { text, private: privateText }, rev, loaded.shared, document.views, loaded.overlayFields);
         state.entry = { ...state.entry, name: document.name, color: document.color, icon: document.icon ?? null };
         this.index.set(state.entry.projectId, state.entry.folder, fromPortable(document, state.entry.folder));
         await this.announceChange(state.entry, fromPortable(document, state.entry.folder));
@@ -1161,7 +1186,7 @@ export class ProjectStore {
         const document: ProjectDocument = { version: PROJECT_VERSION, rev: loaded.rev, ...loaded.content, shared: loaded.shared };
         const state = this.open.get(entry.projectId);
         if (state) {
-            remember(state, written, loaded.rev, loaded.shared, document.views);
+            remember(state, written, loaded.rev, loaded.shared, document.views, loaded.overlayFields);
         }
         const daemonSide = fromPortable(document, entry.folder);
         this.index.set(entry.projectId, entry.folder, daemonSide);

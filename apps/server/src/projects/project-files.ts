@@ -275,7 +275,8 @@ export function serializePrivateFile(file: ProjectPrivateFile): string {
         `${INDENT}"order": ${itemsOnLines(file.order, INDENT)}`,
         `${INDENT}"overlay": ${nested(file.overlay)}`,
         ...(file.flags ? [`${INDENT}"flags": ${nested(file.flags)}`] : []),
-        ...(file.sql ? [`${INDENT}"sql": ${nested(file.sql)}`] : [])
+        ...(file.sql ? [`${INDENT}"sql": ${nested(file.sql)}`] : []),
+        ...(file.overlayFields ? [`${INDENT}"overlayFields": ${itemsOnLines(file.overlayFields, INDENT)}`] : [])
     ];
     return `{\n${fields.join(',\n')}\n}\n`;
 }
