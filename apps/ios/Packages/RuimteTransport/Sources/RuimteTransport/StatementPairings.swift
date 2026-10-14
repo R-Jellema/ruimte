@@ -71,10 +71,15 @@ public struct PairingIdentity: Hashable, Sendable {
         let access: Access? = store.contains(identity) ? nil : requestAccess
         var authenticatedEvents = events
         var ended = false
-        authenticatedEvents.opened = { [self, store] in
+        authenticatedEvents.accepted = { [self, store] in
             guard !ended, generations[identity.machineID, default: 0] == generation else { return }
-            // NativeWebRTCLink opens only after its pinned challenge/proof and direct.accepted.
+            // The machine verified the statement before it accepted, so a refusal after this, such as an older
+            // machine at the protocol check, must not ask the address book for access again.
             store.insert(identity)
+            events.accepted()
+        }
+        authenticatedEvents.opened = { [self] in
+            guard !ended, generations[identity.machineID, default: 0] == generation else { return }
             events.opened()
         }
         authenticatedEvents.closed = { error in

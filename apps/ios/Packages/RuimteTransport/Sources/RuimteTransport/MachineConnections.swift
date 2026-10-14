@@ -26,12 +26,15 @@ public enum LinkRoute: Equatable, Sendable {
     public var route: (LinkRoute?) -> Void
     /// The requests the machine names in `endpoint.info`; it comes before `opened`.
     public var features: ([String]) -> Void
+    /// The machine accepted this phone's proof, which is before the protocol check that `opened` follows.
+    public var accepted: () -> Void
     /// A piece of a frame arrived, the last one included.
     public var progress: () -> Void
     public init(
         opened: @escaping () -> Void, message: @escaping (String) -> Void, binary: @escaping (Data) -> Void = { _ in },
         closed: @escaping (Error?) -> Void, route: @escaping (LinkRoute?) -> Void = { _ in },
-        features: @escaping ([String]) -> Void = { _ in }, progress: @escaping () -> Void = {}
+        features: @escaping ([String]) -> Void = { _ in }, accepted: @escaping () -> Void = {},
+        progress: @escaping () -> Void = {}
     ) {
         self.opened = opened
         self.message = message
@@ -39,6 +42,7 @@ public enum LinkRoute: Equatable, Sendable {
         self.closed = closed
         self.route = route
         self.features = features
+        self.accepted = accepted
         self.progress = progress
     }
 }

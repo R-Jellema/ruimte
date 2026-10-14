@@ -304,6 +304,7 @@ import RuimtePulsar
         trace("authenticated")
         cancelTimeout?()
         cancelTimeout = nil
+        events.accepted()
         signaling?.close()
         signaling = nil
         liveness = ChannelLiveness(now: now)

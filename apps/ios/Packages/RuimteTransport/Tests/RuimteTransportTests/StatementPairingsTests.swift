@@ -40,6 +40,7 @@ final class StatementPairingsTests: XCTestCase {
                 events: LinkEvents(opened: { opens += 1 }, message: { _ in }, closed: { _ in }),
                 makeLink: { PairingTestLink(access: $0, events: $1) }) as? PairingTestLink)
         pairings.forget(machineID: "machine")
+        link.events.accepted()
         link.events.opened()
         XCTAssertEqual(opens, 0)
         XCTAssertFalse(store.contains(identity))
@@ -72,9 +73,11 @@ final class StatementPairingsTests: XCTestCase {
         _ = try await first.access?()
         XCTAssertEqual(requests, 1)
         XCTAssertFalse(store.contains(identity))
+        first.events.accepted()
+        XCTAssertTrue(store.contains(identity))
+        XCTAssertEqual(opens, 0)
         first.events.opened()
         XCTAssertEqual(opens, 1)
-        XCTAssertTrue(store.contains(identity))
 
         let restarted = StatementPairings(
             store: UserDefaultsPairingStore(defaults: try XCTUnwrap(UserDefaults(suiteName: domain))))
@@ -105,6 +108,7 @@ final class StatementPairingsTests: XCTestCase {
         first.events.closed(TransportFailure.invalid("statements-refused"))
         XCTAssertFalse(store.contains(identity))
         XCTAssertEqual(failures, 1)
+        first.events.accepted()
         first.events.opened()
         XCTAssertFalse(store.contains(identity))
         let accepted = try XCTUnwrap(
@@ -112,6 +116,7 @@ final class StatementPairingsTests: XCTestCase {
                 identity: identity, requestAccess: { .object([:]) }, events: events,
                 makeLink: { PairingTestLink(access: $0, events: $1) }) as? PairingTestLink)
         XCTAssertNotNil(accepted.access)
+        accepted.events.accepted()
         accepted.events.opened()
         let second = try XCTUnwrap(
             pairings.open(
@@ -125,6 +130,26 @@ final class StatementPairingsTests: XCTestCase {
                 makeLink: { PairingTestLink(access: $0, events: $1) }) as? PairingTestLink)
         XCTAssertNil(retry.access)
         XCTAssertEqual(failures, 2)
+    }
+
+    @MainActor func testARefusalAfterTheMachineAcceptedDoesNotAskForAccessAgain() throws {
+        let store = MemoryPairingStore()
+        let pairings = StatementPairings(store: store)
+        let identity = PairingIdentity(
+            machineID: "machine", machineKey: DeviceKey().publicKey, clientKey: DeviceKey().publicKey)
+        let events = LinkEvents(opened: {}, message: { _ in }, closed: { _ in })
+        let first = try XCTUnwrap(
+            pairings.open(
+                identity: identity, requestAccess: { .object([:]) }, events: events,
+                makeLink: { PairingTestLink(access: $0, events: $1) }) as? PairingTestLink)
+        XCTAssertNotNil(first.access)
+        first.events.accepted()
+        first.events.closed(TransportFailure.invalid("older machine"))
+        let retry = try XCTUnwrap(
+            pairings.open(
+                identity: identity, requestAccess: { .object([:]) }, events: events,
+                makeLink: { PairingTestLink(access: $0, events: $1) }) as? PairingTestLink)
+        XCTAssertNil(retry.access)
     }
 
     @MainActor func testSettlementIsBoundToMachineAndBothPinnedKeys() {
