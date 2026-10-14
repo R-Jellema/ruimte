@@ -751,6 +751,7 @@
         "connectingThroughAccount": "Connecting to {{machine}} through your account…",
         "notReachable": "{{machine}} is not reachable",
         "createHint": "Press Enter to create this folder and open it as a project",
+        "relativePath": "This is not a full path. Start it at the root or at ~ to open a folder.",
         "nothingYet": "Nothing yet",
         "grepCount_one": "{{hits}} in {{count}} file",
         "grepCount_other": "{{hits}} in {{count}} files",

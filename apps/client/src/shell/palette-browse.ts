@@ -72,6 +72,31 @@ export function folderPresence(path: string, result: BrowseAnswer | null, sep: s
     return result.entries.some((entry) => entry.name === last) ? 'there' : 'missing';
 }
 
+/*
+ * Whether the machine opens a path as it was typed. It refuses a relative one (`folder-to-open.ts`
+ * on the daemon), since its own working folder means nothing to a person.
+ */
+export function isFullPath(path: string, platform: string | null): boolean {
+    const trimmed = path.trim();
+    if (trimmed === '~' || trimmed.startsWith('~/') || trimmed.startsWith('~\\')) {
+        return true;
+    }
+    if (platform === 'win32') {
+        return /^[a-zA-Z]:[\\/]/.test(trimmed) || trimmed.startsWith('\\') || trimmed.startsWith('/');
+    }
+    return trimmed.startsWith('/');
+}
+
+/* What Enter does with the typed path; a relative one is refused at once rather than after the machine said no. */
+export type TypedPathOffer = 'open' | 'create' | 'relative';
+
+export function typedPathOffer(path: string, platform: string | null, presence: FolderPresence): TypedPathOffer {
+    if (!isFullPath(path, platform)) {
+        return 'relative';
+    }
+    return presence === 'missing' ? 'create' : 'open';
+}
+
 export interface BrowseStart {
     /* Where the first listing is asked for, ready to be listed whole. */
     start: string;

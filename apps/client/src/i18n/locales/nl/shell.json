@@ -751,6 +751,7 @@
         "connectingThroughAccount": "Verbinden met {{machine}} via je account…",
         "notReachable": "{{machine}} is niet bereikbaar",
         "createHint": "Druk op Enter om deze map te maken en als project te openen",
+        "relativePath": "Dit is geen volledig pad. Begin bij de root of bij ~ om een map te openen.",
         "nothingYet": "Nog niets",
         "grepCount_one": "{{hits}} in {{count}} bestand",
         "grepCount_other": "{{hits}} in {{count}} bestanden",

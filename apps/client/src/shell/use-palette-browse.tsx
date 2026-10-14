@@ -16,6 +16,7 @@ import {
     browseStart,
     endsWithSeparator,
     folderPresence,
+    typedPathOffer,
     linkDot,
     linkHint,
     machineLink,
@@ -355,13 +356,13 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
         setBrowse((step) => retryLink(step));
     };
 
-    /* What the daemon says about the path in the field: there, not there, or a daemon too old to say. */
-    const presence = browsing && !machineStep && query.trim() !== '' ? folderPresence(query, listing?.result ?? null, sep) : 'unknown';
+    /* What Enter does with the path in the field, after what the daemon says about it: there, not there, or a daemon too old to say. */
+    const offer = browsing && !machineStep && query.trim() !== '' ? typedPathOffer(query, platform, folderPresence(query, listing?.result ?? null, sep)) : null;
 
     /* The main column says how the open goes from here, and why it failed, so the palette is out of the way at once. */
     const submitPath = (path: string): void => {
         close();
-        openFolderAction(browseEndpointId, path, presence === 'missing');
+        openFolderAction(browseEndpointId, path, offer === 'create');
     };
 
     const entries = useMemo<Entry[]>(() => {
@@ -453,7 +454,7 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
     const browseIcon = browseRow ? iconOfEntry(browseRow.entry, servers[browseEndpointId]?.icon ?? null) : (servers[browseEndpointId]?.icon ?? null);
     const backTo = browse === null ? null : browseBack(browse, machines.length).to;
     const backLabel = backTo === 'folders' ? t('palette.backToFolders') : backTo === 'machines' ? t('palette.browseAnother') : t('palette.backToPalette');
-    const submitLabel = presence === 'missing' ? t('palette.createAndOpen') : t('projectMenu.openFolder');
+    const submitLabel = offer === 'create' ? t('palette.createAndOpen') : t('projectMenu.openFolder');
     // Enter means "use what I typed" until a row is highlighted, and then the shortcut takes that over.
     const submitShortcut = active === undefined ? KEY_SHORTCUTS.enter : KEY_SHORTCUTS.modEnter;
     /* The shell's own picker, which only makes sense for the daemon that served this page: the word
@@ -469,7 +470,9 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
                     retry();
                 }
             } else if (!machineStep && (active === undefined || matchesShortcut(KEY_SHORTCUTS.modEnter, event, isApplePlatform()))) {
-                submitPath(query);
+                if (offer !== 'relative') {
+                    submitPath(query);
+                }
             } else {
                 run(active);
             }
@@ -509,7 +512,7 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
                 </Button>
             </Tooltip>
         ),
-        trailing: !machineStep && linkWait === null && (
+        trailing: !machineStep && linkWait === null && offer !== 'relative' && (
             <Tooltip label={submitLabel} kbd={submitShortcut}>
                 <Button size="sm" variant="secondary" disabled={query.trim() === ''} onClick={() => submitPath(query)}>
                     {submitLabel}
@@ -519,6 +522,7 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
         ),
         notes: (
             <>
+                {offer === 'relative' && <PaletteNote>{t('palette.relativePath')}</PaletteNote>}
                 {machineStep && entries.length === 0 && (
                     <PaletteNote>{machines.length === 0 ? t('palette.noMachineYet') : t('palette.noMachineMatch')}</PaletteNote>
                 )}
@@ -558,7 +562,7 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
                 )}
                 <PaletteEntryList entries={entries} active={active} onHover={setIndex} onRun={(entry) => run(entry)} />
                 {/* fs.browse says whether the typed folder exists, so a missing one can be offered for creation. */}
-                {presence === 'missing' && <PaletteNote>{t('palette.createHint')}</PaletteNote>}
+                {offer === 'create' && <PaletteNote>{t('palette.createHint')}</PaletteNote>}
             </>
         ),
         footer: (

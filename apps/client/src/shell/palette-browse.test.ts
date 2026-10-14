@@ -8,6 +8,7 @@ import {
     browseMachines,
     browseStart,
     folderPresence,
+    isFullPath,
     joinPath,
     linkDot,
     linkHint,
@@ -20,6 +21,7 @@ import {
     retryLink,
     separatorFor,
     settleLink,
+    typedPathOffer,
     type BrowseStep
 } from './palette-browse';
 
@@ -78,6 +80,35 @@ describe('folderPresence', () => {
     test('a daemon that does not know the field leaves the question open', () => {
         expect(folderPresence('~/projects/', { entries: [] }, '/')).toBe('unknown');
         expect(folderPresence('~/projects/', null, '/')).toBe('unknown');
+    });
+});
+
+describe('typedPathOffer', () => {
+    test('a path from the root or from home opens, or is created when it is missing', () => {
+        expect(typedPathOffer('/Users/bas/app', 'darwin', 'there')).toBe('open');
+        expect(typedPathOffer('~/projects/new', 'darwin', 'missing')).toBe('create');
+        expect(typedPathOffer('~', 'linux', 'unknown')).toBe('open');
+    });
+
+    test('a relative path is refused before the machine is asked, whatever the listing said', () => {
+        expect(typedPathOffer('foo/bar', 'darwin', 'missing')).toBe('relative');
+        expect(typedPathOffer('./foo', 'darwin', 'there')).toBe('relative');
+        expect(typedPathOffer('../foo', null, 'unknown')).toBe('relative');
+        expect(typedPathOffer('~foo', 'darwin', 'missing')).toBe('relative');
+    });
+});
+
+describe('isFullPath', () => {
+    test('a Windows machine also starts a path at a drive or a share', () => {
+        expect(isFullPath('C:\\Users', 'win32')).toBe(true);
+        expect(isFullPath('\\\\server\\share', 'win32')).toBe(true);
+        expect(isFullPath('~\\projects', 'win32')).toBe(true);
+        expect(isFullPath('C:\\Users', 'darwin')).toBe(false);
+        expect(isFullPath('projects\\app', 'win32')).toBe(false);
+    });
+
+    test('surrounding spaces do not count, as the machine trims them too', () => {
+        expect(isFullPath('  /tmp ', 'linux')).toBe(true);
     });
 });
 
