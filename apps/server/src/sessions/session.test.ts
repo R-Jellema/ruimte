@@ -210,6 +210,20 @@ describe('Session screens shared between clients', () => {
 });
 
 describe('Session.attach', () => {
+    test('a client that comes back at another grid gets every line it left, through a snapshot pass and a resize', async () => {
+        await create('s1');
+        await harness.manager.attach('s1', 'c1', 120, 30);
+        const lines = emitLines('s1', 0, 60);
+        await harness.manager.snapshotAll(true);
+        harness.manager.detach('s1', 'c1');
+        harness.manager.resize('s1', 100, 30);
+
+        const { screen, cols, rows } = await harness.manager.attach('s1', 'c2', 72, 20);
+
+        expect({ cols, rows }).toEqual({ cols: 72, rows: 20 });
+        expect(await replay([{ screen }])).toEqual(lines);
+    });
+
     test('a screen past what one frame carries comes back with its newest lines and under the limit', async () => {
         await harness.manager.create({ sessionId: 'art', cols: 160, rows: 50, shell: '/bin/sh', args: [], cwd: harness.home });
         const pty = harness.adapter.forSession('art');
