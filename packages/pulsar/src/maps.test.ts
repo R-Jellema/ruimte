@@ -4,6 +4,8 @@ import {
     MachineMapsTicketPayloadSchema,
     MapsTicketSchema,
     mapsSecretBytes,
+    signMapsPath,
+    verifyMapsPath,
     mapsTicketSubject,
     signMapsTicket,
     verifyMapsTicket
@@ -71,6 +73,20 @@ describe('maps tickets', () => {
         }
         const { ticket } = await signMapsTicket(secret, await mapsTicketSubject(secret, 'account-1'), now + 60_000);
         expect(await verifyMapsTicket('short', ticket, now)).toBeNull();
+    });
+
+    test('a mark over a path holds for that text and that secret only, and is no ticket mac', async () => {
+        const mark = await signMapsPath(secret, 'maps/orbis/display/vector/tile/{z}/{x}/{y}');
+        expect(mark).toMatch(/^[A-Za-z0-9_-]{43}$/);
+        expect(await verifyMapsPath(secret, 'maps/orbis/display/vector/tile/{z}/{x}/{y}', mark)).toBe(true);
+        expect(await verifyMapsPath(secret, 'maps/orbis/display/vector/tile/{z}/{x}/{y}/', mark)).toBe(false);
+        expect(await verifyMapsPath(otherSecret, 'maps/orbis/display/vector/tile/{z}/{x}/{y}', mark)).toBe(false);
+        expect(await verifyMapsPath('short', 'x', mark)).toBe(false);
+        expect(await verifyMapsPath(secret, 'x', 'not a mark')).toBe(false);
+        // The same text as a ticket's bytes gives another mark.
+        expect(await signMapsPath(secret, 'a')).not.toBe(await signMapsPath(secret, 'b'));
+        const ticket = await signMapsTicket(secret, await mapsTicketSubject(secret, 'account-1'), now + 60_000);
+        expect(await verifyMapsPath(secret, ticket.ticket.split('.')[0]!, ticket.ticket.split('.')[2]!)).toBe(false);
     });
 
     test('a machine request names a machine, a time and a signature', () => {

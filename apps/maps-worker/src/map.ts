@@ -1,9 +1,9 @@
 import type { Deps } from './deps.ts';
 import type { Env } from './env.ts';
+import { upstreamPathAllowed } from './grant.ts';
 import { failure } from './http.ts';
-import { UPSTREAM_HEADERS, cacheSeconds, sanitizedText, upstreamUrl } from './upstream.ts';
-
-const TEXT_TYPE = /^(application\/(json|[a-z.+-]*\+json)|text\/)/i;
+import { rewriteDocument } from './rewrite.ts';
+import { UPSTREAM_HEADERS, bodyKind, cacheSeconds, upstreamUrl } from './upstream.ts';
 
 /* The answer for a client, with how long it may keep it. TomTom's own headers are never copied across. */
 function answer(body: BodyInit | null, contentType: string | null, seconds: number): Response {
@@ -16,18 +16,29 @@ function answer(body: BodyInit | null, contentType: string | null, seconds: numb
 
 /* Under a key without the ticket or TomTom's key in it, since two clients may share what one fetched. */
 function cacheKey(path: string, query: readonly (readonly [string, string])[]): Request {
-    return new Request(`https://cache.maps.invalid/${path}?${new URLSearchParams(query as [string, string][]).toString()}`);
+    const sorted = query.toSorted(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    return new Request(`https://cache.maps.invalid/${path}?${new URLSearchParams(sorted as [string, string][]).toString()}`);
+}
+
+export interface Resource {
+    /* The upstream path, which `upstreamPathAllowed` has already passed (or the fixed path of the style). */
+    path: string;
+    query: readonly (readonly [string, string])[];
 }
 
 /*
- * One GET of a map resource through TomTom: a style, a TileJSON, a tile, a sprite or a glyph range. A
- * response is kept at the edge for no longer than TomTom's own Cache-Control allows, and a body that
- * names the key or TomTom's address is rewritten before it is kept or sent.
+ * One GET of a map resource through TomTom. A response is kept at the edge for no longer than TomTom's own
+ * Cache-Control allows. A JSON body is rewritten so that it names this service only, and checked for the key
+ * after that; a body of a type this service does not know is not passed on at all.
  */
-export async function fetchMapResource(deps: Deps, env: Env, resource: { path: string; query: readonly (readonly [string, string])[] }): Promise<Response> {
+export async function fetchMapResource(deps: Deps, env: Env, resource: Resource, trusted = false): Promise<Response> {
     const key = env.TOMTOM_API_KEY;
-    if (!key) {
-        return failure('maps-unconfigured', 'The maps service has no TomTom key yet');
+    const secret = env.MAP_TICKET_SECRET;
+    if (!key || !secret) {
+        return failure('maps-unconfigured', 'The maps service is not configured yet');
+    }
+    if (!trusted && !upstreamPathAllowed(resource.path)) {
+        return failure('not-found', 'No such map resource');
     }
     const cacheRequest = cacheKey(resource.path, resource.query);
     const cached = await deps.cache.match(cacheRequest);
@@ -56,10 +67,20 @@ export async function fetchMapResource(deps: Deps, env: Env, resource: { path: s
     }
     const seconds = cacheSeconds(upstream.headers);
     const contentType = upstream.headers.get('content-type');
+    const kind = bodyKind(contentType);
+    if (kind === 'refused') {
+        await upstream.body?.cancel();
+        return failure('upstream', 'The map provider sent a kind of body this service does not pass on');
+    }
     let body: BodyInit | null = upstream.body;
-    if (contentType !== null && TEXT_TYPE.test(contentType)) {
-        const text = sanitizedText(await upstream.text(), key, env.PUBLIC_ORIGIN, /json/i.test(contentType));
-        if (text === null) {
+    if (kind === 'json') {
+        let text: string;
+        try {
+            text = JSON.stringify(await rewriteDocument(JSON.parse(await upstream.text()), secret, env.PUBLIC_ORIGIN));
+        } catch {
+            return failure('upstream', 'The map provider sent a body this service cannot read');
+        }
+        if (text.includes(key)) {
             return failure('upstream', 'The map provider sent a body this service will not pass on');
         }
         body = text;

@@ -13,17 +13,28 @@ book (`apps/pulsar-worker`). The ticket rides in a header, never the URL, so it 
 | --- | --- |
 | `GET /health` | `{ ok: true }`, without a ticket |
 | `GET /v1/style?theme=light\|dark` | The monochrome Orbis style, with every address in it pointed at this service and the key removed |
-| `GET /v1/map/<path>` | A map resource of TomTom: only `maps/orbis/display/...` and `maps/orbis/assets/...` (tiles, TileJSON, sprites, glyphs). Any other path is `not-found` and never fetched |
+| `GET /v1/m/<grant>/<tail>` | A tile, sprite, glyph range or TileJSON the style named, and only that: see below |
 | `POST /v1/geocode` | `{ query, language? }` to `{ results: [{ lat, lon, label }] }`, at most one, from TomTom's Orbis search |
 
 Answers that fail are `{ error: { code, message } }` with `maps-unconfigured` (503), `bad-ticket` (401), `rate-limited`
 (429, with `retry-after`), `not-found` (404), `bad-request` (400) or `upstream` (502). TomTom's own error body is never
 passed on, since it may echo the key. A key without the Search right makes `/v1/geocode` answer `upstream`.
 
+## What it serves
+
+Nothing but the style and what the style names. While the style is rewritten, each TomTom address in the places a style keeps one
+(`sprite`, `glyphs`, a source's `tiles` and `url`) becomes `/v1/m/<grant>/<tail>`. The grant is the address as TomTom wrote it,
+placeholders such as `{z}` included, under a mark only this service can make (`signMapsPath`, a key derived from `MAP_TICKET_SECRET`). A
+request names a grant and fills the placeholders in the tail: three numbers for a tile, a font stack and a range for glyphs
+(`Noto%20Sans%20Regular%2CNoto%20Sans%20Italic/0-255.pbf`), `sprite[@2x].json|png` for a sprite. The tail is matched
+against that shape as it was sent, never decoded, and the upstream path is checked once more before it leaves: it must be map display or
+its assets, the URL parser must not change it, and a `%` may only be a space or a comma. A TomTom address anywhere else in a body is blanked.
+A client's query is never forwarded. An upstream body is JSON (rewritten, then searched for the key) or a known binary type
+(vector tile, protobuf, png, webp, jpeg, gif); any other type is refused.
+
 ## What stays out
 
-- The key is added to the upstream request and removed from every JSON or text body (`sanitizedText`); a body that still
-  holds it after the rewrite is not sent at all.
+- The key is added to the upstream request. A JSON body is rewritten and then searched for it, and a body that still holds it is not sent at all.
 - Upstream requests carry only `user-agent: ruimte-maps`, `accept` and the key: no client address, cookie, referer or
   `x-forwarded-for`. A `key` parameter in a client's query is dropped.
 - Each ticket's subject is a keyed digest of the account, so a request is counted per account without anyone reading whose it is.
@@ -61,9 +72,10 @@ domain `maps.ruimte.app` is created by the first deploy when the zone is on the 
 
 ## Not verified against the live service
 
-The style path (`maps/orbis/assets/styles/0.*/style`), the vector tile path and the search path
-(`maps/orbis/places/search/<text>.json`) follow TomTom's documentation of 15 October 2026 but were never called with a key.
-The allowlist accepts any `maps/orbis/display` or `maps/orbis/assets` path, so a different tile path in the live style still works.
+The style path (`maps/orbis/assets/styles/0.*/style`) and the search path (`maps/orbis/places/search/<text>.json`) follow TomTom's
+documentation of 15 October 2026 but were never called with a key. What the style names is served whatever its shape, as long as it is
+map display or assets with the placeholders of a tile (`{z}/{x}/{y}`) or of glyphs (`{fontstack}/{range}`); another placeholder, such as
+`{ratio}`, makes the address unservable and it is blanked from the style. The first deploy with a key shows whether the live style fits.
 
 ## Development
 

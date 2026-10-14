@@ -7,6 +7,36 @@ import { TOMTOM_ORIGIN, UPSTREAM_HEADERS } from './upstream.ts';
 
 const MAX_BODY_BYTES = 2048;
 
+/* The body, or null when it is larger than the limit: counted in bytes as they arrive, so a large one is never held. */
+async function boundedText(request: Request): Promise<string | null> {
+    const declared = Number(request.headers.get('content-length') ?? 0);
+    if (declared > MAX_BODY_BYTES || request.body === null) {
+        return declared > MAX_BODY_BYTES ? null : '';
+    }
+    const reader = request.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+            break;
+        }
+        size += value.byteLength;
+        if (size > MAX_BODY_BYTES) {
+            await reader.cancel();
+            return null;
+        }
+        chunks.push(value);
+    }
+    const joined = new Uint8Array(size);
+    let at = 0;
+    for (const chunk of chunks) {
+        joined.set(chunk, at);
+        at += chunk.byteLength;
+    }
+    return new TextDecoder().decode(joined);
+}
+
 const SearchSchema = z.object({
     results: z
         .array(
@@ -20,18 +50,17 @@ const SearchSchema = z.object({
 });
 
 /*
- * `POST /v1/geocode`: the first place TomTom's search finds for a text. The key goes both ways TomTom
- * takes it (header and query), and nothing of the person but the text reaches TomTom.
+ * `POST /v1/geocode`: the first place TomTom's search finds for a text. The key goes in the header only, and nothing of the person but the text reaches TomTom.
  */
 export async function geocode(request: Request, deps: Deps, env: Env): Promise<Response> {
     const key = env.TOMTOM_API_KEY;
     if (!key) {
         return failure('maps-unconfigured', 'The maps service has no TomTom key yet');
     }
-    const text = await request.text();
+    const text = await boundedText(request);
     let raw: unknown;
     try {
-        raw = text.length > MAX_BODY_BYTES ? null : JSON.parse(text);
+        raw = text === null ? null : JSON.parse(text);
     } catch {
         raw = null;
     }
@@ -39,7 +68,7 @@ export async function geocode(request: Request, deps: Deps, env: Env): Promise<R
     if (!body.success) {
         return failure('bad-request', 'Send { query, language? } with a query of 1 to 200 characters');
     }
-    const params = new URLSearchParams({ apiVersion: '1', limit: '1', key });
+    const params = new URLSearchParams({ apiVersion: '1', limit: '1' });
     if (body.data.language !== undefined) {
         params.set('language', body.data.language);
     }

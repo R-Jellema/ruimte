@@ -1,14 +1,19 @@
 import { describe, expect, test } from 'bun:test';
-import { MapsErrorSchema, MapsGeocodeResultSchema } from '@ruimte/pulsar';
-import { KEY, ORIGIN, harness } from './test/harness.ts';
+import { MapsErrorSchema, MapsGeocodeResultSchema, signMapsPath } from '@ruimte/pulsar';
+import { KEY, ORIGIN, SECRET, harness } from './test/harness.ts';
+
+const SPRITE = `https://api.tomtom.com/maps/orbis/assets/sprites/1.0.0/basic_mono-light/sprite?apiVersion=1&key=${KEY}`;
+const GLYPHS = `https://api.tomtom.com/maps/orbis/assets/fonts/1.0.0/{fontstack}/{range}.pbf?key=${KEY}&apiVersion=1`;
+const TILES = `https://api.tomtom.com/maps/orbis/display/vector/tile/{z}/{x}/{y}?apiVersion=2&key=${KEY}`;
+const TILEJSON = `https://api.tomtom.com/maps/orbis/display/vector/tile.json?key=${KEY}`;
 
 const TOMTOM_STYLE = {
     version: 8,
-    sprite: `https://api.tomtom.com/maps/orbis/assets/sprites/1/sprite?apiVersion=1&key=${KEY}`,
-    glyphs: `https://api.tomtom.com/maps/orbis/assets/fonts/1/{fontstack}/{range}.pbf?key=${KEY}&apiVersion=1`,
+    sprite: SPRITE,
+    glyphs: GLYPHS,
     sources: {
-        vector: { type: 'vector', tiles: [`https://api.tomtom.com/maps/orbis/display/vector/tile/{z}/{x}/{y}?apiVersion=2&key=${KEY}`], maxzoom: 14 },
-        tilejson: { type: 'vector', url: `https://api.tomtom.com/maps/orbis/display/vector/tile.json?key=${KEY}` }
+        vector: { type: 'vector', tiles: [TILES], maxzoom: 14, attribution: 'TomTom' },
+        tilejson: { type: 'vector', url: TILEJSON }
     },
     layers: [{ id: 'background', type: 'background' }]
 };
@@ -19,6 +24,26 @@ function json(body: unknown, headers: Record<string, string> = {}): Response {
 
 async function errorCode(response: { json(): Promise<unknown> }): Promise<string> {
     return MapsErrorSchema.parse(await response.json()).error.code;
+}
+
+type Maps = ReturnType<typeof harness>;
+
+/* The style as a client receives it, which is where every other address comes from. */
+async function styled(maps: Maps, style: unknown = TOMTOM_STYLE): Promise<{ sprite: string; glyphs: string; tiles: string; tilejson: string }> {
+    maps.answers = [() => json(style)];
+    const received = (await (await maps.request('/v1/style?theme=light')).json()) as {
+        sprite: string;
+        glyphs: string;
+        sources: { vector: { tiles: string[] }; tilejson: { url: string } };
+    };
+    maps.answers = [() => new Response('unexpected', { status: 500 })];
+    maps.upstream.length = 0;
+    return { sprite: received.sprite, glyphs: received.glyphs, tiles: received.sources.vector.tiles[0]!, tilejson: received.sources.tilejson.url };
+}
+
+/* What a client asks for once it fills a rewritten address in. */
+function pathOf(address: string): string {
+    return address.slice(ORIGIN.length);
 }
 
 describe('before anything is asked of TomTom', () => {
@@ -74,7 +99,7 @@ describe('before anything is asked of TomTom', () => {
 });
 
 describe('the style', () => {
-    test('is fetched with the key, and leaves with this service for every address and no key anywhere', async () => {
+    test('is fetched with the key, and leaves with every address its own and no key anywhere', async () => {
         const maps = harness();
         maps.answers = [() => json(TOMTOM_STYLE)];
         const response = await maps.request('/v1/style?theme=dark');
@@ -83,12 +108,13 @@ describe('the style', () => {
         const text = await response.text();
         expect(text).not.toContain(KEY);
         expect(text).not.toContain('key=');
-        expect(text).not.toContain('api.tomtom.com');
+        expect(text).not.toContain('tomtom.com');
         const style = JSON.parse(text);
-        expect(style.sprite).toBe(`${ORIGIN}/v1/map/maps/orbis/assets/sprites/1/sprite?apiVersion=1`);
-        expect(style.glyphs).toBe(`${ORIGIN}/v1/map/maps/orbis/assets/fonts/1/{fontstack}/{range}.pbf?apiVersion=1`);
-        expect(style.sources.vector.tiles).toEqual([`${ORIGIN}/v1/map/maps/orbis/display/vector/tile/{z}/{x}/{y}?apiVersion=2`]);
-        expect(style.sources.tilejson.url).toBe(`${ORIGIN}/v1/map/maps/orbis/display/vector/tile.json`);
+        expect(style.sprite).toMatch(new RegExp(`^${ORIGIN}/v1/m/[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]{43}/sprite$`));
+        expect(style.glyphs).toMatch(/\/v1\/m\/[^/]+\/\{fontstack\}\/\{range\}\.pbf$/);
+        expect(style.sources.vector.tiles[0]).toMatch(/\/v1\/m\/[^/]+\/\{z\}\/\{x\}\/\{y\}$/);
+        expect(style.sources.tilejson.url).toMatch(/\/v1\/m\/[^/]+\/tilejson$/);
+        expect(style.sources.vector.attribution).toBe('TomTom');
         expect(style.layers).toEqual(TOMTOM_STYLE.layers);
     });
 
@@ -104,6 +130,36 @@ describe('the style', () => {
         expect(maps.upstream).toHaveLength(1);
     });
 
+    test('an address the style names that this service does not serve is blanked, wherever it stands', async () => {
+        const maps = harness();
+        const odd = {
+            ...TOMTOM_STYLE,
+            sprite: `https://api.tomtom.com/search/2/geocode/x.json?key=${KEY}`,
+            glyphs: `https://api.tomtom.com/maps/orbis/assets/fonts/%2e%2e/{fontstack}/{range}.pbf?key=${KEY}`,
+            metadata: { docs: `https://api.tomtom.com/maps/orbis/display/vector/tile/1/1/1?key=${KEY}`, list: [`https://api.tomtom.com/routing`] },
+            sources: {
+                vector: {
+                    type: 'vector',
+                    tiles: [`https://api.tomtom.com/maps/orbis/display/vector/tile/{z}/{x}/{y}/{extra}?key=${KEY}`, TILES],
+                    attribution: 'https://api.tomtom.com/x'
+                },
+                tilejson: { type: 'vector', url: 5 }
+            }
+        };
+        maps.answers = [() => json(odd)];
+        const text = await (await maps.request('/v1/style?theme=light')).text();
+        expect(text).not.toContain('tomtom.com');
+        expect(text).not.toContain(KEY);
+        const style = JSON.parse(text);
+        expect(style.sprite).toBe('');
+        expect(style.glyphs).toBe('');
+        expect(style.metadata).toEqual({ docs: '', list: [''] });
+        expect(style.sources.vector.tiles[0]).toBe('');
+        expect(style.sources.vector.tiles[1]).toMatch(/\/\{z\}\/\{x\}\/\{y\}$/);
+        expect(style.sources.vector.attribution).toBe('');
+        expect(style.sources.tilejson.url).toBe(5);
+    });
+
     test('a body that still holds the key after the rewrite is not passed on', async () => {
         const maps = harness();
         maps.answers = [() => json({ version: 8, name: `made with ${KEY}` })];
@@ -113,14 +169,15 @@ describe('the style', () => {
     });
 });
 
-describe('a map resource', () => {
+describe('what the style names', () => {
     test('a tile is fetched with the key and nothing of the client, and arrives as the bytes TomTom sent', async () => {
         const maps = harness();
+        const { tiles } = await styled(maps);
         const bytes = new Uint8Array([0x1a, 0x02, 0x08, 0x01]);
         maps.answers = [
             () => new Response(bytes, { headers: { 'content-type': 'application/x-protobuf', 'set-cookie': 'a=b', 'access-control-allow-origin': '*' } })
         ];
-        const response = await maps.request('/v1/map/maps/orbis/display/vector/tile/12/2105/1348?apiVersion=2&key=attacker', {
+        const response = await maps.request(pathOf(tiles).replace('{z}/{x}/{y}', '12/2105/1348'), {
             headers: {
                 cookie: 'session=1',
                 referer: 'https://page.test/',
@@ -140,36 +197,139 @@ describe('a map resource', () => {
         expect(call!.headers.get('user-agent')).toBe('ruimte-maps');
     });
 
-    test('only map display and its assets are reachable, never another TomTom service or a path out of them', async () => {
+    test('a query a client adds is never forwarded, and the key it names is never used', async () => {
         const maps = harness();
-        for (const path of [
-            '/v1/map/maps/orbis/routing/calculateRoute/1,2:3,4',
-            '/v1/map/maps/orbis/places/search/pizza.json',
-            '/v1/map/search/2/search/pizza.json',
-            '/v1/map/maps/orbis/display/../routing/x',
-            '/v1/map/maps/orbis/display/%2e%2e/routing/x',
-            '/v1/map/maps/orbis/display//x',
-            '/v1/map/maps/orbis/display/',
-            '/v1/map/',
-            '/v1/tile/1/2/3',
-            '/v1/unknown'
+        const { tiles } = await styled(maps);
+        maps.answers = [() => new Response('t', { headers: { 'content-type': 'application/x-protobuf' } })];
+        await maps.request(`${pathOf(tiles).replace('{z}/{x}/{y}', '1/1/1')}?key=attacker&apiVersion=9&extra=1`);
+        expect(maps.upstream[0]!.url).toBe(`https://api.tomtom.com/maps/orbis/display/vector/tile/1/1/1?apiVersion=2&key=${KEY}`);
+    });
+
+    test('a sprite, its retina twin and its index are fetched under the address the style named', async () => {
+        const maps = harness();
+        const { sprite } = await styled(maps);
+        const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+        maps.answers = [
+            () => new Response(png, { headers: { 'content-type': 'image/png' } }),
+            () => new Response(png, { headers: { 'content-type': 'image/png' } }),
+            () => json({ marker: { x: 0, y: 0, width: 12, height: 12, pixelRatio: 1 } })
+        ];
+        for (const suffix of ['.png', '@2x.png', '@2x.json']) {
+            const response = await maps.request(`${pathOf(sprite)}${suffix}`);
+            expect(response.status, suffix).toBe(200);
+        }
+        expect(maps.upstream.map((call) => call.url)).toEqual([
+            `https://api.tomtom.com/maps/orbis/assets/sprites/1.0.0/basic_mono-light/sprite.png?apiVersion=1&key=${KEY}`,
+            `https://api.tomtom.com/maps/orbis/assets/sprites/1.0.0/basic_mono-light/sprite@2x.png?apiVersion=1&key=${KEY}`,
+            `https://api.tomtom.com/maps/orbis/assets/sprites/1.0.0/basic_mono-light/sprite@2x.json?apiVersion=1&key=${KEY}`
+        ]);
+        for (const suffix of ['', '@5x.png', '@2x.svg', '.png/../../x', '@2x.png/']) {
+            maps.upstream.length = 0;
+            expect((await maps.request(`${pathOf(sprite)}${suffix}`)).status, suffix).toBe(404);
+            expect(maps.upstream).toEqual([]);
+        }
+    });
+
+    test('a glyph range is fetched for a font stack with spaces and commas, as a client writes it', async () => {
+        const maps = harness();
+        const { glyphs } = await styled(maps);
+        maps.answers = [() => new Response(new Uint8Array([1]), { headers: { 'content-type': 'application/x-protobuf' } })];
+        const base = pathOf(glyphs);
+        for (const stack of [
+            'Noto%20Sans%20Regular',
+            'Noto%20Sans%20Regular%2CNoto%20Sans%20Italic',
+            'Noto%20Sans%20Regular,Noto%20Sans%20Italic',
+            'Open-Sans_Bold.v2'
         ]) {
+            const path = base.replace('{fontstack}', stack).replace('{range}', '0-255');
+            expect((await maps.request(path)).status, stack).toBe(200);
+        }
+        expect(maps.upstream.map((call) => call.url.split('?')[0])).toEqual([
+            'https://api.tomtom.com/maps/orbis/assets/fonts/1.0.0/Noto%20Sans%20Regular/0-255.pbf',
+            'https://api.tomtom.com/maps/orbis/assets/fonts/1.0.0/Noto%20Sans%20Regular%2CNoto%20Sans%20Italic/0-255.pbf',
+            'https://api.tomtom.com/maps/orbis/assets/fonts/1.0.0/Noto%20Sans%20Regular,Noto%20Sans%20Italic/0-255.pbf',
+            'https://api.tomtom.com/maps/orbis/assets/fonts/1.0.0/Open-Sans_Bold.v2/0-255.pbf'
+        ]);
+    });
+
+    test('a TileJSON is fetched and its tile addresses come back as grants too', async () => {
+        const maps = harness();
+        const { tilejson } = await styled(maps);
+        maps.answers = [() => json({ tiles: [TILES], minzoom: 0 })];
+        const response = await maps.request(pathOf(tilejson));
+        const body = (await response.json()) as { tiles: string[] };
+        expect(body.tiles[0]).toMatch(/\/v1\/m\/[^/]+\/\{z\}\/\{x\}\/\{y\}$/);
+        expect(JSON.stringify(body)).not.toContain('tomtom.com');
+        expect(maps.upstream[0]!.url).toBe(`https://api.tomtom.com/maps/orbis/display/vector/tile.json?key=${KEY}`);
+    });
+
+    test('a tail that is not what the grant fills never reaches TomTom: dots, encodings, slashes and backslashes', async () => {
+        const maps = harness();
+        const { tiles, glyphs } = await styled(maps);
+        const tile = pathOf(tiles).replace('/{z}/{x}/{y}', '');
+        const font = pathOf(glyphs).replace('/{fontstack}/{range}.pbf', '');
+        const attempts = [
+            `${tile}/../../../search/2/geocode/x.json`,
+            `${tile}/%2e%2e/%2e%2e/%2e%2e/search/2/geocode/x.json`,
+            `${tile}/%252e%252e/%252e%252e/%252e%252e/search/2/geocode/x.json`,
+            `${tile}/12/%2f/1`,
+            `${tile}/12%2f2105%2f1348`,
+            `${tile}/12/2105/1348/`,
+            `${tile}/12/2105/1348/extra`,
+            `${tile}/12/2105`,
+            `${tile}//12/2105/1348`,
+            `${tile}/a/b/c`,
+            `${tile}/12/2105/1348.pbf`,
+            `${tile}/%31%32/2105/1348`,
+            `${tile}/12/2105/1348%00`,
+            `${font}/%2e%2e%2f%2e%2e/0-255.pbf`,
+            `${font}/Noto%252E/0-255.pbf`,
+            `${font}/Noto%2f..%2f/0-255.pbf`,
+            `${font}/Noto%20Sans/0-255.png`,
+            `${font}/Noto/0-255`,
+            `${font}/../0-255.pbf`,
+            `${font}/Noto%00/0-255.pbf`,
+            `${font}/Noto%5C/0-255.pbf`
+        ];
+        for (const path of attempts) {
             const response = await maps.request(path);
             expect(response.status, path).toBe(404);
         }
-        expect((await maps.request('/v1/map/maps/orbis/display/vector/tile/1/1/1', { method: 'POST', body: '{}' })).status).toBe(404);
         expect(maps.upstream).toEqual([]);
     });
 
-    test('a JSON body is rewritten like the style, and a sprite image is passed untouched', async () => {
+    test('a grant this service did not make, or changed, or made for a path it does not serve, is not served', async () => {
         const maps = harness();
-        maps.answers = [() => json({ tiles: [`https://api.tomtom.com/maps/orbis/display/vector/tile/{z}/{x}/{y}?key=${KEY}`] })];
-        const tilejson = await (await maps.request('/v1/map/maps/orbis/display/vector/tile.json')).json();
-        expect(tilejson).toEqual({ tiles: [`${ORIGIN}/v1/map/maps/orbis/display/vector/tile/{z}/{x}/{y}`] });
-        const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
-        maps.answers = [() => new Response(png, { headers: { 'content-type': 'image/png' } })];
-        const sprite = await maps.request('/v1/map/maps/orbis/assets/sprites/1/sprite.png');
-        expect(new Uint8Array(await sprite.arrayBuffer())).toEqual(png);
+        const { tiles } = await styled(maps);
+        const [payload, mark] = pathOf(tiles).split('/')[3]!.split('.') as [string, string];
+        const text = (value: string): string => Buffer.from(value, 'base64url').toString('utf8');
+        const changed = Buffer.from(text(payload).replace('display', 'display/..'), 'utf8').toString('base64url');
+        const outside = Buffer.from(JSON.stringify({ k: 'tile', p: 'search/2/geocode/{z}/{x}/{y}', q: [] }), 'utf8').toString('base64url');
+        const own = await signMapsPath(SECRET, outside);
+        const foreign = await signMapsPath('Zk3mQ8vJx1LpT5aRn0cWy7DbHfUe2GsOi9NtV4Xr6Ml', payload);
+        for (const token of [
+            `${changed}.${mark}`,
+            `${payload}.${'A'.repeat(43)}`,
+            `${payload}.${foreign}`,
+            `${outside}.${own}`,
+            payload,
+            `${payload}.${mark}.x`,
+            `.${mark}`,
+            ''
+        ]) {
+            expect((await maps.request(`/v1/m/${token}/1/1/1`)).status, token).toBe(404);
+        }
+        expect((await maps.request('/v1/m/nonsense')).status).toBe(404);
+        expect((await maps.request('/v1/map/maps/orbis/display/vector/tile/1/1/1')).status).toBe(404);
+        expect((await maps.request('/v1/tile/1/1/1')).status).toBe(404);
+        expect(maps.upstream).toEqual([]);
+    });
+
+    test('the one open door of before stays shut: a double encoded path to another TomTom service', async () => {
+        const maps = harness();
+        const response = await maps.request('/v1/map/maps/orbis/display/%252e%252e/%252e%252e/%252e%252e/search/2/geocode/x.json');
+        expect(response.status).toBe(404);
+        expect(maps.upstream).toEqual([]);
     });
 
     test('what TomTom refuses with is never repeated to the client', async () => {
@@ -181,31 +341,54 @@ describe('a map resource', () => {
         ];
         for (const [from, status, code] of cases) {
             const maps = harness();
+            const { tiles } = await styled(maps);
             maps.answers = [() => new Response(`denied for key ${KEY}`, { status: from })];
-            const response = await maps.request('/v1/map/maps/orbis/display/vector/tile/1/1/1');
+            const response = await maps.request(pathOf(tiles).replace('{z}/{x}/{y}', '1/1/1'));
             expect(response.status).toBe(status);
             expect(await errorCode(response.clone())).toBe(code);
             expect(await response.text()).not.toContain(KEY);
         }
         const maps = harness();
+        const { tiles } = await styled(maps);
         maps.answers = [
             () => {
                 throw new Error(`network down for ${KEY}`);
             }
         ];
-        const response = await maps.request('/v1/map/maps/orbis/display/vector/tile/1/1/1');
+        const response = await maps.request(pathOf(tiles).replace('{z}/{x}/{y}', '1/1/1'));
         expect(response.status).toBe(502);
         expect(await response.text()).not.toContain(KEY);
+    });
+
+    test('a body of a kind it does not know is refused, and a body that holds the key is not passed on', async () => {
+        const maps = harness();
+        const { tiles } = await styled(maps);
+        const tile = pathOf(tiles).replace('{z}/{x}/{y}', '1/1/1');
+        for (const headers of [{ 'content-type': 'text/html' }, { 'content-type': 'text/plain' }, { 'content-type': 'application/xml' }, {}]) {
+            maps.answers = [() => new Response(`<html>${KEY}</html>`, { headers })];
+            const response = await maps.request(tile);
+            expect(response.status).toBe(502);
+            expect(await response.text()).not.toContain(KEY);
+        }
+        maps.answers = [() => json({ note: `see ${KEY}` })];
+        expect((await maps.request(tile)).status).toBe(502);
+        maps.answers = [() => new Response(new Uint8Array([1]), { headers: { 'content-type': 'image/webp' } })];
+        expect((await maps.request(tile)).status).toBe(200);
     });
 });
 
 describe('the edge cache', () => {
-    const tile = '/v1/map/maps/orbis/display/vector/tile/12/2105/1348?apiVersion=2';
+    async function tile(maps: Maps): Promise<string> {
+        const { tiles } = await styled(maps);
+        return pathOf(tiles).replace('{z}/{x}/{y}', '12/2105/1348');
+    }
 
     test('keeps a response for no longer than TomTom says, under a key with neither ticket nor key in it', async () => {
         const maps = harness();
+        const path = await tile(maps);
+        maps.cached.clear();
         maps.answers = [() => new Response('tile', { headers: { 'content-type': 'application/x-protobuf', 'cache-control': 'public, max-age=3600' } })];
-        const first = await maps.request(tile);
+        const first = await maps.request(path);
         expect(first.headers.get('cache-control')).toBe('private, max-age=3600');
         expect(await first.text()).toBe('tile');
         expect([...maps.cached.keys()]).toEqual(['https://cache.maps.invalid/maps/orbis/display/vector/tile/12/2105/1348?apiVersion=2']);
@@ -217,30 +400,23 @@ describe('the edge cache', () => {
         }
         // Another account asks for it later, from the cache.
         maps.now += 1_800_000;
-        const second = await maps.request(tile, { ticket: await maps.ticket('account-2') });
+        const second = await maps.request(path, { ticket: await maps.ticket('account-2') });
         expect(await second.text()).toBe('tile');
         expect(second.headers.get('cache-control')).toBe('private, max-age=1800');
         expect(maps.upstream).toHaveLength(1);
         // Past TomTom's own limit it asks again.
         maps.now += 1_801_000;
-        await maps.request(tile);
+        await maps.request(path);
         expect(maps.upstream).toHaveLength(2);
-    });
-
-    test('two spellings of one query are one entry, and a client key never reaches it', async () => {
-        const maps = harness();
-        maps.answers = [() => new Response('tile', { headers: { 'content-type': 'application/x-protobuf', 'cache-control': 'max-age=60' } })];
-        await maps.request('/v1/map/maps/orbis/display/vector/tile/1/1/1?b=2&a=1&key=attacker');
-        await maps.request('/v1/map/maps/orbis/display/vector/tile/1/1/1?a=1&b=2');
-        expect(maps.upstream).toHaveLength(1);
-        expect(maps.upstream[0]!.url).toBe(`https://api.tomtom.com/maps/orbis/display/vector/tile/1/1/1?a=1&b=2&key=${KEY}`);
     });
 
     test('keeps nothing TomTom did not allow keeping: no header, no-store, private or an age past its life', async () => {
         for (const headers of [{}, { 'cache-control': 'no-store' }, { 'cache-control': 'private, max-age=60' }, { 'cache-control': 'max-age=60', age: '60' }]) {
             const maps = harness();
+            const path = await tile(maps);
+            maps.cached.clear();
             maps.answers = [() => new Response('tile', { headers: { 'content-type': 'application/x-protobuf', ...headers } })];
-            const response = await maps.request(tile);
+            const response = await maps.request(path);
             expect(response.headers.get('cache-control')).toBe('no-store');
             expect(maps.cached.size).toBe(0);
         }
@@ -248,10 +424,11 @@ describe('the edge cache', () => {
 
     test('counts the age TomTom reports and prefers s-maxage', async () => {
         const maps = harness();
+        const path = await tile(maps);
         maps.answers = [
             () => new Response('tile', { headers: { 'content-type': 'application/x-protobuf', 'cache-control': 'max-age=60, s-maxage=600', age: '100' } })
         ];
-        const response = await maps.request(tile);
+        const response = await maps.request(path);
         expect(response.headers.get('cache-control')).toBe('private, max-age=500');
     });
 
@@ -261,7 +438,7 @@ describe('the edge cache', () => {
         await maps.request('/v1/style?theme=light');
         const stored = await [...maps.cached.values()][0]!.text();
         expect(stored).not.toContain(KEY);
-        expect(stored).not.toContain('api.tomtom.com');
+        expect(stored).not.toContain('tomtom.com');
     });
 });
 
@@ -284,9 +461,8 @@ describe('geocoding', () => {
             results: [{ lat: 52.0907, lon: 5.1214, label: 'Domtoren, Domplein, 3512 JC Utrecht' }]
         });
         const [call] = maps.upstream;
-        expect(call!.url).toBe(
-            `https://api.tomtom.com/maps/orbis/places/search/Domtoren%20Utrecht%2FNetherlands%3F.json?apiVersion=1&limit=1&key=${KEY}&language=nl`
-        );
+        expect(call!.url).toBe('https://api.tomtom.com/maps/orbis/places/search/Domtoren%20Utrecht%2FNetherlands%3F.json?apiVersion=1&limit=1&language=nl');
+        expect(call!.url).not.toContain(KEY);
         expect(call!.headers.get('tomtom-api-key')).toBe(KEY);
         expect([...call!.headers.keys()].toSorted()).toEqual(['accept', 'tomtom-api-key', 'user-agent']);
     });
@@ -326,6 +502,32 @@ describe('geocoding', () => {
             expect((await ask(maps, body)).status).toBe(400);
         }
         expect((await maps.request('/v1/geocode')).status).toBe(404);
+        expect(maps.upstream).toEqual([]);
+    });
+});
+
+describe('a large geocoding body', () => {
+    test('is refused by its declared size or counted as it arrives, and never held whole', async () => {
+        const maps = harness();
+        const declared = await maps.request('/v1/geocode', {
+            method: 'POST',
+            body: JSON.stringify({ query: 'x'.repeat(5000) }),
+            headers: { 'content-length': '5030' }
+        });
+        expect(declared.status).toBe(400);
+        let sent = 0;
+        const stream = new ReadableStream<Uint8Array>({
+            pull(controller) {
+                sent += 1024;
+                controller.enqueue(new Uint8Array(1024).fill(0x61));
+                if (sent > 1024 * 1024) {
+                    controller.close();
+                }
+            }
+        });
+        const chunked = await maps.request('/v1/geocode', { method: 'POST', body: stream, duplex: 'half' } as RequestInit);
+        expect(chunked.status).toBe(400);
+        expect(sent).toBeLessThan(64 * 1024);
         expect(maps.upstream).toEqual([]);
     });
 });

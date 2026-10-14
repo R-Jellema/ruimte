@@ -3,8 +3,8 @@ import type { Deps } from './deps.ts';
 import type { Env } from './env.ts';
 import { geocode } from './geocode.ts';
 import { allowedOrigin, corsHeaders, failure, json } from './http.ts';
+import { pathFor, readGrant } from './grant.ts';
 import { fetchMapResource } from './map.ts';
-import { allowedMapPath, cleanQuery } from './upstream.ts';
 
 const STYLE_PATH = 'maps/orbis/assets/styles/0.*/style';
 
@@ -18,6 +18,14 @@ async function subjectOf(request: Request, env: Env, deps: Deps): Promise<string
         return null;
     }
     return (await verifyMapsTicket(env.MAP_TICKET_SECRET, match[1], deps.now()))?.subject ?? null;
+}
+
+/* A resource the style named: `<grant>/<tail>`, taken from the path as it was sent and never decoded. */
+async function granted(rest: string, env: Env, deps: Deps): Promise<Response> {
+    const slash = rest.indexOf('/');
+    const grant = slash === -1 ? null : await readGrant(env.MAP_TICKET_SECRET!, rest.slice(0, slash));
+    const path = grant === null ? null : pathFor(grant, rest.slice(slash + 1));
+    return grant === null || path === null ? failure('not-found', 'No such map resource') : fetchMapResource(deps, env, { path, query: grant.query });
 }
 
 async function api(request: Request, env: Env, deps: Deps): Promise<Response> {
@@ -40,22 +48,21 @@ async function api(request: Request, env: Env, deps: Deps): Promise<Response> {
         if (theme !== 'light' && theme !== 'dark') {
             return failure('bad-request', 'theme is light or dark');
         }
-        return fetchMapResource(deps, env, {
-            path: STYLE_PATH,
-            query: [
-                ['apiVersion', '1'],
-                ['map', STYLE_OF[theme]]
-            ]
-        });
+        return fetchMapResource(
+            deps,
+            env,
+            {
+                path: STYLE_PATH,
+                query: [
+                    ['apiVersion', '1'],
+                    ['map', STYLE_OF[theme]]
+                ]
+            },
+            true
+        );
     }
-    if (request.method === 'GET' && url.pathname.startsWith('/v1/map/')) {
-        let path: string;
-        try {
-            path = decodeURIComponent(url.pathname.slice('/v1/map/'.length));
-        } catch {
-            return failure('not-found', 'No such map resource');
-        }
-        return allowedMapPath(path) ? fetchMapResource(deps, env, { path, query: cleanQuery(url.searchParams) }) : failure('not-found', 'No such map resource');
+    if (request.method === 'GET' && url.pathname.startsWith('/v1/m/')) {
+        return granted(url.pathname.slice('/v1/m/'.length), env, deps);
     }
     if (request.method === 'POST' && url.pathname === '/v1/geocode') {
         return geocode(request, deps, env);

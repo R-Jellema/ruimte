@@ -13,6 +13,8 @@ export const MAPS_TICKET_MACHINE_MAX_SKEW_MS = 120_000;
 export const MAPS_SECRET_MIN_BYTES = 32;
 
 const SUBJECT_KEY_PURPOSE = 'pulsar-maps-ticket-subject-v1';
+const PATH_KEY_PURPOSE = 'pulsar-maps-path-key-v1';
+const PATH_MAC_PREFIX = 'pulsar-maps-path-v1\n';
 
 /*
  * `<subject>.<expiresAt>.<mac>`: the subject is a keyed digest of the account in base64url, the expiry is epoch
@@ -66,6 +68,33 @@ export async function mapsTicketSubject(secret: string, accountId: string): Prom
     const derived = await crypto.subtle.sign('HMAC', await hmacKey(secretOf(secret), 'sign'), encoder.encode(SUBJECT_KEY_PURPOSE));
     const digest = await crypto.subtle.sign('HMAC', await hmacKey(new Uint8Array(derived), 'sign'), encoder.encode(`account:${accountId}`));
     return toBase64Url(digest);
+}
+
+async function derivedKey(secret: string, purpose: string, usage: 'sign' | 'verify') {
+    const derived = await crypto.subtle.sign('HMAC', await hmacKey(secretOf(secret), 'sign'), new TextEncoder().encode(purpose));
+    return hmacKey(new Uint8Array(derived), usage);
+}
+
+/*
+ * A mark over a piece of text, under a key derived for it alone. The maps service puts one on every
+ * address it writes into a style, so it later serves only addresses it wrote itself.
+ */
+export async function signMapsPath(secret: string, text: string): Promise<string> {
+    return toBase64Url(
+        await crypto.subtle.sign('HMAC', await derivedKey(secret, PATH_KEY_PURPOSE, 'sign'), new TextEncoder().encode(`${PATH_MAC_PREFIX}${text}`))
+    );
+}
+
+export async function verifyMapsPath(secret: string, text: string, mac: string): Promise<boolean> {
+    if (mapsSecretBytes(secret) === null || !/^[A-Za-z0-9_-]{43}$/.test(mac)) {
+        return false;
+    }
+    return crypto.subtle.verify(
+        'HMAC',
+        await derivedKey(secret, PATH_KEY_PURPOSE, 'verify'),
+        fromBase64Url(mac),
+        new TextEncoder().encode(`${PATH_MAC_PREFIX}${text}`)
+    );
 }
 
 export async function signMapsTicket(secret: string, subject: string, expiresAt: number): Promise<MapsTicket> {
