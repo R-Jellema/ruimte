@@ -302,8 +302,6 @@ import RuimtePulsar
         }
         authenticated = true
         trace("authenticated")
-        cancelTimeout?()
-        cancelTimeout = nil
         events.accepted()
         signaling?.close()
         signaling = nil
@@ -313,6 +311,8 @@ import RuimtePulsar
             send: { [weak self] in try self?.sendFrame($0) },
             open: { [weak self] features in
                 guard let self, !ended else { return }
+                cancelTimeout?()
+                cancelTimeout = nil
                 events.features(features)
                 events.opened()
                 report(signalingRoute == .localNetwork ? .localNetwork : .broker)
