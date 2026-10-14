@@ -1,8 +1,10 @@
 import { create } from 'zustand';
+import { storedText } from '@/state/stored-json';
 
 export type Theme = 'light' | 'dark' | 'system';
 
 export const THEME_STORAGE_KEY = 'ruimte.theme';
+const storedThemeKey = storedText(THEME_STORAGE_KEY);
 
 function systemTheme(): 'light' | 'dark' {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -13,7 +15,7 @@ function resolvedOf(theme: Theme): 'light' | 'dark' {
 }
 
 function storedTheme(): Theme {
-    return (localStorage.getItem(THEME_STORAGE_KEY) as Theme | null) ?? 'system';
+    return (storedThemeKey.read() as Theme | null) ?? 'system';
 }
 
 function apply(theme: Theme): void {
@@ -42,7 +44,7 @@ export const useTheme = create<ThemeState>((set, get) => {
         theme: initial,
         resolved: resolvedOf(initial),
         setTheme(theme) {
-            localStorage.setItem(THEME_STORAGE_KEY, theme);
+            storedThemeKey.write(theme);
             apply(theme);
             set({ theme, resolved: resolvedOf(theme) });
         },

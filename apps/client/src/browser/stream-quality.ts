@@ -1,6 +1,7 @@
 import { create } from 'zustand';
+import { storedText } from '@/state/stored-json';
 
-const STORAGE_KEY = 'ruimte.browser-stream-scale';
+const storedScale = storedText('ruimte.browser-stream-scale');
 const MAX_STREAM_SCALE = 2;
 
 function normalizedScale(value: number): number {
@@ -28,19 +29,11 @@ export function browserStreamScaleOptions(limit: number): number[] {
 }
 
 function readScale(): number {
-    try {
-        return normalizedScale(Number(localStorage.getItem(STORAGE_KEY) ?? 1));
-    } catch {
-        return 1;
-    }
+    return normalizedScale(Number(storedScale.read() ?? 1));
 }
 
 function persistScale(scale: number): void {
-    try {
-        localStorage.setItem(STORAGE_KEY, String(scale));
-    } catch {
-        // Storage that refuses keeps the choice for this session only.
-    }
+    storedScale.write(String(scale));
 }
 
 interface BrowserStreamQualityStore {

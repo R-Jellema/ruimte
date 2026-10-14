@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import type { LanDoor, Reachability } from '@ruimte/contracts';
 import { credentialFor } from '@/endpoint/credentials';
 import { desktop } from '@/desktop/bridge';
+import { storedText } from '@/state/stored-json';
 
 export const ENDPOINTS_STORAGE_KEY = 'ruimte.endpoints';
 /* Version 1 keyed a row on its address; version 2 keys it on the id the daemon answers with; version 3 pins its key;
@@ -145,30 +146,25 @@ export function storedLocalDirect(raw: string | null): boolean {
     }
 }
 
+/* Read as text, since `parseStoredEndpoints` also reads the shapes older versions wrote. */
+const storedEndpoints = storedText(ENDPOINTS_STORAGE_KEY);
+
 function persist(state: { endpoints: Endpoint[]; activeId: string }): void {
-    try {
-        localStorage.setItem(
-            ENDPOINTS_STORAGE_KEY,
-            JSON.stringify({
-                version: STORAGE_VERSION,
-                endpoints: state.endpoints.filter((endpoint) => endpoint.id !== LOCAL_ENDPOINT_ID),
-                activeId: state.activeId,
-                localDirect: state.endpoints.some((endpoint) => endpoint.id === LOCAL_ENDPOINT_ID && endpoint.direct === true)
-            })
-        );
-    } catch {
-        // Storage that refuses keeps the endpoints for this session only.
-    }
+    // Storage that refuses keeps the endpoints for this session only.
+    storedEndpoints.write(
+        JSON.stringify({
+            version: STORAGE_VERSION,
+            endpoints: state.endpoints.filter((endpoint) => endpoint.id !== LOCAL_ENDPOINT_ID),
+            activeId: state.activeId,
+            localDirect: state.endpoints.some((endpoint) => endpoint.id === LOCAL_ENDPOINT_ID && endpoint.direct === true)
+        })
+    );
 }
 
 function read(): { endpoints: Endpoint[]; activeId: string } {
     const local = localEndpoint();
-    let raw: string | null = null;
-    try {
-        raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(ENDPOINTS_STORAGE_KEY);
-    } catch {
-        // Storage that refuses leaves this client with the daemon that served it.
-    }
+    // Storage that refuses leaves this client with the daemon that served it.
+    const raw = storedEndpoints.read();
     const stored = parseStoredEndpoints(raw);
     const endpoints = [storedLocalDirect(raw) ? { ...local, direct: true } : local, ...stored.endpoints];
     const activeId = endpoints.some((endpoint) => endpoint.id === stored.activeId) ? stored.activeId! : LOCAL_ENDPOINT_ID;

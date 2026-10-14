@@ -1,6 +1,7 @@
 import type { AgentKind } from '@ruimte/contracts';
 import type { EditorRange } from '@adecore/editor';
-import { browserStorage, type LastProjectStorage } from '@/project/last-project';
+import { z } from 'zod';
+import { storedJson, type KeyValueStorage, type StoredValue } from '@/state/stored-json';
 
 /* How long an inline edit that nobody opened as a chat stays findable, and then its hidden chat goes with its record. */
 export const INLINE_EDIT_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
@@ -22,10 +23,6 @@ export interface InlineEditRecord {
     readonly provider: AgentKind;
     readonly model: string | null;
     readonly createdAt: number;
-}
-
-function keyOf(endpointId: string): string {
-    return `ruimte.inlineEdits.${endpointId}`;
 }
 
 function isPosition(value: unknown): boolean {
@@ -58,21 +55,18 @@ function isRecord(value: unknown): value is InlineEditRecord {
     );
 }
 
-/* The records of one machine by path; what does not read as a record is left out rather than trusted. */
-export function readInlineEdits(endpointId: string, storage: LastProjectStorage | null = browserStorage()): Record<string, InlineEditRecord> {
-    const raw = storage?.getItem(keyOf(endpointId)) ?? null;
-    if (raw === null) {
-        return {};
-    }
-    try {
-        const parsed = JSON.parse(raw) as unknown;
-        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-            return {};
-        }
-        return Object.fromEntries(Object.entries(parsed).filter((entry): entry is [string, InlineEditRecord] => isRecord(entry[1])));
-    } catch {
-        return {};
-    }
+/* What does not read as a record is left out rather than trusted. */
+const InlineEditsSchema = z
+    .record(z.string(), z.unknown())
+    .transform((stored) => Object.fromEntries(Object.entries(stored).filter((entry): entry is [string, InlineEditRecord] => isRecord(entry[1]))));
+
+function inlineEdits(endpointId: string): StoredValue<Record<string, InlineEditRecord>> {
+    return storedJson(`ruimte.inlineEdits.${endpointId}`, InlineEditsSchema);
+}
+
+/* The records of one machine by path. */
+export function readInlineEdits(endpointId: string, storage?: KeyValueStorage | null): Record<string, InlineEditRecord> {
+    return inlineEdits(endpointId).read(storage) ?? {};
 }
 
 const listeners = new Set<() => void>();
@@ -85,37 +79,37 @@ export function onInlineEditsChange(listener: () => void): () => void {
     };
 }
 
-function writeInlineEdits(endpointId: string, records: Record<string, InlineEditRecord>, storage: LastProjectStorage | null): void {
+function writeInlineEdits(endpointId: string, records: Record<string, InlineEditRecord>, storage: KeyValueStorage | null | undefined): void {
     if (Object.keys(records).length === 0) {
-        storage?.removeItem(keyOf(endpointId));
+        inlineEdits(endpointId).remove(storage);
     } else {
-        storage?.setItem(keyOf(endpointId), JSON.stringify(records));
+        inlineEdits(endpointId).write(records, storage);
     }
     for (const listener of [...listeners]) {
         listener();
     }
 }
 
-export function inlineEditFor(endpointId: string, path: string, storage: LastProjectStorage | null = browserStorage()): InlineEditRecord | null {
+export function inlineEditFor(endpointId: string, path: string, storage?: KeyValueStorage | null): InlineEditRecord | null {
     return readInlineEdits(endpointId, storage)[path] ?? null;
 }
 
 /* Keeps this record for its file, and returns the one it replaced so the chat behind it can be removed. */
-export function saveInlineEdit(endpointId: string, record: InlineEditRecord, storage: LastProjectStorage | null = browserStorage()): InlineEditRecord | null {
+export function saveInlineEdit(endpointId: string, record: InlineEditRecord, storage?: KeyValueStorage | null): InlineEditRecord | null {
     const records = readInlineEdits(endpointId, storage);
     const previous = records[record.path] ?? null;
     writeInlineEdits(endpointId, { ...records, [record.path]: record }, storage);
     return previous !== null && previous.chatId !== record.chatId ? previous : null;
 }
 
-export function forgetInlineEdit(endpointId: string, path: string, chatId: string, storage: LastProjectStorage | null = browserStorage()): void {
+export function forgetInlineEdit(endpointId: string, path: string, chatId: string, storage?: KeyValueStorage | null): void {
     const { [path]: record, ...rest } = readInlineEdits(endpointId, storage);
     // A record that has been replaced since belongs to a chat this call knows nothing about.
     writeInlineEdits(endpointId, record !== undefined && record.chatId !== chatId ? { ...rest, [path]: record } : rest, storage);
 }
 
 /* The records that outlived `INLINE_EDIT_KEEP_MS`, oldest first. */
-export function expiredInlineEdits(endpointId: string, now: number, storage: LastProjectStorage | null = browserStorage()): InlineEditRecord[] {
+export function expiredInlineEdits(endpointId: string, now: number, storage?: KeyValueStorage | null): InlineEditRecord[] {
     return Object.values(readInlineEdits(endpointId, storage))
         .filter((record) => now - record.createdAt >= INLINE_EDIT_KEEP_MS)
         .sort((left, right) => left.createdAt - right.createdAt);

@@ -5,6 +5,7 @@ import { databaseFiles, databaseStorage } from '@/database/environment';
 import { actOnDatabase } from '@/database/open';
 import { desktop } from '@/desktop/bridge';
 import { endpointKey } from '@/state/keys';
+import { browserStorage } from '@/state/stored-json';
 import { useToasts } from '@/state/toasts';
 import { useProject } from '@/state/project';
 import { useConnection } from '@/transport/context';
@@ -19,14 +20,6 @@ function showNotice(notice: DatabaseNotice): void {
     });
 }
 
-function localStorageArea(): Storage | null {
-    try {
-        return typeof localStorage === 'undefined' ? null : localStorage;
-    } catch {
-        return null;
-    }
-}
-
 /*
  * The workspace's client and what Ruimte hands every database view. `keepTableFocus` leaves the keyboard
  * where it is when a table opens, for a tree whose next arrow key is its own.
@@ -35,7 +28,7 @@ export function RuimteDatabaseProvider({ keepTableFocus = false, children }: { k
     const { endpointId } = useConnection();
     const projectId = useProject((state) => state.current?.projectId ?? '');
     const client = useMemo(() => databaseClientFor(endpointKey(endpointId, projectId)), [endpointId, projectId]);
-    const storage = useMemo(() => databaseStorage(localStorageArea(), endpointId, projectId), [endpointId, projectId]);
+    const storage = useMemo(() => databaseStorage(browserStorage(), endpointId, projectId), [endpointId, projectId]);
     const files = useMemo(() => databaseFiles(endpointId, desktop()), [endpointId]);
     const onAction = useCallback(
         (action: DatabaseAction) => actOnDatabase(action, { source: null, focus: !(keepTableFocus && action.kind === 'open-table') }),

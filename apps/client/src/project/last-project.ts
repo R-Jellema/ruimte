@@ -1,17 +1,14 @@
 import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
+import { browserStorage, type KeyValueStorage } from '@/state/stored-json';
 
 const LAST_PROJECT_KEY = 'ruimte.lastProject';
 
-export type LastProjectStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+export type LastProjectStorage = KeyValueStorage;
 
 /* The last project the window had open, which is what a cold start opens again. */
 export interface LastProject {
     endpointId: string;
     projectId: string;
-}
-
-export function browserStorage(): LastProjectStorage | null {
-    return typeof localStorage === 'undefined' ? null : localStorage;
 }
 
 function isLastProject(value: unknown): value is LastProject {

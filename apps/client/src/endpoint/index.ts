@@ -1,5 +1,5 @@
 import { dropClientLocalOf } from '@/project/client-local';
-import { browserStorage } from '@/project/last-project';
+import { browserStorage } from '@/state/stored-json';
 import { useBrowser } from '@/browser/registry';
 import { forgetCachedList } from '@/project/list';
 import { useChats, useProviderAccountsStore, useProvidersStore, useUsageStore } from '@adecore/agents-react/state';

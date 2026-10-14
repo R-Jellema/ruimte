@@ -1,7 +1,9 @@
 import type { AgentKind, ProjectPanelKind, ProjectPanels } from '@ruimte/contracts';
 import { useMemo } from 'react';
 import { create } from 'zustand';
+import { z } from 'zod';
 import { isScratchProject, useProject } from '@/state/project';
+import { storedJson, storedText } from '@/state/stored-json';
 
 export type SettingsSectionId =
     | 'appearance'
@@ -23,44 +25,30 @@ export type PanelKind = ProjectPanelKind | 'launches' | 'databases' | 'problems'
 
 const PANEL_KINDS: readonly PanelKind[] = ['files', 'git', 'processes', 'devices'];
 
-const SIDEBAR_STORAGE_KEY = 'ruimte.sidebar';
-const CHOSEN_LAUNCH_STORAGE_KEY = 'ruimte.launches.chosen';
+const storedSidebar = storedText('ruimte.sidebar');
+const storedChosenLaunches = storedJson(
+    'ruimte.launches.chosen',
+    z.custom<Record<string, string>>((stored) => stored !== null && typeof stored === 'object' && !Array.isArray(stored))
+);
 
 /* Where the panels lived before they were per project: read as a new project's defaults, never written. */
 const LEGACY_PANEL_KEY = 'ruimte.panel';
 const LEGACY_PANEL_WIDTH_KEY = 'ruimte.panel.width';
 
 function readSidebarOpen(): boolean {
-    try {
-        return localStorage.getItem(SIDEBAR_STORAGE_KEY) !== 'closed';
-    } catch {
-        return true;
-    }
+    return storedSidebar.read() !== 'closed';
 }
 
 function readChosenLaunches(): Record<string, string> {
-    try {
-        const stored: unknown = JSON.parse(localStorage.getItem(CHOSEN_LAUNCH_STORAGE_KEY) ?? '{}');
-        return stored !== null && typeof stored === 'object' && !Array.isArray(stored) ? (stored as Record<string, string>) : {};
-    } catch {
-        return {};
-    }
+    return storedChosenLaunches.read() ?? {};
 }
 
 function persistChosenLaunches(chosen: Record<string, string>): void {
-    try {
-        localStorage.setItem(CHOSEN_LAUNCH_STORAGE_KEY, JSON.stringify(chosen));
-    } catch {
-        // Storage that refuses keeps the choice for this session only.
-    }
+    storedChosenLaunches.write(chosen);
 }
 
 function persistSidebarOpen(open: boolean): void {
-    try {
-        localStorage.setItem(SIDEBAR_STORAGE_KEY, open ? 'open' : 'closed');
-    } catch {
-        // Storage that refuses keeps the sidebar for this session only.
-    }
+    storedSidebar.write(open ? 'open' : 'closed');
 }
 
 export interface PanelState {
@@ -104,11 +92,7 @@ export function parseWidth(raw: string | null): number | null {
 }
 
 function readLegacy(key: string): string | null {
-    try {
-        return localStorage.getItem(key);
-    } catch {
-        return null;
-    }
+    return storedText(key).read();
 }
 
 export interface PanelDefaults {

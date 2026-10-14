@@ -1,7 +1,10 @@
-import { browserStorage, type LastProjectStorage } from './last-project';
+import { z } from 'zod';
+import { storedJson, type KeyValueStorage, type StoredValue } from '@/state/stored-json';
 
-function keyOf(endpointId: string, projectId: string): string {
-    return `ruimte.deletedViews.${JSON.stringify([endpointId, projectId])}`;
+const DeletedViewsSchema = z.array(z.unknown()).transform((viewIds) => viewIds.filter((viewId): viewId is string => typeof viewId === 'string'));
+
+function deletedViews(endpointId: string, projectId: string): StoredValue<string[], readonly string[]> {
+    return storedJson(`ruimte.deletedViews.${JSON.stringify([endpointId, projectId])}`, DeletedViewsSchema);
 }
 
 /*
@@ -9,28 +12,14 @@ function keyOf(endpointId: string, projectId: string): string {
  * waiting on the undo, or purged by a save that has not landed. A page can go before either ends,
  * and the next open finishes the deletion from here.
  */
-export function readDeletedViews(endpointId: string, projectId: string, storage: LastProjectStorage | null = browserStorage()): string[] {
-    const raw = storage?.getItem(keyOf(endpointId, projectId)) ?? null;
-    if (raw === null) {
-        return [];
-    }
-    try {
-        const parsed = JSON.parse(raw) as unknown;
-        return Array.isArray(parsed) ? parsed.filter((viewId): viewId is string => typeof viewId === 'string') : [];
-    } catch {
-        return [];
-    }
+export function readDeletedViews(endpointId: string, projectId: string, storage?: KeyValueStorage | null): string[] {
+    return deletedViews(endpointId, projectId).read(storage) ?? [];
 }
 
-export function writeDeletedViews(
-    endpointId: string,
-    projectId: string,
-    viewIds: readonly string[],
-    storage: LastProjectStorage | null = browserStorage()
-): void {
+export function writeDeletedViews(endpointId: string, projectId: string, viewIds: readonly string[], storage?: KeyValueStorage | null): void {
     if (viewIds.length === 0) {
-        storage?.removeItem(keyOf(endpointId, projectId));
+        deletedViews(endpointId, projectId).remove(storage);
         return;
     }
-    storage?.setItem(keyOf(endpointId, projectId), JSON.stringify(viewIds));
+    deletedViews(endpointId, projectId).write(viewIds, storage);
 }

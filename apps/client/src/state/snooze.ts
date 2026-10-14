@@ -1,6 +1,8 @@
 import { create } from 'zustand';
+import { z } from 'zod';
 import type { Snooze } from '@ruimte/contracts';
 import { dropEndpoint, endpointKey, isOfEndpoint, splitKey } from '@/state/keys';
+import { storedJson } from '@/state/stored-json';
 import { isConnectionError, type Transport } from '@/transport/transport';
 
 /*
@@ -12,7 +14,12 @@ import { isConnectionError, type Transport } from '@/transport/transport';
  * presence and never the time.
  */
 
-const STORAGE_KEY = 'ruimte.snoozes';
+const storedSnoozes = storedJson(
+    'ruimte.snoozes',
+    z
+        .record(z.string(), z.unknown())
+        .transform((stored) => Object.fromEntries(Object.entries(stored).filter((entry): entry is [string, number] => typeof entry[1] === 'number')))
+);
 
 /* Keyed with `endpointKey`, each the moment the snooze runs out, epoch ms. */
 export type Snoozes = Readonly<Record<string, number>>;
@@ -92,35 +99,13 @@ export function observeWaiting(
     return { waiting: next, forget };
 }
 
-type SnoozeStorage = Pick<Storage, 'getItem' | 'setItem'>;
-
-function browserStorage(): SnoozeStorage | null {
-    return typeof localStorage === 'undefined' ? null : localStorage;
-}
-
-function readStored(storage: SnoozeStorage | null, now: number): Snoozes {
-    try {
-        const parsed = JSON.parse(storage?.getItem(STORAGE_KEY) ?? '{}') as unknown;
-        if (typeof parsed !== 'object' || parsed === null) {
-            return {};
-        }
-        return withoutExpired(Object.fromEntries(Object.entries(parsed).filter((entry): entry is [string, number] => typeof entry[1] === 'number')), now);
-    } catch {
-        return {};
-    }
-}
-
 /* Snoozes set for a machine while the link to it was down, by key, until the machine has them. */
 const unsent = new Set<string>();
 
 /* Only what this client keeps itself; a machine's own snoozes come back from the machine. */
 function write(byKey: Snoozes, onMachine: OnMachine): void {
-    try {
-        const kept = Object.entries(byKey).filter(([key]) => onMachine[splitKey(key).endpointId] !== true || unsent.has(key));
-        browserStorage()?.setItem(STORAGE_KEY, JSON.stringify(Object.fromEntries(kept)));
-    } catch {
-        // Storage that refuses keeps the snoozes for this session only.
-    }
+    const kept = Object.entries(byKey).filter(([key]) => onMachine[splitKey(key).endpointId] !== true || unsent.has(key));
+    storedSnoozes.write(Object.fromEntries(kept));
 }
 
 /* The machines that keep the snoozes themselves, by endpoint id. */
@@ -154,7 +139,7 @@ export const useSnoozes = create<SnoozeStore>((set, get) => {
     };
     const kept = (endpointId: string): SnoozeSync | null => (get().onMachine[endpointId] === true ? (machines.get(endpointId) ?? null) : null);
     return {
-        byKey: readStored(browserStorage(), Date.now()),
+        byKey: withoutExpired(storedSnoozes.read() ?? {}, Date.now()),
         onMachine: {},
         snooze(endpointId, nodeId, until) {
             put({ ...get().byKey, [endpointKey(endpointId, nodeId)]: until });

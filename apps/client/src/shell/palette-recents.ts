@@ -1,7 +1,13 @@
-const STORAGE_KEY = 'ruimte.palette.recents';
+import { z } from 'zod';
+import { storedJson } from '@/state/stored-json';
 
 /* Five fills the first screen of an empty palette without pushing "Jump to" out of sight. */
 export const RECENT_LIMIT = 5;
+
+const storedRecents = storedJson(
+    'ruimte.palette.recents',
+    z.array(z.unknown()).transform((items) => items.filter((item): item is string => typeof item === 'string'))
+);
 
 /* Ids only: a command's label and what it does are rebuilt from `appCommands()` every time, so a
    remembered row can never run something that has since changed. */
@@ -10,22 +16,12 @@ export function nextRecents(current: string[], id: string): string[] {
 }
 
 export function readRecents(): string[] {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        const parsed: unknown = raw ? JSON.parse(raw) : null;
-        return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === 'string').slice(0, RECENT_LIMIT) : [];
-    } catch {
-        return [];
-    }
+    return (storedRecents.read() ?? []).slice(0, RECENT_LIMIT);
 }
 
 export function rememberRecent(id: string): string[] {
     const next = nextRecents(readRecents(), id);
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-        // Storage that refuses keeps the order for this session only.
-    }
+    storedRecents.write(next);
     return next;
 }
 

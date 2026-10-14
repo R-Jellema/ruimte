@@ -9,8 +9,8 @@ import {
     type ProcessesSubscribeResult
 } from '@ruimte/contracts';
 import { create } from 'zustand';
-
-const STORAGE_KEY = 'ruimte.processes';
+import { z } from 'zod';
+import { storedJson } from '@/state/stored-json';
 
 interface Preferences {
     scope: ProcessScope;
@@ -19,24 +19,21 @@ interface Preferences {
 
 const DEFAULTS: Preferences = { scope: 'ruimte', sort: 'cpu' };
 
+/* A value this version does not know falls back to the default for that field alone. */
+const storedPreferences = storedJson<Preferences>(
+    'ruimte.processes',
+    z.looseObject({ scope: z.unknown(), sort: z.unknown() }).transform((stored): Preferences => ({
+        scope: stored.scope === 'all' ? 'all' : DEFAULTS.scope,
+        sort: stored.sort === 'memory' || stored.sort === 'disk' ? stored.sort : DEFAULTS.sort
+    }))
+);
+
 function readPreferences(): Preferences {
-    try {
-        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as Partial<Preferences>;
-        return {
-            scope: stored.scope === 'all' ? 'all' : DEFAULTS.scope,
-            sort: stored.sort === 'memory' || stored.sort === 'disk' ? stored.sort : DEFAULTS.sort
-        };
-    } catch {
-        return DEFAULTS;
-    }
+    return storedPreferences.read() ?? DEFAULTS;
 }
 
 function persist(preferences: Preferences): void {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
-    } catch {
-        // Storage that refuses keeps the choice for this session only.
-    }
+    storedPreferences.write(preferences);
 }
 
 /* What one machine said about its processes. */

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { deviceMatches, type DeviceInfo, type DeviceReference, type DeviceUnavailable } from '@ruimte/contracts';
+import { z } from 'zod';
+import { storedJson } from '@/state/stored-json';
 
 export interface DeviceListState {
     devices: DeviceInfo[];
@@ -11,23 +13,17 @@ export interface DeviceListState {
 
 export const EMPTY_DEVICE_LIST: DeviceListState = { devices: [], unavailable: [], loaded: false, loading: false, error: null };
 
-const COLLAPSED_STORAGE_KEY = 'ruimte.devices.collapsed';
+const storedCollapsedGroups = storedJson<string[], readonly string[]>(
+    'ruimte.devices.collapsed',
+    z.array(z.unknown()).transform((items) => items.filter((item): item is string => typeof item === 'string'))
+);
 
 function readCollapsedGroups(): readonly string[] {
-    try {
-        const stored: unknown = JSON.parse(localStorage.getItem(COLLAPSED_STORAGE_KEY) ?? '[]');
-        return Array.isArray(stored) ? stored.filter((key): key is string => typeof key === 'string') : [];
-    } catch {
-        return [];
-    }
+    return storedCollapsedGroups.read() ?? [];
 }
 
 function persistCollapsedGroups(keys: readonly string[]): void {
-    try {
-        localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify(keys));
-    } catch {
-        // Storage that refuses keeps the choice for this session only.
-    }
+    storedCollapsedGroups.write(keys);
 }
 
 interface DevicesState {

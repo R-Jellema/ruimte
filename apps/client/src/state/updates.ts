@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { desktop, type UpdateState } from '@/desktop/bridge';
 import { compareVersions, isVersion } from '@ruimte/desktop-bridge';
 import { startMachineUpdate } from '@/state/machine-update';
+import { browserStorage } from '@/state/stored-json';
 import { openReleaseNotes, setPreviousSeenVersion } from '@/state/release-notes';
 import { useToasts } from '@/state/toasts';
 
@@ -83,14 +84,8 @@ export function seenVersionChange(seen: string | null, current: string): Version
     return order > 0 ? 'updated' : order === 0 ? 'same' : 'older';
 }
 
-type SeenVersionStorage = Pick<Storage, 'getItem' | 'setItem'>;
-
-function browserStorage(): SeenVersionStorage | null {
-    return typeof localStorage === 'undefined' ? null : localStorage;
-}
-
 /* One toast after an update. The version is written at once, so an ignored toast does not come back on the next start. */
-export function noteVersionChange(current: string, storage: SeenVersionStorage | null = browserStorage()): VersionChange {
+export function noteVersionChange(current: string, storage: Pick<Storage, 'getItem' | 'setItem'> | null = browserStorage()): VersionChange {
     let seen: string | null = null;
     try {
         seen = storage?.getItem(SEEN_VERSION_KEY) ?? null;

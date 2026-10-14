@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { silentBands } from '@/audio/waveform';
 import { desktop, type OpenAiCredentialStatus } from '@/desktop/bridge';
+import { storedText } from '@/state/stored-json';
 
 export type VoicePhase = 'idle' | 'connecting' | 'listening' | 'closing' | 'error';
 export type VoiceActionKind = 'focus' | 'rename' | 'note' | 'terminal' | 'chat' | 'node' | 'view' | 'delete' | 'git';
@@ -27,23 +28,15 @@ export interface VoiceAction {
 }
 
 let timelineOrder = 0;
-const VOICE_WIDTH_KEY = 'ruimte.voice.width';
+const storedVoiceWidth = storedText('ruimte.voice.width');
 
 function readVoiceWidth(): number | null {
-    try {
-        const value = Number.parseInt(localStorage.getItem(VOICE_WIDTH_KEY) ?? '', 10);
-        return Number.isFinite(value) && value > 0 ? value : null;
-    } catch {
-        return null;
-    }
+    const value = Number.parseInt(storedVoiceWidth.read() ?? '', 10);
+    return Number.isFinite(value) && value > 0 ? value : null;
 }
 
 function persistVoiceWidth(width: number): void {
-    try {
-        localStorage.setItem(VOICE_WIDTH_KEY, String(width));
-    } catch {
-        // Storage that refuses keeps the width for this session only.
-    }
+    storedVoiceWidth.write(String(width));
 }
 
 export function nextVoiceTimelineOrder(): number {

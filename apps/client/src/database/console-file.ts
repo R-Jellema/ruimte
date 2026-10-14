@@ -10,6 +10,7 @@ import { moveFile } from '@/state/file-moves';
 import { useDocument } from '@/state/document';
 import { fileTabOf, isDatabaseTab, useFiles, type ConsoleBinding, type TabState } from '@/state/files';
 import { currentEndpointId } from '@/state/keys';
+import { storedText } from '@/state/stored-json';
 import { useProject } from '@/state/project';
 import { useSettings } from '@/state/settings';
 import { useToasts } from '@/state/toasts';
@@ -163,24 +164,17 @@ export function rememberConsoleSchema(path: string, schema: string | undefined):
     if (key === null) {
         return;
     }
-    try {
-        if (schema === undefined) {
-            localStorage.removeItem(key);
-        } else {
-            localStorage.setItem(key, schema);
-        }
-    } catch {
-        // Storage that refuses forgets the schema; the console runs where its connection starts.
+    // Storage that refuses forgets the schema; the console runs where its connection starts.
+    if (schema === undefined) {
+        storedText(key).remove();
+    } else {
+        storedText(key).write(schema);
     }
 }
 
 function rememberedConsoleSchema(path: string): string | undefined {
     const key = schemaStorageKey(path);
-    try {
-        return (key === null ? null : localStorage.getItem(key)) ?? undefined;
-    } catch {
-        return undefined;
-    }
+    return (key === null ? null : storedText(key).read()) ?? undefined;
 }
 
 /*

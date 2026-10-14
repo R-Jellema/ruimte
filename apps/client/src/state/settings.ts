@@ -1,5 +1,6 @@
 import { bundledThemesInfo } from 'shiki/themes';
 import { create } from 'zustand';
+import { z } from 'zod';
 import { isLiveVoice, isVoiceLanguage, WorktreeMergeStrategySchema, type LiveVoice, type VoiceLanguage, type WorktreeMergeStrategy } from '@ruimte/contracts';
 import { DEFAULT_STUN_SERVER } from '@ruimte/pulsar';
 import { accentColor, NODE_ACCENTS, type AccentId } from '@/canvas/accents';
@@ -19,6 +20,7 @@ import {
 } from '@/state/ai-settings';
 import { type CodeFolding, codeFoldingFrom, DEFAULT_CODE_FOLDING } from '@/state/code-folding';
 import { CODE_THEMES } from '@/shell/panels/code-themes';
+import { storedJson } from '@/state/stored-json';
 
 export const SETTINGS_STORAGE_KEY = 'ruimte.settings';
 
@@ -417,10 +419,15 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
     };
 }
 
+/* Every field is checked on its own by `settingsFrom`, so a blob of an older version keeps what still fits. */
+const storedSettings = storedJson<Partial<Settings>, Settings>(
+    SETTINGS_STORAGE_KEY,
+    z.custom<Partial<Settings>>((stored) => typeof stored === 'object' && stored !== null)
+);
+
 function read(): Settings {
     try {
-        const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
-        return settingsFrom(raw ? (JSON.parse(raw) as Partial<Settings>) : {});
+        return settingsFrom(storedSettings.read() ?? {});
     } catch {
         return DEFAULT_SETTINGS;
     }
@@ -603,11 +610,8 @@ export const useSettings = create<SettingsStore>((set, get) => {
             next.codeLineHeight = clampRatio(next.codeLineHeight, CODE_LINE_HEIGHT_RANGE, DEFAULT_SETTINGS.codeLineHeight);
             next.terminalLineHeight = clampRatio(next.terminalLineHeight, TERMINAL_LINE_HEIGHT_RANGE, DEFAULT_SETTINGS.terminalLineHeight);
             next.filesTabLimit = clampSize(next.filesTabLimit, FILES_TAB_LIMIT_RANGE, DEFAULT_SETTINGS.filesTabLimit);
-            try {
-                localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
-            } catch {
-                // Storage that refuses still leaves the setting on for this session.
-            }
+            // Storage that refuses still leaves the setting on for this session.
+            storedSettings.write(next);
             apply(next);
             set({ ...next, version: get().version + 1 });
         },

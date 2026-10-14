@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { create } from 'zustand';
 import { DEVICE_LINK_LIFETIME_MS, USER_CODE_LENGTH } from '@ruimte/pulsar';
+import { storedJson } from '@/state/stored-json';
 import type { AccountStatus } from './account';
 import type { LoginStorage } from './web';
 
@@ -17,6 +18,8 @@ const PENDING_LINK_KEY = 'ruimte.pulsar.pendingLink';
 const PendingLinkSchema = z.object({ code: z.string().max(32).nullable(), openedAt: z.number() });
 export type PendingLink = z.infer<typeof PendingLinkSchema>;
 
+const storedPendingLink = storedJson(PENDING_LINK_KEY, PendingLinkSchema);
+
 /* The code a `/link` address carries, `{ code: null }` for the page without one, or null for any other page. */
 export function linkRequestOf(pathname: string, search: string): { code: string | null } | null {
     if (pathname.replace(/\/+$/, '') !== LINK_PATH) {
@@ -32,22 +35,15 @@ export function rememberLink(storage: LoginStorage, code: string | null, now = D
 
 /* The request a page left for GitHub with, until no code it carries could still be waiting. */
 export function rememberedLink(storage: LoginStorage, now = Date.now()): PendingLink | null {
-    const raw = storage.getItem(PENDING_LINK_KEY);
-    if (raw === null) {
+    if (storage.getItem(PENDING_LINK_KEY) === null) {
         return null;
     }
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(raw);
-    } catch {
-        parsed = null;
-    }
-    const pending = PendingLinkSchema.safeParse(parsed);
-    if (!pending.success || now - pending.data.openedAt > DEVICE_LINK_LIFETIME_MS) {
+    const pending = storedPendingLink.read(storage);
+    if (pending === null || now - pending.openedAt > DEVICE_LINK_LIFETIME_MS) {
         storage.removeItem(PENDING_LINK_KEY);
         return null;
     }
-    return pending.data;
+    return pending;
 }
 
 export function forgetLink(storage: LoginStorage): void {

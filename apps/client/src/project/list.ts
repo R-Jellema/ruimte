@@ -1,6 +1,8 @@
 import { isRecentProject, type ProjectSummary } from '@ruimte/contracts';
+import { z } from 'zod';
 import { useEndpoints, type Endpoint } from '@/state/endpoints';
 import { useProjectList, type ProjectRow } from '@/state/project-list';
+import { browserStorage, storedJson, type KeyValueStorage, type StoredValue } from '@/state/stored-json';
 import { pool, transportFor, type ConnectionState } from '@/transport';
 import { watchPool } from '@/transport/pool-watch';
 import { rememberClosedProject } from './closed-projects';
@@ -10,41 +12,29 @@ const CACHE_PREFIX = 'ruimte.projects.';
 /* Enough to hold every project a machine is likely to have; a list this long is scrolled, not read. */
 const CACHE_LIMIT = 50;
 
-type ListStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+/* The rows as the machine last sent them; a row a later version reads differently is replaced at its next answer. */
+const CachedListSchema = z.array(z.custom<ProjectSummary>());
 
-function browserStorage(): ListStorage | null {
-    return typeof localStorage === 'undefined' ? null : localStorage;
+function cachedList(endpointId: string): StoredValue<ProjectSummary[]> {
+    return storedJson(`${CACHE_PREFIX}${endpointId}`, CachedListSchema);
 }
 
 /*
  * The last answer of a machine, so a laptop that is asleep still lists what is on it. The rows are
  * shown as not connected until that machine answers again, which is the moment they are replaced.
  */
-export function readCachedList(endpointId: string, storage: ListStorage | null = browserStorage()): ProjectSummary[] {
-    const raw = storage?.getItem(`${CACHE_PREFIX}${endpointId}`) ?? null;
-    if (raw === null) {
-        return [];
-    }
-    try {
-        const parsed = JSON.parse(raw) as unknown;
-        return Array.isArray(parsed) ? (parsed as ProjectSummary[]) : [];
-    } catch {
-        return [];
-    }
+export function readCachedList(endpointId: string, storage?: KeyValueStorage | null): ProjectSummary[] {
+    return cachedList(endpointId).read(storage) ?? [];
 }
 
-export function writeCachedList(endpointId: string, summaries: ProjectSummary[], storage: ListStorage | null = browserStorage()): void {
+export function writeCachedList(endpointId: string, summaries: ProjectSummary[], storage?: KeyValueStorage | null): void {
     // The ones that were opened most recently are the ones worth remembering when the list is long.
     const kept = [...summaries].sort((a, b) => b.lastOpenedAt - a.lastOpenedAt).slice(0, CACHE_LIMIT);
-    try {
-        storage?.setItem(`${CACHE_PREFIX}${endpointId}`, JSON.stringify(kept));
-    } catch {
-        // Storage that refuses leaves this machine without a remembered list, which only costs a dimmed row.
-    }
+    cachedList(endpointId).write(kept, storage);
 }
 
-export function forgetCachedList(endpointId: string, storage: ListStorage | null = browserStorage()): void {
-    storage?.removeItem(`${CACHE_PREFIX}${endpointId}`);
+export function forgetCachedList(endpointId: string, storage?: KeyValueStorage | null): void {
+    cachedList(endpointId).remove(storage);
 }
 
 /* One machine's answer into the union, and into the list it is remembered by. */
@@ -90,7 +80,7 @@ export async function refreshAllLists(): Promise<void> {
 }
 
 /* Fills the union from what each machine last answered, for the frame before any of them does. */
-export function primeCachedLists(storage: ListStorage | null = browserStorage()): void {
+export function primeCachedLists(storage?: KeyValueStorage | null): void {
     const state = useProjectList.getState();
     for (const endpoint of useEndpoints.getState().endpoints) {
         if (state.projects.some((row) => row.endpointId === endpoint.id)) {

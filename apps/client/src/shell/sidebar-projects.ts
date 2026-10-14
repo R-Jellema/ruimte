@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { create, createStore, useStore } from 'zustand';
+import { z } from 'zod';
 import { useEndpoints } from '@/state/endpoints';
 import { listedEndpoints } from '@/state/local-machine';
 import { followOtherWindows } from '@/state/other-windows';
+import { storedJson } from '@/state/stored-json';
 import { machineTransport, pool } from '@/transport';
 import { SidebarWatch, type SidebarMachineSnapshot } from './sidebar-watch';
 
@@ -11,13 +13,13 @@ export function sidebarProjectKey(endpointId: string, projectId: string): string
 }
 
 export const SIDEBAR_PROJECTS_STORAGE_KEY = 'ruimte.sidebar.projects';
+const storedCollapsed = storedJson(
+    SIDEBAR_PROJECTS_STORAGE_KEY,
+    z.array(z.unknown()).transform((items) => items.filter((item): item is string => typeof item === 'string'))
+);
+
 function readCollapsed(): string[] {
-    try {
-        const value: unknown = JSON.parse(localStorage.getItem(SIDEBAR_PROJECTS_STORAGE_KEY) ?? '[]');
-        return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
-    } catch {
-        return [];
-    }
+    return storedCollapsed.read() ?? [];
 }
 
 export const useSidebarProjects = create<{
@@ -35,11 +37,7 @@ export const useSidebarProjects = create<{
     collapse(key, collapsed) {
         set((state) => {
             const next = collapsed ? [...new Set([...state.collapsed, key])] : state.collapsed.filter((id) => id !== key);
-            try {
-                localStorage.setItem(SIDEBAR_PROJECTS_STORAGE_KEY, JSON.stringify(next));
-            } catch {
-                /* Storage may be unavailable in private browsing. */
-            }
+            storedCollapsed.write(next);
             return { collapsed: next };
         });
     },

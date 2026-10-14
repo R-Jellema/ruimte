@@ -1,22 +1,9 @@
 import { create } from 'zustand';
+import { z } from 'zod';
+import { storedJson } from '@/state/stored-json';
 import type { ConnectionState } from '@/transport/transport';
 
-const LAST_SEEN_KEY = 'ruimte.lastSeen';
-
-type LastSeenStorage = Pick<Storage, 'getItem' | 'setItem'>;
-
-function browserStorage(): LastSeenStorage | null {
-    return typeof localStorage === 'undefined' ? null : localStorage;
-}
-
-function readStored(storage: LastSeenStorage | null): Record<string, number> {
-    try {
-        const parsed = JSON.parse(storage?.getItem(LAST_SEEN_KEY) ?? '{}') as unknown;
-        return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, number>) : {};
-    } catch {
-        return {};
-    }
-}
+const lastSeen = storedJson('ruimte.lastSeen', z.record(z.string(), z.number()));
 
 interface LastSeenState {
     /* When each machine last had an open link here, epoch ms. */
@@ -25,29 +12,21 @@ interface LastSeenState {
     forget(endpointId: string): void;
 }
 
-function write(byEndpoint: Record<string, number>): void {
-    try {
-        browserStorage()?.setItem(LAST_SEEN_KEY, JSON.stringify(byEndpoint));
-    } catch {
-        // Storage that refuses only costs the "last connected" line after a reload.
-    }
-}
-
 /*
  * A machine that is not connected is no longer a failure to report, since most machines are closed
  * most of the time. When it last answered is what a person can still use, so it is kept across reloads.
  */
 export const useLastSeen = create<LastSeenState>((set, get) => ({
-    byEndpoint: readStored(browserStorage()),
+    byEndpoint: lastSeen.read() ?? {},
     see(endpointId, at) {
         const byEndpoint = { ...get().byEndpoint, [endpointId]: at };
         set({ byEndpoint });
-        write(byEndpoint);
+        lastSeen.write(byEndpoint);
     },
     forget(endpointId) {
         const { [endpointId]: _gone, ...byEndpoint } = get().byEndpoint;
         set({ byEndpoint });
-        write(byEndpoint);
+        lastSeen.write(byEndpoint);
     }
 }));
 
