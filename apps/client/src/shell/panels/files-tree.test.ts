@@ -13,6 +13,7 @@ import {
     mentionOf,
     mergeExpanded,
     newlyExpanded,
+    sameEntries,
     treeGitStatus,
     treePathOf,
     withoutClosedBranches
@@ -232,5 +233,19 @@ describe('mentionOf', () => {
         expect(mentionOf('/work/app', '/work/other/main.ts')).toBeNull();
         expect(mentionOf('/work/app', '/work/app')).toBeNull();
         expect(mentionOf(null, '/work/app/main.ts')).toBeNull();
+    });
+});
+
+describe('a folder listed again', () => {
+    const entry = (name: string, mtime = 1): FsEntry => ({ name, path: `/work/${name}`, kind: 'file', size: 1, mtime, hidden: false, ignored: false });
+
+    test('is the same while every entry still reads the same', () => {
+        expect(sameEntries([entry('a.ts'), entry('b.ts')], [entry('a.ts'), entry('b.ts')])).toBe(true);
+    });
+
+    test('differs once an entry came, went or was written', () => {
+        expect(sameEntries([entry('a.ts')], [entry('a.ts'), entry('b.ts')])).toBe(false);
+        expect(sameEntries([entry('a.ts')], [entry('b.ts')])).toBe(false);
+        expect(sameEntries([entry('a.ts', 1)], [entry('a.ts', 2)])).toBe(false);
     });
 });

@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ignoredPaths } from './ignore.ts';
+import * as run from './run.ts';
 
 let root: string;
 
@@ -35,5 +36,22 @@ describe('ignoredPaths', () => {
 
     test('no paths asks git nothing', async () => {
         expect(await ignoredPaths([], root)).toEqual(new Set());
+    });
+
+    test('asks git once for what comes in while it runs, and answers each caller its own paths', async () => {
+        await writeFile(join(root, '.gitignore'), '*.log\ndist/\n');
+        await Bun.spawn(['git', 'init', '-q'], { cwd: root, stdout: 'ignore', stderr: 'ignore' }).exited;
+        const runs = spyOn(run, 'runGit');
+        try {
+            const answers = await Promise.all([
+                ignoredPaths([join(root, 'keep.ts')], root),
+                ignoredPaths([join(root, 'notes.log')], root),
+                ignoredPaths([join(root, 'dist'), join(root, 'keep.ts')], root)
+            ]);
+            expect(answers).toEqual([new Set(), new Set([join(root, 'notes.log')]), new Set([join(root, 'dist')])]);
+            expect(runs).toHaveBeenCalledTimes(1);
+        } finally {
+            runs.mockRestore();
+        }
     });
 });

@@ -19,6 +19,24 @@ export interface TreeInput {
 
 export { absoluteOf, isAbsolutePath, relativeTo, resolveStoredPath, storedPathOf };
 
+/* Whether a folder listed again says what it said before, so the tree is not built again for nothing. */
+export function sameEntries(before: readonly FsEntry[], after: readonly FsEntry[]): boolean {
+    return (
+        before.length === after.length &&
+        before.every((entry, i) => {
+            const other = after[i]!;
+            return (
+                entry.path === other.path &&
+                entry.kind === other.kind &&
+                entry.size === other.size &&
+                entry.mtime === other.mtime &&
+                entry.hidden === other.hidden &&
+                entry.ignored === other.ignored
+            );
+        })
+    );
+}
+
 /* A path the files panel can bring into view is one inside the folder that panel lists; a worktree
    or another checkout on the same machine is not. */
 export function revealableInFiles(folder: string | null, path: string): boolean {

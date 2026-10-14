@@ -58,6 +58,7 @@ import {
     relativeTo,
     treePathOf,
     withoutClosedBranches,
+    sameEntries,
     type EntryCache
 } from '@/shell/panels/files-tree';
 import { hasActiveCanvas, useDocument } from '@/state/document';
@@ -228,7 +229,13 @@ export function FilesPanel() {
             try {
                 // Always with the hidden entries: the eye button then rebuilds from the cache alone.
                 const result = await perform('file.list', { path: dir, hidden: true });
-                setListed((current) => ({ folder, byDir: new Map(current.folder === folder ? current.byDir : []).set(dir, result.entries) }));
+                setListed((current) => {
+                    const before = current.folder === folder ? current.byDir.get(dir) : undefined;
+                    if (before !== undefined && sameEntries(before, result.entries)) {
+                        return current;
+                    }
+                    return { folder, byDir: new Map(current.folder === folder ? current.byDir : []).set(dir, result.entries) };
+                });
             } catch {
                 // A folder that went away keeps the rows it had until the next refresh.
             }
@@ -252,8 +259,9 @@ export function FilesPanel() {
                 void load(dir);
             }
         };
-        // The watch goes up before the first listing, so a write in between is reported, not missed.
+        // Listed at once and again when the watch is sure of every write, so one that fell in between still shows.
         const watch = folderWatches.watch(endpointId, folder, loadAll);
+        loadAll();
         void watch.ready.then(loadAll);
         return watch.release;
     }, [endpointId, folder, load]);
