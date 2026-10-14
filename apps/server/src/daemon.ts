@@ -73,6 +73,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     });
     const projects = await wireProjects({
         home,
+        machineId: machine.identity.id,
         stores,
         agents,
         computer,

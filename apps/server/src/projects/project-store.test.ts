@@ -1660,6 +1660,31 @@ describe('the machine of a node', () => {
         store.release(projectId);
     });
 
+    test('is taken only for a terminal, chat or device, on another machine, before anything started here', async () => {
+        const opened = await store.openProject({ folder });
+        const projectId = opened.summary.projectId;
+        const asNote = bound('machine-b');
+        canvas(asNote).nodes[0] = { ...canvas(asNote).nodes[0]!, kind: 'note' };
+        await expect(store.save(projectId, 0, asNote)).rejects.toMatchObject({ code: 'remote-node-invalid' });
+        await expect(store.save(projectId, 0, bound('machine-a'))).rejects.toMatchObject({ code: 'remote-node-invalid' });
+        expect(store.remote.nodesOf(projectId)).toEqual({});
+
+        const busy = new ProjectStore(
+            join(root, 'busy-home'),
+            projectLinks({ bindings: { machineId: 'machine-a', started: async (nodeId) => nodeId === 'n1' } }),
+            new FakeWatch()
+        );
+        const busyId = (await busy.openProject({ folder })).summary.projectId;
+        await expect(busy.save(busyId, 0, bound('machine-b'))).rejects.toMatchObject({ code: 'remote-node-invalid' });
+        busy.closeAll();
+    });
+
+    test('stays on the machine it was bound to', async () => {
+        const projectId = await openBound();
+        await expect(store.save(projectId, 1, bound('machine-c'))).rejects.toMatchObject({ code: 'remote-node-invalid' });
+        expect(await store.save(projectId, 1, bound('machine-b'))).toBe(2);
+    });
+
     test('stays a node on a canvas: becoming a view of its own is refused, and so is a verb doing it', async () => {
         const projectId = await openBound();
         const promoted: ProjectContent = { ...content(), views: [{ kind: 'terminal', id: 'n1', name: 'shell', node: {} }] };

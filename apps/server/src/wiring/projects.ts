@@ -30,6 +30,7 @@ export interface ProjectsBundle {
 
 export interface ProjectsInput {
     home: string;
+    machineId: string;
     stores: AgentStores;
     agents: AgentsBundle;
     computer: ComputerUse;
@@ -41,7 +42,7 @@ export interface ProjectsInput {
     };
 }
 
-export async function wireProjects({ home, stores, agents, computer, later }: ProjectsInput): Promise<ProjectsBundle> {
+export async function wireProjects({ home, machineId, stores, agents, computer, later }: ProjectsInput): Promise<ProjectsBundle> {
     const { sessions, chats } = agents;
     const endSession = async (kind: 'terminal' | 'chat', nodeId: string): Promise<void> => {
         computer.nodeClosed(nodeId);
@@ -82,6 +83,10 @@ export async function wireProjects({ home, stores, agents, computer, later }: Pr
                 later.databases().connections.closeProject(projectId);
                 later.databases().agents.letGo(projectId);
             }
+        },
+        bindings: {
+            machineId,
+            started: async (nodeId) => sessions.get(nodeId) !== undefined || stores.lineage.madeBy(nodeId) !== null || (await chats.readChat(nodeId)) !== null
         },
         viewFiles: () => [drawings, diagrams]
     });

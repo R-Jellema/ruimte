@@ -16,6 +16,8 @@ type ProjectErrorCode =
     | 'remote-node-shared'
     // A node that runs on another machine would start here as soon as it became a view of its own.
     | 'remote-node-view'
+    // A machine named for a node that cannot run there: wrong kind, this very machine, or work already started here.
+    | 'remote-node-invalid'
     // The canvas a machine keeps for another one is not a view to commit.
     | 'hidden-view-shared';
 

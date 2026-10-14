@@ -126,6 +126,13 @@ export interface ProjectProvenance {
     forget(projectId: string): Promise<void>;
 }
 
+/* What judging a binding takes of this machine: who it is, and whether a node already started anything here. */
+export interface ProjectBindings {
+    machineId: string;
+    /* A live session or chat, a chat record or a lineage record of this node on this machine. */
+    started(nodeId: string): Promise<boolean>;
+}
+
 /* What a change hands back: the whole new content, and whatever the caller wants to answer with. */
 export interface ProjectMutation<T> {
     /* Null when nothing changed, which is what a dry run leaves behind: it runs every check under
@@ -191,6 +198,7 @@ export interface ProjectLinks {
     language: ProjectLanguage;
     provenance: ProjectProvenance;
     databases: ProjectDatabases;
+    bindings: ProjectBindings;
     /* The stores of drawing and diagram files, which are made from this one and so are asked for when a write or a release reaches them. */
     viewFiles(): readonly ProjectViewFiles[];
 }
@@ -625,6 +633,7 @@ export class ProjectStore {
            the folder as it is, which is what an older client and every other writer amount to. */
         const ids = [...(shared ?? state.shared)];
         this.refuseBoundViews(projectId, content);
+        await this.refuseBadBindings(projectId, content);
         this.refuseSharedRemoteNodes(projectId, content, ids);
         // The views that changed sides, so their drawing or diagram file can follow them over.
         const moved = [...new Set([...ids, ...state.shared])].filter((id) => ids.includes(id) !== state.shared.includes(id));
@@ -1284,6 +1293,40 @@ export class ProjectStore {
             const held = isCanvasView(view) ? [view.id, ...view.nodes.map((node) => node.id)] : [view.id];
             if (shared.includes(view.id) && held.some((id) => Object.hasOwn(bound, id))) {
                 throw new ProjectError('remote-node-shared', `${view.name} holds a node that runs on another machine, which stays on a canvas only you have`);
+            }
+        }
+    }
+
+    /*
+     * A machine named for a node is taken only where it can hold: a terminal, a chat or a device that
+     * has started nothing here, on another machine than this one. Anything else would leave work or a
+     * history on this machine behind a node that no longer shows it.
+     */
+    private async refuseBadBindings(projectId: string, content: ProjectContent): Promise<void> {
+        const bound = this.remote.nodesOf(projectId);
+        for (const view of content.views) {
+            if (!isCanvasView(view)) {
+                continue;
+            }
+            for (const node of view.nodes) {
+                if (node.machine === undefined) {
+                    continue;
+                }
+                if (Object.hasOwn(bound, node.id)) {
+                    if (bound[node.id] !== node.machine) {
+                        throw new ProjectError('remote-node-invalid', `${node.id} runs on another machine already and stays there`);
+                    }
+                    continue;
+                }
+                if (node.kind !== 'terminal' && node.kind !== 'chat' && node.kind !== 'device') {
+                    throw new ProjectError('remote-node-invalid', `A ${node.kind} node runs on this machine only`);
+                }
+                if (node.machine === this.links.bindings.machineId) {
+                    throw new ProjectError('remote-node-invalid', `${node.id} cannot run on the machine it is on`);
+                }
+                if (await this.links.bindings.started(node.id)) {
+                    throw new ProjectError('remote-node-invalid', `${node.id} has started work on this machine, which would stay behind`);
+                }
             }
         }
     }
