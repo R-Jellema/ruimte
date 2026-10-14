@@ -5,6 +5,7 @@ import { databaseViewShareRefusal } from '@/database/view-sharing';
 import { forkRefusal, lastSettledTurn } from '@adecore/agents-react/chat';
 import { desktop, isApplePlatform } from '@/desktop/bridge';
 import { keepAwakeAvailable, keepAwakeChoice } from '@/state/keep-awake';
+import { hasLocalMachine } from '@/state/local-machine';
 import { newChatMachine, offersNewChat, useNewChat } from '@/project/new-chat';
 import { canOpenWindows } from '@/project/windows';
 import { canOpenAsView, type SessionHandoff } from '@/project/views';
@@ -183,6 +184,7 @@ export function menuContext(host: MenuHost): MenuContext {
         keepAwake: host === 'desktop' && keepAwakeAvailable() ? keepAwakeChoice().keepAwake : null,
         settingsOpen: ui.settings.open,
         windows: host === 'desktop' && canOpenWindows(),
-        newChat: offersNewChat(newChatMachine(), useNewChat.getState().refused)
+        newChat: offersNewChat(newChatMachine(), useNewChat.getState().refused),
+        localMachine: hasLocalMachine()
     };
 }

@@ -846,7 +846,12 @@ const TABLE = {
     'settings-editor': { key: 'editorSettings', icon: CodeXml, palette: true, menu: { menu: 'window', group: 'panels', order: 50 } },
     'settings-machines': { key: 'machines', icon: Server, palette: true, menu: { menu: 'window', group: 'panels', order: 60 } },
     'settings-computer': { key: 'computerUse', icon: MousePointer2, palette: true, menu: { menu: 'window', group: 'panels', order: 70 } },
-    onboarding: { key: 'onboarding', icon: ListChecks, palette: true, menu: { menu: 'help', group: 'help', order: 10, when: desktop } },
+    onboarding: {
+        key: 'onboarding',
+        icon: ListChecks,
+        palette: true,
+        menu: { menu: 'help', group: 'help', order: 10, when: (context) => desktop(context) && context.localMachine }
+    },
     'release-notes': {
         key: 'releaseNotes',
         icon: ScrollText,

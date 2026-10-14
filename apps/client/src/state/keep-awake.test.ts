@@ -1,10 +1,19 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { AgentInfo, AgentStatus } from '@ruimte/contracts';
 import { useChats, type ChatState } from '@adecore/agents-react/state';
 import { useSessions, type SessionState } from '@/state/sessions';
 import { useSettings } from '@/state/settings';
 import type { DesktopBridge, KeepAwakeRequest } from '@/desktop/bridge';
-import { closedLidOf, keepAwakeChoice, keepAwakeTeller, keepAwakeToMove, keepAwakeWanted, startKeepAwake, type KeepAwakeSettings } from '@/state/keep-awake';
+import {
+    closedLidOf,
+    keepAwakeAvailable,
+    keepAwakeChoice,
+    keepAwakeTeller,
+    keepAwakeToMove,
+    keepAwakeWanted,
+    startKeepAwake,
+    type KeepAwakeSettings
+} from '@/state/keep-awake';
 import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import { serverInfoOf, useServers, type ServerInfo } from '@/state/server';
 
@@ -107,12 +116,19 @@ describe('how the shell is told', () => {
     });
 });
 
+const scope = globalThis as unknown as { window?: { ruimteDesktop?: Partial<DesktopBridge> } };
+
 describe('what the shell is told', () => {
+    beforeEach(() => {
+        scope.window = { ruimteDesktop: { platform: 'darwin' } };
+    });
+
     const working = (status: AgentStatus): void => {
         useSessions.setState({ byKey: { 'local:t1': session(agent(status)) } });
     };
 
     afterEach(() => {
+        delete scope.window;
         useSessions.setState({ byKey: {} });
         useChats.setState({ byKey: {} });
         useSettings.setState(settings('off', { keepAwakeDisplay: false, keepAwakeOnBattery: false }));
@@ -130,6 +146,12 @@ describe('what the shell is told', () => {
 
     test('nothing at all in a browser, which has no shell to ask', () => {
         expect(startKeepAwake(undefined)).toBeNull();
+    });
+
+    test('no block for agents elsewhere when this app runs no machine', () => {
+        scope.window = { ruimteDesktop: { platform: 'darwin', machine: { mode: 'none' } } };
+        useSettings.setState({ keepAwake: 'always' });
+        expect(startKeepAwake(() => undefined)).toBeNull();
     });
 
     test('the request when an agent starts and null when it settles', () => {
@@ -185,6 +207,24 @@ describe('what the shell is told', () => {
 function machine(patch: Partial<ServerInfo>): ServerInfo {
     return { ...serverInfoOf('nobody'), keepAwakeAvailable: true, ...patch };
 }
+
+describe('whether keep awake is offered', () => {
+    afterEach(() => {
+        delete scope.window;
+    });
+
+    test('a Mac shell that runs a machine can hold a block of its own', () => {
+        scope.window = { ruimteDesktop: { platform: 'darwin', requestKeepAwake: () => undefined, machine: { mode: 'local' } } };
+        expect(keepAwakeAvailable()).toBe(true);
+    });
+
+    test('not when this app runs no machine, whatever the shell can do', () => {
+        for (const mode of ['none', 'ask'] as const) {
+            scope.window = { ruimteDesktop: { platform: 'darwin', requestKeepAwake: () => undefined, machine: { mode } } };
+            expect(keepAwakeAvailable()).toBe(false);
+        }
+    });
+});
 
 describe('where the setting is kept', () => {
     test('the machine holds it, whatever this client kept before', () => {

@@ -1190,7 +1190,8 @@
             },
             "signedOut": {
                 "label": "Not signed in",
-                "description": "Once you sign in, the machine this app runs on joins your account on its own, and the account's machines show up here."
+                "description": "Once you sign in, the machine this app runs on joins your account on its own, and the account's machines show up here.",
+                "descriptionNoMachine": "Once you sign in, the machines on your account show up here."
             },
             "signingIn": {
                 "label": "Signing in",

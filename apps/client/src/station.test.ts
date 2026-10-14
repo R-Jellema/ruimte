@@ -6,7 +6,7 @@ const machine: Machine = { id: 'studio', name: 'Studio', icon: null, publicKey: 
 
 function input(patch: Partial<StationBootInput> = {}): StationBootInput {
     return {
-        station: true,
+        withoutMachine: true,
         accountStatus: 'signed-out',
         machines: null,
         ...patch
@@ -28,6 +28,6 @@ describe('the web boot state', () => {
     });
 
     test('a build that is not the web client keeps the desktop order', () => {
-        expect(stationBoot(input({ station: false }))).toBeNull();
+        expect(stationBoot(input({ withoutMachine: false }))).toBeNull();
     });
 });

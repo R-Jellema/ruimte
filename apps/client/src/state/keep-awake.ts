@@ -49,14 +49,14 @@ export function useKeepAwakeChoice(): KeepAwakeSettings {
     return { keepAwake, keepAwakeOnBattery, keepAwakeDisplay };
 }
 
-/* Whether there is anything to keep awake: this computer's machine, or else a Mac shell that can hold a block of its own. */
+/* Whether there is anything to keep awake: this computer's machine, or else a Mac shell that can hold a block of its own. Never without a machine here, since agents elsewhere are not this computer's to hold awake. */
 export function keepAwakeAvailable(): boolean {
-    return (hasLocalMachine() && machineKeepsAwake(localInfo())) || canKeepAwake();
+    return hasLocalMachine() && (machineKeepsAwake(localInfo()) || canKeepAwake());
 }
 
 /* The same as `keepAwakeAvailable` inside a render, which follows the machine as it answers. */
 export function useKeepAwakeAvailable(): boolean {
-    return useMachineKeepsAwake() || canKeepAwake();
+    return useMachineKeepsAwake() || (hasLocalMachine() && canKeepAwake());
 }
 
 async function saveOnMachine(patch: Partial<KeepAwakeSettings> & { keepAwakeLidClosed?: boolean }): Promise<void> {
@@ -231,7 +231,7 @@ export function keepAwakeTeller(bridge: DesktopBridge | null): ((request: KeepAw
  * send itself. Returns the unsubscribe, or null where there is no shell to ask.
  */
 export function startKeepAwake(tell: ((request: KeepAwakeRequest | null) => void) | undefined = keepAwakeTeller(desktop())): (() => void) | null {
-    if (!tell) {
+    if (!tell || !hasLocalMachine()) {
         return null;
     }
     // What the shell was last told. Turning the setting off mid-turn has to reach it as well.

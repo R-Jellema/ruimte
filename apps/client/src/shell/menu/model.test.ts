@@ -59,6 +59,7 @@ function context(patch: Partial<MenuContext> = {}): MenuContext {
         settingsOpen: false,
         windows: true,
         newChat: true,
+        localMachine: true,
         scratch: false,
         prWatch: false,
         chat: false,
@@ -230,6 +231,11 @@ describe('the menus', () => {
             expect(menu(spec, 'Help').some((node) => node.kind === 'command' && node.id === 'onboarding')).toBe(true);
         }
         expect(commandIds(menuModel(context({ host: 'station' })))).not.toContain('onboarding');
+    });
+
+    test('setting up Ruimte is not offered when this app runs no machine', () => {
+        expect(commandIds(menuModel(context({ localMachine: false })))).not.toContain('onboarding');
+        expect(commandIds(menuModel(context()))).toContain('onboarding');
     });
 
     test('the station prints its keys, except the ones a browser tab keeps, and undoes its own history', () => {

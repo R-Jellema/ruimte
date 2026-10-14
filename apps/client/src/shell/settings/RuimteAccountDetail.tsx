@@ -3,6 +3,8 @@ import clsx from 'clsx';
 import { Check, CircleAlert, KeyRound, LogOut, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { PROVIDER_NAMES, type ProviderId } from '@ruimte/pulsar';
+import { isDesktop } from '@/desktop/bridge';
+import { hasLocalMachine } from '@/state/local-machine';
 import { LinkMachineDialog } from '@/shell/LinkMachineDialog';
 import { DeleteAccountDialog } from '@/shell/settings/DeleteAccountDialog';
 import { cancelPulsarSignIn, linkPulsarProvider, refreshPulsarIdentities, signOutOfPulsar, unlinkPulsarProvider, usePulsarAccount } from '@/pulsar/account';
@@ -128,7 +130,10 @@ function SignInSection() {
                 <SettingsRow
                     searchId="machines.signIn"
                     label={t('machines.account.signedOut.label')}
-                    description={notice ?? t('machines.account.signedOut.description')}
+                    description={
+                        notice ??
+                        t(isDesktop() && !hasLocalMachine() ? 'machines.account.signedOut.descriptionNoMachine' : 'machines.account.signedOut.description')
+                    }
                     control={<SignInButtons className="justify-end" confirm />}
                 />
             )}

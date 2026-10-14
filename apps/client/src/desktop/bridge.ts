@@ -1,4 +1,4 @@
-import type { DesktopBridge } from '@ruimte/desktop-bridge';
+import type { DesktopBridge, MachineMode } from '@ruimte/desktop-bridge';
 import { isApplePlatform as isApplePlatformFromNavigator } from '@adecore/ui';
 
 export type {
@@ -15,6 +15,8 @@ export type {
     DatabaseSecretsBridge,
     DesktopBridge,
     KeepAwakeRequest,
+    MachineMode,
+    MachineModeBridge,
     OpenAiBridge,
     OpenAiCredentialStatus,
     OpenAiLivePreferences,
@@ -42,6 +44,12 @@ export function desktop(): DesktopBridge | null {
 
 export function isDesktop(): boolean {
     return desktop() !== null;
+}
+
+/* Null outside the desktop app. A shell from before the mode ran a machine, so it reads `local`. */
+export function machineMode(): MachineMode | null {
+    const bridge = desktop();
+    return bridge === null ? null : (bridge.machine?.mode ?? 'local');
 }
 
 /* The desktop app on macOS for now; a browser is not offered the setting at all. */

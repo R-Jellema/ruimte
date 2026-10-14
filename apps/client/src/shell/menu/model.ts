@@ -94,6 +94,8 @@ export interface MenuContext {
     windows: boolean;
     /* A chat outside any project can start from this window (`project/new-chat.ts`). */
     newChat: boolean;
+    /* This app runs a machine of its own; the desktop app told to run none does not. */
+    localMachine: boolean;
 }
 
 type MenuCommand = (id: string, label: string, options?: CommandOptions) => MenuNode;

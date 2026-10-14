@@ -1,12 +1,13 @@
-import { isDesktop } from '@/desktop/bridge';
+import { machineMode } from '@/desktop/bridge';
 import { LOCAL_ENDPOINT_ID, type Endpoint } from '@/state/endpoints';
 
 /*
  * Only the desktop shell can read the local secret. A browser may be served beside a daemon, but it
- * still reaches machines as a signed-in client and must not present its origin as one.
+ * still reaches machines as a signed-in client and must not present its origin as one. A shell
+ * without the mode field ran a machine, and one told to run none follows the path the station takes.
  */
 export function hasLocalMachine(): boolean {
-    return isDesktop();
+    return machineMode() === 'local';
 }
 
 /* The rows a list of machines shows: every row, without the local one where no daemon is behind it. */

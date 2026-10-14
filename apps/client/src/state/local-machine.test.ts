@@ -1,5 +1,6 @@
-import { describe, expect, test } from 'bun:test';
-import { isRealMachine, listedEndpoints, startScreenMachine } from './local-machine';
+import { afterEach, describe, expect, test } from 'bun:test';
+import type { DesktopBridge } from '@/desktop/bridge';
+import { hasLocalMachine, isRealMachine, listedEndpoints, startScreenMachine } from './local-machine';
 
 const rows = [{ id: 'local' }, { id: 'studio' }, { id: 'attic' }];
 
@@ -27,5 +28,31 @@ describe('the start screen', () => {
     test('keeps no link on the web client, and none to another machine', () => {
         expect(startScreenMachine(rows, false)).toBeNull();
         expect(startScreenMachine([{ id: 'studio' }], true)).toBeNull();
+    });
+});
+
+describe('hasLocalMachine', () => {
+    const scope = globalThis as unknown as { window?: { ruimteDesktop?: Partial<DesktopBridge> } };
+
+    afterEach(() => {
+        delete scope.window;
+    });
+
+    test('is false without a desktop bridge', () => {
+        expect(hasLocalMachine()).toBe(false);
+    });
+
+    test('is true for a shell from before the mode, which ran a machine', () => {
+        scope.window = { ruimteDesktop: { platform: 'darwin' } };
+        expect(hasLocalMachine()).toBe(true);
+    });
+
+    test('follows the mode the shell names', () => {
+        scope.window = { ruimteDesktop: { platform: 'darwin', machine: { mode: 'local' } } };
+        expect(hasLocalMachine()).toBe(true);
+        scope.window = { ruimteDesktop: { platform: 'darwin', machine: { mode: 'none' } } };
+        expect(hasLocalMachine()).toBe(false);
+        scope.window = { ruimteDesktop: { platform: 'darwin', machine: { mode: 'ask' } } };
+        expect(hasLocalMachine()).toBe(false);
     });
 });

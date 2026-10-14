@@ -218,8 +218,7 @@ function StartContent() {
     const offersChat = useOffersNewChat();
     useMachineHold(useEndpoints((s) => startScreenMachine(s.endpoints)));
 
-    const station = !hasLocalMachine();
-    const boot = stationBoot({ station, accountStatus, machines: accountMachines });
+    const boot = stationBoot({ withoutMachine: !hasLocalMachine(), accountStatus, machines: accountMachines });
     const recent = useMemo(() => recentProjects(rows, endpoints, connected), [rows, endpoints, connected]);
     const chats = useMemo(() => openableRows(chatsProjects(rows, endpoints, connected)), [rows, endpoints, connected]);
     const machines = useMemo(
@@ -305,7 +304,7 @@ function StartContent() {
                     <div className="flex min-w-0 flex-col gap-8">
                         <Section label={t('start.start')}>
                             <div className="flex flex-col gap-2">
-                                {boot === 'sign-in' && <SignInCard description={t('start.signInForMachines')} />}
+                                {boot === 'sign-in' && <SignInCard description={t(isDesktop() ? 'start.signInForMachinesApp' : 'start.signInForMachines')} />}
                                 {(boot === 'loading' || boot === 'signing-in') && (
                                     <Tile
                                         icon={<Icon icon={LogIn} size={16} />}

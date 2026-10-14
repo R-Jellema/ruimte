@@ -1190,7 +1190,8 @@
             },
             "signedOut": {
                 "label": "Niet ingelogd",
-                "description": "Zodra je inlogt, komt de machine waarop deze app draait vanzelf op je account, en de machines van het account verschijnen hier."
+                "description": "Zodra je inlogt, komt de machine waarop deze app draait vanzelf op je account, en de machines van het account verschijnen hier.",
+                "descriptionNoMachine": "Zodra je inlogt, verschijnen de machines op je account hier."
             },
             "signingIn": {
                 "label": "Bezig met inloggen",

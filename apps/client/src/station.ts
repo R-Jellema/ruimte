@@ -12,7 +12,8 @@ export const IS_STATION = import.meta.env?.MODE === 'station';
 export type StationBoot = 'loading' | 'sign-in' | 'signing-in' | 'machines';
 
 export interface StationBootInput {
-    station: boolean;
+    /* This app has no machine of its own: the web client, or the desktop app told to run none. */
+    withoutMachine: boolean;
     accountStatus: AccountStatus;
     machines: Machine[] | null;
 }
@@ -23,7 +24,7 @@ export interface StationBootInput {
  * and then those machines come first.
  */
 export function stationBoot(input: StationBootInput): StationBoot | null {
-    if (!input.station) {
+    if (!input.withoutMachine) {
         return null;
     }
     switch (input.accountStatus) {

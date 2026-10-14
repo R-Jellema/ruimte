@@ -515,6 +515,7 @@
         "lastProject": "The last project",
         "signIn": "Sign in",
         "signInForMachines": "Sign in to open the machines on your account from this browser.",
+        "signInForMachinesApp": "Sign in to open the machines on your account from this app.",
         "reachMachines": "Reach the machines on your account.",
         "lookingUpMachines": "Looking up your machines…",
         "waitsForMachines": "Everything else waits for your machines",
