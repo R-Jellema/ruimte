@@ -316,7 +316,7 @@ The chat lifecycle, the backends per CLI and the projector that builds the threa
 
 ### Images an agent attaches
 
-`ruimte-context chat attach --file <path>` reads a PNG, JPEG, GIF or WebP file in the agent's own process and sends the bytes, so the daemon never opens a path an agent names. The daemon reads the type off the bytes again and stores the image as `attachments/<chatId>/agent-<uuid>.<ext>`, at most 10 MiB each and 64 per chat. The id it prints is what `Image`, `Gallery` and `Compare` take as `attachment`, served by the same route as any other attachment. The folder goes with a clear or a deletion of the chat, and a fork copies the images under the same ids.
+`ruimte-context chat attach --file <path>` reads a PNG, JPEG, GIF or WebP file in the agent's own process and sends the bytes, so the daemon never opens a path an agent names. The daemon reads the type off the bytes again and stores the image as `attachments/<chatId>/agent-<uuid>~<name>.<ext>`, at most 10 MiB each and 64 per chat. The id it prints is what `Image`, `Gallery` and `Compare` take as `attachment`, served by the same route as any other attachment. The folder goes with a clear or a deletion of the chat, and a fork copies the images under the same ids.
 
 ### Generated images
 

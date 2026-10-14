@@ -18,11 +18,41 @@ export const AGENT_IMAGE_TYPES: Readonly<Record<string, string>> = {
 
 const ID = /^agent-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 
+// Room the name leaves in a file name: 255 bytes less the id, the separator and the extension.
+const NAME_ENCODED_MAX = 160;
+
 const MIME_OF: Readonly<Record<string, string>> = Object.fromEntries(Object.entries(AGENT_IMAGE_TYPES).map(([mime, extension]) => [extension, mime]));
 
+/* The longest name that still fits a file name once encoded, cut at a whole character. */
+function fittingName(name: string): string {
+    let fitting = Array.from(name.trim());
+    while (fitting.length > 0 && encodeURIComponent(fitting.join('')).length > NAME_ENCODED_MAX) {
+        fitting = fitting.slice(0, -1);
+    }
+    return fitting.join('') || 'image';
+}
+
+/* The id, the name (absent when the file carries none) and the extension of a file of the folder, or null when it is no agent image. */
+function parsed(file: string): { id: string; name: string | null; extension: string } | null {
+    const dot = file.lastIndexOf('.');
+    const extension = file.slice(dot + 1);
+    const stem = file.slice(0, Math.max(dot, 0));
+    const separator = stem.indexOf('~');
+    const id = separator === -1 ? stem : stem.slice(0, separator);
+    if (!ID.test(id) || MIME_OF[extension] === undefined) {
+        return null;
+    }
+    try {
+        return { id, name: separator === -1 ? null : decodeURIComponent(stem.slice(separator + 1)), extension };
+    } catch {
+        return { id, name: null, extension };
+    }
+}
+
 /*
- * The images an agent attached to its own chat, as `agent-<uuid>.<ext>` in the chat's attachment
- * folder. The id is the file's name, so a lookup is a stat and an unrelated attachment is never read.
+ * The images an agent attached to its own chat, as `agent-<uuid>~<name>.<ext>` in the chat's attachment
+ * folder, the name URI-encoded after the id. The id is what a lookup reads, so an unrelated attachment is
+ * never touched and there is no index to keep.
  */
 export class AgentImages {
     private readonly attachments: Pick<AttachmentStore, 'folderOf'>;
@@ -57,9 +87,10 @@ export class AgentImages {
         }
         await mkdir(folder, { recursive: true, mode: 0o700 });
         const id = `agent-${randomUUID()}`;
-        const path = join(folder, `${id}.${extension}`);
+        const name = fittingName(upload.name);
+        const path = join(folder, `${id}~${encodeURIComponent(name)}.${extension}`);
         await writeFile(path, upload.bytes, { mode: 0o600 });
-        return { id, name: upload.name, mime: upload.mime, size: upload.bytes.byteLength, path };
+        return { id, name, mime: upload.mime, size: upload.bytes.byteLength, path };
     }
 
     /* The image behind an id, or null when the id is no agent image of this chat. */
@@ -68,12 +99,16 @@ export class AgentImages {
             return null;
         }
         const folder = this.attachments.folderOf(chatId);
-        for (const [extension, mime] of Object.entries(MIME_OF)) {
-            const path = join(folder, `${id}.${extension}`);
+        for (const file of await this.names(folder)) {
+            if (parsed(file)?.id !== id) {
+                continue;
+            }
+            const path = join(folder, file);
             // A link in the folder could point anywhere, so only a regular file of its own counts.
             const info = await lstat(path).catch(() => null);
             if (info?.isFile()) {
-                return { id, name: `${id}.${extension}`, mime, size: info.size, path };
+                const { name, extension } = parsed(file)!;
+                return { id, name: name ?? `${id}.${extension}`, mime: MIME_OF[extension]!, size: info.size, path };
             }
         }
         return null;
@@ -95,6 +130,6 @@ export class AgentImages {
 
     private async names(folder: string): Promise<string[]> {
         const entries = await readdir(folder).catch(() => []);
-        return entries.filter((name) => ID.test(name.slice(0, name.lastIndexOf('.'))));
+        return entries.filter((file) => parsed(file) !== null);
     }
 }
