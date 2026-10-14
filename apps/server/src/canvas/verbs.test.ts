@@ -246,7 +246,8 @@ function host(): CanvasHost {
                     },
                     expectedRev
                 ),
-            showView: (projectId, viewId, by) => store.showView(projectId, viewId, by)
+            showView: (projectId, viewId, by) => store.showView(projectId, viewId, by),
+            machineOfNode: (nodeId) => store.machineOfNode(nodeId)
         },
         checkouts: {
             paths: async () => worktrees,

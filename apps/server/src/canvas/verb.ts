@@ -125,7 +125,7 @@ export interface CanvasHost {
 
 /* The projects of this machine; every write of a verb goes through `mutate`, which refuses a document that moved past `expectedRev`. */
 /* A verb changes the content only; what a move of a view between projects reads besides is the store's own. */
-export type ProjectHost = Pick<ProjectStore, 'locate' | 'read' | 'revision' | 'showView'> & {
+export type ProjectHost = Pick<ProjectStore, 'locate' | 'read' | 'revision' | 'showView' | 'machineOfNode'> & {
     mutate<T>(projectId: string, apply: (content: ProjectContent) => ProjectMutation<T> | Promise<ProjectMutation<T>>, expectedRev?: number): Promise<T>;
 };
 

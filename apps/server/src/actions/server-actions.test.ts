@@ -26,11 +26,14 @@ let tasks: Task[];
 let settled: string[];
 let plans: PlanStore;
 let home: string;
+// The nodes that run on another machine.
+let bound: Set<string>;
 
 /* Only what these handlers reach; anything else is a handler reaching further than it should. */
 function host(): CanvasHost {
     const projects: Partial<CanvasHost['projects']> = {
         locate: () => PLACE,
+        machineOfNode: (nodeId) => (bound.has(nodeId) ? 'machine-b' : null),
         read: async () => content,
         revision: async () => (writtenMeanwhile ? rev - 1 : rev),
         mutate: async (_projectId, apply, expectedRev) => {
@@ -154,6 +157,7 @@ function lineOnMain(from: string, to: string): void {
 
 beforeEach(async () => {
     made = new Map();
+    bound = new Set();
     ended = [];
     conflict = false;
     rev = 1;
@@ -491,6 +495,24 @@ describe('the daemon actions', () => {
             status: 'completed',
             output: { nodeId: 'web-1', open: false, page: null, error: null }
         });
+    });
+
+    test('a node that runs on another machine is neither read, written in nor driven from a line on this one', async () => {
+        onMain(
+            { id: 'web-1', kind: 'browser', title: 'Docs', url: 'https://example.com', x: 700, y: 0, w: 560, h: 360 },
+            { id: 'note-2', kind: 'note', title: 'Plan', body: 'x', x: 0, y: 1200, w: 320, h: 240 }
+        );
+        lineOnMain('term-1', 'web-1');
+        lineOnMain('term-1', 'note-2');
+        lineOnMain('term-1', 'term-2');
+        bound.add('web-1').add('note-2').add('term-2');
+        const refused = { status: 'failed', error: { code: 'node-on-other-machine' } };
+        expect(await serverActions.execute('browser.back', { nodeId: 'web-1' }, agent())).toMatchObject(refused);
+        expect(await serverActions.execute('node.update', { viewId: 'main', nodeId: 'note-2', text: 'y', append: false }, agent())).toMatchObject(refused);
+        expect(await serverActions.execute('context.read', { sourceId: 'term-2', tail: null, subagent: null, viewId: null }, agent())).toMatchObject(refused);
+
+        bound.clear();
+        expect(await serverActions.execute('browser.back', { nodeId: 'web-1' }, agent())).toMatchObject({ status: 'completed' });
     });
 
     test('a write decided on the revision it read goes through, and one decided before a change refuses and changes nothing', async () => {

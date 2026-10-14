@@ -11,9 +11,10 @@ import type {
     ChatMoveResult,
     ChatSummarizeResult
 } from '@ruimte/contracts';
-import { chatHandlers } from '@adecore/agents/host';
+import { chatHandlers, type AgentHandler } from '@adecore/agents/host';
 import type { Dispatcher } from '../dispatcher.ts';
 import { ChatError } from '../chat/errors.ts';
+import { refuseBoundNode, type MachineOfNode } from '../remote/bound-nodes.ts';
 import type { ChatManager } from '../chat/chat-manager.ts';
 import type { ProviderRegistry } from '../providers/registry.ts';
 import { registerAgentHandlers } from './agent.ts';
@@ -39,7 +40,8 @@ export function registerChatHandlers(
     stopNode?: (nodeId: string, reason: string) => Promise<void>,
     forks?: ChatForkHandlers,
     killed?: (chatId: string) => Promise<void>,
-    moves?: ChatMoveHandlers
+    moves?: ChatMoveHandlers,
+    machineOf?: MachineOfNode
 ): void {
     // What the daemon answers differently from a host of chats alone: a task's row stops its node, a stop or a
     // removal first owes the end of the agents a chat opened, and a fork lands on the canvas.
@@ -53,7 +55,17 @@ export function registerChatHandlers(
         'chat.continueOn': _continueOn,
         ...shared
     } = chatHandlers(manager, providers);
-    registerAgentHandlers(dispatcher, shared);
+    const unlessBound =
+        <T extends 'chat.create' | 'chat.attach'>(handler: AgentHandler<T>): AgentHandler<T> =>
+        (payload, clientId) => {
+            refuseBoundNode(machineOf, payload.chatId);
+            return handler(payload, clientId);
+        };
+    registerAgentHandlers(dispatcher, {
+        ...shared,
+        'chat.create': unlessBound(shared['chat.create']),
+        'chat.attach': unlessBound(shared['chat.attach'])
+    });
 
     dispatcher.register('chat.stopSubagent', async (payload) => {
         await manager.stopSubagent(payload.chatId, payload.toolUseId, stopNode);

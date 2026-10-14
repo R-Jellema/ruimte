@@ -11,6 +11,7 @@ import {
     ProjectDocumentSchema,
     UNKNOWN_KIND,
     duplicateIdIn,
+    isCanvasView,
     mergeFiles,
     migrateLocal,
     splitContent,
@@ -623,6 +624,7 @@ export class ProjectStore {
         /* Only a person's save moves a view between the two files. A payload without a list leaves
            the folder as it is, which is what an older client and every other writer amount to. */
         const ids = [...(shared ?? state.shared)];
+        this.refuseSharedRemoteNodes(projectId, content, ids);
         // The views that changed sides, so their drawing or diagram file can follow them over.
         const moved = [...new Set([...ids, ...state.shared])].filter((id) => ids.includes(id) !== state.shared.includes(id));
         // A client from before flags sends none and would otherwise take every flag away.
@@ -659,6 +661,17 @@ export class ProjectStore {
     /* Where a node or a view sits, from the index of every known project: an open one would miss an agent whose person switched away. */
     locate(id: string): IndexedPlace | null {
         return this.index.locate(id);
+    }
+
+    /* The machine a node runs on when it is not this one, for whoever would start, show or read it here. */
+    machineOfNode(nodeId: string): string | null {
+        for (const projectId of this.index.projectsPlacing(nodeId)) {
+            const machine = this.remote.machineOf(projectId, nodeId);
+            if (machine !== null) {
+                return machine;
+            }
+        }
+        return null;
     }
 
     /* The document as it stands, open or not, in its daemon-side form; a copy, so a caller may change it. */
@@ -1256,6 +1269,16 @@ export class ProjectStore {
         const views = projectSidebarViews(document.views, document.shared ?? [], document.flags);
         for (const clientId of bystanders) {
             this.sinks.to(clientId, { event: 'project.summary', payload: { summary, views } });
+        }
+    }
+
+    /* A view is shared whole, and a node of another machine reaches the shared file as a node of this one. */
+    private refuseSharedRemoteNodes(projectId: string, content: ProjectContent, shared: readonly string[]): void {
+        const bound = { ...this.remote.nodesOf(projectId), ...Object.fromEntries(machinesOf(content)) };
+        for (const view of content.views) {
+            if (isCanvasView(view) && shared.includes(view.id) && view.nodes.some((node) => Object.hasOwn(bound, node.id))) {
+                throw new ProjectError('remote-node-shared', `${view.name} holds a node that runs on another machine, which stays on a canvas only you have`);
+            }
         }
     }
 

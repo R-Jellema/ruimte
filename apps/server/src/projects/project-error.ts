@@ -11,6 +11,8 @@ type ProjectErrorCode =
     | 'folder-create-failed'
     | 'bad-icon'
     // Another copy of the canvas is open here, and a session is keyed on its node id.
-    | 'project-ids-taken';
+    | 'project-ids-taken'
+    // A node that runs on another machine would reach the shared file as a plain node of this one.
+    | 'remote-node-shared';
 
 export class ProjectError extends CodedError<ProjectErrorCode> {}

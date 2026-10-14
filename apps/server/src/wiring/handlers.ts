@@ -93,10 +93,16 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
     registerPushHandlers(dispatcher, machine.auth, () => push.synchronizeActivities(), push);
     registerSnoozeHandlers(dispatcher, work.snoozes, (nodeId) => store.index.locate(nodeId));
     registerServerHandlers(dispatcher, { version: VERSION, home: config.home, model: await readMachineModel() });
-    registerSessionHandlers(dispatcher, sessions, work.endChildren.owe, {
-        commandOf: (kind) => providers.providers.get(kind).home?.loginCommand,
-        nameOf: providers.nameOfCli
-    });
+    registerSessionHandlers(
+        dispatcher,
+        sessions,
+        work.endChildren.owe,
+        {
+            commandOf: (kind) => providers.providers.get(kind).home?.loginCommand,
+            nameOf: providers.nameOfCli
+        },
+        (nodeId) => store.machineOfNode(nodeId)
+    );
     registerTerminalPrepareHandlers(
         dispatcher,
         new PrepareTerminal({
@@ -147,7 +153,8 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
             machineHome: machine.machineHome,
             journal: stores.chatMoves,
             snoozes: work.snoozes
-        })
+        }),
+        (nodeId) => store.machineOfNode(nodeId)
     );
     registerTaskHandlers(dispatcher, stores.tasks, work.endChildren.children);
     registerChatImageHandlers(

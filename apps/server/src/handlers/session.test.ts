@@ -104,3 +104,27 @@ describe('a login for a client that goes', () => {
         expect(harness.manager.get('login-1')).toBeUndefined();
     });
 });
+
+describe('a node that runs on another machine', () => {
+    async function ask(type: string, payload: unknown): Promise<ServerFrame> {
+        const guarded = new Dispatcher();
+        registerSessionHandlers(guarded, harness.manager, undefined, undefined, (nodeId) => (nodeId === 'remote' ? 'machine-b' : null));
+        const frames: ServerFrame[] = [];
+        await guarded.handle({ id: 'client', send: (frame) => frames.push(frame) }, JSON.stringify({ id: 'request', type, payload }));
+        return frames[0]!;
+    }
+
+    test('gets no shell here, and nothing to attach to', async () => {
+        const spawned = harness.adapter.spawned.length;
+        expect(await ask('session.create', { sessionId: 'remote', cols: 80, rows: 24, shell: '/bin/sh' })).toMatchObject({
+            ok: false,
+            error: { code: 'node-on-other-machine' }
+        });
+        expect(await ask('session.attach', { sessionId: 'remote', cols: 80, rows: 24 })).toMatchObject({ ok: false, error: { code: 'node-on-other-machine' } });
+        expect(harness.adapter.spawned).toHaveLength(spawned);
+    });
+
+    test('leaves every other node alone', async () => {
+        expect(await ask('session.attach', { sessionId: 'terminal', cols: 80, rows: 24 })).toMatchObject({ ok: true });
+    });
+});

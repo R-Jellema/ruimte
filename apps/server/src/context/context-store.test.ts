@@ -11,7 +11,7 @@ function route(context: ContextStore) {
     return (path: string, token?: string) => {
         const url = new URL(`http://127.0.0.1${path}`);
         const host = {
-            projects: { locate: () => null },
+            projects: { locate: () => null, machineOfNode: () => null },
             context
         } as unknown as CanvasHost;
         return handleContextRequest(new Request(url, { headers: token ? { authorization: `Bearer ${token}` } : {} }), url.pathname, {

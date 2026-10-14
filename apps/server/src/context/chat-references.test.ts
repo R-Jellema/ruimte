@@ -86,7 +86,7 @@ describe('reading an attached chat', () => {
         diagramDocument: async () => null
     });
     const host = {
-        projects: { locate: () => null },
+        projects: { locate: () => null, machineOfNode: () => null },
         context: store
     } as unknown as CanvasHost;
     const restore: Array<() => void> = [];

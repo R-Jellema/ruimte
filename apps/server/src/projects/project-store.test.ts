@@ -1640,6 +1640,26 @@ describe('the machine of a node', () => {
         expect(await textOfProjectFiles()).not.toContain('"machine"');
     });
 
+    test('keeps its node off a shared canvas, whether the node or the sharing comes second', async () => {
+        const opened = await store.openProject({ folder });
+        const projectId = opened.summary.projectId;
+        await expect(store.save(projectId, 0, bound('machine-b'), ['main'])).rejects.toMatchObject({ code: 'remote-node-shared' });
+        expect(await store.revision(projectId)).toBe(0);
+
+        await store.save(projectId, 0, bound('machine-b'));
+        await expect(store.save(projectId, 1, bound(), ['main'])).rejects.toMatchObject({ code: 'remote-node-shared' });
+        expect(store.remote.machineOf(projectId, 'n1')).toBe('machine-b');
+        // The binding goes with the node, and only then may the canvas travel.
+        expect(await store.save(projectId, 1, { ...content(), views: [{ ...canvas(content()), nodes: [] }] }, ['main'])).toBe(2);
+    });
+
+    test('is answered per node id for the handlers that would start it here', async () => {
+        const projectId = await openBound();
+        expect(store.machineOfNode('n1')).toBe('machine-b');
+        expect(store.machineOfNode('elsewhere')).toBeNull();
+        store.release(projectId);
+    });
+
     test('keeps the folder of a node as the other machine knows it, even under this one', async () => {
         const opened = await store.openProject({ folder });
         const projectId = opened.summary.projectId;

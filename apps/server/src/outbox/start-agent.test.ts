@@ -200,7 +200,8 @@ async function boot(): Promise<Daemon> {
             read: (id) => store.read(id),
             revision: (id) => store.revision(id),
             mutate: (id, apply, expectedRev) => store.mutate(id, apply, expectedRev),
-            showView: () => false
+            showView: () => false,
+            machineOfNode: () => null
         },
         checkouts: {
             paths: async () => [],

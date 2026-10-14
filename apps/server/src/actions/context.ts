@@ -22,6 +22,7 @@ function heldTo(host: CanvasHost, expected: number): CanvasHost {
         read: (projectId) => projects.read(projectId),
         revision: (projectId) => projects.revision(projectId),
         showView: (projectId, viewId, by) => projects.showView(projectId, viewId, by),
+        machineOfNode: (nodeId) => projects.machineOfNode(nodeId),
         mutate: (projectId, apply, expectedRev) => {
             const checked = first ? expected : expectedRev;
             first = false;

@@ -12,6 +12,7 @@ import {
 import { arrangedCanvas, isChatView, notOnView, viewRequired } from '../canvas/chat-view.ts';
 import type { DriveOutcome } from '../browser/drive.ts';
 import { checkUrl } from '../canvas/nodes.ts';
+import { refuseOtherMachine } from '../canvas/remote-node.ts';
 import { VerbRefusal, field, orNote, type BrowserDriveHost, type CanvasHost } from '../canvas/verb.ts';
 import type { ServerActionContext } from './context.ts';
 
@@ -81,6 +82,7 @@ async function targetOf({ host, place }: ServerActionContext, caller: string, id
     if (!canvas || !node) {
         throw new VerbRefusal('unknown-node', `${id} is not a node of this project`, await lines());
     }
+    refuseOtherMachine(host, id);
     if (arranged !== null && arranged.id !== canvas.id) {
         throw notOnView(id, canvas, arranged, `browser state ${id}`);
     }

@@ -1,5 +1,6 @@
 import type { AgentKind } from '@ruimte/contracts';
 import type { Dispatcher } from '../dispatcher.ts';
+import { refuseBoundNode, type MachineOfNode } from '../remote/bound-nodes.ts';
 import { SessionError, type SessionManager } from '../sessions/manager.ts';
 
 /* Owes ending the agents a session's node opened, before that session goes; a shell that already exited ends nothing, so a restart does not. */
@@ -11,8 +12,17 @@ export interface LoginCommands {
     nameOf(kind: AgentKind): string;
 }
 
-export function registerSessionHandlers(dispatcher: Dispatcher, manager: SessionManager, beforeKill?: BeforeKill, logins?: LoginCommands): void {
-    dispatcher.register('session.create', (payload) => manager.create(payload));
+export function registerSessionHandlers(
+    dispatcher: Dispatcher,
+    manager: SessionManager,
+    beforeKill?: BeforeKill,
+    logins?: LoginCommands,
+    machineOf?: MachineOfNode
+): void {
+    dispatcher.register('session.create', (payload) => {
+        refuseBoundNode(machineOf, payload.sessionId);
+        return manager.create(payload);
+    });
 
     /* No `cwd`, so the shell starts in the home folder. The default account is named outright, since a
        launch without one would take the person's pick for new agents instead. */
@@ -37,9 +47,10 @@ export function registerSessionHandlers(dispatcher: Dispatcher, manager: Session
         return created;
     });
 
-    dispatcher.register('session.attach', (payload, client) =>
-        manager.attach(payload.sessionId, client.id, payload.follow ? undefined : payload.cols, payload.follow ? undefined : payload.rows)
-    );
+    dispatcher.register('session.attach', (payload, client) => {
+        refuseBoundNode(machineOf, payload.sessionId);
+        return manager.attach(payload.sessionId, client.id, payload.follow ? undefined : payload.cols, payload.follow ? undefined : payload.rows);
+    });
 
     dispatcher.register('session.detach', (payload, client) => {
         manager.detach(payload.sessionId, client.id);

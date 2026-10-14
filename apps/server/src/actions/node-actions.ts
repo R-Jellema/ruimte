@@ -25,6 +25,7 @@ import { MAX_CANVAS_NODES, NOT_A_GROUP, canvasFull, checkUrl, newId, nodeLines, 
 import { ownViewOf, refuseMissingNodes, refuseOwnView } from '../canvas/own-view.ts';
 import { arrangeRects, containersOf, gridColumns, groupMembers, placeBeside, placeFree } from '../canvas/placement.ts';
 import { checkCwd, checkPath, isInside } from '../canvas/project-paths.ts';
+import { refuseOtherMachine } from '../canvas/remote-node.ts';
 import { NEW_NODE, VerbRefusal, canvasNamed, field, orNote, snoozedAt, type VerbCall } from '../canvas/verb.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
 import { verbCallOf, type ServerActionContext } from './context.ts';
@@ -373,6 +374,7 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
             if (!node) {
                 throw refuseMissingNodes(content, [nodeId], canvas.id, 'there is no node to write in', writableLines(canvas, caller, chatView));
             }
+            refuseOtherMachine(host, nodeId);
             if (node.kind !== 'note') {
                 throw new VerbRefusal(
                     'not-a-note',

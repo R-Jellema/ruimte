@@ -29,6 +29,7 @@ let backend: RecordingBackend;
 let nodes: ProjectNode[];
 let edges: ProjectEdge[];
 let host: CanvasHost;
+let bound: Set<string>;
 
 function content(): ProjectContent {
     return {
@@ -43,6 +44,7 @@ function content(): ProjectContent {
 
 beforeEach(async () => {
     home = await mkdtemp(join(tmpdir(), 'ruimte-device-verb-'));
+    bound = new Set();
     backend = new RecordingBackend();
     backend.shot = pngOf(1000, 2000);
     nodes = [{ id: 'chat-1', kind: 'chat', title: 'Tester', x: 0, y: 0, w: 560, h: 360 }, PHONE];
@@ -54,7 +56,8 @@ function hostWith(backends: RecordingBackend[]): CanvasHost {
     return {
         projects: {
             locate: (id: string) => (id === 'chat-1' ? { projectId: 'p1', folder: '/tmp/p1', canvasId: 'main' } : null),
-            read: async () => content()
+            read: async () => content(),
+            machineOfNode: (nodeId: string) => (bound.has(nodeId) ? 'machine-b' : null)
         },
         devices: new DeviceDriver({ home, manager: new DeviceManager(backends), timers: new ManualTimers(), sleep: async () => undefined })
     } as unknown as CanvasHost;
@@ -101,6 +104,14 @@ describe('ruimte-context device', () => {
         ]);
         await run(['shot', 'phone-1']);
         expect(await run(['state', 'phone-1'])).toContain('screen\t1000x2000');
+    });
+
+    test('refuses a device node that runs on another machine, and touches nothing', async () => {
+        bound.add('phone-1');
+        expect((await run(['state', 'phone-1']))[0]).toStartWith('refused\tnode-on-other-machine\t');
+        expect((await run(['shot', 'phone-1']))[0]).toStartWith('refused\tnode-on-other-machine\t');
+        expect(backend.lists).toBe(0);
+        expect(backend.actions).toEqual([]);
     });
 
     test('says a device this machine does not have is missing, and touches nothing', async () => {

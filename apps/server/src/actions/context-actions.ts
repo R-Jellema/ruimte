@@ -3,6 +3,7 @@ import { CodedError } from '@adecore/agents';
 import { canvasContextSources, type ContextSource } from '@ruimte/contracts';
 import { arrangedCanvas, canvasHolding, isChatView, notOnView, viewRequired } from '../canvas/chat-view.ts';
 import { VerbRefusal, snoozedAt, type ContextHost } from '../canvas/verb.ts';
+import { refuseOtherMachine } from '../canvas/remote-node.ts';
 import { ContextRefusal } from '../context/context-store.ts';
 import type { ServerActionContext } from './context.ts';
 
@@ -59,6 +60,7 @@ export const contextActions: ActionHandlers<ServerActionContext> = {
     }),
     'context.read': async ({ sourceId, tail, subagent, viewId }, { actor, context }) => {
         const store = contextOf(context);
+        refuseOtherMachine(context.host, sourceId);
         const arranged = viewId == null ? null : await arrangedSource(context, actor.id, sourceId, viewId);
         if (arranged) {
             return { output: { text: await store.answerSource(actor.id, arranged, tail ?? null, subagent ?? null) } };

@@ -10,6 +10,7 @@ import {
     type ProjectCanvasView
 } from '@ruimte/contracts';
 import { arrangedCanvas, isChatView, notOnView, viewRequired } from '../canvas/chat-view.ts';
+import { refuseOtherMachine } from '../canvas/remote-node.ts';
 import { VerbRefusal, field, orNote, type CanvasHost, type DeviceDriveHost } from '../canvas/verb.ts';
 import { CodedError } from '@adecore/agents';
 import type { ServerActionContext } from './context.ts';
@@ -64,6 +65,7 @@ async function referenceOf({ host, place }: ServerActionContext, caller: string,
     if (!canvas || !node) {
         throw new VerbRefusal('unknown-node', `${id} is not a node of this project`, lines());
     }
+    refuseOtherMachine(host, id);
     if (arranged !== null && arranged.id !== canvas.id) {
         throw notOnView(id, canvas, arranged, `device state ${id}`);
     }
