@@ -5,7 +5,7 @@ import { pool } from '@/transport';
 import type { PooledTransport } from '@/transport/pool';
 import { TransportError, type ConnectionState, type TransportStatus } from '@/transport/transport';
 
-const OPEN: ConnectionState = { status: 'open', attempts: 0, retryAt: null };
+const OPEN: ConnectionState = { status: 'open', attempts: 0, retryAt: null, features: Object.keys(REQUEST_SCHEMAS) };
 
 interface SchemaDef {
     type: string;
@@ -87,6 +87,12 @@ export class FakeMachine implements PooledTransport {
 
     reopen(): void {
         this.setStatus('open');
+    }
+
+    /* A machine that names only these requests, the way an older release does; every other request stays answerable but `machineAnswers` says no. */
+    answersOnly(types: readonly RequestType[]): void {
+        this.connection = { ...this.connection, features: [...types] };
+        this.setStatus(this.status);
     }
 
     answer<T extends RequestType>(type: T, answer: Answer<T>): void {

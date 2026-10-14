@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
-import { encodeBytesReply, encodeLiveFrame } from '@ruimte/contracts';
+import { PROTOCOL_VERSION, REQUEST_SCHEMAS, encodeBytesReply, encodeLiveFrame } from '@ruimte/contracts';
 import i18next from 'i18next';
 import { LinkTransport, type Link, type LinkEvents } from './link-transport';
-import type { TransportStatus } from './transport';
+import type { SignalRoute, TransportStatus } from './transport';
 
 class FakeLink implements Link {
+    // The frames of requests; the protocol check the transport sends on its own lands in `checks`.
     readonly sent: string[] = [];
+    readonly checks: string[] = [];
     closed = false;
     readonly events: LinkEvents;
 
@@ -14,7 +16,7 @@ class FakeLink implements Link {
     }
 
     send(data: string): void {
-        this.sent.push(data);
+        (data.includes('"id":"protocol"') ? this.checks : this.sent).push(data);
     }
 
     close(): void {
@@ -24,6 +26,16 @@ class FakeLink implements Link {
         this.closed = true;
         queueMicrotask(() => this.events.close(null));
     }
+}
+
+function answerCheck(link: FakeLink, features: readonly string[]): void {
+    link.events.message(JSON.stringify({ id: 'protocol', ok: true, result: { protocol: PROTOCOL_VERSION, features } }));
+}
+
+// Opens the link and answers the transport's protocol check, the way a current machine does.
+function open(link: FakeLink, signaled?: SignalRoute, features: readonly string[] = Object.keys(REQUEST_SCHEMAS)): void {
+    link.events.open(signaled);
+    answerCheck(link, features);
 }
 
 // Fake timers leave setImmediate alone. Each step runs the timers due in that millisecond, then every promise they started.
@@ -61,7 +73,7 @@ describe('LinkTransport', () => {
     test('readBytes asks for a binary reply and resolves with the bytes it carries', async () => {
         const { transport, links } = setup();
         await tick();
-        links[0]!.events.open();
+        open(links[0]!);
         const read = transport.readBytes({ resource, offset: 0, length: 3 });
         const frame = JSON.parse(links[0]!.sent[0]!) as { id: string; type: string; payload: { binary?: boolean } };
         expect(frame).toMatchObject({ type: 'bytes.read', payload: { binary: true } });
@@ -72,7 +84,7 @@ describe('LinkTransport', () => {
     test('readBytes takes base64 in JSON from a machine that sends no binary replies', async () => {
         const { transport, links } = setup();
         await tick();
-        links[0]!.events.open();
+        open(links[0]!);
         const read = transport.readBytes({ resource, offset: 0, length: 3 });
         const { id } = JSON.parse(links[0]!.sent[0]!) as { id: string };
         links[0]!.events.message(JSON.stringify({ id, ok: true, result: { ...piece, data: Buffer.from([7, 8, 9]).toString('base64') } }));
@@ -82,7 +94,7 @@ describe('LinkTransport', () => {
     test('a binary reply to a request that did not ask for one is dropped', async () => {
         const { transport, links } = setup();
         await tick();
-        links[0]!.events.open();
+        open(links[0]!);
         let settled = false;
         void transport.request('bytes.read', { resource, offset: 0, length: 3 }).finally(() => {
             settled = true;
@@ -96,7 +108,7 @@ describe('LinkTransport', () => {
     test('a live frame reaches the handlers of its event with its header and bytes', async () => {
         const { transport, links } = setup();
         await tick();
-        links[0]!.events.open();
+        open(links[0]!);
         const received: Array<[unknown, number[]]> = [];
         const stop = transport.onLiveFrame('browser.frame', (header, bytes) => received.push([header, [...bytes]]));
         transport.onLiveFrame('device.frame', () => received.push(['device', []]));
@@ -110,7 +122,7 @@ describe('LinkTransport', () => {
     test('a request goes out on the link and its reply comes back', async () => {
         const { transport, links } = setup();
         await tick();
-        links[0]!.events.open();
+        open(links[0]!);
         expect(transport.status).toBe('open');
         const reply = transport.request('session.detach', { sessionId: 'node-1' });
         const frame = JSON.parse(links[0]!.sent[0]!) as { id: string; type: string };
@@ -124,7 +136,7 @@ describe('LinkTransport', () => {
         await tick();
         const heard: TransportStatus[] = [];
         transport.subscribeStatus((status) => heard.push(status));
-        links[0]!.events.open();
+        open(links[0]!);
         expect(transport.connection.relayed).toBe(false);
         links[0]!.events.route?.(true);
         expect(transport.connection.relayed).toBe(true);
@@ -141,10 +153,40 @@ describe('LinkTransport', () => {
     test('an open link says which route its signals took, and a closed one took none', async () => {
         const { transport, links } = setup();
         await tick();
-        links[0]!.events.open('lan');
+        open(links[0]!, 'lan');
         expect(transport.connection.signaled).toBe('lan');
         links[0]!.events.close('The direct connection closed');
         expect(transport.connection.signaled).toBeNull();
+    });
+
+    test('a link opens only once the machine answered the protocol check, and carries the features it named', async () => {
+        const { transport, links } = setup();
+        await tick();
+        links[0]!.events.open();
+        expect(transport.status).toBe('connecting');
+        expect(links[0]!.checks).toHaveLength(1);
+        answerCheck(links[0]!, ['chat.list']);
+        expect(transport.connection).toMatchObject({ status: 'open', features: ['chat.list'] });
+
+        transport.reconnect();
+        await tick(600);
+        expect(transport.connection.features).toEqual(['chat.list']);
+        open(links[1]!, undefined, ['chat.list', 'session.attach']);
+        expect(transport.connection.features).toEqual(['chat.list', 'session.attach']);
+        transport.dispose();
+    });
+
+    test('a machine that names no features is refused as older, on whatever link it comes over', async () => {
+        const { transport, links } = setup();
+        await tick();
+        links[0]!.events.open();
+        links[0]!.events.message(JSON.stringify({ id: 'protocol', ok: true, result: { protocol: PROTOCOL_VERSION } }));
+        expect(transport.status).toBe('closed');
+        expect(transport.connection.failure).toBe(i18next.t('machines:protocol.daemon-older'));
+        expect(links[0]!.closed).toBe(true);
+        await tick(600);
+        expect(links).toHaveLength(2);
+        transport.dispose();
     });
 
     test('a link that fails says why, and the reason stays until a link opens again', async () => {
@@ -158,7 +200,7 @@ describe('LinkTransport', () => {
         await tick(600);
         expect(links).toHaveLength(2);
         expect(transport.connection).toMatchObject({ status: 'connecting', failure: 'No network path to the machine' });
-        links[1]!.events.open();
+        open(links[1]!);
         expect(transport.connection).toMatchObject({ status: 'open', attempts: 0, failure: null });
         expect(statuses).toEqual(['closed', 'connecting', 'open']);
         transport.dispose();
@@ -169,18 +211,18 @@ describe('LinkTransport', () => {
         const events: unknown[] = [];
         transport.on('session.list-changed', (payload) => events.push(payload));
         await tick();
-        links[0]!.events.open();
+        open(links[0]!);
 
         transport.reconnect();
         expect(links[0]!.closed).toBe(true);
         await tick(600);
         expect(links).toHaveLength(2);
         links[0]!.events.message(JSON.stringify({ type: 'event', event: 'session.list-changed', payload: {} }));
-        links[0]!.events.open();
+        open(links[0]!);
         expect(events).toEqual([]);
         expect(transport.status).toBe('connecting');
 
-        links[1]!.events.open();
+        open(links[1]!);
         links[1]!.events.message(JSON.stringify({ type: 'event', event: 'session.list-changed', payload: {} }));
         expect(events).toEqual([{}]);
         transport.dispose();
@@ -224,7 +266,7 @@ describe('LinkTransport', () => {
         });
         await tick(600);
         expect(opened).toHaveLength(2);
-        opened[1]!.events.open();
+        open(opened[1]!);
         expect(transport.status).toBe('open');
         expect(warnings.length).toBeGreaterThan(0);
         transport.dispose();
@@ -265,7 +307,7 @@ describe('LinkTransport', () => {
             return link;
         });
         await tick();
-        links[0]!.events.open();
+        open(links[0]!);
         const reply = transport.request('session.list', {});
         transport.reconnect();
         expect(links[0]!.closed).toBe(true);
@@ -273,7 +315,7 @@ describe('LinkTransport', () => {
         await tick();
         expect(links).toHaveLength(2);
         expect(transport.status).toBe('connecting');
-        links[1]!.events.open();
+        open(links[1]!);
         expect(transport.status).toBe('open');
         transport.dispose();
     });
@@ -291,7 +333,7 @@ describe('LinkTransport', () => {
             { log: { info: (...parts: unknown[]) => lines.push(parts.join(' ')), warn: (...parts: unknown[]) => lines.push(parts.join(' ')) } }
         );
         await tick();
-        links[0]!.events.open();
+        open(links[0]!);
         links[0]!.events.close('The machine stopped answering over the direct connection');
         expect(lines.some((line) => line.includes('The machine stopped answering over the direct connection'))).toBe(true);
         transport.dispose();
@@ -310,7 +352,7 @@ describe('LinkTransport', () => {
                 { requestTimeoutMs: 50 }
             );
             await tick();
-            links[0]!.events.open();
+            open(links[0]!);
             return { transport, link: links[0]! };
         }
 
@@ -353,7 +395,7 @@ describe('LinkTransport', () => {
     test('pending requests fail when the link goes, and a disposed transport stays down', async () => {
         const { transport, links } = setup();
         await tick();
-        links[0]!.events.open();
+        open(links[0]!);
         const reply = transport.request('session.list', {});
         transport.dispose();
         await expect(reply).rejects.toThrow(/closed before the machine answered/);

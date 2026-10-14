@@ -20,6 +20,8 @@ export interface ConnectionState {
     relayed?: boolean;
     /* How the open direct connection was signaled; null over a socket, and for the row of this machine, whose signals go over its own socket. */
     signaled?: SignalRoute | null;
+    /* What the machine answered at open, the requests it handles (`endpoint.info`); absent before the first open. */
+    features?: readonly string[];
 }
 
 export type LiveFrameHandler<E extends LiveFrameEvent> = (header: LiveFrameHeader<E>, bytes: Uint8Array) => void;

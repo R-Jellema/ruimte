@@ -1,6 +1,6 @@
 import { PROTOCOL_REFUSED_CLOSE_CODE, protocolMismatch, protocolOfRefusal } from '@ruimte/contracts';
 import { LinkTransport, type Link, type LinkEvents, type SocketAddress } from './link-transport';
-import { protocolGate, protocolRefusal, withProtocol } from './protocol';
+import { protocolRefusal, withProtocol } from './protocol';
 
 export type { SocketAddress } from './link-transport';
 
@@ -8,24 +8,10 @@ export type { SocketAddress } from './link-transport';
 export function socketLink(url: string, events: LinkEvents): Link {
     const socket = new WebSocket(withProtocol(url));
     socket.binaryType = 'arraybuffer';
-    let refused = false;
-    const gate = protocolGate({
-        send: (data) => socket.send(data),
-        open: () => events.open(),
-        message: (data) => events.message(data),
-        refuse: (failure) => {
-            refused = true;
-            events.close(failure);
-            socket.close();
-        }
-    });
-    socket.onopen = () => gate.opened();
+    socket.onopen = () => events.open();
     socket.onmessage = (message: MessageEvent<string | ArrayBuffer>) =>
-        gate.received(typeof message.data === 'string' ? message.data : new Uint8Array(message.data));
+        events.message(typeof message.data === 'string' ? message.data : new Uint8Array(message.data));
     socket.onclose = (event) => {
-        if (refused) {
-            return;
-        }
         const daemon = event.code === PROTOCOL_REFUSED_CLOSE_CODE ? protocolOfRefusal(event.reason) : null;
         const mismatch = daemon === null ? null : protocolMismatch(daemon);
         events.close(mismatch === null ? null : protocolRefusal(mismatch));

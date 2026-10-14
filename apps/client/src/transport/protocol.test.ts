@@ -9,7 +9,7 @@ function gateWith(client = 2) {
     const gate = protocolGate(
         {
             send: (data) => log.push(`send ${data}`),
-            open: () => log.push('open'),
+            open: (features) => log.push(features === undefined ? 'open' : `open ${features.join(',')}`),
             message: (data) => log.push(`message ${data}`),
             refuse: (failure) => log.push(`refuse ${failure}`)
         },
@@ -34,16 +34,22 @@ describe('protocolGate', () => {
         const { gate, log } = gateWith();
         gate.opened();
         expect(log).toEqual(['send {"id":"protocol","type":"endpoint.info","payload":{}}']);
+        gate.received(answer({ protocol: 2, features: ['session.attach', 'chat.list'] }));
+        expect(log.at(-1)).toBe('open session.attach,chat.list');
+    });
+
+    test('refuses a machine on this version that names no features as older', () => {
+        const { gate, log } = gateWith();
         gate.received(answer({ protocol: 2 }));
-        expect(log.at(-1)).toBe('open');
+        expect(log).toEqual([`refuse ${OLDER}`]);
     });
 
     test('refuses an older daemon and a newer one with their own message', () => {
         const older = gateWith();
-        older.gate.received(answer({ protocol: 1 }));
+        older.gate.received(answer({ protocol: 1, features: [] }));
         expect(older.log).toEqual([`refuse ${OLDER}`]);
         const newer = gateWith();
-        newer.gate.received(answer({ protocol: 3 }));
+        newer.gate.received(answer({ protocol: 3, features: [] }));
         expect(newer.log).toEqual([`refuse ${NEWER}`]);
     });
 
@@ -56,9 +62,9 @@ describe('protocolGate', () => {
     test('holds frames that arrive before the answer and delivers them after opening', () => {
         const { gate, log } = gateWith();
         gate.received('{"type":"event","event":"processes.alerts","payload":[]}');
-        gate.received(answer({ protocol: 2 }));
+        gate.received(answer({ protocol: 2, features: [] }));
         gate.received('{"id":"1","ok":true,"result":{}}');
-        expect(log).toEqual(['open', 'message {"type":"event","event":"processes.alerts","payload":[]}', 'message {"id":"1","ok":true,"result":{}}']);
+        expect(log).toEqual(['open ', 'message {"type":"event","event":"processes.alerts","payload":[]}', 'message {"id":"1","ok":true,"result":{}}']);
     });
 
     test('a refused endpoint.info is not judged', () => {

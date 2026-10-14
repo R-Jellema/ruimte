@@ -26,16 +26,17 @@ function parseFrame(data: string): CheckFrame | null {
 
 export interface ProtocolGateEvents {
     send(data: string): void;
-    open(): void;
+    /* `features` is what the machine answered; absent when it refused `endpoint.info`, which this check cannot judge. */
+    open(features?: readonly string[]): void;
     message(data: string | Uint8Array): void;
     refuse(failure: string): void;
 }
 
 /*
- * The version check on a socket. The daemon closes a socket that offered another version, but a
- * daemon from before versions takes every socket, so the client asks `endpoint.info` before it calls
- * the link open and refuses an answer without a version. Frames that arrive before the answer (an
- * event sent to every socket) are held and delivered once the link is open.
+ * The check on a link before it opens: the wire version, and whether the machine names what it
+ * answers (`features`). A machine without either is refused as older, since 0.18.0 is the oldest one
+ * a client talks to. Frames that arrive before the answer (an event sent to every socket) are held
+ * and delivered once the link is open.
  */
 export function protocolGate(events: ProtocolGateEvents, client: number = PROTOCOL_VERSION) {
     let checked = false;
@@ -56,12 +57,15 @@ export function protocolGate(events: ProtocolGateEvents, client: number = PROTOC
             }
             checked = true;
             // A refused `endpoint.info` is a daemon this check cannot judge, and the transport has its own ways to fail.
-            const mismatch = frame.ok === true ? protocolMismatch(frame.result?.protocol, client) : null;
+            const mismatch =
+                frame.ok !== true
+                    ? null
+                    : (protocolMismatch(frame.result?.protocol, client) ?? (Array.isArray(frame.result?.features) ? null : 'daemon-older'));
             if (mismatch !== null) {
                 events.refuse(protocolRefusal(mismatch));
                 return;
             }
-            events.open();
+            events.open(frame.ok === true ? frame.result?.features : undefined);
             for (const entry of held.splice(0)) {
                 events.message(entry);
             }

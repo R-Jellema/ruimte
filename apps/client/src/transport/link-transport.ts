@@ -15,6 +15,7 @@ import {
     type RequestType
 } from '@ruimte/contracts';
 import { decodeBase64, type BytesPiece } from './piece';
+import { protocolGate } from './protocol';
 import { messageOf } from './signaling';
 import type { PooledTransport } from './pool';
 import { TransportError, type ConnectionState, type LiveFrameHandler, type SignalRoute, type TransportStatus } from './transport';
@@ -66,7 +67,7 @@ export interface LinkEvents {
     close(failure: string | null): void;
 }
 
-/* Opens a link on an address the transport resolved for this attempt. */
+/* Opens a link on an address the transport resolved for this attempt. The transport runs the protocol check on whatever it returns. */
 export type LinkOpener = (url: string, events: LinkEvents) => Link;
 
 export interface LinkTransportOptions {
@@ -271,15 +272,13 @@ export class LinkTransport implements PooledTransport {
     private open(url: string): void {
         const token = {};
         this.linkToken = token;
-        const events: LinkEvents = {
-            open: (signaled) => {
+        let link: Link | null = null;
+        let signaled: SignalRoute | null = null;
+        const gate = protocolGate({
+            send: (data) => link?.send(data),
+            open: (features) => {
                 if (this.linkToken === token) {
-                    this.setConnection({ status: 'open', attempts: 0, retryAt: null, failure: null, relayed: false, signaled: signaled ?? null });
-                }
-            },
-            route: (relayed) => {
-                if (this.linkToken === token && this.currentConnection.status === 'open') {
-                    this.setConnection({ relayed });
+                    this.setConnection({ status: 'open', attempts: 0, retryAt: null, failure: null, relayed: false, signaled, features });
                 }
             },
             message: (data) => {
@@ -287,6 +286,24 @@ export class LinkTransport implements PooledTransport {
                     this.receive(data);
                 }
             },
+            refuse: (failure) => {
+                events.close(failure);
+                link?.close();
+            }
+        });
+        const events: LinkEvents = {
+            open: (route) => {
+                if (this.linkToken === token) {
+                    signaled = route ?? null;
+                    gate.opened();
+                }
+            },
+            route: (relayed) => {
+                if (this.linkToken === token && this.currentConnection.status === 'open') {
+                    this.setConnection({ relayed });
+                }
+            },
+            message: (data) => gate.received(data),
             close: (failure) => {
                 if (this.linkToken !== token) {
                     return;
@@ -304,7 +321,6 @@ export class LinkTransport implements PooledTransport {
                 this.rejectPending('disconnected', i18next.t('machines:connection.closedBeforeAnswer'));
             }
         };
-        let link: Link;
         try {
             link = this.openLink(url, events);
         } catch (e) {
