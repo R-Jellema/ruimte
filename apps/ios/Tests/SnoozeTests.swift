@@ -80,31 +80,10 @@ import XCTest
         XCTAssertEqual(book.listed["a"], 9000)
     }
 
-    func testAMachineWithoutSnoozesHasThemKeptHereAndAnUpdatedOneGetsThemOnce() {
-        var book = SnoozeBook()
-        book.snooze("a", until: 5000)
-        book.machineKeepsNone()
-        XCTAssertTrue(book.keepsNone)
-        XCTAssertEqual(book.kept, ["a": 5000])
-        book.snooze("b", until: 6000)
-        XCTAssertEqual(book.standing(at: 1000), ["a": 5000, "b": 6000])
-        XCTAssertTrue(book.outbox.isEmpty)
-
-        book.receive(["b": 7000])
-        XCTAssertFalse(book.keepsNone)
-        XCTAssertEqual(book.outbox, ["a": .set(until: 5000)])
-        XCTAssertEqual(book.standing(at: 1000), ["a": 5000, "b": 7000])
-    }
-
-    func testAKeptSnoozeEndsOnlyOnceItsNodeWasSeenWaitingAndStopped() {
-        var book = SnoozeBook()
-        book.machineKeepsNone()
-        book.snooze("a", until: 5000)
-        book.observe("a", needsYou: false)
-        XCTAssertEqual(book.kept["a"], 5000)
-        book.observe("a", needsYou: true)
-        book.observe("a", needsYou: false)
-        XCTAssertNil(book.kept["a"])
+    func testABookStoredWithKeptSnoozesStillDecodesAndLeavesThemOut() throws {
+        let stored = #"{"listed":{"a":9000},"outbox":{},"kept":{"b":5000},"keepsNone":true,"waiting":["b"]}"#
+        let book = try JSONDecoder().decode(SnoozeBook.self, from: Data(stored.utf8))
+        XCTAssertEqual(book.standing(at: 1000), ["a": 9000])
     }
 
     func testASnoozeSetOfflineGoesOutOnceTheLinkIsBack() async {
@@ -144,25 +123,6 @@ import XCTest
         snoozes.stop()
     }
 
-    func testAnOlderMachineLeavesTheSnoozeOnThisPhoneForThatMachineAlone() async {
-        let machine = SnoozeMachine()
-        machine.knowsSnoozes = false
-        machine.connect()
-        let snoozes = MachineSnoozes(machineID: "old", client: machine, defaults: defaults) { [unowned self] in now }
-        snoozes.start()
-        await settle()
-        XCTAssertTrue(snoozes.book.keepsNone)
-        let until = now.addingTimeInterval(3600)
-        snoozes.snooze("term", until: until)
-        await settle()
-        XCTAssertEqual(machine.sent.map(\.0), ["snooze.list"])
-        XCTAssertEqual(snoozes.until("term"), until)
-
-        let other = MachineSnoozes(machineID: "new", client: SnoozeMachine(), defaults: defaults) { [unowned self] in now }
-        XCTAssertNil(other.until("term"))
-        snoozes.stop()
-    }
-
     func testTheMachinesListAndItsChangesReplaceWhatItHolds() async {
         let machine = SnoozeMachine()
         machine.listed = [("a", milliseconds(now) + 5000)]
@@ -184,7 +144,6 @@ import XCTest
 @MainActor private final class SnoozeMachine: MachineRequesting {
     var sent: [(String, JSONValue)] = []
     var listed: [(String, Double)] = []
-    var knowsSnoozes = true
     private var connected = false
     private var observers: [@MainActor @Sendable (Bool) -> Void] = []
     private var changed: (@MainActor @Sendable (JSONValue) -> Void)?
@@ -192,7 +151,6 @@ import XCTest
     func request(_ type: String, payload: JSONValue) async throws -> JSONValue {
         guard connected else { throw MachineClientError.disconnected }
         sent.append((type, payload))
-        guard knowsSnoozes else { throw MachineClientError.server(code: "unknown-request", message: type) }
         if type == "snooze.list" { return Self.list(listed) }
         return .object([:])
     }

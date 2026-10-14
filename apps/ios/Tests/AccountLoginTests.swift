@@ -52,12 +52,12 @@ import XCTest
         XCTAssertTrue(machine.sent.contains { $0.0 == "session.kill" && $0.1["sessionId"] == .string(first) })
     }
 
-    func testAnOlderMachineNeedsAnUpdateAndNothingIsKilled() async {
+    func testARefusedLoginFailsAndNothingIsKilled() async {
         let machine = LoginMachine()
-        machine.refusal = "unknown-request"
+        machine.refusal = "forbidden"
         let model = AccountLoginModel(client: machine, kind: "claude", accountID: "claude", name: "Claude")
         await model.begin()
-        XCTAssertEqual(model.phase, .outdated)
+        XCTAssertEqual(model.phase, .failed("forbidden"))
         await model.end()
         XCTAssertFalse(machine.sent.contains { $0.0 == "session.kill" })
     }

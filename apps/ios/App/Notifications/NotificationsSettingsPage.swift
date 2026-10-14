@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 
 /// What this phone is notified of: the kinds of notifications, the Live Activity and a choice per project. Every
-/// machine is told with `push.subscribe`; a machine from before kinds and projects says it needs an update.
+/// machine is told with `push.subscribe`.
 struct NotificationsSettingsPage: View {
     @Bindable var coordinator: NotificationCoordinator
     let projects: UnifiedProjects
@@ -31,11 +31,6 @@ struct NotificationsSettingsPage: View {
                     .disabled(!coordinator.preferences.notify.contains(.needsYou))
                     kind(.turn, String(localized: "A turn finishes"), icon: "check")
                     kind(.process, String(localized: "A process misbehaves"), icon: "triangle-alert")
-                }
-                if !outdated.isEmpty {
-                    Section {
-                        Label(outdatedNotice, lucideIcon: "circle-alert").foregroundStyle(MobileStyle.muted)
-                    }
                 }
             }
             if coordinator.supportsActivities {
@@ -85,24 +80,6 @@ struct NotificationsSettingsPage: View {
     }
 
     private var rows: [UnifiedProjectRow] { projects.open }
-
-    private var outdated: [Machine] {
-        coordinator.machines.filter { coordinator.outdatedMachines.contains($0.id) }
-    }
-
-    private var outdatedNotice: String {
-        let names = ListFormatter.localizedString(byJoining: outdated.map(\.name))
-        if outdated.count == 1 {
-            return String(
-                localized:
-                    "\(names) needs an update before these choices apply there. Until then you hear only when an agent needs you.",
-                comment: "%@ is the name of one machine")
-        }
-        return String(
-            localized:
-                "\(names) need an update before these choices apply there. Until then you hear only when an agent needs you.",
-            comment: "%@ is a list of machine names")
-    }
 
     private func kind(_ kind: PushNotifyKind, _ title: String, icon: String) -> some View {
         Toggle(

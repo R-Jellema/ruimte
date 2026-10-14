@@ -59,7 +59,7 @@ struct LaunchesPage: View {
                     Image(lucide: "plus")
                 }
                 .accessibilityLabel("Add launches")
-                .disabled(store.document == nil || store.unsupported)
+                .disabled(store.document == nil)
             }
         }
         .onAppear { store.start() }
@@ -92,11 +92,7 @@ struct LaunchesPage: View {
     }
 
     @ViewBuilder private var content: some View {
-        if store.unsupported {
-            ContentUnavailableView(
-                String(localized: "Needs an update"), lucideIcon: "circle-alert",
-                description: Text(LaunchesText.outdated))
-        } else if let document = store.document {
+        if let document = store.document {
             if document.launches.isEmpty {
                 ContentUnavailableView {
                     Label(String(localized: "No launches in this project yet."), lucideIcon: "rocket", iconSize: 48)

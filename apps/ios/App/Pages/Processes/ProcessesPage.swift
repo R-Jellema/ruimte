@@ -92,7 +92,7 @@ struct ProcessesPage: View {
             if let problem = model.problem {
                 Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red)
             }
-            if let sample = model.sample, model.connected, !model.unsupportedMachine, model.supported != false {
+            if let sample = model.sample, model.connected, model.supported != false {
                 let series = ProcessesText.series(
                     fine: model.fine, coarse: model.coarse, fineInterval: model.fineInterval,
                     coarseInterval: model.coarseInterval)
@@ -165,11 +165,7 @@ struct ProcessesPage: View {
     }
 
     @ViewBuilder private var content: some View {
-        if model.unsupportedMachine {
-            ContentUnavailableView(
-                String(localized: "Needs an update"), lucideIcon: "circle-alert",
-                description: Text("Update Ruimte on this machine to see its processes on the phone."))
-        } else if model.supported == false {
+        if model.supported == false {
             ContentUnavailableView(
                 String(localized: "Not available"), lucideIcon: "activity",
                 description: Text("Process monitoring is not available on this platform yet."))

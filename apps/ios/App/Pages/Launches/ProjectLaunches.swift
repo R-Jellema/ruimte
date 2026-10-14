@@ -11,11 +11,8 @@ enum LaunchSaveFailure: Error, Equatable {
 }
 
 enum LaunchesText {
-    static let outdated = String(localized: "Update Ruimte on this machine to use launches on the phone.")
-
     static func reason(_ error: any Error) -> String {
         switch error {
-        case MachineClientError.server(code: "unknown-request", message: _): outdated
         case LaunchSaveFailure.conflict: String(localized: "The launches changed elsewhere while you edited them.")
         case LaunchSaveFailure.failed(let reason): reason
         default: error.localizedDescription
@@ -35,7 +32,6 @@ enum LaunchesText {
     /// By launch id: what ran since the machine started.
     private(set) var statuses: [String: LaunchStatus] = [:]
     private(set) var repos: [LaunchRepo] = []
-    private(set) var unsupported = false
     private(set) var connected = false
     var problem: String?
     var ask: LaunchAsk?
@@ -92,22 +88,17 @@ enum LaunchesText {
             let answer = try await client.request(
                 WireRequest.launchesRead.rawValue, payload: .object(["projectId": .string(projectID)]))
             document = LaunchesDocument(json: answer)
-            unsupported = false
         } catch is CancellationError {
             return
         } catch {
-            if case MachineClientError.server(code: "unknown-request", message: _) = error {
-                unsupported = true
-            } else {
-                problem = error.localizedDescription
-            }
+            problem = error.localizedDescription
             return
         }
         if let list = try? await client.request(WireRequest.launchList.rawValue, payload: .object([:])) {
             let own = list.list("launches").map(LaunchStatus.init(json:)).filter { $0.projectID == projectID }
             statuses = Dictionary(own.map { ($0.launchID, $0) }, uniquingKeysWith: { _, last in last })
         }
-        // A machine from before `git.repos` lists the launches without headings.
+        // Without the repositories the launches list without headings.
         if let answer = try? await client.request("git.repos", payload: .object(["folder": .string(folder)])) {
             repos = answer.list("repos").map(LaunchRepo.init(json:))
         }

@@ -945,28 +945,6 @@
         }
       }
     },
-    "%@ need an update before these choices apply there. Until then you hear only when an agent needs you." : {
-      "comment" : "%@ is a list of machine names",
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ hebben een update nodig voordat deze keuzes daar gelden. Tot dan hoor je alleen iets als een agent op jou wacht."
-          }
-        }
-      }
-    },
-    "%@ needs an update before these choices apply there. Until then you hear only when an agent needs you." : {
-      "comment" : "%@ is the name of one machine",
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ heeft een update nodig voordat deze keuzes daar gelden. Tot dan hoor je alleen iets als een agent op jou wacht."
-          }
-        }
-      }
-    },
     "%@ Nothing that runs there ends." : {
       "comment" : "%@ is the sentence on what installs",
       "localizations" : {
@@ -12028,16 +12006,6 @@
         }
       }
     },
-    "Needs an update" : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Heeft een update nodig"
-          }
-        }
-      }
-    },
     "needs approval" : {
       "localizations" : {
         "nl" : {
@@ -19218,16 +19186,6 @@
         }
       }
     },
-    "This machine needs an update before you can log in from here. Update Ruimte on it, or log in on the machine." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Deze machine heeft een update nodig voordat je hiervandaan kunt inloggen. Werk Ruimte daar bij, of log in op de machine."
-          }
-        }
-      }
-    },
     "this node" : {
       "localizations" : {
         "nl" : {
@@ -19922,26 +19880,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bijwerken"
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to see its processes on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om zijn processen op de telefoon te zien."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to use launches on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om launches op de telefoon te gebruiken."
           }
         }
       }

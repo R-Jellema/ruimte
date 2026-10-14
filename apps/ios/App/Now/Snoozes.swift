@@ -38,9 +38,8 @@ enum SnoozeChoice: CaseIterable, Identifiable {
     }
 }
 
-/// One machine's snoozes as this phone knows them: what the machine listed last, what this phone changed that the
-/// machine has not taken yet, and for a machine from before snoozes the ones this phone keeps for it. Times are epoch
-/// milliseconds, as on the wire.
+/// One machine's snoozes as this phone knows them: what the machine listed last, and what this phone changed that
+/// the machine has not taken yet. Times are epoch milliseconds, as on the wire.
 struct SnoozeBook: Codable, Equatable {
     enum Change: Codable, Equatable {
         case set(until: Double)
@@ -49,20 +48,13 @@ struct SnoozeBook: Codable, Equatable {
 
     var listed: [String: Double] = [:]
     var outbox: [String: Change] = [:]
-    var kept: [String: Double] = [:]
-    /// The machine answered `unknown-request`, so it keeps no snoozes and this phone keeps them for it alone.
-    var keepsNone = false
-    /// Kept snoozes whose node was seen waiting; only those end early once the node stops waiting.
-    var waiting: Set<String> = []
 
     func standing(at now: Double) -> [String: Double] {
-        var result = keepsNone ? kept : listed
-        if !keepsNone {
-            for (node, change) in outbox {
-                switch change {
-                case .set(let until): result[node] = until
-                case .clear: result[node] = nil
-                }
+        var result = listed
+        for (node, change) in outbox {
+            switch change {
+            case .set(let until): result[node] = until
+            case .clear: result[node] = nil
             }
         }
         return result.filter { $0.value > now }
@@ -71,20 +63,11 @@ struct SnoozeBook: Codable, Equatable {
     func nextWake(after now: Double) -> Double? { standing(at: now).values.min() }
 
     mutating func snooze(_ node: String, until: Double) {
-        if keepsNone {
-            kept[node] = until
-        } else {
-            outbox[node] = .set(until: until)
-        }
+        outbox[node] = .set(until: until)
     }
 
     mutating func clear(_ node: String) {
-        if keepsNone {
-            kept[node] = nil
-            waiting.remove(node)
-        } else {
-            outbox[node] = .clear
-        }
+        outbox[node] = .clear
     }
 
     /// What goes to the machine now, oldest node first. A snooze that ran out while it waited for a connection is not
@@ -112,43 +95,13 @@ struct SnoozeBook: Codable, Equatable {
         if outbox[node] == change { outbox[node] = nil }
     }
 
-    /// Every snooze the machine holds. A machine that lists them keeps them, so what this phone kept for it before an
-    /// update goes over once.
+    /// Every snooze the machine holds.
     mutating func receive(_ snoozes: [String: Double]) {
         listed = snoozes
-        guard keepsNone else { return }
-        keepsNone = false
-        for (node, until) in kept where outbox[node] == nil && snoozes[node] == nil {
-            outbox[node] = .set(until: until)
-        }
-        kept = [:]
-        waiting = []
-    }
-
-    mutating func machineKeepsNone() {
-        guard !keepsNone else { return }
-        keepsNone = true
-        for (node, change) in outbox {
-            if case .set(let until) = change { kept[node] = until }
-        }
-        outbox = [:]
-    }
-
-    /// Ends a kept snooze whose node was seen waiting and no longer waits, as a machine does with its own: after a
-    /// restart a node reads as working until it reports again, which is not a person having answered.
-    mutating func observe(_ node: String, needsYou: Bool) {
-        guard keepsNone, kept[node] != nil else { return }
-        if needsYou {
-            waiting.insert(node)
-        } else if waiting.remove(node) != nil {
-            kept[node] = nil
-        }
     }
 
     mutating func prune(at now: Double) {
         listed = listed.filter { $0.value > now }
-        kept = kept.filter { $0.value > now }
-        waiting.formIntersection(kept.keys)
         outbox = outbox.filter { _, change in
             if case .set(let until) = change { return until > now }
             return true
@@ -228,20 +181,12 @@ final class MachineSnoozes {
         Task { await flush() }
     }
 
-    func observe(_ nodeID: String, needsYou: Bool) {
-        guard book.keepsNone else { return }
-        update { $0.observe(nodeID, needsYou: needsYou) }
-    }
-
     func synchronize() async {
         let generation = generation
         do {
             let result = try await client.request(WireRequest.snoozeList.rawValue, payload: .object([:]))
             guard generation == self.generation else { return }
             update { $0.receive(Self.parse(result)) }
-        } catch MachineClientError.server(let code, _) where code == "unknown-request" {
-            update { $0.machineKeepsNone() }
-            return
         } catch {
             return
         }
@@ -250,7 +195,7 @@ final class MachineSnoozes {
 
     /// Sends what waits, one change at a time. A link that goes keeps the rest for the next one.
     func flush() async {
-        guard connected, !book.keepsNone else { return }
+        guard connected else { return }
         guard !flushing else {
             flushAgain = true
             return
@@ -274,9 +219,6 @@ final class MachineSnoozes {
                             WireRequest.snoozeClear.rawValue, payload: .object(["nodeId": .string(node)]))
                     }
                     update { $0.delivered(node, change) }
-                } catch MachineClientError.server(let code, _) where code == "unknown-request" {
-                    update { $0.machineKeepsNone() }
-                    return
                 } catch MachineClientError.server {
                     update { $0.dropped(node, change) }
                 } catch {

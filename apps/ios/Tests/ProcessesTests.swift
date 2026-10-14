@@ -102,13 +102,12 @@ final class ProcessesTests: XCTestCase {
         XCTAssertEqual(model.fine.map(\.at), [3])
     }
 
-    @MainActor func testAnOlderMachineSaysItNeedsAnUpdate() async {
+    @MainActor func testARefusedSubscriptionShowsTheMachinesMessage() async {
         let machine = ProcessesMachine()
-        machine.refusal = "unknown-request"
+        machine.refusal = "forbidden"
         let model = ProcessesModel(client: machine, defaults: defaults())
         await model.subscribe()
-        XCTAssertTrue(model.unsupportedMachine)
-        XCTAssertNil(model.problem)
+        XCTAssertEqual(model.problem, "forbidden")
     }
 
     @MainActor func testASignalNamesTheProcessByItsStartTimeAndAChatIsInterruptedThroughItsTurn() async {

@@ -388,7 +388,6 @@ enum ProcessesText {
     }
     /// Nil until the machine answered; false on a platform without a sampler.
     private(set) var supported: Bool?
-    private(set) var unsupportedMachine = false
     private(set) var fine: [ProcessPoint] = []
     private(set) var coarse: [ProcessPoint] = []
     private(set) var sample: ProcessSample?
@@ -442,14 +441,9 @@ enum ProcessesText {
         } catch is CancellationError {
             return
         } catch {
-            if case MachineClientError.server(code: "unknown-request", message: _) = error {
-                unsupportedMachine = true
-            } else {
-                problem = error.localizedDescription
-            }
+            problem = error.localizedDescription
             return
         }
-        // A machine from before the warnings simply has none.
         if let result = try? await client.request(WireRequest.processesListAlerts.rawValue, payload: .object([:])) {
             alerts = result.list("alerts").map(ProcessAlert.init(json:))
         }

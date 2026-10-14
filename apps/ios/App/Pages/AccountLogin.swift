@@ -14,7 +14,6 @@ import SwiftUI
         case landed(email: String?)
         /// The shell ended, or the connection did, which ends a login on the machine as well.
         case ended(dropped: Bool)
-        case outdated
         case failed(String)
     }
 
@@ -90,11 +89,7 @@ import SwiftUI
             _ = try? await client.request(WireRequest.accountsWatchLogin.rawValue, payload: .object(["id": .string(accountID)]))
         } catch {
             started = false
-            if case MachineClientError.server(code: "unknown-request", message: _) = error {
-                phase = .outdated
-            } else {
-                phase = .failed(error.localizedDescription)
-            }
+            phase = .failed(error.localizedDescription)
         }
     }
 
@@ -126,11 +121,6 @@ import SwiftUI
             dropped
                 ? String(localized: "The connection to the machine dropped, which ended the login.")
                 : String(localized: "The login ended.")
-        case .outdated:
-            String(
-                localized:
-                    "This machine needs an update before you can log in from here. Update Ruimte on it, or log in on the machine."
-            )
         case .failed(let reason): String(localized: "The login could not start: \(reason)")
         }
     }
@@ -169,7 +159,7 @@ struct AccountLoginSheet: View {
                 switch model.phase {
                 case .starting:
                     MobileLoadingRow(String(localized: "Starting the login")).frame(maxHeight: .infinity)
-                case .outdated, .failed:
+                case .failed:
                     Spacer()
                 default:
                     TerminalScreen(client: model.client, sessionID: model.sessionID, title: String(localized: "Log in to \(model.name)"))

@@ -286,13 +286,13 @@ final class LaunchEditingTests: XCTestCase {
         XCTAssertEqual(machine.last("launch.stop")?["force"], .bool(true))
     }
 
-    func testAnOlderMachineSaysItNeedsAnUpdate() async {
+    func testARefusedReadShowsTheMachinesMessage() async {
         let machine = LaunchMachine()
-        machine.refusal = "unknown-request"
+        machine.refusal = "forbidden"
         let store = ProjectLaunches(client: machine, projectID: "p1", folder: "/p")
         await store.load()
-        XCTAssertTrue(store.unsupported)
-        XCTAssertNil(store.problem)
+        XCTAssertNil(store.document)
+        XCTAssertEqual(store.problem, "forbidden")
     }
 
     func testAnEditorSavesAgainstTheRevItReadAndStartsOverAfterAConflict() async {

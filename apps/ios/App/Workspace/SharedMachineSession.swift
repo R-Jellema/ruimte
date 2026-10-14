@@ -99,9 +99,6 @@ final class SharedMachineSession {
             guard let self else { return }
             await self.runtime?.notifications.applyRead(machineID: self.machine.id, nodeID: nodeID, through: through)
         }
-        attention.onStatus = { [weak self] nodeID, status in
-            self?.snoozes.observe(nodeID, needsYou: status == .needsYou)
-        }
         attention.start()
         snoozes.start()
         tasks.start()
