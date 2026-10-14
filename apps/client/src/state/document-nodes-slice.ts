@@ -1,8 +1,23 @@
-import { isCanvasView, isSessionView, withNodeAsView, withNodeOnView, withViewAsNode } from '@ruimte/contracts';
-import { dropView, locateView } from '@/shell/split';
+import { isCanvasView, isSessionView, withNodeAsView, withNodeOnView, withViewAsNode, type SplitLayout } from '@ruimte/contracts';
+import { activateTab, closeTab, locateView, replaceViewId } from '@/shell/split';
 import { NODE_SIZE } from '@/state/canvas';
 import type { DocumentState } from '@/state/document';
 import { centerOfView, withRenamedNode, type DocumentKit } from '@/state/document-model';
+
+/*
+ * A view that became a node leaves the grid with the list: the cell it stood in takes the canvas,
+ * or, when the canvas stands in a cell already, that cell takes the focus. Null when it stood nowhere.
+ */
+function layoutWithCanvasFor(layout: SplitLayout, viewId: string, canvasViewId: string): SplitLayout | null {
+    if (locateView(layout, viewId) === null) {
+        return null;
+    }
+    if (locateView(layout, canvasViewId) === null) {
+        return activateTab(replaceViewId(layout, viewId, canvasViewId), canvasViewId);
+    }
+    const without = closeTab(layout, viewId);
+    return without === null ? null : activateTab(without, canvasViewId);
+}
 
 /* Nodes moving between views: to another canvas, off a canvas into a view of their own, and back. */
 export function createDocumentNodesSlice({
@@ -94,11 +109,15 @@ export function createDocumentNodesSlice({
             const { views: next, node } = landed;
             const { [viewId]: _gone, ...viewLocal } = state.viewLocal;
             set({ views: next, viewLocal, edits: state.edits + 1 });
-            /* The view it was is gone from the list, so the cell it stood in takes the canvas it
-               landed on; from anywhere else the canvas simply comes up in the focused cell. */
-            const standing = state.layout === null ? null : locateView(state.layout, viewId);
-            if (state.layout !== null && standing !== null) {
-                commit(dropView(state.layout, canvasViewId, standing, 'center'));
+            const shown = peers.canvases.peek(canvasViewId);
+            if (shown) {
+                // A canvas on screen is its editor, which would otherwise write the canvas back without the node.
+                const after = next.find((view) => view.id === canvasViewId);
+                shown.getState().loadView(after && isCanvasView(after) ? after : null, { camera: shown.getState().viewCamera(), focusedNodeId: null });
+            }
+            const layout = state.layout === null ? null : layoutWithCanvasFor(state.layout, viewId, canvasViewId);
+            if (layout !== null) {
+                commit(layout);
             } else {
                 get().setActiveView(canvasViewId);
             }

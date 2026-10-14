@@ -353,6 +353,25 @@ describe('a node and a view of its own', () => {
         expect(focusedCanvas().getState().nodes.n1).toMatchObject({ id: 'n1', kind: 'terminal', title: 'n1' });
     });
 
+    test('a view put on a canvas that stands in another cell lands in its editor and leaves the grid', () => {
+        const shell = useDocument.getState().addStandaloneView({ kind: 'terminal', name: 'Shell', node: {} });
+        useDocument.getState().setActiveView('a');
+        useDocument.getState().splitFocused('right', shell);
+        expect(useDocument.getState().putOnCanvas(shell, 'a')).toBe(true);
+        expect(viewIdsIn(useDocument.getState().layout!)).toEqual(['a']);
+        expect(useDocument.getState().activeViewId).toBe('a');
+        expect(focusedCanvas().getState().order).toEqual(['n1', shell]);
+        expect((useDocument.getState().exportViews()[0] as ProjectCanvasView).nodes.map((each) => each.id)).toEqual(['n1', shell]);
+    });
+
+    test('a view put on a canvas from a tab hands its tab to the canvas', () => {
+        useDocument.getState().showLoose('/p/notes.md');
+        const shell = useDocument.getState().addStandaloneView({ kind: 'terminal', name: 'Shell', node: {} });
+        expect(useDocument.getState().putOnCanvas(shell, 'a')).toBe(true);
+        expect(useDocument.getState().layout!.columns[0]!.cells[0]).toMatchObject({ viewId: 'a', tabs: ['/p/notes.md', 'a'] });
+        expect(focusedCanvas().getState().order).toEqual(['n1', shell]);
+    });
+
     test('what a node carries travels both ways', () => {
         focusedCanvas().getState().updateNode('n1', { cwd: '/repo/apps', command: 'bun dev' });
         useDocument.getState().openAsView('n1');
