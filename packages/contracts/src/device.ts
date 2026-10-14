@@ -41,9 +41,9 @@ export const DeviceCapabilitiesSchema = z.object({
     stream: z.boolean(),
     input: z.boolean(),
     screenshot: z.boolean(),
-    /* Absent from a daemon that predates it, which only had the buttons of an iPhone. */
+    /* Absent means the buttons of an iPhone, which is what a physical iPhone announces. */
     buttons: AnnouncedListSchema.optional(),
-    /* Absent from a daemon that predates it, which offered every tool on an iOS simulator and none elsewhere. */
+    /* Absent means every tool on an iOS simulator and none elsewhere. */
     tools: AnnouncedListSchema.optional(),
     permissions: AnnouncedListSchema.optional()
 });
@@ -97,7 +97,7 @@ export const DeviceTargetPayloadSchema = z.object({
 
 export const DeviceOpenPayloadSchema = DeviceTargetPayloadSchema.extend({
     stream: z.enum(['http', 'events']).optional(),
-    // Asks for the frames of `events` as binary live frames; a daemon from before those ignores it and sends base64 in JSON.
+    // Asks for the frames of `events` as binary live frames; a connection that cannot carry them gets base64 in JSON.
     binary: z.boolean().optional(),
     /* What the client can draw. Absent means a client from before H.264, which draws JPEG and HEVC. */
     formats: z.array(DeviceVideoFormatSchema).max(8).optional()

@@ -18,7 +18,7 @@ export const ComputerUseStatusSchema = z.object({
     screenRecording: z.boolean().nullable(),
     // Why the helper could not be asked, in words; absent when nothing went wrong.
     problem: z.string().optional(),
-    // The helper's session as the machine last heard of it: null while none runs, absent from a machine that does not report it.
+    // The helper's session as the machine last heard of it: null while none runs.
     session: z
         .object({
             mode: ComputerSessionModeSchema,

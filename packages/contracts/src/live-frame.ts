@@ -7,8 +7,8 @@ import { LIVE_STREAM_MAX_FRAME_BYTES } from './live-stream.ts';
 /*
  * A `device.frame` or `browser.frame` as one binary message, for a client that asked for those with
  * `binary` when it opened the stream: a headed frame of this kind whose head is `{ event, payload }`,
- * the payload without `data`, then the picture's bytes as they are. A daemon from before these
- * ignores the ask and sends the event as JSON with base64, which the client keeps reading.
+ * the payload without `data`, then the picture's bytes as they are. A connection that cannot carry
+ * them sends the event as JSON with base64, which the client keeps reading.
  */
 export const LIVE_FRAME_KIND = 2;
 

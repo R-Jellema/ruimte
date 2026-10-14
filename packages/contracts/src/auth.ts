@@ -30,23 +30,22 @@ export const EndpointInfoSchema = z.object({
     id: z.string().min(1),
     // What this machine is called: the name a person gave it, or `--label`, `RUIMTE_LABEL`, else its hostname.
     label: z.string(),
-    // Which of the two the label is. Optional: a daemon from before a machine could be named answers without one.
+    // Which of the two the label is. Absent reads as `default`.
     nameSource: EndpointNameSourceSchema.optional(),
     // The set a project and a view pick from; no image, since a machine has no folder to keep one in.
-    // Null when nobody picked one, absent from a daemon without machine icons.
+    // Null or absent when nobody picked one.
     icon: ProjectIconChoiceSchema.nullish(),
     // Lets `ruimte-context view delete` remove views an agent did not make. Enforced by the daemon, so it
     // lives in `endpoint.json`, not in a client's settings. Absent reads as false.
     agentsDeleteAnyView: z.boolean().optional(),
-    // Browser pages and device screens. Absent reads as true: an older daemon allowed browser streaming.
+    // Browser pages and device screens. Absent reads as true.
     streamingAllowed: z.boolean().optional(),
     // Lets a chat that stopped on a limit resume on a clock when its own switch allows. Absent reads as false.
     resumeAtReset: z.boolean().optional(),
-    // `ruimte-context visual`. Off only when a person turned it off; absent from a daemon without visuals.
+    // `ruimte-context visual`. Off only when a person turned it off; absent reads as on.
     visualReplies: z.boolean().optional(),
     appleFoundationEnabled: z.boolean().optional(),
-    // The daemon holds the block, so it holds without a window and for a phone. An older daemon leaves
-    // it out and its desktop app holds it per window.
+    // The daemon holds the block, so it holds without a window and for a phone. Absent reads as off.
     keepAwake: KeepAwakeModeSchema.optional(),
     // Hold the block on battery as well; off, it holds on the power adapter only.
     keepAwakeOnBattery: z.boolean().optional(),
@@ -71,7 +70,7 @@ export const EndpointInfoSchema = z.object({
     reachability: ReachabilitySchema,
     // False for a client that presented the local secret, which has no paired session.
     authenticated: z.boolean(),
-    // The daemon's ed25519 public key, raw and base64url. Optional: a daemon from before this existed answers without one.
+    // The daemon's ed25519 public key, raw and base64url. Only `endpoint.info` carries it.
     publicKey: z.string().optional(),
     // The effective broker a client signals a direct connection through: a flag or the environment, then
     // `broker`, then the build's default. Null when there is none.
@@ -92,10 +91,10 @@ export const EndpointInfoSchema = z.object({
     agentIntegrations: AgentIntegrationsSummarySchema.optional(),
     // Null while worktrees go in the data folder. Only told to a client that presented the local secret.
     worktreeRoot: z.string().nullable().optional(),
-    // Kept in `endpoint.json`; absent from a daemon from before them, and empty while nobody set one.
+    // Kept in `endpoint.json`; empty while nobody set one.
     nodeSizes: EndpointNodeSizesSchema.optional(),
-    // Every request this machine answers, so a client checks before it sends one instead of catching
-    // `unknown-request`. Only `endpoint.info` carries it; absent from a daemon from before it.
+    // Every request this machine answers, so a client checks a request newer than 0.18.0 before it sends one
+    // instead of catching `unknown-request`. Only `endpoint.info` carries it; a machine without it is refused as older.
     features: z.array(z.string()).optional()
 });
 export type EndpointInfo = z.infer<typeof EndpointInfoSchema>;

@@ -18,7 +18,7 @@ export const BrowserOpenPayloadSchema = BrowserTargetPayloadSchema.extend({
     height: BrowserSizeSchema,
     deviceScaleFactor: BrowserDeviceScaleFactorSchema.optional(),
     stream: z.enum(['http', 'events']).optional(),
-    // Asks for the frames of `events` as binary live frames; a daemon from before those ignores it and sends base64 in JSON.
+    // Asks for the frames of `events` as binary live frames; a connection that cannot carry them gets base64 in JSON.
     binary: z.boolean().optional()
 });
 

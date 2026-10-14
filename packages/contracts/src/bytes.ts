@@ -26,7 +26,7 @@ export const BytesReadPayloadSchema = z.object({
     resource: ByteResourceSchema,
     offset: z.number().int().nonnegative(),
     length: z.number().int().positive().max(BYTES_CHUNK_MAX),
-    // Asks for the piece as a binary reply (`encodeBytesReply`); a daemon from before those ignores it and answers in JSON.
+    // Asks for the piece as a binary reply (`encodeBytesReply`); a connection that cannot carry one gets base64 in JSON.
     binary: z.boolean().optional()
 });
 export type BytesReadPayload = z.infer<typeof BytesReadPayloadSchema>;

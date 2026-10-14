@@ -186,7 +186,7 @@ export const GitDiffFileSchema = z.object({
     deleted: z.number().int().nonnegative(),
     binary: z.boolean(),
     omitted: z.enum(['binary', 'too-large']).optional(),
-    // Set even when the patch is omitted. A daemon from before it leaves it out.
+    // Set even when the patch is omitted.
     kind: z.enum(['add', 'update', 'delete']).optional()
 });
 export type GitDiffFile = z.infer<typeof GitDiffFileSchema>;
@@ -491,7 +491,7 @@ export const GitActionPayloadSchema = z.object({
     // Delete a branch git has not merged yet, which it otherwise refuses.
     force: z.boolean().optional(),
     // Pull and sync: how a branch that has moved on both sides comes together. Without it the pull
-    // only fast-forwards, which is what a machine from before this field does as well.
+    // only fast-forwards.
     strategy: z.enum(['merge', 'rebase']).optional()
 });
 export type GitActionPayload = z.infer<typeof GitActionPayloadSchema>;

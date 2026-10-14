@@ -175,7 +175,7 @@ export type FsReadBinary = z.infer<typeof FsReadBinarySchema>;
 export const FsReadTooLargeSchema = z.object({
     kind: z.literal('too-large'),
     size: z.number(),
-    // Pins the version the client fetches as bytes; a daemon from before that route leaves it off.
+    // Pins the version the client fetches as bytes.
     mtime: z.number().optional()
 });
 export type FsReadTooLarge = z.infer<typeof FsReadTooLargeSchema>;

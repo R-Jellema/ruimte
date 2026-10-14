@@ -63,7 +63,7 @@ export const MachineWorkSchema = z.object({
 });
 export type MachineWork = z.infer<typeof MachineWorkSchema>;
 
-/* Null for a daemon from before this route, which answers 404 with a body of its own. */
+/* Null when the body is not a work count, such as the 404 of a service build from before this route. */
 export function machineWorkOf(body: unknown): MachineWork | null {
     const parsed = MachineWorkSchema.safeParse(body);
     return parsed.success ? parsed.data : null;
@@ -91,7 +91,7 @@ export const MachineStatusSchema = z.object({
     lan: LanDoorSchema.nullable(),
     lanDoorFixed: z.boolean(),
     /* Keep awake as it stands and whether it holds right now. `lid` is null where the closed-lid mode is not
-       offered. Absent from a daemon from before, which `ruimte status` then says nothing about. */
+       offered. Absent from a daemon older than this field, which `ruimte status` then says nothing about. */
     keepAwake: z
         .object({
             mode: KeepAwakeModeSchema,
