@@ -6,6 +6,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { build, defaultClientConditions, defineConfig, searchForWorkspaceRoot, type Plugin } from 'vite';
 import { adecoreSources } from './adecore-sources.ts';
+import { scriptFilesGuard } from './inline-scripts.ts';
 import { shikiModules, shikiOnce } from './shiki-once.ts';
 import { startChunkGuard } from './start-chunk.ts';
 import { visualHostPage } from './visual-host.ts';
@@ -145,6 +146,7 @@ export default defineConfig(({ mode }) => ({
         visualHostPage(),
         shikiOnce(shiki, true),
         startChunkGuard(),
+        scriptFilesGuard(),
         ...(mode === 'station' ? [stationHead()] : [])
     ],
     resolve: {
