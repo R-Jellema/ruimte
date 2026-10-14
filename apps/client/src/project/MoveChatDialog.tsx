@@ -156,9 +156,7 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
             if (STALE_CODES.includes(code)) {
                 setRecheck((n) => n + 1);
             }
-            if (code !== 'move-refused' && code !== 'chat-busy') {
-                setFailure(e instanceof Error ? e.message : t('moveChat.failed'));
-            }
+            setFailure(e instanceof Error ? e.message : t('moveChat.failed'));
         } finally {
             setBusy(false);
         }
@@ -370,7 +368,8 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
             )}
             {info !== null && info.references > 0 && <Note icon={AtSign}>{t('moveChat.references', { count: info.references })}</Note>}
 
-            {failure !== null && <FormError className="mt-2">{failure}</FormError>}
+            {/* The reason from the question says it in our words; the machine's sentence is for when the question finds nothing. */}
+            {failure !== null && refusal === null && <FormError className="mt-2">{failure}</FormError>}
             <Dialog.Footer>
                 {refusal === null ? (
                     <>

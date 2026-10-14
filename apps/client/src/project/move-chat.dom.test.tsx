@@ -244,6 +244,18 @@ describe('making a project of a chat, or moving it into one', () => {
         expect(useProject.getState().current?.name).toBe('Chats');
     });
 
+    test("a move refused after confirming that the question no longer finds a reason for shows the machine's sentence", async () => {
+        await open();
+        machine.answer('chat.move', () => {
+            throw new TransportError('move-refused', 'This chat is still working. Stop it or wait for it to finish, then try again');
+        });
+        await ask('pick', VINYL.projectId);
+        await until(() => button('Move') !== undefined && !button('Move')!.disabled);
+        await clickOn(button('Move') ?? null);
+        await until(() => dialog()!.textContent!.includes('This chat is still working. Stop it or wait'));
+        expect(button('Move')).toBeDefined();
+    });
+
     test('a failed question shows its message and leaves the new folder usable', async () => {
         await open(() => {
             throw new TransportError('internal', 'The machine is busy');
