@@ -11,7 +11,7 @@ final class NotificationPreferencesTests: XCTestCase {
             ["notify": .array([.string("needs-you")]), "projects": .array([])])
     }
 
-    func testTheSubscriptionFollowsEveryNodeWithoutListingAny() {
+    @MainActor func testTheSubscriptionFollowsEveryNodeWithoutListingAny() {
         var preferences = NotificationPreferences()
         preferences.set(.off, machineID: "studio", projectID: "recipes")
         let payload = NotificationCoordinator.subscription(
