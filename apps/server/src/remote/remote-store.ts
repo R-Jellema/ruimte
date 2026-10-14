@@ -82,10 +82,11 @@ function mapNodes<T extends ProjectContent>(content: T, map: (node: ProjectNode)
     return { ...content, views: content.views.map((view: ProjectView) => (isCanvasView(view) ? { ...view, nodes: view.nodes.map(map) } : view)) };
 }
 
-/* Only a node on a canvas runs elsewhere; a view of its own is a node without a frame and never does. */
-export function canvasNodeIdsOf(content: ProjectContent): Set<string> {
+/* Every id the document places, views and the nodes on canvases alike: a binding lives as long as its id does. */
+export function idsOf(content: ProjectContent): Set<string> {
     const ids = new Set<string>();
     for (const view of content.views) {
+        ids.add(view.id);
         if (isCanvasView(view)) {
             for (const node of view.nodes) {
                 ids.add(node.id);

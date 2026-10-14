@@ -13,6 +13,8 @@ type ProjectErrorCode =
     // Another copy of the canvas is open here, and a session is keyed on its node id.
     | 'project-ids-taken'
     // A node that runs on another machine would reach the shared file as a plain node of this one.
-    | 'remote-node-shared';
+    | 'remote-node-shared'
+    // A node that runs on another machine would start here as soon as it became a view of its own.
+    | 'remote-node-view';
 
 export class ProjectError extends CodedError<ProjectErrorCode> {}

@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ProjectCanvasView, ProjectContent } from '@ruimte/contracts';
-import { RemoteStore, canvasNodeIdsOf, machinesOf, withBoundMachines, withMachines, withoutMachines } from './remote-store.ts';
+import { RemoteStore, idsOf, machinesOf, withBoundMachines, withMachines, withoutMachines } from './remote-store.ts';
 
 let home: string;
 
@@ -74,8 +74,8 @@ test('a key the file holds beyond the nodes survives a write', async () => {
     });
 });
 
-test('only a node on a canvas can be bound', () => {
-    expect([...canvasNodeIdsOf(content(node('n1'), node('n2')))]).toEqual(['n1', 'n2']);
+test('a binding lives as long as its id is anywhere in the document', () => {
+    expect([...idsOf(content(node('n1'), node('n2')))]).toEqual(['main', 'n1', 'n2', 't1']);
     expect([...machinesOf(content(node('n1', 'machine-b'), node('n2')))]).toEqual([['n1', 'machine-b']]);
 });
 

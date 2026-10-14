@@ -67,7 +67,7 @@ import { ClientSinks } from '../client-sinks.ts';
 import { scratchFolderOf } from './scratch-project.ts';
 import { folderToOpen } from './folder-to-open.ts';
 import { MachineHome } from '../fs/machine-home.ts';
-import { RemoteStore, canvasNodeIdsOf, machinesOf, withBoundMachines, withMachines, withoutMachines } from '../remote/remote-store.ts';
+import { RemoteStore, idsOf, machinesOf, withBoundMachines, withMachines, withoutMachines } from '../remote/remote-store.ts';
 
 function asProjectError(e: unknown): unknown {
     if (e instanceof ProjectWriteRaced) {
@@ -624,6 +624,7 @@ export class ProjectStore {
         /* Only a person's save moves a view between the two files. A payload without a list leaves
            the folder as it is, which is what an older client and every other writer amount to. */
         const ids = [...(shared ?? state.shared)];
+        this.refuseBoundViews(projectId, content);
         this.refuseSharedRemoteNodes(projectId, content, ids);
         // The views that changed sides, so their drawing or diagram file can follow them over.
         const moved = [...new Set([...ids, ...state.shared])].filter((id) => ids.includes(id) !== state.shared.includes(id));
@@ -636,7 +637,7 @@ export class ProjectStore {
         const written = await this.writeFiles(this.documentPath(state.entry), portable, ids, document.rev, moved, state.overlayFields);
         remember(state, written, document.rev, ids, document.views);
         // A save that names no machine for a node leaves its binding as it was, so a client that never heard of the field cannot drop it.
-        await this.remote.apply(projectId, machinesOf(content), canvasNodeIdsOf(content));
+        await this.remote.apply(projectId, machinesOf(content), idsOf(content));
         /* Not the sender: its screen is already ahead of this document, and taking it in would undo a
            drag that went on while the save was out. */
         await this.afterWrite(
@@ -714,6 +715,7 @@ export class ProjectStore {
         if (mutation.content === null) {
             return mutation.result;
         }
+        this.refuseBoundViews(projectId, mutation.content);
         mutation.content = withBoundMachines(mutation.content, bound);
         const overlayFields = mutation.overlayFields === undefined ? held : [...mutation.overlayFields];
         const parsed = ProjectDocumentSchema.safeParse({ version: PROJECT_VERSION, rev: rev + 1, ...toPortable(mutation.content, entry.folder), shared });
@@ -727,7 +729,7 @@ export class ProjectStore {
         }
         const state = this.open.get(projectId);
         const written = await this.writeFiles(path, toPortable(mutation.content, entry.folder), shared, document.rev, [], overlayFields);
-        await this.remote.apply(projectId, new Map(), canvasNodeIdsOf(mutation.content));
+        await this.remote.apply(projectId, new Map(), idsOf(mutation.content));
         const icon = mutation.content.icon ?? null;
         const identityChanged = mutation.content.name !== entry.name || mutation.content.color !== entry.color || !sameIcon(icon, entry.icon ?? null);
         const nextEntry = identityChanged ? { ...entry, name: mutation.content.name, color: mutation.content.color, icon } : entry;
@@ -1204,7 +1206,7 @@ export class ProjectStore {
         remember(state, { text, private: privateText }, rev, loaded.shared, document.views, loaded.overlayFields);
         state.entry = { ...state.entry, name: document.name, color: document.color, icon: document.icon ?? null };
         this.index.set(state.entry.projectId, state.entry.folder, fromPortable(document, state.entry.folder));
-        await this.remote.apply(state.entry.projectId, new Map(), canvasNodeIdsOf(document));
+        await this.remote.apply(state.entry.projectId, new Map(), idsOf(document));
         await this.announceChange(state.entry, fromPortable(document, state.entry.folder));
         this.publish(state.entry);
     }
@@ -1229,7 +1231,7 @@ export class ProjectStore {
         }
         const daemonSide = fromPortable(document, entry.folder);
         this.index.set(entry.projectId, entry.folder, daemonSide);
-        await this.remote.apply(entry.projectId, new Map(), canvasNodeIdsOf(document));
+        await this.remote.apply(entry.projectId, new Map(), idsOf(document));
         await this.announceChange(entry, daemonSide);
         return true;
     }
@@ -1276,9 +1278,19 @@ export class ProjectStore {
     private refuseSharedRemoteNodes(projectId: string, content: ProjectContent, shared: readonly string[]): void {
         const bound = { ...this.remote.nodesOf(projectId), ...Object.fromEntries(machinesOf(content)) };
         for (const view of content.views) {
-            if (isCanvasView(view) && shared.includes(view.id) && view.nodes.some((node) => Object.hasOwn(bound, node.id))) {
+            const held = isCanvasView(view) ? [view.id, ...view.nodes.map((node) => node.id)] : [view.id];
+            if (shared.includes(view.id) && held.some((id) => Object.hasOwn(bound, id))) {
                 throw new ProjectError('remote-node-shared', `${view.name} holds a node that runs on another machine, which stays on a canvas only you have`);
             }
+        }
+    }
+
+    /* A view of its own has no frame to carry a machine, so a node that runs elsewhere cannot become one; the node would start here. */
+    private refuseBoundViews(projectId: string, content: ProjectContent): void {
+        const bound = this.remote.nodesOf(projectId);
+        const view = content.views.find((candidate) => Object.hasOwn(bound, candidate.id));
+        if (view !== undefined) {
+            throw new ProjectError('remote-node-view', `${view.id} runs on another machine and stays a node on a canvas`);
         }
     }
 

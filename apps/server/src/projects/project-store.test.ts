@@ -1660,6 +1660,39 @@ describe('the machine of a node', () => {
         store.release(projectId);
     });
 
+    test('stays a node on a canvas: becoming a view of its own is refused, and so is a verb doing it', async () => {
+        const projectId = await openBound();
+        const promoted: ProjectContent = { ...content(), views: [{ kind: 'terminal', id: 'n1', name: 'shell', node: {} }] };
+        await expect(store.save(projectId, 1, promoted)).rejects.toMatchObject({ code: 'remote-node-view' });
+        await expect(store.mutate(projectId, (current) => ({ content: { ...current, views: promoted.views }, result: null }))).rejects.toMatchObject({
+            code: 'remote-node-view'
+        });
+        expect(store.remote.machineOf(projectId, 'n1')).toBe('machine-b');
+        expect(await store.revision(projectId)).toBe(1);
+    });
+
+    test('is not lost to the id turning up as a view after a pull', async () => {
+        await openBound();
+        const path = documentPathInFolder(folder);
+        const pulled = {
+            ...(JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>),
+            views: [{ kind: 'terminal', id: 'n1', name: 'shell', node: {} }]
+        };
+        await writeFile(path, JSON.stringify(pulled, null, 2));
+        projectDirWatcher().emit('project.json');
+        await fake.settle();
+        expect(store.machineOfNode('n1')).toBe('machine-b');
+    });
+
+    test('comes back with the node an undo restores, and goes while the node is away', async () => {
+        const projectId = await openBound();
+        const without: ProjectContent = { ...content(), views: [{ ...canvas(content()), nodes: [] }] };
+        await store.save(projectId, 1, without);
+        expect(store.remote.machineOf(projectId, 'n1')).toBeNull();
+        await store.save(projectId, 2, bound('machine-b'));
+        expect(store.remote.machineOf(projectId, 'n1')).toBe('machine-b');
+    });
+
     test('keeps the folder of a node as the other machine knows it, even under this one', async () => {
         const opened = await store.openProject({ folder });
         const projectId = opened.summary.projectId;
