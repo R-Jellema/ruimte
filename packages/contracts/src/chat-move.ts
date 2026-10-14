@@ -1,0 +1,72 @@
+import { z } from 'zod';
+import { ProjectSummarySchema } from './project.ts';
+
+export const ChatMoveRefusalReasonSchema = z.enum(['not-in-chats', 'working', 'agents', 'tasks', 'owed', 'messages', 'pr-watch']);
+export type ChatMoveRefusalReason = z.infer<typeof ChatMoveRefusalReasonSchema>;
+
+export const ChatMoveTargetSchema = z.union([
+    z.object({ projectId: z.string().min(1) }),
+    z.object({
+        folder: z.string().min(1),
+        name: z.string().min(1),
+        createFolder: z.boolean(),
+        initGit: z.boolean()
+    })
+]);
+export type ChatMoveTarget = z.infer<typeof ChatMoveTargetSchema>;
+
+export const ChatMoveRefusalSchema = z.object({
+    reason: ChatMoveRefusalReasonSchema,
+    // Epoch ms; only on `owed` for a `resume-limit`, the moment the chat goes on by itself.
+    at: z.number().optional()
+});
+export type ChatMoveRefusal = z.infer<typeof ChatMoveRefusalSchema>;
+
+export const ChatMoveInfoPayloadSchema = z.object({
+    chatId: z.string().min(1),
+    // Only to check the names of the chat's own files against that folder.
+    to: ChatMoveTargetSchema.optional()
+});
+export type ChatMoveInfoPayload = z.infer<typeof ChatMoveInfoPayloadSchema>;
+
+export const ChatMoveWorkedFolderSchema = z.object({
+    path: z.string().min(1),
+    project: z.object({ projectId: z.string().min(1), name: z.string() }).nullable(),
+    branch: z.string().nullable(),
+    files: z.number().int().nonnegative()
+});
+export type ChatMoveWorkedFolder = z.infer<typeof ChatMoveWorkedFolderSchema>;
+
+export const ChatMoveInfoResultSchema = z.object({
+    // At most 5, most used first.
+    folders: z.array(ChatMoveWorkedFolderSchema),
+    ownFiles: z.object({
+        folder: z.string(),
+        count: z.number().int().nonnegative(),
+        // At most 5.
+        names: z.array(z.string())
+    }),
+    // Own-file names already at `to`, at most 5; empty without `to`.
+    conflicts: z.array(z.string()),
+    // Other chats in Chats linked to this one with @, in either direction.
+    references: z.number().int().nonnegative(),
+    // Where a new folder goes by default.
+    newFolderParent: z.string(),
+    refusal: ChatMoveRefusalSchema.nullable()
+});
+export type ChatMoveInfoResult = z.infer<typeof ChatMoveInfoResultSchema>;
+
+export const ChatMovePayloadSchema = z.object({
+    chatId: z.string().min(1),
+    to: ChatMoveTargetSchema,
+    ownFiles: z.enum(['move', 'leave'])
+});
+export type ChatMovePayload = z.infer<typeof ChatMovePayloadSchema>;
+
+export const ChatMoveResultSchema = z.object({
+    summary: ProjectSummarySchema,
+    viewId: z.string().min(1),
+    // The folder the own files stayed in; null when they moved or there were none.
+    ownFilesLeftAt: z.string().nullable()
+});
+export type ChatMoveResult = z.infer<typeof ChatMoveResultSchema>;
