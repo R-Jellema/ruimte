@@ -32,7 +32,7 @@ const LISTED = 'ruimte-context view list lists them';
 export const nodeNewAction = defineActionVerb('node', {
     name: 'new',
     action: 'node.create',
-    usage: `<${NODE_VERB_KINDS.join('|')}> [--title T] [--text B] [--url U] [--path P] [--source V] [--cwd P] [--view V] [--beside N] [--dry-run]`,
+    usage: `<${NODE_VERB_KINDS.join('|')}> [--title T] [--text B] [--url U] [--path P] [--source V] [--device D] [--cwd P] [--view V] [--beside N] [--dry-run]`,
     note: REQUIRED_NOTE,
     dryRun: true,
     params: [
@@ -59,6 +59,7 @@ export const nodeNewAction = defineActionVerb('node', {
         { syntax: '--url U', need: kindsFor('url'), field: 'url' },
         { syntax: '--source V', need: kindsFor('source'), field: 'source', more: LISTED },
         { syntax: '--path P', need: kindsFor('path'), field: 'path', more: 'it has to exist' },
+        { syntax: '--device D', need: kindsFor('device'), field: 'device', more: 'ruimte-context device list lists the ones of this machine' },
         { syntax: '--cwd P', need: kindsFor('cwd'), field: 'cwd' }
     ],
     detail: [
@@ -67,7 +68,7 @@ export const nodeNewAction = defineActionVerb('node', {
         EVERY_KIND_LINE,
         'edge\tA line is drawn from you into the new node, so the canvas says where it came from and not only that it is there',
         'edge\tInto a terminal or a chat that line is context, the direction that makes you readable to it: it can run ruimte-context read on your id',
-        "edge\tInto a note, a browser, a file, a drawing or a diagram it lets you read that node, and drive a browser node's page: only an agent reads, so a line with one agent on it is yours whichever way it runs",
+        "edge\tInto a note, a browser, a file, a drawing, a diagram or a device it lets you read that node, drive a browser node's page and operate a device: only an agent reads, so a line with one agent on it is yours whichever way it runs",
         'edge\tOnly a node on that canvas gets one: a chat that is a view of its own, or a node of another canvas, gets no line and the edge column shows -',
         'edge\tBetween two agents it runs one way only: you do not read a new terminal or chat through it. ruimte-context link new --to <its id> draws the line back when you want that too',
         'edge\truimte-context link list lists what is drawn on the canvas now',
@@ -87,6 +88,7 @@ export const nodeNewAction = defineActionVerb('node', {
         url: z.string().min(1, '--url needs an http or https address').optional(),
         path: z.string().min(1, '--path needs the path of a file').optional(),
         source: z.string().min(1, '--source needs the id of a drawing or diagram view').optional(),
+        device: z.string().min(1, '--device needs the id of a device of this machine').optional(),
         cwd: z.string().min(1, '--cwd needs the path of a directory').optional(),
         view: z.string().min(1, '--view needs the id of a canvas').optional(),
         beside: z.string().min(1, '--beside needs the id of a node on that canvas').optional()
@@ -107,6 +109,7 @@ export const nodeNewAction = defineActionVerb('node', {
                 provider: null,
                 at: null,
                 source: flags.source ?? null,
+                device: flags.device ?? null,
                 cwd: flags.cwd ?? null,
                 beside: flags.beside ?? null
             },

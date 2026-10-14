@@ -2,7 +2,8 @@ import type { ActionOutput } from '@ruimte/actions';
 import { z } from 'zod';
 import { AGENT_HOLD_IDLE_MS, SWIPE_DEFAULT_MS } from '../devices/agent-driver.ts';
 import { defineActionVerb, runAction } from './action-verb.ts';
-import { field, SCOPE_LINE } from './verb.ts';
+import { machineDeviceLine } from '../actions/device-actions.ts';
+import { field, orNote, SCOPE_LINE } from './verb.ts';
 
 function yesNo(value: boolean): string {
     return value ? 'yes' : 'no';
@@ -98,6 +99,25 @@ function treeLines(state: ActionOutput<'device.inspect'>): string[] {
 function doneLine(word: string, outcome: ActionOutput<'device.tap'>): string[] {
     return [`done\t${word}\t${outcome.nodeId}\t${field(outcome.device)}`, 'next\truimte-context device shot <id>\tshows what it did'];
 }
+
+const listAction = defineActionVerb('device', {
+    name: 'list',
+    action: 'device.list',
+    usage: '',
+    params: [],
+    detail: [
+        'prints\tdevice\tid\tname\tplatform\tkind\truntime\tstate\tone line per simulator, emulator or phone this machine has now; state is booted, shutdown or transitioning',
+        'see\truimte-context node new device --device <id>\tputs one on your canvas with a line from you, which is what lets you operate it',
+        'note\tListing touches no device. An agent never starts one: a device that is not booted waits for the person to start it from its node',
+        SCOPE_LINE
+    ],
+    positionals: z.tuple([], { error: 'device list takes nothing' }),
+    flags: z.object({}),
+    async run(_input, call) {
+        const listed = await runAction(call, 'device.list', {});
+        return orNote(listed.devices.map(machineDeviceLine), 'This machine has no simulator, emulator or phone right now; the person brings one');
+    }
+});
 
 const stateAction = defineActionVerb('device', {
     name: 'state',
@@ -283,7 +303,7 @@ const launchAction = defineActionVerb('device', {
     }
 });
 
-export const DEVICE_ACTIONS = [stateAction, shotAction, tapAction, swipeAction, buttonAction, typeAction, launchAction] as const;
+export const DEVICE_ACTIONS = [listAction, stateAction, shotAction, tapAction, swipeAction, buttonAction, typeAction, launchAction] as const;
 
 export const DEVICE_SUMMARY =
     'Sees and operates the device under a device node you have a line to: the elements and a picture of its screen, taps, swipes, buttons, text and apps';

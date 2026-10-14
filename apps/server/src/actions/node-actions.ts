@@ -28,6 +28,7 @@ import { checkCwd, checkPath, isInside } from '../canvas/project-paths.ts';
 import { NEW_NODE, VerbRefusal, canvasNamed, field, orNote, snoozedAt, type VerbCall } from '../canvas/verb.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
 import { verbCallOf, type ServerActionContext } from './context.ts';
+import { machineDevice } from './device-actions.ts';
 
 /* The set is closed and short enough to print whole, unlike the Lucide names a view picks from. */
 export const COLOR_LINES: readonly string[] = [['colors', ...NODE_ACCENT_NAMES].join('\t')];
@@ -138,8 +139,15 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
             throw new VerbRefusal('bad-arguments', 'node new draws no frame; ruimte-context node group draws one around nodes');
         }
         const kindLines = [kindLine(kind), EVERY_KIND_LINE];
-        const given: Record<KindFlag, unknown> = { text: input.content, url: input.url, path: input.path, source: input.source, cwd: input.cwd };
-        for (const flag of ['text', 'url', 'path', 'source', 'cwd'] as const) {
+        const given: Record<KindFlag, unknown> = {
+            text: input.content,
+            url: input.url,
+            path: input.path,
+            source: input.source,
+            device: input.device,
+            cwd: input.cwd
+        };
+        for (const flag of ['text', 'url', 'path', 'source', 'device', 'cwd'] as const) {
             if (given[flag] != null && !KIND_FLAGS[kind].includes(flag)) {
                 throw new VerbRefusal('flag-not-for-kind', `--${flag} does not go with a ${kind} node`, kindLines);
             }
@@ -153,6 +161,7 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
         const url = input.url === null ? undefined : checkUrl(input.url);
         const path = input.path === null ? undefined : await checkPath(place.folder, input.path);
         const cwd = input.cwd == null ? undefined : await checkCwd(place.folder, input.cwd, (folder) => host.checkouts.paths(folder));
+        const device = input.device == null ? undefined : await machineDevice(host, input.device);
 
         return host.projects.mutate<{ output: ActionOutput<'node.create'> }>(place.projectId, async (content) => {
             const canvas = canvasNamed(content, input.viewId);
@@ -191,7 +200,7 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
                 : input.at !== null
                   ? { x: Math.round(input.at.x - size.w / 2), y: Math.round(input.at.y - size.h / 2), ...size }
                   : placeFree(canvas.nodes, size, caller);
-            const title = input.title ?? sourceName ?? (path === undefined ? DEFAULT_TITLES[kind] : basename(path));
+            const title = input.title ?? sourceName ?? (path === undefined ? (device?.name ?? DEFAULT_TITLES[kind]) : basename(path));
             if (dryRun === true) {
                 return {
                     content: null,
@@ -223,6 +232,7 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
                 ...(url === undefined ? {} : { url }),
                 ...(path === undefined ? {} : { path: isInside(place.folder, path) ? storedPathOf(place.folder, path) : path }),
                 ...(input.source == null ? {} : { viewId: input.source }),
+                ...(device === undefined ? {} : { device }),
                 ...(cwd === undefined ? {} : { cwd })
             };
             const edge = caller ? openingEdge(caller.id, node, content) : null;

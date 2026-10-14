@@ -257,7 +257,7 @@ export type ComputerHost = Pick<ComputerUse, 'enabled' | 'apps' | 'operate' | 't
 
 export type DeviceDriveHost = Pick<
     DeviceDriver,
-    'find' | 'screen' | 'abilities' | 'tree' | 'shot' | 'tap' | 'tapElement' | 'swipe' | 'button' | 'type' | 'launch'
+    'list' | 'find' | 'screen' | 'abilities' | 'tree' | 'shot' | 'tap' | 'tapElement' | 'swipe' | 'button' | 'type' | 'launch'
 >;
 
 export interface WorktreeHost {

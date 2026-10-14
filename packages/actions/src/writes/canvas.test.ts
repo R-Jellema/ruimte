@@ -31,7 +31,7 @@ describeWrites('canvas', {
         actors: ['person', 'voice', 'agent', 'automation'],
         input: note,
         refused: {
-            'a kind no action makes': { ...note, kind: 'device' },
+            'a kind no action makes': { ...note, kind: 'unknown' },
             'a point without y': { ...note, at: { x: 1 } },
             'a blank address': { ...note, url: '  ' },
             'no title at all': without(note, 'title')
@@ -43,6 +43,7 @@ describeWrites('canvas', {
             source: { value: 'sketch', actors: ['agent'] },
             cwd: { value: 'apps/client', actors: ['person', 'agent'] },
             beside: { value: 'chat-1', actors: ['agent'] },
+            device: { value: 'sim-1', actors: ['agent'] },
             resume: { value: 'session-1', actors: ['person'] },
             issue: { value: { repo: 'basmilius/ruimte', number: 58, url: 'https://github.com/basmilius/ruimte/issues/58' }, actors: ['person'] }
         }

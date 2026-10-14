@@ -86,7 +86,34 @@ async function bootedDevice(context: ServerActionContext, caller: string, nodeId
     return device;
 }
 
+/* One device of this machine as device list prints it, by the id node new device takes. */
+export function machineDeviceLine(device: Pick<DeviceInfo, 'deviceId' | 'name' | 'platform' | 'kind' | 'runtime' | 'state'>): string {
+    return `device\t${device.deviceId}\t${field(device.name)}\t${device.platform}\t${device.kind}\t${field(device.runtime)}\t${device.state}`;
+}
+
+/* The device a new device node shows, by the id device list gives it, as the node keeps it. */
+export async function machineDevice(host: CanvasHost, deviceId: string): Promise<DeviceReference> {
+    const devices = await driverOf(host).list();
+    const device = devices.find((candidate) => candidate.deviceId === deviceId);
+    if (!device) {
+        throw new VerbRefusal(
+            'unknown-device',
+            `${deviceId} is not a device of this machine right now`,
+            orNote(devices.map(machineDeviceLine), 'This machine has no simulator, emulator or phone right now; the person brings one')
+        );
+    }
+    return { platform: device.platform, kind: device.kind, name: device.name, runtime: device.runtime };
+}
+
 export const deviceActions: ActionHandlers<ServerActionContext> = {
+    'device.list': async (_input, { context }) => {
+        const devices = await driverOf(context.host).list();
+        return {
+            output: {
+                devices: devices.map(({ deviceId, platform, kind, name, runtime, state }) => ({ deviceId, platform, kind, name, runtime, state }))
+            }
+        };
+    },
     'device.inspect': async ({ nodeId, find }, { actor, context }) => {
         const reference = await referenceOf(context, actor.id, nodeId);
         const driver = driverOf(context.host);

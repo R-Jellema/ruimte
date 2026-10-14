@@ -31,8 +31,12 @@ import {
     type RuntimeMode,
     type Worktree
 } from '@ruimte/contracts';
+import { ManualTimers } from '../computer/computer-test-helpers.ts';
 import { SESSION_VARIABLES } from '../config.ts';
 import { MAX_SCREEN_LINES } from '../context/context-store.ts';
+import { DeviceDriver } from '../devices/agent-driver.ts';
+import { RecordingBackend, SIMULATOR } from '../devices/device-test-helpers.ts';
+import { DeviceManager } from '../devices/manager.ts';
 import { documentOnDisk, rawPrivateViews, setPrivateViews, projectLinks } from '../projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { DiagramStore } from '../projects/diagram-store.ts';
@@ -100,6 +104,7 @@ let madeWorktrees: Worktree[];
 let removedWorktrees: string[];
 let databases: AgentDatabases;
 let snoozed: Record<string, number>;
+let devices: DeviceDriver;
 
 /* A change the store's own check refuses after the verb had its say: `note-1` a second time, on the board. */
 function withRepeatedId(current: ProjectContent): ProjectContent {
@@ -144,6 +149,7 @@ beforeEach(async () => {
     alerts = [];
     snoozed = {};
     root = await mkdtemp(join(tmpdir(), 'ruimte-verbs-'));
+    devices = new DeviceDriver({ home: root, manager: new DeviceManager([new RecordingBackend()]), timers: new ManualTimers(), sleep: async () => undefined });
     folder = join(root, 'repo');
     outside = join(root, 'elsewhere');
     worktree = join(root, 'worktree');
@@ -281,6 +287,7 @@ function host(): CanvasHost {
             }
         },
         diagrams,
+        devices,
         tasks: {
             open: (record) => tasks.open(record, 1),
             give: (record) => tasks.open(record, 1),
@@ -758,12 +765,17 @@ describe('help', () => {
 describe('refusals', () => {
     test('say what is missing and, for a closed set, what may go there', async () => {
         const cases: Array<{ verb: string; argv: string[]; code: string; message: string }> = [
-            { verb: 'node new', argv: [], code: 'bad-arguments', message: 'node new needs a kind: note, browser, drawing, diagram, file, terminal, chat' },
+            {
+                verb: 'node new',
+                argv: [],
+                code: 'bad-arguments',
+                message: 'node new needs a kind: note, browser, drawing, diagram, file, device, terminal, chat'
+            },
             {
                 verb: 'node new',
                 argv: ['group'],
                 code: 'bad-arguments',
-                message: 'node new needs a kind: note, browser, drawing, diagram, file, terminal, chat'
+                message: 'node new needs a kind: note, browser, drawing, diagram, file, device, terminal, chat'
             },
             {
                 verb: 'node new',
@@ -780,7 +792,7 @@ describe('refusals', () => {
                 verb: 'node new',
                 argv: ['note', '--cmd', 'ls'],
                 code: 'unknown-flag',
-                message: '--cmd is not one of --title, --text, --url, --path, --source, --cwd, --view, --beside, --revision, --dry-run'
+                message: '--cmd is not one of --title, --text, --url, --path, --source, --device, --cwd, --view, --beside, --revision, --dry-run'
             },
             { verb: 'view list', argv: ['--view', 'main'], code: 'unknown-flag', message: '--view is not a flag here; this verb takes none' },
             {
@@ -1093,6 +1105,33 @@ describe('node new', () => {
                 }
             });
         }
+    });
+
+    test('a device of this machine becomes a node under its own name, and the line from the caller lets it operate the device', async () => {
+        expect((await post('device', ['list'])).lines).toEqual(['device\tsim-1\tiPhone 18 Pro\tios\tsimulator\tiOS 27.0\tbooted']);
+        const [id, kind, view, edgeId] = (await post('node', ['new', 'device', '--device', 'sim-1'])).lines[0]!.split('\t');
+        expect([kind, view]).toEqual(['device', 'main']);
+        const canvas = await canvasOnDisk();
+        expect(canvas.nodes.find((node) => node.id === id)).toMatchObject({
+            kind: 'device',
+            title: SIMULATOR.name,
+            ...NODE_SIZE.device,
+            device: { platform: 'ios', kind: 'simulator', name: SIMULATOR.name, runtime: SIMULATOR.runtime }
+        });
+        expect(canvas.edges.find((edge) => edge.id === edgeId)).toEqual({ id: edgeId!, from: 'term-1', to: id!, role: 'origin' });
+        expect((await post('device', ['state', id!])).lines.slice(0, 2)).toEqual([`device\t${id}\tiPhone 18 Pro\tios\tsimulator\tiOS 27.0`, 'state\tbooted']);
+    });
+
+    test('a device node needs a device this machine has, and only a device node takes one', async () => {
+        expect((await post('node', ['new', 'device'])).lines[0]).toStartWith('refused\tmissing-flag\tA device node needs --device');
+        expect((await post('node', ['new', 'device', '--device', 'pixel-9'])).lines).toEqual([
+            'refused\tunknown-device\tpixel-9 is not a device of this machine right now',
+            'device\tsim-1\tiPhone 18 Pro\tios\tsimulator\tiOS 27.0\tbooted'
+        ]);
+        expect((await post('node', ['new', 'note', '--device', 'sim-1'])).lines[0]).toStartWith(
+            'refused\tflag-not-for-kind\t--device does not go with a note node'
+        );
+        expect((await canvasOnDisk()).nodes.some((node) => node.kind === 'device')).toBe(false);
     });
 
     test('a caller that is not a node on that canvas gets no line, and the edge column says so', async () => {

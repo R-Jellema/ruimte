@@ -69,7 +69,7 @@ export const OPEN_GATE: DeviceGate = { admit: () => null, recheck: () => null };
 
 type Manager = Pick<
     DeviceManager,
-    'find' | 'hold' | 'release' | 'input' | 'keys' | 'paste' | 'canType' | 'type' | 'screenshot' | 'action' | 'canTree' | 'tree' | 'closeTree'
+    'list' | 'find' | 'hold' | 'release' | 'input' | 'keys' | 'paste' | 'canType' | 'type' | 'screenshot' | 'action' | 'canTree' | 'tree' | 'closeTree'
 >;
 
 export interface DeviceDriverOptions {
@@ -121,6 +121,10 @@ export class DeviceDriver {
         this.timers = options.timers ?? realTimers;
         this.sleep = options.sleep ?? ((ms) => Bun.sleep(ms));
         this.gate = options.gate ?? OPEN_GATE;
+    }
+
+    list(): Promise<DeviceInfo[]> {
+        return this.manager.list();
     }
 
     find(reference: DeviceReference): Promise<DeviceInfo | null> {

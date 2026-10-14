@@ -25,6 +25,7 @@ import {
     DeviceControlModeSchema,
     DeviceControlPayloadSchema,
     DeviceReferenceSchema,
+    DeviceStateSchema,
     DiagramDirectionSchema,
     DiagramShapeSchema,
     DrawingAlignSchema,
@@ -158,8 +159,11 @@ export function fieldDescription(schema: z.ZodType): string | undefined {
 
 export const ARRANGE_LAYOUTS = ['grid', 'row', 'column'] as const;
 
-/* Kinds a node can only be made as by an agent: each mirrors a view the daemon names with `source`. */
-const AGENT_NODE_KINDS = ['drawing', 'diagram'] as const;
+/*
+ * Kinds a node can only be made as by an agent: a drawing and a diagram mirror a view the daemon names
+ * with `source`, and a device shows one this machine has, named with `device`. A person places a view of each.
+ */
+const AGENT_NODE_KINDS = ['drawing', 'diagram', 'device'] as const;
 
 /* A view only a person makes: a device is picked from a panel of what this machine has attached. */
 const PERSON_VIEW_KINDS = ['device'] as const;
@@ -780,6 +784,7 @@ export const ACTION_DEFINITIONS = {
             ),
             cwd: forActors(PERSON_AND_AGENT, z.string().min(1)).describe('The directory the shell starts in'),
             beside: agentField(nodeId).describe('Puts the node directly right of this node, top edges level, whatever is there already'),
+            device: agentField(z.string().min(1)).describe('The device a device node shows, by the id device.list gives it'),
             resume: resumedSession,
             issue: forActors(PERSON, z.object({ repo: z.string().min(1), number: z.number().int().positive(), url: z.string().min(1) })).describe(
                 'The GitHub issue an agent node is started on, which the node shows as a pill'
@@ -2346,6 +2351,17 @@ export const ACTION_DEFINITIONS = {
                 })
                 .nullable(),
             treeError: z.string().nullable()
+        })
+    },
+    'device.list': {
+        title: 'List devices',
+        description: 'Lists the simulators, emulators and phones this machine has now, whether each runs, and the id a device node is made with.',
+        effect: 'read',
+        domain: 'machine',
+        actors: AGENT,
+        input: z.object({}),
+        output: z.object({
+            devices: z.array(DeviceReferenceSchema.extend({ deviceId: z.string(), state: DeviceStateSchema }))
         })
     },
     'device.screenshot': {
