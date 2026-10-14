@@ -123,7 +123,7 @@ export function NoteNode({ id, focused }: { id: string; focused: boolean }) {
         // An empty note has nothing to read, so the first click may as well put the cursor in it.
         return (
             <button
-                className="h-full w-full cursor-text px-3 py-2.5 text-left text-sm text-text-faint"
+                className="flex h-full w-full cursor-text items-start px-3 py-2.5 text-left text-sm leading-normal text-text-faint"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => canvasStore.getState().activateNode(id)}
             >
