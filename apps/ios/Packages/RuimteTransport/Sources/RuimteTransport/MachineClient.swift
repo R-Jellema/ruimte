@@ -180,6 +180,7 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
     }
     // From `linkOpened` until `connected`; nil while no link is opening.
     private var held: [HeldFrame]?
+    private var features: Set<String> = []
     public private(set) var isConnected: Bool
     public var pendingRequestCount: Int { pending.count }
 
@@ -200,6 +201,17 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
         held = []
     }
 
+    /// The requests the machine names in `endpoint.info`, which `linkOpened` follows.
+    public func setFeatures(_ features: [String]) {
+        self.features = Set(features)
+    }
+
+    /// Whether the machine behind the link names this request. False while no link is open. Check any request newer
+    /// than 0.18.0 here before sending it; never read the refusal of an unknown request.
+    public func answers(_ type: WireRequest) -> Bool {
+        features.contains(type.rawValue)
+    }
+
     public func connected() {
         guard !isConnected else { return }
         isConnected = true
@@ -216,6 +228,7 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
 
     public func disconnected(error: Error? = nil) {
         held = nil
+        features = []
         connectionGeneration += 1
         incoming?.cancel()
         incoming = nil

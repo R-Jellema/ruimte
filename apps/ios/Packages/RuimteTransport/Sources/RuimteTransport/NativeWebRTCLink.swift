@@ -23,6 +23,7 @@ import RuimtePulsar
     private var assembler = FrameAssembler()
     private var binaryAssembler = BinaryFrameAssembler()
     private var liveness: ChannelLiveness?
+    private var gate: ProtocolGate?
     private var receivedBytes: Double?
     private var reportedRoute: LinkRoute?
     private var sampling = false
@@ -263,7 +264,7 @@ import RuimtePulsar
         case .partial: break
         case .frame(let frame):
             if frame.utf16.count > 1_024 * 1_024 { trace("received large frame: \(frame.utf16.count) UTF-16 units") }
-            if authenticated { events.message(frame); return }
+            if authenticated { gate?.receive(frame); return }
             do { try handshake(JSONValue.decode(Data(frame.utf8))) } catch { end(error) }
         }
     }
@@ -307,8 +308,18 @@ import RuimtePulsar
         signaling = nil
         liveness = ChannelLiveness(now: now)
         scheduleTick()
-        events.opened()
-        report(signalingRoute == .localNetwork ? .localNetwork : .broker)
+        let gate = ProtocolGate(
+            send: { [weak self] in try self?.sendFrame($0) },
+            open: { [weak self] features in
+                guard let self, !ended else { return }
+                events.features(features)
+                events.opened()
+                report(signalingRoute == .localNetwork ? .localNetwork : .broker)
+            },
+            message: { [weak self] in self?.events.message($0) },
+            refuse: { [weak self] in self?.end($0) })
+        self.gate = gate
+        gate.start()
     }
 
     private func report(_ route: LinkRoute) {

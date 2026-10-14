@@ -87,7 +87,8 @@ final class SharedMachineSession {
                 problem = error?.localizedDescription
                 discardIdleChats()
                 rpc.disconnected(error: error)
-            }, route: { [weak self] in self?.route = $0 }, progress: { [weak self] in self?.rpc.heard() })
+            }, route: { [weak self] in self?.route = $0 }, features: { [weak self] in self?.rpc.setFeatures($0) },
+            progress: { [weak self] in self?.rpc.heard() })
         lease = runtime.connections.hold(
             machineID: machine.id,
             open: { [weak runtime, machine] events in

@@ -1,0 +1,62 @@
+import Foundation
+import RuimtePulsar
+
+/// The check on a link before it opens, the counterpart of `protocolGate` in the desktop client. It asks
+/// `endpoint.info` and refuses a machine that does not name its features, since 0.18.0 is the oldest machine a
+/// client talks to. Frames that arrive before the answer are held and delivered once the link is open.
+@MainActor public final class ProtocolGate {
+    /// A request id the link never hands out, since its own ids are UUIDs.
+    static let requestID = "protocol"
+
+    /// What a person reads when a machine is refused as older, here and at the direct handshake.
+    nonisolated static var olderMachine: String {
+        String(localized: "This machine runs an older Ruimte. Update Ruimte there, or restart it to pick up the update.", bundle: .module)
+    }
+
+    private let send: (String) throws -> Void
+    private let open: ([String]) -> Void
+    private let message: (String) -> Void
+    private let refuse: (Error) -> Void
+    private var checked = false
+    private var held: [String] = []
+
+    public init(
+        send: @escaping (String) throws -> Void, open: @escaping ([String]) -> Void,
+        message: @escaping (String) -> Void, refuse: @escaping (Error) -> Void
+    ) {
+        self.send = send
+        self.open = open
+        self.message = message
+        self.refuse = refuse
+    }
+
+    /// Asks the machine; call it once the link can carry requests.
+    public func start() {
+        let frame = JSONValue.object(["id": .string(Self.requestID), "type": .string("endpoint.info"), "payload": .object([:])])
+        do { try send(String(decoding: try frame.encoded(), as: UTF8.self)) } catch { refuse(error) }
+    }
+
+    public func receive(_ text: String) {
+        if checked {
+            message(text)
+            return
+        }
+        guard let frame = try? JSONValue.decode(Data(text.utf8)), frame["id"]?.stringValue == Self.requestID else {
+            held.append(text)
+            return
+        }
+        checked = true
+        // A refused `endpoint.info` is a machine this check cannot judge; it opens with no features.
+        let answered = frame["ok"]?.boolValue == true
+        let features = answered ? frame["result"]?["features"]?.arrayValue : []
+        guard let features else {
+            held.removeAll()
+            refuse(TransportFailure.invalid(Self.olderMachine))
+            return
+        }
+        open(features.compactMap(\.stringValue))
+        let delivered = held
+        held.removeAll()
+        for entry in delivered { message(entry) }
+    }
+}

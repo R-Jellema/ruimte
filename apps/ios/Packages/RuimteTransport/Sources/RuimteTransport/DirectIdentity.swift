@@ -57,7 +57,7 @@ public enum DirectIdentity {
         guard challenge["protocol"]?.numberValue == Double(WireConstants.protocolVersion) else {
             let olderMachine = (challenge["protocol"]?.numberValue ?? -1) < Double(WireConstants.protocolVersion)
             throw TransportFailure.invalid(olderMachine
-                ? String(localized: "This machine runs an older Ruimte. Update Ruimte there, or restart it to pick up the update.", bundle: .module)
+                ? ProtocolGate.olderMachine
                 : String(localized: "This machine runs a newer Ruimte than this app. Update this app.", bundle: .module))
         }
         let daemon = try field(challenge, "daemon")
