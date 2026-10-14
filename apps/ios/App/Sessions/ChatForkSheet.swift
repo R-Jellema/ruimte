@@ -16,7 +16,6 @@ struct ChatForkSheet: View {
     @State private var shape: ChatForkShape = .node
     /// Nil while the machine is asked; a machine that cannot say offers no worktree.
     @State private var folder: JSONValue?
-    @State private var unsupported = false
     @State private var inWorktree = true
     @State private var branch: String?
     @State private var filesAfterTurn = true
@@ -54,7 +53,7 @@ struct ChatForkSheet: View {
     }
     private var chosenModel: String { modelSlug ?? info?.selection.model ?? "" }
     private var ready: Bool {
-        !unsupported && refusal == nil && point != nil && folder != nil && branchProblem == nil
+        refusal == nil && point != nil && folder != nil && branchProblem == nil
             && !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
@@ -153,9 +152,7 @@ struct ChatForkSheet: View {
     }
 
     @ViewBuilder private var folderSection: some View {
-        if unsupported {
-            Section { Text("Update Ruimte on this machine to fork conversations.").foregroundStyle(MobileStyle.muted) }
-        } else if folder == nil {
+        if folder == nil {
             Section {
                 HStack(spacing: 10) {
                     ProgressView()
@@ -233,7 +230,6 @@ struct ChatForkSheet: View {
                 "chat.forkInfo", payload: .object(["chatId": .string(model.chatID), "turnId": .string(turnID)]))
         } catch is CancellationError {
         } catch {
-            if ChatForking.isUnknownRequest(error) { unsupported = true }
             folder = .object(["repository": .bool(false), "branches": .array([]), "filesAfterTurn": .bool(false)])
         }
     }
@@ -257,8 +253,7 @@ struct ChatForkSheet: View {
             dismiss()
             forked(result.text("nodeId"))
         } catch {
-            failure = ChatForking.message(
-                for: error, update: String(localized: "Update Ruimte on this machine to fork conversations."))
+            failure = error.localizedDescription
         }
     }
 }

@@ -16,25 +16,7 @@ final class DocumentSceneTests: XCTestCase {
         }
     }
 
-    @MainActor func testOlderDaemonOpensDocumentAndRendersWithTheBundledRenderer() async throws {
-        for fixture in try fixtures() {
-            let kind = try XCTUnwrap(fixture["kind"]?.stringValue)
-            let client = DocumentSceneClient()
-            client.failure = .server(code: "unknown-request", message: "Unknown request type")
-            client.document = fixture["document"]!
-            let result = try await DocumentSceneLoader.load(
-                client: client, projectID: "project", viewID: "view", kind: kind)
-            XCTAssertEqual(result, fixture["scene"])
-            XCTAssertEqual(
-                client.requests.map(\.0), [kind == "drawing" ? "drawing.paths" : "diagram.layout", kind + ".open"])
-            XCTAssertTrue(
-                client.requests.allSatisfy {
-                    $0.1 == .object(["projectId": .string("project"), "viewId": .string("view")])
-                })
-        }
-    }
-
-    @MainActor func testModernDaemonUsesItsSceneWithoutOpeningTheDocumentAgain() async throws {
+    @MainActor func testTheMachinesSceneIsUsedWithoutOpeningTheDocument() async throws {
         let client = DocumentSceneClient()
         let result = try await DocumentSceneLoader.load(
             client: client, projectID: "project", viewID: "view", kind: "drawing")

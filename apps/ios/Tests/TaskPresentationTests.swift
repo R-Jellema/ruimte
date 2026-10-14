@@ -59,7 +59,7 @@ final class TaskPresentationTests: XCTestCase {
 
 @MainActor private final class TaskListMachine: MachineRequesting {
     func request(_ type: String, payload: JSONValue) async throws -> JSONValue {
-        throw MachineClientError.server(code: "unknown-request", message: "Unknown request")
+        throw MachineClientError.server(code: "internal", message: "Failed")
     }
     func subscribe(_ event: String, handler: @escaping @MainActor @Sendable (JSONValue) -> Void) -> () -> Void { {} }
 }

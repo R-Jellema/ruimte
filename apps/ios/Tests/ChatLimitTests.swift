@@ -126,20 +126,20 @@ import XCTest
         XCTAssertEqual(machine.requests.last?.1, .object(["chatId": .string("chat"), "resumeAtReset": .bool(false)]))
     }
 
-    func testAMachineWithoutContinueOnSaysItNeedsAnUpdate() async {
+    func testAFailedContinueOnSaysWhichAccountItWas() async {
         let machine = LimitMachine()
-        machine.unknown = true
+        machine.refuses = true
         let model = ChatModel(client: machine, chatID: "chat", machineID: "mac")
         model.connected = true
         _ = await model.continueOn(ProviderAccountEntry(id: "work", kind: "claude"))
-        XCTAssertEqual(model.error, "Update Ruimte on this machine to continue on another account.")
+        XCTAssertEqual(model.error, "Could not continue on work. Busy")
     }
 }
 
 @MainActor private final class LimitMachine: MachineRequesting {
     var requests: [(String, JSONValue)] = []
     var fork = false
-    var unknown = false
+    var refuses = false
     var workRead = true
     let accounts = ProviderAccountList(entries: [
         ProviderAccountEntry(id: "claude", kind: "claude", state: "ready"),
@@ -148,7 +148,7 @@ import XCTest
 
     func request(_ type: String, payload: JSONValue) async throws -> JSONValue {
         requests.append((type, payload))
-        if unknown { throw MachineClientError.server(code: "unknown-request", message: "Unknown request") }
+        if refuses { throw MachineClientError.server(code: "chat-busy", message: "Busy") }
         switch type {
         case "usage.limits", "usage.refreshLimits":
             let window = JSONValue.object([

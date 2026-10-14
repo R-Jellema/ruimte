@@ -122,15 +122,6 @@ final class ChatForkingTests: XCTestCase {
         XCTAssertEqual(ChatForking.noteParts("One line").rest, "")
     }
 
-    func testAnOlderMachineIsAskedToUpdate() {
-        let old = MachineClientError.server(code: "unknown-request", message: "Unknown request type: chat.fork")
-        XCTAssertTrue(ChatForking.isUnknownRequest(old))
-        XCTAssertEqual(
-            ChatForking.message(for: old, update: "Update Ruimte on this machine to fork conversations."),
-            "Update Ruimte on this machine to fork conversations.")
-        XCTAssertFalse(ChatForking.isUnknownRequest(MachineClientError.server(code: "chat-busy", message: "Busy")))
-    }
-
     @MainActor func testMessageIndexListsPersonMessagesAndWakeTurns() {
         let presentation = ChatPresentation()
         presentation.replace(
@@ -204,7 +195,7 @@ final class ChatForkingTests: XCTestCase {
 
     func request(_ type: String, payload: JSONValue) async throws -> JSONValue {
         XCTAssertEqual(type, "chat.list")
-        if fails { throw MachineClientError.server(code: "unknown-request", message: "Unknown") }
+        if fails { throw MachineClientError.server(code: "internal", message: "Failed") }
         return .object([
             "chats": .array([
                 .object([

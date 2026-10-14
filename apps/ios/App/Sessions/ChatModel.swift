@@ -17,9 +17,9 @@ final class ChatModel {
     var items: [ChatItem] = []
     private(set) var messageCount = 0
     private(set) var pending: [ChatItem] = []
-    /// Whether the thread holds a subagent row, and one with a pointer of its own; kept apart from `items` so the
-    /// screen does not observe every streamed delta.
-    private(set) var subagentRows = (any: false, native: false)
+    /// Whether the thread holds a subagent row; kept apart from `items` so the screen does not observe every
+    /// streamed delta.
+    private(set) var hasSubagentRows = false
     /// Moves only when a subagent row or the work under one changes, unlike `revision`, which moves on every streamed
     /// word.
     private(set) var subagentRevision = 0
@@ -48,8 +48,6 @@ final class ChatModel {
     var continuing = false
     /// When the chat's snooze runs out, epoch ms; nil while it has none.
     var snoozedUntil: Double?
-    /// False for a machine from before snoozes, which then offers none.
-    var snoozeAvailable = false
     @ObservationIgnored private let activity = ChatActivityDerivation()
     /// The sub-agents the composer's chip speaks for, derived again only when a subagent row or the thread's length
     /// moves, so a reader does not observe every streamed word.
@@ -116,8 +114,8 @@ final class ChatModel {
     private func refreshPending() {
         messageCount = items.count
         let rows = items.compactMap(\.subagentItem).filter { !$0.toolUseId.isEmpty }
-        let next = (any: !rows.isEmpty, native: rows.contains { $0.native != nil })
-        if next != subagentRows { subagentRows = next }
+        let next = !rows.isEmpty
+        if next != hasSubagentRows { hasSubagentRows = next }
         let visibleIDs = Set(items.map(\.id))
         let requests =
             history.pending.values.filter { !visibleIDs.contains($0.id) }.sorted { $0.id < $1.id }

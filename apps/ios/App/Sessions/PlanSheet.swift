@@ -268,8 +268,7 @@ struct PlanSheet: View {
             do {
                 try await store.apply(chatID: chatID, planID: plan.id, ops: ops)
             } catch {
-                failure = ChatForking.message(
-                    for: error, update: String(localized: "Update Ruimte on this machine to check off plans."))
+                failure = error.localizedDescription
             }
         }
     }

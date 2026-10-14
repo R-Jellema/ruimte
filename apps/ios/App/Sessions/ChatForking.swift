@@ -212,19 +212,6 @@ enum ChatForking {
             String(text[..<range.lowerBound]), text[range.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
         )
     }
-
-    /// What a failed request says, with the one refusal an older machine gives its own wording, `update`.
-    static func message(for error: Error, update: String) -> String {
-        if case MachineClientError.server(code: "unknown-request", message: _) = error {
-            return update
-        }
-        return error.localizedDescription
-    }
-
-    static func isUnknownRequest(_ error: Error) -> Bool {
-        if case MachineClientError.server(code: "unknown-request", message: _) = error { return true }
-        return false
-    }
 }
 
 /// Where the chats of a project stand and how to get there, for the rows of a timeline that lead to another chat.

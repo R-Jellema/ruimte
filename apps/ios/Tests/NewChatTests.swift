@@ -46,15 +46,12 @@ import XCTest
         XCTAssertEqual(machine.requests.last?.1, .object(["provider": .string("claude")]))
     }
 
-    func testTheRefusalsAPersonCanActOnAreSaidInTheirWords() async {
+    func testTheRefusalAPersonCanActOnIsSaidInTheirWords() async {
         let machine = NewChatMachine()
         let model = NewChatModel(client: machine, machineID: "mac", preferences: preferences)
-        machine.refusal = "unknown-request"
-        let older = await model.start(provider: "claude")
-        XCTAssertNil(older)
-        XCTAssertEqual(model.problem, "Update Ruimte on this machine to start chats outside a project.")
         machine.refusal = "scratch-unavailable"
-        _ = await model.start(provider: "claude")
+        let place = await model.start(provider: "claude")
+        XCTAssertNil(place)
         XCTAssertEqual(
             model.problem,
             "This machine keeps its Ruimte folder inside a git checkout, so it cannot hold chats outside a project.")

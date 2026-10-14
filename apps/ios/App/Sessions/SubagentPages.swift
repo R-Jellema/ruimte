@@ -38,9 +38,7 @@ struct SubagentListPage: View {
     @State private var derived = SubagentListDerivation()
 
     var body: some View {
-        let lists = derived.lists(
-            revision: model.subagentRevision, machineRefused: model.presentation.subagentsRefused
-        ) { model.items }
+        let lists = derived.lists(revision: model.subagentRevision) { model.items }
         let work = lists.work
         List {
             section(String(localized: "Active", comment: "Sub-agents that still run"), items: lists.active, work: work)
@@ -82,7 +80,7 @@ struct SubagentListPage: View {
                     let task = taskID.flatMap { tasks?.task($0) }
                     SubagentEntryRow(
                         item: item, task: task, work: work[item.toolUseId] ?? [], client: model.client,
-                        chatID: model.chatID, machineRefused: model.presentation.subagentsRefused
+                        chatID: model.chatID
                     ) {
                         opened = SubagentCrumb(item)
                     }
@@ -162,17 +160,17 @@ extension ChatModel {
         var isEmpty: Bool { active.isEmpty && done.isEmpty }
     }
 
-    private var key: (revision: Int, machineRefused: Bool)?
+    private var key: Int?
     private var cached = Lists()
     private(set) var derivations = 0
 
-    func lists(revision: Int, machineRefused: Bool, items: () -> [ChatItem]) -> Lists {
-        if let key, key.revision == revision, key.machineRefused == machineRefused { return cached }
-        key = (revision, machineRefused)
+    func lists(revision: Int, items: () -> [ChatItem]) -> Lists {
+        if key == revision { return cached }
+        key = revision
         derivations += 1
         let all = items()
         let work = ChatSubagents.threadWork(all)
-        let sections = ChatSubagents.sections(ChatSubagents.openable(all, machineRefused: machineRefused), work: work)
+        let sections = ChatSubagents.sections(ChatSubagents.openable(all), work: work)
         cached = Lists(active: sections.active, done: sections.done, work: work)
         return cached
     }
@@ -184,14 +182,13 @@ private struct SubagentEntryRow: View {
     let work: [ChatItem]
     let client: any MachineRequesting
     let chatID: String
-    let machineRefused: Bool
     let open: () -> Void
     @State private var tail: SubagentConversation?
 
     // The newest end is all an entry shows, so a few items are enough to find the last call or reply in.
     private static let tailPage = 10
 
-    private var needsTail: Bool { ChatSubagents.needsTail(item, work: work, machineRefused: machineRefused) }
+    private var needsTail: Bool { ChatSubagents.needsTail(item, work: work) }
 
     var body: some View {
         let word = ChatSubagents.statusWord(item, task: task)
@@ -388,7 +385,7 @@ struct SubagentConversationPage: View {
                 } description: {
                     Text(conversation.error ?? String(localized: "The machine did not answer."))
                 } actions: {
-                    if !conversation.unsupported { Button("Retry") { conversation.refresh() } }
+                    Button("Retry") { conversation.refresh() }
                 }
             case .ready where conversation.items.isEmpty:
                 ContentUnavailableView(
@@ -413,12 +410,8 @@ struct SubagentConversationPage: View {
         .navigationDestination(item: $presentation.conversationRequest) { nested in
             SubagentConversationPage(model: model, crumb: nested, session: session)
         }
-        .onChange(of: conversation.unsupported) { _, unsupported in
-            if unsupported { parent.subagentsRefused = true }
-        }
         .onAppear {
             let cwd = model.info?.cwd ?? ""
-            presentation.subagentsRefused = parent.subagentsRefused
             presentation.setCwd(cwd)
             conversation.onChange = { [presentation] change in
                 switch change {

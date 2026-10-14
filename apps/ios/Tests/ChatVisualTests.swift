@@ -142,14 +142,6 @@ import XCTest
         XCTAssertEqual(removal?.1["visualId"], .string("v1"))
     }
 
-    func testAMachineWithoutVisualsSaysItNeedsAnUpdate() async {
-        let machine = VisualMachine()
-        machine.unknown = true
-        let model = ChatModel(client: machine, chatID: "chat")
-        await model.removeVisual("v1")
-        XCTAssertEqual(model.error, "Update Ruimte on this machine to remove visuals.")
-    }
-
     func testTheMeasuredHeightIsTheContractsOwn() throws {
         let cases = try XCTUnwrap(Self.fixture()["heights"] as? [[String: Any]])
         XCTAssertFalse(cases.isEmpty)
@@ -367,13 +359,11 @@ import XCTest
 
 @MainActor private final class VisualMachine: MachineRequesting {
     var requests: [(String, JSONValue)] = []
-    var unknown = false
     var visuals: [JSONValue] = []
     private var handlers: [String: [@MainActor @Sendable (JSONValue) -> Void]] = [:]
 
     func request(_ type: String, payload: JSONValue) async throws -> JSONValue {
         requests.append((type, payload))
-        if unknown { throw MachineClientError.server(code: "unknown-request", message: "Unknown request") }
         if type == "chat.removeVisual" { visuals.removeAll { $0["id"] == payload["visualId"] } }
         return .object(["visuals": .array(visuals)])
     }

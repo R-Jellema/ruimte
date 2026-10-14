@@ -60,7 +60,7 @@ final class ChatSubagentsTests: XCTestCase {
         model.attached(
             .object(["info": ChatWire.info(), "items": .array([agentValue("a", started: 10), reply])]), since: nil)
         let derived = SubagentListDerivation()
-        let lists = { derived.lists(revision: model.subagentRevision, machineRefused: false) { model.items } }
+        let lists = { derived.lists(revision: model.subagentRevision) { model.items } }
         XCTAssertEqual(lists().active.map(\.id), ["a"])
         model.receive(.object(["type": .string("delta"), "itemId": .string("reply"), "text": .string(" there")]))
         _ = lists()
@@ -90,11 +90,9 @@ final class ChatSubagentsTests: XCTestCase {
         XCTAssertEqual(ChatSubagents.facts(one, locale: locale), ["1 tool call"])
     }
 
-    @MainActor func testOnlyARowWithAPointerOpensOnAMachineThatRefused() {
-        let native = agent("n", extra: ["native": .object(["agentId": .string("x")])])
-        XCTAssertTrue(ChatSubagents.canOpen(agent("a"), machineRefused: false))
-        XCTAssertFalse(ChatSubagents.canOpen(agent("a"), machineRefused: true))
-        XCTAssertTrue(ChatSubagents.canOpen(native, machineRefused: true))
+    @MainActor func testOnlyARowWithAToolUseIDOpens() {
+        XCTAssertTrue(ChatSubagents.canOpen(agent("a")))
+        XCTAssertFalse(ChatSubagents.canOpen(agent("a", extra: ["toolUseId": .string("")])))
     }
 
     @MainActor func testACancelledTaskReadsAsCancelledRatherThanFailed() {
@@ -112,8 +110,8 @@ final class ChatSubagentsTests: XCTestCase {
             "h", parent: "use-a", name: "SubagentHandback", created: 4,
             input: .object(["message": .string("## Done\n**All** tests [pass](https://x)")]))
         XCTAssertEqual(ChatSubagents.preview(row, work: [handback], tail: nil), .text("Done All tests pass"))
-        XCTAssertTrue(ChatSubagents.needsTail(row, work: [], machineRefused: false))
-        XCTAssertFalse(ChatSubagents.needsTail(row, work: [handback], machineRefused: false))
+        XCTAssertTrue(ChatSubagents.needsTail(row, work: []))
+        XCTAssertFalse(ChatSubagents.needsTail(row, work: [handback]))
         XCTAssertEqual(
             ChatSubagents.preview(
                 agent("b", status: "done", extra: ["result": .string("Fixed it")]), work: [], tail: nil),

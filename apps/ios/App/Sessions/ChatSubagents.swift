@@ -80,13 +80,12 @@ enum ChatSubagents {
             ?? String(localized: "Sub-agent")
     }
 
-    /// A row without a pointer of its own can only be opened by a machine that answers `chat.subagent` for it.
-    static func canOpen(_ agent: ChatSubagentItem, machineRefused: Bool) -> Bool {
-        !agent.toolUseId.isEmpty && (agent.native != nil || !machineRefused)
+    static func canOpen(_ agent: ChatSubagentItem) -> Bool {
+        !agent.toolUseId.isEmpty
     }
 
-    static func openable(_ items: [ChatItem], machineRefused: Bool) -> [ChatSubagentItem] {
-        items.compactMap(\.subagentItem).filter { canOpen($0, machineRefused: machineRefused) }
+    static func openable(_ items: [ChatItem]) -> [ChatSubagentItem] {
+        items.compactMap(\.subagentItem).filter(canOpen)
     }
 
     /// The sub-agents the composer's chip speaks for, as the desktop's `flyoutSubagents` picks them: every running
@@ -245,9 +244,9 @@ enum ChatSubagents {
 
     /// Whether the entry reads the newest end of the conversation from the machine: only when the parent's thread
     /// does not hold its latest step, which is a task, a Codex agent and a Claude agent past what the thread keeps.
-    static func needsTail(_ agent: ChatSubagentItem, work: [ChatItem], machineRefused: Bool) -> Bool {
+    static func needsTail(_ agent: ChatSubagentItem, work: [ChatItem]) -> Bool {
         (agent.status == .running || reportIsNotice(agent, work: work))
-            && !threadHasLatest(agent, work: work) && canOpen(agent, machineRefused: machineRefused)
+            && !threadHasLatest(agent, work: work) && canOpen(agent)
     }
 
     static func preview(_ agent: ChatSubagentItem, work: [ChatItem], tail: [ChatItem]?) -> SubagentPreview? {
@@ -398,8 +397,6 @@ final class SubagentConversation {
     private(set) var live = false
     private(set) var loadingEarlier = false
     private(set) var error: String?
-    /// The machine answered that it knows no such request, which is a machine from before sub-agent conversations.
-    private(set) var unsupported = false
     @ObservationIgnored var onChange: (Change) -> Void = { _ in }
     @ObservationIgnored private let client: any MachineRequesting
     @ObservationIgnored private let chatID: String
@@ -514,7 +511,6 @@ final class SubagentConversation {
         } catch is CancellationError {
         } catch {
             if status == .ready, error as? MachineClientError == .disconnected { return }
-            if case MachineClientError.server(code: "unknown-request", message: _) = error { unsupported = true }
             status = .failed
             self.error = error.localizedDescription
         }

@@ -121,8 +121,7 @@ extension ChatModel {
             error = nil
             return true
         } catch {
-            self.error = ChatForking.message(
-                for: error, update: String(localized: "Update Ruimte on this machine to keep bookmarks."))
+            self.error = error.localizedDescription
             return false
         }
     }

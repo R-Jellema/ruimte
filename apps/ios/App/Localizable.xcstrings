@@ -392,16 +392,6 @@
         }
       }
     },
-    "Update Ruimte on this machine to remove visuals." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om visualisaties te verwijderen."
-          }
-        }
-      }
-    },
     "Via broker" : {
       "comment" : "A machine reached through the broker",
       "localizations" : {
@@ -18336,16 +18326,6 @@
         }
       }
     },
-    "The machine did not return a document." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "De machine stuurde geen document terug."
-          }
-        }
-      }
-    },
     "The machine did not say where the chat is." : {
       "localizations" : {
         "nl" : {
@@ -19946,102 +19926,12 @@
         }
       }
     },
-    "Update Ruimte on this machine to ask a fork for a summary." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om een fork een samenvatting te laten maken."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to check off plans." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om plannen af te vinken."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to continue on another account." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om verder te gaan met een ander account."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to end a snooze." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om een snooze te beëindigen."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to fork conversations." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om gesprekken te forken."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to keep bookmarks." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om bladwijzers te bewaren."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to resume chats at a reset." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om chats bij een reset te hervatten."
-          }
-        }
-      }
-    },
     "Update Ruimte on this machine to see its processes on the phone." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Werk Ruimte op deze machine bij om zijn processen op de telefoon te zien."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to snooze a chat." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om een chat te snoozen."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to start chats outside a project." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om chats buiten een project te starten."
           }
         }
       }

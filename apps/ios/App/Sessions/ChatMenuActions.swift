@@ -77,13 +77,10 @@ extension ChatModel {
     }
 
     func readSnoozes() async {
-        do {
-            let result = try await client.request(WireRequest.snoozeList.rawValue, payload: .object([:]))
-            snoozeAvailable = true
-            snoozedUntil = ChatSnooze.until(of: chatID, in: result)
-        } catch {
-            snoozeAvailable = !ChatForking.isUnknownRequest(error)
+        guard let result = try? await client.request(WireRequest.snoozeList.rawValue, payload: .object([:])) else {
+            return
         }
+        snoozedUntil = ChatSnooze.until(of: chatID, in: result)
     }
 
     func snooze(_ choice: ChatSnoozeChoice, now: Date = .now) async {
@@ -94,8 +91,7 @@ extension ChatModel {
             snoozedUntil = until.timeIntervalSince1970 * 1000
             error = nil
         } catch {
-            self.error = ChatForking.message(
-                for: error, update: String(localized: "Update Ruimte on this machine to snooze a chat."))
+            self.error = error.localizedDescription
         }
     }
 
@@ -106,8 +102,7 @@ extension ChatModel {
             snoozedUntil = nil
             error = nil
         } catch {
-            self.error = ChatForking.message(
-                for: error, update: String(localized: "Update Ruimte on this machine to end a snooze."))
+            self.error = error.localizedDescription
         }
     }
 

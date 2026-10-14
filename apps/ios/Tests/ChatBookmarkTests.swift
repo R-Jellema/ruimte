@@ -70,15 +70,6 @@ import XCTest
         XCTAssertEqual(machine.requests[0].1["chatId"], .string("chat"))
     }
 
-    func testAMachineWithoutBookmarksSaysItNeedsAnUpdate() async {
-        let machine = BookmarkMachine()
-        machine.unknown = true
-        let model = ChatModel(client: machine, chatID: "chat")
-        let added = await model.addBookmark("m1")
-        XCTAssertFalse(added)
-        XCTAssertEqual(model.error, "Update Ruimte on this machine to keep bookmarks.")
-    }
-
     func testTheListOfAnotherClientArrivesAsAnEvent() {
         let machine = BookmarkMachine()
         let model = ChatModel(client: machine, chatID: "chat")
@@ -122,13 +113,11 @@ import XCTest
 
 @MainActor private final class BookmarkMachine: MachineRequesting {
     var requests: [(String, JSONValue)] = []
-    var unknown = false
     private var bookmarks: [String: JSONValue] = [:]
     private var handlers: [String: [@MainActor @Sendable (JSONValue) -> Void]] = [:]
 
     func request(_ type: String, payload: JSONValue) async throws -> JSONValue {
         requests.append((type, payload))
-        if unknown { throw MachineClientError.server(code: "unknown-request", message: "Unknown request") }
         let id = payload["itemId"]?.stringValue ?? ""
         switch type {
         case "chat.addBookmark", "chat.renameBookmark":

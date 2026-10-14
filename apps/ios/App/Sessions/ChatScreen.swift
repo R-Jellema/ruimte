@@ -391,7 +391,7 @@ struct ChatScreen: View {
                     renaming = true
                 }
             }
-            if model.snoozeAvailable { snoozeItems }
+            snoozeItems
         }
         .disabled(!isPrepared)
         Section {
@@ -483,8 +483,7 @@ struct ChatScreen: View {
                 _ = try await model.client.request("chat.summarize", payload: model.target())
                 model.error = nil
             } catch {
-                model.error = ChatForking.message(
-                    for: error, update: String(localized: "Update Ruimte on this machine to ask a fork for a summary."))
+                model.error = error.localizedDescription
             }
         }
     }
@@ -527,7 +526,7 @@ struct ChatScreen: View {
 
     /// The toolbar offers the list only once the chat has a sub-agent to open.
     private var hasSubagents: Bool {
-        model.presentation.subagentsRefused ? model.subagentRows.native : model.subagentRows.any
+        model.hasSubagentRows
     }
 
     private var hasDraft: Bool {

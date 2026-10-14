@@ -106,7 +106,7 @@ struct ChatActivityChips: View {
                         Image(lucide: Self.icon(word), size: 16)
                     }
                 }
-                .disabled(!ChatSubagents.canOpen(item, machineRefused: model.presentation.subagentsRefused))
+                .disabled(!ChatSubagents.canOpen(item))
             }
         }
         Section {

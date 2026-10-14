@@ -62,8 +62,6 @@ final class ChatPresentation {
     private(set) var requestedItemID: String?
     /// A subagent row asked to open its conversation; the screen that shows this timeline pushes it.
     var conversationRequest: SubagentCrumb?
-    /// The machine answered that it cannot read a subagent's conversation, so only rows with a pointer open.
-    var subagentsRefused = false
     /// Whether this is a chat's own thread, which can fork; a sub-agent's thread in its place cannot.
     @ObservationIgnored var forkable = false
     /// A row asked to fork after this turn; the screen shows the fork sheet.

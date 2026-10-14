@@ -11,7 +11,7 @@ struct ChatSubagentRow: View {
     @State private var showingResult = false
     private var running: Bool { item.status == .running }
     private var expanded: Bool { !opens && presentation.expandedSubagents.contains(item.id) }
-    private var opens: Bool { ChatSubagents.canOpen(item, machineRefused: presentation.subagentsRefused) }
+    private var opens: Bool { ChatSubagents.canOpen(item) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {

@@ -44,7 +44,6 @@ final class NewChatModel {
         } catch {
             problem = error.localizedDescription
         }
-        // A machine from before accounts does not know the request; its chats run on each CLI's own account.
         accounts = (try? await client.request(WireRequest.accountsList.rawValue, payload: .object([:])))
             .map(ProviderAccountList.init)
     }
@@ -81,18 +80,13 @@ enum NewChat {
         return .object(values)
     }
 
-    /// The two refusals a machine gives that a person can do something about, in their own words.
+    /// The refusal a machine gives that a person can do something about, in their own words.
     static func message(for error: Error) -> String {
-        if case MachineClientError.server(let code, _) = error {
-            if code == "unknown-request" {
-                return String(localized: "Update Ruimte on this machine to start chats outside a project.")
-            }
-            if code == "scratch-unavailable" {
-                return String(
-                    localized:
-                        "This machine keeps its Ruimte folder inside a git checkout, so it cannot hold chats outside a project."
-                )
-            }
+        if case MachineClientError.server(code: "scratch-unavailable", message: _) = error {
+            return String(
+                localized:
+                    "This machine keeps its Ruimte folder inside a git checkout, so it cannot hold chats outside a project."
+            )
         }
         return error.localizedDescription
     }

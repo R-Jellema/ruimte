@@ -108,12 +108,7 @@ extension ChatModel {
             return result["fork"]?["nodeId"]?.stringValue
         } catch {
             let name = account.name(provider: usageProviderName(provider))
-            self.error =
-                ChatForking.isUnknownRequest(error)
-                ? ChatForking.message(
-                    for: error,
-                    update: String(localized: "Update Ruimte on this machine to continue on another account."))
-                : String(localized: "Could not continue on \(name). \(error.localizedDescription)")
+            self.error = String(localized: "Could not continue on \(name). \(error.localizedDescription)")
             return nil
         }
     }
@@ -123,8 +118,7 @@ extension ChatModel {
             _ = try await client.request("chat.configure", payload: target(["resumeAtReset": .bool(on)]))
             error = nil
         } catch {
-            self.error = ChatForking.message(
-                for: error, update: String(localized: "Update Ruimte on this machine to resume chats at a reset."))
+            self.error = error.localizedDescription
         }
     }
 

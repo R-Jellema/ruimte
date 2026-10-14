@@ -210,8 +210,7 @@ extension ChatModel {
             presentation.setVisuals(ChatVisuals.parse(result.list("visuals")))
             error = nil
         } catch {
-            self.error = ChatForking.message(
-                for: error, update: String(localized: "Update Ruimte on this machine to remove visuals."))
+            self.error = error.localizedDescription
         }
     }
 }

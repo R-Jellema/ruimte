@@ -12,16 +12,7 @@ enum DocumentSceneLoader {
             throw MachineClientError.invalid(String(localized: "Unsupported document kind."))
         }
         let payload: JSONValue = .object(["projectId": .string(projectID), "viewId": .string(viewID)])
-        do {
-            return try await client.request(kind == "drawing" ? "drawing.paths" : "diagram.layout", payload: payload)
-        } catch MachineClientError.server(let code, _) where code == "unknown-request" {
-            let result = try await client.request(kind + ".open", payload: payload)
-            try Task.checkCancellation()
-            guard let document = result["document"] else {
-                throw MachineClientError.invalid(String(localized: "The machine did not return a document."))
-            }
-            return try await LocalDocumentRenderer.shared.render(kind: kind, document: document)
-        }
+        return try await client.request(kind == "drawing" ? "drawing.paths" : "diagram.layout", payload: payload)
     }
 }
 
