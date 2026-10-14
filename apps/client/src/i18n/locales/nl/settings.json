@@ -1023,8 +1023,6 @@
     },
     "machine": {
         "notAnswering": "Geeft geen antwoord. Pas dit aan zodra de machine terug is.",
-        "unsupported": "Deze machine draait een versie zonder deze instelling.",
-        "unsupportedReason": "Deze machine draait een versie zonder deze instelling",
         "toast": {
             "saveFailed": "{{machine}} kon de wijziging niet opslaan",
             "unchanged": "De instelling is onveranderd."
@@ -1257,7 +1255,6 @@
             "disabled": "Uitgeschakeld op deze machine.",
             "ready": "Het lokale model is beschikbaar.",
             "unavailable": "Het lokale model is niet beschikbaar.",
-            "updateRequired": "Werk Ruimte op deze machine bij om Apple Foundation Models in te stellen.",
             "saveFailed": "Apple Foundation Models kon niet worden gewijzigd",
             "requiresMac": "Vereist een Mac met Apple silicon."
         },

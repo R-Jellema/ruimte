@@ -28,7 +28,7 @@ function load(endpointId: string): void {
             const hello = await link.request('server.hello', {});
             useServers.getState().setInfo(settled, { platform: hello.platform, home: hello.home, version: hello.version, model: hello.model ?? null });
             // The model arrives a request later than the name, so the row asks again now that it is known.
-            adoptMachineName(settled, info.label, info.nameSource ?? null);
+            adoptMachineName(settled, info.label, info.nameSource ?? 'default');
         })
         .catch(() => undefined);
 }
@@ -39,14 +39,14 @@ export function adoptEndpointInfo(endpointId: string, info: EndpointInfo): void 
     useEndpoints.getState().learnLan(endpointId, info.lan ?? null);
     useServers.getState().setEndpoint(endpointId, {
         label: info.label,
-        nameSource: info.nameSource ?? null,
+        nameSource: info.nameSource ?? 'default',
         icon: info.icon ?? null,
         agentsDeleteAnyView: info.agentsDeleteAnyView === true,
-        streamingAllowed: info.streamingAllowed ?? null,
+        streamingAllowed: info.streamingAllowed ?? true,
         resumeAtReset: info.resumeAtReset === true,
-        visualReplies: info.visualReplies ?? null,
-        appleFoundationEnabled: info.appleFoundationEnabled ?? null,
-        keepAwake: info.keepAwake ?? null,
+        visualReplies: info.visualReplies ?? true,
+        appleFoundationEnabled: info.appleFoundationEnabled === true,
+        keepAwake: info.keepAwake ?? 'off',
         keepAwakeOnBattery: info.keepAwakeOnBattery === true,
         keepAwakeDisplay: info.keepAwakeDisplay === true,
         keepAwakeAvailable: info.keepAwakeAvailable === true,
@@ -54,9 +54,9 @@ export function adoptEndpointInfo(endpointId: string, info: EndpointInfo): void 
         keepAwakeLidAvailable: info.keepAwakeLidAvailable === true,
         keepAwakeLidRule: info.keepAwakeLidRule === true,
         update: info.update ?? null,
-        broker: info.broker ?? null,
+        broker: info.broker ?? { mode: 'default' },
         brokerFixed: info.brokerFixed === true,
-        lanDoor: info.lanDoor ?? null,
+        lanDoor: info.lanDoor ?? true,
         lanDoorFixed: info.lanDoorFixed === true,
         agentIntegrations: info.agentIntegrations ?? null,
         reachability: info.reachability,
@@ -65,14 +65,14 @@ export function adoptEndpointInfo(endpointId: string, info: EndpointInfo): void 
         worktreeRoot: info.worktreeRoot,
         nodeSizes: knownNodeSizes(info.nodeSizes)
     });
-    adoptMachineName(endpointId, info.label, info.nameSource ?? null);
+    adoptMachineName(endpointId, info.label, info.nameSource ?? 'default');
 }
 
 /*
  * A name a person gave a machine becomes the row's label. A default name is a hostname, which the
  * row's own label reads better than; clearing the name lands here too, so the local row is written back.
  */
-export function adoptMachineName(endpointId: string, label: string, nameSource: EndpointNameSource | null): void {
+export function adoptMachineName(endpointId: string, label: string, nameSource: EndpointNameSource): void {
     if (nameSource === 'chosen') {
         useEndpoints.getState().setLabel(endpointId, label);
         return;

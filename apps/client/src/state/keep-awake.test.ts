@@ -187,10 +187,9 @@ function machine(patch: Partial<ServerInfo>): ServerInfo {
 }
 
 describe('where the setting is kept', () => {
-    test('the machine once it holds keep awake, this client against a daemon from before', () => {
+    test('the machine once it holds keep awake, this client where the machine cannot hold a block', () => {
         const local = settings('working', { keepAwakeOnBattery: true });
         expect(keepAwakeChoice(machine({ keepAwake: 'always', keepAwakeDisplay: true }), local)).toEqual(settings('always', { keepAwakeDisplay: true }));
-        expect(keepAwakeChoice(machine({ keepAwake: null }), local)).toEqual(local);
         expect(keepAwakeChoice(machine({ keepAwake: 'always', keepAwakeAvailable: false }), local)).toEqual(local);
     });
 });
@@ -206,8 +205,7 @@ describe('moving the setting this client kept to its machine', () => {
         expect(keepAwakeToMove(machine({ keepAwake: 'always' }), settings('working'))).toEqual(settings('off'));
     });
 
-    test('nothing moves to a daemon from before or one that cannot hold a block', () => {
-        expect(keepAwakeToMove(machine({ keepAwake: null }), settings('working'))).toBeNull();
+    test('nothing moves to a machine that cannot hold a block', () => {
         expect(keepAwakeToMove(machine({ keepAwake: 'off', keepAwakeAvailable: false }), settings('working'))).toBeNull();
     });
 });
@@ -215,7 +213,7 @@ describe('moving the setting this client kept to its machine', () => {
 describe('the closed lid', () => {
     test('offered only by a machine that holds keep awake and says it can keep its lid open', () => {
         expect(closedLidOf(machine({ keepAwake: 'working', keepAwakeLidAvailable: true }))).toEqual({ offered: true, rule: false, on: false });
-        expect(closedLidOf(machine({ keepAwake: null, keepAwakeLidAvailable: true })).offered).toBe(false);
+        expect(closedLidOf(machine({ keepAwakeAvailable: false, keepAwakeLidAvailable: true })).offered).toBe(false);
         expect(closedLidOf(machine({ keepAwake: 'working', keepAwakeLidAvailable: false })).offered).toBe(false);
         expect(closedLidOf(undefined)).toEqual({ offered: false, rule: false, on: false });
     });

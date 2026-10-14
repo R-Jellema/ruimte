@@ -1023,8 +1023,6 @@
     },
     "machine": {
         "notAnswering": "Not answering. Change this once the machine is back.",
-        "unsupported": "This machine runs a version without this setting.",
-        "unsupportedReason": "This machine runs a version without this setting",
         "toast": {
             "saveFailed": "{{machine}} could not save the change",
             "unchanged": "The setting is unchanged."
@@ -1257,7 +1255,6 @@
             "disabled": "Turned off on this machine.",
             "ready": "The local model is ready.",
             "unavailable": "The local model is not available.",
-            "updateRequired": "Update Ruimte on this machine to configure Apple Foundation Models.",
             "saveFailed": "Could not change Apple Foundation Models",
             "requiresMac": "Requires a Mac with Apple silicon."
         },

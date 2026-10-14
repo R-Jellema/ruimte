@@ -113,7 +113,7 @@ const MODES: readonly BrokerMode[] = ['default', 'custom', 'off'];
 export function BrokerRow({ endpoint, reason }: { endpoint: Endpoint; reason: string | null }) {
     const { t } = useTranslation('settings');
     const info = useServers((s) => s.byEndpoint[endpoint.id]);
-    const setting = info?.broker ?? null;
+    const setting = info?.broker;
     const [mode, setMode] = useState<BrokerMode>(setting?.mode ?? 'default');
     const [draft, setDraft] = useState(setting?.mode === 'custom' ? setting.url : '');
     const [problem, setProblem] = useState<string | null>(null);
@@ -156,9 +156,6 @@ export function BrokerRow({ endpoint, reason }: { endpoint: Endpoint; reason: st
         if (reason !== null) {
             return t('machine.notAnswering');
         }
-        if (setting === null) {
-            return t('machine.unsupported');
-        }
         const where = endpoint.brokerUrl ? t('machine.broker.on', { host: brokerHostOf(endpoint.brokerUrl) }) : t('machine.broker.none');
         const fixed = info?.brokerFixed ? t('machine.broker.fixed') : '';
         return t('machine.broker.description', { where, fixed });
@@ -176,12 +173,12 @@ export function BrokerRow({ endpoint, reason }: { endpoint: Endpoint; reason: st
                         options={MODES.map((id) => ({ id, label: t(`machine.broker.modes.${id}`) }))}
                         onValueChange={pick}
                         label={t('machine.broker.selectLabel', { machine: endpoint.label })}
-                        disabled={busy || reason !== null || setting === null}
+                        disabled={busy || reason !== null}
                     />
                 </WithReason>
             }
         >
-            {mode === 'custom' && reason === null && setting !== null && (
+            {mode === 'custom' && reason === null && (
                 <div className="flex min-w-0 flex-col gap-1">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                         <Input
@@ -200,7 +197,7 @@ export function BrokerRow({ endpoint, reason }: { endpoint: Endpoint; reason: st
                         />
                         <Button
                             variant="secondary"
-                            disabled={busy || draft.trim() === '' || (setting.mode === 'custom' && draft.trim() === setting.url)}
+                            disabled={busy || draft.trim() === '' || (setting?.mode === 'custom' && draft.trim() === setting.url)}
                             onClick={saveCustom}
                         >
                             {t('common:action.save')}
@@ -224,10 +221,10 @@ function doorAddresses(lan: LanDoor): string {
  */
 export function LanDoorRow({ endpoint, reason }: { endpoint: Endpoint; reason: string | null }) {
     const { t } = useTranslation('settings');
-    const kept = useServers((s) => s.byEndpoint[endpoint.id]?.lanDoor ?? null);
+    const kept = useServers((s) => s.byEndpoint[endpoint.id]?.lanDoor ?? true);
     const fixed = useServers((s) => s.byEndpoint[endpoint.id]?.lanDoorFixed === true);
     const [busy, setBusy] = useState(false);
-    const unavailable = reason ?? (kept === null ? t('machine.unsupportedReason') : fixed ? t('machine.lanDoor.fixed') : null);
+    const unavailable = reason ?? (fixed ? t('machine.lanDoor.fixed') : null);
 
     const set = async (checked: boolean): Promise<void> => {
         setBusy(true);
@@ -238,9 +235,6 @@ export function LanDoorRow({ endpoint, reason }: { endpoint: Endpoint; reason: s
     const description = (): string => {
         if (reason !== null) {
             return t('machine.notAnswering');
-        }
-        if (kept === null) {
-            return t('machine.unsupported');
         }
         const lan = endpoint.lan ?? null;
         const where =
@@ -260,7 +254,7 @@ export function LanDoorRow({ endpoint, reason }: { endpoint: Endpoint; reason: s
             control={
                 <WithReason reason={unavailable}>
                     <Switch
-                        checked={kept === true}
+                        checked={kept}
                         onCheckedChange={(checked) => void set(checked)}
                         label={t('machine.lanDoor.toggle', { machine: endpoint.label })}
                         disabled={busy || unavailable !== null}
@@ -274,9 +268,8 @@ export function LanDoorRow({ endpoint, reason }: { endpoint: Endpoint; reason: s
 /* One daemon policy covers today's browser stream and the device streams that will follow it. */
 export function StreamingRow({ endpoint, reason }: { endpoint: Endpoint; reason: string | null }) {
     const { t } = useTranslation('settings');
-    const allowed = useServers((s) => s.byEndpoint[endpoint.id]?.streamingAllowed ?? null);
+    const allowed = useServers((s) => s.byEndpoint[endpoint.id]?.streamingAllowed ?? true);
     const [busy, setBusy] = useState(false);
-    const unavailable = reason ?? (allowed === null ? t('machine.unsupportedReason') : null);
 
     const set = async (checked: boolean): Promise<void> => {
         setBusy(true);
@@ -288,14 +281,14 @@ export function StreamingRow({ endpoint, reason }: { endpoint: Endpoint; reason:
         <SettingsRow
             searchId="machines.machine.streaming"
             label={t('machine.streaming.label')}
-            description={reason !== null ? t('machine.notAnswering') : allowed === null ? t('machine.unsupported') : t('machine.streaming.description')}
+            description={reason !== null ? t('machine.notAnswering') : t('machine.streaming.description')}
             control={
-                <WithReason reason={unavailable}>
+                <WithReason reason={reason}>
                     <Switch
-                        checked={allowed !== false}
+                        checked={allowed}
                         onCheckedChange={(checked) => void set(checked)}
                         label={t('machine.streaming.toggle', { machine: endpoint.label })}
-                        disabled={busy || unavailable !== null}
+                        disabled={busy || reason !== null}
                     />
                 </WithReason>
             }
@@ -433,7 +426,6 @@ export function WorktreeFolderRow({ endpoint, reason }: { endpoint: Endpoint; re
     // Enter saves and the field then loses focus: the blur must not save the same value again.
     const saving = useRef(false);
     const pickFolder = desktop()?.pickFolder;
-    const unavailable = reason ?? (kept === undefined ? t('machine.unsupportedReason') : null);
     const shown = draft ?? kept ?? '';
 
     const save = async (value: string): Promise<void> => {
@@ -475,15 +467,15 @@ export function WorktreeFolderRow({ endpoint, reason }: { endpoint: Endpoint; re
             }
             control={
                 pickFolder || canReset ? (
-                    <WithReason reason={unavailable}>
+                    <WithReason reason={reason}>
                         <span className="flex items-center gap-2">
                             {pickFolder && (
-                                <Button variant="secondary" disabled={busy || unavailable !== null} onClick={() => void choose()}>
+                                <Button variant="secondary" disabled={busy || reason !== null} onClick={() => void choose()}>
                                     {t('machine.worktreeFolder.choose')}
                                 </Button>
                             )}
                             {canReset && (
-                                <Button variant="secondary" disabled={busy || unavailable !== null} onClick={() => void save('')}>
+                                <Button variant="secondary" disabled={busy || reason !== null} onClick={() => void save('')}>
                                     {t('machine.worktreeFolder.reset')}
                                 </Button>
                             )}
@@ -500,7 +492,7 @@ export function WorktreeFolderRow({ endpoint, reason }: { endpoint: Endpoint; re
                     placeholder={t('machine.worktreeFolder.placeholder')}
                     aria-label={t('machine.worktreeFolder.label')}
                     spellCheck={false}
-                    disabled={busy || unavailable !== null}
+                    disabled={busy || reason !== null}
                     onChange={(e) => {
                         setDraft(e.target.value);
                         setProblem(null);

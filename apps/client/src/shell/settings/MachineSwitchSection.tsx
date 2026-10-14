@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { SettingsRow } from '@adecore/ui/settings';
 import { Switch } from '@adecore/ui';
 import { perform } from '@/actions/client-actions';
-import { MACHINE_SWITCHES, showsMachineSwitch, type MachineSwitch } from '@/shell/settings/machine-switches';
+import { MACHINE_SWITCHES, type MachineSwitch } from '@/shell/settings/machine-switches';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { LOCAL_ENDPOINT_ID, useEndpoints, type Endpoint } from '@/state/endpoints';
 import { listedEndpoints } from '@/state/local-machine';
@@ -68,18 +68,12 @@ export function MachineSwitchSections() {
     const { t } = useTranslation('settings');
     const stored = useEndpoints((s) => s.endpoints);
     const endpoints = useMemo(() => listedEndpoints(stored), [stored]);
-    // Nothing here holds a link. Opening settings must not connect to every machine, so a switch reads what a connected machine last said.
-    const servers = useServers((s) => s.byEndpoint);
 
     // This machine first, which is the one a person with a single machine is looking at.
     const ordered = [
         ...endpoints.filter((endpoint) => endpoint.id === LOCAL_ENDPOINT_ID),
         ...endpoints.filter((endpoint) => endpoint.id !== LOCAL_ENDPOINT_ID)
     ];
-    // A search leads to the first machine that has the switch, which is not always the first one.
-    const searchTargets = new Map(
-        MACHINE_SWITCHES.map((setting) => [setting, ordered.find((endpoint) => showsMachineSwitch(setting, servers[endpoint.id]))?.id ?? null])
-    );
 
     return (
         <>
@@ -90,12 +84,12 @@ export function MachineSwitchSections() {
                     description={t('agents.machine.description')}
                     scope="machine"
                 >
-                    {MACHINE_SWITCHES.filter((setting) => showsMachineSwitch(setting, servers[endpoint.id])).map((setting) => (
+                    {MACHINE_SWITCHES.map((setting) => (
                         <MachineSwitchRow
                             key={setting}
                             endpoint={endpoint}
                             setting={setting}
-                            searchId={searchTargets.get(setting) === endpoint.id ? `agents.${WORDS[setting]}` : undefined}
+                            searchId={ordered[0]?.id === endpoint.id ? `agents.${WORDS[setting]}` : undefined}
                         />
                     ))}
                 </SettingsSection>

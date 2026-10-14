@@ -408,7 +408,7 @@ export function DevicesPanel() {
     const selectedDevice =
         selection?.endpointId === endpointId ? (row.devices.find((device) => sameReference(referenceOf(device), selection.device)) ?? null) : null;
     useEffect(() => {
-        if (connection.status === 'open' && streamingAllowed !== false) {
+        if (connection.status === 'open' && streamingAllowed) {
             return deviceClientFor(endpointId)?.watch();
         }
         return undefined;
@@ -436,7 +436,7 @@ export function DevicesPanel() {
     const closeDevice = (): void => setSelection(null);
     const detailHeader = selectedDevice ? <DeviceDetailHeader device={selectedDevice} onClose={closeDevice} /> : null;
 
-    if (streamingAllowed === false) {
+    if (!streamingAllowed) {
         return (
             <PanelEmpty header={listHeader} icon={CircleAlert}>
                 {t('devices.streamingOff')}

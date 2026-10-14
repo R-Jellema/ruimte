@@ -22,8 +22,8 @@ export type KeepAwakeSettings = Pick<Settings, 'keepAwake' | 'keepAwakeOnBattery
  * and for a phone that set it. Against a daemon from before, which says nothing of it, this client
  * keeps the setting itself and has the shell hold the block while a window is open, as it always did.
  */
-export function machineKeepsAwake(info: Pick<ServerInfo, 'keepAwake' | 'keepAwakeAvailable'>): boolean {
-    return info.keepAwake !== null && info.keepAwakeAvailable;
+export function machineKeepsAwake(info: Pick<ServerInfo, 'keepAwakeAvailable'>): boolean {
+    return info.keepAwakeAvailable;
 }
 
 function localInfo(): ServerInfo {
@@ -32,26 +32,26 @@ function localInfo(): ServerInfo {
 
 /* The setting as it stands, wherever it is kept. */
 export function keepAwakeChoice(info: ServerInfo = localInfo(), settings: KeepAwakeSettings = useSettings.getState()): KeepAwakeSettings {
-    return machineKeepsAwake(info) && info.keepAwake !== null
+    return machineKeepsAwake(info)
         ? { keepAwake: info.keepAwake, keepAwakeOnBattery: info.keepAwakeOnBattery, keepAwakeDisplay: info.keepAwakeDisplay }
         : { keepAwake: settings.keepAwake, keepAwakeOnBattery: settings.keepAwakeOnBattery, keepAwakeDisplay: settings.keepAwakeDisplay };
 }
 
 /* Whether this computer's machine holds keep awake, inside a render. */
 export function useMachineKeepsAwake(): boolean {
-    return useServers((s) => hasLocalMachine() && machineKeepsAwake(s.byEndpoint[LOCAL_ENDPOINT_ID] ?? { keepAwake: null, keepAwakeAvailable: false }));
+    return useServers((s) => hasLocalMachine() && machineKeepsAwake(s.byEndpoint[LOCAL_ENDPOINT_ID] ?? { keepAwakeAvailable: false }));
 }
 
 /* The setting as it stands, inside a render. Each field is selected on its own, so the choice is not a new object per call. */
 export function useKeepAwakeChoice(): KeepAwakeSettings {
     const onMachine = useMachineKeepsAwake();
-    const machineMode = useServers((s) => s.byEndpoint[LOCAL_ENDPOINT_ID]?.keepAwake ?? null);
+    const machineMode = useServers((s) => s.byEndpoint[LOCAL_ENDPOINT_ID]?.keepAwake ?? 'off');
     const machineBattery = useServers((s) => s.byEndpoint[LOCAL_ENDPOINT_ID]?.keepAwakeOnBattery === true);
     const machineDisplay = useServers((s) => s.byEndpoint[LOCAL_ENDPOINT_ID]?.keepAwakeDisplay === true);
     const keepAwake = useSettings((s) => s.keepAwake);
     const keepAwakeOnBattery = useSettings((s) => s.keepAwakeOnBattery);
     const keepAwakeDisplay = useSettings((s) => s.keepAwakeDisplay);
-    return onMachine && machineMode !== null
+    return onMachine
         ? { keepAwake: machineMode, keepAwakeOnBattery: machineBattery, keepAwakeDisplay: machineDisplay }
         : { keepAwake, keepAwakeOnBattery, keepAwakeDisplay };
 }
@@ -108,7 +108,7 @@ export interface ClosedLid {
 }
 
 export function closedLidOf(
-    info: Pick<ServerInfo, 'keepAwake' | 'keepAwakeAvailable' | 'keepAwakeLidAvailable' | 'keepAwakeLidRule' | 'keepAwakeLidClosed'> | undefined
+    info: Pick<ServerInfo, 'keepAwakeAvailable' | 'keepAwakeLidAvailable' | 'keepAwakeLidRule' | 'keepAwakeLidClosed'> | undefined
 ): ClosedLid {
     return info === undefined
         ? { offered: false, rule: false, on: false }
@@ -171,7 +171,7 @@ export function keepAwakeToMove(info: ServerInfo, settings: KeepAwakeSettings): 
     if (!machineKeepsAwake(info) || isOff(settings)) {
         return null;
     }
-    const onMachine = { keepAwake: info.keepAwake ?? OFF.keepAwake, keepAwakeOnBattery: info.keepAwakeOnBattery, keepAwakeDisplay: info.keepAwakeDisplay };
+    const onMachine = { keepAwake: info.keepAwake, keepAwakeOnBattery: info.keepAwakeOnBattery, keepAwakeDisplay: info.keepAwakeDisplay };
     return isOff(onMachine) ? settings : OFF;
 }
 

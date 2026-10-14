@@ -12,49 +12,49 @@ export interface ServerInfo {
     model: string | null;
     /* How the daemon names itself and how far away it is, from `endpoint.info`. */
     label: string | null;
-    /* Whether a person chose that name or it is the one the machine starts with; null until it answers. */
-    nameSource: EndpointNameSource | null;
-    /* The icon a person gave this machine, from the set a project and a view pick from. */
+    /* Whether a person chose that name or it is the one the machine starts with. */
+    nameSource: EndpointNameSource;
+    /* The icon a person gave this machine, from the set a project and a view pick from; null while nobody picked one. */
     icon: ProjectIconChoice | null;
     /* Whether an agent on this machine may remove a view it did not make. The daemon enforces it, so
-       this is only what the Machines pane stands at; false for a daemon that predates the setting. */
+       this is only what the Machines pane stands at. */
     agentsDeleteAnyView: boolean;
-    /* Whether the daemon permits browser and device streaming; null for a daemon without the setting. */
-    streamingAllowed: boolean | null;
-    /* Whether a chat that stopped on a limit may be taken up again on a clock; false for a daemon without the setting. */
+    /* Whether the daemon permits browser and device streaming. */
+    streamingAllowed: boolean;
+    /* Whether a chat that stopped on a limit may be taken up again on a clock. */
     resumeAtReset: boolean;
-    /* Whether an agent may show a page above its reply; null for a daemon from before visuals, which keeps none. */
-    visualReplies: boolean | null;
-    appleFoundationEnabled: boolean | null;
-    /* When the machine keeps itself awake; null for a daemon from before, whose desktop app holds it per window. */
-    keepAwake: KeepAwakeMode | null;
+    /* Whether an agent may show a page above its reply. */
+    visualReplies: boolean;
+    appleFoundationEnabled: boolean;
+    /* When the machine keeps itself awake. */
+    keepAwake: KeepAwakeMode;
     keepAwakeOnBattery: boolean;
     keepAwakeDisplay: boolean;
     /* Whether the machine can hold a block on sleep at all. */
     keepAwakeAvailable: boolean;
-    /* Also with the lid closed, which turns sleep off while the block holds; false for a daemon from before. */
+    /* Also with the lid closed, which turns sleep off while the block holds. */
     keepAwakeLidClosed: boolean;
     /* Whether the machine offers the closed-lid mode at all, which only a Mac does. */
     keepAwakeLidAvailable: boolean;
     /* Whether the sudoers rule the closed-lid mode needs is installed on the machine. */
     keepAwakeLidRule: boolean;
-    /* Where the update of the desktop app on the machine stands; null for a daemon from before. */
+    /* Where the update of the desktop app on the machine stands; null while it reports none. */
     update: MachineUpdate | null;
-    /* The broker a person picked for this machine; null for a daemon that predates the setting. */
-    broker: BrokerSetting | null;
+    /* The broker a person picked for this machine. */
+    broker: BrokerSetting;
     /* Whether a flag or the environment on the machine decides the broker, which leaves the setting without effect. */
     brokerFixed: boolean;
-    /* Whether a person keeps the machine's door on the local network open; null for a daemon from before the door. */
-    lanDoor: boolean | null;
+    /* Whether a person keeps the machine's door on the local network open. */
+    lanDoor: boolean;
     /* Whether a flag on the machine decides the door, which leaves the setting without effect. */
     lanDoorFixed: boolean;
-    /* What a person allowed in the CLIs' global settings; null for a daemon from before the consent. */
+    /* What a person allowed in the CLIs' global settings; null while the machine has not said. */
     agentIntegrations: AgentIntegrationsSummary | null;
     reachability: Reachability | null;
     /* The key the machine announces, which the record on an account carries; null until it answers. */
     publicKey: string | null;
     /* The account the machine is on, null for none. Only the app on the machine is told, so it is
-       undefined for any other machine and for a daemon from before a machine had one account. */
+       undefined for any other machine. */
     accountId: string | null | undefined;
     /* The folder new worktrees are made in, null for the data folder. Only the app on the machine is told; undefined for any other. */
     worktreeRoot: string | null | undefined;
@@ -62,21 +62,21 @@ export interface ServerInfo {
     nodeSizes: NodeSizes;
 }
 
-/* One object for a machine that has not said hello yet, so a selector gets a stable snapshot. */
+/* One object for a machine that has not said hello yet, so a selector gets a stable snapshot. Its settings are the daemon's own defaults. */
 const UNKNOWN: ServerInfo = {
     platform: null,
     home: null,
     version: null,
     model: null,
     label: null,
-    nameSource: null,
+    nameSource: 'default',
     icon: null,
     agentsDeleteAnyView: false,
-    streamingAllowed: null,
+    streamingAllowed: true,
     resumeAtReset: false,
-    visualReplies: null,
-    appleFoundationEnabled: null,
-    keepAwake: null,
+    visualReplies: true,
+    appleFoundationEnabled: false,
+    keepAwake: 'off',
     keepAwakeOnBattery: false,
     keepAwakeDisplay: false,
     keepAwakeAvailable: false,
@@ -84,9 +84,9 @@ const UNKNOWN: ServerInfo = {
     keepAwakeLidAvailable: false,
     keepAwakeLidRule: false,
     update: null,
-    broker: null,
+    broker: { mode: 'default' },
     brokerFixed: false,
-    lanDoor: null,
+    lanDoor: true,
     lanDoorFixed: false,
     agentIntegrations: null,
     reachability: null,

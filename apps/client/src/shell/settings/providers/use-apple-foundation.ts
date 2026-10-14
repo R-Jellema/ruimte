@@ -28,7 +28,6 @@ export function useAppleFoundation(endpointId: string, provider: ProviderInfo | 
     const [busy, setBusy] = useState(false);
     const connected = connection.status === 'open';
     const mac = info?.platform === 'darwin';
-    const supported = info?.appleFoundationEnabled !== null && info?.appleFoundationEnabled !== undefined;
     const enabled = info?.appleFoundationEnabled === true;
 
     const setEnabled = async (checked: boolean): Promise<void> => {
@@ -57,17 +56,15 @@ export function useAppleFoundation(endpointId: string, provider: ProviderInfo | 
         ? t('machine.notAnswering')
         : !mac
           ? t('providers.apple.requiresMac')
-          : !supported
-            ? t('providers.apple.updateRequired')
-            : !enabled
-              ? t('providers.apple.disabled')
-              : provider?.installed
-                ? t('providers.apple.ready')
-                : (provider?.version ?? t('providers.apple.unavailable'));
+          : !enabled
+            ? t('providers.apple.disabled')
+            : provider?.installed
+              ? t('providers.apple.ready')
+              : (provider?.version ?? t('providers.apple.unavailable'));
 
     return {
         enabled,
-        switchable: connected && mac && supported && !busy,
+        switchable: connected && mac && !busy,
         status,
         setEnabled: (checked) => void setEnabled(checked)
     };

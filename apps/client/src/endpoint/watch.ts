@@ -31,7 +31,7 @@ export function startEndpointWatch(): () => void {
                     ...(payload.agentIntegrations === undefined ? {} : { agentIntegrations: payload.agentIntegrations }),
                     ...(payload.nodeSizes === undefined ? {} : { nodeSizes: knownNodeSizes(payload.nodeSizes) })
                 });
-                // A daemon from before the broker setting sends no URL, which says nothing about its broker; the same for the door.
+                // An event without a URL says nothing about the broker; the same for the door.
                 if (payload.brokerUrl !== undefined) {
                     useEndpoints.getState().learnBrokerUrl(endpointId, payload.brokerUrl);
                 }
