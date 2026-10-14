@@ -10909,6 +10909,50 @@
                                 "state"
                               ]
                             }
+                          },
+                          "places": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "enum": [
+                                    "found",
+                                    "missing"
+                                  ]
+                                },
+                                "address": {
+                                  "type": "string"
+                                },
+                                "lat": {
+                                  "type": "number",
+                                  "minimum": -90,
+                                  "maximum": 90
+                                },
+                                "lon": {
+                                  "type": "number",
+                                  "minimum": -180,
+                                  "maximum": 180
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "code": {
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "state",
+                                "address"
+                              ]
+                            }
                           }
                         },
                         "required": [
@@ -13189,6 +13233,50 @@
                                 "state"
                               ]
                             }
+                          },
+                          "places": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "enum": [
+                                    "found",
+                                    "missing"
+                                  ]
+                                },
+                                "address": {
+                                  "type": "string"
+                                },
+                                "lat": {
+                                  "type": "number",
+                                  "minimum": -90,
+                                  "maximum": 90
+                                },
+                                "lon": {
+                                  "type": "number",
+                                  "minimum": -180,
+                                  "maximum": 180
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "code": {
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "state",
+                                "address"
+                              ]
+                            }
                           }
                         },
                         "required": [
@@ -14720,6 +14808,50 @@
                                 "state"
                               ]
                             }
+                          },
+                          "places": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "enum": [
+                                    "found",
+                                    "missing"
+                                  ]
+                                },
+                                "address": {
+                                  "type": "string"
+                                },
+                                "lat": {
+                                  "type": "number",
+                                  "minimum": -90,
+                                  "maximum": 90
+                                },
+                                "lon": {
+                                  "type": "number",
+                                  "minimum": -180,
+                                  "maximum": 180
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "code": {
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "state",
+                                "address"
+                              ]
+                            }
                           }
                         },
                         "required": [
@@ -16245,6 +16377,50 @@
                                         "state"
                                       ]
                                     }
+                                  },
+                                  "places": {
+                                    "type": "object",
+                                    "propertyNames": {
+                                      "type": "string"
+                                    },
+                                    "additionalProperties": {
+                                      "type": "object",
+                                      "properties": {
+                                        "state": {
+                                          "type": "string",
+                                          "enum": [
+                                            "found",
+                                            "missing"
+                                          ]
+                                        },
+                                        "address": {
+                                          "type": "string"
+                                        },
+                                        "lat": {
+                                          "type": "number",
+                                          "minimum": -90,
+                                          "maximum": 90
+                                        },
+                                        "lon": {
+                                          "type": "number",
+                                          "minimum": -180,
+                                          "maximum": 180
+                                        },
+                                        "label": {
+                                          "type": "string"
+                                        },
+                                        "code": {
+                                          "type": "string"
+                                        },
+                                        "reason": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "state",
+                                        "address"
+                                      ]
+                                    }
                                   }
                                 },
                                 "required": [
@@ -17525,6 +17701,50 @@
                               },
                               "required": [
                                 "state"
+                              ]
+                            }
+                          },
+                          "places": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "enum": [
+                                    "found",
+                                    "missing"
+                                  ]
+                                },
+                                "address": {
+                                  "type": "string"
+                                },
+                                "lat": {
+                                  "type": "number",
+                                  "minimum": -90,
+                                  "maximum": 90
+                                },
+                                "lon": {
+                                  "type": "number",
+                                  "minimum": -180,
+                                  "maximum": 180
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "code": {
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "state",
+                                "address"
                               ]
                             }
                           }
@@ -19418,6 +19638,50 @@
                                         },
                                         "required": [
                                           "state"
+                                        ]
+                                      }
+                                    },
+                                    "places": {
+                                      "type": "object",
+                                      "propertyNames": {
+                                        "type": "string"
+                                      },
+                                      "additionalProperties": {
+                                        "type": "object",
+                                        "properties": {
+                                          "state": {
+                                            "type": "string",
+                                            "enum": [
+                                              "found",
+                                              "missing"
+                                            ]
+                                          },
+                                          "address": {
+                                            "type": "string"
+                                          },
+                                          "lat": {
+                                            "type": "number",
+                                            "minimum": -90,
+                                            "maximum": 90
+                                          },
+                                          "lon": {
+                                            "type": "number",
+                                            "minimum": -180,
+                                            "maximum": 180
+                                          },
+                                          "label": {
+                                            "type": "string"
+                                          },
+                                          "code": {
+                                            "type": "string"
+                                          },
+                                          "reason": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "state",
+                                          "address"
                                         ]
                                       }
                                     }
@@ -24505,6 +24769,50 @@
                               },
                               "required": [
                                 "state"
+                              ]
+                            }
+                          },
+                          "places": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "enum": [
+                                    "found",
+                                    "missing"
+                                  ]
+                                },
+                                "address": {
+                                  "type": "string"
+                                },
+                                "lat": {
+                                  "type": "number",
+                                  "minimum": -90,
+                                  "maximum": 90
+                                },
+                                "lon": {
+                                  "type": "number",
+                                  "minimum": -180,
+                                  "maximum": 180
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "code": {
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "state",
+                                "address"
                               ]
                             }
                           }
@@ -56129,6 +56437,50 @@
                                       "state"
                                     ]
                                   }
+                                },
+                                "places": {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string"
+                                  },
+                                  "additionalProperties": {
+                                    "type": "object",
+                                    "properties": {
+                                      "state": {
+                                        "type": "string",
+                                        "enum": [
+                                          "found",
+                                          "missing"
+                                        ]
+                                      },
+                                      "address": {
+                                        "type": "string"
+                                      },
+                                      "lat": {
+                                        "type": "number",
+                                        "minimum": -90,
+                                        "maximum": 90
+                                      },
+                                      "lon": {
+                                        "type": "number",
+                                        "minimum": -180,
+                                        "maximum": 180
+                                      },
+                                      "label": {
+                                        "type": "string"
+                                      },
+                                      "code": {
+                                        "type": "string"
+                                      },
+                                      "reason": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "state",
+                                      "address"
+                                    ]
+                                  }
                                 }
                               },
                               "required": [
@@ -57409,6 +57761,50 @@
                             },
                             "required": [
                               "state"
+                            ]
+                          }
+                        },
+                        "places": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "found",
+                                  "missing"
+                                ]
+                              },
+                              "address": {
+                                "type": "string"
+                              },
+                              "lat": {
+                                "type": "number",
+                                "minimum": -90,
+                                "maximum": 90
+                              },
+                              "lon": {
+                                "type": "number",
+                                "minimum": -180,
+                                "maximum": 180
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "reason": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "state",
+                              "address"
                             ]
                           }
                         }
@@ -59302,6 +59698,50 @@
                                       },
                                       "required": [
                                         "state"
+                                      ]
+                                    }
+                                  },
+                                  "places": {
+                                    "type": "object",
+                                    "propertyNames": {
+                                      "type": "string"
+                                    },
+                                    "additionalProperties": {
+                                      "type": "object",
+                                      "properties": {
+                                        "state": {
+                                          "type": "string",
+                                          "enum": [
+                                            "found",
+                                            "missing"
+                                          ]
+                                        },
+                                        "address": {
+                                          "type": "string"
+                                        },
+                                        "lat": {
+                                          "type": "number",
+                                          "minimum": -90,
+                                          "maximum": 90
+                                        },
+                                        "lon": {
+                                          "type": "number",
+                                          "minimum": -180,
+                                          "maximum": 180
+                                        },
+                                        "label": {
+                                          "type": "string"
+                                        },
+                                        "code": {
+                                          "type": "string"
+                                        },
+                                        "reason": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "state",
+                                        "address"
                                       ]
                                     }
                                   }

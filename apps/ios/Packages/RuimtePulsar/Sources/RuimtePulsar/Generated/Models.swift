@@ -4741,12 +4741,14 @@ public struct ChatUiQueryStateBlocksValue: Codable, Sendable, Equatable {
     public let `readings`: [String: ChatUiQueryStateBlocksValueReadingsValue]
     public let `fallback`: String
     public let `links`: [String: ChatUiQueryStateBlocksValueLinksValue]?
+    public let `places`: [String: ChatUiQueryStateBlocksValuePlacesValue]?
 
-    public init(`revision`: String, `readings`: [String: ChatUiQueryStateBlocksValueReadingsValue], `fallback`: String, `links`: [String: ChatUiQueryStateBlocksValueLinksValue]? = nil) {
+    public init(`revision`: String, `readings`: [String: ChatUiQueryStateBlocksValueReadingsValue], `fallback`: String, `links`: [String: ChatUiQueryStateBlocksValueLinksValue]? = nil, `places`: [String: ChatUiQueryStateBlocksValuePlacesValue]? = nil) {
         self.`revision` = `revision`
         self.`readings` = `readings`
         self.`fallback` = `fallback`
         self.`links` = `links`
+        self.`places` = `places`
     }
 
     public init(from decoder: Decoder) throws {
@@ -4755,6 +4757,7 @@ public struct ChatUiQueryStateBlocksValue: Codable, Sendable, Equatable {
         `readings` = try container.decode([String: ChatUiQueryStateBlocksValueReadingsValue].self, forKey: .`readings`)
         `fallback` = try container.decode(String.self, forKey: .`fallback`)
         `links` = try container.decodeIfPresent([String: ChatUiQueryStateBlocksValueLinksValue].self, forKey: .`links`)
+        `places` = try container.decodeIfPresent([String: ChatUiQueryStateBlocksValuePlacesValue].self, forKey: .`places`)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -4763,6 +4766,7 @@ public struct ChatUiQueryStateBlocksValue: Codable, Sendable, Equatable {
         try container.encode(`readings`, forKey: .`readings`)
         try container.encode(`fallback`, forKey: .`fallback`)
         try container.encodeIfPresent(`links`, forKey: .`links`)
+        try container.encodeIfPresent(`places`, forKey: .`places`)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -4770,6 +4774,7 @@ public struct ChatUiQueryStateBlocksValue: Codable, Sendable, Equatable {
         case `readings` = "readings"
         case `fallback` = "fallback"
         case `links` = "links"
+        case `places` = "places"
     }
 }
 
@@ -5043,6 +5048,63 @@ public struct ChatUiQueryStateBlocksValueLinksValueTargetVariant3: Codable, Send
         case `type` = "type"
         case `id` = "id"
     }
+}
+
+public struct ChatUiQueryStateBlocksValuePlacesValue: Codable, Sendable, Equatable {
+    public let `state`: ChatUiQueryStateBlocksValuePlacesValueState
+    public let `address`: String
+    public let `lat`: Double?
+    public let `lon`: Double?
+    public let `label`: String?
+    public let `code`: String?
+    public let `reason`: String?
+
+    public init(`state`: ChatUiQueryStateBlocksValuePlacesValueState, `address`: String, `lat`: Double? = nil, `lon`: Double? = nil, `label`: String? = nil, `code`: String? = nil, `reason`: String? = nil) {
+        self.`state` = `state`
+        self.`address` = `address`
+        self.`lat` = `lat`
+        self.`lon` = `lon`
+        self.`label` = `label`
+        self.`code` = `code`
+        self.`reason` = `reason`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `state` = try container.decode(ChatUiQueryStateBlocksValuePlacesValueState.self, forKey: .`state`)
+        `address` = try container.decode(String.self, forKey: .`address`)
+        `lat` = try container.decodeIfPresent(Double.self, forKey: .`lat`)
+        `lon` = try container.decodeIfPresent(Double.self, forKey: .`lon`)
+        `label` = try container.decodeIfPresent(String.self, forKey: .`label`)
+        `code` = try container.decodeIfPresent(String.self, forKey: .`code`)
+        `reason` = try container.decodeIfPresent(String.self, forKey: .`reason`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`state`, forKey: .`state`)
+        try container.encode(`address`, forKey: .`address`)
+        try container.encodeIfPresent(`lat`, forKey: .`lat`)
+        try container.encodeIfPresent(`lon`, forKey: .`lon`)
+        try container.encodeIfPresent(`label`, forKey: .`label`)
+        try container.encodeIfPresent(`code`, forKey: .`code`)
+        try container.encodeIfPresent(`reason`, forKey: .`reason`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `state` = "state"
+        case `address` = "address"
+        case `lat` = "lat"
+        case `lon` = "lon"
+        case `label` = "label"
+        case `code` = "code"
+        case `reason` = "reason"
+    }
+}
+
+public enum ChatUiQueryStateBlocksValuePlacesValueState: String, CaseIterable, Codable, Sendable, Equatable {
+    case `found` = "found"
+    case `missing` = "missing"
 }
 
 public struct ChatThinkingItem: Codable, Sendable, Equatable {
