@@ -1,10 +1,7 @@
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { dirname } from 'node:path';
-import { writeAtomicSync } from '@adecore/agents';
 import { systemClock, type OutboxClock } from '@adecore/agents/coordination';
 import { SnoozeListSchema, type Snooze } from '@ruimte/contracts';
 import { ClientSinks } from '../client-sinks.ts';
-import { errorText } from '../error-text.ts';
+import { JsonFileStore } from '../json-file-store.ts';
 import type { SessionSink } from '../sessions/manager.ts';
 
 /* A timer asleep with the machine runs late by as long as it slept, so the wall clock is read again at least this often. */
@@ -25,15 +22,6 @@ function keyOf(projectId: string, nodeId: string): string {
     return JSON.stringify([projectId, nodeId]);
 }
 
-function readSaved(path: string): Snooze[] {
-    try {
-        return SnoozeListSchema.parse(JSON.parse(readFileSync(path, 'utf8'))).snoozes;
-    } catch (e) {
-        console.warn(`${path} would not read; snoozes start empty:`, errorText(e));
-        return [];
-    }
-}
-
 /*
  * The snoozes of this machine, one per node, shared by every client and the push alerts. They live
  * under `$RUIMTE_HOME` and never in a project file: putting a node aside is one person's, not the team's.
@@ -44,14 +32,14 @@ export class SnoozeStore {
     private readonly waiting = new Set<string>();
     private readonly sinks = new ClientSinks();
     private readonly listeners = new Set<(change: SnoozeChange) => void>();
-    private readonly path: string | undefined;
+    private readonly file: JsonFileStore<{ snoozes: Snooze[] }>;
     private readonly clock: OutboxClock;
     private timer: unknown = null;
 
     constructor(options: SnoozeStoreOptions = {}) {
-        this.path = options.path;
+        this.file = new JsonFileStore(options.path, SnoozeListSchema, 'snoozes start empty');
         this.clock = options.clock ?? systemClock;
-        const saved = this.path && existsSync(this.path) ? readSaved(this.path) : [];
+        const saved = this.file.read()?.snoozes ?? [];
         const now = this.clock.now();
         // What ran out while the daemon was down wakes nobody: no status is known yet to say the node still waits.
         for (const snooze of saved.filter((entry) => entry.until > now)) {
@@ -201,10 +189,6 @@ export class SnoozeStore {
     }
 
     private save(): void {
-        if (!this.path) {
-            return;
-        }
-        mkdirSync(dirname(this.path), { recursive: true, mode: 0o700 });
-        writeAtomicSync(this.path, JSON.stringify({ snoozes: this.list() }));
+        this.file.write({ snoozes: this.list() });
     }
 }

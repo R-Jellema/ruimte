@@ -1,13 +1,12 @@
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { join, relative } from 'node:path';
 import type { ChatItem, ChatTurnItem, LaunchStatus } from '@ruimte/contracts';
-import { writeAtomicSync } from '@adecore/agents';
 import { runningInBackground } from '@adecore/agents/chat';
 import type { AgentEvent } from '@adecore/agents/host';
 import { z } from 'zod';
 import { isInside } from '../canvas/project-paths.ts';
 import type { ChatManager } from '../chat/chat-manager.ts';
 import { errorText } from '../error-text.ts';
+import { JsonFileStore } from '../json-file-store.ts';
 import type { OutboxEntry, OutboxWork, RunAfterSettleEntry } from '../outbox/outbox.ts';
 import type { LaunchRunner, WorktreeRun } from './runner.ts';
 import type { AfterSettleChoices, LaunchStore, ResolvedLaunch } from './store.ts';
@@ -20,29 +19,20 @@ const FileSchema = z.object({
 });
 type AfterSettleFile = z.infer<typeof FileSchema>;
 
-function readSaved(path: string): AfterSettleFile {
-    try {
-        return FileSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
-    } catch (e) {
-        console.warn(`${path} would not read; no launch runs after a chat settles until a person chooses one again:`, errorText(e));
-        return { choices: {}, handled: {} };
-    }
-}
-
 /*
  * What a person chose to run after a worktree chat settles, and what already ran. Under `$RUIMTE_HOME`
  * and never in a project file: an agent with a shell can rewrite `project.json`, and only a person's
  * choice here makes the daemon start anything.
  */
 export class AfterSettleStore implements AfterSettleChoices {
-    private readonly path: string | undefined;
+    private readonly store: JsonFileStore<AfterSettleFile>;
     private readonly now: () => number;
     private readonly file: AfterSettleFile;
 
     constructor(options: { path?: string; now?: () => number } = {}) {
-        this.path = options.path;
+        this.store = new JsonFileStore(options.path, FileSchema, 'no launch runs after a chat settles until a person chooses one again');
         this.now = options.now ?? Date.now;
-        this.file = this.path && existsSync(this.path) ? readSaved(this.path) : { choices: {}, handled: {} };
+        this.file = this.store.read() ?? { choices: {}, handled: {} };
     }
 
     choiceOf(projectId: string): { launchId: string; chosenAt: number } | null {
@@ -79,11 +69,7 @@ export class AfterSettleStore implements AfterSettleChoices {
     }
 
     private save(): void {
-        if (!this.path) {
-            return;
-        }
-        mkdirSync(dirname(this.path), { recursive: true, mode: 0o700 });
-        writeAtomicSync(this.path, JSON.stringify(this.file));
+        this.store.write(this.file);
     }
 }
 

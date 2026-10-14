@@ -1,12 +1,9 @@
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { writeAtomicSync } from '@adecore/agents';
 import { systemClock, type OutboxClock } from '@adecore/agents/coordination';
 import { GitPrWatchSchema, type GitPrWatch, type GitPrWatchEndReason, type GitPullRequest } from '@ruimte/contracts';
 import { z } from 'zod';
 import { ClientSinks } from '../client-sinks.ts';
-import { errorText } from '../error-text.ts';
+import { JsonFileStore } from '../json-file-store.ts';
 import { findPullRequest, pollPullRequest, type GhRunner, type PrPoll, type PrReview } from '../git/github.ts';
 import { isTerminal } from '../git/pr-checks.ts';
 import { GitError } from '../git/run.ts';
@@ -47,15 +44,6 @@ export interface PrWatchOptions {
     removeEntry(id: string): Promise<void>;
     random?: () => number;
     onError?: (what: string, error: unknown) => void;
-}
-
-function readSaved(path: string): WatchRecord[] {
-    try {
-        return FileSchema.parse(JSON.parse(readFileSync(path, 'utf8'))).watches;
-    } catch (e) {
-        console.warn(`${path} would not read; pull request watches start empty:`, errorText(e));
-        return [];
-    }
 }
 
 function publicOf(record: WatchRecord): GitPrWatch {
@@ -147,6 +135,7 @@ export class PrWatchStore {
     private readonly options: PrWatchOptions;
     private readonly clock: OutboxClock;
     private readonly random: () => number;
+    private readonly file: JsonFileStore<z.infer<typeof FileSchema>>;
     private running = 0;
     private closed = false;
 
@@ -154,7 +143,8 @@ export class PrWatchStore {
         this.options = options;
         this.clock = options.clock ?? systemClock;
         this.random = options.random ?? Math.random;
-        const saved = options.path && existsSync(options.path) ? readSaved(options.path) : [];
+        this.file = new JsonFileStore(options.path, FileSchema, 'pull request watches start empty');
+        const saved = this.file.read()?.watches ?? [];
         for (const record of saved) {
             this.records.set(record.id, record);
             // Every watch polls once after a start, spread out so a machine with many does not ask at once.
@@ -416,12 +406,7 @@ export class PrWatchStore {
     }
 
     private save(): void {
-        const path = this.options.path;
-        if (!path) {
-            return;
-        }
-        mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-        writeAtomicSync(path, JSON.stringify({ watches: [...this.records.values()] }));
+        this.file.write({ watches: [...this.records.values()] });
     }
 }
 

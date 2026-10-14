@@ -1,20 +1,9 @@
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { dirname } from 'node:path';
-import { writeAtomicSync } from '@adecore/agents';
 import { PushAttentionResultSchema, type PushAttentionEntry } from '@ruimte/contracts';
-import { errorText } from '../error-text.ts';
+import type { z } from 'zod';
+import { JsonFileStore } from '../json-file-store.ts';
 
 const RETENTION_MS = 30 * 24 * 60 * 60_000;
 const MAX_ENTRIES = 1000;
-
-function readSaved(path: string): ReturnType<typeof PushAttentionResultSchema.parse> | null {
-    try {
-        return PushAttentionResultSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
-    } catch (e) {
-        console.warn(`${path} would not read; push attention starts empty:`, errorText(e));
-        return null;
-    }
-}
 
 export class PushAttention {
     private readonly entries = new Map<string, PushAttentionEntry>();
@@ -25,14 +14,14 @@ export class PushAttention {
      */
     readonly marksFrom: number;
 
-    private readonly path: string | undefined;
+    private readonly file: JsonFileStore<z.infer<typeof PushAttentionResultSchema>>;
     private readonly now: () => number;
 
     constructor(path?: string, now: () => number = Date.now) {
-        this.path = path;
+        this.file = new JsonFileStore(path, PushAttentionResultSchema, 'push attention starts empty');
         this.now = now;
         // A ledger that will not read only costs which notifications were read, never the start.
-        const saved = path && existsSync(path) ? readSaved(path) : null;
+        const saved = this.file.read();
         for (const entry of saved?.entries ?? []) {
             this.entries.set(entry.nodeId, entry);
         }
@@ -87,10 +76,6 @@ export class PushAttention {
 
     private save(): void {
         this.prune();
-        if (!this.path) {
-            return;
-        }
-        mkdirSync(dirname(this.path), { recursive: true, mode: 0o700 });
-        writeAtomicSync(this.path, JSON.stringify({ entries: [...this.entries.values()], marksFrom: this.marksFrom }));
+        this.file.write({ entries: [...this.entries.values()], marksFrom: this.marksFrom });
     }
 }
