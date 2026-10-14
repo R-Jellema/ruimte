@@ -8,7 +8,7 @@ import { FakeWatch } from '@adecore/agents/testing';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { DiagramStore } from './diagram-store.ts';
 import { DrawingStore } from './drawing-store.ts';
-import { documentOnDisk, privateFileOnDisk, rawPrivateViews, projectLinks } from './project-file-test-helpers.ts';
+import { documentOnDisk, privateFileOnDisk, rawPrivateViews, projectLinks, setPrivateViews } from './project-file-test-helpers.ts';
 import { documentPathInFolder, fromPortable, toPortable } from './project-files.ts';
 import { ProjectStore, type ProjectLinks } from './project-store.ts';
 
@@ -1716,6 +1716,27 @@ describe('the machine of a node', () => {
         projectDirWatcher().emit('project.json');
         await fake.settle();
         expect(store.machineOfNode('n1')).toBe('machine-b');
+    });
+
+    test('goes when a file edited outside takes the node away, and when a restart finds it gone', async () => {
+        const projectId = await openBound();
+        const path = documentPathInFolder(folder);
+        await setPrivateViews(folder, [{ ...canvas(content()), nodes: [] }]);
+        await writeFile(path, JSON.stringify({ ...(JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>), name: 'from git' }, null, 2));
+        projectDirWatcher().emit('project.json');
+        await fake.settle();
+        expect(store.remote.machineOf(projectId, 'n1')).toBeNull();
+
+        await store.save(projectId, await store.revision(projectId), bound('machine-b'));
+        expect(store.remote.machineOf(projectId, 'n1')).toBe('machine-b');
+        store.closeAll();
+        await setPrivateViews(folder, [{ ...canvas(content()), nodes: [] }]);
+        const fresh = new ProjectStore(home, projectLinks(), new FakeWatch());
+        await fresh.remote.load();
+        expect(fresh.remote.machineOf(projectId, 'n1')).toBe('machine-b');
+        await fresh.warmIndex();
+        expect(fresh.remote.machineOf(projectId, 'n1')).toBeNull();
+        fresh.closeAll();
     });
 
     test('comes back with the node an undo restores, and goes while the node is away', async () => {

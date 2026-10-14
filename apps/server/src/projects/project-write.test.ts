@@ -102,6 +102,25 @@ describe('durable project saves', () => {
             });
         }
     }
+    test('a save that landed but did not finish takes the binding of its gone node along once recovered', async () => {
+        const node = { id: 'n1', kind: 'terminal' as const, title: 'shell', x: 0, y: 0, w: 560, h: 360, machine: 'machine-b' };
+        const withNode: ProjectContent = {
+            ...content,
+            views: [{ kind: 'canvas', id: 'main', name: 'Canvas', nodes: [node], texts: [], edges: [], layouts: [] }, ...content.views]
+        };
+        await projects.save(projectId, 1, withNode, ['sketch', 'flow']);
+        expect(projects.remote.machineOf(projectId, 'n1')).toBe('machine-b');
+        operations = 0;
+        failAt = 3;
+        await expect(projects.save(projectId, 2, content, ['sketch', 'flow'])).rejects.toThrow('Injected');
+        expect(projects.remote.machineOf(projectId, 'n1')).toBe('machine-b');
+        projects.closeAll();
+        projects = new ProjectStore(home, projectLinks(), new FakeWatch());
+        await projects.remote.load();
+        const opened = await projects.openProject({ projectId });
+        expect(opened.document.views.map((view) => view.id)).toEqual(['sketch', 'flow']);
+        expect(projects.remote.machineOf(projectId, 'n1')).toBeNull();
+    });
     test('a view relocation failure is reported and can be completed without restarting', async () => {
         failAt = 4;
         await expect(projects.save(projectId, 1, content, ['sketch', 'flow'])).rejects.toThrow('Injected');
