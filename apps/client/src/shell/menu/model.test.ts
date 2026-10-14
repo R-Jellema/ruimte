@@ -62,6 +62,7 @@ function context(patch: Partial<MenuContext> = {}): MenuContext {
         scratch: false,
         prWatch: false,
         chat: false,
+        terminalKeys: false,
         prRepos: [],
         ...patch
     };
@@ -247,6 +248,15 @@ describe('the menus', () => {
         expect(menu(spec, 'Terminal').some((node) => node.kind === 'command' && node.id === 'terminal-clear')).toBe(true);
         expect(menu(spec, 'File').some((node) => node.kind === 'command' && node.id === 'project-settings')).toBe(true);
         expect(commandIds(menuModel(START_SCREEN))).not.toContain('project-settings');
+    });
+
+    test('the clear key shows on Clear while a terminal has the keyboard, and on the palette otherwise', () => {
+        const typing = menuModel(context({ view: 'terminal', terminalKeys: true }));
+        expect(find(typing, 'terminal-clear')?.accelerator).toBe('Command+K');
+        expect(find(typing, 'palette')?.accelerator).toBeUndefined();
+        const elsewhere = menuModel(context({ view: 'terminal', terminalKeys: false }));
+        expect(find(elsewhere, 'terminal-clear')?.accelerator).toBeUndefined();
+        expect(find(elsewhere, 'palette')?.accelerator).toBe('CommandOrControl+K');
     });
 
     test('Cmd+W closes the last cell before it closes the window', () => {

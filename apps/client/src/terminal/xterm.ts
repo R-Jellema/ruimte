@@ -5,6 +5,8 @@ import { isAppShortcut, isClearShortcut, isLeaveNodeShortcut, isTerminalPaste, m
 /* ESC CR: what agent CLIs read as "newline, do not submit". Harmless in a plain shell. */
 const SHIFT_ENTER = '\x1b\r';
 
+const keyedTerminals = new WeakSet<Element>();
+
 interface TerminalKeys {
     write(data: string): void;
     clear(): void;
@@ -19,6 +21,9 @@ interface TerminalKeys {
  * alone, or xterm would write Cmd+Shift+Enter as a return.
  */
 export function bindTerminalKeys(term: Terminal, keys: TerminalKeys): void {
+    if (term.element) {
+        keyedTerminals.add(term.element);
+    }
     term.attachCustomKeyEventHandler((e) => {
         const apple = isApplePlatform();
         if (e.key === 'Escape') {
@@ -62,4 +67,17 @@ export function bindTerminalKeys(term: Terminal, keys: TerminalKeys): void {
         }
         return true;
     });
+}
+
+/* Whether the keyboard is in a terminal that takes its own keys, where the clear key clears instead of opening the palette. */
+export function terminalHasKeyboard(): boolean {
+    if (typeof document === 'undefined') {
+        return false;
+    }
+    for (let node = document.activeElement; node !== null; node = node.parentElement) {
+        if (keyedTerminals.has(node)) {
+            return true;
+        }
+    }
+    return false;
 }

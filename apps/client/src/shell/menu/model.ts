@@ -40,6 +40,8 @@ export interface MenuContext {
     prWatch: boolean;
     /* A chat has the focus: the chat view in the focused cell, or the chat node with the keyboard or selected alone (`focused-chat.ts`). */
     chat: boolean;
+    /* A terminal has the keyboard, which takes the clear key for itself (`terminal/xterm.ts`). */
+    terminalKeys: boolean;
     /* The repositories of the folder that stand on a branch, which a pull request hangs on. */
     prRepos: { path: string; label: string }[];
     fileManager: string;
@@ -494,12 +496,19 @@ for (const rows of PLACED.values()) {
     rows.sort((one, other) => one.place.order - other.place.order);
 }
 
+function shortcutOf(shortcut: Shortcut | undefined, place: MenuPlace, context: MenuContext): Shortcut | undefined {
+    if (place.shortcut) {
+        return place.shortcut(context);
+    }
+    return (place.showsShortcut?.(context) ?? true) ? shortcut : undefined;
+}
+
 function tableRow({ id, place }: PlacedCommand, context: MenuContext, command: MenuCommand): MenuNode {
     const spec = COMMANDS[id];
     const words = place.words?.(context) ?? { key: spec.key };
     const enabled = place.enabled?.(context);
     return command(id, t(words.key, words.values), {
-        shortcut: (place.showsShortcut?.(context) ?? true) ? spec.shortcut : undefined,
+        shortcut: shortcutOf(spec.shortcut, place, context),
         ...(enabled === undefined ? {} : { enabled }),
         checked: place.checked?.(context),
         radio: place.radio === true

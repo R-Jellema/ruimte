@@ -60,12 +60,17 @@ export function useNativeMenu(): void {
             bridge.onMenuCommand?.(runMenuCommand) ?? (() => undefined)
         ];
         i18next.on('languageChanged', schedule);
+        // A terminal taking or losing the keyboard moves the clear key between Clear and the palette.
+        window.addEventListener('focusin', schedule);
+        window.addEventListener('focusout', schedule);
         send();
         return () => {
             if (timer !== null) {
                 clearTimeout(timer);
             }
             i18next.off('languageChanged', schedule);
+            window.removeEventListener('focusin', schedule);
+            window.removeEventListener('focusout', schedule);
             for (const unsubscribe of unsubscribes) {
                 unsubscribe();
             }

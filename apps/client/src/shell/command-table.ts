@@ -102,6 +102,7 @@ import { EDITOR_COMMAND_IDS, EDITOR_COMMANDS, type EditorCommandId } from '@/she
 import { editorShortcut } from '@/shell/editor-keymap';
 import type { MenuContext } from '@/shell/menu/model';
 import { APP_SHORTCUTS } from '@/shell/shortcuts';
+import { CLEAR_SHORTCUT, platformShortcut } from '@/terminal/keymap';
 
 /* A menu of the bar or a submenu with a fixed place, whose groups `menu/model.ts` lays out. */
 export type MenuContainer =
@@ -142,6 +143,8 @@ export interface MenuPlace {
     readonly words?: (context: MenuContext) => MenuWords;
     /* Whether the row shows its shortcut now. The key is bound regardless. */
     readonly showsShortcut?: (context: MenuContext) => boolean;
+    /* A key the row shows in place of the command's, for one that whatever has the focus answers by itself. */
+    readonly shortcut?: (context: MenuContext) => Shortcut | undefined;
 }
 
 /*
@@ -632,13 +635,14 @@ const TABLE = {
         palette: false,
         menu: { menu: 'view', group: 'screen', order: 30, when: (context) => !desktop(context), checked: (context) => context.fullscreen }
     },
+    // A terminal with the keyboard takes the same key to clear itself, as every macOS terminal does.
     palette: {
         key: 'palette',
         icon: Command,
         shortcut: APP_SHORTCUTS.palette,
         binds: 'window',
         palette: false,
-        menu: { menu: 'go', group: 'palette', order: 10 }
+        menu: { menu: 'go', group: 'palette', order: 10, showsShortcut: (context) => !context.terminalKeys }
     },
     'view-previous': {
         key: 'previousView',
@@ -913,7 +917,18 @@ const TABLE = {
         menu: { menu: 'kind', group: 'canvas-layout', order: 10, words: (context) => ({ key: context.anyLocked ? 'unlockAll' : 'lockAll' }) }
     },
     'layout-save': { key: 'saveLayout', icon: Save, palette: true, menu: { menu: 'layouts', group: 'save', order: 10 } },
-    'terminal-clear': { key: 'clear', icon: Eraser, palette: false, menu: { menu: 'kind', group: 'terminal', order: 10 } },
+    // The terminal's own key handler answers the key (`terminal/xterm.ts`), so the row shows it only while a terminal has the keyboard.
+    'terminal-clear': {
+        key: 'clear',
+        icon: Eraser,
+        palette: false,
+        menu: {
+            menu: 'kind',
+            group: 'terminal',
+            order: 10,
+            shortcut: (context) => (context.terminalKeys ? platformShortcut(CLEAR_SHORTCUT, context.apple) : undefined)
+        }
+    },
     'drawing-copy-png': { key: 'drawingCopyPng', icon: Copy, palette: true, menu: { menu: 'kind', group: 'drawing-copy', order: 10 } },
     'drawing-copy-svg': { key: 'drawingCopySvg', icon: Copy, palette: true, menu: { menu: 'kind', group: 'drawing-copy', order: 20 } },
     'drawing-save-png': { key: 'drawingSavePng', icon: Download, palette: true, menu: { menu: 'kind', group: 'drawing-save', order: 10 } },
