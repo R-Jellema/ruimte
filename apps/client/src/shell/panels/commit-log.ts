@@ -30,7 +30,7 @@ export interface LogSection {
     commits: LogRow[];
 }
 
-/* The date git orders a log by, which a rebase moves and the author date keeps. The schema leaves it optional, so the author date stands in. */
+/* The date git orders a log by, which a rebase moves and the author date keeps. */
 function committedAt(commit: GitCommit): number {
     return commit.committedAt ?? commit.at;
 }

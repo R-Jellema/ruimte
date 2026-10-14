@@ -19,8 +19,9 @@ export type KeepAwakeSettings = Pick<Settings, 'keepAwake' | 'keepAwakeOnBattery
 
 /*
  * Keep awake belongs to this computer's own machine: its daemon holds the block, with no window open
- * and for a phone that set it. What this client kept itself before that is handed to the machine once
- * (`startKeepAwakeMove`), and the shell holds a block of its own only until that has happened.
+ * and for a phone that set it, and every change is written there. What this client kept itself before
+ * that is handed to the machine once (`startKeepAwakeMove`). While the machine does not hold keep awake
+ * (it has not answered, or cannot), `startKeepAwake` has the shell hold a block from those stored settings.
  */
 export function machineKeepsAwake(info: Pick<ServerInfo, 'keepAwakeAvailable'>): boolean {
     return info.keepAwakeAvailable;
