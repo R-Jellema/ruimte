@@ -35,10 +35,10 @@ struct ChatQueueSheet: View {
         .presentationDetents([.medium, .large])
     }
 
-    private func card(_ message: JSONValue) -> some View {
+    private func card(_ message: ChatInfoQueueItem) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(message.text("text", fallback: String(localized: "Attachments"))).font(.body).lineLimit(6)
-            let attachments = message.list("attachments").count
+            Text(message.text).font(.body).lineLimit(6)
+            let attachments = message.attachments?.count ?? 0
             if attachments > 0 {
                 Text("\(attachments) attachments").font(.caption)
                     .foregroundStyle(MobileStyle.muted)

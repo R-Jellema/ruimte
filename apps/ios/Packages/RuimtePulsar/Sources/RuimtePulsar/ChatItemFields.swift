@@ -40,6 +40,13 @@ extension ChatItem {
     public var turnId: String? { fields.turnId }
     public var kind: String { fields.kind }
 
+    public var userItem: ChatUserItem? { if case .user(let item) = self { item } else { nil } }
+    public var assistantItem: ChatAssistantItem? { if case .assistant(let item) = self { item } else { nil } }
+    public var toolItem: ChatToolItem? { if case .tool(let item) = self { item } else { nil } }
+    public var subagentItem: ChatSubagentItem? { if case .subagent(let item) = self { item } else { nil } }
+    public var turnItem: ChatTurnItem? { if case .turn(let item) = self { item } else { nil } }
+    public var noteItem: ChatNoteItem? { if case .note(let item) = self { item } else { nil } }
+
     /// The call of a subagent this item belongs to; only an assistant message and a tool call have one.
     public var parentToolUseID: String? {
         switch self {
@@ -48,6 +55,15 @@ extension ChatItem {
             return nil
         case .tool(let item): return item.parentToolUseId
         default: return nil
+        }
+    }
+
+    /// The request an approval or a question answers to; nil for every other item.
+    public var requestId: String? {
+        switch self {
+        case .approval(let item): item.requestId
+        case .question(let item): item.requestId
+        default: nil
         }
     }
 

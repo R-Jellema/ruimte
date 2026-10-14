@@ -7,23 +7,23 @@ final class ChatPresentationTests: XCTestCase {
     @MainActor func testInfoAloneStartsAndEndsWorking() {
         let presentation = ChatPresentation()
         presentation.setConnected(true)
-        presentation.setInfo(.object(["activeTurnId": .string("turn")]))
+        presentation.setInfo(ChatWire.info(["activeTurnId": .string("turn")]).chatInfo)
         XCTAssertEqual(presentation.entries.map(\.kind), [.activity])
         XCTAssertTrue(presentation.isAnimating)
-        presentation.setInfo(.object(["activeTurnId": .null, "running": .bool(true)]))
+        presentation.setInfo(ChatWire.info(["activeTurnId": .null, "running": .bool(true)]).chatInfo)
         XCTAssertTrue(presentation.entries.isEmpty)
         XCTAssertFalse(presentation.isAnimating)
     }
 
     @MainActor func testTextDeltaKeepsRowIdentityAndStructureRevision() {
         let presentation = ChatPresentation()
-        presentation.replace([item("reply", "assistant")], info: .null)
+        presentation.replace([item("reply", "assistant").chatItem], info: nil)
         let record = presentation.entries[0].items[0]
         let revision = presentation.revision
-        presentation.upsert(item("reply", "assistant").setting("text", .string("Hello 🌍")), textOnly: true)
+        presentation.upsert(item("reply", "assistant").setting("text", .string("Hello 🌍")).chatItem, textOnly: true)
         XCTAssertEqual(presentation.revision, revision)
         XCTAssertTrue(presentation.entries[0].items[0] === record)
-        XCTAssertEqual(record.value.text("text"), "Hello 🌍")
+        XCTAssertEqual(record.item.assistantItem?.text, "Hello 🌍")
     }
 
     @MainActor func testActiveWorkDoesNotDisappearIntoSettledTools() {
@@ -33,7 +33,7 @@ final class ChatPresentationTests: XCTestCase {
                 item("done", "tool").setting("state", .string("done")),
                 item("live", "tool").setting("state", .string("running")),
                 item("thought", "thinking").setting("streaming", .bool(true)),
-            ], info: .null)
+            ].map(\.chatItem), info: nil)
         XCTAssertEqual(presentation.entries.map(\.kind), [.tools, .message, .message])
     }
 
@@ -43,9 +43,9 @@ final class ChatPresentationTests: XCTestCase {
         presentation.replace(
             [
                 item("question", "question").setting("state", .string("pending")).setting("async", .bool(true))
-            ], info: .object(["activeTurnId": .string("turn")]))
+            ].map(\.chatItem), info: ChatWire.info(["activeTurnId": .string("turn")]).chatInfo)
         XCTAssertTrue(presentation.isAnimating)
-        presentation.upsert(item("permission", "approval").setting("decision", .string("pending")))
+        presentation.upsert(item("permission", "approval").setting("decision", .string("pending")).chatItem)
         XCTAssertEqual(presentation.activityLabel, "Waiting for you")
         XCTAssertFalse(presentation.isAnimating)
         XCTAssertEqual(presentation.entries.count, 1)
@@ -55,11 +55,11 @@ final class ChatPresentationTests: XCTestCase {
 
     @MainActor func testSnapshotReplacesOldRecordsAndUsesTurnStart() {
         let presentation = ChatPresentation()
-        presentation.replace([item("old", "assistant")], info: .null)
+        presentation.replace([item("old", "assistant").chatItem], info: nil)
         presentation.replace(
             [
                 item("turn", "turn").setting("createdAt", .number(42)).setting("state", .string("running"))
-            ], info: .object(["activeTurnId": .string("turn")]))
+            ].map(\.chatItem), info: ChatWire.info(["activeTurnId": .string("turn")]).chatInfo)
         XCTAssertEqual(presentation.startedAt, 42)
         XCTAssertEqual(presentation.entries.map(\.id), ["working-turn"])
     }
@@ -77,7 +77,7 @@ final class ChatPresentationTests: XCTestCase {
         let tool = item("tool", "tool").setting("turnId", .string("turn")).setting("state", .string("done"))
         let reply = item("reply", "assistant").setting("turnId", .string("turn"))
         let note = item("warning", "note").setting("turnId", .string("turn")).setting("level", .string("warning"))
-        presentation.replace([turn, tool, reply, note], info: .null)
+        presentation.replace([turn, tool, reply, note].map(\.chatItem), info: nil)
         XCTAssertEqual(presentation.entries.map(\.id), ["fold-turn", "reply", "warning"])
         presentation.toggleTurn("turn")
         XCTAssertEqual(presentation.entries.map(\.id), ["fold-turn", "tools-tool", "reply", "warning"])
@@ -87,9 +87,10 @@ final class ChatPresentationTests: XCTestCase {
         let presentation = ChatPresentation()
         let turn = item("turn", "turn").setting("turnId", .string("turn")).setting("state", .string("done"))
         let tool = item("tool", "tool").setting("turnId", .string("turn")).setting("state", .string("done"))
-        let image = item("image", "tool").setting("turnId", .string("turn")).setting("state", .string("done")).setting("name", .string("ImageGeneration"))
+        let image = item("image", "tool").setting("turnId", .string("turn")).setting("state", .string("done")).setting(
+            "name", .string("ImageGeneration"))
         let reply = item("reply", "assistant").setting("turnId", .string("turn"))
-        presentation.replace([turn, tool, image, reply], info: .null)
+        presentation.replace([turn, tool, image, reply].map(\.chatItem), info: nil)
         XCTAssertEqual(presentation.entries.map(\.id), ["fold-turn", "image", "reply"])
         XCTAssertEqual(presentation.entries[1].kind, .message)
         presentation.toggleTurn("turn")
@@ -101,13 +102,13 @@ final class ChatPresentationTests: XCTestCase {
         let presentation = ChatPresentation()
         let agent = item("agent", "subagent").setting("toolUseId", .string("spawn"))
         let child = item("child", "assistant").setting("parentToolUseId", .string("spawn"))
-        presentation.replace([agent, child, item("main", "assistant")], info: .null)
+        presentation.replace([agent, child, item("main", "assistant")].map(\.chatItem), info: nil)
         XCTAssertEqual(presentation.entries.map(\.id), ["agent", "main"])
         XCTAssertEqual(presentation.entries[0].items.map(\.id), ["agent", "child"])
         let revision = presentation.revision
-        presentation.upsert(child.setting("text", .string("Only the child changes")), textOnly: true)
+        presentation.upsert(child.setting("text", .string("Only the child changes")).chatItem, textOnly: true)
         XCTAssertEqual(presentation.revision, revision)
-        XCTAssertEqual(presentation.entries[0].items[1].value.text("text"), "Only the child changes")
+        XCTAssertEqual(presentation.entries[0].items[1].item.assistantItem?.text, "Only the child changes")
     }
 
     @MainActor func testAgentTurnCanOpenTheSourceAgentInAnEarlierFold() {
@@ -116,7 +117,7 @@ final class ChatPresentationTests: XCTestCase {
         let agent = item("agent", "subagent").setting("turnId", .string("first")).setting("toolUseId", .string("spawn"))
         let second = item("second", "turn").setting("turnId", .string("second")).setting("state", .string("running"))
             .setting("origin", .string("agent"))
-        presentation.replace([first, agent, second], info: .null)
+        presentation.replace([first, agent, second].map(\.chatItem), info: nil)
         XCTAssertEqual(presentation.entries.map(\.id), ["fold-first", "start-second"])
         presentation.openSubagent(toolUseID: "spawn")
         XCTAssertTrue(presentation.expandedSubagents.contains("agent"))
@@ -135,7 +136,7 @@ final class ChatPresentationTests: XCTestCase {
                     .object(["old_string": .string("before"), "new_string": .string("after")]),
                 ]),
             ]))
-        let files = ChatFileChanges.grouped(ChatFileChanges.fromTool(tool))
+        let files = ChatFileChanges.grouped(ChatFileChanges.fromTool(tool.chatTool))
         XCTAssertEqual(files.count, 1)
         XCTAssertEqual(files[0].added, 2)
         XCTAssertEqual(files[0].deleted, 2)
@@ -181,15 +182,18 @@ final class ChatToolPresentationTests: XCTestCase {
     }
 
     func testTheToolRowLeavesTheProgressDescriptionToTheSubagentPreview() {
-        let item = JSONValue.object([
+        let item = ChatWire.item([
             "kind": .string("tool"), "name": .string("Unknown"), "input": .object([:]),
-            "progress": .object(["description": .string("Still going")]),
-        ])
-        XCTAssertEqual(ChatToolPresentation.summary(item), "")
+            "progress": .object([
+                "startedAt": .null, "description": .string("Still going"), "output": .null,
+            ]),
+        ]).chatItem
+        XCTAssertEqual(item.toolItem.map(ChatToolPresentation.summary), "")
         XCTAssertEqual(ChatSubagents.previewOfItem(item), .tool(name: "Unknown", detail: "Still going"))
     }
 
     private func summary(_ name: String, _ input: [String: JSONValue]) -> String {
-        ChatToolPresentation.summary(.object(["name": .string(name), "input": .object(input)]))
+        ChatToolPresentation.summary(
+            ChatWire.item(["kind": .string("tool"), "name": .string(name), "input": .object(input)]).chatTool)
     }
 }

@@ -3,15 +3,14 @@ import RuimteTransport
 import SwiftUI
 
 struct ChatSubagentRow: View {
-    let agent: ChatItemState
+    let item: ChatSubagentItem
     let children: [ChatItemState]
     let presentation: ChatPresentation
     let client: any MachineRequesting
     let chatID: String
     @State private var showingResult = false
-    private var item: JSONValue { agent.value }
-    private var running: Bool { item.text("status") == "running" }
-    private var expanded: Bool { !opens && presentation.expandedSubagents.contains(agent.id) }
+    private var running: Bool { item.status == .running }
+    private var expanded: Bool { !opens && presentation.expandedSubagents.contains(item.id) }
     private var opens: Bool { ChatSubagents.canOpen(item, machineRefused: presentation.subagentsRefused) }
 
     var body: some View {
@@ -26,7 +25,7 @@ struct ChatSubagentRow: View {
                     .accessibilityHint("Opens the conversation")
             } else {
                 ChatExpansionButton(expanding: !expanded) {
-                    presentation.toggleSubagent(agent.id)
+                    presentation.toggleSubagent(item.id)
                 } label: {
                     header
                 }.buttonStyle(.plain).font(.footnote).foregroundStyle(MobileStyle.muted)
@@ -34,7 +33,7 @@ struct ChatSubagentRow: View {
             }
             if expanded {
                 VStack(alignment: .leading, spacing: 8) {
-                    if item["itemsTruncated"]?.boolValue == true {
+                    if item.itemsTruncated {
                         Text("Only the beginning of this agent's work is kept.").font(.caption).foregroundStyle(
                             MobileStyle.muted)
                     }
@@ -56,7 +55,7 @@ struct ChatSubagentRow: View {
                             }
                         }
                     }
-                    if let result = item["result"]?.stringValue, !result.isEmpty {
+                    if let result = item.result, !result.isEmpty {
                         DisclosureGroup("Show result", isExpanded: $showingResult) {
                             MarkdownMessage(text: result).modifier(ChatMessageMenu(text: result))
                         }
@@ -74,28 +73,28 @@ struct ChatSubagentRow: View {
                 Image(lucide: "bot", size: 14)
                 // A node another agent opened with `--task` reads as the task it is.
                 ChatLiveLabel(
-                    text: item.text("origin") == "ruimte" ? String(localized: "Task") : String(localized: "Sub-agent"),
+                    text: item.origin == .ruimte ? String(localized: "Task") : String(localized: "Sub-agent"),
                     active: running)
                 Spacer(minLength: 4)
                 if running {
-                    ChatElapsed(startedAt: item.number("startedAt"))
+                    ChatElapsed(startedAt: item.startedAt)
                 } else {
-                    Text(item.text("status") == "failed" ? "Failed" : "Done")
-                        .foregroundStyle(item.text("status") == "failed" ? Color.red : MobileStyle.muted)
-                    if let end = item["finishedAt"]?.numberValue {
+                    Text(item.status == .failed ? "Failed" : "Done")
+                        .foregroundStyle(item.status == .failed ? Color.red : MobileStyle.muted)
+                    if let end = item.finishedAt {
                         Text(
-                            "in \(ChatToolPresentation.elapsed(end - item.number("startedAt")))",
+                            "in \(ChatToolPresentation.elapsed(end - item.startedAt))",
                             comment: "How long a finished sub-agent took, after Done or Failed")
                     }
                 }
                 Image(lucide: opens || !expanded ? "chevron-right" : "chevron-down", size: 12)
             }
-            Text(item.text("description", fallback: item.text("summary"))).lineLimit(2).padding(.leading, 22)
-            if item["background"]?.boolValue == true || running && !item.text("lastTool").isEmpty {
+            Text(item.description).lineLimit(2).padding(.leading, 22)
+            if item.background || running && !(item.lastTool ?? "").isEmpty {
                 Text(
                     [
-                        item["background"]?.boolValue == true ? String(localized: "Background") : "",
-                        running ? item.text("lastTool") : "",
+                        item.background ? String(localized: "Background") : "",
+                        running ? item.lastTool ?? "" : "",
                     ].filter { !$0.isEmpty }.joined(separator: " · ")
                 )
                 .font(.caption).padding(.leading, 22)

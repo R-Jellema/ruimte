@@ -63,36 +63,36 @@ enum ChatForking {
     static let titleMax = 120
 
     /// Why a chat cannot be forked after this turn right now, or nil when it can.
-    static func refusal(info: JSONValue, turn: JSONValue?) -> String? {
-        guard info != .null, let turn, turn.text("kind") == "turn" else {
+    static func refusal(info: ChatInfo?, turn: ChatItem?) -> String? {
+        guard let info, let turn = turn?.turnItem else {
             return String(localized: "This turn is not in the conversation")
         }
-        guard forkable(provider: info.text("provider")) else {
+        guard forkable(provider: info.provider) else {
             return String(localized: "This CLI has no conversation that can be forked")
         }
-        guard info["agentSessionId"]?.stringValue != nil else {
+        guard info.agentSessionId != nil else {
             return String(localized: "The CLI never started a conversation here")
         }
-        if turn.text("state") == "running" || info["activeTurnId"]?.stringValue != nil {
+        if turn.state == .running || info.activeTurnId != nil {
             return String(localized: "Wait for the turn to end")
         }
         return nil
     }
 
     /// Why a fork cannot write a summary for its original right now, or nil when it can.
-    static func summaryRefusal(info: JSONValue, originalPresent: Bool) -> String? {
+    static func summaryRefusal(info: ChatInfo?, originalPresent: Bool) -> String? {
         if !originalPresent { return String(localized: "The original is no longer in this project") }
-        if info["activeTurnId"]?.stringValue != nil { return String(localized: "Wait for the turn to end") }
+        if info?.activeTurnId != nil { return String(localized: "Wait for the turn to end") }
         return nil
     }
 
-    static func turns(_ items: [JSONValue]) -> [JSONValue] { items.filter { $0.text("kind") == "turn" } }
+    static func turns(_ items: [ChatItem]) -> [ChatTurnItem] { items.compactMap(\.turnItem) }
 
-    static func point(items: [JSONValue], turnID: String, counted: Bool) -> ChatForkPoint? {
+    static func point(items: [ChatItem], turnID: String, counted: Bool) -> ChatForkPoint? {
         let all = turns(items)
-        guard let index = all.firstIndex(where: { $0.stableID == turnID }) else { return nil }
-        let asked = items.first { $0.text("kind") == "user" && $0.text("turnId") == turnID }
-        let text = asked?.text("text") ?? all[index].text("label")
+        guard let index = all.firstIndex(where: { $0.id == turnID }) else { return nil }
+        let asked = items.lazy.compactMap(\.userItem).first { $0.turnId == turnID }
+        let text = asked?.text ?? all[index].label ?? ""
         let prompt = text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.first { !$0.isEmpty }
         return ChatForkPoint(
             turnID: turnID, number: index + 1, total: all.count, last: index == all.count - 1, counted: counted,
@@ -110,10 +110,12 @@ enum ChatForking {
 
     /// Where and when a fork began: "Forked after turn 3, 09:24". The turn is counted only over a thread read from its
     /// start, since a later page would count from wherever the reader is; `moment` writes the time.
-    static func forkLine(forkOf: JSONValue?, turnIDs: [String], complete: Bool, moment: (Double) -> String) -> String? {
-        guard let forkOf, let at = forkOf["at"]?.numberValue else { return nil }
-        let time = moment(at)
-        if complete, let index = turnIDs.firstIndex(of: forkOf.text("turnId")) {
+    static func forkLine(forkOf: ChatInfoForkOf?, turnIDs: [String], complete: Bool, moment: (Double) -> String)
+        -> String?
+    {
+        guard let forkOf else { return nil }
+        let time = moment(forkOf.at)
+        if complete, let index = turnIDs.firstIndex(of: forkOf.turnId) {
             return String(localized: "Forked after turn \(index + 1), \(time)")
         }
         return String(localized: "Forked at \(time)")
@@ -185,20 +187,19 @@ enum ChatForking {
     /// The places the message index lists, in thread order.
     @MainActor static func marks(entries: [ChatTimelineEntry]) -> [ChatMessageMark] {
         entries.compactMap { entry in
-            guard let value = entry.items.first?.value else { return nil }
-            if entry.kind == .message && value.text("kind") == "user" {
+            guard let item = entry.items.first?.item else { return nil }
+            if entry.kind == .message, let message = item.userItem {
                 // A message of only attachments still has a place; its names stand in for the text.
                 let text =
-                    value.text("text").isEmpty
-                    ? value.list("attachments").map { $0.text("name") }.joined(separator: ", ") : value.text("text")
+                    message.text.isEmpty
+                    ? (message.attachments ?? []).map(\.name).joined(separator: ", ") : message.text
                 return ChatMessageMark(
-                    id: entry.id, kind: .person, text: text, createdAt: value.number("createdAt"),
-                    turnID: value["turnId"]?.stringValue)
+                    id: entry.id, kind: .person, text: text, createdAt: message.createdAt, turnID: message.turnId)
             }
-            if entry.kind == .turnStart && !value.list("taskIds").isEmpty {
+            if entry.kind == .turnStart, let turn = item.turnItem, turn.taskIds?.isEmpty == false {
                 return ChatMessageMark(
-                    id: entry.id, kind: .wake, text: ChatPresentation.agentTurnLabel(value),
-                    createdAt: value.number("createdAt"), turnID: value.stableID)
+                    id: entry.id, kind: .wake, text: ChatPresentation.agentTurnLabel(turn), createdAt: turn.createdAt,
+                    turnID: turn.id)
             }
             return nil
         }

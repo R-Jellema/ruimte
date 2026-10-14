@@ -6,31 +6,36 @@ import XCTest
 
 final class TaskPresentationTests: XCTestCase {
     @MainActor func testAWakeTurnSaysHowManyTasksWokeIt() {
-        let turn = JSONValue.object(["kind": .string("turn"), "label": .string("Tests")])
-        XCTAssertEqual(ChatPresentation.agentTurnLabel(turn), "Sub-agent finished: Tests")
+        let turn: [String: JSONValue] = ["kind": .string("turn"), "label": .string("Tests")]
+        XCTAssertEqual(ChatPresentation.agentTurnLabel(Self.turn(turn)), "Sub-agent finished: Tests")
         XCTAssertEqual(
-            ChatPresentation.agentTurnLabel(turn.setting("taskIds", .array([.string("a")]))), "Woken by a task: Tests")
+            ChatPresentation.agentTurnLabel(Self.turn(turn.merging(["taskIds": .array([.string("a")])]) { $1 })),
+            "Woken by a task: Tests")
         XCTAssertEqual(
             ChatPresentation.agentTurnLabel(
-                .object(["kind": .string("turn"), "taskIds": .array([.string("a"), .string("b")])])),
+                Self.turn(["kind": .string("turn"), "taskIds": .array([.string("a"), .string("b")])])),
             "Woken by 2 tasks")
-        XCTAssertEqual(ChatPresentation.agentTurnLabel(.object(["kind": .string("turn")])), "Continued on its own")
+        XCTAssertEqual(ChatPresentation.agentTurnLabel(Self.turn(["kind": .string("turn")])), "Continued on its own")
     }
 
     @MainActor func testATurnTheMachineCouldNotResumeIsNotStoppedByYou() {
-        let turn = JSONValue.object([
+        let turn = Self.turn([
             "id": .string("t1"), "turnId": .string("t1"), "kind": .string("turn"), "state": .string("aborted"),
             "createdAt": .number(0), "endedAt": .number(4000),
         ])
         XCTAssertEqual(ChatPresentation.turnLabel(turn), "You stopped after 4s")
-        let note = JSONValue.object([
+        let note = ChatWire.item([
             "kind": .string("note"), "turnId": .string("t1"), "level": .string("warning"),
             "text": .string("This turn could not be resumed after the machine restarted: gone"),
         ])
-        XCTAssertEqual(ChatPresentation.turnLabel(turn, items: [note]), "Stopped after 4s")
+        XCTAssertEqual(ChatPresentation.turnLabel(turn, items: [note.chatItem]), "Stopped after 4s")
         XCTAssertEqual(
-            ChatPresentation.turnLabel(turn, items: [note.setting("turnId", .string("other"))]),
+            ChatPresentation.turnLabel(turn, items: [note.setting("turnId", .string("other")).chatItem]),
             "You stopped after 4s")
+    }
+
+    private static func turn(_ fields: [String: JSONValue]) -> ChatTurnItem {
+        ChatWire.item(fields).chatItem.turnItem!
     }
 
     @MainActor func testAChildShowsItsNewestTaskAndAProjectAnswerReplacesItsOwn() {

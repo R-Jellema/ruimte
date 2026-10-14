@@ -1,56 +1,75 @@
 import XCTest
+
 @testable import RuimtePulsar
 
 final class ChatUiDeltaTests: XCTestCase {
-    func testPreviewMatchesUTF16LengthWithoutAppendingItsTextTwice() {
-        let item: JSONValue = .object([
-            "kind": .string("assistant"), "text": .string("Hi 🐇"), "streaming": .bool(true),
-        ])
-        let preview: JSONValue = .array([.object(["id": .string("block")])])
-        let event: JSONValue = .object(["text": .string(""), "textLength": .number(5), "ui": preview])
-        let updated = ChatUiDelta.apply(event, to: item)
-        XCTAssertEqual(updated["text"], item["text"])
-        XCTAssertEqual(updated["ui"], preview)
+    private func block(_ id: String) -> ChatUiBlock {
+        ChatUiBlock(
+            id: id, catalogVersion: 1, revision: nil, start: 0, end: 0, complete: false, defaults: [:], queries: [:],
+            nodes: [], diagnostics: [], fallback: "")
     }
 
-    func testStalePreviewPreservesCurrentTreeButQueryMetadataStillArrives() {
-        let blocks: JSONValue = .array([.object(["id": .string("new")])])
-        let queries: JSONValue = .object(["authorChatId": .string("chat")])
-        let item: JSONValue = .object([
-            "kind": .string("assistant"), "text": .string("newer"), "ui": blocks, "streaming": .bool(true),
-        ])
-        let event: JSONValue = .object(["textLength": .number(2), "ui": .array([]), "uiQueries": queries])
-        let updated = ChatUiDelta.apply(event, to: item)
-        XCTAssertEqual(updated["ui"], blocks)
-        XCTAssertEqual(updated["uiQueries"], queries)
+    private func reply(_ text: String, streaming: Bool, ui: [ChatUiBlock]? = nil) -> ChatItem {
+        .assistant(
+            ChatAssistantItem(id: "reply", createdAt: 0, turnId: nil, ui: ui, text: text, streaming: streaming))
     }
 
-    func testTextAndToolDeltasKeepExistingMetadata() {
-        let item: JSONValue = .object(["kind": .string("assistant"), "text": .string("a"), "ui": .array([])])
-        let updated = ChatUiDelta.apply(.object(["text": .string("b")]), to: item)
-        XCTAssertEqual(updated["text"], .string("ab"))
-        XCTAssertEqual(updated["ui"], .array([]))
-        let tool: JSONValue = .object(["kind": .string("tool"), "progress": .object(["output": .string("a")])])
-        let progress = ChatUiDelta.apply(.object(["text": .string("b")]), to: tool)
-        XCTAssertEqual(progress["progress"]?["output"], .string("ab"))
-        XCTAssertNil(progress["text"])
+    private func delta(
+        _ text: String = "", textLength: Int64? = nil, ui: [ChatUiBlock]? = nil, uiQueries: ChatUiQueryState? = nil
+    ) -> ChatDeltaEvent {
+        ChatDeltaEvent(type: "delta", itemId: "reply", text: text, ui: ui, uiQueries: uiQueries, textLength: textLength)
     }
 
-    func testTreesReachOnlyAStreamingReplyAndQueryMetadataOnlyAReply() {
-        let blocks: JSONValue = .array([.object(["id": .string("block")])])
-        let queries: JSONValue = .object(["authorChatId": .string("chat")])
-        let event: JSONValue = .object([
-            "text": .string(""), "textLength": .number(2), "ui": blocks, "uiQueries": queries,
-        ])
-        let settled: JSONValue = .object(["kind": .string("assistant"), "text": .string("hi")])
-        let reply = ChatUiDelta.apply(event, to: settled)
-        XCTAssertNil(reply["ui"])
-        XCTAssertEqual(reply["uiQueries"], queries)
-        let thinking: JSONValue = .object([
-            "kind": .string("thinking"), "text": .string("hi"), "streaming": .bool(true),
-        ])
-        let thought = ChatUiDelta.apply(event, to: thinking)
-        XCTAssertNil(thought["ui"])
-        XCTAssertNil(thought["uiQueries"])
+    private func assistant(_ item: ChatItem) throws -> ChatAssistantItem {
+        guard case .assistant(let reply) = item else { throw XCTSkip("Not a reply") }
+        return reply
+    }
+
+    func testPreviewMatchesUTF16LengthWithoutAppendingItsTextTwice() throws {
+        let preview = [block("block")]
+        let updated = try assistant(
+            ChatUiDelta.apply(delta(textLength: 5, ui: preview), to: reply("Hi 🐇", streaming: true)))
+        XCTAssertEqual(updated.text, "Hi 🐇")
+        XCTAssertEqual(updated.ui, preview)
+    }
+
+    func testStalePreviewPreservesCurrentTreeButQueryMetadataStillArrives() throws {
+        let blocks = [block("new")]
+        let queries = ChatUiQueryState(authorChatId: "chat", blocks: [:])
+        let updated = try assistant(
+            ChatUiDelta.apply(
+                delta(textLength: 2, ui: [], uiQueries: queries), to: reply("newer", streaming: true, ui: blocks)))
+        XCTAssertEqual(updated.ui, blocks)
+        XCTAssertEqual(updated.uiQueries, queries)
+    }
+
+    func testTextAndToolDeltasKeepExistingMetadata() throws {
+        let updated = try assistant(ChatUiDelta.apply(delta("b"), to: reply("a", streaming: false, ui: [])))
+        XCTAssertEqual(updated.text, "ab")
+        XCTAssertEqual(updated.ui, [])
+        let tool = ChatItem.tool(
+            ChatToolItem(
+                id: "tool", createdAt: 0, turnId: nil, toolUseId: "use", name: "Bash", input: .null, output: nil,
+                state: .running, parentToolUseId: nil,
+                progress: ChatToolItemProgress(startedAt: 4, description: "Listing", output: "a")))
+        guard case .tool(let progressed) = ChatUiDelta.apply(delta("b"), to: tool) else {
+            return XCTFail("The tool call came back as another kind")
+        }
+        XCTAssertEqual(progressed.progress, ChatToolItemProgress(startedAt: 4, description: "Listing", output: "ab"))
+        XCTAssertNil(progressed.output)
+    }
+
+    func testTreesReachOnlyAStreamingReplyAndQueryMetadataOnlyAReply() throws {
+        let queries = ChatUiQueryState(authorChatId: "chat", blocks: [:])
+        let event = delta(textLength: 2, ui: [block("block")], uiQueries: queries)
+        let settled = try assistant(ChatUiDelta.apply(event, to: reply("hi", streaming: false)))
+        XCTAssertNil(settled.ui)
+        XCTAssertEqual(settled.uiQueries, queries)
+        let thinking = ChatItem.thinking(
+            ChatThinkingItem(id: "thought", createdAt: 0, turnId: nil, text: "hi", streaming: true, endedAt: nil))
+        guard case .thinking(let thought) = ChatUiDelta.apply(delta(" there"), to: thinking) else {
+            return XCTFail("The thought came back as another kind")
+        }
+        XCTAssertEqual(thought.text, "hi there")
     }
 }

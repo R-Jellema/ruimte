@@ -6,28 +6,22 @@ import XCTest
 
 /// What the chat's sheets work out: the context a chat holds and the results a plan sends back.
 final class ChatSheetTests: XCTestCase {
-    func testTheContextSplitsIntoItsPartsOfTheWindow() throws {
-        let usage = try XCTUnwrap(
-            ChatContextUsage(
-                .object([
-                    "contextTokens": .number(150_000), "contextWindow": .number(200_000),
-                    "breakdown": .object([
-                        "toolOutput": .number(60_000), "filesRead": .number(40_000),
-                        "conversation": .number(30_000), "system": .number(20_000),
-                    ]),
-                ])))
+    func testTheContextSplitsIntoItsPartsOfTheWindow() {
+        let usage = ChatContextUsage(
+            ChatInfoUsage(
+                contextTokens: 150_000, contextWindow: 200_000, costUsd: 0, turns: 1,
+                breakdown: ChatInfoUsageBreakdown(
+                    toolOutput: 60_000, filesRead: 40_000, conversation: 30_000, system: 20_000)))
         XCTAssertEqual(usage.fraction, 0.75)
         XCTAssertEqual(usage.segments?.map(\.part), [.toolOutput, .filesRead, .conversation, .system])
         XCTAssertEqual(usage.segments?.map(\.fraction), [0.3, 0.2, 0.15, 0.1])
     }
 
-    func testAMachineThatDoesNotEstimateDrawsThePlainBar() throws {
-        let usage = try XCTUnwrap(
-            ChatContextUsage(.object(["contextTokens": .number(10), "contextWindow": .null])))
+    func testAMachineThatDoesNotEstimateDrawsThePlainBar() {
+        let usage = ChatContextUsage(ChatInfoUsage(contextTokens: 10, contextWindow: nil, costUsd: 0, turns: 1))
         XCTAssertNil(usage.segments)
         XCTAssertNil(usage.window)
         XCTAssertEqual(usage.fraction, 0)
-        XCTAssertNil(ChatContextUsage(nil))
     }
 
     func testTokensReadAsTheDesktopWritesThem() {

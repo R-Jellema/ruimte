@@ -22,24 +22,24 @@ struct ChatPromptDraft {
 
 @MainActor @Observable
 final class ChatPromptState {
-    private var live: [JSONValue] = []
+    private var live: [ChatItem] = []
     private var completed: Set<String> = []
     private var drafts: [String: ChatPromptDraft] = [:]
     var activeID: String?
     var sendingID: String?
     var error: String?
-    var pending: [JSONValue] {
-        live.filter { !completed.contains($0.text("requestId")) }
+    var pending: [ChatItem] {
+        live.filter { !completed.contains($0.requestId ?? "") }
     }
-    var active: JSONValue? { pending.first { $0.text("requestId") == activeID } }
+    var active: ChatItem? { pending.first { $0.requestId == activeID } }
     var draft: ChatPromptDraft {
         get { activeID.flatMap { drafts[$0] } ?? ChatPromptDraft() }
         set { if let activeID { drafts[activeID] = newValue } }
     }
 
-    func update(_ requests: [JSONValue]) {
+    func update(_ requests: [ChatItem]) {
         live = requests
-        let ids = Set(requests.map { $0.text("requestId") })
+        let ids = Set(requests.map { $0.requestId ?? "" })
         completed.formIntersection(ids)
         drafts = drafts.filter { ids.contains($0.key) }
         reconcile()
@@ -48,20 +48,25 @@ final class ChatPromptState {
     private func reconcile() {
         guard active == nil else { return }
         let candidates = pending.sorted {
-            let first = $0.text("kind") == "question" && $0["async"]?.boolValue == true
-            let second = $1.text("kind") == "question" && $1["async"]?.boolValue == true
+            let first = Self.waitsLater($0)
+            let second = Self.waitsLater($1)
             if first != second { return !first }
-            return ($0["createdAt"]?.numberValue ?? 0) < ($1["createdAt"]?.numberValue ?? 0)
+            return $0.createdAt < $1.createdAt
         }
-        activeID = candidates.first?.text("requestId")
+        activeID = candidates.first?.requestId
         error = nil
     }
 
+    /// A question the agent goes on without, which waits behind every request that holds it up.
+    private static func waitsLater(_ item: ChatItem) -> Bool {
+        if case .question(let question) = item { question.async == true } else { false }
+    }
+
     func submit(
-        _ item: JSONValue, connected: Bool, perform: @MainActor () async throws -> Void
+        _ item: ChatItem, connected: Bool, perform: @MainActor () async throws -> Void
     ) async {
-        let id = item.text("requestId")
-        guard sendingID == nil, activeID == id, pending.contains(where: { $0.text("requestId") == id }), connected
+        let id = item.requestId ?? ""
+        guard sendingID == nil, activeID == id, pending.contains(where: { $0.requestId == id }), connected
         else { return }
         sendingID = id
         error = nil

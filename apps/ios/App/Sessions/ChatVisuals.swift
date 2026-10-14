@@ -64,16 +64,14 @@ enum ChatVisuals {
     @MainActor static func rowTime(_ entry: ChatTimelineEntry) -> Double? {
         switch entry.kind {
         case .activity: return .infinity
-        case .turnFold, .turnStart, .subagent, .tools: return entry.items.first?.value["createdAt"]?.numberValue
+        case .turnFold, .turnStart, .subagent, .tools: return entry.items.first?.item.createdAt
         case .changedFiles, .forks, .visual: return nil
         case .message:
-            guard let value = entry.items.first?.value else { return nil }
-            switch value.text("kind") {
-            case "user", "assistant", "thinking", "approval", "question":
-                return value["createdAt"]?.numberValue
-            case "tool":
-                return ChatSubagents.handbackReport(value) == nil ? value["createdAt"]?.numberValue : nil
-            default: return nil
+            guard let item = entry.items.first?.item else { return nil }
+            switch item {
+            case .user, .assistant, .thinking, .approval, .question: return item.createdAt
+            case .tool: return ChatSubagents.handbackReport(item) == nil ? item.createdAt : nil
+            case .subagent, .turn, .note, .compaction: return nil
             }
         }
     }

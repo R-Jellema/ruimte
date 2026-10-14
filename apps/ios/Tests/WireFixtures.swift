@@ -64,6 +64,13 @@ enum ChatWire {
     }
 }
 
+extension JSONValue {
+    // A fixture that does not decode is a broken test, not a case to cover.
+    var chatItem: ChatItem { try! decoded(as: ChatItem.self) }
+    var chatInfo: ChatInfo { try! decoded(as: ChatInfo.self) }
+    var chatTool: ChatToolItem { try! decoded(as: ChatToolItem.self) }
+}
+
 /// A checkout's status as `git.status` answers it, a clean repository on `main` for whatever a test leaves out.
 enum GitWire {
     static func status(_ fields: [String: JSONValue]) -> GitStatus {

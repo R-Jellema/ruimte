@@ -11,29 +11,31 @@ final class ChatForkingTests: XCTestCase {
     ])
 
     func testRefusesATurnThatCannotBeForkedYet() {
-        let turn = self.turn("t1", state: "done")
-        XCTAssertNil(ChatForking.refusal(info: info, turn: turn))
-        XCTAssertEqual(ChatForking.refusal(info: .null, turn: turn), "This turn is not in the conversation")
-        XCTAssertEqual(ChatForking.refusal(info: info, turn: nil), "This turn is not in the conversation")
+        let turn = self.turn("t1", state: "done").chatItem
+        XCTAssertNil(ChatForking.refusal(info: chat(info), turn: turn))
+        XCTAssertEqual(ChatForking.refusal(info: nil, turn: turn), "This turn is not in the conversation")
+        XCTAssertEqual(ChatForking.refusal(info: chat(info), turn: nil), "This turn is not in the conversation")
         XCTAssertEqual(
-            ChatForking.refusal(info: info.setting("provider", .string("gemini")), turn: turn),
+            ChatForking.refusal(info: chat(info.setting("provider", .string("gemini"))), turn: turn),
             "This CLI has no conversation that can be forked")
         XCTAssertEqual(
-            ChatForking.refusal(info: info.setting("agentSessionId", .null), turn: turn),
+            ChatForking.refusal(info: chat(info.setting("agentSessionId", .null)), turn: turn),
             "The CLI never started a conversation here")
         XCTAssertEqual(
-            ChatForking.refusal(info: info, turn: self.turn("t2", state: "running")), "Wait for the turn to end")
+            ChatForking.refusal(info: chat(info), turn: self.turn("t2", state: "running").chatItem),
+            "Wait for the turn to end")
         XCTAssertEqual(
-            ChatForking.refusal(info: info.setting("activeTurnId", .string("t2")), turn: turn),
+            ChatForking.refusal(info: chat(info.setting("activeTurnId", .string("t2"))), turn: turn),
             "Wait for the turn to end")
     }
 
     func testSummaryWaitsForTheOriginalAndAnIdleFork() {
-        XCTAssertNil(ChatForking.summaryRefusal(info: info, originalPresent: true))
+        XCTAssertNil(ChatForking.summaryRefusal(info: chat(info), originalPresent: true))
         XCTAssertEqual(
-            ChatForking.summaryRefusal(info: info, originalPresent: false), "The original is no longer in this project")
+            ChatForking.summaryRefusal(info: chat(info), originalPresent: false),
+            "The original is no longer in this project")
         XCTAssertEqual(
-            ChatForking.summaryRefusal(info: info.setting("activeTurnId", .string("t")), originalPresent: true),
+            ChatForking.summaryRefusal(info: chat(info.setting("activeTurnId", .string("t"))), originalPresent: true),
             "Wait for the turn to end")
     }
 
@@ -42,7 +44,7 @@ final class ChatForkingTests: XCTestCase {
             turn("t1", state: "done"), user("u1", turn: "t1", text: "\n  First question  \nmore"),
             turn("t2", state: "done"), user("u2", turn: "t2", text: String(repeating: "a", count: 80)),
             turn("t3", state: "done"),
-        ]
+        ].map(\.chatItem)
         let first = ChatForking.point(items: items, turnID: "t1", counted: true)
         XCTAssertEqual(first?.label, "After turn 1 of 3: \"First question\"")
         XCTAssertEqual(
@@ -51,7 +53,7 @@ final class ChatForkingTests: XCTestCase {
         XCTAssertEqual(ChatForking.point(items: items, turnID: "t3", counted: true)?.label, "After the last turn")
         XCTAssertNil(ChatForking.point(items: items, turnID: "missing", counted: true))
         let presentation = ChatPresentation()
-        presentation.replace(items + [turn("t4", state: "running")], info: .null)
+        presentation.replace(items + [turn("t4", state: "running").chatItem], info: nil)
         XCTAssertEqual(presentation.lastSettledTurnID, "t3")
     }
 
@@ -147,7 +149,7 @@ final class ChatForkingTests: XCTestCase {
                             "path": .string("/tmp/a.png"),
                         ])
                     ])),
-            ], info: info)
+            ].map(\.chatItem), info: chat(info))
         let marks = ChatForking.marks(entries: presentation.entries)
         XCTAssertEqual(marks.map(\.id), ["u1", "start-t2", "u4"])
         XCTAssertEqual(marks.map(\.kind), [.person, .wake, .person])
@@ -172,6 +174,8 @@ final class ChatForkingTests: XCTestCase {
         await model.refreshForks()
         XCTAssertEqual(model.presentation.forks, ["t1": ["fork"]])
     }
+
+    private func chat(_ info: JSONValue) -> ChatInfo { ChatWire.info(info.objectValue ?? [:]).chatInfo }
 
     private func turn(_ id: String, state: String) -> JSONValue {
         ChatWire.item([

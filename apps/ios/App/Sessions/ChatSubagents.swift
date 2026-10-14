@@ -9,9 +9,9 @@ struct SubagentCrumb: Hashable, Identifiable {
     let description: String
     var id: String { toolUseID }
 
-    init(_ item: JSONValue) {
-        toolUseID = item.text("toolUseId")
-        description = ChatSubagents.title(item)
+    init(_ agent: ChatSubagentItem) {
+        toolUseID = agent.toolUseId
+        description = ChatSubagents.title(agent)
     }
 
     init(toolUseID: String, description: String) {
@@ -75,103 +75,92 @@ enum ChatSubagents {
     // An entry shows two lines at most, so a report of many kilobytes is never flattened whole.
     private static let previewCharacters = 400
 
-    static func title(_ item: JSONValue) -> String {
-        [item.text("description"), item.text("summary"), item.text("subagentType")].first { !$0.isEmpty }
+    static func title(_ agent: ChatSubagentItem) -> String {
+        [agent.description, agent.summary ?? "", agent.subagentType ?? ""].first { !$0.isEmpty }
             ?? String(localized: "Sub-agent")
     }
 
     /// A row without a pointer of its own can only be opened by a machine that answers `chat.subagent` for it.
-    static func canOpen(_ item: JSONValue, machineRefused: Bool) -> Bool {
-        item.text("kind") == "subagent" && !item.text("toolUseId").isEmpty
-            && (item["native"]?.objectValue != nil || !machineRefused)
+    static func canOpen(_ agent: ChatSubagentItem, machineRefused: Bool) -> Bool {
+        !agent.toolUseId.isEmpty && (agent.native != nil || !machineRefused)
     }
 
-    static func openable(_ items: [JSONValue], machineRefused: Bool) -> [JSONValue] {
-        items.filter { canOpen($0, machineRefused: machineRefused) }
+    static func openable(_ items: [ChatItem], machineRefused: Bool) -> [ChatSubagentItem] {
+        items.compactMap(\.subagentItem).filter { canOpen($0, machineRefused: machineRefused) }
     }
 
     /// The sub-agents the composer's chip speaks for, as the desktop's `flyoutSubagents` picks them: every running
     /// one, the ones since the person last wrote, and the rest of a turn that still has one running.
-    static func activity(_ items: [JSONValue]) -> [JSONValue] {
-        let lastMessage = items.lastIndex { $0.text("kind") == "user" } ?? -1
-        let lastMessageAt = lastMessage < 0 ? nil : items[lastMessage]["createdAt"]?.numberValue
-        let rows = items.enumerated().filter { $0.element.text("kind") == "subagent" }
-        let turns = Set(
-            rows.compactMap { row in
-                row.element.text("status") == "running" ? row.element["turnId"]?.stringValue : nil
-            })
-        return rows.filter { index, item in
-            if item.text("status") == "running" || index > lastMessage { return true }
-            if let lastMessageAt, let finishedAt = item["finishedAt"]?.numberValue, finishedAt > lastMessageAt {
-                return true
-            }
-            return item["turnId"]?.stringValue.map(turns.contains) ?? false
-        }.map(\.element)
+    static func activity(_ items: [ChatItem]) -> [ChatSubagentItem] {
+        let lastMessage = items.lastIndex { $0.userItem != nil } ?? -1
+        let lastMessageAt = lastMessage < 0 ? nil : items[lastMessage].createdAt
+        let rows = items.enumerated().compactMap { index, item in item.subagentItem.map { (index, $0) } }
+        let turns = Set(rows.compactMap { $0.1.status == .running ? $0.1.turnId : nil })
+        return rows.filter { index, agent in
+            if agent.status == .running || index > lastMessage { return true }
+            if let lastMessageAt, let finishedAt = agent.finishedAt, finishedAt > lastMessageAt { return true }
+            return agent.turnId.map(turns.contains) ?? false
+        }.map(\.1)
     }
 
     /// The one state the chip shows for all of them: work in progress first, then whatever went wrong.
-    static func summaryWord(_ words: [SubagentStatusWord?]) -> SubagentStatusWord {
+    static func summaryWord(_ words: [SubagentStatusWord]) -> SubagentStatusWord {
         [.running, .failed, .cancelled].first { words.contains($0) } ?? .done
     }
 
     /// The number on the chip: the ones still at work, and all of them once none is.
-    static func badgeCount(_ words: [SubagentStatusWord?]) -> Int {
+    static func badgeCount(_ words: [SubagentStatusWord]) -> Int {
         let active = words.filter { $0 == .running }.count
         return active > 0 ? active : words.count
     }
 
     /// The task a row stands for, whose id the daemon wrote into the row's own.
-    static func taskID(_ item: JSONValue) -> String? {
-        let id = item.text("id")
-        return item.text("origin") == "ruimte" && id.hasPrefix("task-") ? String(id.dropFirst(5)) : nil
+    static func taskID(_ agent: ChatSubagentItem) -> String? {
+        agent.origin == .ruimte && agent.id.hasPrefix("task-") ? String(agent.id.dropFirst(5)) : nil
     }
 
-    /// A cancelled task is a failed row on the wire, and only the task itself still says which it was. Nil for a word
-    /// this app does not know: the desktop client passes such a word through rather than calling it a failure.
-    static func statusWord(_ item: JSONValue, task: JSONValue?) -> SubagentStatusWord? {
-        guard let status = ChatSubagentStatus(rawValue: item.text("status")) else { return nil }
-        if status == .failed, TaskStatus(rawValue: task?.text("status") ?? "") == .cancelled { return .cancelled }
-        return SubagentStatusWord(status)
+    /// A cancelled task is a failed row on the wire, and only the task itself still says which it was.
+    static func statusWord(_ agent: ChatSubagentItem, task: JSONValue?) -> SubagentStatusWord {
+        if agent.status == .failed, TaskStatus(rawValue: task?.text("status") ?? "") == .cancelled { return .cancelled }
+        return SubagentStatusWord(agent.status)
     }
 
     /// What of every sub-agent's own work the parent's thread kept, by the call that opened it, in thread order.
-    static func threadWork(_ items: [JSONValue]) -> [String: [JSONValue]] {
-        var work: [String: [JSONValue]] = [:]
-        for item in items where ["tool", "assistant"].contains(item.text("kind")) {
-            if let parent = item["parentToolUseId"]?.stringValue, !parent.isEmpty {
-                work[parent, default: []].append(item)
+    static func threadWork(_ items: [ChatItem]) -> [String: [ChatItem]] {
+        var work: [String: [ChatItem]] = [:]
+        for item in items {
+            switch item {
+            case .tool, .assistant:
+                if let parent = item.parentToolUseID, !parent.isEmpty { work[parent, default: []].append(item) }
+            default: continue
             }
         }
         return work
     }
 
     /// Running on top and everything that settled below it, the most recently updated first in each.
-    static func sections(_ items: [JSONValue], work: [String: [JSONValue]]) -> (active: [JSONValue], done: [JSONValue])
+    static func sections(_ agents: [ChatSubagentItem], work: [String: [ChatItem]])
+        -> (active: [ChatSubagentItem], done: [ChatSubagentItem])
     {
         (
-            newestFirst(items.filter { $0.text("status") == "running" }, work: work),
-            newestFirst(items.filter { $0.text("status") != "running" }, work: work)
+            newestFirst(agents.filter { $0.status == .running }, work: work),
+            newestFirst(agents.filter { $0.status != .running }, work: work)
         )
     }
 
     /// When an entry last moved: the latest step the thread kept of a running one, else its start; the end of a
     /// settled one.
-    private static func updatedAt(_ item: JSONValue, work: [JSONValue]) -> Double? {
-        guard item.text("status") == "running" else {
-            return item["finishedAt"]?.numberValue.flatMap { $0 > 0 ? $0 : nil }
-        }
-        let at = max(work.map { $0.number("createdAt") }.max() ?? 0, item.number("startedAt"))
+    private static func updatedAt(_ agent: ChatSubagentItem, work: [ChatItem]) -> Double? {
+        guard agent.status == .running else { return agent.finishedAt.flatMap { $0 > 0 ? $0 : nil } }
+        let at = max(work.map(\.createdAt).max() ?? 0, agent.startedAt)
         return at > 0 ? at : nil
     }
 
     /// Newest first; an entry that knows no time goes below the rest, in the order the thread has them.
-    private static func newestFirst(_ items: [JSONValue], work: [String: [JSONValue]]) -> [JSONValue] {
-        items.enumerated()
+    private static func newestFirst(_ agents: [ChatSubagentItem], work: [String: [ChatItem]]) -> [ChatSubagentItem] {
+        agents.enumerated()
             .map {
-                (
-                    item: $0.element, index: $0.offset,
-                    at: updatedAt($0.element, work: work[$0.element.text("toolUseId")] ?? [])
-                )
+                (agent: $0.element, index: $0.offset, at: updatedAt($0.element, work: work[$0.element.toolUseId] ?? []))
             }
             .sorted { left, right in
                 switch (left.at, right.at) {
@@ -181,7 +170,7 @@ enum ChatSubagents {
                 case (_, nil): true
                 }
             }
-            .map(\.item)
+            .map(\.agent)
     }
 
     // What Claude Code leaves as a background agent's result once the agent handed its report back with
@@ -196,15 +185,15 @@ enum ChatSubagents {
     }
 
     /// The report a `SubagentHandback` call carries in `input.message`, or nil for any other item.
-    static func handbackReport(_ item: JSONValue) -> String? {
-        guard item.text("kind") == "tool", item.text("name") == "SubagentHandback",
-            let message = item["input"]?["message"]?.stringValue,
+    static func handbackReport(_ item: ChatItem) -> String? {
+        guard let tool = item.toolItem, tool.name == "SubagentHandback",
+            let message = tool.input["message"]?.stringValue,
             !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { return nil }
         return message
     }
 
-    static func lastHandbackReport(_ items: [JSONValue]) -> String? {
+    static func lastHandbackReport(_ items: [ChatItem]) -> String? {
         items.reversed().lazy.compactMap(handbackReport).first
     }
 
@@ -221,52 +210,52 @@ enum ChatSubagents {
         return oneLine(plain)
     }
 
-    static func previewOfItem(_ item: JSONValue) -> SubagentPreview? {
-        switch item.text("kind") {
-        case "tool":
+    static func previewOfItem(_ item: ChatItem) -> SubagentPreview? {
+        switch item {
+        case .tool(let tool):
             // A preview has one line for the whole entry, so a call with nothing to say falls back to what the CLI
             // reports about its progress. The tool row itself has no such fallback.
-            let summary = ChatToolPresentation.summary(item)
-            let detail = summary.isEmpty ? item["progress"]?.text("description") ?? "" : summary
-            return .tool(name: item.text("name", fallback: String(localized: "Tool")), detail: oneLine(detail))
-        case "assistant":
-            let text = prose(item.text("text"))
+            let summary = ChatToolPresentation.summary(tool)
+            let detail = summary.isEmpty ? tool.progress?.description ?? "" : summary
+            return .tool(name: tool.name, detail: oneLine(detail))
+        case .assistant(let reply):
+            let text = prose(reply.text)
             return text.isEmpty ? nil : .text(text)
-        case "subagent":
+        case .subagent(let agent):
             return .tool(
-                name: item.text("origin") == "ruimte" ? String(localized: "Task") : String(localized: "Agent"),
-                detail: oneLine(item.text("description")))
+                name: agent.origin == .ruimte ? String(localized: "Task") : String(localized: "Agent"),
+                detail: oneLine(agent.description))
         default: return nil
         }
     }
 
-    static func latestPreview(_ items: [JSONValue]) -> SubagentPreview? {
+    static func latestPreview(_ items: [ChatItem]) -> SubagentPreview? {
         items.reversed().lazy.compactMap(previewOfItem).first
     }
 
     /// The thread kept the beginning of a sub-agent that did too much, so only a thread that kept all of it has the
     /// latest step.
-    private static func threadHasLatest(_ item: JSONValue, work: [JSONValue]) -> Bool {
-        item["itemsTruncated"]?.boolValue != true && !work.isEmpty
+    private static func threadHasLatest(_ agent: ChatSubagentItem, work: [ChatItem]) -> Bool {
+        !agent.itemsTruncated && !work.isEmpty
     }
 
-    private static func reportIsNotice(_ item: JSONValue, work: [JSONValue]) -> Bool {
-        lastHandbackReport(work) == nil && isHandbackNotice(item["result"]?.stringValue ?? item["summary"]?.stringValue)
+    private static func reportIsNotice(_ agent: ChatSubagentItem, work: [ChatItem]) -> Bool {
+        lastHandbackReport(work) == nil && isHandbackNotice(agent.result ?? agent.summary)
     }
 
     /// Whether the entry reads the newest end of the conversation from the machine: only when the parent's thread
     /// does not hold its latest step, which is a task, a Codex agent and a Claude agent past what the thread keeps.
-    static func needsTail(_ item: JSONValue, work: [JSONValue], machineRefused: Bool) -> Bool {
-        (item.text("status") == "running" || reportIsNotice(item, work: work))
-            && !threadHasLatest(item, work: work) && canOpen(item, machineRefused: machineRefused)
+    static func needsTail(_ agent: ChatSubagentItem, work: [ChatItem], machineRefused: Bool) -> Bool {
+        (agent.status == .running || reportIsNotice(agent, work: work))
+            && !threadHasLatest(agent, work: work) && canOpen(agent, machineRefused: machineRefused)
     }
 
-    static func preview(_ item: JSONValue, work: [JSONValue], tail: [JSONValue]?) -> SubagentPreview? {
-        let fromThread = threadHasLatest(item, work: work) ? latestPreview(work) : nil
-        let summary = item["summary"]?.stringValue ?? ""
-        if item.text("status") == "running" {
+    static func preview(_ agent: ChatSubagentItem, work: [ChatItem], tail: [ChatItem]?) -> SubagentPreview? {
+        let fromThread = threadHasLatest(agent, work: work) ? latestPreview(work) : nil
+        let summary = agent.summary ?? ""
+        if agent.status == .running {
             if let latest = fromThread ?? tail.flatMap(latestPreview) { return latest }
-            let lastTool = item.text("lastTool")
+            let lastTool = agent.lastTool ?? ""
             if !lastTool.isEmpty { return .tool(name: lastTool, detail: oneLine(summary)) }
             return summary.isEmpty ? nil : .text(oneLine(summary))
         }
@@ -274,9 +263,8 @@ enum ChatSubagents {
         if let handedBack = lastHandbackReport(work) ?? tail.flatMap(lastHandbackReport) {
             return .text(prose(handedBack))
         }
-        let result = item["result"]?.stringValue
-        let notice = isHandbackNotice(result ?? item["summary"]?.stringValue)
-        let report = notice ? "" : prose(result ?? "")
+        let notice = isHandbackNotice(agent.result ?? agent.summary)
+        let report = notice ? "" : prose(agent.result ?? "")
         if !report.isEmpty { return .text(report) }
         if let latest = fromThread ?? (notice ? tail.flatMap(latestPreview) : nil) { return latest }
         return !summary.isEmpty && !isHandbackNotice(summary) ? .text(oneLine(summary)) : nil
@@ -284,9 +272,9 @@ enum ChatSubagents {
 
     /// While the chat's turn runs that turn may still wait on a subagent of the CLI's own, so stopping the turn is the
     /// only offer then.
-    static func stop(_ item: JSONValue, turnRunning: Bool) -> SubagentStop? {
-        guard item.text("status") == "running" else { return nil }
-        if item.text("origin") == "ruimte" { return item["childId"]?.stringValue == nil ? nil : .task }
+    static func stop(_ agent: ChatSubagentItem, turnRunning: Bool) -> SubagentStop? {
+        guard agent.status == .running else { return nil }
+        if agent.origin == .ruimte { return agent.childId == nil ? nil : .task }
         return turnRunning ? nil : .mark
     }
 
@@ -295,11 +283,13 @@ enum ChatSubagents {
 
     /// The time on the right of an entry: how long it has run so far, or when it ended, with the date once that was
     /// not today.
-    static func entryTime(_ item: JSONValue, task: JSONValue?, now: Date, locale: FormatLocale = .current) -> String? {
+    static func entryTime(_ agent: ChatSubagentItem, task: JSONValue?, now: Date, locale: FormatLocale = .current)
+        -> String?
+    {
         // A task's own record says when it was given and settled; the row copies those, but may lag behind it.
-        let startedAt = task?["createdAt"]?.numberValue ?? item.number("startedAt")
-        let finishedAt = task?["settledAt"]?.numberValue ?? item["finishedAt"]?.numberValue
-        if item.text("status") == "running" {
+        let startedAt = task?["createdAt"]?.numberValue ?? agent.startedAt
+        let finishedAt = task?["settledAt"]?.numberValue ?? agent.finishedAt
+        if agent.status == .running {
             return startedAt > 0 ? runningFor(now.timeIntervalSince1970 * 1000 - startedAt) : nil
         }
         guard let finishedAt, finishedAt > 0 else { return nil }
@@ -307,19 +297,18 @@ enum ChatSubagents {
     }
 
     /// What the bar over a sub-agent's conversation says of it beside its state and its time.
-    static func facts(_ item: JSONValue, locale: FormatLocale = .current) -> [String] {
+    static func facts(_ agent: ChatSubagentItem, locale: FormatLocale = .current) -> [String] {
         var facts: [String] = []
-        if let model = item["model"]?.stringValue, !model.isEmpty { facts.append(ModelName.fromSlug(model)) }
-        if let type = item["subagentType"]?.stringValue, !type.isEmpty { facts.append(type) }
-        if item["background"]?.boolValue == true {
+        if let model = agent.model, !model.isEmpty { facts.append(ModelName.fromSlug(model)) }
+        if let type = agent.subagentType, !type.isEmpty { facts.append(type) }
+        if agent.background {
             facts.append(String(localized: "background", comment: "A sub-agent that runs in the background, lowercase"))
         }
-        let usage = item["usage"]
-        if let tokens = usage?["totalTokens"]?.numberValue, tokens > 0 {
-            let count = Format.tokens(tokens, in: locale)
+        if let tokens = agent.usage?.totalTokens, tokens > 0 {
+            let count = Format.tokens(Double(tokens), in: locale)
             facts.append(String(localized: "\(count) tokens", comment: "%@ is a compact number, like 12K"))
         }
-        if let calls = usage?["toolUses"]?.numberValue, calls > 0 {
+        if let calls = agent.usage?.toolUses, calls > 0 {
             facts.append(String(localized: "\(Int(calls)) tool calls"))
         }
         return facts
@@ -356,17 +345,16 @@ enum ChatSubagents {
 
     /// The newest page laid over what is held. A page that shares nothing with it means more happened than one page
     /// holds, so what is held is dropped for it rather than shown with a hole.
-    static func mergeNewest(current: [JSONValue], cursor: String?, page: [JSONValue], pageCursor: String?)
-        -> (items: [JSONValue], cursor: String?, replaced: Bool)
+    static func mergeNewest(current: [ChatItem], cursor: String?, page: [ChatItem], pageCursor: String?)
+        -> (items: [ChatItem], cursor: String?, replaced: Bool)
     {
-        let known = Dictionary(
-            current.enumerated().map { ($0.element.text("id"), $0.offset) }, uniquingKeysWith: { $1 })
-        if !current.isEmpty, !page.isEmpty, !page.contains(where: { known[$0.text("id")] != nil }) {
+        let known = Dictionary(current.enumerated().map { ($0.element.id, $0.offset) }, uniquingKeysWith: { $1 })
+        if !current.isEmpty, !page.isEmpty, !page.contains(where: { known[$0.id] != nil }) {
             return (page, pageCursor, true)
         }
         var items = current
         for item in page {
-            if let index = known[item.text("id")] { items[index] = item } else { items.append(item) }
+            if let index = known[item.id] { items[index] = item } else { items.append(item) }
         }
         return (items, current.isEmpty ? pageCursor : cursor, current.isEmpty)
     }
@@ -397,15 +385,15 @@ enum SubagentWatches {
 final class SubagentConversation {
     enum Status { case loading, ready, failed }
     enum Change {
-        case replaced([JSONValue])
-        case updated([JSONValue])
-        case prepended([JSONValue])
+        case replaced([ChatItem])
+        case updated([ChatItem])
+        case prepended([ChatItem])
     }
 
     static let pageSize = 60
 
     private(set) var status = Status.loading
-    private(set) var items: [JSONValue] = []
+    private(set) var items: [ChatItem] = []
     private(set) var cursor: String?
     private(set) var live = false
     private(set) var loadingEarlier = false
@@ -486,7 +474,7 @@ final class SubagentConversation {
             do {
                 let page = try await self.ask(cursor: cursor, limit: Self.pageSize, watch: nil)
                 guard !Task.isCancelled else { return }
-                let older = page.list("items")
+                let older = Self.items(of: page)
                 self.items = older + self.items
                 self.cursor = page["history"]?["cursor"]?.stringValue
                 self.live = page["live"]?.boolValue == true
@@ -508,8 +496,8 @@ final class SubagentConversation {
         do {
             let page = try await ask(cursor: nil, limit: limit, watch: watch ? true : nil)
             guard !Task.isCancelled, holding else { return }
-            let incoming = page.list("items")
-            let previous = Dictionary(items.map { ($0.text("id"), $0) }, uniquingKeysWith: { $1 })
+            let incoming = Self.items(of: page)
+            let previous = Dictionary(items.map { ($0.id, $0) }, uniquingKeysWith: { $1 })
             let merged = ChatSubagents.mergeNewest(
                 current: items, cursor: cursor, page: incoming, pageCursor: page["history"]?["cursor"]?.stringValue)
             items = merged.items
@@ -521,7 +509,7 @@ final class SubagentConversation {
             if merged.replaced {
                 onChange(.replaced(items))
             } else {
-                onChange(.updated(incoming.filter { previous[$0.text("id")] != $0 }))
+                onChange(.updated(incoming.filter { previous[$0.id] != $0 }))
             }
         } catch is CancellationError {
         } catch {
@@ -539,6 +527,11 @@ final class SubagentConversation {
         if let cursor { payload["cursor"] = .string(cursor) }
         if let watch { payload["watch"] = .bool(watch) }
         return try await client.request("chat.subagent", payload: .object(payload))
+    }
+
+    /// The page's items are chat items like the thread's, which the machine validated with the rest of its answer.
+    private static func items(of page: JSONValue) -> [ChatItem] {
+        page.list("items").compactMap { try? $0.decoded(as: ChatItem.self) }
     }
 
     private func enqueue(_ work: @escaping @MainActor () async -> Void) {

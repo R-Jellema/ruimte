@@ -55,9 +55,12 @@ enum ChatBookmarks {
 
     /// What a person asked of a chat that a bookmark can mark: a message they sent or an answer, in the chat's own
     /// thread rather than a sub-agent's.
-    static func markable(_ item: JSONValue) -> Bool {
-        ["user", "assistant"].contains(item.text("kind")) && item["parentToolUseId"]?.stringValue == nil
-            && item["streaming"]?.boolValue != true
+    static func markable(_ item: ChatItem) -> Bool {
+        switch item {
+        case .user: true
+        case .assistant(let reply): item.parentToolUseID == nil && !reply.streaming
+        default: false
+        }
     }
 
     /// The request a name field settles on, or nil when the name did not change. A name goes through `addBookmark`,
@@ -104,10 +107,8 @@ extension ChatModel {
                 return
             }
         }
-        guard !Task.isCancelled, let item = presentation.item(target.itemID),
-            item.list("ui").contains(where: {
-                $0.text("id") == target.blockID && $0.text("revision") == target.revision
-            })
+        guard !Task.isCancelled, let reply = presentation.item(target.itemID)?.assistantItem,
+            (reply.ui ?? []).contains(where: { $0.id == target.blockID && $0.revision == target.revision })
         else { return }
         presentation.uiChoiceHighlight = target
         _ = presentation.revealItem(target.itemID)

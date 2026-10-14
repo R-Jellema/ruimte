@@ -99,8 +99,7 @@ public struct ProviderAccountList: Sendable, Equatable {
     }
 
     /// Whether a chat has spoken, after which only an account that reads its conversation can take it over.
-    public static func chatStarted(_ info: JSONValue) -> Bool {
-        let session = info["agentSessionId"]
-        return (session != nil && session != .null) || (info["usage"]?["turns"]?.numberValue ?? 0) > 0
+    public static func chatStarted(_ info: ChatInfo) -> Bool {
+        info.agentSessionId != nil || info.usage.turns > 0
     }
 }

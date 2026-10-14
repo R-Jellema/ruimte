@@ -1,3 +1,4 @@
+import RuimteIntelligentUI
 import RuimtePulsar
 import RuimteTransport
 import SwiftUI
@@ -1079,40 +1080,33 @@ struct ChatEntryView: View {
             switch entry.kind {
             case .activity: ChatWorkingRow(presentation: presentation)
             case .turnFold:
-                if let turn = entry.items.first {
+                if let record = entry.items.first, let turn = record.item.turnItem {
+                    let turnID = turn.turnId ?? turn.id
                     HStack(spacing: 10) {
-                        ChatExpansionButton(
-                            expanding: !presentation.expandedTurns.contains(
-                                turn.value.text("turnId", fallback: turn.id))
-                        ) {
-                            presentation.toggleTurn(turn.value.text("turnId", fallback: turn.id))
+                        ChatExpansionButton(expanding: !presentation.expandedTurns.contains(turnID)) {
+                            presentation.toggleTurn(turnID)
                         } label: {
                             // A line and not a button, like the tool lines it hides; the work reads fainter than the time.
                             HStack(spacing: 8) {
                                 Image(
-                                    lucide: presentation.expandedTurns.contains(
-                                        turn.value.text("turnId", fallback: turn.id))
+                                    lucide: presentation.expandedTurns.contains(turnID)
                                         ? "chevron-down" : "chevron-right",
                                     size: 12)
-                                Text(ChatPresentation.turnLabel(turn.value, items: entry.items.map(\.value)))
+                                Text(ChatPresentation.turnLabel(turn, items: entry.items.map(\.item)))
                                     .layoutPriority(1)
-                                let work = ChatToolPresentation.turnSummary(
-                                    entry.items.map(\.value).filter { $0.text("kind") == "tool" })
+                                let work = ChatToolPresentation.turnSummary(entry.items.compactMap(\.item.toolItem))
                                 if !work.isEmpty {
                                     Text(work.map { "· \($0)" }.joined(separator: " "))
                                         .foregroundStyle(MobileStyle.faint)
                                 }
                             }
                             .font(.footnote).lineLimit(1).foregroundStyle(
-                                turn.value.text("state") == "error" ? Color.red : MobileStyle.muted
+                                turn.state == .error ? Color.red : MobileStyle.muted
                             )
                             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
                         }.buttonStyle(.plain)
-                            .accessibilityValue(
-                                presentation.expandedTurns.contains(turn.value.text("turnId", fallback: turn.id))
-                                    ? "Expanded" : "Collapsed"
-                            )
-                            .modifier(ChatForkMenu(presentation: presentation, turnID: turn.id))
+                            .accessibilityValue(presentation.expandedTurns.contains(turnID) ? "Expanded" : "Collapsed")
+                            .modifier(ChatForkMenu(presentation: presentation, turnID: record.id))
                     }
                 }
             case .forks:
@@ -1120,13 +1114,14 @@ struct ChatEntryView: View {
                     ChatForksRow(forkIDs: presentation.forks[turn.id] ?? [], presentation: presentation)
                 }
             case .turnStart:
-                if let turn = entry.items.first {
+                if let turn = entry.items.first?.item.turnItem {
+                    let task = turn.taskToolUseId ?? ""
                     Button {
-                        presentation.openSubagent(toolUseID: turn.value.text("taskToolUseId"))
+                        presentation.openSubagent(toolUseID: task)
                     } label: {
-                        Label(ChatPresentation.agentTurnLabel(turn.value), lucideIcon: "bot", iconSize: 14)
+                        Label(ChatPresentation.agentTurnLabel(turn), lucideIcon: "bot", iconSize: 14)
                             .font(.footnote).foregroundStyle(MobileStyle.muted).frame(minHeight: 44)
-                    }.buttonStyle(.plain).disabled(turn.value.text("taskToolUseId").isEmpty)
+                    }.buttonStyle(.plain).disabled(task.isEmpty)
                 }
             case .changedFiles:
                 if let turn = entry.items.first {
@@ -1134,9 +1129,9 @@ struct ChatEntryView: View {
                         turn: turn, tools: Array(entry.items.dropFirst()), client: client, chatID: chatID)
                 }
             case .subagent:
-                if let agent = entry.items.first {
+                if let agent = entry.items.first?.item.subagentItem {
                     ChatSubagentRow(
-                        agent: agent, children: Array(entry.items.dropFirst()), presentation: presentation,
+                        item: agent, children: Array(entry.items.dropFirst()), presentation: presentation,
                         client: client, chatID: chatID)
                 }
 
@@ -1158,7 +1153,8 @@ struct ChatEntryView: View {
                         }
                     } label: {
                         Label(
-                            ChatToolPresentation.groupLabel(entry.items.map(\.value)), lucideIcon: "terminal",
+                            ChatToolPresentation.groupLabel(entry.items.compactMap(\.item.toolItem)),
+                            lucideIcon: "terminal",
                             iconSize: 14
                         )
                         .font(.footnote).foregroundStyle(MobileStyle.muted)
@@ -1169,7 +1165,7 @@ struct ChatEntryView: View {
         .modifier(
             ChatLinkRouting(
                 context: ChatContentContext(
-                    client: client, chatID: chatID, cwd: presentation.info.text("cwd"), workspace: workspace,
+                    client: client, chatID: chatID, cwd: presentation.cwd, workspace: workspace,
                     connected: presentation.connected, scopeID: uiModels?.scopeID))
         )
         .frame(maxWidth: 720, alignment: .leading)
@@ -1188,37 +1184,47 @@ struct ChatObservedRow: View {
             if let bookmark = bookmarkable ? presentation?.bookmarks[record.id] : nil {
                 ChatBookmarkMarker(bookmark: bookmark).frame(maxWidth: 720).frame(maxWidth: .infinity)
             }
-            ChatTimelineRow(item: record.value, client: client, chatID: chatID, presentation: presentation)
+            ChatTimelineRow(record: record, client: client, chatID: chatID, presentation: presentation)
                 .modifier(
                     ChatMessageMenu(
-                        text: ChatSubagents.handbackReport(record.value) ?? record.value.text("text"),
-                        presentation: forkable ? presentation : nil, turnID: record.value.text("turnId"),
+                        text: ChatSubagents.handbackReport(record.item) ?? text,
+                        presentation: forkable ? presentation : nil, turnID: record.item.turnId ?? "",
                         bookmarks: bookmarkable ? presentation : nil, itemID: record.id))
         }
     }
 
+    private var text: String {
+        switch record.item {
+        case .user(let message): message.text
+        case .assistant(let reply): reply.text
+        case .thinking(let thought): thought.text
+        case .note(let note): note.text
+        default: ""
+        }
+    }
+
     /// Whether this row can carry a bookmark: a message of the chat's own thread.
-    private var bookmarkable: Bool { presentation?.forkable == true && ChatBookmarks.markable(record.value) }
+    private var bookmarkable: Bool { presentation?.forkable == true && ChatBookmarks.markable(record.item) }
 
     /// Whether "Fork from here" belongs on this row: what the person asked or the answer of a turn.
     private var forkable: Bool {
-        let value = record.value
-        return ["user", "assistant"].contains(value.text("kind")) && value["turnId"]?.stringValue != nil
-            && value["parentToolUseId"]?.stringValue == nil
+        switch record.item {
+        case .user, .assistant: record.item.turnId != nil && record.item.parentToolUseID == nil
+        default: false
+        }
     }
 }
 
 private struct ChatTimelineRow: View {
-    let item: JSONValue
+    let record: ChatItemState
     let client: any MachineRequesting
     let chatID: String
     let presentation: ChatPresentation?
     @Environment(\.chatUiModels) private var uiModels
     @Environment(\.chatContent) private var context
-    private var kind: String { item["kind"]?.stringValue ?? "" }
     var body: some View {
         content
-            .frame(maxWidth: 720, alignment: kind == "user" ? .trailing : .leading)
+            .frame(maxWidth: 720, alignment: record.item.userItem != nil ? .trailing : .leading)
             .frame(maxWidth: .infinity)
             .tint(MobileStyle.accent)
     }
@@ -1234,83 +1240,85 @@ private struct ChatTimelineRow: View {
 
     private var content: some View {
         VStack(alignment: .leading, spacing: 8) {
-            switch kind {
-            case "user":
-                ChatUserMessage(item: item, client: client, chatID: chatID, presentation: presentation)
-            case "assistant":
+            switch record.item {
+            case .user(let message):
+                ChatUserMessage(item: message, client: client, chatID: chatID, presentation: presentation)
+            case .assistant(let reply):
                 Group {
-                    if UiReplyView.hasBlocks(item), let uiModels, uiModels.chatID == chatID {
-                        UiReplyView(item: item, presentation: presentation) { block in
-                            uiModels.cache.model(itemID: item.text("id"), block: block)
+                    if let trees = record.replyTrees, let uiModels, uiModels.chatID == chatID {
+                        UiReplyView(item: reply, trees: trees, presentation: presentation) { block in
+                            uiModels.cache.model(itemID: reply.id, block: block)
                         }
                     } else {
-                        ChatStreamingMessage(text: item.text("text"), streaming: item["streaming"]?.boolValue == true)
+                        ChatStreamingMessage(text: reply.text, streaming: reply.streaming)
                     }
                 }
                 .accessibilityElement(children: .contain).accessibilityLabel("Agent")
-            case "thinking":
-                ChatThinkingRow(item: item)
-            case "tool":
-                if let report = ChatSubagents.handbackReport(item) {
+            case .thinking(let thought):
+                ChatThinkingRow(item: thought)
+            case .tool(let tool):
+                if let report = ChatSubagents.handbackReport(record.item) {
                     Text("Report").font(.caption.weight(.medium)).foregroundStyle(MobileStyle.faint)
                         .accessibilityAddTraits(.isHeader)
                     MarkdownMessage(text: report)
-                } else if item.text("name") == "ImageGeneration" {
-                    GeneratedImageRow(item: item, saveToProject: imageSave)
+                } else if UiGeneratedImage.isGeneration(tool) {
+                    GeneratedImageRow(item: tool, saveToProject: imageSave)
                 } else {
-                    ChatToolRow(item: item)
+                    ChatToolRow(item: tool)
                 }
-            case "subagent":
-                DisclosureGroup(item["description"]?.stringValue ?? String(localized: "Agent")) {
-                    let status = item["status"]?.stringValue ?? ""
-                    Text(SubagentStatusWord(rawValue: status)?.title ?? status).font(.caption)
-                    MarkdownMessage(
-                        text: item["result"]?.stringValue ?? item["summary"]?.stringValue ?? item["prompt"]?.stringValue
-                            ?? "")
+            case .subagent(let agent):
+                DisclosureGroup(agent.description) {
+                    Text(SubagentStatusWord(agent.status).title).font(.caption)
+                    MarkdownMessage(text: agent.result ?? agent.summary ?? agent.prompt ?? "")
                 }
-            case "approval":
-                let decision = item.text("decision")
+            case .approval(let approval):
                 Label(
-                    [
-                        "allow": String(localized: "Allowed"), "allow-always": String(localized: "Always allowed"),
-                        "deny": String(localized: "Declined"), "cancelled": String(localized: "No longer needed"),
-                    ][decision, default: decision] + " · " + item.text("toolName"),
-                    lucideIcon: decision == "deny" ? "circle-x" : "circle-check", iconSize: 14
+                    Self.decisionWord(approval.decision) + " · " + approval.toolName,
+                    lucideIcon: approval.decision == .deny ? "circle-x" : "circle-check", iconSize: 14
                 )
-                .font(.caption).foregroundStyle(decision == "deny" ? Color.red : MobileStyle.muted)
-            case "question":
-                ForEach(Array(item.list("questions").enumerated()), id: \.offset) { _, question in
-                    Label(question.text("question"), lucideIcon: "message-circle-question-mark", iconSize: 14).font(
+                .font(.caption).foregroundStyle(approval.decision == .deny ? Color.red : MobileStyle.muted)
+            case .question(let asked):
+                ForEach(Array(asked.questions.enumerated()), id: \.offset) { _, question in
+                    Label(question.question, lucideIcon: "message-circle-question-mark", iconSize: 14).font(
                         .subheadline)
-                    if let answer = item["answers"]?[question.text("id")]?.stringValue {
+                    if let answer = asked.answers?[question.id] {
                         Text(answer).font(.subheadline)
                     } else {
-                        Text(item.text("state") == "dismissed" ? "Dismissed" : "Not answered").font(.caption)
+                        Text(asked.state == .dismissed ? "Dismissed" : "Not answered").font(.caption)
                             .foregroundStyle(MobileStyle.muted)
                     }
                 }
-            case "note":
-                ChatNoteRow(item: item, presentation: presentation)
-            case "turn":
+            case .note(let note):
+                ChatNoteRow(item: note, presentation: presentation)
+            case .turn(let turn):
                 Label(
-                    item["label"]?.stringValue
+                    turn.label
                         ?? String(
-                            localized: "Turn \(item["state"]?.stringValue ?? "")",
+                            localized: "Turn \(turn.state.rawValue)",
                             comment: "%@ is the state of the turn as the machine names it"),
                     lucideIcon: "circle-dashed", iconSize: 14
                 ).font(.caption).foregroundStyle(MobileStyle.muted)
-                if let files = item["checkpointDiff"]?["files"]?.arrayValue, !files.isEmpty {
+                if let files = turn.checkpointDiff?.files, !files.isEmpty {
                     DisclosureGroup("\(files.count) changed files") {
                         ForEach(Array(files.enumerated()), id: \.offset) { _, file in
-                            Text(file["path"]?.stringValue ?? "").font(.caption.bold())
-                            CodeMessage(text: file["diff"]?.stringValue ?? file["omitted"]?.stringValue ?? "")
+                            Text(file.path).font(.caption.bold())
+                            CodeMessage(text: file.diff)
                         }
                     }
                 }
-            case "compaction":
-                ChatCompactionRule(preTokens: item["preTokens"]?.numberValue)
-            default: MarkdownMessage(text: item["text"]?.stringValue ?? "")
+            case .compaction(let compaction):
+                ChatCompactionRule(preTokens: compaction.preTokens.map(Double.init))
             }
         }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private static func decisionWord(_ decision: ChatApprovalDecision) -> String {
+        switch decision {
+        case .allow: String(localized: "Allowed")
+        case .allowAlways: String(localized: "Always allowed")
+        case .deny: String(localized: "Declined")
+        case .cancelled: String(localized: "No longer needed")
+        case .pending: decision.rawValue
+        }
     }
 }

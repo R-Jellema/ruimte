@@ -442,7 +442,7 @@ struct WorkspacePage: View {
         let model = session.retainChat(ChatModel(client: workspace.client, chatID: id, machineID: session.machine.id))
         defer { session.releaseChat(model) }
         var waited = 0
-        while (model.loading || model.info == .null) && model.error == nil && waited < 50 {
+        while (model.loading || model.info == nil) && model.error == nil && waited < 50 {
             try? await Task.sleep(for: .milliseconds(100))
             waited += 1
         }

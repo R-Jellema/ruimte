@@ -28,12 +28,13 @@ struct PlanSheet: View {
 
     private var plans: [PlanDocument] { store.plans(for: chatID) }
     private var plan: PlanDocument? { plans.first { $0.id == selectedID } ?? plans.first }
-    private var working: Bool { model.info["activeTurnId"]?.stringValue != nil }
+    private var working: Bool { model.working }
     private var activeSteps: [PlanActivityHold.Step] {
         plan?.activeSteps.map { PlanActivityHold.Step(id: $0.id, title: $0.title) } ?? []
     }
     private var agentName: String {
-        model.providers.first { $0["kind"] == model.info["provider"] }?.text("name") ?? String(localized: "The agent")
+        model.providers.first { $0["kind"]?.stringValue == model.info?.provider }?.text("name")
+            ?? String(localized: "The agent")
     }
 
     /// "Plan 2 of 3", counted from the oldest as the desktop picker does; empty for a chat with one plan.

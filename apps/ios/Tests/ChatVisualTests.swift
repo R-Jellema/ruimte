@@ -64,7 +64,7 @@ import XCTest
 
     func testInASettledTurnAVisualStandsUnderTheFoldAndAboveTheAnswer() {
         let presentation = ChatPresentation()
-        presentation.replace(settledTurn, info: .object([:]))
+        presentation.replace(settledTurn.map(\.chatItem), info: nil)
         presentation.setVisuals([visual("v1", at: 1200)])
         XCTAssertEqual(presentation.entries.map(\.id), ["u1", "fold-t1", "visual-v1", "a1"])
         XCTAssertEqual(presentation.entries[2].kind, .visual)
@@ -73,7 +73,8 @@ import XCTest
 
     func testInARunningTurnAVisualStandsBetweenTheCallsAroundIt() {
         let presentation = ChatPresentation()
-        presentation.replace(settledTurn + runningTurn, info: .object(["activeTurnId": .string("t2")]))
+        presentation.replace(
+            (settledTurn + runningTurn).map(\.chatItem), info: ChatWire.info(["activeTurnId": .string("t2")]).chatInfo)
         presentation.setVisuals([visual("v2", at: 3200)])
         XCTAssertEqual(
             presentation.entries.map(\.id),
@@ -82,7 +83,8 @@ import XCTest
 
     func testAVisualAlwaysStandsAboveTheWorkingRow() {
         let presentation = ChatPresentation()
-        presentation.replace(settledTurn + runningTurn, info: .object(["activeTurnId": .string("t2")]))
+        presentation.replace(
+            (settledTurn + runningTurn).map(\.chatItem), info: ChatWire.info(["activeTurnId": .string("t2")]).chatInfo)
         presentation.setVisuals([visual("late", at: 9000), visual("between", at: 2000)])
         XCTAssertEqual(
             presentation.entries.map(\.id),
@@ -99,13 +101,20 @@ import XCTest
     func testAVisualFromBeforeTheFirstPageWaitsForThatPage() {
         let model = ChatModel(client: VisualMachine(), chatID: "chat")
         let snapshot: JSONValue = .object([
-            "items": .array(settledTurn), "history": .object(["cursor": .string("older")]),
+            "info": ChatWire.info(), "items": .array(settledTurn),
+            "history": .object(["start": .number(0), "cursor": .string("older")]),
             "visuals": .array([
-                .object(["id": .string("old"), "title": .string("Old"), "at": .number(500)]),
-                .object(["id": .string("new"), "title": .string("New"), "at": .number(1200)]),
+                .object([
+                    "id": .string("old"), "title": .string("Old"), "at": .number(500), "maxHeight": .number(600),
+                    "size": .number(10),
+                ]),
+                .object([
+                    "id": .string("new"), "title": .string("New"), "at": .number(1200), "maxHeight": .number(600),
+                    "size": .number(10),
+                ]),
             ]),
         ])
-        model.replace(snapshot)
+        model.attached(snapshot, since: nil)
         XCTAssertEqual(model.presentation.visuals.map(\.id), ["old", "new"])
         XCTAssertEqual(model.presentation.entries.map(\.id), ["u1", "fold-t1", "visual-new", "a1"])
         let complete = ChatVisuals.placed(

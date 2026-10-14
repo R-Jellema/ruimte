@@ -10,6 +10,13 @@ final class ChatSubagentsTests: XCTestCase {
     private func agent(
         _ id: String, status: String = "running", started: Double = 0, finished: Double? = nil,
         extra: [String: JSONValue] = [:]
+    ) -> ChatSubagentItem {
+        agentValue(id, status: status, started: started, finished: finished, extra: extra).chatItem.subagentItem!
+    }
+
+    private func agentValue(
+        _ id: String, status: String = "running", started: Double = 0, finished: Double? = nil,
+        extra: [String: JSONValue] = [:]
     ) -> JSONValue {
         var value: [String: JSONValue] = [
             "id": .string(id), "kind": .string("subagent"), "toolUseId": .string("use-\(id)"),
@@ -21,8 +28,14 @@ final class ChatSubagentsTests: XCTestCase {
     }
 
     private func tool(_ id: String, parent: String, name: String = "Read", created: Double, input: JSONValue = .null)
-        -> JSONValue
+        -> ChatItem
     {
+        toolValue(id, parent: parent, name: name, created: created, input: input).chatItem
+    }
+
+    private func toolValue(
+        _ id: String, parent: String, name: String = "Read", created: Double, input: JSONValue = .null
+    ) -> JSONValue {
         ChatWire.item([
             "id": .string(id), "kind": .string("tool"), "name": .string(name), "parentToolUseId": .string(parent),
             "createdAt": .number(created), "state": .string("done"), "input": input,
@@ -37,21 +50,22 @@ final class ChatSubagentsTests: XCTestCase {
         ]
         let work = ChatSubagents.threadWork([tool("t", parent: "use-a", created: 30)])
         let sections = ChatSubagents.sections(items, work: work)
-        XCTAssertEqual(sections.active.map { $0.text("id") }, ["a", "b", "c"])
-        XCTAssertEqual(sections.done.map { $0.text("id") }, ["e", "d", "f"])
+        XCTAssertEqual(sections.active.map(\.id), ["a", "b", "c"])
+        XCTAssertEqual(sections.done.map(\.id), ["e", "d", "f"])
     }
 
     @MainActor func testThePageDerivesItsListsAgainOnlyWhenASubagentMoved() {
         let model = ChatModel(client: SubagentMachine(), chatID: "chat")
         let reply = ChatWire.item(["id": .string("reply"), "kind": .string("assistant"), "text": .string("Hi")])
-        model.replace(.object(["items": .array([agent("a", started: 10), reply])]))
+        model.attached(
+            .object(["info": ChatWire.info(), "items": .array([agentValue("a", started: 10), reply])]), since: nil)
         let derived = SubagentListDerivation()
         let lists = { derived.lists(revision: model.subagentRevision, machineRefused: false) { model.items } }
-        XCTAssertEqual(lists().active.map { $0.text("id") }, ["a"])
+        XCTAssertEqual(lists().active.map(\.id), ["a"])
         model.receive(.object(["type": .string("delta"), "itemId": .string("reply"), "text": .string(" there")]))
         _ = lists()
         XCTAssertEqual(derived.derivations, 1)
-        model.receive(.object(["type": .string("item"), "item": tool("t", parent: "use-a", created: 30)]))
+        model.receive(.object(["type": .string("item"), "item": toolValue("t", parent: "use-a", created: 30)]))
         XCTAssertEqual(lists().work["use-a"]?.count, 1)
         XCTAssertEqual(derived.derivations, 2)
     }
@@ -68,7 +82,11 @@ final class ChatSubagentsTests: XCTestCase {
             ChatSubagents.facts(item, locale: locale),
             ["Claude Haiku 4.5", "Explore", "background", "12K tokens", "8 tool calls"])
         XCTAssertEqual(ChatSubagents.facts(agent("b", extra: ["usage": .null]), locale: locale), [])
-        let one = agent("c", extra: ["usage": .object(["totalTokens": .number(0), "toolUses": .number(1)])])
+        let one = agent(
+            "c",
+            extra: [
+                "usage": .object(["totalTokens": .number(0), "toolUses": .number(1), "durationMs": .number(0)])
+            ])
         XCTAssertEqual(ChatSubagents.facts(one, locale: locale), ["1 tool call"])
     }
 
@@ -143,17 +161,18 @@ final class ChatSubagentsTests: XCTestCase {
     }
 
     @MainActor func testANewestPageWithoutOverlapReplacesWhatIsHeld() {
-        let held: [JSONValue] = [.object(["id": .string("1")]), .object(["id": .string("2")])]
+        let reply: (String, String) -> ChatItem = { id, text in
+            ChatWire.item(["id": .string(id), "kind": .string("assistant"), "text": .string(text)]).chatItem
+        }
+        let held = [reply("1", ""), reply("2", "")]
         let grown = ChatSubagents.mergeNewest(
-            current: held, cursor: "c1",
-            page: [.object(["id": .string("2"), "text": .string("x")]), .object(["id": .string("3")])],
-            pageCursor: "c2")
-        XCTAssertEqual(grown.items.map { $0.text("id") }, ["1", "2", "3"])
+            current: held, cursor: "c1", page: [reply("2", "x"), reply("3", "")], pageCursor: "c2")
+        XCTAssertEqual(grown.items.map(\.id), ["1", "2", "3"])
         XCTAssertEqual(grown.cursor, "c1")
         XCTAssertFalse(grown.replaced)
         let jumped = ChatSubagents.mergeNewest(
-            current: held, cursor: "c1", page: [.object(["id": .string("9")])], pageCursor: "c9")
-        XCTAssertEqual(jumped.items.map { $0.text("id") }, ["9"])
+            current: held, cursor: "c1", page: [reply("9", "")], pageCursor: "c9")
+        XCTAssertEqual(jumped.items.map(\.id), ["9"])
         XCTAssertTrue(jumped.replaced)
     }
 
@@ -168,7 +187,7 @@ final class ChatSubagentsTests: XCTestCase {
                     "id": .string("h"), "kind": .string("tool"), "name": .string("SubagentHandback"),
                     "state": .string("done"), "input": .object(["message": .string("Report")]),
                 ]),
-            ], info: .null)
+            ].map(\.chatItem), info: nil)
         XCTAssertEqual(presentation.entries.map(\.kind), [.tools, .message])
     }
 
@@ -180,7 +199,7 @@ final class ChatSubagentsTests: XCTestCase {
         second.start()
         await machine.wait(for: 2)
         XCTAssertEqual(machine.payloads.map { $0["watch"] }, [.bool(true), .bool(true)])
-        XCTAssertEqual(first.items.map { $0.text("id") }, ["1"])
+        XCTAssertEqual(first.items.map(\.id), ["1"])
         for handler in machine.handlers { handler(.object(["chatId": .string("chat"), "toolUseId": .string("use")])) }
         await machine.wait(for: 4)
         XCTAssertNil(machine.payloads[2]["watch"])
@@ -192,34 +211,35 @@ final class ChatSubagentsTests: XCTestCase {
     }
 
     @MainActor func testTheChipCountsWhatRunsAndWhatSettledSinceThePersonLastWrote() {
-        let user: (String, Double) -> JSONValue = { id, created in
-            .object(["id": .string(id), "kind": .string("user"), "createdAt": .number(created)])
+        let user: (String, Double) -> ChatItem = { id, created in
+            ChatWire.item(["id": .string(id), "kind": .string("user"), "createdAt": .number(created)]).chatItem
         }
-        let items = [
-            agent("old", status: "done", finished: 5, extra: ["turnId": .string("t1")]),
-            agent("running-turn", status: "done", finished: 6, extra: ["turnId": .string("t2")]),
-            agent("still", extra: ["turnId": .string("t2")]),
+        let items: [ChatItem] = [
+            .subagent(agent("old", status: "done", finished: 5, extra: ["turnId": .string("t1")])),
+            .subagent(agent("running-turn", status: "done", finished: 6, extra: ["turnId": .string("t2")])),
+            .subagent(agent("still", extra: ["turnId": .string("t2")])),
             user("u", 10),
-            agent("late", status: "failed", finished: 12),
-            agent("new", status: "done", finished: 20),
+            .subagent(agent("late", status: "failed", finished: 12)),
+            .subagent(agent("new", status: "done", finished: 20)),
         ]
-        XCTAssertEqual(
-            ChatSubagents.activity(items).map { $0.text("id") }, ["running-turn", "still", "late", "new"])
+        XCTAssertEqual(ChatSubagents.activity(items).map(\.id), ["running-turn", "still", "late", "new"])
     }
 
     func testTheChipShowsWorkFirstAndCountsWhatStillRuns() {
         XCTAssertEqual(ChatSubagents.summaryWord([.done, .failed, .running]), .running)
         XCTAssertEqual(ChatSubagents.summaryWord([.done, .cancelled, .failed]), .failed)
-        XCTAssertEqual(ChatSubagents.summaryWord([.done, nil]), .done)
+        XCTAssertEqual(ChatSubagents.summaryWord([.done, .done]), .done)
         XCTAssertEqual(ChatSubagents.badgeCount([.running, .done, .running]), 2)
-        XCTAssertEqual(ChatSubagents.badgeCount([.done, .failed, nil]), 3)
+        XCTAssertEqual(ChatSubagents.badgeCount([.done, .failed, .done]), 3)
     }
 
     func testTheBackgroundChipNamesOnlyTheKindsThatRun() {
-        let task: (String) -> JSONValue = { .object(["kind": .string($0)]) }
-        XCTAssertEqual(ChatBackground.label([task("shell"), task("monitor")]), "1 shell · 1 monitor")
-        XCTAssertEqual(ChatBackground.label([task("monitor"), task("monitor")]), "2 monitors")
-        XCTAssertEqual(ChatBackground.label([task("shell")]), "1 shell")
+        let task: (ChatInfoBackgroundItemKind) -> ChatInfoBackgroundItem = {
+            ChatInfoBackgroundItem(id: UUID().uuidString, kind: $0, description: "", command: nil, startedAt: 0)
+        }
+        XCTAssertEqual(ChatBackground.label([task(.shell), task(.monitor)]), "1 shell · 1 monitor")
+        XCTAssertEqual(ChatBackground.label([task(.monitor), task(.monitor)]), "2 monitors")
+        XCTAssertEqual(ChatBackground.label([task(.shell)]), "1 shell")
     }
 
     /// A pushed page makes its chat screen disappear, and a chat nobody holds stops: without the page holding it, the
@@ -299,7 +319,7 @@ final class ChatSubagentsTests: XCTestCase {
         waiters.removeAll { payloads.count >= $0.0 }
         reached.forEach { $0.1.resume() }
         return .object([
-            "items": .array([.object(["id": .string("1"), "kind": .string("assistant"), "text": .string("Hi")])]),
+            "items": .array([ChatWire.item(["id": .string("1"), "kind": .string("assistant"), "text": .string("Hi")])]),
             "history": .object(["cursor": .null]), "source": .string("claude-transcript"), "live": .bool(true),
         ])
     }

@@ -25,7 +25,7 @@ struct ChatForkSheet: View {
     @State private var busy = false
     @State private var failure: String?
 
-    private var info: JSONValue { model.presentation.info }
+    private var info: ChatInfo? { model.presentation.info }
     private var point: ChatForkPoint? {
         ChatForking.point(
             items: model.presentation.values, turnID: turnID, counted: model.history.cursor == nil)
@@ -41,7 +41,7 @@ struct ChatForkSheet: View {
                 branchName, taken: folder?.list("branches").compactMap(\.stringValue) ?? []) : nil
     }
     private var canRestoreFiles: Bool { folder?["filesAfterTurn"]?.boolValue == true }
-    private var originalProvider: String { info.text("provider") }
+    private var originalProvider: String { info?.provider ?? "" }
     private var chosenProvider: String { provider ?? originalProvider }
     private var pickable: [JSONValue] {
         model.providers.filter {
@@ -52,7 +52,7 @@ struct ChatForkSheet: View {
     private func models(of kind: String) -> [JSONValue] {
         pickable.first { $0.text("kind") == kind }?.list("models") ?? []
     }
-    private var chosenModel: String { modelSlug ?? info["selection"]?["model"]?.stringValue ?? "" }
+    private var chosenModel: String { modelSlug ?? info?.selection.model ?? "" }
     private var ready: Bool {
         !unsupported && refusal == nil && point != nil && folder != nil && branchProblem == nil
             && !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -208,7 +208,7 @@ struct ChatForkSheet: View {
     /// The newest pick for a CLI when that model is still offered, else what the machine calls its default.
     private func defaultModel(for kind: String) -> String? {
         let offered = models(of: kind).map { $0.text("slug") }
-        if kind == originalProvider, let current = info["selection"]?["model"]?.stringValue { return current }
+        if kind == originalProvider, let current = info?.selection.model { return current }
         if let remembered = ChatPreferences.shared.selections[kind]?["model"]?.stringValue,
             offered.contains(remembered)
         {
@@ -218,8 +218,8 @@ struct ChatForkSheet: View {
     }
 
     private func selection(provider kind: String, model slug: String) -> JSONValue {
-        if kind == originalProvider, let current = info["selection"], current["model"]?.stringValue == slug {
-            return current
+        if kind == originalProvider, info?.selection.model == slug {
+            return model.selection
         }
         if let remembered = ChatPreferences.shared.selections[kind], remembered["model"]?.stringValue == slug {
             return remembered
@@ -243,7 +243,7 @@ struct ChatForkSheet: View {
         busy = true
         failure = nil
         defer { busy = false }
-        let original = (provider: originalProvider, selection: info["selection"] ?? .null)
+        let original = (provider: originalProvider, selection: model.selection)
         let chosen = (
             provider: chosenProvider,
             selection: chosenModel.isEmpty ? JSONValue.null : selection(provider: chosenProvider, model: chosenModel)

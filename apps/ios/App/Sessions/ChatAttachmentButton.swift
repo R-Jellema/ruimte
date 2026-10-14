@@ -7,19 +7,22 @@ import UniformTypeIdentifiers
 struct ChatAttachmentButton: View {
     let client: any MachineRequesting
     let chatID: String
-    let attachment: JSONValue
+    let id: String
+    let name: String
+    let mime: String
+    let size: Int64
     @State private var preview: URL?
     @State private var downloaded: URL?
     @State private var work = RemotePageState()
 
+    private var resource: JSONValue {
+        .object(["kind": .string("attachment"), "chatId": .string(chatID), "attachmentId": .string(id)])
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if attachment.text("mime").hasPrefix("image/") {
-                ChatInlineImage(
-                    resource: .object([
-                        "kind": .string("attachment"), "chatId": .string(chatID),
-                        "attachmentId": attachment["id"] ?? .null,
-                    ]), name: attachment.text("name"))
+            if mime.hasPrefix("image/") {
+                ChatInlineImage(resource: resource, name: name)
             }
             Button {
                 Task { await load() }
@@ -31,12 +34,10 @@ struct ChatAttachmentButton: View {
                         Image(lucide: "file-text", size: 18).foregroundStyle(.tint)
                     }
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(attachment["name"]?.stringValue ?? String(localized: "Attachment"))
+                        Text(name)
                             .font(.caption.weight(.medium)).lineLimit(1).truncationMode(.middle)
-                        if let size = attachment["size"]?.numberValue {
-                            Text(mobileAttachmentSize(size))
-                                .font(.caption2).foregroundStyle(MobileStyle.muted).monospacedDigit()
-                        }
+                        Text(mobileAttachmentSize(Double(size)))
+                            .font(.caption2).foregroundStyle(MobileStyle.muted).monospacedDigit()
                     }
                     Image(lucide: "circle-arrow-down", size: 14).foregroundStyle(MobileStyle.muted)
                 }.padding(.horizontal, 12).frame(minHeight: 48)
@@ -57,19 +58,15 @@ struct ChatAttachmentButton: View {
             return
         }
         await work.perform {
-            let resource = try await client.readResource(
-                .object([
-                    "kind": .string("attachment"), "chatId": .string(chatID), "attachmentId": attachment["id"] ?? .null,
-                ]))
+            let file = try await client.readResource(resource)
             try Task.checkCancellation()
             let folder = FileManager.default.temporaryDirectory.appending(
                 path: "ruimte-attachment-\(UUID().uuidString)", directoryHint: .isDirectory)
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            let rawName = attachment["name"]?.stringValue ?? String(localized: "Attachment")
-            let safeName = URL(fileURLWithPath: rawName).lastPathComponent
+            let safeName = URL(fileURLWithPath: name).lastPathComponent
             let url = folder.appendingPathComponent(
                 safeName.isEmpty || safeName == "." || safeName == ".." ? String(localized: "Attachment") : safeName)
-            try resource.data.write(to: url, options: .atomic)
+            try file.data.write(to: url, options: .atomic)
             downloaded = url
             preview = url
         }

@@ -72,14 +72,16 @@ struct SubagentListPage: View {
         .modifier(HoldsChat(model: model, session: session))
     }
 
-    @ViewBuilder private func section(_ label: String, items: [JSONValue], work: [String: [JSONValue]]) -> some View {
+    @ViewBuilder private func section(_ label: String, items: [ChatSubagentItem], work: [String: [ChatItem]])
+        -> some View
+    {
         if !items.isEmpty {
             Section {
-                ForEach(items, id: \.stableID) { item in
+                ForEach(items, id: \.id) { item in
                     let taskID = ChatSubagents.taskID(item)
                     let task = taskID.flatMap { tasks?.task($0) }
                     SubagentEntryRow(
-                        item: item, task: task, work: work[item.text("toolUseId")] ?? [], client: model.client,
+                        item: item, task: task, work: work[item.toolUseId] ?? [], client: model.client,
                         chatID: model.chatID, machineRefused: model.presentation.subagentsRefused
                     ) {
                         opened = SubagentCrumb(item)
@@ -104,8 +106,8 @@ struct SubagentListPage: View {
         }
     }
 
-    @ViewBuilder private func stopButton(_ item: JSONValue) -> some View {
-        let turnRunning = model.info["activeTurnId"]?.stringValue != nil
+    @ViewBuilder private func stopButton(_ item: ChatSubagentItem) -> some View {
+        let turnRunning = model.working
         switch ChatSubagents.stop(item, turnRunning: turnRunning) {
         case .task:
             Button(String(localized: "Stop task"), lucideIcon: "square", role: .destructive) {
@@ -121,11 +123,11 @@ struct SubagentListPage: View {
         }
     }
 
-    private func askBeforeStoppingTask(_ item: JSONValue) {
+    private func askBeforeStoppingTask(_ item: ChatSubagentItem) {
         Task { ending = await model.stopTaskQuestion(item) { await stop(item) } }
     }
 
-    private func stop(_ item: JSONValue) async {
+    private func stop(_ item: ChatSubagentItem) async {
         do {
             try await model.stopSubagent(item)
         } catch {
@@ -135,14 +137,14 @@ struct SubagentListPage: View {
 }
 
 extension ChatModel {
-    func stopSubagent(_ item: JSONValue) async throws {
+    func stopSubagent(_ item: ChatSubagentItem) async throws {
         _ = try await client.request(
-            "chat.stopSubagent", payload: target(["toolUseId": .string(item.text("toolUseId"))]))
+            "chat.stopSubagent", payload: target(["toolUseId": .string(item.toolUseId)]))
     }
 
     /// The question before a task stops, since that ends the agent working on it and every agent that one opened.
-    func stopTaskQuestion(_ item: JSONValue, run: @escaping () async -> Void) async -> EndingAgents? {
-        guard let childID = item["childId"]?.stringValue else { return nil }
+    func stopTaskQuestion(_ item: ChatSubagentItem, run: @escaping () async -> Void) async -> EndingAgents? {
+        guard let childID = item.childId else { return nil }
         let agents = await ChatSubagents.agentsEnded(with: [childID], client: client)
         return EndingAgents(
             title: String(localized: "Stop \(ChatSubagents.title(item))?"),
@@ -154,9 +156,9 @@ extension ChatModel {
 /// again, so the page does not observe every word the main thread streams.
 @MainActor final class SubagentListDerivation {
     struct Lists {
-        var active: [JSONValue] = []
-        var done: [JSONValue] = []
-        var work: [String: [JSONValue]] = [:]
+        var active: [ChatSubagentItem] = []
+        var done: [ChatSubagentItem] = []
+        var work: [String: [ChatItem]] = [:]
         var isEmpty: Bool { active.isEmpty && done.isEmpty }
     }
 
@@ -164,7 +166,7 @@ extension ChatModel {
     private var cached = Lists()
     private(set) var derivations = 0
 
-    func lists(revision: Int, machineRefused: Bool, items: () -> [JSONValue]) -> Lists {
+    func lists(revision: Int, machineRefused: Bool, items: () -> [ChatItem]) -> Lists {
         if let key, key.revision == revision, key.machineRefused == machineRefused { return cached }
         key = (revision, machineRefused)
         derivations += 1
@@ -177,9 +179,9 @@ extension ChatModel {
 }
 
 private struct SubagentEntryRow: View {
-    let item: JSONValue
+    let item: ChatSubagentItem
     let task: JSONValue?
-    let work: [JSONValue]
+    let work: [ChatItem]
     let client: any MachineRequesting
     let chatID: String
     let machineRefused: Bool
@@ -196,7 +198,7 @@ private struct SubagentEntryRow: View {
         let title = ChatSubagents.title(item)
         Button(action: open) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                if let word { SubagentStatusIcon(word: word) }
+                SubagentStatusIcon(word: word)
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
                         Text(title).font(.body.weight(.medium)).foregroundStyle(MobileStyle.text).lineLimit(1)
@@ -213,7 +215,7 @@ private struct SubagentEntryRow: View {
             .contentShape(Rectangle())
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(word.map { "\(title), \($0.title)" } ?? title)
+        .accessibilityLabel("\(title), \(word.title)")
         .task(id: needsTail) {
             guard needsTail else {
                 tail?.stop()
@@ -221,7 +223,7 @@ private struct SubagentEntryRow: View {
                 return
             }
             let conversation = SubagentConversation(
-                client: client, chatID: chatID, toolUseID: item.text("toolUseId"), limit: Self.tailPage)
+                client: client, chatID: chatID, toolUseID: item.toolUseId, limit: Self.tailPage)
             tail = conversation
             conversation.start()
         }
@@ -263,13 +265,13 @@ struct SubagentStatusIcon: View {
 
 /// How long a running entry has run, ticking each second while it is on screen, or when a settled one ended.
 struct SubagentEntryTime: View {
-    let item: JSONValue
+    let item: ChatSubagentItem
     let task: JSONValue?
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
-            if item.text("status") == "running" {
+            if item.status == .running {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     label(ChatSubagents.entryTime(item, task: task, now: context.date))
                 }
@@ -289,19 +291,17 @@ struct SubagentEntryTime: View {
 /// What a sub-agent is, over its conversation: its state and time, the model it runs on and what it spent, and the
 /// task it was given behind a disclosure.
 struct SubagentInfoBar: View {
-    let record: ChatItemState
+    let item: ChatSubagentItem
     @State private var showsTask = false
 
     var body: some View {
-        let item = record.value
         let facts = ChatSubagents.facts(item)
-        let prompt = item["prompt"]?.stringValue.flatMap { $0.isEmpty ? nil : $0 }
+        let prompt = item.prompt.flatMap { $0.isEmpty ? nil : $0 }
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                if let word = ChatSubagents.statusWord(item, task: nil) {
-                    SubagentStatusIcon(word: word, size: 14)
-                    Text(word.title).font(.footnote).foregroundStyle(MobileStyle.text)
-                }
+                let word = ChatSubagents.statusWord(item, task: nil)
+                SubagentStatusIcon(word: word, size: 14)
+                Text(word.title).font(.footnote).foregroundStyle(MobileStyle.text)
                 SubagentEntryTime(item: item, task: nil)
                 Spacer(minLength: 0)
                 if prompt != nil {
@@ -363,7 +363,9 @@ struct SubagentConversationPage: View {
                 onNearTop: { if conversation.status == .ready { conversation.loadEarlier() } })
         }
         .safeAreaInset(edge: .top, spacing: 0) {
-            if let record = parent.subagent(toolUseID: crumb.toolUseID) { SubagentInfoBar(record: record) }
+            if let agent = parent.subagent(toolUseID: crumb.toolUseID)?.item.subagentItem {
+                SubagentInfoBar(item: agent)
+            }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             SubagentComposerDock(model: model, prompts: prompts, availableHeight: viewportHeight)
@@ -415,12 +417,12 @@ struct SubagentConversationPage: View {
             if unsupported { parent.subagentsRefused = true }
         }
         .onAppear {
-            let cwd = model.info.text("cwd")
+            let cwd = model.info?.cwd ?? ""
             presentation.subagentsRefused = parent.subagentsRefused
-            presentation.setInfo(.object(["cwd": .string(cwd)]))
+            presentation.setCwd(cwd)
             conversation.onChange = { [presentation] change in
                 switch change {
-                case .replaced(let items): presentation.replace(items, info: .object(["cwd": .string(cwd)]))
+                case .replaced(let items): presentation.replace(items, info: nil)
                 case .updated(let items): for item in items { presentation.upsert(item) }
                 case .prepended(let items): presentation.prepend(items)
                 }
@@ -528,10 +530,10 @@ struct SubagentInspector: View {
         }
     }
 
-    private var record: JSONValue? { model.presentation.subagent(toolUseID: crumb.toolUseID)?.value }
-    private var turnRunning: Bool { model.info["activeTurnId"]?.stringValue != nil }
+    private var record: ChatSubagentItem? { model.presentation.subagent(toolUseID: crumb.toolUseID)?.item.subagentItem }
+    private var turnRunning: Bool { model.working }
 
-    private func run(_ item: JSONValue) async {
+    private func run(_ item: ChatSubagentItem) async {
         do {
             try await model.stopSubagent(item)
         } catch {

@@ -6,21 +6,17 @@ import SwiftUI
 /// its place, split on the daemon's UTF-16 offsets. A block that is supplied never falls back to its raw fence;
 /// what it cannot draw, the card itself shows as text.
 struct UiReplyView: View {
-    /// The assistant item: `text`, `streaming`, `ui`, `uiAnswers` and `uiQueries` as the wire has them.
-    let item: JSONValue
+    let item: ChatAssistantItem
+    let trees: UiReplyTrees
     var presentation: ChatPresentation?
     /// The model of a block, kept by the caller across rows (`UiBlockModelCache`), created with the block it draws.
     let model: @MainActor (JSONValue) -> UiBlockModel
     @Environment(\.chatContent) private var chat
 
-    /// Whether a reply has compiled blocks to draw; without them the thread draws its text as it always did.
-    static func hasBlocks(_ item: JSONValue) -> Bool { !(item["ui"]?.arrayValue ?? []).isEmpty }
-
     var body: some View {
-        let streaming = item["streaming"]?.boolValue == true
-        let text = item["text"]?.stringValue ?? ""
-        let parts = Self.identified(
-            UiReplyParts.split(text: text, blocks: item["ui"]?.arrayValue ?? [], streaming: streaming))
+        let streaming = item.streaming
+        let text = item.text
+        let parts = Self.identified(UiReplyParts.split(text: text, blocks: trees.blocks, streaming: streaming))
         VStack(alignment: .leading, spacing: 14) {
             ForEach(Array(parts.enumerated()), id: \.element.id) { index, part in
                 switch part.part {
@@ -32,11 +28,10 @@ struct UiReplyView: View {
                     let id = block["id"]?.stringValue ?? ""
                     UiReplyBlock(
                         block: block, model: model(block), flash: highlight(block),
-                        frozen: item["uiQueries"]?["blocks"]?[id],
-                        answered: item["uiAnswers"]?[id],
+                        frozen: trees.frozen[id],
+                        answered: trees.answered[id],
                         source: UiReplyParts.source(text: text, block: block),
-                        localKey:
-                            "\(chat?.scopeID ?? "")\n\(chat?.chatID ?? "")\n\(item["id"]?.stringValue ?? "")\n\(id)")
+                        localKey: "\(chat?.scopeID ?? "")\n\(chat?.chatID ?? "")\n\(item.id)\n\(id)")
                 }
             }
         }
@@ -44,7 +39,7 @@ struct UiReplyView: View {
 
     private func highlight(_ block: JSONValue) -> UUID? {
         guard let target = presentation?.uiChoiceHighlight,
-            target.itemID == item.text("id"), target.blockID == block.text("id"),
+            target.itemID == item.id, target.blockID == block.text("id"),
             target.revision == block.text("revision")
         else { return nil }
         return target.nonce
@@ -66,6 +61,20 @@ struct UiReplyView: View {
                 return Identified(id: "block:\(after)", part: part)
             }
         }
+    }
+}
+
+/// A reply's blocks with the readings and answers stored for them, as the interpreter takes them: JSON, since it hands
+/// them to JavaScriptCore as they are.
+struct UiReplyTrees {
+    let blocks: [JSONValue]
+    let frozen: [String: JSONValue]
+    let answered: [String: JSONValue]
+
+    init(_ reply: ChatAssistantItem) {
+        blocks = (reply.ui ?? []).compactMap { try? JSONValue(encoding: $0) }
+        frozen = (reply.uiQueries?.blocks ?? [:]).compactMapValues { try? JSONValue(encoding: $0) }
+        answered = (reply.uiAnswers ?? [:]).compactMapValues { try? JSONValue(encoding: $0) }
     }
 }
 

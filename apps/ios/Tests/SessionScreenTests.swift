@@ -7,37 +7,41 @@ import XCTest
 final class SessionScreenTests: XCTestCase {
     @MainActor func testChatDeltasAppendToTextAndToolProgressWithoutLosingOrder() {
         let model = ChatModel(client: SessionClientFake(), chatID: UUID().uuidString)
-        model.replace(
+        model.attached(
             .object([
+                "info": ChatWire.info(),
                 "items": .array([
                     ChatWire.item(["id": .string("reply"), "kind": .string("assistant"), "text": .string("Hello")]),
                     ChatWire.item([
                         "id": .string("tool"), "kind": .string("tool"), "state": .string("running"),
-                        "progress": .object(["output": .string("first")]),
+                        "progress": .object([
+                            "startedAt": .null, "description": .null, "output": .string("first"),
+                        ]),
                     ]),
-                ])
-            ]))
+                ]),
+            ]), since: nil)
         model.receive(.object(["type": .string("delta"), "itemId": .string("reply"), "text": .string(" 🌍")]))
         model.receive(.object(["type": .string("delta"), "itemId": .string("tool"), "text": .string(" second")]))
-        XCTAssertEqual(model.items[0]["text"]?.stringValue, "Hello 🌍")
-        XCTAssertEqual(model.items[1]["progress"]?["output"]?.stringValue, "first second")
+        XCTAssertEqual(model.items[0].assistantItem?.text, "Hello 🌍")
+        XCTAssertEqual(model.items[1].toolItem?.progress?.output, "first second")
         model.receive(
             .object([
                 "type": .string("item"),
                 "item": ChatWire.item(["id": .string("reply"), "kind": .string("assistant"), "text": .string("Final")]),
             ]))
         XCTAssertEqual(model.items.count, 2)
-        XCTAssertEqual(model.items[0]["text"]?.stringValue, "Final")
+        XCTAssertEqual(model.items[0].assistantItem?.text, "Final")
     }
 
     @MainActor func testResetRemovesOldDeltaTargetsAndPendingApproval() {
         let model = ChatModel(client: SessionClientFake(), chatID: UUID().uuidString)
-        model.replace(
+        model.attached(
             .object([
+                "info": ChatWire.info(),
                 "items": .array([
                     ChatWire.item(["id": .string("old"), "kind": .string("approval"), "decision": .string("pending")])
-                ])
-            ]))
+                ]),
+            ]), since: nil)
         XCTAssertEqual(model.pending.count, 1)
         model.receive(
             .object(["type": .string("reset"), "items": .array([]), "info": ChatWire.info()]))

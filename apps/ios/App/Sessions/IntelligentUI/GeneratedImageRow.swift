@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
 /// shape its metadata gives before the bytes arrive, so the row never jumps, and the prompt stays in the image's menu
 /// as Copy prompt. Bytes come only from the chat's attachment, never from a path in the tool's output.
 struct GeneratedImageRow: View {
-    let item: JSONValue
+    let item: ChatToolItem
     /// Saves the attachment into the project through the host's own picker and returns the path it chose, or nil
     /// when the person canceled. Left out, Save to project is not offered.
     var saveToProject: (@MainActor (_ attachment: JSONValue) async throws -> String?)?

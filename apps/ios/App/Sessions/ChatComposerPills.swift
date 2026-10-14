@@ -27,9 +27,9 @@ struct ChatComposerPills: View {
     }
 
     private var account: ProviderAccountEntry? {
-        let kind = model.info.text("provider")
+        let kind = model.provider
         guard let accounts = model.accounts, accounts.hasChoice(kind) else { return nil }
-        let id = model.info["account"]?.stringValue ?? kind
+        let id = model.accountID
         return accounts.entries.first { $0.kind == kind && $0.id == id }
     }
 
@@ -133,7 +133,7 @@ struct ChatComposerPills: View {
         }
         .buttonStyle(ChatComposerGlassStyle(shape: .capsule))
         .accessibilityLabel("Model, \(name)")
-        .accessibilityValue(account?.name(provider: usageProviderName(model.info.text("provider"))) ?? "")
+        .accessibilityValue(account?.name(provider: usageProviderName(model.provider)) ?? "")
         .accessibilityAction(named: "Run settings") { open { sheets.settings = true } }
     }
 

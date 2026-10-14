@@ -3,15 +3,15 @@ import SwiftUI
 
 /// What runs in the background of a chat's CLI, as `info.background` lists it: its shells and its monitors.
 enum ChatBackground {
-    static func counts(_ tasks: [JSONValue]) -> (shells: Int, monitors: Int) {
+    static func counts(_ tasks: [ChatInfoBackgroundItem]) -> (shells: Int, monitors: Int) {
         (
-            tasks.filter { $0.text("kind") == "shell" }.count,
-            tasks.filter { $0.text("kind") == "monitor" }.count
+            tasks.filter { $0.kind == .shell }.count,
+            tasks.filter { $0.kind == .monitor }.count
         )
     }
 
     /// The chip's words, without the kinds that have none running.
-    static func label(_ tasks: [JSONValue]) -> String {
+    static func label(_ tasks: [ChatInfoBackgroundItem]) -> String {
         let counts = counts(tasks)
         return [
             counts.shells > 0 ? String(localized: "\(counts.shells) shells") : nil,
@@ -44,7 +44,7 @@ struct ChatActivityChips: View {
 
     var body: some View {
         let subagents = model.activitySubagents
-        let background = model.info.list("background")
+        let background = model.info?.background ?? []
         if !subagents.isEmpty || !background.isEmpty {
             HStack(spacing: 6) {
                 if !subagents.isEmpty {
@@ -76,7 +76,7 @@ struct ChatActivityChips: View {
         }
     }
 
-    private func task(of item: JSONValue) -> JSONValue? {
+    private func task(of item: ChatSubagentItem) -> JSONValue? {
         ChatSubagents.taskID(item).flatMap { tasks?.task($0) }
     }
 
@@ -89,12 +89,12 @@ struct ChatActivityChips: View {
         .padding(.horizontal, 11).frame(minHeight: 28)
     }
 
-    @ViewBuilder private func subagentRows(_ items: [JSONValue]) -> some View {
+    @ViewBuilder private func subagentRows(_ items: [ChatSubagentItem]) -> some View {
         Section(ChatBackground.subagents(items.count)) {
-            ForEach(items, id: \.stableID) { item in
+            ForEach(items, id: \.id) { item in
                 let task = task(of: item)
                 let word = ChatSubagents.statusWord(item, task: task)
-                let detail = [word?.title, ChatSubagents.entryTime(item, task: task, now: .now)]
+                let detail = [word.title, ChatSubagents.entryTime(item, task: task, now: .now)]
                     .compactMap { $0 }.joined(separator: " · ")
                 Button {
                     model.presentation.conversationRequest = SubagentCrumb(item)
@@ -110,14 +110,14 @@ struct ChatActivityChips: View {
             }
         }
         Section {
-            ForEach(items, id: \.stableID) { item in stopRow(item) }
+            ForEach(items, id: \.id) { item in stopRow(item) }
         }
         Section {
             Button(String(localized: "All sub-agents"), lucideIcon: "bot", action: openList)
         }
     }
 
-    @ViewBuilder private func stopRow(_ item: JSONValue) -> some View {
+    @ViewBuilder private func stopRow(_ item: ChatSubagentItem) -> some View {
         let title = ChatSubagents.title(item)
         switch ChatSubagents.stop(item, turnRunning: model.working) {
         case .task:
@@ -132,7 +132,7 @@ struct ChatActivityChips: View {
         }
     }
 
-    private func stop(_ item: JSONValue) async {
+    private func stop(_ item: ChatSubagentItem) async {
         do {
             try await model.stopSubagent(item)
         } catch {
@@ -141,13 +141,13 @@ struct ChatActivityChips: View {
         }
     }
 
-    @ViewBuilder private func backgroundRows(_ tasks: [JSONValue]) -> some View {
+    @ViewBuilder private func backgroundRows(_ tasks: [ChatInfoBackgroundItem]) -> some View {
         Section(ChatBackground.label(tasks)) {
-            ForEach(tasks, id: \.stableID) { task in
-                let command = task["command"]?.stringValue ?? ""
-                let description = task.text("description")
-                let title = [description, command].first { !$0.isEmpty } ?? Self.kindTitle(task.text("kind"))
-                let startedAt = task.number("startedAt")
+            ForEach(tasks, id: \.id) { task in
+                let command = task.command ?? ""
+                let description = task.description
+                let title = [description, command].first { !$0.isEmpty } ?? Self.kindTitle(task.kind)
+                let startedAt = task.startedAt
                 let elapsed = Date.now.timeIntervalSince1970 * 1000 - startedAt
                 let detail = [
                     !description.isEmpty && !command.isEmpty ? command : nil,
@@ -167,11 +167,11 @@ struct ChatActivityChips: View {
         }
     }
 
-    private func stop(_ task: JSONValue) {
+    private func stop(_ task: ChatInfoBackgroundItem) {
         Task {
             do {
                 _ = try await model.client.request(
-                    "chat.stopTask", payload: model.target(["taskId": task["id"] ?? .null]))
+                    "chat.stopTask", payload: model.target(["taskId": .string(task.id)]))
             } catch {
                 failure = ChatActivityFailure(
                     title: String(localized: "The task could not be stopped"), message: error.localizedDescription)
@@ -179,21 +179,19 @@ struct ChatActivityChips: View {
         }
     }
 
-    private static func kindTitle(_ kind: String) -> String {
+    private static func kindTitle(_ kind: ChatInfoBackgroundItemKind) -> String {
         switch kind {
-        case "shell": String(localized: "Shell")
-        case "monitor": String(localized: "Monitor")
-        default: kind.capitalized
+        case .shell: String(localized: "Shell")
+        case .monitor: String(localized: "Monitor")
         }
     }
 
-    private static func icon(_ word: SubagentStatusWord?) -> String {
+    private static func icon(_ word: SubagentStatusWord) -> String {
         switch word {
         case .running: "loader-circle"
         case .done: "circle-check"
         case .failed: "circle-x"
         case .cancelled: "circle-slash"
-        case nil: "bot"
         }
     }
 }
@@ -202,9 +200,9 @@ struct ChatActivityChips: View {
 /// again on every word the thread streams.
 @MainActor final class ChatActivityDerivation {
     private var key: (revision: Int, count: Int)?
-    private var cached: [JSONValue] = []
+    private var cached: [ChatSubagentItem] = []
 
-    func subagents(revision: Int, count: Int, items: () -> [JSONValue]) -> [JSONValue] {
+    func subagents(revision: Int, count: Int, items: () -> [ChatItem]) -> [ChatSubagentItem] {
         if let key, key.revision == revision, key.count == count { return cached }
         key = (revision, count)
         cached = ChatSubagents.activity(items())

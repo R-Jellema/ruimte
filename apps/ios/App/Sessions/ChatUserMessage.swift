@@ -4,31 +4,33 @@ import SwiftUI
 import UIKit
 
 struct ChatUserMessage: View {
-    let item: JSONValue
+    let item: ChatUserItem
     let client: any MachineRequesting
     let chatID: String
     var presentation: ChatPresentation?
     @State private var expanded = false
-    private var long: Bool { item.text("text").count > 600 || item.text("text").split(separator: "\n").count > 8 }
+    private var long: Bool { item.text.count > 600 || item.text.split(separator: "\n").count > 8 }
 
-    private func choiceReveal(_ origin: JSONValue) -> (() -> Void)? {
+    private func choiceReveal(_ origin: ChatUserItemUiChoice) -> (() -> Void)? {
         guard let presentation, UiChoiceJump(origin) != nil else { return nil }
         return { presentation.uiChoiceRequest = UiChoiceJump(origin) }
     }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 8) {
-            ForEach(Array(item.list("attachments").enumerated()), id: \.offset) { _, attachment in
-                ChatAttachmentButton(client: client, chatID: chatID, attachment: attachment)
+            ForEach(Array((item.attachments ?? []).enumerated()), id: \.offset) { _, attachment in
+                ChatAttachmentButton(
+                    client: client, chatID: chatID, id: attachment.id, name: attachment.name, mime: attachment.mime,
+                    size: attachment.size)
             }
-            if let origin = item["uiChoice"] {
+            if let origin = item.uiChoice {
                 UiChoiceLine(origin: origin, reveal: choiceReveal(origin))
             }
-            if !item.text("text").isEmpty {
+            if !item.text.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
-                    MarkdownMessage(text: item.text("text"))
-                        .environment(\.chatMentions, item.list("mentions").compactMap(\.stringValue))
-                        .environment(\.chatSkills, item.list("skills").compactMap(\.stringValue))
+                    MarkdownMessage(text: item.text)
+                        .environment(\.chatMentions, item.mentions ?? [])
+                        .environment(\.chatSkills, item.skills ?? [])
                         .frame(maxHeight: long && !expanded ? 180 : nil, alignment: .top)
                         .clipped()
                         .mask {
@@ -200,23 +202,23 @@ private struct ChatHorizontalLine: Shape {
 /// A line from the machine. A note of more than one line (a summary a fork sent back) shows its first line and
 /// folds the rest open as Markdown; one that came from a fork still in the project leads to it.
 struct ChatNoteRow: View {
-    let item: JSONValue
+    let item: ChatNoteItem
     let presentation: ChatPresentation?
     @State private var expanded = false
 
     var body: some View {
-        let level = item.text("level")
-        let parts = ChatForking.noteParts(item.text("text"))
-        let from = item["from"]?.stringValue
+        let level = item.level
+        let parts = ChatForking.noteParts(item.text)
+        let from = item.from
         let forkTitle = from.flatMap { presentation?.places?.title($0) }
         VStack(alignment: .leading, spacing: 6) {
             Label(
                 parts.head,
-                lucideIcon: level == "error" ? "circle-alert" : level == "warning" ? "triangle-alert" : "info",
+                lucideIcon: level == .error ? "circle-alert" : level == .warning ? "triangle-alert" : "info",
                 iconSize: 14
             )
             .font(.callout).foregroundStyle(
-                level == "error" ? Color.red : level == "warning" ? Color.orange : MobileStyle.muted
+                level == .error ? Color.red : level == .warning ? Color.orange : MobileStyle.muted
             )
             .accessibilityLabel("\(Self.levelName(level)): \(parts.head)")
             if !parts.rest.isEmpty || forkTitle != nil {
@@ -254,12 +256,11 @@ struct ChatNoteRow: View {
         }
     }
 
-    private static func levelName(_ level: String) -> String {
+    private static func levelName(_ level: ChatNoteItemLevel) -> String {
         switch level {
-        case "error": String(localized: "Error")
-        case "warning": String(localized: "Warning")
-        case "info": String(localized: "Info")
-        default: level.capitalized
+        case .error: String(localized: "Error")
+        case .warning: String(localized: "Warning")
+        case .info: String(localized: "Info")
         }
     }
 }

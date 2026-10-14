@@ -6,25 +6,28 @@ import RuimtePulsar
 @MainActor @Observable
 final class ChatItemState: Identifiable {
     let id: String
-    /// The item as the wire carries it, for the rows that still read it by key.
-    private(set) var value: JSONValue
     private(set) var item: ChatItem
+    @ObservationIgnored private var trees: (reply: ChatAssistantItem, trees: UiReplyTrees)?
 
-    /// Nil for a value that is no chat item. A machine never sends one, since every frame is validated as it comes in.
-    init?(_ value: JSONValue) {
-        guard let item = try? value.decoded(as: ChatItem.self) else { return nil }
+    init(_ item: ChatItem) {
         id = item.id
-        self.value = value
         self.item = item
     }
 
-    /// False, and nothing changes, for a value that is no chat item.
-    @discardableResult
-    func update(_ value: JSONValue) -> Bool {
-        guard let item = try? value.decoded(as: ChatItem.self) else { return false }
-        self.value = value
-        self.item = item
-        return true
+    func update(_ item: ChatItem) { self.item = item }
+
+    /// A reply's blocks as the interpreter takes them, encoded again only when they change and not on every word the
+    /// reply streams.
+    var replyTrees: UiReplyTrees? {
+        guard case .assistant(let reply) = item, reply.ui?.isEmpty == false else { return nil }
+        if let trees, trees.reply.ui == reply.ui, trees.reply.uiQueries == reply.uiQueries,
+            trees.reply.uiAnswers == reply.uiAnswers
+        {
+            return trees.trees
+        }
+        let next = UiReplyTrees(reply)
+        trees = (reply, next)
+        return next
     }
 }
 
@@ -45,7 +48,9 @@ struct ChatTimelineEntry: Identifiable, Equatable {
 final class ChatPresentation {
     private(set) var entries: [ChatTimelineEntry] = []
     private(set) var revision = 0
-    private(set) var info: JSONValue = .null
+    private(set) var info: ChatInfo?
+    /// Where the thread's paths resolve. A sub-agent's thread has no info of its own and borrows its chat's folder.
+    private(set) var cwd = ""
     private(set) var connected = false
     private(set) var startedAt: Double?
     private(set) var activityLabel = String(localized: "Working for", comment: "Followed by a running clock")
@@ -88,25 +93,26 @@ final class ChatPresentation {
     @ObservationIgnored private var activeID: String?
     @ObservationIgnored private var historyBoundaries = Set<String>()
 
-    func replace(_ values: [JSONValue], info: JSONValue) {
+    func replace(_ values: [ChatItem], info: ChatInfo?) {
         records = [:]
         order = []
         historyBoundaries = []
         expandedTurns = []
         expandedSubagents = []
-        for record in values.compactMap(ChatItemState.init) {
+        for record in values.map(ChatItemState.init) {
             if records[record.id] == nil { order.append(record.id) }
             records[record.id] = record
         }
         self.info = info
+        if let info { cwd = info.cwd }
         refreshActivity()
         rebuild()
     }
 
-    func prepend(_ values: [JSONValue]) {
+    func prepend(_ values: [ChatItem]) {
         if let first = order.first { historyBoundaries.insert(first) }
         let visibleTurns = Set(records.values.compactMap(\.item.turnId))
-        let incoming = values.compactMap(ChatItemState.init)
+        let incoming = values.map(ChatItemState.init)
         for record in incoming {
             if case .turn = record.item, let turn = record.item.turnId, visibleTurns.contains(turn) {
                 expandedTurns.insert(turn)
@@ -121,11 +127,14 @@ final class ChatPresentation {
         rebuild()
     }
 
-    func setInfo(_ info: JSONValue) {
+    func setInfo(_ info: ChatInfo?) {
         self.info = info
+        if let info { cwd = info.cwd }
         refreshActivity()
         rebuild()
     }
+
+    func setCwd(_ cwd: String) { self.cwd = cwd }
 
     func setConnected(_ connected: Bool) {
         self.connected = connected
@@ -133,28 +142,20 @@ final class ChatPresentation {
         rebuild()
     }
 
-    /// The item as it now stands here; nil for a value that is no chat item.
-    @discardableResult
-    func upsert(_ value: JSONValue, textOnly: Bool = false) -> ChatItem? {
-        guard let id = value["id"]?.stringValue else { return nil }
-        let record: ChatItemState
-        if let existing = records[id] {
-            guard existing.update(value) else { return nil }
-            record = existing
-            if textOnly { return record.item }
+    func upsert(_ item: ChatItem, textOnly: Bool = false) {
+        if let existing = records[item.id] {
+            existing.update(item)
+            if textOnly { return }
         } else {
-            guard let created = ChatItemState(value) else { return nil }
-            record = created
-            records[id] = record
-            order.append(id)
+            records[item.id] = ChatItemState(item)
+            order.append(item.id)
         }
         refreshActivity()
         rebuild()
-        return record.item
     }
 
     private func refreshActivity() {
-        let nextID = info["activeTurnId"]?.stringValue
+        let nextID = info?.activeTurnId
         if activeID != nextID {
             activeID = nextID
             startedAt = nextID == nil ? nil : Date.now.timeIntervalSince1970 * 1000
@@ -182,9 +183,9 @@ final class ChatPresentation {
         isAnimating = connected && !blocked && nextID != nil
     }
 
-    func item(_ id: String) -> JSONValue? { records[id]?.value }
+    func item(_ id: String) -> ChatItem? { records[id]?.item }
 
-    var values: [JSONValue] { order.compactMap { records[$0]?.value } }
+    var values: [ChatItem] { order.compactMap { records[$0]?.item } }
 
     /// The last turn that ended, which is where a fork from the conversation menu goes on after. Read from the end,
     /// since the screen asks on every render.
@@ -202,7 +203,7 @@ final class ChatPresentation {
     }
 
     func forkRefusal(turnID: String) -> String? {
-        ChatForking.refusal(info: info, turn: records[turnID]?.value)
+        ChatForking.refusal(info: info, turn: records[turnID]?.item)
     }
 
     /// Scrolls the timeline to an entry, as the message index asks.
@@ -309,7 +310,9 @@ final class ChatPresentation {
                 if case .assistant = $0.item { $0.item.parentToolUseID == nil } else { false }
             }
             let notices = work.filter { if case .note = $0.item { true } else { false } }
-            let images = work.filter { UiGeneratedImage.isGeneration($0.value) && $0.item.parentToolUseID == nil }
+            let images = work.filter {
+                $0.item.toolItem.map(UiGeneratedImage.isGeneration) == true && $0.item.parentToolUseID == nil
+            }
             let imageIDs = Set(images.map(\.id))
             let folded = work.filter {
                 if case .note = $0.item { return false }
@@ -318,14 +321,14 @@ final class ChatPresentation {
             if !rowsFor(folded, children: children).isEmpty {
                 let tools = work.filter {
                     guard case .tool = $0.item else { return false }
-                    return $0.item.parentToolUseID == nil && ChatSubagents.handbackReport($0.value) == nil
+                    return $0.item.parentToolUseID == nil && ChatSubagents.handbackReport($0.item) == nil
                 }
                 rows.append(ChatTimelineEntry(id: "fold-\(turnID)", kind: .turnFold, items: [turn] + notices + tools))
                 if expandedTurns.contains(turnID) { rows += rowsFor(folded, children: children) }
             }
             let edits = work.filter {
                 guard case .tool(let tool) = $0.item else { return false }
-                return tool.state == .done && ChatFileChanges.hasChanges($0.value)
+                return tool.state == .done && ChatFileChanges.hasChanges(tool)
             }
             let changed =
                 turnItem.checkpointDiff.map { !$0.files.isEmpty } ?? (!edits.isEmpty || turnItem.checkpoint != nil)
@@ -358,8 +361,8 @@ final class ChatPresentation {
             case .turn: continue
             // A subagent's `SubagentHandback` call reads as the report it carries rather than as a tool call.
             case .tool(let tool)
-            where tool.state != .running && ChatSubagents.handbackReport(item.value) == nil
-                && !UiGeneratedImage.isGeneration(item.value):
+            where tool.state != .running && ChatSubagents.handbackReport(item.item) == nil
+                && !UiGeneratedImage.isGeneration(tool):
                 if rows.last?.kind == .tools && !historyBoundaries.contains(item.id) {
                     rows[rows.count - 1].items.append(item)
                 } else {
@@ -376,34 +379,33 @@ final class ChatPresentation {
     }
 
     /// The notes of the turn tell a turn a person stopped from one the machine ended after a restart.
-    static func turnLabel(_ item: JSONValue, items: [JSONValue] = []) -> String {
-        let duration = ChatToolPresentation.elapsed(
-            item.number("endedAt", fallback: item.number("createdAt")) - item.number("createdAt"))
-        switch item.text("state") {
-        case "error": return String(localized: "Failed after \(duration)")
-        case "aborted":
-            return abortedByMachine(item, items: items)
+    static func turnLabel(_ turn: ChatTurnItem, items: [ChatItem] = []) -> String {
+        let duration = ChatToolPresentation.elapsed((turn.endedAt ?? turn.createdAt) - turn.createdAt)
+        switch turn.state {
+        case .error: return String(localized: "Failed after \(duration)")
+        case .aborted:
+            return abortedByMachine(turn, items: items)
                 ? String(localized: "Stopped after \(duration)") : String(localized: "You stopped after \(duration)")
-        default: return String(localized: "Worked for \(duration)")
+        case .running, .done: return String(localized: "Worked for \(duration)")
         }
     }
 
     // The daemon's warning note in a turn it could not resume, `notResumedNote` in the contracts.
     private static let notResumedPrefix = "This turn could not be resumed after the machine restarted: "
 
-    static func abortedByMachine(_ turn: JSONValue, items: [JSONValue]) -> Bool {
-        let turnID = turn.text("turnId", fallback: turn.stableID)
-        return turn.text("state") == "aborted"
+    static func abortedByMachine(_ turn: ChatTurnItem, items: [ChatItem]) -> Bool {
+        let turnID = turn.turnId ?? turn.id
+        return turn.state == .aborted
             && items.contains {
-                $0.text("kind") == "note" && $0.text("turnId") == turnID && $0.text("level") == "warning"
-                    && $0.text("text").hasPrefix(notResumedPrefix)
+                guard let note = $0.noteItem else { return false }
+                return note.turnId == turnID && note.level == .warning && note.text.hasPrefix(notResumedPrefix)
             }
     }
 
     /// The header of a turn the chat did not start from a person's message.
-    static func agentTurnLabel(_ turn: JSONValue) -> String {
-        let label = turn.text("label")
-        let tasks = turn.list("taskIds").count
+    static func agentTurnLabel(_ turn: ChatTurnItem) -> String {
+        let label = turn.label ?? ""
+        let tasks = turn.taskIds?.count ?? 0
         if tasks > 0 {
             // A turn the machine opened with the results of tasks this chat gave; the label is their titles.
             return label.isEmpty
@@ -416,10 +418,10 @@ final class ChatPresentation {
 }
 
 enum ChatToolPresentation {
-    static func summary(_ item: JSONValue) -> String {
-        let input = item["input"] ?? .null
+    static func summary(_ tool: ChatToolItem) -> String {
+        let input = tool.input
         let keys: [String]
-        switch item.text("name") {
+        switch tool.name {
         case "Bash": keys = ["description", "command"]
         case "Read", "Edit", "Write", "MultiEdit", "NotebookEdit": keys = ["file_path", "notebook_path"]
         case "Grep", "Glob": keys = ["pattern"]
@@ -448,24 +450,24 @@ enum ChatToolPresentation {
 
     static func elapsed(_ milliseconds: Double) -> String { Format.elapsedShort(milliseconds: milliseconds) }
 
-    static func tail(_ item: JSONValue) -> String {
-        let output = item["progress"]?.text("output") ?? ""
+    static func tail(_ tool: ChatToolItem) -> String {
+        let output = tool.progress?.output ?? ""
         return String(output.suffix(4000)).split(separator: "\n", omittingEmptySubsequences: false).suffix(12).joined(
             separator: "\n")
     }
 
     /// What a folded turn did, a sentence per kind of call in the order it first came, as `summarizeTurn` in
     /// `chat/logic/timeline.ts` writes it: every file change is one sentence, calls without one are counted last.
-    static func turnSummary(_ tools: [JSONValue]) -> [String] {
+    static func turnSummary(_ tools: [ChatToolItem]) -> [String] {
         var order: [String] = []
         var counts: [String: Int] = [:]
         var edited = Set<String>()
         var other = 0
         for tool in tools {
-            let name = tool.text("name")
+            let name = tool.name
             let key: String
             if fileChanges.contains(name) {
-                edited.insert(tool["input"]?["file_path"]?.stringValue ?? tool.stableID)
+                edited.insert(tool.input["file_path"]?.stringValue ?? tool.id)
                 key = "edited"
             } else if sentenceNames.contains(name) {
                 key = name
@@ -510,9 +512,9 @@ enum ChatToolPresentation {
         }
     }
 
-    static func groupLabel(_ items: [JSONValue]) -> String {
-        let names = Set(items.map { $0.text("name") })
-        let count = items.count
+    static func groupLabel(_ tools: [ChatToolItem]) -> String {
+        let names = Set(tools.map(\.name))
+        let count = tools.count
         guard names.count == 1, let name = names.first else { return String(localized: "\(count) tool calls") }
         switch name {
         case "Read": return String(localized: "Read \(count) files")

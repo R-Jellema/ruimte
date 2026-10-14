@@ -14,16 +14,16 @@ struct ChatLimitView: Equatable {
 /// kept in step with it by hand.
 enum ChatLimits {
     /// Nil while the last turn stopped on nothing, or a turn runs. `moment` writes a time a limit names.
-    static func view(info: JSONValue, moment: (Double) -> String) -> ChatLimitView? {
-        guard let limit = info["limit"], limit != .null, info["activeTurnId"]?.stringValue == nil else { return nil }
-        let resumes = info["resumeAt"]?.numberValue.map(moment)
-        if limit.text("kind") == "overload" {
+    static func view(info: ChatInfo?, moment: (Double) -> String) -> ChatLimitView? {
+        guard let info, let limit = info.limit, info.activeTurnId == nil else { return nil }
+        let resumes = info.resumeAt.map(moment)
+        if limit.kind == .overload {
             return ChatLimitView(
                 title: String(localized: "The model was overloaded"),
                 detail: resumes.map { String(localized: "Tries again by itself at \($0).") }
                     ?? String(localized: "Send a message to try again."))
         }
-        let resets = limit["resetsAt"]?.numberValue.map(moment)
+        let resets = limit.resetsAt.map(moment)
         return ChatLimitView(
             title: String(localized: "Stopped on a usage limit"),
             detail: resumes.map { String(localized: "Goes on by itself at \($0), when the limit resets.") }
@@ -44,8 +44,8 @@ enum ChatLimits {
 
     /// The chat's own "Resume at reset". It only counts while the machine allows it, so with the machine's switch off
     /// it stands off and cannot be turned; absent, it follows the machine.
-    static func resumeSwitch(info: JSONValue, machineAllows: Bool) -> (on: Bool, enabled: Bool) {
-        (machineAllows && info["resumeAtReset"]?.boolValue != false, machineAllows)
+    static func resumeSwitch(info: ChatInfo?, machineAllows: Bool) -> (on: Bool, enabled: Bool) {
+        (machineAllows && info?.resumeAtReset != false, machineAllows)
     }
 
     /// How a session window reads in the account choice: "45% used · resets 14:00".
@@ -57,8 +57,8 @@ enum ChatLimits {
 }
 
 extension ChatModel {
-    var provider: String { info.text("provider") }
-    var accountID: String { info["account"]?.stringValue ?? provider }
+    var provider: String { info?.provider ?? "" }
+    var accountID: String { info?.account ?? provider }
 
     /// The account the chat runs under, while its CLI has a choice of accounts.
     var accountChoice: ProviderAccountEntry? {
@@ -73,10 +73,10 @@ extension ChatModel {
 
     /// Another account of the chat's CLI with room left, offered once the last turn stopped on a usage limit.
     var continueTarget: ProviderAccountEntry? {
-        guard info["limit"]?.text("kind") == "usage", info["activeTurnId"]?.stringValue == nil, let accounts,
+        guard info?.limit?.kind == .usage, info?.activeTurnId == nil, let accounts,
             accounts.hasChoice(provider)
         else { return nil }
-        return accounts.continueTarget(provider, current: info["account"]?.stringValue, limits: limits)
+        return accounts.continueTarget(provider, current: info?.account, limits: limits)
     }
 
     /// Reads the plan windows once something shows them. A machine reads an account other than a CLI's default one only
@@ -87,7 +87,7 @@ extension ChatModel {
             limits = snapshot
         }
         guard unread, let accounts, accounts.hasChoice(provider),
-            accounts.hasUnreadAccount(provider, current: info["account"]?.stringValue, limits: limits),
+            accounts.hasUnreadAccount(provider, current: info?.account, limits: limits),
             ChatLimitRefreshes.shared.allow(machineID, now: now)
         else { return }
         if let snapshot = try? await client.request(WireRequest.usageRefreshLimits.rawValue, payload: .object([:])) {
@@ -185,9 +185,8 @@ struct ChatLimitBanner: View {
                 .glassEffect(.regular, in: .rect(cornerRadius: 26))
                 .padding(.bottom, 10)
                 .accessibilityElement(children: .contain)
-                .task(id: model.info["limit"]) {
-                    if model.info["limit"]?.text("kind") == "usage" && model.accounts?.hasChoice(model.provider) == true
-                    {
+                .task(id: model.info?.limit) {
+                    if model.info?.limit?.kind == .usage && model.accounts?.hasChoice(model.provider) == true {
                         await model.readLimits(unread: true)
                     }
                 }

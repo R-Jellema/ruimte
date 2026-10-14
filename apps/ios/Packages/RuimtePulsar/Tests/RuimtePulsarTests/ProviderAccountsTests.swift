@@ -68,11 +68,16 @@ private let twoClaudes = """
 }
 
 @Test func aChatHasStartedOnceItHasASessionOrATurn() {
-    #expect(
-        !ProviderAccountList.chatStarted(.object(["agentSessionId": .null, "usage": .object(["turns": .number(0)])])))
-    #expect(ProviderAccountList.chatStarted(.object(["agentSessionId": .string("abc")])))
-    #expect(
-        ProviderAccountList.chatStarted(.object(["agentSessionId": .null, "usage": .object(["turns": .number(2)])])))
+    func info(session: String?, turns: Int64) -> ChatInfo {
+        ChatInfo(
+            chatId: "chat", provider: "claude", cwd: "/work", agentSessionId: session, model: nil,
+            selection: ChatInfoSelection(model: "opus", options: [:]), runtimeMode: "supervised", status: "idle",
+            running: false, activeTurnId: nil, slashCommands: [],
+            usage: ChatInfoUsage(contextTokens: 0, contextWindow: nil, costUsd: 0, turns: turns), createdAt: 0)
+    }
+    #expect(!ProviderAccountList.chatStarted(info(session: nil, turns: 0)))
+    #expect(ProviderAccountList.chatStarted(info(session: "abc", turns: 0)))
+    #expect(ProviderAccountList.chatStarted(info(session: nil, turns: 2)))
 }
 
 @Test func anAccountWearsANodeAccentOrNone() {

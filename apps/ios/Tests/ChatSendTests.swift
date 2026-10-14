@@ -114,10 +114,8 @@ import XCTest
     }
 
     func testEditingQueueMergesDraftAndPreservesContext() async {
-        let queued: JSONValue = .object([
-            "id": .string("queued"), "text": .string("Earlier"), "skills": .array([.string("review")]),
-        ])
-        model.info = .object(["queue": .array([queued])])
+        let queued = ChatInfoQueueItem(id: "queued", text: "Earlier", skills: ["review"], createdAt: 0)
+        model.info = queueInfo([queued])
         model.draft = "New thought"
         await model.queueAction(queued, edit: true)
         XCTAssertEqual(model.draft, "Earlier\n\nNew thought")
@@ -128,8 +126,8 @@ import XCTest
     }
 
     func testFailedUnqueueDoesNotChangeEitherMessage() async {
-        let queued: JSONValue = .object(["id": .string("queued"), "text": .string("Earlier")])
-        model.info = .object(["queue": .array([queued])])
+        let queued = ChatInfoQueueItem(id: "queued", text: "Earlier", createdAt: 0)
+        model.info = queueInfo([queued])
         model.draft = "New thought"
         client.failure = MachineClientError.server(code: "not-queued", message: "Already sent")
         await model.queueAction(queued, edit: true)
@@ -140,8 +138,8 @@ import XCTest
     }
 
     func testInterruptedUnqueueKeepsALocalCopyAndRequiresChecking() async {
-        let queued: JSONValue = .object(["id": .string("queued"), "text": .string("Earlier")])
-        model.info = .object(["queue": .array([queued])])
+        let queued = ChatInfoQueueItem(id: "queued", text: "Earlier", createdAt: 0)
+        model.info = queueInfo([queued])
         model.draft = "New thought"
         client.failure = MachineClientError.disconnected
         await model.queueAction(queued, edit: true)
@@ -151,6 +149,10 @@ import XCTest
         let restored = ChatComposition(machineID: "machine", chatID: "chat", root: root)
         XCTAssertEqual(restored.text, "Earlier\n\nNew thought")
         XCTAssertTrue(restored.deliveryUncertain)
+    }
+
+    private func queueInfo(_ queue: [ChatInfoQueueItem]) -> ChatInfo {
+        ChatWire.info(["queue": try! JSONValue(encoding: queue)]).chatInfo
     }
 }
 

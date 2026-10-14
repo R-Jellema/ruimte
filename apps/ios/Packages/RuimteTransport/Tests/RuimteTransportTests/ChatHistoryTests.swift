@@ -4,44 +4,44 @@ import XCTest
 @testable import RuimteTransport
 
 final class ChatHistoryTests: XCTestCase {
-    private func item(_ id: String, _ text: String = "") -> JSONValue {
-        .object(["id": .string(id), "kind": .string("assistant"), "text": .string(text)])
+    private func item(_ id: String, _ text: String = "") -> ChatItem {
+        .assistant(ChatAssistantItem(id: id, createdAt: 0, turnId: nil, text: text, streaming: false))
+    }
+
+    private func approval(_ id: String, _ decision: ChatApprovalDecision) -> ChatItem {
+        .approval(
+            ChatApprovalItem(
+                id: id, createdAt: 0, turnId: nil, requestId: "request-\(id)", toolUseId: nil, toolName: "Bash",
+                input: .null, description: nil, canAllowAlways: false, decision: decision))
     }
 
     func testOlderDaemonKeepsFullHistoryAndNeedsNoPagingRequest() {
         var history = ChatHistory()
-        history.replace(.object(["items": .array([item("one")])]))
+        history.replace(history: nil, pending: [])
         XCTAssertNil(history.cursor)
         XCTAssertTrue(history.includes(item("two"), index: nil))
     }
+
     func testPendingOutsidePageRemainsActionableAndSettlesWithoutAppending() {
         var history = ChatHistory()
-        let pending: JSONValue = .object([
-            "id": .string("a"), "kind": .string("approval"), "decision": .string("pending"),
-        ])
-        history.replace(
-            .object([
-                "history": .object(["start": .number(80), "cursor": .string("epoch:80")]), "pending": .array([pending]),
-            ]))
+        let pending = approval("a", .pending)
+        history.replace(history: ChatHistoryPage(start: 80, cursor: "epoch:80"), pending: [pending])
         XCTAssertEqual(history.pending["a"], pending)
-        let answered: JSONValue = .object([
-            "id": .string("a"), "kind": .string("approval"), "decision": .string("allow"),
-        ])
-        XCTAssertFalse(history.includes(answered, index: .number(0)))
+        XCTAssertFalse(history.includes(approval("a", .allow), index: 0))
         XCTAssertTrue(history.pending.isEmpty)
-        XCTAssertTrue(history.includes(item("tail"), index: .number(81)))
+        XCTAssertTrue(history.includes(item("tail"), index: 81))
     }
+
     func testPrependPreservesNewerLiveItemsAndResetDropsCursorAndPending() {
         var history = ChatHistory()
-        history.replace(.object(["history": .object(["start": .number(2), "cursor": .string("epoch:2")])]))
+        history.replace(history: ChatHistoryPage(start: 2, cursor: "epoch:2"), pending: [])
         let merged = history.prepend(
-            .object([
-                "items": .array([item("old"), item("tail", "stale")]),
-                "history": .object(["start": .number(0), "cursor": .null]),
-            ]), to: [item("tail", "live")])
+            ChatHistoryResult(
+                items: [item("old"), item("tail", "stale")], history: ChatHistoryPage(start: 0, cursor: nil)),
+            to: [item("tail", "live")])
         XCTAssertEqual(merged, [item("old"), item("tail", "live")])
         XCTAssertNil(history.cursor)
-        history.replace(.object(["items": .array([])]))
+        history.replace(history: nil, pending: [])
         XCTAssertEqual(history.start, 0)
         XCTAssertTrue(history.pending.isEmpty)
     }

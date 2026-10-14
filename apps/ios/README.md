@@ -39,7 +39,9 @@ The app follows the desktop wherever a phone can. These are the places where it 
   `@adecore/ui/format` whose tests repeat the desktop's cases. The region iOS is set to writes the notation and the
   language the app runs in writes the words.
 - The hot paths read the wire as generated types: chat events and attach results, `session.status` and `git.status`
-  decode with `JSONValue.decoded(as:)` after the frame was validated. The chat rows still read their item by key.
+  decode with `JSONValue.decoded(as:)` after the frame was validated. A chat holds its items, info and history only
+  as those types, and a delta is applied to the typed item. What the wire leaves untyped stays JSON: a tool's input
+  and the trees of a reply's blocks, which the interpreter takes as JSON (`UiReplyTrees`).
 - Usage counts in the region's currency until a person picks one: euros in a EUR region at the ECB rate the
   machine supplies, dollars elsewhere. Missing rates keep dollars and say so.
 - Widgets never connect. The app writes what a connected machine reports into the app group

@@ -5,9 +5,10 @@ import XCTest
 @testable import Ruimte
 
 @MainActor final class ChatLimitTests: XCTestCase {
-    private func info(limit: JSONValue?, resumeAt: Double? = nil, active: Bool = false, account: String? = nil)
-        -> JSONValue
-    {
+    private func info(
+        limit: JSONValue?, resumeAt: Double? = nil, active: Bool = false, account: String? = nil,
+        resumeAtReset: Bool? = nil
+    ) -> ChatInfo {
         var values: [String: JSONValue] = [
             "chatId": .string("chat"), "provider": .string("claude"),
             "activeTurnId": active ? .string("t2") : .null,
@@ -15,7 +16,8 @@ import XCTest
         if let limit { values["limit"] = limit }
         if let resumeAt { values["resumeAt"] = .number(resumeAt) }
         if let account { values["account"] = .string(account) }
-        return .object(values)
+        if let resumeAtReset { values["resumeAtReset"] = .bool(resumeAtReset) }
+        return ChatWire.info(values).chatInfo
     }
 
     private let moment: (Double) -> String = { "at\(Int($0))" }
@@ -110,9 +112,9 @@ import XCTest
         let absent = info(limit: nil)
         XCTAssertTrue(ChatLimits.resumeSwitch(info: absent, machineAllows: true) == (true, true))
         XCTAssertTrue(ChatLimits.resumeSwitch(info: absent, machineAllows: false) == (false, false))
-        let off = absent.setting("resumeAtReset", .bool(false))
+        let off = info(limit: nil, resumeAtReset: false)
         XCTAssertTrue(ChatLimits.resumeSwitch(info: off, machineAllows: true) == (false, true))
-        let on = absent.setting("resumeAtReset", .bool(true))
+        let on = info(limit: nil, resumeAtReset: true)
         XCTAssertTrue(ChatLimits.resumeSwitch(info: on, machineAllows: false) == (false, false))
     }
 

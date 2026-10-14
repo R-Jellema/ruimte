@@ -184,7 +184,7 @@ final class SharedMachineSession {
 
     func hasLiveChat(_ id: String) -> Bool {
         guard connected, let model = chats[id]?.model else { return false }
-        return model.connected && !model.loading && model.info != .null && model.error == nil
+        return model.connected && !model.loading && model.info != nil && model.error == nil
     }
 
     /// Lets go of a chat that ended on the machine, so nothing here attaches to it again.

@@ -325,13 +325,13 @@ struct ChatScreen: View {
 
     private var messageMarks: [ChatMessageMark] { ChatForking.marks(entries: model.presentation.entries) }
 
-    private var forkOf: String? { model.info["forkOf"]?["chatId"]?.stringValue }
+    private var forkOf: String? { model.info?.forkOf?.chatId }
     private var originalTitle: String? { forkOf.flatMap { model.presentation.places?.title($0) } }
 
     private var forkLine: String? {
         ChatForking.forkLine(
-            forkOf: model.info["forkOf"],
-            turnIDs: model.presentation.values.filter { $0.text("kind") == "turn" }.map(\.stableID),
+            forkOf: model.info?.forkOf,
+            turnIDs: model.presentation.values.compactMap(\.turnItem).map(\.id),
             complete: model.history.cursor == nil, moment: { ChatLimits.moment($0) })
     }
 

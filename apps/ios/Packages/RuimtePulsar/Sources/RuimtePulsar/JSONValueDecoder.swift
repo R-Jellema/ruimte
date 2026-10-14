@@ -6,6 +6,12 @@ extension JSONValue {
     public func decoded<Value: Decodable>(as type: Value.Type = Value.self) throws -> Value {
         try JSONValueDecoding.unbox(self, as: type, path: [])
     }
+
+    /// A generated wire value as the tree the wire carries, for what takes untyped JSON on purpose, like the
+    /// interpreter of a reply's blocks.
+    public init<Value: Encodable>(encoding value: Value) throws {
+        self = try JSONValue.decode(JSONEncoder().encode(value))
+    }
 }
 
 private enum JSONValueDecoding {

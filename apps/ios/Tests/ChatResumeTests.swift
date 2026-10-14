@@ -49,8 +49,8 @@ import XCTest
         await machine.settle()
 
         XCTAssertEqual(machine.attaches.last?["since"], .number(5))
-        XCTAssertEqual(model.items.map { $0.text("id") }, ["a", "b", "c"])
-        XCTAssertEqual(model.items.last?.text("text"), "Third part")
+        XCTAssertEqual(model.items.map(\.id), ["a", "b", "c"])
+        XCTAssertEqual(model.items.last?.assistantItem?.text, "Third part")
         XCTAssertTrue(model.presentation.entries.first { $0.id == "a" }?.items.first === kept)
         XCTAssertEqual(model.lastSeq, 7)
     }
@@ -66,7 +66,7 @@ import XCTest
         await machine.settle()
 
         XCTAssertEqual(machine.attaches.last?["since"], .number(4))
-        XCTAssertEqual(model.items.map { $0.text("id") }, ["z"])
+        XCTAssertEqual(model.items.map(\.id), ["z"])
         XCTAssertEqual(model.lastSeq, 1)
     }
 
@@ -92,7 +92,7 @@ import XCTest
         await machine.settle()
         XCTAssertEqual(machine.attaches.count, 2)
         XCTAssertNil(machine.attaches.last?["since"])
-        XCTAssertEqual(model.items.map { $0.text("id") }, ["a", "b"])
+        XCTAssertEqual(model.items.map(\.id), ["a", "b"])
     }
 }
 

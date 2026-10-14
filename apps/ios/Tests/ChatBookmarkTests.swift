@@ -31,12 +31,14 @@ import XCTest
     }
 
     func testOnlyAMessageOfTheChatsOwnThreadTakesABookmark() {
-        XCTAssertTrue(ChatBookmarks.markable(.object(["kind": .string("user")])))
-        XCTAssertTrue(ChatBookmarks.markable(.object(["kind": .string("assistant")])))
-        XCTAssertFalse(ChatBookmarks.markable(.object(["kind": .string("tool")])))
+        XCTAssertTrue(ChatBookmarks.markable(ChatWire.item(["kind": .string("user")]).chatItem))
+        XCTAssertTrue(ChatBookmarks.markable(ChatWire.item(["kind": .string("assistant")]).chatItem))
+        XCTAssertFalse(ChatBookmarks.markable(ChatWire.item(["kind": .string("tool")]).chatItem))
         XCTAssertFalse(
-            ChatBookmarks.markable(.object(["kind": .string("assistant"), "parentToolUseId": .string("t1")])))
-        XCTAssertFalse(ChatBookmarks.markable(.object(["kind": .string("assistant"), "streaming": .bool(true)])))
+            ChatBookmarks.markable(
+                ChatWire.item(["kind": .string("assistant"), "parentToolUseId": .string("t1")]).chatItem))
+        XCTAssertFalse(
+            ChatBookmarks.markable(ChatWire.item(["kind": .string("assistant"), "streaming": .bool(true)]).chatItem))
     }
 
     func testANameIsSentOnlyWhenItChangedAndAnEmptyOneTakesItAway() {
@@ -109,7 +111,7 @@ import XCTest
                 ChatWire.item([
                     "id": .string("a2"), "kind": .string("assistant"), "turnId": .string("t1"), "text": .string("Last"),
                 ]),
-            ], info: .object([:]))
+            ].map(\.chatItem), info: nil)
         XCTAssertFalse(presentation.entries.contains { $0.id == "a1" })
         XCTAssertTrue(presentation.revealItem("a1"))
         XCTAssertTrue(presentation.entries.contains { $0.id == "a1" })

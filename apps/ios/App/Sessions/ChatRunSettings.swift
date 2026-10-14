@@ -57,6 +57,15 @@ struct ChatContextUsage: Equatable {
                 String(localized: "System", comment: "The part of a chat's context taken by the system prompt")
             }
         }
+
+        func tokens(of breakdown: ChatInfoUsageBreakdown) -> Int64 {
+            switch self {
+            case .toolOutput: breakdown.toolOutput
+            case .filesRead: breakdown.filesRead
+            case .conversation: breakdown.conversation
+            case .system: breakdown.system
+            }
+        }
     }
 
     struct Segment: Equatable {
@@ -72,23 +81,22 @@ struct ChatContextUsage: Equatable {
     /// The id of the model option that sets the window's size.
     static let windowOption = "contextWindow"
 
-    init?(_ usage: JSONValue?) {
-        guard let usage, let used = usage["contextTokens"]?.numberValue else { return nil }
-        self.used = used
-        window = usage["contextWindow"]?.numberValue.flatMap { $0 > 0 ? $0 : nil }
-        breakdown = usage["breakdown"]
+    init(_ usage: ChatInfoUsage) {
+        used = Double(usage.contextTokens)
+        window = usage.contextWindow.flatMap { $0 > 0 ? Double($0) : nil }
+        breakdown = usage.breakdown
     }
 
-    private let breakdown: JSONValue?
+    private let breakdown: ChatInfoUsageBreakdown?
 
     var fraction: Double { window.map { min(1, used / $0) } ?? 0 }
 
     /// Nil from a machine that does not estimate, which draws the plain bar.
     var segments: [Segment]? {
-        guard let breakdown, breakdown != .null, used > 0 else { return nil }
+        guard let breakdown, used > 0 else { return nil }
         let whole = max(window ?? 0, used)
         return Part.allCases.map { part in
-            let tokens = breakdown[part.rawValue]?.numberValue ?? 0
+            let tokens = Double(part.tokens(of: breakdown))
             return Segment(part: part, tokens: tokens, fraction: tokens / whole)
         }
     }
@@ -120,10 +128,10 @@ struct ChatRunSettings: View {
                 if let error = model.settingsProblem {
                     Section { Text(error).foregroundStyle(MobileStyle.statusError) }
                 }
-                if let accounts = model.accounts, accounts.hasChoice(model.info.text("provider")) {
+                if let accounts = model.accounts, accounts.hasChoice(model.provider) {
                     accountSection(accounts)
                 }
-                if let usage = ChatContextUsage(model.info["usage"]) {
+                if let usage = model.info.map({ ChatContextUsage($0.usage) }) {
                     contextSection(usage)
                 }
                 Section {
@@ -171,9 +179,9 @@ struct ChatRunSettings: View {
     }
 
     private func accountSection(_ accounts: ProviderAccountList) -> some View {
-        let kind = model.info.text("provider")
-        let current = model.info["account"]?.stringValue ?? kind
-        let started = ProviderAccountList.chatStarted(model.info)
+        let kind = model.provider
+        let current = model.accountID
+        let started = model.info.map(ProviderAccountList.chatStarted) ?? false
         return Section {
             ForEach(accounts.offered(kind, current: current)) { account in
                 let locked = started && !accounts.canContinue(kind, from: current, to: account.id)
@@ -354,8 +362,12 @@ private struct ChatContextLegend: View {
 }
 
 extension ChatModel {
-    var selection: JSONValue { info["selection"] ?? .null }
-    var runtimeMode: String { info.text("runtimeMode", fallback: "supervised") }
+    /// The selection as `chat.configure` takes it back, which a change of one option starts from.
+    var selection: JSONValue {
+        guard let selection = info?.selection else { return .null }
+        return .object(["model": .string(selection.model), "options": .object(selection.options)])
+    }
+    var runtimeMode: String { info?.runtimeMode ?? "supervised" }
     var canConfigure: Bool { connected && !loading && !configuring && !sending }
 
     /// The model the chat runs on, with its own options.
@@ -376,7 +388,7 @@ extension ChatModel {
     func chooseSelection(_ selection: JSONValue) {
         Task {
             if await configure(["selection": selection]) {
-                ChatPreferences.shared.rememberSelection(selection, provider: info.text("provider"))
+                ChatPreferences.shared.rememberSelection(selection, provider: provider)
             }
         }
     }

@@ -65,7 +65,7 @@ import XCTest
     }
 
     func testAForkSaysAfterWhichTurnItBeganOnlyOverTheWholeThread() {
-        let forkOf = JSONValue.object(["chatId": .string("original"), "turnId": .string("t2"), "at": .number(5)])
+        let forkOf = ChatInfoForkOf(chatId: "original", turnId: "t2", at: 5)
         let moment: (Double) -> String = { "at\(Int($0))" }
         XCTAssertEqual(
             ChatForking.forkLine(forkOf: forkOf, turnIDs: ["t1", "t2", "t3"], complete: true, moment: moment),

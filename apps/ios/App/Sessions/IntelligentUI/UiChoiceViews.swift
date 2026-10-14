@@ -174,30 +174,26 @@ struct UiChoiceJump: Equatable {
     /// New for every tap, so tapping the same line again reveals it again.
     let nonce: UUID
 
-    init?(_ origin: JSONValue) {
-        guard let itemID = origin["itemId"]?.stringValue, !itemID.isEmpty,
-            let blockID = origin["blockId"]?.stringValue, !blockID.isEmpty,
-            let revision = origin["revision"]?.stringValue, !revision.isEmpty
-        else { return nil }
-        self.itemID = itemID
-        self.blockID = blockID
-        self.revision = revision
+    init?(_ origin: ChatUserItemUiChoice) {
+        guard !origin.itemId.isEmpty, !origin.blockId.isEmpty, !origin.revision.isEmpty else { return nil }
+        itemID = origin.itemId
+        blockID = origin.blockId
+        revision = origin.revision
         nonce = UUID()
     }
 }
 
 struct UiChoiceLine: View {
-    /// The message's `uiChoice`: its `label`, `older` and `sourceAt` in milliseconds.
-    let origin: JSONValue
+    let origin: ChatUserItemUiChoice
     var reveal: (() -> Void)?
 
     var body: some View {
-        let label = origin["label"]?.stringValue ?? ""
+        let label = origin.label
         let words =
-            origin["older"]?.boolValue == true
+            origin.older
             ? String(
                 localized:
-                    "Chose “\(label)” on the reply of \(Format.moment(UiFormat.moment(milliseconds: origin["sourceAt"]?.numberValue ?? 0)))"
+                    "Chose “\(label)” on the reply of \(Format.moment(UiFormat.moment(milliseconds: origin.sourceAt)))"
             )
             : String(localized: "Chose “\(label)”")
         Group {

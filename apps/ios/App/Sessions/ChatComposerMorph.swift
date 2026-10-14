@@ -54,11 +54,11 @@ struct ChatComposerAction: ViewModifier {
 }
 
 struct ChatComposerMorph<Draft: View, Prompt: View>: View {
-    let request: JSONValue?
+    let request: ChatItem?
     @ViewBuilder let draft: () -> Draft
-    @ViewBuilder let prompt: (JSONValue) -> Prompt
+    @ViewBuilder let prompt: (ChatItem) -> Prompt
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var retained: JSONValue?
+    @State private var retained: ChatItem?
     @State private var draftHeight: CGFloat = 0
     @State private var promptHeight: CGFloat = 0
     @State private var measuredRequestID: String?
@@ -68,8 +68,8 @@ struct ChatComposerMorph<Draft: View, Prompt: View>: View {
     @State private var transitionID = 0
 
     init(
-        request: JSONValue?,
-        @ViewBuilder draft: @escaping () -> Draft, @ViewBuilder prompt: @escaping (JSONValue) -> Prompt
+        request: ChatItem?,
+        @ViewBuilder draft: @escaping () -> Draft, @ViewBuilder prompt: @escaping (ChatItem) -> Prompt
     ) {
         self.request = request
         self.draft = draft
@@ -101,7 +101,7 @@ struct ChatComposerMorph<Draft: View, Prompt: View>: View {
                 .accessibilityHidden(request != nil)
             if let retained {
                 prompt(retained)
-                    .id(retained.text("requestId"))
+                    .id(retained.requestId)
                     .modifier(ComposerPromptFrame(height: draftHeight > 0 ? height : 0))
                     .modifier(ComposerContentFade(progress: progress, incoming: true, reduceMotion: reduceMotion))
                     .allowsHitTesting(target == 1 && !transitioning)
@@ -149,7 +149,7 @@ struct ChatComposerMorph<Draft: View, Prompt: View>: View {
         // Only the field answers a touch; a prompt card's own buttons do, so the card itself stays still.
         .glassEffect(request == nil ? .regular.interactive() : .regular, in: shape)
         .onPreferenceChange(ChatPromptHeightKey.self) { measured in
-            guard let measured, measured.requestID == request?.text("requestId"), measured.height > 0 else { return }
+            guard let measured, measured.requestID == request?.requestId, measured.height > 0 else { return }
             measuredRequestID = measured.requestID
             if promptHeight != measured.height {
                 move(toHeight: measured.height)
@@ -161,7 +161,7 @@ struct ChatComposerMorph<Draft: View, Prompt: View>: View {
             if let next {
                 retained = next
                 // A reversed transition already has a measurement; new content reports its height first.
-                if measuredRequestID == next.text("requestId") { move() }
+                if measuredRequestID == next.requestId { move() }
             } else {
                 move()
             }

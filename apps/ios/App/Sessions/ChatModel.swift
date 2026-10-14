@@ -12,10 +12,11 @@ final class ChatModel {
     /// The machine the chat runs on, which is what a remembered account is kept for.
     let machineID: String
     let presentation = ChatPresentation()
-    var info: JSONValue = .null
-    var items: [JSONValue] = []
+    /// Nil until the machine answered the attach.
+    var info: ChatInfo?
+    var items: [ChatItem] = []
     private(set) var messageCount = 0
-    private(set) var pending: [JSONValue] = []
+    private(set) var pending: [ChatItem] = []
     /// Whether the thread holds a subagent row, and one with a pointer of its own; kept apart from `items` so the
     /// screen does not observe every streamed delta.
     private(set) var subagentRows = (any: false, native: false)
@@ -52,7 +53,7 @@ final class ChatModel {
     @ObservationIgnored private let activity = ChatActivityDerivation()
     /// The sub-agents the composer's chip speaks for, derived again only when a subagent row or the thread's length
     /// moves, so a reader does not observe every streamed word.
-    var activitySubagents: [JSONValue] {
+    var activitySubagents: [ChatSubagentItem] {
         activity.subagents(revision: subagentRevision, count: messageCount) { items }
     }
     var suggestions: [ChatSuggestion] = []
@@ -114,31 +115,33 @@ final class ChatModel {
 
     private func refreshPending() {
         messageCount = items.count
-        let rows = items.filter { $0.text("kind") == "subagent" && !$0.text("toolUseId").isEmpty }
-        let next = (any: !rows.isEmpty, native: rows.contains { $0["native"]?.objectValue != nil })
+        let rows = items.compactMap(\.subagentItem).filter { !$0.toolUseId.isEmpty }
+        let next = (any: !rows.isEmpty, native: rows.contains { $0.native != nil })
         if next != subagentRows { subagentRows = next }
-        let visibleIDs = Set(items.compactMap { $0["id"]?.stringValue })
+        let visibleIDs = Set(items.map(\.id))
         let requests =
-            history.pending.values.filter { !visibleIDs.contains($0.text("id")) }.sorted {
-                $0.text("id") < $1.text("id")
-            }
-            + items.filter(ChatHistory.isPending)
+            history.pending.values.filter { !visibleIDs.contains($0.id) }.sorted { $0.id < $1.id }
+            + items.filter(\.isPending)
         if requests != pending { pending = requests }
     }
 
-    var models: [JSONValue] {
-        providers.first { $0["kind"] == info["provider"] }?["models"]?.arrayValue ?? []
+    /// The machine's entry for the chat's CLI in `provider.list`.
+    private var providerEntry: JSONValue? {
+        guard let info else { return nil }
+        return providers.first { $0["kind"]?.stringValue == info.provider }
     }
+
+    var models: [JSONValue] { providerEntry?["models"]?.arrayValue ?? [] }
 
     func start() {
         guard unsubscribe.isEmpty else { return }
         attachment = client.acquireAttachment("chat", id: chatID)
         unsubscribe.append(
             client.subscribe("chat.event") { [weak self] payload in
-                guard let self, !self.loading, let raw = payload["event"],
-                    let envelope = try? payload.decoded(as: ChatEventEnvelope.self), envelope.chatId == self.chatID
+                guard let self, !self.loading, let envelope = try? payload.decoded(as: ChatEventEnvelope.self),
+                    envelope.chatId == self.chatID
                 else { return }
-                self.apply(raw, envelope.event)
+                self.apply(envelope.event)
                 if let seq = envelope.seq { self.lastSeq = Int(seq) }
             })
         unsubscribe.append(
@@ -251,38 +254,47 @@ final class ChatModel {
 
     /// Applies what came after `since` when the machine still held all of it, and its snapshot otherwise.
     func attached(_ result: JSONValue, since: Int?) {
-        let snapshot = try? result.decoded(as: ChatAttachResult.self)
-        if since != nil, let events = snapshot?.events, let raw = result["events"]?.arrayValue {
-            for (event, typed) in zip(raw, events) { apply(event, typed) }
-            if let info = result["info"], info != self.info {
-                self.info = info
+        // A machine validates every frame it sends, so an answer that does not decode never comes.
+        guard let snapshot = try? result.decoded(as: ChatAttachResult.self) else {
+            lastSeq = nil
+            return
+        }
+        let bookmarks = ChatBookmarks.parse(result["bookmarks"]?.arrayValue ?? [])
+        let visuals = ChatVisuals.parse(result.list("visuals"))
+        if since != nil, let events = snapshot.events {
+            for event in events { apply(event) }
+            if snapshot.info != info {
+                info = snapshot.info
                 presentation.setInfo(info)
             }
-            presentation.setBookmarks(ChatBookmarks.parse(result["bookmarks"]?.arrayValue ?? []))
-            presentation.setVisuals(ChatVisuals.parse(result.list("visuals")))
+            presentation.setBookmarks(bookmarks)
+            presentation.setVisuals(visuals)
         } else {
-            replace(result)
+            replace(
+                info: snapshot.info, items: snapshot.items, history: snapshot.history, pending: snapshot.pending ?? [],
+                bookmarks: bookmarks, visuals: visuals)
         }
-        lastSeq = snapshot?.seq.map { Int($0) }
+        lastSeq = snapshot.seq.map { Int($0) }
     }
 
-    func replace(_ snapshot: JSONValue) {
+    /// A machine without bookmarks or visuals sends none, and then this chat has none.
+    private func replace(
+        info: ChatInfo, items: [ChatItem], history page: ChatHistoryPage?, pending: [ChatItem],
+        bookmarks: [ChatBookmark], visuals: [ChatVisual]
+    ) {
         historyRevision += 1
         loadingHistory = false
         failedHistoryCursor = nil
-        history.replace(snapshot)
-        info = snapshot["info"] ?? .null
-        items = snapshot["items"]?.arrayValue ?? []
+        history.replace(history: page, pending: pending)
+        self.info = info
+        self.items = items
         positions = Dictionary(
-            items.enumerated().compactMap { index, item in
-                item["id"]?.stringValue.map { ($0, index) }
-            }, uniquingKeysWith: { _, newest in newest })
+            items.enumerated().map { ($0.element.id, $0.offset) }, uniquingKeysWith: { _, newest in newest })
         refreshPending()
         presentation.earlierPageWaits = history.cursor != nil
         presentation.replace(items, info: info)
-        // A machine without bookmarks or visuals sends none, and then this chat has none.
-        presentation.setBookmarks(ChatBookmarks.parse(snapshot["bookmarks"]?.arrayValue ?? []))
-        presentation.setVisuals(ChatVisuals.parse(snapshot.list("visuals")))
+        presentation.setBookmarks(bookmarks)
+        presentation.setVisuals(visuals)
         subagentRevision += 1
         revision += 1
     }
@@ -290,40 +302,38 @@ final class ChatModel {
     /// An event that is not one the contracts know is dropped; a machine never sends one, since each is validated.
     func receive(_ event: JSONValue) {
         guard let typed = try? event.decoded(as: ChatEvent.self) else { return }
-        apply(event, typed)
+        apply(typed)
     }
 
-    /// The raw event goes along because the thread keeps its items as the wire carries them.
-    private func apply(_ event: JSONValue, _ typed: ChatEvent) {
-        switch typed {
-        case .reset: replace(event)
-        case .info:
-            info = event["info"] ?? .null
+    private func apply(_ event: ChatEvent) {
+        switch event {
+        case .reset(let reset):
+            replace(info: reset.info, items: reset.items, history: nil, pending: [], bookmarks: [], visuals: [])
+        case .info(let change):
+            info = change.info
             presentation.setInfo(info)
         case .item(let change):
-            guard let item = event["item"] else { return }
-            let id = change.item.id
-            guard history.includes(item, index: change.historyIndex.map { .number(Double($0)) }) else {
+            let item = change.item
+            guard history.includes(item, index: change.historyIndex) else {
                 refreshPending()
                 return
             }
-            if let index = positions[id] {
+            if let index = positions[item.id] {
                 items[index] = item
             } else {
-                positions[id] = items.count
+                positions[item.id] = items.count
                 items.append(item)
             }
             refreshPending()
             presentation.upsert(item)
-            if Self.concernsSubagent(change.item) { subagentRevision += 1 }
+            if Self.concernsSubagent(item) { subagentRevision += 1 }
             revision += 1
         case .delta(let delta):
             guard let index = positions[delta.itemId] else { return }
-            let item = ChatUiDelta.apply(event, to: items[index])
+            let item = ChatUiDelta.apply(delta, to: items[index])
             items[index] = item
-            if let updated = presentation.upsert(item, textOnly: true), Self.concernsSubagent(updated) {
-                subagentRevision += 1
-            }
+            presentation.upsert(item, textOnly: true)
+            if Self.concernsSubagent(item) { subagentRevision += 1 }
             revision += 1
         }
     }
@@ -361,14 +371,16 @@ final class ChatModel {
             _ = try await client.request(
                 "chat.history", payload: target(["cursor": .string(cursor), "limit": .number(60)])
             ) { [weak self] page in
-                guard let self, self.generation == current, self.historyRevision == currentHistory else { return }
+                guard let self, self.generation == current, self.historyRevision == currentHistory,
+                    let page = try? page.decoded(as: ChatHistoryResult.self)
+                else { return }
                 self.items = self.history.prepend(page, to: self.items)
                 self.positions = Dictionary(
-                    self.items.enumerated().map { ($0.element.text("id"), $0.offset) },
+                    self.items.enumerated().map { ($0.element.id, $0.offset) },
                     uniquingKeysWith: { _, newest in newest })
                 self.refreshPending()
                 self.presentation.earlierPageWaits = self.history.cursor != nil
-                self.presentation.prepend(page["items"]?.arrayValue ?? [])
+                self.presentation.prepend(page.items)
                 self.subagentRevision += 1
                 self.revision += 1
             }
@@ -405,11 +417,11 @@ final class ChatModel {
         }
     }
 
-    var capabilities: JSONValue { providers.first { $0["kind"] == info["provider"] }?["capabilities"] ?? .null }
+    var capabilities: JSONValue { providerEntry?["capabilities"] ?? .null }
     var canAttach: Bool { capabilities["attachments"]?.boolValue != false }
     var canMention: Bool { capabilities["mentions"]?.boolValue != false }
-    var queue: [JSONValue] { info.list("queue") }
-    var working: Bool { info["activeTurnId"]?.stringValue != nil }
+    var queue: [ChatInfoQueueItem] { info?.queue ?? [] }
+    var working: Bool { info?.activeTurnId != nil }
     var canSend: Bool {
         connected && !loading && !sending && !queueBusy && !configuring && !sendUncertain && composition.hasContent
             && composition.imports.isEmpty && composition.validation == nil
@@ -507,7 +519,7 @@ final class ChatModel {
         }
     }
 
-    func queueAction(_ message: JSONValue, edit: Bool = false, sendNow: Bool = false) async {
+    func queueAction(_ message: ChatInfoQueueItem, edit: Bool = false, sendNow: Bool = false) async {
         guard connected, !queueBusy, !sending, !composition.importing else { return }
         queueBusy = true
         queueProblem = nil
@@ -515,25 +527,21 @@ final class ChatModel {
         var recovered: [ChatUpload] = []
         var requestedRemoval = false
         let incoming = ChatDraftRecord(
-            text: message.text("text"),
-            mentions: message.list("mentions").compactMap(\.stringValue),
-            skills: message.list("skills").compactMap(\.stringValue),
-            chats: message.list("chats").compactMap { value in
-                guard let id = value.stringValue else { return nil }
-                return projectChats.first { $0.id == id }
+            text: message.text, mentions: message.mentions ?? [], skills: message.skills ?? [],
+            chats: (message.chats ?? []).map { id in
+                projectChats.first { $0.id == id }
                     ?? ChatDraftReference(id: id, title: String(localized: "Conversation"))
             })
         do {
             if edit {
-                for stored in message.list("attachments") {
+                for stored in message.attachments ?? [] {
                     let resource = try await client.readResource(
                         .object([
                             "kind": .string("attachment"), "chatId": .string(chatID),
-                            "attachmentId": stored["id"] ?? .null,
+                            "attachmentId": .string(stored.id),
                         ]), maxBytes: ChatDraftLimits.bytes)
                     recovered.append(
-                        try await composition.files.stage(
-                            data: resource.data, name: stored.text("name"), mime: stored.text("mime")))
+                        try await composition.files.stage(data: resource.data, name: stored.name, mime: stored.mime))
                 }
                 if let problem = ChatDraftLimits.attachmentProblem(
                     count: attachments.count + recovered.count,
@@ -544,10 +552,9 @@ final class ChatModel {
             }
             requestedRemoval = !sendNow
             _ = try await client.request(
-                sendNow ? "chat.sendNow" : "chat.unqueue", payload: target(["messageId": message["id"] ?? .null]))
-            if !sendNow, var values = info.objectValue {
-                values["queue"] = .array(queue.filter { $0["id"] != message["id"] })
-                info = .object(values)
+                sendNow ? "chat.sendNow" : "chat.unqueue", payload: target(["messageId": .string(message.id)]))
+            if !sendNow, let info {
+                self.info = info.with(queue: queue.filter { $0.id != message.id })
             }
             if edit {
                 try composition.takeBack(incoming, uploads: recovered)
@@ -602,7 +609,7 @@ final class ChatModel {
                     let result = try await client.request(
                         "fs.search",
                         payload: .object([
-                            "cwd": info["cwd"] ?? .string(""), "query": .string(String(query.prefix(256))),
+                            "cwd": .string(info?.cwd ?? ""), "query": .string(String(query.prefix(256))),
                             "limit": .number(20),
                         ]))
                     found += result.list("files").compactMap(\.stringValue).map {
@@ -621,7 +628,7 @@ final class ChatModel {
             default:
                 var local = ["clear", "stop", "model"]
                 if capabilities.text("compaction") != "none" { local.append("compact") }
-                found = Array(Set(local + info.list("slashCommands").compactMap(\.stringValue)))
+                found = Array(Set(local + (info?.slashCommands ?? [])))
                     .filter {
                         !ChatSuggestion.terminalOnly.contains($0)
                             && (query.isEmpty || $0.localizedCaseInsensitiveContains(query))
@@ -676,4 +683,18 @@ struct ChatSuggestion: Identifiable {
         "reload-plugins", "reload-skills", "rename", "resume", "status", "statusline", "terminal-setup", "theme",
         "upgrade", "vim",
     ]
+}
+
+extension ChatInfo {
+    /// The info with another queue, for a message this device took out before the machine says so.
+    fileprivate func with(queue: [ChatInfoQueueItem]) -> ChatInfo {
+        ChatInfo(
+            chatId: chatId, provider: provider, account: account, cwd: cwd, agentSessionId: agentSessionId,
+            model: model, selection: selection, runtimeMode: runtimeMode, effectiveRuntimeMode: effectiveRuntimeMode,
+            permissionMode: permissionMode, status: status, running: running, activeTurnId: activeTurnId,
+            slashCommands: slashCommands, skills: skills, queue: queue, queuePaused: queuePaused,
+            background: background, delegating: delegating, usage: usage, suggestedTitle: suggestedTitle,
+            hidden: hidden, forkOf: forkOf, resumeAtReset: resumeAtReset, limit: limit, resumeAt: resumeAt,
+            requests: requests, goal: goal, createdAt: createdAt)
+    }
 }

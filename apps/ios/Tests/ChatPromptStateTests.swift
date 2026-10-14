@@ -8,11 +8,12 @@ import XCTest
 #endif
 
 final class ChatPromptStateTests: XCTestCase {
-    private func request(_ id: String, question: Bool = false, optional: Bool = false) -> JSONValue {
-        .object([
+    private func request(_ id: String, question: Bool = false, optional: Bool = false) -> ChatItem {
+        var fields: [String: JSONValue] = [
             "requestId": .string(id), "id": .string(id), "kind": .string(question ? "question" : "approval"),
-            "async": .bool(optional),
-        ])
+        ]
+        if question { fields["async"] = .bool(optional) }
+        return ChatWire.item(fields).chatItem
     }
 
     @MainActor func testBlockingRequestWinsWithoutReplacingAnActiveRequest() {

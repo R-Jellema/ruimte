@@ -13,15 +13,31 @@ struct ChatFileChange: Equatable, Identifiable {
 }
 
 enum ChatFileChanges {
-    static func hasChanges(_ tool: JSONValue) -> Bool { !fromTool(tool).isEmpty }
+    static func hasChanges(_ tool: ChatToolItem) -> Bool { !fromTool(tool).isEmpty }
 
-    static func fromTool(_ tool: JSONValue) -> [ChatFileChange] {
-        let patches = tool.list("changes").filter { !$0.text("diff").isEmpty }
+    static func fromTool(_ tool: ChatToolItem) -> [ChatFileChange] {
+        let patches = (tool.changes ?? []).filter { !$0.diff.isEmpty }
+        if !patches.isEmpty { return patches.map { counted(path: $0.path, diff: $0.diff) } }
+        return fromInput(name: tool.name, input: tool.input)
+    }
+
+    /// An approval carries the changes its call would make in its input, which has no schema of its own.
+    static func fromApproval(_ approval: ChatApprovalItem) -> [ChatFileChange] {
+        let patches = approval.input.list("changes").filter { !$0.text("diff").isEmpty }
         if !patches.isEmpty { return patches.map(fromJSON) }
-        let input = tool["input"] ?? .null
+        return fromInput(name: approval.toolName, input: approval.input)
+    }
+
+    static func fromFile(_ file: ChatTurnItemCheckpointDiffFilesItem) -> ChatFileChange {
+        ChatFileChange(
+            path: file.path, diff: file.diff, added: Int(file.added), deleted: Int(file.deleted),
+            omitted: file.omitted?.rawValue)
+    }
+
+    private static func fromInput(name: String, input: JSONValue) -> [ChatFileChange] {
         let path = input.text("file_path")
         guard !path.isEmpty else { return [] }
-        switch tool.text("name") {
+        switch name {
         case "Edit": return [replacement(path: path, before: input.text("old_string"), after: input.text("new_string"))]
         case "Write": return [replacement(path: path, before: "", after: input.text("content"))]
         case "MultiEdit":
@@ -32,18 +48,20 @@ enum ChatFileChanges {
         }
     }
 
-    static func fromJSON(_ value: JSONValue) -> ChatFileChange {
-        let diff = value.text("diff")
+    private static func fromJSON(_ value: JSONValue) -> ChatFileChange {
+        var change = counted(path: value.text("path"), diff: value.text("diff"))
+        if let added = value["added"]?.numberValue { change.added = Int(added) }
+        if let deleted = value["deleted"]?.numberValue { change.deleted = Int(deleted) }
+        change.omitted = value["omitted"]?.stringValue
+        return change
+    }
+
+    /// A change that says only its diff, counted from the diff's own lines.
+    private static func counted(path: String, diff: String) -> ChatFileChange {
         let lines = diff.components(separatedBy: "\n")
         return ChatFileChange(
-            path: value.text("path"), diff: diff,
-            added: Int(
-                value.number(
-                    "added", fallback: Double(lines.filter { $0.hasPrefix("+") && !$0.hasPrefix("+++") }.count))),
-            deleted: Int(
-                value.number(
-                    "deleted", fallback: Double(lines.filter { $0.hasPrefix("-") && !$0.hasPrefix("---") }.count))),
-            omitted: value["omitted"]?.stringValue)
+            path: path, diff: diff, added: lines.filter { $0.hasPrefix("+") && !$0.hasPrefix("+++") }.count,
+            deleted: lines.filter { $0.hasPrefix("-") && !$0.hasPrefix("---") }.count)
     }
 
     static func grouped(_ changes: [ChatFileChange]) -> [ChatFileChange] {
@@ -140,14 +158,15 @@ struct ChatChangedFilesRow: View {
     let client: any MachineRequesting
     let chatID: String
     @State private var work = RemotePageState()
+    @State private var fetched: ChatTurnItemCheckpointDiff?
     @State private var fetchedOnce = false
-    private var stored: JSONValue? { turn.value["checkpointDiff"] }
-    private var fetched: JSONValue? { work.value }
+    private var item: ChatTurnItem? { turn.item.turnItem }
+    private var stored: ChatTurnItemCheckpointDiff? { item?.checkpointDiff }
     private var files: [ChatFileChange] {
         if let diff = stored ?? fetched {
-            return ChatFileChanges.grouped(diff.list("files").map(ChatFileChanges.fromJSON))
+            return ChatFileChanges.grouped(diff.files.map(ChatFileChanges.fromFile))
         }
-        return ChatFileChanges.grouped(tools.flatMap { ChatFileChanges.fromTool($0.value) })
+        return ChatFileChanges.grouped(tools.compactMap(\.item.toolItem).flatMap(ChatFileChanges.fromTool))
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -158,7 +177,7 @@ struct ChatChangedFilesRow: View {
                         iconSize: 14
                     )
                     .font(.footnote.weight(.medium))
-                    if (stored ?? fetched)?["truncated"]?.boolValue == true {
+                    if (stored ?? fetched)?.truncated == true {
                         Text("More changes were omitted from this snapshot.").font(.caption).foregroundStyle(
                             MobileStyle.muted)
                     }
@@ -180,14 +199,14 @@ struct ChatChangedFilesRow: View {
     }
 
     private func load() async {
-        guard stored == nil, !fetchedOnce, turn.value["checkpoint"]?.stringValue != nil, !work.loading else { return }
+        guard stored == nil, !fetchedOnce, let item, item.checkpoint != nil, !work.loading else { return }
         await work.read { stillTheLatest in
             let result = try await client.request(
                 "chat.turnDiff",
-                payload: .object(["chatId": .string(chatID), "turnId": turn.value["turnId"] ?? .string(turn.id)]))
+                payload: .object(["chatId": .string(chatID), "turnId": .string(item.turnId ?? item.id)]))
             try stillTheLatest()
             // A turn whose diff is empty still counts as read: a second attempt would answer the same.
-            work.value = result["diff"] == .null ? nil : result["diff"]
+            fetched = try? result["diff"]?.decoded(as: ChatTurnItemCheckpointDiff.self)
             fetchedOnce = true
         }
     }

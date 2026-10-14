@@ -3,7 +3,7 @@ import SwiftUI
 
 struct ChatPromptCard: View {
     @Bindable var prompts: ChatPromptState
-    let item: JSONValue
+    let item: ChatItem
     let connected: Bool
     let hasDraft: Bool
     let denyReason: Bool
@@ -17,32 +17,32 @@ struct ChatPromptCard: View {
     @State private var contentHeight: CGFloat = 0
     @State private var actionsHeight: CGFloat = 44
 
-    private var isApproval: Bool { item.text("kind") == "approval" }
-    private var questions: [JSONValue] { item.list("questions") }
-    private var question: JSONValue {
-        questions.isEmpty ? .null : questions[min(prompts.draft.index, questions.count - 1)]
+    private var approval: ChatApprovalItem? { if case .approval(let approval) = item { approval } else { nil } }
+    private var asked: ChatQuestionItem? { if case .question(let asked) = item { asked } else { nil } }
+    private var isApproval: Bool { approval != nil }
+    private var questions: [ChatQuestionItemQuestionsItem] { asked?.questions ?? [] }
+    private var question: ChatQuestionItemQuestionsItem? {
+        questions.isEmpty ? nil : questions[min(prompts.draft.index, questions.count - 1)]
     }
+    private var questionID: String { question?.id ?? "" }
+    private var choices: [ChatQuestionItemQuestionsItemChoicesItem] { question?.choices ?? [] }
+    private var multiSelect: Bool { question?.multiSelect == true }
     private var answer: ChatPromptAnswer {
-        get { prompts.draft.answers[question.text("id")] ?? ChatPromptAnswer(custom: question.list("choices").isEmpty) }
-        nonmutating set { prompts.draft.answers[question.text("id")] = newValue }
+        get { prompts.draft.answers[questionID] ?? ChatPromptAnswer(custom: choices.isEmpty) }
+        nonmutating set { prompts.draft.answers[questionID] = newValue }
     }
     private var sending: Bool { prompts.sendingID != nil }
     private var changes: [ChatFileChange] {
-        ChatFileChanges.grouped(
-            ChatFileChanges.fromTool(
-                .object([
-                    "name": item["toolName"] ?? .null, "input": item["input"] ?? .null,
-                    "changes": item["input"]?["changes"] ?? .array([]),
-                ])))
+        ChatFileChanges.grouped(approval.map(ChatFileChanges.fromApproval) ?? [])
     }
     private var title: String {
-        guard isApproval else { return question.text("question") }
+        guard let approval else { return question?.question ?? "" }
         if let first = changes.first {
             return changes.count == 1
                 ? String(localized: "Edit \((first.path as NSString).lastPathComponent)")
                 : String(localized: "Edit \(changes.count) files")
         }
-        return item.text("toolName") == "Bash" ? String(localized: "Run command") : item.text("toolName")
+        return approval.toolName == "Bash" ? String(localized: "Run command") : approval.toolName
     }
 
     var body: some View {
@@ -83,11 +83,11 @@ struct ChatPromptCard: View {
         .preference(
             key: ChatPromptHeightKey.self,
             value: contentHeight > 0
-                ? ChatPromptHeight(requestID: item.text("requestId"), height: bodyHeight + actionsHeight + 44) : nil
+                ? ChatPromptHeight(requestID: (item.requestId ?? ""), height: bodyHeight + actionsHeight + 44) : nil
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("chat.prompt")
-        .task(id: item.text("requestId")) { headingFocused = true }
+        .task(id: (item.requestId ?? "")) { headingFocused = true }
         .mobileSheet(isPresented: $showingFullDiff) {
             NavigationStack {
                 ScrollView { diffContent.padding() }
@@ -125,7 +125,7 @@ struct ChatPromptCard: View {
 
     private var approvalContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if let description = item["description"]?.stringValue, !description.isEmpty {
+            if let description = approval?.description, !description.isEmpty {
                 Text(description).font(.subheadline).foregroundStyle(MobileStyle.muted)
             }
             if !changes.isEmpty {
@@ -140,9 +140,9 @@ struct ChatPromptCard: View {
                         .font(.caption).frame(minHeight: 44).padding(.horizontal, 12)
                 }
                 .padding(.vertical, 10).background(MobileStyle.inset, in: RoundedRectangle(cornerRadius: 12))
-            } else if let command = item["input"]?["command"]?.stringValue {
+            } else if let command = approval?.input["command"]?.stringValue {
                 VStack(alignment: .leading, spacing: 8) {
-                    if let cwd = item["input"]?["cwd"]?.stringValue {
+                    if let cwd = approval?.input["cwd"]?.stringValue {
                         Text(cwd).font(.caption).foregroundStyle(MobileStyle.muted)
                     }
                     Text(command).font(.system(.subheadline, design: .monospaced)).textSelection(.enabled)
@@ -150,7 +150,7 @@ struct ChatPromptCard: View {
                     .background(MobileStyle.inset, in: RoundedRectangle(cornerRadius: 12))
             } else {
                 DisclosureGroup("Details", isExpanded: $prompts.draft.expanded) {
-                    if let data = try? (item["input"] ?? .null).encoded(),
+                    if let data = try? (approval?.input ?? .null).encoded(),
                         let text = String(data: data, encoding: .utf8)
                     {
                         Text(text).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
@@ -169,24 +169,24 @@ struct ChatPromptCard: View {
                         .font(.caption).frame(minHeight: 44)
                 }
             }
-            if item["canAllowAlways"]?.boolValue == true, let rule = item["allowAlways"] {
-                Text(rule.text("description")).font(.caption).foregroundStyle(MobileStyle.muted)
+            if approval?.canAllowAlways == true, let rule = approval?.allowAlways {
+                Text(rule.description).font(.caption).foregroundStyle(MobileStyle.muted)
             }
         }
     }
 
     private var questionContent: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if question["multiSelect"]?.boolValue == true {
+            if multiSelect {
                 Text("Choose one or more").font(.caption).foregroundStyle(MobileStyle.muted)
             }
-            ForEach(Array(question.list("choices").enumerated()), id: \.offset) { _, choice in
-                let selected = !answer.custom && answer.choices.contains(choice.text("label"))
+            ForEach(Array(choices.enumerated()), id: \.offset) { _, choice in
+                let selected = !answer.custom && answer.choices.contains(choice.label)
                 Button {
                     var next = answer
                     next.custom = false
-                    let label = choice.text("label")
-                    if question["multiSelect"]?.boolValue == true {
+                    let label = choice.label
+                    if multiSelect {
                         if next.choices.contains(label) {
                             next.choices.removeAll { $0 == label }
                         } else {
@@ -198,11 +198,11 @@ struct ChatPromptCard: View {
                     answer = next
                     answerFocused = false
                 } label: {
-                    option(choice.text("label"), description: choice.text("description"), selected: selected)
+                    option(choice.label, description: choice.description, selected: selected)
                 }
                 .buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
             }
-            if !question.list("choices").isEmpty {
+            if !choices.isEmpty {
                 HStack(alignment: .top, spacing: 10) {
                     Image(lucide: answer.custom ? "circle-check" : "circle")
                         .foregroundStyle(answer.custom ? MobileStyle.accent : MobileStyle.muted)
@@ -247,7 +247,7 @@ struct ChatPromptCard: View {
 
     private func option(_ label: String, description: String, selected: Bool) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(lucide: selected ? "circle-check" : question["multiSelect"]?.boolValue == true ? "square" : "circle")
+            Image(lucide: selected ? "circle-check" : multiSelect ? "square" : "circle")
                 .foregroundStyle(selected ? MobileStyle.accent : MobileStyle.muted).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(label).font(.subheadline)
@@ -268,18 +268,18 @@ struct ChatPromptCard: View {
         return layout {
             if isApproval {
                 Button("Deny") { approve("deny") }.frame(minHeight: 44).disabled(sending || !connected)
-                if item["canAllowAlways"]?.boolValue == true, let rule = item["allowAlways"] {
-                    Button(rule.text("label")) { approve("allow-always") }
+                if approval?.canAllowAlways == true, let rule = approval?.allowAlways {
+                    Button(rule.label) { approve("allow-always") }
                         .frame(minHeight: 44).disabled(sending || !connected)
-                        .accessibilityHint(rule.text("description"))
+                        .accessibilityHint(rule.description)
                 }
                 if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
                 primary(String(localized: "Allow"), icon: "check") { approve("allow") }
             } else {
                 if prompts.draft.index > 0 {
                     Button("Previous") { prompts.draft.index -= 1 }.frame(minHeight: 44).disabled(sending)
-                } else if item["async"]?.boolValue == true {
-                    Button("Dismiss") { submit("chat.dismiss", ["itemId": item["id"] ?? .null]) }
+                } else if asked?.async == true {
+                    Button("Dismiss") { submit("chat.dismiss", ["itemId": .string(item.id)]) }
                         .frame(minHeight: 44).disabled(sending || !connected)
                 }
                 if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
@@ -295,12 +295,13 @@ struct ChatPromptCard: View {
                     } else {
                         var answers: [String: JSONValue] = [:]
                         for question in questions {
-                            guard let value = prompts.draft.answers[question.text("id")]?.value, !value.isEmpty else {
+                            guard let value = prompts.draft.answers[question.id]?.value, !value.isEmpty else {
                                 return
                             }
-                            answers[question.text("id")] = .string(value)
+                            answers[question.id] = .string(value)
                         }
-                        submit("chat.answer", ["requestId": item["requestId"] ?? .null, "answers": .object(answers)])
+                        submit(
+                            "chat.answer", ["requestId": .string(item.requestId ?? ""), "answers": .object(answers)])
                     }
                 }
             }
@@ -342,7 +343,7 @@ struct ChatPromptCard: View {
         }.font(.system(.caption, design: .monospaced)).padding(.horizontal, 12)
     }
     private func approve(_ decision: String) {
-        var values: [String: JSONValue] = ["requestId": item["requestId"] ?? .null, "decision": .string(decision)]
+        var values: [String: JSONValue] = ["requestId": .string(item.requestId ?? ""), "decision": .string(decision)]
         if decision == "deny", !prompts.draft.denialReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             values["message"] = .string(prompts.draft.denialReason)
         }
@@ -359,11 +360,11 @@ struct ChatPromptCard: View {
 
 extension ChatPromptCard {
     /// A card that answers through the chat's own model, the same under the chat and under one of its sub-agents.
-    init(prompts: ChatPromptState, item: JSONValue, model: ChatModel, hasDraft: Bool, availableHeight: CGFloat) {
+    init(prompts: ChatPromptState, item: ChatItem, model: ChatModel, hasDraft: Bool, availableHeight: CGFloat) {
         self.init(
             prompts: prompts, item: item, connected: model.connected && !model.loading, hasDraft: hasDraft,
             denyReason: model.providers.first(where: {
-                $0["kind"] == model.info["provider"]
+                $0["kind"]?.stringValue == model.info?.provider
             })?["capabilities"]?["denyReason"]?.boolValue == true,
             availableHeight: availableHeight
         ) { action, values in

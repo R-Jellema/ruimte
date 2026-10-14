@@ -6,15 +6,19 @@ import XCTest
 
 final class IntelligentUIPresentationTests: XCTestCase {
     func testChoiceJumpKeepsExactSourceAndRejectsIncompleteOrigins() throws {
-        let origin: JSONValue = .object([
-            "itemId": .string("item"), "blockId": .string("block"), "revision": .string("revision"),
-        ])
+        let origin = choice(itemID: "item", blockID: "block", revision: "revision")
         let jump = try XCTUnwrap(UiChoiceJump(origin))
         XCTAssertEqual(jump.itemID, "item")
         XCTAssertEqual(jump.blockID, "block")
         XCTAssertEqual(jump.revision, "revision")
         XCTAssertNotEqual(jump.nonce, UiChoiceJump(origin)?.nonce)
-        XCTAssertNil(UiChoiceJump(.object(["itemId": .string("item")])))
+        XCTAssertNil(UiChoiceJump(choice(itemID: "item", blockID: "", revision: "")))
+    }
+
+    private func choice(itemID: String, blockID: String, revision: String) -> ChatUserItemUiChoice {
+        ChatUserItemUiChoice(
+            itemId: itemID, blockId: blockID, revision: revision, choiceId: "choice", label: "Yes", sourceAt: 0,
+            older: false, at: 0)
     }
 
     private func node(_ json: String) throws -> UiNode {

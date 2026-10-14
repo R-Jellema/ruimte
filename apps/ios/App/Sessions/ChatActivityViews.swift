@@ -78,10 +78,10 @@ struct ChatWorkingRow: View {
 }
 
 struct ChatThinkingRow: View {
-    let item: JSONValue
+    let item: ChatThinkingItem
     @AppStorage("ruimte.chat.streaming") private var streamingMode: ChatStreamingMode = .words
     @State private var expanded = false
-    private var streaming: Bool { item["streaming"]?.boolValue == true }
+    private var streaming: Bool { item.streaming }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -94,7 +94,7 @@ struct ChatThinkingRow: View {
                         ChatLiveLabel(text: String(localized: "Thinking..."))
                     } else {
                         Text(
-                            "Thought for \(ChatToolPresentation.elapsed(item.number("endedAt", fallback: item.number("createdAt")) - item.number("createdAt")))"
+                            "Thought for \(ChatToolPresentation.elapsed((item.endedAt ?? item.createdAt) - item.createdAt))"
                         )
                         Image(lucide: expanded ? "chevron-down" : "chevron-right", size: 12)
                     }
@@ -104,7 +104,7 @@ struct ChatThinkingRow: View {
             .font(.footnote).foregroundStyle(MobileStyle.muted)
             .accessibilityValue(streaming || expanded ? "Expanded" : "Collapsed")
             if expanded || streaming && streamingMode != .whole {
-                ChatStreamingMessage(text: item.text("text"), streaming: streaming)
+                ChatStreamingMessage(text: item.text, streaming: streaming)
                     .foregroundStyle(MobileStyle.muted)
                     .padding(.leading, 14)
                     .overlay(alignment: .leading) { Rectangle().fill(MobileStyle.border).frame(width: 1) }
@@ -114,10 +114,10 @@ struct ChatThinkingRow: View {
 }
 
 struct ChatToolRow: View {
-    let item: JSONValue
+    let item: ChatToolItem
     @State private var expanded = false
-    private var running: Bool { item.text("state") == "running" }
-    private var failed: Bool { item.text("state") == "error" }
+    private var running: Bool { item.state == .running }
+    private var failed: Bool { item.state == .error }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -126,12 +126,12 @@ struct ChatToolRow: View {
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
-                        Image(lucide: failed ? "circle-alert" : ChatToolPresentation.icon(item.text("name")), size: 14)
-                        ChatLiveLabel(text: item.text("name", fallback: String(localized: "Tool")), active: running)
+                        Image(lucide: failed ? "circle-alert" : ChatToolPresentation.icon(item.name), size: 14)
+                        ChatLiveLabel(text: item.name, active: running)
                         Spacer(minLength: 4)
                         if running {
                             ChatElapsed(
-                                startedAt: item["progress"]?["startedAt"]?.numberValue ?? item.number("createdAt"))
+                                startedAt: item.progress?.startedAt ?? item.createdAt)
                         } else if failed {
                             Text("Failed").foregroundStyle(.red)
                         }
@@ -146,8 +146,8 @@ struct ChatToolRow: View {
             }
             .buttonStyle(.plain).font(.footnote).foregroundStyle(failed ? Color.red : MobileStyle.muted)
             .accessibilityValue(expanded ? "Expanded" : running ? "Running, collapsed" : "Collapsed")
-            if item.text("state") == "done", ["Read", "NotebookRead"].contains(item.text("name")),
-                let path = item["input"]?["file_path"]?.stringValue,
+            if item.state == .done, ["Read", "NotebookRead"].contains(item.name),
+                let path = item.input["file_path"]?.stringValue,
                 ["png", "jpg", "jpeg", "gif", "webp"].contains((path as NSString).pathExtension.lowercased())
             {
                 ChatInlineImage(
@@ -157,7 +157,7 @@ struct ChatToolRow: View {
             if expanded {
                 let changes = ChatFileChanges.grouped(ChatFileChanges.fromTool(item))
                 if changes.isEmpty {
-                    if let input = item["input"], let data = try? input.encoded(),
+                    if let data = try? item.input.encoded(),
                         let text = String(data: data, encoding: .utf8)
                     {
                         ChatToolOutput(text: text, language: "json")
@@ -165,7 +165,7 @@ struct ChatToolRow: View {
                 } else {
                     ForEach(changes) { change in ChatFileChangeView(change: change) }
                 }
-                ChatToolOutput(text: item["output"]?.stringValue ?? item["progress"]?.text("output") ?? "")
+                ChatToolOutput(text: item.output ?? item.progress?.output ?? "")
             } else if running {
                 let tail = ChatToolPresentation.tail(item)
                 if !tail.isEmpty {
