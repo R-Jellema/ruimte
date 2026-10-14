@@ -442,6 +442,7 @@ describe('the commands behind the menu', () => {
                 (LANGUAGE_COMMAND_IDS as readonly string[]).includes(id) ||
                 (EDITOR_COMMAND_IDS as readonly string[]).includes(id) ||
                 source.includes(`id: '${id}'`) ||
+                new RegExp(`row\\(\\s*'${id}'`).test(source) ||
                 pullRequestRows.includes(`id: '${id}'`);
             expect(listed ? id : `${id} is not in appCommands()`).toBe(id);
         }

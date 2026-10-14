@@ -36,7 +36,6 @@ import { refreshSqlSchemas } from '@/database/sql-bindings';
 import { languageForCommand } from '@/language/focused-language';
 import { languageCommandRows } from '@/language/language-commands';
 import { editorCommandRows } from '@/shell/editor-commands';
-import { editorShortcut } from '@/shell/editor-keymap';
 import { stepFocusedEditorFind } from '@/shell/panels/use-editor-find';
 import { keepAwakeAvailable, setKeepAwake } from '@/state/keep-awake';
 import { newChat, newChatMachine, offersNewChat, useNewChat } from '@/project/new-chat';
@@ -66,14 +65,13 @@ import { useTheme } from '@/state/theme';
 import { useFiles } from '@/state/files';
 import { useUi } from '@/state/ui';
 import { transportFor } from '@/transport';
-import { ADD_NODE_SHORTCUTS, CANVAS_SHORTCUTS, NODE_NAVIGATION_SHORTCUTS } from '@/canvas/shortcuts';
 import { runAppShortcut } from '@/shell/app-shortcuts';
-import { APP_SHORTCUTS } from '@/shell/shortcuts';
 import { canSplit, cellAt, cellCount, cellsRightOf, isTabHost, maximizedCell } from '@/shell/split';
 import type { Shortcut } from '@adecore/ui';
-import { sendFromComposer, SEND_AND_NEW_SHORTCUT } from '@adecore/agents-react/chat';
+import { sendFromComposer } from '@adecore/agents-react/chat';
 import { focusedChatId } from '@/chat/focused-chat';
 import { restartChatSession } from '@/chat/restart-session';
+import { COMMANDS, type PaletteCommandId } from '@/shell/command-table';
 
 export interface Command {
     id: string;
@@ -90,6 +88,28 @@ export interface Command {
 function afterPaletteCloses(run: () => void): () => void {
     return () => {
         requestAnimationFrame(() => run());
+    };
+}
+
+interface RowOptions {
+    hint?: string;
+    /* Words that follow the moment, in place of the table's. */
+    label?: string;
+    values?: Record<string, string>;
+    /* The key the row shows when it is not the table's, or null for none. */
+    shortcut?: Shortcut | null;
+}
+
+/* A row of the command table: its words and its key are the table's (`shell/command-table.ts`), what it does is here. */
+function row(id: PaletteCommandId, run: () => void, options: RowOptions = {}): Command {
+    const spec = COMMANDS[id];
+    const shortcut = options.shortcut === undefined ? spec.shortcut : (options.shortcut ?? undefined);
+    return {
+        id,
+        label: options.label ?? i18next.t(`shell:palette.commands.${spec.key}`, options.values ?? {}),
+        ...(options.hint === undefined ? {} : { hint: options.hint }),
+        ...(shortcut === undefined ? {} : { shortcut }),
+        run
     };
 }
 
@@ -192,11 +212,7 @@ function launchCommands(): Command[] {
                       }
                   ]
         ),
-        {
-            id: 'launches-edit',
-            label: i18next.t('launches:menu.edit'),
-            run: () => useLaunches.getState().setDialog({ kind: 'edit', launchId: chosenLaunchId() })
-        },
+        row('launches-edit', () => useLaunches.getState().setDialog({ kind: 'edit', launchId: chosenLaunchId() })),
         ...afterSettleCommands(document)
     ];
 }
@@ -218,9 +234,7 @@ function afterSettleCommands(document: LaunchesDocument): Command[] {
                       }
                   ]
         ),
-        ...(chosen === undefined
-            ? []
-            : [{ id: 'launches-after-settle-off', label: i18next.t('launches:palette.afterSettleOff'), run: () => void chooseAfterSettle(null) }])
+        ...(chosen === undefined ? [] : [row('launches-after-settle-off', () => void chooseAfterSettle(null))])
     ];
 }
 
@@ -234,37 +248,14 @@ function tabCommands(layout: SplitLayout | null): Command[] {
     const index = tabs.indexOf(cell.viewId);
     const document = useDocument.getState();
     return [
-        { id: 'tab-close', label: i18next.t('shell:menu.closeTab'), shortcut: CANVAS_SHORTCUTS.closeCell, run: () => closeTabAction(cell.viewId) },
-        ...(tabs.length > 1
-            ? [
-                  { id: 'tab-next', label: i18next.t('shell:menu.nextTab'), shortcut: CANVAS_SHORTCUTS.nextTab, run: () => document.stepTab(1) },
-                  { id: 'tab-previous', label: i18next.t('shell:menu.previousTab'), shortcut: CANVAS_SHORTCUTS.previousTab, run: () => document.stepTab(-1) }
-              ]
-            : []),
-        ...(index > 0
-            ? [
-                  {
-                      id: 'tab-move-left',
-                      label: i18next.t('shell:viewMenu.moveTabLeft'),
-                      shortcut: CANVAS_SHORTCUTS.moveTabLeft,
-                      run: () => document.moveTab(cell.viewId, -1)
-                  }
-              ]
-            : []),
-        ...(index < tabs.length - 1
-            ? [
-                  {
-                      id: 'tab-move-right',
-                      label: i18next.t('shell:viewMenu.moveTabRight'),
-                      shortcut: CANVAS_SHORTCUTS.moveTabRight,
-                      run: () => document.moveTab(cell.viewId, 1)
-                  }
-              ]
-            : []),
+        row('tab-close', () => closeTabAction(cell.viewId)),
+        ...(tabs.length > 1 ? [row('tab-next', () => document.stepTab(1)), row('tab-previous', () => document.stepTab(-1))] : []),
+        ...(index > 0 ? [row('tab-move-left', () => document.moveTab(cell.viewId, -1))] : []),
+        ...(index < tabs.length - 1 ? [row('tab-move-right', () => document.moveTab(cell.viewId, 1))] : []),
         ...(tabs.length > 1 && canSplit(layout, layout.focus, 'right', cell.viewId)
-            ? [{ id: 'tab-split-off', label: i18next.t('shell:viewMenu.moveTabToNewCell'), run: () => void document.splitTabOff(cell.viewId) }]
+            ? [row('tab-split-off', () => void document.splitTabOff(cell.viewId))]
             : []),
-        ...(tabs.length === 1 ? [{ id: 'tab-ungroup', label: i18next.t('shell:viewMenu.ungroup'), run: () => document.ungroupCell(layout.focus) }] : [])
+        ...(tabs.length === 1 ? [row('tab-ungroup', () => document.ungroupCell(layout.focus))] : [])
     ];
 }
 
@@ -292,327 +283,168 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
     const inWorkspace = windowWorkspace() !== null;
     const chat = inWorkspace ? focusedChatId() : null;
     return [
-        ...(canOpenWindows()
-            ? [{ id: 'window-new', label: i18next.t('shell:palette.commands.newWindow'), shortcut: APP_SHORTCUTS.newWindow, run: () => openNewWindow() }]
-            : []),
-        ...(inWorkspace && canMoveToNewWindow()
-            ? [{ id: 'window-move', label: i18next.t('shell:palette.commands.moveToNewWindow'), run: () => void moveToNewWindow() }]
-            : []),
-        { id: 'open-folder', label: i18next.t('shell:palette.commands.openFolder'), run: () => useUi.getState().openFolderBrowser() },
-        ...(offersNewChat(newChatMachine(), useNewChat.getState().refused)
-            ? [{ id: 'chat-new', label: i18next.t('shell:chats.newChat'), hint: i18next.t('shell:chats.name'), shortcut: APP_SHORTCUTS.newChat, run: newChat }]
-            : []),
+        ...(canOpenWindows() ? [row('window-new', () => openNewWindow())] : []),
+        ...(inWorkspace && canMoveToNewWindow() ? [row('window-move', () => void moveToNewWindow())] : []),
+        row('open-folder', () => useUi.getState().openFolderBrowser()),
+        ...(offersNewChat(newChatMachine(), useNewChat.getState().refused) ? [row('chat-new', newChat, { hint: i18next.t('shell:chats.name') })] : []),
         ...(folder && !scratch
             ? [
-                  {
-                      id: 'chat-new-worktree',
-                      label: i18next.t('shell:palette.commands.newChatInWorktree'),
-                      hint: i18next.t('shell:chats.name'),
-                      run: () => useUi.getState().setNewWorktreeChatOpen(true)
-                  },
-                  {
-                      id: 'issue-start',
-                      label: i18next.t('shell:palette.commands.startFromIssue'),
-                      hint: i18next.t('shell:chats.name'),
-                      run: () => useUi.getState().setIssueStartOpen(true)
-                  }
+                  row('chat-new-worktree', () => useUi.getState().setNewWorktreeChatOpen(true), { hint: i18next.t('shell:chats.name') }),
+                  row('issue-start', () => useUi.getState().setIssueStartOpen(true), { hint: i18next.t('shell:chats.name') })
               ]
             : []),
         ...(chat !== null
             ? [
-                  {
-                      id: 'chat-send-new',
-                      label: i18next.t('shell:palette.commands.sendAndNewChat'),
-                      shortcut: SEND_AND_NEW_SHORTCUT,
-                      // A frame later, so the keyboard the new chat takes is not handed back to the old one as the palette closes.
-                      run: afterPaletteCloses(() => sendFromComposer(endpointKey(currentEndpointId(), chat), 'and-new'))
-                  },
-                  {
-                      id: 'chat-restart',
-                      label: i18next.t('shell:palette.commands.restartAgentSession'),
-                      run: () => void restartChatSession(chat)
-                  }
+                  // A frame later, so the keyboard the new chat takes is not handed back to the old one as the palette closes.
+                  row(
+                      'chat-send-new',
+                      afterPaletteCloses(() => sendFromComposer(endpointKey(currentEndpointId(), chat), 'and-new'))
+                  ),
+                  row('chat-restart', () => void restartChatSession(chat))
               ]
             : []),
         ...(selected?.kind === 'chat' && hasPrWatch(currentEndpointId(), selected.id)
-            ? [
-                  {
-                      id: 'pr-watch-stop',
-                      label: i18next.t('shell:palette.commands.stopPrWatch'),
-                      run: () => void stopPrWatch(currentEndpointId(), selected.id)
-                  }
-              ]
+            ? [row('pr-watch-stop', () => void stopPrWatch(currentEndpointId(), selected.id))]
             : []),
         ...(folder
             ? [
-                  {
-                      id: 'find-in-files',
-                      label: i18next.t('shell:palette.commands.findInFiles'),
-                      shortcut: APP_SHORTCUTS.findInFiles,
-                      run: () => useUi.getState().openFindInFiles()
-                  },
+                  row('find-in-files', () => useUi.getState().openFindInFiles()),
                   ...pullRequestCommands(folder, prRepos, (cwd) => useUi.getState().setPullRequestDialog({ cwd }))
               ]
             : []),
+        ...(inWorkspace ? [row('search-chats', () => useUi.getState().openChatSearch())] : []),
         ...(inWorkspace
             ? [
-                  {
-                      id: 'search-chats',
-                      label: i18next.t('shell:palette.commands.searchChats'),
-                      run: () => useUi.getState().openChatSearch()
-                  }
-              ]
-            : []),
-        ...(inWorkspace
-            ? [
-                  {
-                      id: 'find',
-                      label: i18next.t('shell:palette.commands.find'),
-                      shortcut: CANVAS_SHORTCUTS.find,
-                      run: afterPaletteCloses(() => openFocusedFind())
-                  }
+                  row(
+                      'find',
+                      afterPaletteCloses(() => openFocusedFind())
+                  )
               ]
             : []),
         ...(inWorkspace ? languageCommandRows() : []),
         ...(inWorkspace ? editorCommandRows() : []),
         ...(inWorkspace
             ? [
-                  {
-                      id: 'find-replace',
-                      label: i18next.t('shell:palette.commands.findReplace'),
-                      shortcut: CANVAS_SHORTCUTS.findReplace,
-                      run: afterPaletteCloses(() => openFocusedFind({ replace: true }))
-                  }
+                  row(
+                      'find-replace',
+                      afterPaletteCloses(() => openFocusedFind({ replace: true }))
+                  )
               ]
             : []),
         ...(inWorkspace
             ? [
-                  {
-                      id: 'find-next',
-                      label: i18next.t('shell:palette.commands.findNext'),
-                      shortcut: editorShortcut('findNext'),
-                      run: afterPaletteCloses(() => stepFocusedEditorFind(1))
-                  },
-                  {
-                      id: 'find-previous',
-                      label: i18next.t('shell:palette.commands.findPrevious'),
-                      shortcut: editorShortcut('findPrevious'),
-                      run: afterPaletteCloses(() => stepFocusedEditorFind(-1))
-                  }
+                  row(
+                      'find-next',
+                      afterPaletteCloses(() => stepFocusedEditorFind(1))
+                  ),
+                  row(
+                      'find-previous',
+                      afterPaletteCloses(() => stepFocusedEditorFind(-1))
+                  )
               ]
             : []),
         ...(inWorkspace
             ? [
-                  {
-                      id: 'next-problem',
-                      label: i18next.t('shell:palette.commands.nextProblem'),
-                      shortcut: CANVAS_SHORTCUTS.nextProblem,
-                      run: afterPaletteCloses(() => languageForCommand()?.diagnostics.step(1))
-                  },
-                  {
-                      id: 'next-highlight',
-                      label: i18next.t('shell:palette.commands.nextHighlight'),
-                      shortcut: CANVAS_SHORTCUTS.nextHighlight,
-                      run: afterPaletteCloses(() => languageForCommand()?.highlights.step(1))
-                  },
-                  {
-                      id: 'previous-highlight',
-                      label: i18next.t('shell:palette.commands.previousHighlight'),
-                      shortcut: CANVAS_SHORTCUTS.previousHighlight,
-                      run: afterPaletteCloses(() => languageForCommand()?.highlights.step(-1))
-                  },
-                  {
-                      id: 'previous-problem',
-                      label: i18next.t('shell:palette.commands.previousProblem'),
-                      shortcut: CANVAS_SHORTCUTS.previousProblem,
-                      run: afterPaletteCloses(() => languageForCommand()?.diagnostics.step(-1))
-                  }
+                  row(
+                      'next-problem',
+                      afterPaletteCloses(() => languageForCommand()?.diagnostics.step(1))
+                  ),
+                  row(
+                      'next-highlight',
+                      afterPaletteCloses(() => languageForCommand()?.highlights.step(1))
+                  ),
+                  row(
+                      'previous-highlight',
+                      afterPaletteCloses(() => languageForCommand()?.highlights.step(-1))
+                  ),
+                  row(
+                      'previous-problem',
+                      afterPaletteCloses(() => languageForCommand()?.diagnostics.step(-1))
+                  )
               ]
             : []),
         ...(folder && inWorkspace
             ? [
-                  {
-                      id: 'file-new',
-                      label: i18next.t('shell:palette.commands.newFile'),
-                      run: afterPaletteCloses(() => useFiles.getState().requestCreate('file'))
-                  },
-                  {
-                      id: 'folder-new',
-                      label: i18next.t('shell:palette.commands.newFolder'),
-                      run: afterPaletteCloses(() => useFiles.getState().requestCreate('directory'))
-                  }
+                  row(
+                      'file-new',
+                      afterPaletteCloses(() => useFiles.getState().requestCreate('file'))
+                  ),
+                  row(
+                      'folder-new',
+                      afterPaletteCloses(() => useFiles.getState().requestCreate('directory'))
+                  )
               ]
             : []),
         ...(folder
             ? [
-                  {
-                      id: 'reveal',
-                      label: i18next.t('shell:palette.commands.reveal', { app: fileManagerName(serverInfoOf(currentEndpointId()).platform) }),
-                      run: () =>
+                  row(
+                      'reveal',
+                      () =>
                           void transportFor(currentEndpointId())
                               ?.request('fs.reveal', { path: folder })
-                              .catch(() => undefined)
-                  }
+                              .catch(() => undefined),
+                      { values: { app: fileManagerName(serverInfoOf(currentEndpointId()).platform) } }
+                  )
               ]
             : []),
         ...(inWorkspace
             ? [
-                  {
-                      id: 'view-new',
-                      label: i18next.t('shell:palette.commands.newCanvasView'),
-                      shortcut: CANVAS_SHORTCUTS.newView,
-                      run: () => void createViewAction('canvas')
-                  },
+                  row('view-new', () => void createViewAction('canvas')),
                   ...(activeViewId
                       ? [
-                            { id: 'view-settings', label: i18next.t('shell:viewMenu.viewSettings'), run: () => askViewSettings(activeViewId) },
-                            { id: 'view-delete', label: i18next.t('shell:viewMenu.deleteView'), run: () => askDeleteView(activeViewId) },
-                            {
-                                id: 'flag-toggle',
-                                label: i18next.t('shell:palette.commands.toggleFlag'),
-                                hint: i18next.t('shell:palette.hints.toggleFlag'),
-                                shortcut: CANVAS_SHORTCUTS.toggleFlag,
-                                run: toggleFlagAction
-                            }
+                            row('view-settings', () => askViewSettings(activeViewId)),
+                            row('view-delete', () => askDeleteView(activeViewId)),
+                            row('flag-toggle', toggleFlagAction, { hint: i18next.t('shell:palette.hints.toggleFlag') })
                         ]
                       : []),
-                  { id: 'view-new-drawing', label: i18next.t('shell:palette.commands.newDrawingView'), run: () => void createViewAction('drawing') },
-                  { id: 'view-new-diagram', label: i18next.t('shell:palette.commands.newDiagramView'), run: () => void createViewAction('diagram') },
-                  ...(folder
-                      ? [
-                            {
-                                id: 'view-new-file',
-                                label: i18next.t('shell:palette.commands.newFileView'),
-                                run: () => useUi.getState().openFilePicker({ kind: 'view' })
-                            }
-                        ]
-                      : []),
-                  { id: 'view-new-terminal', label: i18next.t('shell:palette.commands.newTerminalView'), run: () => void createViewAction('terminal') },
-                  { id: 'view-new-separator', label: i18next.t('shell:palette.commands.newSeparator'), run: () => void createViewAction('separator') },
-                  { id: 'view-new-subheader', label: i18next.t('shell:palette.commands.newSubheader'), run: () => void newSubheaderView() },
+                  row('view-new-drawing', () => void createViewAction('drawing')),
+                  row('view-new-diagram', () => void createViewAction('diagram')),
+                  ...(folder ? [row('view-new-file', () => useUi.getState().openFilePicker({ kind: 'view' }))] : []),
+                  row('view-new-terminal', () => void createViewAction('terminal')),
+                  row('view-new-separator', () => void createViewAction('separator')),
+                  row('view-new-subheader', () => void newSubheaderView()),
                   ...tabCommands(layout),
                   ...(layout !== null && cellCount(layout) > 1
                       ? [
-                            {
-                                id: 'cell-maximize',
-                                label: i18next.t(filling ? 'shell:viewMenu.restoreSplit' : 'shell:viewMenu.maximizeCell'),
+                            row('cell-maximize', () => useDocument.getState().toggleMaximized(), {
+                                ...(filling ? { label: i18next.t('shell:viewMenu.restoreSplit') } : {}),
                                 // The key goes to a node first, so this row only shows it when no node would take it.
-                                ...(maximizeTarget === null ? { shortcut: CANVAS_SHORTCUTS.maximizeCell } : {}),
-                                run: () => useDocument.getState().toggleMaximized()
-                            },
-                            {
-                                id: 'cell-close-others',
-                                label: i18next.t('shell:palette.commands.closeOtherCells'),
-                                run: () => closeOtherCellsAction(layout.focus)
-                            },
-                            ...(cellsRightOf(layout, layout.focus) > 0
-                                ? [
-                                      {
-                                          id: 'cell-close-right',
-                                          label: i18next.t('shell:palette.commands.closeCellsRight'),
-                                          run: () => closeCellsRightOfAction(layout.focus)
-                                      }
-                                  ]
-                                : [])
+                                ...(maximizeTarget === null ? {} : { shortcut: null })
+                            }),
+                            row('cell-close-others', () => closeOtherCellsAction(layout.focus)),
+                            ...(cellsRightOf(layout, layout.focus) > 0 ? [row('cell-close-right', () => closeCellsRightOfAction(layout.focus))] : [])
                         ]
                       : []),
-                  {
-                      id: 'view-new-browser',
-                      label: i18next.t('shell:viewDialogs.newBrowser.title'),
-                      run: () => useUi.getState().setViewDialog({ kind: 'new-browser' })
-                  },
-                  ...(selected && canOpenAsView(selected.kind)
-                      ? [
-                            {
-                                id: 'view-promote',
-                                label: i18next.t('shell:viewDialogs.promote.confirm'),
-                                hint: selected.title,
-                                run: () => askOpenAsView(selected.id)
-                            }
-                        ]
-                      : []),
+                  row('view-new-browser', () => useUi.getState().setViewDialog({ kind: 'new-browser' })),
+                  ...(selected && canOpenAsView(selected.kind) ? [row('view-promote', () => askOpenAsView(selected.id), { hint: selected.title })] : []),
                   ...(activeView && isSessionView(activeView) && views.some(isCanvasView)
-                      ? [
-                            {
-                                id: 'view-demote',
-                                label: i18next.t('shell:viewMenu.putOnCanvas'),
-                                hint: activeView.name,
-                                run: () => placeViewOnCanvasAction(activeView.id)
-                            }
-                        ]
+                      ? [row('view-demote', () => placeViewOnCanvasAction(activeView.id), { hint: activeView.name })]
                       : []),
                   ...agentCommands('chat', providersOf(currentEndpointId()).providers, onCanvas),
                   ...agentCommands('terminal', providersOf(currentEndpointId()).providers, onCanvas),
                   ...(onCanvas
                       ? [
                             ...moveNodeCommands(),
-                            {
-                                id: 'add-terminal',
-                                label: i18next.t('shell:palette.commands.newTerminal'),
-                                shortcut: ADD_NODE_SHORTCUTS.terminal,
-                                run: () => void createNodeAction('terminal')
-                            },
-                            {
-                                id: 'add-chat',
-                                label: i18next.t('shell:palette.commands.newChat'),
-                                shortcut: ADD_NODE_SHORTCUTS.chat,
-                                run: () => void createNodeAction('chat')
-                            },
-                            {
-                                id: 'add-browser',
-                                label: i18next.t('shell:palette.commands.newBrowser'),
-                                shortcut: ADD_NODE_SHORTCUTS.browser,
-                                run: () => void createNodeAction('browser')
-                            },
-                            {
-                                id: 'add-group',
-                                label: i18next.t('shell:palette.commands.newGroup'),
-                                shortcut: ADD_NODE_SHORTCUTS.group,
-                                run: () => void createNodeAction('group')
-                            },
-                            {
-                                id: 'add-note',
-                                label: i18next.t('shell:palette.commands.newNote'),
-                                shortcut: ADD_NODE_SHORTCUTS.note,
-                                run: () => void createNodeAction('note')
-                            },
+                            row('add-terminal', () => void createNodeAction('terminal')),
+                            row('add-chat', () => void createNodeAction('chat')),
+                            row('add-browser', () => void createNodeAction('browser')),
+                            row('add-group', () => void createNodeAction('group')),
+                            row('add-note', () => void createNodeAction('note')),
                             ...(folder
                                 ? [
-                                      {
-                                          id: 'add-file',
-                                          label: i18next.t('shell:palette.commands.showFile'),
-                                          hint: i18next.t('shell:palette.hints.readOnly'),
-                                          run: () => useUi.getState().openFilePicker({ kind: 'node', at: centerWorld() })
-                                      }
+                                      row('add-file', () => useUi.getState().openFilePicker({ kind: 'node', at: centerWorld() }), {
+                                          hint: i18next.t('shell:palette.hints.readOnly')
+                                      })
                                   ]
                                 : []),
-                            {
-                                id: 'group-selection',
-                                label: i18next.t('shell:palette.commands.groupSelection'),
-                                hint: canvas.selection.length === 0 ? i18next.t('shell:palette.hints.selectFirst') : undefined,
-                                shortcut: CANVAS_SHORTCUTS.group,
-                                run: () => groupSelectionAction()
-                            },
+                            row('group-selection', () => groupSelectionAction(), {
+                                ...(canvas.selection.length === 0 ? { hint: i18next.t('shell:palette.hints.selectFirst') } : {})
+                            }),
                             ...(canvas.selection.length === 1 && groupArrangeable(canvas.nodes[canvas.selection[0]!], canvas.locks)
-                                ? [
-                                      {
-                                          id: 'group-arrange',
-                                          label: i18next.t('shell:palette.commands.arrangeGroup'),
-                                          run: () => arrangeGroupAction(canvas.viewId, canvas.selection[0]!)
-                                      }
-                                  ]
+                                ? [row('group-arrange', () => arrangeGroupAction(canvas.viewId, canvas.selection[0]!))]
                                 : []),
-                            {
-                                id: 'add-text',
-                                label: i18next.t('shell:palette.commands.newText'),
-                                run: () => createTextAction()
-                            },
-                            {
-                                id: 'layout-save',
-                                label: i18next.t('shell:palette.commands.saveLayoutAs'),
-                                hint: i18next.t('shell:palette.hints.rememberLayout'),
-                                run: () => useUi.getState().setLayoutDialogOpen(true)
-                            },
+                            row('add-text', () => createTextAction()),
+                            row('layout-save', () => useUi.getState().setLayoutDialogOpen(true), { hint: i18next.t('shell:palette.hints.rememberLayout') }),
                             ...canvas.layouts.flatMap((layout) => [
                                 {
                                     id: `layout-apply-${layout.name}`,
@@ -625,29 +457,15 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
                                     run: () => deleteLayoutAction(layout.name)
                                 }
                             ]),
-                            {
-                                id: 'lock',
-                                label: anyLocked ? i18next.t('shell:dock.unlockEverything') : i18next.t('shell:dock.lockEverything'),
-                                run: () => setLocksAction(!anyLocked)
-                            }
+                            row('lock', () => setLocksAction(!anyLocked), anyLocked ? { label: i18next.t('shell:palette.commands.unlockAll') } : {})
                         ]
                       : []),
                   // A drawing has a camera of its own, so the same three rows act on whichever is on screen.
                   ...(onCanvas || drawing || diagram
                       ? [
-                            { id: 'fit', label: i18next.t('shell:dock.zoomToFit'), shortcut: CANVAS_SHORTCUTS.fitAll, run: () => fitAction() },
-                            {
-                                id: 'zoom-selection',
-                                label: i18next.t('shell:dock.zoomToSelection'),
-                                shortcut: CANVAS_SHORTCUTS.zoomSelection,
-                                run: () => zoomTarget().zoomToSelection()
-                            },
-                            {
-                                id: 'zoom-reset',
-                                label: i18next.t('shell:palette.commands.zoomReset'),
-                                shortcut: CANVAS_SHORTCUTS.zoomReset,
-                                run: () => zoomTarget().zoomTo(1)
-                            }
+                            row('fit', () => fitAction()),
+                            row('zoom-selection', () => zoomTarget().zoomToSelection()),
+                            row('zoom-reset', () => zoomTarget().zoomTo(1))
                         ]
                       : []),
                   ...(onCanvas
@@ -659,228 +477,79 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
                                     { id: 'node-up', direction: 'up' },
                                     { id: 'node-down', direction: 'down' }
                                 ] as const
-                            ).map(({ id, direction }) => ({
-                                id,
-                                label: i18next.t(`shell:menu.node${direction[0]!.toUpperCase()}${direction.slice(1)}`),
-                                shortcut: NODE_NAVIGATION_SHORTCUTS[direction],
-                                run: () => focusedCanvas().getState().selectNeighbor(direction)
-                            })),
-                            {
-                                id: 'camera-back',
-                                label: i18next.t('shell:palette.commands.cameraBack'),
-                                shortcut: CANVAS_SHORTCUTS.cameraBack,
-                                run: () => focusedCanvas().getState().stepCamera(-1)
-                            },
-                            {
-                                id: 'camera-forward',
-                                label: i18next.t('shell:palette.commands.cameraForward'),
-                                shortcut: CANVAS_SHORTCUTS.cameraForward,
-                                run: () => focusedCanvas().getState().stepCamera(1)
-                            },
-                            ...(zoomNodeTargetOf(canvas) !== null
-                                ? [
-                                      {
-                                          id: 'zoom-node',
-                                          label: i18next.t('shell:menu.zoomToNode'),
-                                          shortcut: CANVAS_SHORTCUTS.zoomNode,
-                                          run: () => focusedCanvas().getState().zoomToNode()
-                                      }
-                                  ]
-                                : [])
+                            ).map(({ id, direction }) => row(id, () => focusedCanvas().getState().selectNeighbor(direction))),
+                            row('camera-back', () => focusedCanvas().getState().stepCamera(-1)),
+                            row('camera-forward', () => focusedCanvas().getState().stepCamera(1)),
+                            ...(zoomNodeTargetOf(canvas) !== null ? [row('zoom-node', () => focusedCanvas().getState().zoomToNode())] : [])
                         ]
                       : []),
                   ...(maximizeTarget !== null
                       ? [
-                            {
-                                id: 'node-maximize',
-                                label: i18next.t(maximizedNodeOf(canvas) === null ? 'canvas:node.maximize' : 'canvas:node.restore'),
-                                shortcut: CANVAS_SHORTCUTS.maximizeCell,
-                                run: () => focusedCanvas().getState().toggleMaximizedNode(maximizeTarget)
-                            }
+                            row(
+                                'node-maximize',
+                                () => focusedCanvas().getState().toggleMaximizedNode(maximizeTarget),
+                                maximizedNodeOf(canvas) === null ? {} : { label: i18next.t('canvas:node.restore') }
+                            )
                         ]
                       : []),
                   ...(diagram && activeView
                       ? [
-                            ...(folder
-                                ? [
-                                      {
-                                          id: 'diagram-open-json',
-                                          label: i18next.t('shell:palette.commands.diagramOpenJson'),
-                                          run: () => openDiagramJson(activeView.id)
-                                      }
-                                  ]
-                                : []),
-                            {
-                                id: 'diagram-show-on-canvas',
-                                label: i18next.t('shell:palette.commands.diagramOnCanvas'),
-                                run: () => void showViewOnCanvasAction(activeView.id)
-                            },
-                            {
-                                id: 'diagram-copy-json',
-                                label: i18next.t('shell:palette.commands.diagramCopyJson'),
-                                run: () => copyDiagram(focusedDiagram(), 'json')
-                            },
-                            {
-                                id: 'diagram-copy-png',
-                                label: i18next.t('shell:palette.commands.diagramCopyPng'),
-                                run: () => copyDiagram(focusedDiagram(), 'png')
-                            },
-                            {
-                                id: 'diagram-save-png',
-                                label: i18next.t('shell:palette.commands.diagramSavePng'),
-                                run: () => exportDiagram(focusedDiagram(), 'png')
-                            },
-                            {
-                                id: 'diagram-copy-svg',
-                                label: i18next.t('shell:palette.commands.diagramCopySvg'),
-                                run: () => copyDiagram(focusedDiagram(), 'svg')
-                            },
-                            {
-                                id: 'diagram-save-svg',
-                                label: i18next.t('shell:palette.commands.diagramSaveSvg'),
-                                run: () => exportDiagram(focusedDiagram(), 'svg')
-                            }
+                            ...(folder ? [row('diagram-open-json', () => openDiagramJson(activeView.id))] : []),
+                            row('diagram-show-on-canvas', () => void showViewOnCanvasAction(activeView.id)),
+                            row('diagram-copy-json', () => copyDiagram(focusedDiagram(), 'json')),
+                            row('diagram-copy-png', () => copyDiagram(focusedDiagram(), 'png')),
+                            row('diagram-save-png', () => exportDiagram(focusedDiagram(), 'png')),
+                            row('diagram-copy-svg', () => copyDiagram(focusedDiagram(), 'svg')),
+                            row('diagram-save-svg', () => exportDiagram(focusedDiagram(), 'svg'))
                         ]
                       : []),
                   ...(drawing && activeView
                       ? [
-                            {
-                                id: 'drawing-show-on-canvas',
-                                label: i18next.t('shell:palette.commands.drawingOnCanvas'),
-                                run: () => void showViewOnCanvasAction(activeView.id)
-                            },
-                            {
-                                id: 'drawing-copy-png',
-                                label: i18next.t('shell:palette.commands.drawingCopyPng'),
-                                run: () => void copyDrawing(focusedDrawing(), 'png')
-                            },
-                            {
-                                id: 'drawing-save-png',
-                                label: i18next.t('shell:palette.commands.drawingSavePng'),
-                                run: () => exportDrawing(focusedDrawing(), 'png')
-                            },
-                            {
-                                id: 'drawing-copy-svg',
-                                label: i18next.t('shell:palette.commands.drawingCopySvg'),
-                                run: () => void copyDrawing(focusedDrawing(), 'svg')
-                            },
-                            {
-                                id: 'drawing-save-svg',
-                                label: i18next.t('shell:palette.commands.drawingSaveSvg'),
-                                run: () => exportDrawing(focusedDrawing(), 'svg')
-                            }
+                            row('drawing-show-on-canvas', () => void showViewOnCanvasAction(activeView.id)),
+                            row('drawing-copy-png', () => void copyDrawing(focusedDrawing(), 'png')),
+                            row('drawing-save-png', () => exportDrawing(focusedDrawing(), 'png')),
+                            row('drawing-copy-svg', () => void copyDrawing(focusedDrawing(), 'svg')),
+                            row('drawing-save-svg', () => exportDrawing(focusedDrawing(), 'svg'))
                         ]
                       : [])
               ]
             : []),
-        {
-            id: 'usage',
-            label: i18next.t('shell:sidebar.usage'),
-            hint: i18next.t('shell:palette.hints.usage'),
-            run: () => useUi.getState().setUsageOpen(true)
-        },
-        {
-            id: 'models',
-            label: i18next.t('shell:menu.compareModels'),
-            run: () => useUi.getState().setModelsOpen(true)
-        },
+        row('usage', () => useUi.getState().setUsageOpen(true), { hint: i18next.t('shell:palette.hints.usage') }),
+        row('models', () => useUi.getState().setModelsOpen(true)),
         ...(inWorkspace
             ? [
-                  {
-                      id: 'sidebar',
-                      label: i18next.t('shell:palette.commands.toggleSidebar'),
-                      shortcut: APP_SHORTCUTS.sidebar,
-                      run: () => useUi.getState().toggleSidebar()
-                  },
+                  row('sidebar', () => useUi.getState().toggleSidebar()),
                   ...(scratch
                       ? []
                       : [
-                            { id: 'panel-files', label: i18next.t('shell:palette.commands.toggleFiles'), run: () => useUi.getState().togglePanel('files') },
-                            {
-                                id: 'panel-databases',
-                                label: i18next.t('shell:palette.commands.toggleDatabases'),
-                                run: () => useUi.getState().togglePanel('databases')
-                            },
-                            { id: 'panel-git', label: i18next.t('shell:palette.commands.toggleGit'), run: () => useUi.getState().togglePanel('git') },
-                            {
-                                id: 'database-console-new',
-                                label: i18next.t('shell:palette.commands.newDatabaseConsole'),
-                                run: () => void openNewConsole()
-                            },
-                            {
-                                id: 'database-connections',
-                                label: i18next.t('shell:palette.commands.databaseConnections'),
-                                run: () => useDatabasePanel.getState().openConnections()
-                            },
-                            {
-                                id: 'database-schemas-refresh',
-                                label: i18next.t('shell:palette.commands.refreshSqlSchemas'),
-                                run: () => void refreshSqlSchemas()
-                            },
-                            {
-                                id: 'panel-problems',
-                                label: i18next.t('shell:palette.commands.toggleProblems'),
-                                run: () => useUi.getState().togglePanel('problems')
-                            }
+                            row('panel-files', () => useUi.getState().togglePanel('files')),
+                            row('panel-databases', () => useUi.getState().togglePanel('databases')),
+                            row('panel-git', () => useUi.getState().togglePanel('git')),
+                            row('database-console-new', () => void openNewConsole()),
+                            row('database-connections', () => useDatabasePanel.getState().openConnections()),
+                            row('database-schemas-refresh', () => void refreshSqlSchemas()),
+                            row('panel-problems', () => useUi.getState().togglePanel('problems'))
                         ]),
-                  { id: 'panel-processes', label: i18next.t('shell:palette.commands.toggleProcesses'), run: () => useUi.getState().togglePanel('processes') }
+                  row('panel-processes', () => useUi.getState().togglePanel('processes'))
               ]
             : []),
         ...(inWorkspace && !scratch ? launchCommands() : []),
-        { id: 'theme', label: i18next.t('shell:palette.commands.toggleTheme'), run: () => useTheme.getState().toggle() },
+        row('theme', () => useTheme.getState().toggle()),
         ...(keepAwakeAvailable()
             ? [
-                  {
-                      id: 'keep-awake-off',
-                      label: i18next.t('shell:palette.commands.keepAwakeOff'),
-                      run: () => setKeepAwake({ keepAwake: 'off' })
-                  },
-                  {
-                      id: 'keep-awake-working',
-                      label: i18next.t('shell:palette.commands.keepAwakeWorking'),
-                      run: () => setKeepAwake({ keepAwake: 'working' })
-                  },
-                  {
-                      id: 'keep-awake-always',
-                      label: i18next.t('shell:palette.commands.keepAwakeAlways'),
-                      run: () => setKeepAwake({ keepAwake: 'always' })
-                  }
+                  row('keep-awake-off', () => setKeepAwake({ keepAwake: 'off' })),
+                  row('keep-awake-working', () => setKeepAwake({ keepAwake: 'working' })),
+                  row('keep-awake-always', () => setKeepAwake({ keepAwake: 'always' }))
               ]
             : []),
-        {
-            id: 'settings',
-            label: i18next.t('shell:settingsDialog.title'),
-            shortcut: APP_SHORTCUTS.settings,
-            run: () => useUi.getState().setSettings({ open: true })
-        },
-        {
-            // The key works only while the dialog is up, so the row shows none.
-            id: 'settings-search',
-            label: i18next.t('shell:palette.commands.searchSettings'),
-            run: () => runAppShortcut('settings-search')
-        },
-        {
-            id: 'settings-keyboard',
-            label: i18next.t('shell:palette.commands.keyboardShortcuts'),
-            run: () => useUi.getState().setSettings({ open: true, section: 'keyboard' })
-        },
-        {
-            id: 'settings-editor',
-            label: i18next.t('shell:palette.commands.editorSettings'),
-            run: () => useUi.getState().setSettings({ open: true, section: 'editor' })
-        },
-        {
-            id: 'settings-machines',
-            label: i18next.t('shell:palette.commands.remote'),
-            hint: i18next.t('shell:palette.hints.remote'),
-            run: () => useUi.getState().setSettings({ open: true, section: 'machines' })
-        },
-        {
-            id: 'settings-computer',
-            label: i18next.t('shell:palette.commands.computerUse'),
-            run: () => useUi.getState().setSettings({ open: true, section: 'computer' })
-        },
+        row('settings', () => useUi.getState().setSettings({ open: true })),
+        // The key works only while the dialog is up, so the row shows none.
+        row('settings-search', () => runAppShortcut('settings-search'), { shortcut: null }),
+        row('settings-keyboard', () => useUi.getState().setSettings({ open: true, section: 'keyboard' })),
+        row('settings-editor', () => useUi.getState().setSettings({ open: true, section: 'editor' })),
+        row('settings-machines', () => useUi.getState().setSettings({ open: true, section: 'machines' }), { hint: i18next.t('shell:palette.hints.remote') }),
+        row('settings-computer', () => useUi.getState().setSettings({ open: true, section: 'computer' })),
         // About the machine this window runs beside, so only a client with one has it.
-        ...(hasLocalMachine() ? [{ id: 'onboarding', label: i18next.t('shell:palette.commands.onboarding'), run: () => openOnboarding() }] : [])
+        ...(hasLocalMachine() ? [row('onboarding', () => openOnboarding())] : [])
     ];
 }

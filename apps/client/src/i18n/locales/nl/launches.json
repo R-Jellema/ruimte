@@ -20,8 +20,7 @@
     "showOutput": "Output tonen",
     "menu": {
         "open": "Launches",
-        "new": "Nieuwe launch…",
-        "edit": "Launches bewerken…"
+        "new": "Nieuwe launch…"
     },
     "approve": {
         "title": "Een commando uit het projectbestand uitvoeren?",
@@ -136,8 +135,7 @@
         "restart": "Herstarten: {{name}}",
         "stop": "Stoppen: {{name}}",
         "afterSettle": "Als een worktree-chat klaar is: {{name}} uitvoeren",
-        "afterSettleApprove": "Als een worktree-chat klaar is: {{name}} opnieuw goedkeuren",
-        "afterSettleOff": "Als een worktree-chat klaar is: niets uitvoeren"
+        "afterSettleApprove": "Als een worktree-chat klaar is: {{name}} opnieuw goedkeuren"
     },
     "afterSettle": {
         "title": "Als een worktree-chat klaar is",

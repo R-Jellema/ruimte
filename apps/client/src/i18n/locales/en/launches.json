@@ -20,8 +20,7 @@
     "showOutput": "Show output",
     "menu": {
         "open": "Launches",
-        "new": "New launch…",
-        "edit": "Edit launches…"
+        "new": "New launch…"
     },
     "approve": {
         "title": "Run a command from the project file?",
@@ -136,8 +135,7 @@
         "restart": "Restart: {{name}}",
         "stop": "Stop: {{name}}",
         "afterSettle": "After a worktree chat settles: run {{name}}",
-        "afterSettleApprove": "After a worktree chat settles: approve {{name}} again",
-        "afterSettleOff": "After a worktree chat settles: run nothing"
+        "afterSettleApprove": "After a worktree chat settles: approve {{name}} again"
     },
     "afterSettle": {
         "title": "After a worktree chat settles",

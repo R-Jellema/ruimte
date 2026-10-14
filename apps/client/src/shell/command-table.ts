@@ -1015,6 +1015,9 @@ export type CommandId = OwnCommandId | LanguageCommandId | EditorCommandId;
 /* The rows the menu runs itself, since the palette has none for them (`menu/actions.ts`). */
 export type MenuOnlyCommandId = { [Id in OwnCommandId]: (typeof TABLE)[Id]['palette'] extends false ? Id : never }[OwnCommandId];
 
+/* The rows the palette has with the table's words. The language and editing commands make their own (`languageCommandRows`, `editorCommandRows`). */
+export type PaletteCommandId = Exclude<OwnCommandId, MenuOnlyCommandId>;
+
 /* The rows `shell/app-shortcuts.ts` binds. */
 export type WindowCommandId = { [Id in OwnCommandId]: (typeof TABLE)[Id] extends { binds: 'window' } ? Id : never }[OwnCommandId];
 
