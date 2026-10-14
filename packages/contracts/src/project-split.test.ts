@@ -363,6 +363,15 @@ describe("fields a newer Ruimte keeps one person's", () => {
         expect('overlayFields' in split.private).toBe(false);
     });
 
+    test('a name every object inherits is no private field, listed or not', () => {
+        const file = { ...EMPTY_PRIVATE_FILE, overlayFields: ['constructor', 'toString', '__proto__', 'machine'] };
+        expect(privateFieldsOf(file)).toEqual(['machine']);
+        const split = splitContent(content([canvas('main', [node('n1', { machine: 'B' })])]), ['main'], 1, ['constructor', 'toString', 'machine']);
+        expect(split.private.overlay.n1).toEqual({ machine: 'B' } as never);
+        expect(split.private.overlayFields).toEqual(['machine']);
+        expect(nodesOf(split.shared)[0]).toEqual(node('n1'));
+    });
+
     test('a view moved to the private file keeps the field inline, and sharing it again puts it back in the overlay', () => {
         const before = content([canvas('main', [node('n1', { machine: 'B' })])]);
         const privateSplit = splitContent(before, [], 1, ['machine']);

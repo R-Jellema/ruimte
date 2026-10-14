@@ -37,8 +37,11 @@ type CarrierOverlay = Omit<ProjectNodeOverlay, 'title' | 'name'>;
 
 type Carrier = { [K in keyof CarrierOverlay]?: CarrierOverlay[K] };
 
+// A name every object inherits is no field of a node: reading it would hand the prototype's own function to the overlay.
+const INHERITED_NAMES: ReadonlySet<string> = new Set(Object.getOwnPropertyNames(Object.prototype));
+
 function privateFieldsAmong(fields: Iterable<string>): string[] {
-    return [...new Set(fields)].filter((field) => !KNOWN_CARRIER_KEYS.has(field)).sort();
+    return [...new Set(fields)].filter((field) => !KNOWN_CARRIER_KEYS.has(field) && !INHERITED_NAMES.has(field)).sort();
 }
 
 /*
@@ -78,7 +81,7 @@ function overlayOfCarrier(carrier: Carrier, privateFields: readonly string[]): C
         }
     }
     for (const field of privateFields) {
-        const value = (carrier as Record<string, unknown>)[field];
+        const value = Object.hasOwn(carrier, field) ? (carrier as Record<string, unknown>)[field] : undefined;
         if (value !== undefined) {
             (overlay as Record<string, unknown>)[field] = value;
         }
