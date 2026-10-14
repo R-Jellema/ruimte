@@ -233,10 +233,22 @@ function commit(tabs: WindowTabs, tell = true): void {
 
 /* Takes a tab out of this window, without closing its project or showing another one. */
 export function dropWindowTab(key: string): void {
+    leaveTab(key, true);
+}
+
+/*
+ * Takes out a tab the shell is about to detach into a window of its own. The shell lets go of it as
+ * it detaches it, and finds nothing to detach of a tab this window already told it it left.
+ */
+export function detachWindowTab(key: string): void {
+    leaveTab(key, false);
+}
+
+function leaveTab(key: string, tellShell: boolean): void {
     if (shownKey() === key) {
         leaving.add(key);
     }
-    commit(withoutTab(useWindowTabs.getState().tabs, key));
+    commit(withoutTab(useWindowTabs.getState().tabs, key), tellShell);
 }
 
 /* Puts the tabs back as they were, after a drag the shell did not start. */
@@ -250,6 +262,14 @@ export function restoreWindowTabs(tabs: WindowTabs): void {
 /* Puts a tab at another place in the strip. */
 export function reorderWindowTab(key: string, index: number): void {
     commit(moveTab(useWindowTabs.getState().tabs, key, index));
+}
+
+/*
+ * Whether dragging `key` out of the strip takes its window along. Only the project on screen does,
+ * as the one tab shown; a lone tab beside the start screen or the Chats project tears off instead.
+ */
+export function dragsWindow(shown: readonly string[], active: string | null, key: string): boolean {
+    return shown.length === 1 && shown[0] === key && active === key;
 }
 
 /* Whether `key` is the one tab this window has. */

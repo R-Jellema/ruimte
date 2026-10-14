@@ -1,6 +1,6 @@
 import { desktop, isApplePlatform, type DesktopBridge, type WindowPoint } from '@/desktop/bridge';
 import { confirmLeavingConflict } from '@/project/leave-conflict';
-import { dropWindowTab, restoreWindowTabs, tabAfterClosing, useWindowTabs } from '@/project/window-tabs';
+import { detachWindowTab, dropWindowTab, restoreWindowTabs, tabAfterClosing, useWindowTabs } from '@/project/window-tabs';
 import { endpointKey, splitKey } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { windowWorkspace } from '@/state/window';
@@ -117,9 +117,10 @@ export async function tearOffTab(key: string, at: WindowPoint): Promise<void> {
         await moveToNewWindow({ at });
         return;
     }
+    // Let go of first: the shell raises a window that still keeps the project instead of opening one.
+    dropWindowTab(key);
     const { endpointId, id } = splitKey(key);
     openInNewWindow(endpointId, id, at);
-    dropWindowTab(key);
 }
 
 /* Whether the shell can tear a tab off into a window that follows the pointer. */
@@ -133,16 +134,19 @@ let dragStarting: Promise<unknown> = Promise.resolve();
 /*
  * A pressed tab left the window: the shell opens it in a window of its own that follows the pointer.
  * What is on screen reaches its files first, so that window reads what this one showed, and this
- * window goes on to the tab beside it, or to the start screen.
+ * window goes on to the tab beside it, or to the start screen. Another tab leaves the window as it is.
  */
-export function tearOutTab(key: string, grab: WindowPoint, tabWidth: number, deps: MoveDeps = { ...REAL_MOVE, shell: null }): Promise<boolean> {
-    const started = startTearOut(key, grab, tabWidth, deps);
+export function tearOutTab(key: string, grab: WindowPoint, tabWidth: number, overrides: Partial<TearOutDeps> = {}): Promise<boolean> {
+    const started = startTearOut(key, grab, tabWidth, { ...REAL_MOVE, shell: desktop(), ...overrides });
     dragStarting = started.catch(() => undefined);
     return started;
 }
 
-async function startTearOut(key: string, grab: WindowPoint, tabWidth: number, deps: MoveDeps): Promise<boolean> {
-    const drag = desktop()?.tabDrag;
+/* The pieces a test stands in for, with the shell that follows the pointer. */
+export type TearOutDeps = Omit<MoveDeps, 'shell'> & { shell: Pick<DesktopBridge, 'tabDrag'> | null };
+
+async function startTearOut(key: string, grab: WindowPoint, tabWidth: number, deps: TearOutDeps): Promise<boolean> {
+    const drag = deps.shell?.tabDrag;
     if (!drag) {
         return false;
     }
@@ -150,7 +154,7 @@ async function startTearOut(key: string, grab: WindowPoint, tabWidth: number, de
     const next = shown ? tabAfterClosing(key) : null;
     // The tab leaves the strip at once, before anything waits, and comes back only if the shell says no.
     const before = useWindowTabs.getState().tabs;
-    dropWindowTab(key);
+    detachWindowTab(key);
     if (shown) {
         await deps.flush().catch(() => undefined);
     }

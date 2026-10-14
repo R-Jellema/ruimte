@@ -5,6 +5,7 @@ import { useSettings } from '@/state/settings';
 import { useWindow } from '@/state/window';
 import type { Workspace } from '@/transport/connections';
 import {
+    dragsWindow,
     keptTabs,
     moveTab,
     neighborOf,
@@ -100,6 +101,13 @@ describe('moving and keeping tabs', () => {
         expect(moveTab(tabs(['a', 'b', 'c'], 'a'), 'c', 0)).toEqual(tabs(['c', 'a', 'b'], 'a'));
         const same = tabs(['a', 'b'], 'a');
         expect(moveTab(same, 'a', 0)).toBe(same);
+    });
+
+    test('only the project on screen, as the one tab, takes its window along when dragged', () => {
+        expect(dragsWindow(['a'], 'a', 'a')).toBe(true);
+        expect(dragsWindow(['a', 'b'], 'a', 'a')).toBe(false);
+        expect(dragsWindow(['a', 'b'], 'a', 'b')).toBe(false);
+        expect(dragsWindow(['a'], null, 'a')).toBe(false);
     });
 
     test('a tab another window keeps goes, but never the one on screen', () => {

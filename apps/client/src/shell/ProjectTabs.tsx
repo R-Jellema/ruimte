@@ -3,7 +3,7 @@ import { openProjectAction } from '@/actions/client-actions';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
 import { desktop } from '@/desktop/bridge';
-import { reorderWindowTab, setStripIndexAt, useWindowTabs } from '@/project/window-tabs';
+import { dragsWindow, reorderWindowTab, setStripIndexAt, useWindowTabs } from '@/project/window-tabs';
 import {
     canDragTabs,
     canOpenWindows,
@@ -151,7 +151,7 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
             if (Math.hypot(event.clientX - held.grab.x, event.clientY - held.grab.y) < DRAG_THRESHOLD_PX) {
                 return;
             }
-            if (shown.length === 1 && follows) {
+            if (follows && dragsWindow(shown, tabs.active, held.key)) {
                 held.mode = 'window';
                 awaitRelease(held);
                 void startWindowDrag(held.key, held.grab);
