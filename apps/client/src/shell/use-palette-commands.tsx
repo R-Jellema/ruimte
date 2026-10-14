@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { shallow } from 'zustand/shallow';
 import {
     CircleQuestionMark,
     FileText,
@@ -22,6 +23,7 @@ import { viewShortcut } from '@/canvas/shortcuts';
 import { isApplePlatform } from '@/desktop/bridge';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
 import { ViewGlyph } from '@/project/ViewGlyph';
+import { useViewNodes } from '@/project/view-nodes';
 import { revealNode, showView } from '@/project/views';
 import { openInNewWindow, wantsNewWindow } from '@/project/windows';
 import { appCommands, OPENING_COMMAND_IDS, type Command } from '@/shell/commands';
@@ -30,7 +32,6 @@ import { activeEntryOf, matches, optionId, type Entry, type PaletteContext, type
 import { readRecents, rememberRecent, sortByRecency } from '@/shell/palette-recents';
 import { namesSetting, orderBelowJumps, settingsEntries } from '@/shell/palette-settings';
 import { findSettings } from '@/shell/settings/find-settings';
-import { useCanvas } from '@/state/canvas';
 import { useDocument } from '@/state/document';
 import { useEndpoints } from '@/state/endpoints';
 import { refreshPrRepos, useCurrentPrRepos } from '@/state/pr-repos';
@@ -59,8 +60,7 @@ const OPENING_JUMPS = 8;
 export function usePaletteCommands(context: PaletteContext, files: readonly Entry[], enabled: boolean): PaletteModeView {
     const { t } = useTranslation(['shell']);
     const { open, query, index, setIndex, close } = context;
-    const nodes = useCanvas((s) => s.nodes);
-    const order = useCanvas((s) => s.order);
+    const nodesByView = useViewNodes((all, nodesOf) => new Map(all.map((view) => [view.id, nodesOf(view)])), shallow);
     const views = useDocument((s) => s.views);
     const activeViewId = useDocument((s) => s.activeViewId);
     // The command rows read it with appCommands(); the list only needs to redraw when it moves.
@@ -88,7 +88,7 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
                 return [];
             }
             const here = view.id === activeViewId;
-            const viewNodes = here ? order.map((id) => nodes[id]!) : view.nodes;
+            const viewNodes = nodesByView.get(view.id) ?? [];
             return viewNodes
                 .filter((node) => node.kind !== 'group')
                 .map((node) => ({
@@ -171,7 +171,7 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
         const named = namesSetting(query, settings);
         const rest = [...switches.filter(keep), ...commands.map((command) => asEntry(command, 'actions')).filter(keep)];
         return [...viewSwitches.filter(keep), ...jumps.filter(keep), ...orderBelowJumps({ named, settings, files, rest })];
-    }, [enabled, connected, endpoints, files, nodes, order, views, activeViewId, query, recents, projects, currentProjectId, currentEndpointId, prRepos, t]);
+    }, [enabled, connected, endpoints, files, nodesByView, views, activeViewId, query, recents, projects, currentProjectId, currentEndpointId, prRepos, t]);
 
     const active = activeEntryOf(entries, index);
     const run = (entry: Entry | undefined, newWindow = false): void => {

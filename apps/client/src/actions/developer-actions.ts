@@ -9,7 +9,6 @@ import {
     type ActionOutput
 } from '@ruimte/actions';
 import {
-    isCanvasView,
     type GitActionKind,
     type GitActionPayload,
     type GitActionResult,
@@ -24,6 +23,7 @@ import type { StoreApi } from 'zustand';
 import { basenameOf } from '@/shell/panels/files-tree';
 import { commitTargets, nextActionId } from '@/shell/panels/git-actions';
 import { nodesInWorktree } from '@/shell/panels/worktree-rows';
+import { nodesOfView } from '@/project/view-nodes';
 import type { DocumentState } from '@/state/document';
 import { useGit } from '@/state/git';
 import { soleRepo, visibleRepos } from '@/state/git-repos';
@@ -609,10 +609,7 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
             return { output: runOutput(checkout, result) };
         },
         'worktree.list': async () => {
-            const nodes = document
-                .getState()
-                .exportViews()
-                .flatMap((view) => (isCanvasView(view) ? view.nodes : []));
+            const nodes = document.getState().views.flatMap(nodesOfView);
             const worktrees = await worktreesOf(true);
             return {
                 output: {
@@ -696,8 +693,7 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
             }
             const title = document
                 .getState()
-                .exportViews()
-                .flatMap((view) => (isCanvasView(view) ? view.nodes : []))
+                .views.flatMap(nodesOfView)
                 .find((node) => node.id === worktree.nodeId)?.title;
             const subject = message ?? `${title?.trim() || branch}: work of the agent`;
             const commits = commitFirst ?? (call.actor.kind !== 'person' && loose > 0);

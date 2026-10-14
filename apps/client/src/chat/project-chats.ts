@@ -1,30 +1,24 @@
 import { useMemo } from 'react';
-import { isCanvasView, type ProjectView } from '@ruimte/contracts';
+import type { ProjectNode, ProjectView } from '@ruimte/contracts';
 import type { ProjectChat } from '@adecore/agents-react/chat';
+import type { NodesOfView } from '@/project/view-nodes';
 import { useSidebarSource } from '@/shell/sidebar-source';
 
-/* The views of a project, with the nodes of every canvas that is live in this window, whose titles run ahead of the document's. */
-export interface ChatSource {
-    views: readonly ProjectView[];
-    canvases: Readonly<Record<string, ReadonlyArray<{ id: string; kind: string; title: string }>>>;
-}
-
 /* Every chat of the project under the name it has right now, node or view, in sidebar order. */
-export function projectChats(source: ChatSource): ProjectChat[] {
-    return source.views.flatMap((view): ProjectChat[] => {
+export function projectChats(views: readonly ProjectView[], nodesOf: NodesOfView<Pick<ProjectNode, 'id' | 'kind' | 'title'>>): ProjectChat[] {
+    return views.flatMap((view): ProjectChat[] => {
         if (view.kind === 'chat') {
             // The chat an inline edit runs in is no chat a person attaches to a message.
             return view.hidden === true ? [] : [{ id: view.id, title: view.name }];
         }
-        if (!isCanvasView(view)) {
-            return [];
-        }
-        return (source.canvases[view.id] ?? view.nodes).filter((node) => node.kind === 'chat').map((node) => ({ id: node.id, title: node.title }));
+        return nodesOf(view)
+            .filter((node) => node.kind === 'chat')
+            .map((node) => ({ id: node.id, title: node.title }));
     });
 }
 
 /* The chats of the open project, renamed the moment a node on a live canvas is. */
 export function useProjectChats(): ProjectChat[] {
     const source = useSidebarSource();
-    return useMemo(() => projectChats(source), [source]);
+    return useMemo(() => projectChats(source.views, source.nodesOf), [source]);
 }

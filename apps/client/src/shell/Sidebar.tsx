@@ -3,7 +3,7 @@ import { ChartNoAxesColumn, Plus, Settings } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { usePanelGap } from '@/shell/panel-layout';
-import { isCanvasView, isSessionView, isUnlistedChatView, type AgentKind, viewIconOf } from '@ruimte/contracts';
+import { isSessionView, isUnlistedChatView, type AgentKind, viewIconOf } from '@ruimte/contracts';
 import { useShallow } from 'zustand/react/shallow';
 import { moveViewAction } from '@/actions/client-actions';
 import { useDrafts } from '@adecore/agents-react/chat';
@@ -123,8 +123,7 @@ export function Sidebar() {
             activeViewId: source.activeViewId,
             openViewIds: source.openViewIds,
             views: source.views.map((view) => {
-                const canvas = source.canvases[view.id];
-                const live = isCanvasView(view) ? (canvas ?? view.nodes) : [];
+                const live = source.nodesOf(view);
                 const asRow = (node: StatusOf & { title: string; titleSource?: SidebarNode['titleSource']; provider?: AgentKind }): SidebarNode => ({
                     id: node.id,
                     title: node.title,

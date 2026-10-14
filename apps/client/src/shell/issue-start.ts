@@ -1,5 +1,6 @@
-import { isCanvasView, type GitIssue, type ProjectView } from '@ruimte/contracts';
+import { isCanvasView, type GitIssue, type ProjectNode, type ProjectView } from '@ruimte/contracts';
 import { fenceOf } from '@/chat/selection-to-chat';
+import type { NodesOfView } from '@/project/view-nodes';
 
 /* The branch an issue starts on: `issue-12-` and what its title leaves of a ref. */
 export function issueBranch(issue: Pick<GitIssue, 'number' | 'title'>): string {
@@ -32,10 +33,10 @@ export function issuePrompt(issue: GitIssue): string {
 }
 
 /* The node already started on this issue, in this folder when one is named, on any canvas or as a view of its own. */
-export function findIssueNode(views: readonly ProjectView[], url: string, cwd?: string): string | null {
+export function findIssueNode(views: readonly ProjectView[], nodesOf: NodesOfView<ProjectNode>, url: string, cwd?: string): string | null {
     for (const view of views) {
         if (isCanvasView(view)) {
-            const found = view.nodes.find((node) => node.issue?.url === url && (cwd === undefined || node.cwd === cwd));
+            const found = nodesOf(view).find((node) => node.issue?.url === url && (cwd === undefined || node.cwd === cwd));
             if (found) {
                 return found.id;
             }

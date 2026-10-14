@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from 'react';
 import {
-    isCanvasView,
     isSessionView,
     type AgentKind,
     type CanvasNodeKind,
@@ -12,6 +11,7 @@ import {
 } from '@ruimte/contracts';
 import { deleteNodesAction, deleteViewAction } from '@/actions/client-actions';
 import { suggestedTitleFor } from '@/chat/title';
+import { nodesOfView } from '@/project/view-nodes';
 import { canvasOfNode, DEFAULT_TITLES, useCanvas } from '@/state/canvas';
 import { useDocument } from '@/state/document';
 import { currentEndpointId } from '@/state/keys';
@@ -156,7 +156,7 @@ export function resetTitle(id: string, viewId?: string): void {
     }
     // A node on a canvas in no cell lives only in its stored view, which the sidebar still lists.
     const view = viewId === undefined ? undefined : useDocument.getState().views.find((each) => each.id === viewId);
-    const stored = view && isCanvasView(view) ? view.nodes.find((node) => node.id === id) : undefined;
+    const stored = view ? nodesOfView(view).find((node) => node.id === id) : undefined;
     if (view && stored) {
         useDocument.getState().renameNodeOnView(view.id, id, automaticTitleOf(hostOfNode(stored)), null);
     }

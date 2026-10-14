@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { ProjectView } from '@ruimte/contracts';
 import { projectChats } from '@/chat/project-chats';
+import { nodesOfView } from '@/project/view-nodes';
 
 const views: ProjectView[] = [
     {
@@ -20,7 +21,7 @@ const views: ProjectView[] = [
 
 describe('projectChats', () => {
     test('lists chat nodes and chat views, and nothing else', () => {
-        expect(projectChats({ views, canvases: {} })).toEqual([
+        expect(projectChats(views, nodesOfView)).toEqual([
             { id: 'planner', title: 'Planner' },
             { id: 'notes', title: 'Release notes' }
         ]);
@@ -29,11 +30,11 @@ describe('projectChats', () => {
     test('leaves out the chat an inline edit runs in', () => {
         const withInline: ProjectView[] = [...views, { id: 'inline', kind: 'chat', name: 'Inline edit', node: {}, hidden: true }];
 
-        expect(projectChats({ views: withInline, canvases: {} }).map((chat) => chat.id)).toEqual(['planner', 'notes']);
+        expect(projectChats(withInline, nodesOfView).map((chat) => chat.id)).toEqual(['planner', 'notes']);
     });
 
     test('a canvas open in this window names its chats as they are now', () => {
-        const live = { main: [{ id: 'planner', kind: 'chat', title: 'Auth rewrite' }] };
-        expect(projectChats({ views, canvases: live })[0]).toEqual({ id: 'planner', title: 'Auth rewrite' });
+        const live = [{ id: 'planner', kind: 'chat' as const, title: 'Auth rewrite' }];
+        expect(projectChats(views, (view) => (view.id === 'main' ? live : nodesOfView(view)))[0]).toEqual({ id: 'planner', title: 'Auth rewrite' });
     });
 });

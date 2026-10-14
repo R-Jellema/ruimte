@@ -7,6 +7,7 @@ import { rememberChatSelection, offerDraft } from '@adecore/agents-react/chat';
 import { useChats } from '@adecore/agents-react/state';
 import { Button, Dialog, ErrorBoundary, Field, FormError, Icon, Input, Pill, TextArea } from '@adecore/ui';
 import { focusChat } from '@/plan/plan-actions';
+import { nodesOfView, useViewNodes } from '@/project/view-nodes';
 import { findIssueNode, issueBranch, issuePrompt } from '@/shell/issue-start';
 import { createWorktreeChat } from '@/shell/worktree-chat';
 import { useWorktreeStart } from '@/shell/use-worktree-start';
@@ -85,8 +86,7 @@ function IssueStartForm({ onDone }: { onDone(): void }) {
     const [busy, setBusy] = useState(false);
     const [failure, setFailure] = useState<string | null>(null);
     const start = useWorktreeStart(folder, issue === null ? null : issueBranch(issue));
-    const views = useDocument((s) => s.views);
-    const startedNode = issue === null ? null : findIssueNode(views, issue.url);
+    const startedNode = useViewNodes((views, nodesOf) => (issue === null ? null : findIssueNode(views, nodesOf, issue.url)));
     const prompt = typedPrompt ?? (issue === null ? '' : issuePrompt(issue));
     const ready = start !== null && start.ready && issue !== null && prompt.trim() !== '' && !busy;
 
@@ -123,7 +123,7 @@ function IssueStartForm({ onDone }: { onDone(): void }) {
                 branch: start.branch.trim(),
                 ...(start.reuses ? {} : { base: start.base.trim() })
             });
-            const existing = findIssueNode(useDocument.getState().views, issue.url, worktree.path);
+            const existing = findIssueNode(useDocument.getState().views, nodesOfView, issue.url, worktree.path);
             if (existing !== null) {
                 focusChat(existing);
                 onDone();

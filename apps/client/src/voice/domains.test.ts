@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { voiceToolsFor } from '@ruimte/actions';
 import type { ProjectView } from '@ruimte/contracts';
+import { nodesOfView } from '@/project/view-nodes';
 import { kindsIn, voiceDomainsFor } from '@/voice/domains';
 
 const NOTHING = { sessions: false, content: false, pages: false, folder: false, repository: false };
@@ -45,7 +46,7 @@ describe('the domains Voice gets', () => {
             },
             { kind: 'browser', id: 'web', name: 'Docs', url: 'https://example.test' }
         ] as unknown as ProjectView[];
-        expect([...kindsIn(views)].sort()).toEqual(['browser', 'canvas', 'note']);
+        expect([...kindsIn(views, nodesOfView)].sort()).toEqual(['browser', 'canvas', 'note']);
     });
 
     test('an ordinary project sends far less than every tool', () => {

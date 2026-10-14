@@ -2,6 +2,7 @@ import { isOpenableView, type ProjectShowViewEvent } from '@ruimte/contracts';
 import { desktop } from '@/desktop/bridge';
 import { callerName, showViewNotice } from '@/project/show-view';
 import { showViewOnceThere } from '@/project/show-view-once';
+import { nodesOfView } from '@/project/view-nodes';
 import { useSettings } from '@/state/settings';
 import { watchPool } from '@/transport/pool-watch';
 import { useDocument } from '@/state/document';
@@ -17,7 +18,7 @@ function showInWorkspace(payload: ProjectShowViewEvent): void {
     }
     const follow = useSettings.getState().agentsShowViews;
     const notice = showViewNotice({
-        agent: callerName(state.views, payload.by),
+        agent: callerName(state.views, nodesOfView, payload.by),
         view: view.name ?? payload.viewId,
         follow,
         alreadyThere: state.activeViewId === payload.viewId

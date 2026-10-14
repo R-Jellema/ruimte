@@ -46,7 +46,7 @@ export function useAgentChanges(editor: Editor | null, path: string, language: s
     const folder = useProject((s) => s.current?.folder ?? null);
     const app = useRef({ chats: new Set<string>(), folder, language: language ?? null });
     useEffect(() => {
-        app.current = { chats: new Set(chooserChats(source).map((chat) => chat.id)), folder, language: language ?? null };
+        app.current = { chats: new Set(chooserChats(source.views, source.nodesOf).map((chat) => chat.id)), folder, language: language ?? null };
     }, [source, folder, language]);
     const providers = useProviders((s) => s.providers);
     const providersNow = useRef(providers);

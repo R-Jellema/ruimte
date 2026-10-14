@@ -23,6 +23,7 @@ import { databaseViewName } from '@/database/view-name';
 import { databaseViewShareRefusal } from '@/database/view-sharing';
 import { addAgentView } from '@/agents/nodes';
 import { saveViewFiles, viewDeletionFacts, type ViewDeletionMachine } from '@/project/view-deletion';
+import { nodesOfView } from '@/project/view-nodes';
 import { offerViewUndo } from '@/project/view-trash';
 import { basenameOf } from '@/shell/panels/files-tree';
 import { locateView } from '@/shell/split';
@@ -264,9 +265,9 @@ export function viewActions(document: StoreApi<DocumentState>, reach: ViewReach)
                 throw new ActionRefusal('unknown-view', `No view with id “${viewId}” exists in this project.`);
             }
             if (!confirmed) {
-                const nodes = isCanvasView(view) ? view.nodes.length : 0;
+                const nodes = nodesOfView(view).length;
                 const sessions = isCanvasView(view)
-                    ? view.nodes.filter((node) => node.kind === 'chat' || node.kind === 'terminal').length
+                    ? nodesOfView(view).filter((node) => node.kind === 'chat' || node.kind === 'terminal').length
                     : view.kind === 'chat' || view.kind === 'terminal'
                       ? 1
                       : 0;
@@ -484,11 +485,10 @@ export function viewActions(document: StoreApi<DocumentState>, reach: ViewReach)
         },
         'flag.set': ({ ids, color }) => {
             const state = document.getState();
-            const views = state.exportViews();
             const flagged = [...new Set(ids)].map((id) => {
-                const target = views.some((view) => view.id === id)
+                const target = state.views.some((view) => view.id === id)
                     ? ('view' as const)
-                    : views.some((view) => isCanvasView(view) && view.nodes.some((node) => node.id === id))
+                    : state.views.some((view) => nodesOfView(view).some((node) => node.id === id))
                       ? ('node' as const)
                       : null;
                 if (target === null) {

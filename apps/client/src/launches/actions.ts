@@ -1,8 +1,9 @@
 import i18next from 'i18next';
-import { isCanvasView, type LaunchConfigEntry, type LaunchesDocument } from '@ruimte/contracts';
+import { type LaunchConfigEntry, type LaunchesDocument } from '@ruimte/contracts';
 import { createNodeAction } from '@/actions/client-actions';
 import { chosenLaunch } from '@/launches/model';
 import { useLaunches, type LaunchOwner } from '@/launches/state';
+import { nodesOfView } from '@/project/view-nodes';
 import { revealNode } from '@/project/views';
 import { useDocument } from '@/state/document';
 import { endpointKey } from '@/state/keys';
@@ -191,10 +192,9 @@ export function openLaunchAddress(url: string): void {
             revealNode(view.id);
             return;
         }
-        if (!isCanvasView(view)) {
-            continue;
-        }
-        const node = view.nodes.find((candidate) => candidate.kind === 'browser' && typeof candidate.url === 'string' && originOf(candidate.url) === origin);
+        const node = nodesOfView(view).find(
+            (candidate) => candidate.kind === 'browser' && typeof candidate.url === 'string' && originOf(candidate.url) === origin
+        );
         if (node !== undefined) {
             revealNode(node.id);
             return;

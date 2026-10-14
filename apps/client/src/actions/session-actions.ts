@@ -3,7 +3,6 @@ import { ActionRefusal, type ActionCall, type ActionHandlers, type ActionOutput 
 import {
     CHAT_FORK_TITLE_MAX,
     clipText,
-    isCanvasView,
     type AgentKind,
     type ChatForkResult,
     type ChatInfo,
@@ -23,6 +22,7 @@ import { agentsEndedWith } from '@/agents/end-children';
 import { forkRefusal, lastSettledTurn, summaryRefusal, recentSubagentMessages, stopOf, subagentTitle } from '@adecore/agents-react/chat';
 import { readNodeHost, updateHost, type NodeHost } from '@/nodes/node-host';
 import { PlanClient } from '@/plan/plan-client';
+import { nodesOfView } from '@/project/view-nodes';
 import { showViewWhenItLands } from '@/project/views';
 import { revealWhenItLands } from '@/state/canvas';
 import { useChats, type ChatState, providersOf } from '@adecore/agents-react/state';
@@ -114,17 +114,14 @@ const LIVE_MACHINE: SessionMachine = {
     }
 };
 
-/* Read from the exported views, so a node on any canvas on screen counts with what its editor holds. */
 export function sessionTitle(document: StoreApi<DocumentState>, id: string, kind: 'chat' | 'terminal'): string | null {
-    for (const view of document.getState().exportViews()) {
+    for (const view of document.getState().views) {
         if (view.kind === kind && view.id === id) {
             return view.name;
         }
-        if (isCanvasView(view)) {
-            const node = view.nodes.find((candidate) => candidate.id === id && candidate.kind === kind);
-            if (node) {
-                return node.title;
-            }
+        const node = nodesOfView(view).find((candidate) => candidate.id === id && candidate.kind === kind);
+        if (node) {
+            return node.title;
         }
     }
     return null;

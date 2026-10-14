@@ -6,6 +6,7 @@ import { ChevronDown, ChevronsDownUp, ChevronsUpDown, Copy, LockOpen, MoreHorizo
 import type { Plan } from '@ruimte/contracts';
 import { allSteps, effectiveChecks } from '@adecore/plan';
 import { forkOriginIn } from '@/chat/fork-origin';
+import { useViewNodes } from '@/project/view-nodes';
 import { hasOverlayControls } from '@/desktop/bridge';
 import { ActiveStepButton } from '@/plan/ActiveStepButton';
 import {
@@ -35,7 +36,6 @@ import {
     SectionLabel
 } from '@adecore/ui';
 import { useInstantWidth } from '@/shell/useInstantWidth';
-import { useDocument } from '@/state/document';
 import { useEndpointId } from '@/state/keys';
 import { useChatPlans } from '@/state/plans';
 import { useShownPanel, useUi } from '@/state/ui';
@@ -114,7 +114,7 @@ export function PlanPanel() {
 
 function PlanHeader({ endpointId, chatId, plans, plan, inset }: { endpointId: string; chatId: string; plans: readonly Plan[]; plan: Plan; inset: boolean }) {
     const { t } = useTranslation('shell');
-    const title = useDocument((s) => forkOriginIn(s.views, chatId)?.title ?? null);
+    const title = useViewNodes((views, nodesOf) => forkOriginIn(views, nodesOf, chatId)?.title ?? null);
     const index = plans.findIndex((entry) => entry.id === plan.id);
     const results = resultsText(plan);
     const filter = usePlanViewPrefs((s) => s.filter);

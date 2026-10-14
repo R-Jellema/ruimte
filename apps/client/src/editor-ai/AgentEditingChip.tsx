@@ -12,7 +12,7 @@ import { useProviderName } from './use-chat-identity';
 export function AgentEditingChip({ writer }: { writer: LiveWriter }) {
     const { t } = useTranslation('panels');
     const source = useSidebarSource();
-    const chat = chooserChats(source).find((candidate) => candidate.id === writer.chatId);
+    const chat = chooserChats(source.views, source.nodesOf).find((candidate) => candidate.id === writer.chatId);
     const provider = chat?.provider ?? null;
     const name = useProviderName(provider ?? undefined);
 

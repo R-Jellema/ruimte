@@ -8,7 +8,7 @@ function chat(patch: Partial<SidebarCanvasNode> = {}): SidebarCanvasNode {
 const views: SidebarSource['views'] = [];
 
 function source(nodes: SidebarCanvasNode[]): SidebarSource {
-    return { views, activeViewId: null, openViewIds: [], canvases: { canvas: nodes } };
+    return { views, activeViewId: null, openViewIds: [], nodes: { canvas: nodes }, nodesOf: () => nodes };
 }
 
 describe('the sidebar source', () => {

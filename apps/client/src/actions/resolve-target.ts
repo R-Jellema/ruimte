@@ -4,7 +4,8 @@ import type { StoreApi } from 'zustand';
 import { projectAgents } from '@/actions/inspection-actions';
 import { listedProjects } from '@/actions/project-actions';
 import { sightOf, visibleNodes } from '@/state/attention';
-import { focusedCanvas, liveCanvas, type CanvasState } from '@/state/canvas';
+import { nodesOfView } from '@/project/view-nodes';
+import { focusedCanvas, type CanvasState } from '@/state/canvas';
 import { activeViewOf, type DocumentState } from '@/state/document';
 
 type Resolved = ActionOutput<'target.resolve'>;
@@ -134,9 +135,9 @@ export function resolveTarget(document: StoreApi<DocumentState>, input: ActionIn
             if (!isCanvasView(view)) {
                 return [];
             }
-            const live = liveCanvas(view.id);
-            const nodes = live === null ? view.nodes : Object.values(live.nodes);
-            return nodes.filter((node) => node.kind === 'chat').map((node) => nodeTarget(node, view));
+            return nodesOfView(view)
+                .filter((node) => node.kind === 'chat')
+                .map((node) => nodeTarget(node, view));
         });
         return byName(target, names, (name) => named(name, chats));
     }

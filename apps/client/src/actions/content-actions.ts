@@ -22,6 +22,7 @@ import { fitTextBox } from '@/drawing/measure';
 import { locateView } from '@/shell/split';
 import { liveCanvas, nextId, type CanvasState } from '@/state/canvas';
 import { defaultDiagrams, type DiagramState } from '@/state/diagram';
+import { nodesOfView } from '@/project/view-nodes';
 import type { DocumentState } from '@/state/document';
 import { defaultDrawings, DUPLICATE_OFFSET, isWritten, newSeed, withStyle, type DrawingState, type DrawingStyle } from '@/state/drawing';
 import { plural } from '@/actions/words';
@@ -214,14 +215,11 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
     const diagram = (viewId: string) => editorOf<DiagramState>(document, viewId, 'diagram', (id) => defaultDiagrams.peek(id));
 
     const noteOf = (viewId: string, nodeId: string) => {
-        const view = document
-            .getState()
-            .exportViews()
-            .find((candidate) => candidate.id === viewId);
+        const view = document.getState().views.find((candidate) => candidate.id === viewId);
         if (!view || !isCanvasView(view)) {
             throw new ActionRefusal('unknown-view', `No canvas view with id “${viewId}” exists in this project.`);
         }
-        const node = view.nodes.find((candidate) => candidate.id === nodeId);
+        const node = nodesOfView(view).find((candidate) => candidate.id === nodeId);
         if (!node) {
             throw new ActionRefusal('unknown-node', `No node with id “${nodeId}” exists on “${view.name}”.`);
         }

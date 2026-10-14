@@ -14,7 +14,7 @@ export interface ChatIdentity {
 export function useChatIdentity(chatId: string): ChatIdentity {
     const source = useSidebarSource();
     return useMemo(() => {
-        const chat = chooserChats(source).find((candidate) => candidate.id === chatId);
+        const chat = chooserChats(source.views, source.nodesOf).find((candidate) => candidate.id === chatId);
         return { exists: chat !== undefined, title: chat?.title ?? null };
     }, [source, chatId]);
 }

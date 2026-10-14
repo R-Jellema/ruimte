@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { ProjectView, SplitLayout } from '@ruimte/contracts';
+import { nodesOfView } from '@/project/view-nodes';
 import { chatsOpenHere, chooserChats, chooserSections } from './chat-chooser';
 
 const chatNode = (id: string, title: string, provider?: 'claude' | 'codex') => ({
@@ -38,7 +39,7 @@ const layoutOf = (...viewIds: string[]): SplitLayout =>
 
 describe('the chats the chooser lists', () => {
     test('are the chat nodes and chat views with their agent, and leave out an empty chat nobody wrote in and the chat an inline edit runs in', () => {
-        expect(chooserChats({ views, canvases: {} })).toEqual([
+        expect(chooserChats(views, nodesOfView)).toEqual([
             { id: 'matcher', title: 'Matcher V2', provider: 'claude' },
             { id: 'ui', title: 'UI', provider: 'codex' },
             { id: 'general', title: 'Algemeen', provider: 'claude' },
@@ -47,20 +48,24 @@ describe('the chats the chooser lists', () => {
     });
 
     test('take the names a live canvas has now', () => {
-        const canvases = { main: [{ id: 'matcher', kind: 'chat', title: 'Matcher V3', provider: 'claude' as const }] };
-        expect(chooserChats({ views, canvases } as never)[0]).toEqual({ id: 'matcher', title: 'Matcher V3', provider: 'claude' });
+        const live = [{ id: 'matcher', kind: 'chat' as const, title: 'Matcher V3', provider: 'claude' as const }];
+        expect(chooserChats(views, (view) => (view.id === 'main' ? live : nodesOfView(view)))[0]).toEqual({
+            id: 'matcher',
+            title: 'Matcher V3',
+            provider: 'claude'
+        });
     });
 });
 
 describe('the chats open here', () => {
     test('are the chat views and the chat nodes of the canvases in a cell', () => {
-        expect([...chatsOpenHere(views, layoutOf('main', 'notes'), {})].sort()).toEqual(['matcher', 'notes', 'ui']);
-        expect([...chatsOpenHere(views, null, {})]).toEqual([]);
+        expect([...chatsOpenHere(views, nodesOfView, layoutOf('main', 'notes'))].sort()).toEqual(['matcher', 'notes', 'ui']);
+        expect([...chatsOpenHere(views, nodesOfView, null)]).toEqual([]);
     });
 });
 
 describe('the sections of the chooser', () => {
-    const chats = chooserChats({ views, canvases: {} });
+    const chats = chooserChats(views, nodesOfView);
 
     test('put the linked chats first in the order of their lines, then the open ones, then the rest', () => {
         const sections = chooserSections(chats, ['ui', 'matcher'], new Set(['matcher', 'notes']));

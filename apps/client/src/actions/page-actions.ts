@@ -1,11 +1,11 @@
 import { ActionRefusal, type ActionHandlers, type ActionOutput } from '@ruimte/actions';
-import { isCanvasView } from '@ruimte/contracts';
 import type { StoreApi } from 'zustand';
 import { pageStateOf } from '@/browser/page-hold';
 import { browserRouteAvailable } from '@/browser/owner-route';
 import { browserRegistry, normalizeUrl, useBrowser, type BrowserState } from '@/browser/registry';
 import { isDesktop } from '@/desktop/bridge';
 import { readNodeHost, updateHost } from '@/nodes/node-host';
+import { nodesOfView } from '@/project/view-nodes';
 import type { DocumentState } from '@/state/document';
 import { currentEndpointId, endpointKey } from '@/state/keys';
 import { browserClientFor } from '@/transport/connections';
@@ -75,15 +75,13 @@ export function pageActions(document: StoreApi<DocumentState>, overrides: Partia
     const machine: PageMachine = { ...LIVE_MACHINE, ...overrides };
 
     const browserOf = (nodeId: string): { title: string; url: string; browserOwner?: string } => {
-        for (const view of document.getState().exportViews()) {
+        for (const view of document.getState().views) {
             if (view.kind === 'browser' && view.id === nodeId) {
                 return { title: view.name ?? nodeId, url: view.url ?? '', browserOwner: view.browserOwner };
             }
-            if (isCanvasView(view)) {
-                const node = view.nodes.find((candidate) => candidate.id === nodeId);
-                if (node?.kind === 'browser') {
-                    return { title: node.title, url: node.url ?? '', browserOwner: node.browserOwner };
-                }
+            const node = nodesOfView(view).find((candidate) => candidate.id === nodeId);
+            if (node?.kind === 'browser') {
+                return { title: node.title, url: node.url ?? '', browserOwner: node.browserOwner };
             }
         }
         throw new ActionRefusal('not-a-browser', `No browser node or view with id “${nodeId}” exists in this project.`);

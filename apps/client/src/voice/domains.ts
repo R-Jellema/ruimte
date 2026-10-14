@@ -1,5 +1,6 @@
 import { ACTION_DOMAINS, type ActionDomain } from '@ruimte/actions';
-import { isCanvasView, type ProjectView } from '@ruimte/contracts';
+import type { ProjectNode, ProjectView } from '@ruimte/contracts';
+import { nodesOfView, type NodesOfView } from '@/project/view-nodes';
 import { useDocument } from '@/state/document';
 import { useProject } from '@/state/project';
 import { windowWorkspace } from '@/state/window';
@@ -42,8 +43,8 @@ export function voiceDomainsFor(facts: VoiceProjectFacts): ActionDomain[] {
 }
 
 /* The kinds a project holds, as views and as nodes on its canvases. */
-export function kindsIn(views: readonly ProjectView[]): Set<string> {
-    return new Set(views.flatMap((view) => [view.kind, ...(isCanvasView(view) ? view.nodes.map((node) => node.kind) : [])]));
+export function kindsIn(views: readonly ProjectView[], nodesOf: NodesOfView<Pick<ProjectNode, 'kind'>>): Set<string> {
+    return new Set(views.flatMap((view) => [view.kind, ...nodesOf(view).map((node) => node.kind)]));
 }
 
 /* A machine from before `git.repos` still has the folder, which the git panel then shows as its one repository. */
@@ -60,7 +61,7 @@ async function hasRepository(folder: string): Promise<boolean> {
 
 /* The domains for a session that starts now; the list stays as it is for the whole session. */
 export async function currentVoiceDomains(): Promise<ActionDomain[]> {
-    const kinds = kindsIn(useDocument.getState().exportViews());
+    const kinds = kindsIn(useDocument.getState().views, nodesOfView);
     const folder = useProject.getState().current?.folder ?? null;
     return voiceDomainsFor({
         sessions: kinds.has('chat') || kinds.has('terminal'),

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { GitIssue, ProjectView } from '@ruimte/contracts';
+import { nodesOfView } from '@/project/view-nodes';
 import { findIssueNode, issueBranch, issuePrompt } from './issue-start';
 
 const issue: GitIssue = {
@@ -50,13 +51,13 @@ describe('findIssueNode', () => {
     } as unknown as ProjectView;
 
     test('finds the node of this issue in this folder and none for another folder', () => {
-        expect(findIssueNode([canvas], issue.url, '/wt/two')).toBe('b');
-        expect(findIssueNode([canvas], issue.url, '/wt/three')).toBeNull();
-        expect(findIssueNode([canvas], 'https://github.com/o/r/issues/13', '/wt/one')).toBeNull();
+        expect(findIssueNode([canvas], nodesOfView, issue.url, '/wt/two')).toBe('b');
+        expect(findIssueNode([canvas], nodesOfView, issue.url, '/wt/three')).toBeNull();
+        expect(findIssueNode([canvas], nodesOfView, 'https://github.com/o/r/issues/13', '/wt/one')).toBeNull();
     });
 
     test('finds the first node of the issue when no folder is named', () => {
-        expect(findIssueNode([canvas], issue.url)).toBe('a');
-        expect(findIssueNode([canvas], 'https://github.com/o/r/issues/13')).toBeNull();
+        expect(findIssueNode([canvas], nodesOfView, issue.url)).toBe('a');
+        expect(findIssueNode([canvas], nodesOfView, 'https://github.com/o/r/issues/13')).toBeNull();
     });
 });

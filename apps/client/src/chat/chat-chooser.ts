@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { create } from 'zustand';
-import { isCanvasView, type AgentKind, type ProjectView, type SplitLayout } from '@ruimte/contracts';
-import { useSidebarSource, type SidebarSource } from '@/shell/sidebar-source';
+import { isCanvasView, type AgentKind, type ProjectNode, type ProjectView, type SplitLayout } from '@ruimte/contracts';
+import type { NodesOfView } from '@/project/view-nodes';
+import { useSidebarSource } from '@/shell/sidebar-source';
 import { viewIdsIn } from '@/shell/split';
 import { useDocument } from '@/state/document';
 import type { SelectionOffer } from '@/chat/selection-to-chat';
@@ -20,17 +21,18 @@ export interface ChooserSections {
     readonly others: readonly ChooserChat[];
 }
 
+/* What the chooser reads of a node. */
+export type ChooserNode = Pick<ProjectNode, 'id' | 'kind' | 'title' | 'provider'>;
+
 /* Every chat of the project with the CLI it runs, node or view, in sidebar order. */
-export function chooserChats(source: Pick<SidebarSource, 'views' | 'canvases'>): ChooserChat[] {
-    return source.views.flatMap((view): ChooserChat[] => {
+export function chooserChats(views: readonly ProjectView[], nodesOf: NodesOfView<ChooserNode>): ChooserChat[] {
+    return views.flatMap((view): ChooserChat[] => {
         if (view.kind === 'chat') {
             return view.empty === true || view.hidden === true ? [] : [{ id: view.id, title: view.name, provider: view.node.provider ?? null }];
         }
-        if (!isCanvasView(view)) {
-            return [];
-        }
-        const nodes = source.canvases[view.id] ?? view.nodes;
-        return nodes.filter((node) => node.kind === 'chat').map((node) => ({ id: node.id, title: node.title, provider: node.provider ?? null }));
+        return nodesOf(view)
+            .filter((node) => node.kind === 'chat')
+            .map((node) => ({ id: node.id, title: node.title, provider: node.provider ?? null }));
     });
 }
 
@@ -38,7 +40,7 @@ export function chooserChats(source: Pick<SidebarSource, 'views' | 'canvases'>):
  * The chats a person can see right now: a chat view in a cell, or a chat node on a canvas in a cell.
  * A canvas that is in a cell but panned away still counts, since it is one tap from the screen.
  */
-export function chatsOpenHere(views: readonly ProjectView[], layout: SplitLayout | null, canvases: SidebarSource['canvases']): Set<string> {
+export function chatsOpenHere(views: readonly ProjectView[], nodesOf: NodesOfView<Pick<ProjectNode, 'id' | 'kind'>>, layout: SplitLayout | null): Set<string> {
     const inCells = new Set(layout === null ? [] : viewIdsIn(layout));
     const open = new Set<string>();
     for (const view of views) {
@@ -48,7 +50,7 @@ export function chatsOpenHere(views: readonly ProjectView[], layout: SplitLayout
         if (view.kind === 'chat') {
             open.add(view.id);
         } else if (isCanvasView(view)) {
-            for (const node of canvases[view.id] ?? view.nodes) {
+            for (const node of nodesOf(view)) {
                 if (node.kind === 'chat') {
                     open.add(node.id);
                 }
@@ -74,7 +76,10 @@ export function chooserSections(chats: readonly ChooserChat[], linkedIds: readon
 export function useChooserSections(linkedIds: readonly string[]): ChooserSections {
     const source = useSidebarSource();
     const layout = useDocument((s) => s.layout);
-    return useMemo(() => chooserSections(chooserChats(source), linkedIds, chatsOpenHere(source.views, layout, source.canvases)), [source, layout, linkedIds]);
+    return useMemo(
+        () => chooserSections(chooserChats(source.views, source.nodesOf), linkedIds, chatsOpenHere(source.views, source.nodesOf, layout)),
+        [source, layout, linkedIds]
+    );
 }
 
 interface ChatChooserState {

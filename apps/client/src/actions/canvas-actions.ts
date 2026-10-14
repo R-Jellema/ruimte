@@ -7,6 +7,7 @@ import { LOCK_KEYS } from '@/canvas/locks';
 import { centerOf } from '@adecore/drawing';
 import { nearestFreeNodeRect } from '@/canvas/place-node';
 import { nodeDeletionFacts, saveNodeFiles, type ViewDeletionMachine } from '@/project/view-deletion';
+import { nodesOfView } from '@/project/view-nodes';
 import { basenameOf } from '@/shell/panels/files-tree';
 import { liveCanvas, NODE_SIZE, type AddNodeOptions, type CanvasState, type Locks, type NodeKind } from '@/state/canvas';
 import { liveDiagram } from '@/state/diagram';
@@ -39,14 +40,11 @@ export interface CanvasReach {
 
 /* A name needs no editor, so a rename also reaches a canvas on no cell, through the view the document keeps. */
 function nodeToName(document: StoreApi<DocumentState>, viewId: string, nodeId: string): ProjectNode | undefined {
-    const view = document
-        .getState()
-        .exportViews()
-        .find((candidate) => candidate.id === viewId);
+    const view = document.getState().views.find((candidate) => candidate.id === viewId);
     if (!view || !isCanvasView(view)) {
         throw new ActionRefusal('unknown-view', `No canvas view with id “${viewId}” exists in this project.`);
     }
-    return view.nodes.find((node) => node.id === nodeId);
+    return nodesOfView(view).find((node) => node.id === nodeId);
 }
 
 function addNodeInFreeSpace(canvas: CanvasState, kind: NodeKind, options: AddNodeOptions): string | null {
@@ -422,7 +420,7 @@ export function canvasActions(document: StoreApi<DocumentState>, reach: CanvasRe
             document.getState().moveNodeToView(nodeId, targetViewId);
             const landed = document
                 .getState()
-                .views.some((candidate) => candidate.id === targetViewId && isCanvasView(candidate) && candidate.nodes.some((each) => each.id === nodeId));
+                .views.some((candidate) => candidate.id === targetViewId && nodesOfView(candidate).some((each) => each.id === nodeId));
             if (!landed) {
                 throw new ActionRefusal('node-move-failed', `Ruimte could not move “${node.title}” to “${target.name}”.`);
             }

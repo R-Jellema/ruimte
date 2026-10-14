@@ -1,5 +1,6 @@
 import i18next from 'i18next';
 import { ignoreRefusal, perform } from '@/actions/client-actions';
+import { nodesOfView } from '@/project/view-nodes';
 import { revealNode, showView } from '@/project/views';
 import { useDocument } from '@/state/document';
 import { useProject } from '@/state/project';
@@ -15,7 +16,7 @@ export const openSidebarTarget = sidebarNavigator({
     current: () => ({ endpointId: useProject.getState().currentEndpointId, projectId: useProject.getState().current?.projectId ?? null }),
     reveal(target) {
         const view = useDocument.getState().views.find((view) => view.id === target.viewId);
-        const found = view && (!target.nodeId || target.nodeId === view.id || (view.kind === 'canvas' && view.nodes.some((node) => node.id === target.nodeId)));
+        const found = view && (!target.nodeId || target.nodeId === view.id || nodesOfView(view).some((node) => node.id === target.nodeId));
         if (!found) {
             useToasts.getState().show({ kind: 'error', title: i18next.t('shell:sidebar.targetGone') });
             return;

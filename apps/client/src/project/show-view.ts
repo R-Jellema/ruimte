@@ -1,21 +1,20 @@
 import i18next from 'i18next';
-import { isCanvasView, type ProjectView } from '@ruimte/contracts';
+import type { ProjectNode, ProjectView } from '@ruimte/contracts';
+import type { NodesOfView } from '@/project/view-nodes';
 
 /*
  * What to call the caller, out of the document this client already has: the title of its node, or
  * the name of the view when it is a session of its own. The event carries an id and never a title,
  * so this is the client's own lookup and it answers null for an id it has not heard of yet.
  */
-export function callerName(views: readonly ProjectView[], by: string): string | null {
+export function callerName(views: readonly ProjectView[], nodesOf: NodesOfView<Pick<ProjectNode, 'id' | 'title'>>, by: string): string | null {
     for (const view of views) {
         if (view.id === by) {
             return view.name ?? null;
         }
-        if (isCanvasView(view)) {
-            const node = view.nodes.find((candidate) => candidate.id === by);
-            if (node) {
-                return node.title;
-            }
+        const node = nodesOf(view).find((candidate) => candidate.id === by);
+        if (node) {
+            return node.title;
         }
     }
     return null;

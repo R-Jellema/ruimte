@@ -1,9 +1,10 @@
 import { useEffect, useMemo } from 'react';
 import { create } from 'zustand';
-import { isCanvasView, type CanvasNodeKind, type Worktree } from '@ruimte/contracts';
+import { shallow } from 'zustand/shallow';
+import { type CanvasNodeKind, type Worktree } from '@ruimte/contracts';
+import { useViewNodes } from '@/project/view-nodes';
 import { worktreeOfPath } from '@/shell/panels/worktree-rows';
 import { membersOf, useCanvas } from '@/state/canvas';
-import { useDocument } from '@/state/document';
 import { endpointKey, useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { useOptionalConnection } from '@/transport/context';
@@ -176,16 +177,9 @@ export interface WorktreeNode {
     cwd?: string;
 }
 
-/* The nodes of every canvas of the project, with the canvas on screen as it is now rather than as last saved. */
-export function useProjectNodes(): WorktreeNode[] {
-    const nodes = useCanvas((s) => s.nodes);
-    const views = useDocument((s) => s.views);
-    return useMemo<WorktreeNode[]>(() => {
-        const live = Object.values(nodes);
-        const liveIds = new Set(live.map((node) => node.id));
-        const saved = views.flatMap((view) => (isCanvasView(view) ? view.nodes.filter((node) => !liveIds.has(node.id)) : []));
-        return [...live, ...saved];
-    }, [nodes, views]);
+/* The nodes of every canvas of the project, with every canvas on screen as it is now rather than as last saved. */
+export function useProjectNodes(): readonly WorktreeNode[] {
+    return useViewNodes((views, nodesOf) => views.flatMap(nodesOf), shallow);
 }
 
 /*

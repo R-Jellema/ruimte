@@ -1,5 +1,6 @@
-import { isCanvasView, type ProjectView, type SessionInfo } from '@ruimte/contracts';
+import { isCanvasView, type ProjectNode, type ProjectView, type SessionInfo } from '@ruimte/contracts';
 import { focusNodeAction, focusViewAction } from '@/actions/client-actions';
+import { nodesOfView, type NodesOfView } from '@/project/view-nodes';
 import { liveCanvas } from '@/state/canvas';
 import { useDocument } from '@/state/document';
 import { endpointById, useEndpoints } from '@/state/endpoints';
@@ -9,10 +10,10 @@ import { endpointKey } from '@/state/keys';
 import { useWindow, windowWorkspace } from '@/state/window';
 import { focusTerminal } from './registry';
 
-function destinations(views: readonly ProjectView[]): Map<string, { viewId: string; canvas: boolean; signature: string }> {
+function destinations(views: readonly ProjectView[], nodesOf: NodesOfView<ProjectNode>): Map<string, { viewId: string; canvas: boolean; signature: string }> {
     const entries = new Map<string, { viewId: string; canvas: boolean; signature: string }>();
     for (const view of views) {
-        const nodes = isCanvasView(view) ? view.nodes : view.kind === 'terminal' ? [{ id: view.id, kind: view.kind, ...view.node }] : [];
+        const nodes = isCanvasView(view) ? nodesOf(view) : view.kind === 'terminal' ? [{ id: view.id, kind: view.kind, ...view.node }] : [];
         for (const node of nodes) {
             if (node.kind === 'terminal') {
                 entries.set(node.id, {
@@ -37,7 +38,7 @@ export function prepareDestination(endpointId: string, machineId: string) {
     }
     const projectId = project.projectId;
     const { transport, sessions } = workspace.connection;
-    const targets = destinations(useDocument.getState().exportViews());
+    const targets = destinations(useDocument.getState().views, nodesOfView);
     const restarts = useSessions.getState().restarts;
     const releases: Array<() => void> = [];
     const subscriptions: Array<() => void> = [];
@@ -70,7 +71,7 @@ export function prepareDestination(endpointId: string, machineId: string) {
             dispose();
             return;
         }
-        const now = destinations(useDocument.getState().exportViews());
+        const now = destinations(useDocument.getState().views, nodesOfView);
         for (const [id, target] of targets) {
             const key = endpointKey(endpointId, id);
             if (

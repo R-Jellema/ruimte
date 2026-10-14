@@ -1,10 +1,11 @@
 import i18next from 'i18next';
 import type { StoreApi } from 'zustand';
-import { isCanvasView, resolveStoredPath } from '@ruimte/contracts';
+import { resolveStoredPath } from '@ruimte/contracts';
 import { deleteNodesAction } from '@/actions/client-actions';
 import { askBeforeEndingAgents, type PendingEnd } from '@/agents/end-children';
 import { closeAfterSaving } from '@/shell/panels/unsaved-close';
 import { worktreesLeftBy } from '@/shell/panels/worktree-rows';
+import { nodesOfView } from '@/project/view-nodes';
 import { useDocument } from '@/state/document';
 import { currentEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
@@ -42,7 +43,7 @@ export function deleteSelectionAsking(
             ...Object.values(nodes).filter((node) => !goingIds.has(node.id)),
             ...useDocument
                 .getState()
-                .views.flatMap((view) => (isCanvasView(view) ? view.nodes : []))
+                .views.flatMap(nodesOfView)
                 .filter((node) => nodes[node.id] === undefined)
         ];
         return {
