@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AgentInfoSchema, AgentKindSchema, ApprovalRequestSchema } from './agent.ts';
+import { AgentInfoSchema, AgentKindSchema } from './agent.ts';
 import { SessionIdSchema } from './ids.ts';
 import { RuntimeModeSchema } from './model.ts';
 import { ProviderAccountIdSchema } from './provider-accounts.ts';
@@ -34,8 +34,6 @@ export const SessionInfoSchema = z.object({
     exitCode: z.number().int().optional(),
     // The agent CLI last seen in this shell, if any.
     agent: AgentInfoSchema.nullable().optional(),
-    // No daemon fills this in any more: a terminal's CLI asks on its own screen.
-    approvals: z.array(ApprovalRequestSchema).optional(),
     // A command from a project file that no person on this machine approved yet: the shell started
     // without it, and `session.runHeld` types it. A client that does not know the field shows a bare shell.
     heldCommand: z.string().optional(),

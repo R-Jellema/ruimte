@@ -30,8 +30,6 @@ export const EndpointInfoSchema = z.object({
     // Lets `ruimte-context view delete` remove views an agent did not make. Enforced by the daemon, so it
     // lives in `endpoint.json`, not in a client's settings. Absent reads as false.
     agentsDeleteAnyView: z.boolean().optional(),
-    // Turns away every statement from the address book. Kept in `endpoint.json`.
-    refuseStatements: z.boolean().optional(),
     // Browser pages and device screens. Absent reads as true: an older daemon allowed browser streaming.
     streamingAllowed: z.boolean().optional(),
     // Lets a chat that stopped on a limit resume on a clock when its own switch allows. Absent reads as false.
@@ -138,8 +136,6 @@ export type EndpointSettings = z.infer<typeof EndpointSettingsSchema>;
 export const EndpointSetIdentityPayloadSchema = z.object({
     name: z.string().min(1).max(80).nullable(),
     icon: ProjectIconChoiceSchema.nullable(),
-    // No daemon reads it.
-    refuseStatements: z.boolean().optional(),
     ...EndpointSettingsSchema.shape
 });
 export type EndpointSetIdentityPayload = z.infer<typeof EndpointSetIdentityPayloadSchema>;
@@ -150,7 +146,6 @@ export const EndpointChangedEventSchema = z.object({
     nameSource: EndpointNameSourceSchema,
     icon: ProjectIconChoiceSchema.nullable(),
     agentsDeleteAnyView: z.boolean().optional(),
-    refuseStatements: z.boolean().optional(),
     streamingAllowed: z.boolean().optional(),
     resumeAtReset: z.boolean().optional(),
     visualReplies: z.boolean().optional(),

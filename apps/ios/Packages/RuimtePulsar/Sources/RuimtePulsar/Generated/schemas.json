@@ -5181,9 +5181,6 @@
           "agentsDeleteAnyView": {
             "type": "boolean"
           },
-          "refuseStatements": {
-            "type": "boolean"
-          },
           "streamingAllowed": {
             "type": "boolean"
           },
@@ -5807,74 +5804,6 @@
             "type": "null"
           }
         ]
-      },
-      "approvals": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "requestId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "sessionId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "toolName": {
-              "type": "string",
-              "minLength": 1
-            },
-            "summary": {
-              "type": "string"
-            },
-            "choices": {
-              "minItems": 1,
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "id": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "kind": {
-                    "type": "string",
-                    "enum": [
-                      "allow",
-                      "remember",
-                      "deny"
-                    ]
-                  },
-                  "label": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                },
-                "required": [
-                  "id",
-                  "kind",
-                  "label"
-                ]
-              }
-            },
-            "createdAt": {
-              "type": "number"
-            },
-            "expiresAt": {
-              "type": "number"
-            }
-          },
-          "required": [
-            "requestId",
-            "sessionId",
-            "toolName",
-            "summary",
-            "choices",
-            "createdAt",
-            "expiresAt"
-          ]
-        }
       },
       "heldCommand": {
         "type": "string"
@@ -6679,74 +6608,6 @@
                 }
               ]
             },
-            "approvals": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "requestId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "sessionId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "toolName": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "summary": {
-                    "type": "string"
-                  },
-                  "choices": {
-                    "minItems": 1,
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "kind": {
-                          "type": "string",
-                          "enum": [
-                            "allow",
-                            "remember",
-                            "deny"
-                          ]
-                        },
-                        "label": {
-                          "type": "string",
-                          "minLength": 1
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "kind",
-                        "label"
-                      ]
-                    }
-                  },
-                  "createdAt": {
-                    "type": "number"
-                  },
-                  "expiresAt": {
-                    "type": "number"
-                  }
-                },
-                "required": [
-                  "requestId",
-                  "sessionId",
-                  "toolName",
-                  "summary",
-                  "choices",
-                  "createdAt",
-                  "expiresAt"
-                ]
-              }
-            },
             "heldCommand": {
               "type": "string"
             },
@@ -7159,74 +7020,6 @@
             "type": "null"
           }
         ]
-      },
-      "approvals": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "requestId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "sessionId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "toolName": {
-              "type": "string",
-              "minLength": 1
-            },
-            "summary": {
-              "type": "string"
-            },
-            "choices": {
-              "minItems": 1,
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "id": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "kind": {
-                    "type": "string",
-                    "enum": [
-                      "allow",
-                      "remember",
-                      "deny"
-                    ]
-                  },
-                  "label": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                },
-                "required": [
-                  "id",
-                  "kind",
-                  "label"
-                ]
-              }
-            },
-            "createdAt": {
-              "type": "number"
-            },
-            "expiresAt": {
-              "type": "number"
-            }
-          },
-          "required": [
-            "requestId",
-            "sessionId",
-            "toolName",
-            "summary",
-            "choices",
-            "createdAt",
-            "expiresAt"
-          ]
-        }
       },
       "heldCommand": {
         "type": "string"
@@ -49211,9 +49004,6 @@
       "agentsDeleteAnyView": {
         "type": "boolean"
       },
-      "refuseStatements": {
-        "type": "boolean"
-      },
       "streamingAllowed": {
         "type": "boolean"
       },
@@ -49703,9 +49493,6 @@
           }
         ]
       },
-      "refuseStatements": {
-        "type": "boolean"
-      },
       "agentsDeleteAnyView": {
         "type": "boolean"
       },
@@ -50011,9 +49798,6 @@
         ]
       },
       "agentsDeleteAnyView": {
-        "type": "boolean"
-      },
-      "refuseStatements": {
         "type": "boolean"
       },
       "streamingAllowed": {
@@ -50597,9 +50381,6 @@
         ]
       },
       "agentsDeleteAnyView": {
-        "type": "boolean"
-      },
-      "refuseStatements": {
         "type": "boolean"
       },
       "streamingAllowed": {
@@ -51332,9 +51113,6 @@
         ]
       },
       "agentsDeleteAnyView": {
-        "type": "boolean"
-      },
-      "refuseStatements": {
         "type": "boolean"
       },
       "streamingAllowed": {
@@ -60318,9 +60096,6 @@
         ]
       },
       "agentsDeleteAnyView": {
-        "type": "boolean"
-      },
-      "refuseStatements": {
         "type": "boolean"
       },
       "streamingAllowed": {
