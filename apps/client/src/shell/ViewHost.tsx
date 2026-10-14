@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isCanvasView, isDatabaseView, isFileView, type ProjectView } from '@ruimte/contracts';
 import { isLooseView, type CellView } from '@/shell/cell-view';
@@ -18,7 +18,7 @@ import { FileSurface } from '@/shell/panels/FileSurface';
 import { useDocument } from '@/state/document';
 import { isScratchProject, useProject } from '@/state/project';
 import { useFiles } from '@/state/files';
-import { ErrorBoundary, lazyNamed } from '@adecore/ui';
+import { ErrorBoundary, lazyNamed, LazyBoundary } from '@adecore/ui';
 
 const DrawingView = lazyNamed(() => import('@/drawing/DrawingView'), 'DrawingView');
 const DiagramView = lazyNamed(() => import('@/diagram/DiagramView'), 'DiagramView');
@@ -47,14 +47,14 @@ function StandaloneView({ view }: { view: ProjectView }) {
             {view.kind === 'browser' && <BrowserViewSurface id={view.id} />}
             {view.kind === 'device' && <DeviceBody id={view.id} />}
             {view.kind === 'drawing' && (
-                <Suspense fallback={null}>
+                <LazyBoundary>
                     <DrawingView id={view.id} />
-                </Suspense>
+                </LazyBoundary>
             )}
             {view.kind === 'diagram' && (
-                <Suspense fallback={null}>
+                <LazyBoundary>
                     <DiagramView id={view.id} />
-                </Suspense>
+                </LazyBoundary>
             )}
             {/* No column around it: prose centers itself at 768px inside its own renderer, and
                 code wants every pixel the window has. */}
@@ -117,9 +117,9 @@ export function ViewSurface({ view }: { view: CellView }) {
                 <FilesSurface tabKey={view.id} ids={[view.id]} />
             ) : isDatabaseView(view) ? (
                 <div className="absolute inset-0 bg-surface" onPointerDownCapture={() => useDocument.getState().setBodyFocused(true)}>
-                    <Suspense fallback={null}>
+                    <LazyBoundary>
                         <DatabaseViewBody view={view} />
-                    </Suspense>
+                    </LazyBoundary>
                 </div>
             ) : isCanvasView(view) ? (
                 <Canvas />

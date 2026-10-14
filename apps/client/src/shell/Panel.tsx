@@ -1,4 +1,4 @@
-import { Suspense, useState } from 'react';
+import { useState } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { usePanelGap } from '@/shell/panel-layout';
@@ -8,7 +8,7 @@ import { PanelHeaderProvider } from '@/shell/PanelHeaderSlot';
 import { FilesPanel } from '@/shell/panels/FilesPanel';
 import { ProcessesPanel } from '@/shell/panels/ProcessesPanel';
 import { DevicesPanel } from '@/shell/panels/DevicesPanel';
-import { clampColumnSize, ErrorBoundary, CloseButton, SlidingColumn, lazyNamed, PanelHeader, SectionLabel } from '@adecore/ui';
+import { clampColumnSize, ErrorBoundary, CloseButton, SlidingColumn, lazyNamed, PanelHeader, SectionLabel, LazyBoundary } from '@adecore/ui';
 import { useInstantWidth } from '@/shell/useInstantWidth';
 import { useShownPanel, useUi, type PanelKind } from '@/state/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
@@ -78,9 +78,9 @@ export function Panel() {
             </PanelHeader>
             <PanelHeaderProvider hosts={{ leading: leadingHeaderSlot, titleSignal, trailing: headerSlot }}>
                 <ErrorBoundary label={t('panel.failed')} resetKeys={[panel.kind]} className="min-h-0 grow">
-                    <Suspense fallback={<div className="min-h-0 grow" />}>
+                    <LazyBoundary fallback={<div className="min-h-0 grow" />}>
                         <PanelBody kind={panel.kind} />
-                    </Suspense>
+                    </LazyBoundary>
                 </ErrorBoundary>
             </PanelHeaderProvider>
         </SlidingColumn>

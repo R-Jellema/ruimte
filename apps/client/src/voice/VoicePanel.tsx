@@ -1,5 +1,4 @@
-import { Suspense } from 'react';
-import { clampColumnSize, SlidingColumn, lazyNamed } from '@adecore/ui';
+import { clampColumnSize, SlidingColumn, lazyNamed, LazyBoundary } from '@adecore/ui';
 import { useVoice } from '@/voice/state';
 import { usePanelGap } from '@/shell/panel-layout';
 
@@ -19,9 +18,9 @@ export function VoicePanel() {
 
     return (
         <SlidingColumn gap={gap} open={open} width={width} bounds={BOUNDS} onWidthChange={(next) => useVoice.getState().setWidth(next)}>
-            <Suspense fallback={null}>
+            <LazyBoundary>
                 <VoicePanelBody />
-            </Suspense>
+            </LazyBoundary>
         </SlidingColumn>
     );
 }

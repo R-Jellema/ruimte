@@ -1,5 +1,5 @@
 import i18next from 'i18next';
-import { Suspense, useEffect } from 'react';
+import { useEffect } from 'react';
 import { desktop } from '@/desktop/bridge';
 import { useAppShortcuts } from '@/shell/app-shortcuts';
 import { ALL_SETTINGS_SECTIONS } from '@/shell/settings/sections';
@@ -19,13 +19,10 @@ import { useUi, type SettingsSectionId } from '@/state/ui';
 import { startUpdates } from '@/state/updates';
 import { useWindow } from '@/state/window';
 import { ChatScopeProvider } from '@/transport/ChatScopeProvider';
-import { ErrorBoundary, ShortcutHints, UIProvider, lazyDialog, lazyNamed, prefetcher } from '@adecore/ui';
+import { ErrorBoundary, ShortcutHints, UIProvider, lazyDialog, lazyNamed, prefetcher, LazyBoundary } from '@adecore/ui';
 import { formatSource } from '@/format/source';
 
-function loadWorkspaceShell() {
-    return import('@/shell/WorkspaceShell');
-}
-const WorkspaceShell = lazyNamed(loadWorkspaceShell, 'WorkspaceShell');
+const WorkspaceShell = lazyNamed(() => import('@/shell/WorkspaceShell'), 'WorkspaceShell');
 const CommandPalette = lazyDialog(
     () => import('@/shell/CommandPalette'),
     'CommandPalette',
@@ -83,14 +80,14 @@ function WindowContent() {
     // The start screen is the first load, so the workspace follows only once that has painted.
     useEffect(() => {
         if (onStartScreen) {
-            void prefetcher.prefetch(loadWorkspaceShell);
+            void prefetcher.prefetch(WorkspaceShell.preload);
         }
     }, [onStartScreen]);
     if (content.kind === 'workspace') {
         return (
-            <Suspense fallback={<div className="h-full w-full bg-bg" />}>
+            <LazyBoundary fallback={<div className="h-full w-full bg-bg" />}>
                 <WorkspaceShell workspace={content.workspace} />
-            </Suspense>
+            </LazyBoundary>
         );
     }
     return (

@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
@@ -31,7 +31,7 @@ import { useServer } from '@/state/server';
 import { deviceClientFor } from '@/transport/connections';
 import { useEndpointConnection } from '@/transport/status';
 import { EMPTY_DEVICE_LIST, useDevices } from '@/devices/state';
-import { ButtonGroup, Icon, IconButton, ListRow, PanelEmpty, Menu, ErrorBoundary, ContextMenu, Popover, lazyNamed } from '@adecore/ui';
+import { ButtonGroup, Icon, IconButton, ListRow, PanelEmpty, Menu, ErrorBoundary, ContextMenu, Popover, lazyNamed, LazyBoundary } from '@adecore/ui';
 import { SignInMark } from '@/ui/SignInMark';
 import { failed } from '@/shell/surface-failure';
 
@@ -383,9 +383,9 @@ function DeviceToolsFlyout({ device }: { device: DeviceInfo }) {
                 className="h-[min(720px,calc(100dvh-32px))] w-80 max-w-[calc(100vw-32px)] overflow-hidden rounded-xl border border-border bg-surface shadow-float outline-none"
             >
                 <ErrorBoundary label={failed('deviceTools')} resetKeys={[device.deviceId]} compact className="h-full">
-                    <Suspense fallback={null}>
+                    <LazyBoundary>
                         <DeviceToolsPanel device={device} onClose={() => setOpen(false)} />
-                    </Suspense>
+                    </LazyBoundary>
                 </ErrorBoundary>
             </Popover.Popup>
         </Popover.Root>

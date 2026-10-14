@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Columns2, FileWarning, GitCompare, RefreshCw, Rows2 } from 'lucide-react';
@@ -17,7 +17,7 @@ import { useGit } from '@/state/git';
 import { useGitSignal } from '@/state/git-watch';
 import { useSettings } from '@/state/settings';
 import { useTransport } from '@/transport/context';
-import { ButtonGroup, ColumnResizeHandle, EmptyState, ErrorBoundary, Menu, Separator, lazyNamed, useColumnResize, useNow } from '@adecore/ui';
+import { ButtonGroup, ColumnResizeHandle, EmptyState, ErrorBoundary, Menu, Separator, lazyNamed, useColumnResize, useNow, LazyBoundary } from '@adecore/ui';
 import { formatAge } from '@adecore/ui/format';
 
 const UnifiedDiff = lazyNamed(() => import('@adecore/agents-react/chat/ui'), 'UnifiedDiff');
@@ -179,7 +179,7 @@ function DiffBody({
     }
     return (
         <div className="file-diff flex min-h-0 grow flex-col overflow-auto">
-            <Suspense fallback={<div className="px-3 py-2 text-xs text-text-faint">{t('diff.loading')}</div>}>
+            <LazyBoundary fallback={<div className="px-3 py-2 text-xs text-text-faint">{t('diff.loading')}</div>}>
                 <UnifiedDiff
                     change={{ path: relative, kind: 'update', diff: state.diff.diff }}
                     overflow={wrap ? 'wrap' : 'scroll'}
@@ -188,7 +188,7 @@ function DiffBody({
                     contents={contentsOf(state.diff)}
                     ignoreWhitespace={ignoreWhitespace}
                 />
-            </Suspense>
+            </LazyBoundary>
         </div>
     );
 }
@@ -364,7 +364,7 @@ function CommitFileDiff({
     }
     return (
         <div className="file-diff flex min-h-0 min-w-0 grow flex-col overflow-auto">
-            <Suspense fallback={<div className="px-3 py-2 text-xs text-text-faint">{t('diff.loading')}</div>}>
+            <LazyBoundary fallback={<div className="px-3 py-2 text-xs text-text-faint">{t('diff.loading')}</div>}>
                 <UnifiedDiff
                     key={file.path}
                     change={{ path: file.path, kind: 'update', diff: file.diff }}
@@ -372,7 +372,7 @@ function CommitFileDiff({
                     diffStyle={layout === 'split' ? 'split' : 'unified'}
                     fill
                 />
-            </Suspense>
+            </LazyBoundary>
         </div>
     );
 }

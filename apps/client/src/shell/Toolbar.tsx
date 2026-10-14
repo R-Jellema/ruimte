@@ -1,4 +1,3 @@
-import { Suspense } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { ArrowDownToLine, Search } from 'lucide-react';
@@ -17,7 +16,7 @@ import { isScratchProject, useProject } from '@/state/project';
 import { useSettings } from '@/state/settings';
 import { useShownPanel, useUi } from '@/state/ui';
 import { hasUpdate, useUpdates } from '@/state/updates';
-import { ButtonGroup, ErrorBoundary, IconButton, Separator, lazyNamed } from '@adecore/ui';
+import { ButtonGroup, ErrorBoundary, IconButton, Separator, lazyNamed, LazyBoundary } from '@adecore/ui';
 import { APP_SHORTCUTS } from '@/shell/shortcuts';
 import { VoiceButton } from '@/voice/VoiceButton';
 import { useVoice } from '@/voice/state';
@@ -54,9 +53,9 @@ export function Toolbar() {
             <div className="flex min-w-0 grow items-center gap-2">
                 {tabs ? (
                     <ErrorBoundary label={t('projectTabs.failed')} resetKeys={[tabs]} className="flex min-w-0 grow">
-                        <Suspense fallback={<div className="grow" />}>
+                        <LazyBoundary fallback={<div className="grow" />}>
                             <ProjectTabs dirty={dirty} />
-                        </Suspense>
+                        </LazyBoundary>
                     </ErrorBoundary>
                 ) : (
                     // The machine sits inside the switcher's own trigger, so the pill is one breadcrumb

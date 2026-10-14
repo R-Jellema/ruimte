@@ -1,10 +1,10 @@
-import { Suspense, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DiffFile } from '@/shell/panels/DiffFile';
 import { FileBody } from '@/shell/panels/FileBody';
 import { fixedSlot, FileToolbarSlotProvider, useFileToolbarSlot } from '@/shell/panels/file-toolbar-slot';
 import { keptTabs, shownAfter } from '@/shell/panels/kept-tabs';
-import { ErrorBoundary, lazyNamed } from '@adecore/ui';
+import { ErrorBoundary, lazyNamed, LazyBoundary } from '@adecore/ui';
 import { basenameOf } from '@/shell/panels/files-tree';
 import { isDatabaseTab, useFiles, type Tab } from '@/state/files';
 
@@ -54,9 +54,9 @@ export function FileViewer({ active, ids }: { active: string | null; ids: readon
                 <KeptTab key={entry.key} up={entry.key === up}>
                     {isDatabaseTab(entry) ? (
                         <ErrorBoundary label={t('tab.failed')} resetKeys={[entry.key]} className="h-full">
-                            <Suspense fallback={null}>
+                            <LazyBoundary>
                                 <DatabaseTabBody tab={entry} />
-                            </Suspense>
+                            </LazyBoundary>
                         </ErrorBoundary>
                     ) : entry.view ? (
                         <DiffFile key={entry.key} tabKey={entry.key} path={entry.path} name={basenameOf(entry.path)} view={entry.view} />

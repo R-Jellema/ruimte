@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FS_READ_MAX_TEXT_BYTES, type FsReadText, type FileLocation } from '@ruimte/contracts';
 import type { Editor } from '@adecore/editor';
@@ -8,7 +8,7 @@ import { registerFocusedEditor } from '@/shell/panels/focused-editor';
 import { RuimteLanguagePopups } from '@/language/RuimteLanguagePopups';
 import { useFind } from '@/find/use-find';
 import { formatBytes, formatNumber } from '@adecore/ui/format';
-import { Button, ErrorBoundary, lazyNamed, Pill, Tooltip } from '@adecore/ui';
+import { Button, ErrorBoundary, lazyNamed, Pill, Tooltip, LazyBoundary } from '@adecore/ui';
 import { isSqlPath } from '@/database/console-file';
 import { DraftBar, EditorNotice } from '@/shell/panels/DraftBar';
 import type { EditBlock } from '@/shell/panels/edit-gate';
@@ -367,9 +367,9 @@ export function CodeFile({ path, read, toolbarExtra, onEditor, frame }: CodeFile
                 )}
                 {isSqlPath(path) && databaseFolder !== null && (
                     <ErrorBoundary label={t('databases:sql.failedToDraw')} resetKeys={[path]}>
-                        <Suspense fallback={null}>
+                        <LazyBoundary>
                             <SqlBindingPicker path={path} />
-                        </Suspense>
+                        </LazyBoundary>
                     </ErrorBoundary>
                 )}
                 {toolbarExtra}
@@ -387,11 +387,11 @@ export function CodeFile({ path, read, toolbarExtra, onEditor, frame }: CodeFile
                 (frame?.(editorArea) ?? editorArea)
             ) : (
                 <ErrorBoundary label={t('databases:console.failedToDraw')} resetKeys={[binding?.connectionId]} className="min-h-0 grow">
-                    <Suspense fallback={null}>
+                    <LazyBoundary>
                         <SqlConsole tabKey={sqlTab} binding={binding} editor={editor} text={read.text} readOnly={readOnlyReason !== null}>
                             {editorArea}
                         </SqlConsole>
-                    </Suspense>
+                    </LazyBoundary>
                 </ErrorBoundary>
             )}
             {agentChanges.hover !== null && (

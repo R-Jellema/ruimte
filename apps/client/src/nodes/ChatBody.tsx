@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import type { AgentKind, ModelSelection } from '@ruimte/contracts';
@@ -22,7 +22,7 @@ import { chatClientFor } from '@/transport/connections';
 import { useTransportStatus } from '@/transport/status';
 import { NodeNotice } from '@/nodes/NodeNotice';
 import { readNodeHost, renameHost, useNodeHost, useSuggestedTitle } from '@/nodes/node-host';
-import { ErrorBoundary } from '@adecore/ui';
+import { ErrorBoundary, LazyBoundary } from '@adecore/ui';
 import { bringPromptToFront } from '@/canvas/prompt-stack';
 import { PROMPTS_IN_NODES } from '@/prompts/placement';
 
@@ -123,7 +123,7 @@ export function ChatBody({ id, focused, onCanvas = false }: { id: string; focuse
                     {failure}
                 </NodeNotice>
             )}
-            <Suspense fallback={<div className="grow" />}>
+            <LazyBoundary fallback={<div className="grow" />}>
                 <Timeline
                     chatId={id}
                     composer={
@@ -149,7 +149,7 @@ export function ChatBody({ id, focused, onCanvas = false }: { id: string; focuse
                         )
                     }
                 />
-            </Suspense>
+            </LazyBoundary>
         </div>
     );
 }
