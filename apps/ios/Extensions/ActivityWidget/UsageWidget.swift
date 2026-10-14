@@ -142,7 +142,7 @@ struct UsageAccountQuery: EntityQuery {
         return accounts(machineID: machineID, provider: claude != nil ? "claude" : codex != nil ? "codex" : nil)
     }
 
-    /// A machine from before accounts names none, so there is nothing to choose there.
+    /// A provider without an account has nothing to choose.
     private func accounts(machineID: String, provider: String?) -> [UsageAccountEntity] {
         (UsageWidgetStore.snapshot(machineID: machineID)?.providers ?? [])
             .filter { $0.account != nil && (provider == nil || $0.kind == provider) }

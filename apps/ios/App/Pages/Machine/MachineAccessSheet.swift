@@ -7,7 +7,7 @@ import SwiftUI
 struct MachineClientAccess: Identifiable, Equatable {
     let id: String
     let label: String
-    /// `link` or `statement`; a daemon from before statements says nothing, and all of its clients came in on a link.
+    /// `link` or `statement`; absent means a link.
     let origin: String
     let createdAt: Date
     let lastSeenAt: Date

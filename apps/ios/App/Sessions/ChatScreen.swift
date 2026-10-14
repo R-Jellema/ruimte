@@ -628,7 +628,7 @@ struct ChatScreen: View {
     }
 
     /// Stops the turn, ends every agent the chat opened and marks its CLI's own sub-agents stopped; asks first only
-    /// when that ends agents. An older machine ignores the flag and stops the turn alone.
+    /// when that ends agents.
     private func stopWithSubagents() {
         let model = model
         Task {

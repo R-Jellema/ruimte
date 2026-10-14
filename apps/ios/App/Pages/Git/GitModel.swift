@@ -25,7 +25,7 @@ struct GitCheckout: Identifiable, Equatable {
     /// The merge, rebase, cherry-pick or revert that stopped halfway in this checkout.
     var operation: String? { status?.operation?.rawValue }
     var conflictCount: Int { files(state: "conflicted").count }
-    /// Whether something waits on a person here; a machine from before `operation` only says so with conflicts.
+    /// Whether something waits on a person here: an operation that stopped halfway, or a conflict.
     var halted: Bool { operation != nil || conflictCount > 0 }
 
     func files(state: String) -> [GitStatusFile] { files.filter { $0.state.rawValue == state } }

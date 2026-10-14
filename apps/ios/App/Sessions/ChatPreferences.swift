@@ -100,8 +100,7 @@ final class ChatPreferences {
         return { [weak self] in self?.listeners.removeValue(forKey: id) }
     }
 
-    /// Tells a machine the current pick. An older machine does not know the request, which leaves it on its own
-    /// defaults, so every failure is ignored.
+    /// Tells a machine the current pick. A failure leaves the machine on its own defaults, so it is ignored.
     func send(to client: any MachineRequesting, machineID: String) {
         let picked = accounts[machineID] != nil
         Task {

@@ -11,7 +11,7 @@ public struct LanDoorAddress: Codable, Equatable, Sendable {
         self.addresses = addresses
     }
 
-    /// Nil for a missing or null `lan`, which is a door that is closed or a machine from before the door.
+    /// Nil for a missing or null `lan`, which is a door that is closed.
     public init?(_ value: JSONValue?) {
         guard let port = value?["port"]?.numberValue, port == port.rounded(), (1...65_535).contains(port),
             let list = value?["addresses"]?.arrayValue
@@ -196,7 +196,7 @@ public struct LanDoorPeer {
         return stored.door
     }
 
-    /// Nil forgets the door: the machine closed it, or predates it.
+    /// Nil forgets the door: the machine closed it.
     public func remember(_ door: LanDoorAddress?, machineID: String, machineKey: String) {
         guard let door, let data = try? JSONEncoder().encode(Stored(machineKey: machineKey, door: door)) else {
             defaults.removeObject(forKey: key(machineID))

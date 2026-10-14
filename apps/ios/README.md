@@ -68,7 +68,7 @@ pure grouping. A needs-you card answers the chat's oldest request in place from 
 without attaching the chat. An answer that finds the request settled (`request-not-found`) counts as given.
 
 A snooze set without a connection waits on the phone, across a restart too, and goes out once the link is back
-unless it ran out. A machine that answers `unknown-request` keeps its snoozes on this phone until it is updated.
+unless it ran out.
 
 ## The iPad
 
@@ -122,8 +122,7 @@ answered, so a phone set up before the step existed is never asked.
 
 History loads in pages of 60 items. The page before loads once the reader is within one and a half screens of the
 top and goes in when the finger lifts, so the row being read stays put. The daemon fills a page up to 512 KiB, and
-a larger item travels alone without truncation. An older daemon returns its full snapshot; the app accepts it and
-asks no history request it does not support.
+a larger item travels alone without truncation.
 
 A reconnect offers the `seq` of the last event it applied as `since`. The machine then answers only the events after
 it, which go onto the thread as it stands; only when its log no longer holds them does a new snapshot replace the

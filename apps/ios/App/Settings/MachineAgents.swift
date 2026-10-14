@@ -32,7 +32,7 @@ import SwiftUI
     /// Per CLI, what the machine types to log in under an account; a CLI without one has no login to offer here.
     private(set) var loginCommands: [String: String] = [:]
     private(set) var endpoint: JSONValue?
-    /// Nil for a machine without the helper app, or one from before Computer Use.
+    /// Nil for a machine without the helper app.
     private(set) var computer: JSONValue?
 
     init(client: any MachineRequesting) {
