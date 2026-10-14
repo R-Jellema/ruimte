@@ -447,6 +447,8 @@ export interface CreateNodeOptions extends AgentSession {
     /* The canvas it goes on, when that is not the one in the focused cell. */
     viewId?: string | null;
     title?: string;
+    /* Notes only: the body it starts with. */
+    content?: string;
     url?: string;
     browserOwner?: string;
     provider?: AgentKind;
@@ -471,7 +473,7 @@ export async function createNodeAction(kind: CreatableNodeKind, options: CreateN
         viewId,
         kind,
         title: carriedName(options.title),
-        content: null,
+        content: options.content ?? null,
         url: options.url ?? null,
         browserOwner: options.browserOwner ?? null,
         command: options.command ?? null,

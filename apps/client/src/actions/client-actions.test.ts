@@ -4,6 +4,7 @@ import type { ProjectCanvasView, ProjectDocument, ProjectSummary, ProviderInfo }
 import {
     clientActions,
     createClientActionRegistry,
+    createNodeAction,
     ignoreRefusal,
     performIn,
     PERSON_ACTION_CALL,
@@ -759,6 +760,25 @@ describe('client actions', () => {
                 expect(liesWithin(visible, canvas().nodes[made.output.nodeId]!)).toBe(true);
             }
             expect(canvas().camera).toEqual(camera);
+        });
+
+        test('a pasted text is a note under the pointer, made and taken back in one step', async () => {
+            const nodeId = await createNodeAction('note', { content: 'Call the printer\nabout the toner', at: { x: 480, y: 320 } });
+            const node = canvas().nodes[nodeId!]!;
+            expect(node).toMatchObject({ kind: 'note', title: 'Call the printer', body: 'Call the printer\nabout the toner' });
+            expect(Math.abs(node.x + node.w / 2 - 480)).toBeLessThanOrEqual(16);
+            expect(Math.abs(node.y + node.h / 2 - 320)).toBeLessThanOrEqual(16);
+            expect(await registry().execute('history.undo', { viewId: 'main' }, PERSON_ACTION_CALL)).toMatchObject({ status: 'completed' });
+            expect(canvas().nodes[nodeId!]).toBeUndefined();
+            expect(await registry().execute('history.redo', { viewId: 'main' }, PERSON_ACTION_CALL)).toMatchObject({ status: 'completed' });
+            expect(canvas().nodes[nodeId!]).toMatchObject({ body: 'Call the printer\nabout the toner' });
+        });
+
+        test('a pasted text with the pointer off the canvas lands in view', async () => {
+            canvas().setViewport({ w: 1000, h: 1000 });
+            const visible = visibleRect(canvas().camera, canvas().viewport);
+            const nodeId = await createNodeAction('note', { content: 'Call the printer' });
+            expect(liesWithin(visible, canvas().nodes[nodeId!]!)).toBe(true);
         });
 
         test('a login runs its command in the shell of the account it signs in', async () => {

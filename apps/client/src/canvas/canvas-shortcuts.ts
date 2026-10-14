@@ -25,6 +25,8 @@ import { showView, stepView, viewAtIndex } from '@/project/views';
 import { undoLatestDeletion } from '@/project/view-trash';
 import { deleteSelectionAsking } from '@/canvas/delete-selection';
 import { isInNodeBody } from '@/canvas/node-body';
+import { answerCanvasPaste } from '@/canvas/canvas-paste';
+import { pointerInWorld } from '@/canvas/pointer';
 import { followSpaceRelease, holdSpace, releaseSpace, spaceWorksTarget } from '@/canvas/space-pan';
 import { setGapModifierDown } from '@/canvas/gap-modifier';
 import { cancelCanvasGesture } from '@/canvas/gesture-cancel';
@@ -393,18 +395,32 @@ function answerDiagramKey(e: KeyboardEvent, command: Command): boolean {
     return false;
 }
 
-function answerCanvasKey(e: KeyboardEvent, s: CanvasState, is: Matches, command: Command): void {
-    // A dialog owns the keyboard while it is up; Backspace there must not delete nodes. Nor may
-    // a key reach the canvas that is parked behind a view of its own.
-    if (
-        isTypingTarget(e.target) ||
-        isInNodeBody(e.target) ||
+/* A dialog owns the keyboard while it is up; Backspace there must not delete nodes. Nor may
+   a key reach the canvas that is parked behind a view of its own. */
+function keyboardOnCanvas(target: EventTarget | null, s: CanvasState): boolean {
+    return !(
+        isTypingTarget(target) ||
+        isInNodeBody(target) ||
         s.bodyFocusId !== null ||
         s.gesturing ||
-        isInFloatingLayer(e.target) ||
+        isInFloatingLayer(target) ||
         useUi.getState().settings.open ||
         onStandaloneView()
-    ) {
+    );
+}
+
+/* A paste goes to what has the focus, so one aimed at a row of the sidebar or a panel is not the canvas's either. */
+function pasteOnCanvas(target: EventTarget | null): boolean {
+    const view = activeViewOf(useDocument.getState());
+    if (view === null || !isCanvasView(view)) {
+        return false;
+    }
+    const onSurface = target === document.body || (target instanceof Element && target.closest('[data-canvas-surface]') !== null);
+    return onSurface && keyboardOnCanvas(target, focusedCanvas().getState());
+}
+
+function answerCanvasKey(e: KeyboardEvent, s: CanvasState, is: Matches, command: Command): void {
+    if (!keyboardOnCanvas(e.target, s)) {
         return;
     }
     const nodeDirection = command === null ? undefined : NODE_DIRECTIONS[command];
@@ -581,12 +597,23 @@ export function useCanvasShortcuts(): void {
                 releaseSpace();
             }
         };
+        const onPaste = (e: ClipboardEvent): void => {
+            answerCanvasPaste(e, {
+                onCanvas: pasteOnCanvas,
+                pointer: () => pointerInWorld(focusedCanvas()),
+                createNote: (content, at) => {
+                    void createNodeAction('note', { content, ...(at === null ? {} : { at }) });
+                }
+            });
+        };
         const stopSpaceRelease = followSpaceRelease();
+        window.addEventListener('paste', onPaste);
         window.addEventListener('keydown', onKeyDownCapture, true);
         window.addEventListener('keydown', onKeyDown);
         window.addEventListener('keyup', onKeyUp, true);
         window.addEventListener('blur', onBlur);
         return () => {
+            window.removeEventListener('paste', onPaste);
             window.removeEventListener('keydown', onKeyDownCapture, true);
             window.removeEventListener('keydown', onKeyDown);
             window.removeEventListener('keyup', onKeyUp, true);

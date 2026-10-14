@@ -29,6 +29,7 @@ import { resizedText } from '@/canvas/text-resize';
 import { framePressHandsKeyboard } from '@/canvas/frame-press';
 import { stackingOrder } from '@/canvas/stacking';
 import { useWheelCamera } from '@/canvas/use-wheel-camera';
+import { notePointer } from '@/canvas/pointer';
 import { carriedByGroups, isNodeActive, maximizedNodeOf, NODE_SIZE, useCanvas, useCanvasStore, type CanvasState } from '@/state/canvas';
 import { useEndpointId } from '@/state/keys';
 import { createTextAction } from '@/actions/client-actions';
@@ -542,6 +543,7 @@ export function Canvas() {
         const g = gestureRef.current;
         const s = canvasStore.getState();
         const point = screenPoint(e);
+        notePointer(canvasStore, point);
         if (!g) {
             if (s.linkDraft?.aiming) {
                 s.setLinkDraft({
@@ -735,6 +737,7 @@ export function Canvas() {
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
+                onPointerLeave={() => notePointer(canvasStore, null)}
                 onPointerCancel={onPointerUp}
                 onDoubleClick={onDoubleClick}
                 onDragOver={onDragOver}
