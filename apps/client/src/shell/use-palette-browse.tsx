@@ -257,8 +257,7 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
     /* The start folder is one setting for every machine, so it may not exist on this one; home always does. */
     const startBrowsing = useCallback(
         async (endpointId: string): Promise<void> => {
-            const info = serverInfoOf(endpointId);
-            const { start: from, home } = browseStart(browseStartFolder, info.home, separatorFor(info.platform));
+            const { start: from, home } = browseStart(browseStartFolder, separatorFor(serverInfoOf(endpointId).platform));
             const mine = ++generation.current;
             const answer = await requestBrowse(endpointId, from, cwdFor(endpointId), transport);
             if (mine !== generation.current) {

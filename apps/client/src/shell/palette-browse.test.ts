@@ -82,18 +82,14 @@ describe('folderPresence', () => {
 });
 
 describe('browseStart', () => {
-    test('nothing set is the home of the machine being browsed, whatever its separator', () => {
-        expect(browseStart('', '/home/bas', '/')).toEqual({ start: '/home/bas/', home: '/home/bas/' });
-        expect(browseStart('   ', 'C:\\Users\\bas', '\\')).toEqual({ start: 'C:\\Users\\bas\\', home: 'C:\\Users\\bas\\' });
-    });
-
-    test('a daemon that has not said where home is leaves the tilde for it to expand', () => {
-        expect(browseStart('', null, '/')).toEqual({ start: '~/', home: '~/' });
+    test('nothing set is the home of the machine being browsed, which it expands itself, whatever its separator', () => {
+        expect(browseStart('', '/')).toEqual({ start: '~/', home: '~/' });
+        expect(browseStart('   ', '\\')).toEqual({ start: '~\\', home: '~\\' });
     });
 
     test('the folder that was set is listed whole, with home behind it to fall back to', () => {
-        expect(browseStart('~/projects', '/home/bas', '/')).toEqual({ start: '~/projects/', home: '/home/bas/' });
-        expect(browseStart('~/projects/', '/home/bas', '/')).toEqual({ start: '~/projects/', home: '/home/bas/' });
+        expect(browseStart('~/projects', '/')).toEqual({ start: '~/projects/', home: '~/' });
+        expect(browseStart('~/projects/', '/')).toEqual({ start: '~/projects/', home: '~/' });
     });
 });
 

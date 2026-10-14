@@ -79,8 +79,9 @@ export interface BrowseStart {
     home: string;
 }
 
-export function browseStart(configured: string, home: string | null, sep: string): BrowseStart {
-    const homePath = `${home ?? '~'}${sep}`;
+/* Home is the tilde the machine expands itself: what `server.hello` calls home is Ruimte's own folder there. */
+export function browseStart(configured: string, sep: string): BrowseStart {
+    const homePath = `~${sep}`;
     const trimmed = configured.trim();
     if (trimmed === '') {
         return { start: homePath, home: homePath };
