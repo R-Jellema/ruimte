@@ -30,7 +30,9 @@ import Testing
 
     @Test func aGroupFramesItsMembersOnTheGridWithRoomForItsTitle() throws {
         let canvas: JSONValue = .object([
-            "nodes": .array([node("a", "chat", x: 10, y: 20), node("b", "note", x: 300, y: 100), node("g", "group")])
+            "nodes": .array([
+                node("a", "chat", x: 10, y: 20), node("b", "note", x: 300, y: 100), node("g", "group", x: 2000),
+            ])
         ])
         let grouped = try #require(CanvasEditing.grouping(canvas, ids: ["a", "b", "g"], groupID: "new"))
         let group = try #require(grouped.list("nodes").last)
