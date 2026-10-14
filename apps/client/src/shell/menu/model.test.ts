@@ -64,6 +64,7 @@ function context(patch: Partial<MenuContext> = {}): MenuContext {
         prWatch: false,
         chat: false,
         terminalKeys: false,
+        terminalFind: false,
         prRepos: [],
         ...patch
     };
@@ -265,12 +266,24 @@ describe('the menus', () => {
         expect(find(elsewhere, 'palette')?.accelerator).toBe('CommandOrControl+K');
     });
 
-    test('the find row shows the terminal key while a terminal has the keyboard, and the window key otherwise', () => {
-        const typing = menuModel(context({ view: 'terminal', apple: false, terminalKeys: true }));
+    test('the find row shows the terminal key while a terminal with a find bar has the keyboard, and the window key otherwise', () => {
+        const typing = menuModel(context({ view: 'terminal', apple: false, terminalKeys: true, terminalFind: true }));
         expect(find(typing, 'find')?.accelerator).toBe('Control+Shift+F');
         const elsewhere = menuModel(context({ view: 'terminal', apple: false, terminalKeys: false }));
         expect(find(elsewhere, 'find')?.accelerator).toBe('CommandOrControl+F');
-        expect(find(menuModel(context({ view: 'terminal', apple: true, terminalKeys: true })), 'find')?.accelerator).toBe('Command+F');
+        const mac = menuModel(context({ view: 'terminal', apple: true, terminalKeys: true, terminalFind: true }));
+        expect(find(mac, 'find')?.accelerator).toBe('Command+F');
+    });
+
+    test('the find row shows no key in a terminal without a find bar', () => {
+        const spec = menuModel(context({ view: 'terminal', apple: false, terminalKeys: true, terminalFind: false }));
+        expect(find(spec, 'find')?.accelerator).toBeUndefined();
+    });
+
+    test('find in files gives Ctrl+Shift+F to a terminal off macOS, and keeps its key everywhere else', () => {
+        expect(find(menuModel(context({ apple: false, terminalKeys: true })), 'find-in-files')?.accelerator).toBeUndefined();
+        expect(find(menuModel(context({ apple: false, terminalKeys: false })), 'find-in-files')?.accelerator).toBe('CommandOrControl+Shift+F');
+        expect(find(menuModel(context({ apple: true, terminalKeys: true })), 'find-in-files')?.accelerator).toBe('CommandOrControl+Shift+F');
     });
 
     test('Cmd+W closes the last cell before it closes the window', () => {

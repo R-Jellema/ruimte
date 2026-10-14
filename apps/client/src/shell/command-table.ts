@@ -393,12 +393,17 @@ const TABLE = {
         shortcut: CANVAS_SHORTCUTS.find,
         binds: 'workspace',
         palette: true,
-        // A focused terminal answers its own find key (`terminal/xterm.ts`), which is not the window's off macOS.
+        // A focused terminal answers its own find key (`terminal/xterm.ts`), which is not the window's off macOS; one without a find bar answers none.
         menu: {
             menu: 'edit',
             group: 'find',
             order: 10,
-            shortcut: (context) => (context.terminalKeys ? platformShortcut(TERMINAL_FIND_SHORTCUT, context.apple) : CANVAS_SHORTCUTS.find)
+            shortcut: (context) => {
+                if (!context.terminalKeys) {
+                    return CANVAS_SHORTCUTS.find;
+                }
+                return context.terminalFind ? platformShortcut(TERMINAL_FIND_SHORTCUT, context.apple) : undefined;
+            }
         }
     },
     'find-replace': {
@@ -467,7 +472,14 @@ const TABLE = {
         shortcut: APP_SHORTCUTS.findInFiles,
         binds: 'window',
         palette: true,
-        menu: { menu: 'edit', group: 'search', order: 20, when: (context) => context.workspace && context.folder }
+        // Off macOS a focused terminal keeps Ctrl+Shift+F for its own find (`TERMINAL_FIND_SHORTCUT`).
+        menu: {
+            menu: 'edit',
+            group: 'search',
+            order: 20,
+            when: (context) => context.workspace && context.folder,
+            showsShortcut: (context) => context.apple || !context.terminalKeys
+        }
     },
     'search-chats': {
         key: 'searchChats',

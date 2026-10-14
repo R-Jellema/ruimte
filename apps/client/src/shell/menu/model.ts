@@ -42,6 +42,8 @@ export interface MenuContext {
     chat: boolean;
     /* A terminal has the keyboard, which takes the clear key for itself (`terminal/xterm.ts`). */
     terminalKeys: boolean;
+    /* That terminal has a find bar, which answers the find key. */
+    terminalFind: boolean;
     /* The repositories of the folder that stand on a branch, which a pull request hangs on. */
     prRepos: { path: string; label: string }[];
     fileManager: string;

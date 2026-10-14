@@ -7,6 +7,7 @@ import { isAppShortcut, isClearShortcut, isLeaveNodeShortcut, isTerminalFindShor
 const SHIFT_ENTER = '\x1b\r';
 
 const keyedTerminals = new WeakSet<Element>();
+const findableTerminals = new WeakSet<Element>();
 
 interface TerminalKeys {
     write(data: string): void;
@@ -26,6 +27,9 @@ interface TerminalKeys {
 export function bindTerminalKeys(term: Terminal, keys: TerminalKeys): void {
     if (term.element) {
         keyedTerminals.add(term.element);
+        if (keys.find !== undefined) {
+            findableTerminals.add(term.element);
+        }
     }
     term.attachCustomKeyEventHandler((e) => {
         const apple = isApplePlatform();
@@ -77,17 +81,26 @@ export function bindTerminalKeys(term: Terminal, keys: TerminalKeys): void {
     });
 }
 
-/* Whether the keyboard is in a terminal that takes its own keys, where the clear key clears instead of opening the palette. */
-export function terminalHasKeyboard(): boolean {
+function keyboardIsIn(terminals: WeakSet<Element>): boolean {
     if (typeof document === 'undefined') {
         return false;
     }
     for (let node = document.activeElement; node !== null; node = node.parentElement) {
-        if (keyedTerminals.has(node)) {
+        if (terminals.has(node)) {
             return true;
         }
     }
     return false;
+}
+
+/* Whether the keyboard is in a terminal that takes its own keys, where the clear key clears instead of opening the palette. */
+export function terminalHasKeyboard(): boolean {
+    return keyboardIsIn(keyedTerminals);
+}
+
+/* Whether that terminal also has a find bar to open; the launches panel and the login dialog have none. */
+export function terminalHasFind(): boolean {
+    return keyboardIsIn(findableTerminals);
 }
 
 /* The grid the terminal fits its host to, or null while the layout has not given that host any room. */
