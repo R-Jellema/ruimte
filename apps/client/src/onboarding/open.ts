@@ -11,8 +11,9 @@ export function openOnboarding(local: boolean = hasLocalMachine()): void {
 
 /* Putting it off, closing it and finishing it all count as having met it. */
 export function closeOnboarding(): void {
-    if (!useSettings.getState().onboardingSeen) {
-        useSettings.getState().update({ onboardingSeen: true });
+    const { onboardingSeen, onboardingSkipWelcome } = useSettings.getState();
+    if (!onboardingSeen || onboardingSkipWelcome) {
+        useSettings.getState().update({ onboardingSeen: true, onboardingSkipWelcome: false });
     }
     useUi.getState().setOnboarding(null);
 }
@@ -27,7 +28,7 @@ export function startOnboarding(local: boolean = hasLocalMachine()): () => void 
         return () => undefined;
     }
     if (!useSettings.getState().onboardingSeen) {
-        useUi.getState().setOnboarding('welcome');
+        useUi.getState().setOnboarding(useSettings.getState().onboardingSkipWelcome ? 'hub' : 'welcome');
     }
     return useSettings.subscribe((state, before) => {
         if (state.onboardingSeen && !before.onboardingSeen && useUi.getState().onboarding === 'welcome') {

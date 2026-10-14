@@ -87,5 +87,25 @@
     "about": {
         "label": "Set up Ruimte",
         "description": "The short tasks of the first start: how Ruimte works, the agent CLIs on this machine and computer use."
+    },
+    "firstRun": {
+        "body": "Ruimte can run agents on this computer, or only open the machines on your account.",
+        "choices": "How Ruimte runs on this computer",
+        "local": {
+            "title": "This computer runs agents",
+            "description": "Projects, terminals and agents run here, and your other clients reach them."
+        },
+        "found": {
+            "title": "Use this machine",
+            "description": "A machine already runs on this computer. Ruimte connects to it."
+        },
+        "none": {
+            "title": "Only connect to my machines",
+            "description": "Sign in and open the machines on your account. Nothing runs here."
+        },
+        "note": "Ruimte restarts once to apply this. You can change it later in Settings, under Machines.",
+        "continue": "Continue",
+        "restarting": "Restarting…",
+        "failed": "Ruimte could not save this choice. {{reason}}"
     }
 }

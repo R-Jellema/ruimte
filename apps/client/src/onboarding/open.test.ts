@@ -7,7 +7,7 @@ let stop: () => void = () => undefined;
 
 afterEach(() => {
     stop();
-    useSettings.setState({ onboardingSeen: false, onboardingIntroSeen: false });
+    useSettings.setState({ onboardingSeen: false, onboardingIntroSeen: false, onboardingSkipWelcome: false });
     useUi.setState({ onboarding: null });
 });
 
@@ -42,5 +42,16 @@ describe('meeting the onboarding', () => {
         useUi.setState({ onboarding: 'hub' });
         useSettings.setState({ onboardingSeen: true });
         expect(useUi.getState().onboarding).toBe('hub');
+    });
+});
+
+describe('after the first-run choice', () => {
+    test('opens on the list instead of the welcome, and closing clears the mark', () => {
+        useSettings.setState({ onboardingSkipWelcome: true });
+        stop = startOnboarding(true);
+        expect(useUi.getState().onboarding).toBe('hub');
+        closeOnboarding();
+        expect(useSettings.getState().onboardingSkipWelcome).toBe(false);
+        expect(useSettings.getState().onboardingSeen).toBe(true);
     });
 });

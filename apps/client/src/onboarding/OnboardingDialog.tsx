@@ -10,6 +10,7 @@ import { closeOnboarding } from '@/onboarding/open';
 import { ComputerTask } from '@/onboarding/ComputerTask';
 import { ProvidersTask } from '@/onboarding/ProvidersTask';
 import { RowTile, TaskPane } from '@/onboarding/TaskPane';
+import { WELCOME_ORBITS } from '@/onboarding/welcome-orbits';
 import {
     cliRowsOf,
     doneCount,
@@ -34,15 +35,9 @@ import { chatScopeOf } from '@/transport/chat-scope';
 import { machineFor } from '@/transport/connections';
 import { useMachineHold } from '@/transport/status';
 import { BrandSymbol } from '@/ui/Brand';
-import { Eclipse, type EclipseOrbit } from '@/ui/Eclipse';
+import { Eclipse } from '@/ui/Eclipse';
 import { SettingsRow, SettingsSection } from '@adecore/ui/settings';
 import { Button, CloseButton, Dialog, Icon, Meter } from '@adecore/ui';
-
-const WELCOME_ORBITS: readonly EclipseOrbit[] = [
-    { size: 300, alpha: 0.1 },
-    { size: 460, alpha: 0.07, spin: 140, moon: { tone: 'cool', left: 88, top: 24 } },
-    { size: 680, alpha: 0.05 }
-];
 
 /*
  * The machine this window runs beside, held for as long as the onboarding is up. Its clients are

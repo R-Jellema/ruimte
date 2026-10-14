@@ -46,7 +46,8 @@
             "deviceTools": "The device tools failed to render",
             "login": "The login terminal failed to render",
             "onboarding": "The setup of Ruimte failed to render",
-            "agentIntegrations": "The question about the CLI settings failed to render"
+            "agentIntegrations": "The question about the CLI settings failed to render",
+            "firstRun": "The first start could not be shown."
         }
     },
     "answer": {

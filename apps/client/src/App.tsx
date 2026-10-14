@@ -1,6 +1,6 @@
 import i18next from 'i18next';
 import { useEffect } from 'react';
-import { desktop } from '@/desktop/bridge';
+import { desktop, machineMode } from '@/desktop/bridge';
 import { useAppShortcuts } from '@/shell/app-shortcuts';
 import { ALL_SETTINGS_SECTIONS } from '@/shell/settings/sections';
 import { DormantScreen, ProjectSwitchScreen } from '@/shell/ProjectSwitchScreen';
@@ -23,6 +23,7 @@ import { ErrorBoundary, ShortcutHints, UIProvider, lazyDialog, lazyNamed, prefet
 import { formatSource } from '@/format/source';
 
 const WorkspaceShell = lazyNamed(() => import('@/shell/WorkspaceShell'), 'WorkspaceShell');
+const FirstRunScreen = lazyNamed(() => import('@/onboarding/FirstRunScreen'), 'FirstRunScreen');
 const CommandPalette = lazyDialog(
     () => import('@/shell/CommandPalette'),
     'CommandPalette',
@@ -76,13 +77,23 @@ const ReleaseNotesDialog = lazyDialog(
 function WindowContent() {
     const content = useWindow((s) => s.content);
     const booting = useWindow((s) => s.booting);
-    const onStartScreen = content.kind !== 'workspace' && !booting;
+    const onStartScreen = content.kind !== 'workspace' && !booting && machineMode() !== 'ask';
     // The start screen is the first load, so the workspace follows only once that has painted.
     useEffect(() => {
         if (onStartScreen) {
             void prefetcher.prefetch(WorkspaceShell.preload);
         }
     }, [onStartScreen]);
+    // A new install asks before anything runs, and only that install ever loads the screen.
+    if (machineMode() === 'ask') {
+        return (
+            <ErrorBoundary label={failed('firstRun')}>
+                <LazyBoundary fallback={<div className="h-full w-full bg-bg" />}>
+                    <FirstRunScreen />
+                </LazyBoundary>
+            </ErrorBoundary>
+        );
+    }
     if (content.kind === 'workspace') {
         return (
             <LazyBoundary fallback={<div className="h-full w-full bg-bg" />}>

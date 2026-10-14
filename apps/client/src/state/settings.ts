@@ -258,6 +258,8 @@ export interface Settings {
     onboardingSeen: boolean;
     /* Whether "How Ruimte works" was read here, the one task no machine can tell. */
     onboardingIntroSeen: boolean;
+    /* Set by the first-run choice just before the app restarts, so the list opens without the welcome the person just had. Cleared when the onboarding closes. */
+    onboardingSkipWelcome: boolean;
 }
 
 /* What `RTCPeerConnection` takes for the servers in the setting; none for an empty field. */
@@ -331,7 +333,8 @@ const DEFAULT_SETTINGS: Settings = {
     language: LANGUAGE_SYSTEM,
     formatRegion: FORMAT_LANGUAGE,
     onboardingSeen: false,
-    onboardingIntroSeen: false
+    onboardingIntroSeen: false,
+    onboardingSkipWelcome: false
 };
 
 // Rounded as well as clamped. The stepper used to move in halves, so a browser can still hand back
@@ -415,7 +418,8 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         language: languageFrom(stored.language),
         formatRegion: formatRegionFrom(stored.formatRegion),
         onboardingSeen: stored.onboardingSeen === true,
-        onboardingIntroSeen: stored.onboardingIntroSeen === true
+        onboardingIntroSeen: stored.onboardingIntroSeen === true,
+        onboardingSkipWelcome: stored.onboardingSkipWelcome === true
     };
 }
 
@@ -541,7 +545,8 @@ export const useSettings = create<SettingsStore>((set, get) => {
                 language,
                 formatRegion,
                 onboardingSeen,
-                onboardingIntroSeen
+                onboardingIntroSeen,
+                onboardingSkipWelcome
             } = get();
             const next: Settings = {
                 sidebarScope,
@@ -601,6 +606,7 @@ export const useSettings = create<SettingsStore>((set, get) => {
                 formatRegion,
                 onboardingSeen,
                 onboardingIntroSeen,
+                onboardingSkipWelcome,
                 ...patch
             };
             next.panelLayout = next.panelLayout === 'roomy' ? 'roomy' : 'standard';
