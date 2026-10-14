@@ -2,6 +2,9 @@ import { openFileLink } from '@/shell/panels/file-links';
 import type { TerminalFileLink } from '@/terminal/file-links';
 import { TerminalDictation } from '@/dictation/TerminalDictation';
 import { clearTerminalAction, restartTerminalAction, resumeTerminalAgentAction } from '@/actions/client-actions';
+import { FindBar } from '@/find/FindBar';
+import { openFocusedFind } from '@/find/hosts';
+import { useFind } from '@/find/use-find';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import i18next from 'i18next';
 import clsx from 'clsx';
@@ -17,6 +20,7 @@ import { useSettings } from '@/state/settings';
 import { osc52Text } from '@/terminal/osc52';
 import { lastScreenOf, registerTerminal } from '@/terminal/registry';
 import { CLEAR_SHORTCUT, platformShortcut } from '@/terminal/keymap';
+import { useTerminalFind } from '@/terminal/use-terminal-find';
 import { bindTerminalKeys, fittedGrid } from '@/terminal/xterm';
 import { sessionClientFor } from '@/transport/connections';
 import { useTransportStatus } from '@/transport/status';
@@ -53,6 +57,7 @@ export function TerminalBody({ id, focused }: { id: string; focused: boolean }) 
     const { t } = useTranslation(['canvas', 'common']);
     const viewRef = useRef<TerminalViewHandle>(null);
     const dictationRoot = useRef<HTMLDivElement>(null);
+    const surfaceRef = useRef<HTMLDivElement>(null);
     /* Bumped by a retry after a failure; a restart through the actions counts in the sessions store. */
     const [generation, setGeneration] = useState(0);
     // Either one rebuilds the whole terminal around a fresh session, and both only ever go up.
@@ -71,6 +76,8 @@ export function TerminalBody({ id, focused }: { id: string; focused: boolean }) 
     const attached = useSessionRow(id, (row) => row?.attached);
     const agentRecord = useSessionRow(id, (row) => row?.agent);
     const heldCommand = useSessionRow(id, (row) => row?.heldCommand);
+    const find = useFind(surfaceRef, failure === null);
+    const terminalFind = useTerminalFind(find, viewRef, builds);
     // Claude Code and Codex write a name down; the daemon sends none for Gemini or Copilot.
     useSuggestedTitle(id, agentRecord?.kind === 'claude' || agentRecord?.kind === 'codex' ? agentRecord.suggestedTitle : undefined);
 
@@ -105,7 +112,7 @@ export function TerminalBody({ id, focused }: { id: string; focused: boolean }) 
         >
             <ContextMenu.Trigger className="absolute inset-0 bg-term-bg">
                 <div ref={dictationRoot} className="absolute inset-0 flex min-h-0 flex-col">
-                    <div className="relative min-h-0 flex-1">
+                    <div ref={surfaceRef} className="relative min-h-0 flex-1">
                         <TerminalSession
                             key={`${endpointId}:${id}:${builds}`}
                             id={id}
@@ -165,6 +172,18 @@ export function TerminalBody({ id, focused }: { id: string; focused: boolean }) 
                     <Icon icon={Eraser} size={14} /> {t('menu.clear')} <Kbd shortcut={platformShortcut(CLEAR_SHORTCUT, isApplePlatform())} />
                 </ContextMenu.Item>
             </ContextMenu.Popup>
+            {/* Outside the trigger, so a right click in the field is the field's own menu and not the terminal's. */}
+            {find.open && (
+                <FindBar
+                    find={find}
+                    total={terminalFind.total}
+                    current={terminalFind.current}
+                    invalid={terminalFind.invalid}
+                    limited={terminalFind.limited}
+                    disabledReason={terminalFind.disabledReason}
+                    onStep={terminalFind.step}
+                />
+            )}
         </ContextMenu.Root>
     );
 }
@@ -248,7 +267,12 @@ function TerminalSession({ id, endpointId, viewRef, onFileLinkHover, onFailure }
             }
             return true;
         });
-        bindTerminalKeys(term, { write: (data) => sessions.write(id, data), clear: () => clearTerminalAction(id), leaves: true });
+        bindTerminalKeys(term, {
+            write: (data) => sessions.write(id, data),
+            clear: () => clearTerminalAction(id),
+            find: () => openFocusedFind(),
+            leaves: true
+        });
 
         let cancelled = false;
         const unregister = registerTerminal(endpointId, id, term);

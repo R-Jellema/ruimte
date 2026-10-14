@@ -114,6 +114,7 @@
             "hide": "Hide replace"
         },
         "countLimited": "{{current}} / {{total}}+",
-        "countMore": "{{total}}+ matches"
+        "countMore": "{{total}}+ matches",
+        "unavailable": "Find is not available here right now"
     }
 }

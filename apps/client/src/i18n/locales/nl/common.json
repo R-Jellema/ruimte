@@ -114,6 +114,7 @@
             "hide": "Vervangen verbergen"
         },
         "countLimited": "{{current}} / {{total}}+",
-        "countMore": "{{total}}+ resultaten"
+        "countMore": "{{total}}+ resultaten",
+        "unavailable": "Zoeken kan hier nu niet"
     }
 }
