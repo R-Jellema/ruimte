@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { claudeProjectSlug } from '@adecore/agents/chat';
@@ -43,6 +43,21 @@ describe('moveClaudeTranscript', () => {
         await moved.undo();
         expect((await readdir(old)).sort()).toEqual([SESSION, `${SESSION}.jsonl`].sort());
         await expect(readdir(target)).rejects.toThrow();
+    });
+
+    test('files the transcript under the slug of the resolved folder when the new folder is a link', async () => {
+        const folder = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-claude-move-folder-')));
+        const link = `${folder}-link`;
+        await symlink(folder, link);
+        try {
+            await transcript(scratch, false);
+            await moveClaudeTranscript({ projectsDir, sessionId: SESSION, fromCwd: scratch, toCwd: link });
+            expect(await readdir(join(projectsDir, claudeProjectSlug(folder)))).toEqual([`${SESSION}.jsonl`]);
+            await expect(readdir(join(projectsDir, claudeProjectSlug(link)))).rejects.toThrow();
+        } finally {
+            await rm(link, { force: true });
+            await rm(folder, { recursive: true, force: true });
+        }
     });
 
     test('moves a transcript that sits under another slug than the old folder has', async () => {
