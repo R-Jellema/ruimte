@@ -40,7 +40,7 @@ export function findIssueNode(views: readonly ProjectView[], nodesOf: NodesOfVie
             if (found) {
                 return found.id;
             }
-        } else if ('node' in view && view.node.issue?.url === url && (cwd === undefined || view.node.cwd === cwd)) {
+        } else if ((view.kind === 'chat' || view.kind === 'terminal') && view.node.issue?.url === url && (cwd === undefined || view.node.cwd === cwd)) {
             return view.id;
         }
     }

@@ -144,7 +144,7 @@ export const browserActions: ActionHandlers<ServerActionContext> = {
                 content: {
                     ...content,
                     views: content.views.map((view) =>
-                        'nodes' in view
+                        isCanvasView(view)
                             ? { ...view, nodes: view.nodes.map((candidate) => (candidate.id === nodeId ? { ...candidate, url: checked } : candidate)) }
                             : view
                     )

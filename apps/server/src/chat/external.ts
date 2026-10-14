@@ -19,7 +19,7 @@ export interface ExternalChatSessionsDeps {
 export function resumesOfViews(views: readonly ProjectView[]): string[] {
     return views.flatMap((view): string[] => {
         if (isSessionView(view)) {
-            return 'node' in view && view.node.resume !== undefined ? [view.node.resume] : [];
+            return (view.kind === 'chat' || view.kind === 'terminal') && view.node.resume !== undefined ? [view.node.resume] : [];
         }
         return isCanvasView(view) ? view.nodes.flatMap((node) => (node.resume === undefined ? [] : [node.resume])) : [];
     });
