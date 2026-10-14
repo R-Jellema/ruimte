@@ -4,11 +4,13 @@ import type { DesktopBridge } from '@/desktop/bridge';
 import { useUi } from '@/state/ui';
 import { useWindow } from '@/state/window';
 import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
+import { connectFakeMachine, FakeMachine } from '../../../testing/fake-machine';
 import { machineBridge } from '../../../testing/machine-bridge';
 
 const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
 
 let page: Mounted;
+let release: (() => void) | null;
 let chosen: string[];
 let found: boolean;
 let choose: (mode: 'local' | 'none') => Promise<void>;
@@ -45,6 +47,7 @@ async function open(machine: DesktopBridge['machine']): Promise<void> {
 }
 
 beforeEach(() => {
+    release = null;
     chosen = [];
     found = false;
     choose = async (mode) => {
@@ -56,6 +59,7 @@ beforeEach(() => {
 afterEach(async () => {
     await act(async () => useUi.getState().setSettings({ open: false }));
     await page.unmount();
+    release?.();
     delete scope.window.ruimteDesktop;
 });
 
@@ -94,8 +98,10 @@ describe('Settings > Machines of an app that runs no machine', () => {
     });
 
     test('an app that runs a machine has no row for this computer', async () => {
+        // The detail of this machine connects to it, so a fake stands behind the pool instead of a socket.
+        release = connectFakeMachine(new FakeMachine());
         await open(undefined);
-        await until(() => everything().includes('Machines'));
+        await until(() => everything().includes('This machine'));
         expect(row('No machine runs here')).toBeNull();
         expect(text()).not.toContain('Run a machine on this computer');
     });
