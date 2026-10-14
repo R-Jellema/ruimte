@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import { REQUEST_SCHEMAS, type ProjectView, type RequestType } from '@ruimte/contracts';
+import { REQUEST_SCHEMAS, type ChatInfo, type ProjectView, type RequestType } from '@ruimte/contracts';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { useChats } from '@adecore/agents-react/state';
@@ -28,10 +28,10 @@ function menuLabels(): string[] {
 }
 
 /* The fake machine answers every chat as running; a test that needs it quiet says so. */
-async function setChatStatus(status: 'idle' | 'running' | 'needs-you'): Promise<void> {
+async function setChatStatus(status: 'idle' | 'running' | 'needs-you', patch: Partial<ChatInfo> = {}): Promise<void> {
     await act(async () => {
         useChats.setState((state) => ({
-            byKey: Object.fromEntries(Object.entries(state.byKey).map(([key, row]) => [key, { ...row, info: { ...row.info, status } }]))
+            byKey: Object.fromEntries(Object.entries(state.byKey).map(([key, row]) => [key, { ...row, info: { ...row.info, status, ...patch } }]))
         }));
     });
 }
@@ -77,6 +77,17 @@ describe('moving a chat out of Chats, from its view menu', () => {
         expect(makeProjectRow()?.getAttribute('aria-disabled')).toBe('true');
         await clickOn(makeProjectRow() ?? null);
         expect(useUi.getState().moveChatDialog).toBeNull();
+    });
+
+    test.each([
+        ['a subagent in the background', { delegating: true }],
+        ['a goal', { goal: { status: 'active' } }],
+        ['a message in the queue', { queue: [{ id: 'q1' }] }]
+    ] as const)('both rows are off while the chat is idle but has %s', async (_name, patch) => {
+        await open({ scratch: true });
+        await setChatStatus('idle', patch as unknown as Partial<ChatInfo>);
+        await openViewMenu(WRITTEN.id);
+        expect(makeProjectRow()?.getAttribute('aria-disabled')).toBe('true');
     });
 
     test('a chat in a project offers neither', async () => {

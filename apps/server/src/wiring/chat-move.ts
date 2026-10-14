@@ -2,6 +2,7 @@ import { stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname } from 'node:path';
 import type { AgentLineageStore, NoticeStore, TaskStore } from '@adecore/agents/coordination';
+import { chatIsWorking } from '@ruimte/contracts';
 import type { ChatManager } from '../chat/chat-manager.ts';
 import type { ChatMoveHandlers } from '../handlers/chat.ts';
 import { readGit } from '../git/run.ts';
@@ -57,7 +58,7 @@ export function chatMoveRefusalDeps(wiring: ChatMoveWiring): MoveRefusalDeps {
         },
         working: (chatId) => {
             const session = chats.get(chatId);
-            return session !== undefined && (session.busy || session.info.status === 'running' || session.info.status === 'needs-you');
+            return session !== undefined && (session.busy || chatIsWorking(session.info));
         },
         lineage,
         tasks,

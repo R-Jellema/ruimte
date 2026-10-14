@@ -52,6 +52,23 @@ describe('what the machine says about moving a chat', () => {
         expect((await moves().info({ chatId })).refusal).toEqual({ reason: 'agents' });
     });
 
+    test('refuses a chat whose status is idle while work goes on', async () => {
+        const session = daemon.chats.get(chatId)!;
+        const patches = [
+            { delegating: true },
+            { background: [{ id: 'b1', kind: 'shell', label: 'dev server' }] },
+            { goal: { objective: 'ship', status: 'active' } },
+            { requests: [{ id: 'r1', kind: 'question' }] },
+            { queue: [{ id: 'q1', text: 'later' }] }
+        ];
+        for (const patch of patches) {
+            session.thread.patchInfo(patch as never);
+            expect((await moves().info({ chatId })).refusal).toEqual({ reason: 'working' });
+            session.thread.patchInfo({ delegating: false, background: [], goal: undefined, requests: [], queue: [] } as never);
+        }
+        expect((await moves().info({ chatId })).refusal).toBeNull();
+    });
+
     test('refuses a chat that is not a view of Chats', async () => {
         const folder = join(root, 'repo');
         await mkdir(folder);

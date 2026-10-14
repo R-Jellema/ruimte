@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ChatInfo } from '@adecore/agent-contracts';
 import { ProjectSummarySchema } from './project.ts';
 
 export const ChatMoveRefusalReasonSchema = z.enum(['not-in-chats', 'working', 'agents', 'tasks', 'owed', 'messages', 'pr-watch']);
@@ -70,3 +71,23 @@ export const ChatMoveResultSchema = z.object({
     ownFilesLeftAt: z.string().nullable()
 });
 export type ChatMoveResult = z.infer<typeof ChatMoveResultSchema>;
+
+/*
+ * Whether a chat does anything a move would cut off: a turn, a question or approval waiting on a
+ * person, a subagent or command in the background, a goal, or a message in the queue. The status
+ * alone reads idle between turns while some of these still run.
+ */
+export function chatIsWorking(info: Pick<ChatInfo, 'status' | 'delegating' | 'background' | 'goal' | 'requests' | 'queue'> | null | undefined): boolean {
+    if (info === null || info === undefined) {
+        return false;
+    }
+    return (
+        info.status === 'running' ||
+        info.status === 'needs-you' ||
+        info.delegating === true ||
+        (info.background?.length ?? 0) > 0 ||
+        info.goal?.status === 'active' ||
+        (info.requests?.length ?? 0) > 0 ||
+        (info.queue?.length ?? 0) > 0
+    );
+}

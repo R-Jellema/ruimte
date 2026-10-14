@@ -1,6 +1,6 @@
 import { groupArrangeable } from '@/canvas/arrange-group';
 import i18next from 'i18next';
-import { canShareView, isCanvasView, isEmptyChatView, isOpenableView, type ProjectView, type SplitLayout } from '@ruimte/contracts';
+import { canShareView, chatIsWorking, isCanvasView, isEmptyChatView, isOpenableView, type ProjectView, type SplitLayout } from '@ruimte/contracts';
 import { databaseViewShareRefusal } from '@/database/view-sharing';
 import { forkRefusal, lastSettledTurn } from '@adecore/agents-react/chat';
 import { desktop, isApplePlatform } from '@/desktop/bridge';
@@ -86,7 +86,7 @@ export function activeViewFacts(): ActiveViewFacts | null {
         written: !(view.kind === 'chat' && isEmptyChatView(view)),
         moves: machineAnswers(pool.statusOf(endpointId), 'chat.move')
     });
-    const working = chatRow?.info.status === 'running' || chatRow?.info.status === 'needs-you';
+    const working = chatIsWorking(chatRow?.info);
     return { view, offers, shared, asChat, asTerminal, workingFolder, forkTurn, working };
 }
 

@@ -17,7 +17,7 @@ import {
     Users,
     X
 } from 'lucide-react';
-import { canShareView, isCanvasView, isEmptyChatView, type ProjectView } from '@ruimte/contracts';
+import { canShareView, chatIsWorking, isCanvasView, isEmptyChatView, type ProjectView } from '@ruimte/contracts';
 import { useDatabaseViewShareRefusal } from '@/database/view-sharing';
 import { BookmarkSubmenu } from '@adecore/agents-react/chat/ui';
 import { ForkMenuItem } from '@/chat/ForkMenuItem';
@@ -139,7 +139,7 @@ export function ViewMenuItems({ viewId, kind, onSidebar = false }: ViewMenuItems
                 </Menu.Item>
             )}
             {offerFork && <ForkMenuItem chatId={viewId} />}
-            {offerMove && <MoveChatItems chatId={viewId} endpointId={endpointId} working={chat?.status === 'running' || chat?.status === 'needs-you'} />}
+            {offerMove && <MoveChatItems chatId={viewId} endpointId={endpointId} working={chatIsWorking(chat)} />}
 
             {place && <Menu.Separator />}
             {offerPut && (

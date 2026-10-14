@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { ChatMoveInfoPayloadSchema, ChatMoveInfoResultSchema, ChatMovePayloadSchema, REQUEST_SCHEMAS } from './index.ts';
+import { chatIsWorking, ChatMoveInfoPayloadSchema, ChatMoveInfoResultSchema, ChatMovePayloadSchema, REQUEST_SCHEMAS } from './index.ts';
 
 describe('chat.move', () => {
     test('takes a registered project as its target', () => {
@@ -49,5 +49,35 @@ describe('chat.moveInfo', () => {
     test('is on the request table next to chat.move', () => {
         expect(REQUEST_SCHEMAS['chat.move']).toBeDefined();
         expect(REQUEST_SCHEMAS['chat.moveInfo']).toBeDefined();
+    });
+});
+
+describe('chatIsWorking', () => {
+    const quiet = { status: 'idle' as const };
+
+    test('reads a quiet chat, and one nobody loaded, as not working', () => {
+        expect(chatIsWorking(quiet)).toBe(false);
+        expect(chatIsWorking({ ...quiet, delegating: false, background: [], requests: [], queue: [] })).toBe(false);
+        expect(chatIsWorking(undefined)).toBe(false);
+        expect(chatIsWorking(null)).toBe(false);
+    });
+
+    test('reads a turn and a wait on a person as working', () => {
+        expect(chatIsWorking({ status: 'running' })).toBe(true);
+        expect(chatIsWorking({ status: 'needs-you' })).toBe(true);
+    });
+
+    test('reads work that goes on while the status is idle as working', () => {
+        expect(chatIsWorking({ ...quiet, delegating: true })).toBe(true);
+        expect(chatIsWorking({ ...quiet, background: [{ kind: 'shell', id: 'b1', label: 'dev server' } as never] })).toBe(true);
+        expect(chatIsWorking({ ...quiet, goal: { status: 'active' } as never })).toBe(true);
+        expect(chatIsWorking({ ...quiet, requests: [{ id: 'r1' } as never] })).toBe(true);
+        expect(chatIsWorking({ ...quiet, queue: [{ id: 'q1' } as never] })).toBe(true);
+    });
+
+    test('lets a goal that is done or paused go', () => {
+        for (const status of ['complete', 'paused', 'blocked'] as const) {
+            expect(chatIsWorking({ ...quiet, goal: { status } as never })).toBe(false);
+        }
     });
 });
