@@ -139,7 +139,7 @@ function LoginTerminal({ request, onRetry }: { request: LoginRequest; onRetry():
             const { cols, rows } = view.size();
             try {
                 await link.request('session.login', { sessionId, kind, account: accountId, cols, rows });
-                const attached = await sessions.open(sessionId, { follow: true }, cols, rows);
+                const attached = await sessions.open(sessionId, { follow: true }, { cols, rows });
                 if (viewRef.current !== view) {
                     return;
                 }

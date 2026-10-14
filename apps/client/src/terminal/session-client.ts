@@ -7,6 +7,10 @@ import { isConnectionError, TransportError, type Transport, type TransportStatus
 type OutputHandler = (data: string) => void;
 type ExitHandler = (exitCode: number) => void;
 type ScreenHandler = (result: Pick<SessionAttachResult, 'screen'>) => void;
+type Grid = Pick<SessionAttachResult, 'cols' | 'rows'>;
+
+// What a shell starts at for a node that has no grid of its own yet; its first fit resizes it.
+const DEFAULT_GRID: Grid = { cols: 80, rows: 24 };
 
 interface OpenOptions {
     cwd?: string;
@@ -19,8 +23,8 @@ interface OpenOptions {
 }
 
 interface Mounted extends OpenOptions, MountedEntry {
-    cols: number;
-    rows: number;
+    /* Null until the node fitted a laid out host; until then it follows the grid the PTY has. */
+    grid: Grid | null;
 }
 
 interface Attachment {
@@ -85,7 +89,7 @@ export class SessionClient {
         );
     }
 
-    async ensure(nodeId: string, options: OpenOptions, cols: number, rows: number): Promise<void> {
+    async ensure(nodeId: string, options: OpenOptions, grid: Grid | null): Promise<void> {
         this.opens.set(nodeId, options);
         if (options.follow === true) {
             return;
@@ -96,8 +100,7 @@ export class SessionClient {
                 cwd: options.cwd,
                 command: options.command,
                 agent: options.agent,
-                cols,
-                rows
+                ...(grid ?? DEFAULT_GRID)
             });
             this.sink.setExited(nodeId, undefined);
             this.sink.setAgent(nodeId, info.agent ?? null);
@@ -115,21 +118,25 @@ export class SessionClient {
      * On mount a node registers, creates if needed, and attaches. Answers null when the transport is
      * not connected; the session stays registered and `onScreen` fires once the reconnect has attached it.
      * Null as well for a node that left before it was attached.
+     *
+     * A null grid is a host not laid out yet: the node attaches without claiming the PTY and its
+     * first `resize` claims it. A shell told the two columns FitAddon makes of an empty host redraws
+     * its prompt for them, and the real grid right after erases every line above that prompt.
      */
-    async open(nodeId: string, options: OpenOptions, cols: number, rows: number): Promise<SessionAttachResult | null> {
+    async open(nodeId: string, options: OpenOptions, grid: Grid | null): Promise<SessionAttachResult | null> {
         if (this.disposed) {
             return null;
         }
-        const registered: Mounted = { ...options, cols, rows, attached: false };
+        const registered: Mounted = { ...options, grid, attached: false };
         const attachment = this.register(nodeId, registered);
         try {
-            await this.ensure(nodeId, options, cols, rows);
+            await this.ensure(nodeId, options, grid);
             // The node may have left the canvas while the create was on the wire.
             if (!this.isCurrent(nodeId, registered, attachment)) {
                 return null;
             }
             // A resize meanwhile updated the entry; the attach claims the PTY, so the grid of the mount would undo it.
-            return await this.attach(nodeId, registered.cols, registered.rows);
+            return await this.attach(nodeId, registered.grid);
         } catch (e) {
             if (isConnectionError(e)) {
                 return null;
@@ -143,8 +150,8 @@ export class SessionClient {
      * Answers with the screen as soon as the daemon does: it streams from that moment, and output
      * written before the screen would be wiped by it. What the list says about the session follows.
      */
-    attach(nodeId: string, cols: number, rows: number): Promise<SessionAttachResult | null> {
-        return this.attachWith(nodeId, cols, rows, () => this.listSessions());
+    attach(nodeId: string, grid: Grid | null): Promise<SessionAttachResult | null> {
+        return this.attachWith(nodeId, grid, () => this.listSessions());
     }
 
     /* A preview shares the stream, never another snapshot that could consume a renderer's pending output. */
@@ -207,8 +214,7 @@ export class SessionClient {
     resize(nodeId: string, cols: number, rows: number): void {
         const entry = this.mounted.get(nodeId);
         if (entry) {
-            entry.cols = cols;
-            entry.rows = rows;
+            entry.grid = { cols, rows };
         }
         void this.transport.request('session.resize', { sessionId: nodeId, cols, rows }).catch(() => undefined);
     }
@@ -307,12 +313,12 @@ export class SessionClient {
 
     private async reattach(nodeId: string, entry: Mounted, sessions: () => Promise<SessionInfo[] | null>): Promise<void> {
         const attachment = this.register(nodeId, entry);
-        await this.ensure(nodeId, { cwd: entry.cwd, command: entry.command, agent: entry.agent, follow: entry.follow }, entry.cols, entry.rows);
+        await this.ensure(nodeId, { cwd: entry.cwd, command: entry.command, agent: entry.agent, follow: entry.follow }, entry.grid);
         // The node may have left the canvas while the create was on the wire, or mounted again with an open of its own.
         if (!this.isCurrent(nodeId, entry, attachment)) {
             return;
         }
-        const result = await this.attachWith(nodeId, entry.cols, entry.rows, sessions);
+        const result = await this.attachWith(nodeId, entry.grid, sessions);
         if (result === null) {
             return;
         }
@@ -321,11 +327,11 @@ export class SessionClient {
     }
 
     /* Null when the node left while the attach was on the wire. */
-    private async attachWith(nodeId: string, cols: number, rows: number, sessions: () => Promise<SessionInfo[] | null>): Promise<SessionAttachResult | null> {
+    private async attachWith(nodeId: string, grid: Grid | null, sessions: () => Promise<SessionInfo[] | null>): Promise<SessionAttachResult | null> {
         if (this.disposed) {
             return null;
         }
-        const entry: Mounted = { ...this.opens.get(nodeId), cols, rows, attached: false };
+        const entry: Mounted = { ...this.opens.get(nodeId), grid, attached: false };
         const attachment = this.register(nodeId, entry);
         try {
             // A hidden follow's unused snapshot must finish before the renderer takes its current screen.
@@ -335,7 +341,8 @@ export class SessionClient {
                     return null;
                 }
             }
-            const result = await this.requestAttachment(nodeId, attachment, { sessionId: nodeId, cols: entry.cols, rows: entry.rows });
+            const payload: SessionAttachPayload = entry.grid === null ? { sessionId: nodeId, follow: true } : { sessionId: nodeId, ...entry.grid };
+            const result = await this.requestAttachment(nodeId, attachment, payload);
             if (!this.isCurrent(nodeId, entry, attachment)) {
                 return null;
             }

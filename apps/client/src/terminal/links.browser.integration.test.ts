@@ -323,7 +323,7 @@ test('TerminalBody links work through canvas focus, zoom, selection and dragging
         window.ruimteDesktop={platform:${JSON.stringify(process.platform)},openExternal:async uri=>window.opened.push(uri)};
         useEndpoints.setState({activeId:'local',endpoints:[{id:'local',label:'This computer'}]});
         const machine=machineFor('local');
-        machine.sessions.open=async(id, options, cols, rows)=>({cols,rows,screen:${JSON.stringify(output)}});
+        machine.sessions.open=async(id, options, grid)=>({...(grid ?? {cols:80,rows:24}),screen:${JSON.stringify(output)}});
         machine.sessions.write=(id,data)=>window.input.push(data);
         machine.sessions.resize=()=>{};
         machine.sessions.detach=async()=>{};

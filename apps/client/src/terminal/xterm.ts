@@ -1,4 +1,5 @@
 import type { Terminal } from '@xterm/xterm';
+import type { TerminalSize, TerminalViewHandle } from '@adecore/terminal';
 import { isApplePlatform } from '@/desktop/bridge';
 import { isAppShortcut, isClearShortcut, isLeaveNodeShortcut, isTerminalPaste, macMotionSequence } from '@/terminal/keymap';
 
@@ -80,4 +81,13 @@ export function terminalHasKeyboard(): boolean {
         }
     }
     return false;
+}
+
+/* The grid the terminal fits its host to, or null while the layout has not given that host any room. */
+export function fittedGrid(view: TerminalViewHandle): TerminalSize | null {
+    const host = view.terminal?.element?.parentElement;
+    if (!host || host.clientWidth === 0 || host.clientHeight === 0) {
+        return null;
+    }
+    return view.size();
 }

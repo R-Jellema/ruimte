@@ -20,6 +20,7 @@ import { useEndpointId } from '@/state/keys';
 import { useSettings } from '@/state/settings';
 import { useUi } from '@/state/ui';
 import { isAppShortcut, isTerminalPaste, macMotionSequence } from '@/terminal/keymap';
+import { fittedGrid } from '@/terminal/xterm';
 import { sessionClientFor } from '@/transport/connections';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -221,9 +222,8 @@ function LaunchTerminal({ sessionId }: { sessionId: string }) {
             view.reset();
             view.write(screen);
         });
-        const { cols, rows } = view.size();
         sessions
-            .open(sessionId, { follow: true }, cols, rows)
+            .open(sessionId, { follow: true }, fittedGrid(view))
             .then((result) => {
                 if (!cancelled && result) {
                     view.followGrid({ cols: result.cols, rows: result.rows });

@@ -164,7 +164,7 @@ function renderer() {
     return {
         draws,
         async open() {
-            const result = await client.open('shell', {}, 80, 24);
+            const result = await client.open('shell', {}, { cols: 80, rows: 24 });
             if (result) {
                 draws.push(result.screen);
             }
@@ -267,7 +267,7 @@ test('a renderer waits for an in-flight hidden follow before taking its own curr
     wire.before.set('session.attach', attach);
     const draws: string[] = [];
     client.onOutput('shell', (data) => draws.push(data));
-    const opened = client.open('shell', { follow: true }, 80, 24);
+    const opened = client.open('shell', { follow: true }, { cols: 80, rows: 24 });
     await Promise.resolve();
     expect(wire.calls.filter((type) => type === 'session.attach')).toHaveLength(1);
     follow.release();
@@ -291,7 +291,7 @@ test('a renderer waits for an in-flight hidden follow before taking its own curr
 test('a failed remount releases the follow attachment when the last preview closes', async () => {
     const release = await client.retain('shell');
     wire.failures.set('session.create', new TransportError('spawn-failed', 'No shell'));
-    await expect(client.open('shell', {}, 80, 24)).rejects.toMatchObject({ code: 'spawn-failed' });
+    await expect(client.open('shell', {}, { cols: 80, rows: 24 })).rejects.toMatchObject({ code: 'spawn-failed' });
     release();
     expectAttached(false);
 });
@@ -310,7 +310,7 @@ test('dispose releases a follow attachment even while a remount waits for create
     await client.retain('shell');
     const create = gate();
     wire.before.set('session.create', create);
-    const opened = client.open('shell', {}, 80, 24);
+    const opened = client.open('shell', {}, { cols: 80, rows: 24 });
     await create.entered;
     client.dispose();
     expectAttached(false);
@@ -384,7 +384,7 @@ test('ordinary output, resync and reconnect still reach a renderer after its pre
 test('a pending ordinary attach transfers to a preview after unmount, then detaches on the last release', async () => {
     const reply = gate();
     wire.after.set('session.attach', reply);
-    const opened = client.open('shell', {}, 80, 24);
+    const opened = client.open('shell', {}, { cols: 80, rows: 24 });
     await reply.entered;
     await client.detach('shell');
     const retained = client.retain('shell');
@@ -399,7 +399,7 @@ test('a pending ordinary attach transfers to a preview after unmount, then detac
 test('a pending ordinary attach with no remaining owner detaches when its late acknowledgement lands', async () => {
     const reply = gate();
     wire.after.set('session.attach', reply);
-    const opened = client.open('shell', {}, 80, 24);
+    const opened = client.open('shell', {}, { cols: 80, rows: 24 });
     await reply.entered;
     await client.detach('shell');
     reply.release();
@@ -411,7 +411,7 @@ test('a failed ordinary attach releases both the pending renderer and preview ow
     const attach = gate();
     wire.before.set('session.attach', attach);
     wire.failures.set('session.attach', new TransportError('session-missing', 'Missing shell'));
-    const opened = client.open('shell', {}, 80, 24);
+    const opened = client.open('shell', {}, { cols: 80, rows: 24 });
     await attach.entered;
     const retained = client.retain('shell');
     attach.release();
@@ -424,7 +424,7 @@ test('a failed ordinary attach releases both the pending renderer and preview ow
 test('a failed snapshot for a remount does not leak a previously acknowledged follow attachment', async () => {
     const release = await client.retain('shell');
     wire.failures.set('session.attach', new TransportError('snapshot-failed', 'Snapshot failed'));
-    await expect(client.open('shell', {}, 80, 24)).rejects.toMatchObject({ code: 'snapshot-failed' });
+    await expect(client.open('shell', {}, { cols: 80, rows: 24 })).rejects.toMatchObject({ code: 'snapshot-failed' });
     expectAttached(true);
     release();
     expectAttached(false);
@@ -433,7 +433,7 @@ test('a failed snapshot for a remount does not leak a previously acknowledged fo
 test('an old renderer acknowledgement after reconnect cannot repaint or detach the current renderer', async () => {
     const reply = gate();
     wire.after.set('session.attach', reply);
-    const opened = client.open('shell', {}, 80, 24);
+    const opened = client.open('shell', {}, { cols: 80, rows: 24 });
     await reply.entered;
     wire.setStatus('closed');
     expectAttached(false);

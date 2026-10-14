@@ -16,7 +16,7 @@ import { useProject } from '@/state/project';
 import { useSettings } from '@/state/settings';
 import { osc52Text } from '@/terminal/osc52';
 import { lastScreenOf, registerTerminal } from '@/terminal/registry';
-import { bindTerminalKeys } from '@/terminal/xterm';
+import { bindTerminalKeys, fittedGrid } from '@/terminal/xterm';
 import { sessionClientFor } from '@/transport/connections';
 import { useTransportStatus } from '@/transport/status';
 import { NodeNotice } from '@/nodes/NodeNotice';
@@ -256,9 +256,8 @@ function TerminalSession({ id, endpointId, viewRef, onFileLinkHover, onFailure }
 
         // An agent says which CLI and how; the daemon turns that into the line the shell gets.
         const agent = spec?.provider ? { kind: spec.provider, runtimeMode: spec.runtimeMode, resume: spec.resume, account: spec.account } : undefined;
-        const { cols, rows } = view.size();
         sessions
-            .open(id, { cwd, command: spec?.command, agent }, cols, rows)
+            .open(id, { cwd, command: spec?.command, agent }, fittedGrid(view))
             .then((result) => {
                 if (!cancelled && result) {
                     view.followGrid({ cols: result.cols, rows: result.rows });

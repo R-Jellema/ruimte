@@ -77,7 +77,7 @@ async function fixture(
             const wire=new WebSocketTransport(${JSON.stringify(backend.url)}+'/'+endpointId);
             await new Promise(resolve=>{if(wire.status==='open')resolve();else {const off=wire.subscribeStatus(status=>{if(status==='open'){off();resolve()}})}});
             const machine=machineFor(endpointId);
-            machine.sessions.open=async(id,options,cols,rows)=>{window.attaches.push([endpointId,options.cwd]);return {cols,rows,screen:${JSON.stringify(terminalOutput)}}};
+            machine.sessions.open=async(id,options,grid)=>{window.attaches.push([endpointId,options.cwd]);return {...(grid ?? {cols:80,rows:24}),screen:${JSON.stringify(terminalOutput)}}};
             machine.sessions.onOutput=(id,handler)=>{window.outputs[endpointId]=handler;return ()=>{}};
             machine.sessions.onSize=(id,handler)=>{window.sizes[endpointId]=handler;return ()=>{}};
             machine.sessions.onScreen=(id,handler)=>{window.screens[endpointId]=handler;return ()=>{}};

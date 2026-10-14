@@ -175,7 +175,7 @@ describe('SessionClient', () => {
     test('ensure treats session-exists as success', async () => {
         const { transport, client } = setup();
         transport.existing.add('a');
-        await client.ensure('a', {}, 80, 24);
+        await client.ensure('a', {}, { cols: 80, rows: 24 });
         expect(transport.of('session.create')).toHaveLength(1);
     });
 
@@ -190,8 +190,8 @@ describe('SessionClient', () => {
         const { transport, sink, client } = setup();
         transport.held.set('a', 'bun dev');
         transport.held.set('b', 'bun test');
-        await client.open('a', { command: 'bun dev' }, 80, 24);
-        await client.open('b', { command: 'bun test' }, 80, 24);
+        await client.open('a', { command: 'bun dev' }, { cols: 80, rows: 24 });
+        await client.open('b', { command: 'bun test' }, { cols: 80, rows: 24 });
         expect(sink.held.get('a')).toBe('bun dev');
 
         await client.runHeld('a');
@@ -208,15 +208,15 @@ describe('SessionClient', () => {
     test('keeps the account the daemon started the CLI under, which the node may not name', async () => {
         const { transport, sink, client } = setup();
         transport.accounts.set('a', 'claude_work');
-        await client.open('a', { agent: { kind: 'claude' } }, 80, 24);
-        await client.open('b', { agent: { kind: 'claude' } }, 80, 24);
+        await client.open('a', { agent: { kind: 'claude' } }, { cols: 80, rows: 24 });
+        await client.open('b', { agent: { kind: 'claude' } }, { cols: 80, rows: 24 });
         expect(sink.accounts.get('a')).toBe('claude_work');
         expect(sink.accounts.get('b')).toBeUndefined();
     });
 
     test('open creates, attaches and reports the screen', async () => {
         const { transport, sink, client } = setup();
-        const result = await client.open('a', { cwd: '/tmp', command: 'ls' }, 100, 30);
+        const result = await client.open('a', { cwd: '/tmp', command: 'ls' }, { cols: 100, rows: 30 });
         expect(result?.screen).toBe('screen');
         expect(transport.of('session.create')[0]?.payload).toEqual({ sessionId: 'a', cwd: '/tmp', command: 'ls', cols: 100, rows: 30 });
         expect(transport.of('session.attach')[0]?.payload).toEqual({ sessionId: 'a', cols: 100, rows: 30 });
@@ -226,16 +226,48 @@ describe('SessionClient', () => {
     test('a node resized while its create is on the wire attaches at its new grid', async () => {
         const { transport, client } = setup();
         transport.gated.add('session.create');
-        const opened = client.open('a', {}, 100, 40);
+        const opened = client.open('a', {}, { cols: 100, rows: 40 });
         client.resize('a', 100, 36);
         transport.answer('session.create');
         await opened;
         expect(transport.of('session.attach')[0]?.payload).toEqual({ sessionId: 'a', cols: 100, rows: 36 });
     });
 
+    test('a node whose host has no room yet follows the shell it comes back to until its first fit', async () => {
+        const { transport, client } = setup();
+        transport.existing.add('a');
+
+        await client.open('a', {}, null);
+        expect(transport.of('session.attach').map((call) => call.payload)).toEqual([{ sessionId: 'a', follow: true }]);
+        expect(transport.of('session.resize')).toHaveLength(0);
+
+        client.resize('a', 59, 47);
+        expect(transport.of('session.resize').map((call) => call.payload)).toEqual([{ sessionId: 'a', cols: 59, rows: 47 }]);
+    });
+
+    test('a node with no grid of its own starts its shell at the default one, and claims its fit after a reconnect', async () => {
+        const { transport, client } = setup();
+        await client.open('a', {}, null);
+        expect(transport.of('session.create')[0]?.payload).toEqual({ sessionId: 'a', cols: 80, rows: 24 });
+
+        transport.setStatus('closed');
+        transport.setStatus('open');
+        await flush();
+        expect(transport.of('session.attach').map((call) => call.payload)).toEqual([
+            { sessionId: 'a', follow: true },
+            { sessionId: 'a', follow: true }
+        ]);
+
+        client.resize('a', 59, 47);
+        transport.setStatus('closed');
+        transport.setStatus('open');
+        await flush();
+        expect(transport.of('session.attach').at(-1)?.payload).toEqual({ sessionId: 'a', cols: 59, rows: 47 });
+    });
+
     test('a followed session is attached to and never created, also after a reconnect', async () => {
         const { transport, client } = setup();
-        const result = await client.open('launch', { follow: true }, 80, 24);
+        const result = await client.open('launch', { follow: true }, { cols: 80, rows: 24 });
         expect(result?.screen).toBe('screen');
         transport.setStatus('closed');
         transport.setStatus('open');
@@ -276,8 +308,8 @@ describe('SessionClient', () => {
         const { transport, sink, client } = setup();
         const screens: string[] = [];
         client.onScreen('a', (result) => screens.push(result.screen));
-        await client.open('a', { cwd: '/x', agent: { kind: 'claude' } }, 80, 24);
-        await client.open('b', {}, 80, 24);
+        await client.open('a', { cwd: '/x', agent: { kind: 'claude' } }, { cols: 80, rows: 24 });
+        await client.open('b', {}, { cols: 80, rows: 24 });
         await client.detach('b');
         client.resize('a', 120, 40);
 
@@ -308,7 +340,7 @@ describe('SessionClient', () => {
         const order: string[] = [];
         client.onOutput('a', (data) => order.push(`output ${data}`));
 
-        const opening = client.open('a', {}, 80, 24).then((result) => order.push(`screen ${result?.screen}`));
+        const opening = client.open('a', {}, { cols: 80, rows: 24 }).then((result) => order.push(`screen ${result?.screen}`));
         await flush();
         transport.emit('session.output', { sessionId: 'a', data: 'after the screen' });
         releaseList();
@@ -324,7 +356,7 @@ describe('SessionClient', () => {
         const screens: string[] = [];
         for (const nodeId of ['a', 'b', 'c', 'd', 'e']) {
             client.onScreen(nodeId, (result) => screens.push(`${nodeId} ${result.screen}`));
-            await client.open(nodeId, {}, 80, 24);
+            await client.open(nodeId, {}, { cols: 80, rows: 24 });
         }
 
         transport.setStatus('closed');
@@ -343,7 +375,7 @@ describe('SessionClient', () => {
         const screens: string[] = [];
         client.onScreen('a', (result) => screens.push(result.screen));
 
-        const result = await client.open('a', {}, 80, 24);
+        const result = await client.open('a', {}, { cols: 80, rows: 24 });
         expect(result).toBeNull();
         expect(client.isMounted('a')).toBe(true);
 
@@ -354,7 +386,7 @@ describe('SessionClient', () => {
 
     test('letting go of the machine detaches what was mounted and leaves the shells running', async () => {
         const { transport, client } = setup();
-        await client.open('a', { cwd: '/x' }, 80, 24);
+        await client.open('a', { cwd: '/x' }, { cols: 80, rows: 24 });
         transport.calls.length = 0;
 
         client.dispose();
@@ -367,7 +399,7 @@ describe('SessionClient', () => {
 
     test('a detached node is not brought back by a reconnect', async () => {
         const { transport, client } = setup();
-        await client.open('a', {}, 80, 24);
+        await client.open('a', {}, { cols: 80, rows: 24 });
         await client.detach('a');
         expect(transport.of('session.detach')).toHaveLength(1);
 
@@ -381,7 +413,7 @@ describe('SessionClient', () => {
     test('a node that leaves while its create is on the wire stays gone, also after a reconnect', async () => {
         const { transport, client } = setup();
         transport.gated.add('session.create');
-        const opened = client.open('a', { agent: { kind: 'claude' } }, 80, 24);
+        const opened = client.open('a', { agent: { kind: 'claude' } }, { cols: 80, rows: 24 });
         await client.detach('a');
         transport.answer('session.create');
         expect(await opened).toBeNull();
@@ -399,7 +431,7 @@ describe('SessionClient', () => {
     test('a node that leaves while its attach is on the wire is detached once that lands', async () => {
         const { transport, sink, client } = setup();
         transport.gated.add('session.attach');
-        const opened = client.open('a', {}, 80, 24);
+        const opened = client.open('a', {}, { cols: 80, rows: 24 });
         await flush();
         await client.detach('a');
         expect(transport.of('session.detach')).toHaveLength(0);
@@ -415,10 +447,10 @@ describe('SessionClient', () => {
     test('a node that leaves and comes back while its attach is on the wire stays attached', async () => {
         const { transport, sink, client } = setup();
         transport.gated.add('session.attach');
-        void client.open('a', {}, 80, 24);
+        void client.open('a', {}, { cols: 80, rows: 24 });
         await flush();
         await client.detach('a');
-        const again = client.open('a', {}, 80, 24);
+        const again = client.open('a', {}, { cols: 80, rows: 24 });
         await flush();
 
         transport.answer('session.attach');
@@ -434,14 +466,14 @@ describe('SessionClient', () => {
         const { transport, sink, client } = setup();
         transport.existing.add('a');
         transport.exited.set('a', 130);
-        await client.open('a', {}, 80, 24);
+        await client.open('a', {}, { cols: 80, rows: 24 });
         await flush();
         expect(sink.exited.get('a')).toBe(130);
     });
 
     test('kill forgets the session and its state', async () => {
         const { transport, sink, client } = setup();
-        await client.open('a', {}, 80, 24);
+        await client.open('a', {}, { cols: 80, rows: 24 });
         await client.kill('a');
         expect(client.isMounted('a')).toBe(false);
         expect(sink.forgotten).toEqual(['a']);
@@ -453,7 +485,7 @@ describe('SessionClient', () => {
         const agent: AgentInfo = { kind: 'claude', agentSessionId: 'abc', transcriptPath: null, status: 'running', live: true, updatedAt: 1 };
         transport.existing.add('a');
         transport.agents.set('a', agent);
-        await client.open('a', {}, 80, 24);
+        await client.open('a', {}, { cols: 80, rows: 24 });
         await flush();
         expect(sink.agents.get('a')).toEqual(agent);
         expect(transport.of('agent.resume')).toHaveLength(0);
@@ -467,7 +499,7 @@ describe('SessionClient', () => {
     test('an agent the daemon remembers but no longer runs is resumed once', async () => {
         const { transport, client } = setup();
         transport.agents.set('a', { kind: 'claude', agentSessionId: 'abc', transcriptPath: null, status: 'idle', live: false, updatedAt: 1 });
-        await client.open('a', {}, 80, 24);
+        await client.open('a', {}, { cols: 80, rows: 24 });
         await flush();
         expect(transport.of('agent.resume').map((c) => c.payload)).toEqual([{ sessionId: 'a' }]);
 
@@ -480,7 +512,7 @@ describe('SessionClient', () => {
     test('open rethrows errors that are not about the connection', async () => {
         const { transport, client } = setup();
         transport.request = () => Promise.reject(new TransportError('spawn-failed', 'no shell'));
-        await expect(client.open('a', {}, 80, 24)).rejects.toMatchObject({ code: 'spawn-failed' });
+        await expect(client.open('a', {}, { cols: 80, rows: 24 })).rejects.toMatchObject({ code: 'spawn-failed' });
     });
 });
 
@@ -500,13 +532,13 @@ describe('temporary preview follows', () => {
     });
     test('a view leaving keeps a retained session attached, and remount owns its attachment after release', async () => {
         const { client, transport, sink } = setup();
-        await client.open('node', {}, 80, 24);
+        await client.open('node', {}, { cols: 80, rows: 24 });
         const release = await client.retain('node');
         transport.calls.length = 0;
         await client.detach('node');
         expect(transport.calls).toEqual([]);
         expect(sink.attached.get('node')).toBe(true);
-        await client.open('node', {}, 80, 24);
+        await client.open('node', {}, { cols: 80, rows: 24 });
         transport.calls.length = 0;
         release();
         expect(transport.calls).toEqual([]);
@@ -526,7 +558,7 @@ describe('temporary preview follows', () => {
     test('an unmount while its ordinary attach is pending does not detach a new preview hold', async () => {
         const { client, transport } = setup();
         transport.gated.add('session.attach');
-        const opened = client.open('node', {}, 80, 24);
+        const opened = client.open('node', {}, { cols: 80, rows: 24 });
         await flush();
         await client.detach('node');
         const retained = client.retain('node');
