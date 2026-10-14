@@ -2,6 +2,8 @@
     "extends": "../../tsconfig.base.json",
     "compilerOptions": {
         "customConditions": ["bun", "source"],
+        // ADE CORE's sources are checked under these flags and do not pass them yet (basmilius/adecore#76).
+        "noImplicitOverride": false,
         "resolveJsonModule": true,
         "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
         "lib": ["ES2023", "DOM"],

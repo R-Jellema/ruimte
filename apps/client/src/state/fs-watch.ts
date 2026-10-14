@@ -25,7 +25,7 @@ export class FolderWatches extends HeldWatches {
      * A folder a recursive watch above it already covers is one the daemon skips, so the folders
      * still held under the one that just went were never registered and have to ask again.
      */
-    protected released(endpointId: string, path: string): void {
+    protected override released(endpointId: string, path: string): void {
         this.askAgain(endpointId, (other) => isUnderFolder(other, path));
     }
 }

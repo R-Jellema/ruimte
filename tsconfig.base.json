@@ -14,6 +14,7 @@
         "noUnusedParameters": true,
         "erasableSyntaxOnly": true,
         "noFallthroughCasesInSwitch": true,
+        "noImplicitOverride": true,
         "customConditions": ["bun", "source"]
     }
 }

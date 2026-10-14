@@ -42,7 +42,7 @@ class WaveformWidget extends WidgetType {
         this.levels = levels;
     }
 
-    eq(other: WaveformWidget): boolean {
+    override eq(other: WaveformWidget): boolean {
         return this.levels === other.levels;
     }
 
@@ -57,7 +57,7 @@ class WaveformWidget extends WidgetType {
         return element;
     }
 
-    updateDOM(element: HTMLElement): boolean {
+    override updateDOM(element: HTMLElement): boolean {
         for (let index = 0; index < WAVEFORM_BARS; index++) {
             const from = Math.floor((index * this.levels.length) / WAVEFORM_BARS);
             const to = Math.max(from + 1, Math.floor(((index + 1) * this.levels.length) / WAVEFORM_BARS));
@@ -79,7 +79,7 @@ class PreviewWidget extends WidgetType {
         this.text = text;
     }
 
-    eq(other: PreviewWidget): boolean {
+    override eq(other: PreviewWidget): boolean {
         return other.text === this.text;
     }
 
@@ -90,7 +90,7 @@ class PreviewWidget extends WidgetType {
         return element;
     }
 
-    updateDOM(element: HTMLElement): boolean {
+    override updateDOM(element: HTMLElement): boolean {
         const previous = element.textContent ?? '';
         let shared = 0;
         while (shared < previous.length && shared < this.text.length && previous[shared] === this.text[shared]) {
