@@ -289,9 +289,9 @@ function toPosix(path: string): string {
     return path.split(sep).join('/');
 }
 
-/* Maps the folder of a node or a standalone view; undefined takes the folder away. */
-function mapCwd<T extends { cwd?: string }>(carrier: T, map: (cwd: string) => string | undefined): T {
-    if (!carrier.cwd) {
+/* Maps the folder of a node or a standalone view; undefined takes the folder away. A node on another machine keeps the folder as that machine knows it. */
+function mapCwd<T extends { cwd?: string; machine?: string }>(carrier: T, map: (cwd: string) => string | undefined): T {
+    if (!carrier.cwd || carrier.machine !== undefined) {
         return carrier;
     }
     const cwd = map(carrier.cwd);

@@ -66,6 +66,7 @@ import { ClientSinks } from '../client-sinks.ts';
 import { scratchFolderOf } from './scratch-project.ts';
 import { folderToOpen } from './folder-to-open.ts';
 import { MachineHome } from '../fs/machine-home.ts';
+import { RemoteStore, canvasNodeIdsOf, machinesOf, withBoundMachines, withMachines, withoutMachines } from '../remote/remote-store.ts';
 
 function asProjectError(e: unknown): unknown {
     if (e instanceof ProjectWriteRaced) {
@@ -226,6 +227,8 @@ export class ProjectStore {
     /* Every known project's last document, which outlives `release`: the sessions of a project keep running after a client lets go of it. */
     readonly index: ProjectIndex;
     readonly hiddenAgents: HiddenAgentStore;
+    /* Which node runs on another machine. It rides on the wire as `machine` and is never written to a project file. */
+    readonly remote: RemoteStore;
     private readonly sinks = new ClientSinks((clientId) => this.dropClient(clientId));
     private readonly open = new Map<string, OpenProject>();
     /* Which client has which project on screen. Only those hear `project.changed` and `project.showView`;
@@ -247,6 +250,7 @@ export class ProjectStore {
     constructor(home: string, links: ProjectLinks, seams: WatchSeams = SYSTEM_WATCH, writeIO: ProjectWriteIO = PROJECT_WRITE_IO) {
         this.home = home;
         this.hiddenAgents = new HiddenAgentStore(home);
+        this.remote = new RemoteStore(home);
         this.index = new ProjectIndex(this.hiddenAgents);
         this.scratchFolder = scratchFolderOf(home);
         this.registry = new ProjectRegistry(home);
@@ -543,7 +547,7 @@ export class ProjectStore {
         this.summaries.invalidate(entry.folder);
         return {
             summary: await this.summaries.summarize(entry),
-            document: fromPortable(document, entry.folder),
+            document: this.onTheWire(entry.projectId, fromPortable(document, entry.folder)),
             local: await this.readLocal(entry.projectId)
         };
     }
@@ -629,6 +633,8 @@ export class ProjectStore {
         const document: ProjectDocument = { version: PROJECT_VERSION, rev: state.rev + 1, ...portable, shared: ids };
         const written = await this.writeFiles(this.documentPath(state.entry), portable, ids, document.rev, moved, state.overlayFields);
         remember(state, written, document.rev, ids, document.views);
+        // A save that names no machine for a node leaves its binding as it was, so a client that never heard of the field cannot drop it.
+        await this.remote.apply(projectId, machinesOf(content), canvasNodeIdsOf(content));
         /* Not the sender: its screen is already ahead of this document, and taking it in would undo a
            drag that went on while the save was out. */
         await this.afterWrite(
@@ -681,15 +687,21 @@ export class ProjectStore {
     }
 
     private async mutateUnlocked<T>(projectId: string, apply: MutationApply<T>, expectedRev?: number): Promise<T> {
-        const { entry, path, rev, content, shared, overlayFields: held } = await this.readCurrent(projectId);
+        const current = await this.readCurrent(projectId);
+        const { entry, path, rev, shared, overlayFields: held } = current;
         if (expectedRev !== undefined && expectedRev !== rev) {
             throw new ProjectError('rev-conflict', revisionConflictMessage('The project', expectedRev, rev));
         }
+        /* A bound node keeps its machine through the change so `toPortable` leaves its folder alone,
+           and a machine a verb names for any other node is dropped: only a person's save binds one. */
+        const bound = this.remote.nodesOf(projectId);
+        const content = withMachines(current.content, bound);
         const before = [...content.views];
         const mutation = await apply(content, { overlayFields: held });
         if (mutation.content === null) {
             return mutation.result;
         }
+        mutation.content = withBoundMachines(mutation.content, bound);
         const overlayFields = mutation.overlayFields === undefined ? held : [...mutation.overlayFields];
         const parsed = ProjectDocumentSchema.safeParse({ version: PROJECT_VERSION, rev: rev + 1, ...toPortable(mutation.content, entry.folder), shared });
         if (!parsed.success) {
@@ -702,6 +714,7 @@ export class ProjectStore {
         }
         const state = this.open.get(projectId);
         const written = await this.writeFiles(path, toPortable(mutation.content, entry.folder), shared, document.rev, [], overlayFields);
+        await this.remote.apply(projectId, new Map(), canvasNodeIdsOf(mutation.content));
         const icon = mutation.content.icon ?? null;
         const identityChanged = mutation.content.name !== entry.name || mutation.content.color !== entry.color || !sameIcon(icon, entry.icon ?? null);
         const nextEntry = identityChanged ? { ...entry, name: mutation.content.name, color: mutation.content.color, icon } : entry;
@@ -737,7 +750,7 @@ export class ProjectStore {
         announce: (daemonSide: ProjectDocument) => Promise<void>,
         origin: string | null = null
     ): Promise<void> {
-        const daemonSide = fromPortable(document, entry.folder);
+        const daemonSide = withoutMachines(fromPortable(document, entry.folder));
         this.index.set(entry.projectId, entry.folder, daemonSide);
         await this.removeOrphanedFiles(entry, before, document.views);
         await announce(daemonSide);
@@ -967,6 +980,7 @@ export class ProjectStore {
         this.index.remove(projectId);
         await this.registry.update((entries) => entries.filter((candidate) => candidate.projectId !== projectId));
         await rm(this.localPath(projectId), { force: true });
+        await this.remote.forget(projectId);
         // Who wrote which lines of a project that is gone is of no use to anyone, and it lives in the daemon's own folder.
         await this.links.provenance
             .forget(projectId)
@@ -1177,6 +1191,7 @@ export class ProjectStore {
         remember(state, { text, private: privateText }, rev, loaded.shared, document.views, loaded.overlayFields);
         state.entry = { ...state.entry, name: document.name, color: document.color, icon: document.icon ?? null };
         this.index.set(state.entry.projectId, state.entry.folder, fromPortable(document, state.entry.folder));
+        await this.remote.apply(state.entry.projectId, new Map(), canvasNodeIdsOf(document));
         await this.announceChange(state.entry, fromPortable(document, state.entry.folder));
         this.publish(state.entry);
     }
@@ -1201,6 +1216,7 @@ export class ProjectStore {
         }
         const daemonSide = fromPortable(document, entry.folder);
         this.index.set(entry.projectId, entry.folder, daemonSide);
+        await this.remote.apply(entry.projectId, new Map(), canvasNodeIdsOf(document));
         await this.announceChange(entry, daemonSide);
         return true;
     }
@@ -1225,7 +1241,7 @@ export class ProjectStore {
                 continue;
             }
             if (this.holds.has(clientId, projectId)) {
-                this.sinks.to(clientId, { event: 'project.changed', payload: { projectId, document } });
+                this.sinks.to(clientId, { event: 'project.changed', payload: { projectId, document: this.onTheWire(projectId, document) } });
             } else {
                 bystanders.push(clientId);
             }
@@ -1241,6 +1257,11 @@ export class ProjectStore {
         for (const clientId of bystanders) {
             this.sinks.to(clientId, { event: 'project.summary', payload: { summary, views } });
         }
+    }
+
+    /* A client reads the machine of a node off the document; the daemon keeps it apart from what it indexes. */
+    private onTheWire<T extends ProjectContent>(projectId: string, content: T): T {
+        return withMachines(content, this.remote.nodesOf(projectId));
     }
 
     private require(projectId: string): OpenProject {

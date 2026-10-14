@@ -1566,6 +1566,94 @@ describe('fields this version does not know', () => {
     });
 });
 
+describe('the machine of a node', () => {
+    const REMOTE_CWD = join('/', 'srv', 'elsewhere', 'work');
+
+    function bound(machine?: string): ProjectContent {
+        const base = content();
+        const view = canvas(base);
+        return { ...base, views: [{ ...view, nodes: [{ ...view.nodes[0]!, cwd: REMOTE_CWD, ...(machine ? { machine } : {}) }] }] };
+    }
+
+    /* Every file below the project's own folder and the home, the way a colleague or git would see them. */
+    async function textOfProjectFiles(): Promise<string> {
+        const names = (await readdir(join(folder, '.ruimte'), { recursive: true, withFileTypes: true })).filter((entry) => entry.isFile());
+        const texts = await Promise.all(names.map((entry) => readFile(join(entry.parentPath, entry.name), 'utf8')));
+        return texts.join('\n');
+    }
+
+    async function openBound(): Promise<string> {
+        const opened = await store.openProject({ folder });
+        const projectId = opened.summary.projectId;
+        store.hold('c1', projectId);
+        await store.save(projectId, opened.document.rev, bound('machine-b'));
+        return projectId;
+    }
+
+    test('is kept under the home, comes back on open, and reaches no project file', async () => {
+        const projectId = await openBound();
+        expect(store.remote.machineOf(projectId, 'n1')).toBe('machine-b');
+        expect(await textOfProjectFiles()).not.toContain('"machine"');
+        expect(JSON.parse(await readFile(join(home, 'remote', `${projectId}.json`), 'utf8'))).toMatchObject({ nodes: { n1: 'machine-b' } });
+
+        const fresh = new ProjectStore(home, projectLinks(), new FakeWatch());
+        await fresh.remote.load();
+        expect(canvas((await fresh.openProject({ projectId })).document).nodes[0]).toMatchObject({ machine: 'machine-b' });
+        fresh.closeAll();
+    });
+
+    test('is kept by a save that names none, and told to the other clients that hold the project', async () => {
+        const projectId = await openBound();
+        const heard: SessionEvent[] = [];
+        const off = store.subscribe('c2', (event) => heard.push(event));
+        store.hold('c2', projectId);
+        await store.save(projectId, 1, bound(), undefined, 'c1');
+        off();
+        expect(store.remote.machineOf(projectId, 'n1')).toBe('machine-b');
+        expect(heard.find((event) => event.event === 'project.changed')).toMatchObject({
+            payload: { document: { views: [{ nodes: [{ id: 'n1', machine: 'machine-b' }] }] } }
+        });
+        expect(canvas(await store.read(projectId)).nodes[0]).not.toHaveProperty('machine');
+        expect(canvas((await store.openProject({ projectId })).document).nodes[0]).toMatchObject({ machine: 'machine-b' });
+    });
+
+    test('goes with its node', async () => {
+        const projectId = await openBound();
+        await store.save(projectId, 1, { ...content(), views: [{ ...canvas(content()), nodes: [] }] });
+        expect(store.remote.machineOf(projectId, 'n1')).toBeNull();
+        await store.save(projectId, 2, bound());
+        expect(canvas((await store.openProject({ projectId })).document).nodes[0]).not.toHaveProperty('machine');
+    });
+
+    test('is set by no verb, which may still change the node it is on', async () => {
+        const projectId = await openBound();
+        await store.mutate(projectId, (current) => {
+            const view = canvas(current);
+            const added = { id: 'n2', kind: 'terminal' as const, title: 'new', x: 0, y: 400, w: 560, h: 360, machine: 'machine-c' };
+            const renamed = { ...view.nodes[0]!, title: 'renamed' };
+            return { content: { ...current, views: [{ ...view, nodes: [renamed, added] }] }, result: null };
+        });
+        expect(store.remote.nodesOf(projectId)).toEqual({ n1: 'machine-b' });
+        const nodes = canvas((await store.openProject({ projectId })).document).nodes;
+        expect(nodes[0]).toMatchObject({ title: 'renamed', machine: 'machine-b' });
+        expect(nodes[1]).not.toHaveProperty('machine');
+        expect(await textOfProjectFiles()).not.toContain('"machine"');
+    });
+
+    test('keeps the folder of a node as the other machine knows it, even under this one', async () => {
+        const opened = await store.openProject({ folder });
+        const projectId = opened.summary.projectId;
+        const underThisFolder = join(folder, 'apps', 'server');
+        const view = canvas(content());
+        const node = { ...view.nodes[0]!, cwd: underThisFolder, machine: 'machine-b' };
+        await store.save(projectId, 0, { ...content(), views: [{ ...view, nodes: [node] }] });
+        expect(await textOfProjectFiles()).toContain(JSON.stringify(underThisFolder));
+        expect(canvas((await store.openProject({ projectId })).document).nodes[0]!.cwd).toBe(underThisFolder);
+        await store.mutate(projectId, (current) => ({ content: { ...current, name: 'by verb' }, result: null }));
+        expect(await textOfProjectFiles()).toContain(JSON.stringify(underThisFolder));
+    });
+});
+
 describe('reading the combined sidebar', () => {
     test('reads released projects without opening them, changing the registry or creating a watcher', async () => {
         const first = await store.openProject({ folder });

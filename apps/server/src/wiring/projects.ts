@@ -86,6 +86,7 @@ export async function wireProjects({ home, stores, agents, computer, later }: Pr
         viewFiles: () => [drawings, diagrams]
     });
     await store.hiddenAgents.load();
+    await store.remote.load();
     const startClaims = new StartClaims(home);
     await startClaims.load();
     const drawings = new DrawingStore(store);
