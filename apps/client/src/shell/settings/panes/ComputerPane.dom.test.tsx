@@ -72,7 +72,8 @@ describe('Settings > Computer Use of an app that runs no machine', () => {
         );
         expect(everything()).toContain('Allow computer use on this Mac');
         expect(everything()).toContain('Needs a machine on this computer.');
-        const switchControl = document.querySelector<HTMLElement>('[role="switch"]');
+        const switchControl = document.querySelector<HTMLElement>('[role="switch"][aria-label="Allow computer use on this Mac"]');
+        expect(switchControl).not.toBeNull();
         expect(switchControl?.getAttribute('aria-checked')).toBe('false');
         expect(switchControl?.hasAttribute('disabled') || switchControl?.getAttribute('aria-disabled') === 'true').toBe(true);
         await clickOn(button('Set up a machine…'));
