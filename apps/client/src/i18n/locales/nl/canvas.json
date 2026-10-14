@@ -194,6 +194,10 @@
         "nodes_other": "{{count}} nodes"
     },
     "drop": {
+        "controlCharacter": {
+            "title": "Die bestandsnaam kan niet worden getypt",
+            "description": "Een naam met een besturingsteken kan opdrachten uitvoeren, dus er is niets van deze drop getypt."
+        },
         "noBridge": {
             "title": "Bestanden uit {{app}} kun je alleen in de desktop-app neerzetten",
             "description": "Open het bestand via het paneel Bestanden.",

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { shellQuotedPaths } from './drop-path';
+import { hasControlCharacter, shellQuotedPaths } from './drop-path';
 
 describe('shellQuotedPaths on a POSIX shell', () => {
     test('a plain path is typed as it is, with a space after it', () => {
@@ -35,5 +35,19 @@ describe('shellQuotedPaths on Windows', () => {
     test('a path with a space or a character a shell reads is wrapped in double quotes', () => {
         expect(shellQuotedPaths(['C:\\My Files\\shot.png'], 'win32')).toBe('"C:\\My Files\\shot.png" ');
         expect(shellQuotedPaths(['C:\\a&b\\c.png', 'C:\\x(1)\\y.png'], 'win32')).toBe('"C:\\a&b\\c.png" "C:\\x(1)\\y.png" ');
+    });
+});
+
+describe('hasControlCharacter', () => {
+    test('finds an escape, a carriage return, a newline, DEL and a C1 control in a name', () => {
+        expect(hasControlCharacter('/tmp/a\x1b[201~rm -rf ~')).toBe(true);
+        expect(hasControlCharacter('/tmp/a\rb')).toBe(true);
+        expect(hasControlCharacter('/tmp/a\nb')).toBe(true);
+        expect(hasControlCharacter('/tmp/a\x7fb')).toBe(true);
+        expect(hasControlCharacter('/tmp/a\x9bb')).toBe(true);
+    });
+
+    test('leaves spaces, quotes and letters of any script alone', () => {
+        expect(hasControlCharacter("/tmp/bas's één 日本語.png")).toBe(false);
     });
 });

@@ -194,6 +194,10 @@
         "nodes_other": "{{count}} nodes"
     },
     "drop": {
+        "controlCharacter": {
+            "title": "That file name cannot be typed",
+            "description": "A name with a control character could run commands, so nothing from this drop was typed."
+        },
         "noBridge": {
             "title": "Files from {{app}} only drop in the desktop app",
             "description": "Open the file from the Files panel instead.",

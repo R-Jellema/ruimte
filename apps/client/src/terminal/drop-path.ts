@@ -1,3 +1,5 @@
+// Line breaks and escapes in a name are input to the program: xterm's paste keeps ESC, so `ESC[201~` would end a bracketed paste and run what follows.
+const CONTROL = /\p{Cc}/u;
 const POSIX_SAFE = /^[A-Za-z0-9_@%+=:,./-]+$/;
 const WINDOWS_SPECIAL = /[\s&()[\]{}^=;!'+,`~$]/;
 
@@ -14,4 +16,9 @@ function windowsQuoted(path: string): string {
 export function shellQuotedPaths(paths: readonly string[], platform: string | null): string {
     const quote = platform === 'win32' ? windowsQuoted : posixQuoted;
     return `${paths.map(quote).join(' ')} `;
+}
+
+/* Whether a path holds a control character (C0, DEL or C1), which no quoting makes safe to type. */
+export function hasControlCharacter(path: string): boolean {
+    return CONTROL.test(path);
 }

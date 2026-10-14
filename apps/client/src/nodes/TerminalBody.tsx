@@ -22,9 +22,10 @@ import { useDocument } from '@/state/document';
 import { useProject } from '@/state/project';
 import { serverInfoOf } from '@/state/server';
 import { useSettings } from '@/state/settings';
+import { useToasts } from '@/state/toasts';
 import { osc52Text } from '@/terminal/osc52';
 import { lastScreenOf, registerTerminal } from '@/terminal/registry';
-import { shellQuotedPaths } from '@/terminal/drop-path';
+import { hasControlCharacter, shellQuotedPaths } from '@/terminal/drop-path';
 import { CLEAR_SHORTCUT, platformShortcut } from '@/terminal/keymap';
 import { useTerminalFind } from '@/terminal/use-terminal-find';
 import { bindTerminalKeys, fittedGrid } from '@/terminal/xterm';
@@ -73,7 +74,6 @@ export function TerminalBody({ id, focused }: { id: string; focused: boolean }) 
     const [selected, setSelected] = useState(false);
     const fileHover = useRef<TerminalFileLink | null>(null);
     const [menuLink, setMenuLink] = useState<TerminalFileLink | null>(null);
-    // A file out of the file manager is over the terminal.
     const [dropping, setDropping] = useState(false);
     const onCanvas = useCanvas((s) => s.nodes[id] !== undefined);
     const onFileLinkHover = useCallback((link: TerminalFileLink | null) => {
@@ -133,6 +133,14 @@ export function TerminalBody({ id, focused }: { id: string; focused: boolean }) 
         }
         const paths = finderPaths(e.dataTransfer, endpointId, { folders: true, refusal: 'terminal' });
         if (paths.length === 0) {
+            return;
+        }
+        if (paths.some(hasControlCharacter)) {
+            useToasts.getState().show({
+                kind: 'error',
+                title: i18next.t('canvas:drop.controlCharacter.title'),
+                description: i18next.t('canvas:drop.controlCharacter.description')
+            });
             return;
         }
         viewRef.current?.paste(shellQuotedPaths(paths, serverInfoOf(endpointId).platform));
