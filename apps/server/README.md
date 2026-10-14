@@ -313,6 +313,10 @@ The chat lifecycle, the backends per CLI and the projector that builds the threa
 - Attachments are any file type, at most 25 MB each and 8 per message, written to `attachments/<chatId>/<id>.<ext>`. The thread keeps only their metadata and path. `GET /attachments/<chatId>/<id>` serves them behind the same access rules as `/ws`, `inline` only for what a browser paints, with `nosniff` and an immutable cache. A chat's own thread says which id belongs to which file, so nothing else is reachable through the route. A visual's page goes through the same route and is always a download, never inline.
 - A turn takes a checkpoint when it starts (`src/git/checkpoints.ts`). The chat's folder is written as a git tree through a private index under `checkpoints/`, so the person's own index, stashes and commits are untouched. When the turn settles, the daemon diffs the working tree against it for the turn's diff.
 
+### Images an agent attaches
+
+`ruimte-context chat attach --file <path>` reads a PNG, JPEG, GIF or WebP file in the agent's own process and sends the bytes, so the daemon never opens a path an agent names. The daemon reads the type off the bytes again and stores the image as `attachments/<chatId>/agent-<uuid>.<ext>`, at most 10 MiB each and 64 per chat. The id it prints is what `Image`, `Gallery` and `Compare` take as `attachment`, served by the same route as any other attachment. The folder goes with a clear or a deletion of the chat, and a fork copies the images under the same ids.
+
 ### Generated images
 
 When a CLI generates an image, the daemon saves it as an attachment before the tool call settles. The thread keeps its metadata, dimensions and revised prompt; the bytes never enter the event log. A fork copies its attachments, so deleting the original leaves the fork's images.

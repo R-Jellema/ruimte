@@ -63,6 +63,13 @@ test('every group prints a rule and at least one component with a description', 
     }
 });
 
+test('the content group says how to attach a file of your own', async () => {
+    const rules = (await run('ui', 'content')).find((line) => line.startsWith('rules\t'));
+    expect(rules).toContain('ruimte-context chat attach --file <path>');
+    expect(rules).toContain('Image, Gallery and Compare');
+    expect((await run('ui', 'data')).find((line) => line.startsWith('rules\t'))).not.toContain('chat attach');
+});
+
 test('ui refuses a group that does not exist and names the ones that do', async () => {
     await expect(run('ui', 'nope')).rejects.toMatchObject({ code: 'unknown-action' });
     await expect(run('help', 'ui', 'nope')).rejects.toMatchObject({ code: 'unknown-action' });

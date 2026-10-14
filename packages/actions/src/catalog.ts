@@ -2021,6 +2021,20 @@ export const ACTION_DEFINITIONS = {
         input: z.object({ visualId: z.string().min(1).describe('The visual by id, as visual show or visual list printed it') }),
         output: z.object({ visualId: z.string(), title: z.string() })
     },
+    /* The daemon checks the bytes and refuses under its own codes (attach-not-image, attach-too-large, attach-limit). */
+    'chat.attach': {
+        title: 'Attach an image to this chat',
+        description:
+            'Makes an image of your own an attachment of this chat and answers its id, which Image, Gallery and Compare take as attachment. The ruimte-context command reads the file in your own process.',
+        effect: 'shared',
+        domain: 'communicate',
+        actors: AGENT,
+        input: z.object({
+            name: z.string().trim().min(1).max(200).describe('What the image is called, such as shot.png'),
+            data: z.string().min(1).describe('The image bytes in base64; the daemon reads the type off them')
+        }),
+        output: z.object({ attachment: z.object({ id: z.string(), name: z.string(), mime: z.string(), size: z.number() }) })
+    },
     'diagram.replaceContent': {
         title: 'Replace a diagram',
         description: 'Replaces everything a diagram on screen holds with a JSON document; undo brings the old one back while it stays open.',

@@ -40,11 +40,18 @@ function componentNames(group: UiGroupName): string[] {
         .map((line) => line.split(':')[0] ?? line);
 }
 
+/* What only this host can say about a group, added to the catalog's own rules. */
+const HOST_RULES: Partial<Record<UiGroupName, string>> = {
+    content:
+        'To show an image file of your own, attach it with ruimte-context chat attach --file <path>, which prints the id for attachment="<id>" on Image, Gallery and Compare'
+};
+
 /* The rules of a group, then a line per component with its props and what it is. */
 function groupDetail(group: UiGroupName): string[] {
     const [, rules = '', ...components] = uiGroupReference(group).split('\n');
+    const host = HOST_RULES[group];
     return [
-        `rules\t${rules}`,
+        `rules\t${host === undefined ? rules : `${rules} ${host}`}`,
         'prints\tcomponent\tname\tprops\tdescription\tone row per component; a prop that ends in ? is optional, - is none',
         ...components.map(componentLine)
     ];

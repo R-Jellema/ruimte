@@ -31,6 +31,7 @@ import { chatPrompt, contextChangeNote, contextPrompt, VISUAL_RESUME_NOTE } from
 import { errorText } from '../error-text.ts';
 import { RUIMTE_CODEX_CLIENT } from '../providers/codex-provider.ts';
 import { continueOnWake, continuedInForkNote } from './continue-on.ts';
+import { AgentImages } from './agent-images.ts';
 import { ChatError } from './errors.ts';
 import { RUIMTE_UI_FENCE } from './ui-fence.ts';
 import { InlineEditNotes } from './inline-edit.ts';
@@ -221,6 +222,7 @@ export class ChatManager extends ChatCore {
     private readonly dropWakes: (chatId: string) => Promise<void>;
     private readonly endChildren: (chatId: string) => Promise<unknown>;
     private readonly plans: ChatPlans | null;
+    private readonly agentImages: AgentImages;
     private readonly tokens = new Map<string, string>();
     // The tasks whose rows a clear hid, per chat.
     private readonly clearedTasks = new Map<string, Set<string>>();
@@ -279,6 +281,7 @@ export class ChatManager extends ChatCore {
         this.dropWakes = options.dropWakes ?? (() => Promise.resolve());
         this.endChildren = options.endChildren ?? (() => Promise.resolve());
         this.plans = options.plans ?? null;
+        this.agentImages = new AgentImages(options.attachments);
     }
 
     chatIdForToken(token: string): string | null {
@@ -315,16 +318,33 @@ export class ChatManager extends ChatCore {
 
     /*
      * The file behind an attachment id, also of a chat nobody loaded since the daemon started: a
-     * visual's page is known to the store only once it read that chat's list.
+     * visual's page is known to the store only once it read that chat's list, and an image an agent
+     * attached is found by its id in the chat's folder.
      */
     async findAttachment(chatId: string, id: string): Promise<ChatAttachment | null> {
         const found = this.attachment(chatId, id);
-        if (found !== null || !this.visuals) {
+        if (found !== null) {
             return found;
         }
-        // Reading the list is what lets the store answer for the pages of that chat.
-        await this.visuals.list(chatId).catch(() => []);
-        return this.visuals.attachment(chatId, id);
+        if (this.visuals) {
+            // Reading the list is what lets the store answer for the pages of that chat.
+            await this.visuals.list(chatId).catch(() => []);
+            const page = this.visuals.attachment(chatId, id);
+            if (page !== null) {
+                return page;
+            }
+        }
+        return this.agentImages.find(chatId, id);
+    }
+
+    /* Makes an image an agent has of its own an attachment of its chat; the bytes are checked by the caller. */
+    attachAgentImage(chatId: string, upload: { name: string; mime: string; bytes: Uint8Array }): Promise<ChatAttachment> {
+        return this.agentImages.save(chatId, upload);
+    }
+
+    /* Gives a fork the images the original's agent attached. */
+    copyAgentImages(fromChatId: string, toChatId: string): Promise<void> {
+        return this.agentImages.copy(fromChatId, toChatId);
     }
 
     override detachAll(clientId: string): void {

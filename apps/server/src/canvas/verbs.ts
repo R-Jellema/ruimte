@@ -3,6 +3,7 @@ import { ChatSubagentSourceSchema, ContextSourceSchema } from '@ruimte/contracts
 import { alertVerb } from './alert-verb.ts';
 import { MAX_SCREEN_LINES } from '../context/context-store.ts';
 // First: verbs join the --dry-run list as they are defined, and node new has always led it.
+import { CHAT_ACTIONS, CHAT_DETAIL, CHAT_SUMMARY } from './chat-verb.ts';
 import { nodeDeleteAction, nodeListAction, nodeNewAction } from './node-verb.ts';
 import { agentVerb } from './agent-verb.ts';
 import { answerVerb } from './answer-verb.ts';
@@ -151,6 +152,13 @@ const uiNoun = defineNoun({
     actions: [...UI_GROUP_ACTIONS]
 });
 
+const chatNoun = defineNoun({
+    name: 'chat',
+    summary: CHAT_SUMMARY,
+    detail: CHAT_DETAIL,
+    actions: [...CHAT_ACTIONS]
+});
+
 const visualNoun = defineNoun({
     name: 'visual',
     summary: VISUAL_SUMMARY,
@@ -217,6 +225,7 @@ export const VERBS: readonly VerbEntry[] = [
     taskNoun,
     planVerb,
     visualNoun,
+    chatNoun,
     uiNoun,
     worktreeVerb,
     operationVerb,

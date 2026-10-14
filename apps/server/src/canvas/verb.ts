@@ -4,6 +4,7 @@ import {
     type ContextSource,
     type AgentStatus,
     type BrowserDriveAction,
+    type ChatAttachment,
     type ChatVisual,
     type GitDiffResult,
     type LaunchConfigKind,
@@ -110,6 +111,8 @@ export interface CanvasHost {
     launches?: LaunchHost;
     /* The pages the caller's own chat shows above its replies; absent on a host that keeps none. */
     visuals?: VisualHost;
+    /* The images the caller's own chat holds from its agent; absent on a host that keeps none. */
+    agentImages?: AgentImageHost;
     /* The databases of the caller's project as an agent may reach them; absent on a host without them. */
     databases?: DatabaseAgentHost;
     /* The project's running language servers as an agent may ask them; absent on a host without them. */
@@ -195,6 +198,11 @@ export interface VisualHost {
     preview?(chatId: string, input: { html: string; width: number; appearance: VisualAppearance }): Promise<VisualPreview>;
     /* Undefined when measuring took too long or failed, which never stops a page from being shown. */
     measure?(html: string): Promise<VisualHeight[] | undefined>;
+}
+
+/* Puts an image the caller's agent has of its own in the thread of its chat; the bytes arrive checked. */
+export interface AgentImageHost {
+    attach(chatId: string, upload: { name: string; mime: string; bytes: Uint8Array }): Promise<ChatAttachment>;
 }
 
 /* A launch of a project as an agent sees it: what it is, whether a person approved it here, and what runs of it now. */
@@ -321,7 +329,7 @@ export const { defineVerb, defineAction, defineNoun, defineHelp, dryRunVerbNames
 
 /* Two things an agent keeps mixing up, so the line is in the root of `help` and in the detail of each verb it is about. */
 export const SCOPE_LINE =
-    'scope\tlist and read are what a person linked into this session; node, link, browser, device, view, task, agent, team, done, notify, alert, answer, worktree, launches, database and language are the project itself, plan and visual are the chat of the caller, secret is a card in that chat for a launch, computer the apps of this machine\ta node you add is readable through read only once a line joins it to you, and a terminal or a chat only once that line runs from it into you; a chat view has no lines and reads and operates every node of the canvas it names with --view';
+    'scope\tlist and read are what a person linked into this session; node, link, browser, device, view, task, agent, team, done, notify, alert, answer, worktree, launches, database and language are the project itself, plan, visual and chat are the chat of the caller, secret is a card in that chat for a launch, computer the apps of this machine\ta node you add is readable through read only once a line joins it to you, and a terminal or a chat only once that line runs from it into you; a chat view has no lines and reads and operates every node of the canvas it names with --view';
 
 /* What a snooze means to an agent, said wherever a list prints the column. */
 export const SNOOZE_LINE =

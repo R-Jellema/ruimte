@@ -84,6 +84,8 @@ export interface ChatForkDeps {
     copyBookmarks(fromChatId: string, toChatId: string, itemIds: ReadonlySet<string>): Promise<void>;
     /* Copies the visuals of the original `keep` picks, each with a page of its own; `deleteRecord` takes them back too. */
     copyVisuals(fromChatId: string, toChatId: string, keep: (visual: ChatVisual) => boolean): Promise<void>;
+    /* Copies the images the original's agent attached under the same ids, so the blocks the fork copied still show them. */
+    copyAgentImages(fromChatId: string, toChatId: string): Promise<void>;
     newSessionId(): string;
     now(): number;
     /* The accounts a fork may go on under; without them only a CLI's default account. */
@@ -399,6 +401,7 @@ export async function forkChat(deps: ChatForkDeps, payload: ChatForkPayload): Pr
         await deps.copyPlans(payload.chatId, forkId);
         await deps.copyBookmarks(payload.chatId, forkId, new Set(copied.map((item) => item.id)));
         await deps.copyVisuals(payload.chatId, forkId, visualKept(copied, turn));
+        await deps.copyAgentImages(payload.chatId, forkId);
     });
     return undo.guard(() =>
         deps.mutate(place.projectId, (content) =>
@@ -660,6 +663,7 @@ export function chatForkDeps(wiring: {
         copyPlans: (fromChatId, toChatId) => wiring.chats.copyPlans(fromChatId, toChatId),
         copyBookmarks: (fromChatId, toChatId, itemIds) => wiring.chats.copyBookmarks(fromChatId, toChatId, itemIds),
         copyVisuals: (fromChatId, toChatId, keep) => wiring.chats.copyVisuals(fromChatId, toChatId, keep),
+        copyAgentImages: (fromChatId, toChatId) => wiring.chats.copyAgentImages(fromChatId, toChatId),
         newSessionId: () => randomUUID(),
         now: () => Date.now(),
         accounts: {

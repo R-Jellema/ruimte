@@ -72,6 +72,7 @@ export function wireCanvasHost(input: CanvasHostInput): CanvasHost {
         devices: devices.deviceDriver,
         context: agents.context,
         launches: launches.agentHost,
+        agentImages: { attach: (chatId, upload) => chats.attachAgentImage(chatId, upload) },
         visuals: agentVisuals({ enabled: () => identity.visualReplies, visuals: agents.visuals, chats, renderer: devices.visualRenderer }),
         databases: databases.agents,
         language: new AgentLanguage({

@@ -72,6 +72,7 @@ describe('verbsNote', () => {
         expect(VISUAL_NOTE).toContain('Queries only read, never start work or run writes.');
         expect(VISUAL_NOTE).toContain('`ruimte-context help ui <group>` gives props and rules');
         expect(VISUAL_NOTE).toContain('places: Map, Place');
+        expect(VISUAL_NOTE).toContain('`ruimte-context chat attach --file <path>` and `Image attachment=<id>`');
         expect(VISUAL_NOTE).toContain('Stat in Stats');
         expect(VISUAL_NOTE).toContain('@Query("database.query"');
         expect(VISUAL_NOTE).not.toContain('query --show');

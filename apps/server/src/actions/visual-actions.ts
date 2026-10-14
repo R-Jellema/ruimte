@@ -40,9 +40,14 @@ function requireEnabled(visuals: VisualHost): void {
     }
 }
 
+/* The kind of node the caller is, or null when it is no node of this project. */
+export async function callerNodeKind({ host, place }: ServerActionContext, caller: string): Promise<string | null> {
+    return callerKind(await host.projects.read(place.projectId), caller) ?? host.hiddenAgents?.get(caller)?.node.kind ?? null;
+}
+
 /* A visual shows in the thread of an AI chat, and a terminal has no thread to show it in. */
-async function callerChat({ host, place }: ServerActionContext, caller: string): Promise<string> {
-    const kind = callerKind(await host.projects.read(place.projectId), caller) ?? host.hiddenAgents?.get(caller)?.node.kind ?? null;
+async function callerChat(context: ServerActionContext, caller: string): Promise<string> {
+    const kind = await callerNodeKind(context, caller);
     if (kind !== 'chat') {
         throw new VerbRefusal(
             'visual-needs-chat',

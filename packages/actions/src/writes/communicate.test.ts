@@ -78,5 +78,10 @@ describeWrites('communicate', {
         actors: ['agent'],
         input: { visualId: 'visual-1' },
         refused: { 'an empty visual': { visualId: '' } }
+    },
+    'chat.attach': {
+        actors: ['agent'],
+        input: { name: 'shot.png', data: 'iVBORw0KGgo=' },
+        refused: { 'no bytes': { name: 'shot.png', data: '' }, 'no name': { name: ' ', data: 'iVBORw0KGgo=' } }
     }
 });

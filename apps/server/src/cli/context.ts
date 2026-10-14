@@ -23,6 +23,9 @@ export async function runContext(args: string[], env: Environment = process.env,
     if (command === 'visual' && (args[1] === 'show' || args[1] === 'preview')) {
         return runVisualPage(canvasUrl, args[1], await withStdinFlag(args.slice(2), 'html', stdin), headers, env);
     }
+    if (command === 'chat' && args[1] === 'attach') {
+        return runChatAttach(canvasUrl, args.slice(2), headers, env);
+    }
     return runVerb(canvasUrl, command, await verbArgv(command, args, stdin), headers, env);
 }
 
@@ -135,6 +138,40 @@ async function runVisualPage(
         process.stdout.write(`${prepared.lines.join('\n')}\n`);
     }
     return code;
+}
+
+/* The words of `chat attach` without its `--file` and `--name`, which this side reads. */
+function attachRest(argv: readonly string[]): string[] {
+    const rest: string[] = [];
+    for (let i = 0; i < argv.length; i++) {
+        const word = argv[i]!;
+        if (word === '--file' || word === '--name') {
+            i++;
+        } else if (!word.startsWith('--file=') && !word.startsWith('--name=')) {
+            rest.push(word);
+        }
+    }
+    return rest;
+}
+
+/*
+ * `chat attach` reads its file here, like a page's local images, and sends the bytes: the daemon
+ * never opens a path an agent names.
+ */
+async function runChatAttach(canvasUrl: string, argv: string[], headers: Record<string, string>, env: Environment): Promise<number> {
+    const file = flagValue(argv, 'file');
+    if (file === null || file === '') {
+        return refuse('bad-arguments', 'chat attach needs --file <path>, an image file of your own', [
+            'usage\tchat attach\t--file <path> [--name N]',
+            'detail\truimte-context help chat attach'
+        ]);
+    }
+    const { prepareAttachment } = await import('./chat-attach.ts');
+    const prepared = await prepareAttachment(file, flagValue(argv, 'name'), attachRest(argv));
+    if ('refusal' in prepared) {
+        return refuse(prepared.refusal.code, prepared.refusal.message, prepared.refusal.lines);
+    }
+    return runVerb(canvasUrl, 'chat', ['attach', ...prepared.argv], headers, env);
 }
 
 /*

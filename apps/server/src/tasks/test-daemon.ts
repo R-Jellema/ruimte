@@ -302,6 +302,7 @@ export async function bootTestDaemon({
         plans,
         agents: agentStates({ outbox, lineage, chats, sessions }),
         requests: chatRequests(chats),
+        agentImages: { attach: (chatId, upload) => chats.attachAgentImage(chatId, upload) },
         visuals: { ...agentVisuals({ enabled: () => machine.visualReplies !== false, visuals, chats }), ...visualRender }
     };
 

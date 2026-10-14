@@ -74,6 +74,8 @@ const daemon = {
                 return new Response('done\ttask-1\tchat-lead\n');
             case 'visual':
                 return new Response(argv[0] === 'preview' ? 'shot\t/home/shot.png\tthe png\nnext\tshow it\n' : 'visual\tv1\tShots\t100 bytes\n');
+            case 'chat':
+                return new Response('attachment\tagent-1\tshot.png\timage/png\t29\n');
             case 'broken':
                 return new Response('boom', { status: 500 });
             default:
@@ -465,5 +467,59 @@ describe('local images of a visual', () => {
             ].join('\n') + '\n'
         );
         expect(stderr).toBe('');
+    });
+});
+
+describe('chat attach', () => {
+    const png = Buffer.concat([Buffer.from('\x89PNG\r\n\x1a\n', 'latin1'), Buffer.from([0, 0, 0, 13]), Buffer.from('IHDR'), Buffer.alloc(17)]);
+    let folder: string;
+
+    beforeEach(async () => {
+        folder = await mkdtemp(join(tmpdir(), 'ruimte-context-attach-'));
+    });
+
+    afterEach(async () => {
+        await rm(folder, { recursive: true, force: true });
+    });
+
+    async function file(name: string, bytes: Uint8Array | string): Promise<string> {
+        const path = join(folder, name);
+        await writeFile(path, bytes);
+        return path;
+    }
+
+    test('reads the file in its own process and sends the name and the bytes, never the path', async () => {
+        const shot = await file('shot.png', png);
+        expect(await runContext(['chat', 'attach', '--file', shot], env)).toBe(0);
+        expect(await runContext(['chat', 'attach', `--file=${shot}`, '--name', 'Home screen'], env)).toBe(0);
+        expect(seen.map((call) => [call.verb, call.argv])).toEqual([
+            ['chat', ['attach', '--name', 'shot.png', `--data=${png.toString('base64')}`]],
+            ['chat', ['attach', '--name', 'Home screen', `--data=${png.toString('base64')}`]]
+        ]);
+        expect(JSON.stringify(seen)).not.toContain(folder);
+        expect(stdout).toBe('attachment\tagent-1\tshot.png\timage/png\t29\nattachment\tagent-1\tshot.png\timage/png\t29\n');
+    });
+
+    test('a missing file, a file that is no image and one past the limit are refused without a call to the daemon', async () => {
+        const gone = join(folder, 'gone.png');
+        const text = await file('notes.png', 'a list of things to do\n');
+        const large = await file('large.png', Buffer.concat([png, Buffer.alloc(10 * 1024 * 1024)]));
+        const codes: string[] = [];
+        for (const path of [gone, text, large]) {
+            stderr = '';
+            expect(await runContext(['chat', 'attach', '--file', path], env)).toBe(3);
+            codes.push(stderr.split('\t')[1]!);
+        }
+        expect(codes).toEqual(['attach-unreadable', 'attach-not-image', 'attach-too-large']);
+        expect(seen).toEqual([]);
+    });
+
+    test('without --file it refuses with the usage, and a word it does not know goes to the daemon to be refused there', async () => {
+        expect(await runContext(['chat', 'attach'], env)).toBe(3);
+        expect(stderr).toContain('refused\tbad-arguments\tchat attach needs --file <path>');
+        expect(seen).toEqual([]);
+        const shot = await file('shot.png', png);
+        await runContext(['chat', 'attach', '--file', shot, '--mime', 'image/png'], env);
+        expect(seen[0]!.argv).toEqual(['attach', '--mime', 'image/png', '--name', 'shot.png', `--data=${png.toString('base64')}`]);
     });
 });

@@ -352,12 +352,14 @@ describe('forkChat', () => {
             written: Array<{ info: ChatInfo; items: ChatItem[]; preambles: string[] }>;
             bookmarkedItems: string[][];
             keptVisuals: Array<(visual: ChatVisual) => boolean>;
+            agentImages: Array<[string, string]>;
         } = {
             claude: [],
             codex: [],
             written: [],
             bookmarkedItems: [],
-            keptVisuals: []
+            keptVisuals: [],
+            agentImages: []
         };
         const deps: ChatForkDeps = {
             source: async () => source,
@@ -402,6 +404,9 @@ describe('forkChat', () => {
             },
             copyVisuals: async (_fromChatId, _toChatId, keep) => {
                 asked.keptVisuals.push(keep);
+            },
+            copyAgentImages: async (fromChatId, toChatId) => {
+                asked.agentImages.push([fromChatId, toChatId]);
             },
             newSessionId: () => 'session-2',
             now: () => 5
@@ -465,6 +470,12 @@ describe('forkChat', () => {
         expect(
             [visual('in-turn', 5, 'turn-1'), visual('before', 1), visual('later-turn', 0, 'turn-2'), visual('after', 2)].filter(keep).map((kept) => kept.id)
         ).toEqual(['in-turn', 'before']);
+    });
+
+    test('the images the original agent attached go to the fork under the same chat pair', async () => {
+        const { deps, asked } = stub({ info: info('claude'), items: [turn('turn-1', { lastUuid: 'u-1' })] });
+        const result = await forkChat(deps, { chatId: 'chat-lead', turnId: 'turn-1' });
+        expect(asked.agentImages).toEqual([['chat-lead', result.info.chatId]]);
     });
 
     test('Codex is asked for the turn it named, all of it for a last turn without a name, and a count otherwise', async () => {
