@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'bun:test';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import { z } from 'zod';
 import { storedJson, storedText, type KeyValueStorage } from './stored-json';
 
@@ -77,5 +79,28 @@ describe('storedText', () => {
         expect(storage.values.get('ruimte.text')).toBe('closed');
         expect(text.read(storage)).toBe('closed');
         expect(text.read(refusing)).toBeNull();
+    });
+});
+
+const SOURCES = new URL('..', import.meta.url).pathname;
+
+function sourcesIn(folder: string): string[] {
+    return readdirSync(folder).flatMap((name) => {
+        const path = join(folder, name);
+        if (statSync(path).isDirectory()) {
+            return sourcesIn(path);
+        }
+        return /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) ? [path] : [];
+    });
+}
+
+describe('the browser storage', () => {
+    test('is read and written only through stored-json', () => {
+        const sources = sourcesIn(SOURCES).map((path) => relative(SOURCES, path));
+        expect(sources).toContain('state/stored-json.ts');
+        const direct = sources
+            .filter((path) => path !== 'state/stored-json.ts')
+            .filter((path) => /localStorage\.(getItem|setItem|removeItem|clear)\(/.test(readFileSync(join(SOURCES, path), 'utf8')));
+        expect(direct).toEqual([]);
     });
 });
