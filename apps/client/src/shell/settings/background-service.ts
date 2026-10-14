@@ -69,6 +69,7 @@ export function stopRunningLines(preview: MachineStopPreview | null, t: TFunctio
             lines.push(t(`${STOP}.nothing`));
         }
     }
-    lines.push(t(`${STOP}.data`, { home: preview.home }));
+    // An empty home is a machine that could not say where it keeps its data.
+    lines.push(preview.home === '' ? t(`${STOP}.dataAnywhere`) : t(`${STOP}.data`, { home: preview.home }));
     return lines;
 }

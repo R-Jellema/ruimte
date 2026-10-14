@@ -106,6 +106,7 @@
         "note": "Ruimte restarts once to apply this. You can change it later in Settings, under Machines.",
         "continue": "Continue",
         "restarting": "Restarting…",
-        "failed": "Ruimte could not save this choice. {{reason}}"
+        "failed": "Ruimte could not save this choice. {{reason}}",
+        "failedGeneric": "Ruimte could not save this choice. Try again."
     }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { desktop, type MachineStopPreview } from '@/desktop/bridge';
+import { isShellFailure } from '@/desktop/shell-failure';
 import { leaveAccount } from '@/pulsar/machines';
 import { stopRunningLines } from '@/shell/settings/background-service';
 import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
@@ -38,10 +39,10 @@ export function StopMachineRow() {
                     setPreview(answer);
                 }
             })
-            // A machine that cannot say what runs still gets its question, without the sentence.
+            // A machine that cannot say what runs still gets its question, without the sentences about what ends and where it stays.
             .catch(() => {
                 if (alive) {
-                    setPreview({ work: null, home: '~/.ruimte', commandLine: false });
+                    setPreview({ work: null, home: '', commandLine: false });
                 }
             });
         return () => {
@@ -64,13 +65,17 @@ export function StopMachineRow() {
     const confirm = async (): Promise<void> => {
         const machine = desktop()?.machine;
         if (machine === undefined) {
-            throw new Error(t('backgroundService.confirmStopRunning.unavailable'));
+            throw new Error(t('backgroundService.confirmStopRunning.failed'));
         }
         if (leave && reachable && !left.current) {
             await leaveAccount(LOCAL_ENDPOINT_ID, daemonId ?? LOCAL_ENDPOINT_ID);
             left.current = true;
         }
-        await machine.choose('none');
+        try {
+            await machine.choose('none');
+        } catch (e) {
+            throw isShellFailure(e) ? new Error(t('backgroundService.confirmStopRunning.failed')) : e;
+        }
     };
 
     return (

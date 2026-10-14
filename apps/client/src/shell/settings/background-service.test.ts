@@ -65,6 +65,13 @@ describe('stopRunningLines', () => {
         expect(stopRunningLines({ work: null, home, commandLine: false })).toEqual([DATA]);
     });
 
+    test('names no path when the machine could not say where its data is', () => {
+        const lines = stopRunningLines({ work: null, home: '', commandLine: false });
+        expect(lines).toHaveLength(1);
+        expect(lines[0]).toContain('stay on this computer');
+        expect(lines[0]).not.toContain('~');
+    });
+
     test('says that nothing runs', () => {
         expect(stopRunningLines({ work: { agents: 0, terminals: 0 }, home, commandLine: false })).toEqual(['Nothing runs on it right now.', DATA]);
     });

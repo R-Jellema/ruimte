@@ -97,6 +97,18 @@ describe('Settings > Machines of an app that runs no machine', () => {
         expect(everything()).toContain('Restart Ruimte to run a machine here?');
     });
 
+    test('a failure of the shell itself is told in our own words', async () => {
+        choose = () => Promise.reject(new Error("Error invoking remote method 'machine:choose': Error: EACCES"));
+        await open(machineBridge('none', { found: async () => found, choose: (mode) => choose(mode) }));
+        await until(() => row('This computer') !== null);
+        await clickOn(row('This computer'));
+        await until(() => button('Set up') !== null);
+        await clickOn(button('Set up'));
+        await clickOn(button('Restart'));
+        await until(() => everything().includes('Ruimte could not restart to run a machine here. Try again.'));
+        expect(everything()).not.toContain('Error invoking');
+    });
+
     test('an app that runs a machine has no row for this computer', async () => {
         // The detail of this machine connects to it, so a fake stands behind the pool instead of a socket.
         release = connectFakeMachine(new FakeMachine());

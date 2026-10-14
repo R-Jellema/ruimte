@@ -723,7 +723,8 @@
             "unreachable": "Deze machine is niet bereikbaar, dus hij blijft op je account.",
             "action": "Stoppen en opnieuw starten",
             "busy": "Stoppen…",
-            "unavailable": "Ruimte kon niet zonder machine opnieuw starten."
+            "failed": "Ruimte kon niet zonder machine opnieuw starten. Probeer het opnieuw.",
+            "dataAnywhere": "Ruimte haalt zijn achtergronddienst weg en start opnieuw. Je projecten, chats en worktrees blijven op deze computer en komen terug als je hier weer een machine draait."
         }
     },
     "reach": {
@@ -1281,7 +1282,7 @@
                 "title": "Ruimte opnieuw starten om hier een machine te draaien?",
                 "description": "Alle vensters sluiten en openen opnieuw. Agents op je andere machines werken door.",
                 "action": "Opnieuw starten",
-                "unavailable": "Ruimte kon niet opnieuw starten om een machine in te stellen."
+                "failed": "Ruimte kon niet opnieuw starten om hier een machine te draaien. Probeer het opnieuw."
             }
         }
     },

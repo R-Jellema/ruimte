@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { MonitorSmartphone, Server } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { desktop } from '@/desktop/bridge';
+import { isShellFailure } from '@/desktop/shell-failure';
 import { STRIP_PADDING_PX, useTrafficLightInset } from '@/desktop/useFullscreen';
 import { WELCOME_ORBITS } from '@/onboarding/welcome-orbits';
 import { useSettings } from '@/state/settings';
@@ -62,7 +63,7 @@ export function FirstRunScreen() {
         useSettings.getState().update({ onboardingSkipWelcome: value === 'local' });
         machine.choose(value).catch((e: unknown) => {
             useSettings.getState().update({ onboardingSkipWelcome: false });
-            setFailure(e instanceof Error ? e.message : String(e));
+            setFailure(isShellFailure(e) ? t('firstRun.failedGeneric') : t('firstRun.failed', { reason: e instanceof Error ? e.message : String(e) }));
             setBusy(false);
         });
     };
@@ -97,7 +98,7 @@ export function FirstRunScreen() {
                             t('firstRun.continue')
                         )}
                     </Button>
-                    {failure !== null && <FormError>{t('firstRun.failed', { reason: failure })}</FormError>}
+                    {failure !== null && <FormError>{failure}</FormError>}
                 </div>
             </div>
         </div>

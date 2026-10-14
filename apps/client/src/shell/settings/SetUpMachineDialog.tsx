@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { desktop } from '@/desktop/bridge';
+import { isShellFailure } from '@/desktop/shell-failure';
 import { PromptDialog } from '@adecore/ui';
 
 interface SetUpMachineDialogProps {
@@ -20,9 +21,13 @@ export function SetUpMachineDialog({ open, onOpenChange }: SetUpMachineDialogPro
             onConfirm={async () => {
                 const machine = desktop()?.machine;
                 if (machine === undefined) {
-                    throw new Error(t('machines.thisComputer.confirm.unavailable'));
+                    throw new Error(t('machines.thisComputer.confirm.failed'));
                 }
-                await machine.choose('local');
+                try {
+                    await machine.choose('local');
+                } catch (e) {
+                    throw isShellFailure(e) ? new Error(t('machines.thisComputer.confirm.failed')) : e;
+                }
             }}
             onOpenChange={onOpenChange}
         />

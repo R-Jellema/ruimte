@@ -106,6 +106,7 @@
         "note": "Ruimte start daarna één keer opnieuw. Je kunt dit later wijzigen in Instellingen, onder Machines.",
         "continue": "Doorgaan",
         "restarting": "Opnieuw starten…",
-        "failed": "Ruimte kon deze keuze niet opslaan. {{reason}}"
+        "failed": "Ruimte kon deze keuze niet opslaan. {{reason}}",
+        "failedGeneric": "Ruimte kon deze keuze niet opslaan. Probeer het opnieuw."
     }
 }

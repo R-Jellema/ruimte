@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { act } from 'react';
 import type { DesktopBridge } from '@/desktop/bridge';
 import { useSettings } from '@/state/settings';
 import { useWindow } from '@/state/window';
@@ -96,6 +97,29 @@ describe('the first start of a new install', () => {
         expect(button('Continue')?.disabled).toBe(false);
         expect(radio('This computer runs agents')?.getAttribute('aria-checked')).toBe('true');
         expect(useSettings.getState().onboardingSkipWelcome).toBe(false);
+    });
+
+    test('Enter on Continue reaches the button untouched, which chooses what the group shows', async () => {
+        await open();
+        const next = button('Continue')!;
+        next.focus();
+        expect(document.activeElement).toBe(next);
+        const enter = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true });
+        await act(async () => {
+            next.dispatchEvent(enter);
+        });
+        // happy-dom has no default action for Enter on a button, so the click a browser sends stands in for it.
+        expect(enter.defaultPrevented).toBe(false);
+        await clickOn(next);
+        expect(chosen).toEqual(['local']);
+    });
+
+    test('a failure of the shell itself is told in our own words', async () => {
+        choose = () => Promise.reject(new Error("Error invoking remote method 'machine:choose': Error: EACCES: permission denied"));
+        await open();
+        await clickOn(button('Continue'));
+        await until(() => text().includes('Ruimte could not save this choice. Try again.'));
+        expect(text()).not.toContain('Error invoking');
     });
 
     test('the group comes before Continue, and both take the keyboard', async () => {

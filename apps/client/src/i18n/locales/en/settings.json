@@ -723,7 +723,8 @@
             "unreachable": "This machine is not reachable, so it stays on your account.",
             "action": "Stop and restart",
             "busy": "Stopping…",
-            "unavailable": "Ruimte could not restart without a machine."
+            "failed": "Ruimte could not restart without a machine. Try again.",
+            "dataAnywhere": "Ruimte removes its background service and restarts. Your projects, chats and worktrees stay on this computer and come back when you run a machine here again."
         }
     },
     "reach": {
@@ -1281,7 +1282,7 @@
                 "title": "Restart Ruimte to run a machine here?",
                 "description": "Every window closes and opens again. Agents on your other machines keep working.",
                 "action": "Restart",
-                "unavailable": "Ruimte could not restart to set up a machine."
+                "failed": "Ruimte could not restart to run a machine here. Try again."
             }
         }
     },
