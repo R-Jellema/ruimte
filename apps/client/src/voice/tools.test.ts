@@ -2,7 +2,7 @@ import { useProjectList } from '@/state/project-list';
 import { useProject } from '@/state/project';
 import type { ProjectSummary } from '@ruimte/contracts';
 import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
-import { VOICE_TOOL_ACTIONS, VOICE_TOOL_DEFINITIONS } from '@ruimte/actions';
+import { VOICE_TOOL_ACTIONS, voiceToolDefinitions } from '@ruimte/actions';
 import type { ProjectCanvasView, ProjectDocument, ProjectNode } from '@ruimte/contracts';
 import { clientActions, VOICE_ACTION_CALL } from '@/actions/client-actions';
 import { defaultCanvases } from '@/state/canvas';
@@ -36,7 +36,7 @@ function canvasNode(id: string, title: string, kind: ProjectNode['kind'], x: num
 
 /* A strict tool call carries every field of its tool, null where the action has no use for it. */
 function toolArgs(tool: string, fields: Record<string, unknown>): string {
-    const definition = VOICE_TOOL_DEFINITIONS.find((candidate) => candidate.name === tool)!;
+    const definition = voiceToolDefinitions().find((candidate) => candidate.name === tool)!;
     const nulls = Object.fromEntries(Object.keys(definition.parameters.properties).map((field) => [field, null]));
     return JSON.stringify({ ...nulls, ...(tool === 'communicate' ? { notify_on_completion: false } : {}), ...fields });
 }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { ACTION_DEFINITIONS, ACTION_DOMAINS, VOICE_CONTROL_TOOL, VOICE_TOOL_ACTIONS, VOICE_TOOL_DEFINITIONS, voiceToolsFor, type ActionName } from './index.ts';
+import { ACTION_DEFINITIONS, ACTION_DOMAINS, VOICE_CONTROL_TOOL, VOICE_TOOL_ACTIONS, voiceToolDefinitions, voiceToolsFor, type ActionName } from './index.ts';
 
 const reached = [...VOICE_TOOL_ACTIONS.values()].flat();
 
@@ -11,7 +11,7 @@ describe('Voice tools', () => {
     });
 
     test('name only actions that exist and allow Voice', () => {
-        for (const tool of VOICE_TOOL_DEFINITIONS.filter((definition) => definition.name !== VOICE_CONTROL_TOOL)) {
+        for (const tool of voiceToolDefinitions().filter((definition) => definition.name !== VOICE_CONTROL_TOOL)) {
             const actions = tool.parameters.properties.action?.enum as string[];
             expect(actions).toEqual([...(VOICE_TOOL_ACTIONS.get(tool.name) ?? [])]);
             for (const action of actions) {
@@ -21,10 +21,14 @@ describe('Voice tools', () => {
         }
     });
 
+    test('are named by the tool actions and the control tool, which name them without building a schema', () => {
+        expect(voiceToolDefinitions().map((tool) => tool.name)).toEqual([...VOICE_TOOL_ACTIONS.keys(), VOICE_CONTROL_TOOL]);
+    });
+
     test('are strict: every field required, no extra fields, no keyword outside the strict subset', () => {
-        expect(new Set(VOICE_TOOL_DEFINITIONS.map((tool) => tool.name)).size).toBe(VOICE_TOOL_DEFINITIONS.length);
-        expect(VOICE_TOOL_DEFINITIONS.map((tool) => tool.name)).toContain(VOICE_CONTROL_TOOL);
-        for (const tool of VOICE_TOOL_DEFINITIONS) {
+        expect(new Set(voiceToolDefinitions().map((tool) => tool.name)).size).toBe(voiceToolDefinitions().length);
+        expect(voiceToolDefinitions().map((tool) => tool.name)).toContain(VOICE_CONTROL_TOOL);
+        for (const tool of voiceToolDefinitions()) {
             expect(tool.strict).toBe(true);
             expect(tool.parameters.additionalProperties).toBe(false);
             expect(tool.parameters.required).toEqual(Object.keys(tool.parameters.properties));
@@ -33,29 +37,29 @@ describe('Voice tools', () => {
     });
 
     test('a field one action of a tool leaves out may be null', () => {
-        const views = VOICE_TOOL_DEFINITIONS.find((tool) => tool.name === 'manage_views');
+        const views = voiceToolDefinitions().find((tool) => tool.name === 'manage_views');
         expect(views?.parameters.properties.viewId).toEqual({ type: ['string', 'null'] });
-        const canvas = VOICE_TOOL_DEFINITIONS.find((tool) => tool.name === 'manage_canvas');
+        const canvas = voiceToolDefinitions().find((tool) => tool.name === 'manage_canvas');
         expect(canvas?.parameters.properties.viewId).toEqual({ type: 'string' });
     });
 
     test('leave out what only an agent may give', () => {
-        const canvas = VOICE_TOOL_DEFINITIONS.find((tool) => tool.name === 'manage_canvas')!;
+        const canvas = voiceToolDefinitions().find((tool) => tool.name === 'manage_canvas')!;
         for (const field of ['source', 'cwd', 'beside', 'label', 'color', 'resume']) {
             expect(canvas.parameters.properties).not.toHaveProperty(field);
         }
         expect(canvas.parameters.properties.kind?.enum).not.toContain('drawing');
-        const views = VOICE_TOOL_DEFINITIONS.find((tool) => tool.name === 'manage_views')!;
+        const views = voiceToolDefinitions().find((tool) => tool.name === 'manage_views')!;
         for (const field of ['after', 'device', 'resume', 'cwd']) {
             expect(views.parameters.properties).not.toHaveProperty(field);
         }
         expect(views.parameters.properties.kind?.enum).not.toContain('device');
         expect(views.parameters.properties.action?.enum).not.toContain('view.move');
-        expect(JSON.stringify(VOICE_TOOL_DEFINITIONS)).not.toContain('"actors"');
+        expect(JSON.stringify(voiceToolDefinitions())).not.toContain('"actors"');
     });
 
     test('git leaves out what only a person decides: history, resolutions, removal and how a diverged branch comes together', () => {
-        const git = VOICE_TOOL_DEFINITIONS.find((tool) => tool.name === 'manage_git')!;
+        const git = voiceToolDefinitions().find((tool) => tool.name === 'manage_git')!;
         for (const field of ['run', 'stageAll', 'stashFirst', 'force', 'remove', 'stopAgent', 'into', 'commitFirst', 'onto', 'content', 'take', 'hash']) {
             expect(git.parameters.properties).not.toHaveProperty(field);
         }
@@ -68,8 +72,8 @@ describe('Voice tools', () => {
     });
 
     test('chats, terminals and plans leave out what only a person decides: approvals, the permission mode, unlocking and what the composer attaches', () => {
-        const tool = (name: string) => VOICE_TOOL_DEFINITIONS.find((definition) => definition.name === name)!;
-        const reachable = VOICE_TOOL_DEFINITIONS.flatMap((definition) => (definition.parameters.properties.action?.enum as string[] | undefined) ?? []);
+        const tool = (name: string) => voiceToolDefinitions().find((definition) => definition.name === name)!;
+        const reachable = voiceToolDefinitions().flatMap((definition) => (definition.parameters.properties.action?.enum as string[] | undefined) ?? []);
         for (const action of ['chat.approve', 'plan.unlock', 'plan.setStatus']) {
             expect(reachable).not.toContain(action);
         }
@@ -87,8 +91,8 @@ describe('Voice tools', () => {
     });
 
     test('files, content and pages leave out what only a person does: saving a file, pasting whole elements and search limits', () => {
-        const tool = (name: string) => VOICE_TOOL_DEFINITIONS.find((definition) => definition.name === name)!;
-        const reachable = VOICE_TOOL_DEFINITIONS.flatMap((definition) => (definition.parameters.properties.action?.enum as string[] | undefined) ?? []);
+        const tool = (name: string) => voiceToolDefinitions().find((definition) => definition.name === name)!;
+        const reachable = voiceToolDefinitions().flatMap((definition) => (definition.parameters.properties.action?.enum as string[] | undefined) ?? []);
         for (const action of ['drawing.export', 'diagram.export', 'browser.screenshot']) {
             expect(reachable).not.toContain(action);
         }
@@ -109,13 +113,13 @@ describe('Voice tools', () => {
     test('a subset carries the tools of its domains in catalog order, and always the control tool', () => {
         expect(voiceToolsFor([]).map((tool) => tool.name)).toEqual([VOICE_CONTROL_TOOL]);
         expect(voiceToolsFor(['machine', 'workspace']).map((tool) => tool.name)).toEqual(['inspect_workspace', 'inspect_machine', VOICE_CONTROL_TOOL]);
-        expect(voiceToolsFor(ACTION_DOMAINS)).toEqual([...VOICE_TOOL_DEFINITIONS]);
+        expect(voiceToolsFor(ACTION_DOMAINS)).toEqual([...voiceToolDefinitions()]);
     });
 
     test('a person-only field stays out, and so does an action only a person or an agent runs', () => {
-        const projects = VOICE_TOOL_DEFINITIONS.find((tool) => tool.name === 'manage_projects')!;
+        const projects = voiceToolDefinitions().find((tool) => tool.name === 'manage_projects')!;
         expect(Object.keys(projects.parameters.properties)).not.toContain('image');
         expect(projects.parameters.properties.action?.enum).not.toContain('project.delete');
-        expect(VOICE_TOOL_DEFINITIONS.find((tool) => tool.name === 'inspect_machine')!.parameters.properties.action?.enum).not.toContain('process.signal');
+        expect(voiceToolDefinitions().find((tool) => tool.name === 'inspect_machine')!.parameters.properties.action?.enum).not.toContain('process.signal');
     });
 });

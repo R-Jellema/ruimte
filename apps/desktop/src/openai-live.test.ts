@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { VOICE_TOOL_DEFINITIONS } from '@ruimte/actions';
+import { voiceToolDefinitions } from '@ruimte/actions';
 import { createOpenAiLiveSession, liveTools, parseOpenAiLivePreferences } from './openai-live';
 
 describe('createOpenAiLiveSession', () => {
@@ -74,6 +74,6 @@ describe('parseOpenAiLivePreferences', () => {
 describe('liveTools', () => {
     test('sends the tools of the named domains, and every tool to a page that named none', () => {
         expect(liveTools({ language: 'nl', voice: 'marin', domains: ['workspace'] }).map((tool) => tool.name)).toEqual(['inspect_workspace', 'control_action']);
-        expect(liveTools({ language: 'nl', voice: 'marin' })).toEqual([...VOICE_TOOL_DEFINITIONS]);
+        expect(liveTools({ language: 'nl', voice: 'marin' })).toEqual(voiceToolDefinitions());
     });
 });

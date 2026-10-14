@@ -1,4 +1,4 @@
-import { VOICE_TOOL_DEFINITIONS } from '@ruimte/actions';
+import { VOICE_CONTROL_TOOL, VOICE_TOOL_ACTIONS } from '@ruimte/actions';
 import type { LiveEvent } from '@/voice/live-session';
 
 interface FunctionCall {
@@ -19,7 +19,7 @@ export interface ToolLoopObserver {
 
 type Execute = (name: string, args: string) => Promise<Record<string, unknown>>;
 
-const toolNames = new Set<string>(VOICE_TOOL_DEFINITIONS.map((tool) => tool.name));
+const toolNames = new Set<string>([...VOICE_TOOL_ACTIONS.keys(), VOICE_CONTROL_TOOL]);
 
 function functionCallOf(event: LiveEvent): FunctionCall | null {
     if (event.type !== 'response.event' || typeof event.event !== 'object' || event.event === null) {

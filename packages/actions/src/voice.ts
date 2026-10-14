@@ -241,11 +241,24 @@ export const VOICE_TOOL_ACTIONS: ReadonlyMap<string, readonly ActionName[]> = ne
     DOMAIN_ACTIONS.map(({ domain, actions }) => [DOMAIN_TOOLS[domain].name, actions])
 );
 
-const DOMAIN_DEFINITIONS = DOMAIN_ACTIONS.map(({ domain, actions }) => ({ domain, tool: toolOf(domain, actions) }));
+let builtDefinitions: { domain: ActionDomain; tool: VoiceToolDefinition }[] | null = null;
 
-export const VOICE_TOOL_DEFINITIONS: readonly VoiceToolDefinition[] = [...DOMAIN_DEFINITIONS.map(({ tool }) => tool), CONTROL_TOOL];
+/* Built on first use: turning every input into a JSON schema costs every window about 10 ms at startup, and only Voice reads it. */
+function domainDefinitions(): { domain: ActionDomain; tool: VoiceToolDefinition }[] {
+    builtDefinitions ??= DOMAIN_ACTIONS.map(({ domain, actions }) => ({ domain, tool: toolOf(domain, actions) }));
+    return builtDefinitions;
+}
+
+export function voiceToolDefinitions(): VoiceToolDefinition[] {
+    return [...domainDefinitions().map(({ tool }) => tool), CONTROL_TOOL];
+}
 
 /* The tools of these domains and the control tool; every call is still checked by the registry, whatever was sent. */
 export function voiceToolsFor(domains: readonly ActionDomain[]): VoiceToolDefinition[] {
-    return [...DOMAIN_DEFINITIONS.filter(({ domain }) => domains.includes(domain)).map(({ tool }) => tool), CONTROL_TOOL];
+    return [
+        ...domainDefinitions()
+            .filter(({ domain }) => domains.includes(domain))
+            .map(({ tool }) => tool),
+        CONTROL_TOOL
+    ];
 }
