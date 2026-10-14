@@ -11,7 +11,6 @@ import { readNodeSide, storedNodeSize, type NodeSide } from '@/shell/settings/no
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { LOCAL_ENDPOINT_ID, useEndpoints, type Endpoint } from '@/state/endpoints';
 import { listedEndpoints } from '@/state/local-machine';
-import { keepsNodeSizes } from '@/state/node-size';
 import { useServers } from '@/state/server';
 import { useEndpointConnection } from '@/transport/status';
 
@@ -189,7 +188,7 @@ function NodeSizeSection({ endpoint, sizes, searchId }: { endpoint: Endpoint; si
     );
 }
 
-/* A section per machine that keeps sizes, a row per kind a person can add to a canvas. */
+/* A section per machine this client heard from, a row per kind a person can add to a canvas. */
 export function NodeSizeSections() {
     useFormatLocale();
     const stored = useEndpoints((s) => s.endpoints);
@@ -199,7 +198,7 @@ export function NodeSizeSections() {
     const keeping = [
         ...endpoints.filter((endpoint) => endpoint.id === LOCAL_ENDPOINT_ID),
         ...endpoints.filter((endpoint) => endpoint.id !== LOCAL_ENDPOINT_ID)
-    ].filter((endpoint) => servers[endpoint.id] !== undefined && keepsNodeSizes(servers[endpoint.id]!));
+    ].filter((endpoint) => servers[endpoint.id] !== undefined);
 
     return (
         <>

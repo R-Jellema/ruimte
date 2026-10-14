@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { act } from 'react';
 import type { EndpointInfo, NodeSizes, ProjectCanvasView, ProjectNode } from '@ruimte/contracts';
 import { startEndpointWatch } from '@/endpoint/watch';
-import { serverInfoOf, useServers } from '@/state/server';
+import { useServers } from '@/state/server';
 import { useUi } from '@/state/ui';
 import { windowWorkspace } from '@/state/window';
 import { pool } from '@/transport';
@@ -21,7 +21,7 @@ let page: Mounted;
 let sizes: NodeSizes;
 let stops: Array<() => void>;
 
-function info(features: string[]): EndpointInfo {
+function info(): EndpointInfo {
     return {
         id: MACHINE,
         label: 'Fake machine',
@@ -29,25 +29,22 @@ function info(features: string[]): EndpointInfo {
         version: '1',
         reachability: 'lan',
         authenticated: true,
-        nodeSizes: sizes,
-        features
+        nodeSizes: sizes
     };
 }
 
-/* A machine that keeps sizes, or one from before them when `keeps` is false. */
-async function open(keeps: boolean): Promise<void> {
-    const features = keeps ? ['endpoint.info', 'endpoint.setNodeSize'] : ['endpoint.info'];
-    machine.answer('endpoint.info', () => info(features));
+async function open(): Promise<void> {
+    machine.answer('endpoint.info', () => info());
     machine.answer('endpoint.setNodeSize', ({ kind, size }) => {
         const { [kind]: _replaced, ...others } = sizes;
         sizes = size === null ? others : { ...others, [kind]: size };
-        return info(features);
+        return info();
     });
     workspace = await openFakeWorkspace(machine, { views: [MAIN] }, { activeViewId: MAIN.id, views: {} });
     stops = [startServerInfo(), startEndpointWatch()];
     page = mount();
     await page.renderApp();
-    await until(() => serverInfoOf(MACHINE).features !== null && page.host.querySelector(`[data-node-id="${PLAN.id}"]`) !== null);
+    await until(() => useServers.getState().byEndpoint[MACHINE] !== undefined && page.host.querySelector(`[data-node-id="${PLAN.id}"]`) !== null);
 }
 
 async function openNodeMenu(id: string): Promise<void> {
@@ -87,7 +84,7 @@ function settingsSection(): HTMLElement | null {
 }
 
 async function openSettings(): Promise<void> {
-    await open(true);
+    await open();
     await act(async () => useUi.getState().setSettings({ open: true, section: 'views' }));
     await until(() => settingsSection() !== null);
 }
@@ -139,7 +136,7 @@ afterEach(async () => {
 
 describe('a default size per node kind', () => {
     test('a node’s menu makes its frame the size of its kind on the machine, says so, and the next node of that kind takes it', async () => {
-        await open(true);
+        await open();
         await openNodeMenu(PLAN.id);
         const item = menuItem('Make this the default size');
         expect(item?.textContent).toContain('400 × 320');
@@ -153,17 +150,6 @@ describe('a default size per node kind', () => {
         await act(async () => windowWorkspace()!.connection.projects.flush());
         const pasted = savedNodes().find((node) => node.id !== PLAN.id);
         expect(pasted).toMatchObject({ kind: 'note', w: 400, h: 320 });
-    });
-
-    test('a machine from before default sizes offers no such item and no section', async () => {
-        await open(false);
-        await openNodeMenu(PLAN.id);
-        expect(menuItem('Rename')).not.toBeNull();
-        expect(menuItem('Make this the default size')).toBeNull();
-
-        await act(async () => useUi.getState().setSettings({ open: true, section: 'views' }));
-        await until(() => document.body.textContent?.includes('Snap to the grid') === true);
-        expect(document.body.textContent).not.toContain('New nodes on Fake machine');
     });
 
     test('settings list every kind on its size, and Reset puts a custom one back to the built-in size', async () => {
@@ -243,7 +229,7 @@ describe('a default size per node kind', () => {
 
     test('a machine that is not connected shows its sizes but takes none', async () => {
         sizes = { terminal: { w: 640, h: 400 } };
-        await open(true);
+        await open();
         const statusOf = pool.statusOf.bind(pool);
         // One object, since a snapshot that changes on every read never settles.
         const gone = { status: 'closed', attempts: 1, retryAt: null } as const;

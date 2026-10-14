@@ -21,8 +21,6 @@ function load(endpointId: string): void {
         .then(async (info) => {
             const settled = noteDaemonIdentity(endpointId, info);
             adoptEndpointInfo(settled, info);
-            // Only here: an answer to a change leaves the list out, which says nothing about what the machine answers.
-            useServers.getState().setFeatures(settled, info.features ?? null);
             void link
                 .request('provider.list', {})
                 .then(({ providers }) => useProvidersStore.getState().setProviders(settled, providers))

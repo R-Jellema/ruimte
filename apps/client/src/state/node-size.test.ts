@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { NODE_SIZE } from '@ruimte/contracts';
 import { createCanvasStore } from '@/state/canvas';
 import { useEndpoints } from '@/state/endpoints';
-import { defaultNodeSize, keepsNodeSizes } from '@/state/node-size';
+import { defaultNodeSize } from '@/state/node-size';
 import { serverInfoOf, useServers } from '@/state/server';
 
 afterEach(() => {
@@ -31,11 +31,5 @@ describe('the size a new node takes', () => {
         const { nodes } = canvas.getState();
         expect({ w: nodes[before]!.w, h: nodes[before]!.h }).toEqual(NODE_SIZE.terminal);
         expect({ w: nodes[after]!.w, h: nodes[after]!.h }).toEqual({ w: 800, h: 480 });
-    });
-
-    test('is only set on a machine that says it keeps sizes', () => {
-        expect(keepsNodeSizes({ features: null })).toBe(false);
-        expect(keepsNodeSizes({ features: ['endpoint.info'] })).toBe(false);
-        expect(keepsNodeSizes({ features: ['endpoint.info', 'endpoint.setNodeSize'] })).toBe(true);
     });
 });

@@ -52,7 +52,6 @@ import { useTransport } from '@/transport/context';
 import { ColorSwatch, DisabledReason, Icon, Tooltip, Kbd, ContextMenu } from '@adecore/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { formatNodeSize, makeDefaultSize } from '@/canvas/default-size';
-import { keepsNodeSizes } from '@/state/node-size';
 
 /*
  * The context menu of one node, the same from its frame and from its row in the sidebar. `snooze`
@@ -73,7 +72,6 @@ export function NodeMenuPopup({ id, onRename, snooze }: { id: string; onRename()
     const chatProvider = useChatRow(id, (row) => row?.info.provider);
     const chatAccount = useChatRow(id, (row) => row?.info.account);
     const platform = useServer((s) => s.platform);
-    const keepsSizes = useServer(keepsNodeSizes);
     const providers = useProviders((s) => s.providers);
     const projectFolder = useProject((s) => s.current?.folder ?? null);
     const scratch = useProject((s) => isScratchProject(s.current));
@@ -171,7 +169,7 @@ export function NodeMenuPopup({ id, onRename, snooze }: { id: string; onRename()
                 </ContextMenu.Item>
             )}
             {/* A collapsed group is only its header, which is no size to start a group at. */}
-            {keepsSizes && !(node.kind === 'group' && node.collapsed) && (
+            {!(node.kind === 'group' && node.collapsed) && (
                 <ContextMenu.Item onClick={() => void makeDefaultSize(endpointId, kind, { w: node.w, h: node.h })}>
                     <Icon icon={Scaling} size={14} /> {t('menu.makeDefaultSize')}
                     <ContextMenu.Hint>{formatNodeSize(node)}</ContextMenu.Hint>

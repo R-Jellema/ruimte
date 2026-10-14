@@ -8,7 +8,6 @@ import { anyMachineShows } from '@/shell/settings/machine-switches';
 import { shortcutRowId, type ShortcutGroup } from '@/shell/settings/shortcuts';
 import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 import { hasLocalMachine } from '@/state/local-machine';
-import { keepsNodeSizes } from '@/state/node-size';
 import { useServers } from '@/state/server';
 import type { SettingsSectionId } from '@/state/ui';
 import { formatShortcut } from '@adecore/ui';
@@ -273,7 +272,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         section: 'views',
         label: 'settings:views.nodeSizes.searchLabel',
         description: 'settings:views.nodeSizes.description',
-        available: () => Object.values(useServers.getState().byEndpoint).some(keepsNodeSizes)
+        available: () => Object.keys(useServers.getState().byEndpoint).length > 0
     },
     { id: 'views.drawing.snap', section: 'views', label: 'settings:views.drawing.snap.label', description: 'settings:views.drawing.snap.description' },
     {
