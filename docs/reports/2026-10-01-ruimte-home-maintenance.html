@@ -201,24 +201,71 @@ input[type="range"] { width: 100%; min-height: 44px; accent-color: var(--accent)
 <header>
   <p class="eyebrow">Ruimte / Implementatieplan / 1 oktober 2026</p>
   <h1>Onderhoud van <code>~/.ruimte</code></h1>
-<aside class="doc-status" aria-label="Actualiteitscontrole"><p><strong>7 oktober 2026: Onderhoudsplan nog open.</strong> Screenshotopruiming gebeurt nog bij een nieuwe opname. SessionManager.kill vereist nog een geladen sessie en de gedeelde ender vangt een ontbrekende sessie af. Er is geen algemene startronde of dagelijkse onderhoudsmodule gevonden. Verwijderde packagepaden linken naar de oorspronkelijke bronrevisie; de actieve implementaties staan nu in ADE CORE. De oude opslaggroottes hieronder zijn een meting van 1 oktober, geen actuele schijfinventaris. De codecontrole gebruikte aada37fe5; externe productinformatie is niet opnieuw onderzocht.</p></aside>
+<aside class="doc-status" aria-label="Actualiteitscontrole"><p><strong>13 oktober 2026: geparkeerd.</strong> De code is op dit punt niet veranderd sinds 7 oktober, maar een nieuwe meting toont dat er weinig op te ruimen valt. Zie <a href="#stand">Stand op 13 oktober</a>. De codecontrole gebruikte <code>624e91dd9</code>, met ADE CORE gelinkt vanuit <code>../adecore</code>. De metingen van 1 oktober verderop zijn historisch.</p></aside>
   <p class="intro">Laat de daemon verlopen screenshots en verlaten tijdelijke bestanden opruimen. Maak het wissen na definitieve node-verwijdering volledig, ook na een herstart.</p>
-  <p class="status">Voorstel voor implementatie</p>
+  <p class="status">Geparkeerd op 13 oktober 2026</p>
   <p class="caption scope">Scope: <code>$RUIMTE_HOME</code>, de bijbehorende desktop- en helperopslag en een afzonderlijk vervolg voor daemonlogs. Bronrevisie <code>b45fec105e1d2eed5866049d0bde0c30a8d499a2</code>, werkboom schoon bij inventarisatie. Dit rapport voert geen opruiming uit.</p>
   <nav aria-label="Inhoud">
-    <a href="#besluit">Voorstel</a><a href="#huidig">Huidige situatie</a><a href="#beleid">Bewaarbeleid</a><a href="#aanpak">Implementatie</a><a href="#acceptatie">Acceptatiecriteria</a><a href="#startprompt">Startprompt</a><a href="#bronnen">Bronnen</a>
+    <a href="#stand">Stand 13 oktober</a><a href="#besluit">Voorstel</a><a href="#huidig">Huidige situatie</a><a href="#beleid">Bewaarbeleid</a><a href="#aanpak">Implementatie</a><a href="#acceptatie">Acceptatiecriteria</a><a href="#startprompt">Startprompt</a><a href="#bronnen">Bronnen</a>
   </nav>
 </header>
 <main>
-  <section id="besluit" class="recommendation">
-    <h2>Voeg gericht onderhoud toe</h2>
+  <section id="stand" class="recommendation">
+    <h2>Stand op 13 oktober: nu niet oppakken</h2>
+    <p>De drie routes uit het plan bestaan nog. Wat ze achterlaten is klein. Een dagelijkse onderhoudsronde met eigen scheduler, outbox-opdrachten en crashherstel kost meer code en risico dan de paar MiB die hij vrijmaakt.</p>
+    <div class="stats">
+      <div><strong>17</strong><span>chatrecords in productie zonder node of hidden-agent-vermelding</span></div>
+      <div><strong>2,5 MiB</strong><span>opslag van die 17 records</span></div>
+      <div><strong>7</strong><span>verlaten <code>.tmp</code>-bestanden in dev, samen 16 KiB, 0 in productie</span></div>
+      <div><strong>443 KiB</strong><span><code>~/Library/Logs/Ruimte/daemon.log</code></span></div>
+    </div>
+    <h3>Code</h3>
+    <div class="table" role="region" aria-label="Codecontrole 13 oktober" tabindex="0">
+      <table class="wide">
+        <thead><tr><th scope="col">Route</th><th scope="col">Stand</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Screenshots</th><td>Ongewijzigd. <code>sweep</code> loopt alleen vanuit <code>writeShot</code> (<a href="../../apps/server/src/shots.ts"><code>shots.ts:13 tot 34</code></a>); de helper ruimt alleen op bij een nieuwe opname (<a href="../../apps/computer-use/Sources/RuimteComputerUse/WindowCapture.swift"><code>WindowCapture.swift:136</code></a>).</td></tr>
+          <tr><th scope="row">Koude verwijdering</th><td>Ongewijzigd. <code>SessionManager.kill</code> gooit <code>session-not-found</code> zonder geladen sessie (<a href="../../apps/server/src/sessions/manager.ts"><code>manager.ts:588</code></a>). <code>ChatCore.kill</code> in <code>@adecore/agents</code> doet hetzelfde (<code>src/chat/chat-core.ts:893</code>, <code>loaded:1088</code>). <code>endSession</code> slikt de fout (<a href="../../apps/server/src/daemon.ts"><code>daemon.ts:563</code></a>).</td></tr>
+          <tr><th scope="row">Atomic writes</th><td>Ongewijzigd: <code>&lt;target&gt;.&lt;pid&gt;-&lt;n&gt;.tmp</code> in <code>@adecore/agents/src/fs.ts:23</code>.</td></tr>
+          <tr><th scope="row">Onderhoudsmodule</th><td>Bestaat niet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Meting</h3>
+    <p><span class="badge confirmed">Gemeten</span> Alleen gelezen, niets verwijderd. Voor de wezen is ieder chatrecord in <code>chats/</code> gezocht in de gedeelde en private <code>project.json</code> van de geregistreerde projecten en van <code>scratch/</code>, en daarna in <code>hidden-agents/</code>.</p>
+    <div class="table" role="region" aria-label="Schijfruimte 13 oktober" tabindex="0">
+      <table>
+        <thead><tr><th scope="col">Onderdeel</th><th scope="col" class="numeric">Productie</th><th scope="col" class="numeric">Dev</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Totaal</th><td class="numeric">4,1 GiB</td><td class="numeric">4,1 GiB</td></tr>
+          <tr><th scope="row"><code>models/</code></th><td class="numeric">2,4 GiB</td><td class="numeric">3,1 GiB</td></tr>
+          <tr><th scope="row"><code>worktrees/</code></th><td class="numeric">818 MiB</td><td class="numeric">44 KiB</td></tr>
+          <tr><th scope="row"><code>chats/</code></th><td class="numeric">148 MiB</td><td class="numeric">3,3 MiB</td></tr>
+          <tr><th scope="row">daarvan zonder node of hidden-agent</th><td class="numeric">17 records, 2,5 MiB</td><td class="numeric">58 records, 2,0 MiB</td></tr>
+          <tr><th scope="row"><code>screenshots/</code> + <code>computer-use/screenshots/</code></th><td class="numeric">0,9 MiB</td><td class="numeric">1,6 MiB</td></tr>
+          <tr><th scope="row">verlopen screenshots (24 uur / 1 uur)</th><td class="numeric">0 / 3</td><td class="numeric">4 / 2</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>De groei van <code>chats/</code> sinds 1 oktober (18,5 naar 148 MiB) komt van chats die een agent verborgen startte: 128 records met een vermelding in <code>hidden-agents/</code>, samen ongeveer 98 MiB. Die vallen niet onder dit plan, want ze zijn niet verwijderd. Of een verborgen agent ooit weg moet, is een eigen vraag over de levensduur van taken.</p>
+    <p>De 17 records zonder node kunnen van de koude route komen, maar ook van een project dat met <code>removeFiles=false</code> is vergeten of waarvan de map verplaatst is. Dat is met deze telling niet te onderscheiden. In dev zijn de meeste wezen van testprojecten.</p>
+    <h3>Wat wel</h3>
+    <ul>
+      <li>Stap 3, de koude verwijdering, is de enige stap met een echt gat. Pak die op zodra een verwijderde chat zichtbaar data achterlaat of de privacy het vraagt. Het kan een kleine patch zijn: wis de bewaarde opslag ook als de sessie niet geladen is, zonder de duurzame wachtrij uit stap 3.</li>
+      <li>Stappen 1, 2 en 4 blijven geparkeerd. Herzie ze als <code>screenshots/</code> of <code>daemon.log</code> boven de 100 MiB uitkomt.</li>
+      <li>De groei door verborgen agents is het opvolgen waard, los van dit plan.</li>
+    </ul>
+  </section>
+
+  <section id="besluit">
+    <h2>Oorspronkelijk voorstel (1 oktober)</h2>
     <p>Er is al opruiming bij het maken van screenshots en het verwijderen van geladen sessies. De aanvulling is een kleine onderhoudsronde bij start en iedere 24 uur, plus herstelbare opruiming na een definitieve verwijdering. De ronde verwerkt alleen expliciet aangewezen bestanden.</p>
     <p>De eerste oplevering bestaat uit stappen 1 tot en met 3 hieronder. Logrotatie volgt in een afzonderlijke patch. Een opslagpaneel, automatische verwijdering van modellen en een maximale leeftijd voor gesprekken vallen buiten deze eerste oplevering.</p>
     <p>Bewaartermijnen gelden voor tijdelijke data. Gesprekken, gebruikshistorie, browserlogins, projectbestanden, sleutels en worktrees behouden hun bestaande levensduur. Een project onder Recent blijft een bewaard project.</p>
   </section>
 
   <section id="huidig">
-    <h2>Wat de applicatie nu bewaart</h2>
+    <h2>Wat de applicatie bewaarde op 1 oktober</h2>
     <p><span class="badge confirmed">Gemeten</span> Lokale momentopname op 1 oktober 2026 met <code>du -k -d 1</code>. De waarden hieronder zijn toegewezen schijfruimte, afgerond in binaire eenheden. Ze voorspellen niet hoeveel onderhoud kan vrijmaken.</p>
     <div class="stats">
       <div><strong>2,74 GiB</strong><span><code>~/.ruimte</code> totaal</span></div>
@@ -448,7 +495,7 @@ bewaartermijnen gelden. Commit, push of publiceer alleen als dat gevraagd wordt.
     <p class="caption">Lokale meting: productie 2.871.316 KiB totaal / 2.545.356 KiB modellen; dev 3.571.504 KiB totaal / 3.200.364 KiB modellen. Er is geen verwachte besparing berekend, geen browserprofielinhoud gelezen en niets in de twee homes verwijderd.</p>
   </section>
 </main>
-<footer><p>Ruimte · 1 oktober 2026 · Links, ankers, licht/donker, 390 px en A4 gecontroleerd. Tekstcontrast minimaal 4,89:1. Kopieeractie en selectie getest met een nagebootst klembord.</p></footer>
+<footer><p>Ruimte · 1 oktober 2026, bijgewerkt 13 oktober 2026 · Links, ankers, licht/donker, 390 px en A4 gecontroleerd. Tekstcontrast minimaal 4,89:1. Kopieeractie en selectie getest met een nagebootst klembord.</p></footer>
 <script>
 {
   const button = document.getElementById('copy-prompt');
