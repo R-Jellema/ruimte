@@ -363,7 +363,12 @@ describe('project', () => {
             icon: { kind: 'lucide', value: 'rocket' }
         } as never);
         const withSubheader = document([view, { kind: 'subheader', id: 'h1', name: 'Agents', icon: { kind: 'lucide', value: 'rocket' } }]);
-        expect(withSubheader.success && withSubheader.data.views[1]).toEqual({ kind: 'subheader', id: 'h1', name: 'Agents' });
+        expect(withSubheader.success && withSubheader.data.views[1]).toEqual({
+            kind: 'subheader',
+            id: 'h1',
+            name: 'Agents',
+            icon: { kind: 'lucide', value: 'rocket' }
+        } as never);
     });
 
     test('a canvas file without an icon parses, and an icon is a Lucide name', () => {
