@@ -40,9 +40,10 @@ const REPLAY_SCROLLBACK = 50_000;
 // Only for the shell's run: a million lines through a PTY take seconds on a loaded CI machine.
 const SHELL_RUN_MS = 60_000;
 
-// The quotes keep the echo of the typed line from reading as the end.
+// The quotes keep the echo of the typed line from reading as the end. The leading echo keeps the first
+// number on a line of its own when dash prints its prompt after the typed line.
 function burst(last: number): string {
-    return `seq 1 ${last}; echo end-of-""run; exit\n`;
+    return `echo; seq 1 ${last}; echo end-of-""run; exit\n`;
 }
 
 interface Segment {
