@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { copyFile, mkdir, readdir, stat, writeFile } from 'node:fs/promises';
+import { copyFile, lstat, mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AttachmentStore } from '@adecore/agents/chat';
 import { CodedError } from '@adecore/agents';
@@ -70,7 +70,8 @@ export class AgentImages {
         const folder = this.attachments.folderOf(chatId);
         for (const [extension, mime] of Object.entries(MIME_OF)) {
             const path = join(folder, `${id}.${extension}`);
-            const info = await stat(path).catch(() => null);
+            // A link in the folder could point anywhere, so only a regular file of its own counts.
+            const info = await lstat(path).catch(() => null);
             if (info?.isFile()) {
                 return { id, name: `${id}.${extension}`, mime, size: info.size, path };
             }
@@ -80,13 +81,16 @@ export class AgentImages {
 
     /* Gives a fork the same images under the same ids, so the blocks it copied still show them. */
     async copy(fromChatId: string, toChatId: string): Promise<void> {
-        const names = await this.names(this.attachments.folderOf(fromChatId));
+        const source = this.attachments.folderOf(fromChatId);
+        const found = await this.names(source);
+        const regular = await Promise.all(found.map(async (name) => ((await lstat(join(source, name)).catch(() => null))?.isFile() ? name : null)));
+        const names = regular.filter((name): name is string => name !== null);
         if (names.length === 0) {
             return;
         }
         const target = this.attachments.folderOf(toChatId);
         await mkdir(target, { recursive: true, mode: 0o700 });
-        await Promise.all(names.map((name) => copyFile(join(this.attachments.folderOf(fromChatId), name), join(target, name))));
+        await Promise.all(names.map((name) => copyFile(join(source, name), join(target, name))));
     }
 
     private async names(folder: string): Promise<string[]> {

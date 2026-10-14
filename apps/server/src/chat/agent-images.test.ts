@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ACTION_DEFINITIONS } from '@ruimte/actions';
@@ -167,6 +167,14 @@ describe('finding an agent image', () => {
         expect(copy).toMatchObject({ id, size: PNG.byteLength });
         expect(copy!.path).toBe(join(home, 'attachments', 'chat-fork', `${id}.png`));
         expect(await daemon.chats.findAttachment('chat-lead', id!)).not.toBeNull();
+        // A link in the folder is not an image of the chat: it is neither found nor copied.
+        const outside = join(root, 'secret.png');
+        await writeFile(outside, PNG);
+        const linked = 'agent-00000000-0000-4000-8000-000000000000';
+        await symlink(outside, join(home, 'attachments', 'chat-lead', `${linked}.png`));
+        expect(await daemon.chats.findAttachment('chat-lead', linked)).toBeNull();
+        await daemon.chats.copyAgentImages('chat-lead', 'chat-fork-2');
+        expect(await readdir(join(home, 'attachments', 'chat-fork-2'))).toEqual([`${id}.png`]);
         // Nothing to copy leaves no folder behind.
         await daemon.chats.copyAgentImages('chat-without-images', 'chat-empty');
         expect(await stat(join(home, 'attachments', 'chat-empty')).catch(() => null)).toBeNull();
