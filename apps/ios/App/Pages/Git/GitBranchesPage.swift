@@ -46,11 +46,6 @@ import SwiftUI
         await load(client: client)
     }
 
-    func rebase(client: any MachineRequesting, onto branch: String) async {
-        await repositories.act(client: client, cwd: path, kind: "rebase", extra: ["ref": .string(branch)])
-        await load(client: client)
-    }
-
     /// One stash back into the working tree; nil pops the newest.
     func pop(client: any MachineRequesting, stash: String?) async {
         await repositories.act(
@@ -73,6 +68,8 @@ import SwiftUI
             }
         case .forcePush(let cwd):
             await repositories.act(client: client, cwd: cwd, kind: "force-push")
+        case .rebase(let cwd, let onto):
+            await repositories.act(client: client, cwd: cwd, kind: "rebase", extra: ["ref": .string(onto)])
         case .discard:
             break
         }
@@ -135,7 +132,7 @@ struct GitBranchRow: View {
                     Task { await actions.merge(client: client, branch: name) }
                 }
                 Button(String(localized: "Rebase onto this branch"), lucideIcon: "git-pull-request-arrow") {
-                    Task { await actions.rebase(client: client, onto: name) }
+                    actions.confirmation = .rebase(cwd: actions.path, onto: name)
                 }
             }
             if isCurrent {

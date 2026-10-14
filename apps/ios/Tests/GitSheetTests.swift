@@ -58,6 +58,21 @@ final class GitSheetTests: XCTestCase {
         XCTAssertEqual(pull?.payload["strategy"], .string("rebase"))
     }
 
+    func testARebaseRunsOnlyOnceThePersonConfirmedIt() async {
+        let machine = GitSheetMachine()
+        let actions = GitBranchActions(repositories: GitRepositories(), path: "/work/api")
+        let pending = GitConfirmation.rebase(cwd: "/work/api", onto: "main")
+        XCTAssertEqual(pending.title, "Rebase onto main?")
+        XCTAssertEqual(pending.confirmLabel, "Rebase")
+        actions.confirmation = pending
+        XCTAssertTrue(machine.sent.isEmpty)
+        await actions.confirm(client: machine, pending)
+        let rebase = machine.sent.first { $0.type == "git.action" }
+        XCTAssertEqual(rebase?.payload["kind"], .string("rebase"))
+        XCTAssertEqual(rebase?.payload["ref"], .string("main"))
+        XCTAssertNil(actions.confirmation)
+    }
+
     func testAHaltedCheckoutSaysWhatWaitsAndHowManyFilesConflict() {
         let halted = checkout("app", ["conflicted", "conflicted", "staged"], operation: "rebase")
         XCTAssertEqual(GitHaltedText.title(halted, named: false), "A rebase waits on you")

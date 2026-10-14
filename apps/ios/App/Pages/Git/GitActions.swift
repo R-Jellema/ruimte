@@ -8,6 +8,7 @@ enum GitConfirmation: Identifiable {
     case forcePush(cwd: String)
     case deleteBranch(cwd: String, ref: String, force: Bool)
     case checkout(cwd: String, ref: String)
+    case rebase(cwd: String, onto: String)
 
     var id: String {
         switch self {
@@ -15,6 +16,7 @@ enum GitConfirmation: Identifiable {
         case .forcePush(let cwd): "force-push\u{0}\(cwd)"
         case .deleteBranch(let cwd, let ref, let force): "delete\u{0}\(cwd)\u{0}\(ref)\u{0}\(force)"
         case .checkout(let cwd, let ref): "checkout\u{0}\(cwd)\u{0}\(ref)"
+        case .rebase(let cwd, let onto): "rebase\u{0}\(cwd)\u{0}\(onto)"
         }
     }
 
@@ -25,6 +27,7 @@ enum GitConfirmation: Identifiable {
         case .deleteBranch(_, let ref, let force):
             force ? String(localized: "Delete \(ref) anyway?") : String(localized: "Delete \(ref)?")
         case .checkout(_, let ref): String(localized: "Switch to \(ref)?")
+        case .rebase(_, let onto): String(localized: "Rebase onto \(onto)?")
         }
     }
 
@@ -37,6 +40,11 @@ enum GitConfirmation: Identifiable {
                 ? String(localized: "This branch has not been merged anywhere. Its commits are only reachable by hash.")
                 : String(localized: "The branch is removed here; the remote keeps its own.")
         case .checkout: String(localized: "Changes in the working tree are stashed first, so nothing is lost.")
+        case .rebase:
+            String(
+                localized:
+                    "Your commits are written again on top of that branch, as new commits. A branch you already pushed then needs a force push. A conflict stops the rebase halfway, for you to resolve or take back."
+            )
         }
     }
 
@@ -46,6 +54,7 @@ enum GitConfirmation: Identifiable {
         case .forcePush: String(localized: "Force push")
         case .deleteBranch: String(localized: "Delete")
         case .checkout: String(localized: "Switch", comment: "Button that checks out a git branch")
+        case .rebase: String(localized: "Rebase")
         }
     }
 }

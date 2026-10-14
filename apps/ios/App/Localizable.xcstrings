@@ -14580,6 +14580,17 @@
         }
       }
     },
+    "Rebase onto %@?" : {
+      "comment" : "%@ is the branch a rebase goes onto",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rebasen op %@?"
+          }
+        }
+      }
+    },
     "Rebase onto this branch" : {
       "localizations" : {
         "nl" : {
@@ -21326,6 +21337,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Je wijzigingen in %1$@ staan in de stash \"%2$@\"."
+          }
+        }
+      }
+    },
+    "Your commits are written again on top of that branch, as new commits. A branch you already pushed then needs a force push. A conflict stops the rebase halfway, for you to resolve or take back." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Je commits worden opnieuw geschreven boven op die branch, als nieuwe commits. Een branch die je al pushte, heeft daarna een force push nodig. Een conflict stopt de rebase halverwege, zodat je het oplost of terugdraait."
           }
         }
       }
