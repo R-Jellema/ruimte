@@ -17,6 +17,7 @@ import type {
     SpeechState,
     UpdateState
 } from '@ruimte/desktop-bridge';
+import { modeFromArgv } from './machine-argument';
 
 // A plain require: the bundler's ESM interop copies enumerable keys, and electron's are getters.
 const { contextBridge, ipcRenderer, webUtils } = require('electron') as typeof import('electron');
@@ -31,6 +32,26 @@ type LiveSession = Awaited<ReturnType<OpenAiBridge['createLiveSession']>>;
 function argument(prefix: string): string | undefined {
     return process.argv.find((arg) => arg.startsWith(prefix))?.slice(prefix.length) || undefined;
 }
+
+const machineMode = modeFromArgv(process.argv);
+
+/* The local secret and the service switch belong to a machine this app runs; without one they are not even offered. */
+const localMachineBridge = {
+    localSecret: (): Promise<string | null> => ipcRenderer.invoke('daemon:local-secret'),
+    backgroundService: {
+        state: (): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:state'),
+        onState: (listener: (state: BackgroundServiceState) => void): (() => void) => {
+            const handler = (_event: unknown, state: BackgroundServiceState): void => listener(state);
+            ipcRenderer.on('service:state', handler);
+            return () => ipcRenderer.removeListener('service:state', handler);
+        },
+        setKeepRunning: (keepRunning: boolean): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:set-keep-running', keepRunning),
+        enableLinger: (): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:enable-linger'),
+        restartNow: (): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:restart-now'),
+        restartWhenIdle: (): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:restart-when-idle'),
+        stopMachine: (): void => ipcRenderer.send('service:stop-machine')
+    }
+} satisfies Pick<DesktopBridge, 'localSecret' | 'backgroundService'>;
 
 /* What the client may ask the shell for, checked against the type the client reads it through. */
 const bridge = {
@@ -143,7 +164,6 @@ const bridge = {
     downloadUpdate: (): Promise<void> => ipcRenderer.invoke('update:download'),
     installUpdate: (confirmed?: boolean): void => ipcRenderer.send('update:install', confirmed === true),
     releaseNotes: (refresh?: boolean): Promise<ReleaseNotesState> => ipcRenderer.invoke('releases:list', refresh === true),
-    localSecret: (): Promise<string | null> => ipcRenderer.invoke('daemon:local-secret'),
     requestMicrophoneAccess: (): Promise<boolean> => ipcRenderer.invoke('media:request-microphone'),
     openAi: {
         credentialStatus: (): Promise<OpenAiCredentialStatus> => ipcRenderer.invoke('openai:credential-status'),
@@ -184,19 +204,8 @@ const bridge = {
             return () => ipcRenderer.removeListener('microphone:claimed', handler);
         }
     },
-    backgroundService: {
-        state: (): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:state'),
-        onState: (listener: (state: BackgroundServiceState) => void): (() => void) => {
-            const handler = (_event: unknown, state: BackgroundServiceState): void => listener(state);
-            ipcRenderer.on('service:state', handler);
-            return () => ipcRenderer.removeListener('service:state', handler);
-        },
-        setKeepRunning: (keepRunning: boolean): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:set-keep-running', keepRunning),
-        enableLinger: (): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:enable-linger'),
-        restartNow: (): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:restart-now'),
-        restartWhenIdle: (): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:restart-when-idle'),
-        stopMachine: (): void => ipcRenderer.send('service:stop-machine')
-    },
+    machine: { mode: machineMode },
+    ...(machineMode === 'local' ? localMachineBridge : {}),
     pulsar: {
         addressBook: (): Promise<string> => ipcRenderer.invoke('pulsar:address-book'),
         listen: (): Promise<{ redirectUri: string }> => ipcRenderer.invoke('pulsar:login-listen'),

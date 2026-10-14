@@ -1,5 +1,5 @@
 import { createMenuCommands, devToolsAccelerator, menuTemplateOf, staticMenuTemplate, type PageKeys } from '@adecore/shell';
-import type { MenuShellAction, MenuSpec, ServiceSupport } from '@ruimte/desktop-bridge';
+import type { MenuShellAction, MenuSpec } from '@ruimte/desktop-bridge';
 import { electron } from './electron';
 import type { AppIpc } from './ipc';
 
@@ -10,7 +10,8 @@ export interface MenuOptions {
     focused(): Electron.BrowserWindow | null;
     /* A page in a browser node or an HTML preview never sees the key, so there the menu answers. */
     keyBypassesPage(): boolean;
-    support: ServiceSupport;
+    /* Only where a service the app owns can run: anywhere else quitting already stops the machine. */
+    canStopMachine: boolean;
     stopMachine(): void;
     /* A new window on the start screen. */
     openWindow(): Electron.BrowserWindow;
@@ -53,9 +54,9 @@ export function installMenu(ipc: AppIpc, options: MenuOptions): AppMenu {
                 options.openWindow();
             }
         };
-        // Only where a service can run: anywhere else quitting already stops the machine.
-        const quitItems: Electron.MenuItemConstructorOptions[] =
-            options.support === 'supported' ? [{ label: 'Stop the Machine and Quit', click: () => options.stopMachine() }] : [];
+        const quitItems: Electron.MenuItemConstructorOptions[] = options.canStopMachine
+            ? [{ label: 'Stop the Machine and Quit', click: () => options.stopMachine() }]
+            : [];
         const template = staticMenuTemplate({
             appName: app.name,
             // Replace macOS's stock About and Settings with client routes.
@@ -81,8 +82,7 @@ export function installMenu(ipc: AppIpc, options: MenuOptions): AppMenu {
         if (action === 'devtools') {
             return { label, accelerator: devToolsAccelerator(), click: () => options.focused()?.webContents.toggleDevTools() };
         }
-        // Only where a service can run: anywhere else quitting already stops the machine.
-        return action === 'stop-machine-and-quit' && options.support === 'supported' ? { label, click: () => options.stopMachine() } : null;
+        return action === 'stop-machine-and-quit' && options.canStopMachine ? { label, click: () => options.stopMachine() } : null;
     };
 
     const applyOf = (window: Electron.BrowserWindow): void => {

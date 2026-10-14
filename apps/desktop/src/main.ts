@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { Socket } from 'node:net';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -5,6 +6,8 @@ import { answerAppRequest, createDesktopAppScheme } from './app-scheme';
 import { installBrowserRoutes } from './browser-routes';
 import { LAUNCHER_PIPE_VARIABLE } from './launcher-pipe';
 import { moveLegacyStorage } from './legacy-storage';
+import { MACHINE_ARGUMENT } from './machine-argument';
+import { decideMachineMode, hasInstallTraces, machineModeFile, parseModeOverride } from './machine-mode';
 import { createPageKeys, createTheme, createUpdater, createWindows, type WindowOrigin, createWindowState, fileStorage } from '@adecore/shell';
 import type { ThemeState } from '@adecore/shell/bridge';
 import { type AgentActivity, type KeepAwakeRequest } from '@ruimte/desktop-bridge';
@@ -48,6 +51,20 @@ const devUrl = process.env.RUIMTE_DEV_URL ?? null;
 const smoke = process.env.RUIMTE_SMOKE === '1';
 // Where the smoke run writes the top-left of the window, which is how the title bar is measured instead of guessed.
 const capturePath = process.env.RUIMTE_CAPTURE ?? null;
+
+// Whether this app runs a machine of its own; without one nothing below starts a daemon or reads the local secret.
+const machineModeStore = machineModeFile(join(app.getPath('userData'), 'machine.json'));
+const decidedMode = decideMachineMode({
+    override: parseModeOverride(process.env.RUIMTE_MACHINE),
+    stored: machineModeStore.read(),
+    traces: hasInstallTraces((name) => existsSync(join(app.getPath('userData'), name))),
+    smoke
+});
+if (decidedMode.write) {
+    machineModeStore.write(decidedMode.write);
+}
+const machineMode = decidedMode.mode;
+const localMachine = machineMode === 'local';
 const port = Number(process.env.RUIMTE_PORT ?? DEFAULT_PORT);
 // The home the daemon runs with, where its local secret lives; a checkout uses the dev home, as the server's `bun dev` does.
 const ruimteHome = app.isPackaged ? (process.env.RUIMTE_HOME ?? join(homedir(), '.ruimte')) : (process.env.RUIMTE_DEV_HOME ?? join(homedir(), '.ruimte-dev'));
@@ -70,7 +87,7 @@ function fromAppWindow(event: Electron.IpcMainEvent | Electron.IpcMainInvokeEven
 
 const ipc = createAppIpc(ipcMain, fromAppWindow, (contents) => windows.fromPage(contents));
 
-const machine = createMachine({ ipc, port, ruimteHome, repoRoot, devUrl, publish: (state) => windows.send('service:state', state) });
+const machine = createMachine({ ipc, port, ruimteHome, repoRoot, devUrl, mode: machineMode, publish: (state) => windows.send('service:state', state) });
 
 // The band the client reserves across the sidebar's strip and the toolbar, which the overlay controls share on Windows and Linux.
 const TITLEBAR_HEIGHT = 48;
@@ -269,7 +286,7 @@ const menu = installMenu(ipc, {
         const focused = webContents.getFocusedWebContents();
         return focused !== null && (isBrowserGuest(focused) || isPreviewGuest(focused));
     },
-    support: machine.support,
+    canStopMachine: localMachine && machine.support === 'supported',
     stopMachine: () => machine.stopAndQuit(),
     openWindow: () => windows.open(null)
 });
@@ -313,8 +330,9 @@ function createWindow(
             additionalArguments: [
                 `--ruimte-system-locale=${app.getSystemLocale()}`,
                 `--ruimte-system-languages=${app.getPreferredSystemLanguages().join(',')}`,
+                `${MACHINE_ARGUMENT}${machineMode}`,
                 // Under `bun dev` the page reaches its machine through Vite's proxy on its own origin instead.
-                ...(devUrl ? [] : [`--ruimte-daemon-url=${daemonUrl}`])
+                ...(localMachine && !devUrl ? [`--ruimte-daemon-url=${daemonUrl}`] : [])
             ]
         }
     });
@@ -777,7 +795,7 @@ if (!app.requestSingleInstanceLock()) {
         powerMonitor.on('on-battery', applyKeepAwake);
         powerMonitor.on('on-ac', applyKeepAwake);
         await startApp({
-            localMachine: true,
+            localMachine,
             startMachine: () => machine.start(),
             moveStorage: () =>
                 devUrl ? Promise.resolve(() => undefined) : moveLegacyStorage(port, join(app.getPath('userData'), 'storage-moved-to-app-scheme')),

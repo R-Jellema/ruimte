@@ -6,10 +6,11 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { serviceDefinition as definitionFor, type ServiceManager } from '@adecore/service';
 import { buildIdentityOf, MACHINE_HEALTH_PATH, type BuildIdentity } from '@ruimte/contracts';
-import type { BackgroundServiceState, ServiceSupport } from '@ruimte/desktop-bridge';
+import type { BackgroundServiceState, MachineMode, ServiceSupport } from '@ruimte/desktop-bridge';
 import { commandLineServiceProgram, daemonServiceSpec, platformServiceManager, serviceLogFile } from '@ruimte/service/host';
 import { askDaemonWork, proveDaemon, type DaemonPort } from '../daemon-proof';
 import { askLoginShellPath, fileLoginPathCache, loadLoginPath } from '../login-path';
+import { secretFor } from '../machine-mode';
 import { createServiceController, type ServiceController } from '../service/controller';
 import { keepRunningSetting, serviceSupport } from '../service/settings';
 import { createSecretGate } from '../startup';
@@ -26,6 +27,8 @@ export interface MachineOptions {
     repoRoot: string;
     /* Under `bun dev`, which runs the daemon itself. */
     devUrl: string | null;
+    /* Without a local machine no page gets the secret or a say over the service. */
+    mode: MachineMode;
     /* To every window. */
     publish(state: BackgroundServiceState): void;
 }
@@ -243,13 +246,15 @@ export function createMachine(options: MachineOptions): Machine {
     /* Only the app's own page gets the local secret, and only once the daemon on the port proved it holds it (`controller.start`). */
     const localSecret = createSecretGate(readLocalSecret);
 
-    ipc.handle('daemon:local-secret', () => localSecret.read());
-    ipc.handle('service:state', () => controller.state());
-    ipc.handle('service:set-keep-running', (_event, keepRunning: boolean) => publish(controller.setKeepRunning(keepRunning === true)));
-    ipc.handle('service:enable-linger', () => publish(controller.enableLinger()));
-    ipc.handle('service:restart-now', async () => publish(await controller.restartNow()));
-    ipc.handle('service:restart-when-idle', () => publish(controller.restartWhenIdle()));
-    ipc.on('service:stop-machine', () => stopAndQuit());
+    ipc.handle('daemon:local-secret', () => secretFor(options.mode, () => localSecret.read()));
+    if (options.mode === 'local') {
+        ipc.handle('service:state', () => controller.state());
+        ipc.handle('service:set-keep-running', (_event, keepRunning: boolean) => publish(controller.setKeepRunning(keepRunning === true)));
+        ipc.handle('service:enable-linger', () => publish(controller.enableLinger()));
+        ipc.handle('service:restart-now', async () => publish(await controller.restartNow()));
+        ipc.handle('service:restart-when-idle', () => publish(controller.restartWhenIdle()));
+        ipc.on('service:stop-machine', () => stopAndQuit());
+    }
 
     return {
         support,
