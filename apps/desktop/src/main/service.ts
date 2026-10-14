@@ -137,8 +137,8 @@ export function createMachine(options: MachineOptions): Machine {
     };
 
     /* Long enough for a daemon that is snapshotting its sessions on the way out of a restart. */
-    const waitForDaemon = async (accept: (health: BuildIdentity) => boolean): Promise<void> => {
-        const deadline = Date.now() + 20_000;
+    const waitForDaemon = async (accept: (health: BuildIdentity) => boolean, within = 20_000): Promise<void> => {
+        const deadline = Date.now() + within;
         while (Date.now() < deadline) {
             const health = await probeDaemon();
             if (health && accept(health)) {
@@ -256,8 +256,10 @@ export function createMachine(options: MachineOptions): Machine {
         controller,
         daemonPort,
         async start() {
-            // `bun dev` runs the daemon itself; the shell only opens the dev URL.
+            // `bun dev` runs the daemon itself and builds the helpers before it listens, so the page waits
+            // for it rather than finding nobody; one that never comes leaves the page's own retry.
             if (options.devUrl) {
+                await waitForDaemon(() => true, 120_000).catch(() => undefined);
                 return true;
             }
             if (app.isPackaged) {
