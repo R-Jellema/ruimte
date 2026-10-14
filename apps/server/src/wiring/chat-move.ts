@@ -74,7 +74,13 @@ export function chatMoveRefusalDeps(wiring: ChatMoveWiring): MoveRefusalDeps {
 export function chatMoveHandlers(wiring: ChatMoveWiring): ChatMoveHandlers {
     const { chats, store } = wiring;
     const refusalDeps = chatMoveRefusalDeps(wiring);
-    const registry = async (): Promise<Array<{ projectId: string; name: string; folder: string }>> => await store.known();
+    const registry = async (): Promise<Array<{ projectId: string; name: string; folder: string; available: boolean }>> =>
+        await Promise.all(
+            (await store.known()).map(async (project) => ({
+                ...project,
+                available: (await stat(project.folder).catch(() => null))?.isDirectory() ?? false
+            }))
+        );
     const infoDeps: MoveInfoDeps = {
         home: homedir(),
         ruimteHome: store.home,

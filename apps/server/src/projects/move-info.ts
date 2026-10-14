@@ -1,5 +1,6 @@
 import { lstat, readdir } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
+import { isInside } from '../canvas/project-paths.ts';
 import type { ChatItem, ChatMoveInfoPayload, ChatMoveInfoResult, ChatMoveRefusal, ChatMoveTarget } from '@ruimte/contracts';
 import { IGNORED_OWN_NAMES } from './own-files.ts';
 import { workedFolders } from '../chat/worked-folders.ts';
@@ -18,7 +19,7 @@ export interface MoveInfoDeps {
     /* The chat views of the Chats project. */
     chatsInChats(): Promise<string[]>;
     /* The registry's projects without Chats. */
-    projects(): Promise<Array<{ projectId: string; name: string; folder: string }>>;
+    projects(): Promise<Array<{ projectId: string; name: string; folder: string; available: boolean }>>;
     branchOf(folder: string): Promise<string | null>;
     gitRoot(directory: string): Promise<string | null>;
     /* Throws for a folder that holds the machine's own state (`MachineHome.refuse`). */
@@ -106,7 +107,7 @@ export async function chatMoveInfo(payload: ChatMoveInfoPayload, deps: MoveInfoD
     const projects = await deps.projects();
     const refusal = deps.refusal(chatId);
     const newFolderParent = commonParent(
-        projects.map((project) => project.folder),
+        projects.filter((project) => project.available && !isInside(deps.ruimteHome, project.folder)).map((project) => project.folder),
         deps.home
     );
     // Nothing is read for an id that is no chat of Chats: it may name any folder.

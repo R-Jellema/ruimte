@@ -89,7 +89,7 @@ describe('chatMoveInfo', () => {
         expect((await chatMoveInfo({ chatId: 'chat-1' }, deps(threads))).conflicts).toEqual([]);
         const toFolder = { chatId: 'chat-1', to: { folder: target, name: 'Vinyl', createFolder: false, initGit: false } };
         expect((await chatMoveInfo(toFolder, deps(threads))).conflicts).toEqual(['notes.md']);
-        const registered = deps(threads, { projects: async () => [{ projectId: 'p1', name: 'Vinyl', folder: target }] });
+        const registered = deps(threads, { projects: async () => [{ projectId: 'p1', name: 'Vinyl', folder: target, available: true }] });
         expect((await chatMoveInfo({ chatId: 'chat-1', to: { projectId: 'p1' } }, registered)).conflicts).toEqual(['notes.md']);
     });
 
@@ -100,7 +100,7 @@ describe('chatMoveInfo', () => {
             { chatId: 'chat-1' },
             deps(threads, {
                 gitRoot: async () => checkout,
-                projects: async () => [{ projectId: 'p1', name: 'Vinyl', folder: checkout }],
+                projects: async () => [{ projectId: 'p1', name: 'Vinyl', folder: checkout, available: true }],
                 branchOf: async () => 'main'
             })
         );
@@ -123,9 +123,9 @@ describe('chatMoveInfo', () => {
         const home = join(root, 'home');
         expect((await chatMoveInfo({ chatId: 'chat-1' }, deps({ 'chat-1': [] }))).newFolderParent).toBe(home);
         const projects = async () => [
-            { projectId: 'a', name: 'A', folder: '/work/a' },
-            { projectId: 'b', name: 'B', folder: '/work/b' },
-            { projectId: 'c', name: 'C', folder: '/elsewhere/c' }
+            { projectId: 'a', name: 'A', folder: '/work/a', available: true },
+            { projectId: 'b', name: 'B', folder: '/work/b', available: true },
+            { projectId: 'c', name: 'C', folder: '/elsewhere/c', available: true }
         ];
         expect((await chatMoveInfo({ chatId: 'chat-1' }, deps({ 'chat-1': [] }, { projects }))).newFolderParent).toBe('/work');
     });
@@ -153,6 +153,18 @@ describe('chatMoveInfo', () => {
             });
         }
         expect(asked).toEqual([]);
+    });
+
+    test("leaves projects that are gone or that live in the machine's data folder out of the suggested parent", async () => {
+        const data = join(root, 'home', '.ruimte');
+        const projects = async () => [
+            { projectId: 'a', name: 'A', folder: '/work/a', available: true },
+            { projectId: 'b', name: 'B', folder: '/gone/b', available: false },
+            { projectId: 'c', name: 'C', folder: '/gone/c', available: false },
+            { projectId: 'd', name: 'D', folder: join(data, 'worktrees', 'd'), available: true },
+            { projectId: 'e', name: 'E', folder: join(data, 'worktrees', 'e'), available: true }
+        ];
+        expect((await chatMoveInfo({ chatId: 'chat-1' }, deps({ 'chat-1': [] }, { projects }))).newFolderParent).toBe('/work');
     });
 
     test('lists nothing of a target folder the machine keeps its own state in', async () => {
