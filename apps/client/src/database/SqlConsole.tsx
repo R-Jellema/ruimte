@@ -2,9 +2,9 @@ import { useCallback, useEffect, useImperativeHandle, useRef, useSyncExternalSto
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, Database } from 'lucide-react';
 import type { Editor } from '@adecore/editor';
-import { QueryConsole, type QueryConsoleEditorProps, type QueryConsoleRunScope } from '@adecore/database';
+import { QueryConsole, runScopeOf, type QueryConsoleEditorProps } from '@adecore/database';
 import { storedPathOf } from '@ruimte/contracts';
-import { Button, Icon, matchesShortcut, Menu, Select, shortcut } from '@adecore/ui';
+import { Button, Icon, Menu, Select } from '@adecore/ui';
 import { asViewConnections, ensureDatabaseConnections, useDatabaseConnectionList } from '@/database/connections';
 import { setConsoleSchema, switchConsoleConnection } from '@/database/console-file';
 import { RuimteDatabaseProvider } from '@/database/RuimteDatabaseProvider';
@@ -13,10 +13,6 @@ import { useDatabasePanel } from '@/database/state';
 import { isApplePlatform } from '@/desktop/bridge';
 import { useFiles, type ConsoleBinding } from '@/state/files';
 import { useProject } from '@/state/project';
-
-/* The keys the console's toolbar names for its two runs, bound in the file's own editor. */
-const RUN_SHORTCUT = shortcut('Mod+Enter');
-const RUN_ALL_SHORTCUT = shortcut('Mod+Shift+Enter');
 
 /* What the picker offers to leave the console for the file alone, which no connection id can be. */
 const AS_FILE = '';
@@ -129,13 +125,6 @@ function RunOnConnection({ path }: { path: string }) {
             </Menu.Popup>
         </Menu.Root>
     );
-}
-
-function runScopeOf(event: KeyboardEvent, apple: boolean): QueryConsoleRunScope | null {
-    if (matchesShortcut(RUN_ALL_SHORTCUT, event, apple)) {
-        return 'all';
-    }
-    return matchesShortcut(RUN_SHORTCUT, event, apple) ? 'selection-or-statement' : null;
 }
 
 /* Hands the console the selection of the file's editor and runs on its two keys, which only a tab in console mode binds. */
