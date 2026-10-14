@@ -1278,6 +1278,9 @@ export class ProjectStore {
     private refuseSharedRemoteNodes(projectId: string, content: ProjectContent, shared: readonly string[]): void {
         const bound = { ...this.remote.nodesOf(projectId), ...Object.fromEntries(machinesOf(content)) };
         for (const view of content.views) {
+            if (shared.includes(view.id) && isCanvasView(view) && view.hidden === true) {
+                throw new ProjectError('hidden-view-shared', `${view.name} is kept for another machine and stays on this one`);
+            }
             const held = isCanvasView(view) ? [view.id, ...view.nodes.map((node) => node.id)] : [view.id];
             if (shared.includes(view.id) && held.some((id) => Object.hasOwn(bound, id))) {
                 throw new ProjectError('remote-node-shared', `${view.name} holds a node that runs on another machine, which stays on a canvas only you have`);

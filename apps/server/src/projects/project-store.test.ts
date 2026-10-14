@@ -1671,6 +1671,15 @@ describe('the machine of a node', () => {
         expect(await store.revision(projectId)).toBe(1);
     });
 
+    test('keeps a hidden canvas off the shared file and out of both', async () => {
+        const opened = await store.openProject({ folder });
+        const projectId = opened.summary.projectId;
+        const hidden = { ...canvas(content()), hidden: true as const };
+        await expect(store.save(projectId, 0, { ...content(), views: [hidden] }, ['main'])).rejects.toMatchObject({ code: 'hidden-view-shared' });
+        await store.save(projectId, 0, { ...content(), views: [hidden] });
+        expect(await textOfProjectFiles()).not.toContain('"hidden"');
+    });
+
     test('is not lost to the id turning up as a view after a pull', async () => {
         await openBound();
         const path = documentPathInFolder(folder);

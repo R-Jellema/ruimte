@@ -519,7 +519,7 @@ export const ProjectCanvasViewSchema = ViewBaseSchema.extend({
     texts: z.array(ProjectTextSchema),
     edges: z.array(ProjectEdgeSchema),
     layouts: z.array(ProjectLayoutSchema).default([]),
-    // A canvas a machine keeps for the nodes another machine runs here: no list or tab shows it.
+    // A canvas a machine keeps for the nodes another machine runs here: no list or tab shows it. The daemon lays it over the document and never writes it to a project file.
     hidden: z.boolean().optional()
 });
 export type ProjectCanvasView = z.infer<typeof ProjectCanvasViewSchema>;

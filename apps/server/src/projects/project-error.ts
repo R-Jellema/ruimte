@@ -15,6 +15,8 @@ type ProjectErrorCode =
     // A node that runs on another machine would reach the shared file as a plain node of this one.
     | 'remote-node-shared'
     // A node that runs on another machine would start here as soon as it became a view of its own.
-    | 'remote-node-view';
+    | 'remote-node-view'
+    // The canvas a machine keeps for another one is not a view to commit.
+    | 'hidden-view-shared';
 
 export class ProjectError extends CodedError<ProjectErrorCode> {}

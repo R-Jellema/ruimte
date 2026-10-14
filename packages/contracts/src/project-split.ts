@@ -126,6 +126,21 @@ function withoutMachine<T extends object>(carrier: T): T {
     return stripped as T;
 }
 
+/* A canvas is hidden because a machine keeps it for another, and that fact lives under the daemon's home like the machine of a node. A hidden chat is stored. */
+function withoutHidden(view: ProjectView): ProjectView {
+    if (!isCanvasView(view) || view.hidden === undefined) {
+        return view;
+    }
+    const stripped = { ...view };
+    delete stripped.hidden;
+    return stripped;
+}
+
+/* Neither file holds a machine or a hidden canvas, whoever put one there. */
+function withoutHome(view: ProjectView): ProjectView {
+    return withoutHidden(withCarriers(view, (_id, carrier) => withoutMachine(carrier)));
+}
+
 function withoutOverlay<T extends Carrier>(carrier: T, overlay: CarrierOverlay): T {
     const stripped = { ...carrier };
     for (const field of Object.keys(overlay) as (keyof CarrierOverlay)[]) {
@@ -257,7 +272,7 @@ export interface ProjectSplit {
 
 export function splitContent(content: ProjectContent, shared: readonly string[], rev: number, overlayFields: readonly string[] = []): ProjectSplit {
     const privateFields = privateFieldsAmong(overlayFields);
-    const views = content.views.map((view) => withCarriers(view, (_id, carrier) => withoutMachine(carrier)));
+    const views = content.views.map(withoutHome);
     const ids = sharedIdsOf(views, shared);
     const overlay: Record<string, ProjectNodeOverlay> = {};
     const travelling: ProjectView[] = [];
@@ -346,6 +361,7 @@ export function mergeFiles(
     // Ruimte never writes a file view off the folder there, so one that is came from whoever pushed it.
     const sharedViews = (shared?.views ?? [])
         .filter((view) => viewShareRefusal(view) !== 'path-outside-project')
+        .map(withoutHidden)
         .map((view) =>
             withSessionTitles(
                 withCarriers(view, (id, carrier) => {
@@ -361,11 +377,7 @@ export function mergeFiles(
             name: shared?.name ?? fallback.name,
             color: shared?.color ?? fallback.color,
             ...(shared?.icon ? { icon: shared.icon } : {}),
-            views: orderedViews(
-                sharedViews,
-                file.views.map((view) => withCarriers(view, (_id, carrier) => withoutMachine(carrier))),
-                file.order
-            ),
+            views: orderedViews(sharedViews, file.views.map(withoutHome), file.order),
             ...(file.flags ? { flags: file.flags } : {}),
             ...(file.sql ? { sql: file.sql } : {})
         },

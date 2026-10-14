@@ -204,6 +204,16 @@ describe('the machine a node runs on', () => {
         expect(split.private.views).toHaveLength(2);
     });
 
+    test('is no more written than a hidden canvas, while a hidden chat is', () => {
+        const hidden = { ...(canvas('peer-a', [node('n1')]) as ProjectCanvasView), hidden: true };
+        const chat = { ...(chatView('inline') as Extract<ProjectView, { kind: 'chat' }>), hidden: true };
+        const split = splitContent(content([hidden, canvas('shared'), chat]), ['shared', 'inline'], 1);
+        expect(split.shared.views.map((view) => view.id)).toEqual(['shared', 'inline']);
+        expect(split.shared.views.find((view) => view.id === 'shared')).not.toHaveProperty('hidden');
+        expect(split.private.views.map((view) => ('hidden' in view ? view.hidden : undefined))).toEqual([undefined]);
+        expect(split.shared.views.find((view) => view.id === 'inline')).toMatchObject({ hidden: true });
+    });
+
     test('is not believed when a file names it', () => {
         const file = { ...EMPTY_PRIVATE_FILE, order: ['shared', 'own'], views: [canvas('own', [node('n2', { machine: 'B' })])] };
         const shared: ProjectSharedFile = {
@@ -213,6 +223,10 @@ describe('the machine a node runs on', () => {
             views: [canvas('shared', [node('n1', { machine: 'B' })])]
         };
         expect(JSON.stringify(mergeFiles(shared, file, fallback).content)).not.toContain('machine');
+        const hiddenOwn = { ...(canvas('own') as ProjectCanvasView), hidden: true };
+        const hiddenShared = { ...(canvas('shared') as ProjectCanvasView), hidden: true };
+        const merged = mergeFiles({ ...shared, views: [hiddenShared] }, { ...file, views: [hiddenOwn] }, fallback);
+        expect(merged.content.views.some((view) => 'hidden' in view)).toBe(false);
     });
 });
 
