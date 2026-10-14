@@ -8,7 +8,7 @@ import clsx from 'clsx';
 import type { TerminalViewHandle } from '@adecore/terminal';
 import { MachineTerminal } from '@/terminal/MachineTerminal';
 import { SessionPortMonitor } from '@/terminal/SessionPorts';
-import { ClipboardPaste, Copy, Eye, Play, RotateCw, Scan } from 'lucide-react';
+import { ClipboardPaste, Copy, Eraser, Eye, Play, RotateCw, Scan } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useEndpointId } from '@/state/keys';
 import { useSessionRestarts, useSessionRow } from '@/state/sessions';
@@ -16,12 +16,14 @@ import { useProject } from '@/state/project';
 import { useSettings } from '@/state/settings';
 import { osc52Text } from '@/terminal/osc52';
 import { lastScreenOf, registerTerminal } from '@/terminal/registry';
+import { CLEAR_SHORTCUT, platformShortcut } from '@/terminal/keymap';
 import { bindTerminalKeys, fittedGrid } from '@/terminal/xterm';
 import { sessionClientFor } from '@/transport/connections';
 import { useTransportStatus } from '@/transport/status';
+import { isApplePlatform } from '@/desktop/bridge';
 import { NodeNotice } from '@/nodes/NodeNotice';
 import { closeHost, readNodeHost, useSuggestedTitle } from '@/nodes/node-host';
-import { Button, copyText, readClipboardText, Icon, ContextMenu, ErrorBoundary, prefetcher } from '@adecore/ui';
+import { Button, copyText, readClipboardText, Icon, ContextMenu, ErrorBoundary, Kbd, prefetcher } from '@adecore/ui';
 
 // A terminal loads the WebGL addon on its first context; prefetched, it is there by then.
 prefetcher.register(() => import('@xterm/addon-webgl'));
@@ -157,6 +159,10 @@ export function TerminalBody({ id, focused }: { id: string; focused: boolean }) 
                 <ContextMenu.Separator />
                 <ContextMenu.Item onClick={() => viewRef.current?.selectAll()}>
                     <Icon icon={Scan} size={14} /> {t('common:action.selectAll')}
+                </ContextMenu.Item>
+                <ContextMenu.Separator />
+                <ContextMenu.Item onClick={() => clearTerminalAction(id)}>
+                    <Icon icon={Eraser} size={14} /> {t('menu.clear')} <Kbd shortcut={platformShortcut(CLEAR_SHORTCUT, isApplePlatform())} />
                 </ContextMenu.Item>
             </ContextMenu.Popup>
         </ContextMenu.Root>

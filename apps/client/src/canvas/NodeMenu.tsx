@@ -4,6 +4,7 @@ import {
     ChevronsDownUp,
     ChevronsUpDown,
     Copy,
+    Eraser,
     EyeOff,
     Expand,
     ExternalLink,
@@ -23,7 +24,15 @@ import {
     Trash
 } from 'lucide-react';
 import type { ProviderInfo } from '@ruimte/contracts';
-import { arrangeGroupAction, colorNoteAction, createNodeAction, duplicateNodeAction, focusNodeAction, linkNodesAction } from '@/actions/client-actions';
+import {
+    arrangeGroupAction,
+    clearTerminalAction,
+    colorNoteAction,
+    createNodeAction,
+    duplicateNodeAction,
+    focusNodeAction,
+    linkNodesAction
+} from '@/actions/client-actions';
 import { ChatAgentSubmenu } from '@/agents/AgentMenus';
 import { FlagSubmenu } from '@/project/FlagSubmenu';
 import { askOpenAsView, canOpenAsView } from '@/project/views';
@@ -227,6 +236,11 @@ export function NodeMenuPopup({ id, onRename, snooze }: { id: string; onRename()
             {node.kind === 'terminal' && canOpenInChat && (
                 <ContextMenu.Item onClick={openInChat}>
                     <Icon icon={MessageSquare} size={14} /> {t('menu.openInChat')}
+                </ContextMenu.Item>
+            )}
+            {node.kind === 'terminal' && (
+                <ContextMenu.Item onClick={() => clearTerminalAction(id)}>
+                    <Icon icon={Eraser} size={14} /> {t('menu.clear')}
                 </ContextMenu.Item>
             )}
             {node.kind === 'chat' && chatSession && (

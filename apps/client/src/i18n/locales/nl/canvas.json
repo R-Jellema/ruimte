@@ -97,6 +97,7 @@
         "removeWorktrees_other": "Worktrees verwijderen…",
         "viewWorktree": "Worktree bekijken",
         "openInChat": "In een chat openen",
+        "clear": "Wissen",
         "openInTerminal": "In een terminal openen",
         "openAsView": "Als weergave openen",
         "openAsViewHint": "De sessie blijft behouden",

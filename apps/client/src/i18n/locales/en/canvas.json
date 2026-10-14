@@ -97,6 +97,7 @@
         "removeWorktrees_other": "Remove worktrees…",
         "viewWorktree": "View worktree",
         "openInChat": "Open in chat",
+        "clear": "Clear",
         "openInTerminal": "Open in terminal",
         "openAsView": "Open as view",
         "openAsViewHint": "Keeps its session",
