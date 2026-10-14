@@ -309,8 +309,8 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
             : []),
         ...(leavingChatId !== null
             ? [
-                  row('chat-make-project', () => useUi.getState().setMoveChatDialog({ chatId: leavingChatId, projectId: null })),
-                  row('chat-move-to-project', () => useUi.getState().setMoveChatDialog({ chatId: leavingChatId, projectId: null }))
+                  row('chat-make-project', () => useUi.getState().setMoveChatDialog({ chatId: leavingChatId, mode: 'make', projectId: null })),
+                  row('chat-move-to-project', () => useUi.getState().setMoveChatDialog({ chatId: leavingChatId, mode: 'pick', projectId: null }))
               ]
             : []),
         ...(selected?.kind === 'chat' && hasPrWatch(currentEndpointId(), selected.id)

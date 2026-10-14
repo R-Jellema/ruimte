@@ -142,6 +142,16 @@ export type ViewDialog =
 /* What the palette is doing: jumping and running commands, searching through the files of the open
    folder, searching the messages of the project's chats, or picking one file out of it. The mode is a
    step inside the same dialog, not a dialog of its own. */
+/*
+ * A chat in Chats that leaves it. `make` starts a new project from the chat ("Make a project…"); `pick`
+ * moves it into a project that already exists, `projectId` being the one chosen beforehand, if any.
+ */
+export interface MoveChatRequest {
+    chatId: string;
+    mode: 'make' | 'pick';
+    projectId: string | null;
+}
+
 export type PaletteMode = 'default' | 'grep' | 'chats' | 'file';
 
 /* What a picked file becomes. A node carries where it lands, in world units, because the menu that
@@ -211,7 +221,7 @@ interface UiStore {
     /* The chat and the turn a fork goes on after, while its dialog is up. */
     forkDialog: { chatId: string; turnId: string } | null;
     /* The chat in Chats that moves to a project, and the project picked beforehand, while its dialog is up. */
-    moveChatDialog: { chatId: string; projectId: string | null } | null;
+    moveChatDialog: MoveChatRequest | null;
     /* The dialog that starts a chat in a worktree made for it. */
     newWorktreeChatOpen: boolean;
     /* The dialog that starts a chat on a GitHub issue. */
@@ -239,7 +249,7 @@ interface UiStore {
     setWorktreeMerge(merge: WorktreeMergeRequest | null): void;
     setConflicts(request: ConflictRequest | null): void;
     setForkDialog(fork: { chatId: string; turnId: string } | null): void;
-    setMoveChatDialog(move: { chatId: string; projectId: string | null } | null): void;
+    setMoveChatDialog(move: MoveChatRequest | null): void;
     setNewWorktreeChatOpen(open: boolean): void;
     setIssueStartOpen(open: boolean): void;
     setPullRequestDialog(request: { cwd: string } | null): void;

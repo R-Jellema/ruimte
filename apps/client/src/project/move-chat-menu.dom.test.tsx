@@ -66,7 +66,7 @@ describe('moving a chat out of Chats, from its view menu', () => {
         await setChatStatus('idle');
         await openViewMenu(WRITTEN.id);
         await clickOn(makeProjectRow() ?? null);
-        expect(useUi.getState().moveChatDialog).toEqual({ chatId: WRITTEN.id, projectId: null });
+        expect(useUi.getState().moveChatDialog).toEqual({ chatId: WRITTEN.id, mode: 'make', projectId: null });
         useUi.getState().setMoveChatDialog(null);
     });
 

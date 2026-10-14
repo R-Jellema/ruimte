@@ -25,11 +25,11 @@ export function MoveChatItems({ chatId, endpointId, working }: MoveChatItemsProp
     const endpoints = useEndpoints((state) => state.endpoints);
     const targets = useMemo(() => moveTargetsOf(rows, endpoints, endpointId), [rows, endpoints, endpointId]);
     const reason = working ? t('viewMenu.moveWhileWorking') : null;
-    const ask = (projectId: string | null): void => useUi.getState().setMoveChatDialog({ chatId, projectId });
+    const ask = (mode: 'make' | 'pick', projectId: string | null): void => useUi.getState().setMoveChatDialog({ chatId, mode, projectId });
     return (
         <>
             <DisabledReason reason={reason}>
-                <Menu.Item disabled={working} onClick={() => ask(null)}>
+                <Menu.Item disabled={working} onClick={() => ask('make', null)}>
                     <Icon icon={FolderPlus} size={14} /> {t('viewMenu.makeProject')}
                 </Menu.Item>
             </DisabledReason>
@@ -41,13 +41,13 @@ export function MoveChatItems({ chatId, endpointId, working }: MoveChatItemsProp
                 </DisabledReason>
                 <Menu.Popup className="min-w-52">
                     {targets.map((summary) => (
-                        <Menu.Item key={summary.projectId} onClick={() => ask(summary.projectId)}>
+                        <Menu.Item key={summary.projectId} onClick={() => ask('pick', summary.projectId)}>
                             <ProjectGlyph projectId={summary.projectId} endpointId={endpointId} icon={summary.icon} color={summary.color} />
                             <span className="truncate">{summary.name}</span>
                         </Menu.Item>
                     ))}
                     {targets.length > 0 && <Menu.Separator />}
-                    <Menu.Item onClick={() => ask(null)}>{t('viewMenu.otherProject')}</Menu.Item>
+                    <Menu.Item onClick={() => ask('pick', null)}>{t('viewMenu.otherProject')}</Menu.Item>
                 </Menu.Popup>
             </Menu.SubmenuRoot>
         </>

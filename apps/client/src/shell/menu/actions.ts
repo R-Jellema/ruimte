@@ -144,7 +144,7 @@ export function runMenuCommand(id: string): void {
     if (id.startsWith(CHAT_MOVE_PREFIX)) {
         const facts = activeViewFacts();
         if (facts !== null && facts.offers.moveToProject && !facts.working) {
-            useUi.getState().setMoveChatDialog({ chatId: facts.view.id, projectId: id.slice(CHAT_MOVE_PREFIX.length) });
+            useUi.getState().setMoveChatDialog({ chatId: facts.view.id, mode: 'pick', projectId: id.slice(CHAT_MOVE_PREFIX.length) });
         }
         return;
     }
