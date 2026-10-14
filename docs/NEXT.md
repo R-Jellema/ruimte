@@ -4,31 +4,32 @@ This plan holds only open implementation, decisions and verification. Each numbe
 is a reviewable change; split a larger package into issues when implementation starts. The order
 is a recommended priority. Run measurements or a design spike before estimating larger work.
 
-Reviewed against `2aba19a60` on October 11, 2026. Implementation, acceptance and product decisions
+Reviewed against `10098374c` on October 14, 2026. Implementation, acceptance and product decisions
 are separate tasks below. The ADE CORE extraction, initial language-server implementation and
 multiwindow implementation are complete; their remaining acceptance does not require rebuilding them.
+The decisions of October 14 are written into the packages. Everything built from this plan ships in 0.19.0.
 
 ## Implementation order
 
-| Package                               | Priority                             | Depends on                                          |
-| ------------------------------------- | ------------------------------------ | --------------------------------------------------- |
-| 1. Chat lifecycle and native requests | First                                | Nothing                                             |
-| 2. Ownership and persistent files     | First                                | Nothing                                             |
-| 3. Test floor and measurements        | Early                                | Nothing for a baseline                              |
-| 4. Keyboard and settings              | Next                                 | DOM setup from 3 for interaction tests              |
-| 5. File entry points                  | Next                                 | Nothing                                             |
-| 6. Terminal basics                    | Next                                 | 4 for new bindings                                  |
-| 7. Canvas ergonomics                  | Next                                 | 4 for bindings; baseline from 3                     |
-| 8. Chat depth                         | Next                                 | 1 for lifecycle; 5 for shared file locations        |
-| 9. Accounts                           | Next                                 | 1 for continuation/recovery                         |
-| 10. Remote access and media           | Next                                 | 2; measurements from 3                              |
-| 11. iOS, devices and worktrees        | Next                                 | 1 for task status; 5 for locations                  |
-| 12. Intelligent UI                    | Next                                 | Nothing; step 1 waits on an appearance review       |
-| 13. Multiple windows                  | Acceptance                           | Existing implementation; baseline from 3            |
-| 14. Copilot and Gemini chat           | Later                                | 1 and 9; compatibility checks below                 |
-| 15. Editor and language servers       | Acceptance and remaining features    | Existing implementation; server policy per addition |
-| 16. Plugins                           | Decision first                       | Registry inventory and a compatibility release      |
-| 17. Linux and Windows                 | Linux checks early, Windows deferred | Platform spikes and CI                              |
+| Package                               | Priority                                      | Depends on                                                  |
+| ------------------------------------- | --------------------------------------------- | ----------------------------------------------------------- |
+| 1. Chat lifecycle and native requests | When a natural capture occurs                 | Nothing                                                     |
+| 2. Status routing and housekeeping    | Next                                          | Nothing                                                     |
+| 3. Test floor and measurements        | Early                                         | Nothing for a baseline                                      |
+| 4. Keyboard and settings              | Next                                          | Nothing                                                     |
+| 5. File entry points                  | Next                                          | Nothing                                                     |
+| 6. Terminal basics                    | First                                         | 4 for new bindings                                          |
+| 7. Canvas ergonomics                  | Next                                          | 4 for bindings; baseline from 3                             |
+| 8. Chat depth                         | First for 8.1, 8.3, 8.4 and 8.6               | 1 for lifecycle; 5 for shared file locations                |
+| 9. Accounts                           | Next                                          | 1 for continuation/recovery                                 |
+| 10. Remote access and media           | First for 10.6, the rest Next                 | Measurements from 3                                         |
+| 11. iOS, devices and worktrees        | Next                                          | 1 for task status; 5 for locations                          |
+| 12. Intelligent UI                    | Next                                          | Nothing; step 1 waits on an appearance review               |
+| 13. Multiple windows                  | Acceptance                                    | Existing implementation; baseline from 3                    |
+| 14. Copilot and Gemini chat           | Later                                         | 1 and 9; compatibility checks below                         |
+| 15. Editor and language servers       | Acceptance and remaining features             | Existing implementation; server policy per addition         |
+| 16. Plugins                           | After 1.0                                     | Registry inventory and a compatibility release              |
+| 17. Linux and Windows                 | Linux integration first, Windows per its plan | Platform spikes and CI; ADE CORE API cleanup before Windows |
 
 Measurements must finish before changing the WebGL budget, splitting the composer chunk or
 choosing media buffer sizes.
@@ -48,43 +49,22 @@ gates other work.
 
 The remaining full-client memory verification belongs to package 3.
 
-## 2. Ownership and persistent files
+## 2. Status routing and housekeeping
 
-The October 7 audit found B01 through B08 with isolated probes. These are implementation tasks,
-not missing manual acceptance:
-
-1. Serialize saves per canonical file and recheck the version inside that operation. Two clients
-   saving the same old version must produce one whole file and one conflict, including hardlinks,
-   shortened files and writes in the same millisecond (B01).
-2. Enforce MachineHome protection throughout recursive grep, including its JavaScript fallback.
-   Searching an allowed parent folder must not reveal protected descendants (B02).
-3. Bind database write grants to the approved destination and scope. Changing a connection's
-   target or reusing its id must invalidate the old grant (B03).
-4. Make shared/private database configuration writes recover together. Failure between writes
-   must retain a complete old or new configuration after restart (B04).
-5. Decode truncated UTF-8 correctly at the binary-sniff boundary. Valid multibyte text must stay
-   text without accepting invalid UTF-8 later in the file (B05).
-6. Order secret reads, writes and deletes per path, with unique temporary files. A completed
-   delete must not be undone by an earlier write (B06).
-8. Extend the desktop service check to every unknown installation. Today it protects only a
-   service on the standard CLI path (`apps/desktop/src/service/controller.ts`). Preserve another
-   executable's service during start, replacement, uninstall and stop, while retaining the
-   update/restart path for this app's own service (B07).
 9. Reproduce the status-routing problem when someone types `codex` manually in a shell. Use
    `apps/server/src/providers/launch.ts` as the baseline. Do not replace shell configuration or
    infer status from terminal output.
-10. Implement the separate [home-maintenance plan](reports/2026-10-01-ruimte-home-maintenance.html):
-    screenshot expiry without another capture, writer-owned crash leftovers and durable deletion
-    of cold sessions. Log rotation remains a separate patch; age never authorizes deleting work.
+11. Prune hidden agent chats when the daemon starts, never on a clock. A chat goes when its task
+    settled more than 30 days ago, it sits in no view and it has no living child. Hidden agent
+    chats are the main growth of `chats/`.
+12. Add `ruimte notify`, so a local script raises a notification through the local secret. No
+    notification token goes to anything outside the machine.
 
-Done when a regression test covers each of B01 through B08, deleted views lose only their unused files,
-unknown services remain unchanged, and handwritten launches have a verified route or limitation.
+Done when handwritten launches have a verified route or limitation, a test covers each pruning
+condition and that it runs at start only, and `ruimte notify` refuses without the local secret.
 
 ## 3. Test floor and measurements
 
-1. Extend the existing headless browser fixtures to composer send/queue/Stop. Canvas input and
-   workspace gestures already have browser integration coverage. Reuse that setup alongside
-   the existing i18n/React-deduplication preloads; existing pure state and renderer tests stay.
 2. Add the dev-only palette command that creates a reproducible 30-node scene. Measure input
    latency, frame time, heap and mount/read counts for terminals, chats and files, then nine grid
    cells. Measure ten file nodes with representative large files, including zoom below/above the
@@ -92,19 +72,12 @@ unknown services remain unchanged, and handwritten launches have a verified rout
 3. Measure the fixed ten-context WebGL budget on representative hardware and under context loss.
    Base any cap or adaptation change on those results. That does not by itself call for a user setting.
 4. Finish the collected Electron heap and frame/latency measurement for a 100-idle-chat
-   full-client fixture. The previous run stopped before collecting that evidence. Recreate the
-   fixture against the current ADE CORE packages; get app access for any computer-use round.
-   Earlier runs covered a 1,000-child deterministic probe, a nine-child Claude replay, Electron
-   view switching and Bun/JSC/mimalloc attribution; they did not collect the required full-client
-   heap and latency evidence. Do not infer collected Electron heap from RSS or change cache/GC
-   policy before measuring this workload. Historical October 2 probes retained 10,000 text and
-   10,000 thinking counters in ClaudeProtocol after completed turns and `forgetPending()`.
-   Reproduce against the current package and determine a safe lifetime for these message-id maps
-   with replay, deduplication and late background frames before choosing cleanup or a cap.
-   This process-lifetime retention does not prove an Electron leak; measure the full client separately.
-5. Measure binary `bytes.read` throughput while terminals and chats are busy, on socket and direct
-   connections. If one session can dominate the socket, add fair per-session limits that preserve
-   replies/chat events and repair dropped terminal output through `session.resync`.
+   full-client fixture. Recreate the fixture against the current ADE CORE packages; get app access
+   for any computer-use round. Do not infer collected Electron heap from RSS or change cache/GC
+   policy before measuring this workload.
+5. Run the latency harness and record the result. Binary frames have their own lane and a channel
+   above the backpressure limit closes, so what is left is whether one busy session can still
+   dominate the socket.
    `bun run --cwd apps/server measure:latency --channel both --seconds 60 --out ~/latency.json > ~/latency.md`
    runs the daemon and a measuring client in two processes, with one terminal printing as fast as it
    can. It records reply time (`server.ping`), the echo of a key in a quiet terminal and the first
@@ -113,11 +86,13 @@ unknown services remain unchanged, and handwritten launches have a verified rout
    and keep the median run. The direct channel is werift on both ends over loopback: it measures
    the daemon's side (the gate, framing, SCTP buffering) and not Chromium's WebRTC stack or a real
    network path, and werift may be the bottleneck itself. A network number needs the Electron app
-   on a second machine through the LAN door. The report ends with an open conclusion for the
-   per-session quota decision. Proposed threshold, to be set from the baseline: a quota is worth it
-   when p95 of the reply or quiet-session time under load is above 100 ms, or above 3x the idle p95.
-6. Measure workspace startup and composer chunk cost before splitting CodeMirror. Split it only
-   when the measurement shows a startup improvement, then repeat that same measurement.
+   on a second machine through the LAN door. The report ends with the per-session quota decision:
+   a quota is worth it when p95 of the reply or quiet-session time under load is above 100 ms, or
+   above 3x the idle p95. If it is, add fair per-session limits that preserve replies/chat events
+   and repair dropped terminal output through `session.resync`.
+6. Measure workspace startup and composer chunk cost before splitting CodeMirror. Exporters and
+   palette commands already load on use. Split the chunk only when the measurement shows a startup
+   improvement, then repeat that same measurement.
 7. Record desktop, visual and screen-reader acceptance of the ADE CORE cutover: file navigation
    and selection, staged/mixed Git checkboxes, menus and drags, editor typing/undo/search, language
    popups and AI actions. For the implemented tabs, canvas and model comparison, check browser/
@@ -129,8 +104,7 @@ unknown services remain unchanged, and handwritten launches have a verified rout
    (ACT-04); pause/takeover during long device typing (NAT-05); detach during DeviceClient attach
    (CLI-04); git.unwatch during watch setup (SRV-05); explicit-send queue state after restart
    (AGT-03); one empty line versus an empty conflict result (ACT-02); plan-Markdown whitespace
-   roundtrips (ACT-08); and unsaved edits during competing project opens (CLI-03). Unknown service
-   ownership is covered by B07 in package 2. Check automated workflow-pin updates and the iOS
+   roundtrips (ACT-08); and unsaved edits during competing project opens (CLI-03). Check automated workflow-pin updates and the iOS
    fixtures in UnifiedProjectsTests, WorkspaceVisualTests, SessionVisualTests, AttentionStoreTests
    and PhaseZeroTests rather than carrying forward the old failure count.
    Remaining manual cases include approval focus, sleep/reconnect, quit with no open window,
@@ -150,27 +124,30 @@ baseline before optimizing; the node counts alone are not a latency target.
 Sources: the app/canvas/terminal shortcut handlers, `shell/settings/shortcuts.ts`,
 `shell/settings/search.ts` and `state/settings.ts`.
 
-1. Replace handwritten shortcut lists with one binding table containing stable command ids,
-   defaults and `when` contexts. Handlers, Keyboard, menu accelerators and the palette read it.
+1. The command table (`shell/command-table.ts`) already feeds the menu, the palette and the window
+   and workspace shortcuts. Make the Keyboard panel (`shell/settings/shortcuts.ts`) read it too
+   instead of its own lists, and add `when` contexts for keys; today's `when` is a menu context.
    Preserve terminal/browser ownership and the existing drawing/prompt-widget exceptions.
 2. Add persisted overrides, press-to-record, context-aware conflict labels, per-binding reset and
    Restore defaults. An invalid override cannot make the app's essential controls unreachable.
-3. Expose the existing settings search results as palette entries that open the exact row, with
-   the same availability checks and translated search words.
 4. Add a separate canvas font size for chat and text elements, preserving the current interface
-   and terminal font sizes. Specify whether existing explicitly sized text follows that default.
+   and terminal font sizes. Only text without its own size follows it.
 
 Done when changing a binding changes both behavior and the displayed key, overlapping contexts
-are tested, reset restores defaults, and a palette setting result reaches the right row.
+are tested and reset restores defaults.
 
 ## 5. File entry points
 
 1. Let a file node keep a location. `FileLocation` (`packages/contracts/src/file-location.ts`)
    and opening a tab at a line, column or range (`state/files.ts`, `shell/panels/reveal-location.ts`)
-   exist; a file node still stores only its path. Older clients must keep the stored node.
+   exist; a file node still stores only its path. Older clients must keep the stored node, but
+   `ProjectNodeSchema` is a plain object that drops a field it does not know. Ship a release that
+   keeps unknown node fields in the client and the daemon first, as for a new kind, and write the
+   location only in the release after it.
 2. Probe installed external editors, add an editor preference and implement `fs.open` with a
-   structured path/line location. Route file menus, diff rows and terminal file links through it,
-   on the machine that owns the file. Handle an unavailable editor and paths containing spaces.
+   structured path/line location. The preference belongs to the machine that holds the file. Route
+   file menus, diff rows and terminal file links through it, on that machine. Handle an
+   unavailable editor and paths containing spaces.
 
 Done when a location opens the correct line from every entry point and reloads/older clients
 preserve the stored node.
@@ -192,46 +169,47 @@ Done when search, drop and Clear work in both a terminal view and node.
 ## 7. Canvas ergonomics
 
 Directional selection, input focus, direct node zoom, gap dragging, selection during scrolling,
-connector label layering and explicit pan ownership are implemented. Current behavior is in
+connector label layering, explicit pan ownership and local camera history are implemented. Current behavior is in
 [the client README](../apps/client/README.md#canvas-interaction); manual checks belong to package 3.
 
-1. Add local camera back/forward history on Cmd+Alt+[ and Cmd+Alt+], so Cmd+[ and Cmd+] stay with a
-   focused browser, the editor history and a drawing's order. History stays out of project persistence and does not record every pan animation frame.
-2. Implement arrange, align and tidy as pure geometry functions, expose them in palette/menu and
-   undo each operation as one change.
-3. Rank palette results by exact match, prefix and substring; add `>` for actions. Track recently
-   visited nodes independently of recent commands, and use them on an empty query.
-4. Save pasted images under `<folder>/.ruimte/images` and create file nodes pointing at them.
-   Decide how to handle a project without a folder, failed writes and cleanup of unused images.
+2. Add align and tidy as pure geometry functions. Arranging the direct members of a group and
+   `arrangeRects` (`packages/contracts`) exist. Expose them in palette/menu and undo each operation
+   as one change.
+3. Rank palette results by exact match, prefix and substring; add `>` for actions. A setting that
+   names the query already ranks above loose file hits. Track recently visited nodes independently
+   of recent commands, and use them on an empty query.
+4. Save pasted images under `<folder>/.ruimte/images` and create file nodes pointing at them. A
+   project without a folder saves them under `$RUIMTE_HOME/images/<project>`. A failed write shows
+   a toast and creates no node. Nothing removes images by itself; add the action "Clean up unused
+   images".
 5. Add optional color/arrowhead styling to plain lines, preserving the meaning and permissions
    of context/target/origin edges. Give notes a first body heading derived from their title without
-   duplicating or overwriting an existing heading; settle rename behavior before implementation.
+   duplicating or overwriting an existing heading. Renaming a note updates that heading only while
+   it still equals the old title.
 
-Done when geometry changes undo cleanly, focus/history never take over another surface's keys,
+Done when geometry changes undo cleanly, focus never takes over another surface's keys,
 and image/line/note data survives save and reload. Confirm the measurements from package 3 still hold.
 
 ## 8. Chat depth
 
 1. Preserve attached chats in `StashedPrompt`, parsing older entries as an empty list. Restore only
    references still readable in the destination project.
-2. Keep a settled question outside its turn fold and keep running background subagents visible.
+2. Keep a settled question outside its turn fold; today it still folds with the turn. A running
+   workflow already stays outside the fold and the activity chip shows progress and who waits.
    Include workflow members in the activity list above the composer.
 3. Offer Continue in an empty composer after a person stopped a turn. Reuse the normal continuation
    path and keep its queue/limit behavior consistent with package 1.
 4. Add Clear to a chat node's menu through the existing action, after package 1 defines child cleanup.
-5. Let a person attach diff review comments to the draft, with path, line/side and quoted context.
-   Keep provider permission choices faithful to the descriptions/choices it actually supplies;
-   today's remember labels in both protocol mappers are written by Ruimte.
-6. Expose fork to agents through the action registry and context CLI with lineage, project, account
-   and permission-ceiling checks. `chat.fork` currently admits only person/voice actors.
-7. Design Restore files to this turn as a separate action. A turn checkpoint includes all changes
-   in the chat's working folder, including concurrent human edits. Decide its overlap/conflict rule
-   and show a reviewable diff before building a shared-folder restore. Keep the existing fork into
-   a new worktree behavior; that does not restore the original folder.
+6. Expose fork to agents through the action registry and context CLI. An agent forks only a chat
+   it opened itself, within its permission ceiling, and a fork counts toward depth. Check lineage,
+   project, account and ceiling. `chat.fork` currently admits only person/voice actors.
+7. Add Restore files to this turn as a separate action. It touches only the files the turn
+   changed. A file someone else changed afterwards is a conflict and is restored only when ticked
+   in the diff, which the person reviews before the restore runs. Keep the existing fork into a
+   new worktree behavior; that does not restore the original folder.
 
 Done when draft references survive stashing, folds do not hide needed context or active work,
-and review/fork/restore actions enforce their actor and file boundaries. File restore stays a
-decision-dependent step until concurrent edits have a defined treatment.
+and fork and restore actions enforce their actor and file boundaries.
 
 ## 9. Accounts
 
@@ -244,9 +222,9 @@ Source: `@adecore/agents/providers/accounts`. Nobody has used a second real acco
 2. Verify login started from iPhone and station. Codex's device-auth route is a candidate; establish
    what Claude's browser callback requires when the browser and CLI are on different machines.
    Implement only the missing flow, preserving the distinction from Ruimte's own account login.
-3. Decide which skills, `CLAUDE.md` and settings an additional Claude account should share with
-   `~/.claude`. Implement that policy without sharing authentication or overwriting an explicit
-   account configuration.
+3. Share `CLAUDE.md`, skills, agents and commands between an additional Claude account and
+   `~/.claude` through symlinks. Give the account `settings.json` once, as a copy. Never share
+   authentication, history or `projects/`, and never overwrite an explicit account configuration.
 4. Drop the background behind the machine tiles in the Account pane, as the other settings icons did.
 
 Known limits, accepted for now: a Claude chat cannot move to an account with another folder after
@@ -273,9 +251,11 @@ remaining provider limitation. Folder-isolation tests alone cannot establish log
    The infrastructure cutover/deletion is a separate operational step when implementation reaches it.
 5. Check an expired station login at cold start and during reconnect. The start screen must show
    the reason and a usable sign-in action instead of an indefinitely waiting project.
-6. Decide a supported protocol-version window using
-   [the protocol report](reports/2026-09-15-protocol-versions.html). Implement negotiation and
-   cross-version fixtures only after that decision; today's gate accepts exactly the same version.
+6. Remove the branches for machines without `features` (issue #60). The first release that sends
+   `features` is the minimum, and from the release after it clients check `features` only. After
+   this, nothing outside the transport layer catches `unknown-request` (11 catches in the client,
+   21 in the iPhone app). A machine whose `endpoint.info` has no `features` makes the client ask
+   to update the machine; cover that with a DOM test.
 7. Verify the implemented LAN door on real devices: iPhone and iPad on the same Wi-Fi as
    the MacBook show Local network, also with `--no-broker` after a first connection; on 4G the
    connection opens through the broker with at most a second more. Check whether the macOS firewall
@@ -284,9 +264,6 @@ remaining provider limitation. Folder-isolation tests alone cannot establish log
    LAN address; checked with a probe on 2026-10-04.) Check the same login and connection flow on
    a fresh Linux machine. The LAN door, account-only access, route race and `ruimte status` exist;
    pairing has been removed.
-8. Decide whether Bonjour discovery is still wanted for first use and changed LAN addresses.
-   It is not implemented. If chosen, specify an anonymous advertisement, iOS local-network
-   permission, desktop discovery and Linux multicast behavior before building it.
 9. Verify the deployed broker, worker, station, desktop and iOS versions against their current
    account/statement and upgrade rules. The old audit's unverified deployment items included
    worker migration 0014, broker envelope preservation and TURN allocation limits. Inspect actual
@@ -294,29 +271,31 @@ remaining provider limitation. Folder-isolation tests alone cannot establish log
    does not establish what is running.
 
 Done when connection drops have an explained, tested outcome, real-network media/terminal
-measurements meet the agreed budgets, and broker migration has verified rollback. Preserve the
-existing binary reply path, range streaming and explicit direct-connection failure behavior.
+measurements meet the agreed budgets, broker migration has verified rollback and nothing outside
+the transport layer catches `unknown-request`. Preserve the existing binary reply path, range
+streaming and explicit direct-connection failure behavior.
 
 ## 11. iOS, devices and worktrees
 
 1. Add typing to physical iOS devices behind the existing backend input capability. Verify Unicode,
    multiline text and the taken-over/stopped state on an actual device. Android emulators and
    phones paste any text through the device clipboard since issue #56.
-2. Decide how to merge into a branch checked out nowhere. The current code refuses that on purpose
-   with `target-not-checked-out`. A ref-only merge needs its own conflict/result path and must never
-   move a ref behind a working tree; implement it only after a deliberate update of that invariant.
 3. Verify the implemented visual replies on a real iPhone in both themes, with links opening in
    Safari. Check desktop/station rendering and the machine's off switch too. The daemon verb,
    preview renderer, sandbox host and native iOS presentation are already built; the current
    behavior is documented in the server and iOS READMEs.
 
-Done when phone acceptance checks are recorded and worktree actions show/resolve conflicts
-without losing work. Installing apps and device logs remain out of scope.
+Done when phone acceptance checks are recorded. A merge into a branch checked out nowhere stays
+refused (`target-not-checked-out`) until someone asks for it. Installing apps and device logs
+remain out of scope.
 
 ## 12. Intelligent UI
 
 Blocks render and take input on the desktop and the iPhone, and choices reach the chat. What is
-left is native presentation, the size of the agent's note and acceptance measurements.
+left is native presentation, the size of the agent's note and acceptance measurements. The
+catalog additions decided on October 14 (timeline, gallery, map, text fields, diff and schema
+views, host components) are planned in the Generative UI report; this package keeps the items
+below.
 
 1. Collect the appearance review per element in the real desktop and iPhone apps, including light,
    dark, narrow windows and accessibility, and work it through. No concrete list exists yet.
@@ -387,75 +366,68 @@ and account/login failures work in the packaged app. Do not promise an SDK/API c
 Current integration: [the client README](../apps/client/README.md#code-editor) and
 [the daemon README](../apps/server/README.md#language-servers). The ADE CORE editor/LSP host,
 server installation, multiple servers, custom commands, TypeScript sidecar and native PHP
-integration are built. Monaco is removed.
+integration are built. Monaco is removed. Formatting follows the language server's style, with
+tab size and indent style from `.editorconfig`; no external formatter runner is planned.
 
 1. Finish manual editor, AI and accessibility acceptance with the shared packages, including
    zoomed file nodes, navigation to unopened files, typing/undo, search, language popups,
    multi-file create/rename edits, stale results, crash/restart and local/remote clients.
 2. Check install, update, rebuild and previous-version actions with actual server binaries.
    Keep installation and custom-command approval with the person on the machine.
-3. Decide the formatter policy. Formatting currently follows the language server's style, with
-   tab size and indent style from `.editorconfig`. Choose server-specific settings, the project's
-   formatter with its repository config, or a Ruimte style translated for each server. No new
-   formatter runner is implied by the completed editor migration.
 4. Add remaining native/toolchain servers only after specifying installation and execution rules,
    especially project code, build scripts and proc macros in agent worktrees. Rust, Go, Swift,
    TOML, Lua, Zig and Markdown remain candidates, not completed catalog entries.
 5. Address remaining limits as separate features in the owning shared package or host:
-   snippet mirrors, multiline snippet indentation and nested snippet continuation; semantic-token
-   deltas; workspace file deletion; file views retaining their old path after a move; project-wide
-   diagnostics beyond open documents; column-precise file navigation; match highlighting and more
-   than thirty files in peek; and review rows hiding unchanged ranges. Server progress percentages
-   depend on servers reporting them. On-device help currently omits explanations for non-function
-   symbols, Explain in the context menu and automatic suggestions while typing.
+   file views retaining their old path after a move; project-wide diagnostics beyond open
+   documents; column-precise file navigation; match highlighting and more than thirty files in
+   peek; and review rows hiding unchanged ranges. Server progress percentages depend on servers
+   reporting them. On-device help currently omits explanations for non-function symbols, Explain in
+   the context menu and automatic suggestions while typing.
 
 Done per accepted feature when the required runtime/device evidence exists. Fake-server tests
 remain deterministic tests; real language servers belong in integration tests.
 
 ## 16. Plugins
 
-Source: [the plugin report](reports/2026-09-14-plugins.html), whose product choices remain open.
+Source: [the plugin report](reports/2026-09-14-plugins.html). Plugins come after 1.0, and the first
+model is declarative: context, commands and panels, with no executable code.
 
-1. Choose context-only plugins versus declarative commands/panels/nodes, installation scope and
-   agent permissions. Inventory existing action/verb registries and only deepen the missing ones.
 2. Ship the required compatibility changes before writing plugin kinds or ids. Preserve unknown
-   plugin data in project and client-local state, including when a plugin is absent.
+   plugin data in project and client-local state, including when a plugin is absent. Inventory the
+   existing action/verb registries and only deepen the missing ones.
 3. Implement a manifest and install/disable/error lifecycle under `$RUIMTE_HOME/plugins` for the
-   selected model. Opening a repository must not execute its suggested plugins.
-4. Introduce isolated executable code only if the declarative model proves insufficient. Test
-   compiled-binary loading in the signed app if that route is still needed. Do not repeat the
+   declarative model. Opening a repository must not execute its suggested plugins.
+4. Executable code stays out of scope until the declarative model proves insufficient. Then
+   introduce isolated code and test compiled-binary loading in the signed app. Do not repeat the
    ad-hoc compiled-binary experiment that was killed or hung; it proved nothing about `import()`.
 
 Done when one representative plugin can be installed, used, disabled and reopened on a client
-without it, with bounded capabilities and intact stored data. This package cannot pass its first
-step on an engineering assumption alone.
+without it, with bounded capabilities and intact stored data.
 
 ## 17. Linux and Windows
 
-1. Recheck [LINUX.md](LINUX.md) against the current split between deterministic and integration
-   tests. Add Linux CI, handle platform assumptions explicitly, and record package smoke checks for
-   deb on Debian trixie/Ubuntu noble, arm64, AppImage on Ubuntu and GNOME/KDE/X11/Wayland.
+1. Unit shards, DOM tests and verify already run on Linux. Run the integration tests on
+   `ubuntu-latest` as well as `macos-latest` and keep three runs in a row green, then rewrite
+   "Open 1" in [LINUX.md](LINUX.md). Record package smoke checks for deb on Debian trixie/Ubuntu
+   noble, arm64, AppImage on Ubuntu and GNOME/KDE/X11/Wayland.
 2. Address Linux font fallbacks in drawing text and request the generic UI font change in
-   `@adecore/ui`. Decide native Wayland behavior from fractional-scaling measurements.
-3. Keep Windows deferred under [issue #15](https://github.com/basmilius/ruimte/issues/15). First prove
-   a ConPTY helper behind the existing PTY adapter; then shell/path/process assumptions, filesystem
-   watching, service/CLI packaging and an unsigned installer. Use
-   [the platform audit](reports/2026-09-24-cross-platform.html) as the checklist.
+   `@adecore/ui`. XWayland stays the default until the fractional-scaling measurement settles
+   native Wayland.
+3. Windows follows [WINDOWS.md](WINDOWS.md), tracked in
+   [issue #15](https://github.com/basmilius/ruimte/issues/15). The ADE CORE public API cleanup
+   (ADE CORE 0.25.0, with the rebased `feat/chat-file-source-and-shell-slot` branch) comes before
+   the Windows work in ADE CORE.
 
 Done when each supported platform has CI and recorded packaged-app checks for its claimed
 architectures/formats.
 
 ## Decisions and completion rules
 
-These steps wait on a decision: shared-folder restore with concurrent edits, sharing Claude
-account configuration, ref-only merges, the protocol window, Bonjour discovery, plugin scope,
-formatter policy, the later language-server execution rules, where pasted images go in a project
-without a folder and when unused ones are removed (7.4), what renaming a note does to its heading
-(7.5), whether the canvas font size governs explicitly sized text (4.4) and native Wayland. Decide
-each before the implementation that depends on it, and keep going with the other steps meanwhile.
-Measurements settle the buffer, cap and chunk choices. Automatic redelivery after an accepted
-parent turn fails remains disabled by the existing product decision; it is not an unanswered
-implementation question.
+One step still waits on a decision: the execution rules for later language servers (15.4). Decide
+it before the implementation that depends on it, and keep going with the other steps meanwhile.
+Measurements settle the buffer, cap and chunk choices, and the fractional-scaling measurement
+settles native Wayland. Automatic redelivery after an accepted parent turn fails remains disabled
+by the existing product decision; it is not an unanswered implementation question.
 
 For each code change, run focused deterministic regressions and the repository's required checks.
 Use integration tests for real shells, watchers, sockets and provider/server processes. Verify UI
