@@ -11,6 +11,8 @@ import {
     toggleFlagAction,
     VOICE_ACTION_CALL
 } from './client-actions';
+import { visibleRect } from '@/canvas/math';
+import { liesWithin } from '@/canvas/place-node';
 import { defaultCanvases } from '@/state/canvas';
 import { defaultDiagrams } from '@/state/diagram';
 import { useDocument } from '@/state/document';
@@ -707,6 +709,20 @@ describe('client actions', () => {
             expect(canvas().nodes[file.output.nodeId]).toMatchObject({ kind: 'file', title: 'main.ts', path: 'src/main.ts' });
             expect(await createNode(registry(), { kind: 'file' })).toMatchObject({ error: { code: 'missing-path' } });
             expect(await createNode(registry(), { kind: 'note', provider: 'claude' })).toMatchObject({ error: { code: 'invalid-provider' } });
+        });
+
+        test('a node with no place asked lands in view, also beside one in the middle', async () => {
+            canvas().setViewport({ w: 1000, h: 1000 });
+            const camera = canvas().camera;
+            const visible = visibleRect(camera, canvas().viewport);
+            for (let i = 0; i < 3; i += 1) {
+                const made = await createNode(registry(), { kind: 'note' });
+                if (made.status !== 'completed') {
+                    throw new Error('Expected a note');
+                }
+                expect(liesWithin(visible, canvas().nodes[made.output.nodeId]!)).toBe(true);
+            }
+            expect(canvas().camera).toEqual(camera);
         });
 
         test('a login runs its command in the shell of the account it signs in', async () => {
