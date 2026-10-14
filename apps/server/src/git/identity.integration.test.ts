@@ -3,7 +3,8 @@ import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { GitIdentity } from '@ruimte/contracts';
-import { readIdentities } from './identity.ts';
+import { IdentityReader } from './identity.ts';
+import { runGit } from './run.ts';
 import { gitIn, initRepo } from './test-repo.ts';
 
 let root: string;
@@ -20,7 +21,7 @@ afterAll(async () => {
 });
 
 async function identityOf(path: string): Promise<GitIdentity> {
-    const [identity] = (await readIdentities([path])).identities;
+    const [identity] = (await new IdentityReader().read([path])).identities;
     if (identity === undefined || 'error' in identity) {
         throw new Error(`${path} is not a repository`);
     }
@@ -80,8 +81,35 @@ test('a repository without a commit has nothing to compare yet', async () => {
 test('a folder outside git, and one that is not there, are not repositories', async () => {
     const plain = join(root, 'plain');
     await mkdir(plain);
-    expect((await readIdentities([plain, join(root, 'missing')])).identities).toEqual([
+    expect((await new IdentityReader().read([plain, join(root, 'missing')])).identities).toEqual([
         { path: plain, error: 'not-a-repository' },
         { path: join(root, 'missing'), error: 'not-a-repository' }
     ]);
+});
+
+test('a folder inside a repository is not a checkout of it, but the top level is', async () => {
+    const dotfiles = join(root, 'dotfiles');
+    await initRepo(dotfiles, { rc: 'x\n' });
+    const inside = join(dotfiles, 'project');
+    await mkdir(inside);
+    expect((await new IdentityReader().read([dotfiles, inside])).identities).toMatchObject([
+        { path: dotfiles, branch: 'main' },
+        { path: inside, error: 'not-a-repository' }
+    ]);
+});
+
+test('the root commits are kept while HEAD moves on, and the heads are not', async () => {
+    const repo = join(root, 'moving');
+    await initRepo(repo, { 'f.txt': 'f\n' });
+    const reader = new IdentityReader();
+    const [before] = (await reader.read([repo])).identities as GitIdentity[];
+    await gitIn(repo, ['commit', '--quiet', '--allow-empty', '--message', 'more']);
+    const [after] = (await reader.read([repo])).identities as GitIdentity[];
+    expect(after!.rootCommits).toEqual(before!.rootCommits);
+    expect(after!.heads).not.toEqual(before!.heads);
+});
+
+test('a git that takes too long is ended and says so', async () => {
+    const result = await runGit(['-c', 'alias.hang=!sleep 5', 'hang'], root, { timeoutMs: 100 });
+    expect(result.timedOut).toBe(true);
 });

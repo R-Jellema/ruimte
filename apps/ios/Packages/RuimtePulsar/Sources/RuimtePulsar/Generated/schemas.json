@@ -45970,7 +45970,10 @@
                 },
                 "error": {
                   "type": "string",
-                  "const": "not-a-repository"
+                  "enum": [
+                    "not-a-repository",
+                    "timed-out"
+                  ]
                 }
               },
               "required": [

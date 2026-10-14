@@ -6,7 +6,7 @@ import { readCapabilities } from '../git/capabilities.ts';
 import { readConflict, readConflicts, resolveConflict, runOperation } from '../git/conflict.ts';
 import { resolveWithAgent } from '../git/resolve-ai.ts';
 import { diffCheckout, diffCommit, diffFile } from '../git/diff.ts';
-import { readIdentities } from '../git/identity.ts';
+import { IdentityReader } from '../git/identity.ts';
 import { readLog } from '../git/log.ts';
 import { suggestMessage } from '../git/message.ts';
 import { parseIssueRef, readIssue, readPullRequest, runGh } from '../git/github.ts';
@@ -45,6 +45,7 @@ export function registerGitHandlers(
     machineHome?: Pick<MachineHome, 'refuse'>
 ): void {
     const actions = new GitActions();
+    const identities = new IdentityReader();
 
     dispatcher.register('git.worktree-add', (payload) =>
         worktrees.add(
@@ -111,7 +112,7 @@ export function registerGitHandlers(
     dispatcher.register('git.identity', async (payload) => {
         // Judged before any git runs, like the file requests: a client asks about folders, never about the machine's own state.
         await Promise.all(payload.paths.map((path) => machineHome?.refuse(path)));
-        return readIdentities(payload.paths);
+        return identities.read(payload.paths);
     });
 
     dispatcher.register('git.stage', async (payload) => {

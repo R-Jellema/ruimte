@@ -271,7 +271,8 @@ export type GitIdentity = z.infer<typeof GitIdentitySchema>;
 
 export const GitIdentityMissSchema = z.object({
     path: z.string(),
-    error: z.literal('not-a-repository')
+    // `timed-out`: git did not answer for that folder in time, which is not the same as no repository there.
+    error: z.enum(['not-a-repository', 'timed-out'])
 });
 export type GitIdentityMiss = z.infer<typeof GitIdentityMissSchema>;
 

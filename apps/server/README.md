@@ -430,7 +430,7 @@ Which chat wrote which lines of a file, for the editor's gutter (`src/provenance
 
 - Commands run without a shell, with arguments as lists, so a branch name or commit message is one argument however it is spelled. `GIT_TERMINAL_PROMPT=0` keeps a credential prompt from stalling, and a step that talks to a remote gives up after two minutes.
 - `git.watch` gives up on a repository with more than 5,000 tracked files, or one whose status takes longer than a second. The status then says `live: false` and the client refreshes on focus instead.
-- `git.identity { paths }` answers per folder its root commits, the `origin` URL without credentials, the branch and the tips of the local branches, which is how two machines tell they hold the same repository. Like a file request it refuses a path under `$RUIMTE_HOME` that is the machine's own state.
+- `git.identity { paths }` answers per folder its root commits, the `origin` URL without credentials, the branch and the tips of the local branches, which is how two machines tell they hold the same repository. A folder counts only when it is the top level of its repository, and one that takes more than five seconds answers `timed-out`. Like a file request it refuses a path under `$RUIMTE_HOME` that is the machine's own state.
 - `git.discard` stashes the paths as `ruimte-discard-<timestamp>` before it resets them, so `git stash pop` brings them back.
 - `create-pr` needs `gh` on the PATH. A suggested commit message runs the agent CLI in its one-shot print mode, with no chat or session.
 

@@ -4,11 +4,15 @@ export interface GitResult<Output = string> {
     code: number;
     stdout: Output;
     stderr: string;
+    /* Only set by a call that was given `timeoutMs`: git was ended for taking longer. */
+    timedOut?: boolean;
 }
 
 interface GitOptions {
     env?: Record<string, string>;
     stdin?: string;
+    /* Ends git after this long, for a question about a folder that may sit on a slow or stuck volume. */
+    timeoutMs?: number;
 }
 
 export type GitErrorCode =
@@ -55,10 +59,11 @@ export async function runGitBytes(args: string[], cwd: string, options: GitOptio
             env: options.env ? { ...process.env, ...options.env } : undefined,
             stdin: options.stdin === undefined ? 'ignore' : new TextEncoder().encode(options.stdin),
             stdout: 'pipe',
-            stderr: 'pipe'
+            stderr: 'pipe',
+            ...(options.timeoutMs === undefined ? {} : { timeout: options.timeoutMs })
         });
         const [stdout, stderr, code] = await Promise.all([new Response(proc.stdout).bytes(), new Response(proc.stderr).text(), proc.exited]);
-        return { code, stdout, stderr };
+        return { code, stdout, stderr, ...(options.timeoutMs !== undefined && proc.signalCode !== null ? { timedOut: true } : {}) };
     } catch {
         return { code: 128, stdout: new Uint8Array(), stderr: '' };
     }
@@ -67,8 +72,8 @@ export async function runGitBytes(args: string[], cwd: string, options: GitOptio
 /* One git call in a directory, with its exit code kept: `check-ignore` answers 1 for "nothing
    matched", which is a result and not a failure. */
 export async function runGit(args: string[], cwd: string, options: GitOptions = {}): Promise<GitResult> {
-    const { code, stdout, stderr } = await runGitBytes(args, cwd, options);
-    return { code, stdout: new TextDecoder().decode(stdout), stderr };
+    const { code, stdout, stderr, timedOut } = await runGitBytes(args, cwd, options);
+    return { code, stdout: new TextDecoder().decode(stdout), stderr, ...(timedOut === undefined ? {} : { timedOut }) };
 }
 
 /* The output of a git that succeeded, or null for every other outcome. */

@@ -504,6 +504,7 @@ exports[`every reply and event field keeps its vocabulary 1`] = `
   "reply git.diff #/properties/files/items/properties/omitted = ["binary", "too-large"]",
   "reply git.diff #/properties/kind = ["add", "delete", "update"]",
   "reply git.diff #/properties/omitted = ["binary", "too-large"]",
+  "reply git.identity #/properties/identities/items/anyOf/1/properties/error = ["not-a-repository", "timed-out"]",
   "reply git.pr #/properties/pr/anyOf/0/properties/checkState = ["failure", "none", "pending", "success"]",
   "reply git.pr #/properties/pr/anyOf/0/properties/checks/items/properties/state = ["failure", "neutral", "pending", "skipped", "success"]",
   "reply git.pr-watch #/properties/watch/properties/checkState = ["failure", "none", "pending", "success"]",
