@@ -1,6 +1,6 @@
 import { shortcut } from '@adecore/ui';
 
-/* The shortcuts `app-shortcuts.ts` binds, apart from the handler so the terminal keymap can read them without the stores. */
+/* The window's keys, which the command table hands to `app-shortcuts.ts`; apart from the handler so the terminal keymap can read them without the stores. */
 export const APP_SHORTCUTS = {
     palette: shortcut('Mod+K'),
     findInFiles: shortcut('Mod+Shift+F'),
