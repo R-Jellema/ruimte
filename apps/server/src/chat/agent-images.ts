@@ -26,13 +26,27 @@ const MIME_OF: Readonly<Record<string, string>> = Object.fromEntries(Object.entr
  */
 export class AgentImages {
     private readonly attachments: Pick<AttachmentStore, 'folderOf'>;
+    // The last save of each chat, so parallel attaches count the folder one after the other and cannot pass the limit together.
+    private readonly saves = new Map<string, Promise<unknown>>();
 
     constructor(attachments: Pick<AttachmentStore, 'folderOf'>) {
         this.attachments = attachments;
     }
 
     /* Stores bytes whose type the caller already checked against `AGENT_IMAGE_TYPES`; refuses past the per-chat limit. */
-    async save(chatId: string, upload: { name: string; mime: string; bytes: Uint8Array }): Promise<ChatAttachment> {
+    save(chatId: string, upload: { name: string; mime: string; bytes: Uint8Array }): Promise<ChatAttachment> {
+        const turn = (this.saves.get(chatId) ?? Promise.resolve()).then(() => this.store(chatId, upload));
+        const settled = turn.catch(() => undefined);
+        this.saves.set(chatId, settled);
+        void settled.then(() => {
+            if (this.saves.get(chatId) === settled) {
+                this.saves.delete(chatId);
+            }
+        });
+        return turn;
+    }
+
+    private async store(chatId: string, upload: { name: string; mime: string; bytes: Uint8Array }): Promise<ChatAttachment> {
         const extension = AGENT_IMAGE_TYPES[upload.mime];
         if (extension === undefined) {
             throw new CodedError('attach-not-image', `${upload.mime} is not an image type a chat can show`);

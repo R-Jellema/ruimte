@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ACTION_DEFINITIONS } from '@ruimte/actions';
@@ -118,6 +118,14 @@ describe('chat attach', () => {
         const lines = await attach(daemon, 'chat-lead', PNG);
         expect(refusalCode(lines)).toBe('attach-limit');
         expect(lines[0]).toContain(`${AGENT_IMAGE_LIMIT} images`);
+    });
+
+    test('attaches sent at once cannot pass the limit together', async () => {
+        const daemon = await bootWithChat();
+        const results = await Promise.all(Array.from({ length: AGENT_IMAGE_LIMIT + 6 }, () => attach(daemon, 'chat-lead', PNG)));
+        expect(results.filter((lines) => lines[0]!.startsWith('attachment\t'))).toHaveLength(AGENT_IMAGE_LIMIT);
+        expect(results.filter((lines) => refusalCode(lines) === 'attach-limit')).toHaveLength(6);
+        expect((await readdir(join(home, 'attachments', 'chat-lead'))).filter((name) => name.startsWith('agent-'))).toHaveLength(AGENT_IMAGE_LIMIT);
     });
 
     test('a terminal is told an image attaches only to an AI chat, and nothing is stored', async () => {
