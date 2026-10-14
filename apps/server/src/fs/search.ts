@@ -33,13 +33,26 @@ function isWordStart(path: string, index: number): boolean {
  * Subsequence match of `query` in `path`, case-insensitive. Null when a query character is
  * missing. Higher is better: a hit at a word start or right after the previous hit counts
  * more, a hit in the file name more than one in a directory, and a shorter path wins ties.
+ * Words apart match each on their own and in any order, so `alpha greeting` finds
+ * `app-alpha/src/greeting.ts` the way `alpha/greeting` does; the path scores their sum.
  */
 export function fuzzyScore(query: string, path: string): number | null {
-    const needle = query.toLowerCase();
     const haystack = path.toLowerCase();
-    if (needle === '') {
-        return 0;
+    let score = 0;
+    for (const word of query.toLowerCase().split(/\s+/)) {
+        if (word === '') {
+            continue;
+        }
+        const wordScore = subsequenceScore(word, haystack);
+        if (wordScore === null) {
+            return null;
+        }
+        score += wordScore;
     }
+    return score;
+}
+
+function subsequenceScore(needle: string, haystack: string): number | null {
     const nameStart = haystack.lastIndexOf('/') + 1;
     let score = 0;
     let previous = -1;

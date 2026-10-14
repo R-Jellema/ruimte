@@ -34,6 +34,19 @@ describe('fuzzyScore', () => {
         expect(rankFiles(['chat/x.ts', 'src/chat.ts', 'src/changes/hat.ts'], 'chat', 3)).toEqual(['src/chat.ts', 'chat/x.ts', 'src/changes/hat.ts']);
     });
 
+    test('matches words apart on their own and in any order', () => {
+        const path = 'app-alpha/src/greeting.ts';
+        expect(fuzzyScore('alpha greeting', path)).not.toBeNull();
+        expect(fuzzyScore('greeting  alpha', path)).toBe(fuzzyScore('alpha greeting', path));
+        expect(fuzzyScore('alpha farewell', path)).toBeNull();
+        expect(fuzzyScore(' greeting ', path)).toBe(fuzzyScore('greeting', path));
+    });
+
+    test('still prefers the file name for a word of a query with several', () => {
+        const files = ['app-alpha/greeting/notes.ts', 'app-alpha/src/greeting.ts', 'app-alpha/src/farewell.ts'];
+        expect(rankFiles(files, 'alpha greeting', 3)).toEqual(['app-alpha/src/greeting.ts', 'app-alpha/greeting/notes.ts']);
+    });
+
     test('rankFiles keeps the limit and breaks ties on length', () => {
         expect(rankFiles(['b/index.ts', 'index.ts', 'a/index.ts'], '', 2)).toEqual(['index.ts', 'a/index.ts']);
     });
