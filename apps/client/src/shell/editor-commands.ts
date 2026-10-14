@@ -164,11 +164,6 @@ export const EDITOR_COMMANDS: Record<EditorCommandId, EditorCommandSpec> = TABLE
 
 export const EDITOR_COMMAND_IDS = Object.keys(EDITOR_COMMANDS) as EditorCommandId[];
 
-/* The ids of a group, in the order of the table. */
-export function editorCommandsOf(group: 'folding' | undefined): EditorCommandId[] {
-    return EDITOR_COMMAND_IDS.filter((id) => (EDITOR_COMMANDS[id] as EditorCommandSpec).group === group);
-}
-
 export interface EditorCommandRow {
     id: string;
     label: string;

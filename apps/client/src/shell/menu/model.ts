@@ -2,8 +2,6 @@ import i18next from 'i18next';
 import type { ProjectView } from '@ruimte/contracts';
 import type { MenuNode, MenuRole, MenuShellAction, MenuSpec } from '@ruimte/desktop-bridge';
 import { ADD_NODE_SHORTCUTS, CANVAS_SHORTCUTS, viewShortcut } from '@/canvas/shortcuts';
-import { LANGUAGE_COMMANDS, languageCommandsOf } from '@/language/command-table';
-import { EDITOR_COMMANDS, editorCommandsOf } from '@/shell/editor-commands';
 import { APP_SHORTCUTS, BROWSER_KEEPS } from '@/shell/shortcuts';
 import type { ViewOffers } from '@/shell/view-offers';
 import type { KeepAwakeMode } from '@/state/settings';
@@ -237,6 +235,41 @@ const LAYOUT: Partial<Record<MenuContainer, readonly MenuGroup[]>> = {
             ]
         }
     ],
+    edit: [
+        { id: 'history', extras: [{ order: 10, build: (context) => only(isDesktop(context), role('undo', t('undo')), role('redo', t('redo'))) }] },
+        {
+            id: 'clipboard',
+            extras: [
+                {
+                    order: 10,
+                    build: (context) =>
+                        only(isDesktop(context), role('cut', t('cut')), role('copy', t('copy')), role('paste', t('paste')), role('selectAll', t('selectAll')))
+                }
+            ]
+        },
+        { id: 'find', when: (context) => context.workspace && !context.settingsOpen },
+        { id: 'problems', when: (context) => context.workspace && !context.settingsOpen },
+        { id: 'search' }
+    ],
+    code: [
+        {
+            id: 'pull-request',
+            when: (context) => context.folder && !context.scratch,
+            extras: [
+                {
+                    order: 10,
+                    build: (context, command) =>
+                        context.prRepos.length > 1
+                            ? context.prRepos.map((repo) => command(`${PR_SHOW_IN_PREFIX}${repo.path}`, t('showPullRequestIn', { repo: repo.label })))
+                            : []
+                }
+            ]
+        },
+        { id: 'pr-watch' },
+        { id: 'language' },
+        { id: 'editor', extras: [{ order: 1000, build: (context, command) => [submenu('folding', t('folding'), itemsOf('folding', context, command))] }] }
+    ],
+    folding: [{ id: 'folding' }],
     go: [
         { id: 'palette' },
         { id: 'views', when: inWorkspace },
@@ -255,7 +288,67 @@ const LAYOUT: Partial<Record<MenuContainer, readonly MenuGroup[]>> = {
         { id: 'nodes', when: (context) => context.workspace && context.view === 'canvas' },
         { id: 'prompts', when: inWorkspace },
         { id: 'language', when: (context) => context.workspace && !context.settingsOpen }
-    ]
+    ],
+    window: [
+        {
+            id: 'window',
+            extras: [
+                {
+                    order: 10,
+                    build: (context) => [
+                        ...only(isDesktop(context), role('minimize', t('minimize'))),
+                        ...only(isDesktop(context) && context.apple, role('zoom', t('zoom')))
+                    ]
+                }
+            ]
+        },
+        { id: 'panels' },
+        { id: 'front', extras: [{ order: 10, build: (context) => only(isDesktop(context) && context.apple, role('front', t('front'))) }] }
+    ],
+    run: [
+        { id: 'launch' },
+        {
+            id: 'choose',
+            extras: [
+                {
+                    order: 10,
+                    build: (context, command) =>
+                        context.launches.map((launch) =>
+                            command(`${LAUNCH_CHOOSE_PREFIX}${launch.id}`, launch.name, { checked: launch.id === context.chosenLaunch, radio: true })
+                        )
+                }
+            ]
+        },
+        {
+            id: 'setup',
+            extras: [
+                {
+                    order: 10,
+                    build: (context, command) =>
+                        only(
+                            context.afterSettle.tasks.length > 0,
+                            submenu('launches-after-settle', t('launchesAfterSettle'), itemsOf('launches-after-settle', context, command))
+                        )
+                }
+            ]
+        }
+    ],
+    'launches-after-settle': [
+        { id: 'off' },
+        {
+            id: 'tasks',
+            extras: [
+                {
+                    order: 10,
+                    build: (context, command) =>
+                        context.afterSettle.tasks.map((task) =>
+                            command(`${AFTER_SETTLE_PREFIX}${task.id}`, task.name, { checked: task.id === context.afterSettle.chosen, radio: true })
+                        )
+                }
+            ]
+        }
+    ],
+    help: [{ id: 'help' }, { id: 'about' }]
 };
 
 interface PlacedCommand {
@@ -302,8 +395,6 @@ function itemsOf(container: MenuContainer, context: MenuContext, command: MenuCo
     });
 }
 
-const ZOOMABLE: readonly ProjectView['kind'][] = ['canvas', 'drawing', 'diagram'];
-
 /* The kinds a cell shows with a menu of their own; a divider never has the focus and an unknown kind offers nothing. */
 const KIND_MENUS: readonly ProjectView['kind'][] = ['canvas', 'drawing', 'diagram', 'chat', 'terminal', 'browser', 'file'];
 
@@ -348,10 +439,6 @@ export function menuModel(context: MenuContext): MenuSpec {
         helpMenu(context, command)
     ];
     return { menus: menus.map((menu) => ({ id: menu.id, label: menu.label, items: tidy(menu.items) })) };
-}
-
-function isZoomable(context: MenuContext): boolean {
-    return context.view !== null && ZOOMABLE.includes(context.view);
 }
 
 function appMenu(context: MenuContext, command: MenuCommand): MenuSection {
@@ -443,78 +530,11 @@ function fileMenu(context: MenuContext, command: MenuCommand): MenuSection {
 }
 
 function editMenu(context: MenuContext, command: MenuCommand): MenuSection {
-    const { workspace } = context;
-    const desktop = context.host === 'desktop';
-    const zoomable = isZoomable(context);
-    return {
-        id: 'edit',
-        label: t('edit'),
-        items: [
-            ...only(
-                desktop,
-                role('undo', t('undo')),
-                role('redo', t('redo')),
-                separator,
-                role('cut', t('cut')),
-                role('copy', t('copy')),
-                role('paste', t('paste')),
-                role('selectAll', t('selectAll'))
-            ),
-            // A page cannot reach the browser's own undo, so the web client undoes what has a history of its own.
-            ...only(
-                !desktop && workspace,
-                command('edit-undo', t('undo'), { shortcut: CANVAS_SHORTCUTS.undo, enabled: zoomable }),
-                command('edit-redo', t('redo'), { shortcut: CANVAS_SHORTCUTS.redo, enabled: zoomable })
-            ),
-            separator,
-            ...only(workspace && !context.settingsOpen, command('find', t('find'), { shortcut: CANVAS_SHORTCUTS.find })),
-            ...only(workspace && !context.settingsOpen, command('find-replace', t('findReplace'), { shortcut: CANVAS_SHORTCUTS.findReplace })),
-            // No accelerator: the menu's group command holds Cmd+G, and the editor answers the key itself.
-            ...only(workspace && !context.settingsOpen, command('find-next', t('findNext')), command('find-previous', t('findPrevious'))),
-            ...only(
-                workspace && !context.settingsOpen,
-                separator,
-                command('next-problem', t('nextProblem'), { shortcut: CANVAS_SHORTCUTS.nextProblem }),
-                command('previous-problem', t('previousProblem'), { shortcut: CANVAS_SHORTCUTS.previousProblem }),
-                command('next-highlight', t('nextHighlight'), { shortcut: CANVAS_SHORTCUTS.nextHighlight }),
-                command('previous-highlight', t('previousHighlight'), { shortcut: CANVAS_SHORTCUTS.previousHighlight }),
-                separator
-            ),
-            ...only(context.settingsOpen, command('settings-search', t('searchSettings'), { shortcut: APP_SHORTCUTS.settingsSearch })),
-            ...only(workspace && context.folder, command('find-in-files', t('findInFiles'), { shortcut: APP_SHORTCUTS.findInFiles })),
-            ...only(workspace, command('search-chats', t('searchChats')))
-        ]
-    };
+    return { id: 'edit', label: t('edit'), items: itemsOf('edit', context, command) };
 }
 
 function codeMenu(context: MenuContext, command: MenuCommand): MenuSection {
-    const { workspace } = context;
-    return {
-        id: 'code',
-        label: t('code'),
-        items: [
-            ...only(
-                workspace && !context.settingsOpen,
-                ...(context.folder && !context.scratch
-                    ? [
-                          ...(context.prRepos.length > 1
-                              ? context.prRepos.map((repo) => command(`${PR_SHOW_IN_PREFIX}${repo.path}`, t('showPullRequestIn', { repo: repo.label })))
-                              : [command('pr-show', t('showPullRequest'))]),
-                          separator
-                      ]
-                    : []),
-                ...only(context.prWatch, command('pr-watch-stop', t('stopPrWatch')), separator),
-                ...languageCommandsOf('code').map((id) => command(id, t(LANGUAGE_COMMANDS[id].key), { shortcut: LANGUAGE_COMMANDS[id].shortcut })),
-                separator,
-                ...editorCommandsOf(undefined).map((id) => command(id, t(EDITOR_COMMANDS[id].key), { shortcut: EDITOR_COMMANDS[id].shortcut })),
-                submenu(
-                    'folding',
-                    t('folding'),
-                    editorCommandsOf('folding').map((id) => command(id, t(EDITOR_COMMANDS[id].key), { shortcut: EDITOR_COMMANDS[id].shortcut }))
-                )
-            )
-        ]
-    };
+    return { id: 'code', label: t('code'), items: itemsOf('code', context, command) };
 }
 
 function viewMenu(context: MenuContext, command: MenuCommand): MenuSection {
@@ -526,73 +546,15 @@ function goMenu(context: MenuContext, command: MenuCommand): MenuSection {
 }
 
 function windowMenu(context: MenuContext, command: MenuCommand): MenuSection {
-    const { apple, workspace } = context;
-    const desktop = context.host === 'desktop';
-    return {
-        id: 'window',
-        label: t('window'),
-        items: [
-            ...only(desktop, role('minimize', t('minimize'))),
-            ...only(desktop && apple, role('zoom', t('zoom'))),
-            separator,
-            ...only(workspace, command('panel-processes', t('processes'), { checked: context.panel === 'processes' })),
-            ...only(workspace && !context.scratch, command('panel-problems', t('problems'), { checked: context.panel === 'problems' })),
-            command('usage', t('usage')),
-            command('models', t('compareModels')),
-            command('settings-editor', t('editorSettings')),
-            command('settings-machines', t('machines')),
-            command('settings-computer', t('computerUse')),
-            ...only(desktop && apple, separator, role('front', t('front')))
-        ]
-    };
+    return { id: 'window', label: t('window'), items: itemsOf('window', context, command) };
 }
 
 function runMenu(context: MenuContext, command: MenuCommand): MenuSection {
-    const chosen = context.launches.find((launch) => launch.id === context.chosenLaunch) ?? null;
-    const runLabel = chosen === null ? t('launch') : t(chosen.live ? 'launchRestart' : 'launchStart', { name: chosen.name });
-    return {
-        id: 'run',
-        label: t('run'),
-        items: [
-            command('launch-run', runLabel, { shortcut: CANVAS_SHORTCUTS.launchRun, enabled: chosen !== null }),
-            command('launch-stop', chosen === null ? t('launchStopNone') : t('launchStop', { name: chosen.name }), {
-                shortcut: CANVAS_SHORTCUTS.launchStop,
-                enabled: chosen?.live === true
-            }),
-            command('launches-stop-all', t('launchesStopAll'), { enabled: context.launches.some((launch) => launch.live) }),
-            separator,
-            ...context.launches.map((launch) =>
-                command(`${LAUNCH_CHOOSE_PREFIX}${launch.id}`, launch.name, { checked: launch.id === chosen?.id, radio: true })
-            ),
-            separator,
-            ...only(context.afterSettle.tasks.length > 0, afterSettleMenu(context.afterSettle, command)),
-            command('launches-output', t('launchesOutput'), { enabled: chosen !== null }),
-            command('launches-edit', t('launchesEdit'))
-        ]
-    };
-}
-
-function afterSettleMenu({ tasks, chosen }: MenuContext['afterSettle'], command: MenuCommand): MenuNode {
-    return submenu('launches-after-settle', t('launchesAfterSettle'), [
-        command('launches-after-settle-off', t('launchesAfterSettleOff'), { checked: chosen === null, radio: true }),
-        separator,
-        ...tasks.map((task) => command(`${AFTER_SETTLE_PREFIX}${task.id}`, task.name, { checked: task.id === chosen, radio: true }))
-    ]);
+    return { id: 'run', label: t('run'), items: itemsOf('run', context, command) };
 }
 
 function helpMenu(context: MenuContext, command: MenuCommand): MenuSection {
-    const { apple } = context;
-    const desktop = context.host === 'desktop';
-    return {
-        id: 'help',
-        label: t('help'),
-        items: [
-            ...only(desktop, command('onboarding', t('onboarding'))),
-            ...only(context.releaseNotes, command('release-notes', t('releaseNotes'))),
-            command('settings-keyboard', t('keyboardShortcuts')),
-            ...only(!apple || !desktop, separator, command('about', t('about')))
-        ]
-    };
+    return { id: 'help', label: t('help'), items: itemsOf('help', context, command) };
 }
 
 /* The menu of the view with the focus, named after its kind, so everything a drawing offers sits in one place. */

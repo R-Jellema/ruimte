@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
-import { LANGUAGE_COMMANDS, LANGUAGE_COMMAND_IDS, languageCommandsOf, offeredLanguageCommands } from './command-table';
+import { COMMAND_IDS } from '@/shell/command-table';
+import { LANGUAGE_COMMANDS, LANGUAGE_COMMAND_IDS, offeredLanguageCommands } from './command-table';
 
 describe('toggle rendered documentation command', () => {
     test('is described with the editor key', () => {
@@ -12,7 +13,7 @@ describe('toggle rendered documentation command', () => {
     });
 
     test('is left out of the menu and the palette while the feature is off', () => {
-        expect(languageCommandsOf('code')).not.toContain('toggle-rendered-docs');
+        expect(COMMAND_IDS).not.toContain('toggle-rendered-docs');
         expect(LANGUAGE_COMMAND_IDS).not.toContain('toggle-rendered-docs');
     });
 

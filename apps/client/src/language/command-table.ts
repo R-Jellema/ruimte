@@ -85,8 +85,3 @@ export function offeredLanguageCommands(renderedDocs: boolean): LanguageCommandI
 }
 
 export const LANGUAGE_COMMAND_IDS = offeredLanguageCommands(RENDERED_DOC_COMMENTS);
-
-/* The ids of one menu, in the order the table lists them. */
-export function languageCommandsOf(menu: 'code' | 'go'): LanguageCommandId[] {
-    return LANGUAGE_COMMAND_IDS.filter((id) => LANGUAGE_COMMANDS[id].menu === menu);
-}
