@@ -1,0 +1,439 @@
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { existsSync } from 'node:fs';
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { claudeProjectSlug } from '@adecore/agents/chat';
+import { ManualClock } from '@adecore/agents/testing';
+import type { ChatMovePayload } from '@ruimte/contracts';
+import { MachineHome } from '../fs/machine-home.ts';
+import { bootTestDaemon, type TestDaemon } from '../tasks/test-daemon.ts';
+import { chatMoveDeps, type ChatMoveWiring } from '../wiring/chat-move.ts';
+import { moveChat, type MoveChatDeps } from './move-chat.ts';
+import { privateFileOnDisk, projectLinks } from './project-file-test-helpers.ts';
+import { ProjectStore } from './project-store.ts';
+import { newScratchChat } from './scratch-project.ts';
+
+const FAILED = new Error('injected');
+
+describe('moving a chat from Chats into a project', () => {
+    let root: string;
+    let store: ProjectStore;
+    let daemon: TestDaemon;
+    let chatId: string;
+    let chatsId: string;
+    let ownFolder: string;
+    let sessionId: string;
+
+    const wiring = (): ChatMoveWiring => ({
+        ...daemon,
+        store,
+        lineage: daemon.lineage,
+        prWatches: daemon.prWatches,
+        outbox: daemon.outbox,
+        machineHome: new MachineHome(store.home)
+    });
+
+    /* The deps as the daemon wires them, with one piece replaced by a test. */
+    const deps = (override: (base: MoveChatDeps) => Partial<MoveChatDeps> = () => ({})): MoveChatDeps => {
+        const base = chatMoveDeps(wiring()).move;
+        return { ...base, ...override(base) };
+    };
+
+    const make = (name: string, extra: Partial<Extract<ChatMovePayload['to'], { folder: string }>> = {}): ChatMovePayload['to'] => ({
+        folder: join(root, name),
+        name,
+        createFolder: true,
+        initGit: false,
+        ...extra
+    });
+
+    const say = async (id: string, text: string): Promise<void> => {
+        const before = daemon.chats
+            .get(id)!
+            .thread.list()
+            .filter((item) => item.kind === 'turn').length;
+        await daemon.chats.send(id, text);
+        await daemon.until(() => {
+            const chat = daemon.chats.get(id)!;
+            return chat.info.activeTurnId === null && chat.thread.list().filter((item) => item.kind === 'turn').length === before + 1;
+        });
+    };
+
+    /* Where Claude Code would keep the conversation of the chat while it works in Chats. */
+    const transcriptDir = (): string => join(daemon.chats.claudeProjectsDir, claudeProjectSlug(ownFolder));
+
+    beforeEach(async () => {
+        root = await mkdtemp(join(tmpdir(), 'ruimte-move-chat-'));
+        const home = join(root, 'home');
+        store = new ProjectStore(home, projectLinks());
+        daemon = await bootTestDaemon({ home, store, clock: new ManualClock() });
+        const made = await newScratchChat(store, {});
+        chatId = made.viewId;
+        chatsId = made.summary.projectId;
+        ownFolder = join(store.scratchFolder, chatId);
+        await daemon.chats.create({ chatId, provider: 'claude', cwd: ownFolder });
+        await say(chatId, 'hello');
+        sessionId = daemon.chats.get(chatId)!.info.agentSessionId!;
+        await mkdir(join(transcriptDir(), sessionId), { recursive: true });
+        await writeFile(join(transcriptDir(), `${sessionId}.jsonl`), '{"type":"user"}\n');
+        await writeFile(join(ownFolder, 'notes.md'), 'notes');
+        // Written in, so the view is listed: the mark of an empty chat goes with the first message.
+        await store.mutate(chatsId, (content) => ({
+            content: { ...content, views: content.views.map((view) => (view.kind === 'chat' ? { ...view, empty: undefined } : view)) },
+            result: undefined
+        }));
+    });
+
+    afterEach(async () => {
+        await daemon.stop();
+        store.closeAll();
+        await rm(root, { recursive: true, force: true });
+    });
+
+    const viewIds = async (projectId: string): Promise<string[]> => (await store.read(projectId)).views.map((view) => view.id);
+
+    /* What a failed move has to leave exactly as it was. */
+    const expectUntouched = async (): Promise<void> => {
+        expect(daemon.chats.get(chatId)!.info.cwd).toBe(ownFolder);
+        expect(await viewIds(chatsId)).toContain(chatId);
+        expect(await readdir(transcriptDir())).toEqual(expect.arrayContaining([`${sessionId}.jsonl`, sessionId]));
+        expect(await readFile(join(ownFolder, 'notes.md'), 'utf8')).toBe('notes');
+        expect(daemon.lineage.projectOf(chatId)).toBeNull();
+    };
+
+    test('makes a project in a new folder and puts the chat, its conversation and its files in it', async () => {
+        const folder = join(root, 'vinyl');
+        const result = await moveChat({ chatId, to: make('vinyl', { initGit: true }), ownFiles: 'move' }, deps());
+
+        expect(result).toMatchObject({ viewId: chatId, ownFilesLeftAt: null, summary: { name: 'vinyl', folder } });
+        expect(existsSync(join(folder, '.git'))).toBe(true);
+        expect(await readFile(join(folder, 'notes.md'), 'utf8')).toBe('notes');
+        expect(existsSync(ownFolder)).toBe(false);
+
+        const [view] = (await store.read(result.summary.projectId)).views;
+        expect(view).toMatchObject({ kind: 'chat', id: chatId });
+        expect(view!.kind === 'chat' && 'cwd' in view.node).toBe(false);
+        expect(await viewIds(chatsId)).not.toContain(chatId);
+        expect(store.index.locate(chatId)?.projectId).toBe(result.summary.projectId);
+        expect(await readdir(join(daemon.chats.claudeProjectsDir, claudeProjectSlug(await realpath(folder))))).toEqual(
+            expect.arrayContaining([`${sessionId}.jsonl`, sessionId])
+        );
+
+        const chat = daemon.chats.get(chatId)!;
+        expect(chat.info.cwd).toBe(folder);
+        expect(chat.thread.list().findLast((item) => item.kind === 'note')).toMatchObject({ text: 'Moved from Chats to vinyl.' });
+        expect(store.holdersOf(result.summary.projectId)).toEqual([]);
+    });
+
+    test('the next turn resumes the same session, and its agent is told the new folder', async () => {
+        const folder = join(root, 'vinyl');
+        await moveChat({ chatId, to: make('vinyl'), ownFiles: 'leave' }, deps());
+        const before = daemon.claude.started.length;
+        await say(chatId, 'where am I');
+        const started = daemon.claude.started.slice(before);
+        expect(started).toHaveLength(1);
+        expect(started[0]!.argv).toContain(sessionId);
+        const reply = daemon.chats
+            .get(chatId)!
+            .thread.list()
+            .findLast((item) => item.kind === 'assistant');
+        expect(reply).toMatchObject({ text: expect.stringContaining(`Your working directory is now ${folder}`) });
+        expect(daemon.chats.get(chatId)!.info).toMatchObject({ cwd: folder, agentSessionId: sessionId });
+    });
+
+    test('leaves the own files where they are and says so', async () => {
+        const result = await moveChat({ chatId, to: make('vinyl'), ownFiles: 'leave' }, deps());
+        expect(result.ownFilesLeftAt).toBe(ownFolder);
+        expect(await readFile(join(ownFolder, 'notes.md'), 'utf8')).toBe('notes');
+        expect(existsSync(join(root, 'vinyl', 'notes.md'))).toBe(false);
+        expect(
+            daemon.chats
+                .get(chatId)!
+                .thread.list()
+                .findLast((item) => item.kind === 'note')
+        ).toMatchObject({
+            text: `Moved from Chats to vinyl. Its own files stay in ${ownFolder}.`
+        });
+    });
+
+    test('moves into the project the registry has for the folder instead of opening it again', async () => {
+        const folder = join(root, 'repo');
+        await mkdir(folder);
+        const existing = await store.openProject({ folder });
+        store.release(existing.summary.projectId);
+        let made = 0;
+        const result = await moveChat(
+            { chatId, to: { folder, name: 'Other name', createFolder: false, initGit: false }, ownFiles: 'leave' },
+            deps((base) => ({
+                projects: {
+                    ...base.projects,
+                    make: (payload) => {
+                        made += 1;
+                        return base.projects.make(payload);
+                    }
+                }
+            }))
+        );
+        expect(made).toBe(0);
+        expect(result.summary.projectId).toBe(existing.summary.projectId);
+        expect(await viewIds(existing.summary.projectId)).toEqual([chatId]);
+    });
+
+    test('moves into a project named by its id', async () => {
+        const folder = join(root, 'repo');
+        await mkdir(folder);
+        const existing = await store.openProject({ folder });
+        store.release(existing.summary.projectId);
+        const result = await moveChat({ chatId, to: { projectId: existing.summary.projectId }, ownFiles: 'leave' }, deps());
+        expect(result.summary.folder).toBe(folder);
+        expect(daemon.chats.get(chatId)!.info.cwd).toBe(folder);
+    });
+
+    test('refuses a name the target holds before anything moved or was made', async () => {
+        const folder = join(root, 'repo');
+        await mkdir(folder);
+        await writeFile(join(folder, 'notes.md'), 'theirs');
+        const before = (await store.known()).length;
+        await expect(moveChat({ chatId, to: { folder, name: 'repo', createFolder: false, initGit: false }, ownFiles: 'move' }, deps())).rejects.toMatchObject({
+            code: 'files-conflict'
+        });
+        expect((await store.known()).length).toBe(before);
+        expect(await readFile(join(folder, 'notes.md'), 'utf8')).toBe('theirs');
+        await expectUntouched();
+    });
+
+    test("refuses the folder of Chats and another chat's own folder", async () => {
+        const other = join(store.scratchFolder, 'chat-other');
+        await mkdir(other);
+        for (const folder of [other, join(other, 'sub'), store.scratchFolder]) {
+            await expect(moveChat({ chatId, to: { folder, name: 'x', createFolder: true, initGit: false }, ownFiles: 'leave' }, deps())).rejects.toMatchObject({
+                code: 'move-failed'
+            });
+        }
+        expect(existsSync(join(other, 'sub'))).toBe(false);
+        await expectUntouched();
+    });
+
+    test("refuses a folder that holds the machine's own state", async () => {
+        const state = join(store.home, 'chats');
+        await mkdir(state, { recursive: true });
+        await expect(
+            moveChat({ chatId, to: { folder: state, name: 'x', createFolder: false, initGit: false }, ownFiles: 'leave' }, deps())
+        ).rejects.toMatchObject({
+            code: 'machine-state'
+        });
+        await expectUntouched();
+    });
+
+    test('refuses with the sentence of the reason and moves nothing', async () => {
+        await daemon.lineage.put({ projectId: chatsId, nodeId: 'child', openedBy: chatId, depth: 1, agent: true });
+        await expect(moveChat({ chatId, to: make('vinyl'), ownFiles: 'move' }, deps())).rejects.toMatchObject({
+            code: 'move-refused',
+            message: expect.stringContaining('started agents of its own')
+        });
+        expect(existsSync(join(root, 'vinyl'))).toBe(false);
+    });
+
+    test('a chat that is working is refused', async () => {
+        await daemon.chats.send(chatId, 'ask: which color');
+        await daemon.until(() => daemon.chats.get(chatId)?.info.status === 'needs-you');
+        await expect(moveChat({ chatId, to: make('vinyl'), ownFiles: 'move' }, deps())).rejects.toMatchObject({ code: 'move-refused' });
+        expect(existsSync(join(root, 'vinyl'))).toBe(false);
+    });
+
+    test('a project places the chat at every moment of the move', async () => {
+        const seen: Array<string | null> = [];
+        const result = await moveChat(
+            { chatId, to: make('vinyl'), ownFiles: 'move' },
+            deps((base) => ({
+                projects: {
+                    ...base.projects,
+                    mutate: async (projectId, apply) => {
+                        seen.push(store.index.locate(chatId)?.projectId ?? null);
+                        const done = await base.projects.mutate(projectId, apply);
+                        seen.push(store.index.locate(chatId)?.projectId ?? null);
+                        return done;
+                    }
+                }
+            }))
+        );
+        expect(seen).toHaveLength(4);
+        expect(seen).not.toContain(null);
+        expect(store.index.locate(chatId)?.projectId).toBe(result.summary.projectId);
+    });
+
+    test('the write that takes the view out of Chats cancels no task, ends no agents and owes nothing', async () => {
+        const before = daemon.enqueued.length;
+        await moveChat({ chatId, to: make('vinyl'), ownFiles: 'move' }, deps());
+        await daemon.pruned();
+        expect(daemon.enqueued).toHaveLength(before);
+        expect(daemon.outbox.list()).toEqual([]);
+        expect(daemon.tasks.involving(chatId)).toEqual([]);
+    });
+
+    test("a fork's lineage record survives with the project of the target", async () => {
+        await daemon.lineage.put({ projectId: chatsId, nodeId: chatId, openedBy: 'chat-original', depth: 0, agent: true, relation: 'fork' });
+        const [stamp] = [daemon.lineage.projectOf(chatId)];
+        expect(stamp).toBe(chatsId);
+        const result = await moveChat({ chatId, to: make('vinyl'), ownFiles: 'move' }, deps());
+        await daemon.pruned();
+        expect(daemon.lineage.projectOf(chatId)).toBe(result.summary.projectId);
+        expect(daemon.lineage.forkedFrom(chatId)).toBe('chat-original');
+    });
+
+    test('a fork nobody wrote in keeps its record and its conversation', async () => {
+        await daemon.lineage.put({ projectId: chatsId, nodeId: chatId, openedBy: 'chat-original', depth: 0, agent: true, relation: 'fork' });
+        await moveChat({ chatId, to: make('vinyl'), ownFiles: 'move' }, deps());
+        await daemon.pruned();
+        expect(await daemon.chats.hasStored(chatId)).toBe(true);
+    });
+
+    test('a Codex chat has no conversation file to move', async () => {
+        const codexId = (await newScratchChat(store, { provider: 'codex' })).viewId;
+        await daemon.chats.create({ chatId: codexId, provider: 'codex', cwd: join(store.scratchFolder, codexId) });
+        await say(codexId, 'hello');
+        await store.mutate(chatsId, (content) => ({
+            content: { ...content, views: content.views.map((view) => (view.id === codexId && view.kind === 'chat' ? { ...view, empty: undefined } : view)) },
+            result: undefined
+        }));
+        let moved = 0;
+        await moveChat(
+            { chatId: codexId, to: make('vinyl'), ownFiles: 'leave' },
+            deps(() => ({
+                moveTranscript: () => {
+                    moved += 1;
+                    return Promise.reject(FAILED);
+                }
+            }))
+        );
+        expect(moved).toBe(0);
+        expect(daemon.chats.get(codexId)!.info.cwd).toBe(join(root, 'vinyl'));
+    });
+
+    describe('a step that fails undoes every step before it', () => {
+        test('after the conversation moved, a refusal that came meanwhile', async () => {
+            let calls = 0;
+            await expect(
+                moveChat(
+                    { chatId, to: make('vinyl'), ownFiles: 'move' },
+                    deps((base) => ({
+                        refusal: (id) => {
+                            calls += 1;
+                            return calls >= 3 ? { reason: 'messages' } : base.refusal(id);
+                        }
+                    }))
+                )
+            ).rejects.toMatchObject({ code: 'move-refused' });
+            await expectUntouched();
+        });
+
+        test('after the target was written, a Chats write that fails', async () => {
+            let writes = 0;
+            await expect(
+                moveChat(
+                    { chatId, to: make('vinyl'), ownFiles: 'move' },
+                    deps((base) => ({
+                        projects: {
+                            ...base.projects,
+                            mutate: (projectId, apply) => {
+                                writes += 1;
+                                return writes === 2 ? Promise.reject(FAILED) : base.projects.mutate(projectId, apply);
+                            }
+                        }
+                    }))
+                )
+            ).rejects.toBe(FAILED);
+            await expectUntouched();
+            const target = (await store.known()).find((project) => project.folder === join(root, 'vinyl'))!;
+            expect(await viewIds(target.projectId)).toEqual([]);
+        });
+
+        test("after a fork's lineage moved, a Chats write that fails", async () => {
+            await daemon.lineage.put({ projectId: chatsId, nodeId: chatId, openedBy: 'chat-original', depth: 0, agent: true, relation: 'fork' });
+            let writes = 0;
+            await expect(
+                moveChat(
+                    { chatId, to: make('vinyl'), ownFiles: 'move' },
+                    deps((base) => ({
+                        projects: {
+                            ...base.projects,
+                            mutate: (projectId, apply) => {
+                                writes += 1;
+                                return writes === 2 ? Promise.reject(FAILED) : base.projects.mutate(projectId, apply);
+                            }
+                        }
+                    }))
+                )
+            ).rejects.toBe(FAILED);
+            expect(daemon.lineage.projectOf(chatId)).toBe(chatsId);
+            expect(daemon.chats.get(chatId)!.info.cwd).toBe(ownFolder);
+            expect(await viewIds(chatsId)).toContain(chatId);
+        });
+
+        test('after the Chats write, the files that cannot move', async () => {
+            await daemon.lineage.put({ projectId: chatsId, nodeId: chatId, openedBy: 'chat-original', depth: 0, agent: true, relation: 'fork' });
+            await expect(
+                moveChat(
+                    { chatId, to: make('vinyl'), ownFiles: 'move' },
+                    deps(() => ({ moveOwnFiles: () => Promise.reject(FAILED) }))
+                )
+            ).rejects.toBe(FAILED);
+            expect(daemon.lineage.projectOf(chatId)).toBe(chatsId);
+            expect(daemon.chats.get(chatId)!.info.cwd).toBe(ownFolder);
+            expect(await viewIds(chatsId)).toContain(chatId);
+            expect(await readdir(transcriptDir())).toEqual(expect.arrayContaining([`${sessionId}.jsonl`, sessionId]));
+            expect(await readFile(join(ownFolder, 'notes.md'), 'utf8')).toBe('notes');
+            const target = (await store.known()).find((project) => project.folder === join(root, 'vinyl'))!;
+            expect(await viewIds(target.projectId)).toEqual([]);
+        });
+
+        test('the chat keeps working in its old folder afterwards', async () => {
+            await expect(
+                moveChat(
+                    { chatId, to: make('vinyl'), ownFiles: 'move' },
+                    deps(() => ({ moveOwnFiles: () => Promise.reject(FAILED) }))
+                )
+            ).rejects.toBe(FAILED);
+            await say(chatId, 'write: marker.txt here');
+            expect(await readFile(join(ownFolder, 'marker.txt'), 'utf8')).toBe('here\n');
+        });
+    });
+
+    test('the node fields a newer Ruimte keeps one person go along, and stay in Chats while another node needs them', async () => {
+        const privateFile = join(store.scratchFolder, '.ruimte', 'private', 'project.json');
+        const file = JSON.parse(await readFile(privateFile, 'utf8')) as {
+            views: Array<{ id: string; node: Record<string, unknown> }>;
+            overlayFields?: string[];
+        };
+        file.overlayFields = ['pinnedAt'];
+        file.views = file.views.map((view) => (view.id === chatId ? { ...view, node: { ...view.node, pinnedAt: 7 } } : view));
+        await writeFile(privateFile, JSON.stringify(file));
+        const result = await moveChat({ chatId, to: make('vinyl'), ownFiles: 'leave' }, deps());
+
+        const target = await privateFileOnDisk(join(root, 'vinyl'));
+        expect(target.overlayFields).toEqual(['pinnedAt']);
+        expect(target.views.find((view) => view.id === chatId)).toMatchObject({ node: { pinnedAt: 7 } });
+        expect((await privateFileOnDisk(store.scratchFolder)).overlayFields ?? []).toEqual([]);
+        expect(result.viewId).toBe(chatId);
+    });
+
+    test("the person's flag on the chat moves with it", async () => {
+        await store.mutate(chatsId, (content) => ({ content: { ...content, flags: { [chatId]: 'red' } }, result: undefined }));
+        const result = await moveChat({ chatId, to: make('vinyl'), ownFiles: 'leave' }, deps());
+        expect((await store.read(result.summary.projectId)).flags).toEqual({ [chatId]: 'red' });
+    });
+
+    test('keeps the place of the chat among the others when a Chats write has to be undone', async () => {
+        const second = (await newScratchChat(store, {})).viewId;
+        const order = await viewIds(chatsId);
+        await expect(
+            moveChat(
+                { chatId, to: make('vinyl'), ownFiles: 'move' },
+                deps(() => ({ moveOwnFiles: () => Promise.reject(FAILED) }))
+            )
+        ).rejects.toBe(FAILED);
+        expect(await viewIds(chatsId)).toEqual(order);
+        expect(order).toContain(second);
+    });
+});

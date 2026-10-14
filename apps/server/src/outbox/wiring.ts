@@ -230,6 +230,10 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
                 if (chat === null) {
                     return;
                 }
+                // A chat on its way to another folder takes no turn until it is there.
+                if (chat.relocating?.() === true) {
+                    return 'wait';
+                }
                 return chat.wake({ text: entry.payload.text, label: entry.payload.label, taskIds: [] }) ? undefined : 'wait';
             },
             'run-after-settle': (entry) => deps.runAfterSettle?.(entry) ?? Promise.resolve()

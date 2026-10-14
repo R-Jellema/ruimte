@@ -130,10 +130,19 @@ export interface ProjectMutation<T> {
        the same lock a write takes, so what it answers is what the write would have done. */
     content: ProjectContent | null;
     result: T;
+    /* The node fields the private file keeps one person's after this write; absent leaves the list as it was. */
+    overlayFields?: readonly string[];
     /* Runs once the document is on disk and before `project.changed` goes out, so what a new node
        needs beside the file exists before a client mounts it, and never for a change that was refused. */
     landed?: () => Promise<void>;
 }
+
+/* What a change reads of the document besides its content. */
+export interface MutationContext {
+    overlayFields: readonly string[];
+}
+
+export type MutationApply<T> = (content: ProjectContent, context: MutationContext) => ProjectMutation<T> | Promise<ProjectMutation<T>>;
 
 interface OpenProject {
     entry: RegistryEntry;
@@ -662,24 +671,26 @@ export class ProjectStore {
      * then. Throwing from `apply` writes nothing, and neither does a document that moved past
      * `expectedRev`, which is checked under the same lock the write takes.
      */
-    mutate<T>(projectId: string, apply: (content: ProjectContent) => ProjectMutation<T> | Promise<ProjectMutation<T>>, expectedRev?: number): Promise<T> {
+    mutate<T>(projectId: string, apply: MutationApply<T>, expectedRev?: number): Promise<T> {
         return this.locked(projectId, () => this.mutateUnlocked(projectId, apply, expectedRev));
     }
 
-    private async mutateUnlocked<T>(
-        projectId: string,
-        apply: (content: ProjectContent) => ProjectMutation<T> | Promise<ProjectMutation<T>>,
-        expectedRev?: number
-    ): Promise<T> {
-        const { entry, path, rev, content, shared, overlayFields } = await this.readCurrent(projectId);
+    /* The node fields the private file keeps one person's, which a view moved to another project takes along. */
+    overlayFieldsOf(projectId: string): Promise<string[]> {
+        return this.locked(projectId, async () => (await this.readCurrent(projectId, true)).overlayFields);
+    }
+
+    private async mutateUnlocked<T>(projectId: string, apply: MutationApply<T>, expectedRev?: number): Promise<T> {
+        const { entry, path, rev, content, shared, overlayFields: held } = await this.readCurrent(projectId);
         if (expectedRev !== undefined && expectedRev !== rev) {
             throw new ProjectError('rev-conflict', revisionConflictMessage('The project', expectedRev, rev));
         }
         const before = [...content.views];
-        const mutation = await apply(content);
+        const mutation = await apply(content, { overlayFields: held });
         if (mutation.content === null) {
             return mutation.result;
         }
+        const overlayFields = mutation.overlayFields === undefined ? held : [...mutation.overlayFields];
         const parsed = ProjectDocumentSchema.safeParse({ version: PROJECT_VERSION, rev: rev + 1, ...toPortable(mutation.content, entry.folder), shared });
         if (!parsed.success) {
             throw new ProjectError('project-invalid', `The change would not make a valid canvas: ${parsed.error.issues[0]?.message ?? 'unknown'}`);

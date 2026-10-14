@@ -35,7 +35,7 @@ import type { IndexedPlace } from '../projects/project-index.ts';
 import type { HiddenAgentStore } from '../agents/hidden-agents.ts';
 import type { StartClaims } from '../actions/start-claims.ts';
 import type { VisualPreview } from '../visuals/renderer.ts';
-import type { ProjectStore } from '../projects/project-store.ts';
+import type { ProjectMutation, ProjectStore } from '../projects/project-store.ts';
 import type { DiagramStore } from '../projects/diagram-store.ts';
 import type { SnoozeStore } from '../push/snoozes.ts';
 import type { EndpointIdentity } from '../endpoint-id.ts';
@@ -121,7 +121,10 @@ export interface CanvasHost {
 }
 
 /* The projects of this machine; every write of a verb goes through `mutate`, which refuses a document that moved past `expectedRev`. */
-export type ProjectHost = Pick<ProjectStore, 'locate' | 'read' | 'revision' | 'mutate' | 'showView'>;
+/* A verb changes the content only; what a move of a view between projects reads besides is the store's own. */
+export type ProjectHost = Pick<ProjectStore, 'locate' | 'read' | 'revision' | 'showView'> & {
+    mutate<T>(projectId: string, apply: (content: ProjectContent) => ProjectMutation<T> | Promise<ProjectMutation<T>>, expectedRev?: number): Promise<T>;
+};
 
 /* Who made a node and how deep it sits, kept under `$RUIMTE_HOME` and across a restart, never in the project an agent can rewrite. */
 export type LineageHost = Pick<AgentLineageStore, 'depthOf' | 'madeBy' | 'put'>;

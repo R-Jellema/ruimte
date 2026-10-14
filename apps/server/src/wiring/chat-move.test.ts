@@ -7,7 +7,10 @@ import { newScratchChat } from '../projects/scratch-project.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { projectLinks } from '../projects/project-file-test-helpers.ts';
 import { bootTestDaemon, type TestDaemon } from '../tasks/test-daemon.ts';
+import { Dispatcher } from '../dispatcher.ts';
 import { MachineHome } from '../fs/machine-home.ts';
+import { registerChatHandlers } from '../handlers/chat.ts';
+import { ProviderRegistry } from '../providers/registry.ts';
 import { chatMoveHandlers } from './chat-move.ts';
 
 describe('what the machine says about moving a chat', () => {
@@ -40,6 +43,23 @@ describe('what the machine says about moving a chat', () => {
         await daemon.stop();
         store.closeAll();
         await rm(root, { recursive: true, force: true });
+    });
+
+    test('answers both requests, which is what makes `features` name them', () => {
+        expect(daemon.dispatcher.has('chat.moveInfo')).toBe(false);
+        const dispatcher = new Dispatcher();
+        registerChatHandlers(
+            dispatcher,
+            daemon.chats,
+            new ProviderRegistry({ detect: async () => ({ installed: true, version: '0.0.0' }) }),
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            moves()
+        );
+        expect(dispatcher.has('chat.moveInfo')).toBe(true);
+        expect(dispatcher.has('chat.move')).toBe(true);
     });
 
     test('lists the own files of a quiet chat in Chats and refuses nothing', async () => {

@@ -5,11 +5,13 @@ import type { AgentLineageStore, NoticeStore, TaskStore } from '@adecore/agents/
 import { chatIsWorking } from '@ruimte/contracts';
 import type { MachineHome } from '../fs/machine-home.ts';
 import type { ChatManager } from '../chat/chat-manager.ts';
+import { ChatError } from '../chat/errors.ts';
 import type { ChatMoveHandlers } from '../handlers/chat.ts';
-import { readGit } from '../git/run.ts';
+import { gitOrThrow, readGit } from '../git/run.ts';
 import { repositoryRoot } from '../git/status.ts';
 import type { PrWatchStore } from '../github/pr-watch.ts';
 import type { OutboxStore } from '../outbox/outbox.ts';
+import { moveChat, type MoveChatDeps } from '../projects/move-chat.ts';
 import { chatMoveInfo, type MoveInfoDeps } from '../projects/move-info.ts';
 import { ownFolderOf } from '../projects/own-files.ts';
 import { moveRefusal, type MoveRefusalDeps } from '../projects/move-refusal.ts';
@@ -70,8 +72,14 @@ export function chatMoveRefusalDeps(wiring: ChatMoveWiring): MoveRefusalDeps {
     };
 }
 
-/* What the move dialog asks the machine, and the move itself once it can. */
+/* What the move dialog asks the machine, and the move itself. */
 export function chatMoveHandlers(wiring: ChatMoveWiring): ChatMoveHandlers {
+    const deps = chatMoveDeps(wiring);
+    return { info: (payload) => chatMoveInfo(payload, deps.info), move: (payload) => moveChat(payload, deps.move) };
+}
+
+/* The pieces of both requests over the daemon's stores; a test replaces one to make a step fail. */
+export function chatMoveDeps(wiring: ChatMoveWiring): { info: MoveInfoDeps; move: MoveChatDeps } {
     const { chats, store } = wiring;
     const refusalDeps = chatMoveRefusalDeps(wiring);
     const registry = async (): Promise<Array<{ projectId: string; name: string; folder: string; available: boolean }>> =>
@@ -101,5 +109,54 @@ export function chatMoveHandlers(wiring: ChatMoveWiring): ChatMoveHandlers {
         gitRoot: repositoryAbove,
         refuseFolder: (folder) => wiring.machineHome.refuse(folder)
     };
-    return { info: (payload) => chatMoveInfo(payload, infoDeps) };
+    const moveDeps: MoveChatDeps = {
+        refusal: infoDeps.refusal,
+        scratchFolder: store.scratchFolder,
+        ownFolder: infoDeps.ownFolder,
+        refuseFolder: infoDeps.refuseFolder,
+        projects: {
+            known: () => store.known(),
+            make: async (payload) => {
+                const { summary } = await store.openProject(payload);
+                // Opened for the file, not for a client: the window that follows the move holds it itself.
+                if (store.holdersOf(summary.projectId).length === 0) {
+                    store.release(summary.projectId);
+                }
+                return { projectId: summary.projectId, name: summary.name };
+            },
+            mutate: (projectId, apply) => store.mutate(projectId, apply),
+            read: (projectId) => store.read(projectId),
+            overlayFieldsOf: (projectId) => store.overlayFieldsOf(projectId),
+            summary: async (projectId) => {
+                const summary = (await store.list()).find((candidate) => candidate.projectId === projectId);
+                if (summary === undefined) {
+                    throw new ChatError('move-failed', `The project ${projectId} left the machine's list while the chat moved`);
+                }
+                return summary;
+            }
+        },
+        initGit: async (folder) => {
+            await gitOrThrow(['init'], folder);
+        },
+        chats: {
+            load: async (chatId) => {
+                if (chats.get(chatId) === undefined) {
+                    if (!(await chats.hasStored(chatId))) {
+                        throw new ChatError('chat-not-found', `No chat ${chatId}`);
+                    }
+                    await chats.create({ chatId });
+                }
+                const session = chats.get(chatId);
+                if (session === undefined) {
+                    throw new ChatError('chat-not-found', `No chat ${chatId}`);
+                }
+                return session.info;
+            },
+            relocate: (chatId, cwd, during) => chats.relocate(chatId, cwd, during),
+            deliverNote: (chatId, delivery) => chats.deliverNote(chatId, delivery),
+            claudeProjectsDirOf: (info) => chats.claudeProjectsDirOf(info)
+        },
+        lineage: wiring.lineage
+    };
+    return { info: infoDeps, move: moveDeps };
 }

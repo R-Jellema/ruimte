@@ -7,6 +7,8 @@ import type {
     ChatForkResult,
     ChatMoveInfoPayload,
     ChatMoveInfoResult,
+    ChatMovePayload,
+    ChatMoveResult,
     ChatSummarizeResult
 } from '@ruimte/contracts';
 import { chatHandlers } from '@adecore/agents/host';
@@ -26,6 +28,7 @@ export interface ChatForkHandlers {
 
 export interface ChatMoveHandlers {
     info(payload: ChatMoveInfoPayload): Promise<ChatMoveInfoResult>;
+    move(payload: ChatMovePayload): Promise<ChatMoveResult>;
 }
 
 export function registerChatHandlers(
@@ -75,6 +78,7 @@ export function registerChatHandlers(
     // Left unregistered without them, so `features` only names what this machine answers.
     if (moves) {
         dispatcher.register('chat.moveInfo', (payload) => moves.info(payload));
+        dispatcher.register('chat.move', (payload) => moves.move(payload));
     }
 
     dispatcher.register('chat.cancel', async (payload) => {
