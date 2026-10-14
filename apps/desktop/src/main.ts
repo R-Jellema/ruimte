@@ -270,7 +270,8 @@ const menu = installMenu(ipc, {
         return focused !== null && (isBrowserGuest(focused) || isPreviewGuest(focused));
     },
     support: machine.support,
-    stopMachine: () => machine.stopAndQuit()
+    stopMachine: () => machine.stopAndQuit(),
+    openWindow: () => windows.open(null)
 });
 
 const windowState = createWindowState({

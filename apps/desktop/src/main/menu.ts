@@ -12,6 +12,8 @@ export interface MenuOptions {
     keyBypassesPage(): boolean;
     support: ServiceSupport;
     stopMachine(): void;
+    /* A new window on the start screen. */
+    openWindow(): Electron.BrowserWindow;
 }
 
 export interface AppMenu {
@@ -27,12 +29,29 @@ export interface AppMenu {
 export function installMenu(ipc: AppIpc, options: MenuOptions): AppMenu {
     // By window id; the one in front is drawn.
     const menuTemplates = new Map<number, Electron.MenuItemConstructorOptions[]>();
+    // Settings asked for while no window was open, by the window opened for them; its first menu says its page listens.
+    const settingsOnLoad = new Map<number, string | null>();
 
     const setStatic = (): void => {
         const openSettings = (section: string | null): void => {
             const window = options.focused();
-            window?.show();
-            window?.webContents.send('menu:settings', section);
+            if (!window) {
+                settingsOnLoad.set(options.openWindow().id, section);
+                return;
+            }
+            window.show();
+            window.webContents.send('menu:settings', section);
+        };
+        const newWindow: Electron.MenuItemConstructorOptions = {
+            label: 'New Window',
+            accelerator: 'CommandOrControl+Shift+N',
+            click: (_item, _window, event) => {
+                // While this menu stands over a page, that page answers the key itself.
+                if (event.triggeredByAccelerator && options.focused() !== null && !options.keyBypassesPage() && options.pageKeys.take()) {
+                    return;
+                }
+                options.openWindow();
+            }
         };
         // Only where a service can run: anywhere else quitting already stops the machine.
         const quitItems: Electron.MenuItemConstructorOptions[] =
@@ -45,6 +64,7 @@ export function installMenu(ipc: AppIpc, options: MenuOptions): AppMenu {
                 { type: 'separator' },
                 { label: 'Settings…', accelerator: 'CommandOrControl+,', click: () => openSettings(null) }
             ],
+            fileItems: [newWindow],
             quitItems,
             toggleDevTools: () => options.focused()?.webContents.toggleDevTools()
         });
@@ -80,6 +100,10 @@ export function installMenu(ipc: AppIpc, options: MenuOptions): AppMenu {
 
     ipc.on('menu:set', (event, spec: MenuSpec) => {
         const window = ipc.senderWindow(event);
+        if (window && settingsOnLoad.has(window.id)) {
+            window.webContents.send('menu:settings', settingsOnLoad.get(window.id) ?? null);
+            settingsOnLoad.delete(window.id);
+        }
         const template = menuTemplateOf(spec, { run: runMenuCommand, shellItem: shellMenuItem });
         if (!window || !template) {
             return;
