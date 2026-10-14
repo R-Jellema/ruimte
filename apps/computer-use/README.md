@@ -12,7 +12,7 @@ The daemon talks to it over a Unix socket. `cu` is a command line for the same s
 bun scripts/build.ts
 ```
 
-This builds the package with Swift Package Manager and assembles `dist/Ruimte Computer Use Dev.app` (bundle id `app.ruimte.computer-use.dev`) with `cu` inside it and `dist/cu` linked beside it. `bun dev` at the root runs the same build before the daemon starts, so the daemon never launches the bundle a build is still writing. The dev app has its own bundle id and name, so a checkout and an installed Ruimte never share an entry in System Settings.
+This builds the package with Swift Package Manager and assembles `dist/Ruimte Computer Use Dev.app` (bundle id `app.ruimte.computer-use.dev`) with `cu` inside it and `dist/cu` linked beside it. `bun dev` runs the same build in the server workspace before the daemon starts, so the daemon never launches the bundle a build is still writing. The dev app has its own bundle id and name, so a checkout and an installed Ruimte never share an entry in System Settings.
 
 The script signs with the first Apple Development identity in the keychain (`security find-identity -v -p codesigning`), with the hardened runtime and the empty entitlements in `Resources/entitlements.plist`. A stable identity keeps the grants across rebuilds. Without one it signs ad hoc and says so; macOS then asks for the grants again after every build. `--identity <name|hash|->` or `RUIMTE_COMPUTER_USE_IDENTITY` picks another identity, and `-` signs ad hoc.
 
