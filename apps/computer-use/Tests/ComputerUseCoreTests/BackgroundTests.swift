@@ -82,3 +82,45 @@ struct BackgroundWordsTests {
         #expect(dutch.title(background: "Notities") == "Ruimte werkt op de achtergrond in Notities")
     }
 }
+
+@MainActor
+struct KeysBehindTests {
+    /// A terminal sends a key on and clears its field, so its value never changes; it used to get the first character
+    /// twice and then a needs-front refusal.
+    @Test func aFieldThatKeepsItsValueGetsEveryCharacterOnceAndNoRefusal() async throws {
+        var sent: [Character] = []
+        let note = try await KeysBehind.type("ls\r\n", before: "", send: { sent.append($0) }, after: { "" })
+        #expect(sent == ["l", "s", "\n"])
+        #expect(note == KeysBehind.keptValueNote)
+    }
+
+    @Test func aFieldThatTakesTheTextHasNoNote() async throws {
+        var sent: [Character] = []
+        let note = try await KeysBehind.type("hi", before: "", send: { sent.append($0) }, after: { "hi" })
+        #expect(sent == ["h", "i"])
+        #expect(note == nil)
+    }
+
+    @Test func aValueNobodyCanReadIsNeverAskedFor() async throws {
+        var asked = false
+        let note = try await KeysBehind.type("hi", before: nil, send: { _ in }, after: {
+            asked = true
+            return nil
+        })
+        #expect(note == nil)
+        #expect(!asked)
+    }
+
+    @Test func aStopEndsTheTypingAtTheCharacterItCameOn() async throws {
+        var sent: [Character] = []
+        await #expect(throws: AgentError.self) {
+            _ = try await KeysBehind.type("abc", before: "", send: { character in
+                if character == "b" {
+                    throw AgentError.stopped
+                }
+                sent.append(character)
+            }, after: { "" })
+        }
+        #expect(sent == ["a"])
+    }
+}

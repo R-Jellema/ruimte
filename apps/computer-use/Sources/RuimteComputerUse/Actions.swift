@@ -287,8 +287,9 @@ extension Agent {
             let keys = try keyTarget(app)
             return try await act(app, request, at: focusPoint(app), as: look, reportPoint: false) {
                 let target = AX.summary(keys.focused ?? keys.window)
-                try await self.typeBehind(text, app: app, keys)
-                return ["typed": text.count, "method": "keys to the app", "target": target]
+                var answer: [String: Any] = ["typed": text.count, "method": "keys to the app", "target": target]
+                answer["note"] = try await self.typeBehind(text, app: app, keys)
+                return answer
             }
         }
         return try await act(app, request, at: focusPoint(app), as: look, reportPoint: false) {
@@ -526,38 +527,21 @@ extension Agent {
         }
     }
 
-    /// One character at a time to the app's process. The first tells whether keys arrive there at all: when a text
-    /// element keeps its value, the window is made main and it goes again, and after that the front is the only way.
-    private func typeBehind(_ text: String, app: NSRunningApplication, _ keys: KeyTarget) async throws {
+    /// One character at a time to the app's process, with its window made main first, since some apps take keys behind
+    /// the person's work only there. Returns the note for an answer when the focused value did not change.
+    private func typeBehind(_ text: String, app: NSRunningApplication, _ keys: KeyTarget) async throws -> String? {
         let pid = app.processIdentifier
-        let characters = Array(text.replacingOccurrences(of: "\r\n", with: "\n"))
         let valueNow = { keys.focused.flatMap { AX.describe(AX.attribute($0, kAXValueAttribute)) } }
         let before = valueNow()
-        Self.aimKeys(keys, main: before == nil)
-        var sent = 0
-        if let first = characters.first, before != nil {
-            for attempt in 0..<2 {
-                if attempt == 1 {
-                    Self.aimKeys(keys, main: true)
-                    try await Task.sleep(for: .milliseconds(100))
-                }
-                try checkStopped()
-                try await SyntheticInput.ToProcess.type(first, to: pid)
-                try await Task.sleep(for: .milliseconds(150))
-                if valueNow() != before {
-                    sent = 1
-                    break
-                }
-            }
-            if sent == 0 {
-                throw AgentError.needsFront("\(Targets.name(app)) did not take keys in the background")
-            }
-        }
-        for character in characters.dropFirst(sent) {
-            try checkStopped()
+        Self.aimKeys(keys, main: true)
+        return try await KeysBehind.type(text, before: before, send: { character in
+            try self.checkStopped()
             try await SyntheticInput.ToProcess.type(character, to: pid)
             try await Task.sleep(for: SyntheticInput.ToProcess.characterGap)
-        }
+        }, after: {
+            try? await Task.sleep(for: .milliseconds(150))
+            return valueNow()
+        })
     }
 
     /// Scrolls through accessibility, since wheel events posted to an app behind the person's work never scroll:
