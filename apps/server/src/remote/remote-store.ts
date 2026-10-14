@@ -43,10 +43,10 @@ export class RemoteStore {
     }
 
     /*
-     * Sets what a person's save named and drops every binding whose node is gone from the document.
-     * A node the save did not name keeps its binding, which is what an older client's save amounts to.
+     * Sets what a person's save named, for nodes the save holds. A node the save did not name keeps its
+     * binding, which is what an older client's save amounts to.
      */
-    async apply(projectId: string, asked: ReadonlyMap<string, string>, alive: ReadonlySet<string>): Promise<void> {
+    async bind(projectId: string, asked: ReadonlyMap<string, string>, alive: ReadonlySet<string>): Promise<void> {
         const file = this.files.get(projectId);
         const nodes = { ...file?.nodes };
         for (const [nodeId, machineId] of asked) {
@@ -54,15 +54,23 @@ export class RemoteStore {
                 nodes[nodeId] = machineId;
             }
         }
-        for (const nodeId of Object.keys(nodes)) {
-            if (!alive.has(nodeId)) {
-                delete nodes[nodeId];
-            }
+        await this.keep(projectId, nodes);
+    }
+
+    /* Drops every binding whose id is gone from the document. */
+    async prune(projectId: string, alive: ReadonlySet<string>): Promise<void> {
+        const file = this.files.get(projectId);
+        if (file === undefined) {
+            return;
         }
-        const changed =
-            Object.keys(nodes).length !== Object.keys(file?.nodes ?? {}).length ||
-            Object.entries(nodes).some(([nodeId, machineId]) => file?.nodes[nodeId] !== machineId);
-        if (!changed) {
+        await this.keep(projectId, Object.fromEntries(Object.entries(file.nodes).filter(([nodeId]) => alive.has(nodeId))));
+    }
+
+    private async keep(projectId: string, nodes: Record<string, string>): Promise<void> {
+        const file = this.files.get(projectId);
+        const held = file?.nodes ?? {};
+        const same = Object.keys(nodes).length === Object.keys(held).length && Object.entries(nodes).every(([nodeId, machineId]) => held[nodeId] === machineId);
+        if (same) {
             return;
         }
         if (Object.keys(nodes).length === 0 && (file?.links.length ?? 0) === 0) {

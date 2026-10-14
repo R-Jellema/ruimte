@@ -500,6 +500,10 @@ export class ProjectStore {
         }
         const loaded = await this.loadFiles(path, entry, outcome.kind === 'ok' ? outcome.document : null);
         const content = missing ? { name: entry.name, color: entry.color, views: [] } : loaded.content;
+        // A file that is not there says nothing about the nodes it had, so only a document that was read prunes.
+        if (!missing) {
+            await this.remote.prune(entry.projectId, idsOf(content));
+        }
         const holder = this.holderOfIds(entry.projectId, content.views, await this.registry.load());
         if (holder) {
             throw new ProjectError(
@@ -643,10 +647,12 @@ export class ProjectStore {
         const sql = content.sql ?? this.index.sqlOf(projectId);
         const portable = toPortable({ ...content, ...(flags ? { flags } : {}), ...(sql ? { sql } : {}) }, state.entry.folder);
         const document: ProjectDocument = { version: PROJECT_VERSION, rev: state.rev + 1, ...portable, shared: ids };
+        /* Bound first: a document that names a node before its binding exists would let a client start it here.
+           A save that names no machine for a node leaves its binding as it was, so a client that never heard of the field cannot drop it. */
+        await this.remote.bind(projectId, machinesOf(content), idsOf(content));
         const written = await this.writeFiles(this.documentPath(state.entry), portable, ids, document.rev, moved, state.overlayFields);
         remember(state, written, document.rev, ids, document.views);
-        // A save that names no machine for a node leaves its binding as it was, so a client that never heard of the field cannot drop it.
-        await this.remote.apply(projectId, machinesOf(content), idsOf(content));
+        await this.remote.prune(projectId, idsOf(content));
         /* Not the sender: its screen is already ahead of this document, and taking it in would undo a
            drag that went on while the save was out. */
         await this.afterWrite(
@@ -738,7 +744,7 @@ export class ProjectStore {
         }
         const state = this.open.get(projectId);
         const written = await this.writeFiles(path, toPortable(mutation.content, entry.folder), shared, document.rev, [], overlayFields);
-        await this.remote.apply(projectId, new Map(), idsOf(mutation.content));
+        await this.remote.prune(projectId, idsOf(mutation.content));
         const icon = mutation.content.icon ?? null;
         const identityChanged = mutation.content.name !== entry.name || mutation.content.color !== entry.color || !sameIcon(icon, entry.icon ?? null);
         const nextEntry = identityChanged ? { ...entry, name: mutation.content.name, color: mutation.content.color, icon } : entry;
@@ -1047,6 +1053,7 @@ export class ProjectStore {
                     const loaded = await this.loadFiles(this.documentPath(entry), entry, parsed.document);
                     const document: ProjectDocument = { version: PROJECT_VERSION, rev: loaded.rev, ...loaded.content, shared: loaded.shared };
                     this.index.set(entry.projectId, entry.folder, fromPortable(document, entry.folder));
+                    await this.remote.prune(entry.projectId, idsOf(loaded.content));
                 }
             })
         );
@@ -1215,7 +1222,7 @@ export class ProjectStore {
         remember(state, { text, private: privateText }, rev, loaded.shared, document.views, loaded.overlayFields);
         state.entry = { ...state.entry, name: document.name, color: document.color, icon: document.icon ?? null };
         this.index.set(state.entry.projectId, state.entry.folder, fromPortable(document, state.entry.folder));
-        await this.remote.apply(state.entry.projectId, new Map(), idsOf(document));
+        await this.remote.prune(state.entry.projectId, idsOf(document));
         await this.announceChange(state.entry, fromPortable(document, state.entry.folder));
         this.publish(state.entry);
     }
@@ -1240,7 +1247,7 @@ export class ProjectStore {
         }
         const daemonSide = fromPortable(document, entry.folder);
         this.index.set(entry.projectId, entry.folder, daemonSide);
-        await this.remote.apply(entry.projectId, new Map(), idsOf(document));
+        await this.remote.prune(entry.projectId, idsOf(document));
         await this.announceChange(entry, daemonSide);
         return true;
     }

@@ -32,7 +32,7 @@ function content(...nodes: ProjectCanvasView['nodes']): ProjectContent {
 
 test('a binding set by a save is answered, kept across a restart, and written under the home', async () => {
     const store = new RemoteStore(home);
-    await store.apply('p1', new Map([['n1', 'machine-b']]), new Set(['n1', 'n2']));
+    await store.bind('p1', new Map([['n1', 'machine-b']]), new Set(['n1', 'n2']));
     expect(store.machineOf('p1', 'n1')).toBe('machine-b');
     expect(store.machineOf('p1', 'n2')).toBeNull();
     expect(store.machineOf('p2', 'n1')).toBeNull();
@@ -45,28 +45,28 @@ test('a binding set by a save is answered, kept across a restart, and written un
 
 test('a save that names nothing keeps the binding, and a node that left the document takes it along', async () => {
     const store = new RemoteStore(home);
-    await store.apply('p1', new Map([['n1', 'machine-b']]), new Set(['n1']));
-    await store.apply('p1', new Map(), new Set(['n1', 'n2']));
+    await store.bind('p1', new Map([['n1', 'machine-b']]), new Set(['n1']));
+    await store.bind('p1', new Map(), new Set(['n1', 'n2']));
     expect(store.machineOf('p1', 'n1')).toBe('machine-b');
-    await store.apply('p1', new Map(), new Set(['n2']));
+    await store.prune('p1', new Set(['n2']));
     expect(store.machineOf('p1', 'n1')).toBeNull();
     await expect(readFile(join(home, 'remote', 'p1.json'), 'utf8')).rejects.toThrow();
 });
 
 test('a machine named for a node the document does not hold binds nothing', async () => {
     const store = new RemoteStore(home);
-    await store.apply('p1', new Map([['ghost', 'machine-b']]), new Set(['n1']));
+    await store.bind('p1', new Map([['ghost', 'machine-b']]), new Set(['n1']));
     expect(store.nodesOf('p1')).toEqual({});
 });
 
 test('a key the file holds beyond the nodes survives a write', async () => {
-    await new RemoteStore(home).apply('p1', new Map([['n1', 'machine-b']]), new Set(['n1']));
+    await new RemoteStore(home).bind('p1', new Map([['n1', 'machine-b']]), new Set(['n1']));
     const path = join(home, 'remote', 'p1.json');
     const written = JSON.parse(await readFile(path, 'utf8'));
     await writeFile(path, JSON.stringify({ ...written, links: [{ machineId: 'machine-b' }], future: true }));
     const store = new RemoteStore(home);
     await store.load();
-    await store.apply('p1', new Map([['n2', 'machine-c']]), new Set(['n1', 'n2']));
+    await store.bind('p1', new Map([['n2', 'machine-c']]), new Set(['n1', 'n2']));
     expect(JSON.parse(await readFile(path, 'utf8'))).toMatchObject({
         links: [{ machineId: 'machine-b' }],
         future: true,
