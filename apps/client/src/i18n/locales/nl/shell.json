@@ -255,7 +255,6 @@
         "drag": "{{name}}, sleep om hem naar een andere cel te verplaatsen",
         "moreActions": "Meer acties",
         "closeCell": "Deze cel sluiten",
-        "maximized": "Gemaximaliseerd",
         "hidden_one": "{{count}} cel verborgen",
         "hidden_other": "{{count}} cellen verborgen",
         "restore": "De splitsing herstellen"

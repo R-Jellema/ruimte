@@ -1,6 +1,4 @@
 import { useEffect, useState, type DragEvent as ReactDragEvent, type ReactElement } from 'react';
-import clsx from 'clsx';
-import { useTranslation } from 'react-i18next';
 import { isCanvasView } from '@ruimte/contracts';
 import { PromptStack } from '@/canvas/PromptStack';
 import { carriesPaths, dropEffectFor, droppedPaths } from '@/canvas/drop';
@@ -14,36 +12,10 @@ import { canStandInCell, useDocument } from '@/state/document';
 import { tabKey, useFiles } from '@/state/files';
 import { useSettings } from '@/state/settings';
 import { CellViewContext } from '@/state/workspace-stores';
-import {
-    canDropAsTab,
-    canMoveCell,
-    canSplit,
-    cellAt,
-    cellCount,
-    cellViewIds,
-    isSameCell,
-    locateView,
-    MIN_SHARE,
-    type CellAt,
-    type SplitZone
-} from '@/shell/split';
+import { canDropAsTab, canMoveCell, canSplit, cellAt, cellViewIds, locateView, MIN_SHARE, type CellAt, type SplitZone } from '@/shell/split';
 import { clampTabLeft, DEFAULT_TAB_WIDTH, gapLeft, positionAfterLifting } from '@/shell/tab-drop';
 import { hideDropPreview, showDropPreview } from '@/shell/drop-preview';
-import type { SplitCell } from '@ruimte/contracts';
-import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
-import {
-    Button,
-    Kbd,
-    rectDropPreview,
-    SplitView,
-    Surface,
-    tabDropPreview,
-    tabGapAt,
-    Tooltip,
-    type SplitCommand,
-    type SplitRect,
-    type TabDrop
-} from '@adecore/ui';
+import { rectDropPreview, SplitView, tabDropPreview, tabGapAt, type SplitCommand, type SplitRect, type TabDrop } from '@adecore/ui';
 import {
     carriesView,
     draggedViewId,
@@ -109,11 +81,6 @@ function previewTab(cell: HTMLElement, drop: TabDrop): void {
 
 /* The gap between a cell's title and the tab that would stand after it, the same as the bar's own spacing. */
 const TITLE_GAP = 8;
-
-/* What a cell is called in the tree: its first view, which a switch between its tabs never changes, so the bar and its menus stay mounted. */
-function cellKey(cell: SplitCell): string {
-    return cellViewIds(cell)[0]!;
-}
 
 /* The cell's box, kept up to date for the parking layer: one observer per cell, cleared with it. */
 const observers = new Map<string, ResizeObserver>();
@@ -337,7 +304,6 @@ function Cell({
                 {focused && !hidden && <Dock onHiddenChange={setDockHidden} />}
                 {/* A stack per canvas, not per dock: a cell without the focus has no dock, and its prompts still need a place. */}
                 {!hidden && !isLooseView(view) && isCanvasView(view) && <PromptStack viewId={viewId} dockShown={focused && !dockHidden} />}
-                {filling && !hidden && <MaximizedIndicator at={at} />}
             </CellOverlay>
         </div>
     );
@@ -399,42 +365,6 @@ function Cell({
                 </CellToolbar>
             </div>
         </CellViewContext.Provider>
-    );
-}
-
-/* What stands in for the cells a maximized one hides: their shape, how many there are, and the way back. */
-function MaximizedIndicator({ at }: { at: CellAt }) {
-    const { t } = useTranslation('shell');
-    const layout = useDocument((s) => s.layout);
-    if (layout === null) {
-        return null;
-    }
-    return (
-        <div className="pointer-events-none absolute bottom-4 left-4 flex">
-            <Tooltip label={t('cellToolbar.restore')} name>
-                <Surface render={<Button size="sm" onClick={() => useDocument.getState().toggleMaximized()} />} className="pointer-events-auto">
-                    {/* Whole pixels for one, two or three of either, with a pixel between them. */}
-                    <span aria-hidden className="flex h-2.75 w-4.25 gap-px">
-                        {layout.columns.map((column, columnIndex) => (
-                            <span key={cellKey(column.cells[0]!)} className="flex flex-1 flex-col gap-px">
-                                {column.cells.map((cell, cellIndex) => (
-                                    <span
-                                        key={cellKey(cell)}
-                                        className={clsx(
-                                            'flex-1 rounded-xs',
-                                            isSameCell(at, { column: columnIndex, cell: cellIndex }) ? 'bg-text-muted' : 'bg-border-strong'
-                                        )}
-                                    />
-                                ))}
-                            </span>
-                        ))}
-                    </span>
-                    {t('cellToolbar.hidden', { count: cellCount(layout) - 1 })}
-                    <span aria-hidden>·</span>
-                    <Kbd shortcut={CANVAS_SHORTCUTS.maximizeCell} className="font-sans" />
-                </Surface>
-            </Tooltip>
-        </div>
     );
 }
 

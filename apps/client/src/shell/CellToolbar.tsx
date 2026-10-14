@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
-import { Expand, MoreHorizontal, Ungroup } from 'lucide-react';
+import { MoreHorizontal, Ungroup } from 'lucide-react';
 import { viewIconOf } from '@ruimte/contracts';
 import { closeCellAction } from '@/actions/client-actions';
 import { ViewGlyph } from '@/project/ViewGlyph';
@@ -9,6 +9,7 @@ import { isLooseView, type CellView } from '@/shell/cell-view';
 import { FileToolbarSlotProvider } from '@/shell/panels/file-toolbar-slot';
 import { FileMenuItems } from '@/shell/panels/FileMenuItems';
 import { LooseGlyph } from '@/shell/panels/LooseGlyph';
+import { MaximizedIndicator } from '@/shell/MaximizedIndicator';
 import { TabStrip } from '@/shell/TabStrip';
 import { SubagentTitleCrumb } from '@adecore/agents-react/chat/ui';
 import { SplitItems, ViewMenuItems } from '@/shell/ViewMenuItems';
@@ -169,17 +170,6 @@ export function CellToolbar({ at, view, focused, children }: { at: CellAt; view:
                                 hosted || folded || !hasViewToolbar ? 'grow' : 'shrink'
                             )}
                         >
-                            {maximized && (
-                                <Tooltip label={t('cellToolbar.maximized')}>
-                                    <span
-                                        role="img"
-                                        aria-label={t('cellToolbar.maximized')}
-                                        className={clsx('inline-flex shrink-0 text-text-muted', hosted && 'pl-3')}
-                                    >
-                                        <Icon icon={Expand} size={14} />
-                                    </span>
-                                </Tooltip>
-                            )}
                             {tabs !== undefined ? (
                                 <TabStrip at={at} ids={tabs} active={view.id} />
                             ) : isLooseView(view) ? (
@@ -211,6 +201,7 @@ export function CellToolbar({ at, view, focused, children }: { at: CellAt; view:
                             )}
                         </span>
                         {!separateToolbar && toolbarActions}
+                        {maximized && <MaximizedIndicator at={at} />}
                         {closable && (
                             <CloseButton label={t('cellToolbar.closeCell')} size="sm" className="cursor-default" onClick={() => closeCellAction(view.id)} />
                         )}

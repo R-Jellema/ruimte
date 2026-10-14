@@ -255,7 +255,6 @@
         "drag": "{{name}}, drag to move it to another cell",
         "moreActions": "More actions",
         "closeCell": "Close this cell",
-        "maximized": "Maximized",
         "hidden_one": "{{count}} cell hidden",
         "hidden_other": "{{count}} cells hidden",
         "restore": "Restore the split"
