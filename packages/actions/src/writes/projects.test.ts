@@ -24,6 +24,20 @@ describeWrites('projects', {
             'no answer to createFolder': { endpointId: 'endpoint-1', folder: '/tmp/new' }
         }
     },
+    'chat.move': {
+        actors: ['person'],
+        input: { endpointId: 'endpoint-1', chatId: 'chat-1', to: { projectId: 'ruimte' }, ownFiles: 'leave' },
+        refused: {
+            'a folder that is not a full path': {
+                endpointId: 'endpoint-1',
+                chatId: 'chat-1',
+                to: { folder: 'vinyl', name: 'Vinyl', createFolder: true, initGit: false },
+                ownFiles: 'leave'
+            },
+            'files copied': { endpointId: 'endpoint-1', chatId: 'chat-1', to: { projectId: 'ruimte' }, ownFiles: 'copy' },
+            'no chat': { endpointId: 'endpoint-1', to: { projectId: 'ruimte' }, ownFiles: 'leave' }
+        }
+    },
     'project.delete': {
         actors: ['person'],
         input: { ...project, removeFiles: true },

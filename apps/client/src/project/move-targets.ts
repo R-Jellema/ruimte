@@ -12,8 +12,11 @@ export const MOVE_TARGET_LIMIT = 5;
  * moves within its own machine.
  */
 export function moveTargetsOf(rows: ProjectRow[], endpoints: Endpoint[], endpointId: string): ProjectSummary[] {
+    return moveCandidatesOf(rows, endpoints, endpointId).slice(0, MOVE_TARGET_LIMIT);
+}
+
+/* Every project of the machine a chat can move to, the ones touched last first. */
+export function moveCandidatesOf(rows: ProjectRow[], endpoints: Endpoint[], endpointId: string): ProjectSummary[] {
     const here = rows.filter((row) => row.endpointId === endpointId);
-    return openableRows(recentProjects(here, endpoints, [endpointId]))
-        .slice(0, MOVE_TARGET_LIMIT)
-        .map((row) => row.summary);
+    return openableRows(recentProjects(here, endpoints, [endpointId])).map((row) => row.summary);
 }

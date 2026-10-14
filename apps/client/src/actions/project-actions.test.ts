@@ -4,6 +4,7 @@ import type { ProjectClosingResult, ProjectSummary } from '@ruimte/contracts';
 import { PERSON_ACTION_CALL, VOICE_ACTION_CALL } from './client-actions';
 import { projectActions, type ListedProject, type ProjectMachine } from './project-actions';
 import { useDocument } from '@/state/document';
+import { TransportError } from '@/transport/transport';
 
 function summary(projectId: string, name: string, closedAt: number | null = null): ProjectSummary {
     return {
@@ -85,6 +86,35 @@ afterEach(() => {
 });
 
 describe('project actions', () => {
+    test('moving a chat asks the machine once, answers with the project and refuses a voice', async () => {
+        const moved: unknown[] = [];
+        const { registry } = fake([], {
+            moveChat: async (endpointId, payload) => {
+                moved.push([endpointId, payload]);
+                return { summary: summary('vinyl', 'Vinyl'), viewId: payload.chatId, ownFilesLeftAt: null };
+            }
+        });
+        const input = { endpointId: 'mac', chatId: 'chat-1', to: { projectId: 'vinyl' }, ownFiles: 'leave' } as const;
+        expect(await registry.execute('chat.move', input, PERSON_ACTION_CALL)).toMatchObject({
+            status: 'completed',
+            output: { project: 'Vinyl', projectId: 'vinyl', viewId: 'chat-1' }
+        });
+        expect(moved).toEqual([['mac', { chatId: 'chat-1', to: { projectId: 'vinyl' }, ownFiles: 'leave' }]]);
+        expect(await registry.execute('chat.move', input, VOICE_ACTION_CALL)).toMatchObject({ status: 'failed' });
+        expect(moved).toHaveLength(1);
+    });
+
+    test('a refusal of the machine reaches the person with its code', async () => {
+        const { registry } = fake([], {
+            moveChat: async () => {
+                throw new TransportError('move-refused', 'This chat is still working');
+            }
+        });
+        expect(
+            await registry.execute('chat.move', { endpointId: 'mac', chatId: 'chat-1', to: { projectId: 'vinyl' }, ownFiles: 'leave' }, PERSON_ACTION_CALL)
+        ).toMatchObject({ error: { code: 'move-refused', message: 'This chat is still working' } });
+    });
+
     test('lists projects in use and under Recent, and opening one under Recent brings it back', async () => {
         const { registry, calls } = fake([listed('atlas', 'Atlas', { active: true }), listed('old', 'Old', { recent: true })]);
         const list = await registry.execute('project.list', {}, VOICE_ACTION_CALL);

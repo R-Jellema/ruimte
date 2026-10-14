@@ -55,10 +55,10 @@ export function useOffersNewChat(): boolean {
 }
 
 /*
- * The chat on screen. The window switches to the Chats project itself, and hands the chat on to the
- * shell when the claim found that project in another window, which then comes to the front.
+ * The chat on screen, in the project that holds it. The window switches to that project itself, and
+ * hands the chat on to the shell when the claim found the project in another window, which then comes to the front.
  */
-async function showNewChat(endpointId: string, projectId: string, viewId: string): Promise<void> {
+export async function showChatIn(endpointId: string, projectId: string, viewId: string): Promise<void> {
     if (isOpenHere(endpointId, projectId)) {
         showViewOnceThere(viewId);
         return;
@@ -89,7 +89,7 @@ export async function newChatOn(endpointId: string, payload: ProjectNewChatPaylo
         }
         const { summary, viewId } = await transport.request('project.newChat', payload);
         void listProjects(id).catch(() => undefined);
-        await showNewChat(id, summary.projectId, viewId);
+        await showChatIn(id, summary.projectId, viewId);
         return true;
     } catch (e) {
         if (e instanceof TransportError && REFUSALS.includes(e.code)) {

@@ -7,6 +7,7 @@ import {
     ChatAttachmentUploadsSchema,
     ChatBackgroundTaskSchema,
     ChatCheckpointDiffSchema,
+    ChatMoveTargetSchema,
     ChatDeliverySchema,
     ChatExternalResultSchema,
     ChatQuoteSourceSchema,
@@ -550,6 +551,21 @@ export const ACTION_DEFINITIONS = {
             createFolder: z.boolean().nullable()
         }),
         output: z.object({ project: z.string(), endpointId: z.string(), folder: z.string() })
+    },
+    'chat.move': {
+        title: 'Move AI Chat out of Chats',
+        description:
+            'Moves an AI Chat of the Chats project into a project on its machine: one that is in the list, or a new one made in a folder. The chat keeps its conversation and works in the project folder from its next turn. Refused while it works, or while it has agents, tasks, owed work, waiting messages or a pull request watch.',
+        effect: 'shared',
+        domain: 'projects',
+        actors: PERSON,
+        input: z.object({
+            endpointId: projectMachine,
+            chatId: chatTarget,
+            to: ChatMoveTargetSchema.describe('A project of the list by projectId, or a folder with the name of the project to make there'),
+            ownFiles: z.enum(['move', 'leave']).describe('Whether the files the chat made in its own folder move into the project or stay in Chats')
+        }),
+        output: z.object({ project: z.string(), projectId: z.string(), viewId: z.string() })
     },
     'project.delete': {
         title: 'Delete project',

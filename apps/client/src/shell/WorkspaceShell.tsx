@@ -90,6 +90,13 @@ const PullRequestDialog = lazyDialog(
     (s) => s.pullRequestDialog !== null
 );
 
+const MoveChatDialog = lazyDialog(
+    () => import('@/project/MoveChatDialog'),
+    'MoveChatDialog',
+    useUi,
+    (s) => s.moveChatDialog !== null
+);
+
 const ConflictOverlay = lazyDialog(
     () => import('@/conflicts/ConflictOverlay'),
     'ConflictOverlay',
@@ -219,6 +226,9 @@ export function WorkspaceShell({ workspace }: { workspace: Workspace }) {
                     <DatabaseConnectionsDialog />
                 </ErrorBoundary>
                 <ForkDialog />
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <MoveChatDialog />
+                </ErrorBoundary>
                 <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
                     <NewWorktreeChatDialog />
                 </ErrorBoundary>

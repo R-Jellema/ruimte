@@ -1,5 +1,13 @@
 import { ActionRefusal, type ActionHandlers } from '@ruimte/actions';
-import { isRecentProject, PROJECT_ICON_NAMES, type ProjectClosingResult, type ProjectIconChoice, type ProjectSummary } from '@ruimte/contracts';
+import {
+    isRecentProject,
+    PROJECT_ICON_NAMES,
+    type ChatMovePayload,
+    type ChatMoveResult,
+    type ProjectClosingResult,
+    type ProjectIconChoice,
+    type ProjectSummary
+} from '@ruimte/contracts';
 import type { StoreApi } from 'zustand';
 import { asksFirst, asRefusal } from '@/actions/developer-actions';
 import type { SwitchOutcome } from '@/project/project-switch';
@@ -38,6 +46,8 @@ export interface ProjectMachine {
     chooseIcon(project: ListedProject, icon: ProjectIconChoice): Promise<void>;
     uploadIcon(project: ListedProject, mime: string, base64: string): Promise<void>;
     useFolderIcon(project: ListedProject): Promise<void>;
+    /* Moves a chat of Chats into a project, and shows it there. */
+    moveChat(endpointId: string, payload: ChatMovePayload): Promise<ChatMoveResult>;
 }
 
 /* Every project of the union this window knows, with the name of its machine. */
@@ -97,7 +107,8 @@ const LIVE_MACHINE: ProjectMachine = {
             return;
         }
         await (await import('@/project/settings')).setProjectFolderIcon(project.endpointId, project.projectId);
-    }
+    },
+    moveChat: async (endpointId, payload) => (await import('@/project/move-chat')).moveChatOn(endpointId, payload)
 };
 
 /* In the words the close dialog uses, so Voice asks what a person reads. */
@@ -171,6 +182,14 @@ export function projectActions(document: StoreApi<DocumentState>, overrides: Par
         'project.create': async ({ endpointId, folder, createFolder }) => {
             switched(await machine.openFolder(endpointId, folder, createFolder === true), folder);
             return { output: { project: useProject.getState().current?.name ?? folder, endpointId: currentEndpointId(), folder } };
+        },
+        'chat.move': async ({ endpointId, chatId, to, ownFiles }) => {
+            try {
+                const result = await machine.moveChat(endpointId, { chatId, to, ownFiles });
+                return { output: { project: result.summary.name, projectId: result.summary.projectId, viewId: result.viewId } };
+            } catch (error: unknown) {
+                throw asRefusal(error);
+            }
         },
         'project.delete': async ({ endpointId, projectId, removeFiles }, { confirmed }) => {
             const project = listed(endpointId, projectId);
