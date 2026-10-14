@@ -267,6 +267,7 @@
     "git.unwatch",
     "git.diff",
     "git.blame",
+    "git.identity",
     "git.stage",
     "git.discard",
     "git.pr",

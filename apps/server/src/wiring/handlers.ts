@@ -321,5 +321,14 @@ export function registerEditorHandlers(dispatcher: Dispatcher, input: EditorHand
     registerSessionPortHandlers(dispatcher, processes.sessionPorts);
     registerComputerHandlers(dispatcher, devices.computer);
     registerSecretHandlers(dispatcher, launches.secrets);
-    registerGitHandlers(dispatcher, git.worktrees, git.merges, git.statuses, providers.providers, work.prWatches, (id) => store.index.locate(id));
+    registerGitHandlers(
+        dispatcher,
+        git.worktrees,
+        git.merges,
+        git.statuses,
+        providers.providers,
+        work.prWatches,
+        (id) => store.index.locate(id),
+        machine.machineHome
+    );
 }

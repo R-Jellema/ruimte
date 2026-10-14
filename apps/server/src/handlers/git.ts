@@ -6,10 +6,12 @@ import { readCapabilities } from '../git/capabilities.ts';
 import { readConflict, readConflicts, resolveConflict, runOperation } from '../git/conflict.ts';
 import { resolveWithAgent } from '../git/resolve-ai.ts';
 import { diffCheckout, diffCommit, diffFile } from '../git/diff.ts';
+import { readIdentities } from '../git/identity.ts';
 import { readLog } from '../git/log.ts';
 import { suggestMessage } from '../git/message.ts';
 import { parseIssueRef, readIssue, readPullRequest, runGh } from '../git/github.ts';
 import { GitError } from '../git/run.ts';
+import type { MachineHome } from '../fs/machine-home.ts';
 import type { PrWatchStore } from '../github/pr-watch.ts';
 import { listRefs, readRefCommit } from '../git/refs.ts';
 import { cachedRepos } from '../git/repo-cache.ts';
@@ -39,7 +41,8 @@ export function registerGitHandlers(
     statuses: GitStatusWatcher,
     providers: ProviderRegistry,
     prWatches?: PrWatchStore,
-    placeOf?: (id: string) => { projectId: string } | null
+    placeOf?: (id: string) => { projectId: string } | null,
+    machineHome?: Pick<MachineHome, 'refuse'>
 ): void {
     const actions = new GitActions();
 
@@ -104,6 +107,12 @@ export function registerGitHandlers(
     });
 
     dispatcher.register('git.blame', (payload) => blameFile(payload.cwd, payload.path));
+
+    dispatcher.register('git.identity', async (payload) => {
+        // Judged before any git runs, like the file requests: a client asks about folders, never about the machine's own state.
+        await Promise.all(payload.paths.map((path) => machineHome?.refuse(path)));
+        return readIdentities(payload.paths);
+    });
 
     dispatcher.register('git.stage', async (payload) => {
         await (payload.staged ? stagePaths(payload.cwd, payload.paths) : unstagePaths(payload.cwd, payload.paths));

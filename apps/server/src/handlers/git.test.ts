@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { ServerFrame } from '@ruimte/contracts';
 import { FakeWatch } from '@adecore/agents/testing';
 import { Dispatcher } from '../dispatcher.ts';
+import { MachineHome } from '../fs/machine-home.ts';
 import { GitStatusWatcher } from '../git/status-watcher.ts';
 import { initRepo } from '../git/test-repo.ts';
 import { registerGitHandlers } from './git.ts';
@@ -55,4 +56,23 @@ test('git.pr-watch refuses a chat the project does not place', async () => {
     expect(started).toEqual(['p/chat-in']);
     expect(replies.map((frame) => ('ok' in frame ? frame.ok : null))).toEqual([true, false, false]);
     expect(replies[1]).toMatchObject({ error: { code: 'pr-watch-refused' } });
+});
+
+test("git.identity answers for a repository and never for the machine's own state", async () => {
+    const repo = join(root, 'repo');
+    await initRepo(repo, { 'a.txt': 'a\n' });
+    const home = join(root, 'home');
+    const dispatcher = new Dispatcher();
+    registerGitHandlers(dispatcher, {} as never, {} as never, {} as never, {} as never, undefined, undefined, new MachineHome(home));
+    const ask = async (paths: string[]): Promise<ServerFrame> => {
+        const frames: ServerFrame[] = [];
+        await dispatcher.handle(
+            { id: 'phone', send: (frame) => frames.push(frame) },
+            JSON.stringify({ id: 'identity', type: 'git.identity', payload: { paths } })
+        );
+        return frames[0]!;
+    };
+
+    expect(await ask([repo])).toMatchObject({ ok: true, result: { identities: [{ path: repo, branch: 'main' }] } });
+    expect(await ask([repo, join(home, 'auth')])).toMatchObject({ ok: false, error: { code: 'machine-state' } });
 });

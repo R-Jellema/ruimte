@@ -175,6 +175,7 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `gitUnwatch` = "git.unwatch"
     case `gitDiff` = "git.diff"
     case `gitBlame` = "git.blame"
+    case `gitIdentity` = "git.identity"
     case `gitStage` = "git.stage"
     case `gitDiscard` = "git.discard"
     case `gitPr` = "git.pr"

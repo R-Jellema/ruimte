@@ -250,6 +250,37 @@ export const GitBlameResultSchema = z.object({
 });
 export type GitBlameResult = z.infer<typeof GitBlameResultSchema>;
 
+// Which repository a folder is a checkout of, so two machines can tell they hold the same one. A clone has the same root commits whatever its remote says.
+export const GitIdentityPayloadSchema = z.object({
+    paths: z.array(z.string().min(1)).max(50)
+});
+export type GitIdentityPayload = z.infer<typeof GitIdentityPayloadSchema>;
+
+export const GitIdentitySchema = z.object({
+    path: z.string(),
+    // The commits of HEAD that have no parent.
+    rootCommits: z.array(z.string()).max(50),
+    // The URL of `origin` without any credentials in it; absent without that remote.
+    remoteUrl: z.string().optional(),
+    // Absent on a detached HEAD.
+    branch: z.string().optional(),
+    // HEAD first, then the tip of every local branch.
+    heads: z.array(z.string()).max(50)
+});
+export type GitIdentity = z.infer<typeof GitIdentitySchema>;
+
+export const GitIdentityMissSchema = z.object({
+    path: z.string(),
+    error: z.literal('not-a-repository')
+});
+export type GitIdentityMiss = z.infer<typeof GitIdentityMissSchema>;
+
+export const GitIdentityResultSchema = z.object({
+    // In the order of the paths asked.
+    identities: z.array(z.union([GitIdentitySchema, GitIdentityMissSchema]))
+});
+export type GitIdentityResult = z.infer<typeof GitIdentityResultSchema>;
+
 export const GitStagePayloadSchema = z.object({
     cwd: z.string().min(1),
     paths: z.array(z.string().min(1)).min(1),

@@ -45904,6 +45904,88 @@
       "lines"
     ]
   },
+  "request.git.identity.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "paths": {
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "required": [
+      "paths"
+    ]
+  },
+  "request.git.identity.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "identities": {
+        "type": "array",
+        "items": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "rootCommits": {
+                  "maxItems": 50,
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "remoteUrl": {
+                  "type": "string"
+                },
+                "branch": {
+                  "type": "string"
+                },
+                "heads": {
+                  "maxItems": 50,
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "path",
+                "rootCommits",
+                "heads"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string",
+                  "const": "not-a-repository"
+                }
+              },
+              "required": [
+                "path",
+                "error"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "required": [
+      "identities"
+    ]
+  },
   "request.git.stage.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
