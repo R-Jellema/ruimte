@@ -9,7 +9,6 @@ import type { SessionEvent } from '../sessions/manager.ts';
 import { LanguageChoices } from './choices.ts';
 import { CustomLanguageServers } from './custom.ts';
 import { LanguageHost } from './host.ts';
-import type { LanguageInstaller } from './installer.ts';
 import { NativePolicy, type Download } from './native.ts';
 import { KIND_PROFILES, type ProjectSqlSettings } from './profiles.ts';
 import { FULL_CAPABILITIES, fakeSpawner, ManualClock, settle, type FakeProcess, type FakeSpawner } from './test-fakes.ts';
@@ -125,8 +124,15 @@ function rig(
         ...(options.sqlSettings === undefined ? {} : { sqlSettings: options.sqlSettings })
     });
     const events: Record<string, SessionEvent[]> = { 'client-1': [], 'client-2': [] };
+    const heard = new Set<(event: SessionEvent) => void>();
+    listeners.set(host, heard);
     for (const clientId of Object.keys(events)) {
-        host.subscribe(clientId, (event) => events[clientId].push(event));
+        host.subscribe(clientId, (event) => {
+            events[clientId].push(event);
+            if (clientId === 'client-1') {
+                heard.forEach((listener) => listener(event));
+            }
+        });
     }
     return { host, spawner, holders, events, installs, clock, watch, disk };
 }
@@ -152,30 +158,84 @@ async function installed(
     const choices = new LanguageChoices({ path: join(root, 'choices.json') });
     await choices.load();
     const result = rig({ ...options, choices });
+    const ended = installsEnd(result.host, kinds);
     for (const kind of kinds) {
         await result.host.install(kind);
     }
+    await ended;
     await settle();
-    await until(async () =>
-        (await result.host.status('p1')).filter((status) => kinds.includes(status.server as LanguageServerKind)).every((status) => status.state === 'stopped')
-    );
     return result;
 }
 
-/* Waits on what only real I/O settles, the install check, by looking again each turn of the event loop and never by the clock. */
-async function until(check: () => boolean | Promise<boolean>): Promise<void> {
-    // Generous, since the files of an install take more turns while other test files run beside this one.
-    for (let i = 0; i < 20_000; i++) {
-        if (await check()) {
+const listeners = new WeakMap<LanguageHost, Set<(event: SessionEvent) => void>>();
+
+/* What a host's client-1 hears; a host made without the rig gets a client of its own for it. */
+function listen(host: LanguageHost, listener: (event: SessionEvent) => void): () => void {
+    let heard = listeners.get(host);
+    if (heard === undefined) {
+        const own = new Set<(event: SessionEvent) => void>();
+        host.subscribe('observer', (event) => own.forEach((each) => each(event)));
+        listeners.set(host, own);
+        heard = own;
+    }
+    heard.add(listener);
+    return () => heard.delete(listener);
+}
+
+/*
+ * Waits until the check holds, looking now and again after every event of the host. The install and the
+ * start of a server read real files, which no count of turns of the event loop waits for, and both end on an event.
+ */
+function until(host: LanguageHost, check: () => boolean | Promise<boolean>): Promise<void> {
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
+    let checking = false;
+    let again = false;
+    const look = async (): Promise<void> => {
+        if (checking) {
+            again = true;
             return;
         }
-        await new Promise<void>((resolve) => setImmediate(resolve));
-    }
-    throw new Error('The condition never held');
+        checking = true;
+        try {
+            do {
+                again = false;
+                if (await check()) {
+                    stop();
+                    resolve();
+                    return;
+                }
+            } while (again);
+        } catch (error) {
+            stop();
+            reject(error);
+            return;
+        }
+        checking = false;
+    };
+    const stop = listen(host, () => void look());
+    void look();
+    return promise;
+}
+
+/* Resolves once the install of every kind ended, on the status the machine sends last for it; call before the installs start. */
+function installsEnd(host: LanguageHost, kinds: readonly string[]): Promise<void> {
+    const ended = new Set<string>();
+    // Heard before the wait's own listener, so an end is noted before the wait looks on the same event.
+    const stop = listen(host, (event) => {
+        if (event.event !== 'language.status') {
+            return;
+        }
+        const { projectId, status } = (event as { payload: { projectId: string | null; status: { server: string; state: string } } }).payload;
+        // The start of an install always says installing, so any other state is its end.
+        if (projectId === null && kinds.includes(status.server) && status.state !== 'installing') {
+            ended.add(status.server);
+        }
+    });
+    return until(host, () => kinds.every((kind) => ended.has(kind))).finally(stop);
 }
 
 async function ready(host: LanguageHost, server = 'typescript'): Promise<void> {
-    await until(async () => (await host.status('p1')).find((status) => status.server === server)?.state === 'ready');
+    await until(host, async () => (await host.status('p1')).find((status) => status.server === server)?.state === 'ready');
     await settle();
 }
 
@@ -750,7 +810,7 @@ describe('language servers of a person', () => {
         await open(host, 'src/main.zig', '', 'client-1', 'zig');
         await ready(host, saved.id);
         await host.customSave({ ...zig, id: saved.id, args: ['--other'] });
-        await until(() => spawner.of('zls').length === 2);
+        await until(host, () => spawner.of('zls').length === 2);
         expect(spawner.of('zls')[0]!.server.exited).toBe(true);
         expect(spawner.of('zls')[1]!.spec.args).toEqual(['--other']);
     });
@@ -987,9 +1047,7 @@ describe('install and status', () => {
         expect(spawner.of('typescript')[0]!.spec.command).toBe(join(root, 'typescript', 'node_modules', KIND_PROFILES.typescript.components[0]!.entry));
 
         await host.install('typescript');
-        // The install itself writes to disk, which no count of turns of the event loop waits for, so its own promise is awaited.
-        await (host as unknown as { installer: LanguageInstaller }).installer.install('typescript');
-        await until(async () => spawner.of('typescript').length === 2 && (await status()).state === 'ready');
+        await until(host, async () => spawner.of('typescript').length === 2 && (await status()).state === 'ready');
         expect(spawner.of('typescript')[0]!.kills).toEqual(['SIGTERM']);
         expect(spawner.of('typescript')[1]!.spec.command).toContain(join(root, 'typescript', 'versions', '7.0.2-'));
         const updated = await status();
@@ -997,7 +1055,7 @@ describe('install and status', () => {
         expect(updated.update).toBeUndefined();
 
         expect(await host.rollback('typescript')).toMatchObject({ version: '6.0.3', previous: { version: '7.0.2' }, update: { version: '7.0.2' } });
-        await until(async () => spawner.of('typescript').length === 3 && (await status()).state === 'ready');
+        await until(host, async () => spawner.of('typescript').length === 3 && (await status()).state === 'ready');
         expect(spawner.of('typescript')[2]!.spec.command).toBe(join(root, 'typescript', 'node_modules', KIND_PROFILES.typescript.components[0]!.entry));
     });
 
@@ -1010,7 +1068,7 @@ describe('install and status', () => {
         let revision = 'aaa';
         const { host } = rig({ revision: () => revision });
         await host.install('php-native');
-        await until(async () => (await host.status('p1')).find((status) => status.server === 'php-native')?.state === 'stopped');
+        await until(host, async () => (await host.status('p1')).find((status) => status.server === 'php-native')?.state === 'stopped');
         expect((await host.status('p1')).find((status) => status.server === 'php-native')?.update).toBeUndefined();
         revision = 'bbb';
         expect((await host.status('p1')).find((status) => status.server === 'php-native')).toMatchObject({ update: { version: '0.1.0', rebuild: true } });
@@ -1028,7 +1086,7 @@ describe('install and status', () => {
         });
         await host.install('php');
         const php = async () => (await host.status('p1')).find((status) => status.server === 'php')!;
-        await until(async () => (await php()).message !== undefined);
+        await until(host, async () => (await php()).message !== undefined);
         expect(await php()).toMatchObject({ server: 'php', state: 'not-installed', message: 'The installer exited with code 1' });
     });
 
@@ -1172,7 +1230,7 @@ describe('files that change on disk', () => {
             files: ['/work/eslint.config.js', '/work/tailwind.config.js']
         });
         await open(host, 'src/a.ts', 'let a = 1;\n');
-        await until(async () => spawner.of('eslint').length > 0 && spawner.of('tailwind').length > 0 && spawner.of('typescript').length > 0);
+        await until(host, async () => spawner.of('eslint').length > 0 && spawner.of('tailwind').length > 0 && spawner.of('typescript').length > 0);
         await settle();
         const [eslint] = spawner.of('eslint');
         const [tailwind] = spawner.of('tailwind');
@@ -1320,7 +1378,7 @@ describe('the PHP server of Ruimte and Intelephense', () => {
             unavailable: true
         });
         await host.install('php-native');
-        await until(async () => (await host.status('p1')).find((status) => status.server === 'php-native')?.message !== undefined);
+        await until(host, async () => (await host.status('p1')).find((status) => status.server === 'php-native')?.message !== undefined);
         expect((await host.status('p1')).find((status) => status.server === 'php-native')).toMatchObject({
             message: 'No release of this server is available yet'
         });
@@ -1365,7 +1423,7 @@ describe('files that move', () => {
     it('makes what a server would change before the move, in the open editor and in the file nobody has open, and tells it afterwards', async () => {
         const { host, server, calls, written, file, events } = await moveRig(importEdits);
         const moving = host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, file);
-        await until(() => kinds(events['client-1'], 'language.edit').length > 0);
+        await until(host, () => kinds(events['client-1'], 'language.edit').length > 0);
         const [asked] = kinds(events['client-1'], 'language.edit');
         const { editId, edit } = (asked as { payload: { editId: string; edit: { documentChanges: Array<{ textDocument: { uri: string } }> } } }).payload;
         expect(edit.documentChanges.map((change) => change.textDocument.uri)).toEqual(['file:///work/src/a.ts']);
@@ -1426,9 +1484,13 @@ describe('files that move', () => {
     });
 
     it('moves anyway when a server is slow, and leaves its late answer out', async () => {
-        const { host, calls, file, clock, server } = await moveRig(() => new Promise(() => undefined));
+        const asked = Promise.withResolvers<void>();
+        const { host, calls, file, clock, server } = await moveRig(() => {
+            asked.resolve();
+            return new Promise(() => undefined);
+        });
         const moving = host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, file);
-        await until(() => server.paramsOf('workspace/willRenameFiles').length > 0);
+        await asked.promise;
         clock.fire();
         expect(await moving).toEqual([]);
         expect(calls).toEqual(['move']);
@@ -1531,7 +1593,7 @@ describe('files that move', () => {
             () => 'moved',
             (error: { message: string }) => error.message
         );
-        await until(() => kinds(rig.events['client-1'], 'language.edit').length > 0);
+        await until(rig.host, () => kinds(rig.events['client-1'], 'language.edit').length > 0);
         const [asked] = kinds(rig.events['client-1'], 'language.edit');
         rig.host.answerEdit('client-1', {
             projectId: 'p1',
@@ -1552,7 +1614,7 @@ describe('files that move', () => {
             ]
         }));
         const moving = rig.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, rig.file);
-        await until(() => kinds(rig.events['client-1'], 'language.edit').length > 0);
+        await until(rig.host, () => kinds(rig.events['client-1'], 'language.edit').length > 0);
         expect(rig.calls).toEqual([]);
         const [asked] = kinds(rig.events['client-1'], 'language.edit');
         rig.host.answerEdit('client-1', { projectId: 'p1', editId: (asked as { payload: { editId: string } }).payload.editId, applied: true });
@@ -1568,7 +1630,7 @@ describe('files that move', () => {
         const fresh = await moveRig(() => stale(1));
         const document = [...fresh.host['projects'].get('p1')!.documents.values()][0]!;
         const moving = fresh.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, fresh.file);
-        await until(() => kinds(fresh.events['client-1'], 'language.edit').length > 0);
+        await until(fresh.host, () => kinds(fresh.events['client-1'], 'language.edit').length > 0);
         const [asked] = kinds(fresh.events['client-1'], 'language.edit');
         const payload = (asked as { payload: { editId: string; edit: { documentChanges: Array<{ textDocument: { version: number } }> } } }).payload;
         expect(payload.edit.documentChanges[0]!.textDocument.version).toBe(document.version);
@@ -1600,7 +1662,7 @@ describe('files that move', () => {
             () => 'moved',
             (error: { message: string }) => error.message
         );
-        await until(() => kinds(events['client-1'], 'language.edit').length > 0);
+        await until(host, () => kinds(events['client-1'], 'language.edit').length > 0);
         const [asked] = kinds(events['client-1'], 'language.edit');
         host.answerEdit('client-1', {
             projectId: 'p1',
