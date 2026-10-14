@@ -13,6 +13,8 @@ export interface Entry extends Command {
     /* The folder a browse row stands for: what Enter steps into, and what Tab completes the field
        to without stepping in. Navigating is the palette's own business, so such a row has no `run`. */
     browsePath?: string;
+    /* What the row also answers to without showing it, such as the title and the address of a page. */
+    keywords?: string;
 }
 
 /* What the palette shares with the mode on screen: the field and the highlight. */
@@ -55,6 +57,16 @@ export function matches(query: string, text: string): boolean {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
     const haystack = text.toLowerCase();
     return words.every((word) => haystack.includes(word));
+}
+
+/* Whether a row answers to the query, by what it shows and by what it only answers to. */
+export function entryMatches(query: string, entry: Pick<Entry, 'label' | 'hint' | 'keywords'>): boolean {
+    return matches(query, [entry.label, entry.hint, entry.keywords].filter(Boolean).join(' '));
+}
+
+/* A browser shows a page a person knows by its title and its address, not by the name of the node. */
+export function pageKeywords(url: string | undefined, page: { url: string; title: string } | undefined): string {
+    return [url, page?.url, page?.title].filter(Boolean).join(' ');
 }
 
 /* The row with the highlight. Every list opens with its first row highlighted. */

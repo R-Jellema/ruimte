@@ -19,6 +19,7 @@ import { isCanvasView, isOpenableView, viewIconOf, type CanvasNodeKind } from '@
 import { AgentIcon } from '@adecore/agents-react/providers';
 import { Icon } from '@adecore/ui';
 import { openProjectAction } from '@/actions/client-actions';
+import { useBrowser } from '@/browser/registry';
 import { viewShortcut } from '@/canvas/shortcuts';
 import { isApplePlatform } from '@/desktop/bridge';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
@@ -28,12 +29,13 @@ import { revealNode, showView } from '@/project/views';
 import { openInNewWindow, wantsNewWindow } from '@/project/windows';
 import { appCommands, OPENING_COMMAND_IDS, type Command } from '@/shell/commands';
 import { PaletteEntryList, PaletteNote } from '@/shell/PaletteEntryList';
-import { activeEntryOf, matches, optionId, type Entry, type PaletteContext, type PaletteModeView } from '@/shell/palette-entries';
+import { activeEntryOf, entryMatches, optionId, pageKeywords, type Entry, type PaletteContext, type PaletteModeView } from '@/shell/palette-entries';
 import { readRecents, rememberRecent, sortByRecency } from '@/shell/palette-recents';
 import { namesSetting, orderBelowJumps, settingsEntries } from '@/shell/palette-settings';
 import { findSettings } from '@/shell/settings/find-settings';
 import { useDocument } from '@/state/document';
 import { useEndpoints } from '@/state/endpoints';
+import { endpointKey } from '@/state/keys';
 import { refreshPrRepos, useCurrentPrRepos } from '@/state/pr-repos';
 import { useProject } from '@/state/project';
 import { useProjectList } from '@/state/project-list';
@@ -70,6 +72,8 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
     const currentEndpointId = useProject((s) => s.currentEndpointId);
     const endpoints = useEndpoints((s) => s.endpoints);
     const connected = useOpenEndpoints();
+    // Only while the palette lists: a page that loads would otherwise redraw it for nothing.
+    const pages = useBrowser((s) => (enabled ? s.byKey : null));
     const [recents, setRecents] = useState<string[]>(readRecents);
 
     useEffect(() => {
@@ -82,6 +86,8 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
         if (!enabled) {
             return [];
         }
+        const pageOf = (id: string, url: string | undefined): string =>
+            pageKeywords(url, currentEndpointId === null ? undefined : pages?.[endpointKey(currentEndpointId, id)]);
         // Every view, not only the canvas on screen; a node elsewhere says where it lives.
         const jumps: Entry[] = views.flatMap((view) => {
             if (!isCanvasView(view)) {
@@ -96,6 +102,7 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
                     label: node.title,
                     hint: here ? t(`nodeKinds.${node.kind}`) : t('palette.kindInView', { kind: t(`nodeKinds.${node.kind}`), view: view.name }),
                     icon: KIND_ICON[node.kind],
+                    ...(node.kind === 'browser' ? { keywords: pageOf(node.id, node.url) } : {}),
                     here,
                     section: 'jump' as const,
                     run: () => revealNode(node.id)
@@ -114,6 +121,7 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
                     path={view.kind === 'file' ? view.path : null}
                 />
             ),
+            ...(view.kind === 'browser' ? { keywords: pageOf(view.id, view.url) } : {}),
             section: 'views' as const,
             run: () => showView(view.id)
         }));
@@ -162,7 +170,7 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
         /* The file results already answer to the query in the daemon's ranking, so only the other
            sections are filtered. Views go first: every node's hint names its view, so its nodes
            would otherwise bury the view under its own name. */
-        const keep = (entry: Entry): boolean => matches(query, `${entry.label} ${entry.hint ?? ''}`);
+        const keep = (entry: Entry): boolean => entryMatches(query, entry);
         const settings = settingsEntries(findSettings(query, isApplePlatform())).map((command): Entry => ({
             ...command,
             icon: <Icon icon={SlidersHorizontal} size={14} />,
@@ -171,7 +179,23 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
         const named = namesSetting(query, settings);
         const rest = [...switches.filter(keep), ...commands.map((command) => asEntry(command, 'actions')).filter(keep)];
         return [...viewSwitches.filter(keep), ...jumps.filter(keep), ...orderBelowJumps({ named, settings, files, rest })];
-    }, [enabled, connected, endpoints, files, nodesByView, views, activeViewId, query, recents, projects, currentProjectId, currentEndpointId, prRepos, t]);
+    }, [
+        enabled,
+        connected,
+        endpoints,
+        files,
+        nodesByView,
+        pages,
+        views,
+        activeViewId,
+        query,
+        recents,
+        projects,
+        currentProjectId,
+        currentEndpointId,
+        prRepos,
+        t
+    ]);
 
     const active = activeEntryOf(entries, index);
     const run = (entry: Entry | undefined, newWindow = false): void => {
