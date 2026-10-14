@@ -26,7 +26,12 @@ beforeEach(async () => {
     store = new ProjectStore(join(root, 'home'), projectLinks({ endSession: async (kind, nodeId) => void ended.push(`${kind}:${nodeId}`) }), new FakeWatch());
     store.peers.subscribe('c1', (event) => void heard.push(event.event));
     dispatcher = new Dispatcher();
-    registerPeerHandlers(dispatcher, { links: store.peers, projects: store, endSession: async (kind, nodeId) => void ended.push(`${kind}:${nodeId}`) });
+    registerPeerHandlers(dispatcher, {
+        links: store.peers,
+        projects: store,
+        endSession: async (kind, nodeId) => void ended.push(`${kind}:${nodeId}`),
+        worktreePaths: async () => []
+    });
     projectId = (await store.openProject({ folder })).summary.projectId;
 });
 
@@ -142,5 +147,78 @@ describe('the canvas of a linked machine', () => {
         await expect(store.save(projectId, await store.revision(projectId), content, [peerCanvasId('machine-a')])).rejects.toMatchObject({
             code: 'hidden-view-shared'
         });
+    });
+});
+
+describe('the nodes another machine draws here', () => {
+    const TERM = { id: 'remote-term', kind: 'terminal' as const, title: 'shell' };
+    const CHAT = { id: 'remote-chat', kind: 'chat' as const, title: 'chat' };
+
+    async function linked(): Promise<void> {
+        await ask('peer.bind', { machineId: 'machine-a', label: 'MacBook Pro', projectId });
+    }
+
+    const place = (nodes: unknown[], edges: unknown[] = [], extra: Record<string, unknown> = {}) =>
+        ask('peer.placeNodes', { machineId: 'machine-a', projectId, nodes, edges, ...extra });
+
+    test('goes on a canvas of its own that is hidden and private, with the ids it came with', async () => {
+        await linked();
+        expect(await place([TERM, CHAT], [{ id: 'e1', from: 'remote-chat', to: 'remote-term', role: 'target' }])).toMatchObject({ ok: true });
+        const canvas = (await store.read(projectId)).views.find((view) => view.id === peerCanvasId('machine-a'));
+        expect(canvas).toMatchObject({
+            kind: 'canvas',
+            name: 'MacBook Pro',
+            hidden: true,
+            nodes: [{ id: 'remote-term' }, { id: 'remote-chat' }],
+            edges: [{ id: 'e1' }]
+        });
+        expect((await store.sidebar()).projects[0]?.views).toEqual([]);
+        expect(await store.openProject({ projectId }).then((opened) => opened.document.shared)).toEqual([]);
+    });
+
+    test('twice is the same as once', async () => {
+        await linked();
+        await place([TERM, CHAT]);
+        const rev = await store.revision(projectId);
+        await place([TERM, CHAT]);
+        expect(await store.revision(projectId)).toBe(rev);
+    });
+
+    test('ends the session of a node the other machine no longer draws, before the canvas drops it', async () => {
+        await linked();
+        await place([TERM, CHAT]);
+        ended.length = 0;
+        await place([TERM]);
+        expect(ended).toEqual(['chat:remote-chat']);
+        const canvas = (await store.read(projectId)).views.find((view) => view.id === peerCanvasId('machine-a'));
+        expect(canvas).toMatchObject({ nodes: [{ id: 'remote-term' }] });
+    });
+
+    test('refuses a line with an end that is not among the nodes', async () => {
+        await linked();
+        expect(await place([TERM], [{ id: 'e1', from: 'remote-term', to: 'on-the-other-machine' }])).toMatchObject({
+            ok: false,
+            error: { code: 'edge-off-machine' }
+        });
+    });
+
+    test('refuses a machine without a link, and a folder beyond the project', async () => {
+        expect(await place([TERM])).toMatchObject({ ok: false, error: { code: 'peer-not-linked' } });
+        await linked();
+        expect(await place([{ ...TERM, cwd: tmpdir() }])).toMatchObject({ ok: false, error: { code: 'cwd-outside' } });
+        expect(await place([{ ...TERM, cwd: join(root, 'repo') }])).toMatchObject({ ok: true });
+    });
+
+    test('lets the asking client hold the project, so that closing it as the last holder ends the sessions', async () => {
+        await linked();
+        const frames: ServerFrame[] = [];
+        await dispatcher.handle(
+            { id: 'window', send: (frame) => frames.push(frame) },
+            JSON.stringify({ id: 'place', type: 'peer.placeNodes', payload: { machineId: 'machine-a', projectId, nodes: [TERM, CHAT], edges: [] } })
+        );
+        expect(store.holdersOf(projectId)).toEqual(['window']);
+        ended.length = 0;
+        await store.closeProject(projectId, 'window');
+        expect(ended.sort()).toEqual(['chat:remote-chat', 'terminal:remote-term']);
     });
 });

@@ -218,7 +218,12 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
         },
         worktreePaths: (folder) => git.checkouts.paths(folder)
     });
-    registerPeerHandlers(dispatcher, { links: store.peers, projects: store, endSession: projects.endSession });
+    registerPeerHandlers(dispatcher, {
+        links: store.peers,
+        projects: store,
+        endSession: projects.endSession,
+        worktreePaths: (folder) => git.checkouts.paths(folder)
+    });
     registerRemoteHandlers(dispatcher, store.remote, store);
     registerDrawingHandlers(dispatcher, projects.drawings);
     registerDiagramHandlers(dispatcher, projects.diagrams);

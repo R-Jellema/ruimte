@@ -6317,6 +6317,201 @@
     "type": "object",
     "properties": {}
   },
+  "request.peer.placeNodes.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "machineId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "projectId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "nodes": {
+        "maxItems": 200,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "terminal",
+                "chat",
+                "device"
+              ]
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "cwd": {
+              "type": "string"
+            },
+            "command": {
+              "type": "string"
+            },
+            "provider": {
+              "type": "string",
+              "x-open-enum": [
+                "claude",
+                "codex",
+                "gemini",
+                "copilot",
+                "apple"
+              ]
+            },
+            "providerFixed": {
+              "type": "boolean"
+            },
+            "runtimeMode": {
+              "type": "string",
+              "x-open-enum": [
+                "supervised",
+                "auto-accept-edits",
+                "auto",
+                "full-access"
+              ]
+            },
+            "accent": {
+              "type": "string"
+            },
+            "issue": {
+              "type": "object",
+              "properties": {
+                "repo": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "repo",
+                "number",
+                "url"
+              ]
+            },
+            "device": {
+              "type": "object",
+              "properties": {
+                "platform": {
+                  "type": "string",
+                  "enum": [
+                    "ios",
+                    "android"
+                  ]
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "simulator",
+                    "physical"
+                  ]
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "runtime": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              },
+              "required": [
+                "platform",
+                "kind",
+                "name",
+                "runtime"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "title"
+          ]
+        }
+      },
+      "edges": {
+        "maxItems": 400,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "from": {
+              "type": "string",
+              "minLength": 1
+            },
+            "to": {
+              "type": "string",
+              "minLength": 1
+            },
+            "label": {
+              "type": "string"
+            },
+            "fromSide": {
+              "type": "string",
+              "enum": [
+                "top",
+                "right",
+                "bottom",
+                "left"
+              ]
+            },
+            "toSide": {
+              "type": "string",
+              "enum": [
+                "top",
+                "right",
+                "bottom",
+                "left"
+              ]
+            },
+            "role": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "from",
+            "to"
+          ],
+          "additionalProperties": {}
+        }
+      }
+    },
+    "required": [
+      "machineId",
+      "projectId",
+      "nodes",
+      "edges"
+    ]
+  },
+  "request.peer.placeNodes.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
   "request.remote.list.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",

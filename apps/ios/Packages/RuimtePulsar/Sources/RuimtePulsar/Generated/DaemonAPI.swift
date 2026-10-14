@@ -12,6 +12,7 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `peerBind` = "peer.bind"
     case `peerSetCeiling` = "peer.setCeiling"
     case `peerUnbind` = "peer.unbind"
+    case `peerPlaceNodes` = "peer.placeNodes"
     case `remoteList` = "remote.list"
     case `remoteLink` = "remote.link"
     case `remoteUnlink` = "remote.unlink"

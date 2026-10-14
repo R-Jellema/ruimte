@@ -104,6 +104,7 @@
     "peer.bind",
     "peer.setCeiling",
     "peer.unbind",
+    "peer.placeNodes",
     "remote.list",
     "remote.link",
     "remote.unlink",

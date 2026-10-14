@@ -58,7 +58,14 @@ import {
     PushAttentionEntrySchema
 } from './push.ts';
 import { RenderSceneResultSchema } from './render.ts';
-import { PeerBindPayloadSchema, PeerLinkSchema, PeerListResultSchema, PeerSetCeilingPayloadSchema, PeerUnbindPayloadSchema } from './peer.ts';
+import {
+    PeerBindPayloadSchema,
+    PeerLinkSchema,
+    PeerListResultSchema,
+    PeerPlaceNodesPayloadSchema,
+    PeerSetCeilingPayloadSchema,
+    PeerUnbindPayloadSchema
+} from './peer.ts';
 import { RemoteLinkPayloadSchema, RemoteLinkSchema, RemoteListPayloadSchema, RemoteListResultSchema, RemoteUnlinkPayloadSchema } from './remote.ts';
 import { SnoozeClearPayloadSchema, SnoozeListSchema, SnoozeSetPayloadSchema } from './snooze.ts';
 import {
@@ -405,6 +412,8 @@ export const REQUEST_SCHEMAS = {
     'peer.bind': { payload: PeerBindPayloadSchema, result: PeerLinkSchema },
     'peer.setCeiling': { payload: PeerSetCeilingPayloadSchema, result: EmptySchema },
     'peer.unbind': { payload: PeerUnbindPayloadSchema, result: EmptySchema },
+    // The asking client holds the project from then on, as one that opened it.
+    'peer.placeNodes': { payload: PeerPlaceNodesPayloadSchema, result: EmptySchema },
     'remote.list': { payload: RemoteListPayloadSchema, result: RemoteListResultSchema },
     'remote.link': { payload: RemoteLinkPayloadSchema, result: RemoteLinkSchema },
     'remote.unlink': { payload: RemoteUnlinkPayloadSchema, result: EmptySchema },
