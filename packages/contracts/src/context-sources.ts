@@ -1,6 +1,14 @@
 import type { ContextSource } from './context.ts';
 import { groupMemberIds } from './node-defaults.ts';
-import { isCanvasView, type CanvasNodeKind, type ProjectEdge, type ProjectNode, type ProjectText, type ProjectView } from './project.ts';
+import {
+    isCanvasView,
+    type CanvasNodeKind,
+    type ProjectCanvasView,
+    type ProjectEdge,
+    type ProjectNode,
+    type ProjectText,
+    type ProjectView
+} from './project.ts';
 import { resolveStoredPath } from './stored-path.ts';
 
 /* The kinds an agent lives in; a line that touches one of these is readable context for it. */
@@ -131,6 +139,16 @@ export function deriveContextSources(
 
 function byId<T extends { id: string }>(items: readonly T[]): Record<string, T> {
     return Object.fromEntries(items.map((item) => [item.id, item]));
+}
+
+/*
+ * Every node and text of one canvas as a source, whatever lines it has: what a chat view that names
+ * the canvas reads, since no line runs to a view. A group hands over nothing of its own.
+ */
+export function canvasContextSources(view: ProjectCanvasView, folder: string | null = null): ContextSource[] {
+    const nodes = byId(view.nodes);
+    const texts = byId(view.texts);
+    return [...view.nodes, ...view.texts].flatMap((item) => sourceOf(nodes, texts, item.id, folder) ?? []);
 }
 
 // A node id never repeats across a project's views (the daemon refuses such a file), so the canvases merge safely.

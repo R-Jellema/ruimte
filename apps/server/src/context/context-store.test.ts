@@ -109,6 +109,15 @@ const store = new ContextStore({
 const get = route(store);
 
 describe('ContextStore', () => {
+    test('a source handed over with no line is read like a linked one, and one with nothing in it says so', async () => {
+        linked.set('viewer', []);
+        expect(await store.answerSource('viewer', { id: 'term', kind: 'terminal', title: 'dev server' }, 1, null)).toBe('line 2499');
+        await expect(store.answerSource('viewer', { id: 'gone', kind: 'terminal', title: 'old' }, null, null)).rejects.toMatchObject({
+            code: 'unreadable',
+            message: 'gone is there, but there is nothing to read in it right now'
+        });
+    });
+
     test('a file answers its path and a line telling the agent to read it itself', async () => {
         linked.set('agent', [{ id: 'node-1', kind: 'file', title: 'README.md', text: '/home/bas/app/README.md' }]);
         expect(store.list('agent')).toEqual([{ id: 'node-1', kind: 'file', title: 'README.md' }]);

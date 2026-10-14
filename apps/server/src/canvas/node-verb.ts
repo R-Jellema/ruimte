@@ -69,7 +69,7 @@ export const nodeNewAction = defineActionVerb('node', {
         'edge\tA line is drawn from you into the new node, so the canvas says where it came from and not only that it is there',
         'edge\tInto a terminal or a chat that line is context, the direction that makes you readable to it: it can run ruimte-context read on your id',
         "edge\tInto a note, a browser, a file, a drawing, a diagram or a device it lets you read that node, drive a browser node's page and operate a device: only an agent reads, so a line with one agent on it is yours whichever way it runs",
-        'edge\tOnly a node on that canvas gets one: a chat that is a view of its own, or a node of another canvas, gets no line and the edge column shows -',
+        'edge\tOnly a node on that canvas gets one: a chat that is a view of its own, or a node of another canvas, gets no line and the edge column shows -. A chat view needs none: it reads and operates every node of the canvas it names with --view',
         'edge\tBetween two agents it runs one way only: you do not read a new terminal or chat through it. ruimte-context link new --to <its id> draws the line back when you want that too',
         'edge\truimte-context link list lists what is drawn on the canvas now',
         'where\tWithout --view the canvas the caller is a node on; a caller that is a view of its own must name one, and what it adds gets no line',

@@ -79,7 +79,8 @@ describeWrites('machine', {
     'device.tap': {
         actors: ['agent'],
         input: { nodeId: 'device-1', x: 120, y: 340 },
-        refused: { 'a negative element': { nodeId: 'device-1', element: -1 }, 'a fractional element': { nodeId: 'device-1', element: 1.5 } }
+        refused: { 'a negative element': { nodeId: 'device-1', element: -1 }, 'a fractional element': { nodeId: 'device-1', element: 1.5 } },
+        restricted: { viewId: { value: 'main', actors: ['agent'] } }
     },
     'device.swipe': {
         actors: ['agent'],
@@ -88,22 +89,26 @@ describeWrites('machine', {
             'faster than a finger': { ...swipe, ms: 49 },
             'slower than five seconds': { ...swipe, ms: 5001 },
             'no end': { nodeId: 'device-1', fromX: 10, fromY: 600 }
-        }
+        },
+        restricted: { viewId: { value: 'main', actors: ['agent'] } }
     },
     'device.button': {
         actors: ['agent'],
         input: { nodeId: 'device-1', button: 'home' },
-        refused: { 'an empty button': { nodeId: 'device-1', button: '' } }
+        refused: { 'an empty button': { nodeId: 'device-1', button: '' } },
+        restricted: { viewId: { value: 'main', actors: ['agent'] } }
     },
     'device.type': {
         actors: ['agent'],
         input: { nodeId: 'device-1', text: 'ruimte\n' },
-        refused: { 'nothing to type': { nodeId: 'device-1', text: '' }, 'past two thousand characters': { nodeId: 'device-1', text: 'x'.repeat(2001) } }
+        refused: { 'nothing to type': { nodeId: 'device-1', text: '' }, 'past two thousand characters': { nodeId: 'device-1', text: 'x'.repeat(2001) } },
+        restricted: { viewId: { value: 'main', actors: ['agent'] } }
     },
     'device.launch': {
         actors: ['agent'],
         input: { nodeId: 'device-1', app: 'app.ruimte.ios' },
-        refused: { 'a blank app': { nodeId: 'device-1', app: ' ' }, 'an app id past its limit': { nodeId: 'device-1', app: 'x'.repeat(257) } }
+        refused: { 'a blank app': { nodeId: 'device-1', app: ' ' }, 'an app id past its limit': { nodeId: 'device-1', app: 'x'.repeat(257) } },
+        restricted: { viewId: { value: 'main', actors: ['agent'] } }
     },
     'machine.setIdentity': {
         actors: ['person'],

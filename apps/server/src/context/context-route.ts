@@ -7,8 +7,9 @@ import type { CanvasHost } from '../canvas/verb.ts';
 import { refusalRows } from '@adecore/agents/context';
 import { CONTEXT_PATH } from './context-store.ts';
 
-/* The refusals of a read that the CLI prints as its own, with what `list` would have said under them. */
-const UNREAD: ReadonlySet<string> = new Set(['unknown-source', 'not-linked', 'unreadable']);
+/* The refusals of a read that the CLI prints as its own, with what `list` would have said under them;
+   the last four are a chat view's, which reads a node by naming its canvas. */
+const UNREAD: ReadonlySet<string> = new Set(['unknown-source', 'not-linked', 'unreadable', 'view-required', 'not-on-view', 'not-a-chat-view', 'not-a-canvas']);
 
 const TEXT = { 'content-type': 'text/plain; charset=utf-8' };
 
@@ -37,7 +38,7 @@ interface ContextRouteDeps {
 }
 
 /*
- * `GET /context` lists, `GET /context/<id>[?tail=N][&subagent=T]` reads; the bearer token names the
+ * `GET /context` lists, `GET /context/<id>[?tail=N][&subagent=T][&view=V]` reads; the bearer token names the
  * agent asking. Both run `context.list` and `context.read`, so the CLI is one adapter among others.
  */
 export async function handleContextRequest(request: Request, pathname: string, deps: ContextRouteDeps): Promise<Response> {
@@ -66,6 +67,10 @@ export async function handleContextRequest(request: Request, pathname: string, d
     } catch {
         return new Response('The source id is not valid percent-encoding', { status: 400 });
     }
-    const read = await serverActions.execute('context.read', { sourceId, tail, subagent: query.get('subagent') || null }, call);
+    const read = await serverActions.execute(
+        'context.read',
+        { sourceId, tail, subagent: query.get('subagent') || null, viewId: query.get('view') || null },
+        call
+    );
     return read.status === 'completed' ? new Response(read.output.text, { headers: TEXT }) : failed(read);
 }

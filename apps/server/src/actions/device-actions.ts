@@ -1,19 +1,40 @@
 import type { ActionHandlers } from '@ruimte/actions';
-import { deriveProjectContextSources, deviceButtons, isCanvasView, type ContextSource, type DeviceInfo, type DeviceReference } from '@ruimte/contracts';
+import {
+    canvasContextSources,
+    deriveProjectContextSources,
+    deviceButtons,
+    isCanvasView,
+    type ContextSource,
+    type DeviceInfo,
+    type DeviceReference,
+    type ProjectCanvasView
+} from '@ruimte/contracts';
+import { arrangedCanvas, isChatView, notOnView, viewRequired } from '../canvas/chat-view.ts';
 import { VerbRefusal, field, orNote, type CanvasHost, type DeviceDriveHost } from '../canvas/verb.ts';
 import { CodedError } from '@adecore/agents';
 import type { ServerActionContext } from './context.ts';
 
 /* Every device node this caller may operate, for a refusal that offers what the next call takes. */
-function deviceLines(sources: readonly ContextSource[], callerCanvas: string | null): string[] {
+function deviceLines(sources: readonly ContextSource[], empty: string): string[] {
     return orNote(
         sources
             .filter((source) => source.kind === 'device')
             .map((source) => `device\t${source.id}\t${field(source.title)}\t${field(source.device?.name ?? '')}`),
-        callerCanvas === null
-            ? 'No device node is linked to you, and none can be: you are a view of your own, and a line only runs between two nodes of one canvas'
-            : 'No device node is linked to you; ruimte-context link new --to <id> draws the line to one on your canvas'
+        empty
     );
+}
+
+/* What to say when the caller may operate no device node at all, by where it stands. */
+function noDeviceNote(callerCanvas: string | null, chatView: boolean, arranged: ProjectCanvasView | null): string {
+    if (arranged !== null) {
+        return `${arranged.id} has no device node; ruimte-context node new device --device <id> --view ${arranged.id} puts one there`;
+    }
+    if (chatView) {
+        return 'A chat view operates the device nodes of a canvas it names with --view; ruimte-context node list --view <id> lists them';
+    }
+    return callerCanvas === null
+        ? 'No device node is linked to you, and none can be: you are a view of your own, and a line only runs between two nodes of one canvas'
+        : 'No device node is linked to you; ruimte-context link new --to <id> draws the line to one on your canvas';
 }
 
 /* What gets a caller a device it may operate: a line, which only runs between two nodes of one canvas. */
@@ -29,32 +50,37 @@ function lineLines(id: string, callerCanvas: string | null, deviceCanvas: string
 
 /*
  * The device a call works on: the one a device node of this project points at, with a line between
- * that node and the caller, the same line a read takes. No card asks a person: the device is a
- * sandbox of its own, and the line is the permission.
+ * that node and the caller, the same line a read takes, or on the canvas a chat view names. No card
+ * asks a person: the device is a sandbox of its own, and the line is the permission.
  */
-async function referenceOf({ host, place }: ServerActionContext, caller: string, id: string): Promise<DeviceReference> {
+async function referenceOf({ host, place }: ServerActionContext, caller: string, id: string, viewId: string | null | undefined): Promise<DeviceReference> {
     const content = await host.projects.read(place.projectId);
-    const sources = deriveProjectContextSources(content.views, null).get(caller) ?? [];
+    const chatView = isChatView(content, caller);
+    const arranged = arrangedCanvas(content, caller, viewId);
+    const sources = arranged === null ? (deriveProjectContextSources(content.views, null).get(caller) ?? []) : canvasContextSources(arranged);
+    const lines = (): string[] => deviceLines(sources, noDeviceNote(place.canvasId, chatView, arranged));
     const canvas = content.views.filter(isCanvasView).find((view) => view.nodes.some((candidate) => candidate.id === id));
     const node = canvas?.nodes.find((candidate) => candidate.id === id);
     if (!canvas || !node) {
-        throw new VerbRefusal('unknown-node', `${id} is not a node of this project`, deviceLines(sources, place.canvasId));
+        throw new VerbRefusal('unknown-node', `${id} is not a node of this project`, lines());
+    }
+    if (arranged !== null && arranged.id !== canvas.id) {
+        throw notOnView(id, canvas, arranged, `device state ${id}`);
     }
     if (node.kind !== 'device') {
-        throw new VerbRefusal(
-            'not-a-device',
-            `${id} is a ${node.kind} node, and only a device node has a device to operate`,
-            deviceLines(sources, place.canvasId)
-        );
+        throw new VerbRefusal('not-a-device', `${id} is a ${node.kind} node, and only a device node has a device to operate`, lines());
     }
     // A node without a device is no source a line hands over, so this comes before the line.
     if (!node.device) {
         throw new VerbRefusal('no-device', `${id} points at no device yet; a person picks one on the node`);
     }
     if (!sources.some((source) => source.id === id)) {
+        if (chatView) {
+            throw viewRequired(id, canvas, `device state ${id}`);
+        }
         throw new VerbRefusal('not-linked', `No line runs between you and ${id}, and that line is what lets you operate its device`, [
             ...lineLines(id, place.canvasId, canvas.id),
-            ...deviceLines(sources, place.canvasId)
+            ...lines()
         ]);
     }
     return node.device;
@@ -68,8 +94,8 @@ function driverOf(host: CanvasHost): DeviceDriveHost {
 }
 
 /* The device a node points at on this machine now, refused when it is not here or not running. */
-async function bootedDevice(context: ServerActionContext, caller: string, nodeId: string): Promise<DeviceInfo> {
-    const reference = await referenceOf(context, caller, nodeId);
+async function bootedDevice(context: ServerActionContext, caller: string, nodeId: string, viewId: string | null | undefined): Promise<DeviceInfo> {
+    const reference = await referenceOf(context, caller, nodeId, viewId);
     const device = await driverOf(context.host).find(reference);
     if (device === null) {
         throw new VerbRefusal('device-missing', `This machine has no ${reference.name} (${reference.runtime}) right now`, [
@@ -114,8 +140,8 @@ export const deviceActions: ActionHandlers<ServerActionContext> = {
             }
         };
     },
-    'device.inspect': async ({ nodeId, find }, { actor, context }) => {
-        const reference = await referenceOf(context, actor.id, nodeId);
+    'device.inspect': async ({ nodeId, viewId, find }, { actor, context }) => {
+        const reference = await referenceOf(context, actor.id, nodeId, viewId);
         const driver = driverOf(context.host);
         const device = await driver.find(reference);
         if (device === null) {
@@ -167,12 +193,12 @@ export const deviceActions: ActionHandlers<ServerActionContext> = {
             }
         };
     },
-    'device.screenshot': async ({ nodeId }, { actor, context }) => {
-        const device = await bootedDevice(context, actor.id, nodeId);
+    'device.screenshot': async ({ nodeId, viewId }, { actor, context }) => {
+        const device = await bootedDevice(context, actor.id, nodeId, viewId);
         const shot = await driverOf(context.host).shot(actor.id, device, nodeId);
         return { output: { nodeId, ...shot } };
     },
-    'device.tap': async ({ nodeId, x, y, element }, { actor, context }) => {
+    'device.tap': async ({ nodeId, viewId, x, y, element }, { actor, context }) => {
         const handle = element ?? null;
         const pixel = x === null || x === undefined || y === null || y === undefined ? null : { x, y };
         if (handle === null ? pixel === null : (x ?? y ?? null) !== null) {
@@ -181,7 +207,7 @@ export const deviceActions: ActionHandlers<ServerActionContext> = {
                 'see\truimte-context device shot <id>\ttakes a picture to count pixels in'
             ]);
         }
-        const device = await bootedDevice(context, actor.id, nodeId);
+        const device = await bootedDevice(context, actor.id, nodeId, viewId);
         const driver = driverOf(context.host);
         if (handle !== null) {
             await driver.tapElement(actor.id, device, handle);
@@ -190,13 +216,13 @@ export const deviceActions: ActionHandlers<ServerActionContext> = {
         }
         return { output: { nodeId, device: device.name } };
     },
-    'device.swipe': async ({ nodeId, fromX, fromY, toX, toY, ms }, { actor, context }) => {
-        const device = await bootedDevice(context, actor.id, nodeId);
+    'device.swipe': async ({ nodeId, viewId, fromX, fromY, toX, toY, ms }, { actor, context }) => {
+        const device = await bootedDevice(context, actor.id, nodeId, viewId);
         await driverOf(context.host).swipe(actor.id, device, { x: fromX, y: fromY }, { x: toX, y: toY }, ms ?? undefined);
         return { output: { nodeId, device: device.name } };
     },
-    'device.button': async ({ nodeId, button }, { actor, context }) => {
-        const device = await bootedDevice(context, actor.id, nodeId);
+    'device.button': async ({ nodeId, viewId, button }, { actor, context }) => {
+        const device = await bootedDevice(context, actor.id, nodeId, viewId);
         const buttons = deviceButtons(device);
         const named = buttons.find((candidate) => candidate === button);
         if (named === undefined) {
@@ -212,13 +238,13 @@ export const deviceActions: ActionHandlers<ServerActionContext> = {
         await driverOf(context.host).button(actor.id, device, named);
         return { output: { nodeId, device: device.name } };
     },
-    'device.type': async ({ nodeId, text }, { actor, context }) => {
-        const device = await bootedDevice(context, actor.id, nodeId);
+    'device.type': async ({ nodeId, viewId, text }, { actor, context }) => {
+        const device = await bootedDevice(context, actor.id, nodeId, viewId);
         await driverOf(context.host).type(actor.id, device, text);
         return { output: { nodeId, device: device.name } };
     },
-    'device.launch': async ({ nodeId, app }, { actor, context }) => {
-        const device = await bootedDevice(context, actor.id, nodeId);
+    'device.launch': async ({ nodeId, viewId, app }, { actor, context }) => {
+        const device = await bootedDevice(context, actor.id, nodeId, viewId);
         const driver = driverOf(context.host);
         if (!driver.abilities(device).launch) {
             throw new VerbRefusal('device-action-unavailable', `Ruimte cannot open an app on ${device.name}`);

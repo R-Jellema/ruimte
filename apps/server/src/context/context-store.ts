@@ -234,9 +234,11 @@ export class ContextStore {
      */
     async read(targetId: string, sourceId: string, tail: number | null = null, subagent: string | null = null): Promise<string | null> {
         const source = this.findSource(targetId, sourceId);
-        if (!source) {
-            return null;
-        }
+        return source ? this.readSource(targetId, source, tail, subagent) : null;
+    }
+
+    /* A source the caller may read for a reason of its own, such as a chat view naming the canvas it stands on. */
+    async readSource(targetId: string, source: ContextSource, tail: number | null = null, subagent: string | null = null): Promise<string | null> {
         if (subagent !== null) {
             return this.readSubagent(source, subagent, tail);
         }
@@ -330,6 +332,15 @@ export class ContextStore {
         if (text === null) {
             const { code, message, lines } = readRefusal(targetId, sourceId, this.readers.sources(targetId), this.readers.canvasOf?.(targetId) ?? null);
             throw new ContextRefusal(code, message, lines);
+        }
+        return text;
+    }
+
+    /* The same for a source that comes with its own reason to be read, so there is no line to explain. */
+    async answerSource(targetId: string, source: ContextSource, tail: number | null, subagent: string | null): Promise<string> {
+        const text = await this.readSource(targetId, source, tail, subagent);
+        if (text === null) {
+            throw new ContextRefusal('unreadable', `${source.nodeId ?? source.id} is there, but there is nothing to read in it right now`);
         }
         return text;
     }

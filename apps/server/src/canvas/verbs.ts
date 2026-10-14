@@ -68,11 +68,12 @@ const listVerb: ContextVerb = {
 const readVerb: ContextVerb = {
     served: 'context',
     name: 'read',
-    usage: '<id> [--tail N] [--subagent T]',
+    usage: '<id> [--tail N] [--subagent T] [--view V]',
     summary: actionDescription('context.read', 'agent'),
     detail: [
-        'argument\t<id>\trequired\tThe id of a source, from ruimte-context list, or of an agent you opened yourself; a drawing or diagram also takes the id of the linked node that shows it',
+        'argument\t<id>\trequired\tThe id of a source, from ruimte-context list, or of an agent you opened yourself, or with --view of any node or text on that canvas; a drawing or diagram also takes the id of the node that shows it',
         'flag\t--tail N\toptional\tOnly the last N lines, N a positive whole number; without it the whole source',
+        'flag\t--view V\toptional\tOnly from a chat view: the canvas the source stands on, which lets you read every node and text there, other chats and terminals included, without a line; a node on a canvas reads over its lines and leaves it out',
         `flag\t--subagent T\toptional\tThe whole conversation of one subagent of a chat you may read instead of the chat, T the id in its > Subagent line; read from ${ChatSubagentSourceSchema.options.join(' or ')}; --tail counts lines of that conversation`,
         'prints\tThe source itself, as text, not as tab-separated lines',
         'kind\ttext\tThe text the person wrote: a note or a text on the canvas\t--tail counts its lines',
@@ -92,7 +93,8 @@ const readVerb: ContextVerb = {
         'cheap\tThe last fifteen lines of a neighbour is usually the whole answer; read the source whole only when it is not',
         'direction\tBetween two agents a line runs one way: the one you draw into another agent lets it read you, and reading it back takes a line from it into you, which ruimte-context link new --from <id> --to <you> draws; an agent you opened yourself needs none',
         'direction\tA node that is no agent, a note, a page, a file, a drawing or a diagram, you read over a line whichever way that line runs',
-        'refusals\tnot-linked\tunreadable\tunknown-source\tunknown-subagent\tbad-arguments\tthe whole set this verb refuses with',
+        'chat view\tA chat that is a view of its own has no lines, since a line only joins two nodes of one canvas: it reads a node by naming its canvas with --view, and without it a node of a canvas refuses with view-required',
+        'refusals\tnot-linked\tunreadable\tunknown-source\tunknown-subagent\tview-required\tnot-on-view\tnot-a-chat-view\tnot-a-canvas\tbad-arguments\tthe whole set this verb refuses with',
         SCOPE_LINE
     ]
 };

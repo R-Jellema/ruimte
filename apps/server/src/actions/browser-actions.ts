@@ -1,12 +1,15 @@
 import type { ActionHandlers, ActionOutput } from '@ruimte/actions';
 import {
+    canvasContextSources,
     deriveProjectContextSources,
     isCanvasView,
     type BrowserDriveAction,
     type BrowserPageState,
     type ContextSource,
+    type ProjectCanvasView,
     type ProjectNode
 } from '@ruimte/contracts';
+import { arrangedCanvas, isChatView, notOnView, viewRequired } from '../canvas/chat-view.ts';
 import type { DriveOutcome } from '../browser/drive.ts';
 import { checkUrl } from '../canvas/nodes.ts';
 import { VerbRefusal, field, orNote, type BrowserDriveHost, type CanvasHost } from '../canvas/verb.ts';
@@ -19,17 +22,28 @@ async function addressOf(host: CanvasHost, id: string, stored: string | undefine
 }
 
 /* Every browser node this caller may drive, for a refusal that offers what the next call takes. */
-async function browserLines(host: CanvasHost, sources: readonly ContextSource[], callerCanvas: string | null): Promise<string[]> {
+async function browserLines(host: CanvasHost, sources: readonly ContextSource[], empty: string): Promise<string[]> {
     return orNote(
         await Promise.all(
             sources
                 .filter((source) => source.kind === 'browser')
                 .map(async (source) => `browser\t${source.id}\t${field(source.title)}\t${field((await addressOf(host, source.id, source.text)) ?? '')}`)
         ),
-        callerCanvas === null
-            ? 'No browser node is linked to you, and none can be: you are a view of your own, and a line only runs between two nodes of one canvas'
-            : 'No browser node is linked to you; ruimte-context link new --to <id> draws the line to one on your canvas'
+        empty
     );
+}
+
+/* What to say when the caller may drive no browser node at all, by where it stands. */
+function noBrowserNote(callerCanvas: string | null, chatView: boolean, arranged: ProjectCanvasView | null): string {
+    if (arranged !== null) {
+        return `${arranged.id} has no browser node; ruimte-context node new browser --url U --view ${arranged.id} puts one there`;
+    }
+    if (chatView) {
+        return 'A chat view drives the browser nodes of a canvas it names with --view; ruimte-context node list --view <id> lists them';
+    }
+    return callerCanvas === null
+        ? 'No browser node is linked to you, and none can be: you are a view of your own, and a line only runs between two nodes of one canvas'
+        : 'No browser node is linked to you; ruimte-context link new --to <id> draws the line to one on your canvas';
 }
 
 /*
@@ -53,28 +67,33 @@ function lineLines(id: string, url: string | undefined, callerCanvas: string | n
 
 /*
  * The node an action works on. A browser node of this project, with a line between it and the
- * caller: the same line a read takes, since driving a page and reading it are one permission.
+ * caller: the same line a read takes, since driving a page and reading it are one permission. A chat
+ * view has no lines, and drives any page of the canvas it names instead.
  */
-async function targetOf({ host, place }: ServerActionContext, caller: string, id: string): Promise<ProjectNode> {
+async function targetOf({ host, place }: ServerActionContext, caller: string, id: string, viewId: string | null | undefined): Promise<ProjectNode> {
     const content = await host.projects.read(place.projectId);
-    const sources = deriveProjectContextSources(content.views, null).get(caller) ?? [];
-    const linked = sources.find((source) => source.id === id);
+    const chatView = isChatView(content, caller);
+    const arranged = arrangedCanvas(content, caller, viewId);
+    const sources = arranged === null ? (deriveProjectContextSources(content.views, null).get(caller) ?? []) : canvasContextSources(arranged);
+    const lines = (): Promise<string[]> => browserLines(host, sources, noBrowserNote(place.canvasId, chatView, arranged));
     const canvas = content.views.filter(isCanvasView).find((view) => view.nodes.some((candidate) => candidate.id === id));
     const node = canvas?.nodes.find((candidate) => candidate.id === id);
     if (!canvas || !node) {
-        throw new VerbRefusal('unknown-node', `${id} is not a node of this project`, await browserLines(host, sources, place.canvasId));
+        throw new VerbRefusal('unknown-node', `${id} is not a node of this project`, await lines());
+    }
+    if (arranged !== null && arranged.id !== canvas.id) {
+        throw notOnView(id, canvas, arranged, `browser state ${id}`);
     }
     if (node.kind !== 'browser') {
-        throw new VerbRefusal(
-            'not-a-browser',
-            `${id} is a ${node.kind} node, and only a browser node has a page to drive`,
-            await browserLines(host, sources, place.canvasId)
-        );
+        throw new VerbRefusal('not-a-browser', `${id} is a ${node.kind} node, and only a browser node has a page to drive`, await lines());
     }
-    if (!linked) {
+    if (!sources.some((source) => source.id === id)) {
+        if (chatView) {
+            throw viewRequired(id, canvas, `browser state ${id}`);
+        }
         throw new VerbRefusal('not-linked', `No line runs between you and ${id}, and that line is what lets you drive its page`, [
             ...lineLines(id, await addressOf(host, id, node.url), place.canvasId, canvas.id),
-            ...(await browserLines(host, sources, place.canvasId))
+            ...(await lines())
         ]);
     }
     return node;
@@ -104,20 +123,20 @@ function outcomeOf(nodeId: string, outcome: DriveOutcome | null): ActionOutput<'
  * Only what the page's address and its own history do: a click, a keystroke and a scroll stay a
  * person's, so no action here takes one.
  */
-async function drive(context: ServerActionContext, caller: string, nodeId: string, action: BrowserDriveAction) {
-    await targetOf(context, caller, nodeId);
+async function drive(context: ServerActionContext, caller: string, nodeId: string, viewId: string | null | undefined, action: BrowserDriveAction) {
+    await targetOf(context, caller, nodeId, viewId);
     return { output: outcomeOf(nodeId, await driverOf(context).drive(nodeId, action)) };
 }
 
 export const browserActions: ActionHandlers<ServerActionContext> = {
-    'browser.inspect': async ({ nodeId }, { actor, context }) => drive(context, actor.id, nodeId, { kind: 'state' }),
-    'browser.back': async ({ nodeId }, { actor, context }) => drive(context, actor.id, nodeId, { kind: 'back' }),
-    'browser.forward': async ({ nodeId }, { actor, context }) => drive(context, actor.id, nodeId, { kind: 'forward' }),
-    'browser.stop': async ({ nodeId }, { actor, context }) => drive(context, actor.id, nodeId, { kind: 'stop' }),
-    'browser.reload': async ({ nodeId, hard }, { actor, context }) => drive(context, actor.id, nodeId, { kind: 'reload', ignoreCache: hard }),
-    'browser.navigate': async ({ nodeId, url }, { actor, context }) => {
+    'browser.inspect': async ({ nodeId, viewId }, { actor, context }) => drive(context, actor.id, nodeId, viewId, { kind: 'state' }),
+    'browser.back': async ({ nodeId, viewId }, { actor, context }) => drive(context, actor.id, nodeId, viewId, { kind: 'back' }),
+    'browser.forward': async ({ nodeId, viewId }, { actor, context }) => drive(context, actor.id, nodeId, viewId, { kind: 'forward' }),
+    'browser.stop': async ({ nodeId, viewId }, { actor, context }) => drive(context, actor.id, nodeId, viewId, { kind: 'stop' }),
+    'browser.reload': async ({ nodeId, viewId, hard }, { actor, context }) => drive(context, actor.id, nodeId, viewId, { kind: 'reload', ignoreCache: hard }),
+    'browser.navigate': async ({ nodeId, viewId, url }, { actor, context }) => {
         const checked = checkUrl(url);
-        const node = await targetOf(context, actor.id, nodeId);
+        const node = await targetOf(context, actor.id, nodeId, viewId);
         if (!node.url) {
             /* The same step a person takes from the splash: an address on an empty node is what makes
                it a page, so it belongs in the project and not only in whatever client is looking. */
@@ -137,8 +156,8 @@ export const browserActions: ActionHandlers<ServerActionContext> = {
         const outcome = await driverOf(context).drive(nodeId, { kind: 'go', url: checked });
         return { output: { ...outcomeOf(nodeId, outcome), assigned: null } };
     },
-    'browser.screenshot': async ({ nodeId }, { actor, context }) => {
-        await targetOf(context, actor.id, nodeId);
+    'browser.screenshot': async ({ nodeId, viewId }, { actor, context }) => {
+        await targetOf(context, actor.id, nodeId, viewId);
         const outcome = await driverOf(context).shot(nodeId);
         if (outcome === null) {
             return { output: { nodeId, open: false, page: null, error: null, path: null } };

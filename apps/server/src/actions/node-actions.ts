@@ -19,6 +19,7 @@ import {
     type ProjectNode,
     type ProjectView
 } from '@ruimte/contracts';
+import { isChatView } from '../canvas/chat-view.ts';
 import { ownEnd } from '../canvas/links.ts';
 import { EVERY_KIND_LINE, KIND_FLAGS, REQUIRED_FLAG, kindLine, type KindFlag } from '../canvas/node-kinds.ts';
 import { MAX_CANVAS_NODES, NOT_A_GROUP, canvasFull, checkUrl, newId, nodeLines, nodesNamed, openingEdge } from '../canvas/nodes.ts';
@@ -58,19 +59,21 @@ function deletableLines(content: ProjectContent, place: IndexedPlace, call: Verb
 
 /*
  * Who may write in a note: not the maker alone, so two agents can keep one between them. A line a
- * person drew grants it, in either direction, since a note holds no agent.
+ * person drew grants it, in either direction, since a note holds no agent. A chat view has no lines
+ * and writes in any note of the canvas it names, as a person arranging that canvas would.
  */
-function mayWrite(canvas: ProjectCanvasView, node: ProjectNode, call: VerbCall): boolean {
+function mayWrite(canvas: ProjectCanvasView, node: ProjectNode, call: VerbCall, chatView: boolean): boolean {
     return (
+        chatView ||
         call.host.lineage.madeBy(node.id) === call.caller ||
         canvas.edges.some((edge) => (edge.from === call.caller && edge.to === node.id) || (edge.to === call.caller && edge.from === node.id))
     );
 }
 
 /* What a refusal may offer instead: only the notes this same call would really write in. */
-function writableLines(canvas: ProjectCanvasView, call: VerbCall): string[] {
+function writableLines(canvas: ProjectCanvasView, call: VerbCall, chatView: boolean): string[] {
     return nodeLines(canvas, {
-        takes: (node) => node.kind === 'note' && mayWrite(canvas, node, call),
+        takes: (node) => node.kind === 'note' && mayWrite(canvas, node, call, chatView),
         empty: `${canvas.id} has no note you may write in; ruimte-context node new note --text B adds one of your own`
     });
 }
@@ -366,22 +369,23 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
         }
         return host.projects.mutate(place.projectId, (content) => {
             const canvas = canvasNamed(content, viewId);
+            const chatView = isChatView(content, caller.caller);
             const node = canvas.nodes.find((candidate) => candidate.id === nodeId);
             if (!node) {
-                throw refuseMissingNodes(content, [nodeId], canvas.id, 'there is no node to write in', writableLines(canvas, caller));
+                throw refuseMissingNodes(content, [nodeId], canvas.id, 'there is no node to write in', writableLines(canvas, caller, chatView));
             }
             if (node.kind !== 'note') {
                 throw new VerbRefusal(
                     'not-a-note',
                     `${nodeId} is a ${node.kind} node and only a note holds a body to write; what a file, a browser, a terminal or a chat shows is not yours to set`,
-                    writableLines(canvas, caller)
+                    writableLines(canvas, caller, chatView)
                 );
             }
-            if (!mayWrite(canvas, node, caller)) {
+            if (!mayWrite(canvas, node, caller, chatView)) {
                 throw new VerbRefusal(
                     'not-linked',
                     `${nodeId} is a note you did not make and no line joins you to it: draw that line and you can write in it`,
-                    [...writableLines(canvas, caller), `see\truimte-context link new --to ${nodeId}\tdraws the line this needs`]
+                    [...writableLines(canvas, caller, chatView), `see\truimte-context link new --to ${nodeId}\tdraws the line this needs`]
                 );
             }
             /*

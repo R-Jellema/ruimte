@@ -16,6 +16,7 @@ const PRINTS_LINES: readonly string[] = [
 /* The sentences about the line and the page, which every action of this noun is held to. */
 const COMMON_DETAIL: readonly string[] = [
     'line\tA line between you and that node is what lets you drive it, whichever way it was drawn, the same line that lets you read the page',
+    'chat view\tA chat view has no lines: it drives any browser node of the canvas it names with --view, and without --view it is refused with view-required',
     'page\tThe page lives where it is shown: in the app of whoever has this project open, or on this machine for a client that has no browser of its own',
     'page\tNobody watching is not a failure; the call says open no, changes nothing, and the same call later reaches whoever is there then',
     'see\truimte-context read <id>\tthe address and the text of the page, which is how you read what you navigated to',
@@ -45,23 +46,32 @@ function pageLines({ nodeId, open, page, error }: ActionOutput<'browser.inspect'
     ];
 }
 
-const NODE_PARAM = { syntax: '<id>', need: 'required', field: 'nodeId', more: 'ruimte-context list names the ones linked to you' } as const;
+const NODE_PARAM = {
+    syntax: '<id>',
+    need: 'required',
+    field: 'nodeId',
+    more: 'ruimte-context list names the ones linked to you, and a chat view finds them with node list --view V'
+} as const;
+
+const VIEW_PARAM = { syntax: '--view V', need: 'optional', field: 'viewId' } as const;
+
+const VIEW_FLAG = z.string().min(1, '--view needs the id of a canvas').optional();
 
 /* The actions that take nothing but the node: the page is told one word and answers where it stands. */
 function plainAction(word: string, action: 'browser.inspect' | 'browser.back' | 'browser.forward' | 'browser.stop', detail: readonly string[] = []) {
     return defineActionVerb('browser', {
         name: word,
         action,
-        usage: '<id>',
-        params: [NODE_PARAM],
+        usage: '<id> [--view V]',
+        params: [NODE_PARAM, VIEW_PARAM],
         detail: [...detail, ...PRINTS_LINES, ...COMMON_DETAIL],
         positionals: z.tuple([z.string().min(1, `browser ${word} needs the id of a browser node`)], {
             error: (issue) =>
                 issue.code === 'too_big' ? `browser ${word} takes one node id and nothing else` : `browser ${word} needs the id of a browser node`
         }),
-        flags: z.object({}),
-        async run({ positionals: [id] }, call) {
-            return pageLines(await runAction(call, action, { nodeId: id }));
+        flags: z.object({ view: VIEW_FLAG }),
+        async run({ positionals: [id], flags }, call) {
+            return pageLines(await runAction(call, action, { nodeId: id, viewId: flags.view ?? null }));
         }
     });
 }
@@ -77,8 +87,8 @@ const stopAction = plainAction('stop', 'browser.stop');
 const goAction = defineActionVerb('browser', {
     name: 'go',
     action: 'browser.navigate',
-    usage: '<id> --url U',
-    params: [NODE_PARAM, { syntax: '--url U', need: 'required', field: 'url' }],
+    usage: '<id> --url U [--view V]',
+    params: [NODE_PARAM, VIEW_PARAM, { syntax: '--url U', need: 'required', field: 'url' }],
     detail: [
         'note\tA node that has no address yet is given this one, which is what starts its page at all; there the call writes the project file and the page opens for whoever shows that canvas',
         ...PRINTS_LINES,
@@ -87,9 +97,9 @@ const goAction = defineActionVerb('browser', {
     positionals: z.tuple([z.string().min(1, 'browser go needs the id of a browser node')], {
         error: (issue) => (issue.code === 'too_big' ? 'browser go takes one node id and the address in --url' : 'browser go needs the id of a browser node')
     }),
-    flags: z.object({ url: z.string().min(1, '--url needs an http or https address') }),
+    flags: z.object({ url: z.string().min(1, '--url needs an http or https address'), view: VIEW_FLAG }),
     async run({ positionals: [id], flags }, call) {
-        const went = await runAction(call, 'browser.navigate', { nodeId: id, url: flags.url });
+        const went = await runAction(call, 'browser.navigate', { nodeId: id, viewId: flags.view ?? null, url: flags.url });
         if (went.assigned !== null) {
             return [
                 `open\tno\tThis node had no address yet, so ${went.assigned.url} is now the page it opens with`,
@@ -103,24 +113,24 @@ const goAction = defineActionVerb('browser', {
 const reloadAction = defineActionVerb('browser', {
     name: 'reload',
     action: 'browser.reload',
-    usage: '<id> [--hard]',
-    params: [NODE_PARAM, { syntax: '--hard', need: 'no value', field: 'hard' }],
+    usage: '<id> [--hard] [--view V]',
+    params: [NODE_PARAM, VIEW_PARAM, { syntax: '--hard', need: 'no value', field: 'hard' }],
     detail: [...PRINTS_LINES, ...COMMON_DETAIL],
     positionals: z.tuple([z.string().min(1, 'browser reload needs the id of a browser node')], {
         error: (issue) => (issue.code === 'too_big' ? 'browser reload takes one node id and nothing else' : 'browser reload needs the id of a browser node')
     }),
-    flags: z.object({}),
+    flags: z.object({ view: VIEW_FLAG }),
     switches: ['hard'],
-    async run({ positionals: [id], switches }, call) {
-        return pageLines(await runAction(call, 'browser.reload', { nodeId: id, hard: switches.has('hard') }));
+    async run({ positionals: [id], flags, switches }, call) {
+        return pageLines(await runAction(call, 'browser.reload', { nodeId: id, viewId: flags.view ?? null, hard: switches.has('hard') }));
     }
 });
 
 const shotAction = defineActionVerb('browser', {
     name: 'shot',
     action: 'browser.screenshot',
-    usage: '<id>',
-    params: [NODE_PARAM],
+    usage: '<id> [--view V]',
+    params: [NODE_PARAM, VIEW_PARAM],
     detail: [
         'prints\tshot\tpath\tthe png on this machine, which you open with your own tools',
         'prints\topen\tno\tsentence\twhen nobody has the page open, which is when no picture can be taken',
@@ -131,9 +141,9 @@ const shotAction = defineActionVerb('browser', {
     positionals: z.tuple([z.string().min(1, 'browser shot needs the id of a browser node')], {
         error: (issue) => (issue.code === 'too_big' ? 'browser shot takes one node id and nothing else' : 'browser shot needs the id of a browser node')
     }),
-    flags: z.object({}),
-    async run({ positionals: [id] }, call) {
-        const shot = await runAction(call, 'browser.screenshot', { nodeId: id });
+    flags: z.object({ view: VIEW_FLAG }),
+    async run({ positionals: [id], flags }, call) {
+        const shot = await runAction(call, 'browser.screenshot', { nodeId: id, viewId: flags.view ?? null });
         if (!shot.open || shot.path === null) {
             return ['open\tno\tNobody has this page open right now, so there was nothing to photograph'];
         }
@@ -144,7 +154,8 @@ const shotAction = defineActionVerb('browser', {
 
 export const BROWSER_ACTIONS = [stateAction, goAction, backAction, forwardAction, reloadAction, stopAction, shotAction] as const;
 
-export const BROWSER_SUMMARY = 'Drives a browser node you have a line to: where its page goes, through its history, and a picture of it';
+export const BROWSER_SUMMARY =
+    'Drives a browser node you have a line to, or on the canvas a chat view names: where its page goes, through its history, and a picture of it';
 
 export const BROWSER_DETAIL: readonly string[] = [
     'note\tOnly a page: a click, a keystroke and a scroll stay a person’s, and an agent works a page by its address',

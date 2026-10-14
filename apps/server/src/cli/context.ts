@@ -73,7 +73,14 @@ async function runRead(url: string, id: string | undefined, flags: string[], hea
     if (subagent === '') {
         return refuse('bad-arguments', '--subagent needs the id from a > Subagent line of the chat', [READ_USAGE, READ_HELP]);
     }
+    const view = flagValue(flags, 'view');
+    if (view === '') {
+        return refuse('bad-arguments', '--view needs the id of the canvas the source stands on', [READ_USAGE, READ_HELP]);
+    }
     const query = new URLSearchParams();
+    if (view !== null) {
+        query.set('view', view);
+    }
     if (tail !== null) {
         query.set('tail', String(tail));
     }
@@ -168,7 +175,7 @@ interface ContextRow {
     snoozedUntil?: string;
 }
 
-const READ_USAGE = 'usage\tread\t<id> [--tail N] [--subagent T]';
+const READ_USAGE = 'usage\tread\t<id> [--tail N] [--subagent T] [--view V]';
 const READ_HELP = 'detail\truimte-context help read';
 
 /* What follows `--name` or `--name=`: null when the flag is not there, empty when it has no value. */

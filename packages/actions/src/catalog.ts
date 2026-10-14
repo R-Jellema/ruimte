@@ -212,6 +212,10 @@ const recentMessages = z.array(z.object({ role: z.enum(['user', 'assistant']), t
 /* A flag wears one of the node accents, so the whole app paints from one palette. */
 const flagColor = z.enum(NODE_ACCENT_NAMES);
 
+/* No line runs to a chat view, so naming the canvas is what lets one reach a node there. */
+const operatedView = agentField(viewId).describe(
+    'The canvas the node stands on, which a chat view names to read or operate a node there without a line; a node on a canvas leaves it out'
+);
 const browserNode = nodeId.describe('The browser node, by id');
 const browserOutcome = z.object({
     nodeId,
@@ -1579,7 +1583,8 @@ export const ACTION_DEFINITIONS = {
     'node.update': {
         title: 'Write in a note',
         description: 'Writes the body of a note on a canvas on screen; append puts the text under what is there instead of over it.',
-        agentDescription: 'Writes the body of a note you made or a line joins you to; append puts the text under what is there instead of over it.',
+        agentDescription:
+            'Writes the body of a note you made or a line joins you to, or any note of the canvas a chat view names; append puts the text under what is there instead of over it.',
         effect: 'shared',
         domain: 'content',
         actors: PERSON_VOICE_AND_AGENT,
@@ -2016,7 +2021,7 @@ export const ACTION_DEFINITIONS = {
         effect: 'read',
         domain: 'pages',
         actors: PERSON_VOICE_AND_AGENT,
-        input: z.object({ nodeId: browserNode }),
+        input: z.object({ nodeId: browserNode, viewId: operatedView }),
         output: browserOutcome
     },
     'browser.navigate': {
@@ -2025,7 +2030,7 @@ export const ACTION_DEFINITIONS = {
         effect: 'external',
         domain: 'pages',
         actors: PERSON_VOICE_AND_AGENT,
-        input: z.object({ nodeId: browserNode, url: z.string().min(1).describe('A whole http or https address, scheme and all') }),
+        input: z.object({ nodeId: browserNode, viewId: operatedView, url: z.string().min(1).describe('A whole http or https address, scheme and all') }),
         output: browserOutcome.extend({
             // The address a node that had none was given: written in the project, with no page driven.
             assigned: z.object({ url: z.string(), title: z.string() }).nullable()
@@ -2037,7 +2042,7 @@ export const ACTION_DEFINITIONS = {
         effect: 'external',
         domain: 'pages',
         actors: PERSON_VOICE_AND_AGENT,
-        input: z.object({ nodeId: browserNode }),
+        input: z.object({ nodeId: browserNode, viewId: operatedView }),
         output: browserOutcome
     },
     'browser.forward': {
@@ -2046,7 +2051,7 @@ export const ACTION_DEFINITIONS = {
         effect: 'external',
         domain: 'pages',
         actors: PERSON_VOICE_AND_AGENT,
-        input: z.object({ nodeId: browserNode }),
+        input: z.object({ nodeId: browserNode, viewId: operatedView }),
         output: browserOutcome
     },
     'browser.reload': {
@@ -2055,7 +2060,11 @@ export const ACTION_DEFINITIONS = {
         effect: 'external',
         domain: 'pages',
         actors: PERSON_VOICE_AND_AGENT,
-        input: z.object({ nodeId: browserNode, hard: z.boolean().describe('Loads it past the cache, the way a person holding shift would') }),
+        input: z.object({
+            nodeId: browserNode,
+            viewId: operatedView,
+            hard: z.boolean().describe('Loads it past the cache, the way a person holding shift would')
+        }),
         output: browserOutcome
     },
     'browser.stop': {
@@ -2064,7 +2073,7 @@ export const ACTION_DEFINITIONS = {
         effect: 'external',
         domain: 'pages',
         actors: PERSON_VOICE_AND_AGENT,
-        input: z.object({ nodeId: browserNode }),
+        input: z.object({ nodeId: browserNode, viewId: operatedView }),
         output: browserOutcome
     },
     'browser.screenshot': {
@@ -2073,7 +2082,7 @@ export const ACTION_DEFINITIONS = {
         effect: 'read',
         domain: 'pages',
         actors: AGENT,
-        input: z.object({ nodeId: browserNode }),
+        input: z.object({ nodeId: browserNode, viewId: operatedView }),
         output: browserOutcome.extend({
             // On this machine, outside the project folder; null when nobody has the page open.
             path: z.string().nullable()
@@ -2311,6 +2320,7 @@ export const ACTION_DEFINITIONS = {
         actors: AGENT,
         input: z.object({
             nodeId: deviceNode,
+            viewId: operatedView,
             find: z
                 .string()
                 .min(1)
@@ -2370,7 +2380,7 @@ export const ACTION_DEFINITIONS = {
         effect: 'read',
         domain: 'machine',
         actors: AGENT,
-        input: z.object({ nodeId: deviceNode }),
+        input: z.object({ nodeId: deviceNode, viewId: operatedView }),
         // On this machine, outside the project folder.
         output: z.object({ nodeId, path: z.string(), width: z.number().int(), height: z.number().int() })
     },
@@ -2380,7 +2390,7 @@ export const ACTION_DEFINITIONS = {
         effect: 'external',
         domain: 'machine',
         actors: AGENT,
-        input: z.object({ nodeId: deviceNode, x: devicePixel.nullish(), y: devicePixel.nullish(), element: deviceElement.nullish() }),
+        input: z.object({ nodeId: deviceNode, viewId: operatedView, x: devicePixel.nullish(), y: devicePixel.nullish(), element: deviceElement.nullish() }),
         output: deviceDone
     },
     'device.swipe': {
@@ -2391,6 +2401,7 @@ export const ACTION_DEFINITIONS = {
         actors: AGENT,
         input: z.object({
             nodeId: deviceNode,
+            viewId: operatedView,
             fromX: devicePixel,
             fromY: devicePixel,
             toX: devicePixel,
@@ -2405,7 +2416,11 @@ export const ACTION_DEFINITIONS = {
         effect: 'external',
         domain: 'machine',
         actors: AGENT,
-        input: z.object({ nodeId: deviceNode, button: z.string().min(1).describe('A button the device announces, as device.inspect lists them') }),
+        input: z.object({
+            nodeId: deviceNode,
+            viewId: operatedView,
+            button: z.string().min(1).describe('A button the device announces, as device.inspect lists them')
+        }),
         output: deviceDone
     },
     'device.type': {
@@ -2414,7 +2429,11 @@ export const ACTION_DEFINITIONS = {
         effect: 'external',
         domain: 'machine',
         actors: AGENT,
-        input: z.object({ nodeId: deviceNode, text: z.string().min(1).max(2000).describe('The text to type; a newline is Return and a tab is Tab') }),
+        input: z.object({
+            nodeId: deviceNode,
+            viewId: operatedView,
+            text: z.string().min(1).max(2000).describe('The text to type; a newline is Return and a tab is Tab')
+        }),
         output: deviceDone
     },
     'device.launch': {
@@ -2423,7 +2442,11 @@ export const ACTION_DEFINITIONS = {
         effect: 'external',
         domain: 'machine',
         actors: AGENT,
-        input: z.object({ nodeId: deviceNode, app: z.string().trim().min(1).max(256).describe('A bundle id on iOS or a package name on Android') }),
+        input: z.object({
+            nodeId: deviceNode,
+            viewId: operatedView,
+            app: z.string().trim().min(1).max(256).describe('A bundle id on iOS or a package name on Android')
+        }),
         output: deviceDone
     },
     'context.list': {
@@ -2455,6 +2478,7 @@ export const ACTION_DEFINITIONS = {
                     'The id of a source, as context.list gives it, or of an agent the caller opened itself; a drawing or diagram also takes the id of the linked node that shows it'
                 ),
             tail: z.number().int().min(1).nullable().describe('Only the last this many lines; without it the whole source'),
+            viewId: operatedView,
             subagent: z
                 .string()
                 .min(1)

@@ -40,6 +40,9 @@ const daemon = {
             }
             return new Response(`subagent ${subagent}${url.searchParams.has('tail') ? ` tail ${url.searchParams.get('tail')}` : ''}`);
         }
+        if (url.pathname === '/context/term-2') {
+            return new Response(`the screen of term-2 on ${url.searchParams.get('view')}`);
+        }
         if (url.pathname === '/context/boom') {
             return new Response('no', { status: 500 });
         }
@@ -146,7 +149,7 @@ describe('runContext', () => {
         expect(stderr).toBe(
             [
                 'refused\tbad-arguments\tread takes the id of a linked source',
-                'usage\tread\t<id> [--tail N] [--subagent T]',
+                'usage\tread\t<id> [--tail N] [--subagent T] [--view V]',
                 'detail\truimte-context help read',
                 'n1\ttext\tPlan'
             ].join('\n') + '\n'
@@ -171,6 +174,14 @@ describe('runContext', () => {
         stderr = '';
         expect(await runContext(['read', 'c1', '--subagent'], env)).toBe(3);
         expect(stderr).toStartWith('refused\tbad-arguments\t--subagent needs');
+    });
+
+    test('--view rides along as the canvas a chat view reads a node of, and an empty one is refused before anything is asked', async () => {
+        expect(await runContext(['read', 'term-2', '--view', 'main'], env)).toBe(0);
+        expect(await runContext(['read', 'term-2', '--view=board'], env)).toBe(0);
+        expect(stdout).toBe('the screen of term-2 on main\nthe screen of term-2 on board\n');
+        expect(await runContext(['read', 'term-2', '--view='], env)).toBe(3);
+        expect(stderr).toStartWith('refused\tbad-arguments\t--view needs the id of the canvas the source stands on');
     });
 
     test('a --tail that is not a positive whole number is refused before anything is asked', async () => {

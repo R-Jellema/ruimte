@@ -201,6 +201,17 @@ test('a chat view skips linked-context discovery and opens hidden agents with th
     }
 });
 
+test('a chat view arranges the canvas it names and operates its nodes without a line, which a hidden agent is never told', () => {
+    const view = verbsNote({ depth: 0, standalone: true });
+    expect(view).toContain('No line runs to a chat view, so you arrange a canvas the way the person does');
+    expect(view).toContain('`read <id> --view <canvas>`');
+    expect(view).toContain('`device` for a simulator or phone');
+    expect(view).toContain('Without --view these refuse with view-required');
+    const hidden = verbsNote({ depth: 1, standalone: true });
+    expect(hidden).not.toContain('No line runs to a chat view');
+    expect(hidden).toContain('For a note or drawing the person asks for in Ruimte, name its destination with --view');
+});
+
 test('a hidden agent at the depth limit is not told to start another agent', () => {
     const note = verbsNote({ depth: 2, standalone: true });
     expect(note).not.toContain('ruimte-context agent');

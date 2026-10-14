@@ -22,6 +22,14 @@ const COMMANDS_NOTE =
 
 const CHAT_VIEW_NOTE = 'You are working in a chat view. Skip linked-context discovery.';
 
+/* Told only that it may name a canvas for a note, a chat view tried to link itself to a device it
+   had just placed, and no line can reach a view; so the whole of what --view gives it is spelled out. */
+const CHAT_VIEW_CANVAS_NOTE =
+    'No line runs to a chat view, so you arrange a canvas the way the person does: name it with --view (`ruimte-context view list` lists them) and you may add, edit, rename, arrange and group its nodes, draw lines between them, and read and operate any node there without a line: `read <id> --view <canvas>` for a note, a chat or a terminal, `browser` for a page and `device` for a simulator or phone (take a `shot`, act in its pixels with `tap`, `swipe` and `button`, and take the next shot to see what happened). Without --view these refuse with view-required. Work on a canvas only for what the person asks of it.';
+
+/* A hidden agent a chat opened stands on no canvas either, but it is no view and arranges none. */
+const HIDDEN_AGENT_PLACEMENT = 'For a note or drawing the person asks for in Ruimte, name its destination with --view.';
+
 const TERMINAL_VIEW_NOTE =
     'You are working in a terminal view. Skip linked-context discovery. ' +
     'For agents, notes or drawings you open in Ruimte, select a destination with --view.';
@@ -148,7 +156,7 @@ export function verbsNote({
                       'Use --view only when the person asks to place the agent on a canvas.'
                   ]
                 : []),
-            'For a note or drawing the person asks for in Ruimte, name its destination with --view.',
+            depth === 0 ? CHAT_VIEW_CANVAS_NOTE : HIDDEN_AGENT_PLACEMENT,
             ALERT_NOTE,
             ...closing
         ].join(' ');

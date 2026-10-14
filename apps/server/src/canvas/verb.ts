@@ -224,6 +224,8 @@ export interface ContextHost {
     list(targetId: string): Pick<ContextSource, 'id' | 'kind' | 'title'>[];
     /* One linked source as text; a source it cannot answer throws a `CodedError` that says why. */
     answer(targetId: string, sourceId: string, tail: number | null, subagent: string | null): Promise<string>;
+    /* A source the caller reads without a line, such as a node of the canvas a chat view names. */
+    answerSource(targetId: string, source: ContextSource, tail: number | null, subagent: string | null): Promise<string>;
 }
 
 /*
@@ -315,7 +317,7 @@ export const { defineVerb, defineAction, defineNoun, defineHelp, dryRunVerbNames
 
 /* Two things an agent keeps mixing up, so the line is in the root of `help` and in the detail of each verb it is about. */
 export const SCOPE_LINE =
-    'scope\tlist and read are what a person linked into this session; node, link, browser, device, view, task, agent, team, done, notify, alert, answer, worktree, launches, database and language are the project itself, plan and visual are the chat of the caller, secret is a card in that chat for a launch, computer the apps of this machine\ta node you add is readable through read only once a line joins it to you, and a terminal or a chat only once that line runs from it into you';
+    'scope\tlist and read are what a person linked into this session; node, link, browser, device, view, task, agent, team, done, notify, alert, answer, worktree, launches, database and language are the project itself, plan and visual are the chat of the caller, secret is a card in that chat for a launch, computer the apps of this machine\ta node you add is readable through read only once a line joins it to you, and a terminal or a chat only once that line runs from it into you; a chat view has no lines and reads and operates every node of the canvas it names with --view';
 
 /* What a snooze means to an agent, said wherever a list prints the column. */
 export const SNOOZE_LINE =

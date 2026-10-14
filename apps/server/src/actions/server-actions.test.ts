@@ -3,8 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MAX_NOTICE_LENGTH, MAX_TITLE_LENGTH, type ActionInput } from '@ruimte/actions';
-import type { ProjectContent, ProjectNode, Task } from '@ruimte/contracts';
-import { SubagentUnreadable } from '../context/context-store.ts';
+import type { ContextSource, ProjectContent, ProjectNode, Task } from '@ruimte/contracts';
+import { ContextRefusal, SubagentUnreadable } from '../context/context-store.ts';
 import type { Notice } from '@adecore/agents/coordination';
 import type { AgentState, CanvasHost } from '../canvas/verb.ts';
 import { PlanStore } from '../plans/plan-store.ts';
@@ -30,6 +30,7 @@ let home: string;
 /* Only what these handlers reach; anything else is a handler reaching further than it should. */
 function host(): CanvasHost {
     const projects: Partial<CanvasHost['projects']> = {
+        locate: () => PLACE,
         read: async () => content,
         revision: async () => (writtenMeanwhile ? rev - 1 : rev),
         mutate: async (_projectId, apply, expectedRev) => {
@@ -50,13 +51,14 @@ function host(): CanvasHost {
             list: (targetId: string) => (targetId === 'term-1' ? [{ id: 'note-1', kind: 'text' as const, title: 'Plan' }] : []),
             answer: async (targetId: string, sourceId: string, tail: number | null, subagent: string | null) => {
                 if (targetId !== 'term-1' || sourceId !== 'note-1') {
-                    throw new ProjectError('project-not-found', 'not used here');
+                    throw new ContextRefusal('unknown-source', `${sourceId} is not linked to this session`);
                 }
                 if (subagent !== null) {
                     throw new SubagentUnreadable('note-1 is a text, and only a chat has subagents');
                 }
                 return tail === null ? 'one\ntwo' : 'two';
-            }
+            },
+            answerSource: async (targetId: string, source: ContextSource) => `${targetId} read ${source.kind} ${source.id}`
         },
         lineage: {
             put: async (record) => {
@@ -549,5 +551,90 @@ describe('the daemon actions', () => {
         expect(await serverActions.execute('context.list', {}, serverActionCall(snoozing, null, 'term-1'))).toMatchObject({
             output: { sources: [{ id: 'note-1', snoozedUntil: '2026-10-13T15:30:00.000Z' }] }
         });
+    });
+});
+
+describe('a chat view', () => {
+    /* A chat that is a view of its own, beside a second canvas, which is where a line can never reach it from. */
+    function withChatView(): void {
+        content.views.push(
+            { kind: 'chat', id: 'chat-v', name: 'Planner', node: {} },
+            {
+                kind: 'canvas',
+                id: 'board',
+                name: 'Board',
+                nodes: [{ id: 'chat-2', kind: 'chat', title: 'helper', x: 0, y: 0, w: 560, h: 360 }],
+                texts: [],
+                edges: [],
+                layouts: []
+            }
+        );
+        onMain({ id: 'web-1', kind: 'browser', title: 'Docs', url: 'https://example.com', x: 700, y: 0, w: 560, h: 360 });
+    }
+
+    function read(caller: string, sourceId: string, viewId: string | null) {
+        return serverActions.execute('context.read', { sourceId, tail: null, subagent: null, viewId }, as(caller));
+    }
+
+    test('reads a terminal and a chat of the canvas it names, with no line to either', async () => {
+        withChatView();
+        expect(await read('chat-v', 'term-2', 'main')).toMatchObject({ status: 'completed', output: { text: 'chat-v read terminal term-2' } });
+        expect(await read('chat-v', 'chat-2', 'board')).toMatchObject({ status: 'completed', output: { text: 'chat-v read chat chat-2' } });
+    });
+
+    test('without --view a node of a canvas is refused with the canvas it stands on', async () => {
+        withChatView();
+        expect(await read('chat-v', 'term-2', null)).toMatchObject({
+            status: 'failed',
+            error: {
+                code: 'view-required',
+                message: 'term-2 stands on main; a chat view reads and operates the nodes of a canvas by naming it with --view, since no line runs to a view',
+                details: ['see\truimte-context read term-2 --view main\tnames the canvas it stands on']
+            }
+        });
+        // An id on no canvas at all is no node it forgot to name a canvas for.
+        expect(await read('chat-v', 'nowhere', null)).toMatchObject({ status: 'failed', error: { code: 'unknown-source' } });
+    });
+
+    test('a node on another canvas than the one it names is refused', async () => {
+        withChatView();
+        expect(await read('chat-v', 'term-2', 'board')).toMatchObject({
+            status: 'failed',
+            error: { code: 'not-on-view', message: 'term-2 stands on main, not on board' }
+        });
+    });
+
+    test('a node on a canvas reads over its lines only, and --view does not stand in for one', async () => {
+        withChatView();
+        expect(await read('term-1', 'term-2', null)).toMatchObject({ status: 'failed', error: { code: 'unknown-source' } });
+        expect(await read('term-1', 'term-2', 'main')).toMatchObject({ status: 'failed', error: { code: 'not-a-chat-view' } });
+    });
+
+    test('drives a page of the canvas it names, and is refused one without --view or on another canvas', async () => {
+        withChatView();
+        expect(await serverActions.execute('browser.back', { nodeId: 'web-1', viewId: 'main' }, as('chat-v'))).toMatchObject({
+            status: 'completed',
+            output: { nodeId: 'web-1', open: false }
+        });
+        expect(await serverActions.execute('browser.back', { nodeId: 'web-1' }, as('chat-v'))).toMatchObject({
+            status: 'failed',
+            error: { code: 'view-required' }
+        });
+        expect(await serverActions.execute('browser.back', { nodeId: 'web-1', viewId: 'board' }, as('chat-v'))).toMatchObject({
+            status: 'failed',
+            error: { code: 'not-on-view' }
+        });
+        expect(await serverActions.execute('browser.back', { nodeId: 'web-1', viewId: 'main' }, agent())).toMatchObject({
+            status: 'failed',
+            error: { code: 'not-a-chat-view' }
+        });
+    });
+
+    test('writes in any note of the canvas it names, which a node on that canvas does only over a line', async () => {
+        withChatView();
+        onMain({ id: 'note-2', kind: 'note', title: 'Plan', body: 'x', x: 0, y: 1200, w: 320, h: 240 });
+        const write = { viewId: 'main', nodeId: 'note-2', text: 'y', append: false };
+        expect(await serverActions.execute('node.update', write, as('chat-v'))).toMatchObject({ status: 'completed', output: { changed: true } });
+        expect(await serverActions.execute('node.update', write, as('term-2'))).toMatchObject({ status: 'failed', error: { code: 'not-linked' } });
     });
 });

@@ -512,7 +512,7 @@ describe('help', () => {
             'detail',
             'refusal'
         ]);
-        expect(lines[2]).toBe('verb\tread\t<id> [--tail N] [--subagent T]\tPrints one linked source, whole or its last lines.');
+        expect(lines[2]).toBe('verb\tread\t<id> [--tail N] [--subagent T] [--view V]\tPrints one linked source, whole or its last lines.');
         expect(lines).toContain(
             'noun\tnode\tlist|new|edit|rename|delete|group|arrange\tLists, adds, writes in, renames, removes, frames and lays out the nodes of a canvas'
         );
@@ -1120,6 +1120,26 @@ describe('node new', () => {
         });
         expect(canvas.edges.find((edge) => edge.id === edgeId)).toEqual({ id: edgeId!, from: 'term-1', to: id!, role: 'origin' });
         expect((await post('device', ['state', id!])).lines.slice(0, 2)).toEqual([`device\t${id}\tiPhone 18 Pro\tios\tsimulator\tiOS 27.0`, 'state\tbooted']);
+    });
+
+    test('a chat view puts a device on the canvas it names with no line, and operates it there by naming that canvas', async () => {
+        const [id, kind, view, edge] = (await post('node', ['new', 'device', '--device', 'sim-1', '--view', 'main'], 'chat')).lines[0]!.split('\t');
+        expect([kind, view, edge]).toEqual(['device', 'main', '-']);
+        expect((await canvasOnDisk()).edges).toEqual([]);
+        expect((await post('device', ['state', id!, '--view', 'main'], 'chat')).lines.slice(0, 2)).toEqual([
+            `device\t${id}\tiPhone 18 Pro\tios\tsimulator\tiOS 27.0`,
+            'state\tbooted'
+        ]);
+        expect((await post('device', ['state', id!], 'chat')).lines).toEqual([
+            `refused\tview-required\t${id} stands on main; a chat view reads and operates the nodes of a canvas by naming it with --view, since no line runs to a view`,
+            `see\truimte-context device state ${id} --view main\tnames the canvas it stands on`
+        ]);
+        expect((await post('device', ['shot', id!, '--view', 'board'], 'chat')).lines[0]).toBe(`refused\tnot-on-view\t${id} stands on main, not on board`);
+        // The terminal beside it on that canvas has no line to it, and a line is still what it needs.
+        expect((await post('device', ['state', id!])).lines[0]).toBe(
+            `refused\tnot-linked\tNo line runs between you and ${id}, and that line is what lets you operate its device`
+        );
+        expect((await post('device', ['state', id!, '--view', 'main'])).lines[0]).toStartWith('refused\tnot-a-chat-view\t');
     });
 
     test('a device node needs a device this machine has, and only a device node takes one', async () => {
@@ -2941,6 +2961,12 @@ describe('node edit', () => {
         expect((await nodeOnDisk('note-1'))?.body).toBe('mine');
     });
 
+    test('a chat view writes in any note of the canvas it names, with no line to it', async () => {
+        expect((await post('node', ['edit', 'note-1', '--text', 'from the chat'], 'chat')).lines[0]).toStartWith('refused\tview-required\t');
+        expect((await post('node', ['edit', 'note-1', '--text', 'from the chat', '--view', 'main'], 'chat')).lines).toEqual(['edited\tnote-1\t1\t13']);
+        expect((await nodeOnDisk('note-1'))?.body).toBe('from the chat');
+    });
+
     test('only a note, and only one that is on the canvas', async () => {
         const wrong = await post('node', ['edit', 'term-1', '--text', 'x']);
         expect(wrong.status).toBe(422);
@@ -3607,10 +3633,24 @@ describe('browser', () => {
         expect(across.some((line) => line.includes(`link new --to ${far}`))).toBe(false);
 
         const alone = (await post('browser', ['state', far], 'chat')).lines;
-        expect(alone[1]).toBe(
-            `note\t${far} stands on board, and you are a view of your own: a line only runs between two nodes of one canvas, so no page can be linked to you`
-        );
-        expect(alone.some((line) => line.includes('link new'))).toBe(false);
+        expect(alone).toEqual([
+            `refused\tview-required\t${far} stands on board; a chat view reads and operates the nodes of a canvas by naming it with --view, since no line runs to a view`,
+            `see\truimte-context browser state ${far} --view board\tnames the canvas it stands on`
+        ]);
+    });
+
+    test('a chat view drives a page of the canvas it names without a line, and only on that canvas', async () => {
+        const far = (await post('node', ['new', 'browser', '--url', 'https://example.com/far', '--view', 'board'])).lines[0]!.split('\t')[0]!;
+        const { status, lines } = await post('browser', ['go', far, '--url', 'https://example.com/two', '--view', 'board'], 'chat');
+        expect(status).toBe(200);
+        expect(lines[1]).toBe(`page\t${far}\thttps://example.com/two\tTwo`);
+        expect((await post('browser', ['state', far, '--view', 'main'], 'chat')).lines).toEqual([
+            `refused\tnot-on-view\t${far} stands on board, not on main`,
+            `see\truimte-context browser state ${far} --view board\tnames the canvas it stands on`
+        ]);
+        // A node on a canvas keeps to its lines, and --view does not stand in for one.
+        expect((await post('browser', ['state', far, '--view', 'board'])).lines[0]).toStartWith('refused\tnot-a-chat-view\t');
+        expect(driven).toEqual([{ browserId: far, action: { kind: 'go', url: 'https://example.com/two' } }]);
     });
 
     test('a node that is not a browser, and an id that is no node at all, are refused by name', async () => {

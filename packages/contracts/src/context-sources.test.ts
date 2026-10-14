@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { deriveContextSources, deriveProjectContextSources } from './context-sources.ts';
+import { canvasContextSources, deriveContextSources, deriveProjectContextSources } from './context-sources.ts';
 import type { ContextSource } from './context.ts';
 import type { ProjectNode, ProjectView } from './project.ts';
 
@@ -260,5 +260,33 @@ describe('deriveProjectContextSources', () => {
             { ...(views[2] as Extract<ProjectView, { kind: 'canvas' }>), edges: [{ id: 'e3', from: 'plan', to: 'agent-b' }] }
         ];
         expect(deriveProjectContextSources(crossed, null).size).toBe(0);
+    });
+});
+
+describe('canvasContextSources', () => {
+    test('every node and text of the canvas, with no line to any of them, and a group gives nothing of its own', () => {
+        const sources = canvasContextSources(
+            {
+                kind: 'canvas',
+                id: 'board',
+                name: 'Board',
+                nodes: [
+                    node('shell', 'terminal'),
+                    node('sketch', 'drawing', { title: 'Sketch', viewId: 'drawing-1' }),
+                    node('spec', 'file', { title: 'spec.md', path: 'docs/spec.md' }),
+                    node('frame', 'group')
+                ],
+                texts: [{ id: 't1', x: 0, y: 0, text: 'Hello', size: 18 }],
+                edges: [],
+                layouts: []
+            },
+            '/repo'
+        );
+        expect(sources).toEqual([
+            { id: 'shell', kind: 'terminal', title: 'shell' },
+            { id: 'drawing-1', kind: 'drawing', title: 'Sketch', nodeId: 'sketch' },
+            { id: 'spec', kind: 'file', title: 'spec.md', text: '/repo/docs/spec.md' },
+            { id: 't1', kind: 'text', title: 'Hello', text: 'Hello' }
+        ]);
     });
 });
