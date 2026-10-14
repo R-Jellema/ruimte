@@ -43,10 +43,6 @@ describe('moveRefusal', () => {
         expect(moveRefusal('chat-1', deps({ lineage: { openedCount: () => 0, startedBy: () => 'chat-0' } }))).toEqual({ reason: 'agents' });
     });
 
-    test('lets a fork go: only its lineage record travels', () => {
-        expect(moveRefusal('fork-1', deps())).toBeNull();
-    });
-
     test('refuses a task the chat gave in any state and one it still works on', () => {
         expect(moveRefusal('chat-1', deps({ tasks: tasks({ parentId: 'chat-1', childId: 'chat-2', status: 'done' }) }))).toEqual({ reason: 'tasks' });
         expect(moveRefusal('chat-1', deps({ tasks: tasks({ parentId: 'chat-0', childId: 'chat-1', status: 'open' }) }))).toEqual({ reason: 'tasks' });

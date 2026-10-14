@@ -89,6 +89,14 @@ describe('what the machine says about moving a chat', () => {
         expect((await moves().info({ chatId })).refusal).toBeNull();
     });
 
+    test('lets a fork and the chat it was forked from go: a fork record is no agent', async () => {
+        await daemon.lineage.put({ projectId: 'p1', nodeId: chatId, openedBy: 'chat-original', depth: 0, agent: true, relation: 'fork' });
+        await daemon.lineage.put({ projectId: 'p1', nodeId: 'chat-fork-of-it', openedBy: chatId, depth: 0, agent: true, relation: 'fork' });
+        expect(daemon.lineage.forkedFrom(chatId)).toBe('chat-original');
+        expect(daemon.lineage.forksOf(chatId)).toEqual(['chat-fork-of-it']);
+        expect((await moves().info({ chatId })).refusal).toBeNull();
+    });
+
     test('refuses a chat that is not a view of Chats', async () => {
         const folder = join(root, 'repo');
         await mkdir(folder);
