@@ -1,7 +1,9 @@
-import { afterAll, describe, expect, test } from 'bun:test';
+import type { Subprocess } from 'bun';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { DarwinSampler } from './darwin.ts';
 import { identityOf, processRates } from './sampler.ts';
 
 const onMac = process.platform === 'darwin';
@@ -27,27 +29,32 @@ function topBytes(text: string): number {
     return Number(match[1]) * { B: 1, K: 1024, M: 1024 ** 2, G: 1024 ** 3 }[match[2] as 'B' | 'K' | 'M' | 'G'];
 }
 
-describe.skipIf(!onMac)('the libproc sampler against ps', async () => {
-    const { DarwinSampler } = await import('./darwin.ts');
-    const folder = await mkdtemp(join(tmpdir(), 'ruimte-processes-'));
-    // Burns CPU and writes 16 MB, then waits to be killed, so the counters stand still while we compare.
-    const script = `
-        const end = Date.now() + 700; let x = 0; while (Date.now() < end) { x += Math.sqrt(x + 1); }
-        const fs = require('node:fs'); const fd = fs.openSync(${JSON.stringify(join(folder, 'out.bin'))}, 'w');
-        for (let i = 0; i < 16; i++) { fs.writeSync(fd, Buffer.alloc(1024 * 1024, 1)); } fs.fsyncSync(fd); fs.closeSync(fd);
-        process.stdout.write('ready\\n'); setInterval(() => {}, 1000);
-    `;
-    const child = Bun.spawn([process.execPath, '-e', script], { stdout: 'pipe', stderr: 'ignore' });
-    const reader = child.stdout.getReader();
-    await reader.read();
+// Bun runs the body of a skipped describe to collect its tests, so the setup waits in beforeAll.
+describe.skipIf(!onMac)('the libproc sampler against ps', () => {
+    let folder: string;
+    let child: Subprocess<'ignore', 'pipe', 'ignore'>;
+    let sampler: DarwinSampler;
+
+    beforeAll(async () => {
+        const { DarwinSampler } = await import('./darwin.ts');
+        folder = await mkdtemp(join(tmpdir(), 'ruimte-processes-'));
+        // Burns CPU and writes 16 MB, then waits to be killed, so the counters stand still while we compare.
+        const script = `
+            const end = Date.now() + 700; let x = 0; while (Date.now() < end) { x += Math.sqrt(x + 1); }
+            const fs = require('node:fs'); const fd = fs.openSync(${JSON.stringify(join(folder, 'out.bin'))}, 'w');
+            for (let i = 0; i < 16; i++) { fs.writeSync(fd, Buffer.alloc(1024 * 1024, 1)); } fs.fsyncSync(fd); fs.closeSync(fd);
+            process.stdout.write('ready\\n'); setInterval(() => {}, 1000);
+        `;
+        child = Bun.spawn([process.execPath, '-e', script], { stdout: 'pipe', stderr: 'ignore' });
+        await child.stdout.getReader().read();
+        sampler = new DarwinSampler(tmpdir());
+    });
 
     afterAll(async () => {
         child.kill('SIGKILL');
         await child.exited;
         await rm(folder, { recursive: true, force: true });
     });
-
-    const sampler = new DarwinSampler(tmpdir());
 
     test('parent, start, CPU time, footprint and disk writes agree with the system tools', async () => {
         const reading = sampler.sample();
