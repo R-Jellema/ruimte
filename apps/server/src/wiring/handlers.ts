@@ -46,6 +46,7 @@ import { PrepareTerminal, shellSyntax } from '../sessions/prepare-terminal.ts';
 import { VERSION } from '../version.ts';
 import type { AgentStores, AgentsBundle } from './agents.ts';
 import type { AgentWorkBundle } from './agent-work.ts';
+import { chatMoveHandlers } from './chat-move.ts';
 import type { ClientsBundle } from './clients.ts';
 import type { DatabasesBundle } from './databases.ts';
 import type { DevicesBundle } from './devices.ts';
@@ -134,7 +135,16 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
             summarize: (chatId) => work.summaries.summarize(chatId),
             continueOn: (payload) => continueOn({ chats, fork: (fork) => forkChat(forkDeps, fork) }, payload)
         },
-        (chatId) => work.prWatches.stop(chatId)
+        (chatId) => work.prWatches.stop(chatId),
+        chatMoveHandlers({
+            chats,
+            store,
+            lineage: stores.lineage,
+            tasks: stores.tasks,
+            outbox: stores.outbox,
+            notices: stores.notices,
+            prWatches: work.prWatches
+        })
     );
     registerTaskHandlers(dispatcher, stores.tasks, work.endChildren.children);
     registerChatImageHandlers(

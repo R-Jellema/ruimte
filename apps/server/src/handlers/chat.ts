@@ -5,6 +5,8 @@ import type {
     ChatForkInfoResult,
     ChatForkPayload,
     ChatForkResult,
+    ChatMoveInfoPayload,
+    ChatMoveInfoResult,
     ChatSummarizeResult
 } from '@ruimte/contracts';
 import { chatHandlers } from '@adecore/agents/host';
@@ -22,6 +24,10 @@ export interface ChatForkHandlers {
     continueOn(payload: ChatContinueOnPayload): Promise<ChatContinueOnResult>;
 }
 
+export interface ChatMoveHandlers {
+    info(payload: ChatMoveInfoPayload): Promise<ChatMoveInfoResult>;
+}
+
 export function registerChatHandlers(
     dispatcher: Dispatcher,
     manager: ChatManager,
@@ -29,7 +35,8 @@ export function registerChatHandlers(
     beforeKill?: BeforeKill,
     stopNode?: (nodeId: string, reason: string) => Promise<void>,
     forks?: ChatForkHandlers,
-    killed?: (chatId: string) => Promise<void>
+    killed?: (chatId: string) => Promise<void>,
+    moves?: ChatMoveHandlers
 ): void {
     // What the daemon answers differently from a host of chats alone: a task's row stops its node, a stop or a
     // removal first owes the end of the agents a chat opened, and a fork lands on the canvas.
@@ -64,6 +71,11 @@ export function registerChatHandlers(
     dispatcher.register('chat.summarize', (payload) => forking().summarize(payload.chatId));
 
     dispatcher.register('chat.continueOn', (payload) => forking().continueOn(payload));
+
+    // Left unregistered without them, so `features` only names what this machine answers.
+    if (moves) {
+        dispatcher.register('chat.moveInfo', (payload) => moves.info(payload));
+    }
 
     dispatcher.register('chat.cancel', async (payload) => {
         // Owed on disk before the turn stops, so a restart in between still ends the agents it opened.
