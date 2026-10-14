@@ -287,14 +287,18 @@ async function askBeforeQuit(): Promise<boolean> {
 
 const pageKeys = createPageKeys();
 
-/* The page already asked, so the quit that follows asks nothing; it still takes down the service this installation owns when the choice said so. */
+/*
+ * The page already asked, so the quit that follows asks nothing; it still takes down the service this
+ * installation owns when the choice said so. Under `bun dev` the relaunched app is no longer tied to
+ * the launcher's pipe, so Ctrl+C in that terminal does not close it.
+ */
 function relaunchApp(): void {
     quitConfirmed = true;
     app.relaunch(process.env.APPIMAGE ? { execPath: process.env.APPIMAGE } : undefined);
     app.quit();
 }
 
-installMachineMode(ipc, { mode: machineMode, machine, relaunch: relaunchApp });
+installMachineMode(ipc, { mode: machineMode, machine, store: machineModeStore, relaunch: relaunchApp });
 
 const menu = installMenu(ipc, {
     pageKeys,

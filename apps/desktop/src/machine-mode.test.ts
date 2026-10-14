@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { launchAgentPlist } from '@adecore/service';
+import { daemonServiceSpec } from '@ruimte/service/host';
 import {
     decideMachineMode,
     hasInstallTraces,
@@ -10,6 +12,7 @@ import {
     parseModeOverride,
     parseStoredMode,
     planSwitch,
+    removeOwnDefinition,
     secretFor,
     tildeHome,
     type MachineModeFacts
@@ -158,5 +161,45 @@ describe('tildeHome', () => {
 
     test('follows the separator of a Windows path', () => {
         expect(tildeHome(String.raw`C:\Users\bas\.ruimte`, String.raw`C:\Users\bas`)).toBe(String.raw`~\.ruimte`);
+    });
+});
+
+describe('removeOwnDefinition', () => {
+    const IDENTITY = { ruimteHome: '/home/bas/.ruimte', commandLineProgram: '/home/bas/.ruimte/bin/ruimte' };
+
+    function manager(definition: string | null) {
+        const calls: string[] = [];
+        return {
+            calls,
+            read: () => definition,
+            uninstall: () => {
+                calls.push('uninstall');
+            }
+        };
+    }
+
+    function plist(program: string, ruimteHome: string): string {
+        return launchAgentPlist(daemonServiceSpec({ program, args: ['--port', '4210'], home: '/home/bas', ruimteHome, path: '/usr/bin:/bin' }));
+    }
+
+    test('takes the definition of this installation away while the app runs its own daemon', () => {
+        const own = manager(plist('/Applications/Ruimte.app/Contents/Resources/bin/ruimte', IDENTITY.ruimteHome));
+        expect(removeOwnDefinition(own, IDENTITY, 'app')).toBe(true);
+        expect(own.calls).toEqual(['uninstall']);
+    });
+
+    test('leaves a service that runs the machine to the quit, which stops it first', () => {
+        const own = manager(plist('/Applications/Ruimte.app/Contents/Resources/bin/ruimte', IDENTITY.ruimteHome));
+        expect(removeOwnDefinition(own, IDENTITY, 'service')).toBe(false);
+        expect(own.calls).toEqual([]);
+    });
+
+    test('leaves the service of the command line, of another home and of nobody alone', () => {
+        const commandLine = manager(plist(IDENTITY.commandLineProgram, IDENTITY.ruimteHome));
+        const elsewhere = manager(plist('/Applications/Ruimte.app/Contents/Resources/bin/ruimte', '/home/bas/other'));
+        const none = manager(null);
+        expect([commandLine, elsewhere, none].map((entry) => removeOwnDefinition(entry, IDENTITY, 'app'))).toEqual([false, false, false]);
+        expect([...commandLine.calls, ...elsewhere.calls, ...none.calls]).toEqual([]);
+        expect(removeOwnDefinition(null, IDENTITY, 'app')).toBe(false);
     });
 });

@@ -1,23 +1,25 @@
-import { join } from 'node:path';
 import type { MachineMode } from '@ruimte/desktop-bridge';
-import { machineModeFile, planSwitch } from '../machine-mode';
-import { electron } from './electron';
+import type { MachineModeFile } from '../machine-mode';
+import { planSwitch } from '../machine-mode';
 import type { AppIpc } from './ipc';
 import type { Machine } from './service';
 
-const { app } = electron;
-
 export interface MachineModeOptions {
     mode: MachineMode;
-    machine: Machine;
+    machine: Pick<Machine, 'found' | 'stopPreview' | 'stopOnQuit' | 'removeOwnService'>;
+    store: MachineModeFile;
     /* Quits and starts the app again, without the question the page already asked. */
     relaunch(): void;
+    /* Runs after the current call, so the reply reaches the page before the windows go. */
+    later?(run: () => void): void;
 }
 
 /* The page chooses whether this app runs a machine; the shell writes it and starts over with it. */
 export function installMachineMode(ipc: AppIpc, options: MachineModeOptions): void {
-    const { machine } = options;
-    const store = machineModeFile(join(app.getPath('userData'), 'machine.json'));
+    const { machine, store } = options;
+    const later = options.later ?? ((run: () => void) => void setTimeout(run, 0));
+    // Once a choice is on its way the app is going down, and a second one would write over it.
+    let switching = false;
 
     ipc.handle('machine:found', () => machine.found());
     ipc.handle('machine:stop-preview', () => machine.stopPreview());
@@ -25,13 +27,28 @@ export function installMachineMode(ipc: AppIpc, options: MachineModeOptions): vo
         if (next !== 'local' && next !== 'none') {
             throw new Error('Unknown machine mode');
         }
-        const plan = planSwitch(options.mode, next);
-        // A write that fails rejects here, before anything stopped.
-        store.write(plan.write);
-        if (plan.stopMachine) {
-            machine.stopOnQuit();
+        if (switching) {
+            throw new Error('The app is already switching');
         }
-        // The reply has to reach the page before the windows go.
-        setTimeout(options.relaunch, 0);
+        const plan = planSwitch(options.mode, next);
+        switching = true;
+        try {
+            // A write that fails rejects here, before anything stopped.
+            store.write(plan.write);
+            if (plan.stopMachine) {
+                try {
+                    machine.removeOwnService();
+                } catch (e) {
+                    // The next start must find the mode it ran with, or the definition it could not remove would start a machine the app says is gone.
+                    store.write(options.mode);
+                    throw e;
+                }
+            }
+        } catch (e) {
+            switching = false;
+            throw e;
+        }
+        machine.stopOnQuit(plan.stopMachine);
+        later(options.relaunch);
     });
 }

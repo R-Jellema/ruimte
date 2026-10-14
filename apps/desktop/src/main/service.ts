@@ -10,7 +10,7 @@ import type { BackgroundServiceState, MachineMode, MachineStopPreview, ServiceSu
 import { commandLineServiceProgram, daemonServiceSpec, platformServiceManager, serviceLogFile } from '@ruimte/service/host';
 import { askDaemonWork, proveDaemon, type DaemonPort } from '../daemon-proof';
 import { askLoginShellPath, fileLoginPathCache, loadLoginPath } from '../login-path';
-import { secretFor, tildeHome } from '../machine-mode';
+import { removeOwnDefinition, secretFor, tildeHome } from '../machine-mode';
 import { createServiceController, type ServiceController } from '../service/controller';
 import { keepRunningSetting, serviceSupport } from '../service/settings';
 import { createSecretGate } from '../startup';
@@ -47,8 +47,10 @@ export interface Machine {
     stopsOnQuit(): boolean;
     /* A quit that was turned down stops nothing at the next one. */
     keepOnQuit(): void;
-    /* Marks the next quit as one that takes the machine down, without quitting. */
-    stopOnQuit(): void;
+    /* Whether the next quit takes the machine down, set without quitting. */
+    stopOnQuit(stop: boolean): void;
+    /* Takes the definition of this installation away when the app ran its own daemon; throws when it cannot. */
+    removeOwnService(): void;
     /* Whether a daemon answers on the port; only its health is asked, never the local secret. */
     found(): Promise<boolean>;
     /* What a switch to `none` ends. */
@@ -286,8 +288,11 @@ export function createMachine(options: MachineOptions): Machine {
             watchPendingRestart();
         },
         stopAndQuit,
-        stopOnQuit() {
-            stopMachineOnQuit = true;
+        stopOnQuit(stop) {
+            stopMachineOnQuit = stop;
+        },
+        removeOwnService() {
+            removeOwnDefinition(manager, { ruimteHome, commandLineProgram: commandLineServiceProgram(ruimteHome) }, controller.state().owner);
         },
         found: async () => options.mode !== 'local' && (await probeDaemon()) !== null,
         async stopPreview() {

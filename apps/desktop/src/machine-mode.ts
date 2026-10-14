@@ -1,6 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import type { MachineMode } from '@ruimte/desktop-bridge';
+import type { ServiceManager } from '@adecore/service';
+import type { DaemonOwner, MachineMode } from '@ruimte/desktop-bridge';
+import { serviceOwnership, type ServiceIdentity } from './service/ownership';
 
 /*
  * Files in `userData` that show the app ran before this release. They only count while `machine.json`
@@ -104,4 +106,17 @@ export function planSwitch(current: MachineMode, next: 'local' | 'none'): Switch
 export function tildeHome(path: string, home: string): string {
     const rest = path.slice(home.length);
     return path.startsWith(home) && (rest === '' || rest[0] === '/' || rest[0] === '\\') ? `~${rest}` : path;
+}
+
+/*
+ * The definition of this installation, taken away when the app stops running a machine. Its daemon may
+ * be the app's own child, which a quit ends but which leaves the definition for the next login to start.
+ * A service that runs the machine is taken down by the quit itself, and a definition of anyone else stays.
+ */
+export function removeOwnDefinition(manager: Pick<ServiceManager, 'read' | 'uninstall'> | null, identity: ServiceIdentity, owner: DaemonOwner | null): boolean {
+    if (manager === null || owner === 'service' || serviceOwnership(manager.read(), identity) !== 'this') {
+        return false;
+    }
+    manager.uninstall();
+    return true;
 }
