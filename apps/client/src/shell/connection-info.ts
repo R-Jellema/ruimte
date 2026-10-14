@@ -3,7 +3,7 @@ import type { Reachability } from '@ruimte/contracts';
 import type { Endpoint } from '@/state/endpoints';
 import { listedEndpoints } from '@/state/local-machine';
 import type { ConnectionState } from '@/transport';
-import { relativeTime } from '@/shell/panels/commit-log';
+import { formatAge } from '@adecore/ui/format';
 
 /*
  * How far away a machine is, in the words a row's tooltip and the About pane show. Each word is read
@@ -82,7 +82,7 @@ export function tooltipMachines<T extends Pick<Endpoint, 'id'>>(endpoints: reado
 
 /* When a machine without a link last had one here; null when this client never reached it. */
 export function describeLastSeen(at: number | null, now: number): string | null {
-    return at === null ? null : i18next.t('shell:connection.lastSeen', { ago: relativeTime(Math.floor(at / 1000), Math.floor(now / 1000)) });
+    return at === null ? null : i18next.t('shell:connection.lastSeen', { ago: formatAge(at, now) });
 }
 
 /* The machine on the other end. A daemon on this machine is named after the machine itself,

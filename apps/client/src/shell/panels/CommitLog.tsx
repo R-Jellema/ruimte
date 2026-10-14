@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Copy, GitCommitHorizontal } from 'lucide-react';
 import { GIT_GROUP } from '@/shell/panels/classes';
 import { perform } from '@/actions/client-actions';
-import { groupCommits, mergeLogs, relativeTime, type LoadedLog, type LogRow } from '@/shell/panels/commit-log';
+import { groupCommits, mergeLogs, type LoadedLog, type LogRow } from '@/shell/panels/commit-log';
 import { useTransport } from '@/transport/context';
 import { Button, copyText, Icon, ListRow, Pill, PanelEmpty, SectionLabel, Tooltip, ContextMenu, useNow } from '@adecore/ui';
+import { formatAge } from '@adecore/ui/format';
 
 // One screen of rows at a time; the button at the end asks for the next.
 const PAGE = 30;
@@ -142,7 +143,7 @@ export function CommitLog({ sources, reading, onOpen }: CommitLogProps) {
                                 )}
                                 <span className="grow" />
                                 <span className="truncate text-text-faint">{commit.author}</span>
-                                <span className="shrink-0 text-text-faint">{relativeTime(commit.at, now)}</span>
+                                <span className="shrink-0 text-text-faint">{formatAge(commit.at * 1000, now * 1000)}</span>
                             </ContextMenu.Trigger>
                             <ContextMenu.Popup>
                                 <ContextMenu.Item onClick={() => onOpen(commit.cwd, commit)}>

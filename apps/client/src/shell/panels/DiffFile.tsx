@@ -7,7 +7,6 @@ import type { DiffContents } from '@adecore/agents-react/chat/ui';
 import type { GitDiffFile, GitDiffResult, GitDiffScope } from '@ruimte/contracts';
 import { perform } from '@/actions/client-actions';
 import { FILE_TOOLBAR } from '@/shell/panels/classes';
-import { relativeTime } from '@/shell/panels/commit-log';
 import { CommitFileTree } from '@/shell/panels/CommitFileTree';
 import { pickedFile } from '@/shell/panels/commit-tree';
 import { FileActionsContext } from '@/shell/panels/file-actions';
@@ -19,6 +18,7 @@ import { useGitSignal } from '@/state/git-watch';
 import { useSettings } from '@/state/settings';
 import { useTransport } from '@/transport/context';
 import { ButtonGroup, ColumnResizeHandle, EmptyState, ErrorBoundary, Menu, Separator, lazyNamed, useColumnResize, useNow } from '@adecore/ui';
+import { formatAge } from '@adecore/ui/format';
 
 const UnifiedDiff = lazyNamed(() => import('@adecore/agents-react/chat/ui'), 'UnifiedDiff');
 
@@ -204,7 +204,7 @@ function CommitDiff({ tabKey, cwd, commit, base }: { tabKey: string; cwd: string
     const { t } = useTranslation('panels');
     const layout = useSettings((s) => s.diffLayout);
     const wrap = useSettings((s) => s.codeWrap);
-    const now = Math.floor(useNow(MINUTE_MS) / 1000);
+    const now = useNow(MINUTE_MS);
     const [nonce, setNonce] = useState(0);
     /* A commit never changes, so only the changes of a checkout follow the tree. */
     const signal = useGitSignal(commit === undefined ? cwd : null);
@@ -315,7 +315,7 @@ function CommitDiff({ tabKey, cwd, commit, base }: { tabKey: string; cwd: string
                                         <>
                                             <p className="text-xs font-medium text-text">{meta?.subject ?? commit}</p>
                                             <p className="mt-1 text-xs text-text-faint">
-                                                {meta === undefined ? commit : `${meta.author} · ${relativeTime(meta.at, now)} · ${meta.shortHash}`}
+                                                {meta === undefined ? commit : `${meta.author} · ${formatAge(meta.at * 1000, now)} · ${meta.shortHash}`}
                                             </p>
                                         </>
                                     )}

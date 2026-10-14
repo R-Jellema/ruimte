@@ -1,21 +1,11 @@
 import i18next from 'i18next';
 import type { GitCommit } from '@ruimte/contracts';
-import { formatDay, formatDayWithYear, formatAgo } from '@adecore/ui/format';
-
-const MINUTE = 60;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
+import { formatDay, formatDayWithYear } from '@adecore/ui/format';
 
 /* The date a row falls back to once "days ago" stops meaning anything, with the year when it is not this one. */
 function dateOf(at: number, now: number): string {
     const date = new Date(at * 1000);
     return date.getFullYear() === new Date(now * 1000).getFullYear() ? formatDay(date) : formatDayWithYear(date);
-}
-
-/* How long ago a commit was written, short enough for the right edge of a log row. */
-export function relativeTime(at: number, now: number): string {
-    const seconds = Math.max(0, now - at);
-    return seconds < 7 * DAY ? formatAgo(seconds * 1000) : dateOf(at, now);
 }
 
 /* One commit with the checkout it came out of, which is what opening a row needs and what a row says

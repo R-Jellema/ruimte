@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { GitCommit, GitFile, GitStatus } from '@ruimte/contracts';
-import { groupCommits, mergeLogs, relativeTime, type LoadedLog } from './commit-log';
+import { groupCommits, mergeLogs, type LoadedLog } from './commit-log';
 import {
     actionTitle,
     commitTargets,
@@ -186,11 +186,6 @@ describe('the commit message', () => {
 
 describe('the log', () => {
     const now = Math.floor(new Date('2026-09-10T12:00:00Z').getTime() / 1000);
-
-    test('a commit reads as an age for six days and as a date from the seventh on', () => {
-        expect(relativeTime(now - 6 * 86400, now)).toBe('6d ago');
-        expect(relativeTime(now - 7 * 86400, now)).toMatch(/^[A-Z][a-z]{2} \d+$/);
-    });
 
     test('commits fall under the day they were written on, in the order they came in', () => {
         const midnight = Math.floor(new Date('2026-09-10T00:00:00').getTime() / 1000);
