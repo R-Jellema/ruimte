@@ -62,9 +62,9 @@ import Testing
 
     @Test func aTouchLandsAsAShareOfTheFittedScreen() {
         let screen = DeviceView.fitted(CGSize(width: 100, height: 200), in: CGRect(x: 0, y: 0, width: 300, height: 400))
-        #expect(screen == CGRect(x: 100, y: 0, width: 200, height: 400))
-        #expect(DeviceView.position(of: CGPoint(x: 200, y: 100), in: screen) == CGPoint(x: 0.5, y: 0.25))
-        #expect(DeviceView.position(of: CGPoint(x: 50, y: 100), in: screen) == nil)
+        #expect(screen == CGRect(x: 50, y: 0, width: 200, height: 400))
+        #expect(DeviceView.position(of: CGPoint(x: 150, y: 100), in: screen) == CGPoint(x: 0.5, y: 0.25))
+        #expect(DeviceView.position(of: CGPoint(x: 40, y: 100), in: screen) == nil)
         let pointer = DeviceView.pointer("down", at: CGPoint(x: 0.5, y: 0.95), fromBottom: true)
         #expect(pointer["edge"] == .string("bottom"))
         #expect(DeviceView.pointer("up", at: .zero)["edge"] == nil)
