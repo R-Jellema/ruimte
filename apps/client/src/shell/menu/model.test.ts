@@ -119,6 +119,14 @@ describe('the menus', () => {
         expect(labels(menuModel(context({ view: 'chat' })))).toEqual(['Ruimte', 'File', 'Edit', 'Code', 'View', 'Chat', 'Go', 'Run', 'Window', 'Help']);
     });
 
+    test('the window and help menus carry their role, so macOS lists the open windows there', () => {
+        const roles = menuModel(context()).menus.flatMap((entry) => (entry.role ? [[entry.id, entry.role]] : []));
+        expect(roles).toEqual([
+            ['window', 'window'],
+            ['help', 'help']
+        ]);
+    });
+
     test('off macOS Settings sits in File and About in Help', () => {
         const spec = menuModel(context({ apple: false }));
         expect(labels(spec)).toEqual(['File', 'Edit', 'Code', 'View', 'Canvas', 'Go', 'Run', 'Window', 'Help']);

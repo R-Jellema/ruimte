@@ -96,11 +96,7 @@ export interface MenuContext {
 
 type MenuCommand = (id: string, label: string, options?: CommandOptions) => MenuNode;
 
-interface MenuSection {
-    id: string;
-    label: string;
-    items: MenuNode[];
-}
+type MenuSection = MenuSpec['menus'][number];
 
 interface CommandOptions {
     shortcut?: Shortcut;
@@ -571,8 +567,9 @@ export function menuModel(context: MenuContext): MenuSpec {
         ...(kind !== null && KIND_MENUS.includes(kind) ? [section('kind', t(`kinds.${kind}`), `kind-${kind}`)] : []),
         section('go', t('go')),
         ...(workspace && !context.scratch ? [section('run', t('run'))] : []),
-        section('window', t('window')),
-        section('help', t('help'))
+        // The roles are where macOS lists the open windows and puts its search field.
+        { ...section('window', t('window')), role: 'window' as const },
+        { ...section('help', t('help')), role: 'help' as const }
     ];
-    return { menus: menus.map((menu) => ({ id: menu.id, label: menu.label, items: tidy(menu.items) })) };
+    return { menus: menus.map((menu) => ({ ...menu, items: tidy(menu.items) })) };
 }
