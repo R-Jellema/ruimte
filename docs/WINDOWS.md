@@ -62,6 +62,11 @@ Taken on 2026-10-13. Do not reverse one without asking Bas.
 - `sessions/session.ts:170` types the start line with `\n` and spills long lines into
   `eval "$RUIMTE_..."`. Unverified whether PSReadLine submits on LF.
 - `sessions/session.ts:114` `plainShell` knows only sh, bash and zsh.
+- **Dropped paths.** `apps/client/src/terminal/drop-path.ts` wraps a path with a space or a shell
+  character in double quotes on Windows. That is right for neither shell: in cmd `%VAR%` still
+  expands inside double quotes, and in PowerShell `$` and the backtick expand inside double quotes
+  while single quotes are literal. The shell behind a session is not known on the client, so the
+  quoting needs the session's shell (`pwsh` by default, see the decisions) once terminals run.
 - `bun-pty.ts:48` and `session.ts:356` send SIGHUP and then SIGKILL; on Windows that stops the
   shell and leaves its children. Follows the stopping decision.
 - `launches/sessions.ts:28` and `processes/foreground.ts:6` read the foreground group through
