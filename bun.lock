@@ -108,6 +108,19 @@
         "typescript": "^7.0.2",
       },
     },
+    "apps/maps-worker": {
+      "name": "@ruimte/maps-worker",
+      "version": "0.0.0",
+      "dependencies": {
+        "@ruimte/pulsar": "workspace:*",
+        "zod": "^4.6.5",
+      },
+      "devDependencies": {
+        "@cloudflare/workers-types": "^5.20260922.1",
+        "@types/bun": "^1.4.2",
+        "typescript": "^7.0.2",
+      },
+    },
     "apps/pulsar-broker": {
       "name": "@ruimte/pulsar-broker",
       "version": "0.0.0",
@@ -970,6 +983,8 @@
     "@ruimte/desktop": ["@ruimte/desktop@workspace:apps/desktop"],
 
     "@ruimte/desktop-bridge": ["@ruimte/desktop-bridge@workspace:packages/desktop-bridge"],
+
+    "@ruimte/maps-worker": ["@ruimte/maps-worker@workspace:apps/maps-worker"],
 
     "@ruimte/npm": ["@ruimte/npm@workspace:packages/npm"],
 
