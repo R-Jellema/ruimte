@@ -61,6 +61,7 @@ export function evaluateNativeUi(request: NativeUiRequest): Record<string, unkno
                 return child;
             }
         }
+        return undefined;
     };
     if (request.change || request.action) {
         if (!supported || !block.complete) {

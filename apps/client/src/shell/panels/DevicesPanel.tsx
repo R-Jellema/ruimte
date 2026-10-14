@@ -409,6 +409,7 @@ export function DevicesPanel() {
         if (connection.status === 'open' && streamingAllowed !== false) {
             return deviceClientFor(endpointId)?.watch();
         }
+        return undefined;
     }, [connection.status, endpointId, streamingAllowed]);
 
     const listHeader = (
