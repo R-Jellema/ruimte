@@ -116,6 +116,44 @@ describe('documents', () => {
     });
 });
 
+describe('the unsaved text of a file', () => {
+    test('opens the file on the daemon with that text, follows it, and closes it once released', async () => {
+        const { transport, language } = service({});
+        language.holdText(uri, 'typescript', 'draft one');
+        await settle();
+        expect(transport.documents.get('src/a.ts')?.text).toBe('draft one');
+        language.holdText(uri, 'typescript', 'draft two');
+        await settle();
+        expect(transport.documents.get('src/a.ts')?.text).toBe('draft two');
+        language.releaseText(uri);
+        await settle();
+        expect(transport.documents.has('src/a.ts')).toBe(false);
+    });
+
+    test('keeps the document open when its editor goes while the text is unsaved', async () => {
+        const { transport, language, texts } = service();
+        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        language.holdText(uri, 'typescript', 'let a = 1;');
+        delete texts[uri];
+        await language.closeDocument(uri);
+        expect(transport.documents.get('src/a.ts')?.text).toBe('let a = 1;');
+        language.releaseText(uri);
+        await settle();
+        expect(transport.documents.has('src/a.ts')).toBe(false);
+    });
+
+    test('leaves the changes to the editor that holds the file, and its document open when the text is saved', async () => {
+        const { transport, language } = service();
+        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const opens = transport.callsOf('language.document.open').length;
+        language.holdText(uri, 'typescript', 'let a = 2;');
+        language.releaseText(uri);
+        await settle();
+        expect(transport.callsOf('language.document.open')).toHaveLength(opens);
+        expect(transport.documents.get('src/a.ts')?.text).toBe('let a = 1;');
+    });
+});
+
 describe('requests', () => {
     test('asks the daemon for the version it expects and answers with the result', async () => {
         const { transport, language } = service();

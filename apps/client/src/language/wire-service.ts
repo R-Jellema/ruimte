@@ -71,6 +71,10 @@ interface OpenDocument {
     servers: readonly string[];
     /* While the daemon's copy is being replaced, changes wait for it: the text it carries is read after they were made. */
     resyncing: Promise<void> | null;
+    /* Whether an editor holds it, which then sends every change itself. */
+    byEditor: boolean;
+    /* The unsaved text of the file, which the servers read in place of the disk until it is saved; null when there is none. */
+    draft: string | null;
 }
 
 /* Where a result came from, so an item of it resolves against the same process and only for the text it was made for. */
@@ -179,8 +183,12 @@ export class WireLanguageService implements LanguageService {
             version: 0,
             providers: {},
             servers: [],
-            resyncing: null
+            resyncing: null,
+            byEditor: true,
+            draft: null
         };
+        // A file whose unsaved text the daemon already has is now the editor's to keep in step.
+        open.byEditor = true;
         this.documents.set(document.uri, open);
         const reply = await this.openOnDaemon(open, document.text);
         open.version = reply.version;
@@ -219,13 +227,44 @@ export class WireLanguageService implements LanguageService {
         }
     }
 
+    /* The editor let go; a document whose file has unsaved text stays open with it. */
     async closeDocument(uri: string): Promise<void> {
         const document = this.documents.get(uri);
         if (!document) {
             return;
         }
-        this.documents.delete(uri);
-        await this.options.transport.request('language.document.close', { projectId: this.options.projectId, path: document.path }).catch(() => undefined);
+        document.byEditor = false;
+        await this.letGo(document);
+    }
+
+    /*
+     * Has the servers read `text` for a file no editor needs to hold, until `releaseText`: a file a workspace
+     * edit changed without saving it, so the next rename or search finds what it says now. While an editor
+     * holds the file, the editor's changes are what the daemon gets.
+     */
+    holdText(uri: string, languageId: string, text: string): void {
+        let document = this.documents.get(uri);
+        if (document?.draft === text) {
+            return;
+        }
+        if (!document) {
+            document = { uri, path: this.pathOfUri(uri), languageId, version: 0, providers: {}, servers: [], resyncing: null, byEditor: false, draft: text };
+            this.documents.set(uri, document);
+        }
+        document.draft = text;
+        if (!document.byEditor) {
+            void this.resync(document);
+        }
+    }
+
+    /* The file's text is saved or gone, so the servers read the disk again once no editor holds it either. */
+    releaseText(uri: string): void {
+        const document = this.documents.get(uri);
+        if (document === undefined || document.draft === null) {
+            return;
+        }
+        document.draft = null;
+        void this.letGo(document);
     }
 
     /* Lets go of the events and of the documents, which the daemon closes with the socket if this does not get to say so. */
@@ -233,8 +272,10 @@ export class WireLanguageService implements LanguageService {
         for (const unsubscribe of this.subscriptions.splice(0)) {
             unsubscribe();
         }
-        for (const uri of [...this.documents.keys()]) {
-            void this.closeDocument(uri);
+        for (const document of [...this.documents.values()]) {
+            document.byEditor = false;
+            document.draft = null;
+            void this.letGo(document);
         }
         for (const controller of this.latest.values()) {
             controller.abort();
@@ -486,12 +527,24 @@ export class WireLanguageService implements LanguageService {
         }
     }
 
+    private async letGo(document: OpenDocument): Promise<void> {
+        if (document.byEditor || document.draft !== null || this.documents.get(document.uri) !== document) {
+            return;
+        }
+        this.documents.delete(document.uri);
+        await this.options.transport.request('language.document.close', { projectId: this.options.projectId, path: document.path }).catch(() => undefined);
+    }
+
+    private textOf(document: OpenDocument): string | undefined {
+        return this.options.textOf(document.uri) ?? document.draft ?? undefined;
+    }
+
     /* Opens the document again with the text of the view, until the view does not move while the daemon takes it. */
     private resync(document: OpenDocument): Promise<void> {
         document.resyncing ??= (async () => {
             try {
                 for (let attempt = 0; attempt < RESYNC_ATTEMPTS; attempt++) {
-                    const text = this.options.textOf(document.uri);
+                    const text = this.textOf(document);
                     if (text === undefined || this.documents.get(document.uri) !== document) {
                         return;
                     }
@@ -499,7 +552,7 @@ export class WireLanguageService implements LanguageService {
                     document.version = reply.version;
                     document.servers = reply.servers;
                     this.setProviders(document, reply.providers);
-                    if (this.options.textOf(document.uri) === text) {
+                    if (this.textOf(document) === text) {
                         return;
                     }
                 }

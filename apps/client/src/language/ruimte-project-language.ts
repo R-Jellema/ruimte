@@ -1,14 +1,16 @@
 import { createSnippetTransformWorker } from './snippet-transform-worker';
 import i18next from 'i18next';
 import {
+    lspLanguageIdOf,
     ProjectLanguage as SharedProjectLanguage,
     shikiLanguageOf,
+    shikiLanguageOfPath,
     type LanguageDocumentHandle,
     type ProjectFiles,
     type RenameSuggestionsRequest
 } from '@adecore/editor-react';
 import type { Editor } from '@adecore/editor';
-import { fileUriToPath, type Diagnostic } from '@adecore/lsp';
+import { fileUriToPath, pathToFileUri, type Diagnostic } from '@adecore/lsp';
 import { onDeviceClientFor } from '@/ondevice/ondevice-client';
 import { parseNames } from '@/ondevice/names-model';
 import { namesPrompt } from '@/ondevice/prompts';
@@ -21,6 +23,7 @@ import type { Transport } from '@/transport/transport';
 import { LanguageStatusTracker } from './status';
 import { WireLanguageService, type WireLanguageServiceOptions } from './wire-service';
 import { readPanelHeight, writePanelHeight } from './panel-height';
+import type { DraftProjectFiles } from './project-files';
 
 export class ProjectLanguage extends SharedProjectLanguage {
     declare readonly service: WireLanguageService;
@@ -28,12 +31,13 @@ export class ProjectLanguage extends SharedProjectLanguage {
     readonly status: LanguageStatusTracker;
     // The wire resynchronizes from the sending editor without starting a second document owner.
     private readonly openEditors: Map<string, Editor[]>;
+    private readonly stopDrafts: () => void;
 
     constructor(
         transport: Transport,
         projectId: string,
         folder: string,
-        files: ProjectFiles | null = null,
+        files: ProjectFiles | DraftProjectFiles | null = null,
         openFile: (folder: string, path: string, line: number) => void = (root, path, line) => void openFileLink(root, { path, line, directory: false })
     ) {
         const openEditors = new Map<string, Editor[]>();
@@ -78,6 +82,7 @@ export class ProjectLanguage extends SharedProjectLanguage {
         this.transport = transport;
         this.status = new LanguageStatusTracker(transport, projectId);
         void this.status.refresh().catch(() => undefined);
+        this.stopDrafts = files !== null && 'watchUnsaved' in files ? holdUnsavedTexts(service, folder, files) : () => undefined;
     }
 
     override acquire(uri: string, languageId: string, editor: Editor): LanguageDocumentHandle {
@@ -116,11 +121,34 @@ export class ProjectLanguage extends SharedProjectLanguage {
     }
 
     override dispose(): void {
+        this.stopDrafts();
         super.dispose();
         this.openEditors.clear();
         this.service.dispose();
         this.status.dispose();
     }
+}
+
+/* The servers read the unsaved text of every file of the project that a server serves, whether an editor shows it or not. */
+function holdUnsavedTexts(service: WireLanguageService, folder: string, files: DraftProjectFiles): () => void {
+    let held = new Set<string>();
+    return files.watchUnsaved((texts) => {
+        const holding = new Set<string>();
+        for (const [path, text] of texts) {
+            const languageId = path.startsWith(`${folder}/`) ? lspLanguageIdOf(shikiLanguageOfPath(path)) : null;
+            if (languageId !== null) {
+                const uri = pathToFileUri(path);
+                holding.add(uri);
+                service.holdText(uri, languageId, text);
+            }
+        }
+        for (const uri of held) {
+            if (!holding.has(uri)) {
+                service.releaseText(uri);
+            }
+        }
+        held = holding;
+    });
 }
 
 async function suggestNames(transport: Transport, request: RenameSuggestionsRequest, signal: AbortSignal): Promise<readonly string[]> {

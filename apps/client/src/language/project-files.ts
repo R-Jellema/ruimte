@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 import { draftPathsUnder, forgetDeleted, moveFile } from '@/state/file-moves';
-import { endpointKey } from '@/state/keys';
-import { textDrafts, type TextDrafts } from '@/state/text-drafts';
+import { endpointKey, isOfEndpoint, splitKey } from '@/state/keys';
+import { isUnsavedDraft, textDrafts, useTextDrafts, type TextDrafts } from '@/state/text-drafts';
 import { useToasts } from '@/state/toasts';
 import type { Transport } from '@/transport/transport';
 import type { ProjectFiles, StagedFile } from '@adecore/editor-react';
@@ -9,12 +9,50 @@ import type { ProjectFiles, StagedFile } from '@adecore/editor-react';
 /* How many files a toast names before it says how many more there are. */
 const NAMED_FILES = 3;
 
+/* The toasts that wait for their staged files to be saved, by id, with the way to stop waiting. */
+const stagedToasts = new Map<string, () => void>();
+
+export interface DraftProjectFiles extends ProjectFiles {
+    /* Hears the unsaved text of every file of the machine, by path: at once, and again after every change of a draft. */
+    watchUnsaved(listener: (texts: ReadonlyMap<string, string>) => void): () => void;
+}
+
 function nameOf(path: string): string {
     return path.slice(path.lastIndexOf('/') + 1);
 }
 
+function unsavedTexts(endpointId: string): Map<string, string> {
+    const texts = new Map<string, string>();
+    for (const [key, draft] of Object.entries(useTextDrafts.getState().rows)) {
+        if (isOfEndpoint(key, endpointId) && isUnsavedDraft(draft)) {
+            texts.set(splitKey(key).id, draft.text);
+        }
+    }
+    return texts;
+}
+
+function dismissStaged(id: string): void {
+    stagedToasts.get(id)?.();
+    stagedToasts.delete(id);
+    useToasts.getState().dismiss(id);
+}
+
+/* The toast stays while one of its files is unsaved, however that file is saved, and goes with the last of them. */
+function dismissOnceSaved(id: string, unsaved: () => boolean): void {
+    stagedToasts.get(id)?.();
+    stagedToasts.set(
+        id,
+        useTextDrafts.subscribe(() => {
+            const shown = useToasts.getState().toasts.some((toast) => toast.id === id);
+            if (!shown || !unsaved()) {
+                dismissStaged(id);
+            }
+        })
+    );
+}
+
 /* The files of one machine as the editors keep their text: a draft where there is one, and otherwise what the machine has. */
-export function draftFiles(endpointId: string, transport: Transport, projectId: string | null = null, drafts: TextDrafts = textDrafts): ProjectFiles {
+export function draftFiles(endpointId: string, transport: Transport, projectId: string | null = null, drafts: TextDrafts = textDrafts): DraftProjectFiles {
     const isFolder = async (path: string): Promise<boolean> => {
         try {
             await transport.request('fs.list', { path, depth: 1 });
@@ -120,21 +158,40 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
             for (const file of files) {
                 drafts.stage(endpointId, file.path, file.disk, file.text);
             }
-            const names = files.slice(0, NAMED_FILES).map((file) => nameOf(file.path));
-            const more = files.length - names.length;
+            const id = `language-staged-${endpointKey(endpointId, files[0]!.path)}`;
+            // An edit that put a file back as it is on disk leaves nothing to save there.
+            const unsaved = files.filter((file) => drafts.isUnsaved(endpointId, file.path));
+            if (unsaved.length === 0) {
+                dismissStaged(id);
+                return;
+            }
+            const names = unsaved.slice(0, NAMED_FILES).map((file) => nameOf(file.path));
+            const more = unsaved.length - names.length;
             useToasts.getState().show({
-                id: `language-staged-${endpointKey(endpointId, files[0]!.path)}`,
+                id,
                 kind: 'success',
                 persist: true,
-                title: i18next.t('panels:language.edit.staged', { count: files.length }),
+                title: i18next.t('panels:language.edit.staged', { count: unsaved.length }),
                 description: more > 0 ? i18next.t('panels:language.edit.stagedMore', { names: names.join(', '), count: more }) : names.join(', '),
                 action: {
                     label: i18next.t('panels:language.edit.saveAll'),
                     run: () => {
-                        for (const file of files) {
+                        for (const file of unsaved) {
                             void drafts.save(endpointId, file.path);
                         }
                     }
+                }
+            });
+            dismissOnceSaved(id, () => unsaved.some((file) => drafts.isUnsaved(endpointId, file.path)));
+        },
+        watchUnsaved: (listener) => {
+            let last = unsavedTexts(endpointId);
+            listener(last);
+            return useTextDrafts.subscribe(() => {
+                const texts = unsavedTexts(endpointId);
+                if (texts.size !== last.size || [...texts].some(([path, text]) => last.get(path) !== text)) {
+                    last = texts;
+                    listener(texts);
                 }
             });
         }
