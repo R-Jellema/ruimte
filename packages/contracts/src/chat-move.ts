@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { ChatInfo } from '@adecore/agent-contracts';
 import { ProjectSummarySchema } from './project.ts';
+import { isAbsolutePath } from './stored-path.ts';
 
 export const ChatMoveRefusalReasonSchema = z.enum(['not-in-chats', 'working', 'agents', 'tasks', 'owed', 'messages', 'pr-watch']);
 export type ChatMoveRefusalReason = z.infer<typeof ChatMoveRefusalReasonSchema>;
@@ -8,7 +9,8 @@ export type ChatMoveRefusalReason = z.infer<typeof ChatMoveRefusalReasonSchema>;
 export const ChatMoveTargetSchema = z.union([
     z.object({ projectId: z.string().min(1) }),
     z.object({
-        folder: z.string().min(1),
+        // Absolute on the machine, since the machine is the only one that can resolve anything else.
+        folder: z.string().min(1).refine(isAbsolutePath, 'must be an absolute path'),
         name: z.string().min(1),
         createFolder: z.boolean(),
         initGit: z.boolean()

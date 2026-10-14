@@ -21,6 +21,8 @@ export interface MoveInfoDeps {
     projects(): Promise<Array<{ projectId: string; name: string; folder: string }>>;
     branchOf(folder: string): Promise<string | null>;
     gitRoot(directory: string): Promise<string | null>;
+    /* Throws for a folder that holds the machine's own state (`MachineHome.refuse`). */
+    refuseFolder(folder: string): Promise<void>;
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -112,6 +114,10 @@ export async function chatMoveInfo(payload: ChatMoveInfoPayload, deps: MoveInfoD
         return { folders: [], ownFiles: { folder: '', count: 0, names: [] }, conflicts: [], references: 0, newFolderParent, refusal };
     }
     const thread = await deps.thread(chatId);
+    const target = payload.to === undefined ? null : targetFolder(payload.to, projects);
+    if (target !== null) {
+        await deps.refuseFolder(target);
+    }
     const items = thread?.items ?? [];
     const ownFolder = deps.ownFolder(chatId);
     const names = await ownFileNames(ownFolder);
@@ -132,7 +138,7 @@ export async function chatMoveInfo(payload: ChatMoveInfoPayload, deps: MoveInfoD
     return {
         folders,
         ownFiles: { folder: ownFolder, count: names.length, names: names.slice(0, MAX_NAMES) },
-        conflicts: payload.to === undefined ? [] : await ownFileConflicts(names, targetFolder(payload.to, projects)),
+        conflicts: payload.to === undefined ? [] : await ownFileConflicts(names, target),
         references: await linkedChats(chatId, items, deps),
         newFolderParent,
         refusal

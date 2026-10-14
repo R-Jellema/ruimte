@@ -7,6 +7,7 @@ import { newScratchChat } from '../projects/scratch-project.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { projectLinks } from '../projects/project-file-test-helpers.ts';
 import { bootTestDaemon, type TestDaemon } from '../tasks/test-daemon.ts';
+import { MachineHome } from '../fs/machine-home.ts';
 import { chatMoveHandlers } from './chat-move.ts';
 
 describe('what the machine says about moving a chat', () => {
@@ -15,7 +16,15 @@ describe('what the machine says about moving a chat', () => {
     let daemon: TestDaemon;
     let chatId: string;
 
-    const moves = () => chatMoveHandlers({ ...daemon, store, lineage: daemon.lineage, prWatches: daemon.prWatches, outbox: daemon.outbox });
+    const moves = () =>
+        chatMoveHandlers({
+            ...daemon,
+            store,
+            lineage: daemon.lineage,
+            prWatches: daemon.prWatches,
+            outbox: daemon.outbox,
+            machineHome: new MachineHome(store.home)
+        });
 
     beforeEach(async () => {
         root = await mkdtemp(join(tmpdir(), 'ruimte-move-info-'));
@@ -45,6 +54,17 @@ describe('what the machine says about moving a chat', () => {
             const info = await moves().info({ chatId: id });
             expect(info).toMatchObject({ refusal: { reason: 'not-in-chats' }, folders: [], ownFiles: { folder: '', count: 0, names: [] }, conflicts: [] });
         }
+    });
+
+    test("refuses to look into a folder that holds the machine's own state, and allows a project folder", async () => {
+        const state = join(store.home, 'chats');
+        await mkdir(state, { recursive: true });
+        const into = (folder: string) => ({ chatId, to: { folder, name: 'X', createFolder: false, initGit: false } });
+        await expect(moves().info(into(state))).rejects.toMatchObject({ code: 'machine-state' });
+        const project = join(root, 'vinyl');
+        await mkdir(project);
+        await writeFile(join(project, 'notes.md'), 'y');
+        expect((await moves().info(into(project))).conflicts).toEqual(['notes.md']);
     });
 
     test('refuses a chat that opened an agent', async () => {

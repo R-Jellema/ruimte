@@ -45,6 +45,7 @@ function deps(threads: Record<string, ChatItem[]>, overrides: Partial<MoveInfoDe
         projects: async () => [],
         branchOf: async () => null,
         gitRoot: async () => null,
+        refuseFolder: async () => undefined,
         ...overrides
     };
 }
@@ -152,6 +153,23 @@ describe('chatMoveInfo', () => {
             });
         }
         expect(asked).toEqual([]);
+    });
+
+    test('lists nothing of a target folder the machine keeps its own state in', async () => {
+        const state = join(root, 'home', '.ruimte', 'chats');
+        await mkdir(state, { recursive: true });
+        await writeFile(join(state, 'chat-9.json'), 'x');
+        await own('chat-1', ['chat-9.json']);
+        const refusing = deps(
+            { 'chat-1': [] },
+            {
+                refuseFolder: async (folder) => {
+                    throw Object.assign(new Error(`${folder} belongs to this machine`), { code: 'machine-state' });
+                }
+            }
+        );
+        const to = { folder: state, name: 'State', createFolder: false, initGit: false };
+        await expect(chatMoveInfo({ chatId: 'chat-1', to }, refusing)).rejects.toMatchObject({ code: 'machine-state' });
     });
 
     test('carries the refusal', async () => {

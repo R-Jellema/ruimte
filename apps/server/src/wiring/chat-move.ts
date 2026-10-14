@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { dirname } from 'node:path';
 import type { AgentLineageStore, NoticeStore, TaskStore } from '@adecore/agents/coordination';
 import { chatIsWorking } from '@ruimte/contracts';
+import type { MachineHome } from '../fs/machine-home.ts';
 import type { ChatManager } from '../chat/chat-manager.ts';
 import type { ChatMoveHandlers } from '../handlers/chat.ts';
 import { readGit } from '../git/run.ts';
@@ -22,6 +23,7 @@ export interface ChatMoveWiring {
     outbox: OutboxStore;
     notices: NoticeStore;
     prWatches: PrWatchStore;
+    machineHome: Pick<MachineHome, 'refuse'>;
 }
 
 /* The checkout above a path that may be gone by now, by the nearest folder that still exists. */
@@ -90,7 +92,8 @@ export function chatMoveHandlers(wiring: ChatMoveWiring): ChatMoveHandlers {
         },
         projects: async () => (await registry()).filter((project) => project.folder !== store.scratchFolder),
         branchOf,
-        gitRoot: repositoryAbove
+        gitRoot: repositoryAbove,
+        refuseFolder: (folder) => wiring.machineHome.refuse(folder)
     };
     return { info: (payload) => chatMoveInfo(payload, infoDeps) };
 }

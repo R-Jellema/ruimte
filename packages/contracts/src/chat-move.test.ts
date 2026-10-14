@@ -21,6 +21,16 @@ describe('chat.move', () => {
         expect(parsed.success).toBe(false);
     });
 
+    test('refuses a folder that is not an absolute path', () => {
+        for (const folder of ['vinyl', '../vinyl', './vinyl', '~/vinyl']) {
+            const to = { folder, name: 'Vinyl', createFolder: true, initGit: false };
+            expect(ChatMovePayloadSchema.safeParse({ chatId: 'chat-1', to, ownFiles: 'move' }).success).toBe(false);
+            expect(ChatMoveInfoPayloadSchema.safeParse({ chatId: 'chat-1', to }).success).toBe(false);
+        }
+        const windows = { folder: 'C:\\work\\vinyl', name: 'Vinyl', createFolder: true, initGit: false };
+        expect(ChatMovePayloadSchema.safeParse({ chatId: 'chat-1', to: windows, ownFiles: 'move' }).success).toBe(true);
+    });
+
     test('refuses a folder target that leaves out a choice', () => {
         const parsed = ChatMovePayloadSchema.safeParse({ chatId: 'chat-1', to: { folder: '/work/a', name: 'A' }, ownFiles: 'move' });
         expect(parsed.success).toBe(false);
