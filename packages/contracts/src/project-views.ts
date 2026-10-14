@@ -250,18 +250,21 @@ export function withViewAsNode(
     if (!source || !isSessionView(source) || !target || !isCanvasView(target)) {
         return null;
     }
+    const own =
+        source.kind === 'browser'
+            ? { url: source.url, ...(source.browserOwner ? { browserOwner: source.browserOwner } : {}) }
+            : source.kind === 'device'
+              ? { device: source.device }
+              : source.node;
+    // The identity and frame come last: a stored `node` is loose and must not decide them.
     const node: ProjectNode = {
         ...extraFieldsOf(source, VIEW_SCHEMAS_OF_SESSIONS[source.kind]),
+        ...own,
         id: source.id,
         kind: source.kind,
         title: source.name,
         ...at,
-        ...nodeSizeOf(sizes, source.kind),
-        ...(source.kind === 'browser'
-            ? { url: source.url, ...(source.browserOwner ? { browserOwner: source.browserOwner } : {}) }
-            : source.kind === 'device'
-              ? { device: source.device }
-              : source.node)
+        ...nodeSizeOf(sizes, source.kind)
     };
     const next = views
         .filter((view) => view.id !== viewId)

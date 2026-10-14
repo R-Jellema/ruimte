@@ -1,6 +1,16 @@
 import { describe, expect, test } from 'bun:test';
 import { EVENT_SCHEMAS, REQUEST_SCHEMAS } from './index.ts';
-import { ProjectDocumentSchema, ProjectNodeOverlaySchema, storedViewsOf, type ProjectCanvasView, type ProjectNode, type ProjectView } from './project.ts';
+import { withViewAsNode } from './project-views.ts';
+import {
+    ProjectDocumentSchema,
+    ProjectNodeOverlaySchema,
+    ProjectChatViewSchema,
+    StandaloneNodeSchema,
+    storedViewsOf,
+    type ProjectCanvasView,
+    type ProjectNode,
+    type ProjectView
+} from './project.ts';
 
 /* A document as a newer Ruimte writes it: keys on every stored entry that this version has no field for. */
 const NEWER_DOCUMENT = {
@@ -97,6 +107,36 @@ describe('fields of a stored entry this version does not know', () => {
 
     test('the overlay keeps a private field of a newer Ruimte', () => {
         expect(ProjectNodeOverlaySchema.parse({ cwd: 'src', machine: 'B' })).toEqual({ cwd: 'src', machine: 'B' } as never);
+    });
+
+    test('a loose pick drops the node keys it did not pick instead of leaving them unchecked', () => {
+        const hostile = { cwd: 'src', futureFlag: true, id: 'other', kind: 'browser', x: 'bad', w: -5, title: 7, memberIds: 'nope', worktree: 3 };
+        expect(StandaloneNodeSchema.parse(hostile)).toEqual({ cwd: 'src', futureFlag: true } as never);
+        expect(ProjectNodeOverlaySchema.parse({ cwd: 'src', machine: 'B', x: 'bad', id: 'other' })).toEqual({ cwd: 'src', machine: 'B' } as never);
+        expect(ProjectNodeOverlaySchema.parse({ title: 'Named', name: 'View' })).toEqual({ title: 'Named', name: 'View' });
+    });
+
+    test('a shared chat view with a hostile node still turns into a valid node on a canvas', () => {
+        const chat = ProjectChatViewSchema.parse({
+            kind: 'chat',
+            id: 'chat',
+            name: 'Chat',
+            node: { cwd: 'src', id: 'other', kind: 'browser', x: 'bad', w: -5 }
+        });
+        const canvas = { kind: 'canvas', id: 'main', name: 'Canvas', nodes: [], texts: [], edges: [] };
+        const moved = withViewAsNode([ProjectDocumentSchema.shape.views.parse([canvas])[0]!, chat], 'chat', 'main', { x: 10, y: 20 });
+        expect(moved!.node).toMatchObject({ id: 'chat', kind: 'chat', title: 'Chat', x: 10, y: 20, cwd: 'src' });
+        expect(moved!.node.w).toBeGreaterThan(0);
+        const saved = ProjectDocumentSchema.safeParse({ version: 3, rev: 1, name: 'repo', color: '', shared: [], views: moved!.views });
+        expect(saved.success).toBe(true);
+    });
+
+    test('a hostile node reaching withViewAsNode unparsed cannot decide the identity or frame', () => {
+        const chat = { kind: 'chat', id: 'chat', name: 'Chat', node: { cwd: 'src', id: 'other', kind: 'browser', x: 'bad', w: -5 } } as unknown as ProjectView;
+        const canvas = { kind: 'canvas', id: 'main', name: 'Canvas', nodes: [], texts: [], edges: [], layouts: [] } as ProjectCanvasView;
+        const moved = withViewAsNode([canvas, chat], 'chat', 'main', { x: 1, y: 2 });
+        expect(moved!.node).toMatchObject({ id: 'chat', kind: 'chat', x: 1, y: 2 });
+        expect(typeof moved!.node.w).toBe('number');
     });
 
     test('the types stay the known fields, so a typo fails the build', () => {

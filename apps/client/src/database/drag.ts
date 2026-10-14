@@ -33,8 +33,9 @@ export function droppedDatabase(transfer: Pick<DataTransfer, 'types' | 'getData'
         if (!result.success) {
             return null;
         }
-        const { tableKind, ...ref } = result.data;
-        return { kind: 'open-table', ref, view: 'data', ...(tableKind === undefined ? {} : { tableKind }) };
+        // The picked schema is loose, so the ref is rebuilt from its three fields instead of spread.
+        const { connectionId, schema, table, tableKind } = result.data;
+        return { kind: 'open-table', ref: { connectionId, schema, table }, view: 'data', ...(tableKind === undefined ? {} : { tableKind }) };
     } catch {
         return null;
     }

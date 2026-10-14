@@ -27,6 +27,30 @@ function keepingUnknown<S extends z.ZodObject>(schema: S): S {
     return schema.loose() as unknown as S;
 }
 
+/*
+ * A loose pick leaves the keys of the base schema it did not pick unvalidated, since loose keeps every
+ * key it has no field for. Those are known to this version and not a newer Ruimte's, so they are dropped.
+ */
+function pickKeepingUnknown<S extends z.ZodObject, M extends { [K in keyof S['shape']]?: true }, E extends z.ZodRawShape = {}>(
+    schema: S,
+    mask: M,
+    extra?: E
+): z.ZodObject<Omit<Pick<S['shape'], Extract<keyof M, keyof S['shape']>>, keyof E> & E, z.core.$loose> {
+    const kept = new Set([...Object.keys(mask), ...Object.keys(extra ?? {})]);
+    const dropped = Object.keys(schema.shape).filter((key) => !kept.has(key));
+    return schema
+        .pick(mask as never)
+        .extend(extra ?? {})
+        .loose()
+        .overwrite((value: Record<string, unknown>) => {
+            const rest = { ...value };
+            for (const key of dropped) {
+                delete rest[key];
+            }
+            return rest;
+        }) as never;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -473,7 +497,7 @@ const ViewBaseSchema = keepingUnknown(
  * A node without a frame. Its id is the session id, as a node's is, so moving a node between a canvas
  * and a view of its own never restarts anything.
  */
-export const StandaloneNodeSchema = ProjectNodeSchema.pick({
+export const StandaloneNodeSchema = pickKeepingUnknown(ProjectNodeSchema, {
     cwd: true,
     command: true,
     resume: true,
@@ -757,18 +781,22 @@ export const ProjectSharedFileSchema = z.object({
 export type ProjectSharedFile = z.infer<typeof ProjectSharedFileSchema>;
 
 /* What one person's node of a shared canvas carries that nobody else can use. */
-export const ProjectNodeOverlaySchema = ProjectNodeSchema.pick({
-    cwd: true,
-    resume: true,
-    account: true,
-    runtimeMode: true,
-    worktree: true,
-    path: true
-}).extend({
-    // The name a session gave a shared node (`title`) or view (`name`): the session is one person's too.
-    title: z.string().optional(),
-    name: z.string().min(1).optional()
-});
+export const ProjectNodeOverlaySchema = pickKeepingUnknown(
+    ProjectNodeSchema,
+    {
+        cwd: true,
+        resume: true,
+        account: true,
+        runtimeMode: true,
+        worktree: true,
+        path: true
+    },
+    {
+        // The name a session gave a shared node (`title`) or view (`name`): the session is one person's too.
+        title: z.string().optional(),
+        name: z.string().min(1).optional()
+    }
+);
 export type ProjectNodeOverlay = z.infer<typeof ProjectNodeOverlaySchema>;
 
 export const PROJECT_PRIVATE_VERSION = 1;

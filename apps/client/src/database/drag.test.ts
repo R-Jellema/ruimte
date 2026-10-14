@@ -103,6 +103,8 @@ describe('dragging database tables from the explorer', () => {
         const data = transfer();
         startDatabaseDrag(data, ref, 'view');
         expect(droppedDatabase(data)).toMatchObject({ tableKind: 'view' });
+        data.setData(DATABASE_DRAG_TYPE, JSON.stringify({ ...ref, tableKind: 'table', mode: 'structure', where: '1=1', extra: true }));
+        expect(droppedDatabase(data)).toEqual(action);
         data.setData(DATABASE_DRAG_TYPE, 'not json');
         expect(droppedDatabase(data)).toBeNull();
         data.setData(DATABASE_DRAG_TYPE, JSON.stringify({ connectionId: 'shop', table: 3 }));
