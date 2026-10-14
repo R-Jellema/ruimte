@@ -1,6 +1,6 @@
 # Speech to Text
 
-Local dictation, under Voice settings beside Voice Control, on Nemotron streaming only. Root `CLAUDE.md` has the product rules (off by default, no agent starts it, audio never leaves the machine).
+Local dictation, under Voice settings beside Voice Control, on Nemotron streaming only. The repository root's `CLAUDE.md` has the map, the wire protocol and the rules that hold everywhere; the product rules of this feature are at the end of this file.
 
 - `audio/ownership.ts` permits one microphone listener at a time, shared with Voice Control.
 - A run owns one target and one session ID. Cancelling, unmounting its target, replacing its draft or receiving stale IPC must never insert elsewhere.
@@ -11,3 +11,11 @@ Local dictation, under Voice settings beside Voice Control, on Nemotron streamin
 - A failure reaches a person only through `failure.ts`. Each `DictationError` code is a key under `voice:dictation.errors`, and a person never sees a raw code or a Chromium message.
 
 `controller.ts` coordinates the target and audio ownership. `helper.ts` manages capture and the optional desktop bridge. `editor.ts` tracks CodeMirror insertion ranges and isolates undo history. The desktop shell owns downloads, persisted enablement and the helper's sixty-second idle timeout. IPC shapes live in `packages/desktop-bridge/src/speech.ts`.
+
+## Product rules
+
+Decisions the code cannot show. Do not reverse one without asking Bas.
+
+- Speech to Text is optional and off by default. Enabling downloads one verified local streaming model; it never opens the microphone. Audio is never uploaded or saved.
+- Voice Control is the separate cloud-backed feature; both share the microphone and language settings and never record together.
+- Dictation previews text and inserts only after stopping. A terminal receives an editable draft and only an explicit paste writes sanitized text without Enter. Agents cannot start dictation.

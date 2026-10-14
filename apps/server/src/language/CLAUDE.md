@@ -12,3 +12,12 @@ The invariants of this folder. The repository root's `CLAUDE.md` has the map, th
 - Each server runs one client command at a time because LSP does not tie `workspace/applyEdit` to its originating command. The edit goes to that command's client (`language.edit`), never applied by the daemon, and is refused when no command of that client runs or it stays silent 30 seconds. Rename edits from `workspace/willRenameFiles` follow `fs.create` and `fs.write` rules.
 - An agent uses the servers through `AgentLanguage` (`agent-language.ts`) as a client of its own for one call. It never installs a server, and a file read against a connection agents may not use is refused whole (`database-access-off`).
 - A native server never fetches anything itself: Install downloads PHP's stubs, and the server starts with `storagePath` and `stubsPath`. Checkout discovery reads files and never runs a git command that changes anything.
+
+## Product rules
+
+Decisions the code cannot show. Do not reverse one without asking Bas.
+
+- Language servers are installed, updated and set back to their previous version only when a person presses Install, Update or the previous version, and never by an agent or a verb. A pin that moved with an update of Ruimte never stops a server: it runs what it has until a person updates.
+- The daemon runs them itself, one per project per kind, shared by every client of the project. A server that ends by itself after it had been ready for a minute is started again once at once (the decision is made on the exit, never on a timer), while one that ends sooner, or the one it started again ending within that minute, stays crashed until a person restarts it.
+- A server starts with the first document that needs it and ends only when its project closes on the machine (or the daemon stops), so moving between files never restarts it.
+- A server of a person's own (a command they typed) is saved only through a request of the local secret, which approves exactly that command, arguments and environment, and lives under `$RUIMTE_HOME`, never in a project file; no verb or agent adds or changes one.

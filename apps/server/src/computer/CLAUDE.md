@@ -10,3 +10,11 @@ The invariants of this folder. The repository root's `CLAUDE.md` has the map, th
 - Work happens behind the person's work unless the agent passes `--front`. What only the front can do refuses with `needs-front`, and the daemon never retries it in front on the agent's behalf.
 - A pause or take-over makes calls wait within the same budget, then refuse with `paused` or `taken-over`. An action the person cut off is never sent again, since it may have run halfway. After a stop every agent that used computer use hears `stopped` once, every grant for this time goes, and the daemon then clears the stop so it is no ban.
 - The tree an agent last saw lives in the daemon, not the helper (`tree-diff.ts`), since the helper keeps one element map for every agent. It goes with the node and when computer use is turned off.
+
+## Product rules
+
+Decisions the code cannot show. Do not reverse one without asking Bas.
+
+- Computer use is the desktop's own door: off per machine until a person turns it on, then `ruimte-context computer` operates any app, Ruimte included, only after a person let the agent into that app (this time or always, in every mode), and never a terminal.
+- Letting an agent into Ruimte itself is the person's own risk: it can do there whatever the person can, and the daemon refuses nothing extra from the Ruimte window while it does.
+- Computer use stays as it is and gains no new abilities; Bas hopes to remove it once the agents' own computer use is good enough (2026-10-13).
