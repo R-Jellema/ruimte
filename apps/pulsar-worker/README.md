@@ -35,6 +35,7 @@ in `packages/pulsar/src/statement-key.ts`. The wire shapes live in `packages/pul
 | `POST /v1/machines` | Register a machine with the daemon's signature; `automatic` skips a removed one |
 | `DELETE /v1/machines/<id>` | Take a machine off the list and remember that it was removed |
 | `POST /v1/statements` | A signed statement for one machine and one client key, two minutes |
+| `POST /v1/maps/ticket` | A map ticket for the account, one hour, for a bearer session or a machine signature; `not-configured` without `MAP_TICKET_SECRET` |
 | `POST /v1/device/start`, `poll`, `complete`, `cancel` | The machine's side of a device link (`ruimte login`) |
 | `POST /v1/device/lookup`, `approve`, `deny` | The person's side, from the link page (`DEVICE_LINK_PAGE_URL`) |
 | `POST /v1/push/devices` | Register a device's APNs token for this session |
@@ -164,6 +165,7 @@ loopback listener, `https://station.ruimte.app/pulsar/callback` and the Vite dev
 | `APPLE_PRIVATE_KEY` | The whole `.p8` file of that key, armor lines included |
 | `APPLE_CLIENT_ID` | The Services ID, `app.ruimte.pulsar` |
 | `ARTIFICIAL_ANALYSIS_API_KEY` | The key of the free Data API of Artificial Analysis |
+| `MAP_TICKET_SECRET` | 32 random bytes in base64url that sign map tickets; the maps service holds the same value to check them |
 | `APPLE_DOMAIN_ASSOCIATION` | Optional, the domain verification file Apple hands out |
 | `DEVICE_LINK_PAGE_URL` | Optional, the device link page when it is not the station's |
 | `APNS_*` | The APNs keys per environment, see [`APNS.md`](APNS.md) |
@@ -177,11 +179,20 @@ bunx wrangler secret put APPLE_KEY_ID
 bunx wrangler secret put APPLE_CLIENT_ID
 bunx wrangler secret put APPLE_PRIVATE_KEY < ~/.private/AuthKey_XXXXXXXXXX.p8
 bunx wrangler secret put ARTIFICIAL_ANALYSIS_API_KEY
+bunx wrangler secret put MAP_TICKET_SECRET
 ```
 
 A provider whose secrets are missing answers `503` with `not-configured`, reads `false` in `/health` and stays
 out of `/v1/providers`, so the Worker deploys safely before the secrets exist. The private statement key is also
 kept in `~/.private/ruimte.secrets.env` as `PULSAR_STATEMENT_PRIVATE_KEY`.
+
+## Map tickets
+
+`POST /v1/maps/ticket` answers `{ ticket, expiresAt }` (`MapsTicketSchema` in `packages/pulsar`), good for one hour. A signed-in client sends its bearer token. A machine sends no token and
+signs `mapsTicketMessage(machineId, issuedAt)` with the key the account lists it under, `issuedAt` within two minutes of the Worker's clock (`MachineMapsTicketPayloadSchema`); a machine taken off
+its account is refused with `not-found`. The ticket is `<subject>.<expiresAt>.<mac>`: the subject is a digest of the account id, so the maps service tells tickets apart without learning whose they are, and
+the mac is HMAC-SHA256 with `MAP_TICKET_SECRET` over `mapsTicketBytes`. The maps service checks it with `verifyMapsTicket` and the same secret, and never calls this database. Without the secret the route answers
+`503` with `not-configured`. An account may ask ten times a minute and an address thirty.
 
 ## Model catalogs
 

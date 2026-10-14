@@ -22,7 +22,10 @@ export const LIMITS = {
     deviceStartIp: 10,
     devicePollIp: 60,
     deviceCodeAccount: 20,
-    deviceCodeIp: 30
+    deviceCodeIp: 30,
+    // A ticket lasts an hour and a client asks again a few minutes before it ends, so only a script meets these.
+    mapsTicketAccount: 10,
+    mapsTicketIp: 30
 } as const;
 
 export function windowStartOf(now: number): number {

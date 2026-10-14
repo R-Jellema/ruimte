@@ -17,7 +17,9 @@ export const SIGNING_PURPOSES = {
     sessionRefresh: 'pulsar-session-refresh-v1',
     deviceLinkStart: 'pulsar-device-link-start-v1',
     push: 'pulsar-push-v1',
-    lanDoor: 'pulsar-lan-door-v1'
+    lanDoor: 'pulsar-lan-door-v1',
+    mapsTicket: 'pulsar-maps-ticket-v1',
+    mapsTicketMac: 'pulsar-maps-ticket-mac-v1'
 } as const;
 export type SigningPurpose = (typeof SIGNING_PURPOSES)[keyof typeof SIGNING_PURPOSES];
 
@@ -157,4 +159,20 @@ export function pushMessage(push: PushEnvelope): string {
  */
 export function lanDoorMessage(nonce: string, machineId: string, publicKey: string): string {
     return signedBytes(SIGNING_PURPOSES.lanDoor, [nonce, machineId, publicKey]);
+}
+
+/*
+ * A machine asking the address book for a map ticket. It names no account, so the signature can only
+ * be good for the account that lists this machine's key; the time keeps one read off a request long ago worthless.
+ */
+export function mapsTicketMessage(machineId: string, issuedAt: number): string {
+    return signedBytes(SIGNING_PURPOSES.mapsTicket, [machineId, issuedAt]);
+}
+
+/*
+ * What the maps service's HMAC covers: who the ticket is for and when it ends. The subject is a digest
+ * of the account, so the service can count a ticket's requests without ever learning whose it is.
+ */
+export function mapsTicketBytes(subject: string, expiresAt: number): string {
+    return signedBytes(SIGNING_PURPOSES.mapsTicketMac, [subject, expiresAt]);
 }

@@ -10,6 +10,7 @@ import { endSession, exchangeLoginCode, finishLogin, refreshSession, startLogin 
 import { deleteAccount } from './account-deletion.ts';
 import { approveDeviceLink, cancelDeviceLink, completeDeviceLink, denyDeviceLink, lookupDeviceLink, pollDeviceLink, startDeviceLink } from './device.ts';
 import { completeIdentityLink, getAccount, listProviders, startIdentityLink, unlinkIdentity } from './identities.ts';
+import { issueMapsTicket } from './maps-ticket.ts';
 import { deleteMachine, listMachines, registerMachine } from './machines.ts';
 import { PROVIDERS } from './providers.ts';
 import { issueStatement } from './statements.ts';
@@ -36,6 +37,7 @@ const ROUTES: Readonly<Record<string, Readonly<Record<string, Handler>>>> = {
     '/v1/account/identities': { POST: completeIdentityLink },
     '/v1/machines': { GET: listMachines, POST: registerMachine },
     '/v1/statements': { POST: issueStatement },
+    '/v1/maps/ticket': { POST: issueMapsTicket },
     '/v1/session': { POST: exchangeLoginCode, DELETE: endSession },
     '/v1/session/refresh': { POST: refreshSession }
 };

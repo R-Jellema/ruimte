@@ -9,6 +9,8 @@ import {
     deviceLinkStartMessage,
     lanDoorMessage,
     machineRegistrationMessage,
+    mapsTicketBytes,
+    mapsTicketMessage,
     pushMessage,
     sessionKeyMessage,
     sessionRefreshMessage,
@@ -37,7 +39,9 @@ function everyPurpose(): Record<keyof typeof SIGNING_PURPOSES, string> {
         sessionRefresh: sessionRefreshMessage(nonce, 0),
         deviceLinkStart: deviceLinkStartMessage('machine-1', key, 'machine', 0),
         push: pushMessage(alert),
-        lanDoor: lanDoorMessage(nonce, 'machine-1', key)
+        lanDoor: lanDoorMessage(nonce, 'machine-1', key),
+        mapsTicket: mapsTicketMessage('machine-1', 0),
+        mapsTicketMac: mapsTicketBytes(key, 3_600_000)
     };
 }
 
@@ -164,5 +168,26 @@ describe('signed bytes', () => {
             signal: { kind: 'offer', sdp: 'v=0', access: { statement: carried, label: 'Laptop' } }
         });
         expect(signalMessage(key, otherKey, offer(v2))).toBe(signalMessage(key, otherKey, offer(statement)));
+    });
+
+    test('a map ticket request binds the machine and the time, and passes for no other purpose', () => {
+        const base = mapsTicketMessage('machine-1', 1_000);
+        expect(mapsTicketMessage('machine-2', 1_000)).not.toBe(base);
+        expect(mapsTicketMessage('machine-1', 1_001)).not.toBe(base);
+        expect(base.split('\n')[0]).toBe('pulsar-maps-ticket-v1');
+
+        const pair = generateKeyPairSync('ed25519');
+        const signature = sign(null, Buffer.from(base), pair.privateKey);
+        expect(verify(null, Buffer.from(base), pair.publicKey, signature)).toBe(true);
+        expect(verify(null, Buffer.from(deviceLinkStartMessage('machine-1', key, 'machine', 1_000)), pair.publicKey, signature)).toBe(false);
+        expect(verify(null, Buffer.from(sessionRefreshMessage('machine-1', 1_000)), pair.publicKey, signature)).toBe(false);
+    });
+
+    test('the bytes a map ticket is signed over bind the subject and the expiry, under a prefix of their own', () => {
+        const base = mapsTicketBytes(key, 3_600_000);
+        expect(mapsTicketBytes(otherKey, 3_600_000)).not.toBe(base);
+        expect(mapsTicketBytes(key, 3_600_001)).not.toBe(base);
+        expect(base.split('\n')[0]).toBe('pulsar-maps-ticket-mac-v1');
+        expect(base).not.toBe(mapsTicketMessage(key, 3_600_000));
     });
 });

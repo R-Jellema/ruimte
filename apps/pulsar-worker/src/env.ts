@@ -21,6 +21,8 @@ export interface Env {
     APPLE_DOMAIN_ASSOCIATION?: string;
     // The private half of the statement key, pkcs8 DER in base64url.
     STATEMENT_PRIVATE_KEY?: string;
+    // Signs the tickets the maps service accepts; the same secret is set on that service, which checks them. Never logged.
+    MAP_TICKET_SECRET?: string;
     // Where a person approves a machine's code, when it is not the web client in production.
     DEVICE_LINK_PAGE_URL?: string;
     // The key of the free Data API of Artificial Analysis. Never logged, never sent anywhere else.
