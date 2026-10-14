@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { desktop } from '@/desktop/bridge';
+import { desktop, type BackgroundServiceState } from '@/desktop/bridge';
 import { leaveWorkspace, showStart } from '@/transport/connections';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import { useProjectSwitch } from '@/project/open';
@@ -33,6 +33,25 @@ export function MachineLostScreen() {
     const lastSeen = useLastSeenAt(endpointId);
     const now = useNow(MINUTE_MS);
     const [confirming, setConfirming] = useState(false);
+    const service = desktop()?.backgroundService ?? null;
+    const [serviceState, setServiceState] = useState<BackgroundServiceState | null>(null);
+
+    useEffect(() => {
+        if (!service) {
+            return;
+        }
+        let live = true;
+        void service.state().then((next) => {
+            if (live) {
+                setServiceState(next);
+            }
+        });
+        const off = service.onState(setServiceState);
+        return () => {
+            live = false;
+            off();
+        };
+    }, [service]);
 
     // A switch has a screen of its own, which says more about the same wait.
     if (switching || !machineLost(connection)) {
@@ -40,7 +59,6 @@ export function MachineLostScreen() {
     }
     const seen = describeLastSeen(lastSeen, now);
     const retrying = connection.status === 'connecting';
-    const service = desktop()?.backgroundService ?? null;
     return (
         <div className="absolute inset-0 z-10 grid place-items-center bg-surface" role="status" aria-live="polite">
             <StatusCard
@@ -62,7 +80,7 @@ export function MachineLostScreen() {
                 <Button size="sm" variant="primary" disabled={retrying} onClick={() => pool.reconnect(endpointId)}>
                     {t('common:action.retry')}
                 </Button>
-                {offersMachineRestart(endpointId, connection, service) && (
+                {offersMachineRestart(endpointId, connection, service, serviceState) && (
                     <Button size="sm" variant="secondary" onClick={() => setConfirming(true)}>
                         {t('machineLost.restart')}
                     </Button>
