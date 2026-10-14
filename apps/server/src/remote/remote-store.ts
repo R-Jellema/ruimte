@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { isCanvasView, type ProjectContent, type ProjectNode, type ProjectView } from '@ruimte/contracts';
+import { RemoteLinkSchema, isCanvasView, type ProjectContent, type ProjectNode, type ProjectView, type RemoteLink } from '@ruimte/contracts';
 import { RecordDirectory } from '@adecore/agents';
 import { z } from 'zod';
 
@@ -80,10 +80,49 @@ export class RemoteStore {
         await this.files.write({ ...file, projectId, links: file?.links ?? [], nodes });
     }
 
+    /* The checkouts on other machines this project is linked to. A link this version cannot read is kept in the file and left out of the answer. */
+    linksOf(projectId: string): RemoteLink[] {
+        return (this.files.get(projectId)?.links ?? []).flatMap((link) => {
+            const parsed = RemoteLinkSchema.safeParse(link);
+            return parsed.success ? [parsed.data] : [];
+        });
+    }
+
+    /* Replaces the link of that machine, or adds one. */
+    async link(projectId: string, link: RemoteLink): Promise<void> {
+        const file = this.files.get(projectId);
+        const others = (file?.links ?? []).filter((held) => !isLinkTo(held, link.machineId));
+        await this.files.write({ ...file, projectId, links: [...others, link], nodes: file?.nodes ?? {} });
+    }
+
+    /* False when there was none. */
+    async unlink(projectId: string, machineId: string): Promise<boolean> {
+        const file = this.files.get(projectId);
+        const links = (file?.links ?? []).filter((held) => !isLinkTo(held, machineId));
+        if (file === undefined || links.length === file.links.length) {
+            return false;
+        }
+        if (links.length === 0 && Object.keys(file.nodes).length === 0) {
+            await this.files.remove(projectId);
+            return true;
+        }
+        await this.files.write({ ...file, links });
+        return true;
+    }
+
+    /* Whether a node of the project runs on that machine. */
+    usesMachine(projectId: string, machineId: string): boolean {
+        return Object.values(this.nodesOf(projectId)).includes(machineId);
+    }
+
     /* The project is gone, and its bindings with it. */
     forget(projectId: string): Promise<void> {
         return this.files.remove(projectId);
     }
+}
+
+function isLinkTo(link: unknown, machineId: string): boolean {
+    return typeof link === 'object' && link !== null && 'machineId' in link && link.machineId === machineId;
 }
 
 function mapNodes<T extends ProjectContent>(content: T, map: (node: ProjectNode) => ProjectNode): T {

@@ -6317,6 +6317,156 @@
     "type": "object",
     "properties": {}
   },
+  "request.remote.list.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "projectId"
+    ]
+  },
+  "request.remote.list.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "links": {
+        "maxItems": 100,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "machineId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "remoteProjectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "rootCommit": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "machineId",
+            "remoteProjectId",
+            "label",
+            "rootCommit"
+          ]
+        }
+      }
+    },
+    "required": [
+      "links"
+    ]
+  },
+  "request.remote.link.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "machineId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "remoteProjectId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "label": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      },
+      "rootCommit": {
+        "type": "string",
+        "maxLength": 128
+      },
+      "projectId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "machineId",
+      "remoteProjectId",
+      "label",
+      "rootCommit",
+      "projectId"
+    ]
+  },
+  "request.remote.link.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "machineId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "remoteProjectId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "label": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      },
+      "rootCommit": {
+        "type": "string",
+        "maxLength": 128
+      }
+    },
+    "required": [
+      "machineId",
+      "remoteProjectId",
+      "label",
+      "rootCommit"
+    ]
+  },
+  "request.remote.unlink.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "machineId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "projectId",
+      "machineId"
+    ]
+  },
+  "request.remote.unlink.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
   "request.snooze.list.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",

@@ -27,6 +27,7 @@ import { registerLaunchHandlers } from '../handlers/launches.ts';
 import { registerOnDeviceHandlers } from '../handlers/ondevice.ts';
 import { registerPeerHandlers } from '../handlers/peer.ts';
 import { registerPlanHandlers } from '../handlers/plan.ts';
+import { registerRemoteHandlers } from '../handlers/remote.ts';
 import { registerProcessHandlers } from '../handlers/processes.ts';
 import { registerProjectHandlers } from '../handlers/project.ts';
 import { registerProvenanceHandlers } from '../handlers/provenance.ts';
@@ -218,6 +219,7 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
         worktreePaths: (folder) => git.checkouts.paths(folder)
     });
     registerPeerHandlers(dispatcher, { links: store.peers, projects: store, endSession: projects.endSession });
+    registerRemoteHandlers(dispatcher, store.remote, store);
     registerDrawingHandlers(dispatcher, projects.drawings);
     registerDiagramHandlers(dispatcher, projects.diagrams);
     registerLaunchHandlers(dispatcher, launches.store, launches.runner);

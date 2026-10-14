@@ -439,6 +439,8 @@ Which chat wrote which lines of a file, for the editor's gutter (`src/provenance
 
 Another machine of the account works in a project here only after a person links it: `peer.bind { machineId, label, projectId, ceiling? }` from any client, which is `supervised` unless a ceiling is given. `peer.list` answers every link with the name of its project, `peer.setCeiling` changes the widest mode an agent from that machine may start in, and `peer.unbind` ends the nodes that machine has here, removes the hidden canvas `peer-<machineId>` and the link. `peer.changed` goes to every client when the list changes. The design and its rules are in `src/peering/CLAUDE.md`.
 
+The other half sits on the machine whose person works elsewhere: `remote.link { projectId, machineId, remoteProjectId, label, rootCommit }` remembers which project on that machine this one is linked to (under `remote/<projectId>.json`), `remote.list { projectId }` answers them, and `remote.unlink` removes one, refused with `machine-in-use` while a node still runs there.
+
 ## Worktrees
 
 A worktree the daemon makes lives under `$RUIMTE_HOME/worktrees/<repo>-<hash>/<branch>`, where `<repo>` is the repository's main checkout. The person on the machine can pick another folder for new ones (`worktreeRoot`, set with `endpoint.setIdentity` by the local secret only, refused for the root of the disk, the home folder and the data folder); worktrees already made stay where they are, and the register keeps knowing them. `worktrees.json` beside those folders (`src/git/worktree-register.ts`) records what git cannot say: the branch, where it was made from, the project, the node, who made it, and whether the daemon made the branch. Git stays the truth about which worktrees exist.
