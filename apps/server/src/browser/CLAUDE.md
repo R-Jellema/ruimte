@@ -8,4 +8,4 @@ The invariants of this folder. The repository root's `CLAUDE.md` has the map, th
 
 Decisions the code cannot show. Do not reverse one without asking Bas.
 
-- A browser node is driven only over a line between it and the agent, and only by address: where the page goes, its own history and a picture of it (`ruimte-context browser`), never a click, a keystroke or a scroll.
+- A browser node is driven only over a line between it and the agent, and only by address: where the page goes, its own history and a picture of it (`ruimte-context browser`), never a click, a keystroke or a scroll. The one exception to the line is a chat view, which no line can reach: it drives any browser node of the canvas it names with `--view` (`src/canvas/chat-view.ts`).

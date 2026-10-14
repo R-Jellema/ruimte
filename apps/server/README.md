@@ -268,7 +268,7 @@ The helper is `Contents/Helpers/Ruimte Computer Use.app` in Ruimte.app and `apps
 
 ## Devices
 
-A device node shows a simulator, an emulator or a phone that runs on this machine (`src/devices`). `DeviceManager` has a backend per kind and keeps one capture session per device, shared by every client that shows it and every agent that holds it. A person starts and stops a simulator or an emulator from its node, and drives it with the pointer, its buttons and the tools panel (appearance, text size, color filters, permissions, location, opening a link or an app). An agent with a line to the node goes through `DeviceDriver` (`src/devices/agent-driver.ts`, `ruimte-context device`): it reads the elements, takes shots, taps, swipes, presses buttons, types and opens apps, with no approval card, and never starts or stops a device. An agent also lists the devices of the machine (`device list`) and puts one on its canvas itself (`node new device --device <id>`), with the line from it that lets it operate the device. Only an agent types: a client sends no keys.
+A device node shows a simulator, an emulator or a phone that runs on this machine (`src/devices`). `DeviceManager` has a backend per kind and keeps one capture session per device, shared by every client that shows it and every agent that holds it. A person starts and stops a simulator or an emulator from its node, and drives it with the pointer, its buttons and the tools panel (appearance, text size, color filters, permissions, location, opening a link or an app). An agent with a line to the node goes through `DeviceDriver` (`src/devices/agent-driver.ts`, `ruimte-context device`): it reads the elements, takes shots, taps, swipes, presses buttons, types and opens apps, with no approval card, and never starts or stops a device. An agent also lists the devices of the machine (`device list`) and puts one on its canvas itself (`node new device --device <id>`), with the line from it that lets it operate the device. A chat view puts one on the canvas it names with `--view`, with no line, and operates it by naming that canvas again. Only an agent types: a client sends no keys.
 
 | | iOS simulator | Android emulator |
 | --- | --- | --- |
@@ -436,6 +436,8 @@ A line on the canvas into a terminal or chat lets that agent read the source. Ev
 - the folder of `ruimte-context` in front of its PATH (`apps/server/bin` in a checkout, the app's `bin` resource when packaged)
 
 `ruimte-context` lists the linked sources and `ruimte-context read <id>` prints one; `--tail N` prints only the last N lines. What each kind reads as is in `ruimte-context help read`. The daemon derives what a node may read from the project documents (`src/projects/project-index.ts`).
+
+No line can run to a chat that is a view of its own. Such a chat names a canvas with `--view` instead, and then reads every node and text on it (`read <id> --view <canvas>`) and drives its browser and device nodes the same way; without `--view` a node of a canvas refuses with `view-required` (`src/canvas/chat-view.ts`).
 
 Exit codes of `ruimte-context`:
 
