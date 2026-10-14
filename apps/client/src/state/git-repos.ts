@@ -5,6 +5,7 @@ import { GIT_PANEL_PACE_MS, paced, type Pace } from '@/shell/panels/pace';
 import { watchGit } from '@/state/git-watch';
 import { endpointKey, useEndpointId } from '@/state/keys';
 import { useTransport } from '@/transport/context';
+import { isConnectionError, TransportError, type Transport } from '@/transport/transport';
 
 /* A checkout the panel can draw: a repository of the project folder, or the worktree a selection on
    the canvas points it at. A worktree is never one of the folder's repositories, which is why the
@@ -79,6 +80,47 @@ export function withoutNestedRepos(status: GitStatus | null, root: string, other
     return files.length === status.files.length ? status : { ...status, files };
 }
 
+/*
+ * Asks which repositories a folder holds. A real answer, an empty one included, goes to `answered`.
+ * A link that dropped or an ask that timed out answers nothing: the list on screen stays and `again`
+ * fires once the link is open. Any other failure is an answer of no repository. Returns the cancel.
+ */
+export function readProjectRepos(
+    transport: Pick<Transport, 'request' | 'subscribeStatus'>,
+    folder: string,
+    fresh: boolean,
+    on: { answered(answer: { repos: readonly GitRepo[]; truncated: boolean }): void; again(): void }
+): () => void {
+    let cancelled = false;
+    let stopWaiting: (() => void) | null = null;
+    transport
+        .request('git.repos', fresh ? { folder, fresh } : { folder })
+        .then((answer) => {
+            if (!cancelled) {
+                on.answered({ repos: answer.repos, truncated: answer.truncated });
+            }
+        })
+        .catch((error: unknown) => {
+            if (cancelled) {
+                return;
+            }
+            if (isConnectionError(error) || (error instanceof TransportError && error.code === 'timeout')) {
+                stopWaiting = transport.subscribeStatus((status) => {
+                    if (status === 'open') {
+                        stopWaiting?.();
+                        on.again();
+                    }
+                });
+                return;
+            }
+            on.answered({ repos: [], truncated: false });
+        });
+    return () => {
+        cancelled = true;
+        stopWaiting?.();
+    };
+}
+
 export interface ProjectRepos {
     repos: readonly GitRepo[];
     /* Set when the folder holds more repositories than the list carries. */
@@ -105,25 +147,12 @@ export function useProjectRepos(folder: string | null): ProjectRepos {
         if (folder === null) {
             return;
         }
-        let cancelled = false;
         const fresh = freshRef.current;
         freshRef.current = false;
-        transport
-            .request('git.repos', fresh ? { folder, fresh } : { folder })
-            .then((answer) => {
-                if (!cancelled) {
-                    setList({ key, repos: answer.repos, truncated: answer.truncated });
-                }
-            })
-            // A failed ask draws no repository; the refresh button asks again.
-            .catch(() => {
-                if (!cancelled) {
-                    setList({ key, repos: [], truncated: false });
-                }
-            });
-        return () => {
-            cancelled = true;
-        };
+        return readProjectRepos(transport, folder, fresh, {
+            answered: (answer) => setList({ key, repos: answer.repos, truncated: answer.truncated }),
+            again: () => setNonce((count) => count + 1)
+        });
     }, [transport, folder, key, nonce]);
 
     const reload = useCallback((): void => {

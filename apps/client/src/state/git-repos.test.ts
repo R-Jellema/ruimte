@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import type { GitRepo } from '@ruimte/contracts';
 import type { GitFile, GitStatus } from '@ruimte/contracts';
-import { headMoved, visibleRepos, withoutNestedRepos } from './git-repos.ts';
+import { TransportError, type TransportStatus } from '@/transport/transport';
+import { headMoved, readProjectRepos, visibleRepos, withoutNestedRepos } from './git-repos.ts';
 
 function file(path: string, state: GitFile['state']): GitFile {
     return {
@@ -88,5 +89,74 @@ describe('when the log has to be read again', () => {
         expect(headMoved(before, { ...before, detached: true })).toBe(true);
         expect(headMoved(before, { ...before, upstream: 'origin/main' })).toBe(true);
         expect(headMoved(before, { ...before, mergeBase: 'abc' })).toBe(true);
+    });
+});
+
+describe('reading the repositories of a folder', () => {
+    function link(request: () => Promise<{ repos: GitRepo[]; truncated: boolean }>) {
+        const listeners = new Set<(status: TransportStatus) => void>();
+        return {
+            request: request as never,
+            subscribeStatus: (listener: (status: TransportStatus) => void) => {
+                listeners.add(listener);
+                return () => listeners.delete(listener);
+            },
+            listeners,
+            open: () => [...listeners].forEach((listener) => listener('open'))
+        };
+    }
+
+    const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
+    test('a real answer, an empty one included, is the list', async () => {
+        const answers: unknown[] = [];
+        readProjectRepos(
+            link(async () => ({ repos: [], truncated: false })),
+            '/work',
+            false,
+            { answered: (a) => answers.push(a), again: () => {} }
+        );
+        await settle();
+        expect(answers).toEqual([{ repos: [], truncated: false }]);
+    });
+
+    test('a failure that is an answer of the machine means no repository', async () => {
+        const answers: unknown[] = [];
+        const failing = link(async () => {
+            throw new TransportError('git-failed', 'No');
+        });
+        readProjectRepos(failing, '/work', false, { answered: (a) => answers.push(a), again: () => {} });
+        await settle();
+        expect(answers).toEqual([{ repos: [], truncated: false }]);
+    });
+
+    test('a dropped link or a timeout keeps the list and asks again once the link is open', async () => {
+        for (const code of ['disconnected', 'not-connected', 'timeout']) {
+            const answers: unknown[] = [];
+            let again = 0;
+            const dropped = link(async () => {
+                throw new TransportError(code, 'Gone');
+            });
+            readProjectRepos(dropped, '/work', false, { answered: (a) => answers.push(a), again: () => again++ });
+            await settle();
+            expect(answers).toEqual([]);
+            expect(again).toBe(0);
+            dropped.open();
+            dropped.open();
+            expect(again).toBe(1);
+            expect(dropped.listeners.size).toBe(0);
+        }
+    });
+
+    test('cancelling stops the wait for the link', async () => {
+        let again = 0;
+        const dropped = link(async () => {
+            throw new TransportError('disconnected', 'Gone');
+        });
+        const cancel = readProjectRepos(dropped, '/work', false, { answered: () => {}, again: () => again++ });
+        await settle();
+        cancel();
+        dropped.open();
+        expect(again).toBe(0);
     });
 });
