@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, jest, test } from 'bun:test';
 import type { EventMap, EventType, RequestMap, RequestType } from '@ruimte/contracts';
-import { TransportError, type Transport, type TransportStatus } from '../transport/transport';
+import type { Transport, TransportStatus } from '../transport/transport';
 import { SidebarWatch, type SidebarWatchOptions } from './sidebar-watch';
 
 class FakeTransport implements Transport {
@@ -246,19 +246,5 @@ describe('background sidebar updates', () => {
         expect(transport.calls).toHaveLength(count);
         expect(transport.statusListeners.size).toBe(0);
         expect([...transport.handlers.values()].every((handlers) => handlers.size === 0)).toBe(true);
-    });
-
-    test('older daemons get an explicit unsupported state and are not repeatedly queried', async () => {
-        const transport = new FakeTransport();
-        transport.answer = () => {
-            throw new TransportError('unknown-request', 'Unsupported');
-        };
-        const watcher = watch(transport);
-        await settle();
-        expect(watcher.getSnapshot().state).toBe('unsupported');
-        const count = transport.calls.length;
-        watcher.refresh();
-        await settle();
-        expect(transport.calls).toHaveLength(count);
     });
 });

@@ -225,7 +225,7 @@ export interface SidebarGroup {
     active: boolean;
     collapsed: boolean;
     expandedIds: ReadonlySet<string>;
-    state: 'ready' | 'loading' | 'offline' | 'error' | 'unsupported';
+    state: 'ready' | 'loading' | 'offline' | 'error';
 }
 
 function needsYou(waiting: SidebarWaitingGroup[]): SidebarSection {

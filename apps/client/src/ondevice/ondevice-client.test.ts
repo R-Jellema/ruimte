@@ -30,14 +30,12 @@ describe('OnDeviceClient', () => {
         expect(transport.callsOf('ondevice.status')).toHaveLength(3);
     });
 
-    test('a machine that does not know the request is a machine without the model', async () => {
+    test('a status request that fails is a machine without the model, with no reason of its own', async () => {
         const transport = new FakeLanguageTransport();
         transport.answers.set('ondevice.status', () => {
-            throw new TransportError('unknown-request', 'Unknown request type: ondevice.status');
+            throw new TransportError('disconnected', 'The connection closed');
         });
-        const status = await new OnDeviceClient(transport).availability();
-        expect(status.available).toBe(false);
-        expect(status.reason).toContain('does not have on-device help');
+        expect(await new OnDeviceClient(transport).availability()).toEqual({ available: false });
     });
 
     test('streams the text of a generation to its listener and answers the whole text', async () => {

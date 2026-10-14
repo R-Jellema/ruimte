@@ -1,5 +1,5 @@
 import { SESSION_PORT_VERIFY_MAX_AGE_MS, type SessionPort, type SessionPortsResult, type SessionPortVerification } from '@ruimte/contracts';
-import { TransportError, type Transport } from '@/transport/transport';
+import type { Transport } from '@/transport/transport';
 
 export interface PortWatchOptions {
     transport: Pick<Transport, 'request' | 'on'>;
@@ -37,8 +37,8 @@ export class SessionPortWatch {
         let result: SessionPortsResult;
         try {
             result = await this.options.transport.request('session.ports', { sessionId: this.options.sessionId });
-        } catch (error) {
-            result = { status: error instanceof TransportError && error.code === 'unknown-request' ? 'unavailable' : 'unknown' };
+        } catch {
+            result = { status: 'unknown' };
         } finally {
             this.polling = false;
         }
@@ -94,11 +94,6 @@ export class SessionPortWatch {
             await open(result.url, result.machineId);
         } catch (error) {
             if (this.live()) {
-                if (error instanceof TransportError && error.code === 'unknown-request') {
-                    this.options.changed({ status: 'unavailable' });
-                    this.stop();
-                    return;
-                }
                 this.options.changed({ status: 'unknown' });
                 throw error;
             }

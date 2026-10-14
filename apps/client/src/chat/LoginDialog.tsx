@@ -12,7 +12,7 @@ import { useEndpoints } from '@/state/endpoints';
 import { useSettings } from '@/state/settings';
 import { useUi, type LoginRequest } from '@/state/ui';
 import { bindTerminalKeys } from '@/terminal/xterm';
-import { transportFor, TransportError } from '@/transport';
+import { transportFor } from '@/transport';
 import { sessionClientFor } from '@/transport/connections';
 import { useEndpointConnection, useMachineHold } from '@/transport/status';
 import { Button, CloseButton, copyText, Dialog, Icon } from '@adecore/ui';
@@ -27,7 +27,6 @@ type Phase =
     // The shell ended, or the connection did, which ends a login on the machine as well.
     | { kind: 'ended'; dropped: boolean }
     // A machine from before `session.login`.
-    | { kind: 'outdated' }
     | { kind: 'failed'; reason: string };
 
 function noop(): void {
@@ -151,11 +150,7 @@ function LoginTerminal({ request, onRetry }: { request: LoginRequest; onRetry():
                 // Watching is a courtesy: the status still arrives on the machine's own clock.
                 void link.request('accounts.watchLogin', { id: accountId }).catch(noop);
             } catch (e) {
-                if (e instanceof TransportError && e.code === 'unknown-request') {
-                    setPhase({ kind: 'outdated' });
-                } else {
-                    setPhase({ kind: 'failed', reason: e instanceof Error ? e.message : String(e) });
-                }
+                setPhase({ kind: 'failed', reason: e instanceof Error ? e.message : String(e) });
             }
         };
         void start();
@@ -216,7 +211,6 @@ function LoginTerminal({ request, onRetry }: { request: LoginRequest; onRetry():
                     }}
                 />
                 {phase.kind === 'starting' && !connected && <NodeNotice>{t('canvas:notice.connecting')}</NodeNotice>}
-                {phase.kind === 'outdated' && <NodeNotice>{t('login.outdated')}</NodeNotice>}
                 {phase.kind === 'failed' && (
                     <NodeNotice tone="error" onRetry={onRetry}>
                         {t('login.failed', { reason: phase.reason })}

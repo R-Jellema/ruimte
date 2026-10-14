@@ -89,7 +89,7 @@ export function socketSignaling(url: string, createSocket: (url: string) => WebS
                 return;
             }
             if (typeof frame.id === 'string' && frame.id.startsWith('direct-') && frame.ok === false) {
-                // A daemon from before direct connections answers `unknown-request`, which is worth saying in so many words.
+                // Whatever the machine refused with, the person reads its reason.
                 fail(i18next.t('machines:direct.refused', { reason: frame.error?.message ?? i18next.t('machines:direct.noReason') }));
                 return;
             }

@@ -1,10 +1,10 @@
 import { projectSidebarViews, type AgentStatus, type ProjectChangedEvent, type ProjectSidebarResult, type ProjectSummaryEvent } from '@ruimte/contracts';
-import { TransportError, type Transport } from '@/transport/transport';
+import type { Transport } from '@/transport/transport';
 
 export interface SidebarMachineSnapshot {
     projects: ProjectSidebarResult['projects'];
     statuses: Record<string, AgentStatus>;
-    state: 'loading' | 'ready' | 'offline' | 'error' | 'unsupported';
+    state: 'loading' | 'ready' | 'offline' | 'error';
 }
 
 /* What one request brings: the projects, or the standing status of every terminal or every chat. */
@@ -135,7 +135,7 @@ export class SidebarWatch {
      * turn is one request (`ActiveTransport`). While a round is out the next one gathers and waits.
      */
     private queue(parts: readonly Part[]): void {
-        if (this.disposed || this.snapshot.state === 'unsupported') {
+        if (this.disposed) {
             return;
         }
         if (this.transport.status !== 'open') {
@@ -187,13 +187,11 @@ export class SidebarWatch {
                     state: 'ready'
                 });
             })
-            .catch((error: unknown) => {
+            .catch(() => {
                 if (generation !== this.generation) {
                     return;
                 }
-                const unsupported =
-                    error instanceof TransportError && ['unknown-request', 'unknown-type', 'bad-request', 'not-implemented'].includes(error.code);
-                this.set({ ...this.snapshot, state: unsupported ? 'unsupported' : this.transport.status === 'open' ? 'error' : 'offline' });
+                this.set({ ...this.snapshot, state: this.transport.status === 'open' ? 'error' : 'offline' });
             })
             .finally(() => {
                 this.loading = false;

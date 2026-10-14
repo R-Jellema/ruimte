@@ -50,8 +50,7 @@ export interface MachineUpdateShell {
 
 /*
  * Reports every step to the local machine and installs when it hands one back. Returns the call that
- * feeds it the shell's states and the one that stops it. A machine from before answers
- * `unknown-request`, which changes nothing here.
+ * feeds it the shell's states and the one that stops it.
  */
 export function startMachineUpdate(shell: MachineUpdateShell, source?: WatchablePool): { apply(state: UpdateState): void; stop(): void } {
     let local: Transport | null = null;

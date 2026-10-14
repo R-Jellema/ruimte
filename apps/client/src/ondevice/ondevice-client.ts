@@ -1,6 +1,5 @@
-import i18next from 'i18next';
 import type { OnDeviceGenerateResult, OnDevicePurpose, OnDeviceStatusResult } from '@ruimte/contracts';
-import { TransportError, type Transport } from '@/transport/transport';
+import type { Transport } from '@/transport/transport';
 
 export interface OnDeviceRequest {
     readonly purpose: OnDevicePurpose;
@@ -35,7 +34,8 @@ export class OnDeviceClient {
         }
         this.asking ??= this.transport
             .request('ondevice.status', {})
-            .catch((): OnDeviceStatusResult => ({ available: false, reason: i18next.t('panels:language.onDevice.oldMachine') }))
+            // A failed ask, a dropped link included, reads as no model, and the caller words it.
+            .catch((): OnDeviceStatusResult => ({ available: false }))
             .then((status) => {
                 this.known = { at: this.now(), status };
                 this.asking = null;
@@ -76,9 +76,7 @@ export class OnDeviceClient {
             if (signal?.aborted) {
                 return { state: 'aborted', text: '' };
             }
-            throw error instanceof TransportError && error.code === 'unknown-request'
-                ? new TransportError('unavailable', i18next.t('panels:language.onDevice.oldMachine'))
-                : error;
+            throw error;
         } finally {
             off?.();
             signal?.removeEventListener('abort', cancel);

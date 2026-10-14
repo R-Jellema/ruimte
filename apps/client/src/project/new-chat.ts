@@ -18,8 +18,8 @@ import { useWindow, windowWorkspace, workspaceOf } from '@/state/window';
 import { transportFor } from '@/transport';
 import { TransportError } from '@/transport/transport';
 
-/* A machine whose home sits in a git checkout, and one from before chats outside a project. Neither says a word: the ways in go. */
-const REFUSALS: readonly string[] = ['scratch-unavailable', 'unknown-request'];
+/* A machine whose home sits in a git checkout has no Chats project. It says no word: the ways in go. */
+const REFUSALS: readonly string[] = ['scratch-unavailable'];
 
 interface NewChatState {
     /* The machines that turned a new chat down, for as long as this page runs. */

@@ -57,7 +57,7 @@ export function watchPrWatches(endpointId: string, transport: Transport): () => 
                     usePrWatches.getState().receive(endpointId, watches, ended);
                 }
             })
-            // A machine from before answers `unknown-request`: nothing is watched there.
+            // A failed ask leaves the watches as they were; the next open link asks again.
             .catch(() => undefined);
     };
     const offEvent = transport.on('git.pr-watches', ({ ended }) => refresh(ended));

@@ -853,7 +853,6 @@
             "recent": "Recent locations"
         },
         "onDevice": {
-            "oldMachine": "This machine does not have on-device help yet. Update it to use it.",
             "explain": "Explain",
             "explanation": "Explanation · Apple Foundation Models, on device",
             "note": "Written by the model on this Mac. It costs no credit, and the code stays on this Mac.",

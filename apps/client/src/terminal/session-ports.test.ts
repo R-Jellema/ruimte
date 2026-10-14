@@ -1,6 +1,5 @@
 import { expect, test } from 'bun:test';
 import type { SessionPortVerification, SessionPortsResult } from '@ruimte/contracts';
-import { TransportError } from '@/transport/transport';
 import { SessionPortWatch, type PortWatchOptions } from './session-ports';
 
 const listener = { pid: 12, startTime: 1234, port: 5173, bindAddress: '127.0.0.1', host: '127.0.0.1' as const };
@@ -179,27 +178,6 @@ test('a reply delayed beyond its validity never opens, but a fresh explicit clic
         expect(opened).toEqual(['owner-machine:http://127.0.0.1:5173/']);
         expect(setup.requests).toEqual(['session.verifyPort', 'session.verifyPort']);
         setup.watch.stop();
-    }
-});
-
-test('an older daemon stops polling permanently instead of repeatedly reporting a failed scan', async () => {
-    for (const operation of ['poll', 'open'] as const) {
-        const setup = harness();
-        setup.fail(new TransportError('unknown-request', 'Unknown request'));
-        if (operation === 'poll') {
-            await setup.watch.poll();
-        } else {
-            await setup.watch.open(listener, async () => {
-                throw new Error('must not open');
-            });
-        }
-        expect(setup.changes).toEqual([{ status: 'unavailable' }]);
-        expect(setup.timers.size).toBe(0);
-        await setup.watch.poll();
-        await setup.watch.open(listener, async () => {
-            throw new Error('must not open');
-        });
-        expect(setup.requests).toHaveLength(1);
     }
 });
 

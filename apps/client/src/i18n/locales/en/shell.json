@@ -29,8 +29,7 @@
             "ready": "Up to date",
             "loading": "Loading…",
             "offline": "Not connected",
-            "error": "Could not load project overview",
-            "unsupported": "Update Ruimte on this machine to show its projects"
+            "error": "Could not load project overview"
         },
         "unsavedFile": "Unsaved changes"
     },

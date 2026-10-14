@@ -853,7 +853,6 @@
             "recent": "Recente plekken"
         },
         "onDevice": {
-            "oldMachine": "Deze machine heeft nog geen hulp op het apparaat. Werk hem bij om die te gebruiken.",
             "explain": "Uitleg",
             "explanation": "Uitleg · Apple Foundation Models, op het apparaat",
             "note": "Geschreven door het model op deze Mac. Het kost geen tegoed en de code blijft op deze Mac.",
