@@ -36,6 +36,12 @@ before `max-age`, less its `Age`), and not at all under `no-store`, `no-cache`, 
 the upstream path and the sorted query without the key, so no ticket or key is in it. The client gets `private, max-age=<remaining>`.
 Whether TomTom's terms allow a shared cache is not verified; turning it off is replacing `deps.cache` by one that never hits.
 
+## Who calls it
+
+The client asks the address book for a ticket with its session (`AddressBookClient.mapsTicket`), keeps it until five minutes before it ends and sends it as a header
+on every request to this origin and no other (`apps/client/src/chat/map-source.ts`). The daemon asks as the machine (`apps/server/src/maps/geocoder.ts`). The page's
+policy already lets `https:` be fetched and `blob:` workers run, which is all MapLibre needs (`packages/csp`).
+
 ## Secrets
 
 | Secret | What |

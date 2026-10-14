@@ -326,6 +326,12 @@ When a CLI generates an image, the daemon saves it as an attachment before the t
 
 `chat.search` looks for a word in the messages of every listed chat of a project, one chat after the other, newest sessions first, and `chat.searchCancel` stops it between two chats. `chat.external` lists the Claude and Codex sessions that were started in the project's folder outside Ruimte, from the transcript folders of every account and nowhere else. Both require the client to hold the project. A session the project's own chats, terminals or nodes already run is left out.
 
+## Maps
+
+A `Place` that names an address has its point looked up once, when the reply settles, and frozen beside the block (`uiQueries.blocks[id].places`), so every client and every later reader sees the same point. The daemon does it as this machine (`src/maps/geocoder.ts`): it asks the address book for a map ticket, signed with the machine's key and kept until five minutes before it ends, and sends the address to the map service (`apps/maps-worker`). It holds no account token, and a machine on no account looks nothing up. It asks in English and stores the label the service returns; a client words the place from the agent's own text.
+
+A lookup that comes back without a point is frozen as `missing` with a `code` and is never tried again for that place: `no-account`, `not-found`, `unreachable`, `rate-limited`, `maps-unconfigured` or `unavailable` (the map provider refused, such as a key without the Search right). A refusal that will not pass in a moment also holds the next lookups off for a while, so a reply of fifty places asks once. A machine that signs in later does not retry the places it froze.
+
 ## Language servers
 
 Merged completion answers apply each server's supported list defaults to its own items before concatenation, preserving individual item overrides and resolve ownership. A malformed default edit range is ignored and logged once for that answer; the remaining defaults and the other servers' suggestions survive. Malformed items are dropped.
