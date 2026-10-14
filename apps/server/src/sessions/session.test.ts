@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { SerializeAddon } from '@xterm/addon-serialize';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { Terminal } from '@xterm/headless';
 import type { ServerFrame } from '@ruimte/contracts';
 import { HIGH_WATER_MARK, OutputGate, type BackpressuredSocket } from '../backpressure.ts';
@@ -241,5 +242,75 @@ describe('Session.attach', () => {
 
         expect(Buffer.byteLength(JSON.stringify(screen))).toBeLessThanOrEqual(SCREEN_MAX_BYTES);
         expect(screen).toContain('the newest line');
+    });
+});
+
+describe('Session screens and character widths', () => {
+    // A program that draws a frame moves to the border's column, so the cells after a wide character stay where it put them.
+    const BORDER_COLUMN = '\x1b[30G\u2551';
+    const WIDE_LINES = [
+        '\u2554\u2550\u2550 \u65e5\u672c\u8a9e \u2550\u2550',
+        'fire \u{1f525} heart \u2764\ufe0f',
+        'family \u{1f468}\u200d\u{1f469}\u200d\u{1f467} \u{1f1f3}\u{1f1f1}',
+        'ab\u6f22\u5b57cd \u{1f600}\u{1f600}',
+        'rocket \u{1f680} ok'
+    ].map((line) => `${line}${BORDER_COLUMN}`);
+
+    interface Cells {
+        rows: string[];
+        cursor: { x: number; y: number };
+    }
+
+    function cellsOf(terminal: Terminal): Cells {
+        const buffer = terminal.buffer.active;
+        const rows: string[] = [];
+        for (let i = 0; i < buffer.length; i++) {
+            rows.push(buffer.getLine(i)?.translateToString(true) ?? '');
+        }
+        return { rows, cursor: { x: buffer.cursorX, y: buffer.cursorY } };
+    }
+
+    async function settle(terminal: Terminal): Promise<void> {
+        await new Promise<void>((resolve) => terminal.write('', resolve));
+    }
+
+    function emulator(cols: number, rows: number, unicode11: boolean): Terminal {
+        const terminal = new Terminal({ cols, rows, scrollback: 1000, allowProposedApi: true });
+        if (unicode11) {
+            terminal.loadAddon(new Unicode11Addon());
+            terminal.unicode.activeVersion = '11';
+        }
+        return terminal;
+    }
+
+    test('a screen after a resize lands on the cells of the live stream, which Unicode 11 widths make possible', async () => {
+        await create('s1');
+        const output = `${WIDE_LINES.join('\r\n')}\r\nprompt \u{1f680}`;
+        harness.adapter.forSession('s1').emit(output);
+        harness.manager.resize('s1', 33, 24);
+        const { screen, cols, rows } = await harness.manager.attach('s1', 'c1', 33, 24);
+
+        // What the stream shows a client that was attached all along: the same bytes and the same resize.
+        const live = emulator(80, 24, true);
+        live.write(output);
+        live.resize(33, 24);
+        await settle(live);
+
+        const restored = emulator(cols, rows, true);
+        restored.write(screen);
+        await settle(restored);
+        expect(cellsOf(restored)).toEqual(cellsOf(live));
+
+        // The same session without the addon, to prove the comparison above can fail.
+        const legacy = emulator(80, 24, false);
+        const serializer = new SerializeAddon();
+        legacy.loadAddon(serializer);
+        legacy.write(output);
+        legacy.resize(33, 24);
+        await settle(legacy);
+        const drifted = emulator(33, 24, true);
+        drifted.write(serializer.serialize());
+        await settle(drifted);
+        expect(cellsOf(drifted).rows).not.toEqual(cellsOf(live).rows);
     });
 });

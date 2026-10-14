@@ -12,6 +12,7 @@ import { bindTerminalFileLinks, type TerminalFileLink } from './file-links';
 import { isTerminalLinkClick, openTerminalLink, terminalLinkTarget } from './links';
 import { openTerminalLinkInRuimte } from './open-in-ruimte';
 import { trackOutputCwd } from './output-cwd';
+import { matchDaemonWidths } from './unicode';
 
 type MachineTerminalProps = Omit<TerminalViewProps, 'onOpenLink' | 'onLinkHover'> & {
     endpointId: string;
@@ -45,6 +46,7 @@ export function MachineTerminal({ endpointId, sourceId, onFileLinkHover, classNa
         if (!term) {
             return;
         }
+        matchDaemonWidths(term);
         const cwd = trackOutputCwd(term);
         const unbind = bindTerminalFileLinks(term, cwd.at, endpointId, {
             open: (link, event) => {

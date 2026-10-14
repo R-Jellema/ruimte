@@ -1,5 +1,6 @@
 import { basename } from 'node:path';
 import { SerializeAddon } from '@xterm/addon-serialize';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { Terminal } from '@xterm/headless';
 import { trackTerminalCwd, terminalCwdScreenSize, type TerminalCwd, type AgentInfo, type AgentLaunch, type RuntimeMode } from '@ruimte/contracts';
 import type { PtyAdapter, PtyProcess } from '../pty/pty.ts';
@@ -149,6 +150,9 @@ export class Session {
             scrollback: SCROLLBACK_LINES,
             allowProposedApi: true
         });
+        // The clients measure with Unicode 11 too (`matchDaemonWidths`), so a screen lands on the cells of the live stream.
+        this.terminal.loadAddon(new Unicode11Addon());
+        this.terminal.unicode.activeVersion = '11';
         this.outputCwd = trackTerminalCwd(this.terminal);
         this.serializer = new SerializeAddon();
         this.terminal.loadAddon(this.serializer);
