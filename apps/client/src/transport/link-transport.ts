@@ -25,6 +25,9 @@ const RECONNECT_MAX_MS = 10_000;
 // A daemon address that has not resolved by then (a fetch for a ticket that hangs) is an attempt that failed, not one to wait on.
 const ADDRESS_TIMEOUT_MS = 20_000;
 
+// A machine that accepted the link but has not answered the protocol check by then is an attempt that failed.
+const GATE_TIMEOUT_MS = 20_000;
+
 // A request with no answer by then fails, so a handler that hangs is an error and not a spinner forever.
 const REQUEST_TIMEOUT_MS = 60_000;
 
@@ -71,6 +74,7 @@ export type LinkOpener = (url: string, events: LinkEvents) => Link;
 
 export interface LinkTransportOptions {
     addressTimeoutMs?: number;
+    gateTimeoutMs?: number;
     requestTimeoutMs?: number;
     // Spreads the reconnects of many clients after a daemon restart; a test passes a fixed one.
     random?: () => number;
@@ -104,6 +108,7 @@ export class LinkTransport implements PooledTransport {
     private readonly pending = new Map<string, Pending>();
     private readonly openLink: LinkOpener;
     private readonly addressTimeoutMs: number;
+    private readonly gateTimeoutMs: number;
     private readonly requestTimeoutMs: number;
     private readonly log: Pick<Console, 'info' | 'warn'>;
     private nextId = 1;
@@ -119,6 +124,7 @@ export class LinkTransport implements PooledTransport {
         this.address = address;
         this.openLink = openLink;
         this.addressTimeoutMs = options.addressTimeoutMs ?? ADDRESS_TIMEOUT_MS;
+        this.gateTimeoutMs = options.gateTimeoutMs ?? GATE_TIMEOUT_MS;
         this.requestTimeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
         this.log = options.log ?? console;
         this.random = options.random ?? Math.random;
@@ -277,9 +283,17 @@ export class LinkTransport implements PooledTransport {
         let relayed = false;
         // A link that opens before the opener returned cannot be written to yet.
         let openedEarly = false;
+        let gateTimer: ReturnType<typeof setTimeout> | null = null;
+        const stopGateTimer = (): void => {
+            if (gateTimer !== null) {
+                clearTimeout(gateTimer);
+                gateTimer = null;
+            }
+        };
         const gate = protocolGate({
             send: (data) => link?.send(data),
             open: (features) => {
+                stopGateTimer();
                 if (this.linkToken === token) {
                     this.setConnection({ status: 'open', attempts: 0, retryAt: null, failure: null, relayed, signaled, features });
                 }
@@ -302,7 +316,7 @@ export class LinkTransport implements PooledTransport {
                         openedEarly = true;
                         return;
                     }
-                    gate.opened();
+                    askGate();
                 }
             },
             route: (next) => {
@@ -316,6 +330,7 @@ export class LinkTransport implements PooledTransport {
             },
             message: (data) => gate.received(data),
             close: (failure) => {
+                stopGateTimer();
                 if (this.linkToken !== token) {
                     return;
                 }
@@ -332,6 +347,13 @@ export class LinkTransport implements PooledTransport {
                 this.rejectPending('disconnected', i18next.t('machines:connection.closedBeforeAnswer'));
             }
         };
+        const askGate = (): void => {
+            gate.opened();
+            gateTimer = setTimeout(() => {
+                events.close(i18next.t('machines:connection.noAnswer', { seconds: Math.round(this.gateTimeoutMs / 1000) }));
+                link?.close();
+            }, this.gateTimeoutMs);
+        };
         try {
             link = this.openLink(url, events);
         } catch (e) {
@@ -345,7 +367,7 @@ export class LinkTransport implements PooledTransport {
         if (this.linkToken === token) {
             this.link = link;
             if (openedEarly) {
-                gate.opened();
+                askGate();
             }
         }
     }

@@ -286,6 +286,7 @@
         "openFailed": "Could not open a connection: {{reason}}",
         "badReply": "The reply to {{type}} does not match its contract",
         "noAddress": "No address within {{seconds}} seconds",
+        "noAnswer": "The machine did not answer within {{seconds}} seconds",
         "timedOut": "The machine did not answer {{type}} within {{seconds}} seconds"
     },
     "file": {

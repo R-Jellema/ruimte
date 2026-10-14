@@ -189,6 +189,39 @@ describe('LinkTransport', () => {
         transport.dispose();
     });
 
+    test('a machine that never answers the protocol check fails the attempt and is tried again', async () => {
+        const transport = new LinkTransport(
+            'ws://machine/ws',
+            (_url, events) => {
+                const link = new FakeLink(events);
+                links.push(link);
+                return link;
+            },
+            { gateTimeoutMs: 20 }
+        );
+        const links: FakeLink[] = [];
+        await tick();
+        links[0]!.events.open();
+        await tick(19);
+        expect(transport.status).toBe('connecting');
+        await tick(2);
+        expect(transport.status).toBe('closed');
+        expect(transport.connection.failure).toBe(i18next.t('machines:connection.noAnswer', { seconds: 0 }));
+        expect(links[0]!.closed).toBe(true);
+        await tick(600);
+        expect(links).toHaveLength(2);
+        transport.dispose();
+    });
+
+    test('an answer to the protocol check ends the wait', async () => {
+        const { transport, links } = setup();
+        await tick();
+        open(links[0]!);
+        await tick(30_000);
+        expect(transport.status).toBe('open');
+        transport.dispose();
+    });
+
     test('a route the link names while the protocol check is out is the route the open link has', async () => {
         const { transport, links } = setup();
         await tick();
