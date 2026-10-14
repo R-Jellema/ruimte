@@ -14,7 +14,8 @@ import { askViewSettings, openSessionInKind, setViewShared, showView, stepView, 
 import { undoLatestDeletion } from '@/project/view-trash';
 import { runAppShortcut } from '@/shell/app-shortcuts';
 import { activeViewFacts } from '@/shell/menu/context';
-import { AFTER_SETTLE_PREFIX, GO_VIEW_PREFIX, isPaletteId, LAUNCH_CHOOSE_PREFIX, type MenuActionId } from '@/shell/menu/ids';
+import type { CommandId, MenuOnlyCommandId } from '@/shell/command-table';
+import { AFTER_SETTLE_PREFIX, GO_VIEW_PREFIX, isPaletteId, LAUNCH_CHOOSE_PREFIX } from '@/shell/menu/ids';
 import type { SplitDirection } from '@/shell/split';
 import { useDocument } from '@/state/document';
 import { currentEndpointId } from '@/state/keys';
@@ -44,7 +45,11 @@ function toggleFullscreen(): void {
     }
 }
 
-const MENU_ACTIONS: Record<MenuActionId, () => void> = {
+/*
+ * What a menu row runs itself: every row the palette has none of, and the few whose palette row only
+ * exists in a moment the menu does not wait for (a view with the focus, a loaded launches file).
+ */
+const MENU_ACTIONS: Record<MenuOnlyCommandId, () => void> & Partial<Record<CommandId, () => void>> = {
     about: () => useUi.getState().setSettings({ open: true, section: 'about' }),
     'project-settings': () => useUi.getState().askProjectSettings(true),
     palette: () => runAppShortcut('palette'),
@@ -103,7 +108,7 @@ const MENU_ACTIONS: Record<MenuActionId, () => void> = {
     'launches-after-settle-off': () => void chooseAfterSettle(null)
 };
 
-function isMenuActionId(id: string): id is MenuActionId {
+function isMenuActionId(id: string): id is keyof typeof MENU_ACTIONS {
     return Object.hasOwn(MENU_ACTIONS, id);
 }
 
@@ -118,7 +123,7 @@ export async function runPaletteCommand(id: string): Promise<void> {
 /* A click in the application menu. The palette's rows run through the palette, so both do the same thing. */
 export function runMenuCommand(id: string): void {
     if (isMenuActionId(id)) {
-        MENU_ACTIONS[id]();
+        MENU_ACTIONS[id]?.();
         return;
     }
     if (id.startsWith(GO_VIEW_PREFIX)) {

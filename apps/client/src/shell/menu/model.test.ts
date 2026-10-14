@@ -5,9 +5,10 @@ import type { MenuNode, MenuSpec } from '@ruimte/desktop-bridge';
 import { CANVAS_SHORTCUTS, ADD_NODE_SHORTCUTS } from '@/canvas/shortcuts';
 import { menuIconOf } from './icons';
 import { LANGUAGE_COMMAND_IDS } from '@/language/command-table';
+import { COMMAND_IDS, COMMANDS, isCommandId } from '@/shell/command-table';
 import { languageCommandRows } from '@/language/language-commands';
 import { EDITOR_COMMAND_IDS, editorCommandRows } from '@/shell/editor-commands';
-import { AFTER_SETTLE_PREFIX, GO_VIEW_PREFIX, isPaletteId, LAUNCH_CHOOSE_PREFIX, MENU_ACTION_IDS, PALETTE_IDS } from './ids';
+import { AFTER_SETTLE_PREFIX, GO_VIEW_PREFIX, isPaletteId, LAUNCH_CHOOSE_PREFIX } from './ids';
 import { menuModel, toAccelerator, type MenuContext } from './model';
 
 const NO_OFFERS = {
@@ -420,11 +421,12 @@ describe('the menus', () => {
 });
 
 describe('the commands behind the menu', () => {
+    // A row of the table runs through the palette or through `MENU_ACTIONS`, which the type holds to every row the palette lacks.
     test('every id in any menu has a handler', () => {
         const ids = new Set(EVERY_CONTEXT.flatMap((entry) => commandIds(menuModel(entry))));
         for (const id of ids) {
             const handled =
-                (MENU_ACTION_IDS as readonly string[]).includes(id) ||
+                isCommandId(id) ||
                 isPaletteId(id) ||
                 id.startsWith(GO_VIEW_PREFIX) ||
                 id.startsWith(LAUNCH_CHOOSE_PREFIX) ||
@@ -433,10 +435,10 @@ describe('the commands behind the menu', () => {
         }
     });
 
-    test('every palette id the menu borrows is a row of the palette', () => {
+    test('every row of the table the palette has is a row of the palette', () => {
         const source = readFileSync(join(import.meta.dir, '..', 'commands.ts'), 'utf8');
         const pullRequestRows = readFileSync(join(import.meta.dir, '..', 'pull-request-commands.ts'), 'utf8');
-        for (const id of PALETTE_IDS) {
+        for (const id of COMMAND_IDS.filter((candidate) => COMMANDS[candidate].palette)) {
             // The language commands are rows of `languageCommandRows()`, which `appCommands()` spreads in.
             const listed =
                 (LANGUAGE_COMMAND_IDS as readonly string[]).includes(id) ||
