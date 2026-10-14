@@ -31,9 +31,11 @@ import {
     createNodeAction,
     duplicateNodeAction,
     focusNodeAction,
-    linkNodesAction
+    linkNodesAction,
+    perform
 } from '@/actions/client-actions';
 import { ChatAgentSubmenu } from '@/agents/AgentMenus';
+import { askBeforeClearingChat } from '@/agents/end-children';
 import { FlagSubmenu } from '@/project/FlagSubmenu';
 import { askOpenAsView, canOpenAsView } from '@/project/views';
 import { accentLabel, NODE_ACCENTS } from '@/canvas/accents';
@@ -57,6 +59,7 @@ import { useSessionRow } from '@/state/sessions';
 import { useSettings } from '@/state/settings';
 import { useUi } from '@/state/ui';
 import { useGroupWorktrees, useWorktreeOf } from '@/state/worktrees';
+import { useToasts } from '@/state/toasts';
 import { useTransport } from '@/transport/context';
 import { ColorSwatch, DisabledReason, Icon, Tooltip, Kbd, ContextMenu } from '@adecore/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
@@ -119,6 +122,18 @@ export function NodeMenuPopup({ id, onRename, snooze }: { id: string; onRename()
                 at: beside
             });
         }
+    };
+    const clearChat = (): void => {
+        void askBeforeClearingChat(transport, id, node.title, () => {
+            // The dialog already said that a running turn stops, so the composer's busy-turn question is skipped.
+            perform('chat.clear', { chatId: id, force: true }).catch((error: unknown) =>
+                useToasts.getState().show({
+                    kind: 'error',
+                    title: t('menu.clearFailed', { what: node.title }),
+                    description: error instanceof Error ? error.message : undefined
+                })
+            );
+        });
     };
     const openInTerminal = (): void => {
         // The daemon owns the resume line: the node only says which CLI and which session.
@@ -255,6 +270,11 @@ export function NodeMenuPopup({ id, onRename, snooze }: { id: string; onRename()
             )}
             {node.kind === 'chat' && <ForkMenuItem chatId={id} />}
             {node.kind === 'chat' && <BookmarkSubmenu chatId={id} />}
+            {node.kind === 'chat' && (
+                <ContextMenu.Item onClick={clearChat}>
+                    <Icon icon={Eraser} size={14} /> {t('menu.clear')}
+                </ContextMenu.Item>
+            )}
             {canOpenAsView(node.kind) && (
                 <ContextMenu.Item onClick={() => askOpenAsView(id)}>
                     <Icon icon={Frame} size={14} /> {t('menu.openAsView')}

@@ -8,7 +8,7 @@ export interface PendingEnd {
     what?: string;
     agents: number;
     /* A stop keeps the node where it is; without one the question is about a delete. */
-    action?: 'delete' | 'stop' | 'stop-subagents';
+    action?: 'delete' | 'stop' | 'stop-subagents' | 'clear';
     worktrees?: { folder: string; worktrees: readonly Worktree[] };
     run(): void;
 }
@@ -18,6 +18,9 @@ export const useEndingAgents = create<{ pending: PendingEnd | null }>(() => ({ p
 export function endingTitle(pending: PendingEnd): string {
     if (pending.action === 'stop-subagents') {
         return i18next.t('agents:dialog.stopSubagentsTitle');
+    }
+    if (pending.action === 'clear') {
+        return i18next.t('agents:dialog.clearTitle', { what: pending.what });
     }
     return i18next.t(pending.action === 'stop' ? 'agents:dialog.stopTitle' : 'agents:dialog.deleteTitle', { what: pending.what });
 }
@@ -92,4 +95,13 @@ export async function askBeforeStoppingSubagents(transport: Pick<Transport, 'req
         return;
     }
     useEndingAgents.setState({ pending: { agents, action: 'stop-subagents', run } });
+}
+
+/*
+ * A menu row sits one click from Delete, the history cannot come back and a clear ends the chat's
+ * children, so unlike the composer's `/clear` this always asks.
+ */
+export async function askBeforeClearingChat(transport: Pick<Transport, 'request'> | null, chatId: string, what: string, run: () => void): Promise<void> {
+    const agents = await agentsEndedWith(transport, [chatId]);
+    useEndingAgents.setState({ pending: { what, agents, action: 'clear', run } });
 }

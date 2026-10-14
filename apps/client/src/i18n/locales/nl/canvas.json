@@ -98,6 +98,7 @@
         "viewWorktree": "Worktree bekijken",
         "openInChat": "In een chat openen",
         "clear": "Wissen",
+        "clearFailed": "{{what}} wissen lukte niet",
         "openInTerminal": "In een terminal openen",
         "openAsView": "Als weergave openen",
         "openAsViewHint": "De sessie blijft behouden",

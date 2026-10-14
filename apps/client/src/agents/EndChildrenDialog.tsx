@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import i18next from 'i18next';
-import { Square, Trash } from 'lucide-react';
+import { Eraser, Square, Trash } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { perform } from '@/actions/client-actions';
 import { endingTitle, endsAgentsWarning, stopsSubagentsWarning, stopsTaskWarning, useEndingAgents, type PendingEnd } from '@/agents/end-children';
@@ -17,6 +17,9 @@ function warningOf(pending: PendingEnd | null): string | null {
     }
     if (pending?.action === 'stop-subagents') {
         return stopsSubagentsWarning(agents);
+    }
+    if (pending?.action === 'clear') {
+        return `${i18next.t('agents:ending.clears')}${agents === 0 ? '' : ` ${endsAgentsWarning(agents)}`}`;
     }
     return agents === 0 ? null : endsAgentsWarning(agents);
 }
@@ -38,6 +41,9 @@ export function EndChildrenDialog() {
     }
     const close = (): void => useEndingAgents.setState({ pending: null });
     const stop = pending?.action === 'stop' || pending?.action === 'stop-subagents';
+    const clear = pending?.action === 'clear';
+    const confirmIcon = clear ? Eraser : stop ? Square : Trash;
+    const confirmLabel = clear ? 'dialog.clear' : stop ? 'dialog.stop' : 'dialog.delete';
     const warning = warningOf(pending);
     const offered = pending?.worktrees;
     const clean = offered?.worktrees.filter((worktree) => !hasWork(worktree.work)) ?? [];
@@ -74,7 +80,7 @@ export function EndChildrenDialog() {
                             close();
                         }}
                     >
-                        <Icon icon={stop ? Square : Trash} size={12} /> {stop ? t('dialog.stop') : t('dialog.delete')}
+                        <Icon icon={confirmIcon} size={12} /> {t(confirmLabel)}
                     </Button>
                 </Dialog.Footer>
             </Dialog.Popup>

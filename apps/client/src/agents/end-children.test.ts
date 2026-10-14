@@ -3,6 +3,7 @@ import { beforeEach, expect, test } from 'bun:test';
 import i18next from 'i18next';
 import {
     agentsEndedWith,
+    askBeforeClearingChat,
     askBeforeEndingAgents,
     askBeforeStoppingSubagents,
     askBeforeStoppingTask,
@@ -96,7 +97,19 @@ test('every question is asked in the language on screen', async () => {
         expect(endingTitle({ agents: 2, action: 'stop-subagents', run })).toBe('De turn en zijn sub-agents stoppen?');
         expect(endingTitle({ what: 'Chat', agents: 1, action: 'stop', run })).toBe('Chat stoppen?');
         expect(endingTitle({ what: 'Chat', agents: 1, run })).toBe('Chat verwijderen?');
+        expect(endingTitle({ what: 'Chat', agents: 0, action: 'clear', run })).toBe('Chat wissen?');
     } finally {
         await i18next.changeLanguage('en');
     }
+});
+
+test('clearing a chat always asks, with and without children, and names the chat', async () => {
+    const runs: string[] = [];
+    await askBeforeClearingChat(machine({}) as never, 'chat', 'Review', () => runs.push('chat'));
+    expect(runs).toEqual([]);
+    expect(useEndingAgents.getState().pending).toMatchObject({ what: 'Review', agents: 0, action: 'clear' });
+    expect(endingTitle(useEndingAgents.getState().pending!)).toBe('Clear Review?');
+
+    await askBeforeClearingChat(machine({ chat: ['a', 'b'] }) as never, 'chat', 'Review', () => runs.push('chat'));
+    expect(useEndingAgents.getState().pending).toMatchObject({ agents: 2, action: 'clear' });
 });
