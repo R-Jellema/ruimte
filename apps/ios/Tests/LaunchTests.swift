@@ -219,7 +219,7 @@ final class LaunchEditingTests: XCTestCase {
                 "launch": launch("api", command: "node server.js"), "source": .string("vscode-launch"),
                 "path": .string(".vscode/launch.json"), "detail": .string("node"), "private": .bool(false),
             ]))
-        XCTAssertEqual(LaunchEditing.foundText([suggestion]), "1 run configurations in .vscode.")
+        XCTAssertEqual(LaunchEditing.foundText([suggestion]), "1 run configuration in .vscode.")
         XCTAssertEqual(LaunchEditing.source(suggestion), "node")
         let imported = LaunchEditing.imported([suggestion], share: false, existing: [])
         XCTAssertEqual(LaunchEditing.importedIDs(imported, existing: []), ["api"])
