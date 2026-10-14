@@ -60,7 +60,7 @@ describe('Voice tools', () => {
             expect(git.parameters.properties).not.toHaveProperty(field);
         }
         const actions = git.parameters.properties.action?.enum as string[];
-        for (const action of ['git.rebase', 'git.forcePush', 'git.resolveConflict', 'git.proposeResolution', 'worktree.remove']) {
+        for (const action of ['git.rebase', 'git.resolveConflict', 'git.proposeResolution', 'worktree.remove']) {
             expect(actions).not.toContain(action);
         }
         expect(git.parameters.properties.step?.enum).toEqual(['abort', null]);

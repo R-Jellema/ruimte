@@ -521,7 +521,7 @@
             "filter": "Filter",
             "forcePush": {
                 "confirm": "Force push",
-                "description": "Overwrites the remote branch with this checkout. It stops if someone else pushed since the last fetch.",
+                "description": "Overwrites the remote branch with this checkout, so commits only the remote has are lost. It stops if someone else pushed since the last fetch.",
                 "title": "Force push this branch?"
             },
             "message": "Message",
@@ -546,6 +546,12 @@
                 "description": "Publishes the branch first if needed. The pull request opens in your browser.",
                 "subject": "Title",
                 "title": "Open a pull request"
+            },
+            "rebase": {
+                "confirm": "Rebase",
+                "description": "Your commits are written again on top of that branch, as new commits. A branch you already pushed then needs a force push. A conflict stops the rebase halfway, for you to resolve or take back.",
+                "fallback": "Rebase this branch?",
+                "title": "Rebase onto {{onto}}?"
             },
             "renameBranch": {
                 "confirm": "Rename branch",

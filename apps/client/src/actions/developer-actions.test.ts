@@ -164,6 +164,19 @@ describe('git actions for a person', () => {
         expect(result).toMatchObject({ status: 'completed', output: { runs: [{ repository: 'web', commit: { hash: 'abc' }, error: null }] } });
     });
 
+    test('a forced push overwrites the remote branch of the one repository it names, and never of the whole folder', async () => {
+        const { registry, of } = fake({});
+        expect(await registry.execute('git.push', { repository: null, force: true, run: 'mine' }, PERSON_ACTION_CALL)).toMatchObject({
+            status: 'failed',
+            error: { code: 'name-a-repository' }
+        });
+        expect(of('git.action')).toEqual([]);
+        const result = await registry.execute('git.push', { repository: `${FOLDER}/web`, force: true, run: 'mine' }, PERSON_ACTION_CALL);
+        expect(of('git.action')).toEqual([{ cwd: `${FOLDER}/web`, actionId: 'mine', kind: 'force-push' }]);
+        expect(of('git.status')).toEqual([]);
+        expect(result).toMatchObject({ status: 'completed', output: { runs: [{ repository: 'web', summary: 'force-push done', error: null }] } });
+    });
+
     test('a resolution is the merged file over its digest or one side, never neither', async () => {
         const { registry, of } = fake({ 'git.resolve': () => ({ remaining: 0 }) });
         expect(
@@ -302,13 +315,16 @@ describe('git actions for Voice', () => {
         const { registry, asked } = fake({});
         for (const [name, input] of [
             ['git.rebase', { repository: 'atlas', onto: 'main' }],
-            ['git.forcePush', { repository: 'atlas' }],
             ['git.resolveConflict', { repository: 'atlas', path: 'a.ts', content: null, take: 'ours', hash: null }],
             ['git.proposeResolution', { repository: 'atlas', path: 'a.ts' }],
             ['worktree.remove', { branch: 'lexer' }]
         ] as const) {
             expect(await registry.execute(name, input, VOICE_ACTION_CALL)).toMatchObject({ status: 'failed', error: { code: 'forbidden-action' } });
         }
+        expect(await registry.execute('git.push', { repository: 'atlas', force: true }, VOICE_ACTION_CALL)).toMatchObject({
+            status: 'failed',
+            error: { code: 'forbidden-field' }
+        });
         expect(asked).toEqual([]);
     });
 

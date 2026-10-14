@@ -426,7 +426,13 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
             }
             return { output: await runEach(checkouts, repository != null, 'sync', () => (strategy == null ? {} : { strategy }), run) };
         },
-        'git.push': async ({ repository, run }, call) => {
+        'git.push': async ({ repository, force, run }, call) => {
+            if (force === true) {
+                if (repository == null) {
+                    throw new ActionRefusal('name-a-repository', 'A force push overwrites the remote branch of one repository; name the repository.');
+                }
+                return { output: await runEach([await checkoutOf(repository, call)], true, 'force-push', () => ({}), run) };
+            }
             const checkouts = await checkoutsOf(repository, call);
             if (call.actor.kind === 'person' && repository != null) {
                 return { output: await runEach(checkouts, true, 'push', () => ({}), run) };
@@ -470,7 +476,6 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
             }
             return { output: await runKind(checkout, 'publish', {}, run) };
         },
-        'git.forcePush': async ({ repository, run }, call) => ({ output: await runKind(await checkoutOf(repository, call), 'force-push', {}, run) }),
         'git.checkout': async ({ repository, branch, stashFirst, run }, call) => {
             const checkout = await checkoutOf(repository, call);
             if (call.actor.kind === 'person') {

@@ -2733,7 +2733,14 @@ export const ACTION_DEFINITIONS = {
         effect: 'external',
         domain: 'developer',
         actors: PERSON_AND_VOICE,
-        input: z.object({ repository: anyRepository, run: gitRun }),
+        input: z.object({
+            repository: anyRepository,
+            // It rewrites history others may have pulled.
+            force: forActors(PERSON, z.boolean()).describe(
+                'Overwrites the remote branch with the local one, in one named repository; refused when the upstream moved since the last fetch'
+            ),
+            run: gitRun
+        }),
         output: gitRunsOutput
     },
     'git.sync': {
@@ -2751,16 +2758,6 @@ export const ACTION_DEFINITIONS = {
         effect: 'external',
         domain: 'developer',
         actors: PERSON_AND_VOICE,
-        input: z.object({ repository, run: gitRun }),
-        output: gitRunOutput
-    },
-    'git.forcePush': {
-        title: 'Force push',
-        description: 'Replaces the history of the upstream with the local branch, refused when the upstream moved since the last fetch.',
-        effect: 'external',
-        domain: 'developer',
-        // It rewrites history others may have pulled.
-        actors: PERSON,
         input: z.object({ repository, run: gitRun }),
         output: gitRunOutput
     },
@@ -2823,7 +2820,8 @@ export const ACTION_DEFINITIONS = {
     },
     'git.rebase': {
         title: 'Rebase',
-        description: 'Puts the commits of the branch the repository is on on top of another branch.',
+        description:
+            'Puts the commits of the branch the repository is on on top of another branch, after confirmation. Conflicts stop it halfway for the user to resolve in the app.',
         effect: 'shared',
         domain: 'developer',
         // It rewrites the commits of the branch.

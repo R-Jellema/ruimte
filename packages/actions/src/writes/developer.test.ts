@@ -66,8 +66,8 @@ describeWrites('developer', {
     'git.push': {
         actors: ['person', 'voice'],
         input: { repository: null },
-        refused: { 'no repository at all': {} },
-        restricted: { run },
+        refused: { 'no repository at all': {}, 'force as a word': { repository: 'ruimte', force: 'yes' } },
+        restricted: { force: { value: true, actors: ['person'] }, run },
         confirms: true
     },
     'git.sync': {
@@ -83,12 +83,6 @@ describeWrites('developer', {
         refused: { 'every repository at once': { repository: null } },
         restricted: { run },
         confirms: true
-    },
-    'git.forcePush': {
-        actors: ['person'],
-        input: { repository: 'ruimte' },
-        refused: { 'every repository at once': { repository: null } },
-        restricted: { run }
     },
     'git.checkout': {
         actors: ['person', 'voice'],
@@ -127,7 +121,8 @@ describeWrites('developer', {
         actors: ['person'],
         input: { repository: 'ruimte', onto: 'main' },
         refused: { 'nothing to rebase onto': { repository: 'ruimte' } },
-        restricted: { run }
+        restricted: { run },
+        confirms: true
     },
     'git.stash': {
         actors: ['person', 'voice'],

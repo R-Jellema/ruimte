@@ -68,7 +68,7 @@ export async function runGitKind({
         case 'publish':
             return resultOf(run, await perform('git.publishBranch', { repository, run }));
         case 'force-push':
-            return resultOf(run, await perform('git.forcePush', { repository, run }));
+            return firstOf(run, await perform('git.push', { repository, force: true, run }));
         case 'checkout':
             return resultOf(run, await perform('git.checkout', { repository, branch: ref ?? '', stashFirst: stash ?? false, run }));
         case 'create-branch':

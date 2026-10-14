@@ -52,6 +52,7 @@ type Dialog =
     | { kind: 'pick-branch'; cwd: string; action: 'merge' | 'rebase' | 'delete-branch' }
     | { kind: 'confirm-delete'; cwd: string; ref: string; force: boolean }
     | { kind: 'force-push'; cwd: string }
+    | { kind: 'confirm-rebase'; cwd: string; onto: string }
     | { kind: 'stash'; cwd: string }
     | { kind: 'pick-stash'; cwd: string }
     | { kind: 'switch'; cwd: string; ref: GitRef }
@@ -696,6 +697,19 @@ export function GitPanel() {
                 onOpenChange={() => setDialog(null)}
             />
             <PromptDialog
+                open={dialog?.kind === 'confirm-rebase'}
+                title={dialog?.kind === 'confirm-rebase' ? t('git.dialog.rebase.title', { onto: dialog.onto }) : t('git.dialog.rebase.fallback')}
+                description={t('git.dialog.rebase.description')}
+                confirmLabel={t('git.dialog.rebase.confirm')}
+                busy={busy}
+                onConfirm={() => {
+                    if (dialog?.kind === 'confirm-rebase') {
+                        void act(dialog.cwd, 'rebase', { ref: dialog.onto });
+                    }
+                }}
+                onOpenChange={() => setDialog(null)}
+            />
+            <PromptDialog
                 open={dialog?.kind === 'switch'}
                 title={dialog?.kind === 'switch' ? t('git.dialog.switch.title', { branch: dialog.ref.name }) : t('git.dialog.switch.fallback')}
                 description={t('git.dialog.switch.description')}
@@ -806,6 +820,10 @@ export function GitPanel() {
                     }
                     if (dialog.action === 'delete-branch') {
                         setDialog({ kind: 'confirm-delete', cwd: dialog.cwd, ref: name, force: false });
+                        return;
+                    }
+                    if (dialog.action === 'rebase') {
+                        setDialog({ kind: 'confirm-rebase', cwd: dialog.cwd, onto: name });
                         return;
                     }
                     void act(dialog.cwd, dialog.action, { ref: name });

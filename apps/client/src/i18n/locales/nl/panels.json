@@ -521,7 +521,7 @@
             "filter": "Filteren",
             "forcePush": {
                 "confirm": "Force push",
-                "description": "Overschrijft de remote branch met deze checkout. Het stopt als iemand anders sinds de laatste fetch gepusht heeft.",
+                "description": "Overschrijft de remote branch met deze checkout, dus commits die alleen de remote heeft gaan verloren. Het stopt als iemand anders sinds de laatste fetch gepusht heeft.",
                 "title": "Deze branch force pushen?"
             },
             "message": "Bericht",
@@ -546,6 +546,12 @@
                 "description": "Publiceert de branch eerst als dat nodig is. De pull request opent in je browser.",
                 "subject": "Titel",
                 "title": "Een pull request openen"
+            },
+            "rebase": {
+                "confirm": "Rebasen",
+                "description": "Je commits worden opnieuw geschreven boven op die branch, als nieuwe commits. Een branch die je al pushte, heeft daarna een force push nodig. Een conflict stopt de rebase halverwege, zodat je het oplost of terugdraait.",
+                "fallback": "Deze branch rebasen?",
+                "title": "Rebasen op {{onto}}?"
             },
             "renameBranch": {
                 "confirm": "Branch hernoemen",
