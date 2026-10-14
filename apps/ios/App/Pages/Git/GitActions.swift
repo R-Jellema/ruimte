@@ -34,7 +34,7 @@ enum GitConfirmation: Identifiable {
     var detail: String {
         switch self {
         case .discard: String(localized: "The file goes back to what it was, and git keeps a stash to undo it with.")
-        case .forcePush: String(localized: "The remote branch is replaced by this one. Commits only it has are lost.")
+        case .forcePush: String(localized: "Overwrites the remote branch with this checkout, so commits only the remote has are lost. It stops if someone else pushed since the last fetch.")
         case .deleteBranch(_, _, let force):
             force
                 ? String(localized: "This branch has not been merged anywhere. Its commits are only reachable by hash.")

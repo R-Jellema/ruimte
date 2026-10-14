@@ -13594,6 +13594,16 @@
         }
       }
     },
+    "Overwrites the remote branch with this checkout, so commits only the remote has are lost. It stops if someone else pushed since the last fetch." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overschrijft de remote branch met deze checkout, dus commits die alleen de remote heeft gaan verloren. Het stopt als iemand anders sinds de laatste fetch gepusht heeft."
+          }
+        }
+      }
+    },
     "Packages" : {
       "localizations" : {
         "nl" : {
@@ -18562,16 +18572,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "de remote"
-          }
-        }
-      }
-    },
-    "The remote branch is replaced by this one. Commits only it has are lost." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "De remote branch wordt vervangen door deze. Commits die alleen daar staan, gaan verloren."
           }
         }
       }
