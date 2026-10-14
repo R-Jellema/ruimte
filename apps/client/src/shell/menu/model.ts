@@ -1,13 +1,13 @@
 import i18next from 'i18next';
 import type { ProjectView } from '@ruimte/contracts';
 import type { MenuNode, MenuRole, MenuShellAction, MenuSpec } from '@ruimte/desktop-bridge';
-import { CANVAS_SHORTCUTS, viewShortcut } from '@/canvas/shortcuts';
-import { APP_SHORTCUTS, BROWSER_KEEPS } from '@/shell/shortcuts';
+import { viewShortcut } from '@/canvas/shortcuts';
+import { BROWSER_KEEPS } from '@/shell/shortcuts';
 import type { ViewOffers } from '@/shell/view-offers';
 import type { KeepAwakeMode } from '@/state/settings';
 import type { PanelKind } from '@/state/ui';
 import { formatShortcut, type Shortcut } from '@adecore/ui';
-import { AFTER_SETTLE_PREFIX, GO_VIEW_PREFIX, LAUNCH_CHOOSE_PREFIX, PR_SHOW_IN_PREFIX, type MenuActionId, type PaletteId } from '@/shell/menu/ids';
+import { AFTER_SETTLE_PREFIX, GO_VIEW_PREFIX, LAUNCH_CHOOSE_PREFIX, PR_SHOW_IN_PREFIX } from '@/shell/menu/ids';
 import { COMMAND_IDS, COMMANDS, menuPlacesOf, type CommandId as TableCommandId, type MenuContainer, type MenuPlace } from '@/shell/command-table';
 
 export type MenuHost = 'desktop' | 'station';
@@ -94,9 +94,7 @@ export interface MenuContext {
     newChat: boolean;
 }
 
-type CommandId = MenuActionId | PaletteId;
-
-type MenuCommand = (id: CommandId | string, label: string, options?: CommandOptions) => MenuNode;
+type MenuCommand = (id: string, label: string, options?: CommandOptions) => MenuNode;
 
 interface MenuSection {
     id: string;
@@ -110,8 +108,6 @@ interface CommandOptions {
     checked?: boolean;
     radio?: boolean;
 }
-
-const KEEP_AWAKE_LABELS: Record<KeepAwakeMode, string> = { off: 'keepAwakeOff', working: 'keepAwakeWorking', always: 'keepAwakeAlways' };
 
 function t(key: string, options?: Record<string, unknown>): string {
     return i18next.t(`shell:menu.${key}`, options ?? {});
@@ -219,8 +215,65 @@ function onCanvas(context: MenuContext): boolean {
     return context.view === 'canvas';
 }
 
+function quitRows(): MenuNode[] {
+    return [shell('stop-machine-and-quit', t('stopAndQuit')), role('quit', t('quit'))];
+}
+
 /* The groups of every menu and submenu with a fixed place, top to bottom. */
-const LAYOUT: Partial<Record<MenuContainer, readonly MenuGroup[]>> = {
+const LAYOUT: Record<MenuContainer, readonly MenuGroup[]> = {
+    app: [
+        { id: 'about' },
+        {
+            id: 'settings',
+            extras: [
+                {
+                    order: 20,
+                    build: (context, command) =>
+                        only(context.keepAwake !== null, submenu('keep-awake', t('keepAwake'), itemsOf('keep-awake', context, command)))
+                }
+            ]
+        },
+        { id: 'services', extras: [{ order: 10, build: () => [role('services', t('services'))] }] },
+        { id: 'hide', extras: [{ order: 10, build: () => [role('hide', t('hide')), role('hideOthers', t('hideOthers')), role('unhide', t('showAll'))] }] },
+        { id: 'quit', extras: [{ order: 10, build: quitRows }] }
+    ],
+    'keep-awake': [{ id: 'modes' }],
+    file: [
+        { id: 'new' },
+        {
+            id: 'open',
+            extras: [
+                {
+                    order: 10,
+                    build: (context, command) => only(context.workspace, submenu('new-view', t('newView'), itemsOf('new-view', context, command)))
+                }
+            ]
+        },
+        // Without a cell to close the desktop app closes the window.
+        {
+            id: 'close',
+            extras: [{ order: 31, build: (context) => only(isDesktop(context) && !(context.workspace && context.cells > 0), role('close', t('closeWindow'))) }]
+        },
+        { id: 'settings' },
+        { id: 'quit', when: (context) => !context.apple && isDesktop(context), extras: [{ order: 10, build: quitRows }] }
+    ],
+    'new-view': [
+        { id: 'views' },
+        {
+            id: 'agents',
+            extras: [
+                {
+                    order: 10,
+                    build: (context, command) =>
+                        context.agents.flatMap((agent) => [
+                            ...only(agent.chat, command(`agent-view-chat-${agent.kind}`, t('agentChat', { name: agent.name }))),
+                            ...only(agent.terminal, command(`agent-view-terminal-${agent.kind}`, t('agentTerminal', { name: agent.name })))
+                        ])
+                }
+            ]
+        },
+        { id: 'dividers' }
+    ],
     view: [
         { id: 'sidebar', when: inWorkspace },
         { id: 'panels', when: inWorkspace },
@@ -438,11 +491,11 @@ const PLACED = new Map<string, PlacedCommand[]>();
 for (const id of COMMAND_IDS) {
     for (const place of menuPlacesOf(id)) {
         const at = `${place.menu}/${place.group}`;
-        PLACED.set(
-            at,
-            [...(PLACED.get(at) ?? []), { id, place }].sort((one, other) => one.place.order - other.place.order)
-        );
+        PLACED.set(at, [...(PLACED.get(at) ?? []), { id, place }]);
     }
+}
+for (const rows of PLACED.values()) {
+    rows.sort((one, other) => one.place.order - other.place.order);
 }
 
 function tableRow({ id, place }: PlacedCommand, context: MenuContext, command: MenuCommand): MenuNode {
@@ -459,7 +512,7 @@ function tableRow({ id, place }: PlacedCommand, context: MenuContext, command: M
 
 /* The rows of a menu or submenu, a line before every group but the first; `tidy` drops the lines empty groups leave. */
 function itemsOf(container: MenuContainer, context: MenuContext, command: MenuCommand): MenuNode[] {
-    return (LAYOUT[container] ?? []).flatMap((group, index) => {
+    return LAYOUT[container].flatMap((group, index) => {
         if (group.when && !group.when(context)) {
             return [];
         }
@@ -502,143 +555,24 @@ export function menuModel(context: MenuContext): MenuSpec {
         };
     };
 
-    const kindMenu = workspace && context.view !== null ? viewKindMenu(context, command) : null;
+    const section = (container: MenuContainer, label: string, id: string = container): MenuSection => ({
+        id,
+        label,
+        items: itemsOf(container, context, command)
+    });
+    const kind = workspace ? context.view : null;
     const menus = [
-        ...(apple && desktop ? [appMenu(context, command)] : []),
-        fileMenu(context, command),
-        editMenu(context, command),
-        ...(workspace && !context.settingsOpen ? [codeMenu(context, command)] : []),
-        viewMenu(context, command),
-        ...(kindMenu ? [kindMenu] : []),
-        goMenu(context, command),
-        ...(workspace && !context.scratch ? [runMenu(context, command)] : []),
-        windowMenu(context, command),
-        helpMenu(context, command)
+        ...(apple && desktop ? [section('app', 'Ruimte')] : []),
+        section('file', t('file')),
+        section('edit', t('edit')),
+        ...(workspace && !context.settingsOpen ? [section('code', t('code'))] : []),
+        section('view', t('view')),
+        // The menu of the view with the focus, named after its kind, so everything a drawing offers sits in one place.
+        ...(kind !== null && KIND_MENUS.includes(kind) ? [section('kind', t(`kinds.${kind}`), `kind-${kind}`)] : []),
+        section('go', t('go')),
+        ...(workspace && !context.scratch ? [section('run', t('run'))] : []),
+        section('window', t('window')),
+        section('help', t('help'))
     ];
     return { menus: menus.map((menu) => ({ id: menu.id, label: menu.label, items: tidy(menu.items) })) };
-}
-
-function appMenu(context: MenuContext, command: MenuCommand): MenuSection {
-    const keepAwakeItems = (Object.keys(KEEP_AWAKE_LABELS) as KeepAwakeMode[]).map((mode) =>
-        command(`keep-awake-${mode}`, t(KEEP_AWAKE_LABELS[mode]), { checked: context.keepAwake === mode, radio: true })
-    );
-    return {
-        id: 'app',
-        label: 'Ruimte',
-        items: [
-            command('about', t('about')),
-            separator,
-            command('settings', t('settings'), { shortcut: APP_SHORTCUTS.settings }),
-            ...only(context.keepAwake !== null, submenu('keep-awake', t('keepAwake'), keepAwakeItems)),
-            separator,
-            role('services', t('services')),
-            separator,
-            role('hide', t('hide')),
-            role('hideOthers', t('hideOthers')),
-            role('unhide', t('showAll')),
-            separator,
-            shell('stop-machine-and-quit', t('stopAndQuit')),
-            role('quit', t('quit'))
-        ]
-    };
-}
-
-function fileMenu(context: MenuContext, command: MenuCommand): MenuSection {
-    const { apple, workspace } = context;
-    const desktop = context.host === 'desktop';
-    const agentViews = context.agents.flatMap((agent) => [
-        ...only(agent.chat, command(`agent-view-chat-${agent.kind}`, t('agentChat', { name: agent.name }))),
-        ...only(agent.terminal, command(`agent-view-terminal-${agent.kind}`, t('agentTerminal', { name: agent.name })))
-    ]);
-    // In a host the key closes the tab in front, so Close Cell keeps no key of its own there.
-    const hosted = context.tabs.hosted;
-    const worktreeChat = workspace && context.folder && !context.scratch;
-    const close =
-        workspace && context.cells > 0
-            ? command('close-cell', t('closeCell'), { shortcut: hosted ? undefined : CANVAS_SHORTCUTS.closeCell })
-            : desktop
-              ? role('close', t('closeWindow'))
-              : command('close-cell', t('closeCell'), { enabled: false });
-    return {
-        id: 'file',
-        label: t('file'),
-        items: [
-            ...only(context.windows, command('window-new', t('newWindow'), { shortcut: APP_SHORTCUTS.newWindow })),
-            ...only(context.newChat, command('chat-new', t('newChat'), { shortcut: APP_SHORTCUTS.newChat })),
-            ...only(worktreeChat, command('chat-new-worktree', t('newChatInWorktree'))),
-            ...only(worktreeChat, command('issue-start', t('startFromIssue'))),
-            ...only(context.windows || context.newChat || worktreeChat, separator),
-            ...only(
-                workspace,
-                submenu('new-view', t('newView'), [
-                    command('view-new', t('newCanvasView'), { shortcut: CANVAS_SHORTCUTS.newView }),
-                    command('view-new-drawing', t('newDrawingView')),
-                    command('view-new-diagram', t('newDiagramView')),
-                    command('view-new-terminal', t('newTerminalView')),
-                    ...only(context.folder, command('view-new-file', t('newFileView'))),
-                    command('view-new-browser', t('newBrowserView')),
-                    separator,
-                    ...agentViews,
-                    separator,
-                    command('view-new-separator', t('newSeparator')),
-                    command('view-new-subheader', t('newSubheader'))
-                ])
-            ),
-            command('open-folder', t('openFolder')),
-            ...only(workspace && context.folder, command('file-new', t('newFile')), command('folder-new', t('newFolder'))),
-            ...only(workspace && !context.scratch, command('database-console-new', t('newDatabaseConsole'))),
-            ...only(workspace && context.folder, command('reveal', t('reveal', { app: context.fileManager }))),
-            ...only(workspace, command('project-settings', t('projectSettings'))),
-            ...only(workspace && !context.scratch, command('database-connections', t('databaseConnections'))),
-            ...only(workspace && !context.scratch, command('database-schemas-refresh', t('refreshSqlSchemas'))),
-            separator,
-            ...only(workspace && context.windows, command('window-move', t('moveToNewWindow'))),
-            ...only(workspace && hosted, command('tab-close', t('closeTab'), { shortcut: CANVAS_SHORTCUTS.closeCell })),
-            ...only(workspace || desktop, close),
-            ...only(
-                workspace,
-                command('cell-close-others', t('closeOtherCells'), { enabled: context.cells > 1 }),
-                command('cell-close-right', t('closeCellsRight'), { enabled: context.closesRight })
-            ),
-            ...only(!apple, separator, command('settings', t('settings'), { shortcut: APP_SHORTCUTS.settings })),
-            ...only(!apple && desktop, separator, shell('stop-machine-and-quit', t('stopAndQuit')), role('quit', t('quit')))
-        ]
-    };
-}
-
-function editMenu(context: MenuContext, command: MenuCommand): MenuSection {
-    return { id: 'edit', label: t('edit'), items: itemsOf('edit', context, command) };
-}
-
-function codeMenu(context: MenuContext, command: MenuCommand): MenuSection {
-    return { id: 'code', label: t('code'), items: itemsOf('code', context, command) };
-}
-
-function viewMenu(context: MenuContext, command: MenuCommand): MenuSection {
-    return { id: 'view', label: t('view'), items: itemsOf('view', context, command) };
-}
-
-function goMenu(context: MenuContext, command: MenuCommand): MenuSection {
-    return { id: 'go', label: t('go'), items: itemsOf('go', context, command) };
-}
-
-function windowMenu(context: MenuContext, command: MenuCommand): MenuSection {
-    return { id: 'window', label: t('window'), items: itemsOf('window', context, command) };
-}
-
-function runMenu(context: MenuContext, command: MenuCommand): MenuSection {
-    return { id: 'run', label: t('run'), items: itemsOf('run', context, command) };
-}
-
-function helpMenu(context: MenuContext, command: MenuCommand): MenuSection {
-    return { id: 'help', label: t('help'), items: itemsOf('help', context, command) };
-}
-
-/* The menu of the view with the focus, named after its kind, so everything a drawing offers sits in one place. */
-function viewKindMenu(context: MenuContext, command: MenuCommand): MenuSection | null {
-    const kind = context.view;
-    if (kind === null || !KIND_MENUS.includes(kind)) {
-        return null;
-    }
-    return { id: `kind-${kind}`, label: t(`kinds.${kind}`), items: itemsOf('kind', context, command) };
 }
