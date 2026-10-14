@@ -21,11 +21,8 @@ export function useMapSource(_scopeId: string): UiMapSource {
         () => tickets.state()
     );
     useEffect(() => {
-        if (enabled && signedIn) {
-            void tickets.ensure();
-        } else if (!signedIn) {
-            tickets.clear();
-        }
+        tickets.setActive(enabled && signedIn);
+        void tickets.ensure();
     }, [enabled, signedIn]);
     return useMemo(() => mapSourceFor({ enabled, signedIn, tickets: { header: () => tickets.header(), state: () => held } }), [enabled, signedIn, held]);
 }
