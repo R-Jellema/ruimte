@@ -187,10 +187,9 @@ function machine(patch: Partial<ServerInfo>): ServerInfo {
 }
 
 describe('where the setting is kept', () => {
-    test('the machine once it holds keep awake, this client where the machine cannot hold a block', () => {
-        const local = settings('working', { keepAwakeOnBattery: true });
-        expect(keepAwakeChoice(machine({ keepAwake: 'always', keepAwakeDisplay: true }), local)).toEqual(settings('always', { keepAwakeDisplay: true }));
-        expect(keepAwakeChoice(machine({ keepAwake: 'always', keepAwakeAvailable: false }), local)).toEqual(local);
+    test('the machine holds it, whatever this client kept before', () => {
+        useSettings.setState({ keepAwake: 'working', keepAwakeOnBattery: true });
+        expect(keepAwakeChoice(machine({ keepAwake: 'always', keepAwakeDisplay: true }))).toEqual(settings('always', { keepAwakeDisplay: true }));
     });
 });
 

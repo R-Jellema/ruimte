@@ -19,8 +19,8 @@ export type KeepAwakeSettings = Pick<Settings, 'keepAwake' | 'keepAwakeOnBattery
 
 /*
  * Keep awake belongs to this computer's own machine: its daemon holds the block, with no window open
- * and for a phone that set it. Against a daemon from before, which says nothing of it, this client
- * keeps the setting itself and has the shell hold the block while a window is open, as it always did.
+ * and for a phone that set it. What this client kept itself before that is handed to the machine once
+ * (`startKeepAwakeMove`), and the shell holds a block of its own only until that has happened.
  */
 export function machineKeepsAwake(info: Pick<ServerInfo, 'keepAwakeAvailable'>): boolean {
     return info.keepAwakeAvailable;
@@ -30,11 +30,9 @@ function localInfo(): ServerInfo {
     return serverInfoOf(LOCAL_ENDPOINT_ID);
 }
 
-/* The setting as it stands, wherever it is kept. */
-export function keepAwakeChoice(info: ServerInfo = localInfo(), settings: KeepAwakeSettings = useSettings.getState()): KeepAwakeSettings {
-    return machineKeepsAwake(info)
-        ? { keepAwake: info.keepAwake, keepAwakeOnBattery: info.keepAwakeOnBattery, keepAwakeDisplay: info.keepAwakeDisplay }
-        : { keepAwake: settings.keepAwake, keepAwakeOnBattery: settings.keepAwakeOnBattery, keepAwakeDisplay: settings.keepAwakeDisplay };
+/* The setting as the machine holds it. */
+export function keepAwakeChoice(info: ServerInfo = localInfo()): KeepAwakeSettings {
+    return { keepAwake: info.keepAwake, keepAwakeOnBattery: info.keepAwakeOnBattery, keepAwakeDisplay: info.keepAwakeDisplay };
 }
 
 /* Whether this computer's machine holds keep awake, inside a render. */
@@ -44,19 +42,13 @@ export function useMachineKeepsAwake(): boolean {
 
 /* The setting as it stands, inside a render. Each field is selected on its own, so the choice is not a new object per call. */
 export function useKeepAwakeChoice(): KeepAwakeSettings {
-    const onMachine = useMachineKeepsAwake();
-    const machineMode = useServers((s) => s.byEndpoint[LOCAL_ENDPOINT_ID]?.keepAwake ?? 'off');
-    const machineBattery = useServers((s) => s.byEndpoint[LOCAL_ENDPOINT_ID]?.keepAwakeOnBattery === true);
-    const machineDisplay = useServers((s) => s.byEndpoint[LOCAL_ENDPOINT_ID]?.keepAwakeDisplay === true);
-    const keepAwake = useSettings((s) => s.keepAwake);
-    const keepAwakeOnBattery = useSettings((s) => s.keepAwakeOnBattery);
-    const keepAwakeDisplay = useSettings((s) => s.keepAwakeDisplay);
-    return onMachine
-        ? { keepAwake: machineMode, keepAwakeOnBattery: machineBattery, keepAwakeDisplay: machineDisplay }
-        : { keepAwake, keepAwakeOnBattery, keepAwakeDisplay };
+    const keepAwake = useServers((s) => s.byEndpoint[LOCAL_ENDPOINT_ID]?.keepAwake ?? 'off');
+    const keepAwakeOnBattery = useServers((s) => s.byEndpoint[LOCAL_ENDPOINT_ID]?.keepAwakeOnBattery === true);
+    const keepAwakeDisplay = useServers((s) => s.byEndpoint[LOCAL_ENDPOINT_ID]?.keepAwakeDisplay === true);
+    return { keepAwake, keepAwakeOnBattery, keepAwakeDisplay };
 }
 
-/* Whether there is anything to keep awake: this computer's machine, or else a Mac shell from before. */
+/* Whether there is anything to keep awake: this computer's machine, or else a Mac shell that can hold a block of its own. */
 export function keepAwakeAvailable(): boolean {
     return (hasLocalMachine() && machineKeepsAwake(localInfo())) || canKeepAwake();
 }
@@ -88,12 +80,8 @@ function showSaveFailed(e: unknown): void {
     });
 }
 
-/* Sets keep awake where it is kept: on this computer's machine, or in this client for a daemon from before. */
+/* Sets keep awake on this computer's machine. */
 export function setKeepAwake(patch: Partial<KeepAwakeSettings>): void {
-    if (!machineKeepsAwake(localInfo())) {
-        useSettings.getState().update(patch);
-        return;
-    }
     void saveOnMachine(patch).catch(showSaveFailed);
 }
 
