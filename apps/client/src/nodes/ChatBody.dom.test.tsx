@@ -5,6 +5,7 @@ import type { ChatInfo, ProviderInfo } from '@ruimte/contracts';
 import { useDocument } from '@/state/document';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
+import { isApplePlatform } from '@/desktop/bridge';
 import { clickOn, mount, pressKey, until, type Mounted } from '../../testing/dom';
 
 const CLAUDE = {
@@ -54,10 +55,11 @@ function infoOf(chatId: string, patch: Partial<ChatInfo> = {}): ChatInfo {
     } as unknown as ChatInfo;
 }
 
-// Two chat views per test, named apart from the last test's, so no draft or row of one test is in the next.
+// Three chat views per test, named apart from the last test's, so no draft or row of one test is in the next.
 let views = 0;
 let first: string;
 let second: string;
+let third: string;
 
 let machine: FakeMachine;
 let workspace: FakeWorkspace;
@@ -99,16 +101,18 @@ function tell(chatId: string, patch: Partial<ChatInfo>): void {
 }
 
 beforeEach(async () => {
-    views += 2;
-    first = `chat-${views - 1}`;
-    second = `chat-${views}`;
+    views += 3;
+    first = `chat-${views - 2}`;
+    second = `chat-${views - 1}`;
+    third = `chat-${views}`;
     machine = new FakeMachine();
     machine.answer('provider.list', () => ({ providers: [CLAUDE] }));
     machine.answer('chat.attach', ({ chatId }) => ({ info: infoOf(chatId), items: [], seq }) as never);
     machine.answer('chat.send', () => ({ queued: false, turnId: 'turn-1' }));
     const chats = [
         { kind: 'chat', id: first, name: 'First', node: { provider: 'claude' } },
-        { kind: 'chat', id: second, name: 'Second', node: { provider: 'claude' } }
+        { kind: 'chat', id: second, name: 'Second', node: { provider: 'claude' } },
+        { kind: 'chat', id: third, name: 'Third', node: { provider: 'claude' } }
     ];
     workspace = await openFakeWorkspace(machine, { views: chats } as never, { activeViewId: first, views: {} });
     page = mount();
@@ -158,5 +162,155 @@ describe('a chat view', () => {
         await showView(first);
         expect(text(first)).toBe('Half a thought');
         expect(machine.requests('chat.send')).toEqual([]);
+    });
+});
+
+/* Puts a chat of the project on the draft the way a person does, from the `@` picker. */
+async function attachChat(viewId: string, title: string): Promise<void> {
+    await type(viewId, '@');
+    await until(() => option(viewId, title) !== null);
+    await clickOn(option(viewId, title));
+}
+
+function option(viewId: string, title: string): Element | null {
+    const options = page.host.querySelectorAll(`[data-split-cell][data-view-id="${viewId}"] [role="option"]`);
+    return Array.from(options).find((candidate) => candidate.textContent?.trim() === title) ?? null;
+}
+
+/* The chats on the draft, by the remove button each chip carries. */
+function chipOf(title: string): Element | null {
+    return button(`Remove ${title}`);
+}
+
+async function toggleStash(viewId: string): Promise<void> {
+    const apple = isApplePlatform();
+    await pressKey(composer(viewId)!.contentDOM, 's', { metaKey: apple, ctrlKey: !apple });
+}
+
+function notice(viewId: string): string | null {
+    return page.host.querySelector(`[data-split-cell][data-view-id="${viewId}"] [role="status"]`)?.textContent ?? null;
+}
+
+describe('a stashed prompt', () => {
+    test('keeps the chats attached to it and gives them back in another chat of the project', async () => {
+        await attachChat(first, 'Third');
+        await type(first, 'Compare these');
+        await toggleStash(first);
+        await until(() => chipOf('Third') === null);
+        await showView(second);
+        await toggleStash(second);
+        await until(() => chipOf('Third') !== null);
+        expect(text(second)).toBe('Compare these');
+        expect(notice(second)).toBeNull();
+        await pressKey(composer(second)!.contentDOM, 'Enter');
+        await until(() => machine.requests('chat.send').length === 1);
+        expect(machine.requests('chat.send')[0]).toMatchObject({ chatId: second, text: 'Compare these', chats: [third] });
+    });
+
+    test('leaves out the chats another project does not have and says so', async () => {
+        await attachChat(first, 'Second');
+        await attachChat(first, 'Third');
+        await type(first, 'Compare these');
+        await toggleStash(first);
+        await until(() => chipOf('Second') === null);
+
+        await page.unmount();
+        workspace.close();
+        const other = [
+            { kind: 'chat', id: first, name: 'First', node: { provider: 'claude' } },
+            { kind: 'chat', id: third, name: 'Third', node: { provider: 'claude' } }
+        ];
+        workspace = await openFakeWorkspace(
+            machine,
+            { views: other } as never,
+            { activeViewId: first, views: {} },
+            { projectId: 'project-other', name: 'Other' }
+        );
+        page = mount();
+        await page.renderApp();
+        await until(() => composer(first) !== null);
+
+        await toggleStash(first);
+        await until(() => text(first) !== '');
+        expect(chipOf('Third')).not.toBeNull();
+        expect(chipOf('Second')).toBeNull();
+        expect(notice(first)).toBe('1 attached chat is not in this project and was left out');
+        await pressKey(composer(first)!.contentDOM, 'Enter');
+        await until(() => machine.requests('chat.send').length === 1);
+        expect(machine.requests('chat.send')[0]).toMatchObject({ chatId: first, chats: [third] });
+    });
+});
+
+const STOPPED_TURN = { kind: 'turn', id: 'turn-1', turnId: 'turn-1', createdAt: 1, endedAt: 2, state: 'aborted', costUsd: 0 };
+
+/* What the machine's stream says about a turn that ended, and then about the chat. */
+function settle(chatId: string, items: object[], patch: Partial<ChatInfo> = {}): void {
+    for (const item of items) {
+        seq += 1;
+        act(() => machine.emit('chat.event', { chatId, event: { type: 'item', item } as never, seq }));
+    }
+    tell(chatId, patch);
+}
+
+function continueButton(viewId: string): Element | null {
+    const buttons = page.host.querySelectorAll(`[data-split-cell][data-view-id="${viewId}"] button`);
+    return Array.from(buttons).find((candidate) => candidate.textContent?.trim() === 'Continue') ?? null;
+}
+
+describe('Continue after a stop', () => {
+    test('stands in the empty box once a person stopped the turn, and one click sends it once', async () => {
+        settle(first, [STOPPED_TURN]);
+        await until(() => continueButton(first) !== null);
+        expect(button('Send')).toBeNull();
+        await clickOn(continueButton(first));
+        await until(() => machine.requests('chat.send').length === 1);
+        const sent = machine.requests('chat.send')[0]!;
+        expect(sent).toMatchObject({ chatId: first, text: 'Continue.' });
+        expect(sent.delivery).toBeUndefined();
+        expect(sent.chats).toBeUndefined();
+        // The chat takes a moment to answer, and Continue must not stand there meanwhile.
+        expect(continueButton(first)).toBeNull();
+        expect(machine.requests('chat.send')).toHaveLength(1);
+    });
+
+    test('gives way to the send button while something is typed', async () => {
+        settle(first, [STOPPED_TURN]);
+        await until(() => continueButton(first) !== null);
+        await type(first, 'Try the other way');
+        await until(() => continueButton(first) === null);
+        expect(button('Send')).not.toBeNull();
+    });
+
+    const NOT_A_PERSONS_STOP: Array<[string, object[], Partial<ChatInfo>]> = [
+        ['a usage limit', [{ ...STOPPED_TURN, state: 'error', limit: { kind: 'usage' } }], { limit: { kind: 'usage' } }],
+        ['a paused queue', [STOPPED_TURN], { queue: [{ id: 'queued-1', text: 'Also check the docs', createdAt: 3 }] }],
+        [
+            'a restart the machine could not resume from',
+            [
+                STOPPED_TURN,
+                {
+                    kind: 'note',
+                    id: 'note-1',
+                    turnId: 'turn-1',
+                    createdAt: 2,
+                    level: 'warning',
+                    text: 'This turn could not be resumed after the machine restarted: it was a long one'
+                }
+            ],
+            {}
+        ],
+        [
+            'a chat that ended with its parent',
+            [STOPPED_TURN, { kind: 'note', id: 'ended-1', turnId: 'turn-1', createdAt: 2, level: 'info', text: 'Ended with its parent' }],
+            {}
+        ],
+        ['a request that waits on a person', [STOPPED_TURN], { status: 'needs-you' }]
+    ];
+
+    test.each(NOT_A_PERSONS_STOP)('is not offered after %s', async (_name, items, patch) => {
+        settle(first, items, patch);
+        // The send button returns only once the chat row has taken the stopped turn, so Continue's absence is read after it.
+        await until(() => button('Send') !== null);
+        expect(continueButton(first)).toBeNull();
     });
 });
