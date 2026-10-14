@@ -9,6 +9,7 @@ export const EXPLAIN_DOCUMENTATION_MAX = 800;
 const NAMES_SAMPLE_LINES = 8;
 const NAMES_LINE_MAX = 160;
 const NAMES_CONTEXT_MAX = 700;
+const NAMES_KIND = /^[a-z]+(?: [a-z]+)?$/;
 const GHOST_BEFORE_LINES = 60;
 const GHOST_BEFORE_MAX = 3000;
 const GHOST_AFTER_LINES = 15;
@@ -83,6 +84,8 @@ export function explainPrompt(input: ExplainInput, answerIn: string): string {
 export interface NamesInput {
     readonly language: string;
     readonly name: string;
+    /* What the name belongs to (`function`, `class`), when the editor knows it. */
+    readonly kind?: string;
     /* The lines around the one the rename started on. */
     readonly context: string;
     /* Lines the name appears on, in file order, the declaration first when the servers list it. */
@@ -91,9 +94,12 @@ export interface NamesInput {
 
 export function namesPrompt(input: NamesInput): string {
     const uses = input.uses.slice(0, NAMES_SAMPLE_LINES).map((line) => line.trim().slice(0, NAMES_LINE_MAX));
+    // The kind is written into the request itself, so only a plain word from an outline gets there.
+    const kind = input.kind !== undefined && NAMES_KIND.test(input.kind) ? input.kind : null;
     return [
-        'Suggest names for this symbol.',
+        `Suggest new names for the ${kind ?? 'symbol'} ${input.name}.`,
         `Language: ${input.language}`,
+        ...(kind === null ? [] : [`Kind: ${kind}`]),
         `Current name: ${input.name}`,
         '',
         'Code around it:',
