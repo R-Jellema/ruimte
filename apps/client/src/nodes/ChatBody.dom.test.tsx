@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import { EditorView } from '@codemirror/view';
-import type { ChatInfo, ProjectView, ProviderInfo } from '@ruimte/contracts';
-import { ViewSurface } from '@/shell/ViewHost';
+import type { ChatInfo, ProviderInfo } from '@ruimte/contracts';
 import { useDocument } from '@/state/document';
-import { FakeMachine, connectFakeMachine } from '../../testing/fake-machine';
+import { FakeMachine } from '../../testing/fake-machine';
+import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { clickOn, mount, pressKey, until, type Mounted } from '../../testing/dom';
 
 const CLAUDE = {
@@ -60,13 +60,13 @@ let first: string;
 let second: string;
 
 let machine: FakeMachine;
-let disconnect: () => void;
+let workspace: FakeWorkspace;
 let page: Mounted;
 let seq = 0;
 
 /* The composer of a view on screen, or null while its chat has not opened. */
 function composer(viewId: string): EditorView | null {
-    const content = document.querySelector(`[data-view="${viewId}"] .cm-content`);
+    const content = page.host.querySelector(`[data-split-cell][data-view-id="${viewId}"] .cm-content`);
     return content === null ? null : EditorView.findFromDOM(content as HTMLElement);
 }
 
@@ -86,18 +86,9 @@ function button(label: string): Element | null {
     return page.host.querySelector(`[aria-label="${label}"]`);
 }
 
-/*
- * The body a cell draws for the view it shows; moving to another view draws that one in its place.
- * TODO(Bas): draw the whole workspace here once `@adecore/ui/testing/dedupe` folds CodeMirror into the
- * app's copy, as Vite's `dedupe` does: its dictation extensions break a composer from a linked checkout.
- */
+/* Puts a view in front of the window's one cell, the way picking its tab does. */
 async function showView(viewId: string): Promise<void> {
-    const view = useDocument.getState().views.find((entry) => entry.id === viewId) as ProjectView;
-    await page.render(
-        <div data-view={viewId}>
-            <ViewSurface key={viewId} view={view} />
-        </div>
-    );
+    await act(async () => useDocument.getState().setActiveView(viewId));
     await until(() => composer(viewId) !== null);
 }
 
@@ -115,19 +106,19 @@ beforeEach(async () => {
     machine.answer('provider.list', () => ({ providers: [CLAUDE] }));
     machine.answer('chat.attach', ({ chatId }) => ({ info: infoOf(chatId), items: [], seq }) as never);
     machine.answer('chat.send', () => ({ queued: false, turnId: 'turn-1' }));
-    disconnect = connectFakeMachine(machine);
     const chats = [
         { kind: 'chat', id: first, name: 'First', node: { provider: 'claude' } },
         { kind: 'chat', id: second, name: 'Second', node: { provider: 'claude' } }
     ];
-    useDocument.getState().load({ version: 3, rev: 1, name: 'Atlas', color: '#000', views: chats } as never, { activeViewId: first, views: {} });
+    workspace = await openFakeWorkspace(machine, { views: chats } as never, { activeViewId: first, views: {} });
     page = mount();
-    await showView(first);
+    await page.renderApp();
+    await until(() => composer(first) !== null);
 });
 
 afterEach(async () => {
     await page.unmount();
-    disconnect();
+    workspace.close();
 });
 
 describe('a chat view', () => {
