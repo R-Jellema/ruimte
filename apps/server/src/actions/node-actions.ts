@@ -3,7 +3,6 @@ import { ARRANGE_LAYOUTS, ActionRefusal, type ActionHandlers, type ActionOutput 
 import {
     DEFAULT_TITLES,
     NODE_ACCENT_NAMES,
-    NODE_SIZE,
     flagOf,
     groupFrame,
     isCanvasView,
@@ -192,7 +191,7 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
                 }
                 sourceName = source.name;
             }
-            const size = NODE_SIZE[kind];
+            const size = host.machine.nodeSize(kind);
             const anchor = input.beside == null ? undefined : canvas.nodes.find((node) => node.id === input.beside);
             if (input.beside != null && !anchor) {
                 throw refuseMissingNodes(content, [input.beside], canvas.id, 'the new node has nothing there to stand beside', nodeLines(canvas));

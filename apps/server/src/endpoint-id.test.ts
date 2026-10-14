@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { NODE_SIZE } from '@ruimte/contracts';
 import { verifySignature } from '@ruimte/pulsar/verify-node';
 import { readOrCreateEndpointIdentity as readIdentity } from './endpoint-id.ts';
 import { LENT_NOTHING, lendNothing } from './endpoint-id-test-helpers.ts';
@@ -150,7 +151,8 @@ describe('readOrCreateEndpointIdentity', () => {
                     keepAwakeLidClosed: false,
                     ...LENT_NOTHING,
                     broker: { mode: 'default' },
-                    lanDoor: true
+                    lanDoor: true,
+                    nodeSizes: {}
                 }
             }
         ]);
@@ -216,6 +218,37 @@ describe('readOrCreateEndpointIdentity', () => {
         await identity.setIdentity(null, null, { resumeAtReset: false });
         const written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
         expect(written.resumeAtReset).toBeUndefined();
+    });
+
+    test('a node size is stored only for a kind a person changed, survives a restart and resets to the built-in size', async () => {
+        const identity = await readOrCreateEndpointIdentity(home, 'the-hostname');
+        expect(identity.nodeSizes).toEqual({});
+        expect(identity.nodeSize('terminal')).toEqual(NODE_SIZE.terminal);
+        const heard: unknown[] = [];
+        identity.subscribe('client', (event) => heard.push(event));
+
+        await identity.setNodeSize('terminal', { w: 800, h: 480 });
+        await identity.setNodeSize('note', { w: 400, h: 320 });
+        const again = await readOrCreateEndpointIdentity(home, 'the-hostname');
+        expect(again.nodeSize('terminal')).toEqual({ w: 800, h: 480 });
+        expect(again.nodeSize('chat')).toEqual(NODE_SIZE.chat);
+        expect(heard.at(-1)).toMatchObject({ event: 'endpoint.changed', payload: { nodeSizes: { terminal: { w: 800, h: 480 }, note: { w: 400, h: 320 } } } });
+
+        await identity.setNodeSize('terminal', null);
+        await identity.setNodeSize('note', null);
+        expect(identity.nodeSize('terminal')).toEqual(NODE_SIZE.terminal);
+        const written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        expect(written.nodeSizes).toBeUndefined();
+    });
+
+    test('a node size that will not read costs only its own kind, and a kind this version does not know is left out', async () => {
+        const identity = await readOrCreateEndpointIdentity(home, 'the-hostname');
+        const written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        const nodeSizes = { terminal: { w: 640, h: 400 }, chat: { w: 10, h: 400 }, note: { w: 320.5, h: 240 }, hologram: { w: 640, h: 400 } };
+        await writeFile(join(home, 'endpoint.json'), JSON.stringify({ ...written, nodeSizes }));
+        const again = await readOrCreateEndpointIdentity(home, 'the-hostname');
+        expect(again.id).toBe(identity.id);
+        expect(again.nodeSizes).toEqual({ terminal: { w: 640, h: 400 } });
     });
 
     test('visual replies are on by default and only a person turning them off is stored', async () => {

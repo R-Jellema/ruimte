@@ -1,8 +1,17 @@
-import type { NodeKind } from './project.ts';
+import { NodeKindSchema, type NodeKind } from './project.ts';
+
+export interface NodeSize {
+    w: number;
+    h: number;
+}
+
+/* The sizes a person on a machine chose for a kind, which only holds the kinds they changed. */
+export type NodeSizes = Partial<Record<NodeKind, NodeSize>>;
 
 /* What a node of each kind starts out as, also when it comes back from a view of its own. Shared,
-   so a node the daemon adds for an agent is the size a person's click would have made. */
-export const NODE_SIZE: Record<NodeKind, { w: number; h: number }> = {
+   so a node the daemon adds for an agent is the size a person's click would have made. A machine's
+   own size for a kind goes first (`nodeSizeOf`); these are what a kind falls back to. */
+export const NODE_SIZE: Record<NodeKind, NodeSize> = {
     terminal: { w: 560, h: 360 },
     chat: { w: 480, h: 520 },
     browser: { w: 720, h: 480 },
@@ -13,6 +22,50 @@ export const NODE_SIZE: Record<NodeKind, { w: number; h: number }> = {
     diagram: { w: 480, h: 360 },
     file: { w: 520, h: 420 }
 };
+
+/* The smallest node a person can drag a frame down to, so a default size never makes one smaller. */
+export const NODE_SIZE_MIN: NodeSize = { w: 240, h: 160 };
+
+/* The largest a default size may be on either side; a frame bigger than this stores this. */
+export const NODE_SIZE_MAX = 4000;
+
+/* The size a new node of a kind takes on a machine: the person's own, else the built-in one. */
+export function nodeSizeOf(sizes: NodeSizes | undefined, kind: NodeKind): NodeSize {
+    return sizes?.[kind] ?? NODE_SIZE[kind];
+}
+
+/* A frame as a default size: whole pixels, within the bounds a default may have. */
+export function fitNodeSize(size: NodeSize): NodeSize {
+    const fit = (value: number, min: number): number => Math.min(NODE_SIZE_MAX, Math.max(min, Math.round(value)));
+    return { w: fit(size.w, NODE_SIZE_MIN.w), h: fit(size.h, NODE_SIZE_MIN.h) };
+}
+
+function isDefaultSize(value: unknown): value is NodeSize {
+    if (typeof value !== 'object' || value === null) {
+        return false;
+    }
+    const { w, h } = value as Record<string, unknown>;
+    const within = (side: unknown, min: number): boolean => Number.isInteger(side) && (side as number) >= min && (side as number) <= NODE_SIZE_MAX;
+    return within(w, NODE_SIZE_MIN.w) && within(h, NODE_SIZE_MIN.h);
+}
+
+/*
+ * The sizes of the kinds this version knows, read from a file or a reply. A newer machine may name a
+ * kind this one has never seen, and one size that does not read must not take the others with it.
+ */
+export function knownNodeSizes(raw: unknown): NodeSizes {
+    if (typeof raw !== 'object' || raw === null) {
+        return {};
+    }
+    const sizes: NodeSizes = {};
+    for (const kind of NodeKindSchema.options) {
+        const size = (raw as Record<string, unknown>)[kind];
+        if (isDefaultSize(size)) {
+            sizes[kind] = { w: size.w, h: size.h };
+        }
+    }
+    return sizes;
+}
 
 /* The room a group keeps around what it holds, and the band its title bar takes. Shared, because a
    node the daemon puts in a group has to land where a person's own grouping would have put it. */

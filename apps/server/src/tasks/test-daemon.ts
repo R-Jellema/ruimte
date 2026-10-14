@@ -1,4 +1,4 @@
-import type { AgentKind, ServerFrame } from '@ruimte/contracts';
+import { NODE_SIZE, type AgentKind, type ServerFrame } from '@ruimte/contracts';
 import { agentStates } from '../agents/agent-state.ts';
 import { chatRequests, AgentLineageStore, NoticeNotes, NoticeStore, restartBackgroundLimits, TaskStore } from '@adecore/agents/coordination';
 import { PendingPromptStore } from '../agents/pending-prompts.ts';
@@ -288,7 +288,7 @@ export async function bootTestDaemon({
                   )
               }
             : {}),
-        machine: { agentsDeleteAnyView: false },
+        machine: { agentsDeleteAnyView: false, nodeSize: (kind) => NODE_SIZE[kind] },
         endSession: async (kind, nodeId) => {
             await endChildren.owe(nodeId);
             await (kind === 'terminal' ? sessions.kill(nodeId) : chats.kill(nodeId)).catch(() => undefined);

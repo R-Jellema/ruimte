@@ -361,7 +361,8 @@ describe('auth handlers', () => {
                     keepAwakeLidClosed: false,
                     ...LENT_NOTHING,
                     broker: { mode: 'default' },
-                    lanDoor: true
+                    lanDoor: true,
+                    nodeSizes: {}
                 }
             }
         ]);
@@ -393,6 +394,38 @@ describe('auth handlers', () => {
         expect(off).toMatchObject({ ok: true, result: { visualReplies: false } });
         expect(identity.visualReplies).toBe(false);
         expect(await ask({ reachability: 'loopback', sessionId: null }, 'endpoint.info')).toMatchObject({ ok: true, result: { visualReplies: false } });
+    });
+
+    test('any client the machine let in sets the size of new nodes of a kind, and every client hears it', async () => {
+        const paired: ClientAccess = { reachability: 'lan', sessionId: 's1' };
+        expect(await ask(paired, 'endpoint.info')).toMatchObject({ ok: true, result: { nodeSizes: {} } });
+        const heard: unknown[] = [];
+        identity.subscribe('other-client', (event) => heard.push(event));
+
+        const set = await ask(paired, 'endpoint.setNodeSize', { kind: 'chat', size: { w: 640, h: 720 } });
+        expect(set).toMatchObject({ ok: true, result: { nodeSizes: { chat: { w: 640, h: 720 } } } });
+        expect(identity.nodeSize('chat')).toEqual({ w: 640, h: 720 });
+        expect(heard).toEqual([
+            expect.objectContaining({ event: 'endpoint.changed', payload: expect.objectContaining({ nodeSizes: { chat: { w: 640, h: 720 } } }) })
+        ]);
+
+        const reset = await ask(paired, 'endpoint.setNodeSize', { kind: 'chat', size: null });
+        expect(reset).toMatchObject({ ok: true, result: { nodeSizes: {} } });
+        expect(await ask(undefined, 'endpoint.info')).toMatchObject({ ok: true, result: { features: expect.arrayContaining(['endpoint.setNodeSize']) } });
+    });
+
+    test('a node size that is not whole pixels, below what a frame can be dragged to or past the largest is refused', async () => {
+        const paired: ClientAccess = { reachability: 'lan', sessionId: 's1' };
+        for (const size of [
+            { w: 640.5, h: 400 },
+            { w: 120, h: 400 },
+            { w: 640, h: 100 },
+            { w: 640, h: 9000 }
+        ]) {
+            expect(await ask(paired, 'endpoint.setNodeSize', { kind: 'terminal', size })).toMatchObject({ ok: false });
+        }
+        expect(await ask(paired, 'endpoint.setNodeSize', { kind: 'hologram', size: { w: 640, h: 400 } })).toMatchObject({ ok: false });
+        expect(identity.nodeSizes).toEqual({});
     });
 
     test('a name nobody could read is refused before it reaches the file', async () => {

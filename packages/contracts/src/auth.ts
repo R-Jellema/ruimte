@@ -1,7 +1,8 @@
 import { BrokerSettingSchema, RegisterMachinePayloadSchema } from '@ruimte/pulsar';
 import { z } from 'zod';
 import { MachineUpdateSchema } from './machine-update.ts';
-import { ProjectIconChoiceSchema } from './project.ts';
+import { NodeKindSchema, ProjectIconChoiceSchema } from './project.ts';
+import { NODE_SIZE_MAX, NODE_SIZE_MIN } from './node-defaults.ts';
 import { LanDoorSchema } from './lan-door.ts';
 import { ProtocolVersionSchema } from './protocol.ts';
 import { KeepAwakeModeSchema } from './keep-awake.ts';
@@ -16,6 +17,13 @@ export const EndpointNameSourceSchema = z.enum(['chosen', 'default']);
 export type EndpointNameSource = z.infer<typeof EndpointNameSourceSchema>;
 
 export { CLOSED_LID_BATTERY_FLOOR, KeepAwakeModeSchema, type KeepAwakeMode } from './keep-awake.ts';
+
+/*
+ * The sizes a person gave new nodes on a machine, by kind; a kind left out takes its built-in size.
+ * Open on purpose: a newer machine may name a kind or allow a size an older client never heard of,
+ * and a client that validates the whole reply must not refuse the machine over it.
+ */
+export const EndpointNodeSizesSchema = z.record(z.string(), z.object({ w: z.number(), h: z.number() }));
 
 export const EndpointInfoSchema = z.object({
     // The daemon's own id, minted once and kept in its home; a client keys a machine on this because an address moves.
@@ -84,6 +92,8 @@ export const EndpointInfoSchema = z.object({
     agentIntegrations: AgentIntegrationsSummarySchema.optional(),
     // Null while worktrees go in the data folder. Only told to a client that presented the local secret.
     worktreeRoot: z.string().nullable().optional(),
+    // Kept in `endpoint.json`; absent from a daemon from before them, and empty while nobody set one.
+    nodeSizes: EndpointNodeSizesSchema.optional(),
     // Every request this machine answers, so a client checks before it sends one instead of catching
     // `unknown-request`. Only `endpoint.info` carries it; absent from a daemon from before it.
     features: z.array(z.string()).optional()
@@ -161,9 +171,23 @@ export const EndpointChangedEventSchema = z.object({
     lan: LanDoorSchema.nullish(),
     lanDoor: z.boolean().optional(),
     lanDoorFixed: z.boolean().optional(),
-    agentIntegrations: AgentIntegrationsSummarySchema.optional()
+    agentIntegrations: AgentIntegrationsSummarySchema.optional(),
+    nodeSizes: EndpointNodeSizesSchema.optional()
 });
 export type EndpointChangedEvent = z.infer<typeof EndpointChangedEventSchema>;
+
+const NodeSideSchema = (min: number) => z.number().int().min(min).max(NODE_SIZE_MAX);
+
+/*
+ * `endpoint.setNodeSize`: the size new nodes of a kind take on this machine, a person's node and an
+ * agent's alike. Null puts the kind back to its built-in size. Whole pixels, no smaller than a frame
+ * can be dragged.
+ */
+export const EndpointSetNodeSizePayloadSchema = z.object({
+    kind: NodeKindSchema,
+    size: z.object({ w: NodeSideSchema(NODE_SIZE_MIN.w), h: NodeSideSchema(NODE_SIZE_MIN.h) }).nullable()
+});
+export type EndpointSetNodeSizePayload = z.infer<typeof EndpointSetNodeSizePayloadSchema>;
 
 /*
  * `endpoint.closedLidRule`: the sudoers rule for exactly `pmset -a disablesleep 1` and `0`. Local secret

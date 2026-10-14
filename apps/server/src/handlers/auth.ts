@@ -90,6 +90,7 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
         ...host.broker(),
         lanDoor: identity.lanDoor,
         ...host.lanDoor(),
+        nodeSizes: identity.nodeSizes,
         // Only the app on this machine is told which account it is on; it is the one that can take it off.
         ...(isOwner(access) ? { accountId: (await store.accountBinding())?.id ?? null, worktreeRoot: identity.worktreeRoot } : {})
     });
@@ -171,6 +172,15 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
 
     dispatcher.register('endpoint.settings', async (payload, client) => {
         await applySettings(payload, client.access, (flags) => identity.setSwitches(flags));
+        return info(client.access);
+    });
+
+    /*
+     * Any client the machine let in may set it, like a name: the size is the machine's, so a node an
+     * agent adds here matches what a person's click would make. No verb reaches it.
+     */
+    dispatcher.register('endpoint.setNodeSize', async (payload, client) => {
+        await identity.setNodeSize(payload.kind, payload.size);
         return info(client.access);
     });
 

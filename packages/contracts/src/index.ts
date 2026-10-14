@@ -158,6 +158,7 @@ import {
     EndpointInfoSchema,
     EndpointLeaveAccountResultSchema,
     EndpointSetIdentityPayloadSchema,
+    EndpointSetNodeSizePayloadSchema,
     EndpointSettingsSchema,
     EndpointSignRegistrationPayloadSchema,
     EndpointSignRegistrationResultSchema
@@ -619,6 +620,7 @@ export const REQUEST_SCHEMAS = {
     'endpoint.info': { payload: EmptySchema, result: EndpointInfoSchema },
     'endpoint.setIdentity': { payload: EndpointSetIdentityPayloadSchema, result: EndpointInfoSchema },
     'endpoint.settings': { payload: EndpointSettingsSchema, result: EndpointInfoSchema },
+    'endpoint.setNodeSize': { payload: EndpointSetNodeSizePayloadSchema, result: EndpointInfoSchema },
     'endpoint.agentIntegrations': { payload: EmptySchema, result: AgentIntegrationsResultSchema },
     'endpoint.setAgentIntegration': { payload: AgentIntegrationSetPayloadSchema, result: AgentIntegrationSetResultSchema },
     'endpoint.closedLidRule': { payload: EndpointClosedLidRulePayloadSchema, result: EndpointInfoSchema },

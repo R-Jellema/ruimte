@@ -1,4 +1,4 @@
-import { NODE_SIZE } from './node-defaults.ts';
+import { nodeSizeOf, type NodeSizes } from './node-defaults.ts';
 import {
     isCanvasView,
     isDiagramView,
@@ -197,13 +197,15 @@ export function withNodeAsView(views: readonly ProjectView[], nodeId: string): {
 
 /*
  * The way back: a view of its own becomes a node on a canvas again, under the same id. `at` is
- * where the node's top left corner goes, which only the side with a viewport can work out.
+ * where the node's top left corner goes, which only the side with a viewport can work out; `sizes`
+ * are the machine's own sizes for a kind.
  */
 export function withViewAsNode(
     views: readonly ProjectView[],
     viewId: string,
     canvasViewId: string,
-    at: { x: number; y: number }
+    at: { x: number; y: number },
+    sizes?: NodeSizes
 ): { views: ProjectView[]; node: ProjectNode } | null {
     const source = views.find((view) => view.id === viewId);
     const target = views.find((view) => view.id === canvasViewId);
@@ -216,7 +218,7 @@ export function withViewAsNode(
         kind: source.kind,
         title: source.name,
         ...at,
-        ...NODE_SIZE[source.kind],
+        ...nodeSizeOf(sizes, source.kind),
         ...(source.kind === 'browser'
             ? { url: source.url, ...(source.browserOwner ? { browserOwner: source.browserOwner } : {}) }
             : source.kind === 'device'

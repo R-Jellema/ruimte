@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { ActionHandlers, ActionOutput } from '@ruimte/actions';
-import { NODE_SIZE, type AgentKind, type ModelSelection, type ProjectEdge, type ProjectNode, type RuntimeMode } from '@ruimte/contracts';
+import { type AgentKind, type ModelSelection, type ProjectEdge, type ProjectNode, type RuntimeMode } from '@ruimte/contracts';
 import { agentNode, groupLines, grownGroup, inheritedAccount, readsOf, requireInstalled, startPrompt, terminalMode } from '../canvas/agents.ts';
 import { depthForOpening } from '../canvas/depth.ts';
 import { modeForOpening } from '../canvas/mode.ts';
@@ -104,7 +104,7 @@ const startAgent: StartHandler = async (input, call) => {
             }
             const read = canvas ? nodesNamed(content, canvas, readIds, { cannot: 'no line can run from it into the agent this opens' }) : [];
 
-            const size = NODE_SIZE[chat ? 'chat' : 'terminal'];
+            const size = host.machine.nodeSize(chat ? 'chat' : 'terminal');
             const self = canvas?.nodes.find((node) => node.id === caller.caller) ?? null;
             const inGroup = group && canvas ? placeInGroup(group, groupMembers(group, canvas.nodes), size) : null;
             const rect = inGroup?.rect ?? (anchor ? placeBeside(anchor, size) : canvas ? placeFree(canvas.nodes, size, self) : { x: 0, y: 0, ...size });
@@ -316,7 +316,7 @@ export const startActions: ActionHandlers<ServerActionContext> = {
                 }
 
                 const read = canvas ? nodesNamed(content, canvas, readIds, { cannot: 'no line can run from it into the agents this opens' }) : [];
-                const layout = placeTeam(roles.map((role) => NODE_SIZE[kindOf(role)]));
+                const layout = placeTeam(roles.map((role) => host.machine.nodeSize(kindOf(role))));
                 const self = canvas?.nodes.find((node) => node.id === caller.caller) ?? null;
                 const origin = canvas ? placeFree(canvas.nodes, layout.frame, self) : { x: 0, y: 0, ...layout.frame };
 

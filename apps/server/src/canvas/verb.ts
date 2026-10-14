@@ -126,8 +126,9 @@ export type ProjectHost = Pick<ProjectStore, 'locate' | 'read' | 'revision' | 'm
 /* Who made a node and how deep it sits, kept under `$RUIMTE_HOME` and across a restart, never in the project an agent can rewrite. */
 export type LineageHost = Pick<AgentLineageStore, 'depthOf' | 'madeBy' | 'put'>;
 
-/* The machine's switches a verb is held to; `agentsDeleteAnyView` lets an agent remove a view it did not make. */
-export type MachineHost = Pick<EndpointIdentity, 'agentsDeleteAnyView'>;
+/* The machine's switches a verb is held to; `agentsDeleteAnyView` lets an agent remove a view it did not make,
+   and `nodeSize` is the size a person on the machine gave new nodes of a kind. */
+export type MachineHost = Pick<EndpointIdentity, 'agentsDeleteAnyView' | 'nodeSize'>;
 
 /* What starting an agent node takes. */
 export interface AgentStartHost {

@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MAX_NOTICE_LENGTH, MAX_TITLE_LENGTH, type ActionInput } from '@ruimte/actions';
-import type { ContextSource, ProjectContent, ProjectNode, Task } from '@ruimte/contracts';
+import { NODE_SIZE, type ContextSource, type ProjectContent, type ProjectNode, type Task } from '@ruimte/contracts';
 import { ContextRefusal, SubagentUnreadable } from '../context/context-store.ts';
 import type { Notice } from '@adecore/agents/coordination';
 import type { AgentState, CanvasHost } from '../canvas/verb.ts';
@@ -66,7 +66,7 @@ function host(): CanvasHost {
             },
             madeBy: (nodeId) => made.get(nodeId) ?? null
         } as Partial<CanvasHost['lineage']> as CanvasHost['lineage'],
-        machine: { agentsDeleteAnyView: false },
+        machine: { agentsDeleteAnyView: false, nodeSize: (kind) => NODE_SIZE[kind] },
         endSession: async (kind, nodeId) => {
             ended.push(`${kind}\t${nodeId}`);
         },

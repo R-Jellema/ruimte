@@ -5,7 +5,12 @@ import { dirname, join } from 'node:path';
 import {
     KeepAwakeModeSchema,
     ProjectIconChoiceSchema,
+    knownNodeSizes,
+    nodeSizeOf,
     type EndpointNameSource,
+    type NodeKind,
+    type NodeSize,
+    type NodeSizes,
     type KeepAwakeMode,
     type AgentIntegrationsSummary,
     type LanDoor,
@@ -62,7 +67,10 @@ const FileSchema = z.object({
        the broker. Absent is open: a machine nobody changed is found at home without anything set. */
     lanDoor: z.boolean().optional().catch(undefined),
     /* Where new worktrees are made, set by the owner of the machine. Absent is `worktrees` in the data folder. */
-    worktreeRoot: z.string().min(1).optional().catch(undefined)
+    worktreeRoot: z.string().min(1).optional().catch(undefined),
+    /* The size new nodes of a kind take here, by kind; only the kinds a person changed. Read one kind at
+       a time (`knownNodeSizes`), so a size that will not read costs that kind and not the others. */
+    nodeSizes: z.unknown().optional()
 });
 
 interface IdentityOptions {
@@ -83,6 +91,7 @@ interface IdentityOptions {
     broker: BrokerSetting;
     lanDoor: boolean;
     worktreeRoot: string | null;
+    nodeSizes: NodeSizes;
 }
 
 export interface KeepAwakeSetting {
@@ -157,6 +166,7 @@ export class EndpointIdentity {
     private readonly brokerSwitch = new Binding<IdentityBroker>('The broker switch of the machine identity');
     private lanDoorOpen: boolean;
     private checkoutRoot: string | null;
+    private sizes: NodeSizes;
     private readonly door = new Binding<IdentityLanDoor>('The door on the local network of the machine identity');
     private readonly closedLid = new Binding<IdentityClosedLid>('The closed-lid rule of the machine identity');
     private readonly integrations = new Binding<IdentityAgentIntegrations>('The agent integrations of the machine identity');
@@ -178,6 +188,7 @@ export class EndpointIdentity {
         this.brokerSetting = options.broker;
         this.lanDoorOpen = options.lanDoor;
         this.checkoutRoot = options.worktreeRoot;
+        this.sizes = options.nodeSizes;
     }
 
     /* What clients call this machine: the name a person gave it, or the one it started with. */
@@ -262,6 +273,24 @@ export class EndpointIdentity {
         return this.checkoutRoot;
     }
 
+    /* Only the kinds a person changed; `nodeSize` answers for every kind. */
+    get nodeSizes(): NodeSizes {
+        return this.sizes;
+    }
+
+    /* The size a new node of a kind takes on this machine, whoever adds it. */
+    nodeSize(kind: NodeKind): NodeSize {
+        return nodeSizeOf(this.sizes, kind);
+    }
+
+    /* Null puts the kind back to its built-in size. Every client hears it, since every client adds nodes here. */
+    async setNodeSize(kind: NodeKind, size: NodeSize | null): Promise<void> {
+        const { [kind]: _replaced, ...others } = this.sizes;
+        this.sizes = size === null ? others : { ...others, [kind]: { w: size.w, h: size.h } };
+        await this.persist();
+        this.announce();
+    }
+
     /* Hands a changed door setting to the door, and lets the event say where it stands. */
     attachLanDoor(door: IdentityLanDoor): void {
         this.door.bind(door);
@@ -335,7 +364,8 @@ export class EndpointIdentity {
                 broker: this.brokerSetting,
                 ...this.brokerSwitch.get().describe(),
                 lanDoor: this.lanDoorOpen,
-                ...this.door.get().describe()
+                ...this.door.get().describe(),
+                nodeSizes: this.sizes
             }
         };
         this.sinks.emit(event);
@@ -361,7 +391,8 @@ export class EndpointIdentity {
             ...(this.awake.lidClosed ? { keepAwakeLidClosed: true } : {}),
             ...(this.brokerSetting.mode === 'default' ? {} : { broker: this.brokerSetting }),
             ...(this.lanDoorOpen ? {} : { lanDoor: false }),
-            ...(this.checkoutRoot === null ? {} : { worktreeRoot: this.checkoutRoot })
+            ...(this.checkoutRoot === null ? {} : { worktreeRoot: this.checkoutRoot }),
+            ...(Object.keys(this.sizes).length === 0 ? {} : { nodeSizes: this.sizes })
         };
         await mkdir(dirname(this.path), { recursive: true, mode: 0o700 });
         // Durable: a power cut right after a change must not leave an empty file where the key pair was.
@@ -427,7 +458,8 @@ export async function readOrCreateEndpointIdentity(home: string, defaultName: st
         },
         broker: file?.broker ?? { mode: 'default' },
         lanDoor: file?.lanDoor ?? true,
-        worktreeRoot: file?.worktreeRoot ?? null
+        worktreeRoot: file?.worktreeRoot ?? null,
+        nodeSizes: knownNodeSizes(file?.nodeSizes)
     });
     if (!keys) {
         await identity.persist();

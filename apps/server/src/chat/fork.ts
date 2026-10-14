@@ -3,7 +3,6 @@ import { join } from 'node:path';
 import {
     clipText,
     isCanvasView,
-    NODE_SIZE,
     withView,
     type AgentKind,
     type ChatForkInfoPayload,
@@ -31,7 +30,7 @@ import { branchSlug } from '../canvas/worktree.ts';
 import type { Checkpoints } from '../git/checkpoints.ts';
 import { git } from '../git/run.ts';
 import { freeBranch, type Worktrees } from '../git/worktrees.ts';
-import type { CanvasHost, ProjectHost } from '../canvas/verb.ts';
+import type { CanvasHost, MachineHost, ProjectHost } from '../canvas/verb.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
 import type { ProjectMutation } from '../projects/project-store.ts';
 import type { AgentLineageStore } from '@adecore/agents/coordination';
@@ -56,6 +55,7 @@ export interface ChatForkDeps {
     read: ProjectHost['read'];
     mutate: ProjectHost['mutate'];
     depthOf(nodeId: string): number;
+    nodeSize: MachineHost['nodeSize'];
     recordFork(record: { projectId: string; nodeId: string; openedBy: string; depth: number }): Promise<void>;
     /* Writes the cut transcript under the new session id and answers how to take it back. */
     forkClaude(input: { source: ChatInfo; at: TranscriptCutPoint; newSessionId: string; cwd: string }): Promise<{ undo(): Promise<void> }>;
@@ -506,7 +506,7 @@ function landFork(
         throw new ChatError('canvas-full', `${canvas.name} already holds the ${MAX_CANVAS_NODES} nodes a canvas may hold`);
     }
     const anchor = place.canvasId === null ? null : (canvas.nodes.find((node) => node.id === payload.chatId) ?? null);
-    const rect = placeFree(canvas.nodes, NODE_SIZE.chat, anchor);
+    const rect = placeFree(canvas.nodes, deps.nodeSize('chat'), anchor);
     const node = agentNode({ id: forkId, chat: true, kind: provider, title, rect, cwd: nodeCwd, account });
     const edge: ProjectEdge | null = anchor ? { id: newId('edge', content, [forkId]), from: anchor.id, to: forkId, label: 'context' } : null;
     return {
@@ -577,7 +577,11 @@ function forkCanvas(content: ProjectContent, place: IndexedPlace, payload: ChatF
 /* The daemon's pieces a fork is made of, wired once for `daemon.ts` and the test daemon alike. */
 export function chatForkDeps(wiring: {
     chats: ChatManager;
-    host: { starts: Pick<CanvasHost['starts'], 'installedAgents'>; projects: Pick<ProjectHost, 'locate' | 'read' | 'mutate'> };
+    host: {
+        starts: Pick<CanvasHost['starts'], 'installedAgents'>;
+        projects: Pick<ProjectHost, 'locate' | 'read' | 'mutate'>;
+        machine: Pick<MachineHost, 'nodeSize'>;
+    };
     titleFor(id: string): string | null;
     lineage: Pick<AgentLineageStore, 'depthOf' | 'put'>;
     worktrees?: Pick<Worktrees, 'add' | 'addFresh' | 'remove' | 'branches'>;
@@ -592,6 +596,7 @@ export function chatForkDeps(wiring: {
         read: (projectId) => wiring.host.projects.read(projectId),
         mutate: (projectId, apply) => wiring.host.projects.mutate(projectId, apply),
         depthOf: (nodeId) => wiring.lineage.depthOf(nodeId),
+        nodeSize: (kind) => wiring.host.machine.nodeSize(kind),
         recordFork: (record) => wiring.lineage.put({ ...record, agent: true, relation: 'fork' }),
         forkClaude: ({ source, at, newSessionId, cwd }) =>
             forkClaudeTranscript({

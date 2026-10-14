@@ -21,6 +21,8 @@ import {
     NODE_ACCENT_NAMES,
     NODE_SIZE,
     PROJECT_ICON_NAMES,
+    nodeSizeOf,
+    type NodeSizes,
     type AgentKind,
     type ProjectCanvasView,
     type ProjectContent,
@@ -87,6 +89,7 @@ let started: AgentStart[];
 let onStart: ((start: AgentStart) => Promise<void>) | null;
 let lineage: AgentLineageStore;
 let deleteAnyView: boolean;
+let nodeSizes: NodeSizes;
 let ended: string[];
 let watching: Array<{ projectId: string; viewId: string; by: string }>;
 let notified: Array<Omit<Notice, 'createdAt'>>;
@@ -174,6 +177,7 @@ beforeEach(async () => {
     started = [];
     onStart = null;
     deleteAnyView = false;
+    nodeSizes = {};
     ended = [];
     watching = [];
     notified = [];
@@ -273,7 +277,7 @@ function host(): CanvasHost {
             openedCount: (callerId) => lineage.openedCount(callerId)
         },
         lineage,
-        machine: { agentsDeleteAnyView: deleteAnyView },
+        machine: { agentsDeleteAnyView: deleteAnyView, nodeSize: (kind) => nodeSizeOf(nodeSizes, kind) },
         endSession: async (kind, nodeId) => {
             ended.push(`${kind}\t${nodeId}`);
         },
@@ -1073,6 +1077,22 @@ describe('node new', () => {
         const node = (await canvasOnDisk()).nodes.find((candidate) => candidate.id === id);
         expect(node).toEqual({ id: id!, kind: 'note', title: 'Note', x: 560 + PLACEMENT_GAP, y: 0, ...NODE_SIZE.note, body: 'hello' });
         expect(store.index.locate(id!)).toEqual({ projectId, folder, canvasId: 'main' });
+    });
+
+    test('takes the size a person on this machine gave the kind, and the built-in size of every other kind', async () => {
+        nodeSizes = { note: { w: 400, h: 320 }, chat: { w: 640, h: 720 } };
+        const note = (await post('node', ['new', 'note', '--text', 'hello'])).lines[0]!.split('\t')[0]!;
+        const browser = (await post('node', ['new', 'browser', '--url', 'https://example.com'])).lines[0]!.split('\t')[0]!;
+        const chat = (await post('agent', ['claude'])).lines[0]!.split('\t')[0]!;
+        const nodes = (await canvasOnDisk()).nodes;
+        const sizeOf = (id: string) => {
+            const node = nodes.find((candidate) => candidate.id === id)!;
+            return { w: node.w, h: node.h };
+        };
+        expect(sizeOf(note)).toEqual({ w: 400, h: 320 });
+        expect(sizeOf(browser)).toEqual(NODE_SIZE.browser);
+        expect(sizeOf(chat)).toEqual({ w: 640, h: 720 });
+        expect((await post('help', ['node', 'new'])).lines.some((line) => line.startsWith('size\t') && line.includes('Make this the default size'))).toBe(true);
     });
 
     test('draws a line from the caller into what it made, context into an agent node and origin into anything else', async () => {

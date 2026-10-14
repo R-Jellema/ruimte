@@ -311,6 +311,7 @@
     "endpoint.info",
     "endpoint.setIdentity",
     "endpoint.settings",
+    "endpoint.setNodeSize",
     "endpoint.agentIntegrations",
     "endpoint.setAgentIntegration",
     "endpoint.closedLidRule",

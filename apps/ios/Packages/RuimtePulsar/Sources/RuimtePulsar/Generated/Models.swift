@@ -3571,9 +3571,10 @@ public struct PairResultEndpoint: Codable, Sendable, Equatable {
     public let `accountId`: Presence<String>
     public let `agentIntegrations`: PairResultEndpointAgentIntegrations?
     public let `worktreeRoot`: Presence<String>
+    public let `nodeSizes`: [String: PairResultEndpointNodeSizesValue]?
     public let `features`: [String]?
 
-    public init(`id`: String, `label`: String, `nameSource`: PairResultEndpointNameSource? = nil, `icon`: Presence<MachineIcon> = .missing, `agentsDeleteAnyView`: Bool? = nil, `streamingAllowed`: Bool? = nil, `resumeAtReset`: Bool? = nil, `visualReplies`: Bool? = nil, `appleFoundationEnabled`: Bool? = nil, `keepAwake`: PairResultEndpointKeepAwake? = nil, `keepAwakeOnBattery`: Bool? = nil, `keepAwakeDisplay`: Bool? = nil, `keepAwakeAvailable`: Bool? = nil, `keepAwakeLidClosed`: Bool? = nil, `keepAwakeLidAvailable`: Bool? = nil, `keepAwakeLidRule`: Bool? = nil, `update`: PairResultEndpointUpdate? = nil, `platform`: String, `version`: String, `protocol`: Int64? = nil, `reachability`: PairResultEndpointReachability, `authenticated`: Bool, `publicKey`: String? = nil, `brokerUrl`: Presence<String> = .missing, `broker`: PairResultEndpointBroker? = nil, `brokerFixed`: Bool? = nil, `lan`: Presence<PairResultEndpointLan> = .missing, `lanDoor`: Bool? = nil, `lanDoorFixed`: Bool? = nil, `accountId`: Presence<String> = .missing, `agentIntegrations`: PairResultEndpointAgentIntegrations? = nil, `worktreeRoot`: Presence<String> = .missing, `features`: [String]? = nil) {
+    public init(`id`: String, `label`: String, `nameSource`: PairResultEndpointNameSource? = nil, `icon`: Presence<MachineIcon> = .missing, `agentsDeleteAnyView`: Bool? = nil, `streamingAllowed`: Bool? = nil, `resumeAtReset`: Bool? = nil, `visualReplies`: Bool? = nil, `appleFoundationEnabled`: Bool? = nil, `keepAwake`: PairResultEndpointKeepAwake? = nil, `keepAwakeOnBattery`: Bool? = nil, `keepAwakeDisplay`: Bool? = nil, `keepAwakeAvailable`: Bool? = nil, `keepAwakeLidClosed`: Bool? = nil, `keepAwakeLidAvailable`: Bool? = nil, `keepAwakeLidRule`: Bool? = nil, `update`: PairResultEndpointUpdate? = nil, `platform`: String, `version`: String, `protocol`: Int64? = nil, `reachability`: PairResultEndpointReachability, `authenticated`: Bool, `publicKey`: String? = nil, `brokerUrl`: Presence<String> = .missing, `broker`: PairResultEndpointBroker? = nil, `brokerFixed`: Bool? = nil, `lan`: Presence<PairResultEndpointLan> = .missing, `lanDoor`: Bool? = nil, `lanDoorFixed`: Bool? = nil, `accountId`: Presence<String> = .missing, `agentIntegrations`: PairResultEndpointAgentIntegrations? = nil, `worktreeRoot`: Presence<String> = .missing, `nodeSizes`: [String: PairResultEndpointNodeSizesValue]? = nil, `features`: [String]? = nil) {
         self.`id` = `id`
         self.`label` = `label`
         self.`nameSource` = `nameSource`
@@ -3606,6 +3607,7 @@ public struct PairResultEndpoint: Codable, Sendable, Equatable {
         self.`accountId` = `accountId`
         self.`agentIntegrations` = `agentIntegrations`
         self.`worktreeRoot` = `worktreeRoot`
+        self.`nodeSizes` = `nodeSizes`
         self.`features` = `features`
     }
 
@@ -3643,6 +3645,7 @@ public struct PairResultEndpoint: Codable, Sendable, Equatable {
         `accountId` = try container.contains(.`accountId`) ? (container.decodeNil(forKey: .`accountId`) ? .null : .value(container.decode(String.self, forKey: .`accountId`))) : .missing
         `agentIntegrations` = try container.decodeIfPresent(PairResultEndpointAgentIntegrations.self, forKey: .`agentIntegrations`)
         `worktreeRoot` = try container.contains(.`worktreeRoot`) ? (container.decodeNil(forKey: .`worktreeRoot`) ? .null : .value(container.decode(String.self, forKey: .`worktreeRoot`))) : .missing
+        `nodeSizes` = try container.decodeIfPresent([String: PairResultEndpointNodeSizesValue].self, forKey: .`nodeSizes`)
         `features` = try container.decodeIfPresent([String].self, forKey: .`features`)
     }
 
@@ -3700,6 +3703,7 @@ public struct PairResultEndpoint: Codable, Sendable, Equatable {
         case .null: try container.encodeNil(forKey: .`worktreeRoot`)
         case .value(let value): try container.encode(value, forKey: .`worktreeRoot`)
         }
+        try container.encodeIfPresent(`nodeSizes`, forKey: .`nodeSizes`)
         try container.encodeIfPresent(`features`, forKey: .`features`)
     }
 
@@ -3736,6 +3740,7 @@ public struct PairResultEndpoint: Codable, Sendable, Equatable {
         case `accountId` = "accountId"
         case `agentIntegrations` = "agentIntegrations"
         case `worktreeRoot` = "worktreeRoot"
+        case `nodeSizes` = "nodeSizes"
         case `features` = "features"
     }
 }
@@ -4007,6 +4012,33 @@ public enum PairResultEndpointAgentIntegrationsProvidersItemState: String, CaseI
     case `unset` = "unset"
     case `on` = "on"
     case `off` = "off"
+}
+
+public struct PairResultEndpointNodeSizesValue: Codable, Sendable, Equatable {
+    public let `w`: Double
+    public let `h`: Double
+
+    public init(`w`: Double, `h`: Double) {
+        self.`w` = `w`
+        self.`h` = `h`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `w` = try container.decode(Double.self, forKey: .`w`)
+        `h` = try container.decode(Double.self, forKey: .`h`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`w`, forKey: .`w`)
+        try container.encode(`h`, forKey: .`h`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `w` = "w"
+        case `h` = "h"
+    }
 }
 
 public struct ProjectCanvasDefaults: Codable, Sendable, Equatable {

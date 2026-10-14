@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, readdir, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ChatItem, ProjectContent } from '@ruimte/contracts';
+import { NODE_SIZE, type ChatItem, type ProjectContent } from '@ruimte/contracts';
 import { AgentLineageStore, OutboxWorker, type OutboxClock } from '@adecore/agents/coordination';
 import { PendingPromptStore } from '../agents/pending-prompts.ts';
 import { CANVAS_PATH, handleCanvasRequest } from '../canvas/canvas-route.ts';
@@ -218,7 +218,7 @@ async function boot(): Promise<Daemon> {
             openedCount: (callerId) => lineage.openedCount(callerId)
         },
         lineage,
-        machine: { agentsDeleteAnyView: false },
+        machine: { agentsDeleteAnyView: false, nodeSize: (kind) => NODE_SIZE[kind] },
         endSession: unused,
         messages: { alert: () => undefined, notify: unused },
         diagrams: { write: unused },

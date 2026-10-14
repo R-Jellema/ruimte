@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ChatInfo, ChatItem, ChatTurnItem, ChatVisual, ProjectCanvasView, ProjectContent } from '@ruimte/contracts';
+import { NODE_SIZE, type ChatInfo, type ChatItem, type ChatTurnItem, type ChatVisual, type ProjectCanvasView, type ProjectContent } from '@ruimte/contracts';
 import { AgentLineageStore } from '@adecore/agents/coordination';
 import { ManualClock, inProcess, fakeCodex, fakeCodexForks } from '@adecore/agents/testing';
 import { ProjectStore } from '../projects/project-store.ts';
@@ -377,6 +377,7 @@ describe('forkChat', () => {
                 return mutation.result;
             },
             depthOf: () => 0,
+            nodeSize: (kind) => NODE_SIZE[kind],
             recordFork: async () => undefined,
             forkClaude: async (input) => {
                 asked.claude.push(input.at);
@@ -602,6 +603,7 @@ describe('forking a Codex chat', () => {
         };
         const host: Parameters<typeof chatForkDeps>[0]['host'] = {
             starts: { installedAgents: async () => ['codex'] },
+            machine: { nodeSize: (kind) => NODE_SIZE[kind] },
             projects: {
                 locate: () => ({ projectId: 'p1', folder: home, canvasId: 'main' }),
                 read: async () => document,
