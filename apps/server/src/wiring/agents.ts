@@ -223,7 +223,8 @@ export async function wireAgents({ runtime, identity, auth, stores, providers, c
         fetch: (url, init) => fetch(url, init),
         sign: (message) => identity.sign(message),
         machineId: identity.id,
-        onAccount: async () => (await auth.accountBinding()) != null,
+        // Absent means the machine signed no registration since the binding was kept, which the address book still answers for; only a person leaving the account makes it null.
+        onAccount: async () => (await auth.accountBinding()) !== null,
         now: () => Date.now()
     });
     const chats: ChatManager = new ChatManager({

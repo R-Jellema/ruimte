@@ -61,6 +61,9 @@ export class Geocoder {
     }
 
     async geocode(query: string, language: string, signal?: AbortSignal): Promise<GeocodeReading> {
+        if (signal?.aborted === true) {
+            return missing('unreachable');
+        }
         const held = this.blocked;
         if (held !== null && held.until > this.options.now()) {
             return missing(held.code);
@@ -68,7 +71,10 @@ export class Geocoder {
         if (!(await this.options.onAccount())) {
             return missing('no-account');
         }
-        const ticket = await this.currentTicket();
+        const ticket = await this.withinBudget(this.currentTicket(), signal);
+        if (ticket === 'aborted') {
+            return missing('unreachable');
+        }
         if ('state' in ticket) {
             return ticket;
         }
@@ -76,7 +82,10 @@ export class Geocoder {
         // A ticket the service no longer takes (the secret changed) is replaced once, never in a loop.
         if (reading === 'bad-ticket') {
             this.ticket = null;
-            const fresh = await this.currentTicket();
+            const fresh = await this.withinBudget(this.currentTicket(), signal);
+            if (fresh === 'aborted') {
+                return missing('unreachable');
+            }
             if ('state' in fresh) {
                 return fresh;
             }
@@ -84,6 +93,24 @@ export class Geocoder {
             return again === 'bad-ticket' ? this.refuse('unavailable') : again;
         }
         return reading;
+    }
+
+    /*
+     * A ticket still being asked for is waited on only as long as the caller's budget lasts. The ask itself goes
+     * on, shared with the next caller, so the ticket is there ahead of the next lookup.
+     */
+    private async withinBudget<Value>(work: Promise<Value>, signal: AbortSignal | undefined): Promise<Value | 'aborted'> {
+        if (signal === undefined) {
+            return work;
+        }
+        if (signal.aborted) {
+            return 'aborted';
+        }
+        return new Promise((resolve, reject) => {
+            const abandon = (): void => resolve('aborted');
+            signal.addEventListener('abort', abandon, { once: true });
+            work.then(resolve, reject).finally(() => signal.removeEventListener('abort', abandon));
+        });
     }
 
     private refuse(code: GeocodeMissingCode): GeocodeReading {
@@ -155,7 +182,8 @@ export class Geocoder {
                 signal: signal ?? AbortSignal.timeout(5_000)
             });
         } catch {
-            return this.refuse('unreachable');
+            // The caller's budget ran out, not the service: that says nothing about the next lookup.
+            return signal?.aborted === true ? missing('unreachable') : this.refuse('unreachable');
         }
         if (response.status === 401) {
             await response.body?.cancel();
@@ -179,7 +207,7 @@ export class Geocoder {
         }
         const parsed = MapsGeocodeResultSchema.safeParse(await response.json().catch(() => null));
         if (!parsed.success) {
-            return this.refuse('unavailable');
+            return signal?.aborted === true ? missing('unreachable') : this.refuse('unavailable');
         }
         const [first] = parsed.data.results;
         return first === undefined ? missing('not-found') : { state: 'found', lat: first.lat, lon: first.lon, label: first.label };

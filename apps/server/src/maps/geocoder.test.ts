@@ -183,3 +183,79 @@ describe('what goes wrong', () => {
         expect(calls[1]!.init.signal).toBe(controller.signal);
     });
 });
+
+/* Lets the promises a lookup is waiting on settle, without a clock. */
+async function flush(): Promise<void> {
+    for (let i = 0; i < 20; i++) {
+        await Promise.resolve();
+    }
+}
+
+describe('a lookup whose budget runs out', () => {
+    function abortable(): { fetch: GeocoderOptions['fetch']; release(): void; hang: boolean } {
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        const state = {
+            hang: true,
+            release: () => release(),
+            fetch: async (url: string, init: RequestInit): Promise<Response> => {
+                calls.push({ url, init });
+                if (url.endsWith('/v1/maps/ticket')) {
+                    await gate;
+                    return ticketAnswer();
+                }
+                if (!state.hang) {
+                    return lookupAnswer();
+                }
+                return new Promise<Response>((_resolve, reject) => {
+                    init.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+                });
+            }
+        };
+        return state;
+    }
+
+    test('while the ticket is still being asked for leaves at once, and the ticket is there for the next lookup', async () => {
+        const gate = abortable();
+        const subject = geocoder({ fetch: gate.fetch });
+        const budget = new AbortController();
+        const first = subject.geocode('a', 'en', budget.signal);
+        await flush();
+        budget.abort();
+        expect(await first).toMatchObject({ state: 'missing', code: 'unreachable' });
+        gate.release();
+        await flush();
+        // The ask went on and finished; the next lookup finds its ticket and asks for no other.
+        gate.hang = false;
+        expect(await subject.geocode('b', 'en')).toMatchObject({ state: 'found' });
+        expect(urls().filter((url) => url.endsWith('/ticket'))).toHaveLength(1);
+    });
+
+    test('while the lookup itself is under way says nothing against the service: the next lookup is asked', async () => {
+        const gate = abortable();
+        const subject = geocoder({ fetch: gate.fetch });
+        gate.release();
+        const budget = new AbortController();
+        const first = subject.geocode('a', 'en', budget.signal);
+        await flush();
+        budget.abort();
+        expect(await first).toMatchObject({ state: 'missing', code: 'unreachable' });
+        const before = urls().length;
+        const second = subject.geocode('b', 'en', new AbortController().signal);
+        await flush();
+        // Not held off: it went out to the service again.
+        expect(urls().length).toBe(before + 1);
+        void second;
+    });
+
+    test('that is spent already asks nothing', async () => {
+        const budget = new AbortController();
+        budget.abort();
+        expect(await geocoder().geocode('a', 'en', budget.signal)).toMatchObject({ code: 'unreachable' });
+        expect(calls).toEqual([]);
+        // And holds nothing off: a lookup with time left is asked.
+        expect(await geocoder().geocode('b', 'en')).toMatchObject({ state: 'found' });
+    });
+});
