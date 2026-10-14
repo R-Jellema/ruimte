@@ -636,6 +636,7 @@
         "terminal": {
             "title": "Terminal",
             "clear": "Clear the screen and the scrollback",
+            "find": "Find in the terminal",
             "lineStart": "Move to the beginning of the line",
             "lineEnd": "Move to the end of the line",
             "wordBack": "Move back one word",

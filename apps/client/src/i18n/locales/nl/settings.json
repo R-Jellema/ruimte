@@ -636,6 +636,7 @@
         "terminal": {
             "title": "Terminal",
             "clear": "Het scherm en de scrollback wissen",
+            "find": "Zoeken in de terminal",
             "lineStart": "Naar het begin van de regel",
             "lineEnd": "Naar het einde van de regel",
             "wordBack": "Eén woord terug",

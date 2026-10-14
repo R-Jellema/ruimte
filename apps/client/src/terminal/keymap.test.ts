@@ -2,7 +2,16 @@ import { describe, expect, test } from 'bun:test';
 import { CANVAS_SHORTCUTS, FOCUS_SHORTCUTS, VIEW_SHORTCUTS } from '@/canvas/shortcuts';
 import { APP_SHORTCUTS } from '@/shell/shortcuts';
 import type { KeyLike, Shortcut } from '@adecore/ui';
-import { isAppShortcut, isClearShortcut, isLeaveNodeShortcut, isShellShortcut, isTerminalPaste, macMotionSequence, TERMINAL_HANDED_BACK } from './keymap.ts';
+import {
+    isAppShortcut,
+    isClearShortcut,
+    isLeaveNodeShortcut,
+    isShellShortcut,
+    isTerminalFindShortcut,
+    isTerminalPaste,
+    macMotionSequence,
+    TERMINAL_HANDED_BACK
+} from './keymap.ts';
 
 function shortcut(key: string, modifiers: Partial<Omit<KeyLike, 'key'>> = {}): KeyLike {
     return {
@@ -168,6 +177,19 @@ describe('isClearShortcut', () => {
 
     test('another key is never the shortcut', () => {
         expect(isClearShortcut(shortcut('l', { code: 'KeyL', metaKey: true }), true)).toBe(false);
+    });
+});
+
+describe('isTerminalFindShortcut', () => {
+    test('macOS finds on Cmd+F, the way every native terminal does', () => {
+        expect(isTerminalFindShortcut(shortcut('f', { code: 'KeyF', metaKey: true }), true)).toBe(true);
+        expect(isTerminalFindShortcut(shortcut('f', { code: 'KeyF' }), true)).toBe(false);
+        expect(isTerminalFindShortcut(shortcut('f', { code: 'KeyF', metaKey: true, shiftKey: true }), true)).toBe(false);
+    });
+
+    test("elsewhere it is Ctrl+Shift+F, because Ctrl+F is readline's forward-char", () => {
+        expect(isTerminalFindShortcut(shortcut('F', { code: 'KeyF', ctrlKey: true, shiftKey: true }), false)).toBe(true);
+        expect(isTerminalFindShortcut(shortcut('f', { code: 'KeyF', ctrlKey: true }), false)).toBe(false);
     });
 });
 

@@ -21,12 +21,22 @@ export const LEAVE_NODE_SHORTCUT: PlatformShortcut = { mac: shortcut('Meta+Escap
 /* Clearing is Cmd+K, what every macOS terminal does; off macOS Ctrl+K is readline's kill-line. */
 export const CLEAR_SHORTCUT: PlatformShortcut = { mac: shortcut('Meta+K'), other: shortcut('Ctrl+Shift+K') };
 
+/*
+ * Find is Cmd+F on macOS. Off macOS Ctrl+F is readline's forward-char, so the terminal takes Ctrl+Shift+F,
+ * which no program reads; the window's find in files lives on that key, but a focused terminal never hands it back.
+ */
+export const TERMINAL_FIND_SHORTCUT: PlatformShortcut = { mac: shortcut('Meta+F'), other: shortcut('Ctrl+Shift+F') };
+
 export function isLeaveNodeShortcut(event: KeyLike, apple: boolean): boolean {
     return matchesShortcut(platformShortcut(LEAVE_NODE_SHORTCUT, apple), event, apple);
 }
 
 export function isClearShortcut(event: KeyLike, apple: boolean): boolean {
     return matchesShortcut(platformShortcut(CLEAR_SHORTCUT, apple), event, apple);
+}
+
+export function isTerminalFindShortcut(event: KeyLike, apple: boolean): boolean {
+    return matchesShortcut(platformShortcut(TERMINAL_FIND_SHORTCUT, apple), event, apple);
 }
 
 /*

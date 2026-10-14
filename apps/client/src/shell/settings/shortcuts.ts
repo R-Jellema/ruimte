@@ -4,7 +4,7 @@ import { DRAWING_SHORTCUTS } from '@/drawing/shortcuts';
 import { PROMPT_SHORTCUTS } from '@adecore/agents-react/prompts';
 import { SEND_AND_NEW_SHORTCUT } from '@adecore/agents-react/chat';
 import { APP_SHORTCUTS } from '@/shell/shortcuts';
-import { CLEAR_SHORTCUT, LEAVE_NODE_SHORTCUT, platformShortcut } from '@/terminal/keymap';
+import { CLEAR_SHORTCUT, LEAVE_NODE_SHORTCUT, platformShortcut, TERMINAL_FIND_SHORTCUT } from '@/terminal/keymap';
 import { KEY_SHORTCUTS, shortcut, shortcutParts, type Shortcut } from '@adecore/ui';
 
 export interface ShortcutRow {
@@ -176,6 +176,7 @@ export function shortcutGroups(apple: boolean): ShortcutGroup[] {
             title: say('terminal.title'),
             shortcuts: [
                 { keys: platformShortcut(CLEAR_SHORTCUT, apple), label: say('terminal.clear') },
+                { keys: platformShortcut(TERMINAL_FIND_SHORTCUT, apple), label: say('terminal.find') },
                 ...(apple
                     ? [
                           { keys: shortcut('Meta+ArrowLeft'), label: say('terminal.lineStart') },

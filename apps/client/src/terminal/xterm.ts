@@ -1,7 +1,7 @@
 import type { Terminal } from '@xterm/xterm';
 import type { TerminalSize, TerminalViewHandle } from '@adecore/terminal';
 import { isApplePlatform } from '@/desktop/bridge';
-import { isAppShortcut, isClearShortcut, isLeaveNodeShortcut, isTerminalPaste, macMotionSequence } from '@/terminal/keymap';
+import { isAppShortcut, isClearShortcut, isLeaveNodeShortcut, isTerminalFindShortcut, isTerminalPaste, macMotionSequence } from '@/terminal/keymap';
 
 /* ESC CR: what agent CLIs read as "newline, do not submit". Harmless in a plain shell. */
 const SHIFT_ENTER = '\x1b\r';
@@ -11,6 +11,8 @@ const keyedTerminals = new WeakSet<Element>();
 interface TerminalKeys {
     write(data: string): void;
     clear(): void;
+    /* Opens the find bar. A terminal without one (the launches panel, a login dialog) leaves the key to its program. */
+    find?: () => void;
     /* Whether the leave shortcut hands Escape back to the window, which a node on a canvas does and a terminal in a dialog does not. */
     leaves: boolean;
 }
@@ -47,6 +49,11 @@ export function bindTerminalKeys(term: Terminal, keys: TerminalKeys): void {
         if (isClearShortcut(e, apple)) {
             e.preventDefault();
             keys.clear();
+            return false;
+        }
+        if (keys.find !== undefined && isTerminalFindShortcut(e, apple)) {
+            e.preventDefault();
+            keys.find();
             return false;
         }
         // Neither written nor prevented, so the browser's own paste lands in xterm's textarea.

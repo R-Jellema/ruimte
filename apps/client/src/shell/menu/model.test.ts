@@ -259,6 +259,14 @@ describe('the menus', () => {
         expect(find(elsewhere, 'palette')?.accelerator).toBe('CommandOrControl+K');
     });
 
+    test('the find row shows the terminal key while a terminal has the keyboard, and the window key otherwise', () => {
+        const typing = menuModel(context({ view: 'terminal', apple: false, terminalKeys: true }));
+        expect(find(typing, 'find')?.accelerator).toBe('Control+Shift+F');
+        const elsewhere = menuModel(context({ view: 'terminal', apple: false, terminalKeys: false }));
+        expect(find(elsewhere, 'find')?.accelerator).toBe('CommandOrControl+F');
+        expect(find(menuModel(context({ view: 'terminal', apple: true, terminalKeys: true })), 'find')?.accelerator).toBe('Command+F');
+    });
+
     test('Cmd+W closes the last cell before it closes the window', () => {
         const one = menuModel(context({ cells: 1 }));
         expect(menu(one, 'File').some((node) => node.kind === 'role' && node.role === 'close')).toBe(false);

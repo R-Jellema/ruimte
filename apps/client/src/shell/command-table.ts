@@ -102,7 +102,7 @@ import { EDITOR_COMMAND_IDS, EDITOR_COMMANDS, type EditorCommandId } from '@/she
 import { editorShortcut } from '@/shell/editor-keymap';
 import type { MenuContext } from '@/shell/menu/model';
 import { APP_SHORTCUTS } from '@/shell/shortcuts';
-import { CLEAR_SHORTCUT, platformShortcut } from '@/terminal/keymap';
+import { CLEAR_SHORTCUT, platformShortcut, TERMINAL_FIND_SHORTCUT } from '@/terminal/keymap';
 
 /* A menu of the bar or a submenu with a fixed place, whose groups `menu/model.ts` lays out. */
 export type MenuContainer =
@@ -393,7 +393,13 @@ const TABLE = {
         shortcut: CANVAS_SHORTCUTS.find,
         binds: 'workspace',
         palette: true,
-        menu: { menu: 'edit', group: 'find', order: 10 }
+        // A focused terminal answers its own find key (`terminal/xterm.ts`), which is not the window's off macOS.
+        menu: {
+            menu: 'edit',
+            group: 'find',
+            order: 10,
+            shortcut: (context) => (context.terminalKeys ? platformShortcut(TERMINAL_FIND_SHORTCUT, context.apple) : CANVAS_SHORTCUTS.find)
+        }
     },
     'find-replace': {
         key: 'findReplace',
