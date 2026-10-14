@@ -49,6 +49,31 @@ struct SnoozeBook: Codable, Equatable {
     var listed: [String: Double] = [:]
     var outbox: [String: Change] = [:]
 
+    private enum CodingKeys: String, CodingKey {
+        case listed, outbox
+        /// Written by a book from before the machine kept every snooze; only read.
+        case kept
+    }
+
+    init() {}
+
+    /// The snoozes an earlier book kept for the phone alone go to the machine once, as changes it has not taken yet.
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        listed = try container.decode([String: Double].self, forKey: .listed)
+        outbox = try container.decode([String: Change].self, forKey: .outbox)
+        let kept = try container.decodeIfPresent([String: Double].self, forKey: .kept) ?? [:]
+        for (node, until) in kept where outbox[node] == nil {
+            outbox[node] = .set(until: until)
+        }
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(listed, forKey: .listed)
+        try container.encode(outbox, forKey: .outbox)
+    }
+
     func standing(at now: Double) -> [String: Double] {
         var result = listed
         for (node, change) in outbox {

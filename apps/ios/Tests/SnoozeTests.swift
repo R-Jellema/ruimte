@@ -80,10 +80,14 @@ import XCTest
         XCTAssertEqual(book.listed["a"], 9000)
     }
 
-    func testABookStoredWithKeptSnoozesStillDecodesAndLeavesThemOut() throws {
-        let stored = #"{"listed":{"a":9000},"outbox":{},"kept":{"b":5000},"keepsNone":true,"waiting":["b"]}"#
+    func testASnoozeAnEarlierBookKeptForTheMachineGoesOverOnceAsAChange() throws {
+        let stored = #"{"listed":{"a":9000},"outbox":{"c":{"clear":{}}},"kept":{"b":5000,"c":6000},"keepsNone":true,"waiting":["b"]}"#
         let book = try JSONDecoder().decode(SnoozeBook.self, from: Data(stored.utf8))
-        XCTAssertEqual(book.standing(at: 1000), ["a": 9000])
+        XCTAssertEqual(book.outbox, ["b": .set(until: 5000), "c": .clear])
+        XCTAssertEqual(book.standing(at: 1000), ["a": 9000, "b": 5000])
+        let saved = try JSONEncoder().encode(book)
+        XCTAssertFalse(String(decoding: saved, as: UTF8.self).contains("kept"))
+        XCTAssertEqual(try JSONDecoder().decode(SnoozeBook.self, from: saved), book)
     }
 
     func testASnoozeSetOfflineGoesOutOnceTheLinkIsBack() async {
