@@ -25,8 +25,8 @@ export async function realShell(rc: (home: string) => string = () => "PS1='edito
             }
         },
         shellEnvironment: await prepareShellIntegration(join(home, 'ruimte')),
-        // macOS's global zshrc reads TERM_PROGRAM even when the person's zshenv enabled nounset.
-        env: { HOME: home, PATH: '/usr/bin:/bin', SHELL: '/bin/zsh', TERM_PROGRAM: 'ruimte-test' }
+        // The global zshrc of macOS reads TERM_PROGRAM and Ubuntu's reads skip_global_compinit, even when the person's zshenv enabled nounset.
+        env: { HOME: home, PATH: '/usr/bin:/bin', SHELL: '/bin/zsh', TERM_PROGRAM: 'ruimte-test', skip_global_compinit: '' }
     });
     manager.holdsForeground = holdsForeground;
     let output = '';
