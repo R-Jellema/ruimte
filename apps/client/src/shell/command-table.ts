@@ -1074,6 +1074,7 @@ export function menuPlacesOf(id: CommandId): readonly MenuPlace[] {
 /* The rows one listener binds, each with its key. */
 export function boundCommands(listener: 'window'): [WindowCommandId, Shortcut][];
 export function boundCommands(listener: 'workspace'): [WorkspaceCommandId, Shortcut][];
+export function boundCommands(listener: 'window' | 'workspace'): [CommandId, Shortcut][];
 export function boundCommands(listener: 'window' | 'workspace'): [CommandId, Shortcut][] {
     return COMMAND_IDS.flatMap((id): [CommandId, Shortcut][] => {
         const { binds, shortcut } = COMMANDS[id];

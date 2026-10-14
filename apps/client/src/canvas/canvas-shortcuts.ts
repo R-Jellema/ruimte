@@ -5,7 +5,7 @@ import { cancelDictation, stopDictation, toggleFocusedDictation, useDictation } 
 import { useEffect } from 'react';
 import { isCanvasView, isDiagramView } from '@ruimte/contracts';
 import { browserRegistry } from '@/browser/registry';
-import { ADD_NODE_SHORTCUTS, CANVAS_SHORTCUTS, FOCUS_SHORTCUTS, NODE_NAVIGATION_SHORTCUTS, VIEW_SHORTCUTS } from '@/canvas/shortcuts';
+import { CANVAS_SHORTCUTS, VIEW_SHORTCUTS } from '@/canvas/shortcuts';
 import { isApplePlatform } from '@/desktop/bridge';
 import {
     closeCellAction,
@@ -35,6 +35,7 @@ import { focusedCanvas, maximizeTargetOf, zoomNodeTargetOf, type CanvasState } f
 import { focusedDiagram } from '@/state/diagram';
 import { drawingHasSomethingToClear, focusedDrawing } from '@/state/drawing';
 import { isScratchProject, useProject } from '@/state/project';
+import { commandForKey, type WorkspaceCommandId } from '@/shell/command-table';
 import { focusViewRow } from '@/shell/sidebar-focus';
 import { isLeaveNodeShortcut } from '@/terminal/keymap';
 import { transportFor } from '@/transport';
@@ -49,10 +50,30 @@ function workspaceEndpointId(): string | null {
     return windowWorkspace()?.connection.endpointId ?? null;
 }
 
-/* The first entry whose shortcut the event is, so a table reads as one condition. */
-function entryFor<T extends string>(table: Record<T, Shortcut>, e: KeyboardEvent, apple: boolean): T | null {
-    return (Object.keys(table) as T[]).find((name) => matchesShortcut(table[name], e, apple)) ?? null;
-}
+/* The command table's rows this listener binds that act in one of four directions, or on a kind of node. */
+const FOCUS_DIRECTIONS: Partial<Record<WorkspaceCommandId, SplitDirection>> = {
+    'focus-left': 'left',
+    'focus-right': 'right',
+    'focus-up': 'up',
+    'focus-down': 'down'
+};
+
+const NODE_DIRECTIONS: Partial<Record<WorkspaceCommandId, SplitDirection>> = {
+    'node-left': 'left',
+    'node-right': 'right',
+    'node-up': 'up',
+    'node-down': 'down'
+};
+
+const ADD_NODE_KINDS: Partial<Record<WorkspaceCommandId, Parameters<typeof createNodeAction>[0]>> = {
+    'add-terminal': 'terminal',
+    'add-chat': 'chat',
+    'add-browser': 'browser',
+    'add-group': 'group',
+    'add-note': 'note'
+};
+
+const DIAGRAM_COMMANDS: readonly WorkspaceCommandId[] = ['edit-undo', 'edit-redo', 'fit', 'zoom-selection', 'zoom-reset'];
 
 /* The canvas keeps its own keys to itself while a view of its own has the focus; a loose view is one, and is no project view. */
 function onStandaloneView(): boolean {
@@ -143,6 +164,9 @@ export function isTypingTarget(el: EventTarget | null): boolean {
 
 type Matches = (shortcut: Shortcut) => boolean;
 
+/* The command table's row a key is for this listener (`commandForKey`), or null. */
+type Command = WorkspaceCommandId | null;
+
 /* Escape steps out of a node's content, a text being edited or a link being aimed. */
 function escapeCanvas(e: KeyboardEvent, s: CanvasState): void {
     // An open popup or dialog owns Escape. It closes itself, and the node it belongs to stays focused.
@@ -167,8 +191,8 @@ function escapeCanvas(e: KeyboardEvent, s: CanvasState): void {
 }
 
 /* The keys about the window, its cells and its views, which answer from anywhere. Answers whether the key is spoken for. */
-function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, apple: boolean): boolean {
-    if (is(CANVAS_SHORTCUTS.zoomNode) && !onStandaloneView() && !isInFloatingLayer(e.target) && !useUi.getState().settings.open) {
+function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, command: Command, apple: boolean): boolean {
+    if (command === 'zoom-node' && !onStandaloneView() && !isInFloatingLayer(e.target) && !useUi.getState().settings.open) {
         if (zoomNodeTargetOf(s) !== null) {
             e.preventDefault();
             s.zoomToNode();
@@ -176,13 +200,13 @@ function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, apple: b
         return true;
     }
     // A surface with nothing to search lets the key go, so a browser tab still gets its own find.
-    if (is(CANVAS_SHORTCUTS.find)) {
+    if (command === 'find') {
         if (!isInFloatingLayer(e.target) && !useUi.getState().settings.open && openFocusedFind()) {
             e.preventDefault();
         }
         return true;
     }
-    if (is(CANVAS_SHORTCUTS.findReplace)) {
+    if (command === 'find-replace') {
         if (!isInFloatingLayer(e.target) && !useUi.getState().settings.open && openFocusedFind({ replace: true })) {
             e.preventDefault();
         }
@@ -190,14 +214,14 @@ function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, apple: b
     }
     /* The grid answers from anywhere, a focused node or a text field included: splitting,
        closing and stepping between cells are about the window, not about what is in a cell. */
-    if (is(CANVAS_SHORTCUTS.splitRight) || is(CANVAS_SHORTCUTS.splitDown)) {
+    if (command === 'split-right' || command === 'split-down') {
         e.preventDefault();
-        splitAction(is(CANVAS_SHORTCUTS.splitDown) ? 'down' : 'right');
+        splitAction(command === 'split-down' ? 'down' : 'right');
         return true;
     }
     /* A node on the canvas goes first (`maximizeTargetOf`); without one the key is the grid's,
        and with one cell and nothing maximized it is let go, since there is nothing to fill. */
-    if (is(CANVAS_SHORTCUTS.maximizeCell)) {
+    if (command === 'cell-maximize') {
         const node = onStandaloneView() ? null : maximizeTargetOf(s);
         if (node !== null) {
             e.preventDefault();
@@ -211,7 +235,7 @@ function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, apple: b
         }
         return true;
     }
-    const direction: SplitDirection | null = entryFor(FOCUS_SHORTCUTS, e, apple);
+    const direction = command === null ? undefined : FOCUS_DIRECTIONS[command];
     if (direction) {
         e.preventDefault();
         focusCellAction(direction);
@@ -220,17 +244,17 @@ function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, apple: b
     /* Stepping between the tabs of the focused host, whatever the host holds: a terminal in it hands
        the key back (`terminal/keymap.ts`) so it never reaches the PTY. It never leaves the cell, so
        the grid's own keys stay where they are. */
-    if ((is(CANVAS_SHORTCUTS.nextTab) || is(CANVAS_SHORTCUTS.previousTab)) && focusedHostTab() !== null) {
+    if ((command === 'tab-next' || command === 'tab-previous') && focusedHostTab() !== null) {
         e.preventDefault();
-        useDocument.getState().stepTab(is(CANVAS_SHORTCUTS.nextTab) ? 1 : -1);
+        useDocument.getState().stepTab(command === 'tab-next' ? 1 : -1);
         return true;
     }
     // Moving the tab in front along its strip is as much about the host as stepping is.
-    if (is(CANVAS_SHORTCUTS.moveTabLeft) || is(CANVAS_SHORTCUTS.moveTabRight)) {
+    if (command === 'tab-move-left' || command === 'tab-move-right') {
         const tab = focusedHostTab();
         if (tab !== null) {
             e.preventDefault();
-            useDocument.getState().moveTab(tab, is(CANVAS_SHORTCUTS.moveTabRight) ? 1 : -1);
+            useDocument.getState().moveTab(tab, command === 'tab-move-right' ? 1 : -1);
             return true;
         }
     }
@@ -239,7 +263,7 @@ function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, apple: b
        with unsaved changes is saved first, and a table with edits nobody submitted asks first.
        Off macOS the window menu's Close answers Ctrl+W, so the shortcut is always taken there,
        even with nothing to close. */
-    if (is(CANVAS_SHORTCUTS.closeCell)) {
+    if (command === 'close-cell') {
         const tab = focusedClosableTab();
         if (tab !== null) {
             e.preventDefault();
@@ -267,10 +291,10 @@ function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, apple: b
         return true;
     }
     // Mod+Alt+[ and ] because Mod+[ and ] belong to a page, the editor's history and a drawing's order.
-    if (is(CANVAS_SHORTCUTS.cameraBack) || is(CANVAS_SHORTCUTS.cameraForward)) {
+    if (command === 'camera-back' || command === 'camera-forward') {
         if (!isInFloatingLayer(e.target) && !useUi.getState().settings.open && !onStandaloneView()) {
             e.preventDefault();
-            s.stepCamera(is(CANVAS_SHORTCUTS.cameraForward) ? 1 : -1);
+            s.stepCamera(command === 'camera-forward' ? 1 : -1);
         }
         return true;
     }
@@ -297,30 +321,30 @@ function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, apple: b
             return true;
         }
     }
-    if (is(CANVAS_SHORTCUTS.previousView) || is(CANVAS_SHORTCUTS.nextView)) {
+    if (command === 'view-previous' || command === 'view-next') {
         e.preventDefault();
-        stepView(is(CANVAS_SHORTCUTS.nextView) ? 1 : -1);
+        stepView(command === 'view-next' ? 1 : -1);
         return true;
     }
-    if (is(CANVAS_SHORTCUTS.newView)) {
+    if (command === 'view-new') {
         e.preventDefault();
         void createViewAction('canvas');
         return true;
     }
     // From anywhere, a terminal included: the point is to answer without first leaving what you type in.
-    if (is(CANVAS_SHORTCUTS.focusPrompts)) {
+    if (command === 'prompts') {
         if (focusPromptStack()) {
             e.preventDefault();
         }
         return true;
     }
-    if (is(CANVAS_SHORTCUTS.togglePanel)) {
+    if (command === 'panel-toggle') {
         e.preventDefault();
         useUi.getState().togglePanel();
         return true;
     }
     // From anywhere but a popup, so a flag goes on a chat view while its composer has the keyboard.
-    if (is(CANVAS_SHORTCUTS.toggleFlag)) {
+    if (command === 'flag-toggle') {
         if (!isInFloatingLayer(e.target)) {
             e.preventDefault();
             toggleFlagAction();
@@ -328,14 +352,14 @@ function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, apple: b
         return true;
     }
     // From anywhere but a popup, a terminal included: restarting the server is what you do while typing.
-    if (is(CANVAS_SHORTCUTS.launchRun) || is(CANVAS_SHORTCUTS.launchStop)) {
+    if (command === 'launch-run' || command === 'launch-stop') {
         // The Chats project has no launches, and its keys fall through to whatever has the focus.
         if (isScratchProject(useProject.getState().current)) {
             return true;
         }
         if (!isInFloatingLayer(e.target)) {
             e.preventDefault();
-            if (is(CANVAS_SHORTCUTS.launchStop)) {
+            if (command === 'launch-stop') {
                 stopChosenLaunch();
             } else {
                 runChosenLaunch();
@@ -346,21 +370,20 @@ function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, apple: b
     return false;
 }
 
-function answerDiagramKey(e: KeyboardEvent, is: Matches): boolean {
+function answerDiagramKey(e: KeyboardEvent, command: Command): boolean {
     /* A diagram has an undo and a camera of its own and nothing else a key reaches; a drawing binds
        its keys in its view, since a drawing has the keyboard the way a terminal has it. */
     const active = activeViewOf(useDocument.getState());
-    const diagramKeys = [CANVAS_SHORTCUTS.undo, CANVAS_SHORTCUTS.redo, CANVAS_SHORTCUTS.fitAll, CANVAS_SHORTCUTS.zoomSelection, CANVAS_SHORTCUTS.zoomReset];
-    if (active !== null && isDiagramView(active) && diagramKeys.some(is)) {
+    if (active !== null && isDiagramView(active) && command !== null && DIAGRAM_COMMANDS.includes(command)) {
         if (isTypingTarget(e.target) || isInFloatingLayer(e.target) || useUi.getState().settings.open) {
             return true;
         }
         e.preventDefault();
-        if (is(CANVAS_SHORTCUTS.undo) || is(CANVAS_SHORTCUTS.redo)) {
-            historyAction(is(CANVAS_SHORTCUTS.redo) ? 'redo' : 'undo');
-        } else if (is(CANVAS_SHORTCUTS.fitAll)) {
+        if (command === 'edit-undo' || command === 'edit-redo') {
+            historyAction(command === 'edit-redo' ? 'redo' : 'undo');
+        } else if (command === 'fit') {
             fitAction();
-        } else if (is(CANVAS_SHORTCUTS.zoomSelection)) {
+        } else if (command === 'zoom-selection') {
             focusedDiagram().getState().zoomToSelection();
         } else {
             focusedDiagram().getState().zoomTo(1);
@@ -370,7 +393,7 @@ function answerDiagramKey(e: KeyboardEvent, is: Matches): boolean {
     return false;
 }
 
-function answerCanvasKey(e: KeyboardEvent, s: CanvasState, is: Matches, apple: boolean): void {
+function answerCanvasKey(e: KeyboardEvent, s: CanvasState, is: Matches, command: Command): void {
     // A dialog owns the keyboard while it is up; Backspace there must not delete nodes. Nor may
     // a key reach the canvas that is parked behind a view of its own.
     if (
@@ -384,8 +407,8 @@ function answerCanvasKey(e: KeyboardEvent, s: CanvasState, is: Matches, apple: b
     ) {
         return;
     }
-    const nodeDirection = entryFor(NODE_NAVIGATION_SHORTCUTS, e, apple);
-    if (nodeDirection !== null) {
+    const nodeDirection = command === null ? undefined : NODE_DIRECTIONS[command];
+    if (nodeDirection !== undefined) {
         e.preventDefault();
         s.selectNeighbor(nodeDirection);
         return;
@@ -398,23 +421,23 @@ function answerCanvasKey(e: KeyboardEvent, s: CanvasState, is: Matches, apple: b
         }
         return;
     }
-    const addKind = entryFor(ADD_NODE_SHORTCUTS, e, apple);
+    const addKind = command === null ? undefined : ADD_NODE_KINDS[command];
     if (addKind) {
         e.preventDefault();
         void createNodeAction(addKind);
-    } else if (is(CANVAS_SHORTCUTS.undo) || is(CANVAS_SHORTCUTS.redo)) {
+    } else if (command === 'edit-undo' || command === 'edit-redo') {
         e.preventDefault();
-        historyAction(is(CANVAS_SHORTCUTS.redo) ? 'redo' : 'undo');
-    } else if (is(CANVAS_SHORTCUTS.group)) {
+        historyAction(command === 'edit-redo' ? 'redo' : 'undo');
+    } else if (command === 'group-selection') {
         e.preventDefault();
         groupSelectionAction();
-    } else if (is(CANVAS_SHORTCUTS.zoomReset)) {
+    } else if (command === 'zoom-reset') {
         e.preventDefault();
         s.zoomTo(1);
-    } else if (is(CANVAS_SHORTCUTS.fitAll)) {
+    } else if (command === 'fit') {
         e.preventDefault();
         fitAction();
-    } else if (is(CANVAS_SHORTCUTS.zoomSelection)) {
+    } else if (command === 'zoom-selection') {
         e.preventDefault();
         s.zoomToSelection();
     } else if (is(CANVAS_SHORTCUTS.selectAll)) {
@@ -466,10 +489,11 @@ export function useCanvasShortcuts(): void {
             }
             const apple = isApplePlatform();
             const is: Matches = (target) => matchesShortcut(target, e, apple);
-            if (answerWindowKey(e, s, is, apple) || answerDiagramKey(e, is)) {
+            const command = commandForKey('workspace', e, apple);
+            if (answerWindowKey(e, s, is, command, apple) || answerDiagramKey(e, command)) {
                 return;
             }
-            answerCanvasKey(e, s, is, apple);
+            answerCanvasKey(e, s, is, command);
         };
         /* In the capture phase, because leaving the node and leaving a view of its own listen on the
            window too, and only stopping the key here keeps them from also acting on it. */
@@ -502,7 +526,7 @@ export function useCanvasShortcuts(): void {
                 !e.isComposing &&
                 !isTypingTarget(e.target) &&
                 !isInFloatingLayer(e.target) &&
-                matchesShortcut(CANVAS_SHORTCUTS.undo, e, isApplePlatform()) &&
+                commandForKey('workspace', e, isApplePlatform()) === 'edit-undo' &&
                 undoLatestDeletion(useDocument)
             ) {
                 e.preventDefault();

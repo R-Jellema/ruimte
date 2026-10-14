@@ -28,14 +28,14 @@ describe('the shortcuts of the window', () => {
 
     test('a new window opens only where the shell keeps windows', () => {
         const newWindow = { metaKey: true, shiftKey: true, key: 'N', code: 'KeyN' };
-        expect(appShortcutFor(key(newWindow), { ...mac, windows: true })).toBe('new-window');
-        expect(appShortcutFor(key({ ctrlKey: true, shiftKey: true, key: 'N', code: 'KeyN' }), { ...other, windows: true })).toBe('new-window');
+        expect(appShortcutFor(key(newWindow), { ...mac, windows: true })).toBe('window-new');
+        expect(appShortcutFor(key({ ctrlKey: true, shiftKey: true, key: 'N', code: 'KeyN' }), { ...other, windows: true })).toBe('window-new');
         expect(appShortcutFor(key(newWindow), mac)).toBeNull();
     });
 
     test('a new chat starts from the start screen and every project alike', () => {
-        expect(appShortcutFor(key({ metaKey: true, altKey: true, key: 'n', code: 'KeyN' }), mac)).toBe('new-chat');
-        expect(appShortcutFor(key({ ctrlKey: true, altKey: true, key: 'n', code: 'KeyN' }), other)).toBe('new-chat');
+        expect(appShortcutFor(key({ metaKey: true, altKey: true, key: 'n', code: 'KeyN' }), mac)).toBe('chat-new');
+        expect(appShortcutFor(key({ ctrlKey: true, altKey: true, key: 'n', code: 'KeyN' }), other)).toBe('chat-new');
         expect(appShortcutFor(key({ altKey: true, key: 'n', code: 'KeyN' }), mac)).toBeNull();
     });
 
