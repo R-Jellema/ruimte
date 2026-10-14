@@ -1,5 +1,6 @@
 import { cp, lstat, mkdir, readdir, rm, rmdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { basename, dirname, join } from 'node:path';
 import { ChatError } from '../chat/errors.ts';
 import { errorText } from '../error-text.ts';
 import { renameNoReplace } from '../fs/no-replace-rename.ts';
@@ -15,14 +16,32 @@ export interface MovedOwnFiles {
 export interface OwnFilesIO {
     /* Moves one path without replacing anything; fails with `EEXIST` when the target is taken. */
     rename(from: string, to: string): Promise<void>;
+    /* Copies a file or folder to a name that is free, leaving nothing at `to` when it fails; fails with `EEXIST` when `to` is taken. */
     copy(from: string, to: string): Promise<void>;
+    /* Deletes a file or folder with what is in it; the file system's `rm` when absent. */
+    remove?(path: string): Promise<void>;
 }
 
-const SYSTEM_IO: OwnFilesIO = {
-    rename: renameNoReplace,
-    // `force: false` with `errorOnExist` makes the copy refuse a name that is taken, as the rename does.
-    copy: (from, to) => cp(from, to, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true, preserveTimestamps: true })
-};
+type CopyTree = (from: string, to: string) => Promise<void>;
+
+const copyTree: CopyTree = (from, to) => cp(from, to, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true, preserveTimestamps: true });
+
+/*
+ * Copies into a sibling of the target and moves that into place without replacing, so a name that
+ * appears while the copy runs is never written into or over, and a failed copy leaves nothing at `to`.
+ */
+export async function copyWithoutReplacing(from: string, to: string, copy: CopyTree = copyTree, rename = renameNoReplace): Promise<void> {
+    const temporary = join(dirname(to), `.${basename(to)}.ruimte-copy-${randomBytes(4).toString('hex')}`);
+    try {
+        await copy(from, temporary);
+        await rename(temporary, to);
+    } catch (e) {
+        await rm(temporary, { recursive: true, force: true }).catch(() => undefined);
+        throw e;
+    }
+}
+
+const SYSTEM_IO: OwnFilesIO = { rename: renameNoReplace, copy: (from, to) => copyWithoutReplacing(from, to) };
 
 /* What a file manager leaves in a folder on its own: not the chat's, so it is neither counted nor moved. */
 export const IGNORED_OWN_NAMES: readonly string[] = ['.DS_Store'];
@@ -106,12 +125,12 @@ export async function moveOwnFiles(from: string, to: string, io: OwnFilesIO = SY
         }
     };
 
-    const failed = async (e: unknown, name: string): Promise<never> => {
+    const failed = async (e: unknown, name: string, detail = ''): Promise<never> => {
         await undo().catch(() => undefined);
         if (isTaken(e)) {
             throw new ChatError('files-conflict', `${name} is already in ${to}`);
         }
-        throw new ChatError('move-failed', `${name} could not be moved to ${to}: ${errorText(e)}`);
+        throw new ChatError('move-failed', `${name} could not be moved to ${to}: ${errorText(e)}${detail}`);
     };
 
     let crossing = names.length;
@@ -135,8 +154,8 @@ export async function moveOwnFiles(from: string, to: string, io: OwnFilesIO = SY
             await io.copy(join(from, name), join(to, name));
             copied.push(name);
         } catch (e) {
-            // A name that turned out to be taken is not ours to remove.
-            for (const made of isTaken(e) ? copied : [...copied, name]) {
+            // The copy that failed left nothing at its name; the ones before it are ours to take back.
+            for (const made of copied) {
                 await rm(join(to, made), { recursive: true, force: true }).catch(() => undefined);
             }
             return failed(e, name);
@@ -144,14 +163,14 @@ export async function moveOwnFiles(from: string, to: string, io: OwnFilesIO = SY
     }
     for (const [i, name] of copied.entries()) {
         try {
-            await rm(join(from, name), { recursive: true, force: true });
+            await (io.remove ?? ((path: string) => rm(path, { recursive: true, force: true })))(join(from, name));
         } catch (e) {
             // The originals before this one are gone and come back from their copies; those after it are still whole, and so is the copy of this one.
             arrived.push(...copied.slice(0, i));
             for (const later of copied.slice(i + 1)) {
                 await rm(join(to, later), { recursive: true, force: true }).catch(() => undefined);
             }
-            return failed(e, name);
+            return failed(e, name, `. The whole copy is in ${join(to, name)}; the original in ${from} may be incomplete.`);
         }
     }
     arrived.push(...copied);

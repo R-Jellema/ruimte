@@ -3,7 +3,7 @@ import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/pr
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { renameNoReplace } from '../fs/no-replace-rename.ts';
-import { moveOwnFiles, ownFolderOf, type OwnFilesIO } from './own-files.ts';
+import { copyWithoutReplacing, moveOwnFiles, ownFolderOf, type OwnFilesIO } from './own-files.ts';
 
 let root: string;
 let from: string;
@@ -137,7 +137,6 @@ describe('moveOwnFiles', () => {
             copy: async (source, target) => {
                 calls += 1;
                 if (calls === 3) {
-                    await mkdir(target);
                     throw error('EIO');
                 }
                 await copyIO(source, target);
@@ -146,6 +145,28 @@ describe('moveOwnFiles', () => {
         await expect(moveOwnFiles(from, to, io)).rejects.toMatchObject({ code: 'move-failed' });
         expect(await names(from)).toEqual(['.env', 'notes.md', 'sketches']);
         expect(await names(to)).toEqual([]);
+    });
+
+    test('names the folder that holds the whole copy when an original cannot be deleted', async () => {
+        const io: OwnFilesIO = {
+            rename: async () => {
+                throw error('EXDEV');
+            },
+            copy: copyIO,
+            remove: async (path) => {
+                if (path.endsWith('notes.md')) {
+                    throw error('EACCES');
+                }
+                await rm(path, { recursive: true, force: true });
+            }
+        };
+        await expect(moveOwnFiles(from, to, io)).rejects.toMatchObject({
+            code: 'move-failed',
+            message: expect.stringContaining(`The whole copy is in ${join(to, 'notes.md')}`)
+        });
+        // The copy of the entry that could not be deleted stays; the one before it was put back.
+        expect(await names(to)).toEqual(['notes.md']);
+        expect(await names(from)).toEqual(['.env', 'notes.md', 'sketches']);
     });
 
     test('does not remove a name it did not make when a copy finds it taken', async () => {
@@ -195,5 +216,39 @@ describe('moveOwnFiles', () => {
         };
         await moveOwnFiles(from, to, io);
         expect(await names(from)).toEqual(['late.md']);
+    });
+});
+
+describe('copyWithoutReplacing', () => {
+    test('copies a folder to a free name and leaves no temporary sibling', async () => {
+        await copyWithoutReplacing(join(from, 'sketches'), join(to, 'sketches'));
+        expect(await readFile(join(to, 'sketches', 'a.txt'), 'utf8')).toBe('sketch');
+        expect(await names(to)).toEqual(['sketches']);
+    });
+
+    test('refuses a taken name and leaves it as it was', async () => {
+        await writeFile(join(to, 'notes.md'), 'theirs');
+        await expect(copyWithoutReplacing(join(from, 'notes.md'), join(to, 'notes.md'))).rejects.toMatchObject({ code: expect.stringMatching(/EEXIST/) });
+        expect(await readFile(join(to, 'notes.md'), 'utf8')).toBe('theirs');
+        expect(await names(to)).toEqual(['notes.md']);
+    });
+
+    test('never writes into a name that appears while the copy runs', async () => {
+        const slow = async (source: string, target: string): Promise<void> => {
+            await copyIO(source, target);
+            await writeFile(join(to, 'notes.md'), 'appeared meanwhile');
+        };
+        await expect(copyWithoutReplacing(join(from, 'notes.md'), join(to, 'notes.md'), slow)).rejects.toMatchObject({ code: 'EEXIST' });
+        expect(await readFile(join(to, 'notes.md'), 'utf8')).toBe('appeared meanwhile');
+        expect(await names(to)).toEqual(['notes.md']);
+    });
+
+    test('removes the temporary copy when the copy fails', async () => {
+        const failing = async (source: string, target: string): Promise<void> => {
+            await copyIO(source, target);
+            throw error('EIO');
+        };
+        await expect(copyWithoutReplacing(join(from, 'notes.md'), join(to, 'notes.md'), failing)).rejects.toThrow('EIO');
+        expect(await names(to)).toEqual([]);
     });
 });
