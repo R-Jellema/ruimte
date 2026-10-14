@@ -67,6 +67,7 @@ import { ClientSinks } from '../client-sinks.ts';
 import { scratchFolderOf } from './scratch-project.ts';
 import { folderToOpen } from './folder-to-open.ts';
 import { MachineHome } from '../fs/machine-home.ts';
+import { PeerLinks, withHiddenCanvases } from '../peering/links.ts';
 import { RemoteStore, idsOf, machinesOf, withBoundMachines, withMachines, withoutMachines } from '../remote/remote-store.ts';
 
 function asProjectError(e: unknown): unknown {
@@ -238,6 +239,8 @@ export class ProjectStore {
     readonly hiddenAgents: HiddenAgentStore;
     /* Which node runs on another machine. It rides on the wire as `machine` and is never written to a project file. */
     readonly remote: RemoteStore;
+    /* Which other machines work in which project here, and so which canvases are theirs. */
+    readonly peers: PeerLinks;
     private readonly sinks = new ClientSinks((clientId) => this.dropClient(clientId));
     private readonly open = new Map<string, OpenProject>();
     /* Which client has which project on screen. Only those hear `project.changed` and `project.showView`;
@@ -260,6 +263,7 @@ export class ProjectStore {
         this.home = home;
         this.hiddenAgents = new HiddenAgentStore(home);
         this.remote = new RemoteStore(home);
+        this.peers = new PeerLinks(home);
         this.index = new ProjectIndex(this.hiddenAgents);
         this.scratchFolder = scratchFolderOf(home);
         this.registry = new ProjectRegistry(home);
@@ -538,7 +542,7 @@ export class ProjectStore {
         this.publish(entry);
 
         this.release(entry.projectId);
-        this.index.set(entry.projectId, entry.folder, fromPortable(document, entry.folder));
+        this.index.set(entry.projectId, entry.folder, this.fromDisk(entry.projectId, document, entry.folder));
         const state: OpenProject = {
             entry,
             rev: document.rev,
@@ -560,7 +564,7 @@ export class ProjectStore {
         this.summaries.invalidate(entry.folder);
         return {
             summary: await this.summaries.summarize(entry),
-            document: this.onTheWire(entry.projectId, fromPortable(document, entry.folder)),
+            document: this.onTheWire(entry.projectId, this.fromDisk(entry.projectId, document, entry.folder)),
             local: await this.readLocal(entry.projectId)
         };
     }
@@ -780,7 +784,7 @@ export class ProjectStore {
         announce: (daemonSide: ProjectDocument) => Promise<void>,
         origin: string | null = null
     ): Promise<void> {
-        const daemonSide = withoutMachines(fromPortable(document, entry.folder));
+        const daemonSide = withoutMachines(this.fromDisk(entry.projectId, document, entry.folder));
         this.index.set(entry.projectId, entry.folder, daemonSide);
         await this.removeOrphanedFiles(entry, before, document.views);
         await announce(daemonSide);
@@ -884,7 +888,7 @@ export class ProjectStore {
             entry,
             path,
             rev: loaded.rev,
-            content: fromPortable(loaded.content, entry.folder),
+            content: this.fromDisk(projectId, loaded.content, entry.folder),
             shared: loaded.shared,
             overlayFields: loaded.overlayFields
         };
@@ -1011,6 +1015,7 @@ export class ProjectStore {
         await this.registry.update((entries) => entries.filter((candidate) => candidate.projectId !== projectId));
         await rm(this.localPath(projectId), { force: true });
         await this.remote.forget(projectId);
+        await this.peers.forgetProject(projectId);
         // Who wrote which lines of a project that is gone is of no use to anyone, and it lives in the daemon's own folder.
         await this.links.provenance
             .forget(projectId)
@@ -1052,7 +1057,7 @@ export class ProjectStore {
                 if (parsed.kind === 'ok' && !this.index.has(entry.projectId)) {
                     const loaded = await this.loadFiles(this.documentPath(entry), entry, parsed.document);
                     const document: ProjectDocument = { version: PROJECT_VERSION, rev: loaded.rev, ...loaded.content, shared: loaded.shared };
-                    this.index.set(entry.projectId, entry.folder, fromPortable(document, entry.folder));
+                    this.index.set(entry.projectId, entry.folder, this.fromDisk(entry.projectId, document, entry.folder));
                     await this.remote.prune(entry.projectId, idsOf(loaded.content));
                 }
             })
@@ -1221,9 +1226,9 @@ export class ProjectStore {
         const document: ProjectDocument = { version: PROJECT_VERSION, rev, ...loaded.content, shared: loaded.shared };
         remember(state, { text, private: privateText }, rev, loaded.shared, document.views, loaded.overlayFields);
         state.entry = { ...state.entry, name: document.name, color: document.color, icon: document.icon ?? null };
-        this.index.set(state.entry.projectId, state.entry.folder, fromPortable(document, state.entry.folder));
+        this.index.set(state.entry.projectId, state.entry.folder, this.fromDisk(state.entry.projectId, document, state.entry.folder));
         await this.remote.prune(state.entry.projectId, idsOf(document));
-        await this.announceChange(state.entry, fromPortable(document, state.entry.folder));
+        await this.announceChange(state.entry, this.fromDisk(state.entry.projectId, document, state.entry.folder));
         this.publish(state.entry);
     }
 
@@ -1245,7 +1250,7 @@ export class ProjectStore {
         if (state) {
             remember(state, written, loaded.rev, loaded.shared, document.views, loaded.overlayFields);
         }
-        const daemonSide = fromPortable(document, entry.folder);
+        const daemonSide = this.fromDisk(entry.projectId, document, entry.folder);
         this.index.set(entry.projectId, entry.folder, daemonSide);
         await this.remote.prune(entry.projectId, idsOf(document));
         await this.announceChange(entry, daemonSide);
@@ -1345,6 +1350,14 @@ export class ProjectStore {
         if (view !== undefined) {
             throw new ProjectError('remote-node-view', `${view.id} runs on another machine and stays a node on a canvas`);
         }
+    }
+
+    /*
+     * A document as the daemon holds it once read from disk: folders made absolute, and the canvases of
+     * other machines hidden, which no file says.
+     */
+    private fromDisk<T extends ProjectContent>(projectId: string, content: T, folder: string | null): T {
+        return withHiddenCanvases(fromPortable(content, folder), this.peers.canvasIdsOf(projectId));
     }
 
     /* A client reads the machine of a node off the document; the daemon keeps it apart from what it indexes. */

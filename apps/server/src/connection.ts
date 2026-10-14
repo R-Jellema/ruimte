@@ -83,6 +83,8 @@ export interface ConnectionServices {
     secrets?: Subscribable;
     snoozes?: Subscribable;
     prWatches?: Subscribable;
+    /* The links of other machines to projects here, which every client hears change. */
+    peers?: Subscribable;
 }
 
 export interface OpenConnection {
@@ -168,7 +170,8 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
             services.computer?.subscribe(clientId, sink) ?? (() => undefined),
             services.secrets?.subscribe(clientId, sink) ?? (() => undefined),
             services.snoozes?.subscribe(clientId, sink) ?? (() => undefined),
-            services.prWatches?.subscribe(clientId, sink) ?? (() => undefined)
+            services.prWatches?.subscribe(clientId, sink) ?? (() => undefined),
+            services.peers?.subscribe(clientId, sink) ?? (() => undefined)
         ];
 
         channel.onDrain(() => {

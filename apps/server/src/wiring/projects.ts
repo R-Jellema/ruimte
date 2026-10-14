@@ -92,6 +92,7 @@ export async function wireProjects({ home, machineId, stores, agents, computer, 
     });
     await store.hiddenAgents.load();
     await store.remote.load();
+    await store.peers.load();
     const startClaims = new StartClaims(home);
     await startClaims.load();
     const drawings = new DrawingStore(store);

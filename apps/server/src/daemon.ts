@@ -164,6 +164,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         presence: push,
         snoozes: work.snoozes,
         prWatches: work.prWatches,
+        peers: projects.store.peers,
         sessions,
         chats,
         browsers: devices.browsers,

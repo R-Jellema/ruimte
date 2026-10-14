@@ -58,6 +58,7 @@ import {
     PushAttentionEntrySchema
 } from './push.ts';
 import { RenderSceneResultSchema } from './render.ts';
+import { PeerBindPayloadSchema, PeerLinkSchema, PeerListResultSchema, PeerSetCeilingPayloadSchema, PeerUnbindPayloadSchema } from './peer.ts';
 import { SnoozeClearPayloadSchema, SnoozeListSchema, SnoozeSetPayloadSchema } from './snooze.ts';
 import {
     EndpointInstallUpdatePayloadSchema,
@@ -375,6 +376,7 @@ export * from './session.ts';
 export * from './session-ports.ts';
 export * from './render.ts';
 export * from './push.ts';
+export * from './peer.ts';
 export * from './snooze.ts';
 export * from './language-patterns.ts';
 export * from './stored-path.ts';
@@ -396,6 +398,11 @@ export const REQUEST_SCHEMAS = {
     'push.subscribe': { payload: PushSubscribePayloadSchema, result: EmptySchema },
     'push.unsubscribe': { payload: PushUnsubscribePayloadSchema, result: EmptySchema },
     'push.preferences': { payload: EmptySchema, result: PushPreferencesResultSchema },
+    // Any client may link, change and unlink: only a person reaches these, an agent has no socket.
+    'peer.list': { payload: EmptySchema, result: PeerListResultSchema },
+    'peer.bind': { payload: PeerBindPayloadSchema, result: PeerLinkSchema },
+    'peer.setCeiling': { payload: PeerSetCeilingPayloadSchema, result: EmptySchema },
+    'peer.unbind': { payload: PeerUnbindPayloadSchema, result: EmptySchema },
     'snooze.list': { payload: EmptySchema, result: SnoozeListSchema },
     // Setting a moment already past ends the snooze, as clearing it does.
     'snooze.set': { payload: SnoozeSetPayloadSchema, result: EmptySchema },
@@ -665,6 +672,8 @@ export const EVENT_SCHEMAS = {
     'push.attention': PushAttentionEntrySchema,
     // Every snooze the machine holds, to every client, whenever one is set, cleared or ends.
     'snooze.changed': SnoozeListSchema,
+    // The links of other machines to projects here changed, so the list in settings reloads.
+    'peer.changed': EmptySchema,
     'push.notification': z.object({
         projectId: z.string().min(1),
         viewId: z.string().min(1),

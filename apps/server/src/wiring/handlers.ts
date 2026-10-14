@@ -25,6 +25,7 @@ import { registerGitHandlers } from '../handlers/git.ts';
 import { registerLanguageHandlers } from '../handlers/language.ts';
 import { registerLaunchHandlers } from '../handlers/launches.ts';
 import { registerOnDeviceHandlers } from '../handlers/ondevice.ts';
+import { registerPeerHandlers } from '../handlers/peer.ts';
 import { registerPlanHandlers } from '../handlers/plan.ts';
 import { registerProcessHandlers } from '../handlers/processes.ts';
 import { registerProjectHandlers } from '../handlers/project.ts';
@@ -216,6 +217,7 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
         },
         worktreePaths: (folder) => git.checkouts.paths(folder)
     });
+    registerPeerHandlers(dispatcher, { links: store.peers, projects: store, endSession: projects.endSession });
     registerDrawingHandlers(dispatcher, projects.drawings);
     registerDiagramHandlers(dispatcher, projects.diagrams);
     registerLaunchHandlers(dispatcher, launches.store, launches.runner);

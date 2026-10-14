@@ -8,6 +8,10 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `pushSubscribe` = "push.subscribe"
     case `pushUnsubscribe` = "push.unsubscribe"
     case `pushPreferences` = "push.preferences"
+    case `peerList` = "peer.list"
+    case `peerBind` = "peer.bind"
+    case `peerSetCeiling` = "peer.setCeiling"
+    case `peerUnbind` = "peer.unbind"
     case `snoozeList` = "snooze.list"
     case `snoozeSet` = "snooze.set"
     case `snoozeClear` = "snooze.clear"
@@ -250,6 +254,7 @@ public enum WireRequest: String, CaseIterable, Sendable {
 public enum WireEvent: String, CaseIterable, Sendable {
     case `pushAttention` = "push.attention"
     case `snoozeChanged` = "snooze.changed"
+    case `peerChanged` = "peer.changed"
     case `pushNotification` = "push.notification"
     case `sessionOutput` = "session.output"
     case `sessionResync` = "session.resync"

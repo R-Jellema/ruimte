@@ -139,6 +139,7 @@ $RUIMTE_HOME/
   outbox/<id>.json                 0700, work the daemon still owes (src/outbox/CLAUDE.md)
   tasks/<taskId>.json              0700, a task a chat gave a node it opened
   lineage/<nodeId>.json            0700, who opened a node, its depth, its mode ceiling and when it was ended
+  peers/<machineId>.json           0700, a machine that works in a project here: its label and, per project, the ceiling of its agents (see "Linked machines")
   remote/<projectId>.json          0700, which node of the project runs on another machine, as node id to machine id
   command-approvals/<hash>.json    0700, a command or launch a person approved for a node, or a task for the project's worktrees
   mode-approvals/<hash>.json       0700, the permission mode a person's save gave a terminal agent
@@ -433,6 +434,10 @@ Which chat wrote which lines of a file, for the editor's gutter (`src/provenance
 - `git.identity { paths }` answers per folder its root commits, the `origin` URL without credentials, the branch and the tips of the local branches, which is how two machines tell they hold the same repository. A folder counts only when it is the top level of its repository, and one that takes more than five seconds answers `timed-out`. Like a file request it refuses a path under `$RUIMTE_HOME` that is the machine's own state.
 - `git.discard` stashes the paths as `ruimte-discard-<timestamp>` before it resets them, so `git stash pop` brings them back.
 - `create-pr` needs `gh` on the PATH. A suggested commit message runs the agent CLI in its one-shot print mode, with no chat or session.
+
+## Linked machines
+
+Another machine of the account works in a project here only after a person links it: `peer.bind { machineId, label, projectId, ceiling? }` from any client, which is `supervised` unless a ceiling is given. `peer.list` answers every link with the name of its project, `peer.setCeiling` changes the widest mode an agent from that machine may start in, and `peer.unbind` ends the nodes that machine has here, removes the hidden canvas `peer-<machineId>` and the link. `peer.changed` goes to every client when the list changes. The design and its rules are in `src/peering/CLAUDE.md`.
 
 ## Worktrees
 
