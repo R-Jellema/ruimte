@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { mkdir, readFile, rm, rmdir, stat } from 'node:fs/promises';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import {
     EMPTY_LOCAL,
     projectSidebarViews,
@@ -64,6 +64,8 @@ import { splitLegacy, type LoadedFiles, type TrackedProbe } from './legacy-split
 import { errorText } from '../error-text.ts';
 import { ClientSinks } from '../client-sinks.ts';
 import { scratchFolderOf } from './scratch-project.ts';
+import { folderToOpen } from './folder-to-open.ts';
+import { MachineHome } from '../fs/machine-home.ts';
 
 function asProjectError(e: unknown): unknown {
     if (e instanceof ProjectWriteRaced) {
@@ -217,6 +219,8 @@ export class ProjectStore {
     // Opening by folder decides which project a folder is, so two opens of one new folder never make two.
     private readonly opens = new Serializer();
 
+    // A folder a client names to open stops at the machine's own state, as its file requests do.
+    private readonly machineHome: MachineHome;
     private readonly links: ProjectLinks;
     private readonly seams: WatchSeams;
     private readonly writeIO: ProjectWriteIO;
@@ -227,6 +231,7 @@ export class ProjectStore {
         this.index = new ProjectIndex(this.hiddenAgents);
         this.scratchFolder = scratchFolderOf(home);
         this.registry = new ProjectRegistry(home);
+        this.machineHome = new MachineHome(home);
         this.summaries = new ProjectSummaries(this.scratchFolder);
         this.links = links;
         this.seams = seams;
@@ -401,7 +406,8 @@ export class ProjectStore {
                 throw new ProjectError('project-not-found', `No project ${payload.projectId}`);
             }
         } else if (payload.folder) {
-            const folder = resolve(payload.folder);
+            const folder = folderToOpen(payload.folder);
+            await this.machineHome.refuse(folder);
             /* Nothing is ever created over something that is already there: a file in the way falls
                through to the check below, which says so in the sentence written for it. */
             if (payload.createFolder && !(await fileExists(folder))) {

@@ -105,6 +105,14 @@ describe('ProjectStore', () => {
         expect(canvas(again.document).nodes[0]?.cwd).toBe(join(folder, 'apps', 'server'));
     });
 
+    test('a folder is never found against the folder the daemon runs in, nor in its own state', async () => {
+        await expect(store.openProject({ folder: 'repo' })).rejects.toThrow('is not a full path');
+        await mkdir(join(home, 'auth'), { recursive: true });
+        await expect(store.openProject({ folder: join(home, 'auth') })).rejects.toThrow("belongs to this machine's own state");
+        await expect(store.openProject({ folder: home, createFolder: true })).rejects.toThrow("belongs to this machine's own state");
+        expect(await store.list()).toEqual([]);
+    });
+
     test('a field a newer Ruimte put on an edge is written back and read again', async () => {
         const edge = { id: 'e1', from: 'n1', to: 'n2', label: 'context', relation: 'origin' };
         const base = content();
