@@ -76,8 +76,8 @@ describe('a repository inside another', () => {
 });
 
 describe('when the log has to be read again', () => {
-    test('the first status of a checkout always counts as a move', () => {
-        expect(headMoved(null, status([]))).toBe(true);
+    test('the first status of a checkout is no move, since the log is read beside it', () => {
+        expect(headMoved(null, status([]))).toBe(false);
     });
 
     test('a file that changed moves no commit', () => {

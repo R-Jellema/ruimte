@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, GitCommitHorizontal } from 'lucide-react';
 import { GIT_GROUP } from '@/shell/panels/classes';
@@ -18,8 +18,7 @@ const REFS_SHOWN = 2;
 /* A commit row is its own open button: the row's states with the columns of a row that opens. */
 const LOG_ROW = `group w-full min-w-0 gap-1.5 pr-1 pl-3 text-xs text-inherit hover:bg-surface-hover hover:text-text data-[selected]:bg-surface-active data-[selected]:text-text`;
 
-/* The checkouts the log is read from, named so a row can say which one it came out of. The panel hands
-   this list over memoized: a new one of the same checkouts would read every log again. */
+/* The checkouts the log is read from, named so a row can say which one it came out of. */
 export interface LogSource {
     cwd: string;
     /* Empty while the folder holds a single repository, which is a log that names none. */
@@ -43,7 +42,7 @@ export function CommitLog({ sources, reading, onOpen }: CommitLogProps) {
     const { t } = useTranslation('panels');
     /* What was asked for, so an answer to an older question is not drawn and a status that moved
        reads as loading without an effect that has to empty the state first. */
-    const asked = sources.map((source) => `${source.cwd}\u0000${source.revision}`).join('\u0001');
+    const asked = sources.map((source) => `${source.cwd}\u0000${source.repo}\u0000${source.revision}`).join('\u0001');
     const [held, setHeld] = useState<{ asked: string; logs: LoadedLog[]; failed: boolean } | null>(null);
     const [paging, setPaging] = useState(false);
     const now = Math.floor(useNow(MINUTE_MS) / 1000);
@@ -53,7 +52,14 @@ export function CommitLog({ sources, reading, onOpen }: CommitLogProps) {
 
     useEffect(() => {
         let alive = true;
-        const list = asked === '' ? [] : sources;
+        // From `asked`, not `sources`: each status that lands rebuilds the same list, and a new read drops every loaded page.
+        const list =
+            asked === ''
+                ? []
+                : asked.split('\u0001').map((entry) => {
+                      const [cwd = '', repo = ''] = entry.split('\u0000');
+                      return { cwd, repo };
+                  });
         Promise.all(
             list.map(async (source): Promise<LoadedLog | null> => {
                 try {
@@ -73,7 +79,7 @@ export function CommitLog({ sources, reading, onOpen }: CommitLogProps) {
         return () => {
             alive = false;
         };
-    }, [transport, sources, asked]);
+    }, [transport, asked]);
 
     /* The next page of every repository that still has one, which is one step down the whole log. */
     const loadMore = (): void => {
@@ -99,8 +105,16 @@ export function CommitLog({ sources, reading, onOpen }: CommitLogProps) {
             .finally(() => setPaging(false));
     };
 
+    // The panel hands a new function every render, which would draw every row again.
+    const openRef = useRef(onOpen);
+    useLayoutEffect(() => {
+        openRef.current = onOpen;
+    });
+    const open = useCallback((cwd: string, commit: LogRow) => openRef.current(cwd, commit), []);
+
     const state = shown === null ? 'loading' : shown.failed ? 'error' : 'ready';
-    const { rows: commits, more } = mergeLogs(shown?.logs ?? []);
+    const { rows: commits, more } = useMemo(() => mergeLogs(shown?.logs ?? []), [shown]);
+    const sections = useMemo(() => groupCommits(commits, now), [commits, now]);
 
     if (state === 'error') {
         return <PanelEmpty icon={GitCommitHorizontal}>{t('git.log.failed')}</PanelEmpty>;
@@ -111,53 +125,13 @@ export function CommitLog({ sources, reading, onOpen }: CommitLogProps) {
 
     return (
         <div className="min-h-0 grow overflow-y-auto py-1">
-            {groupCommits(commits, now).map((section) => (
+            {sections.map((section) => (
                 <section key={section.label}>
                     <header className={GIT_GROUP}>
                         <SectionLabel>{section.label}</SectionLabel>
                     </header>
                     {section.commits.map((commit) => (
-                        <ContextMenu.Root key={`${commit.cwd}\u0000${commit.hash}`}>
-                            <ContextMenu.Trigger
-                                render={<ListRow variant="flat" render={<button />} />}
-                                className={LOG_ROW}
-                                aria-current={commit.hash === reading}
-                                data-selected={commit.hash === reading || undefined}
-                                onClick={() => onOpen(commit.cwd, commit)}
-                            >
-                                {commit.repo !== '' && <span className="max-w-24 shrink-0 truncate text-text-faint">{commit.repo}</span>}
-                                <span className="truncate text-text">{commit.subject}</span>
-                                {commit.refs.slice(0, REFS_SHOWN).map((ref) => (
-                                    <Tooltip key={ref} label={ref}>
-                                        <Pill mono size="sm" className="max-w-32 shrink-0 py-0">
-                                            <span className="min-w-0 truncate">{ref}</span>
-                                        </Pill>
-                                    </Tooltip>
-                                ))}
-                                {commit.refs.length > REFS_SHOWN && (
-                                    <Tooltip label={commit.refs.slice(REFS_SHOWN).join(', ')}>
-                                        <Pill size="sm" className="shrink-0 py-0 tabular-nums">
-                                            {t('git.log.moreRefs', { count: commit.refs.length - REFS_SHOWN })}
-                                        </Pill>
-                                    </Tooltip>
-                                )}
-                                <span className="grow" />
-                                <span className="truncate text-text-faint">{commit.author}</span>
-                                <span className="shrink-0 text-text-faint">{formatAge(commit.at * 1000, now * 1000)}</span>
-                            </ContextMenu.Trigger>
-                            <ContextMenu.Popup>
-                                <ContextMenu.Item onClick={() => onOpen(commit.cwd, commit)}>
-                                    <Icon icon={GitCommitHorizontal} size={14} /> {t('git.log.open')}
-                                </ContextMenu.Item>
-                                <ContextMenu.Separator />
-                                <ContextMenu.Item onClick={() => copyText(commit.hash)}>
-                                    <Icon icon={Copy} size={14} /> {t('file.tab.copyCommit')}
-                                </ContextMenu.Item>
-                                <ContextMenu.Item onClick={() => copyText(commit.subject)}>
-                                    <Icon icon={Copy} size={14} /> {t('git.log.copySubject')}
-                                </ContextMenu.Item>
-                            </ContextMenu.Popup>
-                        </ContextMenu.Root>
+                        <CommitRow key={`${commit.cwd}\u0000${commit.hash}`} commit={commit} selected={commit.hash === reading} now={now} onOpen={open} />
                     ))}
                 </section>
             ))}
@@ -171,3 +145,70 @@ export function CommitLog({ sources, reading, onOpen }: CommitLogProps) {
         </div>
     );
 }
+
+interface CommitRowProps {
+    commit: LogRow;
+    selected: boolean;
+    now: number;
+    onOpen(cwd: string, commit: LogRow): void;
+}
+
+/* A commit is the same commit for as long as its hash is, so a page going in below leaves every row above it alone. */
+function sameRow(before: CommitRowProps, after: CommitRowProps): boolean {
+    return (
+        before.commit.cwd === after.commit.cwd &&
+        before.commit.hash === after.commit.hash &&
+        before.commit.repo === after.commit.repo &&
+        before.commit.refs.join('\u0000') === after.commit.refs.join('\u0000') &&
+        before.selected === after.selected &&
+        before.now === after.now &&
+        before.onOpen === after.onOpen
+    );
+}
+
+const CommitRow = memo(function CommitRow({ commit, selected, now, onOpen }: CommitRowProps) {
+    const { t } = useTranslation('panels');
+    return (
+        <ContextMenu.Root>
+            <ContextMenu.Trigger
+                render={<ListRow variant="flat" render={<button />} />}
+                className={LOG_ROW}
+                aria-current={selected}
+                data-selected={selected || undefined}
+                onClick={() => onOpen(commit.cwd, commit)}
+            >
+                {commit.repo !== '' && <span className="max-w-24 shrink-0 truncate text-text-faint">{commit.repo}</span>}
+                <span className="truncate text-text">{commit.subject}</span>
+                {commit.refs.slice(0, REFS_SHOWN).map((ref) => (
+                    <Tooltip key={ref} label={ref}>
+                        <Pill mono size="sm" className="max-w-32 shrink-0 py-0">
+                            <span className="min-w-0 truncate">{ref}</span>
+                        </Pill>
+                    </Tooltip>
+                ))}
+                {commit.refs.length > REFS_SHOWN && (
+                    <Tooltip label={commit.refs.slice(REFS_SHOWN).join(', ')}>
+                        <Pill size="sm" className="shrink-0 py-0 tabular-nums">
+                            {t('git.log.moreRefs', { count: commit.refs.length - REFS_SHOWN })}
+                        </Pill>
+                    </Tooltip>
+                )}
+                <span className="grow" />
+                <span className="truncate text-text-faint">{commit.author}</span>
+                <span className="shrink-0 text-text-faint">{formatAge(commit.at * 1000, now * 1000)}</span>
+            </ContextMenu.Trigger>
+            <ContextMenu.Popup>
+                <ContextMenu.Item onClick={() => onOpen(commit.cwd, commit)}>
+                    <Icon icon={GitCommitHorizontal} size={14} /> {t('git.log.open')}
+                </ContextMenu.Item>
+                <ContextMenu.Separator />
+                <ContextMenu.Item onClick={() => copyText(commit.hash)}>
+                    <Icon icon={Copy} size={14} /> {t('file.tab.copyCommit')}
+                </ContextMenu.Item>
+                <ContextMenu.Item onClick={() => copyText(commit.subject)}>
+                    <Icon icon={Copy} size={14} /> {t('git.log.copySubject')}
+                </ContextMenu.Item>
+            </ContextMenu.Popup>
+        </ContextMenu.Root>
+    );
+}, sameRow);

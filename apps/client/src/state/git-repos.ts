@@ -33,11 +33,14 @@ interface Entry {
 
 /*
  * Whether HEAD could have moved between two statuses of one checkout. A commit, a pull, a rebase and
- * a checkout all show up in at least one of these; an edit to a file shows up in none of them.
+ * a checkout all show up in at least one of these; an edit to a file shows up in none of them. The
+ * first status is no move: the log is read beside it, and reading it again threw that page away.
  */
 export function headMoved(before: GitStatus | null, after: GitStatus): boolean {
+    if (before === null) {
+        return false;
+    }
     return (
-        before === null ||
         before.branch !== after.branch ||
         before.detached !== after.detached ||
         before.upstream !== after.upstream ||
