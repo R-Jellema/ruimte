@@ -3,6 +3,7 @@ import { isRecentProject } from '@ruimte/contracts';
 import { WINDOW_STATE_PARAM } from '@ruimte/desktop-bridge';
 import { desktop, type DesktopBridge } from '@/desktop/bridge';
 import { endpointKey, splitKey } from '@/state/keys';
+import { isRealMachine } from '@/state/local-machine';
 import { isScratchProject, useProject } from '@/state/project';
 import { useProjectList } from '@/state/project-list';
 import { useSettings } from '@/state/settings';
@@ -98,13 +99,14 @@ export interface TabsPlace {
     write(state: string | null): void;
 }
 
-export function parseTabsState(state: string | null): string[] {
+/* `keep` leaves out the keys it refuses, such as the projects of a machine this app no longer runs. */
+export function parseTabsState(state: string | null, keep: (key: string) => boolean = () => true): string[] {
     if (state === null) {
         return [];
     }
     try {
         const keys = JSON.parse(state) as unknown;
-        return Array.isArray(keys) ? [...new Set(keys.filter((key): key is string => typeof key === 'string' && key !== ''))] : [];
+        return Array.isArray(keys) ? [...new Set(keys.filter((key): key is string => typeof key === 'string' && key !== '' && keep(key)))] : [];
     } catch {
         return [];
     }
@@ -356,7 +358,7 @@ export function startWindowTabs(deps: WindowTabsDeps = REAL_DEPS): () => void {
         place = deps.place;
         shell = deps.shell();
         // A reload or a restart hands the page the tabs its window had.
-        const keys = parseTabsState(place?.read() ?? null);
+        const keys = parseTabsState(place?.read() ?? null, (key) => isRealMachine(splitKey(key).endpointId));
         useWindowTabs.setState({ tabs: { keys, active: null } });
         hold(keys);
         offs = [

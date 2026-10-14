@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { ProjectSummary } from '@ruimte/contracts';
+import type { DesktopBridge } from '@/desktop/bridge';
 import { useProject } from '@/state/project';
 import { useSettings } from '@/state/settings';
 import { useWindow } from '@/state/window';
@@ -93,6 +94,10 @@ describe('the tabs a window keeps', () => {
         expect(parseTabsState('{"a":1}')).toEqual([]);
         expect(parseTabsState('[1,"",null,"a"]')).toEqual(['a']);
     });
+
+    test('leave out the keys the caller refuses', () => {
+        expect(parseTabsState('["local:a","m1:b"]', (key) => !key.startsWith('local:'))).toEqual(['m1:b']);
+    });
 });
 
 describe('moving and keeping tabs', () => {
@@ -168,10 +173,17 @@ function fakeShell(refuse: string[] = []): TabsShell & { held: string[][]; show(
 }
 
 describe('following the window', () => {
+    const scope = globalThis as unknown as { window?: { ruimteDesktop?: Partial<DesktopBridge> } };
     let stop: (() => void) | null = null;
     const previousNavigation = useSettings.getState().projectNavigation;
 
+    // The keys name this computer's machine, so the window is the desktop app's with one.
+    beforeEach(() => {
+        scope.window = { ruimteDesktop: { platform: 'darwin' } };
+    });
+
     afterEach(() => {
+        delete scope.window;
         stop?.();
         stop = null;
         show(null);

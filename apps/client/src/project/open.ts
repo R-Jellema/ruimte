@@ -13,7 +13,7 @@ import { closingCount } from '@/project/project-sessions';
 import { showViewOnceThere } from '@/project/show-view-once';
 import { ProjectSwitch, type SwitchOutcome, type SwitchRun, type SwitchState, type SwitchTarget } from '@/project/project-switch';
 import { isOnlyTab, tabAfterClosing } from '@/project/window-tabs';
-import { useEndpoints } from '@/state/endpoints';
+import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 import { endpointKey, splitKey } from '@/state/keys';
 import { hasLocalMachine, isRealMachine } from '@/state/local-machine';
 import { useProject } from '@/state/project';
@@ -306,18 +306,25 @@ function untilFocused(): Promise<void> {
  * project opens that one, and one it opened on the start screen stays there. A bare address is the
  * cold start: the last project the window had open. Anything else (nothing remembered, a machine
  * this client no longer knows, the idle row of the web client) is the start screen straight away.
+ * A window the last session had on a project of this computer, in an app that now runs no machine,
+ * closes while another window stands, and else stays as a start screen.
  */
 export async function bootWindow(
     storage: LastProjectStorage | null = browserStorage(),
     open: (endpointId: string, projectId: string) => Promise<SwitchOutcome> = openProject,
     local = hasLocalMachine(),
     target: WindowTarget = pageWindowTarget(),
-    focused: () => Promise<void> = untilFocused
+    focused: () => Promise<void> = untilFocused,
+    leave: () => Promise<boolean> = () => desktop()?.closeWindowIfOthers?.() ?? Promise.resolve(false)
 ): Promise<SwitchOutcome | null> {
     const wanted = target.kind === 'project' ? target : target.kind === 'last' ? readLastProject(storage) : null;
     const known =
         wanted !== null && isRealMachine(wanted.endpointId, local) && useEndpoints.getState().endpoints.some((endpoint) => endpoint.id === wanted.endpointId);
     try {
+        if (target.kind === 'project' && target.endpointId === LOCAL_ENDPOINT_ID && !local) {
+            await leave().catch(() => false);
+            return null;
+        }
         if (!known) {
             return null;
         }

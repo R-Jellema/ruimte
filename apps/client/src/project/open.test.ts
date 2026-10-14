@@ -350,6 +350,44 @@ describe('the cold start', () => {
         expect(useWindow.getState().booting).toBe(false);
     });
 
+    describe('in an app that runs no machine', () => {
+        const noMachine = async (target: Parameters<typeof bootWindow>[3], storage = fakeStorage(new Map())) => {
+            const opened: string[] = [];
+            let left = 0;
+            const outcome = await bootWindow(
+                storage,
+                async (endpointId, projectId) => {
+                    opened.push(`${endpointId}:${projectId}`);
+                    return 'done';
+                },
+                false,
+                target,
+                async () => undefined,
+                async () => {
+                    left++;
+                    return true;
+                }
+            );
+            return { outcome, opened, left };
+        };
+
+        test('a window on a project of this computer leaves once and opens nothing', async () => {
+            const result = await noMachine({ kind: 'project', endpointId: 'local', projectId: 'p1' });
+            expect(result).toEqual({ outcome: null, opened: [], left: 1 });
+            expect(useWindow.getState().booting).toBe(false);
+        });
+
+        test('a bare address never closes the window', async () => {
+            const result = await noMachine({ kind: 'last' }, fakeStorage(stored({ last: { endpointId: 'local', projectId: 'p1' } })));
+            expect(result).toEqual({ outcome: null, opened: [], left: 0 });
+        });
+
+        test('a window on another machine opens it and stays', async () => {
+            const result = await noMachine({ kind: 'project', endpointId: 'daemon-b', projectId: 'q1' });
+            expect(result).toEqual({ outcome: 'done', opened: ['daemon-b:q1'], left: 0 });
+        });
+    });
+
     test("the bare project id of the first versions was this machine's", async () => {
         const opened: string[] = [];
         await bootWindow(
