@@ -1,8 +1,9 @@
 import type { ChatContinueOnPayload, ChatContinueOnResult, ChatForkPayload, ChatForkResult, ChatTurnLimit } from '@ruimte/contracts';
 import type { ChatManager } from './chat-manager.ts';
+import { ChatError } from './errors.ts';
 
 export interface ContinueOnDeps {
-    chats: Pick<ChatManager, 'limitedTurnFor' | 'continueInPlace' | 'continueInFork' | 'continuedInFork'>;
+    chats: Pick<ChatManager, 'isRelocating' | 'limitedTurnFor' | 'continueInPlace' | 'continueInFork' | 'continuedInFork'>;
     fork(payload: ChatForkPayload): Promise<ChatForkResult>;
 }
 
@@ -12,6 +13,9 @@ export interface ContinueOnDeps {
  * cut after the limited turn. The original's resume at the reset lapses either way.
  */
 export async function continueOn(deps: ContinueOnDeps, payload: ChatContinueOnPayload): Promise<ChatContinueOnResult> {
+    if (deps.chats.isRelocating(payload.chatId)) {
+        throw new ChatError('chat-busy', 'The chat is being moved to a project; go on under another account once that is done');
+    }
     const { turnId, limit, inPlace } = await deps.chats.limitedTurnFor(payload.chatId, payload.account);
     if (inPlace) {
         deps.chats.continueInPlace(payload.chatId, payload.account);

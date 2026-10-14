@@ -193,6 +193,19 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         computer,
         secrets: launches.secrets
     });
+    // Before the socket answers, so no client attaches to or writes in a chat that is half moved; the outbox starts after.
+    await repairChatMoves({
+        chats,
+        store: projects.store,
+        lineage: stores.lineage,
+        tasks: stores.tasks,
+        outbox: stores.outbox,
+        notices: stores.notices,
+        prWatches: work.prWatches,
+        machineHome: machine.machineHome,
+        journal: stores.chatMoves,
+        snoozes: work.snoozes
+    }).catch((e) => console.error('Finishing interrupted chat moves failed:', errorText(e)));
     const server = serveDaemon({ runtime, machine, stores, agents, projects, devices, processes, power, network, clients, canvasHost });
 
     // The first read runs now, so a page opened straight after a start already has the plan on it.
@@ -204,18 +217,6 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     sessions.hookUrl = `http://127.0.0.1:${server.port}${HOOKS_PATH}`;
     sessions.contextUrl = `http://127.0.0.1:${server.port}${CONTEXT_PATH}`;
     // Only once `hookUrl` is set: a terminal the worker starts before that runs without hooks for good.
-    // Before the outbox owes the chat anything: a chat that two projects place cannot be opened in either.
-    await repairChatMoves({
-        chats,
-        store: projects.store,
-        lineage: stores.lineage,
-        tasks: stores.tasks,
-        outbox: stores.outbox,
-        notices: stores.notices,
-        prWatches: work.prWatches,
-        machineHome: machine.machineHome,
-        journal: stores.chatMoves
-    }).catch((e) => console.error('Finishing interrupted chat moves failed:', errorText(e)));
     await work.tasks.recover();
     work.worker.start();
     work.endChildren.start();

@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { claudeProjectSlug } from '@adecore/agents/chat';
 import { ManualClock } from '@adecore/agents/testing';
+import { SnoozeStore } from '../push/snoozes.ts';
+import { moveOwnFiles } from './own-files.ts';
 import type { ChatMovePayload } from '@ruimte/contracts';
 import { MachineHome } from '../fs/machine-home.ts';
 import { bootTestDaemon, type TestDaemon } from '../tasks/test-daemon.ts';
@@ -453,6 +455,20 @@ describe('moving a chat from Chats into a project', () => {
         await store.mutate(chatsId, (content) => ({ content: { ...content, flags: { [chatId]: 'red' } }, result: undefined }));
         const result = await moveChat({ chatId, to: make('vinyl'), ownFiles: 'leave' }, deps());
         expect((await store.read(result.summary.projectId)).flags).toEqual({ [chatId]: 'red' });
+        expect((await store.read(chatsId)).flags ?? {}).toEqual({});
+    });
+
+    test('a failed move leaves the flag in Chats and none in the target', async () => {
+        await store.mutate(chatsId, (content) => ({ content: { ...content, flags: { [chatId]: 'red' } }, result: undefined }));
+        await expect(
+            moveChat(
+                { chatId, to: make('vinyl'), ownFiles: 'move' },
+                deps(() => ({ moveOwnFiles: () => Promise.reject(FAILED) }))
+            )
+        ).rejects.toBe(FAILED);
+        expect((await store.read(chatsId)).flags).toEqual({ [chatId]: 'red' });
+        const target = (await store.known()).find((project) => project.folder === join(root, 'vinyl'))!;
+        expect((await store.read(target.projectId)).flags ?? {}).toEqual({});
     });
 
     test('keeps the place of the chat among the others when a Chats write has to be undone', async () => {
@@ -466,5 +482,128 @@ describe('moving a chat from Chats into a project', () => {
         ).rejects.toBe(FAILED);
         expect(await viewIds(chatsId)).toEqual(order);
         expect(order).toContain(second);
+    });
+    describe('after the work is done', () => {
+        test('a journal that cannot be dropped does not undo the move', async () => {
+            const result = await moveChat(
+                { chatId, to: make('vinyl'), ownFiles: 'move' },
+                deps(() => ({ journal: { begin: () => Promise.resolve(), end: () => Promise.reject(FAILED) } }))
+            );
+            expect(await viewIds(result.summary.projectId)).toEqual([chatId]);
+            expect(await viewIds(chatsId)).not.toContain(chatId);
+            expect(daemon.chats.get(chatId)!.info.cwd).toBe(join(root, 'vinyl'));
+        });
+
+        test('a record that cannot take the new folder takes nothing back and leaves the journal for the next start', async () => {
+            await expect(
+                moveChat(
+                    { chatId, to: make('vinyl'), ownFiles: 'move' },
+                    deps((base) => ({
+                        chats: {
+                            ...base.chats,
+                            relocate: async (id, cwd, during) => {
+                                await base.chats.relocate(id, cwd, during);
+                                throw FAILED;
+                            }
+                        }
+                    }))
+                )
+            ).rejects.toMatchObject({ code: 'move-failed', message: expect.stringContaining('finished when the machine starts again') });
+            const target = (await store.known()).find((project) => project.folder === join(root, 'vinyl'))!;
+            expect(await viewIds(target.projectId)).toEqual([chatId]);
+            expect(await viewIds(chatsId)).not.toContain(chatId);
+            expect(journal.pending()).toEqual([expect.objectContaining({ chatId, to: target.projectId })]);
+        });
+
+        test('a summary that cannot be read still answers with the project to follow the chat into', async () => {
+            const result = await moveChat(
+                { chatId, to: make('vinyl'), ownFiles: 'leave' },
+                deps((base) => ({ projects: { ...base.projects, summary: () => Promise.reject(FAILED) } }))
+            );
+            expect(result).toMatchObject({ viewId: chatId, summary: { name: 'vinyl', folder: join(root, 'vinyl') } });
+            expect(result.summary.projectId).toBe((await store.known()).find((project) => project.folder === join(root, 'vinyl'))!.projectId);
+        });
+    });
+
+    test('a message that came after the last look but before the Chats write stops the move and puts everything back', async () => {
+        await expect(
+            moveChat(
+                { chatId, to: make('vinyl'), ownFiles: 'move' },
+                deps((base) => ({ refusal: (id, recheck) => (recheck === true ? { reason: 'messages' } : base.refusal(id)) }))
+            )
+        ).rejects.toMatchObject({ code: 'move-refused' });
+        await expectUntouched();
+    });
+
+    test('a link into Chats is Chats', async () => {
+        const other = join(store.scratchFolder, 'chat-other');
+        await mkdir(other);
+        const link = join(root, 'link');
+        await symlink(other, link);
+        for (const folder of [link, join(link, 'sub')]) {
+            await expect(moveChat({ chatId, to: { folder, name: 'x', createFolder: true, initGit: false }, ownFiles: 'leave' }, deps())).rejects.toMatchObject({
+                code: 'move-failed'
+            });
+        }
+        await expectUntouched();
+    });
+
+    describe('a snooze on the chat', () => {
+        const snoozes = (): SnoozeStore => new SnoozeStore({ clock: new ManualClock() });
+
+        test('goes to the project with the chat', async () => {
+            const store2 = snoozes();
+            store2.set(chatsId, chatId, 10 ** 15);
+            const result = await moveChat(
+                { chatId, to: make('vinyl'), ownFiles: 'leave' },
+                deps(() => ({ snoozes: store2 }))
+            );
+            expect(store2.list()).toEqual([{ projectId: result.summary.projectId, nodeId: chatId, until: 10 ** 15 }]);
+        });
+
+        test('stays in Chats when the move is taken back', async () => {
+            const store2 = snoozes();
+            store2.set(chatsId, chatId, 10 ** 15);
+            await expect(
+                moveChat(
+                    { chatId, to: make('vinyl'), ownFiles: 'move' },
+                    deps(() => ({ snoozes: store2, moveOwnFiles: () => Promise.reject(FAILED) }))
+                )
+            ).rejects.toBe(FAILED);
+            expect(store2.list()).toEqual([{ projectId: chatsId, nodeId: chatId, until: 10 ** 15 }]);
+        });
+    });
+
+    describe('while the chat is on its way', () => {
+        test('it cannot be forked, summarized or continued on another account', async () => {
+            let release: () => void = () => undefined;
+            const gate = new Promise<void>((resolve) => (release = resolve));
+            let reached: () => void = () => undefined;
+            const inside = new Promise<void>((resolve) => (reached = resolve));
+            const moving = moveChat(
+                { chatId, to: make('vinyl'), ownFiles: 'move' },
+                deps(() => ({
+                    moveOwnFiles: async (from, to) => {
+                        reached();
+                        await gate;
+                        return moveOwnFiles(from, to);
+                    }
+                }))
+            );
+            await inside;
+            const turnId = daemon.chats
+                .get(chatId)!
+                .thread.list()
+                .find((item) => item.kind === 'turn')!.id;
+            for (const [type, payload] of [
+                ['chat.fork', { chatId, turnId }],
+                ['chat.summarize', { chatId }],
+                ['chat.continueOn', { chatId, account: 'other' }]
+            ] as const) {
+                expect(await daemon.request(type, payload)).toMatchObject({ ok: false, error: { code: 'chat-busy' } });
+            }
+            release();
+            await moving;
+        });
     });
 });

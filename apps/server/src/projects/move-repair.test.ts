@@ -8,6 +8,7 @@ import { MachineHome } from '../fs/machine-home.ts';
 import { bootTestDaemon, type TestDaemon } from '../tasks/test-daemon.ts';
 import { repairChatMoves } from '../wiring/chat-move.ts';
 import { moveClaudeTranscript } from '../chat/claude-move.ts';
+import { SnoozeStore } from '../push/snoozes.ts';
 import { MoveJournal } from './move-journal.ts';
 import { projectLinks } from './project-file-test-helpers.ts';
 import { ProjectStore } from './project-store.ts';
@@ -18,6 +19,7 @@ describe('finishing a chat move the machine stopped in the middle of', () => {
     let store: ProjectStore;
     let daemon: TestDaemon;
     let journal: MoveJournal;
+    let snoozes: SnoozeStore;
     let chatId: string;
     let chatsId: string;
     let targetId: string;
@@ -33,7 +35,8 @@ describe('finishing a chat move the machine stopped in the middle of', () => {
             prWatches: daemon.prWatches,
             outbox: daemon.outbox,
             machineHome: new MachineHome(store.home),
-            journal
+            journal,
+            snoozes
         });
 
     const viewIds = async (projectId: string): Promise<string[]> => (await store.read(projectId)).views.map((view) => view.id);
@@ -62,6 +65,7 @@ describe('finishing a chat move the machine stopped in the middle of', () => {
         const home = join(root, 'home');
         store = new ProjectStore(home, projectLinks());
         journal = new MoveJournal(home);
+        snoozes = new SnoozeStore({ clock: new ManualClock() });
         daemon = await bootTestDaemon({ home, store, clock: new ManualClock() });
         const made = await newScratchChat(store, {});
         chatId = made.viewId;
@@ -104,6 +108,22 @@ describe('finishing a chat move the machine stopped in the middle of', () => {
         await writeTarget();
         expect(await repair()).toEqual([chatId]);
         await expectFinished();
+    });
+
+    test('tells the chat where it works now, once, and takes its snooze along', async () => {
+        snoozes.set(chatsId, chatId, 10 ** 15);
+        await writeTarget();
+        await repair();
+        const notes = () =>
+            daemon.chats
+                .get(chatId)!
+                .thread.list()
+                .filter((item) => item.kind === 'note');
+        expect(notes().at(-1)).toMatchObject({ text: 'Moved from Chats to vinyl.' });
+        expect(snoozes.list()).toEqual([{ projectId: targetId, nodeId: chatId, until: 10 ** 15 }]);
+        await journal.begin({ chatId, to: targetId, folder: targetFolder });
+        await repair();
+        expect(notes().filter((item) => item.text === 'Moved from Chats to vinyl.')).toHaveLength(1);
     });
 
     test('after the target and the lineage were written: also for a fork', async () => {

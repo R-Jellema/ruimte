@@ -48,6 +48,8 @@ export interface ChatForkDeps {
     /* The chat as it stands, loaded or on disk; null when this machine has no such chat. */
     source(chatId: string): Promise<{ info: ChatInfo; items: ChatItem[] } | null>;
     installed(): Promise<AgentKind[]>;
+    /* Whether the chat is on its way to another folder, which a copy of its conversation would race. */
+    relocating?(chatId: string): boolean;
     /* The model and mode a chat of this CLI starts with (the one named, else the newest composer pick). */
     startingPoint(provider: AgentKind, selection?: ModelSelection): { selection: ModelSelection; runtimeMode?: RuntimeMode; contextWindow: number | null };
     locate(id: string): IndexedPlace | null;
@@ -312,6 +314,9 @@ async function copyConversation(deps: ChatForkDeps, info: ChatInfo, cut: Cut, na
  * thread. Failed setup rolls back everything except Codex threads, which its API cannot delete.
  */
 export async function forkChat(deps: ChatForkDeps, payload: ChatForkPayload): Promise<ChatForkResult> {
+    if (deps.relocating?.(payload.chatId) === true) {
+        throw new ChatError('chat-busy', 'The chat is being moved to a project; fork it once that is done');
+    }
     const source = await forkSource(deps, payload.chatId, payload.turnId);
     const { info, turns, index, turn } = source;
     if (turn.state === 'running') {
@@ -590,6 +595,7 @@ export function chatForkDeps(wiring: {
     return {
         source: (chatId) => wiring.chats.forkSource(chatId),
         installed: () => wiring.host.starts.installedAgents(),
+        relocating: (chatId) => wiring.chats.isRelocating(chatId),
         startingPoint: (provider, selection) => wiring.chats.startingPoint(provider, selection),
         locate: (id) => wiring.host.projects.locate(id),
         titleFor: (id) => wiring.titleFor(id),

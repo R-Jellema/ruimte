@@ -77,7 +77,7 @@ function asProjectError(e: unknown): unknown {
 // Editors and git write in bursts; one event per burst is what the client wants.
 const WATCH_SETTLE_MS = 150;
 
-const DEFAULT_COLOR = '#7c74ff';
+export const DEFAULT_COLOR = '#7c74ff';
 
 function newId(): string {
     return randomBytes(6).toString('base64url');

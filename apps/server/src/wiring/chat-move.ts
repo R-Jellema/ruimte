@@ -10,6 +10,7 @@ import type { ChatMoveHandlers } from '../handlers/chat.ts';
 import { gitOrThrow, readGit } from '../git/run.ts';
 import { repositoryRoot } from '../git/status.ts';
 import type { PrWatchStore } from '../github/pr-watch.ts';
+import type { SnoozeStore } from '../push/snoozes.ts';
 import type { OutboxStore } from '../outbox/outbox.ts';
 import { moveChat, type MoveChatDeps } from '../projects/move-chat.ts';
 import type { MoveJournal } from '../projects/move-journal.ts';
@@ -30,6 +31,8 @@ export interface ChatMoveWiring {
     machineHome: Pick<MachineHome, 'refuse'>;
     /* Absent in a test that stops nowhere in the middle. */
     journal?: MoveJournal;
+    /* Absent in a test with no snoozes. */
+    snoozes?: SnoozeStore;
 }
 
 /* The checkout above a path that may be gone by now, by the nearest folder that still exists. */
@@ -100,8 +103,11 @@ export function repairChatMoves(wiring: ChatMoveWiring & { journal: MoveJournal 
         projects: { known: () => store.known(), mutate: (projectId, apply) => store.mutate(projectId, apply) },
         index: store.index,
         lineage: wiring.lineage,
+        ...(wiring.snoozes ? { snoozes: wiring.snoozes } : {}),
+        ownFolder: (chatId) => ownFolderOf(store.scratchFolder, chatId),
         chats: {
             load: (chatId) => loadedInfo(chats, chatId),
+            deliverNote: (chatId, delivery) => chats.deliverNote(chatId, delivery),
             relocate: (chatId, cwd, during) => chats.relocate(chatId, cwd, during),
             claudeProjectsDirOf: (info) => chats.claudeProjectsDirOf(info)
         }
@@ -147,7 +153,7 @@ export function chatMoveDeps(wiring: ChatMoveWiring): { info: MoveInfoDeps; move
         refuseFolder: (folder) => wiring.machineHome.refuse(folder)
     };
     const moveDeps: MoveChatDeps = {
-        refusal: infoDeps.refusal,
+        refusal: (chatId, recheck) => moveRefusal(chatId, recheck === true ? { ...refusalDeps, inChats: () => true, working: () => false } : refusalDeps),
         scratchFolder: store.scratchFolder,
         ownFolder: infoDeps.ownFolder,
         refuseFolder: infoDeps.refuseFolder,
@@ -182,7 +188,8 @@ export function chatMoveDeps(wiring: ChatMoveWiring): { info: MoveInfoDeps; move
             claudeProjectsDirOf: (info) => chats.claudeProjectsDirOf(info)
         },
         lineage: wiring.lineage,
-        ...(wiring.journal ? { journal: wiring.journal } : {})
+        ...(wiring.journal ? { journal: wiring.journal } : {}),
+        ...(wiring.snoozes ? { snoozes: wiring.snoozes } : {})
     };
     return { info: infoDeps, move: moveDeps };
 }

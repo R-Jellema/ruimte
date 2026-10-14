@@ -66,6 +66,8 @@ export interface SummarizeDeps {
     source(chatId: string): Promise<{ info: ChatInfo; items: ChatItem[] } | null>;
     locate(id: string): IndexedPlace | null;
     titleFor(id: string): string | null;
+    /* Whether the fork is on its way to another folder. */
+    relocating?(chatId: string): boolean;
     /* Opens the turn in the fork, loading it when nobody has; null while a turn is in the way. */
     openTurn(chatId: string, wake: { text: string; label: string; note: string; summaryFor: string }): Promise<string | null>;
 }
@@ -75,6 +77,9 @@ export interface SummarizeDeps {
  * stop. The turn carries the chat it is for; the coordinator takes its last answer from there.
  */
 export async function summarizeFork(deps: SummarizeDeps, chatId: string): Promise<ChatSummarizeResult> {
+    if (deps.relocating?.(chatId) === true) {
+        throw new ChatError('chat-busy', 'The fork is being moved to a project; ask for the summary once that is done');
+    }
     const fork = await deps.source(chatId);
     if (fork === null) {
         throw new ChatError('chat-not-found', `No chat ${chatId}`);
@@ -295,6 +300,7 @@ export function wireSummaries(wiring: {
                     source: deps.source,
                     locate: deps.locate,
                     titleFor: deps.titleFor,
+                    relocating: (id) => wiring.chats.isRelocating(id),
                     openTurn: (id, wake) => wiring.chats.openSummaryTurn(id, wake)
                 },
                 chatId
