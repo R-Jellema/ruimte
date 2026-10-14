@@ -698,6 +698,32 @@
             "title": "Keep running after you log out?",
             "description": "Ruimte runs loginctl enable-linger for your user, so your user services keep running without a session. Undo it with loginctl disable-linger.",
             "action": "Allow"
+        },
+        "stopRunning": {
+            "label": "Stop running a machine here",
+            "description": "Ruimte removes its background service and restarts without a machine. Your projects and chats stay on this computer.",
+            "action": "Stop running…"
+        },
+        "confirmStopRunning": {
+            "title": "Stop running a machine on this computer?",
+            "checking": "Checking what runs…",
+            "agents_one": "An agent ends now.",
+            "agents_other": "{{count}} agents end now.",
+            "terminals_one": "A terminal ends now.",
+            "terminals_other": "{{count}} terminals end now.",
+            "both": "{{agents}} and {{terminals}} end now.",
+            "agentCount_one": "an agent",
+            "agentCount_other": "{{count}} agents",
+            "terminalCount_one": "a terminal",
+            "terminalCount_other": "{{count}} terminals",
+            "nothing": "Nothing runs on it right now.",
+            "data": "Ruimte removes its background service and restarts. Your projects, chats and worktrees stay in {{home}} and come back when you run a machine here again.",
+            "commandLine": "The machine set up from the command line keeps running. Ruimte stops connecting to it and restarts.",
+            "leave": "Also take {{machine}} off your account",
+            "unreachable": "This machine is not reachable, so it stays on your account.",
+            "action": "Stop and restart",
+            "busy": "Stopping…",
+            "unavailable": "Ruimte could not restart without a machine."
         }
     },
     "reach": {

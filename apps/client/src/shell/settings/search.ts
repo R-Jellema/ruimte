@@ -458,6 +458,13 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         description: 'settings:backgroundService.keepRunning.description',
         available: () => hasLocalMachine() && desktop()?.backgroundService !== undefined
     },
+    {
+        id: 'machines.machine.stopRunning',
+        section: 'machines',
+        label: 'settings:backgroundService.stopRunning.label',
+        description: 'settings:backgroundService.stopRunning.description',
+        available: () => hasLocalMachine() && desktop()?.machine !== undefined
+    },
     { id: 'about.updates.auto', section: 'about', label: 'settings:about.updates.auto.label', description: 'settings:about.updates.auto.description' },
     { id: 'about.onboarding', section: 'about', label: 'onboarding:about.label', description: 'onboarding:about.description', available: hasLocalMachine }
 ];

@@ -113,6 +113,7 @@ describe('what the Account pane shows', () => {
         expect(pickForTarget('machines.machine.broker', remoteOnly, null)).toEqual({ kind: 'machine', id: 'studio' });
         expect(pickForTarget('machines.machine.keepRunning', entries, studio)).toEqual({ kind: 'machine', id: 'home' });
         expect(pickForTarget('machines.machine.keepRunning', remoteOnly, null)).toBeNull();
+        expect(pickForTarget('machines.machine.stopRunning', entries, studio)).toEqual({ kind: 'machine', id: 'home' });
         expect(pickForTarget('machines.machine.direct', entries, studio)).toEqual({ kind: 'machine', id: 'home' });
         expect(pickForTarget('appearance.theme', entries, studio)).toBeNull();
     });

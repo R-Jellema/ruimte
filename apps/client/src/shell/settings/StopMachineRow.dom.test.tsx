@@ -1,0 +1,145 @@
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import type { RequestType } from '@ruimte/contracts';
+import type { DesktopBridge, MachineStopPreview } from '@/desktop/bridge';
+import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
+import { useServers } from '@/state/server';
+import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
+import { connectFakeMachine, FakeMachine } from '../../../testing/fake-machine';
+import { machineBridge } from '../../../testing/machine-bridge';
+import { StopMachineRow } from './StopMachineRow';
+
+const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
+
+const BUSY: MachineStopPreview = { work: { agents: 2, terminals: 0 }, home: '~/.ruimte', commandLine: false };
+
+let page: Mounted;
+let order: string[];
+let preview: Promise<MachineStopPreview>;
+let release: (() => void) | null;
+
+function everything(): string {
+    return document.body.textContent ?? '';
+}
+
+function button(label: string): HTMLButtonElement | null {
+    return [...document.querySelectorAll('button')].find((element) => element.textContent?.trim() === label) ?? null;
+}
+
+/* What a person clicks: the words beside the box. */
+function boxLabel(): HTMLElement | null {
+    return box()?.closest('label') ?? null;
+}
+
+function box(): HTMLElement | null {
+    return document.querySelector<HTMLElement>('[role="checkbox"]');
+}
+
+async function open(choose: () => Promise<void> = async () => void order.push('choose')): Promise<void> {
+    scope.window.ruimteDesktop = {
+        platform: 'darwin',
+        pickFolder: async () => null,
+        openExternal: async () => undefined,
+        openGuestDevTools: () => undefined,
+        isFullscreen: async () => false,
+        onFullscreen: () => () => undefined,
+        machine: machineBridge('local', { stopPreview: () => preview, choose })
+    };
+    page = mount();
+    await page.render(<StopMachineRow />);
+    await clickOn(button('Stop running…'));
+}
+
+beforeEach(() => {
+    order = [];
+    preview = Promise.resolve(BUSY);
+    release = null;
+    useServers.getState().setAccount(LOCAL_ENDPOINT_ID, 'account-1');
+});
+
+afterEach(async () => {
+    await page.unmount();
+    release?.();
+    useServers.getState().setAccount(LOCAL_ENDPOINT_ID, null);
+    delete scope.window.ruimteDesktop;
+});
+
+function connect(failLeave = false): FakeMachine {
+    const machine = new FakeMachine();
+    // What the machine says about itself on connecting overwrites the account a test set by hand.
+    const request = machine.request.bind(machine);
+    machine.request = (async (type: RequestType, payload: never) => {
+        const result = await request(type, payload);
+        return type === 'endpoint.info' ? { ...(result as object), accountId: useServers.getState().byEndpoint[LOCAL_ENDPOINT_ID]?.accountId ?? null } : result;
+    }) as typeof machine.request;
+    machine.answer('endpoint.leaveAccount', async () => {
+        order.push('leave');
+        if (failLeave) {
+            throw new Error('the account refused');
+        }
+        return { revoked: 0 };
+    });
+    release = connectFakeMachine(machine);
+    return machine;
+}
+
+describe('stopping the machine this app runs', () => {
+    test('names what ends and where the data stays, and sends none', async () => {
+        connect();
+        await open();
+        await until(() => everything().includes('2 agents end now.'));
+        expect(everything()).toContain('stay in ~/.ruimte');
+        await clickOn(button('Stop and restart'));
+        await until(() => order.length > 0);
+        expect(order).toEqual(['choose']);
+    });
+
+    test('waits for the machine to say what runs before it can be confirmed', async () => {
+        connect();
+        let answer: (value: MachineStopPreview) => void = () => undefined;
+        preview = new Promise((resolve) => (answer = resolve));
+        await open();
+        expect(everything()).toContain('Checking what runs…');
+        expect(button('Stop and restart')?.disabled).toBe(true);
+        answer({ work: { agents: 0, terminals: 0 }, home: '~/.ruimte', commandLine: false });
+        await until(() => everything().includes('Nothing runs on it right now.'));
+        expect(button('Stop and restart')?.disabled).toBe(false);
+    });
+
+    test('takes the machine off the account first when asked', async () => {
+        connect();
+        await open();
+        await until(() => box() !== null);
+        expect(box()?.getAttribute('aria-checked')).toBe('false');
+        await clickOn(boxLabel());
+        await clickOn(button('Stop and restart'));
+        await until(() => order.length === 2);
+        expect(order).toEqual(['leave', 'choose']);
+    });
+
+    test('an account that refuses keeps the question open and stops nothing', async () => {
+        connect(true);
+        await open();
+        await until(() => box() !== null);
+        await clickOn(boxLabel());
+        await clickOn(button('Stop and restart'));
+        await until(() => everything().includes('the account refused'));
+        expect(order).toEqual(['leave']);
+        expect(everything()).toContain('Stop running a machine on this computer?');
+    });
+
+    test('a machine that cannot be reached stays on the account, and says so', async () => {
+        await open();
+        await until(() => box() !== null);
+        expect(box()?.hasAttribute('disabled') || box()?.getAttribute('aria-disabled') === 'true').toBe(true);
+        expect(everything()).toContain('This machine is not reachable, so it stays on your account.');
+    });
+
+    test('a machine from the command line is left running, and the checkbox is not offered without an account', async () => {
+        useServers.getState().setAccount(LOCAL_ENDPOINT_ID, null);
+        connect();
+        preview = Promise.resolve({ work: null, home: '~/.ruimte', commandLine: true });
+        await open();
+        await until(() => everything().includes('keeps running'));
+        expect(box()).toBeNull();
+    });
+});

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { BackgroundServiceState } from '@/desktop/bridge';
-import { backgroundServiceRow } from './background-service';
+import { backgroundServiceRow, stopRunningLines } from './background-service';
 
 function state(patch: Partial<BackgroundServiceState> = {}): BackgroundServiceState {
     return {
@@ -49,5 +49,39 @@ describe('backgroundServiceRow', () => {
         expect(backgroundServiceRow(state({ linger: true })).offerLinger).toBe(false);
         expect(backgroundServiceRow(state({ linger: null })).offerLinger).toBe(false);
         expect(backgroundServiceRow(state({ linger: false, keepRunning: false })).offerLinger).toBe(false);
+    });
+});
+
+describe('stopRunningLines', () => {
+    const home = '~/.ruimte';
+    const DATA =
+        'Ruimte removes its background service and restarts. Your projects, chats and worktrees stay in ~/.ruimte and come back when you run a machine here again.';
+
+    test('says it is checking until the machine answered', () => {
+        expect(stopRunningLines(null)).toEqual(['Checking what runs…']);
+    });
+
+    test('names nothing when the machine cannot say what runs, and still says where the data stays', () => {
+        expect(stopRunningLines({ work: null, home, commandLine: false })).toEqual([DATA]);
+    });
+
+    test('says that nothing runs', () => {
+        expect(stopRunningLines({ work: { agents: 0, terminals: 0 }, home, commandLine: false })).toEqual(['Nothing runs on it right now.', DATA]);
+    });
+
+    test('counts an agent, or terminals, alone', () => {
+        expect(stopRunningLines({ work: { agents: 1, terminals: 0 }, home, commandLine: false })[0]).toBe('An agent ends now.');
+        expect(stopRunningLines({ work: { agents: 0, terminals: 3 }, home, commandLine: false })[0]).toBe('3 terminals end now.');
+    });
+
+    test('joins agents and terminals in one sentence that starts with a capital', () => {
+        expect(stopRunningLines({ work: { agents: 2, terminals: 3 }, home, commandLine: false })[0]).toBe('2 agents and 3 terminals end now.');
+        expect(stopRunningLines({ work: { agents: 1, terminals: 1 }, home, commandLine: false })[0]).toBe('An agent and a terminal end now.');
+    });
+
+    test('a machine from the command line keeps running, and that is all the question says', () => {
+        expect(stopRunningLines({ work: { agents: 2, terminals: 0 }, home, commandLine: true })).toEqual([
+            'The machine set up from the command line keeps running. Ruimte stops connecting to it and restarts.'
+        ]);
     });
 });

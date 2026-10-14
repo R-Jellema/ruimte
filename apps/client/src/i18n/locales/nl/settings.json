@@ -698,6 +698,32 @@
             "title": "Blijven draaien nadat je uitlogt?",
             "description": "Ruimte draait loginctl enable-linger voor je gebruiker, zodat je gebruikersservices zonder sessie blijven draaien. Ongedaan maken doe je met loginctl disable-linger.",
             "action": "Toestaan"
+        },
+        "stopRunning": {
+            "label": "Hier geen machine meer draaien",
+            "description": "Ruimte haalt zijn achtergronddienst weg en start opnieuw zonder machine. Je projecten en chats blijven op deze computer.",
+            "action": "Stoppen…"
+        },
+        "confirmStopRunning": {
+            "title": "Geen machine meer draaien op deze computer?",
+            "checking": "Nagaan wat er draait…",
+            "agents_one": "Er stopt nu een agent.",
+            "agents_other": "Er stoppen nu {{count}} agents.",
+            "terminals_one": "Er stopt nu een terminal.",
+            "terminals_other": "Er stoppen nu {{count}} terminals.",
+            "both": "{{agents}} en {{terminals}} stoppen nu.",
+            "agentCount_one": "een agent",
+            "agentCount_other": "{{count}} agents",
+            "terminalCount_one": "een terminal",
+            "terminalCount_other": "{{count}} terminals",
+            "nothing": "Er draait nu niets op.",
+            "data": "Ruimte haalt zijn achtergronddienst weg en start opnieuw. Je projecten, chats en worktrees blijven in {{home}} en komen terug als je hier weer een machine draait.",
+            "commandLine": "De machine die je via de opdrachtregel hebt ingesteld, blijft draaien. Ruimte maakt er geen verbinding meer mee en start opnieuw.",
+            "leave": "Haal {{machine}} ook van je account",
+            "unreachable": "Deze machine is niet bereikbaar, dus hij blijft op je account.",
+            "action": "Stoppen en opnieuw starten",
+            "busy": "Stoppen…",
+            "unavailable": "Ruimte kon niet zonder machine opnieuw starten."
         }
     },
     "reach": {

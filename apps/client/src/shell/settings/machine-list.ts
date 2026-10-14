@@ -87,6 +87,8 @@ export function currentPick(picked: MachinePick | null, entries: readonly Machin
     return local ? { kind: 'machine', id: local.id } : { kind: 'account' };
 }
 
+const LOCAL_ONLY_TARGETS = ['machines.machine.keepRunning', 'machines.machine.stopRunning', 'machines.machine.direct'];
+
 /*
  * Where a search result of the Account pane lands, or null for one of another pane. A row of a
  * machine's detail lands on the machine picked when this client opened it, else on this machine,
@@ -104,7 +106,7 @@ export function pickForTarget(target: string, entries: readonly MachineEntry[], 
     }
     const local = entries.find((entry) => entry.local) ?? null;
     const opened = picked?.endpoint ? picked : (local ?? entries.find((entry) => entry.endpoint !== null) ?? null);
-    // Running in the background and Direct are about this machine only.
-    const entry = target === 'machines.machine.keepRunning' || target === 'machines.machine.direct' ? local : opened;
+    // Running in the background, stopping it and Direct are about this machine only.
+    const entry = LOCAL_ONLY_TARGETS.includes(target) ? local : opened;
     return entry === null ? null : { kind: 'machine', id: entry.id };
 }

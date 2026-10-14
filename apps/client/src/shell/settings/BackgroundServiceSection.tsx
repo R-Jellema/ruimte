@@ -7,6 +7,8 @@ import { ConfirmDialog, SettingsRow } from '@adecore/ui/settings';
 import { Switch, Button, Icon, FormError } from '@adecore/ui';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { backgroundServiceRow } from '@/shell/settings/background-service';
+import { StopMachineRow } from '@/shell/settings/StopMachineRow';
+import { hasLocalMachine } from '@/state/local-machine';
 
 type Confirming = 'stop' | 'linger' | 'restart' | null;
 
@@ -108,6 +110,7 @@ export function BackgroundServiceSection() {
                     }
                 />
             )}
+            {desktop()?.machine !== undefined && hasLocalMachine() && <StopMachineRow />}
             <ConfirmDialog
                 open={confirming === 'stop'}
                 onOpenChange={(next) => setConfirming(next ? 'stop' : null)}

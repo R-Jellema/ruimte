@@ -1,5 +1,5 @@
-import i18next from 'i18next';
-import type { BackgroundServiceState } from '@/desktop/bridge';
+import i18next, { type TFunction } from 'i18next';
+import type { BackgroundServiceState, MachineStopPreview } from '@/desktop/bridge';
 
 /* What the Background section of This machine shows, from what the shell says about its service. */
 export interface BackgroundServiceRow {
@@ -43,4 +43,32 @@ export function backgroundServiceRow(state: BackgroundServiceState): BackgroundS
         offerLinger: state.keepRunning && state.linger === false,
         lingerOn: state.keepRunning && state.linger === true
     };
+}
+
+const STOP = 'settings:backgroundService.confirmStopRunning';
+
+/* The sentences of the question before the app stops running a machine; null is the preview that has not answered yet. */
+export function stopRunningLines(preview: MachineStopPreview | null, t: TFunction = i18next.t): string[] {
+    if (preview === null) {
+        return [t(`${STOP}.checking`)];
+    }
+    if (preview.commandLine) {
+        return [t(`${STOP}.commandLine`)];
+    }
+    const lines: string[] = [];
+    if (preview.work !== null) {
+        const { agents, terminals } = preview.work;
+        if (agents > 0 && terminals > 0) {
+            const both = t(`${STOP}.both`, { agents: t(`${STOP}.agentCount`, { count: agents }), terminals: t(`${STOP}.terminalCount`, { count: terminals }) });
+            lines.push(both.charAt(0).toUpperCase() + both.slice(1));
+        } else if (agents > 0) {
+            lines.push(t(`${STOP}.agents`, { count: agents }));
+        } else if (terminals > 0) {
+            lines.push(t(`${STOP}.terminals`, { count: terminals }));
+        } else {
+            lines.push(t(`${STOP}.nothing`));
+        }
+    }
+    lines.push(t(`${STOP}.data`, { home: preview.home }));
+    return lines;
 }
