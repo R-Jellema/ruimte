@@ -1,3 +1,4 @@
+import Observation
 import RuimtePulsar
 import RuimteTransport
 import XCTest
@@ -121,6 +122,25 @@ final class SessionScreenTests: XCTestCase {
         XCTAssertTrue(client.handlers.values.allSatisfy(\.isEmpty))
     }
 
+    /// The terminal view flushes output from its update. While SwiftUI tracked the buffer, every flush invalidated the
+    /// update it ran in, which ran again without end and froze the app as soon as a terminal opened.
+    @MainActor func testFlushingOutputNeverInvalidatesTheViewThatFlushedIt() {
+        let model = TerminalModel(client: SessionClientFake(), sessionID: "terminal")
+        var displayed: [String] = []
+        model.render = { text, _ in displayed.append(text) }
+        let invalidated = InvalidationFlag()
+        withObservationTracking {
+            _ = (model.cols, model.rows, model.connected, model.loading, model.exited)
+            model.flushOutput()
+        } onChange: {
+            invalidated.raised = true
+        }
+        model.flushOutput()
+        model.deliver("live", reset: false)
+        XCTAssertEqual(displayed, ["live"])
+        XCTAssertFalse(invalidated.raised)
+    }
+
     @MainActor func testAttentionMarksOnlyUnseenCompletionsAndClearsOnFocus() {
         let store = AttentionStore(client: SessionClientFake())
         store.update("terminal", status: .idle)
@@ -146,6 +166,10 @@ final class SessionScreenTests: XCTestCase {
         XCTAssertEqual(blocks[2].kind, .code("swift"))
         XCTAssertEqual(blocks[2].text, "let value = 42")
     }
+}
+
+private final class InvalidationFlag: @unchecked Sendable {
+    var raised = false
 }
 
 @MainActor private final class SessionClientFake: MachineRequesting {

@@ -19,12 +19,14 @@ final class TerminalModel {
     @ObservationIgnored var resizeDisplay: ((Int, Int) -> Void)?
     @ObservationIgnored var applicationCursor: (() -> Bool)?
     @ObservationIgnored var toggleKeyboard: (() -> Void)?
-    private var unsubscribe: [() -> Void] = []
-    private var attachTask: Task<Void, Never>?
-    private var writeTask: Task<Void, Never>?
-    private var queuedInput: [String] = []
-    private var pendingOutput: [(String, Bool)] = []
-    private var generation = 0
+    // The terminal view flushes output from its update, so a tracked buffer would invalidate that update with every
+    // flush and SwiftUI would run it again without end.
+    @ObservationIgnored private var unsubscribe: [() -> Void] = []
+    @ObservationIgnored private var attachTask: Task<Void, Never>?
+    @ObservationIgnored private var writeTask: Task<Void, Never>?
+    @ObservationIgnored private var queuedInput: [String] = []
+    @ObservationIgnored private var pendingOutput: [(String, Bool)] = []
+    @ObservationIgnored private var generation = 0
     @ObservationIgnored private var attachment: MachineAttachment?
 
     init(client: any MachineRequesting, sessionID: String) {
