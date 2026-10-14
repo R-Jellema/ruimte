@@ -45848,6 +45848,9 @@
       "folder": {
         "type": "string",
         "minLength": 1
+      },
+      "fresh": {
+        "type": "boolean"
       }
     },
     "required": [

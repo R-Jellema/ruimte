@@ -36,7 +36,8 @@ export class RepoListCache {
         this.now = now;
     }
 
-    get(folder: string): Promise<GitReposResult> {
+    /* With `fresh` the folder is listed again whatever the cache holds, and the new list takes its place. */
+    get(folder: string, fresh = false): Promise<GitReposResult> {
         const key = resolve(folder);
         for (const [cachedKey, cached] of [...this.folders]) {
             if (this.now() - cached.at >= REPO_CACHE_TTL_MS) {
@@ -44,7 +45,7 @@ export class RepoListCache {
             }
         }
         const cached = this.folders.get(key);
-        if (cached) {
+        if (cached && !fresh) {
             return cached.result;
         }
         const entry: Remembered = { at: this.now(), result: this.list(key), settled: null };
@@ -89,8 +90,8 @@ export class RepoListCache {
 
 const shared = new RepoListCache();
 
-export function cachedRepos(folder: string): Promise<GitReposResult> {
-    return shared.get(folder);
+export function cachedRepos(folder: string, fresh = false): Promise<GitReposResult> {
+    return shared.get(folder, fresh);
 }
 
 /* What the shared watch (`fs/shared-watch.ts`) calls with the directories a burst touched, whoever watched them. */

@@ -48,6 +48,15 @@ describe('RepoListCache', () => {
         expect(listed).toEqual([folder]);
     });
 
+    test('a fresh ask lists again within the time and leaves its list for the next ask', async () => {
+        await listedOnce();
+        const fresh = cache.get(folder, true);
+        expect(listed).toHaveLength(2);
+        answer(1);
+        expect(await cache.get(folder)).toEqual(await fresh);
+        expect(listed).toHaveLength(2);
+    });
+
     test('lists again once the time is up', async () => {
         await listedOnce();
         clock = REPO_CACHE_TTL_MS - 1;

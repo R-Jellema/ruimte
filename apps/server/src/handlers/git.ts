@@ -145,7 +145,7 @@ export function registerGitHandlers(
 
     dispatcher.register('git.ref-commit', (payload) => readRefCommit(payload.cwd, payload.ref));
 
-    dispatcher.register('git.repos', (payload) => cachedRepos(payload.folder));
+    dispatcher.register('git.repos', (payload) => cachedRepos(payload.folder, payload.fresh === true));
 
     dispatcher.register('git.log', (payload) => readLog(payload.cwd, payload.limit, payload.cursor));
 

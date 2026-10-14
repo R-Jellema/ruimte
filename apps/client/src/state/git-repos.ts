@@ -86,7 +86,7 @@ export interface ProjectRepos {
     repos: readonly GitRepo[];
     /* Set when the folder holds more repositories than the list carries. */
     truncated: boolean;
-    /* Reads which repositories the folder holds again, for one that gained or lost a submodule. */
+    /* Reads which repositories the folder holds again, past the machine's cache, for one that gained or lost a submodule. */
     reload(): void;
 }
 
@@ -102,14 +102,17 @@ export function useProjectRepos(folder: string | null): ProjectRepos {
     const [list, setList] = useState<{ key: string; repos: readonly GitRepo[]; truncated: boolean } | null>(null);
     /* Goes up to ask for the list again, which is what the refresh button does. */
     const [nonce, setNonce] = useState(0);
+    const freshRef = useRef(false);
 
     useEffect(() => {
         if (folder === null) {
             return;
         }
         let cancelled = false;
+        const fresh = freshRef.current;
+        freshRef.current = false;
         transport
-            .request('git.repos', { folder })
+            .request('git.repos', fresh ? { folder, fresh } : { folder })
             .then((answer) => {
                 if (!cancelled) {
                     setList({ key, repos: answer.repos, truncated: answer.truncated });
@@ -126,7 +129,10 @@ export function useProjectRepos(folder: string | null): ProjectRepos {
         };
     }, [transport, folder, key, nonce]);
 
-    const reload = useCallback((): void => setNonce((count) => count + 1), []);
+    const reload = useCallback((): void => {
+        freshRef.current = true;
+        setNonce((count) => count + 1);
+    }, []);
     const repos = useMemo(() => (list?.key === key ? list.repos : []), [list, key]);
     return { repos, truncated: list?.key === key && list.truncated, reload };
 }

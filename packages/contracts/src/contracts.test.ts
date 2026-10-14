@@ -518,6 +518,7 @@ describe('git', () => {
 
     test('staging and discarding both need at least one path', () => {
         expect(REQUEST_SCHEMAS['git.repos'].payload.safeParse({ folder: '/work/apps' }).success).toBe(true);
+        expect(REQUEST_SCHEMAS['git.repos'].payload.safeParse({ folder: '/work/apps', fresh: true }).success).toBe(true);
         expect(
             REQUEST_SCHEMAS['git.repos'].result.safeParse({ repos: [{ path: '/work/apps/one', label: 'one', kind: 'nested' }], truncated: false }).success
         ).toBe(true);

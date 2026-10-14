@@ -130,7 +130,9 @@ export const GitRepoSchema = z.object({
 export type GitRepo = z.infer<typeof GitRepoSchema>;
 
 export const GitReposPayloadSchema = z.object({
-    folder: z.string().min(1)
+    folder: z.string().min(1),
+    // A person's refresh: list the folder again instead of answering from the daemon's short-lived cache.
+    fresh: z.boolean().optional()
 });
 export type GitReposPayload = z.infer<typeof GitReposPayloadSchema>;
 
