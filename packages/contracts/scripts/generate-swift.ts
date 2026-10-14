@@ -482,6 +482,35 @@ const validationInputs: { schema: string; input: unknown }[] = [
         input: { id: 'machine-1', name: 'Mac', icon: null, brokerUrl: null, publicKey: key, issuedAt: 0, signature: 'S'.repeat(86) }
     }
 ];
+// A stored node, text, layout and view keep a key this version does not know, so an iPhone save writes it back.
+const keptFieldsContent = {
+    name: 'Kept',
+    color: '',
+    views: [
+        {
+            id: 'v',
+            kind: 'canvas',
+            name: 'Canvas',
+            futureView: { nested: [null, 42] },
+            nodes: [
+                { id: 'file', kind: 'file', title: 'File', x: 0, y: 0, w: 320, h: 200, path: 'a.ts', location: { line: 3 } },
+                { id: 'chat', kind: 'chat', title: 'Chat', x: 340, y: 0, w: 320, h: 200, machine: 'B' }
+            ],
+            texts: [{ id: 't', x: 0, y: 240, text: 'Note', size: 16, futureStyle: 'wavy' }],
+            edges: [],
+            layouts: [
+                {
+                    name: 'Layout',
+                    futureLayout: true,
+                    nodes: { file: { x: 0, y: 0, w: 320, h: 200, futureRect: 1 } },
+                    texts: { t: { x: 0, y: 240, futureRect: 2 } }
+                }
+            ]
+        },
+        { id: 'chat-view', kind: 'chat', name: 'Chat', futureView: 1, node: { futureFlag: true } },
+        { id: 'sep', kind: 'separator', futureView: 2 }
+    ]
+};
 validationInputs.push(
     {
         schema: 'request.project.save.payload',
@@ -512,6 +541,8 @@ validationInputs.push(
             }
         }
     },
+    { schema: 'request.project.save.payload', input: { projectId: 'p', baseRev: 3, content: keptFieldsContent } },
+    { schema: 'event.project.changed', input: { projectId: 'p', document: { ...keptFieldsContent, version: 3, rev: 4 } } },
     { schema: 'request.chat.send.payload', input: { chatId: 'c', text: '' } },
     { schema: 'request.chat.send.payload', input: { chatId: 'c', text: 'Hello' } }
 );

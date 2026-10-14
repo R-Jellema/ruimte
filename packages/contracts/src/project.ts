@@ -22,6 +22,11 @@ const UNKNOWN_NODE_SIZE = { w: 320, h: 200 };
 
 const RawEntrySchema = z.record(z.string(), z.unknown());
 
+// Loose at runtime so a newer Ruimte's field is written back; typed as the known fields so a typo still fails the build.
+function keepingUnknown<S extends z.ZodObject>(schema: S): S {
+    return schema.loose() as unknown as S;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -76,55 +81,57 @@ function readEntry(
 export const NodeTitleSourceSchema = z.enum(['auto', 'user']);
 export type NodeTitleSource = z.infer<typeof NodeTitleSourceSchema>;
 
-export const ProjectNodeSchema = z.object({
-    id: z.string().min(1),
-    kind: z.union([NodeKindSchema, z.literal(UNKNOWN_KIND)]),
-    title: z.string(),
-    // Absent on a node nobody named yet, the only state in which its session may still name it.
-    titleSource: NodeTitleSourceSchema.optional(),
-    x: z.number(),
-    y: z.number(),
-    w: z.number().positive(),
-    h: z.number().positive(),
-    accent: z.string().optional(),
-    // Terminal and chat: where the shell or the agent starts. Relative to the project folder on disk.
-    cwd: z.string().optional(),
-    // Terminal only: typed into the shell as its first line.
-    command: z.string().optional(),
-    // Terminal and chat: the agent session to continue.
-    resume: z.string().optional(),
-    // Terminal and chat: which agent CLI this node hosts; absent on a chat means Claude Code.
-    provider: AgentKindSchema.optional(),
-    // Terminal and chat: the account of that CLI on this machine; absent is its default account.
-    account: ProviderAccountIdSchema.optional(),
-    // Chat only: the CLI was chosen when the node was made, so the composer offers no other one.
-    providerFixed: z.boolean().optional(),
-    // Terminal only: the permission mode its agent was started in, so a reload starts it the same way.
-    runtimeMode: RuntimeModeSchema.optional(),
-    // Browser only: the page it shows.
-    url: z.string().optional(),
-    // Travels with the URL, including shared projects: another machine must not reinterpret its localhost.
-    browserOwner: z.string().min(1).optional(),
-    // Device only: a portable identity resolved to a local simulator when it is shown.
-    device: DeviceReferenceSchema.optional(),
-    // Group only: folded to its header, with the nodes it held out of sight until it opens again.
-    collapsed: z.boolean().optional(),
-    memberIds: z.array(z.string()).optional(),
-    expandedHeight: z.number().positive().optional(),
-    // Group only: the git worktree every node made inside it starts in.
-    worktree: z.object({ path: z.string(), branch: z.string() }).optional(),
-    // Chat and terminal: the GitHub issue the agent was started on, which the node shows as a pill.
-    issue: z.object({ repo: z.string(), number: z.number().int().positive(), url: z.string() }).optional(),
-    // Note only: its markdown and one of the note colors; without a color it takes the default.
-    body: z.string().optional(),
-    color: z.string().optional(),
-    // Drawing and diagram only: the view of that kind this node mirrors, which lives in the same project.
-    viewId: z.string().optional(),
-    // File only: relative to the project folder and POSIX, so it holds in another checkout; absolute outside it.
-    path: z.string().optional(),
-    // Unknown kind only: the entry exactly as it was read.
-    raw: RawEntrySchema.optional()
-});
+export const ProjectNodeSchema = keepingUnknown(
+    z.object({
+        id: z.string().min(1),
+        kind: z.union([NodeKindSchema, z.literal(UNKNOWN_KIND)]),
+        title: z.string(),
+        // Absent on a node nobody named yet, the only state in which its session may still name it.
+        titleSource: NodeTitleSourceSchema.optional(),
+        x: z.number(),
+        y: z.number(),
+        w: z.number().positive(),
+        h: z.number().positive(),
+        accent: z.string().optional(),
+        // Terminal and chat: where the shell or the agent starts. Relative to the project folder on disk.
+        cwd: z.string().optional(),
+        // Terminal only: typed into the shell as its first line.
+        command: z.string().optional(),
+        // Terminal and chat: the agent session to continue.
+        resume: z.string().optional(),
+        // Terminal and chat: which agent CLI this node hosts; absent on a chat means Claude Code.
+        provider: AgentKindSchema.optional(),
+        // Terminal and chat: the account of that CLI on this machine; absent is its default account.
+        account: ProviderAccountIdSchema.optional(),
+        // Chat only: the CLI was chosen when the node was made, so the composer offers no other one.
+        providerFixed: z.boolean().optional(),
+        // Terminal only: the permission mode its agent was started in, so a reload starts it the same way.
+        runtimeMode: RuntimeModeSchema.optional(),
+        // Browser only: the page it shows.
+        url: z.string().optional(),
+        // Travels with the URL, including shared projects: another machine must not reinterpret its localhost.
+        browserOwner: z.string().min(1).optional(),
+        // Device only: a portable identity resolved to a local simulator when it is shown.
+        device: DeviceReferenceSchema.optional(),
+        // Group only: folded to its header, with the nodes it held out of sight until it opens again.
+        collapsed: z.boolean().optional(),
+        memberIds: z.array(z.string()).optional(),
+        expandedHeight: z.number().positive().optional(),
+        // Group only: the git worktree every node made inside it starts in.
+        worktree: z.object({ path: z.string(), branch: z.string() }).optional(),
+        // Chat and terminal: the GitHub issue the agent was started on, which the node shows as a pill.
+        issue: z.object({ repo: z.string(), number: z.number().int().positive(), url: z.string() }).optional(),
+        // Note only: its markdown and one of the note colors; without a color it takes the default.
+        body: z.string().optional(),
+        color: z.string().optional(),
+        // Drawing and diagram only: the view of that kind this node mirrors, which lives in the same project.
+        viewId: z.string().optional(),
+        // File only: relative to the project folder and POSIX, so it holds in another checkout; absolute outside it.
+        path: z.string().optional(),
+        // Unknown kind only: the entry exactly as it was read.
+        raw: RawEntrySchema.optional()
+    })
+);
 export type ProjectNode = z.infer<typeof ProjectNodeSchema>;
 
 export type CanvasNodeKind = ProjectNode['kind'];
@@ -160,22 +167,24 @@ export const CanvasNodeSchema = z.preprocess(
 );
 
 /* A label standing free on a canvas. Style is the whole element's; there is no run inside the text. */
-export const ProjectTextSchema = z.object({
-    id: z.string().min(1),
-    x: z.number(),
-    y: z.number(),
-    text: z.string(),
-    size: z.number().positive(),
-    // Absent means 'sans', the face the app itself is set in.
-    font: DrawingFontSchema.optional(),
-    bold: z.boolean().optional(),
-    italic: z.boolean().optional(),
-    underline: z.boolean().optional(),
-    strikethrough: z.boolean().optional(),
-    align: z.enum(['left', 'center', 'right']).optional(),
-    maxWidth: z.number().positive().optional(),
-    color: z.string().optional()
-});
+export const ProjectTextSchema = keepingUnknown(
+    z.object({
+        id: z.string().min(1),
+        x: z.number(),
+        y: z.number(),
+        text: z.string(),
+        size: z.number().positive(),
+        // Absent means 'sans', the face the app itself is set in.
+        font: DrawingFontSchema.optional(),
+        bold: z.boolean().optional(),
+        italic: z.boolean().optional(),
+        underline: z.boolean().optional(),
+        strikethrough: z.boolean().optional(),
+        align: z.enum(['left', 'center', 'right']).optional(),
+        maxWidth: z.number().positive().optional(),
+        color: z.string().optional()
+    })
+);
 export type ProjectText = z.infer<typeof ProjectTextSchema>;
 
 export const NodeSideSchema = z.enum(['top', 'right', 'bottom', 'left']);
@@ -216,11 +225,13 @@ export function edgeRole(edge: Pick<ProjectEdge, 'role'>): EdgeRole | null {
 }
 
 // A named arrangement: where every node and text sat when it was saved.
-export const ProjectLayoutSchema = z.object({
-    name: z.string().min(1),
-    nodes: z.record(z.string(), z.object({ x: z.number(), y: z.number(), w: z.number().positive(), h: z.number().positive() })),
-    texts: z.record(z.string(), z.object({ x: z.number(), y: z.number() }))
-});
+export const ProjectLayoutSchema = keepingUnknown(
+    z.object({
+        name: z.string().min(1),
+        nodes: z.record(z.string(), keepingUnknown(z.object({ x: z.number(), y: z.number(), w: z.number().positive(), h: z.number().positive() }))),
+        texts: z.record(z.string(), keepingUnknown(z.object({ x: z.number(), y: z.number() })))
+    })
+);
 export type ProjectLayout = z.infer<typeof ProjectLayoutSchema>;
 
 // The names this version offers and draws. Append-only: a renamed name draws nothing on an older Ruimte.
@@ -446,15 +457,17 @@ export const MAIN_VIEW_NAME = 'Canvas';
  */
 const CreatedBySchema = z.string().min(1).optional();
 
-const ViewBaseSchema = z.object({
-    id: z.string().min(1),
-    name: z.string().min(1),
-    // The rule a node follows: absent or 'auto' lets the page it hosts name it, 'user' is final.
-    titleSource: NodeTitleSourceSchema.optional(),
-    // Absent wears the mark of its kind, CLI or favicon; present is a person's choice nothing overrides.
-    icon: ProjectIconChoiceSchema.optional(),
-    createdBy: CreatedBySchema
-});
+const ViewBaseSchema = keepingUnknown(
+    z.object({
+        id: z.string().min(1),
+        name: z.string().min(1),
+        // The rule a node follows: absent or 'auto' lets the page it hosts name it, 'user' is final.
+        titleSource: NodeTitleSourceSchema.optional(),
+        // Absent wears the mark of its kind, CLI or favicon; present is a person's choice nothing overrides.
+        icon: ProjectIconChoiceSchema.optional(),
+        createdBy: CreatedBySchema
+    })
+);
 
 /*
  * A node without a frame. Its id is the session id, as a node's is, so moving a node between a canvas
@@ -484,21 +497,25 @@ export const ProjectCanvasViewSchema = ViewBaseSchema.extend({
 export type ProjectCanvasView = z.infer<typeof ProjectCanvasViewSchema>;
 
 // A line between sidebar rows. It rides in the view list because the file's order is the list's order.
-export const ProjectSeparatorViewSchema = z.object({
-    kind: z.literal('separator'),
-    id: z.string().min(1),
-    name: z.string().min(1).optional(),
-    createdBy: CreatedBySchema
-});
+export const ProjectSeparatorViewSchema = keepingUnknown(
+    z.object({
+        kind: z.literal('separator'),
+        id: z.string().min(1),
+        name: z.string().min(1).optional(),
+        createdBy: CreatedBySchema
+    })
+);
 export type ProjectSeparatorView = z.infer<typeof ProjectSeparatorViewSchema>;
 
 // A heading over the rows under it; unlike a separator its name is required. It wears no mark.
-export const ProjectSubheaderViewSchema = z.object({
-    kind: z.literal('subheader'),
-    id: z.string().min(1),
-    name: z.string().min(1),
-    createdBy: CreatedBySchema
-});
+export const ProjectSubheaderViewSchema = keepingUnknown(
+    z.object({
+        kind: z.literal('subheader'),
+        id: z.string().min(1),
+        name: z.string().min(1),
+        createdBy: CreatedBySchema
+    })
+);
 export type ProjectSubheaderView = z.infer<typeof ProjectSubheaderViewSchema>;
 
 export const ProjectChatViewSchema = ViewBaseSchema.extend({

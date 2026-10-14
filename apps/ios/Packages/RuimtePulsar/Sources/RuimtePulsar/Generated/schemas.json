@@ -5525,7 +5525,8 @@
                   "y",
                   "w",
                   "h"
-                ]
+                ],
+                "additionalProperties": {}
               }
             },
             "texts": {
@@ -5546,7 +5547,8 @@
                 "required": [
                   "x",
                   "y"
-                ]
+                ],
+                "additionalProperties": {}
               }
             }
           },
@@ -5554,10 +5556,12 @@
             "name",
             "nodes",
             "texts"
-          ]
+          ],
+          "additionalProperties": {}
         }
       }
-    }
+    },
+    "additionalProperties": {}
   },
   "request.server.hello.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -29549,6 +29553,7 @@
                           "w",
                           "h"
                         ],
+                        "additionalProperties": {},
                         "x-project-entry": {
                           "knownKinds": [
                             "terminal",
@@ -29642,7 +29647,8 @@
                           "y",
                           "text",
                           "size"
-                        ]
+                        ],
+                        "additionalProperties": {}
                       }
                     },
                     "edges": {
@@ -29733,7 +29739,8 @@
                                 "y",
                                 "w",
                                 "h"
-                              ]
+                              ],
+                              "additionalProperties": {}
                             }
                           },
                           "texts": {
@@ -29754,7 +29761,8 @@
                               "required": [
                                 "x",
                                 "y"
-                              ]
+                              ],
+                              "additionalProperties": {}
                             }
                           }
                         },
@@ -29762,7 +29770,8 @@
                           "name",
                           "nodes",
                           "texts"
-                        ]
+                        ],
+                        "additionalProperties": {}
                       }
                     }
                   },
@@ -29773,7 +29782,8 @@
                     "nodes",
                     "texts",
                     "edges"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -30053,7 +30063,8 @@
                             "url"
                           ]
                         }
-                      }
+                      },
+                      "additionalProperties": {}
                     },
                     "empty": {
                       "type": "boolean"
@@ -30067,7 +30078,8 @@
                     "name",
                     "kind",
                     "node"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -30347,7 +30359,8 @@
                             "url"
                           ]
                         }
-                      }
+                      },
+                      "additionalProperties": {}
                     }
                   },
                   "required": [
@@ -30355,7 +30368,8 @@
                     "name",
                     "kind",
                     "node"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -30586,7 +30600,8 @@
                     "name",
                     "kind",
                     "url"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -30845,7 +30860,8 @@
                     "name",
                     "kind",
                     "device"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -31068,7 +31084,8 @@
                     "id",
                     "name",
                     "kind"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -31291,7 +31308,8 @@
                     "id",
                     "name",
                     "kind"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -31519,7 +31537,8 @@
                     "name",
                     "kind",
                     "path"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -31775,7 +31794,8 @@
                     "schema",
                     "table",
                     "mode"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -31800,7 +31820,8 @@
                   "required": [
                     "kind",
                     "id"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -31826,7 +31847,8 @@
                     "kind",
                     "id",
                     "name"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -33050,6 +33072,7 @@
                           "w",
                           "h"
                         ],
+                        "additionalProperties": {},
                         "x-project-entry": {
                           "knownKinds": [
                             "terminal",
@@ -33143,7 +33166,8 @@
                           "y",
                           "text",
                           "size"
-                        ]
+                        ],
+                        "additionalProperties": {}
                       }
                     },
                     "edges": {
@@ -33234,7 +33258,8 @@
                                 "y",
                                 "w",
                                 "h"
-                              ]
+                              ],
+                              "additionalProperties": {}
                             }
                           },
                           "texts": {
@@ -33255,7 +33280,8 @@
                               "required": [
                                 "x",
                                 "y"
-                              ]
+                              ],
+                              "additionalProperties": {}
                             }
                           }
                         },
@@ -33263,7 +33289,8 @@
                           "name",
                           "nodes",
                           "texts"
-                        ]
+                        ],
+                        "additionalProperties": {}
                       }
                     }
                   },
@@ -33274,7 +33301,8 @@
                     "nodes",
                     "texts",
                     "edges"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -33554,7 +33582,8 @@
                             "url"
                           ]
                         }
-                      }
+                      },
+                      "additionalProperties": {}
                     },
                     "empty": {
                       "type": "boolean"
@@ -33568,7 +33597,8 @@
                     "name",
                     "kind",
                     "node"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -33848,7 +33878,8 @@
                             "url"
                           ]
                         }
-                      }
+                      },
+                      "additionalProperties": {}
                     }
                   },
                   "required": [
@@ -33856,7 +33887,8 @@
                     "name",
                     "kind",
                     "node"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -34087,7 +34119,8 @@
                     "name",
                     "kind",
                     "url"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -34346,7 +34379,8 @@
                     "name",
                     "kind",
                     "device"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -34569,7 +34603,8 @@
                     "id",
                     "name",
                     "kind"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -34792,7 +34827,8 @@
                     "id",
                     "name",
                     "kind"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -35020,7 +35056,8 @@
                     "name",
                     "kind",
                     "path"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -35276,7 +35313,8 @@
                     "schema",
                     "table",
                     "mode"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -35301,7 +35339,8 @@
                   "required": [
                     "kind",
                     "id"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -35327,7 +35366,8 @@
                     "kind",
                     "id",
                     "name"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -61864,6 +61904,7 @@
                           "w",
                           "h"
                         ],
+                        "additionalProperties": {},
                         "x-project-entry": {
                           "knownKinds": [
                             "terminal",
@@ -61957,7 +61998,8 @@
                           "y",
                           "text",
                           "size"
-                        ]
+                        ],
+                        "additionalProperties": {}
                       }
                     },
                     "edges": {
@@ -62048,7 +62090,8 @@
                                 "y",
                                 "w",
                                 "h"
-                              ]
+                              ],
+                              "additionalProperties": {}
                             }
                           },
                           "texts": {
@@ -62069,7 +62112,8 @@
                               "required": [
                                 "x",
                                 "y"
-                              ]
+                              ],
+                              "additionalProperties": {}
                             }
                           }
                         },
@@ -62077,7 +62121,8 @@
                           "name",
                           "nodes",
                           "texts"
-                        ]
+                        ],
+                        "additionalProperties": {}
                       }
                     }
                   },
@@ -62088,7 +62133,8 @@
                     "nodes",
                     "texts",
                     "edges"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -62368,7 +62414,8 @@
                             "url"
                           ]
                         }
-                      }
+                      },
+                      "additionalProperties": {}
                     },
                     "empty": {
                       "type": "boolean"
@@ -62382,7 +62429,8 @@
                     "name",
                     "kind",
                     "node"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -62662,7 +62710,8 @@
                             "url"
                           ]
                         }
-                      }
+                      },
+                      "additionalProperties": {}
                     }
                   },
                   "required": [
@@ -62670,7 +62719,8 @@
                     "name",
                     "kind",
                     "node"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -62901,7 +62951,8 @@
                     "name",
                     "kind",
                     "url"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -63160,7 +63211,8 @@
                     "name",
                     "kind",
                     "device"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -63383,7 +63435,8 @@
                     "id",
                     "name",
                     "kind"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -63606,7 +63659,8 @@
                     "id",
                     "name",
                     "kind"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -63834,7 +63888,8 @@
                     "name",
                     "kind",
                     "path"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -64090,7 +64145,8 @@
                     "schema",
                     "table",
                     "mode"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -64115,7 +64171,8 @@
                   "required": [
                     "kind",
                     "id"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",
@@ -64141,7 +64198,8 @@
                     "kind",
                     "id",
                     "name"
-                  ]
+                  ],
+                  "additionalProperties": {}
                 },
                 {
                   "type": "object",

@@ -355,9 +355,13 @@ describe('project', () => {
         const later = document([{ ...view, icon: { kind: 'lucide', value: 'unicorn' } }]);
         expect(later.success && later.data.views[0]!.kind === 'canvas' && later.data.views[0]!.icon).toEqual({ kind: 'lucide', value: 'unicorn' });
         expect(document([{ ...view, icon: { kind: 'image', value: '.ruimte/icon.svg', version: '1' } }]).success).toBe(false);
-        // A divider has no room for a mark, so one written into the file is dropped on the way in.
+        // A divider has no room for a mark, so a mark in the file is a key it does not know and carries along.
         const withSeparator = document([view, { kind: 'separator', id: 's1', icon: { kind: 'lucide', value: 'rocket' } }]);
-        expect(withSeparator.success && withSeparator.data.views[1]).toEqual({ kind: 'separator', id: 's1' });
+        expect(withSeparator.success && withSeparator.data.views[1]).toEqual({
+            kind: 'separator',
+            id: 's1',
+            icon: { kind: 'lucide', value: 'rocket' }
+        } as never);
         const withSubheader = document([view, { kind: 'subheader', id: 'h1', name: 'Agents', icon: { kind: 'lucide', value: 'rocket' } }]);
         expect(withSubheader.success && withSubheader.data.views[1]).toEqual({ kind: 'subheader', id: 'h1', name: 'Agents' });
     });

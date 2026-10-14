@@ -964,6 +964,388 @@
       }
     },
     {
+      "schema": "request.project.save.payload",
+      "input": {
+        "projectId": "p",
+        "baseRev": 3,
+        "content": {
+          "name": "Kept",
+          "color": "",
+          "views": [
+            {
+              "id": "v",
+              "kind": "canvas",
+              "name": "Canvas",
+              "futureView": {
+                "nested": [
+                  null,
+                  42
+                ]
+              },
+              "nodes": [
+                {
+                  "id": "file",
+                  "kind": "file",
+                  "title": "File",
+                  "x": 0,
+                  "y": 0,
+                  "w": 320,
+                  "h": 200,
+                  "path": "a.ts",
+                  "location": {
+                    "line": 3
+                  }
+                },
+                {
+                  "id": "chat",
+                  "kind": "chat",
+                  "title": "Chat",
+                  "x": 340,
+                  "y": 0,
+                  "w": 320,
+                  "h": 200,
+                  "machine": "B"
+                }
+              ],
+              "texts": [
+                {
+                  "id": "t",
+                  "x": 0,
+                  "y": 240,
+                  "text": "Note",
+                  "size": 16,
+                  "futureStyle": "wavy"
+                }
+              ],
+              "edges": [],
+              "layouts": [
+                {
+                  "name": "Layout",
+                  "futureLayout": true,
+                  "nodes": {
+                    "file": {
+                      "x": 0,
+                      "y": 0,
+                      "w": 320,
+                      "h": 200,
+                      "futureRect": 1
+                    }
+                  },
+                  "texts": {
+                    "t": {
+                      "x": 0,
+                      "y": 240,
+                      "futureRect": 2
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "chat-view",
+              "kind": "chat",
+              "name": "Chat",
+              "futureView": 1,
+              "node": {
+                "futureFlag": true
+              }
+            },
+            {
+              "id": "sep",
+              "kind": "separator",
+              "futureView": 2
+            }
+          ]
+        }
+      },
+      "valid": true,
+      "output": {
+        "projectId": "p",
+        "baseRev": 3,
+        "content": {
+          "name": "Kept",
+          "color": "",
+          "views": [
+            {
+              "id": "v",
+              "name": "Canvas",
+              "kind": "canvas",
+              "nodes": [
+                {
+                  "id": "file",
+                  "kind": "file",
+                  "title": "File",
+                  "x": 0,
+                  "y": 0,
+                  "w": 320,
+                  "h": 200,
+                  "path": "a.ts",
+                  "location": {
+                    "line": 3
+                  }
+                },
+                {
+                  "id": "chat",
+                  "kind": "chat",
+                  "title": "Chat",
+                  "x": 340,
+                  "y": 0,
+                  "w": 320,
+                  "h": 200,
+                  "machine": "B"
+                }
+              ],
+              "texts": [
+                {
+                  "id": "t",
+                  "x": 0,
+                  "y": 240,
+                  "text": "Note",
+                  "size": 16,
+                  "futureStyle": "wavy"
+                }
+              ],
+              "edges": [],
+              "layouts": [
+                {
+                  "name": "Layout",
+                  "nodes": {
+                    "file": {
+                      "x": 0,
+                      "y": 0,
+                      "w": 320,
+                      "h": 200,
+                      "futureRect": 1
+                    }
+                  },
+                  "texts": {
+                    "t": {
+                      "x": 0,
+                      "y": 240,
+                      "futureRect": 2
+                    }
+                  },
+                  "futureLayout": true
+                }
+              ],
+              "futureView": {
+                "nested": [
+                  null,
+                  42
+                ]
+              }
+            },
+            {
+              "id": "chat-view",
+              "name": "Chat",
+              "kind": "chat",
+              "node": {
+                "futureFlag": true
+              },
+              "futureView": 1
+            },
+            {
+              "kind": "separator",
+              "id": "sep",
+              "futureView": 2
+            }
+          ]
+        }
+      }
+    },
+    {
+      "schema": "event.project.changed",
+      "input": {
+        "projectId": "p",
+        "document": {
+          "name": "Kept",
+          "color": "",
+          "views": [
+            {
+              "id": "v",
+              "kind": "canvas",
+              "name": "Canvas",
+              "futureView": {
+                "nested": [
+                  null,
+                  42
+                ]
+              },
+              "nodes": [
+                {
+                  "id": "file",
+                  "kind": "file",
+                  "title": "File",
+                  "x": 0,
+                  "y": 0,
+                  "w": 320,
+                  "h": 200,
+                  "path": "a.ts",
+                  "location": {
+                    "line": 3
+                  }
+                },
+                {
+                  "id": "chat",
+                  "kind": "chat",
+                  "title": "Chat",
+                  "x": 340,
+                  "y": 0,
+                  "w": 320,
+                  "h": 200,
+                  "machine": "B"
+                }
+              ],
+              "texts": [
+                {
+                  "id": "t",
+                  "x": 0,
+                  "y": 240,
+                  "text": "Note",
+                  "size": 16,
+                  "futureStyle": "wavy"
+                }
+              ],
+              "edges": [],
+              "layouts": [
+                {
+                  "name": "Layout",
+                  "futureLayout": true,
+                  "nodes": {
+                    "file": {
+                      "x": 0,
+                      "y": 0,
+                      "w": 320,
+                      "h": 200,
+                      "futureRect": 1
+                    }
+                  },
+                  "texts": {
+                    "t": {
+                      "x": 0,
+                      "y": 240,
+                      "futureRect": 2
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "chat-view",
+              "kind": "chat",
+              "name": "Chat",
+              "futureView": 1,
+              "node": {
+                "futureFlag": true
+              }
+            },
+            {
+              "id": "sep",
+              "kind": "separator",
+              "futureView": 2
+            }
+          ],
+          "version": 3,
+          "rev": 4
+        }
+      },
+      "valid": true,
+      "output": {
+        "projectId": "p",
+        "document": {
+          "name": "Kept",
+          "color": "",
+          "views": [
+            {
+              "id": "v",
+              "name": "Canvas",
+              "kind": "canvas",
+              "nodes": [
+                {
+                  "id": "file",
+                  "kind": "file",
+                  "title": "File",
+                  "x": 0,
+                  "y": 0,
+                  "w": 320,
+                  "h": 200,
+                  "path": "a.ts",
+                  "location": {
+                    "line": 3
+                  }
+                },
+                {
+                  "id": "chat",
+                  "kind": "chat",
+                  "title": "Chat",
+                  "x": 340,
+                  "y": 0,
+                  "w": 320,
+                  "h": 200,
+                  "machine": "B"
+                }
+              ],
+              "texts": [
+                {
+                  "id": "t",
+                  "x": 0,
+                  "y": 240,
+                  "text": "Note",
+                  "size": 16,
+                  "futureStyle": "wavy"
+                }
+              ],
+              "edges": [],
+              "layouts": [
+                {
+                  "name": "Layout",
+                  "nodes": {
+                    "file": {
+                      "x": 0,
+                      "y": 0,
+                      "w": 320,
+                      "h": 200,
+                      "futureRect": 1
+                    }
+                  },
+                  "texts": {
+                    "t": {
+                      "x": 0,
+                      "y": 240,
+                      "futureRect": 2
+                    }
+                  },
+                  "futureLayout": true
+                }
+              ],
+              "futureView": {
+                "nested": [
+                  null,
+                  42
+                ]
+              }
+            },
+            {
+              "id": "chat-view",
+              "name": "Chat",
+              "kind": "chat",
+              "node": {
+                "futureFlag": true
+              },
+              "futureView": 1
+            },
+            {
+              "kind": "separator",
+              "id": "sep",
+              "futureView": 2
+            }
+          ],
+          "version": 3,
+          "rev": 4
+        }
+      }
+    },
+    {
       "schema": "request.chat.send.payload",
       "input": {
         "chatId": "c",
