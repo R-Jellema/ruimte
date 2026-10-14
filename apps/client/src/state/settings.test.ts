@@ -52,6 +52,15 @@ describe('a view an agent asks for', () => {
     });
 });
 
+describe('the tiles of a chat map', () => {
+    test('load unless a person turned them off, also for a client that stored nothing about them', () => {
+        expect(settingsFrom({}).chatMapTiles).toBe(true);
+        expect(settingsFrom({ accent: 'blue' }).chatMapTiles).toBe(true);
+        expect(settingsFrom({ chatMapTiles: true }).chatMapTiles).toBe(true);
+        expect(settingsFrom({ chatMapTiles: false }).chatMapTiles).toBe(false);
+    });
+});
+
 describe('keeping the machine awake', () => {
     const legacy = (value: unknown): Partial<Settings> => ({ agentsKeepAwake: value }) as Partial<Settings>;
 

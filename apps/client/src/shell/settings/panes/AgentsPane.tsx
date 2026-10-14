@@ -119,6 +119,7 @@ function AgentDefaultsSection() {
 function ChatsSection() {
     const { t } = useTranslation('settings');
     const agentsShowViews = useSettings((s) => s.agentsShowViews);
+    const chatMapTiles = useSettings((s) => s.chatMapTiles);
     const chatStreaming = useSettings((s) => s.chatStreaming);
     const chatSteerByDefault = useSettings((s) => s.chatSteerByDefault);
     const update = useSettings((s) => s.update);
@@ -195,6 +196,14 @@ function ChatsSection() {
                         onCheckedChange={(checked) => update({ agentsShowViews: checked })}
                         label={t('agents.chats.showViews.label')}
                     />
+                }
+            />
+            <SettingsRow
+                searchId="agents.chats.mapTiles"
+                label={t('agents.chats.mapTiles.label')}
+                description={t('agents.chats.mapTiles.description')}
+                control={
+                    <Switch checked={chatMapTiles} onCheckedChange={(checked) => update({ chatMapTiles: checked })} label={t('agents.chats.mapTiles.label')} />
                 }
             />
         </SettingsSection>

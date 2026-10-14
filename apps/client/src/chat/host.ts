@@ -10,6 +10,7 @@ import { FEATURED_ACCENTS, NODE_ACCENTS, accentLabel, type AccentId } from '@/ca
 import { searchFiles } from '@/chat/file-search';
 import { openLogin } from '@/chat/login';
 import { gitStatusConcernsChat } from '@/chat/ui-refresh';
+import { useMapSource } from '@/chat/use-map-source';
 import { visualHostFor } from '@/chat/visuals';
 import { desktop, isApplePlatform } from '@/desktop/bridge';
 import { downloadBlob } from '@/download';
@@ -93,6 +94,7 @@ export const CHAT_HOST: Partial<ChatHost> = {
         current: () => useSettings.getState().accent
     },
     isApplePlatform,
+    maps: { useSource: useMapSource },
     notify: (toast) => void useToasts.getState().show(toast),
     actions: PERSON_CHAT_ACTIONS,
     intelligentUi: {

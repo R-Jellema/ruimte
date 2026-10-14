@@ -181,6 +181,8 @@ export default defineConfig(({ mode }) => ({
     optimizeDeps: {
         // Source exports in the shared React packages are TSX and can import CommonJS dependencies.
         extensions: ['.tsx'],
+        // The map finds MapLibre's worker by `new URL('maplibre-gl/dist/...', import.meta.url)`; a pre-bundled copy resolves that to a folder that is not there.
+        exclude: ['@adecore/agents-react'],
         include: ['@base-ui/react/menu', '@base-ui/react/dialog', 'lucide-react', 'clsx']
     },
     server: {

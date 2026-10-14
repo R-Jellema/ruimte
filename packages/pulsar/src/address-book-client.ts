@@ -29,6 +29,7 @@ import {
     type SessionRefreshPayload,
     type SessionResult
 } from './address-book.ts';
+import { MapsTicketSchema, type MapsTicket } from './maps.ts';
 import {
     DeviceLinkCompleteResultSchema,
     DeviceLinkLookupResultSchema,
@@ -156,6 +157,11 @@ export class AddressBookClient {
 
     completeDeviceLink(payload: DeviceLinkCompletePayload): Promise<DeviceLinkCompleteResult> {
         return this.call({ method: 'POST', path: '/v1/device/complete', body: payload, schema: DeviceLinkCompleteResultSchema });
+    }
+
+    /* A ticket for the maps service, good for an hour, for the account this session belongs to. */
+    async mapsTicket(accessToken: string): Promise<MapsTicket> {
+        return this.call({ method: 'POST', path: '/v1/maps/ticket', token: accessToken, body: {}, schema: MapsTicketSchema });
     }
 
     async cancelDeviceLink(payload: DeviceCodePayload): Promise<void> {

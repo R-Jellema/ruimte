@@ -33,6 +33,21 @@ function directiveOf(policy: string, name: string): string[] | undefined {
         ?.slice(1);
 }
 
+describe('the client policy and a chat map', () => {
+    /*
+     * MapLibre draws on a canvas, parses tiles in workers it starts from a blob that imports the bundled worker file, and
+     * fetches the style, tiles, glyphs and sprites of the map service over https: nothing else of the page is opened for it.
+     */
+    test('lets the map service be fetched, its worker run and its sprites draw, and needs no eval', () => {
+        const policy = cspString();
+        expect(directiveOf(policy, 'connect-src')).toContain('https:');
+        expect(directiveOf(policy, 'worker-src')).toEqual(expect.arrayContaining(["'self'", 'blob:']));
+        expect(directiveOf(policy, 'img-src')).toEqual(expect.arrayContaining(['blob:', 'data:', 'https:']));
+        expect(directiveOf(policy, 'script-src')).not.toContain("'unsafe-eval'");
+        expect(directiveOf(policy, 'style-src')).toContain("'unsafe-inline'");
+    });
+});
+
 describe('the client policy and visuals', () => {
     test('a frame of the client shows only what its own origin serves, which is where the host page of a visual is', () => {
         expect(directiveOf(cspString(), 'frame-src')).toEqual(["'self'"]);

@@ -834,6 +834,10 @@
                 "label": "Een agent een weergave laten tonen",
                 "description": "Aan vervangt de weergave waarin je werkt door de weergave die een agent opent, en een banner brengt je terug. Uit biedt de banner een knop om ernaartoe te gaan."
             },
+            "mapTiles": {
+                "label": "Kaarttegels",
+                "description": "Kaarten in chats laden hun tegels via de kaartdienst van Ruimte. Uit toont een kaart een eenvoudige omtrek en de lijst met plekken."
+            },
             "sendKey": {
                 "label": "Versturen met",
                 "description": "Welke toets een bericht uit het invoerveld verstuurt. Waar Enter niet verstuurt, voegt het een regel toe."

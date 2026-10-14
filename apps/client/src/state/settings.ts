@@ -227,6 +227,8 @@ export interface Settings {
        Making is shared and the daemon enforces it; looking is one person at one screen, so moving
        someone's eyes is the one thing that is asked rather than done. */
     agentsShowViews: boolean;
+    /* Whether the maps in chats load their tiles through Ruimte's map service. On to start with; off, a map is the outline of the world and the list of its places. */
+    chatMapTiles: boolean;
     /* When this computer stays awake. About the computer this window runs on and nothing else, which is
        why it sits with the client and not with a project or a daemon. Off to start with: a laptop
        that never sleeps is not something to arrange behind someone. */
@@ -324,6 +326,7 @@ const DEFAULT_SETTINGS: Settings = {
     voiceConfirmDestructiveActions: true,
     updatesAutoDownload: true,
     agentsShowViews: false,
+    chatMapTiles: true,
     keepAwake: 'off',
     keepAwakeOnBattery: false,
     keepAwakeDisplay: false,
@@ -391,6 +394,8 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         accent: NODE_ACCENTS.find((entry) => entry.id === stored.accent)?.id ?? DEFAULT_SETTINGS.accent,
         // Nothing moves a person's eyes unless that person said so, so only a stored `true` turns it on.
         agentsShowViews: stored.agentsShowViews === true,
+        // On unless a person turned it off, so a client that stored nothing yet draws maps.
+        chatMapTiles: stored.chatMapTiles !== false,
         // Same rule. Nothing keeps a laptop from sleeping unless a person asked for it.
         keepAwake: keepAwakeFrom(stored.keepAwake, (stored as Partial<Settings> & { agentsKeepAwake?: unknown }).agentsKeepAwake),
         keepAwakeOnBattery: stored.keepAwakeOnBattery === true,
@@ -536,6 +541,7 @@ export const useSettings = create<SettingsStore>((set, get) => {
                 voiceConfirmDestructiveActions,
                 updatesAutoDownload,
                 agentsShowViews,
+                chatMapTiles,
                 keepAwake,
                 keepAwakeOnBattery,
                 keepAwakeDisplay,
@@ -596,6 +602,7 @@ export const useSettings = create<SettingsStore>((set, get) => {
                 voiceConfirmDestructiveActions,
                 updatesAutoDownload,
                 agentsShowViews,
+                chatMapTiles,
                 keepAwake,
                 keepAwakeOnBattery,
                 keepAwakeDisplay,
