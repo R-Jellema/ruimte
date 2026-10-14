@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
     packageStatus,
@@ -12,7 +13,7 @@ import {
     type LinkPackage
 } from './adecore.ts';
 
-const root = mkdtempSync('/private/tmp/ruimte-adecore-integration-');
+const root = mkdtempSync(join(realpathSync(tmpdir()), 'ruimte-adecore-integration-'));
 const ruimte = join(root, 'ruimte');
 const adecore = join(root, 'adecore');
 const core = join(adecore, 'packages/editor-core');
