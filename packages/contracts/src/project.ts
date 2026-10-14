@@ -153,7 +153,9 @@ export const ProjectNodeSchema = keepingUnknown(
         // File only: relative to the project folder and POSIX, so it holds in another checkout; absolute outside it.
         path: z.string().optional(),
         // Unknown kind only: the entry exactly as it was read.
-        raw: RawEntrySchema.optional()
+        raw: RawEntrySchema.optional(),
+        // The daemon id of the machine the node runs on. The daemon lays it over what it sends and never writes it to a project file.
+        machine: z.string().min(1).optional()
     })
 );
 export type ProjectNode = z.infer<typeof ProjectNodeSchema>;
@@ -516,7 +518,9 @@ export const ProjectCanvasViewSchema = ViewBaseSchema.extend({
     nodes: z.array(CanvasNodeSchema),
     texts: z.array(ProjectTextSchema),
     edges: z.array(ProjectEdgeSchema),
-    layouts: z.array(ProjectLayoutSchema).default([])
+    layouts: z.array(ProjectLayoutSchema).default([]),
+    // A canvas a machine keeps for the nodes another machine runs here: no list or tab shows it.
+    hidden: z.boolean().optional()
 });
 export type ProjectCanvasView = z.infer<typeof ProjectCanvasViewSchema>;
 
@@ -692,12 +696,16 @@ export function isHiddenChatView(view: ProjectView): view is ProjectChatView {
     return view.kind === 'chat' && view.hidden === true;
 }
 
-export function isUnlistedChatView(view: ProjectView): view is ProjectChatView {
-    return isEmptyChatView(view) || isHiddenChatView(view);
+export function isHiddenView(view: ProjectView): view is ProjectChatView | ProjectCanvasView {
+    return (view.kind === 'chat' || view.kind === 'canvas') && view.hidden === true;
+}
+
+export function isUnlistedView(view: ProjectView): boolean {
+    return isEmptyChatView(view) || isHiddenView(view);
 }
 
 export function isOpenableView(view: ProjectView): boolean {
-    return !isDividerView(view) && view.kind !== UNKNOWN_KIND && !isHiddenChatView(view);
+    return !isDividerView(view) && view.kind !== UNKNOWN_KIND && !isHiddenView(view);
 }
 
 export function storedViewOf(view: ProjectView): unknown {

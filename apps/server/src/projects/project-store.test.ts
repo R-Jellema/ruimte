@@ -1503,30 +1503,30 @@ describe('fields this version does not know', () => {
     });
 
     test('a private field of a newer Ruimte stays in the overlay, out of the shared file, with its list', async () => {
-        const projectId = await seed([canvasView([CHAT])], { overlay: { c1: { machine: 'B' } }, overlayFields: ['machine'] });
+        const projectId = await seed([canvasView([CHAT])], { overlay: { c1: { sandbox: 'B' } }, overlayFields: ['sandbox'] });
         const opened = await store.openProject({ projectId });
-        expect(canvas(opened.document).nodes[0]).toMatchObject({ machine: 'B' });
+        expect(canvas(opened.document).nodes[0]).toMatchObject({ sandbox: 'B' });
 
         await store.save(projectId, 0, contentOf(opened.document), opened.document.shared);
-        expect(await sharedText()).not.toContain('machine');
+        expect(await sharedText()).not.toContain('sandbox');
         const file = JSON.parse(await privateText()) as { overlay: Record<string, unknown>; overlayFields: string[] };
-        expect(file.overlay.c1).toEqual({ machine: 'B' });
-        expect(file.overlayFields).toEqual(['machine']);
+        expect(file.overlay.c1).toEqual({ sandbox: 'B' });
+        expect(file.overlayFields).toEqual(['sandbox']);
     });
 
     test('a duplicate of such a node under a new id keeps the field private as well', async () => {
-        const projectId = await seed([canvasView([CHAT])], { overlay: { c1: { machine: 'B' } }, overlayFields: ['machine'] });
+        const projectId = await seed([canvasView([CHAT])], { overlay: { c1: { sandbox: 'B' } }, overlayFields: ['sandbox'] });
         const opened = await store.openProject({ projectId });
         const document = contentOf(opened.document);
         const view = canvas(document);
         canvas(document).nodes.push({ ...view.nodes[0]!, id: 'c2' });
         await store.save(projectId, 0, document, opened.document.shared);
-        expect(await sharedText()).not.toContain('machine');
-        expect(JSON.parse(await privateText()).overlay.c2).toEqual({ machine: 'B' });
+        expect(await sharedText()).not.toContain('sandbox');
+        expect(JSON.parse(await privateText()).overlay.c2).toEqual({ sandbox: 'B' });
     });
 
     test('a stale save is refused and both files still hold the fields, and a save on the new rev keeps them', async () => {
-        const projectId = await seed([canvasView([FILE_NODE, CHAT, NOTE])], { overlay: { c1: { machine: 'B' } }, overlayFields: ['machine'] });
+        const projectId = await seed([canvasView([FILE_NODE, CHAT, NOTE])], { overlay: { c1: { sandbox: 'B' } }, overlayFields: ['sandbox'] });
         const opened = await store.openProject({ projectId });
         await store.mutate(projectId, (current) => {
             const view = current.views[0] as ProjectCanvasView;
@@ -1536,17 +1536,17 @@ describe('fields this version does not know', () => {
 
         await expect(store.save(projectId, 0, contentOf(opened.document), opened.document.shared)).rejects.toMatchObject({ code: 'rev-conflict' });
         expect(await sharedText()).toContain('"location"');
-        expect(JSON.parse(await privateText()).overlay.c1).toEqual({ machine: 'B' });
+        expect(JSON.parse(await privateText()).overlay.c1).toEqual({ sandbox: 'B' });
 
         const current = await store.read(projectId);
         expect(await store.save(projectId, await store.revision(projectId), current, opened.document.shared)).toBe(2);
         expect(await sharedText()).toContain('"location"');
-        expect(await sharedText()).not.toContain('machine');
-        expect(JSON.parse(await privateText()).overlay.c1).toEqual({ machine: 'B' });
+        expect(await sharedText()).not.toContain('sandbox');
+        expect(JSON.parse(await privateText()).overlay.c1).toEqual({ sandbox: 'B' });
     });
 
     test('a pull that brings a new unknown key keeps it, and leaves the overlay alone', async () => {
-        const projectId = await seed([canvasView([FILE_NODE, CHAT])], { overlay: { c1: { machine: 'B' } }, overlayFields: ['machine'] });
+        const projectId = await seed([canvasView([FILE_NODE, CHAT])], { overlay: { c1: { sandbox: 'B' } }, overlayFields: ['sandbox'] });
         const opened = await store.openProject({ projectId });
         store.hold('c1', projectId);
         await store.save(projectId, 0, contentOf(opened.document), opened.document.shared, 'c1');
@@ -1561,8 +1561,8 @@ describe('fields this version does not know', () => {
         expect(changed.at(-1)).toMatchObject({ payload: { document: { rev: 2 } } });
         expect(canvas((await store.openProject({ projectId })).document).nodes[0]).toMatchObject({ location: { line: 3 }, pinned: true });
         const file = JSON.parse(await privateText()) as { rev: number; overlay: Record<string, unknown>; overlayFields: string[] };
-        expect(file).toMatchObject({ rev: 2, overlay: { c1: { machine: 'B' } }, overlayFields: ['machine'] });
-        expect(await sharedText()).not.toContain('machine');
+        expect(file).toMatchObject({ rev: 2, overlay: { c1: { sandbox: 'B' } }, overlayFields: ['sandbox'] });
+        expect(await sharedText()).not.toContain('sandbox');
     });
 });
 

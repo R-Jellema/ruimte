@@ -67,3 +67,12 @@ test('a chat an inline edit runs in is not listed, and no view picker opens it',
     expect(projectSidebarViews(views, []).map((view) => view.id)).toEqual(['written']);
     expect(views.filter(isOpenableView).map((view) => view.id)).toEqual(['written']);
 });
+
+test('a canvas kept for another machine is not listed, and no view picker opens it', () => {
+    const views: ProjectView[] = [
+        { id: 'main', kind: 'canvas', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] },
+        { id: 'peer-a', kind: 'canvas', name: 'MacBook Pro', nodes: [], texts: [], edges: [], layouts: [], hidden: true }
+    ];
+    expect(projectSidebarViews(views, []).map((view) => view.id)).toEqual(['main']);
+    expect(views.filter(isOpenableView).map((view) => view.id)).toEqual(['main']);
+});

@@ -5,7 +5,7 @@ import {
     ProjectSummaryResultSchema,
     isCanvasView,
     isSessionView,
-    isUnlistedChatView,
+    isUnlistedView,
     NodeTitleSourceSchema,
     ProjectIconChoiceSchema,
     ProjectSummarySchema,
@@ -61,10 +61,10 @@ export const ProjectSummaryEventSchema = ProjectSummaryResultSchema.extend({
 export type ProjectSummaryEvent = z.infer<typeof ProjectSummaryEventSchema>;
 
 /* Keep canvas geometry, note text and embedded files off background sidebar requests. A chat nobody
-   wrote in yet and a chat an inline edit runs in are not listed, so the rows a client builds for its own project read the same. */
+   wrote in yet, a chat an inline edit runs in and a canvas kept for another machine are not listed, so the rows a client builds for its own project read the same. */
 export function projectSidebarViews(views: readonly ProjectView[], shared: readonly string[], flags?: ProjectFlags): ProjectSidebarView[] {
     return views
-        .filter((view): boolean => !isUnlistedChatView(view))
+        .filter((view): boolean => !isUnlistedView(view))
         .map((view) => {
             const provider = view.kind === 'chat' || view.kind === 'terminal' ? (view.node.provider ?? null) : null;
             const flag = flagOf(flags, view.id);

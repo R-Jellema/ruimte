@@ -195,6 +195,27 @@ describe('splitContent', () => {
     });
 });
 
+describe('the machine a node runs on', () => {
+    test('is written to neither file, whether the canvas travels or stays', () => {
+        const views = [canvas('shared', [node('n1', { machine: 'B' })]), canvas('own', [node('n2', { machine: 'B' })]), chatView('c1', { machine: 'B' })];
+        const split = splitContent(content(views), ['shared'], 1);
+        expect(JSON.stringify(split.shared)).not.toContain('machine');
+        expect(JSON.stringify(split.private)).not.toContain('machine');
+        expect(split.private.views).toHaveLength(2);
+    });
+
+    test('is not believed when a file names it', () => {
+        const file = { ...EMPTY_PRIVATE_FILE, order: ['shared', 'own'], views: [canvas('own', [node('n2', { machine: 'B' })])] };
+        const shared: ProjectSharedFile = {
+            version: PROJECT_VERSION,
+            name: 'repo',
+            color: '#7c74ff',
+            views: [canvas('shared', [node('n1', { machine: 'B' })])]
+        };
+        expect(JSON.stringify(mergeFiles(shared, file, fallback).content)).not.toContain('machine');
+    });
+});
+
 describe('mergeFiles', () => {
     test('what the split took apart comes back the same, overlay and order included', () => {
         const before = content([canvas('main', [node('n1', { resume: 'sess-1', cwd: '/etc' })]), chatView('c1', { resume: 'sess-2' }), canvas('own')]);
@@ -313,7 +334,7 @@ describe('overlayOfLegacy', () => {
 describe("fields a newer Ruimte keeps one person's", () => {
     const overlayFile = (overlayFields?: string[]) => ({
         ...EMPTY_PRIVATE_FILE,
-        overlay: { n1: { machine: 'B' } as never },
+        overlay: { n1: { sandbox: 'B' } as never },
         order: ['main'],
         ...(overlayFields ? { overlayFields } : {})
     });
@@ -326,37 +347,37 @@ describe("fields a newer Ruimte keeps one person's", () => {
     const nodesOf = (file: { views: ProjectView[] }) => (file.views[0] as ProjectCanvasView).nodes;
 
     test('a listed field in the overlay merges onto the node and splits back without reaching the shared file', () => {
-        const merged = mergeFiles(sharedOf(node('n1')), overlayFile(['machine']), fallback);
-        expect(nodesOf(merged.content)[0]).toEqual(node('n1', { machine: 'B' }));
+        const merged = mergeFiles(sharedOf(node('n1')), overlayFile(['sandbox']), fallback);
+        expect(nodesOf(merged.content)[0]).toEqual(node('n1', { sandbox: 'B' }));
         const split = splitContent(merged.content, merged.shared, 2, merged.overlayFields);
         expect(nodesOf(split.shared)[0]).toEqual(node('n1'));
-        expect(split.private.overlay.n1).toEqual({ machine: 'B' } as never);
-        expect(split.private.overlayFields).toEqual(['machine']);
+        expect(split.private.overlay.n1).toEqual({ sandbox: 'B' } as never);
+        expect(split.private.overlayFields).toEqual(['sandbox']);
     });
 
     test('a duplicate under a new id moves its private field into the overlay too', () => {
-        const split = splitContent(content([canvas('main', [node('copy', { machine: 'B' })])]), ['main'], 1, ['machine']);
+        const split = splitContent(content([canvas('main', [node('copy', { sandbox: 'B' })])]), ['main'], 1, ['sandbox']);
         expect(nodesOf(split.shared)[0]).toEqual(node('copy'));
-        expect(split.private.overlay.copy).toEqual({ machine: 'B' } as never);
+        expect(split.private.overlay.copy).toEqual({ sandbox: 'B' } as never);
     });
 
     test('a field found in the overlay is private without a list, and the written file names it', () => {
         const merged = mergeFiles(sharedOf(node('n1')), overlayFile(), fallback);
-        expect(merged.overlayFields).toEqual(['machine']);
+        expect(merged.overlayFields).toEqual(['sandbox']);
         const split = splitContent(merged.content, merged.shared, 2, merged.overlayFields);
-        expect(split.private.overlay.n1).toEqual({ machine: 'B' } as never);
-        expect(split.private.overlayFields).toEqual(['machine']);
+        expect(split.private.overlay.n1).toEqual({ sandbox: 'B' } as never);
+        expect(split.private.overlayFields).toEqual(['sandbox']);
     });
 
     test('the field is dropped from the shared file when listed', () => {
-        const merged = mergeFiles(sharedOf(node('n1', { machine: 'theirs' }), node('n2', { machine: 'theirs' })), overlayFile(['machine']), fallback);
-        expect(nodesOf(merged.content)[0]).toEqual(node('n1', { machine: 'B' }));
+        const merged = mergeFiles(sharedOf(node('n1', { sandbox: 'theirs' }), node('n2', { sandbox: 'theirs' })), overlayFile(['sandbox']), fallback);
+        expect(nodesOf(merged.content)[0]).toEqual(node('n1', { sandbox: 'B' }));
         expect(nodesOf(merged.content)[1]).toEqual(node('n2'));
     });
 
     test('a listed field this version knows stays where it was', () => {
-        const file = { ...EMPTY_PRIVATE_FILE, overlayFields: ['command', 'machine'] };
-        expect(privateFieldsOf(file)).toEqual(['machine']);
+        const file = { ...EMPTY_PRIVATE_FILE, overlayFields: ['command', 'sandbox'] };
+        expect(privateFieldsOf(file)).toEqual(['sandbox']);
         const split = splitContent(content([canvas('main', [node('n1', { command: 'ls' })])]), ['main'], 1, ['command']);
         expect(nodesOf(split.shared)[0]).toEqual(node('n1', { command: 'ls' }));
         expect(split.private.overlay).toEqual({});
@@ -364,27 +385,27 @@ describe("fields a newer Ruimte keeps one person's", () => {
     });
 
     test('a name every object inherits is no private field, listed or not', () => {
-        const file = { ...EMPTY_PRIVATE_FILE, overlayFields: ['constructor', 'toString', '__proto__', 'machine'] };
-        expect(privateFieldsOf(file)).toEqual(['machine']);
-        const split = splitContent(content([canvas('main', [node('n1', { machine: 'B' })])]), ['main'], 1, ['constructor', 'toString', 'machine']);
-        expect(split.private.overlay.n1).toEqual({ machine: 'B' } as never);
-        expect(split.private.overlayFields).toEqual(['machine']);
+        const file = { ...EMPTY_PRIVATE_FILE, overlayFields: ['constructor', 'toString', '__proto__', 'sandbox'] };
+        expect(privateFieldsOf(file)).toEqual(['sandbox']);
+        const split = splitContent(content([canvas('main', [node('n1', { sandbox: 'B' })])]), ['main'], 1, ['constructor', 'toString', 'sandbox']);
+        expect(split.private.overlay.n1).toEqual({ sandbox: 'B' } as never);
+        expect(split.private.overlayFields).toEqual(['sandbox']);
         expect(nodesOf(split.shared)[0]).toEqual(node('n1'));
     });
 
     test('a view moved to the private file keeps the field inline, and sharing it again puts it back in the overlay', () => {
-        const before = content([canvas('main', [node('n1', { machine: 'B' })])]);
-        const privateSplit = splitContent(before, [], 1, ['machine']);
-        expect(nodesOf({ views: privateSplit.private.views })[0]).toEqual(node('n1', { machine: 'B' }));
-        expect(privateSplit.private.overlayFields).toEqual(['machine']);
+        const before = content([canvas('main', [node('n1', { sandbox: 'B' })])]);
+        const privateSplit = splitContent(before, [], 1, ['sandbox']);
+        expect(nodesOf({ views: privateSplit.private.views })[0]).toEqual(node('n1', { sandbox: 'B' }));
+        expect(privateSplit.private.overlayFields).toEqual(['sandbox']);
         const merged = mergeFiles(null, privateSplit.private, fallback);
         const again = splitContent(merged.content, ['main'], 2, merged.overlayFields);
         expect(nodesOf(again.shared)[0]).toEqual(node('n1'));
-        expect(again.private.overlay.n1).toEqual({ machine: 'B' } as never);
+        expect(again.private.overlay.n1).toEqual({ sandbox: 'B' } as never);
     });
 
     test('an unknown field that is not private goes to the shared file', () => {
-        const split = splitContent(content([canvas('main', [node('n1', { location: { line: 3 } })])]), ['main'], 1, ['machine']);
+        const split = splitContent(content([canvas('main', [node('n1', { location: { line: 3 } })])]), ['main'], 1, ['sandbox']);
         expect(nodesOf(split.shared)[0]).toEqual(node('n1', { location: { line: 3 } }));
         expect(split.private.overlay).toEqual({});
     });

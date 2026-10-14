@@ -106,13 +106,13 @@ describe('fields of a stored entry this version does not know', () => {
     });
 
     test('the overlay keeps a private field of a newer Ruimte', () => {
-        expect(ProjectNodeOverlaySchema.parse({ cwd: 'src', machine: 'B' })).toEqual({ cwd: 'src', machine: 'B' } as never);
+        expect(ProjectNodeOverlaySchema.parse({ cwd: 'src', sandbox: 'B' })).toEqual({ cwd: 'src', sandbox: 'B' } as never);
     });
 
     test('a loose pick drops the node keys it did not pick instead of leaving them unchecked', () => {
         const hostile = { cwd: 'src', futureFlag: true, id: 'other', kind: 'browser', x: 'bad', w: -5, title: 7, memberIds: 'nope', worktree: 3 };
         expect(StandaloneNodeSchema.parse(hostile)).toEqual({ cwd: 'src', futureFlag: true } as never);
-        expect(ProjectNodeOverlaySchema.parse({ cwd: 'src', machine: 'B', x: 'bad', id: 'other' })).toEqual({ cwd: 'src', machine: 'B' } as never);
+        expect(ProjectNodeOverlaySchema.parse({ cwd: 'src', sandbox: 'B', x: 'bad', id: 'other' })).toEqual({ cwd: 'src', sandbox: 'B' } as never);
         expect(ProjectNodeOverlaySchema.parse({ title: 'Named', name: 'View' })).toEqual({ title: 'Named', name: 'View' });
     });
 

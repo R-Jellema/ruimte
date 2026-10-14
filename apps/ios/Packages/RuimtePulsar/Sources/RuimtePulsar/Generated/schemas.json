@@ -30403,6 +30403,10 @@
                               "type": "string"
                             },
                             "additionalProperties": {}
+                          },
+                          "machine": {
+                            "type": "string",
+                            "minLength": 1
                           }
                         },
                         "required": [
@@ -30634,6 +30638,9 @@
                         ],
                         "additionalProperties": {}
                       }
+                    },
+                    "hidden": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -33922,6 +33929,10 @@
                               "type": "string"
                             },
                             "additionalProperties": {}
+                          },
+                          "machine": {
+                            "type": "string",
+                            "minLength": 1
                           }
                         },
                         "required": [
@@ -34153,6 +34164,9 @@
                         ],
                         "additionalProperties": {}
                       }
+                    },
+                    "hidden": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -62886,6 +62900,10 @@
                               "type": "string"
                             },
                             "additionalProperties": {}
+                          },
+                          "machine": {
+                            "type": "string",
+                            "minLength": 1
                           }
                         },
                         "required": [
@@ -63117,6 +63135,9 @@
                         ],
                         "additionalProperties": {}
                       }
+                    },
+                    "hidden": {
+                      "type": "boolean"
                     }
                   },
                   "required": [

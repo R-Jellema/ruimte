@@ -100,7 +100,7 @@ function overlayOfCarrier(carrier: Carrier, privateFields: readonly string[]): C
  * found there is not this person's and must not start anything: drop all `splitContent` never writes.
  */
 function trustedOfShared<T extends Carrier>(carrier: T, privateFields: readonly string[]): T {
-    const trusted = { ...carrier };
+    const trusted = withoutMachine({ ...carrier });
     for (const field of OVERLAY_FIELDS) {
         delete trusted[field];
     }
@@ -114,6 +114,16 @@ function trustedOfShared<T extends Carrier>(carrier: T, privateFields: readonly 
         }
     }
     return trusted;
+}
+
+// The binding of a node to a machine lives under the daemon's home; a file that names one is a hand edit or a colleague's.
+function withoutMachine<T extends object>(carrier: T): T {
+    if (!('machine' in carrier)) {
+        return carrier;
+    }
+    const stripped = { ...carrier } as Record<string, unknown>;
+    delete stripped.machine;
+    return stripped as T;
 }
 
 function withoutOverlay<T extends Carrier>(carrier: T, overlay: CarrierOverlay): T {
@@ -247,11 +257,12 @@ export interface ProjectSplit {
 
 export function splitContent(content: ProjectContent, shared: readonly string[], rev: number, overlayFields: readonly string[] = []): ProjectSplit {
     const privateFields = privateFieldsAmong(overlayFields);
-    const ids = sharedIdsOf(content.views, shared);
+    const views = content.views.map((view) => withCarriers(view, (_id, carrier) => withoutMachine(carrier)));
+    const ids = sharedIdsOf(views, shared);
     const overlay: Record<string, ProjectNodeOverlay> = {};
     const travelling: ProjectView[] = [];
     const rest: ProjectView[] = [];
-    for (const view of content.views) {
+    for (const view of views) {
         if (!ids.has(view.id)) {
             rest.push(view);
             continue;
@@ -350,7 +361,11 @@ export function mergeFiles(
             name: shared?.name ?? fallback.name,
             color: shared?.color ?? fallback.color,
             ...(shared?.icon ? { icon: shared.icon } : {}),
-            views: orderedViews(sharedViews, file.views, file.order),
+            views: orderedViews(
+                sharedViews,
+                file.views.map((view) => withCarriers(view, (_id, carrier) => withoutMachine(carrier))),
+                file.order
+            ),
             ...(file.flags ? { flags: file.flags } : {}),
             ...(file.sql ? { sql: file.sql } : {})
         },

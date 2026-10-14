@@ -3,7 +3,7 @@ import { ChartNoAxesColumn, Plus, Settings } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { usePanelGap } from '@/shell/panel-layout';
-import { isSessionView, isUnlistedChatView, type AgentKind, viewIconOf } from '@ruimte/contracts';
+import { isSessionView, isUnlistedView, type AgentKind, viewIconOf } from '@ruimte/contracts';
 import { useShallow } from 'zustand/react/shallow';
 import { moveViewAction } from '@/actions/client-actions';
 import { useDrafts } from '@adecore/agents-react/chat';
@@ -152,7 +152,7 @@ export function Sidebar() {
                     nodes: live.filter((node) => isSessionKind(node.kind)).map(asRow),
                     // Only a session view is a node of its own; a divider and a drawing have no status.
                     self: isSessionView(view) ? asRow({ id: view.id, kind: view.kind, title: view.name, titleSource: view.titleSource, provider }) : null,
-                    hidden: isUnlistedChatView(view)
+                    hidden: isUnlistedView(view)
                 };
             })
         }),
