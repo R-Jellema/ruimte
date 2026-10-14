@@ -21,3 +21,15 @@ test('the native bridge keeps a good sibling when another node has an unsupporte
     expect(nodes[1].children[0].error).toBeDefined();
     expect(result.diagnostics).toHaveLength(1);
 });
+
+test('the native bridge keeps the compiled fallback of a component beside a known one', () => {
+    const source = '<Summary>Kept</Summary><FutureWidget>Future fallback</FutureWidget>';
+    const block = compileUiBlock(source, { id: 'a', final: true, now: () => 0 });
+    const result = evaluateNativeUi({ block });
+    const nodes = result.nodes as { type: string; fallback: string; error?: string }[];
+    expect(nodes.map((node) => node.type)).toEqual(['Summary', 'FutureWidget']);
+    expect(nodes[0].error).toBeUndefined();
+    expect(nodes[1].error).toBe('unknown_component');
+    expect(nodes[1].fallback).toBe(block.nodes[1].fallback);
+    expect(nodes[1].fallback).toContain('Future fallback');
+});

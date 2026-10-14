@@ -52,6 +52,18 @@ final class IntelligentUIPresentationTests: XCTestCase {
         XCTAssertEqual(UiFallbackProblem.of(fine, catalogVersion: 2), .unknown("Summary"))
     }
 
+    func testAComponentFromANewerDaemonFallsBackAloneBesideItsSiblings() throws {
+        let map = try node(
+            #"{"id":"m","type":"Map","props":{"places":[]},"fallback":"Utrecht\nAmsterdam"}"#)
+        let flagged = try node(
+            #"{"id":"n","type":"Map","props":{},"error":"unknown_component","fallback":"Utrecht\nAmsterdam"}"#)
+        let sibling = try node(#"{"id":"s","type":"Summary","props":{}}"#)
+        XCTAssertEqual(UiFallbackProblem.of(map, catalogVersion: 1), .unknown("Map"))
+        XCTAssertEqual(UiFallbackProblem.of(flagged, catalogVersion: 1), .unknown("Map"))
+        XCTAssertEqual(map.fallback, "Utrecht\nAmsterdam")
+        XCTAssertNil(UiFallbackProblem.of(sibling, catalogVersion: 1))
+    }
+
     func testAWholeBlockReadsAsTextOnlyForItsOwnReasons() throws {
         let newer: JSONValue = .object(["catalogVersion": .number(2), "nodes": .array([])])
         XCTAssertEqual(UiBlockText.of(block: newer, evaluated: [], diagnostics: [], error: nil), .unreadable)

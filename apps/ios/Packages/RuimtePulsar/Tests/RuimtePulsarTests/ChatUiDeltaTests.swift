@@ -72,4 +72,18 @@ final class ChatUiDeltaTests: XCTestCase {
         }
         XCTAssertEqual(thought.text, "hi there")
     }
+
+    func testQueryStateIgnoresKeysThisVersionDoesNotKnow() throws {
+        let known = #"{"revision":"r","fallback":"Utrecht","readings":{}}"#
+        let future = #"{"revision":"r","fallback":"Utrecht","readings":{},"routes":{"a":{"state":"found"}}}"#
+        func decode(_ block: String) throws -> ChatUiQueryState {
+            let json = #"{"authorChatId":"chat","extra":1,"blocks":{"block":\#(block)}}"#
+            return try JSONDecoder().decode(ChatUiQueryState.self, from: Data(json.utf8))
+        }
+        let older = try decode(known)
+        let newer = try decode(future)
+        XCTAssertEqual(newer, older)
+        XCTAssertEqual(newer.blocks["block"]?.fallback, "Utrecht")
+        XCTAssertNil(newer.blocks["block"]?.places)
+    }
 }
