@@ -6,6 +6,8 @@ import { PendingPromptStore } from '../agents/pending-prompts.ts';
 import { startCwdGuard } from '../canvas/project-paths.ts';
 import { ChatManager } from '../chat/chat-manager.ts';
 import { ruimteUiSources } from '../chat/ui-sources.ts';
+import type { AuthStore } from '../auth/auth-store.ts';
+import { Geocoder } from '../maps/geocoder.ts';
 import type { ComputerUse } from '../computer/computer-use.ts';
 import { ComputerUseStore } from '../computer/store.ts';
 import { referencedChats } from '../context/chat-references.ts';
@@ -103,6 +105,8 @@ export interface AgentsLater {
 export interface AgentsInput {
     runtime: DaemonRuntime;
     identity: EndpointIdentity;
+    /* Tells whether the machine is on an account, which a map lookup needs. */
+    auth: Pick<AuthStore, 'accountBinding'>;
     stores: AgentStores;
     providers: ProvidersBundle;
     computer: ComputerUse;
@@ -131,7 +135,7 @@ export interface AgentsBundle {
     messagesFor(targetId: string): string[];
 }
 
-export async function wireAgents({ runtime, identity, stores, providers, computer, codexProbe, later }: AgentsInput): Promise<AgentsBundle> {
+export async function wireAgents({ runtime, identity, auth, stores, providers, computer, codexProbe, later }: AgentsInput): Promise<AgentsBundle> {
     const { config } = runtime;
     const { snapshots, prompts, lineage, notices, outbox, tasks, commandApprovals, modeApprovals } = stores;
     const index = () => later.projects().store.index;
@@ -215,9 +219,18 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
     const plans = new PlanStore(config.home);
     const bookmarks = new BookmarkStore(config.home);
     const visuals = new VisualStore(config.home, attachments);
+    const geocoder = new Geocoder({
+        fetch: (url, init) => fetch(url, init),
+        sign: (message) => identity.sign(message),
+        machineId: identity.id,
+        onAccount: async () => (await auth.accountBinding()) != null,
+        now: () => Date.now()
+    });
     const chats: ChatManager = new ChatManager({
         providers: providers.providers,
         intelligentUi: ruimteUiSources({
+            // The daemon cannot know which language the reader uses, so it asks in English; a client words the place from the agent's own text.
+            geocode: (address, signal) => geocoder.geocode(address, 'en', signal),
             place: (chatId) => index().locate(chatId),
             node: (id) => {
                 const place = index().locate(id);

@@ -50,6 +50,66 @@ test('a reply compiles UI blocks under the ruimte-ui fence that stored chats and
     expect(reply?.ui?.[0]?.complete).toBe(true);
 });
 
+describe('the address of a Place', () => {
+    const reply = 'Where\n```ruimte-ui\n<Map><Place address="Domplein 1, Utrecht">Domtoren</Place><Place lat={52.37} lon={4.89}>Amsterdam</Place></Map>\n```';
+
+    /* The query state the last delta that carried one sent to the client: it rides in a delta, not in the item. */
+    const frozenBlocks = () => {
+        const sent = recorder.events.flatMap((event) => (event.type === 'delta' && event.uiQueries !== undefined ? [event.uiQueries] : []));
+        return sent.at(-1)?.blocks ?? {};
+    };
+    const frozen = (): boolean => Object.keys(frozenBlocks()).length > 0;
+
+    test('is looked up once when the reply settles and frozen beside the block, and a later settle does not ask again', async () => {
+        const asked: string[] = [];
+        await retire(manager);
+        manager = makeManager({
+            intelligentUi: {
+                capture: async () => ({}),
+                sources: {},
+                place: async (_info, query) => {
+                    asked.push(query.address);
+                    return { state: 'found', lat: 52.0907, lon: 5.1214, label: 'Domplein, Utrecht' };
+                }
+            }
+        });
+        recorder = new ChatRecorder();
+        manager.subscribe('c1', recorder.sink());
+        await manager.create({ chatId: 'map-chat', cwd: home });
+        manager.attach('map-chat', 'c1');
+        await manager.send('map-chat', reply);
+        await recorder.until(() => frozen() && idle());
+        const blocks = Object.values(frozenBlocks());
+        expect(blocks).toHaveLength(1);
+        expect(Object.values(blocks[0]!.places ?? {})).toEqual([
+            { state: 'found', address: 'Domplein 1, Utrecht', lat: 52.0907, lon: 5.1214, label: 'Domplein, Utrecht' }
+        ]);
+        expect(asked).toEqual(['Domplein 1, Utrecht']);
+        await manager.send('map-chat', 'And now something else');
+        await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+        expect(asked).toEqual(['Domplein 1, Utrecht']);
+    });
+
+    test('a lookup that found nothing is frozen as missing with its code', async () => {
+        await retire(manager);
+        manager = makeManager({
+            intelligentUi: {
+                capture: async () => ({}),
+                sources: {},
+                place: async () => ({ state: 'missing', code: 'no-account', reason: 'This machine is on no account.' })
+            }
+        });
+        recorder = new ChatRecorder();
+        manager.subscribe('c1', recorder.sink());
+        await manager.create({ chatId: 'map-chat', cwd: home });
+        manager.attach('map-chat', 'c1');
+        await manager.send('map-chat', reply);
+        await recorder.until(() => frozen() && idle());
+        const places = Object.values(Object.values(frozenBlocks())[0]!.places ?? {});
+        expect(places).toEqual([{ state: 'missing', address: 'Domplein 1, Utrecht', code: 'no-account', reason: 'This machine is on no account.' }]);
+    });
+});
+
 describe('a chat an inline edit runs in', () => {
     const inline = (): ChatManager => makeManager({ inlineChat: (chatId) => chatId === 'chat-inline' });
 
