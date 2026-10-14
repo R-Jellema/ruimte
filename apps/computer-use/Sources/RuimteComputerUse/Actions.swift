@@ -497,6 +497,8 @@ extension Agent {
         let window: AXUIElement
         /// Nil for an app that takes keys in the window itself.
         let focused: AXUIElement?
+        /// What gets the focus before the keys, nil to leave it where the app keeps it (`KeyAiming`).
+        let aim: AXUIElement?
     }
 
     private func keyTarget(_ app: NSRunningApplication) throws -> KeyTarget {
@@ -513,14 +515,26 @@ extension Agent {
         let focused = focusedElement(app).flatMap { element -> AXUIElement? in
             AX.role(element) == kAXApplicationRole || AX.role(element) == kAXWindowRole ? nil : element
         }
-        return KeyTarget(window: window, focused: focused)
+        return KeyTarget(window: window, focused: focused, aim: focused.flatMap(Self.aim(at:)))
     }
 
-    /// Focuses the element in its own window; `main` also makes the window the app's main one, which raises it among
+    private static func aim(at focused: AXUIElement) -> AXUIElement? {
+        let read = { (element: AXUIElement) in
+            AimElement(node: element, role: AX.role(element), activeDescendant: AX.element(element, "AXActiveDescendant"))
+        }
+        switch KeyAiming.aim(focused: read(focused), ancestors: AX.ancestors(of: focused).map(read)) {
+        case .focus(let element):
+            return element
+        case .leave:
+            return nil
+        }
+    }
+
+    /// Focuses the aimed element in its own window; `main` also makes the window the app's main one, which raises it among
     /// the windows behind the person's work but never activates the app.
     static func aimKeys(_ keys: KeyTarget, main: Bool) {
-        if let focused = keys.focused {
-            AXUIElementSetAttributeValue(focused, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+        if let aim = keys.aim {
+            AXUIElementSetAttributeValue(aim, kAXFocusedAttribute as CFString, kCFBooleanTrue)
         }
         if main && AX.attribute(keys.window, kAXMainAttribute) as? Bool != true {
             AXUIElementSetAttributeValue(keys.window, kAXMainAttribute as CFString, kCFBooleanTrue)
@@ -531,7 +545,7 @@ extension Agent {
     /// the person's work only there. Returns the note for an answer when the focused value did not change.
     private func typeBehind(_ text: String, app: NSRunningApplication, _ keys: KeyTarget) async throws -> String? {
         let pid = app.processIdentifier
-        let valueNow = { keys.focused.flatMap { AX.describe(AX.attribute($0, kAXValueAttribute)) } }
+        let valueNow = { keys.aim.flatMap { AX.describe(AX.attribute($0, kAXValueAttribute)) } }
         let before = valueNow()
         Self.aimKeys(keys, main: true)
         return try await KeysBehind.type(text, before: before, send: { character in
