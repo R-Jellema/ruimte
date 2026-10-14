@@ -24,8 +24,8 @@ async function fixture(run: (view: View) => Promise<void>): Promise<void> {
         import { Toasts } from ${JSON.stringify(join(clientDirectory, 'src/shell/Toasts.tsx'))};
         import words from ${JSON.stringify(join(clientDirectory, 'src/i18n/locales/en/chat.json'))};
         import dutch from ${JSON.stringify(join(clientDirectory, 'src/i18n/locales/nl/chat.json'))};
-        import shared from ${resolve('@adecore/agents-react/locales/en/agent-chat.json')};
-        import sharedDutch from ${resolve('@adecore/agents-react/locales/nl/agent-chat.json')};
+        import shared from ${resolve('@adecore/agents-react/locales/en/agent-chat')};
+        import sharedDutch from ${resolve('@adecore/agents-react/locales/nl/agent-chat')};
         i18next.addResourceBundle('en','chat',words,true,true);
         i18next.addResourceBundle('nl','chat',dutch,true,true);
         i18next.addResourceBundle('en','agent-chat',shared,true,true);
