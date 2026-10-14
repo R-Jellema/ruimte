@@ -1,6 +1,7 @@
-import { describe, expect, test } from 'bun:test';
-import type { GitIssue, ProjectView } from '@ruimte/contracts';
+import { afterEach, describe, expect, test } from 'bun:test';
+import type { GitIssue, ProjectCanvasView, ProjectView } from '@ruimte/contracts';
 import { nodesOfView } from '@/project/view-nodes';
+import { defaultCanvases } from '@/state/canvas';
 import { findIssueNode, issueBranch, issuePrompt } from './issue-start';
 
 const issue: GitIssue = {
@@ -59,5 +60,30 @@ describe('findIssueNode', () => {
     test('finds the first node of the issue when no folder is named', () => {
         expect(findIssueNode([canvas], nodesOfView, issue.url)).toBe('a');
         expect(findIssueNode([canvas], nodesOfView, 'https://github.com/o/r/issues/13')).toBeNull();
+    });
+
+    describe('with the canvas on screen', () => {
+        afterEach(() => {
+            defaultCanvases.release('v1');
+        });
+
+        test('finds a node only its editor holds yet, so a second start reuses it', () => {
+            const saved = { ...canvas, nodes: [] } as unknown as ProjectView;
+            defaultCanvases
+                .of('v1')
+                .getState()
+                .loadView(canvas as ProjectCanvasView, null);
+            expect(findIssueNode([saved], nodesOfView, issue.url, '/wt/one')).toBe('a');
+        });
+
+        test('reads the document again once the canvas leaves the screen', () => {
+            const saved = { ...canvas, nodes: [] } as unknown as ProjectView;
+            defaultCanvases
+                .of('v1')
+                .getState()
+                .loadView(canvas as ProjectCanvasView, null);
+            defaultCanvases.release('v1');
+            expect(findIssueNode([saved], nodesOfView, issue.url, '/wt/one')).toBeNull();
+        });
     });
 });
