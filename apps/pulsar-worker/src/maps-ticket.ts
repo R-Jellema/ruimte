@@ -2,6 +2,7 @@ import {
     MAPS_TICKET_LIFETIME_MS,
     MAPS_TICKET_MACHINE_MAX_SKEW_MS,
     MachineMapsTicketPayloadSchema,
+    mapsSecretBytes,
     mapsTicketMessage,
     mapsTicketSubject,
     signMapsTicket
@@ -42,8 +43,12 @@ export async function issueMapsTicket(request: Request, env: Env): Promise<Respo
     if (limited) {
         return limited;
     }
-    if (!env.MAP_TICKET_SECRET) {
+    const secret = env.MAP_TICKET_SECRET;
+    if (!secret) {
         return failure('not-configured', 'The address book issues no map tickets yet');
+    }
+    if (mapsSecretBytes(secret) === null) {
+        return failure('not-configured', 'The map ticket secret is not 32 bytes of base64url');
     }
     let accountId: string;
     if (request.headers.has('authorization')) {
@@ -72,5 +77,5 @@ export async function issueMapsTicket(request: Request, env: Env): Promise<Respo
     if (perAccount) {
         return perAccount;
     }
-    return json(await signMapsTicket(env.MAP_TICKET_SECRET, await mapsTicketSubject(accountId), Date.now() + MAPS_TICKET_LIFETIME_MS));
+    return json(await signMapsTicket(secret, await mapsTicketSubject(secret, accountId), Date.now() + MAPS_TICKET_LIFETIME_MS));
 }

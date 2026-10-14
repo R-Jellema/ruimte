@@ -34,7 +34,9 @@ function signWith(pair: Pair, message: string): string {
     return sign(null, Buffer.from(message), pair.privateKey).toString('base64url');
 }
 
-const SECRET = 'the-shared-maps-secret';
+// 32 bytes in base64url, as `openssl rand -base64 32` spells them once made url safe.
+const SECRET = 'rpEgLz0VDkQ2M4v1o9s3bYt7JfHaCwXn6iUeNy8PqKg';
+const OTHER_SECRET = 'Zk3mQ8vJx1LpT5aRn0cWy7DbHfUe2GsOi9NtV4Xr6Ml';
 
 let sqlite: Database;
 let env: Env;
@@ -88,10 +90,10 @@ describe('a ticket for a signed-in client', () => {
         const issued = MapsTicketSchema.parse(await response.json()) satisfies MapsTicket;
         expect(issued.expiresAt).toBeGreaterThanOrEqual(before + MAPS_TICKET_LIFETIME_MS);
         expect(issued.expiresAt).toBeLessThanOrEqual(Date.now() + MAPS_TICKET_LIFETIME_MS);
-        const subject = await mapsTicketSubject('owner');
+        const subject = await mapsTicketSubject(SECRET, 'owner');
         expect(await verifyMapsTicket(SECRET, issued.ticket, Date.now())).toEqual({ subject, expiresAt: issued.expiresAt });
         expect(issued.ticket).not.toContain('owner');
-        expect(await verifyMapsTicket('another-secret', issued.ticket, Date.now())).toBeNull();
+        expect(await verifyMapsTicket(OTHER_SECRET, issued.ticket, Date.now())).toBeNull();
         expect(await verifyMapsTicket(SECRET, issued.ticket, issued.expiresAt)).toBeNull();
     });
 
@@ -123,7 +125,7 @@ describe('a ticket for a machine', () => {
         const response = await issueMapsTicket(post(machineRequest(machine, 'studio')), env);
         expect(response.status).toBe(200);
         const issued = MapsTicketSchema.parse(await response.json());
-        expect((await verifyMapsTicket(SECRET, issued.ticket, Date.now()))?.subject).toBe(await mapsTicketSubject('owner'));
+        expect((await verifyMapsTicket(SECRET, issued.ticket, Date.now()))?.subject).toBe(await mapsTicketSubject(SECRET, 'owner'));
     });
 
     test('a namesake on another account cannot ask for the ticket of the first', async () => {
@@ -135,8 +137,8 @@ describe('a ticket for a machine', () => {
         await listMachine(attacker, squatter, 'studio', 'attacker');
         const mine = MapsTicketSchema.parse(await (await issueMapsTicket(post(machineRequest(machine, 'studio')), env)).json());
         const theirs = MapsTicketSchema.parse(await (await issueMapsTicket(post(machineRequest(squatter, 'studio')), env)).json());
-        expect((await verifyMapsTicket(SECRET, mine.ticket, Date.now()))?.subject).toBe(await mapsTicketSubject('owner'));
-        expect((await verifyMapsTicket(SECRET, theirs.ticket, Date.now()))?.subject).toBe(await mapsTicketSubject('attacker'));
+        expect((await verifyMapsTicket(SECRET, mine.ticket, Date.now()))?.subject).toBe(await mapsTicketSubject(SECRET, 'owner'));
+        expect((await verifyMapsTicket(SECRET, theirs.ticket, Date.now()))?.subject).toBe(await mapsTicketSubject(SECRET, 'attacker'));
     });
 
     test('a signature by another key, for another machine or for another purpose is refused', async () => {
@@ -201,6 +203,15 @@ describe('without the secret or past the limits', () => {
         expect(response.status).toBe(503);
         expect(await errorCode(response)).toBe('not-configured');
         expect((await issueMapsTicket(post({}, token), { ...env, MAP_TICKET_SECRET: '' })).status).toBe(503);
+    });
+
+    test('a secret that is not 32 bytes of base64url is as good as none', async () => {
+        const token = await signIn('owner');
+        for (const secret of ['short', 'a'.repeat(42), `${SECRET}!`, 'the shared maps secret of the maps service']) {
+            const response = await issueMapsTicket(post({}, token), { ...env, MAP_TICKET_SECRET: secret });
+            expect(response.status).toBe(503);
+            expect(await errorCode(response)).toBe('not-configured');
+        }
     });
 
     test('an account is limited per minute, and the answer says when to try again', async () => {

@@ -165,7 +165,7 @@ loopback listener, `https://station.ruimte.app/pulsar/callback` and the Vite dev
 | `APPLE_PRIVATE_KEY` | The whole `.p8` file of that key, armor lines included |
 | `APPLE_CLIENT_ID` | The Services ID, `app.ruimte.pulsar` |
 | `ARTIFICIAL_ANALYSIS_API_KEY` | The key of the free Data API of Artificial Analysis |
-| `MAP_TICKET_SECRET` | 32 random bytes in base64url that sign map tickets; the maps service holds the same value to check them |
+| `MAP_TICKET_SECRET` | At least 32 random bytes in base64url (`openssl rand -base64 32 \| tr '+/' '-_' \| tr -d '='`) that sign map tickets; the maps service holds the same value to check them. A shorter or malformed value answers `not-configured` |
 | `APPLE_DOMAIN_ASSOCIATION` | Optional, the domain verification file Apple hands out |
 | `DEVICE_LINK_PAGE_URL` | Optional, the device link page when it is not the station's |
 | `APNS_*` | The APNs keys per environment, see [`APNS.md`](APNS.md) |
@@ -190,8 +190,8 @@ kept in `~/.private/ruimte.secrets.env` as `PULSAR_STATEMENT_PRIVATE_KEY`.
 
 `POST /v1/maps/ticket` answers `{ ticket, expiresAt }` (`MapsTicketSchema` in `packages/pulsar`), good for one hour. A signed-in client sends its bearer token. A machine sends no token and
 signs `mapsTicketMessage(machineId, issuedAt)` with the key the account lists it under, `issuedAt` within two minutes of the Worker's clock (`MachineMapsTicketPayloadSchema`); a machine taken off
-its account is refused with `not-found`. The ticket is `<subject>.<expiresAt>.<mac>`: the subject is a digest of the account id, so the maps service tells tickets apart without learning whose they are, and
-the mac is HMAC-SHA256 with `MAP_TICKET_SECRET` over `mapsTicketBytes`. The maps service checks it with `verifyMapsTicket` and the same secret, and never calls this database. Without the secret the route answers
+its account is refused with `not-found`. The ticket is `<subject>.<expiresAt>.<mac>`: the subject is an HMAC of the account id under a key derived from `MAP_TICKET_SECRET` for that purpose alone, so the maps service tells tickets apart without learning whose they are, and
+the mac is HMAC-SHA256 over `mapsTicketBytes` with the secret's bytes. The maps service checks it with `verifyMapsTicket` and the same secret, and never calls this database. Without the secret the route answers
 `503` with `not-configured`. An account may ask ten times a minute and an address thirty.
 
 ## Model catalogs
