@@ -1,18 +1,21 @@
-import { UI_GROUPS } from '@adecore/intelligent-ui';
-import { uiReferenceText } from '@adecore/intelligent-ui/text';
+import { UI_GROUPS, type UiGroupName } from '@adecore/intelligent-ui';
+import { uiGroupReference, uiReferenceText } from '@adecore/intelligent-ui/text';
+import { z } from 'zod';
 import { RUIMTE_UI_FENCE } from '../chat/ui-fence.ts';
 import { uiSourceExamples } from '../chat/ui-source-args.ts';
+import { defineAction, type Action } from './verb.ts';
 
-export const UI_SUMMARY = 'The catalog and syntax of fenced ruimte-ui blocks in replies; writes no project resource';
+export const UI_SUMMARY = 'The catalog and syntax of fenced ruimte-ui blocks in replies, one group at a time; writes no project resource';
 
-/*
- * The reference as `key\tvalue` lines like every other noun: the syntax, the example a line each, a
- * line per catalog group with its components, and the live data sources this machine reads.
- */
+const GROUP_NAMES = Object.keys(UI_GROUPS) as UiGroupName[];
+
+/* `Name: description. Props: a, b?.` as the catalog prints one component; a component without props ends at its description. */
+const COMPONENT_LINE = /^(\w+): (.*?)(?: Props: (.*)\.)?$/;
+
+/* The syntax and the example a line each, and the live data sources this machine reads; the components wait in `help ui <group>`. */
 function uiDetail(): string[] {
-    const [intro = '', ...groups] = uiReferenceText({ fenceLanguage: RUIMTE_UI_FENCE }).split('\n\n');
+    const intro = uiReferenceText({ fenceLanguage: RUIMTE_UI_FENCE }).split('\n\n')[0] ?? '';
     const [syntax = '', ...example] = intro.split('\n').filter((line) => line !== 'Example:');
-    const names = Object.keys(UI_GROUPS);
     const sources = uiSourceExamples(true)
         .map(({ name, args }) => `${name} ${args}`)
         .join(', ');
@@ -20,9 +23,47 @@ function uiDetail(): string[] {
         'when\tWrite a block in your reply when it has structure a person scans or acts on; this is a reference, not a command',
         `syntax\t${syntax}`,
         ...example.map((line) => `example\t${line}`),
-        ...groups.map((group, index) => `${names[index] ?? 'group'}\t${group.split('\n').join(' ')}`),
+        'detail\truimte-context help ui <group>\tthe components and rules of one group, also printed by ruimte-context ui <group>',
         `query\t$name = @Query("source", {args}), with these sources and arguments: ${sources}; database.query only in a project with connections. Queries only read, never start work or run writes`
     ];
 }
+
+function componentLine(line: string): string {
+    const [, name, description, props] = COMPONENT_LINE.exec(line) ?? [];
+    return name === undefined ? `component\t${line}` : `component\t${name}\t${props ?? '-'}\t${description}`;
+}
+
+function componentNames(group: UiGroupName): string[] {
+    return uiGroupReference(group)
+        .split('\n')
+        .slice(2)
+        .map((line) => line.split(':')[0] ?? line);
+}
+
+/* The rules of a group, then a line per component with its props and what it is. */
+function groupDetail(group: UiGroupName): string[] {
+    const [, rules = '', ...components] = uiGroupReference(group).split('\n');
+    return [
+        `rules\t${rules}`,
+        'prints\tcomponent\tname\tprops\tdescription\tone row per component; a prop that ends in ? is optional, - is none',
+        ...components.map(componentLine)
+    ];
+}
+
+function groupAction(group: UiGroupName): Action {
+    const summary = `${UI_GROUPS[group].description} Components: ${componentNames(group).join(', ')}`;
+    const detail = groupDetail(group);
+    return defineAction('ui', {
+        name: group,
+        usage: '',
+        summary,
+        detail,
+        positionals: z.tuple([]),
+        flags: z.object({}),
+        run: async () => [`about\t${summary}`, ...detail]
+    });
+}
+
+export const UI_GROUP_ACTIONS: readonly Action[] = GROUP_NAMES.map(groupAction);
 
 export const UI_DETAIL: readonly string[] = uiDetail();

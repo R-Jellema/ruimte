@@ -72,6 +72,8 @@ export const VISUAL_FILES_NOTE =
 export const VISUAL_LAYOUT_NOTE =
     'Visuals follow the reply column by default. For an application mockup or dashboard that benefits from more width, opt in with `visual show --layout wide`. The host chooses the width within the chat pane; keep the page responsive and preview it at both 360px and 1200px with `visual preview --width`.';
 
+const UI_DETAIL_HINT = '`ruimte-context help ui <group>` gives props and rules';
+
 /*
  * The catalog of UI blocks and how to use it, said only to an agent a person reads in a thread: a
  * hidden task child's answer reaches its parent as text, where a block would be source.
@@ -82,10 +84,10 @@ function uiNote(databases: boolean): string {
         .join(', ');
     // The note ends its example with the closing fence on a line of its own, which the rest must not join.
     return (
-        uiSessionNote({ fenceLanguage: RUIMTE_UI_FENCE }) +
+        uiSessionNote({ fenceLanguage: RUIMTE_UI_FENCE, catalog: 'names', detailHint: UI_DETAIL_HINT }) +
         [
-            'Write a block when the answer has structure a person scans or acts on (numbers to compare, rows, steps, a status, shortcuts after finished work); what a sentence or a short list says stays prose. `ruimte-context help ui` describes every component.',
-            'Children sit in their parent: Stat in Stats, Column in Table, Option in Segmented, Item in Checklist, Choice in Choices, Step in Steps, Entry in EntityList, Tab in Tabs, Section in Sections, Source in Sources.',
+            'Write a block when the answer has structure a person scans or acts on (numbers to compare, rows, steps, a status, shortcuts after finished work); what a sentence or a short list says stays prose.',
+            'Children sit in their parent: Stat in Stats, Column in Table, Option in Segmented or Select, Item in Checklist, Choice in Choices, Step in Steps, Event in Timeline, Place in Map, Image in Gallery, Entry in EntityList, Tab in Tabs, Section in Sections, Source in Sources.',
             'Each items={$rows} as="row" names each item, read without $ as {row.name}. Chart data rows are {label: "Core", passed: 32, failed: 1}. File and Diff paths are relative to your working folder; a Node id is one ruimte-context printed.',
             `Live data: $name = @Query("source", {args}), with these sources and arguments: ${sources}. git.status gives the branch, ahead, behind, counts per state and the first files.${databases ? ' database.query rows are records for Table and Chart.' : ''} Sources are literal; arguments may reference local inputs. Queries only read, never start work or run writes.`
         ].join(' ')

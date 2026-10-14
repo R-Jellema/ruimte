@@ -26,7 +26,7 @@ import { renameAction } from './rename-verb.ts';
 import { SECRET_ACTIONS, SECRET_DETAIL, SECRET_SUMMARY } from './secret-verb.ts';
 import { doneVerb, taskListAction, taskNewAction } from './task-verbs.ts';
 import { teamVerb } from './team-verb.ts';
-import { UI_DETAIL, UI_SUMMARY } from './ui-verb.ts';
+import { UI_DETAIL, UI_GROUP_ACTIONS, UI_SUMMARY } from './ui-verb.ts';
 import { VIEW_ACTIONS, VIEW_DETAIL, VIEW_SUMMARY } from './view-verb.ts';
 import { VISUAL_ACTIONS, VISUAL_DETAIL, VISUAL_SUMMARY } from './visual-verb.ts';
 import { worktreeVerb } from './worktree-verb.ts';
@@ -148,7 +148,7 @@ const uiNoun = defineNoun({
     name: 'ui',
     summary: UI_SUMMARY,
     detail: UI_DETAIL,
-    actions: []
+    actions: [...UI_GROUP_ACTIONS]
 });
 
 const visualNoun = defineNoun({

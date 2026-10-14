@@ -70,7 +70,8 @@ describe('verbsNote', () => {
 
     test('teaches the catalog only to a chat a person reads, with databases only where the project has connections', () => {
         expect(VISUAL_NOTE).toContain('Queries only read, never start work or run writes.');
-        expect(VISUAL_NOTE).toContain('`ruimte-context help ui`');
+        expect(VISUAL_NOTE).toContain('`ruimte-context help ui <group>` gives props and rules');
+        expect(VISUAL_NOTE).toContain('places: Map, Place');
         expect(VISUAL_NOTE).toContain('Stat in Stats');
         expect(VISUAL_NOTE).toContain('@Query("database.query"');
         expect(VISUAL_NOTE).not.toContain('query --show');
@@ -81,6 +82,12 @@ describe('verbsNote', () => {
         expect(child).not.toContain('@Query');
         expect(child).toContain('`ruimte-context visual show --title T < page.html`');
         expect(VISUAL_RESUME_NOTE).not.toContain(RUIMTE_UI_FENCE);
+    });
+
+    test('the UI and visual notes together stay within their size budget, listing names instead of props', () => {
+        const added = verbsNote({ depth: 0, visuals: true }).length - verbsNote({ depth: 0 }).length;
+        expect(added).toBeLessThanOrEqual(3967);
+        expect(VISUAL_NOTE).not.toContain('Props:');
     });
 
     test('sends a question the turn waits on to the question tool, never to Choices, and names no tool', () => {
