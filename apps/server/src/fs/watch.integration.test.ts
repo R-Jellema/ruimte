@@ -39,7 +39,9 @@ afterEach(async () => {
 test(
     'a write right after the watch resolves is reported with the directory it touched',
     async () => {
-        await watcher.watch('client-1', root);
+        // Where a watch is not recursive, every folder the tree shows is watched on its own.
+        const watched = supportsRecursive(process.platform) ? root : join(root, 'src');
+        await watcher.watch('client-1', watched);
         await writeFile(join(root, 'src', 'a.ts'), 'one');
         const deadline = Date.now() + DEADLINE_MS;
         while (!changes.some((change) => change.paths.includes(join(root, 'src')))) {
@@ -48,7 +50,7 @@ test(
             }
             await Bun.sleep(25);
         }
-        expect(changes.every((change) => change.root === root)).toBe(true);
+        expect(changes.every((change) => change.root === watched)).toBe(true);
     },
     DEADLINE_MS + 5_000
 );
