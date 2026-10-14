@@ -12,6 +12,7 @@ import { searchSettings } from '@/shell/settings/search';
 import { useUi } from '@/state/ui';
 import { useWindow } from '@/state/window';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
+import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
 
 const STUDIO: Machine = { id: 'studio', name: 'Studio', icon: null, publicKey: 'A'.repeat(43), brokerUrl: 'wss://broker.ruimte.app', lastSeenAt: null };
 const ATTIC: Machine = { id: 'attic', name: 'Attic', icon: null, publicKey: 'B'.repeat(43), brokerUrl: 'wss://broker.ruimte.app', lastSeenAt: null };
@@ -72,11 +73,18 @@ describe('the start screen of an app that runs no machine', () => {
         const waiting = button('Open folder')?.disabled;
         await page.unmount();
         scope.window.ruimteDesktop = { ...bridge, machine: machineBridge('local') };
-        page = mount();
-        await page.renderApp();
-        expect(waiting).toBe(true);
-        expect(button('Open folder')?.disabled).toBe(false);
-        expect(text()).not.toContain('from this app');
+        // A machine behind the pool, so the local row never opens a socket of its own.
+        const release = connectFakeMachine(new FakeMachine());
+        try {
+            page = mount();
+            await page.renderApp();
+            await until(() => button('Open folder') !== null);
+            expect(waiting).toBe(true);
+            expect(button('Open folder')?.disabled).toBe(false);
+            expect(text()).not.toContain('from this app');
+        } finally {
+            release();
+        }
     });
 
     test('signed in it lists the machines of the account and no row for this computer', async () => {
