@@ -3,7 +3,7 @@ import { REQUEST_SCHEMAS, type EventMap, type EventType, type RequestMap, type R
 import { LOCAL_ENDPOINT_ID, endpointById } from '@/state/endpoints';
 import { pool } from '@/transport';
 import type { PooledTransport } from '@/transport/pool';
-import type { ConnectionState } from '@/transport/transport';
+import { TransportError, type ConnectionState, type TransportStatus } from '@/transport/transport';
 
 const OPEN: ConnectionState = { status: 'open', attempts: 0, retryAt: null };
 
@@ -70,11 +70,24 @@ export interface SentRequest {
 
 /* A machine that answers what a test tells it to and the emptiest answer to everything else, and keeps every request it got. */
 export class FakeMachine implements PooledTransport {
-    readonly status = 'open' as const;
-    readonly connection = OPEN;
+    connection: ConnectionState = OPEN;
     readonly sent: SentRequest[] = [];
     private readonly answers = new Map<RequestType, Answer<RequestType>>();
     private readonly handlers = new Map<EventType, Set<(payload: never) => void>>();
+    private readonly statusHandlers = new Set<(status: TransportStatus) => void>();
+
+    get status(): TransportStatus {
+        return this.connection.status;
+    }
+
+    /* The socket going down and coming back, the way a reconnect looks to every client on it. */
+    drop(): void {
+        this.setStatus('closed');
+    }
+
+    reopen(): void {
+        this.setStatus('open');
+    }
 
     answer<T extends RequestType>(type: T, answer: Answer<T>): void {
         this.answers.set(type, answer as unknown as Answer<RequestType>);
@@ -92,6 +105,9 @@ export class FakeMachine implements PooledTransport {
     }
 
     async request<T extends RequestType>(type: T, payload: RequestMap[T]['payload']): Promise<RequestMap[T]['result']> {
+        if (this.status !== 'open') {
+            throw new TransportError('not-connected', 'The fake machine is down');
+        }
         this.sent.push({ type, payload });
         const answer = this.answers.get(type);
         if (answer !== undefined) {
@@ -113,8 +129,18 @@ export class FakeMachine implements PooledTransport {
         };
     }
 
-    subscribeStatus(): () => void {
-        return () => undefined;
+    subscribeStatus(handler: (status: TransportStatus) => void): () => void {
+        this.statusHandlers.add(handler);
+        return () => {
+            this.statusHandlers.delete(handler);
+        };
+    }
+
+    private setStatus(status: TransportStatus): void {
+        this.connection = { ...this.connection, status };
+        for (const handler of [...this.statusHandlers]) {
+            handler(status);
+        }
     }
 
     switchTo(): void {}

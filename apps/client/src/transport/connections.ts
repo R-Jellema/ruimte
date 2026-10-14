@@ -77,6 +77,8 @@ const machines = new Map<string, Machine>();
 const connectionHolds = new WeakMap<Connection, LinkHold>();
 /* Connections whose clients are gone; the window may still show one while a switch replaces it. */
 const disposed = new WeakSet<Connection>();
+/* Machines whose session and chat rows a closed workspace cleared since their socket last opened. */
+const clearedRows = new Set<string>();
 
 /* The store as a project client sees it. Every write names the endpoint it came from. */
 function projectSink(endpointId: () => string): ProjectSink {
@@ -107,6 +109,11 @@ function buildMachine(endpoint: Endpoint): Machine {
     const stopSnoozes = watchSnoozes(endpoint.id, transport);
     const stopPrWatches = watchPrWatches(endpoint.id, transport);
     const stopAccounts = watchProviderAccounts(endpoint.id, transport);
+    const stopFresh = transport.subscribeStatus((status) => {
+        if (status === 'open') {
+            clearedRows.delete(endpoint.id);
+        }
+    });
     const plans = new PlanSync(endpoint.id, transport);
     const sessions = new SessionClient(transport, sessionSinkFor(endpoint.id));
     const chats = new ChatClient(transport, chatSinkFor(endpoint.id), providerSinkFor(endpoint.id));
@@ -126,6 +133,8 @@ function buildMachine(endpoint: Endpoint): Machine {
             stopSnoozes();
             stopPrWatches();
             stopAccounts();
+            stopFresh();
+            clearedRows.delete(endpoint.id);
             plans.dispose();
             sessions.dispose();
             chats.dispose();
@@ -195,10 +204,12 @@ function connect(endpoint: Endpoint, onLoad: (connection: Connection, summary: P
             await Promise.all([drawings.resume(), diagrams.resume()]);
         },
         onLoad: (summary) => {
-            // The last project on this machine took its rows with it, and the socket stayed open, so nothing asks again by itself.
-            void connection.sessions.loadStatuses();
-            void connection.chats.loadStatuses();
             onLoad(connection, summary);
+            // The clients ask a fresh socket themselves. Only rows a closed workspace took along while the socket stayed open are asked for here.
+            if (clearedRows.delete(connection.endpointId)) {
+                void connection.sessions.loadStatuses();
+                void connection.chats.loadStatuses();
+            }
         },
         endpointId
     });
@@ -254,6 +265,7 @@ function disposeConnection(connection: Connection): void {
     }
     useSessions.getState().clear(connection.endpointId);
     useChats.getState().forgetWhere((key) => isOfEndpoint(key, connection.endpointId));
+    clearedRows.add(connection.endpointId);
 }
 
 interface ProjectOn {

@@ -179,11 +179,18 @@ describe('SessionClient', () => {
         expect(transport.of('session.create')).toHaveLength(1);
     });
 
-    test('asks nothing of a daemon on its own, also not on a fresh socket', () => {
-        const { transport } = setup();
+    test('asks every fresh socket for the agents of its shells once, and nothing else', async () => {
+        const { transport, sink } = setup();
+        expect(transport.calls.map((call) => call.type)).toEqual(['session.list']);
+
+        // A shell no node here shows, whose agent started while the socket was down.
+        const agent: AgentInfo = { kind: 'claude', agentSessionId: 'abc', transcriptPath: null, status: 'running', live: true, updatedAt: 1 };
+        transport.agents.set('elsewhere', agent);
         transport.setStatus('closed');
         transport.setStatus('open');
-        expect(transport.calls).toEqual([]);
+        expect(transport.calls.map((call) => call.type)).toEqual(['session.list', 'session.list']);
+        await flush();
+        expect(sink.agents.get('elsewhere')).toEqual(agent);
     });
 
     test('a command the daemon holds is shown until a person runs it here or another client does', async () => {
@@ -407,7 +414,7 @@ describe('SessionClient', () => {
         transport.calls.length = 0;
         transport.setStatus('open');
         await flush();
-        expect(transport.calls).toEqual([]);
+        expect(transport.calls.map((call) => call.type)).toEqual(['session.list']);
     });
 
     test('a node that leaves while its create is on the wire stays gone, also after a reconnect', async () => {

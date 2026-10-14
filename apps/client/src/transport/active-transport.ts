@@ -24,15 +24,35 @@ interface Registration {
 }
 
 /*
- * The standing lists a fresh socket is asked for by more than one client of a machine (the chats, the
- * sessions, the sidebar). Asked in one turn they are one request: no frame of the machine can arrive
- * within a turn, so the second asker could not have learned anything the first answer lacks.
+ * The standing lists that more than one client of a machine asks a fresh socket for (the chats, the
+ * sessions, the sidebar). A list asked while the same list is on its way on that socket rides on it:
+ * the machine answers a list in the step it reads the request and every frame arrives in order, so the
+ * answer still to come holds everything the second asker has heard by then.
  */
-const SHARED_IN_A_TURN: ReadonlySet<RequestType> = new Set<RequestType>(['session.list', 'chat.list']);
+const SHARED_IN_FLIGHT: ReadonlySet<RequestType> = new Set<RequestType>(['session.list', 'chat.list']);
 
-interface SharedAnswer {
-    bound: Transport;
-    answer: Promise<unknown>;
+/* Per socket rather than per facade: the active machine's facade and that machine's own are two over one socket. */
+const inFlight = new WeakMap<Transport, Map<RequestType, Promise<unknown>>>();
+
+function sharedRequest<T extends RequestType>(socket: Transport, type: T, payload: RequestMap[T]['payload']): Promise<RequestMap[T]['result']> {
+    let lists = inFlight.get(socket);
+    if (!lists) {
+        lists = new Map();
+        inFlight.set(socket, lists);
+    }
+    const known = lists.get(type);
+    if (known) {
+        return known as Promise<RequestMap[T]['result']>;
+    }
+    const answer = socket.request(type, payload);
+    const settled = (): void => {
+        if (lists.get(type) === answer) {
+            lists.delete(type);
+        }
+    };
+    lists.set(type, answer);
+    answer.then(settled, settled);
+    return answer;
 }
 
 function notConnected(): Promise<never> {
@@ -48,7 +68,6 @@ export class ActiveTransport implements Transport {
     private readonly activeId: () => string;
     private readonly registrations = new Set<Registration>();
     private readonly statusHandlers = new Set<(status: TransportStatus) => void>();
-    private readonly shared = new Map<RequestType, SharedAnswer>();
     private bound: Transport | null = null;
     private offBoundStatus: (() => void) | null = null;
     // Null right after a rebind, so the first word about a new socket always goes out.
@@ -74,22 +93,7 @@ export class ActiveTransport implements Transport {
         if (!this.bound) {
             return notConnected();
         }
-        if (!SHARED_IN_A_TURN.has(type)) {
-            return this.bound.request(type, payload);
-        }
-        const known = this.shared.get(type);
-        if (known?.bound === this.bound) {
-            return known.answer as Promise<RequestMap[T]['result']>;
-        }
-        const answer = this.bound.request(type, payload);
-        const entry: SharedAnswer = { bound: this.bound, answer };
-        this.shared.set(type, entry);
-        queueMicrotask(() => {
-            if (this.shared.get(type) === entry) {
-                this.shared.delete(type);
-            }
-        });
-        return answer;
+        return SHARED_IN_FLIGHT.has(type) ? sharedRequest(this.bound, type, payload) : this.bound.request(type, payload);
     }
 
     readBytes(payload: BytesReadPayload): Promise<BytesPiece> {

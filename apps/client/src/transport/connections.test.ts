@@ -163,7 +163,8 @@ describe('a workspace and the link of its machine', () => {
             chatWorking(useChats.getState().statusByKey[endpointKey(other.id, 'chat-1')])
         ];
         await enterWorkspace(other.id, { projectId: project.projectId });
-        await Promise.resolve();
+        // What the machine's clients ask a fresh socket for, which the socket of this test never is.
+        await Promise.all([machineFor(other.id)!.sessions.loadStatuses(), machineFor(other.id)!.chats.loadStatuses()]);
         expect(working()).toEqual([true, true]);
 
         await leaveWorkspace();
@@ -171,6 +172,19 @@ describe('a workspace and the link of its machine', () => {
         await enterWorkspace(other.id, { projectId: project.projectId });
         await Promise.resolve();
         expect(working()).toEqual([true, true]);
+    });
+
+    test('a project opened on rows nothing took away asks for no list, since the clients asked the socket themselves', async () => {
+        const request = machineTransport(other.id).request as unknown as Mock<(type: RequestType) => Promise<unknown>>;
+        const lists = (): number => request.mock.calls.filter(([type]) => type === 'session.list' || type === 'chat.list').length;
+        machineFor(other.id);
+        const before = lists();
+        await enterWorkspace(other.id, { projectId: project.projectId });
+        expect(lists()).toBe(before);
+
+        showStart();
+        await enterWorkspace(other.id, { projectId: project.projectId });
+        expect(lists()).toBe(before + 2);
     });
 
     describe('a second pick while the first is still opening', () => {

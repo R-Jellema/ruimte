@@ -269,15 +269,16 @@ describe('ActiveTransport', () => {
         expect(transport.status).toBe('closed');
     });
 
-    test('the lists asked in one turn are one request, and a later turn asks again', async () => {
+    test('a list asked while the same one is on its way rides on it, and one asked after the answer goes out', async () => {
         const { pool, transport, socketOf } = setup();
         pool.hold(endpoint('a'));
 
         const first = transport.request('chat.list', {});
-        const second = transport.request('chat.list', {});
         void transport.request('session.list', {});
         void transport.request('server.ping', {});
         void transport.request('server.ping', {});
+        await Promise.resolve();
+        const second = transport.request('chat.list', {});
         expect(socketOf('a').pending.map((entry) => entry.type)).toEqual(['chat.list', 'session.list', 'server.ping', 'server.ping']);
 
         socketOf('a').pending[0]!.resolve({ chats: [] });
@@ -286,6 +287,27 @@ describe('ActiveTransport', () => {
 
         void transport.request('chat.list', {});
         expect(socketOf('a').pending.filter((entry) => entry.type === 'chat.list')).toHaveLength(2);
+    });
+
+    test('a list that failed is asked again', async () => {
+        const { pool, transport, socketOf } = setup();
+        pool.hold(endpoint('a'));
+
+        const first = transport.request('session.list', {});
+        socketOf('a').pending[0]!.reject(new TransportError('disconnected', 'gone'));
+        await first.catch(() => undefined);
+        void transport.request('session.list', {});
+        expect(socketOf('a').pending.filter((entry) => entry.type === 'session.list')).toHaveLength(2);
+    });
+
+    test('two facades over one socket share the list on its way', () => {
+        const { pool, transport, socketOf } = setup();
+        pool.hold(endpoint('a'));
+        const own = new ActiveTransport({ source: pool, activeId: () => 'a', subscribeActive: () => () => undefined });
+
+        void transport.request('chat.list', {});
+        void own.request('chat.list', {});
+        expect(socketOf('a').pending).toHaveLength(1);
     });
 
     test('a list is never shared across sockets', () => {

@@ -87,6 +87,9 @@ export class SessionClient {
             }),
             transport.subscribeStatus((status) => this.onStatus(status))
         );
+        if (transport.status === 'open') {
+            void this.loadStatuses();
+        }
     }
 
     async ensure(nodeId: string, options: OpenOptions, grid: Grid | null): Promise<void> {
@@ -284,10 +287,13 @@ export class SessionClient {
 
     /*
      * The agent in every shell on this machine, attached or not. `session.status` only carries a
-     * change, so a workspace that just opened asks for the standing answer.
+     * change, so a fresh socket, and a workspace whose rows the last one took along, asks for the standing answer.
      */
     async loadStatuses(): Promise<void> {
-        const sessions = await this.listSessions();
+        this.applyAgents(await this.listSessions());
+    }
+
+    private applyAgents(sessions: SessionInfo[] | null): void {
         for (const session of sessions ?? []) {
             if (session.agent) {
                 this.sink.setAgent(session.sessionId, session.agent);
@@ -298,9 +304,20 @@ export class SessionClient {
     private onStatus(status: TransportStatus): void {
         if (status === 'open') {
             let listed: Promise<SessionInfo[] | null> | null = null;
-            // One list for the whole pass, asked for once the first attach has answered.
-            const sessions = (): Promise<SessionInfo[] | null> => (listed ??= this.listSessions());
-            void this.mounted.reattachAll((nodeId, entry) => this.reattach(nodeId, entry, sessions));
+            // One list for the whole pass and the agents of every shell, asked for once the first attach has answered.
+            const sessions = (): Promise<SessionInfo[] | null> => {
+                if (listed === null) {
+                    listed = this.listSessions();
+                    void listed.then((list) => this.applyAgents(list));
+                }
+                return listed;
+            };
+            // With nothing to attach it is asked at once, in the turn every other client of the socket asks.
+            if (this.mounted.size === 0) {
+                void sessions();
+                return;
+            }
+            void this.mounted.reattachAll((nodeId, entry) => this.reattach(nodeId, entry, sessions)).finally(() => void sessions());
             return;
         }
         // The server drops every attachment with the connection; old replies and releases belong to that connection only.

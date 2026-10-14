@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { create, createStore, useStore } from 'zustand';
+import { create, createStore, useStore, type StoreApi } from 'zustand';
 import { z } from 'zod';
-import { useEndpoints } from '@/state/endpoints';
+import { useEndpoints, type Endpoint } from '@/state/endpoints';
 import { listedEndpoints } from '@/state/local-machine';
 import { followOtherWindows } from '@/state/other-windows';
 import { storedJson } from '@/state/stored-json';
@@ -58,34 +58,50 @@ followOtherWindows(SIDEBAR_PROJECTS_STORAGE_KEY, () => useSidebarProjects.getSta
 export function useSidebarMachines(enabled: boolean, endpointIds: readonly string[]): Record<string, SidebarMachineSnapshot> {
     const ids = [...endpointIds].sort().join('\0');
     const [store] = useState(() => createStore<{ snapshots: Record<string, SidebarMachineSnapshot> }>(() => ({ snapshots: {} })));
+    // Kept per machine across changes of the set, so a machine joining the sidebar does not make every other one ask again.
+    const [watched] = useState(() => new Map<string, () => void>());
     const snapshots = useStore(store, (state) => state.snapshots);
     useEffect(() => {
         if (!enabled) {
-            store.setState({ snapshots: {} });
             return;
         }
-        let alive = true;
-        const disposers = listedEndpoints(useEndpoints.getState().endpoints)
-            .filter((endpoint) => ids.split('\0').includes(endpoint.id))
-            .map((endpoint) => {
-                const watcher = new SidebarWatch(machineTransport(endpoint.id));
-                const off = watcher.subscribe(() => {
-                    if (alive) {
-                        store.setState((before) => ({ snapshots: { ...before.snapshots, [endpoint.id]: watcher.getSnapshot() } }));
-                    }
-                });
-                store.setState((before) => ({ snapshots: { ...before.snapshots, [endpoint.id]: watcher.getSnapshot() } }));
-                const release = pool.hold(endpoint);
-                return () => {
-                    off();
-                    watcher.dispose();
-                    release();
-                };
-            });
         return () => {
-            alive = false;
-            disposers.forEach((dispose) => dispose());
+            watched.forEach((stop) => stop());
+            watched.clear();
+            store.setState({ snapshots: {} });
         };
-    }, [enabled, ids, store]);
+    }, [enabled, store, watched]);
+    useEffect(() => {
+        if (!enabled) {
+            return;
+        }
+        const wanted = new Set(ids.split('\0'));
+        for (const [endpointId, stop] of [...watched]) {
+            if (!wanted.has(endpointId)) {
+                stop();
+                watched.delete(endpointId);
+                store.setState((before) => ({ snapshots: Object.fromEntries(Object.entries(before.snapshots).filter(([id]) => id !== endpointId)) }));
+            }
+        }
+        for (const endpoint of listedEndpoints(useEndpoints.getState().endpoints)) {
+            if (wanted.has(endpoint.id) && !watched.has(endpoint.id)) {
+                watched.set(endpoint.id, watchMachine(endpoint, store));
+            }
+        }
+    }, [enabled, ids, store, watched]);
     return snapshots;
+}
+
+/* One machine's sidebar rows into the store, holding its link until the returned function lets go. */
+function watchMachine(endpoint: Endpoint, store: StoreApi<{ snapshots: Record<string, SidebarMachineSnapshot> }>): () => void {
+    const watcher = new SidebarWatch(machineTransport(endpoint.id));
+    const show = (): void => store.setState((before) => ({ snapshots: { ...before.snapshots, [endpoint.id]: watcher.getSnapshot() } }));
+    const off = watcher.subscribe(show);
+    show();
+    const release = pool.hold(endpoint);
+    return () => {
+        off();
+        watcher.dispose();
+        release();
+    };
 }
