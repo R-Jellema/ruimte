@@ -74,10 +74,7 @@ import SwiftUI
         } catch is CancellationError {
         } catch {
             if gitRefusalCode(error) != "cancelled" {
-                repositories.problem = gitMessage(
-                    error,
-                    outdated: String(localized: "Update Ruimte on this machine to write a commit message on the phone.")
-                )
+                repositories.problem = error.localizedDescription
             }
         }
     }

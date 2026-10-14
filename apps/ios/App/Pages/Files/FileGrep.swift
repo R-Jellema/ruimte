@@ -101,10 +101,7 @@ struct FileGrepGroup: Identifiable, Equatable {
             guard mine == generation else { return }
             groups = []
             answered = needle
-            problem =
-                gitRefusalCode(error) == "unknown-request"
-                ? String(localized: "Update Ruimte on this machine to search in files on the phone.")
-                : error.localizedDescription
+            problem = error.localizedDescription
         }
     }
 }

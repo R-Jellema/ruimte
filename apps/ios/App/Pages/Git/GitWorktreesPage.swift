@@ -26,11 +26,7 @@ struct GitWorktreesPage: View {
             if let outcome = state.outcome {
                 GitWorktreeOutcomeSection(client: client, repositories: repositories, state: state, outcome: outcome)
             }
-            if state.unsupported {
-                ContentUnavailableView(
-                    String(localized: "Needs an update"), lucideIcon: "circle-alert",
-                    description: Text("Update Ruimte on this machine to manage worktrees on the phone."))
-            } else if !state.loaded {
+            if !state.loaded {
                 MobileLoadingRow(String(localized: "Loading")).frame(maxWidth: .infinity).padding()
             } else if state.worktrees.isEmpty {
                 ContentUnavailableView(
@@ -55,7 +51,7 @@ struct GitWorktreesPage: View {
         .toolbar {
             ToolbarItem {
                 Button(String(localized: "New worktree"), lucideIcon: "plus") { state.creating = true }
-                    .disabled(state.busy || state.unsupported)
+                    .disabled(state.busy)
             }
         }
         .task(id: repo) {
@@ -77,7 +73,7 @@ struct GitWorktreeStatusRows: View {
                 text: state.progress ?? String(localized: "Working"),
                 cancel: state.mergeAction == nil ? nil : { Task { await state.cancelMerge(client: client) } })
         }
-        if let problem = state.problem, !state.unsupported {
+        if let problem = state.problem {
             Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red)
         }
         if let note = state.note {

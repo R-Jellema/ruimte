@@ -153,8 +153,7 @@ enum GitWorktreeBinding {
             problem = workspace.problem
             return workspace.problem == nil
         } catch {
-            problem = gitMessage(
-                error, outdated: String(localized: "Update Ruimte on this machine to make worktrees on the phone."))
+            problem = error.localizedDescription
             return false
         }
     }

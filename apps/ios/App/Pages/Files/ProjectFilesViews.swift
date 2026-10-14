@@ -167,10 +167,7 @@ struct FileDeleteConfirmation: ViewModifier {
                             _ = try await client.request("fs.delete", payload: .object(["path": .string(pending)]))
                             onDeleted()
                         } catch {
-                            problem =
-                                gitRefusalCode(error) == "unknown-request"
-                                ? String(localized: "Update Ruimte on this machine to delete files on the phone.")
-                                : error.localizedDescription
+                            problem = error.localizedDescription
                         }
                     }
                 }

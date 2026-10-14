@@ -20,11 +20,7 @@ struct GitConflictsPage: View {
     var body: some View {
         MobileList {
             GitConflictStatusRows(client: client, session: session)
-            if session.unsupported {
-                ContentUnavailableView(
-                    String(localized: "Needs an update"), lucideIcon: "circle-alert",
-                    description: Text("Update Ruimte on this machine to resolve conflicts on the phone."))
-            } else if !session.loaded {
+            if !session.loaded {
                 MobileLoadingRow(String(localized: "Loading")).frame(maxWidth: .infinity).padding()
             } else {
                 files
@@ -118,7 +114,7 @@ struct GitConflictStatusRows: View {
         } else if session.busy {
             GitBusyRow(text: session.progress ?? String(localized: "Working"))
         }
-        if let problem = session.problem, !session.unsupported {
+        if let problem = session.problem {
             Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red)
         }
         if let note = session.note {

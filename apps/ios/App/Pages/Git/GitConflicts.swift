@@ -232,15 +232,6 @@ enum GitConflictModel {
     }
 }
 
-/// What a failed request says, with the refusal of a machine that does not know the request yet in words
-/// a person can act on: `outdated`.
-func gitMessage(_ error: any Error, outdated: String) -> String {
-    if case MachineClientError.server(code: "unknown-request", message: _) = error {
-        return outdated
-    }
-    return error.localizedDescription
-}
-
 func gitRefusalCode(_ error: any Error) -> String? {
     if case MachineClientError.server(let code, _) = error { return code }
     return nil
@@ -269,7 +260,6 @@ func gitRefusalCode(_ error: any Error) -> String? {
     private(set) var theirs = "theirs"
     private(set) var entries: [Entry] = []
     private(set) var loaded = false
-    private(set) var unsupported = false
     private(set) var files: [String: GitConflictFile] = [:]
     private(set) var drafts: [String: GitConflictDraft] = [:]
     private(set) var agentRun: AgentRun?
@@ -303,12 +293,10 @@ func gitRefusalCode(_ error: any Error) -> String? {
             let listed = Set(entries.map(\.path))
             files = files.filter { listed.contains($0.key) }
             drafts = drafts.filter { listed.contains($0.key) }
-            unsupported = false
         } catch is CancellationError {
             return
         } catch {
-            if gitRefusalCode(error) == "unknown-request" { unsupported = true }
-            problem = gitMessage(error, outdated: String(localized: "Update Ruimte on this machine to resolve conflicts on the phone."))
+            problem = error.localizedDescription
         }
         loaded = true
     }
@@ -320,7 +308,7 @@ func gitRefusalCode(_ error: any Error) -> String? {
             files[path] = try await read(client: client, path: path)
         } catch is CancellationError {
         } catch {
-            problem = gitMessage(error, outdated: String(localized: "Update Ruimte on this machine to resolve conflicts on the phone."))
+            problem = error.localizedDescription
         }
     }
 
@@ -371,7 +359,7 @@ func gitRefusalCode(_ error: any Error) -> String? {
                 files[path] = nil
                 drafts[path] = nil
             } catch {
-                problem = gitMessage(error, outdated: String(localized: "Update Ruimte on this machine to resolve conflicts on the phone."))
+                problem = error.localizedDescription
                 await reread(client: client, path: path)
                 await load(client: client)
                 return false
@@ -401,7 +389,7 @@ func gitRefusalCode(_ error: any Error) -> String? {
             await load(client: client)
             return true
         } catch {
-            problem = gitMessage(error, outdated: String(localized: "Update Ruimte on this machine to resolve conflicts on the phone."))
+            problem = error.localizedDescription
             if files[path] != nil { await reread(client: client, path: path) }
             return false
         }
@@ -442,7 +430,7 @@ func gitRefusalCode(_ error: any Error) -> String? {
             note = ([summary] + notes).joined(separator: "\n")
         } catch is CancellationError {
         } catch {
-            problem = gitMessage(error, outdated: String(localized: "Update Ruimte on this machine to ask an agent to resolve conflicts."))
+            problem = error.localizedDescription
         }
     }
 
@@ -486,7 +474,7 @@ func gitRefusalCode(_ error: any Error) -> String? {
             await load(client: client)
             return left == 0
         } catch {
-            problem = gitMessage(error, outdated: Self.outdatedFinish(waiting))
+            problem = error.localizedDescription
             return false
         }
     }
@@ -508,16 +496,6 @@ func gitRefusalCode(_ error: any Error) -> String? {
         case "cherry-pick": String(localized: "The cherry-pick is finished.")
         case "revert": String(localized: "The revert is finished.")
         default: String(localized: "The operation is finished.")
-        }
-    }
-
-    private static func outdatedFinish(_ operation: String) -> String {
-        switch operation {
-        case "merge": String(localized: "Update Ruimte on this machine to finish a merge on the phone.")
-        case "rebase": String(localized: "Update Ruimte on this machine to finish a rebase on the phone.")
-        case "cherry-pick": String(localized: "Update Ruimte on this machine to finish a cherry-pick on the phone.")
-        case "revert": String(localized: "Update Ruimte on this machine to finish a revert on the phone.")
-        default: String(localized: "Update Ruimte on this machine to finish this operation on the phone.")
         }
     }
 

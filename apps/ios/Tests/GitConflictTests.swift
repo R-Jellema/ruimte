@@ -153,14 +153,6 @@ final class GitConflictTests: XCTestCase {
         XCTAssertEqual(GitConflictModel.editedLines("a\n\nb"), ["a", "", "b"])
     }
 
-    func testAnOlderMachineIsAskedToUpdate() {
-        let error = MachineClientError.server(code: "unknown-request", message: "Unknown request git.conflicts")
-        XCTAssertEqual(
-            gitMessage(error, outdated: "Update Ruimte on this machine to resolve conflicts on the phone."),
-            "Update Ruimte on this machine to resolve conflicts on the phone.")
-        XCTAssertEqual(gitMessage(MachineClientError.server(code: "git-failed", message: "No."), outdated: "x"), "No.")
-    }
-
     @MainActor func testAResolutionIsWrittenOverTheDigestItWasReadAt() async {
         let machine = ConflictMachine()
         let session = GitConflictSession(cwd: "/repo")
@@ -227,15 +219,6 @@ final class GitConflictTests: XCTestCase {
         XCTAssertEqual(session.note, "The merge is finished.")
         XCTAssertEqual(machine.sent.first { $0.type == "git.operation" }?.payload["action"], .string("continue"))
     }
-
-    @MainActor func testAMachineWithoutConflictRequestsSaysItNeedsAnUpdate() async {
-        let machine = ConflictMachine()
-        machine.unknown = true
-        let session = GitConflictSession(cwd: "/repo")
-        await session.load(client: machine)
-        XCTAssertTrue(session.unsupported)
-        XCTAssertTrue(session.loaded)
-    }
 }
 
 @MainActor private final class ConflictMachine: MachineRequesting {
@@ -243,11 +226,9 @@ final class GitConflictTests: XCTestCase {
     var files = ["a.ts"]
     var hash = "h1"
     var refuseResolve = false
-    var unknown = false
 
     func request(_ type: String, payload: JSONValue) async throws -> JSONValue {
         sent.append((type, payload))
-        if unknown { throw MachineClientError.server(code: "unknown-request", message: "Unknown request \(type)") }
         switch type {
         case "git.conflicts":
             return .object([

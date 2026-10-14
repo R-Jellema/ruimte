@@ -19946,32 +19946,12 @@
         }
       }
     },
-    "Update Ruimte on this machine to abort a worktree merge on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om een worktree-merge op de telefoon af te breken."
-          }
-        }
-      }
-    },
     "Update Ruimte on this machine to ask a fork for a summary." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Werk Ruimte op deze machine bij om een fork een samenvatting te laten maken."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to ask an agent to resolve conflicts." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om een agent conflicten te laten oplossen."
           }
         }
       }
@@ -19996,82 +19976,12 @@
         }
       }
     },
-    "Update Ruimte on this machine to delete files on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om bestanden op de telefoon te verwijderen."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to edit files on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om bestanden op de telefoon te bewerken."
-          }
-        }
-      }
-    },
     "Update Ruimte on this machine to end a snooze." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Werk Ruimte op deze machine bij om een snooze te beëindigen."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to finish a cherry-pick on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om een cherry-pick op de telefoon af te ronden."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to finish a merge on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om een merge op de telefoon af te ronden."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to finish a rebase on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om een rebase op de telefoon af te ronden."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to finish a revert on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om een revert op de telefoon af te ronden."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to finish this operation on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om deze bewerking op de telefoon af te ronden."
           }
         }
       }
@@ -20096,72 +20006,12 @@
         }
       }
     },
-    "Update Ruimte on this machine to make worktrees on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om worktrees op de telefoon te maken."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to manage worktrees on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om worktrees op de telefoon te beheren."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to merge worktrees on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om worktrees op de telefoon te mergen."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to remove worktrees on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om worktrees op de telefoon te verwijderen."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to resolve conflicts on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om conflicten op de telefoon op te lossen."
-          }
-        }
-      }
-    },
     "Update Ruimte on this machine to resume chats at a reset." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Werk Ruimte op deze machine bij om chats bij een reset te hervatten."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to search in files on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om op de telefoon in bestanden te zoeken."
           }
         }
       }
@@ -20196,32 +20046,12 @@
         }
       }
     },
-    "Update Ruimte on this machine to stash on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om op de telefoon te stashen."
-          }
-        }
-      }
-    },
     "Update Ruimte on this machine to use launches on the phone." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Werk Ruimte op deze machine bij om launches op de telefoon te gebruiken."
-          }
-        }
-      }
-    },
-    "Update Ruimte on this machine to write a commit message on the phone." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werk Ruimte op deze machine bij om op de telefoon een commitbericht te schrijven."
           }
         }
       }

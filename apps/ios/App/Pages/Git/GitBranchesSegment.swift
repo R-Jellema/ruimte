@@ -67,10 +67,7 @@ struct GitBranchesSegment: View {
                     GitWorktreeOutcomeSection(
                         client: client, repositories: repositories, state: worktrees, outcome: outcome)
                 }
-                if worktrees.unsupported {
-                    Text("Update Ruimte on this machine to manage worktrees on the phone.")
-                        .font(.caption).foregroundStyle(MobileStyle.muted)
-                } else if worktrees.loaded && worktrees.worktrees.isEmpty {
+                if worktrees.loaded && worktrees.worktrees.isEmpty {
                     Text("A worktree is a second checkout of this repository on a branch of its own.")
                         .font(.caption).foregroundStyle(MobileStyle.muted)
                 }
@@ -107,7 +104,7 @@ struct GitBranchesSegment: View {
                     actions.prompt = .createBranch(cwd: actions.path)
                 }.disabled(repositories.busy)
                 GitBarButton(title: String(localized: "New worktree"), prominent: false) { worktrees.creating = true }
-                    .disabled(worktrees.busy || worktrees.unsupported)
+                    .disabled(worktrees.busy)
             }
         }
         .task(id: actions.path) {

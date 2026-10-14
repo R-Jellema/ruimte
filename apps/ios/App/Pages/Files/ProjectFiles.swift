@@ -304,8 +304,6 @@ enum FileLineChanges {
                 stale = true
                 problem = String(
                     localized: "This file changed on the machine since you opened it. Your edits are still here.")
-            case "unknown-request":
-                problem = String(localized: "Update Ruimte on this machine to edit files on the phone.")
             default:
                 problem = error.localizedDescription
             }

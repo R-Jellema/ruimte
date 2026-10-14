@@ -309,7 +309,6 @@ enum GitWorktreeText {
     let repo: String
     private(set) var worktrees: [GitWorktree] = []
     private(set) var loaded = false
-    private(set) var unsupported = false
     var problem: String?
     var note: String?
     var busy = false
@@ -348,12 +347,10 @@ enum GitWorktreeText {
             let answer = try await client.request(
                 "git.worktree-list", payload: .object(["repo": .string(repo), "inspect": .bool(true)]))
             worktrees = answer.list("worktrees").map(GitWorktree.init(json:))
-            unsupported = false
         } catch is CancellationError {
             return
         } catch {
-            if gitRefusalCode(error) == "unknown-request" { unsupported = true }
-            problem = gitMessage(error, outdated: String(localized: "Update Ruimte on this machine to manage worktrees on the phone."))
+            problem = error.localizedDescription
         }
         loaded = true
     }
@@ -377,7 +374,7 @@ enum GitWorktreeText {
                 result["created"] == .bool(false)
                 ? String(localized: "\(name) already had a worktree.") : String(localized: "Made a worktree for \(name).")
         } catch {
-            problem = gitMessage(error, outdated: String(localized: "Update Ruimte on this machine to make worktrees on the phone."))
+            problem = error.localizedDescription
         }
         await load(client: client)
     }
@@ -412,11 +409,7 @@ enum GitWorktreeText {
             }
         } catch is CancellationError {
         } catch {
-            if gitRefusalCode(error) == "unknown-request" {
-                problem = gitMessage(error, outdated: String(localized: "Update Ruimte on this machine to merge worktrees on the phone."))
-            } else {
-                outcome = .refused(code: gitRefusalCode(error) ?? "failed", message: error.localizedDescription, request: request)
-            }
+            outcome = .refused(code: gitRefusalCode(error) ?? "failed", message: error.localizedDescription, request: request)
         }
         await load(client: client)
     }
@@ -446,7 +439,7 @@ enum GitWorktreeText {
             }
         } catch {
             busy = false
-            let reason = gitMessage(error, outdated: String(localized: "Update Ruimte on this machine to stash on the phone."))
+            let reason = error.localizedDescription
             problem = String(localized: "Stashing failed: \(reason)")
             return
         }
@@ -481,7 +474,7 @@ enum GitWorktreeText {
             problem = nil
             note = String(localized: "Took the merge back.")
         } catch {
-            problem = gitMessage(error, outdated: String(localized: "Update Ruimte on this machine to abort a worktree merge on the phone."))
+            problem = error.localizedDescription
         }
         await load(client: client)
     }
@@ -506,7 +499,7 @@ enum GitWorktreeText {
             {
                 return GitWorktreeText.removal(again)
             }
-            problem = gitMessage(error, outdated: String(localized: "Update Ruimte on this machine to remove worktrees on the phone."))
+            problem = error.localizedDescription
         }
         await load(client: client)
         return nil
