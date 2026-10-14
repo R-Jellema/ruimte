@@ -7,7 +7,7 @@ import type { ViewOffers } from '@/shell/view-offers';
 import type { KeepAwakeMode } from '@/state/settings';
 import type { PanelKind } from '@/state/ui';
 import { formatShortcut, type Shortcut } from '@adecore/ui';
-import { AFTER_SETTLE_PREFIX, GO_VIEW_PREFIX, LAUNCH_CHOOSE_PREFIX, PR_SHOW_IN_PREFIX } from '@/shell/menu/ids';
+import { AFTER_SETTLE_PREFIX, CHAT_MOVE_PREFIX, GO_VIEW_PREFIX, LAUNCH_CHOOSE_PREFIX, PR_SHOW_IN_PREFIX } from '@/shell/menu/ids';
 import { COMMAND_IDS, COMMANDS, menuPlacesOf, type CommandId as TableCommandId, type MenuContainer, type MenuPlace } from '@/shell/command-table';
 
 export type MenuHost = 'desktop' | 'station';
@@ -50,6 +50,10 @@ export interface MenuContext {
     /* The kind of the view in the focused cell. */
     view: ProjectView['kind'] | null;
     offers: ViewOffers | null;
+    /* The chat in the focused cell runs a turn or waits on a person, so it cannot move now. */
+    chatWorking: boolean;
+    /* The projects of this machine a chat in Chats can move to, most recently touched first. */
+    moveProjects: { id: string; name: string }[];
     shared: boolean;
     /* The nodes selected on the canvas with the focus. */
     selection: number;
@@ -396,9 +400,30 @@ const LAYOUT: Record<MenuContainer, readonly MenuGroup[]> = {
         // A chat on a canvas has no menu of its own, so its rows go under the canvas's.
         { id: 'chat', when: (context) => (context.view === 'chat' || context.view === 'canvas') && context.chat },
         { id: 'session' },
-        { id: 'place' },
+        {
+            id: 'place',
+            extras: [
+                {
+                    order: 6,
+                    build: (context, command) =>
+                        only(
+                            context.offers?.moveToProject === true,
+                            submenu('chat-move', t('moveToProject'), itemsOf('chat-move', context, command), !context.chatWorking)
+                        )
+                }
+            ]
+        },
         { id: 'settings' },
         { id: 'delete' }
+    ],
+    'chat-move': [
+        {
+            id: 'recent',
+            extras: [
+                { order: 10, build: (context, command) => context.moveProjects.map((project) => command(`${CHAT_MOVE_PREFIX}${project.id}`, project.name)) }
+            ]
+        },
+        { id: 'other' }
     ],
     layouts: [
         { id: 'save' },

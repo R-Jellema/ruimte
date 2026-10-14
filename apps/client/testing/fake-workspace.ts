@@ -34,14 +34,16 @@ export interface FakeWorkspace {
 export async function openFakeWorkspace(
     machine: FakeMachine,
     document: Omit<ProjectDocument, 'version' | 'rev' | 'name' | 'color'>,
-    local: ProjectLocal
+    local: ProjectLocal,
+    summary: Partial<ProjectSummary> = {}
 ): Promise<FakeWorkspace> {
+    const project = { ...FAKE_PROJECT, ...summary };
     machine.answer('project.open', () => ({
-        summary: FAKE_PROJECT,
+        summary: project,
         document: { version: 3, rev: 1, name: FAKE_PROJECT.name, color: FAKE_PROJECT.color, ...document } as ProjectDocument,
         local
     }));
-    machine.answer('project.list', () => ({ projects: [FAKE_PROJECT] }));
+    machine.answer('project.list', () => ({ projects: [project] }));
     useEndpoints.getState().add(ENDPOINT);
     const disconnect = connectFakeMachine(machine, ENDPOINT.id);
     await enterWorkspace(ENDPOINT.id, { projectId: FAKE_PROJECT.projectId });

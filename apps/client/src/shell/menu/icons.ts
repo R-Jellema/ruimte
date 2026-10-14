@@ -11,6 +11,8 @@ import {
     File,
     FileText,
     FoldVertical,
+    Folder,
+    FolderInput,
     Frame,
     GitBranch,
     Globe,
@@ -55,6 +57,7 @@ const MENU_ICONS: Partial<Record<string, LucideIcon>> = {
     layouts: LayoutDashboard,
     'delete-layout': Trash,
     folding: FoldVertical,
+    'chat-move': FolderInput,
     'launches-after-settle': GitBranch
 };
 
@@ -64,6 +67,7 @@ const PREFIXES: [prefix: string, icon: LucideIcon][] = [
     ['layout-delete-', Trash],
     ['view-move-', ArrowRight],
     ['go-view-', Layers],
+    ['chat-move-project-', Folder],
     ['launch-choose-', Rocket],
     ['launch-after-settle-', ListChecks]
 ];

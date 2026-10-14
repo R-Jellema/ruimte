@@ -26,6 +26,10 @@ export interface ViewOffersInput {
     filePath: string | null;
     /* The view is in the Chats project, whose folders are the daemon's and are not to be shared. */
     scratch?: boolean;
+    /* A person wrote in the chat; a chat nobody wrote in is hidden from the list and has nothing to keep. */
+    written: boolean;
+    /* The machine answers `chat.move`. */
+    moves: boolean;
 }
 
 export interface ViewOffers {
@@ -37,6 +41,8 @@ export interface ViewOffers {
     showOnCanvas: boolean;
     reveal: boolean;
     share: boolean;
+    makeProject: boolean;
+    moveToProject: boolean;
 }
 
 /*
@@ -45,6 +51,7 @@ export interface ViewOffers {
  */
 export function viewOffers(input: ViewOffersInput): ViewOffers {
     const drawn = isDrawnKind(input.kind);
+    const leavesChats = input.kind === 'chat' && input.scratch === true && input.written === true && input.moves === true;
     return {
         duplicate: drawn,
         openInChat: input.asChat !== null,
@@ -54,7 +61,9 @@ export function viewOffers(input: ViewOffersInput): ViewOffers {
         showOnCanvas: (input.kind === 'drawing' || input.kind === 'diagram') && input.onCanvas,
         reveal: input.workingFolder !== null && input.scratch !== true,
         // A divider goes where the group under it goes and is nobody's to share.
-        share: input.kind !== 'separator' && input.kind !== 'subheader' && input.scratch !== true && (input.shared || input.canShare)
+        share: input.kind !== 'separator' && input.kind !== 'subheader' && input.scratch !== true && (input.shared || input.canShare),
+        makeProject: leavesChats,
+        moveToProject: leavesChats
     };
 }
 

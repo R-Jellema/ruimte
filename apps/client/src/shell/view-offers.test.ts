@@ -11,7 +11,9 @@ const chat: ViewOffersInput = {
     asChat: null,
     asTerminal: null,
     workingFolder: '/home/ada/.ruimte/scratch/chat-1',
-    filePath: null
+    filePath: null,
+    written: true,
+    moves: true
 };
 
 describe('what a view offers', () => {
@@ -26,5 +28,25 @@ describe('what a view offers', () => {
 
     test('a chat in the Chats project offers neither', () => {
         expect(viewOffers({ ...chat, scratch: true })).toMatchObject({ reveal: false, share: false });
+    });
+
+    test('a written chat in the Chats project can become a project or move into one', () => {
+        expect(viewOffers({ ...chat, scratch: true })).toMatchObject({ makeProject: true, moveToProject: true });
+    });
+
+    test('a chat nobody wrote in has nothing to move', () => {
+        expect(viewOffers({ ...chat, scratch: true, written: false })).toMatchObject({ makeProject: false, moveToProject: false });
+    });
+
+    test('a chat outside the Chats project is already in one', () => {
+        expect(viewOffers(chat)).toMatchObject({ makeProject: false, moveToProject: false });
+    });
+
+    test('a machine that does not answer chat.move offers neither', () => {
+        expect(viewOffers({ ...chat, scratch: true, moves: false })).toMatchObject({ makeProject: false, moveToProject: false });
+    });
+
+    test('only a chat moves', () => {
+        expect(viewOffers({ ...chat, kind: 'terminal', scratch: true })).toMatchObject({ makeProject: false, moveToProject: false });
     });
 });

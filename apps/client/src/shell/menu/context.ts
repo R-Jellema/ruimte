@@ -1,6 +1,6 @@
 import { groupArrangeable } from '@/canvas/arrange-group';
 import i18next from 'i18next';
-import { canShareView, isCanvasView, isOpenableView, type ProjectView, type SplitLayout } from '@ruimte/contracts';
+import { canShareView, isCanvasView, isEmptyChatView, isOpenableView, type ProjectView, type SplitLayout } from '@ruimte/contracts';
 import { databaseViewShareRefusal } from '@/database/view-sharing';
 import { forkRefusal, lastSettledTurn } from '@adecore/agents-react/chat';
 import { desktop, isApplePlatform } from '@/desktop/bridge';
@@ -8,6 +8,7 @@ import { keepAwakeAvailable, keepAwakeChoice } from '@/state/keep-awake';
 import { hasLocalMachine } from '@/state/local-machine';
 import { newChatMachine, offersNewChat, useNewChat } from '@/project/new-chat';
 import { canOpenWindows } from '@/project/windows';
+import { moveTargetsOf } from '@/project/move-targets';
 import { canOpenAsView, type SessionHandoff } from '@/project/views';
 import { afterSettleCandidates, chosenLaunchId } from '@/launches/actions';
 import { launchViews } from '@/launches/model';
@@ -17,6 +18,10 @@ import { canSplit, cellAt, cellCount, cellsRightOf, freeViewFor, isTabHost, maxi
 import { sessionHandoffs, viewOffers, type ViewOffers } from '@/shell/view-offers';
 import { focusedCanvas, maximizedNodeOf, maximizeTargetOf, zoomNodeTargetOf } from '@/state/canvas';
 import { useChats, providersOf } from '@adecore/agents-react/state';
+import { useEndpoints } from '@/state/endpoints';
+import { useProjectList } from '@/state/project-list';
+import { pool } from '@/transport';
+import { machineAnswers } from '@/transport/features';
 import { activeViewOf, hasActiveCanvas, useDocument } from '@/state/document';
 import { currentEndpointId, endpointKey } from '@/state/keys';
 import { prReposOfCurrent } from '@/state/pr-repos';
@@ -38,6 +43,8 @@ export interface ActiveViewFacts {
     workingFolder: string | null;
     /* The turn a fork starts after, or null when the chat has none to fork from. */
     forkTurn: string | null;
+    /* The chat runs a turn or waits on a person. */
+    working: boolean;
 }
 
 // A session view takes its title from its node until someone names it, and a menu row needs words.
@@ -75,9 +82,12 @@ export function activeViewFacts(): ActiveViewFacts | null {
         workingFolder,
         // A file view's own actions stay in its view menu; the application menu has none of them.
         filePath: null,
-        scratch
+        scratch,
+        written: !(view.kind === 'chat' && isEmptyChatView(view)),
+        moves: machineAnswers(pool.statusOf(endpointId), 'chat.move')
     });
-    return { view, offers, shared, asChat, asTerminal, workingFolder, forkTurn };
+    const working = chatRow?.info.status === 'running' || chatRow?.info.status === 'needs-you';
+    return { view, offers, shared, asChat, asTerminal, workingFolder, forkTurn, working };
 }
 
 /* The launches of the project on screen, each with whether it runs. */
@@ -150,6 +160,14 @@ export function menuContext(host: MenuHost): MenuContext {
         fileManager: fileManagerName(serverInfoOf(endpointId).platform),
         view: facts?.view.kind ?? null,
         offers: facts?.offers ?? null,
+        chatWorking: facts?.working ?? false,
+        moveProjects:
+            facts?.offers.moveToProject === true
+                ? moveTargetsOf(useProjectList.getState().projects, useEndpoints.getState().endpoints, endpointId).map((summary) => ({
+                      id: summary.projectId,
+                      name: summary.name
+                  }))
+                : [],
         shared: facts?.shared ?? false,
         selection: onCanvas ? canvas.selection.length : 0,
         groupArrangeable: onCanvas && groupArrangeable(selected, canvas.locks),

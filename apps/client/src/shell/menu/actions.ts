@@ -15,7 +15,7 @@ import { undoLatestDeletion } from '@/project/view-trash';
 import { runAppShortcut } from '@/shell/app-shortcuts';
 import { activeViewFacts } from '@/shell/menu/context';
 import type { CommandId, MenuOnlyCommandId } from '@/shell/command-table';
-import { AFTER_SETTLE_PREFIX, GO_VIEW_PREFIX, isPaletteId, LAUNCH_CHOOSE_PREFIX } from '@/shell/menu/ids';
+import { AFTER_SETTLE_PREFIX, CHAT_MOVE_PREFIX, GO_VIEW_PREFIX, isPaletteId, LAUNCH_CHOOSE_PREFIX } from '@/shell/menu/ids';
 import type { SplitDirection } from '@/shell/split';
 import { useDocument } from '@/state/document';
 import { currentEndpointId } from '@/state/keys';
@@ -139,6 +139,13 @@ export function runMenuCommand(id: string): void {
     }
     if (id.startsWith(AFTER_SETTLE_PREFIX)) {
         void chooseAfterSettle(id.slice(AFTER_SETTLE_PREFIX.length));
+        return;
+    }
+    if (id.startsWith(CHAT_MOVE_PREFIX)) {
+        const facts = activeViewFacts();
+        if (facts !== null && facts.offers.moveToProject && !facts.working) {
+            useUi.getState().setMoveChatDialog({ chatId: facts.view.id, projectId: id.slice(CHAT_MOVE_PREFIX.length) });
+        }
         return;
     }
     if (isPaletteId(id)) {

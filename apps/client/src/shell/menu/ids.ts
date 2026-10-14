@@ -17,6 +17,9 @@ export const PALETTE_PREFIXES = [
 
 export const GO_VIEW_PREFIX = 'go-view-';
 
+/* The Move to Project submenu's row per recent project, which moves the chat on screen there. */
+export const CHAT_MOVE_PREFIX = 'chat-move-project-';
+
 /* The Run menu's row per launch, which puts that launch on the chip. */
 export const LAUNCH_CHOOSE_PREFIX = 'launch-choose-';
 

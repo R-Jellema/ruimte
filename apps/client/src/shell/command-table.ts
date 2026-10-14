@@ -32,6 +32,7 @@ import {
     Focus,
     Folder,
     FolderCog,
+    FolderInput,
     FolderOpen,
     FolderPlus,
     Frame,
@@ -114,6 +115,7 @@ export type MenuContainer =
     | 'folding'
     | 'view'
     | 'kind'
+    | 'chat-move'
     | 'go'
     | 'run'
     | 'launches-after-settle'
@@ -1001,6 +1003,19 @@ const TABLE = {
         icon: Copy,
         palette: false,
         menu: { menu: 'kind', group: 'session', order: 40, when: (context) => context.offers?.duplicate === true }
+    },
+    'chat-make-project': {
+        key: 'makeProject',
+        icon: FolderPlus,
+        palette: true,
+        menu: { menu: 'kind', group: 'place', order: 5, when: (context) => context.offers?.makeProject === true, enabled: (context) => !context.chatWorking }
+    },
+    // The submenu's last row; its recent projects are generated rows (`menu/model.ts`).
+    'chat-move-to-project': {
+        key: 'moveToProject',
+        icon: FolderInput,
+        palette: true,
+        menu: { menu: 'chat-move', group: 'other', order: 100, words: () => ({ key: 'otherProject' }) }
     },
     'view-put-on-canvas': {
         key: 'putOnCanvas',

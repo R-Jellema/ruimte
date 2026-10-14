@@ -8,7 +8,7 @@ import { LANGUAGE_COMMAND_IDS } from '@/language/command-table';
 import { COMMAND_IDS, COMMANDS, isCommandId } from '@/shell/command-table';
 import { languageCommandRows } from '@/language/language-commands';
 import { EDITOR_COMMAND_IDS, editorCommandRows } from '@/shell/editor-commands';
-import { AFTER_SETTLE_PREFIX, GO_VIEW_PREFIX, isPaletteId, LAUNCH_CHOOSE_PREFIX } from './ids';
+import { AFTER_SETTLE_PREFIX, CHAT_MOVE_PREFIX, GO_VIEW_PREFIX, isPaletteId, LAUNCH_CHOOSE_PREFIX } from './ids';
 import { menuModel, toAccelerator, type MenuContext } from './model';
 
 const NO_OFFERS = {
@@ -19,7 +19,9 @@ const NO_OFFERS = {
     putOnCanvas: false,
     showOnCanvas: false,
     reveal: false,
-    share: false
+    share: false,
+    makeProject: false,
+    moveToProject: false
 };
 
 function context(patch: Partial<MenuContext> = {}): MenuContext {
@@ -31,6 +33,8 @@ function context(patch: Partial<MenuContext> = {}): MenuContext {
         fileManager: 'Finder',
         view: 'canvas',
         offers: { ...NO_OFFERS, duplicate: true, share: true },
+        chatWorking: false,
+        moveProjects: [],
         shared: false,
         selection: 0,
         promote: false,
@@ -103,7 +107,19 @@ const EVERY_CONTEXT: MenuContext[] = [
                     view,
                     apple,
                     host,
-                    offers: { ...NO_OFFERS, duplicate: true, fork: true, openInChat: true, openInTerminal: true, putOnCanvas: true, reveal: true, share: true },
+                    offers: {
+                        ...NO_OFFERS,
+                        duplicate: true,
+                        fork: true,
+                        openInChat: true,
+                        openInTerminal: true,
+                        putOnCanvas: true,
+                        reveal: true,
+                        share: true,
+                        makeProject: true,
+                        moveToProject: true
+                    },
+                    moveProjects: [{ id: 'p1', name: 'Vinyl' }],
                     moveTargets: [{ id: 'v2', name: 'Other' }],
                     cells: 2,
                     launches: [{ id: 'dev', name: 'Dev', live: true }],
@@ -173,6 +189,51 @@ describe('the menus', () => {
             expect(ids).toContain('issue-start');
         }
         expect(commandIds(menuModel(context({ folder: false })))).not.toContain('chat-new-worktree');
+    });
+
+    describe('a chat in Chats that someone wrote in', () => {
+        const written = { ...NO_OFFERS, makeProject: true, moveToProject: true };
+        const chatMenu = (patch: Partial<MenuContext> = {}): MenuNode[] =>
+            menu(
+                menuModel(context({ view: 'chat', scratch: true, folder: false, offers: written, moveProjects: [{ id: 'p1', name: 'Vinyl' }], ...patch })),
+                'Chat'
+            );
+
+        test('can become a project or move into one of the recent projects, or another', () => {
+            const items = chatMenu();
+            expect(items.flatMap((node) => (node.kind === 'command' ? [node.id] : []))).toContain('chat-make-project');
+            const submenu = items.find((node) => node.kind === 'submenu' && node.id === 'chat-move');
+            expect(submenu).toMatchObject({ kind: 'submenu', label: 'Move to Project' });
+            const rows = submenu?.kind === 'submenu' ? submenu.items : [];
+            expect(rows.map((node) => (node.kind === 'command' ? `${node.id}:${node.label}` : node.kind))).toEqual([
+                `${CHAT_MOVE_PREFIX}p1:Vinyl`,
+                'separator',
+                'chat-move-to-project:Other Project…'
+            ]);
+        });
+
+        test('keeps only "Other Project…" in the submenu without a recent project', () => {
+            const submenu = chatMenu({ moveProjects: [] }).find((node) => node.kind === 'submenu' && node.id === 'chat-move');
+            expect(submenu?.kind === 'submenu' ? submenu.items.map((node) => node.kind) : []).toEqual(['command']);
+        });
+
+        test('greys both rows while the chat works', () => {
+            const items = chatMenu({ chatWorking: true });
+            expect(items.find((node) => node.kind === 'command' && node.id === 'chat-make-project')).toMatchObject({ enabled: false });
+            expect(items.find((node) => node.kind === 'submenu' && node.id === 'chat-move')).toMatchObject({ enabled: false });
+        });
+
+        test('is offered nothing where the offers say no', () => {
+            const ids = commandIds(menuModel(context({ view: 'chat', offers: NO_OFFERS })));
+            expect(ids).not.toContain('chat-make-project');
+            expect(chatMenu({ offers: NO_OFFERS }).some((node) => node.kind === 'submenu' && node.id === 'chat-move')).toBe(false);
+        });
+
+        test('has its rows in the palette', () => {
+            expect(isPaletteId('chat-make-project')).toBe(true);
+            expect(isPaletteId('chat-move-to-project')).toBe(true);
+            expect(isPaletteId(`${CHAT_MOVE_PREFIX}p1`)).toBe(false);
+        });
     });
 
     test('showing a pull request has one row per repository once the folder holds several', () => {
@@ -475,7 +536,8 @@ describe('the commands behind the menu', () => {
                 isPaletteId(id) ||
                 id.startsWith(GO_VIEW_PREFIX) ||
                 id.startsWith(LAUNCH_CHOOSE_PREFIX) ||
-                id.startsWith(AFTER_SETTLE_PREFIX);
+                id.startsWith(AFTER_SETTLE_PREFIX) ||
+                id.startsWith(CHAT_MOVE_PREFIX);
             expect(handled ? id : `${id} has no handler`).toBe(id);
         }
     });

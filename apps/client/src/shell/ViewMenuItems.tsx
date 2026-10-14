@@ -17,7 +17,7 @@ import {
     Users,
     X
 } from 'lucide-react';
-import { canShareView, isCanvasView, type ProjectView } from '@ruimte/contracts';
+import { canShareView, isCanvasView, isEmptyChatView, type ProjectView } from '@ruimte/contracts';
 import { useDatabaseViewShareRefusal } from '@/database/view-sharing';
 import { BookmarkSubmenu } from '@adecore/agents-react/chat/ui';
 import { ForkMenuItem } from '@/chat/ForkMenuItem';
@@ -32,6 +32,7 @@ import {
     splitAction
 } from '@/actions/client-actions';
 import { FlagSubmenu } from '@/project/FlagSubmenu';
+import { MoveChatItems } from '@/project/MoveChatItems';
 import { askDeleteView, askViewSettings, openSessionInKind, setViewShared } from '@/project/views';
 import { sessionHandoffs, viewOffers } from '@/shell/view-offers';
 import { FileActionItems } from '@/shell/panels/FileActionItems';
@@ -43,6 +44,7 @@ import { isScratchProject, useProject } from '@/state/project';
 import { useSessionRow } from '@/state/sessions';
 import { fileManagerName, useServer } from '@/state/server';
 import { useTransport } from '@/transport/context';
+import { useMachineAnswers } from '@/transport/features';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { Icon, Kbd, KEY_SHORTCUTS, Menu, Tooltip } from '@adecore/ui';
 
@@ -77,6 +79,8 @@ export function ViewMenuItems({ viewId, kind, onSidebar = false }: ViewMenuItems
     const sessionAccount = useSessionRow(viewId, (row) => row?.account);
     const providers = useProviders((state) => state.providers);
     const offersFork = useOffersFork(viewId);
+    const endpointId = useProject((state) => state.currentEndpointId ?? '');
+    const moves = useMachineAnswers(endpointId, 'chat.move');
     const transport = useTransport();
 
     const { asChat, asTerminal } = sessionHandoffs(kind, view, chat, { agent, account: sessionAccount }, providers);
@@ -95,12 +99,15 @@ export function ViewMenuItems({ viewId, kind, onSidebar = false }: ViewMenuItems
         asTerminal,
         workingFolder,
         filePath,
-        scratch
+        scratch,
+        written: view !== undefined && !(view.kind === 'chat' && isEmptyChatView(view)),
+        moves
     });
     const drawn = offers.duplicate;
     const offerShare = view !== undefined && offers.share;
     const offerFork = offers.fork;
-    const copies = drawn || offerFork || asChat !== null || asTerminal !== null;
+    const offerMove = offers.makeProject;
+    const copies = drawn || offerFork || offerMove || asChat !== null || asTerminal !== null;
     const offerPut = offers.putOnCanvas;
     const offerShow = offers.showOnCanvas;
     const place = offerPut || offerShow || filePath !== null || workingFolder !== null;
@@ -132,6 +139,7 @@ export function ViewMenuItems({ viewId, kind, onSidebar = false }: ViewMenuItems
                 </Menu.Item>
             )}
             {offerFork && <ForkMenuItem chatId={viewId} />}
+            {offerMove && <MoveChatItems chatId={viewId} endpointId={endpointId} working={chat?.status === 'running' || chat?.status === 'needs-you'} />}
 
             {place && <Menu.Separator />}
             {offerPut && (

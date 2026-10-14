@@ -210,6 +210,8 @@ interface UiStore {
     conflicts: ConflictRequest | null;
     /* The chat and the turn a fork goes on after, while its dialog is up. */
     forkDialog: { chatId: string; turnId: string } | null;
+    /* The chat in Chats that moves to a project, and the project picked beforehand, while its dialog is up. */
+    moveChatDialog: { chatId: string; projectId: string | null } | null;
     /* The dialog that starts a chat in a worktree made for it. */
     newWorktreeChatOpen: boolean;
     /* The dialog that starts a chat on a GitHub issue. */
@@ -237,6 +239,7 @@ interface UiStore {
     setWorktreeMerge(merge: WorktreeMergeRequest | null): void;
     setConflicts(request: ConflictRequest | null): void;
     setForkDialog(fork: { chatId: string; turnId: string } | null): void;
+    setMoveChatDialog(move: { chatId: string; projectId: string | null } | null): void;
     setNewWorktreeChatOpen(open: boolean): void;
     setIssueStartOpen(open: boolean): void;
     setPullRequestDialog(request: { cwd: string } | null): void;
@@ -300,6 +303,7 @@ export const useUi = create<UiStore>((set, get) => ({
     worktreeMerge: null,
     conflicts: null,
     forkDialog: null,
+    moveChatDialog: null,
     newWorktreeChatOpen: false,
     issueStartOpen: false,
     pullRequestDialog: null,
@@ -347,6 +351,9 @@ export const useUi = create<UiStore>((set, get) => ({
     },
     setForkDialog(fork) {
         set({ forkDialog: fork });
+    },
+    setMoveChatDialog(move) {
+        set({ moveChatDialog: move });
     },
     setNewWorktreeChatOpen(open) {
         set({ newWorktreeChatOpen: open });

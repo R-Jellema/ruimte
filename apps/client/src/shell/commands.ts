@@ -65,6 +65,7 @@ import { useTheme } from '@/state/theme';
 import { useFiles } from '@/state/files';
 import { useUi } from '@/state/ui';
 import { transportFor } from '@/transport';
+import { activeViewFacts } from '@/shell/menu/context';
 import { runAppShortcut } from '@/shell/app-shortcuts';
 import { canSplit, cellAt, cellCount, cellsRightOf, isTabHost, maximizedCell } from '@/shell/split';
 import type { Shortcut } from '@adecore/ui';
@@ -282,6 +283,9 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
     /* The start screen is outside every project, so only the rows about the window are offered there. */
     const inWorkspace = windowWorkspace() !== null;
     const chat = inWorkspace ? focusedChatId() : null;
+    // The palette cannot grey a row, so a chat that works offers none; the menu says why.
+    const leaving = inWorkspace ? activeViewFacts() : null;
+    const leavingChatId = leaving !== null && leaving.offers.moveToProject && !leaving.working ? leaving.view.id : null;
     return [
         ...(canOpenWindows() ? [row('window-new', () => openNewWindow())] : []),
         ...(inWorkspace && canMoveToNewWindow() ? [row('window-move', () => void moveToNewWindow())] : []),
@@ -301,6 +305,12 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
                       afterPaletteCloses(() => sendFromComposer(endpointKey(currentEndpointId(), chat), 'and-new'))
                   ),
                   row('chat-restart', () => void restartChatSession(chat))
+              ]
+            : []),
+        ...(leavingChatId !== null
+            ? [
+                  row('chat-make-project', () => useUi.getState().setMoveChatDialog({ chatId: leavingChatId, projectId: null })),
+                  row('chat-move-to-project', () => useUi.getState().setMoveChatDialog({ chatId: leavingChatId, projectId: null }))
               ]
             : []),
         ...(selected?.kind === 'chat' && hasPrWatch(currentEndpointId(), selected.id)
