@@ -11,6 +11,23 @@ final class NotificationPreferencesTests: XCTestCase {
             ["notify": .array([.string("needs-you")]), "projects": .array([])])
     }
 
+    func testTheSubscriptionFollowsEveryNodeWithoutListingAny() {
+        var preferences = NotificationPreferences()
+        preferences.set(.off, machineID: "studio", projectID: "recipes")
+        let payload = NotificationCoordinator.subscription(
+            handle: "handle", publicKey: "key", approvals: true, activities: false, preferences: preferences,
+            machineID: "studio")
+        XCTAssertEqual(
+            payload,
+            .object([
+                "handle": .string("handle"), "publicKey": .string("key"), "follow": .array([]),
+                "followAll": .bool(true), "approvals": .bool(true), "readSync": .bool(true),
+                "activities": .bool(false), "activityScope": .string("machine"),
+                "notify": .array([.string("needs-you")]),
+                "projects": .array([.object(["projectId": .string("recipes"), "notify": .array([])])]),
+            ]))
+    }
+
     func testAllIsNoEntryNeedsYouOnlyIsOneKindAndOffIsEmpty() {
         var preferences = NotificationPreferences(notify: [.process, .needsYou, .turn])
         preferences.set(.needsYou, machineID: "studio", projectID: "recipes")

@@ -323,16 +323,25 @@ struct NotificationDestination: Identifiable, Hashable {
         try await session.waitForConnection()
         guard enabled, revision == current, try SharedPushStore().context()?.handle == context.handle else { return }
         let key = try SharedPushStore().key()
+        let payload = Self.subscription(
+            handle: context.handle, publicKey: key.publicKey, approvals: approvals,
+            activities: activities && supportsActivities, preferences: preferences, machineID: machine.id)
+        _ = try await session.rpc.request("push.subscribe", payload: payload)
+    }
+
+    /// What this phone sends a machine. It follows every node with `followAll`, so no node ids ride along.
+    static func subscription(
+        handle: String, publicKey: String, approvals: Bool, activities: Bool, preferences: NotificationPreferences,
+        machineID: String
+    ) -> JSONValue {
         let payload: [String: JSONValue] = [
-            "handle": .string(context.handle), "publicKey": .string(key.publicKey),
+            "handle": .string(handle), "publicKey": .string(publicKey),
             "follow": .array([]), "followAll": .bool(true), "approvals": .bool(approvals),
             "readSync": .bool(true),
-            "activities": .bool(activities && supportsActivities),
+            "activities": .bool(activities),
             "activityScope": .string("machine"),
         ]
-        _ = try await session.rpc.request(
-            "push.subscribe",
-            payload: .object(payload.merging(preferences.subscription(machineID: machine.id)) { kept, _ in kept }))
+        return .object(payload.merging(preferences.subscription(machineID: machineID)) { kept, _ in kept })
     }
 
     /// Asks every connected machine what it applies. A phone that never chose its own takes the first answer, so a
