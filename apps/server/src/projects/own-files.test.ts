@@ -169,6 +169,15 @@ describe('moveOwnFiles', () => {
         expect(await names(from)).toEqual(['.env', 'notes.md', 'sketches']);
     });
 
+    test("leaves a file manager's .DS_Store behind and still removes the emptied folder", async () => {
+        await writeFile(join(from, '.DS_Store'), 'junk');
+        await writeFile(join(to, '.DS_Store'), 'theirs');
+        const result = await moveOwnFiles(from, to);
+        expect(result.moved).toEqual(['.env', 'notes.md', 'sketches']);
+        expect(await readFile(join(to, '.DS_Store'), 'utf8')).toBe('theirs');
+        await expect(readdir(from)).rejects.toThrow();
+    });
+
     test('moves nothing from a folder that is not there', async () => {
         const result = await moveOwnFiles(join(root, 'nowhere'), to);
         expect(result.moved).toEqual([]);

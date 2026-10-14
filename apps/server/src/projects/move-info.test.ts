@@ -63,6 +63,17 @@ describe('chatMoveInfo', () => {
         expect(info.ownFiles).toEqual({ folder: join(root, 'scratch', 'chat-1'), count: 6, names: ['.env', 'a.md', 'b.md', 'c.md', 'd.md'] });
     });
 
+    test('does not count a .DS_Store, nor call it a clash', async () => {
+        await own('chat-1', ['notes.md', '.DS_Store']);
+        const target = join(root, 'vinyl');
+        await mkdir(target);
+        await writeFile(join(target, '.DS_Store'), 'y');
+        const to = { folder: target, name: 'Vinyl', createFolder: false, initGit: false };
+        const info = await chatMoveInfo({ chatId: 'chat-1', to }, deps({ 'chat-1': [] }));
+        expect(info.ownFiles).toMatchObject({ count: 1, names: ['notes.md'] });
+        expect(info.conflicts).toEqual([]);
+    });
+
     test('reports no own files for a chat that never made its folder', async () => {
         const info = await chatMoveInfo({ chatId: 'chat-1' }, deps({ 'chat-1': [] }));
         expect(info.ownFiles.count).toBe(0);

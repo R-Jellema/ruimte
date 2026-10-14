@@ -24,6 +24,9 @@ const SYSTEM_IO: OwnFilesIO = {
     copy: (from, to) => cp(from, to, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true, preserveTimestamps: true })
 };
 
+/* What a file manager leaves in a folder on its own: not the chat's, so it is neither counted nor moved. */
+export const IGNORED_OWN_NAMES: readonly string[] = ['.DS_Store'];
+
 /* The folder a chat in Chats keeps its own files in; an id that is not one name never becomes a path. */
 export function ownFolderOf(scratchFolder: string, chatId: string): string {
     if (!isPathSegment(chatId)) {
@@ -66,13 +69,13 @@ async function moveBack(io: OwnFilesIO, from: string, to: string): Promise<void>
  * `rmdir`, never recursively.
  */
 export async function moveOwnFiles(from: string, to: string, io: OwnFilesIO = SYSTEM_IO): Promise<MovedOwnFiles> {
-    const names = await readdir(from).catch((e: unknown) => {
+    const listed = await readdir(from).catch((e: unknown) => {
         if (codeOf(e) === 'ENOENT') {
             return [];
         }
         throw new ChatError('move-failed', `The folder ${from} could not be read: ${errorText(e)}`);
     });
-    names.sort();
+    const names = listed.filter((name) => !IGNORED_OWN_NAMES.includes(name)).sort();
     for (const name of names) {
         if (await exists(join(to, name))) {
             throw new ChatError('files-conflict', `${name} is already in ${to}`);
@@ -153,6 +156,10 @@ export async function moveOwnFiles(from: string, to: string, io: OwnFilesIO = SY
     }
     arrived.push(...copied);
 
+    // Left in the folder it would keep `rmdir` from removing it; it was never the chat's.
+    for (const name of listed.filter((entry) => IGNORED_OWN_NAMES.includes(entry))) {
+        await rm(join(from, name), { force: true }).catch(() => undefined);
+    }
     removedFolder = await rmdir(from).then(
         () => true,
         () => false

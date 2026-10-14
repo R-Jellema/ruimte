@@ -1,6 +1,7 @@
 import { lstat, readdir } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import type { ChatItem, ChatMoveInfoPayload, ChatMoveInfoResult, ChatMoveRefusal, ChatMoveTarget } from '@ruimte/contracts';
+import { IGNORED_OWN_NAMES } from './own-files.ts';
 import { workedFolders } from '../chat/worked-folders.ts';
 import { referencedChats } from '../context/chat-references.ts';
 
@@ -34,7 +35,7 @@ async function exists(path: string): Promise<boolean> {
 /* The top-level names in a folder, hidden ones included; a folder that is not there holds nothing. */
 export async function ownFileNames(folder: string): Promise<string[]> {
     try {
-        return (await readdir(folder)).sort();
+        return (await readdir(folder)).filter((name) => !IGNORED_OWN_NAMES.includes(name)).sort();
     } catch {
         return [];
     }
@@ -51,7 +52,7 @@ export async function ownFileConflicts(names: readonly string[], folder: string 
     if (folder === null) {
         return taken;
     }
-    for (const name of names) {
+    for (const name of names.filter((entry) => !IGNORED_OWN_NAMES.includes(entry))) {
         if (taken.length >= limit) {
             break;
         }
