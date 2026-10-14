@@ -5,7 +5,7 @@ import { fileURLToPath, URL } from 'node:url';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { build, defaultClientConditions, defineConfig, searchForWorkspaceRoot, type Plugin } from 'vite';
-import { adecoreJsonImports, adecoreSources } from './adecore-sources.ts';
+import { adecoreSources } from './adecore-sources.ts';
 import { shikiModules, shikiOnce } from './shiki-once.ts';
 import { startChunkGuard } from './start-chunk.ts';
 import { visualHostPage } from './visual-host.ts';
@@ -138,7 +138,6 @@ const shiki = shikiModules();
 export default defineConfig(({ mode }) => ({
     plugins: [
         adecoreSources(),
-        adecoreJsonImports(),
         react(),
         tailwindcss(),
         bytesWorker(),

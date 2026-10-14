@@ -55,7 +55,6 @@
     "apps/client/src/editor-ai/agent-changes-wiring.test.ts": 663,
     "apps/server/src/canvas/computer-verb.test.ts": 661,
     "apps/server/src/canvas/language-verb.test.ts": 658,
-    "apps/client/adecore-sources.test.ts": 654,
     "apps/server/src/projects/drawing-store.test.ts": 654,
     "apps/server/src/sessions/output-cwd.test.ts": 647,
     "apps/server/src/fs/list.test.ts": 642,
