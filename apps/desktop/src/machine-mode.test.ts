@@ -16,8 +16,13 @@ import {
 const NOTHING: MachineModeFacts = { override: null, stored: null, traces: false, smoke: false };
 
 describe('decideMachineMode', () => {
-    test('no traces and no file asks', () => {
-        expect(decideMachineMode(NOTHING)).toEqual({ mode: 'ask', write: null });
+    test('no traces and no file asks, and stores that it asked', () => {
+        expect(decideMachineMode(NOTHING)).toEqual({ mode: 'ask', write: 'ask' });
+    });
+
+    test('the files a start of ask leaves behind do not turn the next start into an earlier install', () => {
+        const first = decideMachineMode(NOTHING);
+        expect(decideMachineMode({ ...NOTHING, stored: first.write, traces: true })).toEqual({ mode: 'ask', write: null });
     });
 
     test('traces of an earlier install run a machine, and write it once', () => {
@@ -36,6 +41,7 @@ describe('decideMachineMode', () => {
     test('an override beats a stored mode and is never written', () => {
         expect(decideMachineMode({ ...NOTHING, override: 'none', stored: 'local', traces: true })).toEqual({ mode: 'none', write: null });
         expect(decideMachineMode({ ...NOTHING, override: 'ask' })).toEqual({ mode: 'ask', write: null });
+        expect(decideMachineMode({ ...NOTHING, override: 'local', traces: true })).toEqual({ mode: 'local', write: null });
     });
 
     test('the smoke run tests the machine path unless overridden', () => {
@@ -54,12 +60,16 @@ describe('parseStoredMode', () => {
         expect(parseStoredMode('{ "mode": "none" }')).toBe('none');
     });
 
+    test('reads ask, which a new install keeps until it is told', () => {
+        expect(parseStoredMode('{ "mode": "ask" }')).toBe('ask');
+    });
+
     test('anything else is null', () => {
         expect(parseStoredMode(null)).toBeNull();
         expect(parseStoredMode('')).toBeNull();
         expect(parseStoredMode('garbage')).toBeNull();
         expect(parseStoredMode('null')).toBeNull();
-        expect(parseStoredMode('{ "mode": "ask" }')).toBeNull();
+        expect(parseStoredMode('{ "mode": "maybe" }')).toBeNull();
         expect(parseStoredMode('{ "mode": 1 }')).toBeNull();
     });
 });

@@ -3,8 +3,10 @@ import { dirname } from 'node:path';
 import type { MachineMode } from '@ruimte/desktop-bridge';
 
 /*
- * Files in `userData` that show the app ran before. `local.key` is deliberately absent: a daemon from
- * `npx ruimte service install` leaves one, and that case asks.
+ * Files in `userData` that show the app ran before this release. They only count while `machine.json`
+ * is absent: the first start writes its decision there, and the files a start of `ask` leaves behind
+ * must not read as an earlier install the second time. `local.key` is deliberately absent: a daemon
+ * from `npx ruimte service install` leaves one, and that case asks.
  */
 export const INSTALL_TRACES = [
     'background-service.json',
@@ -17,29 +19,29 @@ export const INSTALL_TRACES = [
 
 export interface MachineModeFacts {
     override: MachineMode | null;
-    stored: 'local' | 'none' | null;
+    stored: MachineMode | null;
     traces: boolean;
     smoke: boolean;
 }
 
 export interface MachineModeDecision {
     mode: MachineMode;
-    /* Set when an earlier install is recognized, so an update never asks and the check runs once. */
-    write: 'local' | null;
+    /* What to store: `local` for a recognized earlier install, so an update never asks, and `ask` for a new one, so the next start asks again whatever the first left behind. */
+    write: 'local' | 'ask' | null;
 }
 
 export interface MachineModeFile {
-    read(): 'local' | 'none' | null;
-    write(mode: 'local' | 'none'): void;
+    read(): MachineMode | null;
+    write(mode: MachineMode): void;
 }
 
-export function parseStoredMode(text: string | null): 'local' | 'none' | null {
+export function parseStoredMode(text: string | null): MachineMode | null {
     if (text === null) {
         return null;
     }
     try {
         const stored = JSON.parse(text) as { mode?: unknown } | null;
-        return stored?.mode === 'local' || stored?.mode === 'none' ? stored.mode : null;
+        return stored?.mode === 'local' || stored?.mode === 'none' || stored?.mode === 'ask' ? stored.mode : null;
     } catch {
         return null;
     }
@@ -60,7 +62,7 @@ export function decideMachineMode(facts: MachineModeFacts): MachineModeDecision 
         return { mode: 'local', write: 'local' };
     }
     // The smoke run tests the machine path unless it is told otherwise.
-    return { mode: facts.smoke ? 'local' : 'ask', write: null };
+    return facts.smoke ? { mode: 'local', write: null } : { mode: 'ask', write: 'ask' };
 }
 
 export function machineModeFile(path: string): MachineModeFile {

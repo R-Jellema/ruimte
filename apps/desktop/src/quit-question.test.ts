@@ -51,3 +51,14 @@ test('the quit question follows the app language, including after its windows cl
     expect(service?.message).toBe('Er is nog een agent aan het werk.');
     expect(service?.detail).toContain('blijven');
 });
+
+test('agents on machines this app does not run are said to keep running there', () => {
+    const windows = { working: 1, attention: 0 };
+    expect(quitQuestion({ survives: true, elsewhere: true, windows, machine: null })?.detail).toBe(
+        'They keep running on their own machines after Ruimte quits, and you can pick them up from any client.'
+    );
+    expect(quitQuestion({ survives: true, elsewhere: true, language: 'nl-NL', windows, machine: null })?.detail).toBe(
+        'Ze blijven op hun eigen machines draaien nadat Ruimte sluit. Je kunt vanuit elke client verdergaan.'
+    );
+    expect(quitQuestion({ survives: true, windows, machine: null })?.detail).toContain('on this machine');
+});

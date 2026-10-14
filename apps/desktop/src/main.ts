@@ -55,13 +55,19 @@ const capturePath = process.env.RUIMTE_CAPTURE ?? null;
 // Whether this app runs a machine of its own; without one nothing below starts a daemon or reads the local secret.
 const machineModeStore = machineModeFile(join(app.getPath('userData'), 'machine.json'));
 const decidedMode = decideMachineMode({
-    override: parseModeOverride(process.env.RUIMTE_MACHINE),
+    // A packaged app takes its mode from the file alone; the override is for checkouts and the smoke run.
+    override: !app.isPackaged || smoke ? parseModeOverride(process.env.RUIMTE_MACHINE) : null,
     stored: machineModeStore.read(),
     traces: hasInstallTraces((name) => existsSync(join(app.getPath('userData'), name))),
     smoke
 });
 if (decidedMode.write) {
-    machineModeStore.write(decidedMode.write);
+    try {
+        machineModeStore.write(decidedMode.write);
+    } catch (e) {
+        // The traces or the question decide again at the next start.
+        console.warn('The machine mode could not be stored:', e instanceof Error ? e.message : e);
+    }
 }
 const machineMode = decidedMode.mode;
 const localMachine = machineMode === 'local';
@@ -266,6 +272,7 @@ async function askBeforeQuit(): Promise<boolean> {
     const question = quitQuestion({
         language: interfaceLanguage ?? app.getPreferredSystemLanguages()[0],
         survives,
+        elsewhere: !localMachine,
         windows: agentActivity,
         machine: survives ? null : await askDaemonWork(machine.daemonPort)
     });

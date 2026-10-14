@@ -4,6 +4,8 @@ import type { AgentActivity } from '@ruimte/desktop-bridge';
 export interface QuitFacts {
     /* Whether what runs on the machine outlives this quit: the service keeps it, or the app never ran it. */
     survives: boolean;
+    /* This app runs no machine, so the work its windows count runs on machines of someone's account. */
+    elsewhere?: boolean;
     language?: string;
     /* What the open windows count; nothing once the last one closed, as on Linux or before an update installs. */
     windows: AgentActivity;
@@ -42,6 +44,17 @@ function bothRunning(agents: number, terminals: number, dutch: boolean): string 
     return `${agents === 1 ? 'An agent' : `${agents} agents`} and ${terminals === 1 ? 'a terminal' : `${terminals} terminals`} are still running.`;
 }
 
+function detailWhenSurviving(elsewhere: boolean, dutch: boolean): string {
+    if (elsewhere) {
+        return dutch
+            ? 'Ze blijven op hun eigen machines draaien nadat Ruimte sluit. Je kunt vanuit elke client verdergaan.'
+            : 'They keep running on their own machines after Ruimte quits, and you can pick them up from any client.';
+    }
+    return dutch
+        ? 'Ze blijven op deze machine draaien nadat Ruimte sluit. Je kunt vanuit elke client verdergaan.'
+        : 'They keep running on this machine after Ruimte quits, and you can pick them up from any client.';
+}
+
 /*
  * The question before a quit, or null when there is nothing to ask. When the quit ends the machine,
  * the machine itself says what runs on it, since a window that closed took its count with it.
@@ -58,9 +71,7 @@ export function quitQuestion(facts: QuitFacts): QuitQuestion | null {
             defaultId: 0,
             cancelId: 1,
             message: agentsWorking(facts.windows.working, dutch),
-            detail: dutch
-                ? 'Ze blijven op deze machine draaien nadat Ruimte sluit. Je kunt vanuit elke client verdergaan.'
-                : 'They keep running on this machine after Ruimte quits, and you can pick them up from any client.'
+            detail: detailWhenSurviving(facts.elsewhere === true, dutch)
         };
     }
     const agents = Math.max(facts.windows.working, facts.machine?.agents ?? 0);
