@@ -144,7 +144,8 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
             outbox: stores.outbox,
             notices: stores.notices,
             prWatches: work.prWatches,
-            machineHome: machine.machineHome
+            machineHome: machine.machineHome,
+            journal: stores.chatMoves
         })
     );
     registerTaskHandlers(dispatcher, stores.tasks, work.endChildren.children);

@@ -26,6 +26,7 @@ import { SessionError, SessionManager } from '../sessions/manager.ts';
 import { ModeApprovals, personModeOf } from '../sessions/mode-approvals.ts';
 import { prepareShellIntegration, type ShellEnvironment } from '../sessions/shell-integration.ts';
 import { SnapshotStore, scheduleSnapshots, type SnapshotSchedule } from '../sessions/snapshot-store.ts';
+import { MoveJournal } from '../projects/move-journal.ts';
 import type { AgentWorkBundle } from './agent-work.ts';
 import type { DatabasesBundle } from './databases.ts';
 import type { DevicesBundle } from './devices.ts';
@@ -48,6 +49,8 @@ export interface AgentStores {
     commandApprovals: CommandApprovals;
     modeApprovals: ModeApprovals;
     computerStore: ComputerUseStore;
+    /* The chat moves under way, which the next start finishes. */
+    chatMoves: MoveJournal;
 }
 
 export async function loadAgentStores(home: string): Promise<AgentStores> {
@@ -68,6 +71,8 @@ export async function loadAgentStores(home: string): Promise<AgentStores> {
     const modeApprovals = new ModeApprovals(home);
     // And for whether agents may operate this machine's apps, and which ones a person let them into for good.
     const computerStore = new ComputerUseStore(home);
+    // And for the chat moves that were under way when the daemon stopped.
+    const chatMoves = new MoveJournal(home);
     // Each store reads a file of its own, so they load side by side.
     const [shellEnvironment] = await Promise.all([
         prepareShellIntegration(home),
@@ -78,9 +83,10 @@ export async function loadAgentStores(home: string): Promise<AgentStores> {
         tasks.load(),
         commandApprovals.load(),
         modeApprovals.load(),
-        computerStore.load()
+        computerStore.load(),
+        chatMoves.load()
     ]);
-    return { shellEnvironment, snapshots, prompts, lineage, notices, outbox, tasks, commandApprovals, modeApprovals, computerStore };
+    return { shellEnvironment, snapshots, prompts, lineage, notices, outbox, tasks, commandApprovals, modeApprovals, computerStore, chatMoves };
 }
 
 /* What the agents reach that is wired after them, asked only once a session or a chat runs. */

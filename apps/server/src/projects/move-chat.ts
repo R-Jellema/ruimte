@@ -7,6 +7,7 @@ import { moveClaudeTranscript } from '../chat/claude-move.ts';
 import { ChatError } from '../chat/errors.ts';
 import { errorText } from '../error-text.ts';
 import { ownFileConflicts, ownFileNames } from './move-info.ts';
+import type { MoveJournal } from './move-journal.ts';
 import { moveOwnFiles } from './own-files.ts';
 import type { MutationApply } from './project-store.ts';
 
@@ -51,6 +52,8 @@ export interface MoveChatDeps {
         claudeProjectsDirOf(info: Pick<ChatInfo, 'account'>): string;
     };
     lineage: Pick<AgentLineageStore, 'projectOf' | 'rehome'>;
+    /* Written before the first step and dropped once the move is whole or put back, so a stop in between is finished at the next start (`move-repair.ts`). */
+    journal?: Pick<MoveJournal, 'begin' | 'end'>;
     /* Seams for a test that makes a step fail; the file system's own by default. */
     moveTranscript?: typeof moveClaudeTranscript;
     moveOwnFiles?: typeof moveOwnFiles;
@@ -136,8 +139,22 @@ export async function moveChat(payload: ChatMovePayload, deps: MoveChatDeps): Pr
 
     const undo: Array<() => Promise<void>> = [];
     let leftAt: string | null = null;
+    let whole = false;
+    /* Puts back every step, last first; false when one could not be, which leaves the journal for the next start. */
+    const rollback = async (): Promise<boolean> => {
+        let complete = true;
+        for (const step of undo.toReversed()) {
+            await step().catch((failure: unknown) => {
+                complete = false;
+                console.error(`Putting back a step of a failed chat move failed: ${errorText(failure)}`);
+            });
+        }
+        undo.length = 0;
+        return complete;
+    };
     const during = async (): Promise<void> => {
         try {
+            await deps.journal?.begin({ chatId, to: target.projectId, folder });
             const projectsDir = deps.chats.claudeProjectsDirOf(info);
             if (info.provider === 'claude' && info.agentSessionId !== null && projectsDir !== '') {
                 const transcript = await (deps.moveTranscript ?? moveClaudeTranscript)({
@@ -206,9 +223,10 @@ export async function moveChat(payload: ChatMovePayload, deps: MoveChatDeps): Pr
             } else if ((await ownFileNames(ownFolder)).length > 0) {
                 leftAt = ownFolder;
             }
+            whole = true;
         } catch (e) {
-            for (const step of undo.toReversed()) {
-                await step().catch((failure: unknown) => console.error(`Putting back a step of a failed chat move failed: ${errorText(failure)}`));
+            if (await rollback()) {
+                await deps.journal?.end(chatId);
             }
             throw e;
         }
@@ -216,7 +234,12 @@ export async function moveChat(payload: ChatMovePayload, deps: MoveChatDeps): Pr
 
     try {
         await deps.chats.relocate(chatId, folder, during);
+        await deps.journal?.end(chatId);
     } catch (e) {
+        // The steps are done but the record could not take the new folder, which `relocate` has put back.
+        if (whole && (await rollback())) {
+            await deps.journal?.end(chatId);
+        }
         if (e instanceof ChatError && e.code === 'chat-busy') {
             throw new ChatError('move-refused', moveRefusalSentence({ reason: 'working' }));
         }

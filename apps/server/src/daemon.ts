@@ -11,6 +11,7 @@ import { COMPILED as compiled, VERSION } from './version.ts';
 import { loadAgentStores, wireAgents } from './wiring/agents.ts';
 import { wireAgentWork } from './wiring/agent-work.ts';
 import { wireCanvasHost } from './wiring/canvas-host.ts';
+import { repairChatMoves } from './wiring/chat-move.ts';
 import { wireClients } from './wiring/clients.ts';
 import { wireDatabases } from './wiring/databases.ts';
 import { createComputer, wireDevices } from './wiring/devices.ts';
@@ -203,6 +204,18 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     sessions.hookUrl = `http://127.0.0.1:${server.port}${HOOKS_PATH}`;
     sessions.contextUrl = `http://127.0.0.1:${server.port}${CONTEXT_PATH}`;
     // Only once `hookUrl` is set: a terminal the worker starts before that runs without hooks for good.
+    // Before the outbox owes the chat anything: a chat that two projects place cannot be opened in either.
+    await repairChatMoves({
+        chats,
+        store: projects.store,
+        lineage: stores.lineage,
+        tasks: stores.tasks,
+        outbox: stores.outbox,
+        notices: stores.notices,
+        prWatches: work.prWatches,
+        machineHome: machine.machineHome,
+        journal: stores.chatMoves
+    }).catch((e) => console.error('Finishing interrupted chat moves failed:', errorText(e)));
     await work.tasks.recover();
     work.worker.start();
     work.endChildren.start();

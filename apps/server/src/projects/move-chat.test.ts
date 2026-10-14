@@ -10,6 +10,7 @@ import { MachineHome } from '../fs/machine-home.ts';
 import { bootTestDaemon, type TestDaemon } from '../tasks/test-daemon.ts';
 import { chatMoveDeps, type ChatMoveWiring } from '../wiring/chat-move.ts';
 import { moveChat, type MoveChatDeps } from './move-chat.ts';
+import { MoveJournal } from './move-journal.ts';
 import { privateFileOnDisk, projectLinks } from './project-file-test-helpers.ts';
 import { ProjectStore } from './project-store.ts';
 import { newScratchChat } from './scratch-project.ts';
@@ -24,6 +25,7 @@ describe('moving a chat from Chats into a project', () => {
     let chatsId: string;
     let ownFolder: string;
     let sessionId: string;
+    let journal: MoveJournal;
 
     const wiring = (): ChatMoveWiring => ({
         ...daemon,
@@ -31,7 +33,8 @@ describe('moving a chat from Chats into a project', () => {
         lineage: daemon.lineage,
         prWatches: daemon.prWatches,
         outbox: daemon.outbox,
-        machineHome: new MachineHome(store.home)
+        machineHome: new MachineHome(store.home),
+        journal
     });
 
     /* The deps as the daemon wires them, with one piece replaced by a test. */
@@ -67,6 +70,7 @@ describe('moving a chat from Chats into a project', () => {
         root = await mkdtemp(join(tmpdir(), 'ruimte-move-chat-'));
         const home = join(root, 'home');
         store = new ProjectStore(home, projectLinks());
+        journal = new MoveJournal(home);
         daemon = await bootTestDaemon({ home, store, clock: new ManualClock() });
         const made = await newScratchChat(store, {});
         chatId = made.viewId;
@@ -124,6 +128,33 @@ describe('moving a chat from Chats into a project', () => {
         expect(chat.info.cwd).toBe(folder);
         expect(chat.thread.list().findLast((item) => item.kind === 'note')).toMatchObject({ text: 'Moved from Chats to vinyl.' });
         expect(store.holdersOf(result.summary.projectId)).toEqual([]);
+    });
+
+    test('writes the move down while it runs and drops it once the move is whole or put back', async () => {
+        const seen: number[] = [];
+        await moveChat(
+            { chatId, to: make('vinyl'), ownFiles: 'move' },
+            deps((base) => ({
+                projects: {
+                    ...base.projects,
+                    mutate: (projectId, apply) => {
+                        seen.push(journal.pending().length);
+                        return base.projects.mutate(projectId, apply);
+                    }
+                }
+            }))
+        );
+        expect(seen).toEqual([1, 1]);
+        expect(journal.pending()).toEqual([]);
+        const second = (await newScratchChat(store, {})).viewId;
+        await daemon.chats.create({ chatId: second, provider: 'claude', cwd: join(store.scratchFolder, second) });
+        await expect(
+            moveChat(
+                { chatId: second, to: make('other'), ownFiles: 'move' },
+                deps(() => ({ moveOwnFiles: () => Promise.reject(FAILED) }))
+            )
+        ).rejects.toBe(FAILED);
+        expect(journal.pending()).toEqual([]);
     });
 
     test('the next turn resumes the same session, and its agent is told the new folder', async () => {

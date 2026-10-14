@@ -2,7 +2,7 @@ import { stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname } from 'node:path';
 import type { AgentLineageStore, NoticeStore, TaskStore } from '@adecore/agents/coordination';
-import { chatIsWorking } from '@ruimte/contracts';
+import { chatIsWorking, type ChatInfo } from '@ruimte/contracts';
 import type { MachineHome } from '../fs/machine-home.ts';
 import type { ChatManager } from '../chat/chat-manager.ts';
 import { ChatError } from '../chat/errors.ts';
@@ -12,6 +12,8 @@ import { repositoryRoot } from '../git/status.ts';
 import type { PrWatchStore } from '../github/pr-watch.ts';
 import type { OutboxStore } from '../outbox/outbox.ts';
 import { moveChat, type MoveChatDeps } from '../projects/move-chat.ts';
+import type { MoveJournal } from '../projects/move-journal.ts';
+import { repairInterruptedMoves, type MoveRepairDeps } from '../projects/move-repair.ts';
 import { chatMoveInfo, type MoveInfoDeps } from '../projects/move-info.ts';
 import { ownFolderOf } from '../projects/own-files.ts';
 import { moveRefusal, type MoveRefusalDeps } from '../projects/move-refusal.ts';
@@ -26,6 +28,8 @@ export interface ChatMoveWiring {
     notices: NoticeStore;
     prWatches: PrWatchStore;
     machineHome: Pick<MachineHome, 'refuse'>;
+    /* Absent in a test that stops nowhere in the middle. */
+    journal?: MoveJournal;
 }
 
 /* The checkout above a path that may be gone by now, by the nearest folder that still exists. */
@@ -70,6 +74,39 @@ export function chatMoveRefusalDeps(wiring: ChatMoveWiring): MoveRefusalDeps {
         notices,
         prWatches
     };
+}
+
+/* The info of a chat, loaded from disk when nobody has it. */
+async function loadedInfo(chats: ChatManager, chatId: string): Promise<ChatInfo> {
+    if (chats.get(chatId) === undefined) {
+        if (!(await chats.hasStored(chatId))) {
+            throw new ChatError('chat-not-found', `No chat ${chatId}`);
+        }
+        await chats.create({ chatId });
+    }
+    const session = chats.get(chatId);
+    if (session === undefined) {
+        throw new ChatError('chat-not-found', `No chat ${chatId}`);
+    }
+    return session.info;
+}
+
+/* Finishes the chat moves the machine stopped in the middle of; once at start, before the outbox runs. */
+export function repairChatMoves(wiring: ChatMoveWiring & { journal: MoveJournal }): Promise<string[]> {
+    const { chats, store } = wiring;
+    const deps: MoveRepairDeps = {
+        scratchFolder: store.scratchFolder,
+        journal: wiring.journal,
+        projects: { known: () => store.known(), mutate: (projectId, apply) => store.mutate(projectId, apply) },
+        index: store.index,
+        lineage: wiring.lineage,
+        chats: {
+            load: (chatId) => loadedInfo(chats, chatId),
+            relocate: (chatId, cwd, during) => chats.relocate(chatId, cwd, during),
+            claudeProjectsDirOf: (info) => chats.claudeProjectsDirOf(info)
+        }
+    };
+    return repairInterruptedMoves(deps);
 }
 
 /* What the move dialog asks the machine, and the move itself. */
@@ -139,24 +176,13 @@ export function chatMoveDeps(wiring: ChatMoveWiring): { info: MoveInfoDeps; move
             await gitOrThrow(['init'], folder);
         },
         chats: {
-            load: async (chatId) => {
-                if (chats.get(chatId) === undefined) {
-                    if (!(await chats.hasStored(chatId))) {
-                        throw new ChatError('chat-not-found', `No chat ${chatId}`);
-                    }
-                    await chats.create({ chatId });
-                }
-                const session = chats.get(chatId);
-                if (session === undefined) {
-                    throw new ChatError('chat-not-found', `No chat ${chatId}`);
-                }
-                return session.info;
-            },
+            load: (chatId) => loadedInfo(chats, chatId),
             relocate: (chatId, cwd, during) => chats.relocate(chatId, cwd, during),
             deliverNote: (chatId, delivery) => chats.deliverNote(chatId, delivery),
             claudeProjectsDirOf: (info) => chats.claudeProjectsDirOf(info)
         },
-        lineage: wiring.lineage
+        lineage: wiring.lineage,
+        ...(wiring.journal ? { journal: wiring.journal } : {})
     };
     return { info: infoDeps, move: moveDeps };
 }
