@@ -359,8 +359,8 @@ export function duplicateViewAction(viewId: string): void {
     void perform('view.duplicate', { viewId }).catch(ignoreRefusal);
 }
 
-export function placeViewOnCanvasAction(viewId: string): void {
-    void perform('view.placeOnCanvas', { viewId }).catch(ignoreRefusal);
+export function placeViewOnCanvasAction(viewId: string, canvasViewId: string | null = null): void {
+    void perform('view.placeOnCanvas', { viewId, canvasViewId }).catch(ignoreRefusal);
 }
 
 export async function showViewOnCanvasAction(viewId: string): Promise<string | null> {

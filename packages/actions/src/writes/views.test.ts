@@ -51,8 +51,8 @@ describeWrites('views', {
     },
     'view.placeOnCanvas': {
         actors: ['person', 'voice'],
-        input: { viewId: 'chat-1' },
-        refused: { 'no view': {} }
+        input: { viewId: 'chat-1', canvasViewId: 'board' },
+        refused: { 'no view': {}, 'an empty canvas': { viewId: 'chat-1', canvasViewId: '' } }
     },
     'view.showOnCanvas': {
         actors: ['person', 'voice'],

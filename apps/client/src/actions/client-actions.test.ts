@@ -13,6 +13,7 @@ import {
 } from './client-actions';
 import { visibleRect } from '@/canvas/math';
 import { liesWithin } from '@/canvas/place-node';
+import { viewIdsIn } from '@/shell/split';
 import { defaultCanvases } from '@/state/canvas';
 import { defaultDiagrams } from '@/state/diagram';
 import { useDocument } from '@/state/document';
@@ -644,6 +645,41 @@ describe('client actions', () => {
             expect(await clientActions.execute('view.placeOnCanvas', { viewId: 'release' }, VOICE_ACTION_CALL)).toMatchObject({
                 error: { code: 'view-not-placeable' }
             });
+        });
+
+        test('a view goes onto the canvas on screen in another cell rather than the one up last', async () => {
+            useDocument.getState().splitFocused('right', 'release');
+            useDocument.getState().setActiveView('main');
+            const chatId = useDocument.getState().addStandaloneView({ kind: 'chat', name: 'Research', node: {} });
+            expect(useDocument.getState().lastCanvasViewId).toBe('main');
+            expect(viewIdsIn(useDocument.getState().layout!)).toEqual([chatId, 'release']);
+            const result = await clientActions.execute('view.placeOnCanvas', { viewId: chatId }, VOICE_ACTION_CALL);
+            expect(result).toMatchObject({ status: 'completed', output: { canvasViewId: 'release', canvas: 'Release' } });
+            expect(viewIdsIn(useDocument.getState().layout!)).toEqual(['release']);
+            expect(useDocument.getState().activeViewId).toBe('release');
+            expect(defaultCanvases.of('release').getState().nodes[chatId]).toMatchObject({ kind: 'chat', title: 'Research' });
+            expect(canvas().nodes[chatId]).toBeUndefined();
+        });
+
+        test('a canvas named goes before the one on screen, and only a canvas of the project can be named', async () => {
+            const chatId = useDocument.getState().addStandaloneView({ kind: 'chat', name: 'Research', node: {} });
+            expect(await clientActions.execute('view.placeOnCanvas', { viewId: chatId, canvasViewId: 'gone' }, VOICE_ACTION_CALL)).toMatchObject({
+                error: { code: 'unknown-view' }
+            });
+            const shell = useDocument.getState().addStandaloneView({ kind: 'terminal', name: 'Shell', node: {} });
+            expect(await clientActions.execute('view.placeOnCanvas', { viewId: chatId, canvasViewId: shell }, VOICE_ACTION_CALL)).toMatchObject({
+                error: { code: 'not-a-canvas' }
+            });
+            useDocument.getState().splitFocused('right', 'main');
+            const result = await clientActions.execute('view.placeOnCanvas', { viewId: chatId, canvasViewId: 'release' }, VOICE_ACTION_CALL);
+            expect(result).toMatchObject({ status: 'completed', output: { canvasViewId: 'release', canvas: 'Release' } });
+            expect(
+                useDocument
+                    .getState()
+                    .exportViews()
+                    .find((view) => view.id === 'release')
+            ).toMatchObject({ nodes: [{ id: chatId }] });
+            expect(canvas().nodes[chatId]).toBeUndefined();
         });
 
         test('a diagram is mirrored on the canvas it goes to, and the mirror goes on undo', async () => {

@@ -13,6 +13,7 @@ import {
     type NodeTitleSource,
     type ProjectDatabaseTarget,
     type ProjectIconChoice,
+    type ProjectCanvasView,
     type ProjectView,
     type ProviderInfo,
     PROJECT_ICON_NAMES,
@@ -27,6 +28,7 @@ import { nodesOfView } from '@/project/view-nodes';
 import { offerViewUndo } from '@/project/view-trash';
 import { basenameOf } from '@/shell/panels/files-tree';
 import { locateView } from '@/shell/split';
+import { canvasInReach } from '@/state/canvas-target';
 import type { DocumentState } from '@/state/document';
 import {
     agentFor,
@@ -105,9 +107,15 @@ function derivedViewName(
     return freeName(state.views, VIEW_BASE_NAMES[kind]);
 }
 
-/* The canvas a view becomes a node on: the one that was up last, else the first there is. */
-function lastCanvasOf(state: DocumentState): (ProjectView & { kind: 'canvas' }) | null {
-    return state.views.filter(isCanvasView).find((view) => view.id === state.lastCanvasViewId) ?? state.views.find(isCanvasView) ?? null;
+function namedCanvas(state: DocumentState, canvasViewId: string): ProjectCanvasView {
+    const named = state.views.find((view) => view.id === canvasViewId);
+    if (!named) {
+        throw new ActionRefusal('unknown-view', `No canvas view with id “${canvasViewId}” exists in this project.`);
+    }
+    if (!isCanvasView(named)) {
+        throw new ActionRefusal('not-a-canvas', `“${named.name ?? canvasViewId}” is a ${named.kind} view, not a canvas.`);
+    }
+    return named;
 }
 
 /* A view of a kind that runs no agent, under the name it was given. */
@@ -344,7 +352,7 @@ export function viewActions(document: StoreApi<DocumentState>, reach: ViewReach)
                 }
             };
         },
-        'view.placeOnCanvas': ({ viewId }) => {
+        'view.placeOnCanvas': ({ viewId, canvasViewId }) => {
             const state = document.getState();
             const view = existingView(state, viewId);
             if (!isSessionView(view)) {
@@ -353,7 +361,7 @@ export function viewActions(document: StoreApi<DocumentState>, reach: ViewReach)
                     `“${view.name}” is a ${view.kind} view; only a chat, terminal, browser or device view becomes a node.`
                 );
             }
-            const target = lastCanvasOf(state);
+            const target = canvasViewId == null ? canvasInReach(state) : namedCanvas(state, canvasViewId);
             if (target === null) {
                 throw new ActionRefusal('no-canvas', 'This project has no canvas to place the view on.');
             }
@@ -382,7 +390,7 @@ export function viewActions(document: StoreApi<DocumentState>, reach: ViewReach)
             if (!isDrawingView(view) && !isDiagramView(view)) {
                 throw new ActionRefusal('view-not-mirrorable', `“${view.name}” is a ${view.kind} view; only a drawing or diagram is shown on a canvas.`);
             }
-            const target = lastCanvasOf(state);
+            const target = canvasInReach(state);
             if (target === null) {
                 throw new ActionRefusal('no-canvas', 'This project has no canvas to show the view on.');
             }

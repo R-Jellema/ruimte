@@ -972,16 +972,18 @@ export const ACTION_DEFINITIONS = {
     },
     'view.placeOnCanvas': {
         title: 'Place view on canvas',
-        description: 'Turns a chat, terminal, browser or device view into a node on the canvas that was open last, keeping its session, and shows that canvas.',
+        description:
+            'Turns a chat, terminal, browser or device view into a node on a canvas, keeping its session, and shows that canvas. Without a canvas named it goes onto the canvas on screen, else the one that was open last.',
         effect: 'shared',
         domain: 'views',
         actors: PERSON_AND_VOICE,
-        input: z.object({ viewId }),
+        input: z.object({ viewId, canvasViewId: viewId.nullish().describe('The canvas view to place it on') }),
         output: z.object({ viewId, view: z.string(), canvasViewId: viewId, canvas: viewName })
     },
     'view.showOnCanvas': {
         title: 'Show view on canvas',
-        description: 'Puts a live mirror of a drawing or diagram view on the canvas that was open last and shows it there. The view itself stays.',
+        description:
+            'Puts a live mirror of a drawing or diagram view on the canvas on screen, else the one that was open last, and shows it there. The view itself stays.',
         effect: 'shared',
         domain: 'views',
         actors: PERSON_AND_VOICE,

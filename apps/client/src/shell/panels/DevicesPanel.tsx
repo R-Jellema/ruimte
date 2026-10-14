@@ -16,13 +16,14 @@ import {
     SlidersHorizontal,
     Smartphone
 } from 'lucide-react';
-import { deviceTools, isCanvasView, type DeviceInfo, type DeviceReference } from '@ruimte/contracts';
+import { deviceTools, type DeviceInfo, type DeviceReference } from '@ruimte/contracts';
 import { createViewAction, placeViewOnCanvasAction } from '@/actions/client-actions';
 import { AndroidMark } from '@/devices/AndroidMark';
 import { controlDevice } from '@/devices/control';
 import { DeviceControls, DeviceSurface } from '@/devices/DeviceBody';
 import { deviceStateText, unavailableNotes } from '@/devices/device-text';
 import { PanelHeaderLeadingSlot, PanelHeaderSlot, PanelHeaderTitleHidden } from '@/shell/PanelHeaderSlot';
+import { canvasInReach } from '@/state/canvas-target';
 import { useDocument } from '@/state/document';
 import { useEndpoints } from '@/state/endpoints';
 import { useEndpointId } from '@/state/keys';
@@ -103,15 +104,16 @@ function openDeviceView(device: DeviceInfo): void {
 }
 
 async function addDeviceToCanvas(device: DeviceInfo): Promise<void> {
-    // Without a canvas the view would be made and then have nowhere to go.
-    if (!useDocument.getState().views.some(isCanvasView)) {
+    // Chosen before the view is made, since the new view opens over the focused cell, a canvas there too.
+    const target = canvasInReach(useDocument.getState());
+    if (target === null) {
         return;
     }
     const id = await createViewAction('device', {
         device: referenceOf(device)
     });
     if (id !== null) {
-        placeViewOnCanvasAction(id);
+        placeViewOnCanvasAction(id, target.id);
     }
 }
 
