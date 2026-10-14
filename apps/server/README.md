@@ -234,7 +234,7 @@ The value is never in a project file, the chat log, an event, a reply to an agen
 
 ## Snapshots
 
-The daemon writes each session's screen to `sessions/<sessionId>.txt` (temp file, then rename) once it has gone quiet: a pass every 10 seconds takes a screen that did not change since the previous pass, and one that keeps changing every 12th pass at the latest. On `SIGINT`/`SIGTERM` it writes every screen that changed. After a restart, the first attach to a session with a snapshot shows the snapshot, the restored marker and then the fresh shell. `session.kill` deletes the snapshot, so a killed session does not come back. On shutdown the chats are written first and synchronously (`ChatManager.persistAllSync`), because a `bun --watch` reload restarts the module during the first await.
+The daemon writes each session's screen to `sessions/<sessionId>.txt` (temp file, then rename) once it has gone quiet: a pass every 10 seconds takes a screen that did not change since the previous pass, and one that keeps changing every 3rd pass at the latest, so a crash loses at most 30 seconds of a busy screen. On `SIGINT`/`SIGTERM` it writes every screen that changed. After a restart, the first attach to a session with a snapshot shows the snapshot, the restored marker and then the fresh shell. `session.kill` deletes the snapshot, so a killed session does not come back. On shutdown the chats are written first and synchronously (`ChatManager.persistAllSync`), because a `bun --watch` reload restarts the module during the first await.
 
 ## Agent status via hooks
 

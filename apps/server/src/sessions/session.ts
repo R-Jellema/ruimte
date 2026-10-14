@@ -16,8 +16,9 @@ const OUTPUT_TICK_MS = 16;
 // A shell that traps SIGHUP would otherwise keep a killed session alive forever.
 const KILL_ESCALATION_MS = 2000;
 
-// A screen that keeps changing waits for a snapshot pass that finds it quiet, but never more passes than this.
-export const SNAPSHOT_BUSY_PASSES = 11;
+// A screen that keeps changing waits for a snapshot pass that finds it quiet, but never more passes than
+// this: a busy screen still reaches the disk every third pass of 10 seconds, so a crash loses at most 30.
+const SNAPSHOT_BUSY_PASSES = 2;
 
 /*
  * A line typed before the shell reads input sits in the tty's canonical queue, which macOS caps at

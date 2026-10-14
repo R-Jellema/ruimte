@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import { readdir, stat } from 'node:fs/promises';
-import { RESTORED_TEXT, SNAPSHOT_BUSY_PASSES } from './session.ts';
+import { RESTORED_TEXT } from './session.ts';
 import { SnapshotStore, scheduleSnapshots } from './snapshot-store.ts';
 import { Recorder, makeHarness, type Harness } from './test-helpers.ts';
 
@@ -169,17 +169,17 @@ describe('snapshot and restore', () => {
         expect(await takenIds(true)).toEqual([]);
     });
 
-    test('a session that never goes quiet is still taken every so many passes', async () => {
+    test('a session that never goes quiet is still taken every third pass', async () => {
         await harness.manager.create({ sessionId: 'busy', cols: 80, rows: 24, cwd: harness.home });
         const pty = harness.adapter.forSession('busy');
         const taken: number[] = [];
-        for (let pass = 0; pass < 2 * (SNAPSHOT_BUSY_PASSES + 1); pass++) {
+        for (let pass = 0; pass < 9; pass++) {
             pty.emit(`pass ${pass}\r\n`);
             if ((await harness.manager.snapshotAll(false)).length > 0) {
                 taken.push(pass);
             }
         }
-        expect(taken).toEqual([SNAPSHOT_BUSY_PASSES, 2 * SNAPSHOT_BUSY_PASSES + 1]);
+        expect(taken).toEqual([2, 5, 8]);
     });
 
     test('the timer asks for quiet screens, and a flush asks for every change once the pass in flight is done', async () => {
