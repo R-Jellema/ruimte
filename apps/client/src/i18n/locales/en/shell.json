@@ -838,13 +838,13 @@
         "layouts": "Layouts",
         "saveLayout": "Save Layout As…",
         "deleteLayout": "Delete Layout",
-        "copyPng": "Copy as PNG",
-        "copySvg": "Copy as SVG",
-        "copyJson": "Copy as JSON",
-        "savePng": "Save as PNG…",
-        "saveSvg": "Save as SVG…",
-        "openJson": "Open as JSON",
-        "showOnCanvas": "Show on Canvas",
+        "diagramCopyPng": "Copy as PNG",
+        "diagramCopySvg": "Copy as SVG",
+        "diagramCopyJson": "Copy as JSON",
+        "diagramSavePng": "Save as PNG…",
+        "diagramSaveSvg": "Save as SVG…",
+        "diagramOpenJson": "Open as JSON",
+        "diagramOnCanvas": "Show on Canvas",
         "fork": "Fork Conversation…",
         "openInChat": "Open in Chat",
         "openInTerminal": "Open in Terminal",
@@ -981,6 +981,11 @@
         "nodeDown": "Select node below",
         "stopPrWatch": "Stop Watching Pull Request",
         "sendAndNewChat": "Send and Start New Chat",
-        "restartAgentSession": "Restart Agent Session"
+        "restartAgentSession": "Restart Agent Session",
+        "drawingCopyPng": "Copy as PNG",
+        "drawingCopySvg": "Copy as SVG",
+        "drawingSavePng": "Save as PNG…",
+        "drawingSaveSvg": "Save as SVG…",
+        "drawingOnCanvas": "Show on Canvas"
     }
 }

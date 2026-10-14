@@ -1,13 +1,12 @@
 import i18next from 'i18next';
 import type { ProjectView } from '@ruimte/contracts';
 import type { MenuNode, MenuRole, MenuShellAction, MenuSpec } from '@ruimte/desktop-bridge';
-import { ADD_NODE_SHORTCUTS, CANVAS_SHORTCUTS, viewShortcut } from '@/canvas/shortcuts';
+import { CANVAS_SHORTCUTS, viewShortcut } from '@/canvas/shortcuts';
 import { APP_SHORTCUTS, BROWSER_KEEPS } from '@/shell/shortcuts';
 import type { ViewOffers } from '@/shell/view-offers';
 import type { KeepAwakeMode } from '@/state/settings';
 import type { PanelKind } from '@/state/ui';
 import { formatShortcut, type Shortcut } from '@adecore/ui';
-import { SEND_AND_NEW_SHORTCUT } from '@adecore/agents-react/chat';
 import { AFTER_SETTLE_PREFIX, GO_VIEW_PREFIX, LAUNCH_CHOOSE_PREFIX, PR_SHOW_IN_PREFIX, type MenuActionId, type PaletteId } from '@/shell/menu/ids';
 import { COMMAND_IDS, COMMANDS, menuPlacesOf, type CommandId as TableCommandId, type MenuContainer, type MenuPlace } from '@/shell/command-table';
 
@@ -216,6 +215,10 @@ function isDesktop(context: MenuContext): boolean {
     return context.host === 'desktop';
 }
 
+function onCanvas(context: MenuContext): boolean {
+    return context.view === 'canvas';
+}
+
 /* The groups of every menu and submenu with a fixed place, top to bottom. */
 const LAYOUT: Partial<Record<MenuContainer, readonly MenuGroup[]>> = {
     view: [
@@ -288,6 +291,80 @@ const LAYOUT: Partial<Record<MenuContainer, readonly MenuGroup[]>> = {
         { id: 'nodes', when: (context) => context.workspace && context.view === 'canvas' },
         { id: 'prompts', when: inWorkspace },
         { id: 'language', when: (context) => context.workspace && !context.settingsOpen }
+    ],
+    kind: [
+        {
+            id: 'canvas-add',
+            when: onCanvas,
+            extras: [
+                {
+                    order: 80,
+                    build: (context, command) => {
+                        const agents = context.agents.flatMap((agent) => [
+                            ...only(agent.chat, command(`agent-chat-${agent.kind}`, t('agentChat', { name: agent.name }))),
+                            ...only(agent.terminal, command(`agent-terminal-${agent.kind}`, t('agentTerminal', { name: agent.name })))
+                        ]);
+                        return only(agents.length > 0, submenu('new-agent', t('newAgent'), agents));
+                    }
+                }
+            ]
+        },
+        {
+            id: 'canvas-arrange',
+            when: onCanvas,
+            extras: [
+                {
+                    order: 40,
+                    build: (context, command) => [
+                        submenu(
+                            'move-to',
+                            t('moveTo'),
+                            context.moveTargets.map((target) => command(`view-move-${target.id}`, target.name)),
+                            context.moveTargets.length > 0
+                        )
+                    ]
+                }
+            ]
+        },
+        {
+            id: 'canvas-layout',
+            when: onCanvas,
+            extras: [{ order: 20, build: (context, command) => [submenu('layouts', t('layouts'), itemsOf('layouts', context, command))] }]
+        },
+        { id: 'terminal', when: (context) => context.view === 'terminal' },
+        { id: 'drawing-copy', when: (context) => context.view === 'drawing' },
+        { id: 'drawing-save', when: (context) => context.view === 'drawing' },
+        { id: 'drawing-show', when: (context) => context.view === 'drawing' },
+        { id: 'diagram-copy', when: (context) => context.view === 'diagram' },
+        { id: 'diagram-save', when: (context) => context.view === 'diagram' },
+        { id: 'diagram-show', when: (context) => context.view === 'diagram' },
+        // A chat on a canvas has no menu of its own, so its rows go under the canvas's.
+        { id: 'chat', when: (context) => (context.view === 'chat' || context.view === 'canvas') && context.chat },
+        { id: 'session' },
+        { id: 'place' },
+        { id: 'settings' },
+        { id: 'delete' }
+    ],
+    layouts: [
+        { id: 'save' },
+        { id: 'apply', extras: [{ order: 10, build: (context, command) => context.layouts.map((name) => command(`layout-apply-${name}`, name)) }] },
+        {
+            id: 'delete',
+            extras: [
+                {
+                    order: 10,
+                    build: (context, command) =>
+                        only(
+                            context.layouts.length > 0,
+                            submenu(
+                                'delete-layout',
+                                t('deleteLayout'),
+                                context.layouts.map((name) => command(`layout-delete-${name}`, name))
+                            )
+                        )
+                }
+            ]
+        }
     ],
     window: [
         {
@@ -563,101 +640,5 @@ function viewKindMenu(context: MenuContext, command: MenuCommand): MenuSection |
     if (kind === null || !KIND_MENUS.includes(kind)) {
         return null;
     }
-    const offers = context.offers;
-    const own: MenuNode[] = [];
-    if (kind === 'canvas') {
-        const agents = context.agents.flatMap((agent) => [
-            ...only(agent.chat, command(`agent-chat-${agent.kind}`, t('agentChat', { name: agent.name }))),
-            ...only(agent.terminal, command(`agent-terminal-${agent.kind}`, t('agentTerminal', { name: agent.name })))
-        ]);
-        own.push(
-            command('add-terminal', t('addTerminal'), { shortcut: ADD_NODE_SHORTCUTS.terminal }),
-            command('add-chat', t('addChat'), { shortcut: ADD_NODE_SHORTCUTS.chat }),
-            command('add-browser', t('addBrowser'), { shortcut: ADD_NODE_SHORTCUTS.browser }),
-            command('add-note', t('addNote'), { shortcut: ADD_NODE_SHORTCUTS.note }),
-            command('add-text', t('addText')),
-            ...only(context.folder, command('add-file', t('addFile'))),
-            command('add-group', t('addGroup'), { shortcut: ADD_NODE_SHORTCUTS.group }),
-            ...only(agents.length > 0, submenu('new-agent', t('newAgent'), agents)),
-            separator,
-            command('group-selection', t('groupSelection'), { shortcut: CANVAS_SHORTCUTS.group, enabled: context.selection > 0 }),
-            command('group-arrange', t('arrangeGroup'), { enabled: context.groupArrangeable }),
-            command('view-promote', t('openAsView'), { enabled: context.promote }),
-            submenu(
-                'move-to',
-                t('moveTo'),
-                context.moveTargets.map((target) => command(`view-move-${target.id}`, target.name)),
-                context.moveTargets.length > 0
-            ),
-            separator,
-            command('lock', context.anyLocked ? t('unlockAll') : t('lockAll')),
-            submenu('layouts', t('layouts'), [
-                command('layout-save', t('saveLayout')),
-                separator,
-                ...context.layouts.map((name) => command(`layout-apply-${name}`, name)),
-                separator,
-                ...only(
-                    context.layouts.length > 0,
-                    submenu(
-                        'delete-layout',
-                        t('deleteLayout'),
-                        context.layouts.map((name) => command(`layout-delete-${name}`, name))
-                    )
-                )
-            ])
-        );
-    } else if (kind === 'terminal') {
-        own.push(command('terminal-clear', t('clear')));
-    } else if (kind === 'drawing') {
-        own.push(
-            command('drawing-copy-png', t('copyPng')),
-            command('drawing-copy-svg', t('copySvg')),
-            separator,
-            command('drawing-save-png', t('savePng')),
-            command('drawing-save-svg', t('saveSvg')),
-            separator,
-            command('drawing-show-on-canvas', t('showOnCanvas'))
-        );
-    } else if (kind === 'diagram') {
-        own.push(
-            command('diagram-copy-json', t('copyJson')),
-            command('diagram-copy-png', t('copyPng')),
-            command('diagram-copy-svg', t('copySvg')),
-            separator,
-            command('diagram-save-png', t('savePng')),
-            command('diagram-save-svg', t('saveSvg')),
-            ...only(context.folder, command('diagram-open-json', t('openJson'))),
-            separator,
-            command('diagram-show-on-canvas', t('showOnCanvas'))
-        );
-    }
-    // A chat on a canvas has no menu of its own, so its rows go under the canvas's. The composer answers the key itself.
-    if ((kind === 'chat' || kind === 'canvas') && context.chat) {
-        own.push(
-            separator,
-            command('chat-send-new', t('sendAndNewChat'), { shortcut: SEND_AND_NEW_SHORTCUT }),
-            command('chat-restart', t('restartAgentSession'))
-        );
-    }
-    return {
-        id: `kind-${kind}`,
-        label: t(`kinds.${kind}`),
-        items: [
-            ...own,
-            separator,
-            ...only(offers?.fork === true, command('view-fork', t('fork'))),
-            ...only(offers?.openInChat === true, command('view-open-in-chat', t('openInChat'))),
-            ...only(offers?.openInTerminal === true, command('view-open-in-terminal', t('openInTerminal'))),
-            ...only(offers?.duplicate === true, command('view-duplicate', t('duplicate'))),
-            separator,
-            ...only(offers?.putOnCanvas === true, command('view-put-on-canvas', t('putOnCanvas'))),
-            ...only(offers?.reveal === true, command('view-reveal', t('reveal', { app: context.fileManager }))),
-            separator,
-            ...only(offers?.share === true, command('view-share', context.shared ? t('unshare') : t('share'))),
-            command('flag-toggle', t('toggleFlag'), { shortcut: CANVAS_SHORTCUTS.toggleFlag }),
-            command('view-settings', t('viewSettings')),
-            separator,
-            command('view-delete', t('deleteView'))
-        ]
-    };
+    return { id: `kind-${kind}`, label: t(`kinds.${kind}`), items: itemsOf('kind', context, command) };
 }

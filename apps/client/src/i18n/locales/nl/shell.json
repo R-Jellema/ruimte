@@ -838,13 +838,13 @@
         "layouts": "Indelingen",
         "saveLayout": "Indeling opslaan als…",
         "deleteLayout": "Indeling verwijderen",
-        "copyPng": "Kopiëren als PNG",
-        "copySvg": "Kopiëren als SVG",
-        "copyJson": "Kopiëren als JSON",
-        "savePng": "Opslaan als PNG…",
-        "saveSvg": "Opslaan als SVG…",
-        "openJson": "Openen als JSON",
-        "showOnCanvas": "Op het canvas tonen",
+        "diagramCopyPng": "Kopiëren als PNG",
+        "diagramCopySvg": "Kopiëren als SVG",
+        "diagramCopyJson": "Kopiëren als JSON",
+        "diagramSavePng": "Opslaan als PNG…",
+        "diagramSaveSvg": "Opslaan als SVG…",
+        "diagramOpenJson": "Openen als JSON",
+        "diagramOnCanvas": "Op het canvas tonen",
         "fork": "Gesprek forken…",
         "openInChat": "Openen in chat",
         "openInTerminal": "Openen in terminal",
@@ -981,6 +981,11 @@
         "nodeDown": "Selecteer node onder",
         "stopPrWatch": "Pull request niet meer volgen",
         "sendAndNewChat": "Versturen en nieuwe chat starten",
-        "restartAgentSession": "Agentsessie herstarten"
+        "restartAgentSession": "Agentsessie herstarten",
+        "drawingCopyPng": "Kopiëren als PNG",
+        "drawingCopySvg": "Kopiëren als SVG",
+        "drawingSavePng": "Opslaan als PNG…",
+        "drawingSaveSvg": "Opslaan als SVG…",
+        "drawingOnCanvas": "Op het canvas tonen"
     }
 }
