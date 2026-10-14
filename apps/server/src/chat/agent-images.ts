@@ -3,6 +3,7 @@ import { copyFile, lstat, mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AttachmentStore } from '@adecore/agents/chat';
 import { CodedError } from '@adecore/agents';
+import { withoutControlCharacters } from '../bytes/byte-route.ts';
 import type { ChatAttachment } from '@ruimte/contracts';
 
 /* What an agent may put in its chat; the folder goes with a clear or a deletion of the chat, so nothing here keeps an index. */
@@ -25,7 +26,7 @@ const MIME_OF: Readonly<Record<string, string>> = Object.fromEntries(Object.entr
 
 /* The longest name that still fits a file name once encoded, cut at a whole character. */
 function fittingName(name: string): string {
-    let fitting = Array.from(name.trim());
+    let fitting = Array.from(withoutControlCharacters(name).trim());
     while (fitting.length > 0 && encodeURIComponent(fitting.join('')).length > NAME_ENCODED_MAX) {
         fitting = fitting.slice(0, -1);
     }

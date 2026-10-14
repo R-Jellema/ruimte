@@ -161,12 +161,12 @@ describe('finding an agent image', () => {
 
     test('keeps the name the agent gave, however odd, and cuts one too long to be a file name', async () => {
         const daemon = await bootWithChat();
-        const names = ['Home screen (dark).png', 'a/b\\c ~ d?.png', 'häuser-🏠.png', 'x'.repeat(190)];
+        const names = ['Home screen (dark).png', 'a/b\\c ~ d?.png', 'häuser-🏠.png', 'x'.repeat(190), 'tab\tand\nnewline.png'];
         for (const name of names) {
             const [, id, kept] = (await attach(daemon, 'chat-lead', PNG, name))[0]!.split('\t');
             const found = await daemon.chats.findAttachment('chat-lead', id!);
             expect(found!.name).toBe(kept!);
-            expect(found!.name).toBe(name.length > 150 ? name.slice(0, found!.name.length) : name);
+            expect(found!.name).toBe(name.length > 150 ? name.slice(0, found!.name.length) : name.replaceAll(/[\t\n]/g, ''));
             expect(Buffer.byteLength(found!.path.split('/').pop()!)).toBeLessThan(255);
         }
     });

@@ -70,12 +70,30 @@ export interface ServedFileOptions {
     range?: ByteRange | 'unsatisfiable' | null;
 }
 
+/* The text without tabs, line breaks and the rest of the C0 controls, which a file name or a header has no use for. */
+export function withoutControlCharacters(text: string): string {
+    return Array.from(text)
+        .filter((char) => char.codePointAt(0)! > 0x1f && char !== '\u007f')
+        .join('');
+}
+
+/* A header value is Latin-1 at most, so a name beyond ASCII also goes out in the form RFC 6266 has for it, with a plain stand-in for older clients. */
+function dispositionName(name: string): string {
+    const clean = withoutControlCharacters(name).replaceAll(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g, '\ufffd');
+    const plain = Array.from(clean.replaceAll(/["\\]/g, ''), (char) => (char >= ' ' && char <= '~' ? char : '_')).join('');
+    if (plain === clean.replaceAll(/["\\]/g, '')) {
+        return `; filename="${plain}"`;
+    }
+    const encoded = encodeURIComponent(clean).replaceAll(/['()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+    return `; filename="${plain}"; filename*=UTF-8''${encoded}`;
+}
+
 /*
  * The bytes with the headers every one of these routes answers with, `nosniff` among them: a file a
  * person uploaded is never a browser's to guess the type of.
  */
 export function bytesResponse(file: ServedFile, options: ServedFileOptions): Response {
-    const named = options.name === undefined ? '' : `; filename="${options.name.replaceAll(/["\\\r\n]/g, '')}"`;
+    const named = options.name === undefined ? '' : dispositionName(options.name);
     const headers: Record<string, string> = {
         'content-type': file.mime,
         'content-disposition': `${options.inline ? 'inline' : 'attachment'}${named}`,
