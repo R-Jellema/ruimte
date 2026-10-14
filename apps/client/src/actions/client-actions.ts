@@ -43,6 +43,7 @@ import type { Point } from '@/canvas/math';
 import type { ChatSendExtras } from '@adecore/agents-react/chat';
 import { recentChatMessages } from '@adecore/agents-react/chat';
 import { liveViewDeletion, type ViewDeletionMachine } from '@/project/view-deletion';
+import { nodesOfView } from '@/project/view-nodes';
 import { lastFlagColor, rememberFlagColor } from '@/project/flag-color';
 import { openInNewWindow, wantsNewWindow } from '@/project/windows';
 import type { ChatPromptClients } from '@adecore/agents-react/prompts';
@@ -409,7 +410,7 @@ export function colorNoteAction(viewId: string | null, nodeId: string, color: No
 
 /* The lines a node leaves behind were asked about by the promote dialog, when it had any. */
 export function promoteNodeAction(nodeId: string): void {
-    const viewId = viewOfNode(useDocument.getState().views, nodeId)?.id ?? activeViewId();
+    const viewId = viewOfNode(useDocument.getState().views, nodesOfView, nodeId)?.id ?? activeViewId();
     if (viewId !== null) {
         void perform('node.promoteToView', { viewId, nodeId }, { confirmed: true }).catch(ignoreRefusal);
     }

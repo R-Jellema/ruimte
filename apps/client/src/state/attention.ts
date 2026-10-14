@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { isCanvasView, type ProjectView, type SplitLayout } from '@ruimte/contracts';
 import { intersects, isMeasured, visibleRect, type Rect } from '@/canvas/math';
 import { desktop } from '@/desktop/bridge';
-import { projectNodes } from '@/project/views';
+import { projectNodes } from '@/project/view-nodes';
 import { shownViewIdsIn } from '@/shell/split';
 import { nodeWorking } from '@/state/agent-work';
 import { nodesInSight, seenNodes, sightOf, type CanvasSight } from '@/state/in-sight';

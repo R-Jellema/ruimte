@@ -9,6 +9,7 @@ import {
     type ProjectFlags,
     type ProjectIconChoice,
     type ProjectLocal,
+    type ProjectNode,
     type ProjectView,
     type ProjectViewLocal,
     type SplitLayout,
@@ -250,8 +251,8 @@ export function useCellHasFocus(): boolean {
 }
 
 /* The view a node sits on, so a jump from anywhere can switch to it first. */
-export function viewOfNode(views: ProjectView[], nodeId: string): ProjectView | null {
-    return views.find((view) => (isCanvasView(view) ? view.nodes.some((node) => node.id === nodeId) : view.id === nodeId)) ?? null;
+export function viewOfNode(views: readonly ProjectView[], nodesOf: (view: ProjectView) => readonly ProjectNode[], nodeId: string): ProjectView | null {
+    return views.find((view) => (isCanvasView(view) ? nodesOf(view).some((node) => node.id === nodeId) : view.id === nodeId)) ?? null;
 }
 
 export function activeViewOf(state: Pick<DocumentState, 'views' | 'activeViewId'>): ProjectView | null {

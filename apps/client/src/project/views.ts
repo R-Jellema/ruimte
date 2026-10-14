@@ -17,7 +17,8 @@ import {
 import { offerDraft } from '@adecore/agents-react/chat';
 import { GRID, type Point } from '@/canvas/math';
 import { databaseTargetOf, databaseViewName } from '@/database/view-name';
-import { filesOfView, nodesOfView } from '@/project/view-deletion';
+import { filesOfView } from '@/project/view-deletion';
+import { nodesOfView } from '@/project/view-nodes';
 import { basenameOf, storedPathOf } from '@/shell/panels/files-tree';
 import { closeAfterSaving } from '@/shell/panels/unsaved-close';
 import { NODE_SIZE, focusedCanvas, liveCanvas } from '@/state/canvas';
@@ -25,7 +26,6 @@ import { fileTabOf, isDatabaseTab, useFiles } from '@/state/files';
 import { currentEndpointId } from '@/state/keys';
 import { useDocument, viewOfNode } from '@/state/document';
 import { useProject } from '@/state/project';
-import type { StatusOf } from '@/state/sessions';
 import { useToasts } from '@/state/toasts';
 import { useUi } from '@/state/ui';
 import { transportFor } from '@/transport';
@@ -59,7 +59,7 @@ export function showViewWhenItLands(id: string): void {
 /* A node that lives on another canvas is reached by switching there first. */
 export function revealNode(nodeId: string): void {
     const { views, activeViewId } = useDocument.getState();
-    const view = viewOfNode(views, nodeId);
+    const view = viewOfNode(views, nodesOfView, nodeId);
     if (view && view.id !== activeViewId) {
         showView(view.id);
     }
@@ -244,20 +244,6 @@ export function stepView(delta: -1 | 1): void {
     showView(views[(at + delta + views.length) % views.length]!.id);
 }
 
-/* A node as the whole project sees it: enough to have a status and a name, never a place. */
-export interface ProjectNodeRef extends StatusOf {
-    title: string;
-}
-
-/*
- * Every node the project holds, over every view, a standalone view counting as the one node it is.
- * Whatever looks at the whole project (the dock's counters, the notifications, the session
- * lifecycle) reads this rather than the canvas on screen.
- */
-export function projectNodes(): ProjectNodeRef[] {
-    return useDocument.getState().views.flatMap(nodesOfView);
-}
-
 /* Which nodes can leave a canvas for a view of their own: the ones that are a session, not a frame. */
 export function canOpenAsView(kind: string): boolean {
     return kind === 'chat' || kind === 'terminal' || kind === 'browser' || kind === 'device';
@@ -268,7 +254,7 @@ export function canOpenAsView(kind: string): boolean {
  * behind, because an edge lives on a canvas, so a node that has any asks before it goes.
  */
 export function askOpenAsView(nodeId: string): void {
-    const view = viewOfNode(useDocument.getState().views, nodeId);
+    const view = viewOfNode(useDocument.getState().views, nodesOfView, nodeId);
     const canvas = view === null ? null : liveCanvas(view.id);
     if (canvas !== null && canvas.edges.some((edge) => edge.from === nodeId || edge.to === nodeId)) {
         useUi.getState().setViewDialog({ kind: 'promote', nodeId });

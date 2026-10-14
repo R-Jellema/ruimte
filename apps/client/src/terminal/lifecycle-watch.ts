@@ -1,6 +1,5 @@
 import type { CanvasNodeKind } from '@ruimte/contracts';
-import { nodesOfView } from '@/project/view-deletion';
-import { projectNodes } from '@/project/views';
+import { nodeRefsOfView, projectNodes } from '@/project/view-nodes';
 import { liveCanvases, subscribeCanvases } from '@/state/canvas';
 import { useDocument } from '@/state/document';
 import { useEndpoints } from '@/state/endpoints';
@@ -28,7 +27,7 @@ function liveNodes(): Map<string, CanvasNodeKind> {
     }
     // A deleted view that can still be taken back keeps what runs on it until it is purged.
     for (const { view } of useDocument.getState().trashed) {
-        for (const node of nodesOfView(view)) {
+        for (const node of nodeRefsOfView(view)) {
             live.set(endpointKey(endpointId, node.id), node.kind);
         }
     }

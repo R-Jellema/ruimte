@@ -1,27 +1,13 @@
-import { isCanvasView, isFileView, isSessionView, resolveStoredPath, sessionNodesOfView, type ProjectNode, type ProjectView } from '@ruimte/contracts';
+import { isFileView, isSessionView, resolveStoredPath, sessionNodesOfView, type ProjectNode, type ProjectView } from '@ruimte/contracts';
 import { agentsEndedBy } from '@/agents/end-children';
 import { nodeWorking } from '@/state/agent-work';
-import { liveCanvas } from '@/state/canvas';
 import { useChats } from '@adecore/agents-react/state';
+import { nodeRefsOfView, nodesOfView } from '@/project/view-nodes';
 import { currentEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { useSessions, type StatusOf } from '@/state/sessions';
 import { textDrafts } from '@/state/text-drafts';
 import { transportFor } from '@/transport';
-
-/* What a view holds, in the words the status needs. The canvas store owns the view that is on screen. */
-export function nodesOfView(view: ProjectView): (StatusOf & { title: string })[] {
-    if (isSessionView(view)) {
-        // A standalone view is one node without a canvas, under its own id.
-        return [{ id: view.id, kind: view.kind, title: view.name }];
-    }
-    if (!isCanvasView(view)) {
-        return [];
-    }
-    // A view on screen is held by its editor, wherever in the grid it stands, and that is newer.
-    const canvas = liveCanvas(view.id);
-    return canvas === null ? view.nodes : canvas.order.map((id) => canvas.nodes[id]!);
-}
 
 function resolved(stored: readonly string[], folder: string | null): string[] {
     return stored.flatMap((path) => resolveStoredPath(folder, path) ?? []);
@@ -36,7 +22,7 @@ function filesOfNodes(nodes: readonly ProjectNode[], folder: string | null): str
 
 /* The files a view shows: itself for a file view, its file nodes for a canvas. */
 export function filesOfView(view: ProjectView, folder: string | null): string[] {
-    return isFileView(view) ? resolved([view.path], folder) : isCanvasView(view) ? filesOfNodes(view.nodes, folder) : [];
+    return isFileView(view) ? resolved([view.path], folder) : filesOfNodes(nodesOfView(view), folder);
 }
 
 /* What deleting a view reaches beyond the document: the drafts of its files and the agents on the machine. */
@@ -72,7 +58,7 @@ function titleOfNode(views: readonly ProjectView[], nodeId: string): string | nu
         if (view.id === nodeId && isSessionView(view)) {
             return view.name;
         }
-        const node = isCanvasView(view) ? nodesOfView(view).find((candidate) => candidate.id === nodeId) : undefined;
+        const node = nodesOfView(view).find((candidate) => candidate.id === nodeId);
         if (node) {
             return node.title;
         }
@@ -103,7 +89,7 @@ async function deletionFacts(
 /* `view` is the exported copy, so a canvas on screen is counted with what its editor holds now. */
 export function viewDeletionFacts(view: ProjectView, views: readonly ProjectView[], machine: ViewDeletionMachine): Promise<ViewDeletionFacts> {
     return deletionFacts(
-        nodesOfView(view),
+        nodeRefsOfView(view),
         sessionNodesOfView(view).map((node) => node.id),
         filesOfView(view, machine.folder()),
         views,

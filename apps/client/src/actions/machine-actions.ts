@@ -15,7 +15,7 @@ import {
 import { asRefusal } from '@/actions/developer-actions';
 import { localTimeZone } from '@adecore/ui/format';
 import { useDeviceOperated } from '@/devices/operated';
-import { projectNodes } from '@/project/views';
+import { projectNodes } from '@/project/view-nodes';
 import { useComputer } from '@/state/computer';
 import { currentEndpointId } from '@/state/keys';
 import { useProcesses, useProcessWarnings } from '@/state/processes';

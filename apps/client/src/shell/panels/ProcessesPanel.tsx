@@ -33,7 +33,8 @@ import {
 } from '@/processes/format';
 import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { messageOf, Segmented, Button, Icon, IconButton, ListRow, Menu, Tooltip, PanelEmpty, PromptDialog, SectionLabel, ContextMenu } from '@adecore/ui';
-import { projectNodes, revealNode } from '@/project/views';
+import { projectNodes } from '@/project/view-nodes';
+import { revealNode } from '@/project/views';
 import { PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
 import { ProcessChart } from '@/shell/panels/ProcessChart';
 import { niceScale } from '@adecore/agents-react/usage';
