@@ -80,4 +80,37 @@ describe('workedFolders', () => {
         await workedFolders(items, options({ gitRoot: async (directory) => (asked.push(directory), '/srv/shelf') }));
         expect(asked).toEqual(['/srv/shelf']);
     });
+
+    test('takes the path of Glob, Grep and LS for a folder, not for a file in it', async () => {
+        const items = [
+            tool('a', 'Glob', { pattern: '*', path: '/opt/data' }),
+            tool('b', 'Grep', { pattern: 'x', path: '/Users/bas/Documents' }),
+            tool('c', 'LS', { path: '/srv/shelf/app' })
+        ];
+        expect(await workedFolders(items, options())).toEqual([
+            { path: '/opt/data', files: 1 },
+            { path: '/Users/bas/Documents', files: 1 },
+            { path: '/srv/shelf', files: 1 }
+        ]);
+    });
+
+    test('reads a leading ~ as home', async () => {
+        const items = [tool('a', 'Read', { file_path: '~/Documents/notes/todo.md' }), tool('b', 'Glob', { pattern: '*', path: '~/Sites' })];
+        expect(await workedFolders(items, options())).toEqual([
+            { path: '/Users/bas/Documents', files: 1 },
+            { path: '/Users/bas/Sites', files: 1 }
+        ]);
+    });
+
+    test('starts no git for a path inside a checkout already found', async () => {
+        const asked: string[] = [];
+        const items = [
+            tool('a', 'Read', { file_path: '/srv/shelf/app/a.php' }),
+            tool('b', 'Read', { file_path: '/srv/shelf/lib/deep/b.php' }),
+            tool('c', 'Read', { file_path: '/srv/shelf/c.php' })
+        ];
+        const found = await workedFolders(items, options({ gitRoot: async (directory) => (asked.push(directory), '/srv/shelf') }));
+        expect(found).toEqual([{ path: '/srv/shelf', files: 3 }]);
+        expect(asked).toEqual(['/srv/shelf/app']);
+    });
 });

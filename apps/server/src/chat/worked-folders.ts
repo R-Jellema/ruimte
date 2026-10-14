@@ -18,48 +18,63 @@ export interface WorkedFolderOptions {
 }
 
 // Tools of the CLIs that name a path they only look at; Claude's names, which the Apple backend shares.
-const READ_PATH_FIELDS: Record<string, readonly string[]> = {
-    Read: ['file_path'],
-    Glob: ['path'],
-    Grep: ['path'],
-    LS: ['path'],
-    NotebookRead: ['notebook_path']
+// `folder` fields name a folder, the others a file.
+const READ_PATH_FIELDS: Record<string, ReadonlyArray<{ field: string; folder: boolean }>> = {
+    Read: [{ field: 'file_path', folder: false }],
+    Glob: [{ field: 'path', folder: true }],
+    Grep: [{ field: 'path', folder: true }],
+    LS: [{ field: 'path', folder: true }],
+    NotebookRead: [{ field: 'notebook_path', folder: false }]
 };
+
+interface Touched {
+    path: string;
+    /* The path is a folder a tool looked into, not a file. */
+    folder: boolean;
+}
 
 function isUnder(parent: string, path: string): boolean {
     const between = relative(parent, path);
     return between === '' || (!between.startsWith('..') && !isAbsolute(between));
 }
 
-function readPaths(item: Extract<ChatItem, { kind: 'tool' }>, cwd: string): string[] {
+/* A path as the CLI wrote it: `~` is the person's home, anything relative is the chat's folder. */
+function resolveIn(cwd: string, home: string, path: string): string {
+    if (path === '~' || path.startsWith('~/')) {
+        return join(home, path.slice(1));
+    }
+    return resolve(cwd, path);
+}
+
+function readPaths(item: Extract<ChatItem, { kind: 'tool' }>, cwd: string, home: string): Touched[] {
     const input = typeof item.input === 'object' && item.input !== null ? (item.input as Record<string, unknown>) : {};
-    return (READ_PATH_FIELDS[item.name] ?? []).flatMap((field) => {
+    return (READ_PATH_FIELDS[item.name] ?? []).flatMap(({ field, folder }) => {
         const value = input[field];
-        return typeof value === 'string' && value !== '' ? [resolve(cwd, value)] : [];
+        return typeof value === 'string' && value !== '' ? [{ path: resolveIn(cwd, home, value), folder }] : [];
     });
 }
 
 /* The paths the finished tool calls of a thread touched, each once, in the order they first came up. */
-function touchedPaths(items: readonly ChatItem[], cwd: string): string[] {
-    const paths = new Set<string>();
+function touchedPaths(items: readonly ChatItem[], cwd: string, home: string): Touched[] {
+    const found = new Map<string, Touched>();
     for (const item of items) {
         if (item.kind !== 'tool' || item.state !== 'done') {
             continue;
         }
         for (const write of toolWrites(item, cwd)) {
-            paths.add(write.path);
+            found.set(write.path, found.get(write.path) ?? { path: write.path, folder: false });
         }
-        for (const path of readPaths(item, cwd)) {
-            paths.add(path);
+        for (const read of readPaths(item, cwd, home)) {
+            found.set(read.path, found.get(read.path) ?? read);
         }
     }
-    return [...paths];
+    return [...found.values()];
 }
 
 /* The first folder below home that holds the path; null for a file straight in home. */
-function topUnderHome(home: string, path: string): string | null {
-    const [first, ...rest] = relative(home, path).split(sep);
-    return first !== undefined && first !== '' && rest.length > 0 ? join(home, first) : null;
+function topUnderHome(home: string, touched: Touched): string | null {
+    const [first, ...rest] = relative(home, touched.path).split(sep);
+    return first !== undefined && first !== '' && (rest.length > 0 || touched.folder) ? join(home, first) : null;
 }
 
 /*
@@ -80,18 +95,30 @@ export async function workedFolders(items: readonly ChatItem[], options: WorkedF
     };
 
     const counts = new Map<string, number>();
-    for (const path of touchedPaths(items, cwd)) {
+    // Checkouts found so far, so a path inside one needs no process of its own.
+    const checkouts: string[] = [];
+    for (const touched of touchedPaths(items, cwd, home)) {
+        const { path } = touched;
         if (isUnder(cwd, path) || isUnder(ruimteHome, path)) {
             continue;
         }
-        const root = await rootOf(dirname(path));
+        const directory = touched.folder ? path : dirname(path);
+        let root = checkouts.find((checkout) => isUnder(checkout, directory)) ?? null;
+        if (root === null) {
+            const found = await rootOf(directory);
+            // A checkout that is home or holds it (a dotfiles repository) says nothing about the folder.
+            root = found !== null && !isUnder(found, home) ? found : null;
+            if (root !== null) {
+                checkouts.push(root);
+            }
+        }
         let folder: string | null;
-        if (root !== null && !isUnder(root, home)) {
+        if (root !== null) {
             folder = root;
         } else if (isUnder(home, path)) {
-            folder = topUnderHome(home, path);
+            folder = topUnderHome(home, touched);
         } else {
-            folder = dirname(path);
+            folder = directory;
         }
         if (folder === null || folder === home || folder === parse(folder).root || isUnder(ruimteHome, folder)) {
             continue;
