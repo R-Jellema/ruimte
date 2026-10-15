@@ -24,6 +24,7 @@ let started: Array<{ cwd: string; worktree: string }>;
 let approved: boolean;
 let running: boolean;
 let worktrees: string[];
+let peerChats: Set<string>;
 let finish: (status: Partial<LaunchStatus>) => void;
 let settle: AfterSettleLaunches;
 
@@ -71,6 +72,7 @@ function deps(): AfterSettleDeps {
             }
         },
         projectOf: (chatId) => (chats.has(chatId) ? 'p1' : null),
+        isPeerChat: (chatId) => peerChats.has(chatId),
         folderOf: (projectId) => (projectId === 'p1' ? '/repo' : null),
         worktreesOf: async () => worktrees,
         repoRootOf: async () => '/repo',
@@ -107,6 +109,7 @@ beforeEach(async () => {
     approved = true;
     running = false;
     worktrees = [WORKTREE];
+    peerChats = new Set();
     finish = () => undefined;
     settle = new AfterSettleLaunches(deps());
 });
@@ -162,6 +165,28 @@ describe('owing a run when a worktree chat settles', () => {
         tell('chat-2');
         await flush();
         expect(entries).toEqual([]);
+    });
+});
+
+describe('a chat another machine gave its task', () => {
+    test('owes nothing when it settles in a worktree', async () => {
+        await choose('run-tests');
+        chats.set('chat-1', chat());
+        peerChats.add('chat-1');
+        tell('chat-1');
+        await flush();
+        expect(entries).toEqual([]);
+    });
+
+    test('starts nothing from an entry that was owed before it was known as such', async () => {
+        await choose('run-tests');
+        chats.set('chat-1', chat());
+        tell('chat-1');
+        await flush();
+        peerChats.add('chat-1');
+        await settle.handle(entries[0] as RunAfterSettleEntry);
+        expect(started).toEqual([]);
+        expect(notes).toEqual([]);
     });
 });
 

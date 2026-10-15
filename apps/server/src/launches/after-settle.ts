@@ -86,6 +86,8 @@ export interface AfterSettleDeps {
     runner: Pick<LaunchRunner, 'startIn'>;
     /* The project that places a chat node; null for none. */
     projectOf(chatId: string): string | null;
+    /* Whether another machine gave this chat its task, which never starts a command of this machine's project on its own. */
+    isPeerChat(chatId: string): boolean;
     folderOf(projectId: string): string | null;
     /* The worktrees of the repository the folder is in, without the main checkout and without one that is gone. */
     worktreesOf(folder: string): Promise<string[]>;
@@ -143,6 +145,9 @@ export class AfterSettleLaunches {
         const { store, chats } = this.deps;
         const { turnId, launchId, worktree } = entry.payload;
         const chatId = entry.target;
+        if (this.deps.isPeerChat(chatId)) {
+            return;
+        }
         // A person who chose another task or none since takes this one along, as does a worktree that went.
         if (store.handledTurn(chatId) === turnId || store.choiceOf(entry.projectId)?.launchId !== launchId) {
             return;
@@ -186,6 +191,9 @@ export class AfterSettleLaunches {
     }
 
     private async consider(chatId: string): Promise<void> {
+        if (this.deps.isPeerChat(chatId)) {
+            return;
+        }
         const projectId = this.deps.projectOf(chatId);
         const choice = projectId === null ? null : this.deps.store.choiceOf(projectId);
         const turn = choice === null ? null : this.settledTurn(chatId);
