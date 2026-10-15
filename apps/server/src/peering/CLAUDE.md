@@ -1,6 +1,6 @@
 # Peering (this machine as the one that is worked in)
 
-The invariants of this folder. The repository root's `CLAUDE.md` has the map and the rules that hold everywhere; `docs/reports/private/0.19.0/plans/remote-machine.md` (sections A and S) is the design. "A" is the machine whose person works on another machine, "B" is this one.
+The invariants of this folder. The repository root's `CLAUDE.md` has the map and the rules that hold everywhere. "A" is the machine whose person works on another machine, "B" is this one.
 
 - B decides what A may do here, and nothing is granted without a link a person made on B (`links.ts`, `$RUIMTE_HOME/peers/<machineIdA>.json`). A link names one project of B per machine A and a mode ceiling, `supervised` until a person chooses another. Only a client acting as a person changes it (`peer.bind`, `peer.setCeiling`, `peer.unbind`); an agent has no socket.
 - A peer is never an owner. What only the local secret may do stays with the local secret, and no `fs.*`, `bytes.read`, `session.*`, `chat.*`, `launch.*`, `project.*`, `device.*`, `browser.*`, `database.*`, `computer.*` or `auth.ticket` request is on a peer's list. A peer never gets an HTTP ticket.
