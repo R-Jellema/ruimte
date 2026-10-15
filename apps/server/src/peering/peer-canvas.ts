@@ -25,3 +25,9 @@ export function sameCanvas(held: ProjectView, next: ProjectCanvasView): boolean 
     const { hidden: _hidden, ...rest } = held as ProjectCanvasView;
     return isDeepStrictEqual(rest, next);
 }
+
+/* The canvas as the other machine's nodes left it, without the flag laid over it. */
+export function stripHidden(canvas: ProjectCanvasView): ProjectCanvasView {
+    const { hidden: _hidden, ...rest } = canvas;
+    return rest;
+}

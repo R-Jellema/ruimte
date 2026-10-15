@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { AgentLineageStore, TaskStore } from '@adecore/agents/coordination';
 import { FakeWatch } from '@adecore/agents/testing';
 import type { ProjectContent, ServerFrame } from '@ruimte/contracts';
 import { Dispatcher } from '../dispatcher.ts';
 import { peerCanvasId } from '../peering/links.ts';
+import { PeerTasks } from '../peering/peer-tasks.ts';
 import { projectLinks } from '../projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { registerPeerHandlers } from './peer.ts';
@@ -18,6 +20,8 @@ let heard: string[];
 let launched: string[];
 let attested: Record<string, number>;
 let projectId: string;
+let lineage: AgentLineageStore;
+let tasks: TaskStore;
 
 beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'ruimte-peer-handlers-'));
@@ -35,10 +39,14 @@ beforeEach(async () => {
         new FakeWatch()
     );
     attested = {};
+    lineage = new AgentLineageStore(join(root, 'home'));
+    tasks = new TaskStore(join(root, 'home'));
+    await Promise.all([lineage.load(), tasks.load()]);
     store.peers.subscribe('c1', (event) => void heard.push(event.event));
     dispatcher = new Dispatcher();
     registerPeerHandlers(dispatcher, {
         links: store.peers,
+        lineage,
         projects: store,
         endSession: async (kind, nodeId) => void ended.push(`${kind}:${nodeId}`),
         worktreePaths: async () => [],
@@ -271,5 +279,100 @@ describe('the nodes another machine draws here', () => {
         store.letGo('window', projectId);
         expect(ended).toEqual([]);
         expect(store.holdersOf(projectId)).toEqual([]);
+    });
+});
+
+describe('the nodes of a machine and the tasks it gave share one canvas', () => {
+    const TERM = { id: 'remote-term', kind: 'terminal' as const, title: 'shell' };
+    const CHAT = { id: 'remote-chat', kind: 'chat' as const, title: 'chat' };
+    const TASK = { id: 'task-chat', kind: 'chat' as const, title: 'Fix the lexer' };
+
+    function giver(): PeerTasks {
+        return new PeerTasks({
+            links: store.peers,
+            projects: store,
+            lineage,
+            tasks,
+            outbox: { list: () => [], remove: async () => undefined },
+            enqueue: async () => undefined,
+            prompts: { put: async () => undefined },
+            stopNode: async () => undefined,
+            installed: async () => ['claude'],
+            git: () => {
+                throw new Error('no git in this test');
+            },
+            peerBundles: () => {
+                throw new Error('no bundles in this test');
+            },
+            worktreePaths: async () => [],
+            notify: () => undefined
+        });
+    }
+
+    const give = (nodeId: string) =>
+        giver().start('machine-a', 'peer-client', {
+            projectId,
+            nodeId,
+            parentId: 'parent',
+            title: 'Fix the lexer',
+            prompt: 'Fix it',
+            provider: 'claude',
+            ceiling: 'full-access',
+            depth: 1
+        });
+
+    const place = (nodes: unknown[]) => ask('peer.placeNodes', { machineId: 'machine-a', projectId, nodes, edges: [] });
+
+    async function canvasNodes(): Promise<Array<{ id: string; cwd?: string; providerFixed?: boolean }>> {
+        const canvas = (await store.read(projectId)).views.find((view) => view.id === peerCanvasId('machine-a'));
+        return (canvas as unknown as { nodes: Array<{ id: string; cwd?: string; providerFixed?: boolean }> }).nodes.toSorted((first, second) =>
+            first.id.localeCompare(second.id)
+        );
+    }
+
+    beforeEach(async () => {
+        await ask('peer.bind', { machineId: 'machine-a', label: 'MacBook Pro', projectId });
+    });
+
+    test('a window that draws other nodes keeps the node and the settings of a task', async () => {
+        await give('task-chat');
+        await place([TERM, TASK]);
+        const nodes = await canvasNodes();
+        expect(nodes.map((node) => node.id).sort()).toEqual(['remote-term', 'task-chat']);
+        expect(nodes.find((node) => node.id === 'task-chat')).toMatchObject({ providerFixed: true, cwd: join(root, 'repo') });
+        await place([TERM]);
+        expect(await canvasNodes()).toHaveLength(2);
+    });
+
+    test('a window that closes with nothing to draw ends its own nodes and leaves the task running', async () => {
+        await give('task-chat');
+        await place([TERM, CHAT, TASK]);
+        ended.length = 0;
+        await place([]);
+        expect(ended.sort()).toEqual(['chat:remote-chat', 'terminal:remote-term']);
+        expect(await canvasNodes()).toMatchObject([{ id: 'task-chat', providerFixed: true }]);
+        expect(lineage.peerOf('task-chat')).toEqual({ machineId: 'machine-a' });
+        expect(tasks.all()).toMatchObject([{ childId: 'task-chat', status: 'open' }]);
+    });
+
+    test('a task takes over the node the window placed for it, and the window cannot rewrite it afterwards', async () => {
+        await place([TERM, CHAT]);
+        await give('remote-chat');
+        expect(await canvasNodes()).toMatchObject([{ id: 'remote-chat', providerFixed: true }, { id: 'remote-term' }]);
+        ended.length = 0;
+        await place([TERM]);
+        expect(ended).toEqual([]);
+        expect(await canvasNodes()).toMatchObject([{ id: 'remote-chat', providerFixed: true }, { id: 'remote-term' }]);
+    });
+
+    test('a task never takes over a node a person placed, and the window never rewrites or ends it', async () => {
+        await store.save(projectId, await store.revision(projectId), withPeerCanvas());
+        await expect(give('remote-term')).rejects.toMatchObject({ code: 'peer-node-taken' });
+        expect(lineage.peerOf('remote-term')).toBeNull();
+        expect(tasks.all()).toHaveLength(0);
+        expect(await place([{ ...TERM, title: 'rewritten' }])).toMatchObject({ ok: true });
+        expect(ended).toEqual([]);
+        expect((await canvasNodes()).map((node) => node.id)).toEqual(['remote-chat', 'remote-note', 'remote-term']);
+        expect(((await canvasNodes())[2] as { title?: string }).title).toBe('shell');
     });
 });

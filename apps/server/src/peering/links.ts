@@ -12,10 +12,24 @@ const LinkSchema = z.looseObject({
     lastUsedAt: z.number().int().nonnegative().optional()
 });
 
+const TaskRecordSchema = z.object({
+    projectId: z.string().min(1),
+    cwd: z.string().min(1),
+    /* Whether this machine made the folder for the task, which a person removes and nothing else does. */
+    worktree: z.boolean()
+});
+
+/* Where this machine started a task of another machine, which only this machine writes down. */
+export type PeerTaskRecord = z.infer<typeof TaskRecordSchema>;
+
 const PeerFileSchema = z.looseObject({
     machineId: z.string().min(1),
     label: z.string().min(1),
-    links: z.array(LinkSchema).default([])
+    links: z.array(LinkSchema).default([]),
+    // Per project, the ids of the nodes the other machine's window placed, which are the only ones its window may rewrite or remove.
+    placed: z.record(z.string(), z.array(z.string())).optional(),
+    // Per node, where its task runs here.
+    tasks: z.record(z.string(), TaskRecordSchema).optional()
 });
 
 type PeerFile = z.infer<typeof PeerFileSchema>;
@@ -93,6 +107,44 @@ export class PeerLinks {
         );
     }
 
+    /* The ids of the nodes that machine's window placed in a project. */
+    placedOf(machineId: string, projectId: string): ReadonlySet<string> {
+        return new Set(this.files.get(machineId)?.placed?.[projectId] ?? []);
+    }
+
+    /* Written down at once in memory, so the next question already sees it; a machine without a link has nothing to place. */
+    setPlaced(machineId: string, projectId: string, ids: Iterable<string>): Promise<boolean> {
+        const file = this.files.get(machineId);
+        if (file === undefined) {
+            return Promise.resolve(false);
+        }
+        return this.files.write({ ...file, placed: { ...file.placed, [projectId]: [...ids] } });
+    }
+
+    taskRecord(machineId: string, nodeId: string): PeerTaskRecord | null {
+        return this.files.get(machineId)?.tasks?.[nodeId] ?? null;
+    }
+
+    /* Every task of that machine that has a record, by node. */
+    taskRecordsOf(machineId: string): Array<[string, PeerTaskRecord]> {
+        return Object.entries(this.files.get(machineId)?.tasks ?? {});
+    }
+
+    async recordTask(machineId: string, nodeId: string, record: PeerTaskRecord): Promise<void> {
+        const file = this.files.get(machineId);
+        if (file !== undefined) {
+            await this.files.write({ ...file, tasks: { ...file.tasks, [nodeId]: record } });
+        }
+    }
+
+    async forgetTask(machineId: string, nodeId: string): Promise<void> {
+        const file = this.files.get(machineId);
+        if (file?.tasks?.[nodeId] !== undefined) {
+            const { [nodeId]: _gone, ...tasks } = file.tasks;
+            await this.files.write({ ...file, tasks });
+        }
+    }
+
     /* Making a link that exists changes its label and, when one is given, its ceiling. */
     async bind(machineId: string, label: string, projectId: string, ceiling?: RuntimeMode): Promise<Omit<PeerLink, 'projectName'>> {
         const file = this.files.get(machineId);
@@ -128,12 +180,14 @@ export class PeerLinks {
             return false;
         }
         const links = file.links.filter((link) => link.projectId !== projectId);
+        const { [projectId]: _placed, ...placed } = file.placed ?? {};
+        const tasks = Object.fromEntries(Object.entries(file.tasks ?? {}).filter(([, record]) => record.projectId !== projectId));
         if (links.length === 0) {
             await this.files.remove(machineId);
             this.sinks.emit({ event: 'peer.changed', payload: {} });
             return true;
         }
-        await this.write({ ...file, links });
+        await this.write({ ...file, links, placed, tasks });
         return true;
     }
 

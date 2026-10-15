@@ -7,7 +7,7 @@ import { AgentLineageStore, TaskStore } from '@adecore/agents/coordination';
 import { Dispatcher, type ClientConnection } from '../dispatcher.ts';
 import { registerPeerTaskHandlers } from '../handlers/peer-tasks.ts';
 import type { OutboxEntry, OutboxWork } from '../outbox/outbox.ts';
-import { peerCanvasId } from './links.ts';
+import { PeerLinks, peerCanvasId } from './links.ts';
 import { PeerTasks, peerCaller, type PeerTasksDeps } from './peer-tasks.ts';
 
 const MACHINE = 'machine-a';
@@ -21,6 +21,7 @@ let enqueued: Array<{ target: string; work: OutboxWork }>;
 let prompts: Map<string, string>;
 let ceiling: 'supervised' | 'auto-accept-edits' | 'auto' | 'full-access';
 let linked: boolean;
+let peerLinks: PeerLinks;
 let held: Array<{ clientId: string; startsLaunches: boolean | undefined }>;
 
 function deps(): PeerTasksDeps {
@@ -29,7 +30,12 @@ function deps(): PeerTasksDeps {
             linkOf: (machineId, projectId) =>
                 linked && machineId === MACHINE && projectId === PROJECT ? { machineId, label: 'Studio', projectId, ceiling, createdAt: 0 } : null,
             touch: async () => undefined,
-            canvasIdsOf: () => new Set([peerCanvasId(MACHINE)])
+            canvasIdsOf: () => new Set([peerCanvasId(MACHINE)]),
+            placedOf: (machineId, projectId) => peerLinks.placedOf(machineId, projectId),
+            setPlaced: (machineId, projectId, ids) => peerLinks.setPlaced(machineId, projectId, ids),
+            taskRecord: (machineId, nodeId) => peerLinks.taskRecord(machineId, nodeId),
+            recordTask: (machineId, nodeId, record) => peerLinks.recordTask(machineId, nodeId, record),
+            forgetTask: (machineId, nodeId) => peerLinks.forgetTask(machineId, nodeId)
         },
         projects: {
             read: async () => structuredClone(content),
@@ -85,6 +91,8 @@ beforeEach(async () => {
     lineage = new AgentLineageStore(home);
     tasks = new TaskStore(home);
     await Promise.all([lineage.load(), tasks.load()]);
+    peerLinks = new PeerLinks(home);
+    await peerLinks.bind(MACHINE, 'Studio', PROJECT);
     content = { name: 'One', views: [] } as unknown as ProjectContent;
     enqueued = [];
     prompts = new Map();

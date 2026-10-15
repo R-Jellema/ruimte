@@ -35,11 +35,11 @@ import { providerFor } from '../providers/registry.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 import { peerTarget } from '../remote/connect-peer.ts';
 import { peerCanvasId, type PeerLinks } from './links.ts';
-import { nodeOf, peerNodeOf, sameCanvas } from './peer-canvas.ts';
+import { nodeOf, sameCanvas, stripHidden } from './peer-canvas.ts';
 
 /* What a machine that works here is given of this one: its tasks, bundles and holds, each judged by the link a person made. */
 export interface PeerTasksDeps {
-    links: Pick<PeerLinks, 'linkOf' | 'touch' | 'canvasIdsOf'>;
+    links: Pick<PeerLinks, 'linkOf' | 'touch' | 'canvasIdsOf' | 'placedOf' | 'setPlaced' | 'taskRecord' | 'recordTask' | 'forgetTask'>;
     projects: Pick<ProjectStore, 'read' | 'mutate' | 'hold' | 'letGo'> & { index: Pick<ProjectStore['index'], 'folderOf'> };
     lineage: Pick<AgentLineageStore, 'put' | 'peerOf' | 'openedCount'>;
     tasks: Pick<TaskStore, 'open' | 'all' | 'get' | 'markWoken'>;
@@ -102,12 +102,12 @@ export class PeerTasks {
             throw new RequestError('project-not-found', `No project ${projectId} is on this machine`);
         }
         const held = deps.lineage.peerOf(nodeId);
-        if (held !== null) {
+        if (held !== null && held.machineId !== machineId) {
+            throw new RequestError('peer-node-taken', 'A node of another machine has that id here');
+        }
+        if (held !== null && this.taskOf(machineId, nodeId) !== undefined) {
             // A start the other machine asks again because it never heard the answer.
-            if (held.machineId !== machineId) {
-                throw new RequestError('peer-node-taken', 'A node of another machine has that id here');
-            }
-            return await this.startedAs(projectId, machineId, nodeId, folder);
+            return await this.startedAs(machineId, nodeId, folder);
         }
         if (this.openCount(machineId) >= PEER_MAX_OPEN_TASKS) {
             throw new RequestError('peer-busy', `This machine already runs ${PEER_MAX_OPEN_TASKS} tasks for that machine. Try again when one is done`);
@@ -131,7 +131,12 @@ export class PeerTasks {
 
         let cwd = folder;
         let branch: string | null = null;
-        if (payload.bundle !== undefined) {
+        const known = deps.links.taskRecord(machineId, nodeId);
+        if (known !== null) {
+            // An earlier try of this very start made the folder already, and its bundle was used up by it.
+            cwd = known.cwd;
+            branch = known.worktree ? await this.branchOf(cwd) : null;
+        } else if (payload.bundle !== undefined) {
             if (payload.branch === undefined) {
                 throw new RequestError('bad-request', 'Work that comes as a bundle names its branch');
             }
@@ -145,35 +150,43 @@ export class PeerTasks {
             });
             cwd = made.path ?? folder;
             branch = made.branch;
+            // Written down before anything can fail, so a folder made here is never lost sight of.
+            await deps.links.recordTask(machineId, nodeId, { projectId, cwd, worktree: made.path !== undefined });
         }
         await checkCwd(folder, cwd, deps.worktreePaths).catch((e: unknown) => {
             throw e instanceof VerbRefusal ? new RequestError('cwd-outside', e.message) : e;
         });
 
-        await this.place(machineId, link.label, projectId, {
-            id: nodeId,
-            kind: chat ? 'chat' : 'terminal',
-            title: payload.title,
-            cwd,
-            provider: payload.provider,
-            ...(chat ? { providerFixed: true } : {}),
-            ...(!chat && runtimeMode !== undefined ? { runtimeMode } : {})
-        });
-        if (payload.bundle !== undefined) {
+        await this.place(
+            machineId,
+            link.label,
+            projectId,
+            {
+                id: nodeId,
+                kind: chat ? 'chat' : 'terminal',
+                title: payload.title,
+                cwd,
+                provider: payload.provider,
+                ...(chat ? { providerFixed: true } : {}),
+                ...(!chat && runtimeMode !== undefined ? { runtimeMode } : {})
+            },
+            () =>
+                deps.lineage.put({
+                    projectId,
+                    nodeId,
+                    openedBy: caller,
+                    depth,
+                    agent: true,
+                    ceiling,
+                    peer: { machineId }
+                })
+        );
+        if (payload.bundle !== undefined && known === null) {
             await deps
                 .git()
                 .worktrees.claim(folder, cwd, nodeId)
                 .catch(() => undefined);
         }
-        await deps.lineage.put({
-            projectId,
-            nodeId,
-            openedBy: caller,
-            depth,
-            agent: true,
-            ceiling,
-            peer: { machineId }
-        });
         await deps.tasks.open({ projectId, parentId: peerCanvasId(machineId), childId: nodeId, title: payload.title, prompt: payload.prompt }, Date.now());
         await deps.prompts.put(projectId, nodeId, `${payload.prompt}${taskBrief(chat)}`);
         await deps.enqueue(projectId, nodeId, {
@@ -192,10 +205,15 @@ export class PeerTasks {
         return { cwd, branch };
     }
 
-    /* Puts the node on this machine's canvas for that machine, replacing a node of the same id. */
-    private async place(machineId: string, label: string, projectId: string, node: PeerNode): Promise<void> {
+    /*
+     * Puts the node on this machine's canvas for that machine, taking over a node of the same id only when
+     * that machine's window placed it or an earlier try of this task did. `claim` runs inside the write,
+     * so the node is a task's before the window can place anything else.
+     */
+    private async place(machineId: string, label: string, projectId: string, node: PeerNode, claim: () => Promise<void>): Promise<void> {
+        const { deps } = this;
         const canvasId = peerCanvasId(machineId);
-        await this.deps.projects.mutate(projectId, (content) => {
+        await deps.projects.mutate(projectId, async (content) => {
             const taken = content.views.find(
                 (view) => view.id !== canvasId && (view.id === node.id || (isCanvasView(view) && view.nodes.some((other) => other.id === node.id)))
             );
@@ -203,16 +221,25 @@ export class PeerTasks {
                 throw new RequestError('peer-node-taken', 'A node of that machine has the id of a view or node here');
             }
             const held = content.views.find((view): view is ProjectCanvasView => view.id === canvasId && isCanvasView(view));
-            const others = (held?.nodes ?? []).filter((other) => other.id !== node.id).flatMap((other) => peerNodeOf(other) ?? []);
-            const canvas: ProjectCanvasView = {
-                kind: 'canvas',
-                id: canvasId,
-                name: held?.name ?? label,
-                nodes: [...others, node].map(nodeOf),
-                texts: [],
-                edges: held?.edges ?? [],
-                layouts: held?.layouts ?? []
-            };
+            const existing = held?.nodes.find((other) => other.id === node.id);
+            const placed = deps.links.placedOf(machineId, projectId);
+            if (existing !== undefined && !placed.has(node.id) && deps.lineage.peerOf(node.id)?.machineId !== machineId) {
+                throw new RequestError('peer-node-taken', 'A node of that machine has the id of a node a person placed here');
+            }
+            await claim();
+            if (placed.has(node.id)) {
+                await deps.links.setPlaced(
+                    machineId,
+                    projectId,
+                    [...placed].filter((id) => id !== node.id)
+                );
+            }
+            const others = (held?.nodes ?? []).filter((other) => other.id !== node.id);
+            const placedNode =
+                existing === undefined ? nodeOf(node, others.length) : { ...nodeOf(node, 0), x: existing.x, y: existing.y, w: existing.w, h: existing.h };
+            const base: ProjectCanvasView =
+                held === undefined ? { kind: 'canvas', id: canvasId, name: label, nodes: [], texts: [], edges: [], layouts: [] } : stripHidden(held);
+            const canvas: ProjectCanvasView = { ...base, nodes: [...others, placedNode] };
             if (held !== undefined && sameCanvas(held, canvas)) {
                 return { content: null, result: null };
             }
@@ -221,11 +248,10 @@ export class PeerTasks {
         });
     }
 
-    private async startedAs(projectId: string, machineId: string, nodeId: string, folder: string): Promise<PeerTaskStartResult> {
-        const content = await this.deps.projects.read(projectId);
-        const canvas = content.views.find((view) => view.id === peerCanvasId(machineId) && isCanvasView(view)) as ProjectCanvasView | undefined;
-        const cwd = canvas?.nodes.find((node) => node.id === nodeId)?.cwd ?? null;
-        return { cwd, branch: cwd === null || cwd === folder ? null : await this.branchOf(cwd) };
+    private async startedAs(machineId: string, nodeId: string, folder: string): Promise<PeerTaskStartResult> {
+        const record = this.deps.links.taskRecord(machineId, nodeId);
+        const cwd = record?.cwd ?? folder;
+        return { cwd, branch: record?.worktree === true ? await this.branchOf(cwd) : null };
     }
 
     private async branchOf(cwd: string): Promise<string | null> {
@@ -274,14 +300,18 @@ export class PeerTasks {
     private async resultBundle(machineId: string, clientId: string, task: Task, haves: string[]): Promise<PeerResultResult['bundle']> {
         const { deps } = this;
         const folder = deps.projects.index.folderOf(task.projectId);
-        const content = folder === null ? null : await deps.projects.read(task.projectId).catch(() => null);
-        const canvas = content?.views.find((view) => view.id === peerCanvasId(machineId) && isCanvasView(view)) as ProjectCanvasView | undefined;
-        const cwd = canvas?.nodes.find((node) => node.id === task.childId)?.cwd;
+        const record = deps.links.taskRecord(machineId, task.childId);
         // An agent that worked in the project folder itself has no work of its own to carry back.
-        if (cwd === undefined || cwd === folder) {
+        if (folder === null || record === null || !record.worktree) {
             return null;
         }
-        const branch = await this.branchOf(cwd);
+        // Read from what this machine wrote down, never from the project file, which an agent with a shell can rewrite.
+        const { cwd } = record;
+        const inside = await checkCwd(folder, cwd, deps.worktreePaths).then(
+            () => true,
+            () => false
+        );
+        const branch = inside ? await this.branchOf(cwd) : null;
         if (branch === null) {
             return null;
         }

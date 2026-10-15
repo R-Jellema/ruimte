@@ -9,7 +9,7 @@ import { Checkpoints } from '../git/checkpoints.ts';
 import { gitIn, initRepo, NO_WORKTREE_AGENTS } from '../git/test-repo.ts';
 import { Worktrees } from '../git/worktrees.ts';
 import type { OutboxWork } from '../outbox/outbox.ts';
-import { peerCanvasId } from './links.ts';
+import { PeerLinks, peerCanvasId } from './links.ts';
 import { PeerTasks } from './peer-tasks.ts';
 
 /*
@@ -52,12 +52,18 @@ beforeEach(async () => {
     bundlesB = new BundleStore(homeB);
     const stores = new Map<string, BundleStore>();
     const worktrees = new Worktrees(homeB, NO_WORKTREE_AGENTS);
+    const links = new PeerLinks(homeB);
+    await links.bind(A, 'Studio', PROJECT);
     peerTasks = new PeerTasks({
         links: {
-            linkOf: (machineId, projectId) =>
-                machineId === A && projectId === PROJECT ? { machineId, label: 'Studio', projectId, ceiling: 'supervised', createdAt: 0 } : null,
+            linkOf: (machineId, projectId) => links.linkOf(machineId, projectId),
             touch: async () => undefined,
-            canvasIdsOf: () => new Set([peerCanvasId(A)])
+            canvasIdsOf: () => new Set([peerCanvasId(A)]),
+            placedOf: (machineId, projectId) => links.placedOf(machineId, projectId),
+            setPlaced: (machineId, projectId, ids) => links.setPlaced(machineId, projectId, ids),
+            taskRecord: (machineId, nodeId) => links.taskRecord(machineId, nodeId),
+            recordTask: (machineId, nodeId, record) => links.recordTask(machineId, nodeId, record),
+            forgetTask: (machineId, nodeId) => links.forgetTask(machineId, nodeId)
         },
         projects: {
             read: async () => structuredClone(content),
@@ -134,6 +140,9 @@ test('the files of the other machine land in a worktree, and what the agent does
     await writeFile(join(started.cwd!, 'result.txt'), 'the agent wrote this\n');
     const [task] = tasks.all();
     await tasks.settle(task!.id, 'done', { text: 'Wrote result.txt', source: 'turn', at: 1 }, 2);
+
+    // Where the task ran is what this machine wrote down, whatever a window or an agent with a shell did to the project file since.
+    content = { name: 'One', views: [] } as unknown as ProjectContent;
 
     const reported = await peerTasks.result(A, 'client-1', { nodeId: 'chat-one' });
     expect(reported.status).toBe('done');

@@ -225,6 +225,7 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
     });
     registerPeerHandlers(dispatcher, {
         links: store.peers,
+        lineage: stores.lineage,
         projects: store,
         endSession: projects.endSession,
         worktreePaths: (folder) => git.checkouts.paths(folder),
