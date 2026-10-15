@@ -168,7 +168,7 @@ describe('a node that runs on another machine', () => {
         expect(groups.needsYou).toEqual([REMOTE_CHAT.id]);
     });
 
-    test('is placed on its machine when the project opens, and the project is closed there when it is closed here', async () => {
+    test('is placed on its machine when the project opens, and its nodes end there, without closing the project, when it is closed here', async () => {
         await until(() => there.requests('peer.placeNodes').length > 0);
         expect(there.requests('peer.placeNodes')[0]).toMatchObject({
             projectId: 'remote-project',
@@ -178,7 +178,9 @@ describe('a node that runs on another machine', () => {
         expect(here.requests('peer.placeNodes')).toEqual([]);
 
         await act(async () => windowWorkspace()!.connection.projects.closeProject());
-        expect(there.requests('project.close')).toEqual([{ projectId: 'remote-project' }]);
+        expect(there.requests('peer.placeNodes').at(-1)).toMatchObject({ projectId: 'remote-project', nodes: [], edges: [] });
+        expect(there.requests('project.release')).toEqual([{ projectId: 'remote-project' }]);
+        expect(there.requests('project.close')).toEqual([]);
     });
 });
 

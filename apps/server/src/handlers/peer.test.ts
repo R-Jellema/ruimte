@@ -209,16 +209,22 @@ describe('the nodes another machine draws here', () => {
         expect(await place([{ ...TERM, cwd: join(root, 'repo') }])).toMatchObject({ ok: true });
     });
 
-    test('lets the asking client hold the project, so that closing it as the last holder ends the sessions', async () => {
+    test('lets the asking client hold the project; an empty place ends only the nodes of that machine, and letting go ends nothing', async () => {
         await linked();
-        const frames: ServerFrame[] = [];
-        await dispatcher.handle(
-            { id: 'window', send: (frame) => frames.push(frame) },
-            JSON.stringify({ id: 'place', type: 'peer.placeNodes', payload: { machineId: 'machine-a', projectId, nodes: [TERM, CHAT], edges: [] } })
-        );
+        const send = async (nodes: unknown[]): Promise<void> => {
+            await dispatcher.handle(
+                { id: 'window', send: () => undefined },
+                JSON.stringify({ id: 'place', type: 'peer.placeNodes', payload: { machineId: 'machine-a', projectId, nodes, edges: [] } })
+            );
+        };
+        await send([TERM, CHAT]);
         expect(store.holdersOf(projectId)).toEqual(['window']);
         ended.length = 0;
-        await store.closeProject(projectId, 'window');
+        await send([]);
         expect(ended.sort()).toEqual(['chat:remote-chat', 'terminal:remote-term']);
+        ended.length = 0;
+        store.letGo('window', projectId);
+        expect(ended).toEqual([]);
+        expect(store.holdersOf(projectId)).toEqual([]);
     });
 });

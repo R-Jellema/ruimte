@@ -138,12 +138,16 @@ describe('the copy on the other machine', () => {
         expect(sent).toEqual([]);
     });
 
-    test('closing the project closes it on every machine that holds a copy, and leaving releases it', async () => {
+    test('closing the project ends the nodes it drew on every machine that holds a copy and releases it, and never closes it there; leaving only releases it', async () => {
         const { mirror, sent } = rig(() => [canvas([node('chat', 'chat', B)])]);
         mirror.start();
         await mirror.settled();
         await mirror.close();
-        expect(sent.at(-1)).toEqual({ type: 'project.close', payload: { projectId: 'remote-1' } });
+        expect(sent.slice(-2)).toEqual([
+            { type: 'peer.placeNodes', payload: { machineId: SELF, projectId: 'remote-1', nodes: [], edges: [] } },
+            { type: 'project.release', payload: { projectId: 'remote-1' } }
+        ]);
+        expect(sent.some((request) => request.type === 'project.close')).toBe(false);
 
         const leaving = rig(() => [canvas([node('chat', 'chat', B)])]);
         leaving.mirror.start();

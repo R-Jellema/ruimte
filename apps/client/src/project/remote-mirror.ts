@@ -165,9 +165,18 @@ export class RemoteMirror {
         } while (this.queued);
     }
 
-    /* The project is closed here: every machine that holds a copy closes it there too. */
+    /*
+     * The project is closed here: every machine that holds a copy ends this machine's nodes there and lets go of the project.
+     * The project itself stays open there, since its own canvases and sessions are not this window's to end.
+     */
     async close(): Promise<void> {
-        await Promise.all(this.eachHeld((transport, link) => transport.request('project.close', { projectId: link.remoteProjectId }).catch(() => undefined)));
+        await Promise.all(
+            this.eachHeld(async (transport, link) => {
+                const projectId = link.remoteProjectId;
+                await transport.request('peer.placeNodes', { machineId: this.host.selfId(), projectId, nodes: [], edges: [] }).catch(() => undefined);
+                await transport.request('project.release', { projectId }).catch(() => undefined);
+            })
+        );
         this.sent.clear();
     }
 
