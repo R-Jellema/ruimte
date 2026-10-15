@@ -168,8 +168,6 @@ panels, no executable code.
 - 15.4: the execution rules for further language servers.
 - After switching to no machine of its own, a window on another machine comes back alone, without a start screen
   beside it; changing that needs `@adecore/shell`.
-- A person who postpones the restart of this computer's own service after an update has no workspace until then;
-  add a restart action to the lost screen, or leave it.
 
 Automatic redelivery after an accepted parent turn fails stays off by an earlier product decision.
 
