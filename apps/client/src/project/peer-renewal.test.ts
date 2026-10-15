@@ -93,4 +93,22 @@ describe('the right of this machine to work in another one', () => {
         await away.ensure('machine-b');
         expect(linked).toEqual([]);
     });
+
+    test('leaves a machine alone whose link failed at the place a person made it, so one failure costs one attempt', async () => {
+        let failedJustNow = true;
+        const careful = new PeerRenewal({
+            selfId: () => 'machine-a',
+            transportOf: () => ({ request: async () => ({ links: [link('machine-a')] }) }) as never,
+            link: async (machineId) => void linked.push(machineId),
+            now: () => NOW,
+            linkFailed: () => {
+                const answer = failedJustNow;
+                failedJustNow = false;
+                return answer;
+            }
+        });
+        await careful.ensure('machine-b');
+        await careful.ensure('machine-b');
+        expect(linked).toEqual([]);
+    });
 });

@@ -5,6 +5,7 @@ import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 import { useDocument } from '@/state/document';
 import { useUi } from '@/state/ui';
 import { usePeerLapse } from '@/project/peer-lapse';
+import { remoteMirror } from '@/transport/connections';
 import { swapPeerLinker } from '@/project/peer-linker';
 import { linkPeer } from '@/pulsar/peer-link';
 import type { PeerStatement } from '@ruimte/pulsar';
@@ -243,13 +244,41 @@ describe('a new node on another machine', () => {
             release = resolve;
         });
         statementRefused = true;
+        // The machine lists the link it made for this one without a word of the address book, which is what makes a renewal link again.
+        there.answer('peer.list', () => {
+            const bound = there.requests('peer.bind')[0];
+            return {
+                links:
+                    bound === undefined
+                        ? []
+                        : [
+                              {
+                                  machineId: bound.machineId,
+                                  label: 'Atlas',
+                                  projectId: 'ruimte',
+                                  projectName: 'ruimte',
+                                  ceiling: 'supervised' as const,
+                                  createdAt: 1
+                              }
+                          ]
+            };
+        });
         await openDialog();
         await until(() => button('Create')?.hasAttribute('disabled') === false);
         await clickOn(button('Create'));
         await until(() => dialog() === null);
         await until(() => order.includes('address book'));
         await act(async () => release());
-        await until(() => usePeerLapse.getState().lapsed[REMOTE] === true);
+        await until(() => usePeerLapse.getState().lapsed[REMOTE] === true && order.includes('peer.placeNodes'));
+        // The next change of the canvas sends the nodes again, which asks for a renewal; a link that was just refused is not tried a second time.
+        const placed = there.requests('peer.placeNodes').length;
+        await act(async () => remoteMirror()?.resend(REMOTE));
+        await until(() => there.requests('peer.placeNodes').length > placed);
+        for (let i = 0; i < 10; i++) {
+            await act(async () => {
+                await new Promise((resolve) => setTimeout(resolve, 0));
+            });
+        }
         expect(order.filter((step) => step === 'address book')).toHaveLength(1);
         expect(here.requests('endpoint.signPeerAccess')).toHaveLength(1);
     });
