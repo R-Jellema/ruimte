@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, Download, Frame, LoaderCircle, Square, Video } from 'lucide-react';
+import { ClipboardCopy, ClipboardPaste, Copy, Download, Frame, LoaderCircle, Square, Video } from 'lucide-react';
 import {
     devicePermissions,
     deviceTools,
@@ -64,6 +64,7 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
     const [error, setError] = useState<string | null>(null);
     const answersCapture = useMachineAnswers(endpointId, 'device.capture');
     const answersRecord = useMachineAnswers(endpointId, 'device.record');
+    const answersClipboard = useMachineAnswers(endpointId, 'device.clipboard');
 
     useEffect(() => {
         let active = true;
@@ -107,6 +108,7 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
     /* A tool a person reaches through a request of its own, which the machine has to name too. */
     const canCapture = has('capture') && answersCapture;
     const canRecord = has('record') && answersRecord;
+    const canClipboard = has('clipboard') && answersClipboard;
     const appTools = APP_TOOLS.filter(has);
     const displayTools = DISPLAY_TOOLS.filter(has);
     const permissions = devicePermissions(device);
@@ -126,6 +128,7 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
                     </div>
                 )}
                 {(canCapture || canRecord) && <CaptureTools device={device} canCapture={canCapture} canRecord={canRecord} onError={setError} />}
+                {canClipboard && <ClipboardTools device={device} onError={setError} />}
                 {appTools.length > 0 && (
                     <ToolSection title={t('device.tools.app.title')}>
                         {has('openUrl') && (
@@ -340,6 +343,47 @@ function CaptureTools({
                     {device.platform === 'android' && <p className="text-xs text-text-muted">{t('device.tools.capture.androidLimit')}</p>}
                 </>
             )}
+        </ToolSection>
+    );
+}
+
+/*
+ * The clipboard of the client a person sits at, not the machine's, so the same buttons work from
+ * another machine or a browser.
+ */
+function ClipboardTools({ device, onError }: { device: DeviceInfo; onError: (message: string | null) => void }) {
+    const { t } = useTranslation('machines');
+    const endpointId = useEndpointId();
+    const [busy, setBusy] = useState<'send' | 'copy' | null>(null);
+    const run = (step: 'send' | 'copy', work: () => Promise<unknown>): void => {
+        setBusy(step);
+        onError(null);
+        void work()
+            .catch((cause: unknown) => onError(cause instanceof Error ? cause.message : t('device.tools.clipboard.failed')))
+            .finally(() => setBusy(null));
+    };
+    const send = async (): Promise<void> => {
+        const text = await navigator.clipboard.readText();
+        await deviceClientFor(endpointId)?.clipboard(device, text);
+    };
+    const copy = async (): Promise<void> => {
+        const text = await deviceClientFor(endpointId)?.clipboard(device);
+        if (text !== undefined) {
+            await navigator.clipboard.writeText(text);
+        }
+    };
+    return (
+        <ToolSection title={t('device.tools.clipboard.title')}>
+            <div className="flex flex-wrap gap-1.5">
+                <Button size="sm" variant="secondary" disabled={busy !== null} onClick={() => run('send', send)}>
+                    <Icon icon={busy === 'send' ? LoaderCircle : ClipboardPaste} size={12} className={busy === 'send' ? 'animate-spin' : undefined} />{' '}
+                    {t('device.tools.clipboard.send')}
+                </Button>
+                <Button size="sm" variant="secondary" disabled={busy !== null} onClick={() => run('copy', copy)}>
+                    <Icon icon={busy === 'copy' ? LoaderCircle : ClipboardCopy} size={12} className={busy === 'copy' ? 'animate-spin' : undefined} />{' '}
+                    {t('device.tools.clipboard.copy')}
+                </Button>
+            </div>
         </ToolSection>
     );
 }

@@ -55,6 +55,10 @@ export function registerDeviceHandlers(dispatcher: Dispatcher, devices: DeviceMa
         }
         return { path: await writeCapture(home, payload.deviceId, image), ...size };
     });
+    dispatcher.register('device.clipboard', async (payload, client) => {
+        requireStreaming();
+        return { text: await devices.clipboard(payload.backendId, payload.platform, payload.deviceId, client.id, payload.text, payload.paste) };
+    });
     dispatcher.register('device.record', async (payload) => {
         requireStreaming();
         if (payload.mode === 'start') {

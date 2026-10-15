@@ -678,7 +678,7 @@ export class AndroidBackend implements DeviceBackend {
                 input: streaming,
                 screenshot: true,
                 buttons: BUTTONS,
-                tools: [...BASE_TOOLS, ...(probe?.talkBack ? (['voiceOver'] as const) : []), 'location'],
+                tools: [...BASE_TOOLS, ...(probe?.talkBack ? (['voiceOver'] as const) : []), 'location', ...sessionTools(streaming)],
                 permissions: PERMISSIONS
             }
         };
@@ -707,7 +707,7 @@ export class AndroidBackend implements DeviceBackend {
                 input: streaming,
                 screenshot: ready,
                 buttons: BUTTONS,
-                tools: [...BASE_TOOLS, ...(probe?.talkBack ? (['voiceOver'] as const) : [])],
+                tools: [...BASE_TOOLS, ...(probe?.talkBack ? (['voiceOver'] as const) : []), ...sessionTools(streaming)],
                 permissions: PERMISSIONS
             }
         };
@@ -801,6 +801,11 @@ export class AndroidBackend implements DeviceBackend {
         }
         return device;
     }
+}
+
+/* The tools that go through the screen server's session, so only a device that can stream has them. */
+function sessionTools(streaming: boolean): DeviceTool[] {
+    return streaming ? ['clipboard'] : [];
 }
 
 function nearestTextSize(scale: number): DeviceTextSize {

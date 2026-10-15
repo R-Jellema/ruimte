@@ -109,6 +109,15 @@ class FakeHost implements ScrcpyHost {
         this.controlData?.(new Uint8Array(message.buffer));
     }
 
+    /* The device clipboard, as the server sends it when asked. */
+    sendClipboard(text: string) {
+        const bytes = new TextEncoder().encode(text);
+        const message = new Uint8Array(5 + bytes.byteLength);
+        new DataView(message.buffer).setUint32(1, bytes.byteLength);
+        message.set(bytes, 5);
+        this.controlData?.(message);
+    }
+
     markStarted() {
         this.started = true;
     }
@@ -207,6 +216,37 @@ describe('ScrcpySource', () => {
         host.acknowledge(1n);
         await pasted;
         expect(done).toBe(true);
+    });
+
+    test('reads the device clipboard by asking the server for it, and writes it without pasting', async () => {
+        const host = new FakeHost();
+        host.wait = new Promise(() => undefined);
+        const source = new ScrcpySource(host, () => Promise.resolve('/native/scrcpy-server'));
+        await source.start(() => undefined);
+        host.markStarted();
+
+        const read = source.readClipboard();
+        await Promise.resolve();
+        expect([...host.control[0]!]).toEqual([8, 0]);
+        host.sendClipboard('copied on the phone ✓');
+        expect(await read).toBe('copied on the phone ✓');
+
+        const written = source.writeClipboard('mine');
+        await Promise.resolve();
+        const message = new DataView(host.control[1]!.buffer);
+        expect([message.getUint8(0), message.getUint8(9)]).toEqual([9, 0]);
+        host.acknowledge(message.getBigUint64(1));
+        await written;
+    });
+
+    test('reads an empty clipboard as empty, since the server sends nothing for it', async () => {
+        const host = new FakeHost();
+        host.wait = Promise.resolve();
+        const source = new ScrcpySource(host, () => Promise.resolve('/native/scrcpy-server'));
+        await source.start(() => undefined);
+        host.markStarted();
+
+        expect(await source.readClipboard()).toBe('');
     });
 
     test('says so when the server never acknowledges a paste, or the stream ends while it waits', async () => {

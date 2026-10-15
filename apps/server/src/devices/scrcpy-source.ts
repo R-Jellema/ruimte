@@ -2,6 +2,7 @@ import type { DeviceInput, LiveStreamFrame } from '@ruimte/contracts';
 import { DeviceError, type DeviceSource } from './manager.ts';
 import {
     controlMessages,
+    encodeGetClipboard,
     encodeKeyChord,
     encodeResetVideo,
     encodeSetClipboard,
@@ -45,6 +46,8 @@ const FIRST_BYTE_TIMEOUT_MS = 1_000;
 const FIRST_FRAME_TIMEOUT_MS = 5_000;
 /* How long a paste waits for the server to say it set the clipboard. */
 const CLIPBOARD_ACK_TIMEOUT_MS = 5_000;
+/* How long a read of the clipboard waits; the server sends nothing for an empty one. */
+const CLIPBOARD_READ_TIMEOUT_MS = 3_000;
 
 function writeInput(control: ScrcpyConnection, screen: ScreenSize, input: DeviceInput, metaState: number): void {
     for (const message of controlMessages(input, screen, metaState)) {
@@ -63,6 +66,8 @@ interface Session {
     settleFirstFrame: () => void;
     /* The pastes waiting for their acknowledgement, by sequence; each settles true when it came and false when the session ended. */
     acks: Map<bigint, (acknowledged: boolean) => void>;
+    /* The reads of the clipboard waiting for its text, in the order they asked; each settles null when the session ended. */
+    clipboardReads: Array<(text: string | null) => void>;
     /* The modifier keys a person holds, which Android reads from every key event rather than from the modifier's own. */
     modifiers: Set<number>;
     ended: boolean;
@@ -131,6 +136,7 @@ export class ScrcpySource implements DeviceSource {
             firstFrame,
             settleFirstFrame,
             acks: new Map(),
+            clipboardReads: [],
             modifiers: new Set(),
             ended: false
         };
@@ -155,15 +161,19 @@ export class ScrcpySource implements DeviceSource {
             session.video = await this.connectVideo(session, onVideo);
             const messages = new ScrcpyDeviceMessageReader();
             const onControl = (bytes: Uint8Array): void => {
-                let acknowledged;
+                let received;
                 try {
-                    acknowledged = messages.push(bytes);
+                    received = messages.push(bytes);
                 } catch {
                     void this.end(session);
                     return;
                 }
-                for (const sequence of acknowledged) {
-                    session.acks.get(sequence)?.(true);
+                for (const message of received) {
+                    if (message.kind === 'ack') {
+                        session.acks.get(message.sequence)?.(true);
+                    } else {
+                        session.clipboardReads.shift()?.(message.text);
+                    }
                 }
             };
             session.control = await this.host.connect(port, { data: onControl, close: () => void this.end(session) });
@@ -224,8 +234,36 @@ export class ScrcpySource implements DeviceSource {
         }
     }
 
-    /* Waits for the server's acknowledgement, which it sends once the clipboard is set and the paste key is on its way. */
-    async paste(text: string): Promise<void> {
+    paste(text: string): Promise<void> {
+        return this.setClipboard(text, true);
+    }
+
+    writeClipboard(text: string): Promise<void> {
+        return this.setClipboard(text, false);
+    }
+
+    /* The text of the device clipboard; empty when the server sends none in time, which it does for an empty clipboard. */
+    async readClipboard(): Promise<string> {
+        const session = this.controlled();
+        let settle: (text: string | null) => void = () => undefined;
+        const read = new Promise<string | null>((resolve) => {
+            settle = resolve;
+        });
+        session.clipboardReads.push(settle);
+        session.control.write(encodeGetClipboard());
+        const text = await Promise.race([read, this.host.sleep(CLIPBOARD_READ_TIMEOUT_MS).then(() => '')]);
+        const waiting = session.clipboardReads.indexOf(settle);
+        if (waiting >= 0) {
+            session.clipboardReads.splice(waiting, 1);
+        }
+        if (text === null) {
+            throw new DeviceError('device-not-streaming', 'The Android screen closed before the clipboard was read');
+        }
+        return text;
+    }
+
+    /* Waits for the server's acknowledgement, which it sends once the clipboard is set and, for a paste, the paste key is on its way. */
+    private async setClipboard(text: string, paste: boolean): Promise<void> {
         const session = this.controlled();
         this.clipboardSequence += 1n;
         const sequence = this.clipboardSequence;
@@ -233,7 +271,7 @@ export class ScrcpySource implements DeviceSource {
             session.acks.set(sequence, resolve);
         });
         try {
-            session.control.write(encodeSetClipboard(sequence, text, true));
+            session.control.write(encodeSetClipboard(sequence, text, paste));
             if (!(await Promise.race([acknowledged, this.host.sleep(CLIPBOARD_ACK_TIMEOUT_MS).then(() => false)]))) {
                 throw session.ended
                     ? new DeviceError('device-not-streaming', 'The Android screen closed before the text was pasted')
@@ -304,6 +342,9 @@ export class ScrcpySource implements DeviceSource {
         session.settleFirstFrame();
         for (const settle of session.acks.values()) {
             settle(false);
+        }
+        for (const settle of session.clipboardReads.splice(0)) {
+            settle(null);
         }
         if (this.session === session) {
             this.session = null;

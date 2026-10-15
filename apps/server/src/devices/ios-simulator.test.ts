@@ -248,4 +248,20 @@ describe('IosSimulatorBackend', () => {
 
         expect(phone!.capabilities.tools).toEqual(expect.arrayContaining(['capture', 'record']));
     });
+
+    test('reads the clipboard with pbpaste and writes it through pbcopy on stdin', async () => {
+        const calls: Array<[string[], string | undefined]> = [];
+        const backend = new IosSimulatorBackend(async (arguments_, stdin) => {
+            calls.push([arguments_, stdin]);
+            return { exitCode: 0, stdout: arguments_[0] === 'pbpaste' ? 'Grüße 🎉' : '', stderr: '' };
+        });
+
+        expect(await backend.readClipboard('phone-1')).toBe('Grüße 🎉');
+        await backend.writeClipboard('phone-1', 'from my Mac');
+
+        expect(calls).toEqual([
+            [['pbpaste', 'phone-1'], undefined],
+            [['pbcopy', 'phone-1'], 'from my Mac']
+        ]);
+    });
 });

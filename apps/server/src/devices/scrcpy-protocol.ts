@@ -17,6 +17,7 @@ const MAX_PACKET_BYTES = 8 * 1024 * 1024;
 const TYPE_INJECT_KEYCODE = 0;
 const TYPE_INJECT_TOUCH_EVENT = 2;
 const TYPE_INJECT_SCROLL_EVENT = 3;
+const TYPE_GET_CLIPBOARD = 8;
 const TYPE_SET_CLIPBOARD = 9;
 const TYPE_ROTATE_DEVICE = 11;
 const TYPE_RESET_VIDEO = 17;
@@ -200,17 +201,17 @@ export class ScrcpyVideoReader {
     }
 }
 
-/*
- * Reads what the server sends back on the control socket. Only the acknowledgement of a clipboard
- * write matters to Ruimte; a clipboard the device copied and a keyboard's output are read past.
- */
+/* The acknowledgement of a clipboard write, or the text of the device clipboard the server was asked for. */
+export type ScrcpyDeviceMessage = { kind: 'ack'; sequence: bigint } | { kind: 'clipboard'; text: string };
+
+/* Reads what the server sends back on the control socket; a keyboard's output is read past. */
 export class ScrcpyDeviceMessageReader {
     private buffer: Uint8Array = new Uint8Array();
+    private readonly decoder = new TextDecoder();
 
-    /* The sequences of the clipboard writes this chunk acknowledges. */
-    push(chunk: Uint8Array): bigint[] {
+    push(chunk: Uint8Array): ScrcpyDeviceMessage[] {
         this.buffer = this.buffer.byteLength === 0 ? chunk : concat(this.buffer, chunk);
-        const acknowledged: bigint[] = [];
+        const messages: ScrcpyDeviceMessage[] = [];
         let offset = 0;
         for (;;) {
             const available = this.buffer.byteLength - offset;
@@ -222,13 +223,16 @@ export class ScrcpyDeviceMessageReader {
             if (size === null || available < size) {
                 break;
             }
-            if (message.getUint8(0) === DEVICE_ACK_CLIPBOARD) {
-                acknowledged.push(message.getBigUint64(1));
+            const type = message.getUint8(0);
+            if (type === DEVICE_ACK_CLIPBOARD) {
+                messages.push({ kind: 'ack', sequence: message.getBigUint64(1) });
+            } else if (type === DEVICE_CLIPBOARD) {
+                messages.push({ kind: 'clipboard', text: this.decoder.decode(this.buffer.subarray(offset + 5, offset + size)) });
             }
             offset += size;
         }
         this.buffer = offset === 0 ? this.buffer : this.buffer.slice(offset);
-        return acknowledged;
+        return messages;
     }
 }
 
@@ -327,6 +331,11 @@ export function encodeSetClipboard(sequence: bigint, text: string, paste: boolea
     header.setUint32(10, bytes.byteLength);
     message.set(bytes, 14);
     return message;
+}
+
+/* Asks the server for the device clipboard, without pressing copy first; it answers with a clipboard message, or nothing while the clipboard is empty. */
+export function encodeGetClipboard(): Uint8Array {
+    return new Uint8Array([TYPE_GET_CLIPBOARD, 0]);
 }
 
 export function encodeRotate(): Uint8Array {

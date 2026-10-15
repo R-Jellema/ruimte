@@ -51,12 +51,13 @@ function stateOf(state: string): DeviceInfo['state'] {
 }
 
 async function defaultRunner(arguments_: string[], stdin?: string): Promise<CommandResult> {
-    // simctl reads stdin in the locale's encoding, and a daemon under launchd has none, which turns ü into √º.
+    // simctl reads and writes the pasteboard in the locale's encoding, and a daemon under launchd has none, which turns ü into √º.
+    const utf8 = stdin !== undefined || arguments_[0] === 'pbpaste';
     const process = Bun.spawn(['xcrun', 'simctl', ...arguments_], {
         stdin: stdin === undefined ? 'ignore' : 'pipe',
         stdout: 'pipe',
         stderr: 'pipe',
-        env: stdin === undefined ? undefined : { ...Bun.env, LC_ALL: 'en_US.UTF-8' }
+        env: utf8 ? { ...Bun.env, LC_ALL: 'en_US.UTF-8' } : undefined
     });
     const fed = stdin !== undefined && process.stdin ? Promise.all([process.stdin.write(stdin), process.stdin.end()]) : null;
     const [exitCode, stdout, stderr] = await Promise.all([process.exited, new Response(process.stdout).text(), new Response(process.stderr).text(), fed]);
@@ -84,7 +85,8 @@ const IOS_SIMULATOR_TOOLS: DeviceTool[] = [
     'permissions',
     'push',
     'capture',
-    'record'
+    'record',
+    'clipboard'
 ];
 
 /* A recording a person forgot keeps going no longer than this, so it cannot fill the disk. */
@@ -348,6 +350,14 @@ export class IosSimulatorBackend implements DeviceBackend {
     /* simctl writes the end of the video only on an interrupt, so a kill would leave an empty file. */
     stopRecording(deviceId: string): Promise<string> {
         return this.recordings.stop(deviceId, (process) => process.interrupt());
+    }
+
+    async readClipboard(deviceId: string): Promise<string> {
+        return (await this.command(['pbpaste', deviceId])).stdout;
+    }
+
+    async writeClipboard(deviceId: string, text: string): Promise<void> {
+        await this.command(['pbcopy', deviceId], text);
     }
 
     /* Read through the device bridge, which stays running for this simulator until `closeTree`. */

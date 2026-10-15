@@ -130,6 +130,12 @@
                 "recording": "Recording, {{time}}",
                 "recordFailed": "The recording could not be made",
                 "androidLimit": "Android stops a recording by itself after 3 minutes."
+            },
+            "clipboard": {
+                "title": "Clipboard",
+                "send": "Send my clipboard",
+                "copy": "Copy device clipboard",
+                "failed": "The clipboard could not be reached"
             }
         },
         "operated": {

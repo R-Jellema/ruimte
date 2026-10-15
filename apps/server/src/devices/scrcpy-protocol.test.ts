@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
     controlMessages,
+    encodeGetClipboard,
     encodeKeyChord,
     encodeScroll,
     encodeSetClipboard,
@@ -174,15 +175,24 @@ describe('ScrcpyDeviceMessageReader', () => {
         return new Uint8Array(message.buffer);
     }
 
-    test('reads acknowledgements split anywhere and reads past a copied clipboard and keyboard output', () => {
+    test('reads acknowledgements and the clipboard split anywhere, and reads past keyboard output', () => {
         const reader = new ScrcpyDeviceMessageReader();
-        const clipboard = new Uint8Array([0, 0, 0, 0, 2, 0x68, 0x69]);
+        const text = new TextEncoder().encode('hé 👋');
+        const clipboard = join(new Uint8Array([0, 0, 0, 0, text.byteLength]), text);
         const uhid = new Uint8Array([2, 0, 1, 0, 3, 9, 9, 9]);
         const stream = join(clipboard, ack(3n), uhid, ack(4n));
 
-        const acknowledged = [...stream].flatMap((byte) => reader.push(new Uint8Array([byte])));
+        const messages = [...stream].flatMap((byte) => reader.push(new Uint8Array([byte])));
 
-        expect(acknowledged).toEqual([3n, 4n]);
+        expect(messages).toEqual([
+            { kind: 'clipboard', text: 'hé 👋' },
+            { kind: 'ack', sequence: 3n },
+            { kind: 'ack', sequence: 4n }
+        ]);
+    });
+
+    test('asks for the clipboard without pressing copy', () => {
+        expect([...encodeGetClipboard()]).toEqual([8, 0]);
     });
 
     test('refuses a message it cannot size', () => {

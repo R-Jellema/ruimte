@@ -155,6 +155,27 @@ describe('device handlers', () => {
         expect(new Uint8Array(readFileSync(reply.result.path))).toEqual(png);
     });
 
+    test('passes a clipboard read and a paste with the client that asked', async () => {
+        const calls: unknown[][] = [];
+        const devices = {
+            clipboard: (...args: unknown[]) => {
+                calls.push(args);
+                return Promise.resolve(args[4] === undefined ? 'on the device' : String(args[4]));
+            }
+        } as unknown as DeviceManager;
+        const { dispatcher, frames, client } = setup(devices, () => true);
+        const target = { backendId: 'simctl', platform: 'ios', deviceId: 'phone-1' };
+
+        await dispatcher.handle(client, request('device.clipboard', target));
+        expect(frames.at(-1)).toMatchObject({ ok: true, result: { text: 'on the device' } });
+        await dispatcher.handle(client, request('device.clipboard', { ...target, text: 'héllo', paste: true }));
+
+        expect(calls).toEqual([
+            ['simctl', 'ios', 'phone-1', 'client-1', undefined, undefined],
+            ['simctl', 'ios', 'phone-1', 'client-1', 'héllo', true]
+        ]);
+    });
+
     test('starts a recording into a new file under the captures and answers that file when it stops', async () => {
         const files: string[] = [];
         const devices = {

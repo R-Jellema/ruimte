@@ -130,6 +130,12 @@
                 "recording": "Opname loopt, {{time}}",
                 "recordFailed": "De opname kon niet worden gemaakt",
                 "androidLimit": "Android stopt een opname zelf na 3 minuten."
+            },
+            "clipboard": {
+                "title": "Klembord",
+                "send": "Mijn klembord sturen",
+                "copy": "Klembord van het apparaat kopiëren",
+                "failed": "Het klembord was niet bereikbaar"
             }
         },
         "operated": {

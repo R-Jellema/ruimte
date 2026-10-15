@@ -73,6 +73,33 @@ afterEach(async () => {
     }
 });
 
+describe('the clipboard of a device', () => {
+    test("sends the person's clipboard to the device and copies the device's back", async () => {
+        const readText = spyOn(navigator.clipboard, 'readText').mockImplementation(async () => 'from my laptop ✓');
+        const written: string[] = [];
+        const writeText = spyOn(navigator.clipboard, 'writeText').mockImplementation(async (text) => {
+            written.push(text);
+        });
+        restores.push(
+            () => readText.mockRestore(),
+            () => writeText.mockRestore()
+        );
+        await openTools(PIXEL);
+
+        await clickOn(buttonWithText('Send my clipboard'));
+        await until(() => devices.clipboard === 'from my laptop ✓');
+        devices.clipboard = 'copied on the phone';
+        await clickOn(buttonWithText('Copy device clipboard'));
+        await until(() => written.length === 1);
+
+        expect(machine.requests('device.clipboard')).toEqual([
+            { backendId: 'android', platform: 'android', deviceId: FAKE_EMULATOR.deviceId, text: 'from my laptop ✓' },
+            { backendId: 'android', platform: 'android', deviceId: FAKE_EMULATOR.deviceId }
+        ]);
+        expect(written).toEqual(['copied on the phone']);
+    });
+});
+
 describe('capturing a device', () => {
     test('copies and saves a screenshot the machine took for the person', async () => {
         await openTools(PHONE);

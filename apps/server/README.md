@@ -287,12 +287,13 @@ A device node shows a simulator, an emulator or a phone that runs on this machin
 | Screen and touch | the native helper the daemon starts as `device-helper`, JPEG or HEVC | the pinned scrcpy server (`src/devices/scrcpy-server.ts`), H.264, pushed to `/data/local/tmp` for each session and gone after it |
 | Shot | `simctl io screenshot` | `adb exec-out screencap -p` |
 | Capture | the shot, written to `device-captures/` for the client to copy, save or place on a canvas | the same |
+| Clipboard | `simctl pbpaste` and `pbcopy` | over the scrcpy control socket: `GET_CLIPBOARD` answered by a clipboard message, `SET_CLIPBOARD` acknowledged; only while the device is open |
 | Record | `simctl io recordVideo --codec=h264`, ended with SIGINT so it writes the end of the file, and by itself after 10 minutes | `screenrecord --time-limit 180` on the device, ended with `pkill -INT screenrecord` there, then pulled and removed |
 | Elements | the device bridge (`apps/ios-device-bridge`) | `uiautomator dump`, which needs nothing installed |
 | Typing | each run pasted through the simulator pasteboard and Cmd+V | each run pasted through the device clipboard over the scrcpy control socket, which presses paste |
 | Settings | `simctl ui` and the accessibility helper of `serve-sim` | `settings`, `cmd uimode`, `setprop` and `pm` in the device shell |
 
-Typing on either replaces the device's clipboard. A newline is Return and a tab is Tab, so what a Return does is the app's: a chat sends, a note adds a line. Nothing is installed on an Android device, no app and no keyboard.
+The clipboard tools move text between the device and the clipboard of the client a person sits at, not the machine's, so they work the same from another machine. Typing on either replaces the device's clipboard. A newline is Return and a tab is Tab, so what a Return does is the app's: a chat sends, a note adds a line. Nothing is installed on an Android device, no app and no keyboard.
 
 An Android phone on USB or Wi-Fi debugging is listed by its serial and takes the same shots, touch, typing, elements and tools; it cannot be started, stopped or given a location. An iPhone streams through the device bridge and takes touch and shots, but no text and no elements.
 
