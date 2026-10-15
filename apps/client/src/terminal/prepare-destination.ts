@@ -15,7 +15,8 @@ function destinations(views: readonly ProjectView[], nodesOf: NodesOfView<Projec
     for (const view of views) {
         const nodes = isCanvasView(view) ? nodesOf(view) : view.kind === 'terminal' ? [{ id: view.id, kind: view.kind, ...view.node }] : [];
         for (const node of nodes) {
-            if (node.kind === 'terminal') {
+            // A terminal on another machine is that machine's to prepare, not this workspace's.
+            if (node.kind === 'terminal' && !('machine' in node && node.machine !== undefined)) {
                 entries.set(node.id, {
                     viewId: view.id,
                     canvas: isCanvasView(view),

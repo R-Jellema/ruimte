@@ -54,7 +54,8 @@ import { activeViewOf, cellViewOf, useDocument, viewOfNode, type DocumentState }
 import { closeCellsRightOfGuarded, closeOtherCellsGuarded } from '@/state/cell-close';
 import { useFiles } from '@/state/files';
 import { currentEndpointId, endpointKey } from '@/state/keys';
-import { chatClient, diagramClient, drawingClient, sessionClient } from '@/transport/connections';
+import { chatClient, chatClientFor, diagramClient, drawingClient, sessionClient, sessionClientFor } from '@/transport/connections';
+import { endpointOfNodeId } from '@/state/node-endpoint';
 import { canvasActions } from '@/actions/canvas-actions';
 import { layoutActions } from '@/actions/layout-actions';
 import { viewActions } from '@/actions/view-actions';
@@ -82,9 +83,9 @@ export interface ClientActionMachine {
 }
 
 const LIVE_MACHINE: ClientActionMachine = {
-    sendChat: (chatId, text, extras) => chatClient.send(chatId, text, extras),
-    clearChat: (chatId, force) => chatClient.clear(chatId, force),
-    clearTerminal: (terminalId) => sessionClient.clear(terminalId),
+    sendChat: (chatId, text, extras) => (chatClientFor(endpointOfNodeId(chatId)) ?? chatClient).send(chatId, text, extras),
+    clearChat: (chatId, force) => (chatClientFor(endpointOfNodeId(chatId)) ?? chatClient).clear(chatId, force),
+    clearTerminal: (terminalId) => (sessionClientFor(endpointOfNodeId(terminalId)) ?? sessionClient).clear(terminalId),
     providers: () => providersOf(currentEndpointId()).providers,
     copyViewContent: (kind, from, to) => void (kind === 'drawing' ? drawingClient.copy(from, to) : diagramClient.copy(from, to)),
     viewDeletion: liveViewDeletion,
@@ -206,7 +207,7 @@ export function createClientActionRegistry(document: StoreApi<DocumentState>, ma
             if (!chat) {
                 throw new ActionRefusal('unknown-chat', `No AI Chat with id “${chatId}” exists in this project.`);
             }
-            const state = useChats.getState().byKey[endpointKey(currentEndpointId(), chatId)];
+            const state = useChats.getState().byKey[endpointKey(endpointOfNodeId(chatId), chatId)];
             if (!state) {
                 throw new ActionRefusal('chat-not-loaded', `Open “${chat}” before asking Voice to read it.`);
             }

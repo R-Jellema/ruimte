@@ -37,28 +37,37 @@ export function stopsSubagentsWarning(agents: number): string {
     return `${i18next.t('agents:ending.stopsSubagents')} ${endsAgentsWarning(agents)}`;
 }
 
+type Requester = Pick<Transport, 'request'>;
+
+/* The machine to ask: one for every node, or the one each node runs on, which a canvas holding nodes of another machine needs. */
+export type Asked = Requester | null | ((nodeId: string) => Requester | null);
+
 /*
  * The live agents these nodes opened, each once however many of them opened it. A machine that
  * does not know the question (or cannot be asked) names none, which is how deleting worked before
  * it ended anything.
  */
-export async function agentsEndedBy(transport: Pick<Transport, 'request'> | null, nodeIds: readonly string[]): Promise<string[]> {
+export async function agentsEndedBy(transport: Asked, nodeIds: readonly string[]): Promise<string[]> {
     if (transport === null || nodeIds.length === 0) {
         return [];
     }
+    const askerOf = typeof transport === 'function' ? transport : () => transport;
     const answers = await Promise.all(
-        nodeIds.map((nodeId) =>
-            transport
-                .request('agent.children', { nodeId })
-                .then((result) => result.nodeIds)
-                .catch(() => [] as string[])
-        )
+        nodeIds.map(async (nodeId) => {
+            const asker = askerOf(nodeId);
+            return asker === null
+                ? []
+                : asker.request('agent.children', { nodeId }).then(
+                      (result) => result.nodeIds,
+                      () => [] as string[]
+                  );
+        })
     );
     const going = new Set(nodeIds);
     return [...new Set(answers.flat().filter((id) => !going.has(id)))];
 }
 
-export async function agentsEndedWith(transport: Pick<Transport, 'request'> | null, nodeIds: readonly string[]): Promise<number> {
+export async function agentsEndedWith(transport: Asked, nodeIds: readonly string[]): Promise<number> {
     return (await agentsEndedBy(transport, nodeIds)).length;
 }
 
@@ -67,7 +76,7 @@ export async function agentsEndedWith(transport: Pick<Transport, 'request'> | nu
  * removed on its own, so the moment its node goes is when a person sees that it stays.
  */
 export async function askBeforeEndingAgents(
-    transport: Pick<Transport, 'request'> | null,
+    transport: Asked,
     nodeIds: readonly string[],
     what: string,
     run: () => void,

@@ -39,6 +39,7 @@ import { useShownPanel, useUi } from '@/state/ui';
 import { startBytesWorker } from '@/transport/bytes-worker-host';
 import type { Workspace } from '@/transport/connections';
 import { ConnectionProvider } from '@/transport/ConnectionProvider';
+import { useRemoteHolds } from '@/transport/remote-holds';
 import { ErrorBoundary, Workspace as CoreWorkspace, lazyDialog, prefetcher } from '@adecore/ui';
 import { ChatHostProvider } from '@adecore/agents-react';
 import { stopVoice } from '@/voice/controller';
@@ -111,6 +112,7 @@ const ConflictOverlay = lazyDialog(
 export function WorkspaceShell({ workspace }: { workspace: Workspace }) {
     /* Once for the whole project rather than once per cell, since a grid draws up to nine canvases. */
     useCanvasShortcuts();
+    useRemoteHolds(workspace.connection.endpointId);
     /* The window's toolbar is where a file view puts its controls, and the body that draws them sits
        under the same column, so the element they portal into is held here. */
     const [fileToolbarHost, setFileToolbarHost] = useState<HTMLElement | null>(null);

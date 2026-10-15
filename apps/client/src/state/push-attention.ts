@@ -119,9 +119,10 @@ export function watchPushAttention(endpointId: string, transport: Transport): ()
     };
 }
 
-export function seePushNotifications(endpointId: string, nodes: ReadonlySet<string>): void {
+/* The nodes a person can see, by the machine each runs on: the notifications of a machine are about its own nodes only. */
+export function seePushNotifications(visibleOn: ReadonlyMap<string, ReadonlySet<string>>): void {
     for (const [id, sync] of machines) {
-        sync.setVisible(id === endpointId ? nodes : new Set());
+        sync.setVisible(visibleOn.get(id) ?? new Set());
     }
 }
 

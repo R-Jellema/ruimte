@@ -11,7 +11,7 @@ import { liveCanvas, subscribeCanvases } from '@/state/canvas';
 import { useChats, type ChatStatuses } from '@adecore/agents-react/state';
 import { subscribeChatStatuses } from '@/state/chats';
 import { useDocument } from '@/state/document';
-import { currentEndpointId, endpointKey, useEndpointId } from '@/state/keys';
+import { currentEndpointId, endpointKey, endpointOfNode, useEndpointId } from '@/state/keys';
 import { nodeStatus, useSessions, type SessionsByKey, type StatusOf } from '@/state/sessions';
 import { snoozeOf, useSnoozes, type Snoozes } from '@/state/snooze';
 
@@ -138,8 +138,9 @@ export function groupAttention(
 ): AttentionGroups {
     const groups: AttentionGroups = { needsYou: [], snoozed: [], working: [], finished: [] };
     for (const node of nodes) {
+        const machine = endpointOfNode(node, endpointId);
         if (nodeStatus(node, sessions, chats, endpointId) === 'needs-you') {
-            if (snoozeOf(snoozes, endpointId, node.id) !== null) {
+            if (snoozeOf(snoozes, machine, node.id) !== null) {
                 groups.snoozed.push(node.id);
             } else {
                 groups.needsYou.push(node.id);
@@ -150,7 +151,7 @@ export function groupAttention(
             groups.working.push(node.id);
             continue;
         }
-        if (unseen[endpointKey(endpointId, node.id)] === true) {
+        if (unseen[endpointKey(machine, node.id)] === true) {
             groups.finished.push(node.id);
         }
     }
@@ -196,6 +197,7 @@ export function isUnseen(unseen: Readonly<Record<string, true>>, endpointId: str
 }
 
 export function useUnseen(nodeId: string): boolean {
+    // Inside the scope of a node that runs elsewhere this is that machine, which is whose marks the node has.
     const endpointId = useEndpointId();
     return useAttention((s) => isUnseen(s.unseen, endpointId, nodeId));
 }
@@ -212,12 +214,20 @@ export function startAttentionWatch(): () => void {
     const pass = (): void => {
         const nodes = projectNodes();
         const endpointId = currentEndpointId();
-        const keyOf = (nodeId: string): string => endpointKey(endpointId, nodeId);
+        // A node keeps its marks under the machine it runs on, which is another one for a node that was made to run elsewhere.
+        const machineOfNode = new Map(nodes.map((node) => [node.id, endpointOfNode(node, endpointId)]));
+        const keyOf = (nodeId: string): string => endpointKey(machineOfNode.get(nodeId) ?? endpointId, nodeId);
+        const machines = new Set([endpointId, ...machineOfNode.values()]);
         const sessions = useSessions.getState().byKey;
         const chats = useChats.getState().statusByKey;
         const groups = groupAttention(nodes, sessions, chats, endpointId, useAttention.getState().unseen, useSnoozes.getState().byKey);
         const visible = seenNodes(document.hasFocus(), nodesInSight());
-        seePushNotifications(endpointId, visible);
+        const visibleOn = new Map<string, Set<string>>();
+        for (const nodeId of visible) {
+            const machine = machineOfNode.get(nodeId) ?? endpointId;
+            visibleOn.set(machine, (visibleOn.get(machine) ?? new Set<string>()).add(nodeId));
+        }
+        seePushNotifications(visibleOn);
         const result: AttentionPass = {
             working: new Set(groups.working.map(keyOf)),
             previous,
@@ -225,7 +235,10 @@ export function startAttentionWatch(): () => void {
             needsYou: new Set([...groups.needsYou, ...groups.snoozed].map(keyOf)),
             seen: new Set([...visible].map(keyOf)),
             // The machine's own unread entries count too, since a turn that ended while no client was connected still leaves its mark.
-            unseen: new Set([...Object.keys(useAttention.getState().unseen), ...unreadOnMachine(endpointId).map(keyOf)]),
+            unseen: new Set([
+                ...Object.keys(useAttention.getState().unseen),
+                ...[...machines].flatMap((machine) => unreadOnMachine(machine).map((nodeId) => endpointKey(machine, nodeId)))
+            ]),
             known: new Set(nodes.map((node) => keyOf(node.id)))
         };
         const marks = nextUnseen(result);

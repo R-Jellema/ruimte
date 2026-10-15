@@ -29,10 +29,12 @@ import { useChats, type ChatState, providersOf } from '@adecore/agents-react/sta
 import { chatSinkFor } from '@/state/chats';
 import type { DocumentState } from '@/state/document';
 import { currentEndpointId, endpointKey } from '@/state/keys';
+import { endpointOfNodeId } from '@/state/node-endpoint';
+import { useComputer } from '@/state/computer';
 import { usePlans } from '@/state/plans';
 import { useSessions, type SessionState } from '@/state/sessions';
 import { screenOf } from '@/terminal/registry';
-import { chatClient, machineFor, sessionClient } from '@/transport/connections';
+import { chatClient, chatClientFor, machineFor, sessionClient, sessionClientFor } from '@/transport/connections';
 import type { Transport } from '@/transport/transport';
 import { plural } from '@/actions/words';
 
@@ -41,7 +43,8 @@ type Call = ActionCall<void> & { confirmed: boolean };
 
 /* What the chat and terminal actions reach outside the document; a test hands in a fake of each. */
 export interface SessionMachine {
-    transport(): Requester | null;
+    /* The link of the machine the node runs on; without a node, the workspace's. */
+    transport(nodeId?: string): Requester | null;
     /* What this window knows of a chat: its status always, its thread only while someone has it open. */
     chat(chatId: string): ChatState | null;
     isOpen(chatId: string): boolean;
@@ -66,32 +69,33 @@ export interface SessionMachine {
     restartTerminal(terminalId: string, resume: string | null): Promise<void>;
 }
 
-function endpointTransport(): Requester | null {
-    return machineFor(currentEndpointId())?.transport ?? null;
+function endpointTransport(nodeId?: string): Requester | null {
+    return machineFor(nodeId === undefined ? currentEndpointId() : endpointOfNodeId(nodeId))?.transport ?? null;
 }
 
 const livePlans = new PlanClient((endpointId) => machineFor(endpointId)?.transport ?? null);
 
 const LIVE_MACHINE: SessionMachine = {
     transport: endpointTransport,
-    chat: (chatId) => useChats.getState().byKey[endpointKey(currentEndpointId(), chatId)] ?? null,
-    isOpen: (chatId) => chatClient.isMounted(chatId),
-    applyInfo: (chatId, info) => chatSinkFor(currentEndpointId()).apply(chatId, { type: 'info', info }),
-    terminal: (terminalId) => useSessions.getState().byKey[endpointKey(currentEndpointId(), terminalId)] ?? null,
-    screen: (terminalId) => screenOf(currentEndpointId(), terminalId),
+    chat: (chatId) => useChats.getState().byKey[endpointKey(endpointOfNodeId(chatId), chatId)] ?? null,
+    isOpen: (chatId) => (chatClientFor(endpointOfNodeId(chatId)) ?? chatClient).isMounted(chatId),
+    applyInfo: (chatId, info) => chatSinkFor(endpointOfNodeId(chatId)).apply(chatId, { type: 'info', info }),
+    terminal: (terminalId) => useSessions.getState().byKey[endpointKey(endpointOfNodeId(terminalId), terminalId)] ?? null,
+    screen: (terminalId) => screenOf(endpointOfNodeId(terminalId), terminalId),
     providers: () => providersOf(currentEndpointId()).providers,
     providerFixed: (chatId) => readNodeHost(chatId)?.providerFixed === true,
     retarget: async (chatId, provider, selection) => {
-        if (!chatClient.isMounted(chatId)) {
+        const chats = chatClientFor(endpointOfNodeId(chatId)) ?? chatClient;
+        if (!chats.isMounted(chatId)) {
             return false;
         }
         // The chat remembers the new CLI, so a reload opens it on the same one.
         updateHost(chatId, { provider });
-        await chatClient.retarget(chatId, provider, selection);
+        await chats.retarget(chatId, provider, selection);
         return true;
     },
-    plans: (chatId) => usePlans.getState().byChat[endpointKey(currentEndpointId(), chatId)] ?? [],
-    applyPlan: (chatId, planId, ops) => livePlans.apply(currentEndpointId(), chatId, planId, ops),
+    plans: (chatId) => usePlans.getState().byChat[endpointKey(endpointOfNodeId(chatId), chatId)] ?? [],
+    applyPlan: (chatId, planId, ops) => livePlans.apply(endpointOfNodeId(chatId), chatId, planId, ops),
     revealFork: (result) => {
         if (result.viewId === result.nodeId) {
             showViewWhenItLands(result.viewId);
@@ -106,11 +110,11 @@ const LIVE_MACHINE: SessionMachine = {
             updateHost(terminalId, { resume });
         }
         try {
-            await sessionClient.kill(terminalId);
+            await (sessionClientFor(endpointOfNodeId(terminalId)) ?? sessionClient).kill(terminalId);
         } catch {
             // Already gone on the machine; a fresh session is all that matters.
         }
-        useSessions.getState().restart(endpointKey(currentEndpointId(), terminalId));
+        useSessions.getState().restart(endpointKey(endpointOfNodeId(terminalId), terminalId));
     }
 };
 
@@ -167,6 +171,13 @@ function startsAgain(host: Pick<NodeHost, 'command' | 'provider' | 'runtimeMode'
     return 'A fresh shell starts.';
 }
 
+/* The node a request is about, which names the machine to ask: the chat, or the session of a terminal. */
+function nodeOf(payload: unknown): string | undefined {
+    const named = (payload ?? {}) as { chatId?: unknown; sessionId?: unknown };
+    const id = named.chatId ?? named.sessionId;
+    return typeof id === 'string' ? id : undefined;
+}
+
 function quotedList(items: readonly string[]): string {
     return items.length === 0 ? 'none' : items.map((item) => `“${item}”`).join(', ');
 }
@@ -180,8 +191,8 @@ function quotedList(items: readonly string[]): string {
 export function sessionActions(document: StoreApi<DocumentState>, overrides: Partial<SessionMachine> = {}): ActionHandlers<void> {
     const machine: SessionMachine = { ...LIVE_MACHINE, ...overrides };
 
-    const connected = (): Requester => {
-        const transport = machine.transport();
+    const connected = (nodeId?: string): Requester => {
+        const transport = machine.transport(nodeId);
         if (transport === null) {
             throw new ActionRefusal('offline', 'The machine of this project is not connected.');
         }
@@ -190,7 +201,7 @@ export function sessionActions(document: StoreApi<DocumentState>, overrides: Par
 
     const ask = async <Type extends RequestType>(type: Type, payload: RequestMap[Type]['payload']): Promise<RequestMap[Type]['result']> => {
         try {
-            return await connected().request(type, payload);
+            return await connected(nodeOf(payload)).request(type, payload);
         } catch (error: unknown) {
             throw asRefusal(error);
         }
@@ -336,7 +347,7 @@ export function sessionActions(document: StoreApi<DocumentState>, overrides: Par
                 throw new ActionRefusal('not-working', `“${chat}” is not in a turn.`);
             }
             if (asksFirst(call)) {
-                const agents = subagents ? await agentsEndedWith(machine.transport(), [chatId]) : 0;
+                const agents = subagents ? await agentsEndedWith(machine.transport(chatId), [chatId]) : 0;
                 return {
                     confirmation: {
                         title: `Stop the turn of “${chat}”?`,
@@ -585,7 +596,7 @@ export function sessionActions(document: StoreApi<DocumentState>, overrides: Par
                 if (asksFirst(call)) {
                     const agents =
                         stop === 'task' && item?.kind === 'subagent' && item.childId !== undefined
-                            ? await agentsEndedWith(machine.transport(), [item.childId])
+                            ? await agentsEndedWith(machine.transport(item.childId), [item.childId])
                             : 0;
                     return {
                         confirmation: {
@@ -715,7 +726,9 @@ export function sessionActions(document: StoreApi<DocumentState>, overrides: Par
         },
         'computer.answerApproval': async ({ requestId, choice }) => {
             // Gone already is an answer, not a failure: another client was first, or the card ran out.
-            const accepted = await connected()
+            // The card is the machine's whose list holds it, which is not this project's machine for an agent on another.
+            const holder = Object.entries(useComputer.getState().approvals).find(([, cards]) => cards.some((card) => card.requestId === requestId))?.[0];
+            const accepted = await (holder === undefined ? connected() : (machineFor(holder)?.transport ?? connected()))
                 .request('computer.answer', { requestId, choice })
                 .then((result) => result.accepted)
                 .catch(() => false);
@@ -728,7 +741,7 @@ export function sessionActions(document: StoreApi<DocumentState>, overrides: Par
                 throw new ActionRefusal('not-running', `The shell of “${terminal}” has already ended.`);
             }
             if (asksFirst(call)) {
-                const agents = await agentsEndedWith(machine.transport(), [terminalId]);
+                const agents = await agentsEndedWith(machine.transport(terminalId), [terminalId]);
                 return {
                     confirmation: {
                         title: `Stop the session of “${terminal}”?`,

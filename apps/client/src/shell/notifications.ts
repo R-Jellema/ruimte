@@ -7,7 +7,7 @@ import { revealNode } from '@/project/views';
 import { useChats } from '@adecore/agents-react/state';
 import { subscribeChatStatuses } from '@/state/chats';
 import { seenNodeIds } from '@/state/in-sight';
-import { currentEndpointId } from '@/state/keys';
+import { currentEndpointId, endpointOfNode } from '@/state/keys';
 import { nodeStatus, useSessions } from '@/state/sessions';
 import { useSettings } from '@/state/settings';
 import { snoozeOf, useSnoozes } from '@/state/snooze';
@@ -83,7 +83,7 @@ export function startAgentNotifications(now: () => number = Date.now): () => voi
         const current = new Map<string, string | undefined>();
         const sleeping = new Map<string, number>();
         for (const node of nodes) {
-            const until = snoozeOf(snoozes, endpointId, node.id);
+            const until = snoozeOf(snoozes, endpointOfNode(node, endpointId), node.id);
             if (until !== null) {
                 sleeping.set(node.id, until);
             }

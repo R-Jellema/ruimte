@@ -38,7 +38,8 @@ import { TaskMark } from '@/tasks/TaskMark';
 import { useChildTask } from '@/state/tasks';
 import { useUnseen } from '@/state/attention';
 import { deleteSelectionAsking } from '@/canvas/delete-selection';
-import { useOptionalConnection } from '@/transport/context';
+import { useWorkspace } from '@/transport/connections';
+import { NodeMachineScope } from '@/transport/node-machine';
 import { isNodeActive, maximizedNodeOf, useCanvas, useCanvasStore, type AgentStatus } from '@/state/canvas';
 import type { AgentWork } from '@/state/agent-work';
 import { useNodeStatus, useNodeWork } from '@/state/chats';
@@ -288,10 +289,24 @@ function NodeBodyBoundary({ kind, children }: { kind: CanvasNodeKind; children: 
     );
 }
 
+/*
+ * A node that runs on another machine is drawn from that machine: everything in its frame reads
+ * the transport, the rows and the prompts of the machine it names.
+ */
 export const NodeFrame = memo(function NodeFrame({ id, z }: { id: string; z: number }) {
+    const machine = useCanvas((s) => s.nodes[id]?.machine);
+    return (
+        <NodeMachineScope machine={machine}>
+            <NodeFrameContent id={id} z={z} />
+        </NodeMachineScope>
+    );
+});
+
+function NodeFrameContent({ id, z }: { id: string; z: number }) {
     const { t } = useTranslation('canvas');
     const canvasStore = useCanvasStore();
-    const transport = useOptionalConnection()?.transport ?? null;
+    // The delete question asks about the project's worktrees, which are the workspace's whichever machine the node runs on.
+    const transport = useWorkspace()?.connection.transport ?? null;
     const node = useCanvas((s) => s.nodes[id]);
     const selected = useCanvas((s) => s.selection.includes(id));
     /* The line being drawn would land here: the node that is about to be connected says so, never the
@@ -538,4 +553,4 @@ export const NodeFrame = memo(function NodeFrame({ id, z }: { id: string; z: num
             />
         </ContextMenu.Root>
     );
-});
+}

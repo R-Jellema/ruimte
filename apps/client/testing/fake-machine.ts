@@ -1,6 +1,6 @@
 import { spyOn } from 'bun:test';
 import { REQUEST_SCHEMAS, type EventMap, type EventType, type RequestMap, type RequestType } from '@ruimte/contracts';
-import { LOCAL_ENDPOINT_ID, endpointById } from '@/state/endpoints';
+import { LOCAL_ENDPOINT_ID, endpointById, type Endpoint } from '@/state/endpoints';
 import { pool } from '@/transport';
 import type { PooledTransport } from '@/transport/pool';
 import { TransportError, type ConnectionState, type TransportStatus } from '@/transport/transport';
@@ -159,7 +159,14 @@ export class FakeMachine implements PooledTransport {
 }
 
 /*
- * Puts a fake behind this machine's row in the pool, the one door a socket opens through, so every
+ * The fakes behind the rows of the pool, by endpoint. One spy on the door a socket opens through hands
+ * every row its own fake, so a test with two machines reaches each the way a client reaches a daemon.
+ */
+const fakes = new Map<string, FakeMachine>();
+let door: { mockRestore(): void } | null = null;
+
+/*
+ * Puts a fake behind a machine's row in the pool, the one door a socket opens through, so every
  * client of the page reaches it the way it reaches a daemon. The returned function lets it go again.
  */
 export function connectFakeMachine(machine: FakeMachine, endpointId: string = LOCAL_ENDPOINT_ID): () => void {
@@ -167,11 +174,16 @@ export function connectFakeMachine(machine: FakeMachine, endpointId: string = LO
     if (endpoint === null) {
         throw new Error(`No row for ${endpointId}`);
     }
-    const open = spyOn(pool as unknown as { open: () => PooledTransport }, 'open').mockImplementation(() => machine);
+    fakes.set(endpointId, machine);
+    door ??= spyOn(pool as unknown as { open: (row: Endpoint) => PooledTransport }, 'open').mockImplementation((row) => fakes.get(row.id) ?? machine);
     const release = pool.hold(endpoint);
     return () => {
         release();
         pool.drop(endpointId);
-        open.mockRestore();
+        fakes.delete(endpointId);
+        if (fakes.size === 0) {
+            door?.mockRestore();
+            door = null;
+        }
     };
 }

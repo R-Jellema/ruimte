@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { AgentInfo, AgentStatus } from '@ruimte/contracts';
 import type { CanvasNode } from '@/state/canvas';
 import type { ChatStatuses } from '@adecore/agents-react/state';
-import { dropEndpoint, endpointKey, useEndpointId } from '@/state/keys';
+import { dropEndpoint, endpointKey, endpointOfNode, useEndpointId } from '@/state/keys';
 
 export interface SessionState {
     /* True while this client holds a live attachment on the daemon. */
@@ -142,15 +142,16 @@ export function sessionStatus(state: SessionState | undefined): AgentStatus | un
 }
 
 /* What a node needs to have a status. Geometry says nothing about whether something is running. */
-export type StatusOf = Pick<CanvasNode, 'id' | 'kind' | 'status'>;
+export type StatusOf = Pick<CanvasNode, 'id' | 'kind' | 'status' | 'machine'>;
 
 /* A terminal's status comes from its session, a chat's from its thread; anything else still carries it on the node. */
 export function nodeStatus(node: StatusOf, sessions: SessionsByKey, chats: ChatStatuses, endpointId: string): AgentStatus | undefined {
+    const machine = endpointOfNode(node, endpointId);
     if (node.kind === 'terminal') {
-        return sessionStatus(sessions[endpointKey(endpointId, node.id)]);
+        return sessionStatus(sessions[endpointKey(machine, node.id)]);
     }
     if (node.kind === 'chat') {
-        return chats[endpointKey(endpointId, node.id)]?.info.status;
+        return chats[endpointKey(machine, node.id)]?.info.status;
     }
     return node.status;
 }

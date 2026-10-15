@@ -53,6 +53,7 @@ import { useLaunches } from '@/launches/state';
 import { activeViewOf, useDocument } from '@/state/document';
 import { hasPrWatch, stopPrWatch } from '@/shell/pr-watch-actions';
 import { currentEndpointId, endpointKey } from '@/state/keys';
+import { endpointOfNodeId } from '@/state/node-endpoint';
 import { openOnboarding } from '@/onboarding/open';
 import { pullRequestCommands } from '@/shell/pull-request-commands';
 import { prReposOfCurrent, type PrRepo } from '@/state/pr-repos';
@@ -302,7 +303,7 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
                   // A frame later, so the keyboard the new chat takes is not handed back to the old one as the palette closes.
                   row(
                       'chat-send-new',
-                      afterPaletteCloses(() => sendFromComposer(endpointKey(currentEndpointId(), chat), 'and-new'))
+                      afterPaletteCloses(() => sendFromComposer(endpointKey(endpointOfNodeId(chat), chat), 'and-new'))
                   ),
                   row('chat-restart', () => void restartChatSession(chat))
               ]
@@ -313,8 +314,8 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
                   row('chat-move-to-project', () => useUi.getState().setMoveChatDialog({ chatId: leavingChatId, mode: 'pick', projectId: null }))
               ]
             : []),
-        ...(selected?.kind === 'chat' && hasPrWatch(currentEndpointId(), selected.id)
-            ? [row('pr-watch-stop', () => void stopPrWatch(currentEndpointId(), selected.id))]
+        ...(selected?.kind === 'chat' && hasPrWatch(endpointOfNodeId(selected.id), selected.id)
+            ? [row('pr-watch-stop', () => void stopPrWatch(endpointOfNodeId(selected.id), selected.id))]
             : []),
         ...(folder
             ? [

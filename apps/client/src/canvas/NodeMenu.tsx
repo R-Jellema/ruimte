@@ -60,6 +60,8 @@ import { useSettings } from '@/state/settings';
 import { useUi } from '@/state/ui';
 import { useGroupWorktrees, useWorktreeOf } from '@/state/worktrees';
 import { useToasts } from '@/state/toasts';
+import { useWorkspace } from '@/transport/connections';
+import { NodeMachineScope } from '@/transport/node-machine';
 import { useTransport } from '@/transport/context';
 import { ColorSwatch, DisabledReason, Icon, Tooltip, Kbd, ContextMenu } from '@adecore/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
@@ -69,7 +71,16 @@ import { formatNodeSize, makeDefaultSize } from '@/canvas/default-size';
  * The context menu of one node, the same from its frame and from its row in the sidebar. `snooze`
  * leads it, and is all a row offers for a node that is not on the canvas this menu acts on.
  */
-export function NodeMenuPopup({ id, onRename, snooze }: { id: string; onRename(): void; snooze?: ReactNode }) {
+export function NodeMenuPopup(props: { id: string; onRename(): void; snooze?: ReactNode }) {
+    const machine = useCanvas((s) => s.nodes[props.id]?.machine);
+    return (
+        <NodeMachineScope machine={machine}>
+            <NodeMenuContent {...props} />
+        </NodeMachineScope>
+    );
+}
+
+function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): void; snooze?: ReactNode }) {
     const { t } = useTranslation('canvas');
     const canvasStore = useCanvasStore();
     const node = useCanvas((s) => s.nodes[id]);
@@ -87,7 +98,10 @@ export function NodeMenuPopup({ id, onRename, snooze }: { id: string; onRename()
     const providers = useProviders((s) => s.providers);
     const projectFolder = useProject((s) => s.current?.folder ?? null);
     const scratch = useProject((s) => isScratchProject(s.current));
+    // The machine of the node: the agents a clear would end are its.
     const transport = useTransport();
+    // The project's worktrees, which a delete asks about, are the workspace's.
+    const workspaceTransport = useWorkspace()?.connection.transport ?? transport;
     const nodeWorktree = useWorktreeOf(node?.kind === 'terminal' || node?.kind === 'chat' ? node.cwd : undefined);
     const groupWorktrees = useGroupWorktrees(node?.kind === 'group' ? id : null);
 
@@ -97,7 +111,7 @@ export function NodeMenuPopup({ id, onRename, snooze }: { id: string; onRename()
 
     const remove = (): void => {
         canvasStore.getState().select([id]);
-        void deleteSelectionAsking(canvasStore, transport);
+        void deleteSelectionAsking(canvasStore, workspaceTransport);
     };
     if (node.kind === 'unknown') {
         return <UnknownNodeMenuPopup id={id} onDelete={remove} />;

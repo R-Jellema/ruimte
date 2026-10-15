@@ -141,7 +141,7 @@ export const EdgeLayer = memo(function EdgeLayer() {
     const [hovered, setHovered] = useState<string | null>(null);
     const [editing, setEditing] = useState<string | null>(null);
     const endpointId = useEndpointId();
-    const tasks = useTasks((s) => s.byEndpoint[endpointId]);
+    const tasks = useTasks((s) => s.byEndpoint);
 
     const { lines, obstacles, routes, rectOf } = lineRoutes(edges, nodes, texts, hidden);
 
@@ -174,8 +174,11 @@ export const EdgeLayer = memo(function EdgeLayer() {
                             }
                             const active = hovered === key || line.ids.some((id) => selection.includes(id));
                             // A line a task went along says how the task stands, and only looks open while it is.
+                            // The tasks a machine keeps are about its own nodes, so a line between nodes of another machine reads that machine's.
+                            const machineTasks = tasks[nodes[line.edge.from]?.machine ?? endpointId];
                             const task =
-                                edgeTask(tasks, line.edge.from, line.edge.to) ?? (line.back === null ? null : edgeTask(tasks, line.back.from, line.back.to));
+                                edgeTask(machineTasks, line.edge.from, line.edge.to) ??
+                                (line.back === null ? null : edgeTask(machineTasks, line.back.from, line.back.to));
                             const label = task === null ? line.label : taskEdgeLabel(task.status);
                             const look = edgeLook(lineMeaning(line, readsContext, drivenByAgent), {
                                 pair: line.back !== null,

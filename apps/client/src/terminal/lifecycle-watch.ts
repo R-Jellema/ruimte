@@ -3,7 +3,7 @@ import { nodeRefsOfView, projectNodes } from '@/project/view-nodes';
 import { liveCanvases, subscribeCanvases } from '@/state/canvas';
 import { useDocument } from '@/state/document';
 import { useEndpoints } from '@/state/endpoints';
-import { currentEndpointId, endpointKey, splitKey } from '@/state/keys';
+import { currentEndpointId, endpointKey, endpointOfNode, splitKey } from '@/state/keys';
 
 /*
  * How a node left the document. `closed` is this client taking it out, which ends its session. `gone`
@@ -23,12 +23,12 @@ function liveNodes(): Map<string, CanvasNodeKind> {
     const endpointId = currentEndpointId();
     const live = new Map<string, CanvasNodeKind>();
     for (const node of projectNodes()) {
-        live.set(endpointKey(endpointId, node.id), node.kind);
+        live.set(endpointKey(endpointOfNode(node, endpointId), node.id), node.kind);
     }
     // A deleted view that can still be taken back keeps what runs on it until it is purged.
     for (const { view } of useDocument.getState().trashed) {
         for (const node of nodeRefsOfView(view)) {
-            live.set(endpointKey(endpointId, node.id), node.kind);
+            live.set(endpointKey(endpointOfNode(node, endpointId), node.id), node.kind);
         }
     }
     return live;

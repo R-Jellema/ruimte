@@ -8,6 +8,7 @@ import { worktreesLeftBy } from '@/shell/panels/worktree-rows';
 import { nodesOfView } from '@/project/view-nodes';
 import { useDocument } from '@/state/document';
 import { currentEndpointId } from '@/state/keys';
+import { transportFor } from '@/transport';
 import { useProject } from '@/state/project';
 import type { CanvasState } from '@/state/canvas';
 import type { Transport } from '@/transport/transport';
@@ -34,6 +35,11 @@ export function deleteSelectionAsking(
     const named = picked.filter((id) => nodes[id] !== undefined);
     const what = named.length === 1 ? nodes[named[0]!]!.title : i18next.t('canvas:delete.nodes', { count: named.length });
     const goingIds = new Set(going);
+    // A node that runs on another machine asks that machine which agents it opened.
+    const askerOf = (id: string): Pick<Transport, 'request'> | null => {
+        const machine = nodes[id]?.machine;
+        return machine === undefined ? transport : transportFor(machine);
+    };
     const leftBehind = async (): Promise<PendingEnd['worktrees']> => {
         if (transport === null || folder === null || sessions.length === 0) {
             return undefined;
@@ -61,7 +67,7 @@ export function deleteSelectionAsking(
     });
     return new Promise((resolve) => {
         closeAfterSaving(currentEndpointId(), files, () => {
-            void askBeforeEndingAgents(transport, sessions, what, () => deleteNodesAction(store, picked), leftBehind).finally(resolve);
+            void askBeforeEndingAgents(askerOf, sessions, what, () => deleteNodesAction(store, picked), leftBehind).finally(resolve);
         });
     });
 }

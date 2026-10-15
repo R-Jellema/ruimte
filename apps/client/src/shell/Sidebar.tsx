@@ -18,7 +18,7 @@ import { useDocument } from '@/state/document';
 import { isDatabaseTab, isPromotableTab, useFiles } from '@/state/files';
 import { nodeStatus, useSessions, type StatusOf } from '@/state/sessions';
 import { useUi } from '@/state/ui';
-import { useEndpointId } from '@/state/keys';
+import { useEndpointId, endpointOfNode } from '@/state/keys';
 import { snoozeOf, useSnoozes } from '@/state/snooze';
 import { buildSidebar, gapIndex, isSessionKind, rowAfterArrow, rowOrder, type SidebarNode, type SidebarProject } from '@/shell/sidebar-rows';
 import { useSidebarSource } from '@/shell/sidebar-source';
@@ -124,20 +124,24 @@ export function Sidebar() {
             openViewIds: source.openViewIds,
             views: source.views.map((view) => {
                 const live = source.nodesOf(view);
-                const asRow = (node: StatusOf & { title: string; titleSource?: SidebarNode['titleSource']; provider?: AgentKind }): SidebarNode => ({
-                    id: node.id,
-                    title: node.title,
-                    titleSource: node.titleSource,
-                    kind: node.kind,
-                    provider: node.provider ?? null,
-                    status: nodeStatus(node, sessions, chats, endpointId) ?? null,
-                    work: nodeWork(node, sessions, chats, endpointId),
-                    draft: node.kind === 'chat' && drafts.includes(node.id),
-                    alert: (warnings[endpointId] ?? []).some((alert) => alert.nodeId === node.id),
-                    finished: isUnseen(unseen, endpointId, node.id),
-                    task: childTask(tasks[endpointId], node.id),
-                    snoozedUntil: snoozeOf(snoozes, endpointId, node.id)
-                });
+                const asRow = (node: StatusOf & { title: string; titleSource?: SidebarNode['titleSource']; provider?: AgentKind }): SidebarNode => {
+                    // A node that runs on another machine is that machine's to report on.
+                    const machine = endpointOfNode(node, endpointId);
+                    return {
+                        id: node.id,
+                        title: node.title,
+                        titleSource: node.titleSource,
+                        kind: node.kind,
+                        provider: node.provider ?? null,
+                        status: nodeStatus(node, sessions, chats, endpointId) ?? null,
+                        work: nodeWork(node, sessions, chats, endpointId),
+                        draft: node.kind === 'chat' && drafts.includes(node.id),
+                        alert: (warnings[machine] ?? []).some((alert) => alert.nodeId === node.id),
+                        finished: isUnseen(unseen, machine, node.id),
+                        task: childTask(tasks[machine], node.id),
+                        snoozedUntil: snoozeOf(snoozes, machine, node.id)
+                    };
+                };
                 const provider = view.kind === 'chat' || view.kind === 'terminal' ? view.node.provider : undefined;
                 return {
                     id: view.id,

@@ -2,7 +2,7 @@ import type { AgentKind, ComputerApproval, SecretRequest } from '@ruimte/contrac
 import { orderPrompts, isBlockingSubject, promptCreatedAt, promptIdOf, type PromptSubject } from '@adecore/agents-react/prompts';
 import type { CanvasNode } from '@/state/canvas';
 import { waitingRequestsOf, type ChatsById } from '@adecore/agents-react/state';
-import { endpointKey } from '@/state/keys';
+import { endpointKey, endpointOfNode } from '@/state/keys';
 import { computerPrompt, ruimtePayloadOf, secretPrompt, waitingPrompt } from '@/prompts/ruimte-prompts';
 import { nodeStatus, type SessionsByKey } from '@/state/sessions';
 
@@ -15,13 +15,13 @@ export interface CanvasPrompt {
 }
 
 export interface CanvasPromptsInput {
-    nodes: readonly Pick<CanvasNode, 'id' | 'kind' | 'title' | 'provider'>[];
+    nodes: readonly Pick<CanvasNode, 'id' | 'kind' | 'title' | 'provider' | 'machine'>[];
     endpointId: string;
     sessions: SessionsByKey;
     chats: ChatsById;
-    /* The cards of this machine about operating its apps; each belongs to the chat or terminal whose agent asks. */
+    /* The cards about operating apps, of this machine and of every other one a node runs on; each belongs to the chat or terminal whose agent asks. */
     computer: readonly ComputerApproval[];
-    /* The cards of this machine in which an agent asks for a launch's secret; each belongs to the chat that asks. */
+    /* The cards in which an agent asks for a launch's secret, the same way; each belongs to the chat that asks. */
     secrets?: readonly SecretRequest[];
     /* When each waiting terminal was first seen waiting, by session key, as the previous call returned it. */
     waitingSince: ReadonlyMap<string, number>;
@@ -47,7 +47,8 @@ export function canvasPrompts({ nodes, endpointId, sessions, chats, computer, se
         if (node.kind !== 'chat' && node.kind !== 'terminal') {
             continue;
         }
-        const key = endpointKey(endpointId, node.id);
+        const machine = endpointOfNode(node, endpointId);
+        const key = endpointKey(machine, node.id);
         const provider = (node.kind === 'chat' ? chats[key]?.info.provider : sessions[key]?.agent?.kind) ?? node.provider ?? null;
         for (const request of computer) {
             if (request.nodeId === node.id) {
@@ -57,7 +58,7 @@ export function canvasPrompts({ nodes, endpointId, sessions, chats, computer, se
         if (node.kind === 'chat') {
             for (const request of secrets) {
                 if (request.nodeId === node.id) {
-                    add(node, { kind: 'host', nodeId: node.id, prompt: secretPrompt(endpointId, node.id, request) }, provider, 'chat');
+                    add(node, { kind: 'host', nodeId: node.id, prompt: secretPrompt(machine, node.id, request) }, provider, 'chat');
                 }
             }
             for (const item of waitingRequestsOf(chats[key])) {

@@ -24,6 +24,11 @@ export function isOfEndpoint(key: string, endpointId: string): boolean {
     return key.startsWith(`${endpointId}:`);
 }
 
+/* The machine a node runs on: the one it names, and the workspace's own when it names none. */
+export function endpointOfNode(node: { machine?: string }, workspaceEndpointId: string): string {
+    return node.machine ?? workspaceEndpointId;
+}
+
 /*
  * One row patched in place, over the empty row for a key nothing was ever written to. A row arrives
  * a field at a time (it is loading, then it has content, then it is gone), and the empty row is what

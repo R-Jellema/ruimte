@@ -22,13 +22,16 @@ export function useCanvasPrompts(): CanvasPrompt[] {
 
     useEffect(() => {
         const update = (): void => {
+            const nodes = Object.values(canvasStore.getState().nodes);
+            // The cards of every machine a node on this canvas runs on: a card belongs to the node that asks, wherever that runs.
+            const machines = [...new Set([endpointId, ...nodes.flatMap((node) => (node.machine === undefined ? [] : [node.machine]))])];
             const next = canvasPrompts({
-                nodes: Object.values(canvasStore.getState().nodes),
+                nodes,
                 endpointId,
                 sessions: useSessions.getState().byKey,
                 chats: useChats.getState().byKey,
-                computer: computerApprovalsOf(endpointId),
-                secrets: secretRequestsOf(endpointId),
+                computer: machines.flatMap(computerApprovalsOf),
+                secrets: machines.flatMap(secretRequestsOf),
                 waitingSince: waitingSince.current
             });
             waitingSince.current = next.waitingSince;

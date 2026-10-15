@@ -4,6 +4,7 @@ import { nodeWorking } from '@/state/agent-work';
 import { useChats } from '@adecore/agents-react/state';
 import { nodeRefsOfView, nodesOfView } from '@/project/view-nodes';
 import { currentEndpointId } from '@/state/keys';
+import { endpointOfNodeId } from '@/state/node-endpoint';
 import { useProject } from '@/state/project';
 import { useSessions, type StatusOf } from '@/state/sessions';
 import { textDrafts } from '@/state/text-drafts';
@@ -41,7 +42,7 @@ export const liveViewDeletion: ViewDeletionMachine = {
     isUnsaved: (path) => textDrafts.isUnsaved(currentEndpointId(), path),
     save: (path) => textDrafts.save(currentEndpointId(), path),
     working: (node) => nodeWorking(node, useSessions.getState().byKey, useChats.getState().byKey, currentEndpointId()),
-    endedBy: (nodeIds) => agentsEndedBy(transportFor(currentEndpointId()), nodeIds)
+    endedBy: (nodeIds) => agentsEndedBy((nodeId) => transportFor(endpointOfNodeId(nodeId)), nodeIds)
 };
 
 export interface ViewDeletionFacts {

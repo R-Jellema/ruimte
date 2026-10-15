@@ -25,6 +25,7 @@ import { focusedCanvas, liveCanvas } from '@/state/canvas';
 import { defaultNodeSize } from '@/state/node-size';
 import { fileTabOf, isDatabaseTab, useFiles } from '@/state/files';
 import { currentEndpointId } from '@/state/keys';
+import { endpointOfNodeId } from '@/state/node-endpoint';
 import { useDocument, viewOfNode } from '@/state/document';
 import { useProject } from '@/state/project';
 import { useToasts } from '@/state/toasts';
@@ -283,8 +284,11 @@ export function askDeleteView(id: string): void {
     const sessions = sessionNodesOfView(exported).map((node) => node.id);
     const endpointId = currentEndpointId();
     closeAfterSaving(endpointId, filesOfView(exported, useProject.getState().current?.folder ?? null), () => {
-        void askBeforeEndingAgents(transportFor(endpointId), sessions, ('name' in view ? view.name : undefined) ?? i18next.t('project:view.fallbackName'), () =>
-            deleteViewAction(id)
+        void askBeforeEndingAgents(
+            (nodeId) => transportFor(endpointOfNodeId(nodeId)),
+            sessions,
+            ('name' in view ? view.name : undefined) ?? i18next.t('project:view.fallbackName'),
+            () => deleteViewAction(id)
         );
     });
 }

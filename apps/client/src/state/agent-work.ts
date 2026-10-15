@@ -1,5 +1,5 @@
 import type { ChatState, ChatStatuses } from '@adecore/agents-react/state';
-import { endpointKey } from '@/state/keys';
+import { endpointKey, endpointOfNode } from '@/state/keys';
 import type { SessionState, SessionsByKey, StatusOf } from '@/state/sessions';
 
 /*
@@ -34,13 +34,14 @@ export type AgentWork = 'turn' | 'delegating';
  * since everything else on a canvas carries a status no CLI ever reported.
  */
 export function nodeWork(node: StatusOf, sessions: SessionsByKey, chats: ChatStatuses, endpointId: string): AgentWork | null {
+    const machine = endpointOfNode(node, endpointId);
     if (node.kind === 'terminal') {
-        return sessionWorking(sessions[endpointKey(endpointId, node.id)]) ? 'turn' : null;
+        return sessionWorking(sessions[endpointKey(machine, node.id)]) ? 'turn' : null;
     }
     if (node.kind !== 'chat') {
         return null;
     }
-    const chat = chats[endpointKey(endpointId, node.id)];
+    const chat = chats[endpointKey(machine, node.id)];
     if (chatWorking(chat)) {
         return 'turn';
     }
