@@ -229,6 +229,35 @@ describe('VS Code launch configurations', () => {
     });
 });
 
+describe('Flutter', () => {
+    test('suggests the web run as a service with its address and the device run as a task, when the request names the source', async () => {
+        await write('app/pubspec.yaml', 'name: atlas\n');
+        const suggestions = (await detectLaunches(folder, [join(folder, 'app')], { sources: ['pubspec-yaml'] })).filter(
+            (suggestion) => suggestion.source === 'pubspec-yaml'
+        );
+
+        expect(suggestions.map((suggestion) => [suggestion.path, suggestion.launch])).toEqual([
+            [
+                'app/pubspec.yaml',
+                {
+                    id: 'flutter-web',
+                    name: 'Flutter web',
+                    kind: 'service',
+                    cwd: 'app',
+                    command: 'flutter run -d web-server --web-port 8080',
+                    url: 'http://localhost:8080'
+                }
+            ],
+            ['app/pubspec.yaml', { id: 'flutter', name: 'Flutter', kind: 'task', cwd: 'app', command: 'flutter run' }]
+        ]);
+    });
+
+    test('without the source, no Flutter suggestion is sent', async () => {
+        await write('pubspec.yaml', 'name: atlas\n');
+        expect((await detectLaunches(folder, [])).some((suggestion) => suggestion.source === 'pubspec-yaml')).toBe(false);
+    });
+});
+
 describe('the pieces', () => {
     test('entities in attributes are decoded', () => {
         const document = parseXml('<a x="&quot;b&quot; &amp; &#65;"><c/></a>');

@@ -144,5 +144,10 @@
         "approve": "{{name}} opnieuw goedkeuren voor worktrees",
         "inWorktree": "in {{name}}",
         "failed": "Kon niet kiezen wat er draait als een worktree-chat klaar is"
+    },
+    "device": {
+        "show": "Apparaat tonen",
+        "pick": "Apparaat tonen…",
+        "none": "Geen apparaten op deze machine"
     }
 }

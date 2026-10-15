@@ -117,8 +117,8 @@ export type LaunchesSavePayload = z.infer<typeof LaunchesSavePayloadSchema>;
 export const LaunchesSaveResultSchema = ProjectSaveResultSchema;
 export type LaunchesSaveResult = z.infer<typeof LaunchesSaveResultSchema>;
 
-// `vscode-launch` is only ever sent to a request that names it (`LaunchesDetectPayloadSchema`), since a client validates every reply whole.
-export const LaunchSuggestionSourceSchema = z.enum(['run-xml', 'package-json', 'composer-json', 'vscode-launch']);
+// `vscode-launch` and `pubspec-yaml` are only ever sent to a request that names them (`LaunchesDetectPayloadSchema`), since a client validates every reply whole.
+export const LaunchSuggestionSourceSchema = z.enum(['run-xml', 'package-json', 'composer-json', 'vscode-launch', 'pubspec-yaml']);
 export type LaunchSuggestionSource = z.infer<typeof LaunchSuggestionSourceSchema>;
 
 /* A launch the daemon found in the project's own files, ready to import. */

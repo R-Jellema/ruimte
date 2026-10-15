@@ -1,6 +1,6 @@
 import i18next from 'i18next';
-import { type LaunchConfigEntry, type LaunchesDocument } from '@ruimte/contracts';
-import { createNodeAction } from '@/actions/client-actions';
+import { deviceMatches, type DeviceInfo, type LaunchConfigEntry, type LaunchesDocument } from '@ruimte/contracts';
+import { createNodeAction, createViewAction } from '@/actions/client-actions';
 import { chosenLaunch } from '@/launches/model';
 import { useLaunches, type LaunchOwner } from '@/launches/state';
 import { nodesOfView } from '@/project/view-nodes';
@@ -201,4 +201,23 @@ export function openLaunchAddress(url: string): void {
         }
     }
     void createNodeAction('browser', { url });
+}
+
+/* The device a launch runs on: the node or view that already shows it, else a new device view. */
+export function showLaunchDevice(device: DeviceInfo): void {
+    const reference = { platform: device.platform, kind: device.kind, name: device.name, runtime: device.runtime };
+    for (const view of useDocument.getState().views) {
+        if (view.kind === 'device' && deviceMatches(device, view.device)) {
+            revealNode(view.id);
+            return;
+        }
+        const node = nodesOfView(view).find(
+            (candidate) => candidate.kind === 'device' && candidate.device !== undefined && deviceMatches(device, candidate.device)
+        );
+        if (node !== undefined) {
+            revealNode(node.id);
+            return;
+        }
+    }
+    void createViewAction('device', { device: reference });
 }

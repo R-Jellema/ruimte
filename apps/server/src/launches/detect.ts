@@ -7,8 +7,8 @@ import { readVscodeLaunch } from './vscode.ts';
 
 /*
  * Launches a project already describes in its own files: run configurations from `.run.xml` files,
- * the scripts of a `package.json` and those of a `composer.json`. Nothing here runs or writes
- * anything; a person reviews every suggestion before it becomes a launch.
+ * the scripts of a `package.json` and those of a `composer.json`, and the two runs of a Flutter app.
+ * Nothing here runs or writes anything; a person reviews every suggestion before it becomes a launch.
  */
 
 // Deep enough for `backend/dev/run` under a project folder, shallow enough to stay out of a large tree.
@@ -404,6 +404,32 @@ async function packageScripts(folder: string, directory: string): Promise<Built[
         });
 }
 
+/*
+ * A Flutter app runs on the web inside Ruimte as a service its browser node shows, and on a device as a
+ * task its device node shows. Ruimte suggests the web run rather than rewriting a person's command,
+ * which would break the approval that command has.
+ */
+async function flutterRuns(directory: string): Promise<Built[]> {
+    if (!(await exists(join(directory, 'pubspec.yaml')))) {
+        return [];
+    }
+    return [
+        {
+            launch: {
+                id: '',
+                name: 'Flutter web',
+                kind: 'service',
+                cwd: directory,
+                command: 'flutter run -d web-server --web-port 8080',
+                url: 'http://localhost:8080'
+            },
+            detail: 'flutter run -d web-server',
+            outside: false
+        },
+        { launch: { id: '', name: 'Flutter', kind: 'task', cwd: directory, command: 'flutter run' }, detail: 'flutter run', outside: false }
+    ];
+}
+
 async function composerScripts(directory: string): Promise<Built[]> {
     return (
         scriptsOf(await readJson(join(directory, 'composer.json')))
@@ -484,6 +510,11 @@ export async function detectLaunches(folder: string, checkouts: readonly string[
             const text = await readFile(launchFile, 'utf8').catch(() => null);
             for (const built of text === null ? [] : readVscodeLaunch(text, root, folder)) {
                 found.push({ built, source: 'vscode-launch', path: launchFile });
+            }
+        }
+        if (options.sources?.includes('pubspec-yaml')) {
+            for (const built of await flutterRuns(root)) {
+                found.push({ built, source: 'pubspec-yaml', path: join(root, 'pubspec.yaml') });
             }
         }
         for (const built of await composerScripts(root)) {

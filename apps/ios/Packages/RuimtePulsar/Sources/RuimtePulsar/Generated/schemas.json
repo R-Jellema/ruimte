@@ -46562,7 +46562,8 @@
                 "run-xml",
                 "package-json",
                 "composer-json",
-                "vscode-launch"
+                "vscode-launch",
+                "pubspec-yaml"
               ]
             },
             "path": {

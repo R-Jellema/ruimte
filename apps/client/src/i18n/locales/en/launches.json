@@ -144,5 +144,10 @@
         "approve": "Approve {{name}} for worktrees again",
         "inWorktree": "in {{name}}",
         "failed": "Could not choose what runs after a worktree chat settles"
+    },
+    "device": {
+        "show": "Show device",
+        "pick": "Show device…",
+        "none": "No devices on this machine"
     }
 }
