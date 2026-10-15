@@ -1,3 +1,4 @@
+import type { RemoteStatusEvent } from '@ruimte/contracts';
 import type { PeerStatement } from '@ruimte/pulsar';
 import { CodedError } from '@adecore/agents';
 import { PEER_ATTEMPT_TIMEOUT_MS, openBrokerLine, openPeerLink, type PeerLink, type PeerSigner } from './peer-connection.ts';
@@ -118,7 +119,12 @@ export class RemoteConnections {
 
     /* A reconnect is due at `nextAttemptAt`. */
     waiting(machineId: string, nextAttemptAt: number): void {
-        this.options.status.set({ machineId, state: 'waiting', owed: this.options.owed(machineId), nextAttemptAt });
+        this.options.status.set({ ...this.standing(machineId, 'waiting'), nextAttemptAt });
+    }
+
+    private standing(machineId: string, state: 'open' | 'connecting' | 'waiting'): RemoteStatusEvent {
+        const brokerUrl = this.options.machines.get(machineId)?.brokerUrl;
+        return { machineId, state, owed: this.options.owed(machineId), ...(brokerUrl ? { brokerUrl } : {}) };
     }
 
     private async dial(machineId: string): Promise<PeerLink> {
@@ -160,6 +166,6 @@ export class RemoteConnections {
             this.options.status.forget(machineId);
             return;
         }
-        this.options.status.set({ machineId, state, owed: this.options.owed(machineId) });
+        this.options.status.set(this.standing(machineId, state));
     }
 }

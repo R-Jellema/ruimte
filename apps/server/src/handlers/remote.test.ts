@@ -184,6 +184,27 @@ describe('a peer statement handed over for another machine', () => {
         expect(pending.peek('machine-b')).not.toBeNull();
     });
 
+    test('goes through a broker over wss only, or on this machine for development, and refuses any other', async () => {
+        for (const brokerUrl of ['ws://broker.example.com', 'wss://user:secret@broker.example.com', 'ws://127.0.0.1.example.com']) {
+            expect(await ask('remote.connect', { machineId: 'machine-b', statement: statementFor(), brokerUrl })).toMatchObject({
+                ok: false,
+                error: { code: 'bad-broker' }
+            });
+        }
+        // The wire shape already refuses anything that is no ws or wss address.
+        for (const brokerUrl of ['https://broker.example.com', 'not a url']) {
+            expect(await ask('remote.connect', { machineId: 'machine-b', statement: statementFor(), brokerUrl })).toMatchObject({
+                ok: false,
+                error: { code: 'bad-request' }
+            });
+        }
+        expect(machines.get('machine-b')).toBeNull();
+        expect(attempts).toEqual([]);
+        expect(await ask('remote.connect', { machineId: 'machine-b', statement: statementFor(), brokerUrl: 'ws://127.0.0.1:4430' })).toMatchObject({
+            ok: true
+        });
+    });
+
     test('is refused when it names another machine, another peer key, another machine key of this one, or has run out', async () => {
         const cases = [
             { machineId: 'machine-c' },

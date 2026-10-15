@@ -25,7 +25,13 @@ export class RemoteStatus {
     /* Tells the clients only when something changed. */
     set(status: RemoteStatusEvent): void {
         const held = this.standing.get(status.machineId);
-        if (held !== undefined && held.state === status.state && held.owed === status.owed && held.nextAttemptAt === status.nextAttemptAt) {
+        if (
+            held !== undefined &&
+            held.state === status.state &&
+            held.owed === status.owed &&
+            held.nextAttemptAt === status.nextAttemptAt &&
+            held.brokerUrl === status.brokerUrl
+        ) {
             return;
         }
         this.standing.set(status.machineId, status);

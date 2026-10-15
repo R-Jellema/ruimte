@@ -24,6 +24,24 @@ export interface PeerLinkHost {
     now(): number;
 }
 
+/*
+ * A broker a link may go through: over TLS, or on this machine for a development setup. A broker only
+ * carries signals each side signed, but a plain socket would hand them to anyone on the way. The page
+ * passes the broker the address book lists for that machine; this machine cannot ask the address book itself.
+ */
+export function acceptableBrokerUrl(value: string): boolean {
+    let url: URL;
+    try {
+        url = new URL(value);
+    } catch {
+        return false;
+    }
+    if (url.username !== '' || url.password !== '') {
+        return false;
+    }
+    return url.protocol === 'wss:' || (url.protocol === 'ws:' && ['127.0.0.1', '[::1]', 'localhost'].includes(url.hostname));
+}
+
 /* Why a statement cannot be used by this machine to work in `machineId`, or null when it can. */
 async function statementRefusal(statement: PeerStatement, machineId: string, peers: PeerLinkHost): Promise<string | null> {
     if (
@@ -94,7 +112,10 @@ export function registerRemoteHandlers(dispatcher: Dispatcher, remote: RemoteSto
         if (refusal !== null) {
             throw new RequestError('bad-statement', refusal);
         }
-        await peers.machines.put({ machineId, publicKey: statement.machinePublicKey, ...(brokerUrl === undefined ? {} : { brokerUrl }) }, peers.now());
+        if (brokerUrl && !acceptableBrokerUrl(brokerUrl)) {
+            throw new RequestError('bad-broker', 'A link goes through a broker over wss:// only');
+        }
+        await peers.machines.put({ machineId, publicKey: statement.machinePublicKey, ...(brokerUrl ? { brokerUrl } : {}) }, peers.now());
         peers.pending.hold(statement);
         try {
             await peers.connections.connect(machineId);

@@ -122,6 +122,15 @@ describe('the links to other machines', () => {
         expect(status.get('machine-b')).toEqual({ machineId: 'machine-b', state: 'waiting', owed: 2, nextAttemptAt: 5000 });
     });
 
+    test('names the broker of a machine that has one of its own in the standing, and the next try when it waits', async () => {
+        known = { ...MACHINE, brokerUrl: 'wss://broker.example.com' };
+        owed = 1;
+        await connections.connect('machine-b');
+        expect(status.get('machine-b')).toEqual({ machineId: 'machine-b', state: 'open', owed: 1, brokerUrl: 'wss://broker.example.com' });
+        connections.waiting('machine-b', 9000);
+        expect(status.get('machine-b')).toMatchObject({ state: 'waiting', nextAttemptAt: 9000, brokerUrl: 'wss://broker.example.com' });
+    });
+
     test('refuses a machine that was never linked, without dialing', async () => {
         known = null;
         await expect(connections.connect('machine-b')).rejects.toMatchObject({ code: 'unknown-machine' });

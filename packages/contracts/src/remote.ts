@@ -52,6 +52,8 @@ export const RemoteStatusEventSchema = z.object({
     state: z.enum(['open', 'connecting', 'waiting', 'closed']),
     // How many pieces of work for that machine wait on the link.
     owed: z.number().int().min(0),
-    nextAttemptAt: z.number().int().min(0).optional()
+    nextAttemptAt: z.number().int().min(0).optional(),
+    // The broker the link signals through, when that machine names one of its own; absent means this machine's own broker.
+    brokerUrl: z.string().max(512).optional()
 });
 export type RemoteStatusEvent = z.infer<typeof RemoteStatusEventSchema>;
