@@ -13,6 +13,7 @@ import type {
     ChatMoveResult,
     ChatSummarizeResult
 } from '@ruimte/contracts';
+import { CodedError } from '@adecore/agents';
 import { chatHandlers, type AgentHandler } from '@adecore/agents/host';
 import type { Dispatcher } from '../dispatcher.ts';
 import { ChatError } from '../chat/errors.ts';
@@ -44,7 +45,9 @@ export function registerChatHandlers(
     forks?: ChatForkHandlers,
     killed?: (chatId: string) => Promise<void>,
     moves?: ChatMoveHandlers,
-    machineOf?: MachineOfNode
+    machineOf?: MachineOfNode,
+    /* Whether another machine's task still has this chat to start, which only the daemon may do: a window would start it in the wrong folder. */
+    starting?: (chatId: string) => boolean
 ): void {
     // What the daemon answers differently from a host of chats alone: a task's row stops its node, a stop or a
     // removal first owes the end of the agents a chat opened, and a fork lands on the canvas.
@@ -64,9 +67,17 @@ export function registerChatHandlers(
             refuseBoundNode(machineOf, payload.chatId);
             return handler(payload, clientId);
         };
+    const unlessStarting =
+        (handler: AgentHandler<'chat.create'>): AgentHandler<'chat.create'> =>
+        (payload, clientId) => {
+            if (starting?.(payload.chatId) === true) {
+                throw new CodedError('peer-task-starting', 'A task from another machine is still starting this chat. Try again in a moment');
+            }
+            return handler(payload, clientId);
+        };
     registerAgentHandlers(dispatcher, {
         ...shared,
-        'chat.create': unlessBound(shared['chat.create']),
+        'chat.create': unlessBound(unlessStarting(shared['chat.create'])),
         'chat.attach': unlessBound(shared['chat.attach'])
     });
 

@@ -427,13 +427,24 @@ export async function bootTestDaemon({
         ...(worktrees ? { worktrees } : {}),
         ...(checkpoints instanceof Checkpoints ? { checkpoints } : {})
     });
-    registerChatHandlers(dispatcher, chats, providers, endChildren.owe, endChildren.stopNode, {
-        fork: (payload) => forkChat(forkDeps, payload),
-        info: (payload) => readForkInfo(forkDeps, payload),
-        handoff: (payload) => readHandoff(forkDeps, payload),
-        summarize: (chatId) => summaries.summarize(chatId),
-        continueOn: (payload) => continueOn({ chats, fork: (fork) => forkChat(forkDeps, fork) }, payload)
-    });
+    registerChatHandlers(
+        dispatcher,
+        chats,
+        providers,
+        endChildren.owe,
+        endChildren.stopNode,
+        {
+            fork: (payload) => forkChat(forkDeps, payload),
+            info: (payload) => readForkInfo(forkDeps, payload),
+            handoff: (payload) => readHandoff(forkDeps, payload),
+            summarize: (chatId) => summaries.summarize(chatId),
+            continueOn: (payload) => continueOn({ chats, fork: (fork) => forkChat(forkDeps, fork) }, payload)
+        },
+        undefined,
+        undefined,
+        undefined,
+        (chatId) => lineage.peerOf(chatId) !== null && outbox.list().some((entry) => entry.kind === 'start-agent' && entry.target === chatId)
+    );
     registerTaskHandlers(dispatcher, tasks, endChildren.children);
     registerPlanHandlers(dispatcher, plans);
     if (!dispatcher.has('server.ping')) {

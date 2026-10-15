@@ -74,6 +74,7 @@ export function useUnstartedTask(childId: string, machine: string | undefined): 
 export function useUntakenTask(childId: string, machine: string | undefined): Task | null {
     const workspaceId = useWorkspace()?.connection.endpointId ?? '';
     const tasks = useTasks((state) => state.byEndpoint[workspaceId]);
-    const untaken = useRemoteStatus((state) => machine !== undefined && isUntaken(state.byEndpoint[workspaceId]?.[machine], childId));
-    return useMemo(() => (untaken ? openTaskOf(tasks, childId) : null), [untaken, tasks, childId]);
+    const open = useMemo(() => openTaskOf(tasks, childId), [tasks, childId]);
+    const untaken = useRemoteStatus((state) => machine !== undefined && isUntaken(state.byEndpoint[workspaceId]?.[machine], childId, open !== null));
+    return untaken ? open : null;
 }

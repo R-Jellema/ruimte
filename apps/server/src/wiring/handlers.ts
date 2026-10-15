@@ -161,7 +161,8 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
             journal: stores.chatMoves,
             snoozes: work.snoozes
         }),
-        (nodeId) => store.machineOfNode(nodeId)
+        (nodeId) => store.machineOfNode(nodeId),
+        (chatId) => stores.lineage.peerOf(chatId) !== null && stores.outbox.list().some((entry) => entry.kind === 'start-agent' && entry.target === chatId)
     );
     registerTaskHandlers(dispatcher, stores.tasks, work.endChildren.children);
     registerChatImageHandlers(

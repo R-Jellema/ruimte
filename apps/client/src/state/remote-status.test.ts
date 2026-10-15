@@ -69,6 +69,11 @@ describe('a task that its machine has not taken', () => {
         expect(isUntaken({ ...WAITING, state: 'open' }, 'child-two')).toBe(false);
         expect(isUntaken(undefined, 'child-one')).toBe(false);
     });
+
+    test('is also one that no standing has spoken of yet while an open task names it', () => {
+        expect(isUntaken(undefined, 'child-one', true)).toBe(true);
+        expect(isUntaken({ ...WAITING, unstartedNodeIds: [] }, 'child-one', true)).toBe(false);
+    });
 });
 
 describe('the machines a node waits for', () => {
