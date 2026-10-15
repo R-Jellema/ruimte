@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { RemoteStatusEvent, Task } from '@ruimte/contracts';
 import { useCanvas } from '@/state/canvas';
-import { isUnstarted, useRemoteStatus } from '@/state/remote-status';
+import { isUnstarted, isUntaken, useRemoteStatus } from '@/state/remote-status';
 import { useTasks } from '@/state/tasks';
 import { useWorkspace } from '@/transport/connections';
 
@@ -68,4 +68,12 @@ export function useUnstartedTask(childId: string, machine: string | undefined): 
     const tasks = useTasks((state) => state.byEndpoint[workspaceId]);
     const unstarted = useRemoteStatus((state) => machine !== undefined && isUnstarted(state.byEndpoint[workspaceId]?.[machine], childId));
     return useMemo(() => (unstarted ? openTaskOf(tasks, childId) : null), [unstarted, tasks, childId]);
+}
+
+/* The task of a node that its machine has not taken yet, with the link open or not: the node is not shown before the task is there. */
+export function useUntakenTask(childId: string, machine: string | undefined): Task | null {
+    const workspaceId = useWorkspace()?.connection.endpointId ?? '';
+    const tasks = useTasks((state) => state.byEndpoint[workspaceId]);
+    const untaken = useRemoteStatus((state) => machine !== undefined && isUntaken(state.byEndpoint[workspaceId]?.[machine], childId));
+    return useMemo(() => (untaken ? openTaskOf(tasks, childId) : null), [untaken, tasks, childId]);
 }

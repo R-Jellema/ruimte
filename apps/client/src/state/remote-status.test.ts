@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 import i18next from 'i18next';
 import type { RemoteStatusEvent, Task } from '@ruimte/contracts';
 import { waitingMachinesOf } from '@/canvas/remote-wait';
-import { isUnstarted, isWaiting, useRemoteStatus } from './remote-status';
+import { isUnstarted, isUntaken, isWaiting, useRemoteStatus } from './remote-status';
 
 function task(id: string, patch: Partial<Task> = {}): Task {
     return {
@@ -59,6 +59,15 @@ describe('a task that has not started', () => {
         const { unstartedNodeIds: _started, ...taken } = WAITING;
         expect(isWaiting(taken)).toBe(true);
         expect(isUnstarted(taken, 'child-one')).toBe(false);
+    });
+});
+
+describe('a task that its machine has not taken', () => {
+    test('is one the standing still names, whatever state the link is in', () => {
+        expect(isUntaken(WAITING, 'child-one')).toBe(true);
+        expect(isUntaken({ ...WAITING, state: 'open' }, 'child-one')).toBe(true);
+        expect(isUntaken({ ...WAITING, state: 'open' }, 'child-two')).toBe(false);
+        expect(isUntaken(undefined, 'child-one')).toBe(false);
     });
 });
 

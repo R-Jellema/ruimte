@@ -150,6 +150,13 @@ describe('a task that waits for another machine', () => {
         await until(() => !pillOf(PARENT.id).includes('Waiting for') && !bodyOf(CHILD.id).includes('not started'));
     });
 
+    test('does not mount the node of a task the machine has not taken yet, though the link is open', async () => {
+        await act(async () => here.emit('remote.status', status('open', [CHILD.id])));
+        await until(() => bodyOf(CHILD.id).includes('Task: Run the tests · not started'));
+        await act(async () => here.emit('remote.status', status('open', [])));
+        await until(() => !bodyOf(CHILD.id).includes('not started'));
+    });
+
     test('offers no Stop waiting while the link is open', async () => {
         await act(async () => here.emit('remote.status', status('open')));
         const frame = page.host.querySelector(`[data-node-id="${CHILD.id}"]`)!;
