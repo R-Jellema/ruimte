@@ -1,0 +1,113 @@
+import { useCallback, useEffect, useState } from 'react';
+import type { DeviceInfo, GitIdentity, RemoteLink } from '@ruimte/contracts';
+import { ensureMachine } from '@/endpoint/reach';
+import { rankCandidates, type RemoteCandidate } from '@/project/remote-candidates';
+import { endpointById } from '@/state/endpoints';
+import { pool, transportFor } from '@/transport';
+import { machineAnswers } from '@/transport/features';
+import type { Transport } from '@/transport/transport';
+import { messageOf } from '@adecore/ui';
+
+/* What the dialog knows of the checkouts a machine could offer: still looking, not reachable, or the possibilities. */
+export type Checkouts =
+    | { state: 'loading' }
+    | { state: 'error'; message: string }
+    | { state: 'ready'; candidates: RemoteCandidate[]; links: RemoteLink[]; here: Pick<GitIdentity, 'rootCommits'> | null };
+
+/* What this project is, as far as the other machine can tell whether it holds the same repository. */
+async function identityHere(transport: Transport, folder: string | null): Promise<Pick<GitIdentity, 'rootCommits'> | null> {
+    if (folder === null || !machineAnswers(transport.connection, 'git.identity')) {
+        return null;
+    }
+    const { identities } = await transport.request('git.identity', { paths: [folder] }).catch(() => ({ identities: [] }));
+    const identity = identities[0];
+    return identity === undefined || 'error' in identity ? null : identity;
+}
+
+/*
+ * The projects of another machine that could be this project's checkout there, the ones of the same
+ * repository first. Looking at a machine is asking for it, so its link is brought up first and held
+ * for as long as the dialog is open.
+ */
+export function useRemoteCheckouts(
+    machineId: string,
+    projectId: string | null,
+    folder: string | null,
+    here: Transport | null
+): { checkouts: Checkouts; retry(): void } {
+    const [checkouts, setCheckouts] = useState<Checkouts>({ state: 'loading' });
+    const [attempt, setAttempt] = useState(0);
+    const retry = useCallback(() => {
+        setCheckouts({ state: 'loading' });
+        setAttempt((before) => before + 1);
+    }, []);
+
+    useEffect(() => {
+        if (here === null) {
+            return;
+        }
+        const controller = new AbortController();
+        let release: (() => void) | null = null;
+        void (async () => {
+            try {
+                const endpointId = await ensureMachine(machineId, controller.signal);
+                const endpoint = endpointById(endpointId);
+                release = endpoint === null ? null : pool.hold(endpoint);
+                const there = transportFor(endpointId);
+                if (there === null) {
+                    throw new Error('The machine is no longer known.');
+                }
+                const [mine, listed, links] = await Promise.all([
+                    identityHere(here, folder),
+                    there.request('project.list', {}),
+                    projectId === null ? Promise.resolve({ links: [] }) : here.request('remote.list', { projectId }).catch(() => ({ links: [] }))
+                ]);
+                const projects = listed.projects.filter((project) => project.available).slice(0, 50);
+                const { identities } =
+                    projects.length === 0 ? { identities: [] } : await there.request('git.identity', { paths: projects.map((project) => project.folder) });
+                if (!controller.signal.aborted) {
+                    setCheckouts({ state: 'ready', candidates: rankCandidates(mine, projects, identities), links: links.links, here: mine });
+                }
+            } catch (e) {
+                if (!controller.signal.aborted) {
+                    setCheckouts({ state: 'error', message: messageOf(e) });
+                }
+            }
+        })();
+        return () => {
+            controller.abort();
+            release?.();
+        };
+    }, [machineId, projectId, folder, here, attempt]);
+
+    return { checkouts, retry };
+}
+
+/* The simulators and phones a machine has, for a device node on it. */
+export function useRemoteDevices(machineId: string, enabled: boolean): { devices: DeviceInfo[] | null; failed: boolean } {
+    const [devices, setDevices] = useState<DeviceInfo[] | null>(null);
+    const [failed, setFailed] = useState(false);
+    useEffect(() => {
+        if (!enabled) {
+            return;
+        }
+        let current = true;
+        void ensureMachine(machineId)
+            .then((endpointId) => transportFor(endpointId)?.request('device.list', {}))
+            .then((answer) => {
+                if (current) {
+                    setDevices(answer?.devices ?? []);
+                    setFailed(answer === undefined);
+                }
+            })
+            .catch(() => {
+                if (current) {
+                    setFailed(true);
+                }
+            });
+        return () => {
+            current = false;
+        };
+    }, [machineId, enabled]);
+    return { devices, failed };
+}

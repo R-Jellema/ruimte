@@ -94,6 +94,7 @@ export class RemoteMirror {
     private readonly watching = new Map<string, () => void>();
     private links: { projectId: string; byMachine: Map<string, RemoteLink> } | null = null;
     private queued = false;
+    private holds = 0;
     private flushing: Promise<void> = Promise.resolve();
     private off: (() => void) | null = null;
 
@@ -130,6 +131,29 @@ export class RemoteMirror {
             this.queued = false;
             this.flushing = this.flushing.then(() => this.flush()).catch(() => undefined);
         });
+    }
+
+    /*
+     * Nothing is sent while a hold is taken, and what changed is sent once the last one is let go. A node
+     * on its way into the project is only told to the other machine after the project has it.
+     */
+    hold(): () => void {
+        this.holds += 1;
+        let released = false;
+        return () => {
+            if (released) {
+                return;
+            }
+            released = true;
+            this.holds -= 1;
+            this.schedule();
+        };
+    }
+
+    /* Tells a machine its nodes again, for a machine that took the link up once more or that linked the project anew. */
+    resend(machine: string): void {
+        this.sent.delete(machine);
+        this.schedule();
     }
 
     /* Settled once what is queued has been sent. */
@@ -194,6 +218,9 @@ export class RemoteMirror {
     }
 
     private async flush(): Promise<void> {
+        if (this.holds > 0) {
+            return;
+        }
         const projectId = this.host.projectId();
         if (projectId === null) {
             this.sent.clear();

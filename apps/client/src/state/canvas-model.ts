@@ -24,6 +24,8 @@ export interface CanvasNode extends ProjectNode {
 }
 
 export interface AddNodeOptions {
+    /* The daemon id of the machine the node runs on, when it is not the one the project lives on. */
+    machine?: string;
     title?: string;
     /* Browsers only: the page it opens on, instead of the default address. */
     url?: string;

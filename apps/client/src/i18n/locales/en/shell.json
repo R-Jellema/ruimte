@@ -1026,5 +1026,46 @@
         "drawingSavePng": "Save as PNG…",
         "drawingSaveSvg": "Save as SVG…",
         "drawingOnCanvas": "Show on Canvas"
+    },
+    "remoteNode": {
+        "title": "New {{kind}} on {{machine}}",
+        "relinkTitle": "Link {{machine}} again",
+        "intro": "A {{kind}} node goes on this canvas and works in a checkout on {{machine}}. Nothing is sent until you write the first message.",
+        "introOther": "A {{kind}} node goes on this canvas and works in a checkout on {{machine}}.",
+        "relinkIntro": "{{machine}} no longer links this project. Choose its checkout there again.",
+        "kind": "Kind",
+        "checkout": "Checkout",
+        "looking": "Looking at {{machine}}…",
+        "sameRepository": "Same repository",
+        "otherRepository": "Another repository",
+        "none": "No checkout of this repository",
+        "choose": "Choose a folder…",
+        "unreachable": "{{machine}} is not answering.",
+        "retry": "Try again",
+        "startFrom": "Start from",
+        "asItIs": "As it is on {{machine}}",
+        "worktree": "Work in a git worktree on {{machine}}",
+        "device": "Device",
+        "devices": {
+            "looking": "Looking for devices on {{machine}}…",
+            "none": "{{machine}} has no simulator or phone right now.",
+            "failed": "{{machine}} did not list its devices."
+        },
+        "create": "Create",
+        "creating": "Creating…",
+        "link": "Link",
+        "linking": "Linking…",
+        "failed": "The node was not made.",
+        "failedToRender": "This dialog failed to render",
+        "folders": {
+            "title": "Folders on {{machine}}",
+            "path": "Path on {{machine}}",
+            "up": "Up one folder",
+            "none": "No folders here",
+            "use": "Use this folder",
+            "opening": "Opening…",
+            "failed": "{{machine}} could not open that folder.",
+            "back": "Back to the checkouts"
+        }
     }
 }

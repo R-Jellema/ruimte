@@ -159,6 +159,8 @@ export interface MoveChatRequest {
 export interface RemoteNodeRequest {
     machineId: string;
     kind: 'chat' | 'terminal' | 'device';
+    /* The canvas it goes on; null for a machine linked again, which makes no node. */
+    viewId: string | null;
     /* Where on the canvas it goes, in world units; null lets the canvas place it. */
     at: { x: number; y: number } | null;
     relink: boolean;

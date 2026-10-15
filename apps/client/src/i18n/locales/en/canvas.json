@@ -306,5 +306,12 @@
         "linkAgain": "Link again",
         "tooOld": "{{machine}} runs an older Ruimte. Update it to use this node.",
         "pill": "This node runs on {{machine}}"
+    },
+    "otherMachine": {
+        "group": "On another machine",
+        "notAnswering": "Not answering",
+        "needsUpdate": "Needs an update",
+        "needsUpdateTip": "{{machine}} runs an older Ruimte",
+        "shared": "A node on another machine goes on a private canvas"
     }
 }

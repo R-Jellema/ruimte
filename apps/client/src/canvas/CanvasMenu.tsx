@@ -3,6 +3,7 @@ import { FileText, Globe, LayoutGrid, Maximize, MessageSquare, Scan, SquareDashe
 import { createNodeAction, createTextAction, fitAction, groupSelectionAction, selectAllAction } from '@/actions/client-actions';
 import { AgentSubmenus } from '@/agents/AgentMenus';
 import type { Point } from '@/canvas/math';
+import { RemoteMachineItems } from '@/canvas/RemoteMachineItems';
 import { useCanvas, useCanvasStore } from '@/state/canvas';
 import { shownFolderOf, useProject } from '@/state/project';
 import { useUi } from '@/state/ui';
@@ -46,6 +47,7 @@ export function CanvasMenuPopup({ at }: { at: () => Point }) {
             <ContextMenu.Item onClick={() => createTextAction(at())}>
                 <Icon icon={Type} size={14} /> {t('kinds.text')} <ContextMenu.Hint>{t('menu.doubleClick')}</ContextMenu.Hint>
             </ContextMenu.Item>
+            <RemoteMachineItems at={at} />
             <ContextMenu.Separator />
             <ContextMenu.Item disabled={!hasSelection} onClick={() => groupSelectionAction()}>
                 <Icon icon={SquareDashedMousePointer} size={14} /> {t('canvasMenu.groupSelection')} <Kbd shortcut={CANVAS_SHORTCUTS.group} />

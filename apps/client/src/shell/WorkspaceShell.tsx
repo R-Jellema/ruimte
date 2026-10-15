@@ -91,6 +91,13 @@ const PullRequestDialog = lazyDialog(
     (s) => s.pullRequestDialog !== null
 );
 
+const RemoteNodeDialog = lazyDialog(
+    () => import('@/shell/RemoteNodeDialog'),
+    'RemoteNodeDialog',
+    useUi,
+    (s) => s.remoteNodeDialog !== null
+);
+
 const MoveChatDialog = lazyDialog(
     () => import('@/project/MoveChatDialog'),
     'MoveChatDialog',
@@ -230,6 +237,9 @@ export function WorkspaceShell({ workspace }: { workspace: Workspace }) {
                 <ForkDialog />
                 <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
                     <MoveChatDialog />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <RemoteNodeDialog />
                 </ErrorBoundary>
                 <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
                     <NewWorktreeChatDialog />

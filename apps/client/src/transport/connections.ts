@@ -412,6 +412,12 @@ export function showStart(): void {
     void claimWindow(null);
 }
 
+/* The copy of its remote nodes the open project keeps on the machines they run on; null on the start screen. */
+export function remoteMirror(): RemoteMirror | null {
+    const workspace = windowWorkspace();
+    return workspace ? (connectionMirrors.get(workspace.connection) ?? null) : null;
+}
+
 /* The workspace on screen as React reads it, and null on the start screen. */
 export function useWorkspace(): Workspace | null {
     return useWindow((s) => workspaceOf(s.content));

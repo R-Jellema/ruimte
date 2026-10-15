@@ -1026,5 +1026,46 @@
         "drawingSavePng": "Opslaan als PNG…",
         "drawingSaveSvg": "Opslaan als SVG…",
         "drawingOnCanvas": "Op het canvas tonen"
+    },
+    "remoteNode": {
+        "title": "Nieuwe {{kind}} op {{machine}}",
+        "relinkTitle": "{{machine}} opnieuw koppelen",
+        "intro": "Een {{kind}}-node komt op dit canvas en werkt in een checkout op {{machine}}. Er wordt niets verstuurd voordat je het eerste bericht schrijft.",
+        "introOther": "Een {{kind}}-node komt op dit canvas en werkt in een checkout op {{machine}}.",
+        "relinkIntro": "{{machine}} koppelt dit project niet meer. Kies daar opnieuw de checkout.",
+        "kind": "Soort",
+        "checkout": "Checkout",
+        "looking": "{{machine}} wordt bekeken…",
+        "sameRepository": "Dezelfde repository",
+        "otherRepository": "Een andere repository",
+        "none": "Geen checkout van deze repository",
+        "choose": "Kies een map…",
+        "unreachable": "{{machine}} antwoordt niet.",
+        "retry": "Opnieuw proberen",
+        "startFrom": "Beginnen vanaf",
+        "asItIs": "Zoals het op {{machine}} staat",
+        "worktree": "Werk in een git worktree op {{machine}}",
+        "device": "Apparaat",
+        "devices": {
+            "looking": "Apparaten op {{machine}} worden gezocht…",
+            "none": "{{machine}} heeft nu geen simulator of telefoon.",
+            "failed": "{{machine}} gaf zijn apparaten niet."
+        },
+        "create": "Maak",
+        "creating": "Bezig…",
+        "link": "Koppel",
+        "linking": "Bezig met koppelen…",
+        "failed": "De node is niet gemaakt.",
+        "failedToRender": "Dit dialoogvenster kon niet worden getoond",
+        "folders": {
+            "title": "Mappen op {{machine}}",
+            "path": "Pad op {{machine}}",
+            "up": "Een map omhoog",
+            "none": "Geen mappen hier",
+            "use": "Gebruik deze map",
+            "opening": "Bezig met openen…",
+            "failed": "{{machine}} kon die map niet openen.",
+            "back": "Terug naar de checkouts"
+        }
     }
 }

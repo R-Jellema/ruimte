@@ -306,5 +306,12 @@
         "linkAgain": "Opnieuw koppelen",
         "tooOld": "Op {{machine}} draait een oudere Ruimte. Werk hem bij om deze node te gebruiken.",
         "pill": "Deze node draait op {{machine}}"
+    },
+    "otherMachine": {
+        "group": "Op een andere machine",
+        "notAnswering": "Antwoordt niet",
+        "needsUpdate": "Heeft een update nodig",
+        "needsUpdateTip": "Op {{machine}} draait een oudere Ruimte",
+        "shared": "Een node op een andere machine komt op een canvas dat niet gedeeld wordt"
     }
 }

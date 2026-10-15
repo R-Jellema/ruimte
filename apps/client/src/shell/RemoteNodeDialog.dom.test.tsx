@@ -1,0 +1,219 @@
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { act } from 'react';
+import type { GitIdentity, ProjectCanvasView, ProjectNode, ProjectSummary, ProviderInfo, RemoteLink } from '@ruimte/contracts';
+import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
+import { useDocument } from '@/state/document';
+import { useUi } from '@/state/ui';
+import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
+import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
+import { clickOn, mount, until, type Mounted } from '../../testing/dom';
+
+const REMOTE = 'machine-b';
+const SHELL: ProjectNode = { id: 'shell', kind: 'terminal', title: 'Shell here', x: 0, y: 0, w: 560, h: 360 };
+const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [SHELL], texts: [], edges: [], layouts: [] };
+
+const CLAUDE = {
+    kind: 'claude',
+    name: 'Claude Code',
+    installed: true,
+    version: '2.1.0',
+    models: [{ slug: 'model', name: 'Model', legacy: false, isDefault: true, options: [] }],
+    defaultModel: 'model',
+    capabilities: { chat: true, terminal: true, hooks: true, attachments: true, mentions: true, denyReason: true, allowAlways: true, slashCommands: true },
+    resumeCommand: 'claude --resume {id}'
+} as unknown as ProviderInfo;
+
+function summary(projectId: string, name: string, folder: string): ProjectSummary {
+    return {
+        projectId,
+        name,
+        color: '#000',
+        folder,
+        lastOpenedAt: 0,
+        closedAt: null,
+        available: true,
+        icon: { kind: 'initial', value: name[0]! },
+        nameSource: 'chosen'
+    };
+}
+
+function identity(path: string, rootCommits: string[], branch = 'main'): GitIdentity {
+    return { path, rootCommits, branch, heads: [] };
+}
+
+let here: FakeMachine;
+let there: FakeMachine;
+let workspace: FakeWorkspace;
+let disconnectThere: () => void;
+let page: Mounted;
+let order: string[];
+let links: RemoteLink[];
+
+async function openDialog(kind: 'chat' | 'terminal' | 'device' = 'chat'): Promise<void> {
+    await act(async () => useUi.getState().setRemoteNodeDialog({ machineId: REMOTE, kind, viewId: 'main', at: { x: 400, y: 400 }, relink: false }));
+}
+
+function dialog(): HTMLElement | null {
+    return document.querySelector('[role="dialog"]');
+}
+
+function button(text: string): HTMLElement | null {
+    return ([...(dialog()?.querySelectorAll('button') ?? [])] as HTMLElement[]).find((candidate) => candidate.textContent?.includes(text)) ?? null;
+}
+
+beforeEach(async () => {
+    order = [];
+    links = [];
+    here = new FakeMachine();
+    here.answer('project.save', ({ baseRev }) => {
+        order.push('project.save');
+        return { rev: baseRev + 1 } as never;
+    });
+    here.answer('git.identity', () => ({ identities: [identity('/work/atlas', ['root-a'])] }));
+    here.answer('remote.list', () => ({ links }));
+    here.answer('remote.link', (payload) => {
+        order.push('remote.link');
+        const { projectId: _projectId, ...link } = payload;
+        links = [link];
+        return link;
+    });
+    there = new FakeMachine();
+    there.answer('provider.list', () => ({ providers: [CLAUDE] }));
+    there.answer('project.list', () => ({ projects: [summary('notes', 'notes', '/Users/b/notes'), summary('ruimte', 'ruimte', '/Users/b/ruimte')] }));
+    there.answer('git.identity', ({ paths }) => ({
+        identities: paths.map((path) => (path.endsWith('ruimte') ? identity(path, ['root-a']) : identity(path, ['root-z'])))
+    }));
+    there.answer('peer.bind', (payload) => {
+        order.push('peer.bind');
+        return { ...payload, projectName: 'ruimte', ceiling: 'supervised' as const, createdAt: 1 };
+    });
+    there.answer('peer.placeNodes', () => {
+        order.push('peer.placeNodes');
+        return {};
+    });
+    useEndpoints.getState().add({
+        id: REMOTE,
+        label: 'MacBook Pro',
+        httpBaseUrl: 'http://127.0.0.1:2',
+        wsBaseUrl: 'ws://127.0.0.1:2',
+        reachability: 'lan',
+        daemonId: null,
+        daemonPublicKey: null
+    });
+    disconnectThere = connectFakeMachine(there, REMOTE);
+    workspace = await openFakeWorkspace(here, { views: [MAIN] }, { activeViewId: MAIN.id, views: {} });
+    page = mount();
+    await page.renderApp();
+    await until(() => page.host.querySelector(`[data-node-id="${SHELL.id}"]`) !== null);
+});
+
+afterEach(async () => {
+    await act(async () => useUi.getState().setRemoteNodeDialog(null));
+    await page.unmount();
+    workspace.close();
+    disconnectThere();
+    useEndpoints.getState().setActive(LOCAL_ENDPOINT_ID);
+    useEndpoints.getState().remove(REMOTE);
+});
+
+describe('a new node on another machine', () => {
+    test('puts the checkout with the same repository on top, and says so', async () => {
+        await openDialog();
+        await until(() => dialog()?.textContent?.includes('/Users/b/ruimte') === true);
+        expect(dialog()?.textContent).toContain('New chat on MacBook Pro');
+        expect(dialog()?.textContent).toContain('Same repository');
+        expect(dialog()?.textContent).not.toContain('Another repository');
+    });
+
+    test('offers to choose a folder when the machine has no checkout', async () => {
+        there.answer('project.list', () => ({ projects: [] }));
+        await openDialog();
+        await until(() => dialog()?.textContent?.includes('No checkout of this repository') === true);
+        expect(button('Choose a folder…')).not.toBeNull();
+        expect(button('Create')?.hasAttribute('disabled')).toBe(true);
+    });
+
+    test('says that the machine is not answering, and looks again on Try again', async () => {
+        there.answer('project.list', () => {
+            throw new Error('Connection refused');
+        });
+        await openDialog();
+        await until(() => dialog()?.textContent?.includes('MacBook Pro is not answering.') === true);
+
+        there.answer('project.list', () => ({ projects: [summary('ruimte', 'ruimte', '/Users/b/ruimte')] }));
+        await clickOn(button('Try again'));
+        await until(() => dialog()?.textContent?.includes('/Users/b/ruimte') === true);
+    });
+
+    test('Create links the machine, saves the node with its machine, and only then tells the machine', async () => {
+        await openDialog();
+        await until(() => dialog()?.textContent?.includes('/Users/b/ruimte') === true);
+        await until(() => button('Create')?.hasAttribute('disabled') === false);
+        await clickOn(button('Create'));
+
+        await until(() => order.includes('peer.placeNodes'));
+        expect(order).toEqual(['peer.bind', 'remote.link', 'project.save', 'peer.placeNodes']);
+        expect(there.requests('peer.bind')[0]).toMatchObject({ projectId: 'ruimte' });
+        expect(here.requests('remote.link')[0]).toMatchObject({ machineId: REMOTE, remoteProjectId: 'ruimte', rootCommit: 'root-a' });
+        const saved = here.requests('project.save').at(-1)!.content.views[0] as ProjectCanvasView;
+        const made = saved.nodes.find((node) => node.machine === REMOTE)!;
+        expect(made).toMatchObject({ kind: 'chat', cwd: '/Users/b/ruimte', machine: REMOTE });
+        expect(there.requests('peer.placeNodes')[0]).toMatchObject({ projectId: 'ruimte', nodes: [{ id: made.id, cwd: '/Users/b/ruimte' }] });
+        await until(() => dialog() === null);
+    });
+
+    test('a link that is refused leaves the canvas as it was', async () => {
+        there.answer('peer.bind', () => {
+            throw new Error('That project is not on this machine');
+        });
+        await openDialog();
+        await until(() => button('Create')?.hasAttribute('disabled') === false);
+        await clickOn(button('Create'));
+        await until(() => dialog()?.textContent?.includes('That project is not on this machine') === true);
+        expect(here.requests('remote.link')).toEqual([]);
+        expect(here.requests('project.save')).toEqual([]);
+        expect(there.requests('peer.placeNodes')).toEqual([]);
+    });
+});
+
+function menuItem(text: string): HTMLElement | null {
+    return ([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.includes(text)) ?? null;
+}
+
+async function openCanvasMenu(): Promise<void> {
+    const surface = page.host.querySelector('[data-canvas-surface]')!;
+    await act(async () => {
+        surface.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 300, clientY: 300, button: 2 }));
+    });
+    await until(() => document.querySelector('[role="menu"]') !== null);
+}
+
+describe('the canvas menu', () => {
+    test('offers every other machine below the node kinds, and a click opens the dialog for it', async () => {
+        await openCanvasMenu();
+        expect(document.querySelector('[role="menu"]')?.textContent).toContain('On another machine');
+        await clickOn(menuItem('MacBook Pro'));
+        expect(useUi.getState().remoteNodeDialog).toMatchObject({ machineId: REMOTE, kind: 'chat', viewId: 'main', relink: false });
+    });
+
+    test('says it is off on a shared canvas, since a node of another machine stays on a canvas only you have', async () => {
+        await act(async () => useDocument.getState().setShared('main', true));
+        await openCanvasMenu();
+        expect(menuItem('MacBook Pro')?.getAttribute('aria-disabled')).toBe('true');
+        await act(async () => useDocument.getState().setShared('main', false));
+    });
+
+    test('says a machine that is not answering, and one that runs an older Ruimte', async () => {
+        await act(async () => there.lose());
+        await openCanvasMenu();
+        expect(menuItem('MacBook Pro')?.textContent).toContain('Not answering');
+        expect(menuItem('MacBook Pro')?.getAttribute('aria-disabled')).not.toBe('true');
+    });
+
+    test('keeps a machine that runs an older Ruimte off, and says what it needs', async () => {
+        await act(async () => there.answersOnly(['project.list', 'git.identity']));
+        await openCanvasMenu();
+        expect(menuItem('MacBook Pro')?.textContent).toContain('Needs an update');
+        expect(menuItem('MacBook Pro')?.getAttribute('aria-disabled')).toBe('true');
+    });
+});

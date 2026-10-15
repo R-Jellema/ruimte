@@ -555,6 +555,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                                         useUi.getState().setRemoteNodeDialog({
                                             machineId: node.machine!,
                                             kind: node.kind === 'terminal' || node.kind === 'device' ? node.kind : 'chat',
+                                            viewId: null,
                                             at: null,
                                             relink: true
                                         })
