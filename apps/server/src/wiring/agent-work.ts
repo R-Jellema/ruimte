@@ -146,6 +146,7 @@ export function wireAgentWork({ home, identity, stores, agents, projects, remote
         git: () => later.git(),
         folderOf: (projectId) => projects.index.folderOf(projectId),
         labelOf: (projectId, machineId) => projects.remote.linksOf(projectId).find((link) => link.machineId === machineId)?.label ?? 'machine',
+        untrustFolder: (path, branch) => projects.peers.untrustFolder(path, branch),
         outbox,
         enqueue: (projectId, target, work) => outboxLink.enqueue(projectId, target, work),
         wake: (target) => worker?.wake(target),

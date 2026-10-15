@@ -190,7 +190,7 @@ export async function bootTestDaemon({
     const chatCommands: string[][] = [];
     const untrusted = new UntrustedFolders({
         lineage,
-        folders: () => peer?.links.worktreeFolders() ?? [],
+        folders: () => (peer?.links ?? store.peers).worktreeFolders(),
         cwdOf: (nodeId) => chats.get(nodeId)?.info.cwd ?? sessions.get(nodeId)?.cwd ?? null
     });
     const chats = new ChatManager({
@@ -302,6 +302,7 @@ export async function bootTestDaemon({
                 }),
             folderOf: remote.folderOf ?? ((projectId) => store.index.folderOf(projectId)),
             labelOf: (projectId, machineId) => remote.machines(projectId).find((machineLink) => machineLink.machineId === machineId)?.label ?? 'machine',
+            untrustFolder: (path, branch) => store.peers.untrustFolder(path, branch),
             outbox,
             enqueue: (projectId, target, work) => outboxLink.enqueue(projectId, target, work),
             wake: (target) => outboxWiring.worker.wake(target),

@@ -266,6 +266,10 @@ describe('a task given to another machine', () => {
         expect(await readFile(join(worktreeA!, 'a.txt'), 'utf8')).toBe('one, changed on A\n');
         // The checkout of A itself was not touched by the way back.
         expect(await readFile(join(a.repo, 'a.txt'), 'utf8')).toBe('one, changed on A\n');
+        // What B sent back is B's word: A does not run the settings of that folder, nor trust a chat started in it.
+        expect(a.store.peers.worktreeFolders()).toContain(worktreeA!);
+        const branchA = settled.result!.text.match(/the branch (\S+) in/)?.[1];
+        expect(a.store.peers.peerBranches()).toContain(branchA as string);
     });
 
     test('three tasks with a worktree in a row each bring their branch back and leave no bundle on B, which is one more than the two bundles a machine may keep', async () => {

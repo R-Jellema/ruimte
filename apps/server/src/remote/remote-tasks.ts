@@ -37,6 +37,8 @@ export interface RemoteTasksDeps {
     /* The folder of a project and what a project calls the machine it is linked to, for the branch that comes back. */
     folderOf(projectId: string): string | null;
     labelOf(projectId: string, machineId: string): string;
+    /* Writes down the folder of work that came back as one this machine never vouched for, before git makes it. */
+    untrustFolder(path: string, branch: string): Promise<void>;
     outbox: { list(): readonly OutboxEntry[]; remove(id: string): Promise<void> };
     enqueue(projectId: string, target: string, work: OutboxWork): Promise<void>;
     /* Looks again at whatever waits on this target. */
@@ -340,14 +342,20 @@ export class RemoteTasks {
             await bundles.receive(bundle.bundleId, offset, bytes, bundle.size);
             offset += bytes.byteLength;
         }
-        const taken = await fetchBundle(bundles, worktrees as Worktrees, folder, {
-            projectId,
-            bundleId: bundle.bundleId,
-            sha256: bundle.sha256,
-            branch: bundle.branch,
-            into: 'remote-ref',
-            machine: deps.labelOf(projectId, entry.payload.machineId)
-        });
+        const taken = await fetchBundle(
+            bundles,
+            worktrees as Worktrees,
+            folder,
+            {
+                projectId,
+                bundleId: bundle.bundleId,
+                sha256: bundle.sha256,
+                branch: bundle.branch,
+                into: 'remote-ref',
+                machine: deps.labelOf(projectId, entry.payload.machineId)
+            },
+            (path, branch) => deps.untrustFolder(path, branch)
+        );
         if (taken.path !== undefined) {
             await worktrees.claim(folder, taken.path, entry.target).catch(() => undefined);
         }
