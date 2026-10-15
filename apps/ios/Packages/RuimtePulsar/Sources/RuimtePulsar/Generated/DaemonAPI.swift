@@ -174,6 +174,7 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `fsReveal` = "fs.reveal"
     case `fsSearch` = "fs.search"
     case `fsGrep` = "fs.grep"
+    case `fsLocate` = "fs.locate"
     case `fsList` = "fs.list"
     case `fsRead` = "fs.read"
     case `fsCreate` = "fs.create"

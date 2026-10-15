@@ -1,9 +1,10 @@
 import { realpath, stat } from 'node:fs/promises';
-import { basename, dirname, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, relative, resolve } from 'node:path';
 import type { ChatInfo } from '@ruimte/contracts';
 import type { UiLinkResolution, UiLinkTarget } from '@adecore/intelligent-ui/links';
 import { ChatUiRefusal } from '@adecore/agents/chat';
 import { checkCwd, isInside } from '../canvas/project-paths.ts';
+import { locateFile } from '../fs/locate.ts';
 import { cachedRepos } from '../git/repo-cache.ts';
 import { git, toplevel } from '../git/run.ts';
 import { UiSourceAccessSchema } from './ui-access.ts';
@@ -79,6 +80,25 @@ async function resolveCommit(host: UiSourceHosts, place: LinkPlace, access: UiAc
     throw new ChatUiRefusal('target-unavailable', 'This commit is no longer available.');
 }
 
+/* Where the agent's own folder has no such file, the first of the other folders `fs.locate` tries that holds it. */
+async function locatedPath(place: LinkPlace, access: UiAccess, wanted: string): Promise<string> {
+    const own = resolve(access.cwd, wanted);
+    if (isAbsolute(wanted) || (await pathExists(own))) {
+        return own;
+    }
+    const { matches } = await locateFile({ path: wanted, cwd: access.cwd, folder: place.folder });
+    return matches[0] ?? own;
+}
+
+async function pathExists(path: string): Promise<boolean> {
+    try {
+        await stat(path);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 async function resolvePath(
     host: UiSourceHosts,
     place: LinkPlace,
@@ -86,7 +106,7 @@ async function resolvePath(
     cwd: string,
     target: Extract<UiLinkTarget, { type: 'File' | 'Diff' }>
 ): Promise<UiLinkResolution> {
-    let path = resolve(access.cwd, target.path);
+    let path = await locatedPath(place, access, target.path);
     let parent = path;
     const missing: string[] = [];
     let real: string;

@@ -241,6 +241,11 @@
             "commentAdds": "Zet {{label}} in het concept in {{chat}}",
             "addToDraft": "Aan concept toevoegen",
             "noChat": "De chat bestaat niet meer"
+        },
+        "notFound": "{{path}} staat niet op deze machine",
+        "choice": {
+            "title": "Welke {{path}}?",
+            "description": "Meer dan één map van het project heeft dit bestand. Kies het bestand dat de agent bedoelde."
         }
     },
     "files": {

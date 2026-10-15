@@ -46763,6 +46763,47 @@
       "truncated"
     ]
   },
+  "request.fs.locate.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "cwd": {
+        "type": "string",
+        "minLength": 1
+      },
+      "folder": {
+        "type": "string",
+        "minLength": 1
+      },
+      "directory": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "path",
+      "cwd"
+    ]
+  },
+  "request.fs.locate.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "matches": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "matches"
+    ]
+  },
   "request.fs.list.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",

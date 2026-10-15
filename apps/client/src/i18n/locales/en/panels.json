@@ -241,6 +241,11 @@
             "commentAdds": "Adds {{label}} to the draft in {{chat}}",
             "addToDraft": "Add to draft",
             "noChat": "The chat is gone"
+        },
+        "notFound": "{{path}} is not on this machine",
+        "choice": {
+            "title": "Which {{path}}?",
+            "description": "More than one folder of the project holds this file. Pick the one the agent meant."
         }
     },
     "files": {

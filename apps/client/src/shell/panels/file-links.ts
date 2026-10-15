@@ -1,7 +1,11 @@
 import i18next from 'i18next';
+import { create } from 'zustand';
 import { useToasts } from '@/state/toasts';
 import { FileLocationSchema, type FileLocation } from '@ruimte/contracts';
 import { currentEndpointId } from '@/state/keys';
+import { useProject } from '@/state/project';
+import { machineTransport } from '@/transport';
+import { machineAnswers } from '@/transport/features';
 import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { absoluteOf, basenameOf, isAbsolutePath } from '@/shell/panels/files-tree';
 
@@ -124,8 +128,7 @@ function isDotfile(name: string): boolean {
 
 /*
  * The file an agent wrote down, or null where the text is just text. Text becomes a link on its
- * shape alone: nothing here asks the daemon whether the file is there, since a read costs a whole
- * file and the viewer already says so when it cannot open one.
+ * shape alone; where the file is, and whether it is there, is asked when the link is followed.
  */
 export function parseFileRef(text: string, allowSpaces = false): FileRef | null {
     let token = text.trim().replace(TRAILING_PUNCTUATION, '');
@@ -162,17 +165,83 @@ export function parseFileRef(text: string, allowSpaces = false): FileRef | null 
     return known ? { path: normalized, ...position, directory: false } : null;
 }
 
+/*
+ * The path without `.` and `..`, so one file reached two ways gets one tab. A `..` past the root stays
+ * at the root; a relative path keeps the ones it cannot take back.
+ */
+export function normalizedPath(path: string): string {
+    const separator = /^[a-zA-Z]:\\|^\\\\/.test(path) ? '\\' : '/';
+    const root = /^[a-zA-Z]:[\\/]/.test(path) ? path.slice(0, 3) : /^[\\/]{2}/.test(path) ? path.slice(0, 2) : /^[\\/]/.test(path) ? path.slice(0, 1) : '';
+    const parts: string[] = [];
+    for (const part of path.slice(root.length).split(/[\\/]+/)) {
+        if (part === '' || part === '.') {
+            continue;
+        }
+        if (part !== '..') {
+            parts.push(part);
+        } else if (parts.length > 0 && parts.at(-1) !== '..') {
+            parts.pop();
+        } else if (root === '') {
+            parts.push('..');
+        }
+    }
+    return root + parts.join(separator) || path;
+}
+
 /* Where the file sits on the daemon's machine, or null when only a folder would say and none is known. */
 export function resolveFileRef(cwd: string | null, ref: FileRef): string | null {
     if (isAbsolutePath(ref.path)) {
-        return ref.path.replace(/[\\/]+$/, '') || ref.path;
+        return normalizedPath(ref.path);
     }
-    return cwd === null ? null : absoluteOf(cwd, ref.path);
+    return cwd === null ? null : normalizedPath(absoluteOf(cwd, ref.path));
+}
+
+interface FileChoice {
+    matches: string[];
+    ref: FileRef;
+    endpointId: string;
+}
+
+/* The files one link could mean, while a person picks one in `FileChoiceDialog`. */
+export const useFileChoice = create<{ choice: FileChoice | null }>(() => ({ choice: null }));
+
+/*
+ * Where the machine finds what the link names. Null when it cannot tell (an older machine, a failed
+ * ask), and the link opens where it points, as it always did.
+ */
+async function located(cwd: string | null, ref: FileRef, path: string, endpointId: string): Promise<string[] | null> {
+    const transport = machineTransport(endpointId);
+    if (!machineAnswers(transport.connection, 'fs.locate')) {
+        return null;
+    }
+    const { current, currentEndpointId } = useProject.getState();
+    const folder = currentEndpointId === endpointId ? (current?.folder ?? null) : null;
+    try {
+        const { matches } = await transport.request('fs.locate', {
+            path: isAbsolutePath(ref.path) ? path : ref.path,
+            cwd: cwd ?? folder ?? path,
+            ...(folder === null ? {} : { folder }),
+            ...(ref.directory ? { directory: true } : {})
+        });
+        return matches;
+    } catch {
+        return null;
+    }
+}
+
+/* A file opens as a tab in the preview, a folder is brought into view in the files panel, which is the only one of the two that can draw a directory. */
+export async function openLocatedFile(path: string, ref: FileRef, endpointId: string): Promise<void> {
+    if (ref.directory) {
+        await perform('file.reveal', { path }).catch(ignoreRefusal);
+        return;
+    }
+    await perform('file.preview', { path, line: ref.line, column: ref.column, endLine: ref.endLine, endpointId }).catch(ignoreRefusal);
 }
 
 /*
- * A reference followed: a file opens as a tab in the preview, a folder is brought into view in the
- * files panel, which is the only one of the two that can draw a directory.
+ * A reference followed. The machine is asked where it leads only now and not while it is drawn, since
+ * every path of every message would cost a request and a message of yesterday may name a file gone
+ * since. One place opens, more ask a person, none says so.
  */
 export async function openFileLink(cwd: string | null, ref: FileRef, endpointId = ref.endpointId ?? currentEndpointId()): Promise<void> {
     if (endpointId !== currentEndpointId()) {
@@ -183,9 +252,14 @@ export async function openFileLink(cwd: string | null, ref: FileRef, endpointId 
     if (path === null) {
         return;
     }
-    if (ref.directory) {
-        await perform('file.reveal', { path }).catch(ignoreRefusal);
-        return;
+    const matches = await located(cwd, ref, path, endpointId);
+    if (matches === null) {
+        await openLocatedFile(path, ref, endpointId);
+    } else if (matches.length === 0) {
+        useToasts.getState().show({ kind: 'error', title: i18next.t('panels:file.notFound', { path: ref.path }) });
+    } else if (matches.length === 1) {
+        await openLocatedFile(matches[0]!, ref, endpointId);
+    } else {
+        useFileChoice.setState({ choice: { matches, ref, endpointId } });
     }
-    await perform('file.preview', { path, line: ref.line, column: ref.column, endLine: ref.endLine, endpointId }).catch(ignoreRefusal);
 }
