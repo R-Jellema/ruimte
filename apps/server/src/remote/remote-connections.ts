@@ -72,6 +72,7 @@ export class RemoteConnections {
     private readonly links = new Map<string, PeerLink>();
     private readonly attempts = new Map<string, Promise<PeerLink>>();
     private readonly lostListeners = new Set<(machineId: string) => void>();
+    private readonly frameListeners = new Set<(machineId: string, raw: string) => void>();
 
     constructor(options: RemoteConnectionsOptions) {
         this.options = options;
@@ -93,6 +94,11 @@ export class RemoteConnections {
     /* Told when an open link goes, so whatever owes work to that machine can ask for a reconnect. */
     onLost(listener: (machineId: string) => void): void {
         this.lostListeners.add(listener);
+    }
+
+    /* Told of every frame a machine sends that is no reply to a request, such as word that a task of it settled. */
+    onFrame(listener: (machineId: string, raw: string) => void): void {
+        this.frameListeners.add(listener);
     }
 
     /* Resolves once the link is open, at once when it already is; one attempt serves everyone who asks while it runs. */
@@ -174,6 +180,11 @@ export class RemoteConnections {
         this.options.pending.release(machineId);
         this.links.set(machineId, link);
         link.onLost(() => this.lost(machineId, link));
+        link.onFrame((raw) => {
+            for (const listener of this.frameListeners) {
+                listener(machineId, raw);
+            }
+        });
         this.publish(machineId, 'open');
         return link;
     }

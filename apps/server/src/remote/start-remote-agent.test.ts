@@ -69,7 +69,7 @@ beforeEach(async () => {
     requests = [];
     owed = [];
     linked = true;
-    answer = () => ({ cwd: '/studio/work', branch: null });
+    answer = (type) => (type === 'peer.result' ? { status: 'open', result: null, bundle: null } : { cwd: '/studio/work', branch: null });
     daemon = await bootTestDaemon({
         home,
         store,
@@ -143,7 +143,7 @@ describe('agent --machine', () => {
         daemon.worker.wake(nodeId!);
         await daemon.worker.settled();
 
-        expect(requests).toHaveLength(1);
+        expect(requests.filter((request) => request.type === 'peer.taskStart')).toHaveLength(1);
         expect(requests[0]).toMatchObject({
             type: 'peer.taskStart',
             payload: {
@@ -195,13 +195,13 @@ describe('agent --machine', () => {
         const [line] = await give();
         const nodeId = line!.split('\t')[0]!;
         await daemon.worker.settled();
-        expect(requests.map((request) => request.type)).toEqual(['peer.taskStart']);
+        expect(requests.map((request) => request.type)).toEqual(['peer.taskStart', 'peer.result']);
 
         open = null;
         await daemon.endChildren.stopNode('chat-lead', 'a person stopped it');
         await daemon.worker.settled();
         expect(daemon.outbox.list().map((entry) => entry.kind)).toEqual(['stop-remote-agent']);
-        expect(requests).toHaveLength(1);
+        expect(requests).toHaveLength(2);
 
         open = fakeLink();
         daemon.worker.wake(`peer:${MACHINE}`);
@@ -220,12 +220,62 @@ describe('agent --machine', () => {
         const ids = lines.slice(1, 3).map((line) => line.split('\t')[0]!);
         await daemon.worker.settled();
         expect(ids.map((id) => store.remote.machineOf(projectId, id))).toEqual([MACHINE, MACHINE]);
-        expect(requests.map((request) => (request.payload as { title: string }).title)).toEqual(['Lexer', 'Parser']);
+        expect(requests.filter((request) => request.type === 'peer.taskStart').map((request) => (request.payload as { title: string }).title)).toEqual([
+            'Lexer',
+            'Parser'
+        ]);
         const tasks = daemon.tasks.ofParent('chat-lead');
         expect(tasks.map((task) => [task.machine, task.batchId !== undefined])).toEqual([
             [MACHINE, true],
             [MACHINE, true]
         ]);
         expect(store.remote.machineOf(projectId, lines[0]!.split('\t')[0]!)).toBeNull();
+    });
+
+    test('keeps asking for the result while the task runs there, and settles it once, from what the machine says', async () => {
+        open = fakeLink();
+        const [line] = await give();
+        const [nodeId, , , , , taskId] = line!.split('\t');
+        await daemon.worker.settled();
+        daemon.worker.wake(nodeId!);
+        await daemon.worker.settled();
+        expect(requests.at(-1)).toMatchObject({ type: 'peer.result', payload: { nodeId } });
+        expect(daemon.tasks.get(taskId!)?.status).toBe('open');
+        expect(daemon.outbox.list().map((entry) => entry.kind)).toEqual(['take-remote-result']);
+
+        answer = (type) => (type === 'peer.result' ? { status: 'done', result: { text: 'All done', source: 'turn', at: 5 }, bundle: null } : {});
+        daemon.worker.wake(nodeId!);
+        await daemon.worker.settled();
+        expect(daemon.tasks.get(taskId!)).toMatchObject({ status: 'done', result: { text: 'All done' } });
+        expect(requests.at(-1)).toEqual({ type: 'peer.result', payload: { nodeId, ack: true } });
+        expect(daemon.outbox.list()).toEqual([]);
+        // Told again, it settles nothing a second time.
+        expect(await daemon.wiring.coordinator.settleFromElsewhere(taskId!, { text: 'again', source: 'turn', at: 6 })).toBeNull();
+    });
+
+    test('a task that ended with the machine unreachable is acknowledged when the link is back, and a task that machine never knew fails', async () => {
+        open = fakeLink();
+        const [line] = await give();
+        const [nodeId, , , , , taskId] = line!.split('\t');
+        await daemon.worker.settled();
+        // Settled here, but the daemon went down before the machine heard it had been taken in.
+        await daemon.wiring.coordinator.settleFromElsewhere(taskId!, { text: 'Done', source: 'turn', at: 5 });
+        open = null;
+        daemon.worker.wake(nodeId!);
+        await daemon.worker.settled();
+        expect(daemon.outbox.list().map((entry) => entry.kind)).toEqual(['take-remote-result']);
+        open = fakeLink();
+        daemon.worker.wake(nodeId!);
+        await daemon.worker.settled();
+        expect(requests.at(-1)).toEqual({ type: 'peer.result', payload: { nodeId, ack: true } });
+        expect(daemon.outbox.list()).toEqual([]);
+
+        const [other] = await give();
+        const otherTask = other!.split('\t')[5]!;
+        await daemon.worker.settled();
+        answer = (type) => (type === 'peer.result' ? { status: 'unknown', result: null, bundle: null } : {});
+        daemon.worker.wake(other!.split('\t')[0]!);
+        await daemon.worker.settled();
+        expect(daemon.tasks.get(otherTask)).toMatchObject({ status: 'failed' });
     });
 });

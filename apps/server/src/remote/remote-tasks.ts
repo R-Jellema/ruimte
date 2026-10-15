@@ -1,8 +1,9 @@
-import { BYTES_CHUNK_MAX, type PeerTaskStartPayload, type PeerTaskStartResult } from '@ruimte/contracts';
+import { BYTES_CHUNK_MAX, type PeerResultResult, type PeerTaskStartPayload, type PeerTaskStartResult } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
 import type { TaskCoordinator, TaskStore } from '@adecore/agents/coordination';
-import { BundleStore, makeBundle } from '../git/bundles.ts';
+import { BundleStore, fetchBundle, makeBundle } from '../git/bundles.ts';
 import type { CheckpointService } from '../git/checkpoints.ts';
+import type { Worktrees } from '../git/worktrees.ts';
 import { errorText } from '../error-text.ts';
 import type { OutboxEntry, OutboxWork, StartRemoteAgentEntry, StopRemoteAgentEntry, TakeRemoteResultEntry } from '../outbox/outbox.ts';
 import { peerTarget } from './connect-peer.ts';
@@ -22,7 +23,10 @@ export interface RemoteTasksDeps {
     /* Whether a project still places the node. */
     placed(nodeId: string): boolean;
     /* The git of this machine, asked for when a checkout is sent: it is wired after the outbox. */
-    git(): { bundles: BundleStore; checkpoints: Pick<CheckpointService, 'take' | 'head'> };
+    git(): { bundles: BundleStore; checkpoints: Pick<CheckpointService, 'take' | 'head'>; worktrees: Pick<Worktrees, 'addFresh' | 'claim'> };
+    /* The folder of a project and what a project calls the machine it is linked to, for the branch that comes back. */
+    folderOf(projectId: string): string | null;
+    labelOf(projectId: string, machineId: string): string;
     outbox: { list(): readonly OutboxEntry[]; remove(id: string): Promise<void> };
     enqueue(projectId: string, target: string, work: OutboxWork): Promise<void>;
     now(): number;
@@ -154,18 +158,136 @@ export class RemoteTasks {
             await deps.enqueue(entry.projectId, peerTarget(machineId), { kind: 'stop-remote-agent', payload: { machineId, nodeId: entry.target } });
             return;
         }
-        await deps.enqueue(entry.projectId, entry.target, { kind: 'take-remote-result', payload: { machineId, taskId } });
+        const base =
+            entry.payload.source === undefined
+                ? null
+                : await deps
+                      .git()
+                      .checkpoints.head(entry.payload.source)
+                      .catch(() => null);
+        await deps.enqueue(entry.projectId, entry.target, {
+            kind: 'take-remote-result',
+            payload: { machineId, taskId, ...(base === null ? {} : { haves: [base] }) }
+        });
         this.deps.log?.(`Task ${taskId} runs on ${machineId} in ${started.cwd ?? 'its project'}`);
     }
 
-    /* Waits for the task there to settle; what takes the result in is told by the link. */
+    /*
+     * Asks the machine how the task stands, and once it settled takes the result in: the work comes back
+     * as a branch here, the task settles from what the machine said (waking the parent once), and only
+     * then does the machine hear that it has the result. A restart in between asks again and settles nothing twice.
+     */
     readonly take = async (entry: TakeRemoteResultEntry): Promise<'wait' | undefined> => {
-        const task = this.deps.tasks.get(entry.payload.taskId);
-        if (task === undefined || task.status !== 'open') {
+        const { deps } = this;
+        const { machineId, taskId } = entry.payload;
+        const task = deps.tasks.get(taskId);
+        if (task === undefined) {
             return undefined;
         }
-        return 'wait';
+        const link = deps.connections.link(machineId);
+        if (link === null) {
+            await deps.reconnect.owe(machineId);
+            deps.refresh?.(machineId);
+            return 'wait';
+        }
+        try {
+            // Settled here before: only the machine's acknowledgment is left.
+            if (task.status !== 'open') {
+                await link.request('peer.result', { nodeId: entry.target, ack: true });
+                return undefined;
+            }
+            const reported = await link.request<PeerResultResult>('peer.result', {
+                nodeId: entry.target,
+                ...(entry.payload.haves === undefined ? {} : { haves: entry.payload.haves })
+            });
+            if (reported.status === 'open') {
+                return 'wait';
+            }
+            const text = await this.settle(link, entry, task.projectId, reported);
+            await link.request('peer.result', { nodeId: entry.target, ack: true });
+            deps.log?.(`Task ${taskId} on ${machineId} settled: ${text.slice(0, 80)}`);
+        } catch (e) {
+            if (deps.connections.link(machineId) === null) {
+                await deps.reconnect.owe(machineId);
+                deps.refresh?.(machineId);
+                return 'wait';
+            }
+            const refused = refusal(e);
+            if (refused === null) {
+                throw e;
+            }
+            await deps.coordinator.settleFromElsewhere(
+                taskId,
+                { text: `The other machine would not report on this task: ${refused.message}`, source: 'exit', at: deps.now() },
+                'failed'
+            );
+        }
+        return undefined;
     };
+
+    /* Settles the task from what the machine reported, with the branch it sent back named in the result. */
+    private async settle(
+        link: NonNullable<ReturnType<RemoteConnections['link']>>,
+        entry: TakeRemoteResultEntry,
+        projectId: string,
+        reported: PeerResultResult
+    ): Promise<string> {
+        const { deps } = this;
+        if (reported.status === 'unknown') {
+            const text = 'The other machine has no record of this task, so it did not run there.';
+            await deps.coordinator.settleFromElsewhere(entry.payload.taskId, { text, source: 'exit', at: deps.now() }, 'failed');
+            return text;
+        }
+        const base = reported.result ?? { text: 'The other machine ended this task without a result.', source: 'exit' as const, at: deps.now() };
+        const brought =
+            reported.bundle === null
+                ? null
+                : await this.bringBack(link, entry, projectId, reported.bundle).catch((e: unknown) => `The work could not be brought back: ${errorText(e)}`);
+        const text = brought === null ? base.text : `${base.text}\n\n${brought}`;
+        const status = reported.status === 'done' ? 'done' : 'failed';
+        await deps.coordinator.settleFromElsewhere(entry.payload.taskId, { ...base, text }, status);
+        return text;
+    }
+
+    /* Reads the bundle of the machine a piece at a time and takes it in as a remote branch with a worktree on it that the node owns. */
+    private async bringBack(
+        link: NonNullable<ReturnType<RemoteConnections['link']>>,
+        entry: TakeRemoteResultEntry,
+        projectId: string,
+        bundle: NonNullable<PeerResultResult['bundle']>
+    ): Promise<string> {
+        const { deps } = this;
+        const folder = deps.folderOf(projectId);
+        if (folder === null) {
+            return 'The work stayed on the other machine: this project is not on this machine any more.';
+        }
+        const { bundles, worktrees } = deps.git();
+        for (let offset = 0; offset < bundle.size;) {
+            const piece = await link.request<{ size: number; data: string }>('peer.bundleRead', {
+                bundleId: bundle.bundleId,
+                offset,
+                length: Math.min(BYTES_CHUNK_MAX, bundle.size - offset)
+            });
+            const bytes = Buffer.from(piece.data, 'base64');
+            if (piece.size !== bundle.size || bytes.byteLength === 0) {
+                throw new Error('The work changed while it was being sent');
+            }
+            await bundles.receive(bundle.bundleId, offset, bytes, bundle.size);
+            offset += bytes.byteLength;
+        }
+        const taken = await fetchBundle(bundles, worktrees as Worktrees, folder, {
+            projectId,
+            bundleId: bundle.bundleId,
+            sha256: bundle.sha256,
+            branch: bundle.branch,
+            into: 'remote-ref',
+            machine: deps.labelOf(projectId, entry.payload.machineId)
+        });
+        if (taken.path !== undefined) {
+            await worktrees.claim(folder, taken.path, entry.target).catch(() => undefined);
+        }
+        return `The work came back as the branch ${taken.branch}${taken.path === undefined ? '' : ` in the worktree ${taken.path}`}; ruimte-context worktree merge ${taken.branch} brings it into your branch.`;
+    }
 
     /* Tells the machine to end an agent of this one, until it heard. */
     readonly stop = async (entry: StopRemoteAgentEntry): Promise<'wait' | undefined> => {

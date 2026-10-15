@@ -41,6 +41,10 @@ import type { PtyAdapter } from '../pty/pty.ts';
 import { SessionManager } from '../sessions/manager.ts';
 import { agentVisuals } from '../visuals/agent-host.ts';
 import { RemoteTasks, type RemoteTasksDeps } from '../remote/remote-tasks.ts';
+import { registerPeerTaskHandlers } from '../handlers/peer-tasks.ts';
+import type { PeerLinks } from '../peering/links.ts';
+import { PeerTasks, type PeerTasksDeps } from '../peering/peer-tasks.ts';
+import { BundleStore } from '../git/bundles.ts';
 
 const providers = new ProviderRegistry({ detect: async () => ({ installed: true, version: '0.0.0' }) });
 
@@ -65,6 +69,8 @@ export interface TestDaemon {
     chatEnvs: Array<Record<string, string>>;
     wiring: TaskWiring;
     endChildren: EndChildrenWiring;
+    /* The tasks other machines gave, when the daemon takes any. */
+    peerTasks: PeerTasks | null;
     host: CanvasHost;
     alerts: string[];
     /* Every piece of work owed since boot, kept after the worker took it off the outbox. */
@@ -109,6 +115,13 @@ export interface TestDaemonOptions {
         connections: RemoteTasksDeps['connections'];
         reconnect: RemoteTasksDeps['reconnect'];
         git?: RemoteTasksDeps['git'];
+        folderOf?: RemoteTasksDeps['folderOf'];
+    };
+    /* This machine as the one other machines work in: the links they have here, its git, and how it tells one that a task settled. */
+    peer?: {
+        links: PeerLinks;
+        git: PeerTasksDeps['git'];
+        notify: PeerTasksDeps['notify'];
     };
 }
 
@@ -127,7 +140,8 @@ export async function bootTestDaemon({
     onLimits,
     visualRender = {},
     gh = () => Promise.resolve({ code: 1, stdout: '', stderr: 'no gh in this test' }),
-    remote
+    remote,
+    peer
 }: TestDaemonOptions): Promise<TestDaemon> {
     await store.hiddenAgents.load();
     const prompts = new PendingPromptStore(home);
@@ -222,6 +236,7 @@ export async function bootTestDaemon({
         removeEntry: (id) => outbox.remove(id)
     });
     let remoteTasks: RemoteTasks | null = null;
+    let peerTasks: PeerTasks | null = null;
     const outboxWiring = wireOutbox({
         link: outboxLink,
         outbox,
@@ -240,6 +255,15 @@ export async function bootTestDaemon({
         onDropped: (drop) => drops.push(drop),
         onFailed: () => undefined,
         resumeAtReset: () => machine.resumeAtReset,
+        ...(peer
+            ? {
+                  peerTasks: {
+                      deliver: (entry) => peerTasks!.deliver(entry),
+                      isPeerTask: (task) => peerTasks!.isPeerTask(task),
+                      parents: (projectId) => peer.links.canvasIdsOf(projectId)
+                  }
+              }
+            : {}),
         ...(remote
             ? {
                   remoteTasks: {
@@ -263,6 +287,8 @@ export async function bootTestDaemon({
                 (() => {
                     throw new Error('no git in this test');
                 }),
+            folderOf: remote.folderOf ?? ((projectId) => store.index.folderOf(projectId)),
+            labelOf: (projectId, machineId) => remote.machines(projectId).find((machineLink) => machineLink.machineId === machineId)?.label ?? 'machine',
             outbox,
             enqueue: (projectId, target, work) => outboxLink.enqueue(projectId, target, work),
             now: () => clock.now()
@@ -352,6 +378,30 @@ export async function bootTestDaemon({
     };
 
     const dispatcher = new Dispatcher();
+    if (peer) {
+        const peerStores = new Map<string, BundleStore>();
+        peerTasks = new PeerTasks({
+            links: peer.links,
+            projects: store,
+            lineage,
+            tasks,
+            outbox,
+            enqueue: (projectId, target, work) => outboxLink.enqueue(projectId, target, work),
+            prompts,
+            stopNode: (nodeId, reason) => endChildren.stopNode(nodeId, reason),
+            installed: async () => installed,
+            git: peer.git,
+            peerBundles: (machineId) => {
+                const held = peerStores.get(machineId) ?? new BundleStore(home, machineId);
+                peerStores.set(machineId, held);
+                return held;
+            },
+            worktreePaths: async (folder) => (await worktrees?.registeredPaths(folder)) ?? [],
+            notify: peer.notify
+        });
+        tasks.onChange((task) => peerTasks!.changed(task));
+        registerPeerTaskHandlers(dispatcher, peer.links, peerTasks);
+    }
     registerSessionHandlers(dispatcher, sessions, endChildren.owe);
     const forkDeps = chatForkDeps({
         chats,
@@ -391,6 +441,7 @@ export async function bootTestDaemon({
         chatEnvs,
         wiring,
         endChildren,
+        peerTasks,
         prWatches,
         host,
         alerts,

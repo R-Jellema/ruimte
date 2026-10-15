@@ -55,6 +55,16 @@ export interface AgentWorkInput {
     };
 }
 
+/* The node a `peer.taskSettled` frame names, or null for any other frame. */
+function settledNodeOf(raw: string): string | null {
+    try {
+        const frame = JSON.parse(raw) as { type?: unknown; event?: unknown; payload?: { nodeId?: unknown } };
+        return frame.type === 'event' && frame.event === 'peer.taskSettled' && typeof frame.payload?.nodeId === 'string' ? frame.payload.nodeId : null;
+    } catch {
+        return null;
+    }
+}
+
 export function wireAgentWork({ home, identity, stores, agents, projects, remote, providers, later }: AgentWorkInput): AgentWorkBundle {
     const { outbox } = stores;
     const { outboxLink } = agents;
@@ -133,6 +143,8 @@ export function wireAgentWork({ home, identity, stores, agents, projects, remote
         coordinator: wiring.tasks.coordinator,
         placed: (nodeId) => projects.index.locate(nodeId) !== null,
         git: () => later.git(),
+        folderOf: (projectId) => projects.index.folderOf(projectId),
+        labelOf: (projectId, machineId) => projects.remote.linksOf(projectId).find((link) => link.machineId === machineId)?.label ?? 'machine',
         outbox,
         enqueue: (projectId, target, work) => outboxLink.enqueue(projectId, target, work),
         now: () => Date.now(),
@@ -163,6 +175,13 @@ export function wireAgentWork({ home, identity, stores, agents, projects, remote
         log: (line) => console.error(line)
     });
     stores.tasks.onChange((task) => peerTasksNow().changed(task));
+    // A machine that works for this one says its task settled; the entry that waits for the result looks again.
+    remote.connections.onFrame((_machineId, raw) => {
+        const nodeId = settledNodeOf(raw);
+        if (nodeId !== null) {
+            wiring.worker.wake(nodeId);
+        }
+    });
     const snoozes = new SnoozeStore({ path: join(home, 'snoozes.json') });
     const afterSettleStore = new AfterSettleStore({ path: join(home, 'launch-after-settle.json') });
     projects.index.onPlaces = (projectId, ids) => {

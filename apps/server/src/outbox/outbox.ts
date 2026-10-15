@@ -95,7 +95,8 @@ const StopRemoteAgentSchema = z.object({
 const TakeRemoteResultSchema = z.object({
     kind: z.literal('take-remote-result'),
     // The target is the node here that stands for the agent; it is owed from the moment the task started there until its result is taken in.
-    payload: z.object({ machineId: z.string().min(1), taskId: z.string().min(1) })
+    // `haves` are the commits of the checkout that was sent, which the work coming back is built on and so leaves out.
+    payload: z.object({ machineId: z.string().min(1), taskId: z.string().min(1), haves: z.array(z.string().min(1)).max(20).optional() })
 });
 
 const DeliverRemoteResultSchema = z.object({
