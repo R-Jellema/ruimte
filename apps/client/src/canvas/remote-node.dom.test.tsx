@@ -9,6 +9,7 @@ import { useChats } from '@adecore/agents-react/state';
 import { useSessions } from '@/state/sessions';
 import { useSnoozes } from '@/state/snooze';
 import { windowWorkspace } from '@/state/window';
+import { chatInfoOf } from '../../testing/chat-info';
 import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { useUi } from '@/state/ui';
@@ -57,25 +58,6 @@ const CLAUDE = {
     resumeCommand: 'claude --resume {id}'
 } as unknown as ProviderInfo;
 
-function infoOf(chatId: string, patch: Partial<ChatInfo> = {}): ChatInfo {
-    return {
-        chatId,
-        provider: 'claude',
-        cwd: '/work/atlas',
-        agentSessionId: null,
-        model: null,
-        selection: { model: 'model', options: {} },
-        runtimeMode: 'supervised',
-        status: 'idle',
-        running: false,
-        activeTurnId: null,
-        slashCommands: [],
-        usage: { turns: 0, contextTokens: 0, contextWindow: 200_000, costUsd: 0 },
-        background: [],
-        ...patch
-    } as unknown as ChatInfo;
-}
-
 const APPROVAL = PROMPT_SAMPLES.find((sample) => sample.label === 'Permission · Command')!.items[0]! as ChatItem;
 
 let here: FakeMachine;
@@ -93,7 +75,7 @@ async function tellFromThere(patch: Partial<ChatInfo>, items: ChatItem[] = []): 
             there.emit('chat.event', { chatId: REMOTE_CHAT.id, event: { type: 'item', item }, seq });
         }
         seq += 1;
-        there.emit('chat.event', { chatId: REMOTE_CHAT.id, event: { type: 'info', info: infoOf(REMOTE_CHAT.id, patch) }, seq });
+        there.emit('chat.event', { chatId: REMOTE_CHAT.id, event: { type: 'info', info: chatInfoOf(REMOTE_CHAT.id, patch) }, seq });
     });
 }
 
@@ -103,7 +85,7 @@ beforeEach(async () => {
     here.answer('remote.list', () => ({ links: [{ machineId: REMOTE, remoteProjectId: 'remote-project', label: 'MacBook Pro', rootCommit: 'abc' }] }));
     there = new FakeMachine();
     there.answer('provider.list', () => ({ providers: [CLAUDE] }));
-    there.answer('chat.attach', ({ chatId }) => ({ info: infoOf(chatId), items: [], seq }) as never);
+    there.answer('chat.attach', ({ chatId }) => ({ info: chatInfoOf(chatId), items: [], seq }) as never);
     useEndpoints.getState().add({
         id: REMOTE,
         label: 'MacBook Pro',
