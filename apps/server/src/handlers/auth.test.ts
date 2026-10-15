@@ -595,12 +595,18 @@ describe('auth handlers', () => {
             return { sessionId: sessionOf(admitted), publicKey: key.publicKey };
         }
 
-        test('endpoint.info names only the requests a peer may ask, and a person still sees them all', async () => {
+        test('endpoint.info answers a peer who this machine is and what it may ask, and a person still sees everything', async () => {
             const asPeer = await ask(PEER, 'endpoint.info');
-            expect(asPeer).toMatchObject({ ok: true, result: { id: identity.id } });
-            expect('ok' in asPeer && asPeer.ok && (asPeer.result as { features: string[] }).features).toEqual(['endpoint.info']);
+            if (!('ok' in asPeer) || !asPeer.ok) {
+                throw new Error(`Expected an answer, got ${JSON.stringify(asPeer)}`);
+            }
+            expect(Object.keys(asPeer.result as object).toSorted()).toEqual(
+                ['authenticated', 'features', 'id', 'label', 'platform', 'protocol', 'publicKey', 'reachability', 'version'].toSorted()
+            );
+            expect(asPeer.result).toMatchObject({ id: identity.id, publicKey: identity.publicKey, features: ['endpoint.info'] });
             const asPerson = await ask({ reachability: 'lan', sessionId: 's1' }, 'endpoint.info');
             expect('ok' in asPerson && asPerson.ok && (asPerson.result as { features: string[] }).features).toContain('auth.revoke');
+            expect('ok' in asPerson && asPerson.ok && 'streamingAllowed' in (asPerson.result as object)).toBe(true);
         });
 
         test('asks nothing else of this machine: not its sessions, not a revoke, not a signature, not a registration', async () => {

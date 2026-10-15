@@ -99,13 +99,28 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
         ...(isOwner(access) ? { accountId: (await store.accountBinding())?.id ?? null, worktreeRoot: identity.worktreeRoot } : {})
     });
 
-    // A peer is told only of the requests it may ask, so it never learns what else this machine answers.
+    /*
+     * A peer is told who this machine is and which requests it may ask, and nothing else: no settings, no
+     * addresses, no account. The three fields the schema requires beyond that say only what the peer can see anyway.
+     */
     dispatcher.register(
         'endpoint.info',
-        async (_payload, client) => ({
-            ...(await info(client.access)),
-            features: client.access?.peer === undefined ? dispatcher.types() : dispatcher.peerTypes()
-        }),
+        async (_payload, client) => {
+            if (client.access?.peer !== undefined) {
+                return {
+                    id: identity.id,
+                    label: identity.label,
+                    platform: process.platform,
+                    version: host.version,
+                    protocol: PROTOCOL_VERSION,
+                    reachability: client.access.reachability,
+                    authenticated: true,
+                    publicKey: identity.publicKey,
+                    features: dispatcher.peerTypes()
+                };
+            }
+            return { ...(await info(client.access)), features: dispatcher.types() };
+        },
         { peer: true }
     );
 
