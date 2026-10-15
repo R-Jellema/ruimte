@@ -1,5 +1,20 @@
 import { useTranslation } from 'react-i18next';
-import { ArrowDownToLine, ArrowUpToLine, ClipboardPaste, Copy, Lock, LockOpen, Maximize, Redo2, Scan, Scissors, Trash, Undo2 } from 'lucide-react';
+import {
+    ArrowDownToLine,
+    ArrowUpToLine,
+    ClipboardPaste,
+    Copy,
+    Layers,
+    Lock,
+    LockOpen,
+    Maximize,
+    Redo2,
+    Scan,
+    Scissors,
+    Trash,
+    Undo2,
+    ZoomIn
+} from 'lucide-react';
 import { fitAction, historyAction } from '@/actions/client-actions';
 import { copyDrawing, cutSelection, deleteSelection, duplicateSelection, pasteInto, reorderSelection, toggleLockSelection } from '@/drawing/drawing-actions';
 import { DRAWING_SHORTCUTS } from '@/drawing/shortcuts';
@@ -32,11 +47,11 @@ export function DrawingMenuPopup() {
                 <Icon icon={Redo2} size={14} /> {t('common:action.redo')} <Kbd shortcut={DRAWING_SHORTCUTS.redo} />
             </ContextMenu.Item>
             <ContextMenu.Separator />
-            <ContextMenu.Item disabled={!has} onClick={() => void copyDrawing(store, 'elements')}>
-                <Icon icon={Copy} size={14} /> {t('common:action.copy')} <Kbd shortcut={DRAWING_SHORTCUTS.copy} />
-            </ContextMenu.Item>
             <ContextMenu.Item disabled={!has} onClick={() => void cutSelection(store)}>
                 <Icon icon={Scissors} size={14} /> {t('menu.cut')} <Kbd shortcut={DRAWING_SHORTCUTS.cut} />
+            </ContextMenu.Item>
+            <ContextMenu.Item disabled={!has} onClick={() => void copyDrawing(store, 'elements')}>
+                <Icon icon={Copy} size={14} /> {t('common:action.copy')} <Kbd shortcut={DRAWING_SHORTCUTS.copy} />
             </ContextMenu.Item>
             <ContextMenu.Item onClick={() => void pasteInto(store)}>
                 <Icon icon={ClipboardPaste} size={14} /> {t('menu.paste')} <Kbd shortcut={DRAWING_SHORTCUTS.paste} />
@@ -45,24 +60,39 @@ export function DrawingMenuPopup() {
                 <Icon icon={Copy} size={14} /> {t('menu.duplicate')} <Kbd shortcut={DRAWING_SHORTCUTS.duplicate} />
             </ContextMenu.Item>
             <ContextMenu.Separator />
-            <ContextMenu.Item disabled={!has} onClick={() => reorderSelection(store, 'front')}>
-                <Icon icon={ArrowUpToLine} size={14} /> {t('menu.bringToFront')} <Kbd shortcut={DRAWING_SHORTCUTS.bringToFront} />
-            </ContextMenu.Item>
-            <ContextMenu.Item disabled={!has} onClick={() => reorderSelection(store, 'back')}>
-                <Icon icon={ArrowDownToLine} size={14} /> {t('menu.sendToBack')} <Kbd shortcut={DRAWING_SHORTCUTS.sendToBack} />
-            </ContextMenu.Item>
-            <ContextMenu.Item disabled={!has} onClick={() => toggleLockSelection(store)}>
-                <Icon icon={locked ? LockOpen : Lock} size={14} /> {locked ? t('menu.unlock') : t('menu.lock')} <Kbd shortcut={DRAWING_SHORTCUTS.lock} />
-            </ContextMenu.Item>
-            <ContextMenu.Separator />
+            <ContextMenu.SubmenuRoot>
+                <ContextMenu.SubmenuTrigger disabled={!has}>
+                    <Icon icon={Layers} size={14} /> {t('menu.arrange')}
+                </ContextMenu.SubmenuTrigger>
+                <ContextMenu.Popup>
+                    <ContextMenu.Item disabled={!has} onClick={() => reorderSelection(store, 'front')}>
+                        <Icon icon={ArrowUpToLine} size={14} /> {t('menu.bringToFront')} <Kbd shortcut={DRAWING_SHORTCUTS.bringToFront} />
+                    </ContextMenu.Item>
+                    <ContextMenu.Item disabled={!has} onClick={() => reorderSelection(store, 'back')}>
+                        <Icon icon={ArrowDownToLine} size={14} /> {t('menu.sendToBack')} <Kbd shortcut={DRAWING_SHORTCUTS.sendToBack} />
+                    </ContextMenu.Item>
+                    <ContextMenu.Separator />
+                    <ContextMenu.Item disabled={!has} onClick={() => toggleLockSelection(store)}>
+                        <Icon icon={locked ? LockOpen : Lock} size={14} /> {locked ? t('menu.unlock') : t('menu.lock')}{' '}
+                        <Kbd shortcut={DRAWING_SHORTCUTS.lock} />
+                    </ContextMenu.Item>
+                </ContextMenu.Popup>
+            </ContextMenu.SubmenuRoot>
+            <ContextMenu.SubmenuRoot>
+                <ContextMenu.SubmenuTrigger disabled={elements === 0}>
+                    <Icon icon={ZoomIn} size={14} /> {t('menu.zoom')}
+                </ContextMenu.SubmenuTrigger>
+                <ContextMenu.Popup>
+                    <ContextMenu.Item disabled={elements === 0} onClick={() => fitAction(viewId)}>
+                        <Icon icon={Maximize} size={14} /> {t('zoom.fitEverything')} <Kbd shortcut={DRAWING_SHORTCUTS.fitAll} />
+                    </ContextMenu.Item>
+                    <ContextMenu.Item disabled={!has} onClick={() => store.getState().zoomToSelection()}>
+                        <Icon icon={Scan} size={14} /> {t('zoom.selection')} <Kbd shortcut={DRAWING_SHORTCUTS.zoomSelection} />
+                    </ContextMenu.Item>
+                </ContextMenu.Popup>
+            </ContextMenu.SubmenuRoot>
             <ContextMenu.Item disabled={elements === 0} onClick={() => store.getState().selectAll()}>
                 <Icon icon={Scan} size={14} /> {t('common:action.selectAll')} <Kbd shortcut={DRAWING_SHORTCUTS.selectAll} />
-            </ContextMenu.Item>
-            <ContextMenu.Item disabled={elements === 0} onClick={() => fitAction(viewId)}>
-                <Icon icon={Maximize} size={14} /> {t('zoom.fitEverything')} <Kbd shortcut={DRAWING_SHORTCUTS.fitAll} />
-            </ContextMenu.Item>
-            <ContextMenu.Item disabled={!has} onClick={() => store.getState().zoomToSelection()}>
-                <Icon icon={Scan} size={14} /> {t('zoom.selection')} <Kbd shortcut={DRAWING_SHORTCUTS.zoomSelection} />
             </ContextMenu.Item>
             <ContextMenu.Separator />
             <ContextMenu.Item className="text-status-error" disabled={!has} onClick={() => void deleteSelection(store)}>

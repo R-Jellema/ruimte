@@ -6,6 +6,7 @@ import { FileTree, useFileTree, type FoldKeyOf } from '@adecore/ui';
 import { GitTreeMarks } from './GitTreeMarks';
 import { ChevronsDownUp, ChevronsUpDown, CornerUpRight, EyeOff, FileDiff, FileText, FileX, Folder, GitBranch, Minus, Plus, Trash2 } from 'lucide-react';
 import type { GitFile } from '@ruimte/contracts';
+import { FileActionItems } from '@/shell/panels/FileActionItems';
 import { FileCopyRow } from '@/shell/panels/FileCopyRow';
 import { revealableInFiles } from '@/shell/panels/files-tree';
 import {
@@ -409,18 +410,19 @@ function GitTree({ layout, branches, collapsed, reading, busy, onOpen, onOpenFil
                 {manyTargets && menuItems.length > 0 && (
                     <>
                         {stageItems}
+                        {(toStage.length > 0 || toUnstage.length > 0) && <ContextMenu.Separator />}
+                        <FileCopyRow targets={copyTargets} />
+                        {(boxed.length > 0 || newFiles.length > 0) && <ContextMenu.Separator />}
                         {boxed.length > 0 && (
-                            <ContextMenu.Item disabled={busy} onClick={() => onDiscard(workOf(boxed, shownFile))}>
+                            <ContextMenu.Item className="text-status-error" disabled={busy} onClick={() => onDiscard(workOf(boxed, shownFile))}>
                                 <Icon icon={Trash2} size={14} /> {t('git.list.discardMany', { count: boxed.length })}
                             </ContextMenu.Item>
                         )}
                         {newFiles.length > 0 && (
-                            <ContextMenu.Item disabled={busy} onClick={() => onDelete(workOf(newFiles, newFileOf))}>
+                            <ContextMenu.Item className="text-status-error" disabled={busy} onClick={() => onDelete(workOf(newFiles, newFileOf))}>
                                 <Icon icon={FileX} size={14} /> {t('git.list.deleteMany', { count: newFiles.length })}
                             </ContextMenu.Item>
                         )}
-                        <ContextMenu.Separator />
-                        <FileCopyRow targets={copyTargets} />
                     </>
                 )}
                 {single?.kind === 'file' && (
@@ -440,26 +442,21 @@ function GitTree({ layout, branches, collapsed, reading, busy, onOpen, onOpenFil
                             </ContextMenu.Item>
                         )}
                         {stageItems}
+                        {(single.group === 'conflicts' || toStage.length > 0 || toUnstage.length > 0) && <ContextMenu.Separator />}
+                        <FileActionItems path={`${single.cwd}/${single.path}`} on="list" gone={isGone(single.item.entry)} />
+                        {single.group !== 'conflicts' && <ContextMenu.Separator />}
                         {/* A conflict is resolved by staging it or by a merge tool; discarding one side of it
                             silently is the one way out that loses work nobody can name afterwards. */}
                         {single.group !== 'conflicts' && (
-                            <ContextMenu.Item disabled={busy} onClick={() => onDiscard(workOf([single.item], shownFile))}>
+                            <ContextMenu.Item className="text-status-error" disabled={busy} onClick={() => onDiscard(workOf([single.item], shownFile))}>
                                 <Icon icon={Trash2} size={14} /> {t('git.list.discard')}
                             </ContextMenu.Item>
                         )}
                         {single.group === 'unversioned' && (
-                            <ContextMenu.Item disabled={busy} onClick={() => onDelete(workOf([single.item], newFileOf))}>
+                            <ContextMenu.Item className="text-status-error" disabled={busy} onClick={() => onDelete(workOf([single.item], newFileOf))}>
                                 <Icon icon={FileX} size={14} /> {t('git.list.deleteFile')}
                             </ContextMenu.Item>
                         )}
-                        <ContextMenu.Separator />
-                        <RowPathItems
-                            absolute={`${single.cwd}/${single.path}`}
-                            relative={single.path}
-                            folder={folder}
-                            platform={platform}
-                            gone={isGone(single.item.entry)}
-                        />
                     </>
                 )}
                 {single?.kind === 'folder' && singleKey !== null && (

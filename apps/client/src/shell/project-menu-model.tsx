@@ -78,13 +78,14 @@ export function useProjectMenu() {
         }
     };
 
-    const actionsOf = (row: ProjectMenuRow): ReactNode => (
+    /* `leading` is what only the place that draws the menu offers, such as the pin of a tab. The Chats project has no settings and never closes. */
+    const actionsOf = (row: ProjectMenuRow, leading?: ReactNode): ReactNode => (
         <ProjectActions
             row={row}
             platform={servers[row.endpointId]?.platform ?? null}
             current={isCurrent(row)}
-            onSettings={() => settings.openFor(row)}
-            onClose={() => void askClose(row)}
+            leading={leading}
+            {...(row.summary.scratch === true ? {} : { onSettings: () => settings.openFor(row), onClose: () => void askClose(row) })}
         />
     );
 
@@ -169,8 +170,9 @@ function useProjectSettings(endpoints: readonly Endpoint[], isCurrent: (row: Pro
     // The application menu asks for the settings of the project that is open.
     useEffect(
         () =>
-            useUi.subscribe((state) => {
-                if (!state.projectSettingsAsked) {
+            useUi.subscribe(() => {
+                // Read now and not off the change: another menu on screen may have answered the ask already.
+                if (!useUi.getState().projectSettingsAsked) {
                     return;
                 }
                 useUi.getState().askProjectSettings(false);

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { EditorRenderingProvider, LanguagePopups, type HoverView } from '@adecore/editor-react';
 import { AgentIcon } from '@adecore/agents-react/providers';
 import { Button, ContextMenu, Icon, Kbd, Tooltip } from '@adecore/ui';
-import { Cpu, MapPin, MessageSquarePlus, Sparkles } from 'lucide-react';
+import { Bot, Cpu, MapPin, MessageSquarePlus, Sparkles } from 'lucide-react';
 import { InlineEditLayer } from '@/editor-ai/InlineEditLayer';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { highlightCode } from '@/shell/panels/highlight';
@@ -69,21 +69,36 @@ function MenuActions({ language }: { language: EditorLanguage }) {
         <>
             {language.project.service.supports('textDocument/declaration', language.uri) && (
                 <ContextMenu.Item onClick={() => void language.navigation.go('declaration')}>
-                    <Icon icon={MapPin} size={14} /> {t('menu.goToDeclaration')}
+                    <Icon icon={MapPin} size={14} /> {t('editorMenu.goToDeclaration')}
                 </ContextMenu.Item>
             )}
             <ContextMenu.Separator />
             <ContextMenu.Item onClick={() => language.inlineEdit.start()}>
-                <Icon icon={Sparkles} size={14} /> {t('menu.inlineEdit')} <Kbd shortcut={CANVAS_SHORTCUTS.inlineEdit} />
+                <Icon icon={Sparkles} size={14} /> {t('editorMenu.inlineEdit')} <Kbd shortcut={CANVAS_SHORTCUTS.inlineEdit} />
             </ContextMenu.Item>
             <ContextMenu.Item onClick={() => language.selectionChat.choose()}>
-                <Icon icon={MessageSquarePlus} size={14} /> {t('menu.selectionToChat')} <Kbd shortcut={CANVAS_SHORTCUTS.selectionToChat} />
+                <Icon icon={MessageSquarePlus} size={14} /> {t('editorMenu.selectionToChat')} <Kbd shortcut={CANVAS_SHORTCUTS.selectionToChat} />
             </ContextMenu.Item>
-            {agents.map((agent) => (
-                <ContextMenu.Item key={agent.kind} onClick={() => language.selectionChat.askAbout(agent.kind)}>
-                    <AgentIcon kind={agent.kind} /> {chat('selection.ask', { provider: agent.name })}
-                </ContextMenu.Item>
-            ))}
+            {agents.length === 1 &&
+                agents.map((agent) => (
+                    <ContextMenu.Item key={agent.kind} onClick={() => language.selectionChat.askAbout(agent.kind)}>
+                        <AgentIcon kind={agent.kind} /> {chat('selection.ask', { provider: agent.name })}
+                    </ContextMenu.Item>
+                ))}
+            {agents.length > 1 && (
+                <ContextMenu.SubmenuRoot>
+                    <ContextMenu.SubmenuTrigger>
+                        <Icon icon={Bot} size={14} /> {t('editorMenu.askAgent')}
+                    </ContextMenu.SubmenuTrigger>
+                    <ContextMenu.Popup>
+                        {agents.map((agent) => (
+                            <ContextMenu.Item key={agent.kind} onClick={() => language.selectionChat.askAbout(agent.kind)}>
+                                <AgentIcon kind={agent.kind} /> {agent.name}
+                            </ContextMenu.Item>
+                        ))}
+                    </ContextMenu.Popup>
+                </ContextMenu.SubmenuRoot>
+            )}
         </>
     );
 }

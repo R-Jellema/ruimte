@@ -6,7 +6,7 @@ import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-worksp
 import { useChats } from '@adecore/agents-react/state';
 import { useProposals } from '@/state/proposals';
 import { useUi } from '@/state/ui';
-import { clickOn, mount, until, type Mounted } from '../../testing/dom';
+import { clickOn, mount, openSubmenu, until, type Mounted } from '../../testing/dom';
 
 const WRITTEN: ProjectView = { kind: 'chat', id: 'written', name: 'Vinyl notes', node: {} };
 
@@ -37,6 +37,11 @@ async function setChatStatus(status: 'idle' | 'running' | 'needs-you', patch: Pa
     });
 }
 
+/* The one row both ways out of Chats sit behind. */
+function moveRow(): HTMLElement | undefined {
+    return ([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.includes('Move to project'));
+}
+
 function makeProjectRow(): HTMLElement | undefined {
     return ([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.includes('Make a project'));
 }
@@ -58,29 +63,32 @@ afterEach(async () => {
 describe('moving a chat out of Chats, from its view menu', () => {
     test('a chat someone wrote in offers a project and a move', async () => {
         await open({ scratch: true });
+        await setChatStatus('idle');
         await openViewMenu(WRITTEN.id);
-        expect(menuLabels()).toEqual(expect.arrayContaining([expect.stringContaining('Make a project…'), expect.stringContaining('Move to project')]));
+        await openSubmenu('Move to project');
+        expect(menuLabels()).toEqual(expect.arrayContaining([expect.stringContaining('Make a project…'), expect.stringContaining('Other project…')]));
     });
 
     test('"Make a project…" asks for the dialog on this chat with no project picked', async () => {
         await open({ scratch: true });
         await setChatStatus('idle');
         await openViewMenu(WRITTEN.id);
+        await openSubmenu('Move to project');
         await clickOn(makeProjectRow() ?? null);
         expect(useUi.getState().moveChatDialog).toEqual({ chatId: WRITTEN.id, mode: 'make', projectId: null });
         useUi.getState().setMoveChatDialog(null);
     });
 
-    test('both rows are off while the chat works', async () => {
+    test('the row is off while the chat works', async () => {
         await open({ scratch: true });
         await setChatStatus('needs-you');
         await openViewMenu(WRITTEN.id);
-        expect(makeProjectRow()?.getAttribute('aria-disabled')).toBe('true');
-        await clickOn(makeProjectRow() ?? null);
+        expect(moveRow()?.getAttribute('aria-disabled')).toBe('true');
+        await clickOn(moveRow() ?? null);
         expect(useUi.getState().moveChatDialog).toBeNull();
     });
 
-    test('both rows stay on while the only thing the chat waits for is the card of its own suggestion', async () => {
+    test('the row stays on while the only thing the chat waits for is the card of its own suggestion', async () => {
         await open({ scratch: true });
         await act(async () =>
             useProposals
@@ -89,7 +97,7 @@ describe('moving a chat out of Chats, from its view menu', () => {
         );
         await setChatStatus('needs-you', { activeTurnId: null });
         await openViewMenu(WRITTEN.id);
-        expect(makeProjectRow()?.getAttribute('aria-disabled')).not.toBe('true');
+        expect(moveRow()?.getAttribute('aria-disabled')).not.toBe('true');
         await act(async () => useProposals.getState().forget('fake-machine'));
     });
 
@@ -150,7 +158,7 @@ describe('moving a chat out of Chats, from its view menu', () => {
         await open({ scratch: true });
         await setChatStatus('idle', patch as unknown as Partial<ChatInfo>);
         await openViewMenu(WRITTEN.id);
-        expect(makeProjectRow()?.getAttribute('aria-disabled')).toBe('true');
+        expect(moveRow()?.getAttribute('aria-disabled')).toBe('true');
     });
 
     test('a chat in a project offers neither', async () => {

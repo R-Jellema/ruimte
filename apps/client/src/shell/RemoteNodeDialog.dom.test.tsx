@@ -20,7 +20,7 @@ import { linkPeer } from '@/pulsar/peer-link';
 import type { PeerStatement } from '@ruimte/pulsar';
 import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
-import { clickOn, mount, until, type Mounted } from '../../testing/dom';
+import { clickOn, mount, openSubmenu, until, type Mounted } from '../../testing/dom';
 
 const REMOTE = 'machine-b';
 const REQUEST_TYPES = Object.keys(REQUEST_SCHEMAS) as RequestType[];
@@ -434,6 +434,7 @@ async function openCanvasMenu(): Promise<void> {
         surface.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 300, clientY: 300, button: 2 }));
     });
     await until(() => document.querySelector('[role="menu"]') !== null);
+    await openSubmenu('On another machine');
 }
 
 describe('the canvas menu', () => {

@@ -1,6 +1,6 @@
 {
     "devices": {
-        "addToCanvas": "Add to canvas",
+        "addToCanvas": "Show on canvas",
         "back": "Back to devices",
         "finding": "Finding devices…",
         "group": {
@@ -105,11 +105,11 @@
             "copyPath": "Copy path",
             "copyRelativePath": "Copy relative path",
             "copyMention": "Copy as @mention",
-            "openAsView": "Open as a view",
+            "openAsView": "Open as view",
             "openInBrowser": "Open in a browser node",
             "refresh": "Refresh",
             "revealInFiles": "Reveal in the Files panel",
-            "showOnCanvas": "Show on the canvas"
+            "showOnCanvas": "Show on canvas"
         },
         "noFile": "No file to show.",
         "readFailed": "Could not read the file",
@@ -282,7 +282,7 @@
                 "too-large": "That text is too large."
             }
         },
-        "delete": "Move to trash",
+        "delete": "Move to trash…",
         "deleteDialog": {
             "confirm": "Move to trash",
             "fallback": "Move this to the trash?",
@@ -294,7 +294,7 @@
             "manyTitle": "Move {{count}} items to the trash?"
         },
         "deleteFailed": "Could not move it to the trash",
-        "deleteMany": "Move {{count}} items to trash",
+        "deleteMany": "Move {{count}} items to trash…",
         "empty": "This folder is empty.",
         "filter": "Filter files",
         "noMatch": "No files match the filter.",
@@ -356,7 +356,7 @@
             "deleteBranch": "Delete branch…",
             "fetch": "Fetch",
             "fetchAll": "Fetch all",
-            "forcePush": "Force push",
+            "forcePush": "Force push…",
             "merge": "Merge branch…",
             "more": "More git actions",
             "popStash": "Pop stash",
@@ -370,7 +370,10 @@
             "stash": "Stash changes…",
             "sync": "Sync",
             "syncAll": "Sync all",
-            "syncHint": "pull, then push"
+            "syncHint": "pull, then push",
+            "branchGroup": "Branch",
+            "stashGroup": "Stash",
+            "pullRequestGroup": "Pull request"
         },
         "pr": {
             "title": "Pull request",
@@ -583,10 +586,10 @@
         },
         "list": {
             "collapseFolder": "Collapse this folder",
-            "deleteFile": "Move to trash",
-            "deleteMany": "Move {{count}} new files to trash",
-            "discard": "Discard changes",
-            "discardMany": "Discard {{count}} files",
+            "deleteFile": "Move to trash…",
+            "deleteMany": "Move {{count}} new files to trash…",
+            "discard": "Discard changes…",
+            "discardMany": "Discard {{count}} files…",
             "expandFolder": "Expand this folder",
             "files_one": "{{count}} file",
             "files_other": "{{count}} files",
@@ -1009,12 +1012,12 @@
             "actions": "Worktree actions",
             "folderMissing": "folder missing",
             "locked": "Locked",
-            "merge": "Merge…",
+            "merge": "Merge worktree…",
             "inspect": "Inspect",
             "noNode": "no node",
-            "remove": "Remove…",
+            "remove": "Remove worktree…",
             "title": "Worktrees",
-            "view": "View"
+            "view": "View worktree"
         },
         "verdict": {
             "inspecting": "Inspecting…",

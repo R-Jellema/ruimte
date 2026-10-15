@@ -50,7 +50,8 @@ export function useConsoleFolders(): { folders: Record<string, readonly Explorer
                                 <ContextMenu.Item onClick={() => setQuestion({ kind: 'rename', path })}>
                                     <Icon icon={Pencil} size={14} /> {t('panels:files.rename.menu')}
                                 </ContextMenu.Item>
-                                <ContextMenu.Item onClick={() => setQuestion({ kind: 'delete', path })}>
+                                <ContextMenu.Separator />
+                                <ContextMenu.Item className="text-status-error" onClick={() => setQuestion({ kind: 'delete', path })}>
                                     <Icon icon={Trash2} size={14} /> {t('panels:files.delete')}
                                 </ContextMenu.Item>
                             </>

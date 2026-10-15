@@ -1,7 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
-import { ArrowDown, ArrowUp, ChevronsDownUp, ChevronsUpDown, Eye, Folder, GitMerge, GitPullRequest, MoreHorizontal, RefreshCw } from 'lucide-react';
+import {
+    Archive,
+    ArrowDown,
+    ArrowUp,
+    ChevronsDownUp,
+    ChevronsUpDown,
+    Eye,
+    Folder,
+    GitBranch,
+    GitMerge,
+    GitPullRequest,
+    MoreHorizontal,
+    RefreshCw
+} from 'lucide-react';
 import { type GitActionKind, type GitCapabilitiesResult, type GitFile, type GitRef, type GitStash, type Worktree } from '@ruimte/contracts';
 import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { desktop } from '@/desktop/bridge';
@@ -935,7 +948,7 @@ interface RepoActionItemsProps {
     onShowPullRequest(): void;
 }
 
-/* Everything that acts on one repository. The order is how often a person reaches for it. */
+/* Everything that acts on one repository: what a person reaches for most at the top, a force push apart at the bottom. */
 function RepoActionItems({ cwd, busy, canPullRequest, stashes, branch, onAction, onDialog, onPullRequest, onShowPullRequest }: RepoActionItemsProps) {
     const { t } = useTranslation('panels');
     const popStash = (): void => {
@@ -958,47 +971,63 @@ function RepoActionItems({ cwd, busy, canPullRequest, stashes, branch, onAction,
                 {t('git.actions.sync')}
                 <Menu.Hint>{t('git.actions.syncHint')}</Menu.Hint>
             </Menu.Item>
-            <Menu.Separator />
             <Menu.Item disabled={busy} onClick={() => onAction('fetch')}>
                 {t('git.actions.fetch')}
             </Menu.Item>
+            <Menu.Separator />
+            <Menu.SubmenuRoot>
+                <Menu.SubmenuTrigger disabled={busy}>
+                    <Icon icon={GitBranch} size={14} /> {t('git.actions.branchGroup')}
+                </Menu.SubmenuTrigger>
+                <Menu.Popup>
+                    <Menu.Item disabled={busy} onClick={() => onDialog({ kind: 'pick-branch', cwd, action: 'merge' })}>
+                        {t('git.actions.merge')}
+                    </Menu.Item>
+                    <Menu.Item disabled={busy} onClick={() => onDialog({ kind: 'pick-branch', cwd, action: 'rebase' })}>
+                        {t('git.actions.rebase')}
+                    </Menu.Item>
+                    <Menu.Item disabled={busy} onClick={() => onDialog({ kind: 'rename-branch', cwd, branch })}>
+                        {t('git.actions.renameBranch')}
+                    </Menu.Item>
+                    <Menu.Separator />
+                    <Menu.Item className="text-status-error" disabled={busy} onClick={() => onDialog({ kind: 'pick-branch', cwd, action: 'delete-branch' })}>
+                        {t('git.actions.deleteBranch')}
+                    </Menu.Item>
+                </Menu.Popup>
+            </Menu.SubmenuRoot>
+            <Menu.SubmenuRoot>
+                <Menu.SubmenuTrigger disabled={busy}>
+                    <Icon icon={Archive} size={14} /> {t('git.actions.stashGroup')}
+                </Menu.SubmenuTrigger>
+                <Menu.Popup>
+                    <Menu.Item disabled={busy} onClick={() => onDialog({ kind: 'stash', cwd })}>
+                        {t('git.actions.stash')}
+                    </Menu.Item>
+                    <Menu.Item disabled={busy || stashes.length === 0} onClick={popStash}>
+                        {t('git.actions.popStash')}
+                        {stashes.length > 1 && <Menu.Hint>{stashes.length}</Menu.Hint>}
+                    </Menu.Item>
+                </Menu.Popup>
+            </Menu.SubmenuRoot>
+            {canPullRequest && (
+                <Menu.SubmenuRoot>
+                    <Menu.SubmenuTrigger disabled={busy}>
+                        <Icon icon={GitPullRequest} size={14} /> {t('git.actions.pullRequestGroup')}
+                    </Menu.SubmenuTrigger>
+                    <Menu.Popup>
+                        <Menu.Item disabled={busy} onClick={onPullRequest}>
+                            {t('git.actions.pullRequest')}
+                        </Menu.Item>
+                        <Menu.Item disabled={busy} onClick={onShowPullRequest}>
+                            {t('git.actions.showPullRequest')}
+                        </Menu.Item>
+                    </Menu.Popup>
+                </Menu.SubmenuRoot>
+            )}
+            <Menu.Separator />
             <Menu.Item disabled={busy} onClick={() => onDialog({ kind: 'force-push', cwd })}>
                 {t('git.actions.forcePush')}
             </Menu.Item>
-            <Menu.Separator />
-            <Menu.Item disabled={busy} onClick={() => onDialog({ kind: 'pick-branch', cwd, action: 'merge' })}>
-                {t('git.actions.merge')}
-            </Menu.Item>
-            <Menu.Item disabled={busy} onClick={() => onDialog({ kind: 'pick-branch', cwd, action: 'rebase' })}>
-                {t('git.actions.rebase')}
-            </Menu.Item>
-            <Menu.Item disabled={busy} onClick={() => onDialog({ kind: 'rename-branch', cwd, branch })}>
-                {t('git.actions.renameBranch')}
-            </Menu.Item>
-            <Menu.Item disabled={busy} onClick={() => onDialog({ kind: 'pick-branch', cwd, action: 'delete-branch' })}>
-                {t('git.actions.deleteBranch')}
-            </Menu.Item>
-            <Menu.Separator />
-            <Menu.Item disabled={busy} onClick={() => onDialog({ kind: 'stash', cwd })}>
-                {t('git.actions.stash')}
-            </Menu.Item>
-            <Menu.Item disabled={busy || stashes.length === 0} onClick={popStash}>
-                {t('git.actions.popStash')}
-                {stashes.length > 1 && <Menu.Hint>{stashes.length}</Menu.Hint>}
-            </Menu.Item>
-            {canPullRequest && (
-                <>
-                    <Menu.Separator />
-                    <Menu.Item disabled={busy} onClick={onPullRequest}>
-                        <Icon icon={GitPullRequest} size={14} />
-                        {t('git.actions.pullRequest')}
-                    </Menu.Item>
-                    <Menu.Item disabled={busy} onClick={onShowPullRequest}>
-                        <Icon icon={GitPullRequest} size={14} />
-                        {t('git.actions.showPullRequest')}
-                    </Menu.Item>
-                </>
-            )}
         </>
     );
 }

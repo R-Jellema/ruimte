@@ -3,7 +3,7 @@ import { act } from 'react';
 import type { ProjectCanvasView, ProjectNode } from '@ruimte/contracts';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
-import { clickOn, mount, until, type Mounted } from '../../testing/dom';
+import { clickOn, mount, openSubmenu, until, type Mounted } from '../../testing/dom';
 
 const SHELL: ProjectNode = { id: 'shell', kind: 'terminal', title: 'Shell', x: 0, y: 0, w: 560, h: 360 };
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [SHELL], texts: [], edges: [], layouts: [] };
@@ -41,6 +41,7 @@ afterEach(async () => {
 describe('Clear on a terminal', () => {
     test('the menu of its frame clears the session once', async () => {
         await openMenuOf(`[data-node-id="${SHELL.id}"]`);
+        await openSubmenu('Terminal');
         await clickOn(menuItem('Clear'));
 
         await until(() => machine.requests('session.clear').length === 1);

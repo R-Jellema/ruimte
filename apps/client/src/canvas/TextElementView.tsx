@@ -7,7 +7,8 @@ import { accentColor } from '@/canvas/accents';
 import { FONT_STACK } from '@/canvas/text-font';
 import { loadDrawingFont } from '@/drawing/fonts';
 import { useCanvas, useCanvasStore } from '@/state/canvas';
-import { copyText, Icon, ContextMenu } from '@adecore/ui';
+import { copyText, Icon, ContextMenu, Kbd } from '@adecore/ui';
+import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 
 export const TextElementView = memo(function TextElementView({ id }: { id: string }) {
     const { t } = useTranslation('canvas');
@@ -122,8 +123,8 @@ export const TextElementView = memo(function TextElementView({ id }: { id: strin
                     <Icon icon={Copy} size={14} /> {t('text.copy')}
                 </ContextMenu.Item>
                 <ContextMenu.Separator />
-                <ContextMenu.Item onClick={() => deleteNodesAction(canvasStore, [id])}>
-                    <Icon icon={Trash} size={14} /> {t('common:action.delete')}
+                <ContextMenu.Item className="text-status-error" onClick={() => deleteNodesAction(canvasStore, [id])}>
+                    <Icon icon={Trash} size={14} /> {t('common:action.delete')} <Kbd shortcut={CANVAS_SHORTCUTS.deleteSelection} />
                 </ContextMenu.Item>
             </ContextMenu.Popup>
         </ContextMenu.Root>

@@ -279,8 +279,7 @@
         "maximizeCell": "Maximize cell",
         "restoreSplit": "Restore split",
         "newView": "View",
-        "putOnCanvas": "Put on canvas",
-        "showOnCanvas": "Show on the canvas",
+        "showOnCanvas": "Show on canvas",
         "openInChat": "Open in chat",
         "openInTerminal": "Open in terminal",
         "makeProject": "Make a project…",
@@ -289,7 +288,6 @@
         "moveWhileWorking": "Stop the chat or wait for it to finish first.",
         "viewSettings": "View settings…",
         "deleteView": "Delete view",
-        "reveal": "Reveal in {{app}}",
         "openInNewTab": "Open in new tab",
         "moveTabLeft": "Left",
         "moveTabRight": "Right",
@@ -299,7 +297,9 @@
         "closeOtherCells": "Close other cells",
         "closeCellsToRight": "Close cells to the right",
         "moveTab": "Move tab",
-        "cell": "Cell"
+        "cell": "Cell",
+        "conversation": "Conversation",
+        "openIn": "Open in {{app}}"
     },
     "share": {
         "start": "Share with your team",
@@ -369,7 +369,8 @@
         "openFolder": "Open folder",
         "closeTitle": "Close {{name}}?",
         "openInNewWindow": "Open in new window",
-        "moveToNewWindow": "Move to new window"
+        "moveToNewWindow": "Move to new window",
+        "copyPath": "Copy path"
     },
     "projectSettings": {
         "title": "Project settings",
@@ -536,8 +537,7 @@
         "connectMachine": "Connect machine",
         "throughAccount": "Through your account",
         "commandPalette": "Command palette",
-        "whatsNew": "What's new",
-        "copyFolder": "Copy folder path"
+        "whatsNew": "What's new"
     },
     "palette": {
         "newAgent": {
@@ -709,7 +709,7 @@
             "maximizeCell": "Maximize cell",
             "newBrowserView": "New browser view",
             "openAsView": "Open as view",
-            "putOnCanvas": "Put on canvas",
+            "putOnCanvas": "Show on canvas",
             "lockAll": "Lock everything",
             "unlockAll": "Unlock everything",
             "zoomToFit": "Zoom to fit",
@@ -895,7 +895,7 @@
         "makeProject": "Make a Project…",
         "moveToProject": "Move to Project",
         "otherProject": "Other Project…",
-        "putOnCanvas": "Put on Canvas",
+        "putOnCanvas": "Show on Canvas",
         "share": "Share with Your Team",
         "unshare": "Keep to Yourself",
         "viewSettings": "View Settings…",
@@ -1085,5 +1085,11 @@
         },
         "sending": "Sending {{size}}…",
         "handoffIntro": "A new chat on {{machine}} starts from a transcript of {{title}} and works in a checkout there. Ruimte sends nothing until you write the next message."
+    },
+    "editorMenu": {
+        "goToDeclaration": "Go to declaration",
+        "inlineEdit": "Inline edit",
+        "selectionToChat": "Add selection to chat",
+        "askAgent": "Ask an agent"
     }
 }

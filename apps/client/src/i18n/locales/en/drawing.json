@@ -125,7 +125,9 @@
         "bringToFront": "Bring to front",
         "sendToBack": "Send to back",
         "lock": "Lock",
-        "unlock": "Unlock"
+        "unlock": "Unlock",
+        "arrange": "Arrange",
+        "zoom": "Zoom"
     },
     "empty": {
         "description": "Nothing drawn yet. Choose a tool with <tools/> or paste shapes from another drawing with <paste/>."

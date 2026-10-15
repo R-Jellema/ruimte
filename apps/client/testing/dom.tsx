@@ -93,3 +93,11 @@ export async function clickOn(element: Element | null): Promise<void> {
         (element as HTMLElement).click();
     });
 }
+
+/* Opens the submenu behind the row that says `label` in a menu that is open, the way a click on its trigger does. */
+export async function openSubmenu(label: string): Promise<void> {
+    const before = document.querySelectorAll('[role="menu"]').length;
+    const trigger = ([...document.querySelectorAll('[role="menuitem"][aria-haspopup]')] as HTMLElement[]).find((item) => item.textContent?.includes(label)) ?? null;
+    await clickOn(trigger);
+    await until(() => document.querySelectorAll('[role="menu"]').length > before);
+}

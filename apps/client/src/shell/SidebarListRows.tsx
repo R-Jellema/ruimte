@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent as ReactKeyboardEvent, type ReactElement, type ReactNode } from 'react';
-import { AppWindow, ChevronRight, Globe, PanelTop, Pencil, Trash, TriangleAlert, Users } from 'lucide-react';
+import { ChevronRight, Globe, PanelTop, Pencil, Trash, TriangleAlert, Users } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { MAX_TITLE_LENGTH } from '@ruimte/actions';
@@ -27,8 +27,7 @@ import { ViewGlyph } from '@/project/ViewGlyph';
 import { Tooltip, Icon, Input, ListRow, ContextMenu, SectionLabel } from '@adecore/ui';
 import { wantsNewTab } from '@/shell/tab-drop';
 import { isApplePlatform } from '@/desktop/bridge';
-import { FolderMenuItems } from '@/shell/FolderMenuItems';
-import { canOpenWindows, moveToNewWindow, openInNewWindow } from '@/project/windows';
+import type { ProjectMenuRow } from '@/project/list';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import { useServers } from '@/state/server';
@@ -346,6 +345,7 @@ export function SubheaderRow({ row, tabbable, onFocus, onArrow, onDelete, onDrag
                 <ContextMenu.Item onClick={() => rename(true)}>
                     <Icon icon={Pencil} size={14} /> {t('common:action.rename')} <ContextMenu.Hint>{t('sidebar.doubleClick')}</ContextMenu.Hint>
                 </ContextMenu.Item>
+                <ContextMenu.Separator />
                 <ContextMenu.Item className="text-status-error" onClick={onDelete}>
                     <Icon icon={Trash} size={14} /> {t('common:action.delete')}
                 </ContextMenu.Item>
@@ -518,7 +518,7 @@ export function ViewRow({ row, tabbable, onFocus, onArrow, onToggle, onDrag }: V
     );
 }
 
-export function ProjectHeading({ group, tabbable, onFocus, onArrow }: RowProps & { group: SidebarGroup }) {
+export function ProjectHeading({ group, tabbable, onFocus, onArrow, menu }: RowProps & { group: SidebarGroup; menu(row: ProjectMenuRow): ReactNode }) {
     const { t } = useTranslation('shell');
     const machineIcon = useServers((state) => state.byEndpoint[group.endpointId]?.icon ?? null);
     const collapse = (value: boolean) => useSidebarProjects.getState().collapse(group.key, value);
@@ -573,20 +573,7 @@ export function ProjectHeading({ group, tabbable, onFocus, onArrow }: RowProps &
                 </ContextMenu.Trigger>
             </MaybeTooltip>
             <ContextMenu.Popup>
-                {canOpenWindows() && (
-                    <>
-                        <ContextMenu.Item
-                            disabled={!group.active && !group.summary.available}
-                            onClick={() => (group.active ? void moveToNewWindow() : openInNewWindow(group.endpointId, group.summary.projectId))}
-                        >
-                            <Icon icon={AppWindow} size={14} /> {t(group.active ? 'projectMenu.moveToNewWindow' : 'projectMenu.openInNewWindow')}
-                        </ContextMenu.Item>
-                        <ContextMenu.Separator />
-                    </>
-                )}
-                {group.summary.scratch !== true && (
-                    <FolderMenuItems endpointId={group.endpointId} folder={group.summary.folder} connected={group.state !== 'offline'} />
-                )}
+                {menu({ endpointId: group.endpointId, machineLabel: group.machineLabel, connected: group.state !== 'offline', summary: group.summary })}
             </ContextMenu.Popup>
         </ContextMenu.Root>
     );

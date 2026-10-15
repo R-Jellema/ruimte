@@ -44,6 +44,7 @@ import { openSidebarTarget } from './sidebar-navigation';
 import { buildCombinedSidebar, buildSidebarEverywhere, type SidebarGroup, type SidebarRow } from './sidebar-rows';
 import { NeedsYouCard } from './NeedsYouCard';
 import { BackgroundRow, MaybeTooltip, NodeRow, ProjectHeading, SeparatorRow, SubheaderRow, UnknownViewRow, ViewRow } from '@/shell/SidebarListRows';
+import { useProjectMenu } from '@/shell/project-menu-model';
 
 /* How wide the list is when it is open. The inner column keeps this width while the wrapper
    animates to zero, so nothing reflows on the way out. */
@@ -98,6 +99,7 @@ export function Sidebar() {
     const shared = useDocument(useShallow((state) => state.shared));
     const flags = useDocument((state) => state.flags);
     const endpointId = useEndpointId();
+    const projectMenu = useProjectMenu();
     const sessions = useSessions((s) => s.byKey);
     const chats = useChats((s) => s.statusByKey);
     const drafts = useDrafts((s) => s.ids);
@@ -389,6 +391,7 @@ export function Sidebar() {
                                     {section.group && (
                                         <ProjectHeading
                                             group={section.group}
+                                            menu={(row) => projectMenu.actionsOf(row)}
                                             tabbable={roving === `project:${section.id}`}
                                             onFocus={() => setRovingId(`project:${section.id}`)}
                                             onArrow={moveFocus}
@@ -513,6 +516,7 @@ export function Sidebar() {
                     />
                 </div>
             </div>
+            {projectMenu.dialogs}
         </aside>
     );
 }

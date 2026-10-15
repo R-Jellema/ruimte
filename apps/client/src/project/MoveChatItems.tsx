@@ -16,8 +16,8 @@ interface MoveChatItemsProps {
 }
 
 /*
- * Making a project of a chat in Chats, or moving it into one: the dialog does the asking, so a row only
- * says where it starts. Both are off while the chat works, with the reason on a tooltip.
+ * Making a project of a chat in Chats, or moving it into one, under one row: the dialog does the asking,
+ * so a row only says where it starts. The row is off while the chat works, with the reason on a tooltip.
  */
 export function MoveChatItems({ chatId, endpointId, working }: MoveChatItemsProps) {
     const { t } = useTranslation('shell');
@@ -27,29 +27,25 @@ export function MoveChatItems({ chatId, endpointId, working }: MoveChatItemsProp
     const reason = working ? t('viewMenu.moveWhileWorking') : null;
     const ask = (mode: 'make' | 'pick', projectId: string | null): void => useUi.getState().setMoveChatDialog({ chatId, mode, projectId });
     return (
-        <>
+        <Menu.SubmenuRoot>
             <DisabledReason reason={reason}>
-                <Menu.Item disabled={working} onClick={() => ask('make', null)}>
+                <Menu.SubmenuTrigger disabled={working}>
+                    <Icon icon={FolderInput} size={14} /> {t('viewMenu.moveToProject')}
+                </Menu.SubmenuTrigger>
+            </DisabledReason>
+            <Menu.Popup className="min-w-52">
+                <Menu.Item onClick={() => ask('make', null)}>
                     <Icon icon={FolderPlus} size={14} /> {t('viewMenu.makeProject')}
                 </Menu.Item>
-            </DisabledReason>
-            <Menu.SubmenuRoot>
-                <DisabledReason reason={reason}>
-                    <Menu.SubmenuTrigger disabled={working}>
-                        <Icon icon={FolderInput} size={14} /> {t('viewMenu.moveToProject')}
-                    </Menu.SubmenuTrigger>
-                </DisabledReason>
-                <Menu.Popup className="min-w-52">
-                    {targets.map((summary) => (
-                        <Menu.Item key={summary.projectId} onClick={() => ask('pick', summary.projectId)}>
-                            <ProjectGlyph projectId={summary.projectId} endpointId={endpointId} icon={summary.icon} color={summary.color} />
-                            <span className="truncate">{summary.name}</span>
-                        </Menu.Item>
-                    ))}
-                    {targets.length > 0 && <Menu.Separator />}
-                    <Menu.Item onClick={() => ask('pick', null)}>{t('viewMenu.otherProject')}</Menu.Item>
-                </Menu.Popup>
-            </Menu.SubmenuRoot>
-        </>
+                <Menu.Separator />
+                {targets.map((summary) => (
+                    <Menu.Item key={summary.projectId} onClick={() => ask('pick', summary.projectId)}>
+                        <ProjectGlyph projectId={summary.projectId} endpointId={endpointId} icon={summary.icon} color={summary.color} />
+                        <span className="truncate">{summary.name}</span>
+                    </Menu.Item>
+                ))}
+                <Menu.Item onClick={() => ask('pick', null)}>{t('viewMenu.otherProject')}</Menu.Item>
+            </Menu.Popup>
+        </Menu.SubmenuRoot>
     );
 }

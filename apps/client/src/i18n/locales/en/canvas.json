@@ -102,14 +102,18 @@
         "openInTerminal": "Open in terminal",
         "openAsView": "Open as view",
         "openAsViewHint": "Keeps its session",
-        "reveal": "Reveal in {{app}}",
         "startAgentFromNote": "Start agent from note",
         "noteColor": "Note color",
         "color": "Color",
         "noAccent": "None",
         "stopPrWatch": "Stop watching pull request",
         "stopWaiting": "Stop waiting",
-        "makeDefaultSize": "Make this the default size"
+        "makeDefaultSize": "Make this the default size",
+        "conversation": "Conversation",
+        "worktree": "Worktree",
+        "sizeAndPosition": "Size and position",
+        "clearAsking": "Clear…",
+        "openIn": "Open in {{app}}"
     },
     "kinds": {
         "terminal": "Terminal",
@@ -241,7 +245,7 @@
     },
     "terminal": {
         "links": {
-            "previewFile": "Open file in preview",
+            "previewFile": "Open in preview",
             "openFile": "{{modifier}}+click to open file in preview",
             "open": "{{modifier}}+click to open in your browser",
             "openInRuimte": "{{modifier}}+click to open in Ruimte",

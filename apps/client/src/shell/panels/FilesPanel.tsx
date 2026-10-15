@@ -8,7 +8,6 @@ import { FileTree, useFileTree } from '@adecore/ui';
 import {
     ChevronsDownUp,
     ChevronsUpDown,
-    Columns2,
     CornerUpRight,
     FileDiff,
     FileSearch,
@@ -16,7 +15,6 @@ import {
     Folder,
     FolderOpen,
     FolderPlus,
-    Frame,
     MoreHorizontal,
     Pencil,
     RefreshCw,
@@ -25,10 +23,9 @@ import {
 } from 'lucide-react';
 import { PATHS_DRAG_TYPE } from '@/canvas/drop';
 import { writeMentionDrag } from '@adecore/agents-react/chat';
-import { createViewAction } from '@/actions/client-actions';
-import { showFileOnCanvas } from '@/project/views';
 import { FILE_TOOLBAR } from '@/shell/panels/classes';
 import { FileSearch as FileSearchFlow, type FileSearchResult } from './file-search';
+import { FileActionItems } from '@/shell/panels/FileActionItems';
 import { FileCopyRow } from '@/shell/panels/FileCopyRow';
 import {
     creationParentOf,
@@ -61,7 +58,6 @@ import {
     sameEntries,
     type EntryCache
 } from '@/shell/panels/files-tree';
-import { hasActiveCanvas, useDocument } from '@/state/document';
 import { useFiles } from '@/state/files';
 import { folderWatches } from '@/state/fs-watch';
 import { useGit } from '@/state/git';
@@ -111,7 +107,6 @@ const EMPTY_CACHE: EntryCache = new Map();
 export function FilesPanel() {
     const { t } = useTranslation('panels');
     const folder = useProject((s) => s.current?.folder ?? null);
-    const onCanvas = useDocument(hasActiveCanvas);
     const platform = useServer((s) => s.platform);
     const showHidden = useSettings((s) => s.filesShowHidden);
     const endpointId = useEndpointId();
@@ -794,7 +789,10 @@ export function FilesPanel() {
                         >
                             {manyTargets ? (
                                 <>
+                                    <FileCopyRow targets={copyTargets} />
+                                    <ContextMenu.Separator />
                                     <ContextMenu.Item
+                                        className="text-status-error"
                                         onClick={() =>
                                             folder &&
                                             setDeleting({
@@ -805,20 +803,11 @@ export function FilesPanel() {
                                     >
                                         <Icon icon={Trash2} size={14} /> {t('files.deleteMany', { count: menuTargets.length })}
                                     </ContextMenu.Item>
-                                    <ContextMenu.Separator />
-                                    <FileCopyRow targets={copyTargets} />
                                 </>
                             ) : (
                                 <>
-                                    <ContextMenu.Item onClick={() => startFromMenu('file', creationParentOf(menuPath))}>
-                                        <Icon icon={FilePlus} size={14} /> {t('files.create.file')}
-                                    </ContextMenu.Item>
-                                    <ContextMenu.Item onClick={() => startFromMenu('directory', creationParentOf(menuPath))}>
-                                        <Icon icon={FolderPlus} size={14} /> {t('files.create.folder')}
-                                    </ContextMenu.Item>
                                     {menuPath !== null && (
                                         <>
-                                            <ContextMenu.Separator />
                                             <ContextMenu.Item onClick={onMenuPath((_absolute, treePath) => openPath(treePath))}>
                                                 <Icon icon={FolderOpen} size={14} /> {t('common:action.open')}
                                             </ContextMenu.Item>
@@ -827,28 +816,6 @@ export function FilesPanel() {
                                                     <Icon icon={FileDiff} size={14} /> {t('git.list.openChanges')}
                                                 </ContextMenu.Item>
                                             )}
-                                            <ContextMenu.Item
-                                                onClick={onMenuPath((absolute) => {
-                                                    revealFile(transport, absolute);
-                                                })}
-                                            >
-                                                <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
-                                            </ContextMenu.Item>
-                                            {!isDirectoryPath(menuPath) && (
-                                                <>
-                                                    <ContextMenu.Separator />
-                                                    {onCanvas && (
-                                                        <ContextMenu.Item onClick={onMenuPath((absolute) => void showFileOnCanvas(absolute))}>
-                                                            <Icon icon={Frame} size={14} /> {t('file.menu.showOnCanvas')}
-                                                        </ContextMenu.Item>
-                                                    )}
-                                                    <ContextMenu.Item onClick={onMenuPath((absolute) => void createViewAction('file', { path: absolute }))}>
-                                                        <Icon icon={Columns2} size={14} /> {t('file.menu.openAsView')}
-                                                    </ContextMenu.Item>
-                                                </>
-                                            )}
-                                            <ContextMenu.Separator />
-                                            <FileCopyRow targets={copyTargets} />
                                             <ContextMenu.Separator />
                                             <ContextMenu.Item
                                                 onClick={onMenuPath((absolute, treePath) =>
@@ -857,7 +824,35 @@ export function FilesPanel() {
                                             >
                                                 <Icon icon={Pencil} size={14} /> {t('files.rename.menu')}
                                             </ContextMenu.Item>
+                                        </>
+                                    )}
+                                    <ContextMenu.Item onClick={() => startFromMenu('file', creationParentOf(menuPath))}>
+                                        <Icon icon={FilePlus} size={14} /> {t('files.create.file')}
+                                    </ContextMenu.Item>
+                                    <ContextMenu.Item onClick={() => startFromMenu('directory', creationParentOf(menuPath))}>
+                                        <Icon icon={FolderPlus} size={14} /> {t('files.create.folder')}
+                                    </ContextMenu.Item>
+                                    {menuPath !== null && folder !== null && (
+                                        <>
+                                            <ContextMenu.Separator />
+                                            {isDirectoryPath(menuPath) ? (
+                                                <>
+                                                    <ContextMenu.Item
+                                                        onClick={onMenuPath((absolute) => {
+                                                            revealFile(transport, absolute);
+                                                        })}
+                                                    >
+                                                        <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
+                                                    </ContextMenu.Item>
+                                                    <ContextMenu.Separator />
+                                                    <FileCopyRow targets={copyTargets} />
+                                                </>
+                                            ) : (
+                                                <FileActionItems path={absoluteOf(folder, menuPath)} on="files" />
+                                            )}
+                                            <ContextMenu.Separator />
                                             <ContextMenu.Item
+                                                className="text-status-error"
                                                 onClick={onMenuPath((absolute, treePath) =>
                                                     setDeleting({ absolutes: [absolute.replace(/\/+$/, '')], directory: isDirectoryPath(treePath) })
                                                 )}
