@@ -1,7 +1,91 @@
-# Device acceptance
+# Acceptance
 
-Manual checks that unit tests, simulators and CI cannot settle. Each list stays open until someone ran it on real
-hardware and wrote down the result. Remove an item once it passed; record measurements in the table beside it.
+Manual checks that unit tests, simulators and CI cannot settle: the desktop app, devices, real networks, real
+accounts and what is deployed. Each item stays open until someone ran it and wrote down the result. Remove an item
+once it passed, file a defect when it did not, and record measurements in the table beside it. Open implementation
+is in [NEXT.md](NEXT.md).
+
+## Desktop, 0.19.0
+
+In the Electron dev app (`bun dev`), light and dark, unless an item says otherwise. The iOS commits of 0.19.0 go out
+with the next push to main, which starts Xcode Cloud.
+
+- [ ] A node on another machine: the pill, the narrow header and the offline card; its menu group on a private
+  canvas, and a shared canvas that cannot hold it; the dialog in its four Checkout states; Create closes at once,
+  also with a slow or failing address book; the linked projects under Settings > Machines.
+- [ ] Send your files to the other machine with its progress, then "Bring back" into the merge dialog. Fork a chat
+  to another machine.
+- [ ] `ruimte-context agent claude --machine <name> --task T --prompt P` while the other machine sleeps: the parent
+  shows "Waiting for ...", the child "not started", "Stop waiting" asks first and stops the task. Wake the machine:
+  the task starts by itself, the branch comes back and the parent wakes once. Several waiting tasks show their number.
+- [ ] A Codex or terminal task for another machine is refused with a line a person understands. Stop a task on the
+  machine that runs it, then unlink its project: the parent hears what happened each time. Remove the other
+  machine's access under Settings > Apps with access and check that its confirm text matches what happens.
+- [ ] `RUIMTE_MACHINE=none bun dev`: no "Stop the Machine and Quit", quitting asks nothing, the start screen leads
+  with "Sign in", no "This machine", no Keep awake. First run (`ask`): the welcome, focus ring and arrow keys, "Use
+  this machine" while the service installs, the task list after the restart. Settings > Machines > This computer:
+  "Set up", the computer use row and the stop dialog with real counts and its restart.
+- [ ] A packaged app in `none` on a clean macOS user: no `~/.ruimte`, no Ruimte plist in `~/Library/LaunchAgents`,
+  nothing on port 4210; "Set up" brings them back. The same switch both ways with the Linux AppImage.
+- [ ] Move a chat into a project: "Make project" and "Move" in Chats, the view menu, the menu bar and the palette,
+  disabled while the chat works. A new folder with its own files: the window lands in the project and the next
+  message runs there. A project open in a second window comes to the front. The refused, conflict, references,
+  loading and smallest-width states.
+- [ ] Terminal and chat: Clear in a terminal node's menus sends one clear and in a chat node's menu ends its
+  children; find in a terminal node and view; a Finder drop types the quoted path and makes no file node, and on a
+  remote project shows a toast; wide characters and emoji stay aligned after a resize; Continue after a stop; a
+  stashed prompt keeps its attached chats.
+- [ ] With a v0.17.1 daemon on the dev port: the older-Ruimte line on the start screen row, in Settings > Machines and
+  on an open project's lost screen, and everything opens again after switching back without a reload.
+- [ ] Intelligent UI: a device shot attached with `ruimte-context chat attach`; the "Map tiles" row; the Utrecht
+  example with four markers and the list, zoom buttons, command-scroll zooming and plain scroll moving the thread;
+  tiles off and airplane mode. Timeline, Gallery, Compare, TextField and Select once in a narrow window too.
+- [ ] After the ADE CORE 0.25 cleanup: a finished `bash` block still shows "Prepare in terminal" beside Copy, the
+  editor opens a file with hover and completion, and the database panel and the usage dialog open.
+
+## Desktop
+
+- [ ] The ADE CORE cutover, visually and with a screen reader: file navigation and selection, staged and mixed Git
+  checkboxes, menus and drags, editor typing, undo and search, language popups and AI actions; tabs with browser and
+  terminal state, unsaved database work, gap undo at 50% and 200% zoom, trackpad selection, browser and device pan
+  ownership, the model chart by keyboard and touch.
+- [ ] Two windows: two projects side by side, with menus, dialogs, browser guests, notifications, shared settings and
+  project claims from both; reload and reopen with project addresses and window bounds, also with a removed display;
+  close a window and its sessions survive; unsaved edits during a window move.
+- [ ] Editor and language servers: zoomed file nodes, navigation to unopened files, multi-file create and rename
+  edits, stale results, crash and restart, local and remote clients; install, update, rebuild and previous version
+  with real server binaries.
+- [ ] Earlier manual cases, after checking existing results: approval focus, sleep and reconnect, quit with no open
+  window, preview script redirects, dictation and Voice across windows, resolve-with-agent through stdin, first
+  service start on a fresh Mac, AppImage quit and daemon-crash recovery, cancellation during long computer or device
+  input, wireless device streaming, terminal file links and port chips on a remote machine.
+- [ ] The October 2 audit scenarios against current code: ACT-04, NAT-05, CLI-04, SRV-05, AGT-03, ACT-02, ACT-08,
+  CLI-03, and the iOS fixtures in UnifiedProjectsTests, WorkspaceVisualTests, SessionVisualTests,
+  AttentionStoreTests and PhaseZeroTests.
+
+## Accounts and networks
+
+- [ ] Two real Claude account folders keep separate logins after a restart of the daemon, the app and the Mac, each
+  with its own email; a real Codex conversation continues on another account in the same thread ("Continue on
+  account"). Record versions; never read a vendor credential.
+- [ ] Login from the iPhone and the station for each provider: what works, and what a browser on another machine
+  than the CLI needs.
+- [ ] An expired station login at cold start and during reconnect shows the reason and a working sign-in.
+- [ ] Audio in the dev app over a socket and a direct connection: seek, reconnect, repeated playback.
+- [ ] TURN on real carrier-grade NAT: the selected route, throughput and latency.
+- [ ] The LAN door on a fresh Linux machine: login, connection, and whether its firewall asks.
+- [ ] What runs: broker, address book (peer statement route, migration 0016), map service (`TOMTOM_API_KEY`, the same
+  `MAP_TICKET_SECRET` as the address book, a usage alert at TomTom), station, desktop and iOS versions against their
+  upgrade rules; a bounded TURN allocation test. Read TomTom's terms on caching tiles at the edge.
+- [ ] Linux packages: deb on Debian trixie and Ubuntu noble, arm64, the AppImage on Ubuntu, GNOME and KDE, X11 and
+  Wayland.
+
+## Captured when they occur
+
+Nobody spends budget to force these; keep a capture with a bounded probe against the current packages.
+
+- [ ] A natural provider limit and reset sequence.
+- [ ] Early metadata before a tool, or a child's model changing mid-run.
 
 ## iPhone and iPad
 
@@ -56,6 +140,12 @@ Features, in a disposable project where something writes:
   find it in the machine's Trash. Mention a file in a chat that is open and in one that is not. Bind a group to a
   worktree and start a chat in it on the desktop. Stop a rebase halfway and finish it from the Changes segment.
 - [ ] VoiceOver and larger text on the main pages, the chat and the composer.
+- [ ] Visual replies in both themes, links opening in Safari, and the machine's off switch; the same on the desktop
+  and the station.
+- [ ] The appearance review of every Intelligent UI element against the desktop, in light, dark, narrow and with
+  accessibility settings; file what differs in NEXT.md.
+- [ ] The app's own test target on CI or a Mac beside the Swift package tests, and the other consumers of
+  `@adecore/intelligent-ui` against the published release.
 - [ ] Intelligent UI blocks in a chat, on a device. Timeline: VoiceOver reads time, title and tone per
   event. Gallery: three device shots attached with `ruimte-context chat attach` show as a grid. Compare:
   the handle drags and VoiceOver adjusts it. TextField and Select take input, refuse text over the
@@ -73,7 +163,7 @@ Features, in a disposable project where something writes:
 ## Work on another machine
 
 Two machines of one account, such as the Linux workstation (the machine you work on) and the MacBook (the machine
-that takes the task). The checks in the desktop app are in [NEXT.md](NEXT.md), package 18.
+that takes the task). The checks in the desktop app are under "Desktop, 0.19.0" above.
 
 - [ ] The Docker bench on a host with Docker: `bun run --cwd apps/server docker:test` sets `RUIMTE_DOCKER=1` and
   runs `src/docker/remote-daemon.integration.test.ts` against a container of its own. All cases pass, those of
@@ -85,10 +175,13 @@ that takes the task). The checks in the desktop app are in [NEXT.md](NEXT.md), p
 
 ## Intelligent UI evaluation
 
-- [ ] The evaluation set of `docs/NEXT.md` (package 12, item 6) with the new questions: an incident timeline,
-  a gallery of device shots, a coffee map and a search form. Three runs per CLI and model, with versions,
-  language, fresh start or resume, compiles without diagnostics, empty renders and prompt cost. A map is
-  accepted at 18 compiles out of 20.
+- [ ] Twenty real work questions per CLI and model, three runs each, with no syntax hint in the prompt, including an
+  incident timeline, a gallery of device shots, a coffee map and a search form. The note names components and their
+  required props per group, within 4,400 added characters (`context-note.test.ts`). Record CLI and model versions,
+  language, fresh start or resume, compiles without diagnostics, empty renders, block or prose, and prompt cost. A
+  map is accepted at 18 compiles out of 20; a recurring failure gets a catalog rule and a regression test.
+- [ ] Cold replay, several concurrent chats and recorded real answers: agree on the limit first, then record input
+  size, hardware, runtime, samples, medians and tails.
 
 ## Push notifications
 

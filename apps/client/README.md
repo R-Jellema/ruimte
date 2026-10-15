@@ -134,7 +134,7 @@ model is unavailable when it is. The [daemon's on-device documentation](../serve
 describes the helper and transport.
 
 Remaining acceptance, formatter choices and feature limits are in
-[NEXT.md](../../docs/NEXT.md#15-editor-and-language-servers). Shared editor behavior belongs
+[NEXT.md](../../docs/NEXT.md#15-language-servers). Shared editor behavior belongs
 in ADE CORE's package documentation.
 
 ## Icons
