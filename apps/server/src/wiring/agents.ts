@@ -7,6 +7,7 @@ import { startCwdGuard } from '../canvas/project-paths.ts';
 import { ChatManager } from '../chat/chat-manager.ts';
 import { ruimteUiSources } from '../chat/ui-sources.ts';
 import { restartConnectPeers } from '../remote/connect-peer.ts';
+import { RuimteTaskStore } from '../tasks/task-store.ts';
 import { OneShotPlace } from '../peering/one-shot-place.ts';
 import { UntrustedFolders } from '../peering/untrusted.ts';
 import type { ComputerUse } from '../computer/computer-use.ts';
@@ -67,7 +68,7 @@ export async function loadAgentStores(home: string): Promise<AgentStores> {
     // And for the agents a verb made that the daemon still has to start.
     const outbox = new OutboxStore(home);
     // And for the tasks a chat gave, whose results still have to wake it.
-    const tasks = new TaskStore(home);
+    const tasks = new RuimteTaskStore(home);
     // And for the commands a person let a terminal type, which a node's first start asks about.
     const commandApprovals = new CommandApprovals(home);
     // And for the mode a person gave each terminal agent, which an edit of the project file cannot widen.
