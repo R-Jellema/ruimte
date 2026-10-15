@@ -4,7 +4,7 @@ import { VerbRefusal } from '../canvas/verb.ts';
 import type { ServerActionContext } from './context.ts';
 
 export const projectProposalActions: ActionHandlers<ServerActionContext> = {
-    'project.propose': async ({ name, folder, reason, wait }, { actor, context }) => {
+    'project.propose': async ({ name, folder, reason }, { actor, context }) => {
         const { proposals } = context.host;
         if (!proposals) {
             throw new VerbRefusal('no-proposals', 'This machine keeps no suggestions of projects');
@@ -18,7 +18,7 @@ export const projectProposalActions: ActionHandlers<ServerActionContext> = {
         if (folder && !isAbsolutePath(folder)) {
             throw new VerbRefusal('folder-not-absolute', `${folder} is not an absolute path; name the full folder on this machine, or leave --folder out`);
         }
-        const answer = await proposals.propose({ chatId: actor.id, name, ...(folder ? { folder } : {}), reason }, wait ? wait * 1000 : undefined);
+        const answer = await proposals.propose({ chatId: actor.id, name, ...(folder ? { folder } : {}), reason });
         return { output: answer };
     }
 };

@@ -206,7 +206,7 @@ export interface SecretHost {
 export interface ProposalHost {
     /* Whether the chat is a chat view of the Chats project, the only place a project is suggested from. */
     inChats(chatId: string): boolean;
-    propose(ask: ProposalAsk, waitMs?: number): Promise<ProposalAnswer>;
+    propose(ask: ProposalAsk): Promise<ProposalAnswer>;
 }
 
 export type LanguageAgentHost = Pick<AgentLanguage, 'diagnostics' | 'hover' | 'definition' | 'references' | 'symbols' | 'sqlFile'>;

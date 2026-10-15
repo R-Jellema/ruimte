@@ -4,13 +4,6 @@ import { ClientSinks } from '../client-sinks.ts';
 import { realTimers, type Timers } from '../computer/approvals.ts';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 
-/*
- * How long a verb holds its call while the card is up, unless the agent asks for longer with `--wait`.
- * Some agent CLIs end a shell command after 10 s unless the model asked for more; past this the agent
- * hears `waiting` and asks again, which joins the same card.
- */
-export const PROPOSAL_WAIT_MS = 6_000;
-
 /* A card is a suggestion to think over, so it outlasts the turn that raised it; a day without a new ask takes it down. */
 export const PROPOSAL_CARD_MS = 24 * 60 * 60_000;
 
@@ -40,13 +33,11 @@ export interface ProjectProposalsOptions {
     chats: ProposalChats;
     now?: () => number;
     timers?: Timers;
-    waitMs?: number;
     cardMs?: number;
 }
 
 interface Pending {
     proposal: ProjectProposal;
-    waiters: Set<(answer: ProposalAnswer) => void>;
     cancelExpiry: () => void;
 }
 
@@ -58,14 +49,14 @@ function holdKeyOf(proposalId: string): string {
  * The cards in which an agent in Chats suggests that its chat becomes a project. One card per chat,
  * so an agent that suggests again joins the card that stands. It goes to every client; whoever
  * answers first settles it. Nothing is made here: the person reviews it in the dialog that moves a
- * chat, and a move of that chat settles the card as `moved`. An answer the call that waited missed
- * reaches the agent on its next suggestion, once.
+ * chat, and a move of that chat settles the card as `moved`. A suggestion never waits for the person,
+ * since a call that holds the turn open blocks the very move the card offers; an answer reaches the
+ * agent on its next suggestion, once.
  */
 export class ProjectProposals {
     private readonly chats: ProposalChats;
     private readonly now: () => number;
     private readonly timers: Timers;
-    private readonly waitMs: number;
     private readonly cardMs: number;
     private readonly sinks = new ClientSinks();
     private readonly pending = new Map<string, Pending>();
@@ -75,7 +66,6 @@ export class ProjectProposals {
         this.chats = options.chats;
         this.now = options.now ?? Date.now;
         this.timers = options.timers ?? realTimers;
-        this.waitMs = options.waitMs ?? PROPOSAL_WAIT_MS;
         this.cardMs = options.cardMs ?? PROPOSAL_CARD_MS;
     }
 
@@ -83,26 +73,14 @@ export class ProjectProposals {
         return this.sinks.subscribe(clientId, sink);
     }
 
-    /* Raises the card, or joins the one that stands, and holds for the answer for `waitMs`. */
-    ask(ask: ProposalAsk, waitMs: number = this.waitMs): Promise<ProposalAnswer> {
+    /* Raises the card, or joins the one that stands, and answers `waiting` at once; an answer nobody heard yet comes instead, once. */
+    ask(ask: ProposalAsk): ProposalAnswer {
         const told = this.unheard.get(ask.chatId);
         if (told !== undefined && !this.pending.has(ask.chatId)) {
             this.unheard.delete(ask.chatId);
-            return Promise.resolve(told);
+            return told;
         }
-        const pending = this.raise(ask);
-        return new Promise((resolve) => {
-            const done = (answer: ProposalAnswer): void => {
-                cancel();
-                pending.waiters.delete(done);
-                resolve(answer);
-            };
-            const cancel = this.timers.set(() => {
-                pending.waiters.delete(done);
-                resolve({ proposalId: pending.proposal.proposalId, outcome: 'waiting', projectId: null });
-            }, waitMs);
-            pending.waiters.add(done);
-        });
+        return { proposalId: this.raise(ask).proposal.proposalId, outcome: 'waiting', projectId: null };
     }
 
     list(): ProjectProposal[] {
@@ -204,7 +182,6 @@ export class ProjectProposals {
                 createdAt: now,
                 expiresAt: now + this.cardMs
             },
-            waiters: new Set(),
             cancelExpiry: () => undefined
         };
         pending.cancelExpiry = this.expireLater(pending);
@@ -218,7 +195,7 @@ export class ProjectProposals {
         return this.timers.set(() => this.settle(pending, { proposalId: pending.proposal.proposalId, outcome: 'cancelled', projectId: null }), this.cardMs);
     }
 
-    /* The waiting call hears the answer; with none waiting the agent's next suggestion does. */
+    /* The agent hears the answer with its next suggestion, unless the card only lapsed. */
     private settle(pending: Pending, answer: ProposalAnswer): void {
         const { chatId, proposalId } = pending.proposal;
         if (this.pending.get(chatId) !== pending) {
@@ -227,11 +204,8 @@ export class ProjectProposals {
         pending.cancelExpiry();
         this.pending.delete(chatId);
         this.chats.release(chatId, holdKeyOf(proposalId));
-        if (pending.waiters.size === 0 && answer.outcome !== 'cancelled') {
+        if (answer.outcome !== 'cancelled') {
             this.unheard.set(chatId, answer);
-        }
-        for (const waiter of [...pending.waiters]) {
-            waiter(answer);
         }
         this.publish();
     }

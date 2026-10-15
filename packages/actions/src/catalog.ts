@@ -584,14 +584,7 @@ export const ACTION_DEFINITIONS = {
                 .max(PROJECT_PROPOSAL_LIMITS.folder)
                 .nullish()
                 .describe('An absolute folder on this machine the project would live in; the person picks one when it is left out'),
-            reason: z.string().trim().min(1).max(PROJECT_PROPOSAL_LIMITS.reason).describe('Why the work is a project now, in one or two sentences'),
-            wait: z
-                .number()
-                .int()
-                .min(1)
-                .max(110)
-                .nullish()
-                .describe('Seconds the call holds for the answer; 6 without it. A card that still waits after that is answered by asking again')
+            reason: z.string().trim().min(1).max(PROJECT_PROPOSAL_LIMITS.reason).describe('Why the work is a project now, in one or two sentences')
         }),
         // What became of the card; `moved` carries the project the chat now lives in.
         output: z.object({

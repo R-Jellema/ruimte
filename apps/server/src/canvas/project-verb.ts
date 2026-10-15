@@ -17,18 +17,18 @@ function textFlag(flag: string, max: number, what: string) {
 const proposeAction = defineActionVerb('project', {
     name: 'propose',
     action: 'project.propose',
-    usage: '--name <text> --reason <text> [--folder <path>] [--wait S]',
+    usage: '--name <text> --reason <text> [--folder <path>]',
     params: [
         { syntax: '--name <text>', need: 'required', field: 'name' },
         { syntax: '--reason <text>', need: 'required', field: 'reason' },
-        { syntax: '--folder <path>', need: 'optional', field: 'folder', more: 'absolute, on this machine; the person picks one when you leave it out' },
-        { syntax: '--wait S', need: 'optional', field: 'wait', more: 'give your shell command a timeout above it, since some CLIs end one after 10 s' }
+        { syntax: '--folder <path>', need: 'optional', field: 'folder', more: 'absolute, on this machine; the person picks one when you leave it out' }
     ],
     detail: [
         'prints\tproposal\tid\toutcome\tproject id\twhat became of the card',
-        'outcome\tmoved\tthe person made the project and this chat lives in it now: it works in the project folder from its next turn',
-        'outcome\tdeclined\tthe person said no: go on in Chats, and do not suggest it again unless something changed',
-        'outcome\twaiting\tthe card still stands: you can end your turn, the person answers when they see it, or run the same command again to keep waiting, with --wait up to 110',
+        'outcome\twaiting\tthe card stands in your chat and the command does not wait for it: go on or end your turn, since a command that holds your turn would block the very move the card offers',
+        'answer\tThe person answers on the card. A move shows in your next turn, which runs in the new folder; a decline closes the card',
+        'outcome\tmoved\tonly on a later suggestion: the person made the project and this chat lives in it now, working in the project folder',
+        'outcome\tdeclined\tonly on a later suggestion: the person said no, so go on in Chats and do not suggest it again unless something changed',
         `outcome\tcancelled\tthe chat stopped before an answer, or nobody answered within ${PROJECT_CARD_HOURS} hours of your last suggestion`,
         'again\tSuggesting again from the same chat is the same card, with the new name, folder and reason; an answer that came while nobody waited is told once',
         'makes\tNothing: the person reviews the name and folder in a dialog and decides; the chat keeps its conversation when it moves',
@@ -39,20 +39,13 @@ const proposeAction = defineActionVerb('project', {
     flags: z.object({
         name: textFlag('name', PROJECT_PROPOSAL_LIMITS.name, 'the name of the project'),
         reason: textFlag('reason', PROJECT_PROPOSAL_LIMITS.reason, 'why this is a project now'),
-        folder: z.string().trim().min(1).max(PROJECT_PROPOSAL_LIMITS.folder, `--folder is at most ${PROJECT_PROPOSAL_LIMITS.folder} characters`).optional(),
-        wait: z
-            .string()
-            .regex(/^\d+$/, '--wait takes a whole number of seconds')
-            .transform(Number)
-            .refine((value) => value >= 1 && value <= 110, '--wait is between 1 and 110')
-            .optional()
+        folder: z.string().trim().min(1).max(PROJECT_PROPOSAL_LIMITS.folder, `--folder is at most ${PROJECT_PROPOSAL_LIMITS.folder} characters`).optional()
     }),
     async run({ flags }, call) {
         const result = await runAction(call, 'project.propose', {
             name: flags.name,
             reason: flags.reason,
-            folder: flags.folder ?? null,
-            wait: flags.wait ?? null
+            folder: flags.folder ?? null
         });
         return [`proposal\t${result.proposalId}\t${result.outcome}\t${result.projectId ?? '-'}`];
     }

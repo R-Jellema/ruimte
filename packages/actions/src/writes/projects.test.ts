@@ -43,8 +43,7 @@ describeWrites('projects', {
         input: { name: 'Vinyl shelf', folder: '/work/vinyl-shelf', reason: 'The notes became a codebase' },
         refused: {
             'a blank name': { name: ' ', reason: 'The notes became a codebase' },
-            'no reason': { name: 'Vinyl shelf' },
-            'a wait past what a call holds': { name: 'Vinyl shelf', reason: 'The notes became a codebase', wait: 111 }
+            'no reason': { name: 'Vinyl shelf' }
         }
     },
     'project.delete': {

@@ -97,7 +97,7 @@ export function wireCanvasHost(input: CanvasHostInput): CanvasHost {
             sql: databases.sqlAnalysis
         }),
         secrets: launches.secrets,
-        proposals: { inChats: (chatId) => chatIsInChats(projects, chatId), propose: (ask, waitMs) => agents.proposals.ask(ask, waitMs) },
+        proposals: { inChats: (chatId) => chatIsInChats(projects, chatId), propose: (ask) => Promise.resolve(agents.proposals.ask(ask)) },
         snoozes: work.snoozes
     };
 }

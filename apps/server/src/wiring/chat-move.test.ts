@@ -140,7 +140,7 @@ describe('what the machine says about moving a chat', () => {
         const proposals = new ProjectProposals({
             chats: { hold: (id, key) => void daemon.chats.holdForPerson(id, key), release: (id, key) => daemon.chats.releaseHold(id, key) }
         });
-        const waiting = proposals.ask({ chatId, name: 'Vinyl', reason: 'It grew' }, 30_000);
+        proposals.ask({ chatId, name: 'Vinyl', reason: 'It grew' });
         expect(daemon.chats.get(chatId)?.info.status).toBe('needs-you');
         const handlers = chatMoveHandlers({
             ...daemon,
@@ -155,13 +155,13 @@ describe('what the machine says about moving a chat', () => {
         // Without the wiring that knows the card, the same status is a chat that works.
         expect((await moves().info({ chatId })).refusal).toEqual({ reason: 'working' });
         proposals.moved(chatId, 'project-1');
-        expect((await waiting).outcome).toBe('moved');
+        expect(proposals.ask({ chatId, name: 'Vinyl', reason: 'It grew' })).toMatchObject({ outcome: 'moved', projectId: 'project-1' });
         expect(daemon.chats.get(chatId)?.info.status).not.toBe('needs-you');
     });
 
     describe('moving the chat that holds a card of its own suggestion', () => {
         let proposals: ProjectProposals;
-        let waiting: ReturnType<ProjectProposals['ask']>;
+        let proposalId: string;
 
         const wiring = (): ChatMoveWiring => ({
             ...daemon,
@@ -177,7 +177,7 @@ describe('what the machine says about moving a chat', () => {
             proposals = new ProjectProposals({
                 chats: { hold: (id, key) => void daemon.chats.holdForPerson(id, key), release: (id, key) => daemon.chats.releaseHold(id, key) }
             });
-            waiting = proposals.ask({ chatId, name: 'Vinyl', reason: 'It grew' }, 30_000);
+            ({ proposalId } = proposals.ask({ chatId, name: 'Vinyl', reason: 'It grew' }));
         });
 
         test('makes the project, settles the card as moved and frees the chat', async () => {
@@ -189,7 +189,7 @@ describe('what the machine says about moving a chat', () => {
             });
             expect(result.summary.folder).toBe(folder);
             expect(daemon.chats.get(chatId)?.info.cwd).toBe(folder);
-            expect(await waiting).toMatchObject({ outcome: 'moved', projectId: result.summary.projectId });
+            expect(proposals.ask({ chatId, name: 'Vinyl', reason: 'It grew' })).toEqual({ proposalId, outcome: 'moved', projectId: result.summary.projectId });
             expect(proposals.stands(chatId)).toBe(false);
             expect(daemon.chats.get(chatId)?.thread.held).toBe(false);
         });
