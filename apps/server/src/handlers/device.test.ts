@@ -155,6 +155,20 @@ describe('device handlers', () => {
         expect(new Uint8Array(readFileSync(reply.result.path))).toEqual(png);
     });
 
+    test("keeps a png another machine captured under this machine's captures, whatever the streaming policy, and refuses anything else", async () => {
+        const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 4, 0xb6, 0, 0, 0x0a, 0x3e]);
+        const { dispatcher, frames, client } = setup({} as DeviceManager, () => false);
+
+        await dispatcher.handle(client, request('device.importCapture', { deviceId: 'phone-1', data: Buffer.from(png).toString('base64') }));
+        const reply = frames.at(-1) as { ok: true; result: { path: string; width: number; height: number } };
+        expect(reply.result).toMatchObject({ width: 1206, height: 2622 });
+        expect(reply.result.path.startsWith(join(home, 'device-captures', 'phone-1-'))).toBe(true);
+        expect(new Uint8Array(readFileSync(reply.result.path))).toEqual(png);
+
+        await dispatcher.handle(client, request('device.importCapture', { deviceId: 'phone-1', data: Buffer.from('<svg/>').toString('base64') }));
+        expect(frames.at(-1)).toMatchObject({ ok: false, error: { code: 'device-capture-failed' } });
+    });
+
     test('passes a clipboard read and a paste with the client that asked', async () => {
         const calls: unknown[][] = [];
         const devices = {

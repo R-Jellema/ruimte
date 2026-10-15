@@ -55,6 +55,15 @@ export function registerDeviceHandlers(dispatcher: Dispatcher, devices: DeviceMa
         }
         return { path: await writeCapture(home, payload.deviceId, image), ...size };
     });
+    // Not held to the streaming policy: the picture comes in, nothing of this machine's devices goes out.
+    dispatcher.register('device.importCapture', async (payload) => {
+        const image = new Uint8Array(Buffer.from(payload.data, 'base64'));
+        const size = pngSize(image);
+        if (size === null) {
+            throw new DeviceError('device-capture-failed', 'The capture to keep is not a png');
+        }
+        return { path: await writeCapture(home, payload.deviceId, image), ...size };
+    });
     dispatcher.register('device.clipboard', async (payload, client) => {
         requireStreaming();
         return { text: await devices.clipboard(payload.backendId, payload.platform, payload.deviceId, client.id, payload.text, payload.paste) };

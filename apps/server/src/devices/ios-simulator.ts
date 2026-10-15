@@ -368,7 +368,7 @@ export class IosSimulatorBackend implements DeviceBackend {
             ...(colorFilter === undefined ? {} : { colorFilter }),
             ...this.remembered(deviceId),
             ...(this.folds.get(deviceId)?.settings() ?? {}),
-            recording: this.recordings.isRecording(deviceId)
+            ...this.recordings.settingsOf(deviceId)
         };
     }
 

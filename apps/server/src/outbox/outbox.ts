@@ -82,7 +82,9 @@ const StartRemoteAgentSchema = z.object({
         depth: z.number().int().min(0),
         // With a worktree there: the checkout here that is sent over, and the branch it becomes. Both or neither.
         source: z.string().min(1).optional(),
-        branch: z.string().min(1).optional()
+        branch: z.string().min(1).optional(),
+        // Set before `peer.taskStart` goes out and cleared once the machine refused it, so dropping the entry knows whether an agent may run there.
+        sent: z.boolean().optional()
     })
 });
 

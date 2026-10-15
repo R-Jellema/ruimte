@@ -242,6 +242,8 @@ describe('IosSimulatorBackend', () => {
         await Promise.resolve();
 
         expect(recorder.signals).toEqual(['SIGINT']);
+        expect(await backend.detail('phone-1')).toMatchObject({ recording: true, recordingEnded: true });
+        await expect(backend.startRecording('phone-1', '/captures/phone-2.mp4')).rejects.toMatchObject({ code: 'device-recording' });
         expect(await backend.stopRecording('phone-1')).toBe('/captures/phone-1.mp4');
     });
 

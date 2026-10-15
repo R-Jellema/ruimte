@@ -117,8 +117,8 @@ export class ConnectPeer {
             await connections.connect(machineId);
             this.wakeOwed(machineId);
         } catch (e) {
-            // A machine that will not have this one says so again however often it is asked.
-            if (e instanceof RemoteLinkError && e.code === 'refused') {
+            // A machine that will not have this one says so again however often it is asked; a link closed on purpose is not tried again either.
+            if (e instanceof RemoteLinkError && (e.code === 'refused' || e.code === 'closed')) {
                 connections.idle(machineId);
             } else {
                 await this.retry(entry, machineId, since, interval);

@@ -160,7 +160,10 @@ export const DeviceSettingsSchema = z.object({
     hinge: DeviceHingeSchema.optional(),
     /* Which screen of a foldable the picture shows. */
     panel: z.enum(['cover', 'inner']).optional(),
-    recording: z.boolean().optional()
+    /* A recording is held: running, or ended on its own and not stopped yet. */
+    recording: z.boolean().optional(),
+    /* The held recording ended on its own (its limit); stopping it only hands over its video. */
+    recordingEnded: z.boolean().optional()
 });
 
 export const DeviceDetailSchema = DeviceTargetPayloadSchema.extend({ settings: DeviceSettingsSchema });
@@ -226,6 +229,15 @@ export const DeviceCaptureResultSchema = z.object({
     path: DeviceMachinePathSchema,
     width: z.number().int().min(1).max(32_768),
     height: z.number().int().min(1).max(32_768)
+});
+
+/*
+ * A png another machine captured of one of its devices, written into this machine's captures so a view of
+ * this project can show it. Base64 in one frame, held to the size a live frame of a device may have.
+ */
+export const DeviceImportCapturePayloadSchema = z.object({
+    deviceId: DeviceIdSchema,
+    data: z.string().max(11 * 1024 * 1024)
 });
 
 export const DeviceRecordPayloadSchema = DeviceTargetPayloadSchema.extend({ mode: z.enum(['start', 'stop']) });
@@ -397,6 +409,7 @@ export type DeviceAgentStep = z.infer<typeof DeviceAgentStepSchema>;
 export type DeviceAppearance = z.infer<typeof DeviceAppearanceSchema>;
 export type DeviceColorFilter = z.infer<typeof DeviceColorFilterSchema>;
 export type DeviceCaptureResult = z.infer<typeof DeviceCaptureResultSchema>;
+export type DeviceImportCapturePayload = z.infer<typeof DeviceImportCapturePayloadSchema>;
 export type DeviceClipboardPayload = z.infer<typeof DeviceClipboardPayloadSchema>;
 export type DeviceFoldPose = z.infer<typeof DeviceFoldPoseSchema>;
 export type DeviceRecordResult = z.infer<typeof DeviceRecordResultSchema>;

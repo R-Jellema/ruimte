@@ -154,6 +154,13 @@ export interface MoveChatRequest {
     suggest?: { name: string; folder?: string };
 }
 
+/* A fork of a chat after a turn; `machine` is the daemon id of the machine the chat runs on, absent for the workspace's. */
+export interface ForkRequest {
+    chatId: string;
+    turnId: string;
+    machine?: string;
+}
+
 /*
  * A node being made on another machine, from the new-node menu, or a machine that stopped linking the
  * project being linked again (`relink`), which asks for its checkout once more.
@@ -166,8 +173,11 @@ export interface RemoteNodeRequest {
     /* Where on the canvas it goes, in world units; null lets the canvas place it. */
     at: { x: number; y: number } | null;
     relink: boolean;
-    /* A fork of this chat after this turn: the new chat starts from a transcript of the original instead of from nothing. */
-    handoff?: { chatId: string; turnId: string; title: string; provider?: AgentKind };
+    /*
+     * A fork of this chat after this turn: the new chat starts from a transcript of the original instead of from nothing.
+     * `source` is the daemon id of the machine the original runs on, absent for the workspace's.
+     */
+    handoff?: { chatId: string; turnId: string; title: string; provider?: AgentKind; source?: string };
 }
 
 export type PaletteMode = 'default' | 'grep' | 'chats' | 'file';
@@ -237,7 +247,7 @@ interface UiStore {
     /* The checkout whose conflicts are open in the overlay; null while it is closed. */
     conflicts: ConflictRequest | null;
     /* The chat and the turn a fork goes on after, while its dialog is up. */
-    forkDialog: { chatId: string; turnId: string } | null;
+    forkDialog: ForkRequest | null;
     /* The chat in Chats that moves to a project, and the project picked beforehand, while its dialog is up. */
     moveChatDialog: MoveChatRequest | null;
     /* The dialog that starts a chat in a worktree made for it. */
@@ -268,7 +278,7 @@ interface UiStore {
     setWorktreeRemoval(removal: { folder: string; paths: string[] } | null): void;
     setWorktreeMerge(merge: WorktreeMergeRequest | null): void;
     setConflicts(request: ConflictRequest | null): void;
-    setForkDialog(fork: { chatId: string; turnId: string } | null): void;
+    setForkDialog(fork: ForkRequest | null): void;
     setMoveChatDialog(move: MoveChatRequest | null): void;
     setNewWorktreeChatOpen(open: boolean): void;
     setIssueStartOpen(open: boolean): void;

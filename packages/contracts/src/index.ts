@@ -46,6 +46,7 @@ import {
 import {
     DeviceActionPayloadSchema,
     DeviceCaptureResultSchema,
+    DeviceImportCapturePayloadSchema,
     DeviceClipboardPayloadSchema,
     DeviceClipboardResultSchema,
     DeviceControlPayloadSchema,
@@ -510,6 +511,7 @@ export const REQUEST_SCHEMAS = {
     'device.operations': { payload: EmptySchema, result: DeviceOperationsResultSchema },
     'device.control': { payload: DeviceControlPayloadSchema, result: DeviceOperatedSchema },
     'device.capture': { payload: DeviceTargetPayloadSchema, result: DeviceCaptureResultSchema },
+    'device.importCapture': { payload: DeviceImportCapturePayloadSchema, result: DeviceCaptureResultSchema },
     'device.record': { payload: DeviceRecordPayloadSchema, result: DeviceRecordResultSchema },
     'device.clipboard': { payload: DeviceClipboardPayloadSchema, result: DeviceClipboardResultSchema },
     'agent.resume': { payload: AgentResumePayloadSchema, result: EmptySchema },

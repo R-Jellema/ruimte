@@ -1,5 +1,6 @@
 import { nodesOfView } from '@/project/view-nodes';
 import { useDocument } from '@/state/document';
+import type { CanvasNode } from '@/state/canvas';
 import { currentEndpointId, endpointOfNode } from '@/state/keys';
 
 /*
@@ -7,11 +8,21 @@ import { currentEndpointId, endpointOfNode } from '@/state/keys';
  * the one a node names, else the workspace's. A view of its own always runs on the workspace's machine.
  */
 export function endpointOfNodeId(nodeId: string): string {
+    const node = nodeOfId(nodeId);
+    return node === undefined ? currentEndpointId() : endpointOfNode(node, currentEndpointId());
+}
+
+/* The machine a node of the open project names, by the daemon's id; undefined for one that runs on the workspace's machine. */
+export function machineOfNodeId(nodeId: string): string | undefined {
+    return nodeOfId(nodeId)?.machine;
+}
+
+function nodeOfId(nodeId: string): CanvasNode | undefined {
     for (const view of useDocument.getState().views) {
         const node = nodesOfView(view).find((candidate) => candidate.id === nodeId);
         if (node !== undefined) {
-            return endpointOfNode(node, currentEndpointId());
+            return node;
         }
     }
-    return currentEndpointId();
+    return undefined;
 }

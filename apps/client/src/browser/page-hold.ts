@@ -3,6 +3,7 @@ import { browserRegistry, useBrowser, type BrowserState } from '@/browser/regist
 import { endpointKey, isOfEndpoint, splitKey } from '@/state/keys';
 import { watchPool } from '@/transport/pool-watch';
 import type { Transport } from '@/transport/transport';
+import { base64Of } from '@/base64';
 
 /* How long a page is given to come to rest before this client answers with wherever it got to. Under
    the daemon's own wait, so an agent hears the page and not a timer. */
@@ -22,14 +23,6 @@ export function pageStateOf(browserId: string, row: BrowserState): BrowserPageSt
         canGoForward: row.canGoForward,
         error: row.error === null ? row.streamError : `${row.error.description} (${row.error.code})`
     };
-}
-
-function base64(bytes: Uint8Array): string {
-    let binary = '';
-    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-        binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-    }
-    return btoa(binary);
 }
 
 /* Resolves once the page stopped loading, or once it is clear that nothing started loading at all. */
@@ -83,7 +76,7 @@ async function answer(endpointId: string, event: BrowserDriveEvent): Promise<Bro
         const image = await browserRegistry.capture(key);
         return image === null
             ? { askId: event.askId, state: state(), error: 'This client could not photograph the page' }
-            : { askId: event.askId, state: state(), image: base64(image) };
+            : { askId: event.askId, state: state(), image: base64Of(image) };
     }
     if (action.kind === 'text') {
         const text = await browserRegistry.text(key);

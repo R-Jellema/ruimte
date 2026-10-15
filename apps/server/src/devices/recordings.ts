@@ -38,7 +38,8 @@ interface Recording {
 
 /*
  * The one recording a device may have. A recording that ended on its own (its limit, the recorder
- * stopping) stays until it is stopped, so the person still gets its file.
+ * stopping) stays until it is stopped, so the person still gets its file, and no new one starts before:
+ * on Android the next would write over it.
  */
 export class DeviceRecordings {
     private readonly launch: RecordingLauncher;
@@ -50,17 +51,30 @@ export class DeviceRecordings {
         this.timer = timer;
     }
 
-    isRecording(deviceId: string): boolean {
+    /* Running, ended on its own but not stopped yet, or null for no recording at all. */
+    stateOf(deviceId: string): 'recording' | 'ended' | null {
         const recording = this.running.get(deviceId);
-        return recording !== undefined && !recording.ended;
+        if (recording === undefined) {
+            return null;
+        }
+        return recording.ended ? 'ended' : 'recording';
+    }
+
+    /* The fields of a device's detail that tell its recording: any held at all, and whether it already ended. */
+    settingsOf(deviceId: string): { recording: boolean; recordingEnded?: true } {
+        const state = this.stateOf(deviceId);
+        return state === 'ended' ? { recording: true, recordingEnded: true } : { recording: state === 'recording' };
     }
 
     /* `limitMs` interrupts the recorder by itself; null leaves the limit to the recorder. */
     start(deviceId: string, file: string, command: readonly string[], limitMs: number | null): void {
-        if (this.isRecording(deviceId)) {
+        const state = this.stateOf(deviceId);
+        if (state === 'recording') {
             throw new DeviceError('device-recording', 'This device is already being recorded');
         }
-        this.running.get(deviceId)?.cancelLimit();
+        if (state === 'ended') {
+            throw new DeviceError('device-recording', 'The last recording of this device ended and was not saved yet: stop it to get its video first');
+        }
         const process = this.launch(command);
         const recording: Recording = { file, process, ended: false, cancelLimit: () => undefined };
         if (limitMs !== null) {

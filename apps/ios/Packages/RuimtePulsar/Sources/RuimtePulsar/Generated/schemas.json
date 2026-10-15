@@ -7746,6 +7746,9 @@
                   "null"
                 ]
               },
+              "untrusted": {
+                "type": "boolean"
+              },
               "branch": {
                 "type": "string"
               }
@@ -10859,6 +10862,9 @@
           },
           "recording": {
             "type": "boolean"
+          },
+          "recordingEnded": {
+            "type": "boolean"
           }
         }
       }
@@ -12018,6 +12024,9 @@
           },
           "recording": {
             "type": "boolean"
+          },
+          "recordingEnded": {
+            "type": "boolean"
           }
         }
       }
@@ -12283,6 +12292,51 @@
     ]
   },
   "request.device.capture.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "width": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 32768
+      },
+      "height": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 32768
+      }
+    },
+    "required": [
+      "path",
+      "width",
+      "height"
+    ]
+  },
+  "request.device.importCapture.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "deviceId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "data": {
+        "type": "string",
+        "maxLength": 11534336
+      }
+    },
+    "required": [
+      "deviceId",
+      "data"
+    ]
+  },
+  "request.device.importCapture.result": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
@@ -50469,6 +50523,9 @@
           "string",
           "null"
         ]
+      },
+      "untrusted": {
+        "type": "boolean"
       }
     },
     "required": [
@@ -50557,6 +50614,9 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 120
+      },
+      "untrusted": {
+        "type": "boolean"
       }
     },
     "required": [

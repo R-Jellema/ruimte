@@ -158,6 +158,22 @@ export class RemoteMirror {
         this.schedule();
     }
 
+    /*
+     * The project is linked to another project on that machine: the link is read anew, and the project there
+     * that held this window's nodes ends them and is let go, as closing does, before the nodes go to the new one.
+     */
+    async relink(machine: string, remoteProjectId: string): Promise<void> {
+        const before = this.links?.byMachine.get(machine);
+        const transport = this.host.transportOf(machine);
+        if (before !== undefined && before.remoteProjectId !== remoteProjectId && this.sent.has(machine) && transport?.status === 'open') {
+            const projectId = before.remoteProjectId;
+            await transport.request('peer.placeNodes', { machineId: this.host.selfId(), projectId, nodes: [], edges: [] }).catch(() => undefined);
+            await transport.request('project.release', { projectId }).catch(() => undefined);
+        }
+        this.links = null;
+        this.resend(machine);
+    }
+
     /* Settled once what is queued has been sent. */
     async settled(): Promise<void> {
         do {

@@ -188,6 +188,34 @@ describe('the links to other machines', () => {
         expect(heard.at(-1)).toBe('closed:0');
         expect(status.get('machine-b')).toBeNull();
     });
+
+    test('a handshake that finishes after the machine left its account is closed at once and kept by nobody', async () => {
+        const late = Promise.withResolvers<PeerLink>();
+        next = () => late.promise;
+        const attempt = connections.connect('machine-b');
+        connections.closeAll();
+        known = null;
+        const link = new FakeLink();
+        late.resolve(link);
+        await expect(attempt).rejects.toMatchObject({ code: 'closed' });
+        expect(link.closed).toBe(true);
+        expect(connections.isOpen('machine-b')).toBe(false);
+        expect(status.get('machine-b')).toBeNull();
+    });
+
+    test('a handshake that finishes after its machine was unlinked is closed, and the next attempt dials anew', async () => {
+        const late = Promise.withResolvers<PeerLink>();
+        next = () => late.promise;
+        const attempt = connections.connect('machine-b');
+        connections.close('machine-b');
+        next = async () => new FakeLink();
+        const fresh = await connections.connect('machine-b');
+        const stale = new FakeLink();
+        late.resolve(stale);
+        await expect(attempt).rejects.toMatchObject({ code: 'closed' });
+        expect(stale.closed).toBe(true);
+        expect(connections.link('machine-b')).toBe(fresh);
+    });
 });
 
 describe('the standing of the links', () => {

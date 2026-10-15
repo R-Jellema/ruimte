@@ -2,10 +2,10 @@ import { useTranslation } from 'react-i18next';
 import { GitFork, MessageSquareShare, Undo2 } from 'lucide-react';
 import { perform } from '@/actions/client-actions';
 import { forkRefusal, lastSettledTurn, summaryRefusal } from '@adecore/agents-react/chat';
+import { openForkDialog } from '@/chat/open-fork';
 import { useChatPlace } from '@/chat/use-chat-place';
 import { useChatRow } from '@adecore/agents-react/state';
 import { useToasts } from '@/state/toasts';
-import { useUi } from '@/state/ui';
 import { DisabledReason, Icon, ContextMenu } from '@adecore/ui';
 
 /*
@@ -21,7 +21,7 @@ export function ForkMenuItem({ chatId }: { chatId: string }) {
         <>
             {turnId !== null && (
                 <DisabledReason reason={refusal}>
-                    <ContextMenu.Item disabled={refusal !== null} onClick={() => useUi.getState().setForkDialog({ chatId, turnId })}>
+                    <ContextMenu.Item disabled={refusal !== null} onClick={() => openForkDialog(chatId, turnId)}>
                         <Icon icon={GitFork} size={14} /> {t('fork.menu.fork')}
                     </ContextMenu.Item>
                 </DisabledReason>

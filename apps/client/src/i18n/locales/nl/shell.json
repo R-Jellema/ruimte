@@ -475,6 +475,7 @@
         "machine": "Machine",
         "thisMachine": "Deze machine",
         "onMachine": "Een nieuwe chat op {{machine}} begint met een transcript van deze. Daarna kies je de checkout.",
+        "handoffHere": "Een nieuwe chatnode op deze machine begint met een transcript van deze en werkt in de map van dit project. Er gaat niets weg voordat je het eerste bericht schrijft.",
         "chooseCheckout": "Kies een checkout…"
     },
     "merge": {
@@ -1046,6 +1047,8 @@
         "intro": "Een {{kind}}-node komt op dit canvas en werkt in een checkout op {{machine}}. Ruimte verstuurt niets voordat je het eerste bericht schrijft.",
         "introOther": "Een {{kind}}-node komt op dit canvas en werkt in een checkout op {{machine}}.",
         "relinkIntro": "Dit project is niet meer gekoppeld op {{machine}}. Kies daar opnieuw de checkout.",
+        "relinkStranded": "De nodes op {{machine}} werken in {{folder}}. Kies die checkout, of voeg nieuwe nodes toe voor deze.",
+        "sourceGone": "De machine waarop de oorspronkelijke chat draait, is niet meer bekend in dit venster.",
         "kind": "Soort",
         "checkout": "Checkout",
         "looking": "Checkouts op {{machine}} zoeken…",

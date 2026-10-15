@@ -12,7 +12,7 @@ import { messageOf } from '@adecore/ui';
 export type Checkouts =
     | { state: 'loading' }
     | { state: 'error'; message: string }
-    | { state: 'ready'; candidates: RemoteCandidate[]; links: RemoteLink[]; here: GitIdentity | null };
+    | { state: 'ready'; candidates: RemoteCandidate[]; links: RemoteLink[]; here: GitIdentity | null; linkedFolder: string | null };
 
 /* What this project is, as far as the other machine can tell whether it holds the same repository. */
 async function identityHere(transport: Transport, folder: string | null): Promise<GitIdentity | null> {
@@ -65,8 +65,11 @@ export function useRemoteCheckouts(
                 const projects = listed.projects.filter((project) => project.available).slice(0, 50);
                 const { identities } =
                     projects.length === 0 ? { identities: [] } : await there.request('git.identity', { paths: projects.map((project) => project.folder) });
+                // The folder there of the project this one is linked to already, which linking again keeps the nodes in.
+                const linked = links.links.find((link) => link.machineId === machineId);
+                const linkedFolder = listed.projects.find((project) => project.projectId === linked?.remoteProjectId)?.folder ?? null;
                 if (!controller.signal.aborted) {
-                    setCheckouts({ state: 'ready', candidates: rankCandidates(mine, projects, identities), links: links.links, here: mine });
+                    setCheckouts({ state: 'ready', candidates: rankCandidates(mine, projects, identities), links: links.links, here: mine, linkedFolder });
                 }
             } catch (e) {
                 if (!controller.signal.aborted) {

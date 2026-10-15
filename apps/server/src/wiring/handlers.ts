@@ -370,7 +370,9 @@ export function registerEditorHandlers(dispatcher: Dispatcher, input: EditorHand
         {
             bundles: git.bundles,
             checkpoints: git.checkpoints,
-            folderOf: async (projectId) => (await store.known()).find((project) => project.projectId === projectId)?.folder ?? null
+            folderOf: async (projectId) => (await store.known()).find((project) => project.projectId === projectId)?.folder ?? null,
+            untrusted: (path) => agents.untrusted.inFolder(path),
+            untrustFolder: (path, branch) => store.peers.untrustFolder(path, branch)
         },
         agents.oneShot
     );

@@ -365,6 +365,92 @@ describe('agent --machine', () => {
         expect(daemon.outbox.list()).toEqual([]);
     });
 
+    /* Holds `peer.taskStart` until the test says how it ends, and answers when it went out. */
+    function holdStart(): { asked: Promise<void>; end: ReturnType<typeof Promise.withResolvers<unknown>> } {
+        const asked = Promise.withResolvers<void>();
+        const end = Promise.withResolvers<unknown>();
+        answer = (type) => {
+            if (type === 'peer.taskStart') {
+                asked.resolve();
+                return end.promise;
+            }
+            return { status: 'open', result: null, bundle: null };
+        };
+        return { asked: asked.promise, end };
+    }
+
+    test('a start answered after the machine left its account owes that machine nothing, and its task says the agent may run there', async () => {
+        open = fakeLink();
+        const start = holdStart();
+        const [line] = await give();
+        await start.asked;
+        await daemon.remoteTasks!.leave();
+        open = null;
+        start.end.resolve({ cwd: '/studio/work', branch: null });
+        await daemon.worker.settled();
+
+        expect(daemon.outbox.list()).toEqual([]);
+        expect(owed).toEqual([]);
+        expect(daemon.tasks.get(line!.split('\t')[5]!)).toMatchObject({
+            status: 'failed',
+            result: { text: expect.stringContaining('may still run until a person stops it on that machine') }
+        });
+    });
+
+    test('a start whose channel closes after the machine left its account owes that machine nothing', async () => {
+        open = fakeLink();
+        const start = holdStart();
+        await give();
+        await start.asked;
+        await daemon.remoteTasks!.leave();
+        open = null;
+        start.end.reject(new Error('The channel closed'));
+        await daemon.worker.settled();
+
+        expect(daemon.outbox.list()).toEqual([]);
+        expect(owed).toEqual([]);
+    });
+
+    test('a start the machine refuses after this one left its account owes it nothing', async () => {
+        open = fakeLink();
+        const start = holdStart();
+        await give();
+        await start.asked;
+        await daemon.remoteTasks!.leave();
+        start.end.reject(new Error('peer-busy: This machine already runs 4 tasks for that machine'));
+        await daemon.worker.settled();
+
+        expect(daemon.outbox.list()).toEqual([]);
+        expect(owed).toEqual([]);
+    });
+
+    test('a report that comes back after the machine left its account is not taken in and owes nothing', async () => {
+        open = fakeLink();
+        const [line] = await give();
+        const nodeId = line!.split('\t')[0]!;
+        await daemon.worker.settled();
+        const asked = Promise.withResolvers<void>();
+        const report = Promise.withResolvers<unknown>();
+        answer = (type, payload) => {
+            if (type === 'peer.result' && (payload as { ack?: boolean }).ack !== true) {
+                asked.resolve();
+                return report.promise;
+            }
+            return {};
+        };
+        daemon.worker.wake(nodeId);
+        await asked.promise;
+        await daemon.remoteTasks!.leave();
+        open = null;
+        report.resolve({ status: 'done', result: { text: 'Fixed', source: 'done', at: 1 }, bundle: null });
+        await daemon.worker.settled();
+
+        expect(daemon.outbox.list()).toEqual([]);
+        expect(owed).toEqual([]);
+        expect(requests.filter((request) => (request.payload as { ack?: boolean }).ack === true)).toEqual([]);
+        expect(daemon.tasks.get(line!.split('\t')[5]!)?.result?.text).toContain('This machine left its account');
+    });
+
     test('a once stop whose link drops mid-request is let go and owes no reconnect', async () => {
         open = fakeLink();
         const [started] = await give();

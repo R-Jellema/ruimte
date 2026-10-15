@@ -11,6 +11,7 @@ import {
     type RequestType
 } from '@ruimte/contracts';
 import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
+import { defaultCanvases } from '@/state/canvas';
 import { useDocument } from '@/state/document';
 import { useUi } from '@/state/ui';
 import { usePeerLapse } from '@/project/peer-lapse';
@@ -436,6 +437,51 @@ async function openCanvasMenu(): Promise<void> {
     await until(() => document.querySelector('[role="menu"]') !== null);
     await openSubmenu('On another machine');
 }
+
+describe('linking a machine again', () => {
+    /* A chat that works on the other machine in `cwd`, under a link to `remoteProjectId` there. */
+    async function farChat(remoteProjectId: string, cwd: string): Promise<void> {
+        links = [{ machineId: REMOTE, remoteProjectId, label: 'MacBook Pro', rootCommit: 'root-a' }];
+        there.answer('project.release', () => {
+            order.push('project.release');
+            return {};
+        });
+        await act(async () => {
+            defaultCanvases.peek('main')!.getState().addNode('chat', { x: 600, y: 0 }, { machine: REMOTE, cwd, provider: 'claude', providerFixed: true });
+        });
+        await until(() => there.requests('peer.placeNodes').some((request) => request.projectId === remoteProjectId && request.nodes.length === 1));
+        order = [];
+    }
+
+    async function openRelink(): Promise<void> {
+        await act(async () => useUi.getState().setRemoteNodeDialog({ machineId: REMOTE, kind: 'chat', viewId: 'main', at: null, relink: true }));
+        await until(() => dialog()?.textContent?.includes('/Users/b/ruimte') === true);
+        await until(() => button('Link')?.hasAttribute('disabled') === false);
+    }
+
+    test('to the same folder under a new project there lets the old project go and places the nodes in the new one', async () => {
+        await farChat('ruimte-before', '/Users/b/ruimte');
+        await openRelink();
+        await clickOn(button('Link'));
+
+        await until(() => dialog() === null);
+        await until(() => there.requests('peer.placeNodes').some((request) => request.projectId === 'ruimte'));
+        expect(here.requests('remote.link').at(-1)).toMatchObject({ remoteProjectId: 'ruimte' });
+        expect(there.requests('project.release').map((request) => request.projectId)).toEqual(['ruimte-before']);
+        expect(there.requests('peer.placeNodes').at(-1)).toMatchObject({ projectId: 'ruimte', nodes: [{ cwd: '/Users/b/ruimte' }] });
+    });
+
+    test('to another folder is refused while the nodes there work in the checkout they had', async () => {
+        await farChat('ruimte-before', '/Users/b/ruimte-before');
+        await openRelink();
+        await clickOn(button('Link'));
+
+        await until(() => dialog()?.textContent?.includes('The nodes on MacBook Pro work in /Users/b/ruimte-before.') === true);
+        expect(here.requests('remote.link')).toEqual([]);
+        expect(there.requests('peer.bind')).toEqual([]);
+        expect(there.requests('peer.placeNodes').every((request) => request.projectId === 'ruimte-before')).toBe(true);
+    });
+});
 
 describe('the canvas menu', () => {
     test('offers every other machine below the node kinds, and a click opens the dialog for it', async () => {

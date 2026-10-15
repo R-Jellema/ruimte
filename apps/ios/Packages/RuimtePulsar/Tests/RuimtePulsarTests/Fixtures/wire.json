@@ -153,6 +153,7 @@
     "device.operations",
     "device.control",
     "device.capture",
+    "device.importCapture",
     "device.record",
     "device.clipboard",
     "agent.resume",

@@ -1,15 +1,20 @@
 import i18next from 'i18next';
-import type { DeviceInfo } from '@ruimte/contracts';
+import type { DeviceCaptureResult, DeviceInfo } from '@ruimte/contracts';
 import { createViewAction, placeViewOnCanvasAction } from '@/actions/client-actions';
+import { base64Of } from '@/base64';
 import { recordingKey, useDevices } from '@/devices/state';
 import { downloadBlob } from '@/download';
 import { canvasInReach } from '@/state/canvas-target';
 import { useDocument } from '@/state/document';
+import { windowWorkspace } from '@/state/window';
 import { deviceClientFor } from '@/transport/connections';
+import { machineAnswers } from '@/transport/features';
 import { readMachineFile } from '@/transport/machine-url';
 
 const SCREENSHOT_MAX_BYTES = 64 * 1024 * 1024;
 const RECORDING_MAX_BYTES = 1024 * 1024 * 1024;
+// What one `device.importCapture` frame carries once in base64, which is the size of a device's live frame.
+const IMPORT_MAX_BYTES = 8 * 1024 * 1024;
 
 type Device = Pick<DeviceInfo, 'backendId' | 'platform' | 'deviceId' | 'name'>;
 
@@ -60,11 +65,33 @@ export async function placeScreenshotOnCanvas(endpointId: string, device: Device
         return false;
     }
     const capture = await requireClient(endpointId).capture(device);
-    const id = await createViewAction('file', { path: capture.path, name: captureFileName(device.name, new Date(), 'png') });
+    const path = await onWorkspaceMachine(endpointId, device, capture);
+    const id = await createViewAction('file', { path, name: captureFileName(device.name, new Date(), 'png') });
     if (id !== null) {
         placeViewOnCanvasAction(id, target.id);
     }
     return true;
+}
+
+/*
+ * The path of the capture on the machine of the open project, which is where a file view reads. A device
+ * of another machine took it there, so its bytes are written here first.
+ */
+async function onWorkspaceMachine(endpointId: string, device: Device, capture: DeviceCaptureResult): Promise<string> {
+    const workspace = windowWorkspace();
+    if (workspace === null || workspace.connection.endpointId === endpointId) {
+        return capture.path;
+    }
+    const { transport } = workspace.connection;
+    if (!machineAnswers(transport.connection, 'device.importCapture')) {
+        throw new Error(i18next.t('machines:device.tools.capture.placeUnsupported'));
+    }
+    const bytes = new Uint8Array(await readMachineFile(endpointId, { path: capture.path, mtime: 0, size: 0 }, IMPORT_MAX_BYTES));
+    if (bytes.byteLength > IMPORT_MAX_BYTES) {
+        throw new Error(i18next.t('machines:device.tools.capture.placeTooLarge'));
+    }
+    const kept = await transport.request('device.importCapture', { deviceId: device.deviceId, data: base64Of(bytes) });
+    return kept.path;
 }
 
 export async function startRecording(endpointId: string, device: Device, now: () => number = Date.now): Promise<void> {

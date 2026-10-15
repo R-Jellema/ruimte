@@ -8,7 +8,10 @@ import { deleteNodesAction } from '@/actions/client-actions';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import { handOff } from '@/project/bundle-transfer';
 import { linkToPeerOrMark } from '@/project/peer-linker';
+import { remoteMirrorsOf } from '@/project/remote-mirror';
 import { createRemoteNode } from '@/project/remote-node';
+import { strandedBy } from '@/project/remote-relink';
+import { nodesOfView } from '@/project/view-nodes';
 import type { RemoteCandidate } from '@/project/remote-candidates';
 import { describeLastSeen } from '@/shell/connection-info';
 import { RemoteFolderPicker } from '@/shell/RemoteFolderPicker';
@@ -19,6 +22,7 @@ import { useMachineEntry } from '@/shell/use-machine-entry';
 import { useMachineIcon } from '@/shell/settings/machine-icon';
 import { machineIdOf, nameOf } from '@/shell/settings/machine-list';
 import { defaultCanvases } from '@/state/canvas';
+import { useDocument } from '@/state/document';
 import { endpointById, endpointIdOfMachine, useEndpoints } from '@/state/endpoints';
 import { useProject } from '@/state/project';
 import { useUi, type RemoteNodeRequest } from '@/state/ui';
@@ -124,7 +128,10 @@ function RemoteNodeForm({
         checkouts.state === 'ready'
             ? [...checkouts.candidates, ...chosen.filter((own) => !checkouts.candidates.some((known) => known.folder === own.folder))]
             : [];
-    const candidate = candidates.find((entry) => entry.projectId === picked) ?? candidates[0] ?? null;
+    // Linking again starts from the checkout the nodes there work in, when that machine still has it.
+    const linkedFolder = request.relink && checkouts.state === 'ready' ? checkouts.linkedFolder : null;
+    const candidate =
+        candidates.find((entry) => entry.projectId === picked) ?? candidates.find((entry) => entry.folder === linkedFolder) ?? candidates[0] ?? null;
     const scoped = useMemo(() => endpointById(machineEndpointId) !== null, [machineEndpointId]);
     const hereId = workspace?.connection.endpointId ?? '';
     const canSign = useMachineAnswers(hereId, 'endpoint.signPeerAccess');
@@ -201,9 +208,17 @@ function RemoteNodeForm({
         setFailure(null);
         try {
             if (request.relink) {
+                const cwds = (remoteMirrorsOf(useDocument.getState().views, nodesOfView, selfId).get(request.machineId)?.nodes ?? []).flatMap((node) =>
+                    node.cwd === undefined ? [] : [node.cwd]
+                );
+                const stranded = strandedBy(candidate.folder, checkouts.linkedFolder, cwds);
+                if (stranded !== null) {
+                    setFailure(t('remoteNode.relinkStranded', { machine, folder: stranded }));
+                    return;
+                }
                 await there.request('peer.bind', { machineId: selfId, label: self?.label ?? selfId, projectId: candidate.projectId });
                 await workspace.connection.transport.request('remote.link', link);
-                remoteMirror()?.resend(request.machineId);
+                await remoteMirror()?.relink(request.machineId, candidate.projectId);
                 onDone();
                 return;
             }
@@ -267,10 +282,19 @@ function RemoteNodeForm({
                 makeWorktree: async () => {
                     const path = await placeCheckout();
                     if (request.handoff !== undefined) {
-                        const answer = await workspace.connection.transport.request('chat.handoff', {
+                        // The machine the original runs on is the one that holds its conversation.
+                        const { source } = request.handoff;
+                        const from = source === undefined ? workspace.connection.transport : transportFor(endpointIdOfMachine(source));
+                        if (from === null) {
+                            throw new Error(t('remoteNode.sourceGone'));
+                        }
+                        const answer = await from.request('chat.handoff', {
                             chatId: request.handoff.chatId,
                             turnId: request.handoff.turnId,
-                            remote: { machine: self?.label ?? selfId, cwd: path ?? candidate.folder }
+                            remote: {
+                                machine: source === undefined ? (self?.label ?? selfId) : (endpointById(endpointIdOfMachine(source))?.label ?? source),
+                                cwd: path ?? candidate.folder
+                            }
                         });
                         handoffText = answer.text;
                     }

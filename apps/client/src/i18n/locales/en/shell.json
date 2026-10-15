@@ -475,6 +475,7 @@
         "machine": "Machine",
         "thisMachine": "This machine",
         "onMachine": "A new chat on {{machine}} starts from a transcript of this one. You choose its checkout next.",
+        "handoffHere": "A new chat node on this machine starts from a transcript of this one and works in the folder of this project. Nothing is sent until you write the first message.",
         "chooseCheckout": "Choose a checkout…"
     },
     "merge": {
@@ -1046,6 +1047,8 @@
         "intro": "A {{kind}} node goes on this canvas and works in a checkout on {{machine}}. Ruimte sends nothing until you write the first message.",
         "introOther": "A {{kind}} node goes on this canvas and works in a checkout on {{machine}}.",
         "relinkIntro": "This project is no longer linked on {{machine}}. Choose its checkout there again.",
+        "relinkStranded": "The nodes on {{machine}} work in {{folder}}. Choose that checkout, or add new nodes for this one.",
+        "sourceGone": "The machine the original chat runs on is not known to this window any more.",
         "kind": "Kind",
         "checkout": "Checkout",
         "looking": "Looking for checkouts on {{machine}}…",

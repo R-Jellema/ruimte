@@ -473,7 +473,7 @@ export class AndroidBackend implements DeviceBackend {
             ...(this.foldable.has(deviceId) ? hingeOf(await this.shell(serial, 'cmd device_state state').catch(() => '')) : {}),
             ...(this.statusBars.has(deviceId) ? { statusBar: this.statusBars.get(deviceId) } : {}),
             ...(this.batteries.has(deviceId) ? { battery: this.batteries.get(deviceId) } : {}),
-            recording: this.recordings.isRecording(deviceId)
+            ...this.recordings.settingsOf(deviceId)
         };
     }
 

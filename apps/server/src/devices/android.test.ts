@@ -381,6 +381,9 @@ describe('AndroidBackend', () => {
         recorder.finish(0);
         await Promise.resolve();
 
+        // The next recording would write over the same file on the device, so it waits for this one to be pulled.
+        expect(await backend.detail('Pixel_9_Pro_API_35')).toMatchObject({ recording: true, recordingEnded: true });
+        await expect(backend.startRecording('Pixel_9_Pro_API_35', '/captures/Pixel-2.mp4')).rejects.toMatchObject({ code: 'device-recording' });
         expect(await backend.stopRecording('Pixel_9_Pro_API_35')).toBe('/captures/Pixel-1.mp4');
         expect(adb.calls.some((call) => call.includes('pkill -INT screenrecord'))).toBe(false);
     });

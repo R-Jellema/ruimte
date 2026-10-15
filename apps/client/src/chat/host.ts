@@ -10,6 +10,7 @@ import { FEATURED_ACCENTS, NODE_ACCENTS, accentLabel, type AccentId } from '@/ca
 import { searchFiles } from '@/chat/file-search';
 import { RUIMTE_COMMAND_LOOKS } from '@/chat/ruimte-command-look';
 import { openLogin } from '@/chat/login';
+import { openForkDialog } from '@/chat/open-fork';
 import { gitStatusConcernsChat } from '@/chat/ui-refresh';
 import { useMapSource } from '@/chat/use-map-source';
 import { visualHostFor } from '@/chat/visuals';
@@ -223,7 +224,7 @@ export const CHAT_HOST: Partial<ChatHost> = {
                   })
               };
     },
-    fork: (chatId, turnId) => useUi.getState().setForkDialog({ chatId, turnId }),
+    fork: openForkDialog,
     openSettings: (section) => useUi.getState().setSettings({ open: true, section }),
     useMachineLabel: (endpointId) => useEndpoints((s) => s.endpoints.find((endpoint) => endpoint.id === endpointId)?.label ?? null),
     useResumeAtReset: (endpointId) => useServers((s) => s.byEndpoint[endpointId]?.resumeAtReset === true),

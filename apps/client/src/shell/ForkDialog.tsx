@@ -5,6 +5,8 @@ import { CHAT_FORK_TITLE_MAX, clipText, type ChatForkInfoResult, type ProviderIn
 import { perform } from '@/actions/client-actions';
 import { AccountDot, canContinueOn } from '@adecore/agents-react/providers';
 import {
+    EMPTY_DRAFT,
+    writeDraft,
     useAccountChoice,
     type AccountChoice,
     branchRefusal,
@@ -27,18 +29,23 @@ import { iconOfEntry } from '@/shell/settings/machine-icon';
 import { nameOf } from '@/shell/settings/machine-list';
 import { defaultCanvases } from '@/state/canvas';
 import { useDocument } from '@/state/document';
+import { endpointById } from '@/state/endpoints';
+import { useProject } from '@/state/project';
 import { ModelPicker } from '@adecore/agents-react/chat/ui';
 import { useProviders, useChatRow, knownAccounts, providerAccountsOf } from '@adecore/agents-react/state';
 import { Switch, Button, ErrorBoundary, FieldHint, FormError, Icon, Input, Select, Dialog } from '@adecore/ui';
 import { useViewNodes } from '@/project/view-nodes';
 import { useEndpointId } from '@/state/keys';
 import { useUi } from '@/state/ui';
+import { useWorkspace } from '@/transport/connections';
 import { useTransport } from '@/transport/context';
+import { NodeMachineScope } from '@/transport/node-machine';
 
 /*
  * Forks a chat after one of its turns, with the history up to and including that turn: a chat view
  * forks into a view listed after it, a node into a node beside it or, when picked, a view. The turn
- * is where the person clicked, so the dialog only says which one it is.
+ * is where the person clicked, so the dialog only says which one it is. A chat that runs on another
+ * machine is read there, and its fork starts from a transcript the machine writes of it.
  */
 export function ForkDialog() {
     const { t } = useTranslation('shell');
@@ -58,14 +65,18 @@ export function ForkDialog() {
                     <Icon icon={GitFork} size={16} /> {t('fork.title')}
                 </Dialog.Title>
                 <ErrorBoundary label={t('fork.failedToRender')} resetKeys={[fork?.chatId, fork?.turnId]}>
-                    {fork !== null && <ForkForm key={`${fork.chatId}:${fork.turnId}`} chatId={fork.chatId} turnId={fork.turnId} onDone={close} />}
+                    {fork !== null && (
+                        <NodeMachineScope machine={fork.machine}>
+                            <ForkForm key={`${fork.chatId}:${fork.turnId}`} chatId={fork.chatId} turnId={fork.turnId} source={fork.machine} onDone={close} />
+                        </NodeMachineScope>
+                    )}
                 </ErrorBoundary>
             </Dialog.Popup>
         </Dialog.Root>
     );
 }
 
-function ForkForm({ chatId, turnId, onDone }: { chatId: string; turnId: string; onDone(): void }) {
+function ForkForm({ chatId, turnId, source, onDone }: { chatId: string; turnId: string; source: string | undefined; onDone(): void }) {
     const { t } = useTranslation(['shell', 'common']);
     const info = useChatRow(chatId, (row) => row?.info ?? null);
     const items = useChatRow(chatId, (row) => row?.structure);
@@ -93,6 +104,11 @@ function ForkForm({ chatId, turnId, onDone }: { chatId: string; turnId: string; 
     const [cli, setCli] = useState<ForkCliChoice | null>(null);
     const providers = useProviders((s) => s.providers);
     const endpointId = useEndpointId();
+    const transport = useTransport();
+    const workspace = useWorkspace();
+    const projectFolder = useProject((s) => s.current?.folder ?? null);
+    // The chat runs on another machine than the project's, so no fork of its conversation can be made here: a transcript of it is.
+    const elsewhere = workspace !== null && endpointId !== workspace.connection.endpointId;
 
     const point = items && order ? forkPointOf(items, order, turnId, whole) : null;
     const refusal = forkRefusal(info, items?.[turnId]);
@@ -126,7 +142,7 @@ function ForkForm({ chatId, turnId, onDone }: { chatId: string; turnId: string; 
         const remembered = provider === info?.provider ? info.selection : selectionFor(readChatPreferences(), provider);
         setCli({ provider, selection: remembered?.model === model ? remembered : { model, options: {} }, account: accountOn(provider) });
     };
-    const ready = refusal === null && point !== null && title.trim() !== '' && (remote !== null || (folder !== null && branchProblem === null));
+    const ready = refusal === null && point !== null && title.trim() !== '' && (remote !== null || elsewhere || (folder !== null && branchProblem === null));
 
     const submit = async (): Promise<void> => {
         if (!ready || busy) {
@@ -141,9 +157,19 @@ function ForkForm({ chatId, turnId, onDone }: { chatId: string; turnId: string; 
                 viewId: nodeView,
                 at: original === undefined ? null : { x: original.x + original.w + 40, y: original.y },
                 relink: false,
-                handoff: { chatId, turnId, title: title.trim(), ...(info === null ? {} : { provider: info.provider }) }
+                handoff: {
+                    chatId,
+                    turnId,
+                    title: title.trim(),
+                    ...(info === null ? {} : { provider: info.provider }),
+                    ...(elsewhere && source !== undefined ? { source } : {})
+                }
             });
             onDone();
+            return;
+        }
+        if (elsewhere) {
+            await handOffHere();
             return;
         }
         setBusy(true);
@@ -168,6 +194,38 @@ function ForkForm({ chatId, turnId, onDone }: { chatId: string; turnId: string; 
                 selection: payload.selection ?? null,
                 account: payload.account ?? null
             });
+            onDone();
+        } catch (e) {
+            setFailure(e instanceof Error ? e.message : t('fork.failed'));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    /* A chat node on this canvas and this machine, seeded with what the chat's own machine writes of the conversation. */
+    const handOffHere = async (): Promise<void> => {
+        const canvas = nodeView === null ? null : (defaultCanvases.peek(nodeView) ?? null);
+        if (canvas === null || projectFolder === null) {
+            setFailure(t('fork.failed'));
+            return;
+        }
+        setBusy(true);
+        setFailure(null);
+        try {
+            const answer = await transport.request('chat.handoff', {
+                chatId,
+                turnId,
+                remote: { machine: endpointById(endpointId)?.label ?? endpointId, cwd: projectFolder }
+            });
+            const original = canvas.getState().nodes[chatId];
+            const nodeId = canvas.getState().addNode('chat', original === undefined ? { x: 0, y: 0 } : { x: original.x + original.w + 40, y: original.y }, {
+                title: title.trim(),
+                ...(info === null ? {} : { provider: info.provider })
+            });
+            // Seeded, never sent: the person reads it and writes the first message, as for a fork onto another machine.
+            if (nodeId !== null) {
+                writeDraft(nodeId, { ...EMPTY_DRAFT, text: answer.text });
+            }
             onDone();
         } catch (e) {
             setFailure(e instanceof Error ? e.message : t('fork.failed'));
@@ -201,11 +259,13 @@ function ForkForm({ chatId, turnId, onDone }: { chatId: string; turnId: string; 
             <Dialog.Text className="mt-2">
                 {remote !== null
                     ? t('fork.onMachine', { machine: nameOf(remote) })
-                    : shape === 'view'
-                      ? t('fork.intoView', { after: origin === 'view' ? t('fork.theOriginal') : t('fork.itsCanvas') })
-                      : t('fork.intoNode')}
+                    : elsewhere
+                      ? t('fork.handoffHere')
+                      : shape === 'view'
+                        ? t('fork.intoView', { after: origin === 'view' ? t('fork.theOriginal') : t('fork.itsCanvas') })
+                        : t('fork.intoNode')}
             </Dialog.Text>
-            {remote === null && chosenCli !== null && pickable.length > 0 && (
+            {remote === null && !elsewhere && chosenCli !== null && pickable.length > 0 && (
                 <ForkCliFields
                     providers={pickable}
                     chosen={chosenCli}
@@ -233,7 +293,7 @@ function ForkForm({ chatId, turnId, onDone }: { chatId: string; turnId: string; 
                     }
                 }}
             />
-            {remote === null && shapes.length > 1 && (
+            {remote === null && !elsewhere && shapes.length > 1 && (
                 <div className="mt-3 flex items-center justify-between gap-3">
                     <span className="text-xs text-text-muted">{t('fork.into')}</span>
                     <Select<ForkShape>
@@ -245,7 +305,7 @@ function ForkForm({ chatId, turnId, onDone }: { chatId: string; turnId: string; 
                     />
                 </div>
             )}
-            {remote === null && (
+            {remote === null && !elsewhere && (
                 <ForkFolder
                     folder={folder}
                     last={point?.last ?? true}

@@ -6,7 +6,7 @@ import type { PeerMachine, PeerMachines } from './peer-machines.ts';
 import type { PendingAdmissions } from './pending-admissions.ts';
 import type { RemoteStatus } from './remote-status.ts';
 
-export class RemoteLinkError extends CodedError<'unknown-machine' | 'no-broker' | 'unreachable' | 'refused'> {}
+export class RemoteLinkError extends CodedError<'unknown-machine' | 'no-broker' | 'unreachable' | 'refused' | 'closed'> {}
 
 /*
  * What the other machine says when it will not have this one: it does not know the key (never let in, run
@@ -71,6 +71,8 @@ export class RemoteConnections {
     private readonly options: RemoteConnectionsOptions;
     private readonly links = new Map<string, PeerLink>();
     private readonly attempts = new Map<string, Promise<PeerLink>>();
+    // Raised by every close, so an attempt that was running then keeps nothing it opens after.
+    private readonly generations = new Map<string, number>();
     private readonly lostListeners = new Set<(machineId: string) => void>();
     private readonly frameListeners = new Set<(machineId: string, raw: string) => void>();
 
@@ -111,22 +113,32 @@ export class RemoteConnections {
         if (running !== undefined) {
             return running;
         }
-        const attempt = this.dial(machineId).finally(() => this.attempts.delete(machineId));
+        const attempt = this.dial(machineId).finally(() => {
+            if (this.attempts.get(machineId) === attempt) {
+                this.attempts.delete(machineId);
+            }
+        });
         this.attempts.set(machineId, attempt);
         return attempt;
     }
 
-    /* Closes the link on purpose, such as when the machine is unlinked; nobody is told it was lost. */
+    /* Closes the link on purpose, such as when the machine is unlinked; nobody is told it was lost, and an attempt still running keeps nothing. */
     close(machineId: string): void {
+        this.generations.set(machineId, this.generationOf(machineId) + 1);
+        this.attempts.delete(machineId);
         this.links.get(machineId)?.close();
         this.links.delete(machineId);
         this.options.status.forget(machineId);
     }
 
     closeAll(): void {
-        for (const machineId of [...this.links.keys()]) {
+        for (const machineId of new Set([...this.links.keys(), ...this.attempts.keys()])) {
             this.close(machineId);
         }
+    }
+
+    private generationOf(machineId: string): number {
+        return this.generations.get(machineId) ?? 0;
     }
 
     /* The standing of a machine whose link is closed, as the clients see it. */
@@ -166,15 +178,24 @@ export class RemoteConnections {
         if (machine === null) {
             throw new RemoteLinkError('unknown-machine', 'This machine was never linked to that one');
         }
+        const generation = this.generationOf(machineId);
         this.publish(machineId, 'connecting');
         const statement = this.options.pending.peek(machineId);
         let link: PeerLink;
         try {
             link = await this.options.dialer.dial(machine, statement);
         } catch (e) {
+            if (this.generationOf(machineId) !== generation) {
+                throw new RemoteLinkError('closed', 'The link was closed while it was being made');
+            }
             const refused = refusedByMachine(e);
             this.publish(machineId, this.options.owed(machineId) > 0 && !refused ? 'waiting' : null);
             throw refused ? new RemoteLinkError('refused', e instanceof Error ? e.message : 'That machine refused this one') : e;
+        }
+        // Closed meanwhile (unlinked, or this machine left its account): a handshake that finished late is not kept.
+        if (this.generationOf(machineId) !== generation || !this.knows(machineId)) {
+            link.close();
+            throw new RemoteLinkError('closed', 'The link was closed while it was being made');
         }
         // The machine let this key in, so the statement has done what it was for.
         this.options.pending.release(machineId);

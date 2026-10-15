@@ -30,6 +30,10 @@ export interface BundleHost {
     bundles: BundleStore;
     checkpoints: Pick<CheckpointService, 'take' | 'head'>;
     folderOf(projectId: string): Promise<string | null>;
+    /* Whether a checkout lies in a folder made from another machine's work. */
+    untrusted?(path: string): boolean;
+    /* Writes down a folder this machine never vouched for, before git makes it. */
+    untrustFolder?(path: string, branch: string): Promise<void>;
 }
 
 interface AgentRunOptions {
@@ -129,14 +133,15 @@ export function registerGitHandlers(
     });
 
     if (bundleHost !== undefined) {
-        const { bundles, checkpoints, folderOf } = bundleHost;
+        const { bundles, checkpoints, folderOf, untrusted, untrustFolder } = bundleHost;
 
+        // A person's handoff is theirs to vouch for, except for work this machine never vouched for itself: that stays so where it goes.
         dispatcher.register('git.bundle', async (payload, client) => {
             await machineHome?.refuse(payload.path);
             bundles.admit(client.id);
             const made = await makeBundle(bundles, checkpoints, payload);
             await bundles.keep(made.bundleId, client.id);
-            return made;
+            return untrusted?.(payload.path) === true ? { ...made, untrusted: true } : made;
         });
 
         dispatcher.register('git.bundlePut', async (payload) => ({
@@ -148,7 +153,7 @@ export function registerGitHandlers(
             if (folder === null) {
                 throw new RequestError('project-not-found', `No project ${payload.projectId} is on this machine`);
             }
-            return fetchBundle(bundles, worktrees, folder, payload);
+            return fetchBundle(bundles, worktrees, folder, payload, payload.untrusted === true ? untrustFolder : undefined);
         });
     }
 

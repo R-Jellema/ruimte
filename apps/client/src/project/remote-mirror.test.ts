@@ -171,4 +171,35 @@ describe('the copy on the other machine', () => {
         await Promise.resolve();
         expect(leaving.sent.at(-1)).toEqual({ type: 'project.release', payload: { projectId: 'remote-1' } });
     });
+
+    test('linked to another project there, lets the old one go and sends the nodes to the new one', async () => {
+        const links: RemoteLink[] = [{ machineId: B, remoteProjectId: 'remote-1', label: 'MacBook Pro', rootCommit: 'abc' }];
+        const { mirror, sent } = rig(() => [canvas([node('chat', 'chat', B)])], links);
+        mirror.start();
+        await mirror.settled();
+        links[0] = { ...links[0]!, remoteProjectId: 'remote-2' };
+        sent.length = 0;
+
+        await mirror.relink(B, 'remote-2');
+        await mirror.settled();
+
+        expect(sent.map((request) => [request.type, (request.payload as { projectId: string }).projectId])).toEqual([
+            ['peer.placeNodes', 'remote-1'],
+            ['project.release', 'remote-1'],
+            ['peer.placeNodes', 'remote-2']
+        ]);
+        expect((sent[2]!.payload as { nodes: unknown[] }).nodes).toHaveLength(1);
+    });
+
+    test('linked again to the same project there, only reads the link anew and sends the nodes again', async () => {
+        const { mirror, sent } = rig(() => [canvas([node('chat', 'chat', B)])]);
+        mirror.start();
+        await mirror.settled();
+        sent.length = 0;
+
+        await mirror.relink(B, 'remote-1');
+        await mirror.settled();
+
+        expect(sent.map((request) => request.type)).toEqual(['peer.placeNodes']);
+    });
 });

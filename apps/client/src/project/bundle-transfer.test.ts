@@ -1,15 +1,22 @@
 import { describe, expect, test } from 'bun:test';
 import { BYTES_CHUNK_MAX, type RequestMap, type RequestType } from '@ruimte/contracts';
-import { handOff, moveBundle, type BundleSource, type BundleTarget } from './bundle-transfer';
+import { handOff, moveBundle, type BundleSource, type BundleTarget, type Handoff } from './bundle-transfer';
 
 const BUNDLE = new Uint8Array(600_000).map((_value, i) => i % 251);
 
-function source(log: string[]): BundleSource {
+function source(log: string[], untrusted = false): BundleSource {
     return {
         async request(type) {
             log.push(type);
             if (type === 'git.bundle') {
-                return { bundleId: 'bundle-one', size: BUNDLE.length, sha256: 'a'.repeat(64), commit: 'c1', base: null } as never;
+                return {
+                    bundleId: 'bundle-one',
+                    size: BUNDLE.length,
+                    sha256: 'a'.repeat(64),
+                    commit: 'c1',
+                    base: null,
+                    ...(untrusted ? { untrusted: true } : {})
+                } as never;
             }
             throw new Error(`unexpected ${type}`);
         },
@@ -26,10 +33,13 @@ function source(log: string[]): BundleSource {
     };
 }
 
-function target(log: string[], received: Uint8Array[]): BundleTarget {
+function target(log: string[], received: Uint8Array[], fetched: unknown[] = []): BundleTarget {
     return {
         async request<T extends RequestType>(type: T, payload: RequestMap[T]['payload']): Promise<RequestMap[T]['result']> {
             log.push(type);
+            if (type === 'git.fetchBundle') {
+                fetched.push(payload);
+            }
             if (type === 'git.bundlePut') {
                 const put = payload as RequestMap['git.bundlePut']['payload'];
                 const piece = Uint8Array.from(atob(put.data), (character) => character.charCodeAt(0));
@@ -92,5 +102,20 @@ describe('handOff', () => {
         expect(result.path).toBe('/there/worktree');
         expect(log[0]).toBe('git.bundle');
         expect(log.at(-1)).toBe('git.fetchBundle');
+    });
+
+    test('tells the machine that takes it in that the machine it came from never vouched for it, and says nothing otherwise', async () => {
+        const fetched: unknown[] = [];
+        const handoff: Omit<Handoff, 'from' | 'to'> = {
+            bundle: { path: '/here', from: 'files', haves: [], name: 'Handoff' },
+            projectId: 'p',
+            branch: 'atlas',
+            into: 'worktree',
+            machine: 'Studio'
+        };
+        await handOff({ ...handoff, from: source([]), to: target([], [], fetched) });
+        await handOff({ ...handoff, from: source([], true), to: target([], [], fetched) });
+
+        expect(fetched.map((payload) => (payload as { untrusted?: boolean }).untrusted)).toEqual([undefined, true]);
     });
 });

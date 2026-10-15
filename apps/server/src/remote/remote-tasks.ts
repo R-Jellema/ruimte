@@ -39,7 +39,7 @@ export interface RemoteTasksDeps {
     labelOf(projectId: string, machineId: string): string;
     /* Writes down the folder of work that came back as one this machine never vouched for, before git makes it. */
     untrustFolder(path: string, branch: string): Promise<void>;
-    outbox: { list(): readonly OutboxEntry[]; remove(id: string): Promise<void> };
+    outbox: { list(): readonly OutboxEntry[]; remove(id: string): Promise<void>; update(entry: OutboxEntry): Promise<void> };
     enqueue(projectId: string, target: string, work: OutboxWork): Promise<void>;
     /* Looks again at whatever waits on this target. */
     wake(target: string): void;
@@ -71,6 +71,8 @@ function base64(bytes: Uint8Array): string {
  */
 export class RemoteTasks {
     private readonly deps: RemoteTasksDeps;
+    /* How often this machine left its account: work in flight from before a leave owes nothing once it resumes. */
+    private leaves = 0;
 
     constructor(deps: RemoteTasksDeps) {
         this.deps = deps;
@@ -80,6 +82,7 @@ export class RemoteTasks {
     readonly start = async (entry: StartRemoteAgentEntry): Promise<'wait' | undefined> => {
         const { deps } = this;
         const { machineId, taskId } = entry.payload;
+        const era = this.leaves;
         const task = deps.tasks.get(taskId);
         // Stopped or removed before it started: nothing was asked of the machine, so nothing is owed to it.
         if (task === undefined || task.status !== 'open' || !deps.placed(entry.target)) {
@@ -109,11 +112,24 @@ export class RemoteTasks {
                 ...(bundle === undefined ? {} : { bundle: { bundleId: bundle.bundleId, sha256: bundle.sha256 } }),
                 ...(entry.payload.branch === undefined ? {} : { branch: entry.payload.branch })
             };
+            await this.markSent(entry, true);
+            // Stopped or removed while the checkout went over: the start is not asked at all.
+            if (!this.owes(entry.id)) {
+                return undefined;
+            }
             const started = await link.request<PeerTaskStartResult>('peer.taskStart', request);
-            await this.started(entry, started);
+            await this.started(entry, started, era);
         } catch (e) {
+            if (this.leaves !== era) {
+                return undefined;
+            }
             // The link went while the request was out; the reconnect owes it again and this runs once it is back.
             if (deps.connections.link(machineId) === null) {
+                // Dropped meanwhile by a stop that may have come before the start was marked as sent.
+                if (entry.payload.sent === true && !this.owes(entry.id)) {
+                    await this.oweStopTo(entry.projectId, machineId, entry.target);
+                    return undefined;
+                }
                 await deps.reconnect.owe(machineId);
                 deps.refresh?.(machineId);
                 return 'wait';
@@ -124,6 +140,7 @@ export class RemoteTasks {
             }
             if (WAITS.has(refused.code)) {
                 // The machine has no place for it yet; it says when a task settled, and a link that opens again runs this too.
+                await this.markSent(entry, false);
                 deps.refresh?.(machineId);
                 return 'wait';
             }
@@ -156,6 +173,31 @@ export class RemoteTasks {
         }
         this.deps.wake(nodeId);
         this.wakeStarts(machineId, nodeId);
+    }
+
+    /*
+     * Writes down whether the machine may have the start, on the entry the worker holds too, since a failed
+     * attempt is written back from that object. An entry that went meanwhile stays gone.
+     */
+    private async markSent(entry: StartRemoteAgentEntry, sent: boolean): Promise<void> {
+        if (sent) {
+            entry.payload.sent = true;
+        } else {
+            delete entry.payload.sent;
+        }
+        await this.deps.outbox.update(entry);
+    }
+
+    private owes(entryId: string): boolean {
+        return this.deps.outbox.list().some((entry) => entry.id === entryId);
+    }
+
+    /* Owes a stop until the machine heard it, unless one is owed already. */
+    private async oweStopTo(projectId: string, machineId: string, nodeId: string): Promise<void> {
+        if (this.deps.outbox.list().some((entry) => entry.kind === 'stop-remote-agent' && entry.payload.nodeId === nodeId && entry.payload.once !== true)) {
+            return;
+        }
+        await this.deps.enqueue(projectId, peerTarget(machineId), { kind: 'stop-remote-agent', payload: { machineId, nodeId } });
     }
 
     private wakeStarts(machineId: string, except: string): void {
@@ -197,14 +239,9 @@ export class RemoteTasks {
     }
 
     /* The task runs there: its result is owed from now on, and a task stopped while it started is stopped there too. */
-    private async started(entry: StartRemoteAgentEntry, started: PeerTaskStartResult): Promise<void> {
+    private async started(entry: StartRemoteAgentEntry, started: PeerTaskStartResult, era: number): Promise<void> {
         const { deps } = this;
         const { machineId, taskId } = entry.payload;
-        const task = deps.tasks.get(taskId);
-        if (task === undefined || task.status !== 'open' || !deps.placed(entry.target)) {
-            await deps.enqueue(entry.projectId, peerTarget(machineId), { kind: 'stop-remote-agent', payload: { machineId, nodeId: entry.target } });
-            return;
-        }
         const base =
             entry.payload.source === undefined
                 ? null
@@ -212,6 +249,15 @@ export class RemoteTasks {
                       .git()
                       .checkpoints.head(entry.payload.source)
                       .catch(() => null);
+        // Leaving the account failed the task and forgot the machine, so nothing more is owed to it.
+        if (this.leaves !== era) {
+            return;
+        }
+        const task = deps.tasks.get(taskId);
+        if (task === undefined || task.status !== 'open' || !deps.placed(entry.target)) {
+            await this.oweStopTo(entry.projectId, machineId, entry.target);
+            return;
+        }
         await deps.enqueue(entry.projectId, entry.target, {
             kind: 'take-remote-result',
             payload: { machineId, taskId, ...(base === null ? {} : { haves: [base] }) }
@@ -227,6 +273,7 @@ export class RemoteTasks {
     readonly take = async (entry: TakeRemoteResultEntry): Promise<'wait' | undefined> => {
         const { deps } = this;
         const { machineId, taskId } = entry.payload;
+        const era = this.leaves;
         const task = deps.tasks.get(taskId);
         if (task === undefined) {
             return undefined;
@@ -248,15 +295,30 @@ export class RemoteTasks {
                 nodeId: entry.target,
                 ...(entry.payload.haves === undefined ? {} : { haves: entry.payload.haves })
             });
+            if (this.leaves !== era) {
+                return undefined;
+            }
             if (reported.status === 'open') {
                 return 'wait';
             }
-            const text = await this.settle(link, entry, task.projectId, reported);
+            const text = await this.settle(link, entry, task.projectId, reported, era);
+            if (this.leaves !== era) {
+                return undefined;
+            }
+            // The link went while the work came back: the task stays open and the transfer starts over once it is back.
+            if (text === null) {
+                await deps.reconnect.owe(machineId);
+                deps.refresh?.(machineId);
+                return 'wait';
+            }
             await link.request('peer.result', { nodeId: entry.target, ack: true });
             // A task that ended there leaves a place for one that waited for it.
             this.wakeStarts(machineId, entry.target);
             deps.log?.(`Task ${taskId} on ${machineId} settled: ${text.slice(0, 80)}`);
         } catch (e) {
+            if (this.leaves !== era) {
+                return undefined;
+            }
             if (deps.connections.link(machineId) === null) {
                 await deps.reconnect.owe(machineId);
                 deps.refresh?.(machineId);
@@ -282,13 +344,17 @@ export class RemoteTasks {
         return undefined;
     };
 
-    /* Settles the task from what the machine reported, with the branch it sent back named in the result. */
+    /*
+     * Settles the task from what the machine reported, with the branch it sent back named in the result.
+     * Null leaves it open: the link went while the work came back, which a reconnect brings again.
+     */
     private async settle(
         link: NonNullable<ReturnType<RemoteConnections['link']>>,
         entry: TakeRemoteResultEntry,
         projectId: string,
-        reported: PeerResultResult
-    ): Promise<string> {
+        reported: PeerResultResult,
+        era: number
+    ): Promise<string | null> {
         const { deps } = this;
         if (reported.status === 'unknown') {
             const text = 'The other machine has no record of this task, so it did not run there.';
@@ -303,10 +369,18 @@ export class RemoteTasks {
                       at: reported.result?.at ?? deps.now()
                   }
                 : (reported.result ?? { text: 'The other machine ended this task without a result.', source: 'exit' as const, at: deps.now() });
-        const brought =
-            reported.bundle === null
-                ? null
-                : await this.bringBack(link, entry, projectId, reported.bundle).catch((e: unknown) => `The work could not be brought back: ${errorText(e)}`);
+        let brought: string | null = null;
+        if (reported.bundle !== null) {
+            try {
+                brought = await this.bringBack(link, entry, projectId, reported.bundle, era);
+            } catch (e) {
+                if (this.leaves !== era || deps.connections.link(entry.payload.machineId) !== link) {
+                    return null;
+                }
+                // The machine refused the read, the bundle did not check out or git would not take it: asking again gives the same.
+                brought = `The work could not be brought back: ${errorText(e)}`;
+            }
+        }
         // What the machine reported is its own word and as long as it likes; what is kept and woken with is bounded.
         const room = MAX_RESULT_LENGTH - (brought === null ? 0 : brought.length + 2);
         const shown = base.text.length > room ? `${base.text.slice(0, Math.max(0, room - CLIPPED.length))}${CLIPPED}` : base.text;
@@ -321,7 +395,8 @@ export class RemoteTasks {
         link: NonNullable<ReturnType<RemoteConnections['link']>>,
         entry: TakeRemoteResultEntry,
         projectId: string,
-        bundle: NonNullable<PeerResultResult['bundle']>
+        bundle: NonNullable<PeerResultResult['bundle']>,
+        era: number
     ): Promise<string> {
         const { deps } = this;
         const folder = deps.folderOf(projectId);
@@ -341,6 +416,10 @@ export class RemoteTasks {
             }
             await bundles.receive(bundle.bundleId, offset, bytes, bundle.size);
             offset += bytes.byteLength;
+        }
+        // Work of a machine this one no longer shares an account with is never taken into a repository.
+        if (this.leaves !== era) {
+            throw new Error('This machine left its account while the work came back');
         }
         const taken = await fetchBundle(
             bundles,
@@ -400,6 +479,7 @@ export class RemoteTasks {
     readonly stop = async (entry: StopRemoteAgentEntry): Promise<'wait' | undefined> => {
         const { deps } = this;
         const { machineId, nodeId, once } = entry.payload;
+        const era = this.leaves;
         if (once !== true && deps.now() - entry.createdAt >= STOP_LIFETIME_MS) {
             return undefined;
         }
@@ -416,6 +496,9 @@ export class RemoteTasks {
             // The place it held is free.
             this.wakeStarts(machineId, nodeId);
         } catch (e) {
+            if (this.leaves !== era) {
+                return undefined;
+            }
             if (deps.connections.link(machineId) === null) {
                 if (once === true) {
                     return undefined;
@@ -449,9 +532,40 @@ export class RemoteTasks {
             await deps.outbox.remove(entry.id);
         }
         deps.refresh?.(task.machine);
-        const owed = deps.outbox.list().some((entry) => entry.kind === 'stop-remote-agent' && entry.payload.nodeId === nodeId);
-        if (own.some((entry) => entry.kind === 'take-remote-result') && !owed) {
-            await deps.enqueue(task.projectId, peerTarget(task.machine), { kind: 'stop-remote-agent', payload: { machineId: task.machine, nodeId } });
+        // A start that went out may have reached the machine without its answer reaching this one; one that never went has nothing there to end.
+        const mayRun = own.some((entry) => entry.kind === 'take-remote-result' || (entry.kind === 'start-remote-agent' && entry.payload.sent === true));
+        if (mayRun) {
+            await this.oweStopTo(task.projectId, task.machine, nodeId);
+        }
+    }
+
+    /*
+     * The machine left its account and forgot the machines it knew, so none of them is reached again. Each
+     * task given to one fails with a line that says so, which wakes its parent once, and what was owed to them goes.
+     */
+    async leave(): Promise<void> {
+        const { deps } = this;
+        this.leaves += 1;
+        const machines = new Set<string>();
+        for (const entry of deps.outbox.list()) {
+            if (entry.kind !== 'start-remote-agent' && entry.kind !== 'take-remote-result' && entry.kind !== 'stop-remote-agent') {
+                continue;
+            }
+            await deps.outbox.remove(entry.id);
+            machines.add(entry.payload.machineId);
+            if (entry.kind === 'stop-remote-agent') {
+                continue;
+            }
+            const text =
+                entry.kind === 'start-remote-agent' && entry.payload.sent !== true
+                    ? 'This machine left its account before the task was started on the other machine, so it never ran there.'
+                    : entry.kind === 'start-remote-agent'
+                      ? 'This machine left its account while the other machine was asked to start the task, so whether it started there is not known. The agent there may still run until a person stops it on that machine.'
+                      : 'This machine left its account, so what became of this task on the other machine is not known. The agent there may still run until a person stops it on that machine.';
+            await deps.coordinator.settleFromElsewhere(entry.payload.taskId, { text, source: 'exit', at: deps.now() }, 'failed');
+        }
+        for (const machineId of machines) {
+            deps.refresh?.(machineId);
         }
     }
 }

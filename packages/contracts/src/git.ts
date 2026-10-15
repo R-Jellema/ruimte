@@ -747,7 +747,9 @@ export const GitBundleResultSchema = z.object({
     // The tip of the bundle.
     commit: z.string().min(1),
     // The commit it builds on, null for the first commit of a repository.
-    base: z.string().nullable()
+    base: z.string().nullable(),
+    // The checkout lies in a folder this machine never vouched for (work another machine sent), which the machine that takes it in keeps to.
+    untrusted: z.boolean().optional()
 });
 export type GitBundleResult = z.infer<typeof GitBundleResultSchema>;
 
@@ -776,7 +778,9 @@ export const GitFetchBundlePayloadSchema = z.object({
     branch: z.string().min(1).max(200),
     into: z.enum(['worktree', 'remote-ref']),
     // What the other machine is called, for the remote the branch is listed under.
-    machine: z.string().min(1).max(120).optional()
+    machine: z.string().min(1).max(120).optional(),
+    // The machine it came from did not vouch for it (`untrusted` on its bundle), so neither does this one. It can only narrow.
+    untrusted: z.boolean().optional()
 });
 export type GitFetchBundlePayload = z.infer<typeof GitFetchBundlePayloadSchema>;
 

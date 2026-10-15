@@ -35,7 +35,10 @@ interface DevicesState {
     byEndpoint: Record<string, DeviceListState>;
     /* When a person's recording of a device began, by `recordingKey`, so a node shows it with its panel closed. */
     recordings: Record<string, number>;
+    /* The recordings that ended by themselves and whose video the machine still holds, by `recordingKey`. */
+    endedRecordings: Record<string, true>;
     markRecording(key: string, startedAt: number | null): void;
+    markRecordingEnded(key: string): void;
     /* The device a person asked to erase, while the question is up. */
     erasing: EraseRequest | null;
     askErase(request: EraseRequest | null): void;
@@ -52,13 +55,18 @@ interface DevicesState {
 export const useDevices = create<DevicesState>((set, get) => ({
     byEndpoint: {},
     recordings: {},
+    endedRecordings: {},
     erasing: null,
     askErase(request) {
         set({ erasing: request });
     },
     markRecording(key, startedAt) {
         const { [key]: _removed, ...others } = get().recordings;
-        set({ recordings: startedAt === null ? others : { ...others, [key]: startedAt } });
+        const { [key]: _ended, ...stillEnded } = get().endedRecordings;
+        set({ recordings: startedAt === null ? others : { ...others, [key]: startedAt }, endedRecordings: stillEnded });
+    },
+    markRecordingEnded(key) {
+        set({ endedRecordings: { ...get().endedRecordings, [key]: true } });
     },
     collapsedGroups: readCollapsedGroups(),
     collapseGroup(key, collapsed) {
@@ -102,6 +110,11 @@ export function recordingKey(endpointId: string, device: Pick<DeviceInfo, 'backe
 /* When the recording of this device began, or null while none runs. */
 export function useRecordingSince(endpointId: string, device: Pick<DeviceInfo, 'backendId' | 'deviceId'>): number | null {
     return useDevices((state) => state.recordings[recordingKey(endpointId, device)] ?? null);
+}
+
+/* Whether the recording of this device ended by itself, so stopping it only saves its video. */
+export function useRecordingEnded(endpointId: string, device: Pick<DeviceInfo, 'backendId' | 'deviceId'>): boolean {
+    return useDevices((state) => state.endedRecordings[recordingKey(endpointId, device)] === true);
 }
 
 export function useDeviceList(endpointId: string): DeviceListState {

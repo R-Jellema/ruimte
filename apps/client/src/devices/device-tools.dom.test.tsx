@@ -239,6 +239,23 @@ describe('capturing a device', () => {
         expect(page.host.querySelector('[role="status"]')).toBeNull();
     });
 
+    test('a recording that ended by itself before a reload shows as ended, offers no new one and saves its video', async () => {
+        devices.recording = true;
+        devices.settings = { recordingEnded: true };
+        await openTools(PIXEL);
+        await until(() => buttonWithText('Save video') !== null);
+
+        expect(buttonWithText('Record')).toBeNull();
+        expect(page.host.querySelector('[role="status"][aria-label="The recording ended by itself and its video waits"]')).not.toBeNull();
+        await clickOn(buttonWithText('Save video'));
+        await until(() => downloads.length === 1);
+
+        expect(machine.requests('device.record').map((request) => request.mode)).toEqual(['stop']);
+        expect(downloads[0]).toMatch(/^Pixel 9 .*\.mp4$/);
+        expect(page.host.querySelector('[role="status"][aria-label="The recording ended by itself and its video waits"]')).toBeNull();
+        expect(buttonWithText('Record')).not.toBeNull();
+    });
+
     test('leaves capture out on a machine that does not answer it', async () => {
         machine.answersOnly(['device.list', 'device.open', 'device.detail', 'device.action', 'device.input']);
         workspace = await openFakeWorkspace(machine, { views: [PHONE] }, { activeViewId: PHONE.id, views: {} });

@@ -2,6 +2,7 @@ import { useEffect, useState, type DragEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     CircleAlert,
+    Download,
     Ellipsis,
     Eraser,
     FoldVertical,
@@ -41,7 +42,7 @@ import { restartDevice } from '@/devices/control';
 import { stopRecording } from '@/devices/device-capture';
 import { dropAction } from '@/devices/device-files';
 import { ANDROID_BUTTONS } from '@/devices/operated';
-import { useDeviceList, useDevices, useRecordingSince, useResolvedDevice } from '@/devices/state';
+import { useDeviceList, useDevices, useRecordingEnded, useRecordingSince, useResolvedDevice } from '@/devices/state';
 import { DeviceStream } from '@/devices/DeviceStream';
 import { failed } from '@/shell/surface-failure';
 import { useEndpointId } from '@/state/keys';
@@ -243,7 +244,8 @@ function DeviceRecordingBadge({ device }: { device: DeviceInfo }) {
     const { t } = useTranslation('machines');
     const endpointId = useEndpointId();
     const since = useRecordingSince(endpointId, device);
-    const now = useNow(1_000, since !== null);
+    const ended = useRecordingEnded(endpointId, device);
+    const now = useNow(1_000, since !== null && !ended);
     const [stopping, setStopping] = useState(false);
     if (since === null) {
         return null;
@@ -264,11 +266,24 @@ function DeviceRecordingBadge({ device }: { device: DeviceInfo }) {
         <div
             className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full border border-border bg-surface-raised py-0.5 pr-0.5 pl-2.5 text-xs text-text shadow-float"
             role="status"
-            aria-label={t('device.tools.capture.recording', { time: formatClockDuration(Math.max(0, now - since)) })}
+            aria-label={
+                ended ? t('device.tools.capture.endedLabel') : t('device.tools.capture.recording', { time: formatClockDuration(Math.max(0, now - since)) })
+            }
         >
-            <span className="size-2 rounded-full bg-status-error" aria-hidden />
-            <span className="font-mono tabular-nums">{formatClockDuration(Math.max(0, now - since))}</span>
-            <IconButton icon={Square} size="sm" busy={stopping} disabled={stopping} label={t('device.tools.capture.stop')} onClick={stop} />
+            <span className={ended ? 'size-2 rounded-full bg-text-muted' : 'size-2 rounded-full bg-status-error'} aria-hidden />
+            {ended ? (
+                <span>{t('device.tools.capture.ended')}</span>
+            ) : (
+                <span className="font-mono tabular-nums">{formatClockDuration(Math.max(0, now - since))}</span>
+            )}
+            <IconButton
+                icon={ended ? Download : Square}
+                size="sm"
+                busy={stopping}
+                disabled={stopping}
+                label={ended ? t('device.tools.capture.saveVideo') : t('device.tools.capture.stop')}
+                onClick={stop}
+            />
         </div>
     );
 }

@@ -1,18 +1,11 @@
 import { BYTES_CHUNK_MAX, type GitBundlePayload, type GitFetchBundleResult } from '@ruimte/contracts';
 import { readPiece } from '@/transport/piece';
 import type { Transport } from '@/transport/transport';
+import { base64Of } from '@/base64';
 
 /* What a bundle moves over: a machine to read it from and a machine to write it to. */
 export type BundleSource = Pick<Transport, 'request' | 'readBytes'>;
 export type BundleTarget = Pick<Transport, 'request'>;
-
-function base64(bytes: Uint8Array): string {
-    let binary = '';
-    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-        binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-    }
-    return btoa(binary);
-}
 
 /*
  * Reads a bundle one piece at a time from the machine that wrote it and hands each piece to the
@@ -25,7 +18,7 @@ export async function moveBundle(from: BundleSource, to: BundleTarget, bundleId:
         if (piece.size !== size || piece.bytes.byteLength === 0) {
             throw new Error('The transfer changed while it was being sent. Try again.');
         }
-        const { received } = await to.request('git.bundlePut', { bundleId, offset, data: base64(piece.bytes), total: size });
+        const { received } = await to.request('git.bundlePut', { bundleId, offset, data: base64Of(piece.bytes), total: size });
         offset += piece.bytes.byteLength;
         if (received !== offset) {
             throw new Error('The other machine lost part of the transfer. Try again.');
@@ -62,6 +55,7 @@ export async function handOff(handoff: Handoff): Promise<GitFetchBundleResult> {
         sha256: made.sha256,
         branch: handoff.branch,
         into: handoff.into,
-        machine: handoff.machine
+        machine: handoff.machine,
+        ...(made.untrusted === true ? { untrusted: true } : {})
     });
 }

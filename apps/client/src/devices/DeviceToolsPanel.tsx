@@ -16,7 +16,7 @@ import {
 import { copyScreenshot, placeScreenshotOnCanvas, saveScreenshot, startRecording, stopRecording } from '@/devices/device-capture';
 import { isInstallable, isMedia } from '@/devices/device-files';
 import { MachineFilePicker } from '@/devices/MachineFilePicker';
-import { recordingKey, useDevices, useRecordingSince } from '@/devices/state';
+import { recordingKey, useDevices, useRecordingEnded, useRecordingSince } from '@/devices/state';
 import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { deviceClientFor } from '@/transport/connections';
@@ -77,7 +77,7 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
             .then((detail) => {
                 if (active) {
                     setSettings(detail.settings);
-                    noteRecording(endpointId, device, detail.settings.recording);
+                    noteRecording(endpointId, device, detail.settings);
                 }
             })
             .catch((cause: unknown) => {
@@ -264,14 +264,21 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
     );
 }
 
-/* A recording another client began, or one from before a reload, still shows; one that ended elsewhere goes. */
-function noteRecording(endpointId: string, device: DeviceInfo, recording: boolean | undefined): void {
+/*
+ * A recording another client began, or one from before a reload, still shows; one that was stopped elsewhere
+ * goes, and one that ended by itself shows as ended until its video is saved.
+ */
+function noteRecording(endpointId: string, device: DeviceInfo, { recording, recordingEnded }: DeviceSettings): void {
     const key = recordingKey(endpointId, device);
-    const known = useDevices.getState().recordings[key] !== undefined;
+    const devices = useDevices.getState();
+    const known = devices.recordings[key] !== undefined;
     if (recording === true && !known) {
-        useDevices.getState().markRecording(key, Date.now());
+        devices.markRecording(key, Date.now());
     } else if (recording === false && known) {
-        useDevices.getState().markRecording(key, null);
+        devices.markRecording(key, null);
+    }
+    if (recording === true && recordingEnded === true) {
+        useDevices.getState().markRecordingEnded(key);
     }
 }
 
@@ -290,7 +297,8 @@ function CaptureTools({
     const endpointId = useEndpointId();
     const [busy, setBusy] = useState<'copy' | 'save' | 'place' | 'record' | null>(null);
     const since = useRecordingSince(endpointId, device);
-    const now = useNow(1_000, since !== null);
+    const ended = useRecordingEnded(endpointId, device);
+    const now = useNow(1_000, since !== null && !ended);
     const run = (step: Exclude<typeof busy, null>, work: () => Promise<unknown>, failure: string): void => {
         setBusy(step);
         onError(null);
@@ -339,9 +347,10 @@ function CaptureTools({
                 <>
                     <ToolRow label={t('device.tools.capture.record')}>
                         <div className="flex items-center gap-2">
-                            {since !== null && (
+                            {since !== null && !ended && (
                                 <span className="font-mono text-xs text-text-muted tabular-nums">{formatClockDuration(Math.max(0, now - since))}</span>
                             )}
+                            {ended && <span className="text-xs text-text-muted">{t('device.tools.capture.ended')}</span>}
                             <Button
                                 size="sm"
                                 variant="secondary"
@@ -357,9 +366,13 @@ function CaptureTools({
                                 {busy === 'record' ? (
                                     <Icon icon={LoaderCircle} size={12} className="animate-spin" />
                                 ) : (
-                                    <Icon icon={since === null ? Video : Square} size={12} />
+                                    <Icon icon={since === null ? Video : ended ? Download : Square} size={12} />
                                 )}{' '}
-                                {since === null ? t('device.tools.capture.start') : t('device.tools.capture.stop')}
+                                {since === null
+                                    ? t('device.tools.capture.start')
+                                    : ended
+                                      ? t('device.tools.capture.saveVideo')
+                                      : t('device.tools.capture.stop')}
                             </Button>
                         </div>
                     </ToolRow>

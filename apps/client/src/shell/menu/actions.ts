@@ -8,6 +8,7 @@ import {
     splitAction
 } from '@/actions/client-actions';
 import { focusPromptStack } from '@/canvas/prompt-stack';
+import { openForkDialog } from '@/chat/open-fork';
 import { chooseAfterSettle, chooseLaunch, chosenLaunchId, runChosenLaunch, showLaunchOutput, stopAllLaunches, stopChosenLaunch } from '@/launches/actions';
 import { useLaunches } from '@/launches/state';
 import { askViewSettings, openSessionInKind, setViewShared, showView, stepView, viewAtIndex } from '@/project/views';
@@ -76,7 +77,7 @@ const MENU_ACTIONS: Record<MenuOnlyCommandId, () => void> & Partial<Record<Comma
     'release-notes': () => openReleaseNotes(null),
     'view-fork': withActiveView(({ view, forkTurn }) => {
         if (forkTurn !== null) {
-            useUi.getState().setForkDialog({ chatId: view.id, turnId: forkTurn });
+            openForkDialog(view.id, forkTurn);
         }
     }),
     'view-open-in-chat': withActiveView(({ view, asChat }) => {

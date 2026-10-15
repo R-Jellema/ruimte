@@ -54,6 +54,9 @@ interface Side {
 /* The link A holds to B, while it is open. */
 class InProcessLink implements PeerLink {
     readonly requests: string[] = [];
+    /* The link goes on the first request of this type, after B handled it (its answer is lost) or before. */
+    breakOn: { type: string; after: boolean } | null = null;
+    readonly broke = Promise.withResolvers<void>();
     private readonly frames = new Set<(raw: string) => void>();
     private readonly lost = new Set<() => void>();
     private target: TestDaemon | null = null;
@@ -63,9 +66,15 @@ class InProcessLink implements PeerLink {
     }
 
     async request<T>(type: string, payload: unknown): Promise<T> {
-        this.requests.push(type);
+        this.requests.push(type === 'peer.result' && (payload as { ack?: boolean }).ack === true ? 'peer.result:ack' : type);
         if (this.target === null) {
             throw new Error('The channel is not open');
+        }
+        const breaking = this.breakOn?.type === type ? this.breakOn : null;
+        if (breaking !== null && !breaking.after) {
+            this.breakOn = null;
+            this.goes();
+            throw new Error('The channel closed');
         }
         const frames: Array<{ ok: boolean; result?: unknown; error?: { code: string; message: string } }> = [];
         await this.target.dispatcher.handle(
@@ -77,6 +86,11 @@ class InProcessLink implements PeerLink {
             JSON.stringify({ id: 'r', type, payload })
         );
         const reply = frames[0]!;
+        if (breaking !== null) {
+            this.breakOn = null;
+            this.goes();
+            throw new Error('The channel closed');
+        }
         if (!reply.ok) {
             throw new Error(`${reply.error?.code}: ${reply.error?.message}`);
         }
@@ -100,6 +114,14 @@ class InProcessLink implements PeerLink {
 
     close(): void {
         this.target = null;
+    }
+
+    private goes(): void {
+        this.close();
+        this.broke.resolve();
+        if (link === this) {
+            link = null;
+        }
     }
 }
 
@@ -365,5 +387,140 @@ describe('a task given to another machine', () => {
         expect(daemonA.tasks.get(task.taskId)?.status).toBe('cancelled');
         expect(daemonB.outbox.list()).toEqual([]);
         expect(wakeTurns(daemonA)).toEqual([]);
+    });
+
+    test('a start whose answer was lost and that is stopped before it ran again still stops the agent on B once the link is back', async () => {
+        await bootB();
+        await bootA();
+        await leadIdle(daemonA);
+        const first = openLink();
+        first.breakOn = { type: 'peer.taskStart', after: true };
+
+        const task = await give('slow');
+        await daemonA.worker.settled();
+        await daemonB.until(() => daemonB.chats.get(task.nodeId)?.info.activeTurnId != null);
+        expect(daemonA.outbox.list().map((entry) => entry.kind)).toEqual(['start-remote-agent']);
+
+        await daemonA.endChildren.stopNode('chat-lead', 'a person stopped it');
+        await daemonA.worker.settled();
+        expect(daemonA.tasks.get(task.taskId)?.status).toBe('cancelled');
+        expect(daemonA.outbox.list().map((entry) => [entry.kind, entry.target])).toEqual([['stop-remote-agent', `peer:${B}`]]);
+
+        const second = openLink();
+        daemonA.worker.wake(`peer:${B}`);
+        await daemonA.worker.settled();
+        await daemonB.until(() => daemonB.tasks.all()[0]?.status === 'cancelled');
+        expect(second.requests).toEqual(['peer.taskStop']);
+        expect(daemonA.outbox.list()).toEqual([]);
+        expect(wakeTurns(daemonA)).toEqual([]);
+    });
+
+    test('a start that never went out owes nothing to B once it is stopped', async () => {
+        await bootB();
+        await bootA();
+        await leadIdle(daemonA);
+
+        const task = await give();
+        await daemonA.worker.settled();
+        expect(daemonA.outbox.list().map((entry) => entry.kind)).toEqual(['start-remote-agent']);
+
+        await daemonA.endChildren.stopNode('chat-lead', 'a person stopped it');
+        await daemonA.worker.settled();
+        expect(daemonA.tasks.get(task.taskId)?.status).toBe('cancelled');
+        expect(daemonA.outbox.list()).toEqual([]);
+        expect(daemonB.tasks.all()).toEqual([]);
+    });
+
+    test('leaving the account fails a task that waited to start and one that ran, wakes the lead once for each and leaves nothing owed to B', async () => {
+        await bootB();
+        await bootA();
+        await leadIdle(daemonA);
+        openLink();
+        const running = await give('slow', 'Runs there');
+        await daemonB.until(() => daemonB.chats.get(running.nodeId)?.info.activeTurnId != null);
+        await daemonA.worker.settled();
+        link = null;
+        const waiting = await give('Say hi', 'Waits to start');
+        await daemonA.worker.settled();
+        expect(
+            daemonA.outbox
+                .list()
+                .map((entry) => entry.kind)
+                .sort()
+        ).toEqual(['start-remote-agent', 'take-remote-result']);
+
+        await daemonA.remoteTasks!.leave();
+        await daemonA.until(() => wakeTurns(daemonA).filter((turn) => turn.state === 'done').length === 2);
+        await daemonA.worker.settled();
+
+        expect(daemonA.tasks.get(waiting.taskId)).toMatchObject({ status: 'failed', wake: 'sent' });
+        expect(daemonA.tasks.get(waiting.taskId)?.result?.text).toContain('never ran there');
+        expect(daemonA.tasks.get(running.taskId)).toMatchObject({ status: 'failed', wake: 'sent' });
+        expect(daemonA.tasks.get(running.taskId)?.result?.text).toContain('This machine left its account');
+        expect(
+            wakeTurns(daemonA)
+                .map((turn) => turn.taskIds)
+                .sort()
+        ).toEqual([[running.taskId], [waiting.taskId]].sort());
+        expect(daemonA.outbox.list()).toEqual([]);
+    });
+
+    test('a start B took while A still read its own checkout owes B nothing once A left its account', async () => {
+        await bootB();
+        await bootA();
+        await leadIdle(daemonA);
+        openLink();
+        const reading = Promise.withResolvers<void>();
+        const read = Promise.withResolvers<void>();
+        const head = a.checkpoints.head.bind(a.checkpoints);
+        a.checkpoints.head = async (cwd) => {
+            reading.resolve();
+            await read.promise;
+            return head(cwd);
+        };
+        const given = await give('slow', 'Runs there');
+        await reading.promise;
+
+        await daemonA.remoteTasks!.leave();
+        link = null;
+        read.resolve();
+        await daemonA.worker.settled();
+
+        expect(daemonA.outbox.list().filter((entry) => entry.kind.endsWith('remote-agent') || entry.kind === 'take-remote-result')).toEqual([]);
+        expect(reconnects).toEqual([]);
+        expect(daemonA.tasks.get(given.taskId)).toMatchObject({ status: 'failed' });
+        expect(daemonA.tasks.get(given.taskId)?.result?.text).toContain('may still run until a person stops it on that machine');
+    });
+
+    test('a link that goes while the work comes back leaves the task open, and the work is taken in before B hears it was', async () => {
+        await bootB();
+        await bootA();
+        await leadIdle(daemonA);
+        const first = openLink();
+        first.breakOn = { type: 'peer.bundleRead', after: false };
+
+        const task = await give();
+        await first.broke.promise;
+        await daemonA.worker.settled();
+        expect(first.requests).toContain('peer.bundleRead');
+        await daemonA.worker.settled();
+        expect(daemonA.tasks.get(task.taskId)?.status).toBe('open');
+        expect(first.requests).not.toContain('peer.result:ack');
+        expect(daemonA.outbox.list().map((entry) => entry.kind)).toEqual(['take-remote-result']);
+        expect(wakeTurns(daemonA)).toEqual([]);
+
+        const second = openLink();
+        daemonA.worker.wake(task.nodeId);
+        await daemonA.until(() => wakeTurns(daemonA).some((turn) => turn.state === 'done'));
+        await daemonA.worker.settled();
+        await daemonB.worker.settled();
+        const settled = daemonA.tasks.get(task.taskId)!;
+        expect(settled).toMatchObject({ status: 'done', wake: 'sent' });
+        expect(settled.result?.text).toContain('The work came back as the branch ruimte/');
+        expect(second.requests.at(-1)).toBe('peer.result:ack');
+        expect(second.requests.lastIndexOf('peer.bundleRead')).toBeLessThan(second.requests.indexOf('peer.result:ack'));
+        expect(wakeTurns(daemonA).map((turn) => turn.taskIds)).toEqual([[task.taskId]]);
+        expect(daemonA.outbox.list()).toEqual([]);
+        expect(daemonB.outbox.list()).toEqual([]);
     });
 });

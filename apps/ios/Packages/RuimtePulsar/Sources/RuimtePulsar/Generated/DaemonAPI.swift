@@ -61,6 +61,7 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `deviceOperations` = "device.operations"
     case `deviceControl` = "device.control"
     case `deviceCapture` = "device.capture"
+    case `deviceImportCapture` = "device.importCapture"
     case `deviceRecord` = "device.record"
     case `deviceClipboard` = "device.clipboard"
     case `agentResume` = "agent.resume"
