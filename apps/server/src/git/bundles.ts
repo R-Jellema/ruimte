@@ -21,6 +21,10 @@ const RECEIVED = 'refs/ruimte/received/';
 // More than a few pieces of different bundles on their way in at once means a client that never finishes.
 const MAX_OPEN_UPLOADS = 16;
 
+// A client that asks for bundles and never reads them would otherwise fill the disk one checkout at a time.
+const MAX_MADE_PER_CLIENT = 4;
+const MAX_MADE = 16;
+
 const TOO_BIG = `A bundle over ${BUNDLE_MAX_BYTES / 1024 / 1024} MiB is not sent. Push the branch to origin and fetch it there instead.`;
 
 const NO_HOOKS = ['-c', 'core.hooksPath=/dev/null'];
@@ -34,6 +38,10 @@ export class BundleStore {
     readonly root: string;
     readonly incoming: string;
     private readonly uploads = new KeyedQueue();
+    // What each incoming bundle is meant to weigh, as the sender said; a file that reached it waits for its fetch and is no open upload.
+    private readonly expected = new Map<string, number>();
+    // The client each bundle written here was for, oldest first.
+    private readonly madeFor = new Map<string, string>();
 
     constructor(home: string) {
         this.root = join(home, 'bundles');
@@ -61,11 +69,65 @@ export class BundleStore {
         return (await stat(path).catch(() => null))?.isFile() ? path : null;
     }
 
-    /* Appends a piece at the end of what came in so far; a piece at offset 0 starts the bundle over. */
-    async receive(id: string, offset: number, bytes: Uint8Array): Promise<number> {
+    /* How many bundles a client holds that nobody read to the end yet. */
+    heldBy(clientId: string): number {
+        return [...this.madeFor.values()].filter((owner) => owner === clientId).length;
+    }
+
+    /* Refuses a client that holds its share already. */
+    admit(clientId: string): void {
+        if (this.heldBy(clientId) >= MAX_MADE_PER_CLIENT) {
+            throw new GitError('bundle-limit', `Read or drop the ${MAX_MADE_PER_CLIENT} bundles that are waiting before asking for another.`);
+        }
+    }
+
+    /* Notes a bundle written for a client, and drops the oldest ones of all clients beyond the machine's share. */
+    async keep(id: string, clientId: string): Promise<void> {
+        this.madeFor.set(id, clientId);
+        for (const oldest of [...this.madeFor.keys()].slice(0, Math.max(0, this.madeFor.size - MAX_MADE))) {
+            await this.discard(oldest);
+        }
+    }
+
+    /* Removes a bundle written here, once its last piece was read or it is not wanted. */
+    async discard(id: string): Promise<void> {
+        this.madeFor.delete(id);
+        if (BundleStore.isId(id)) {
+            await rm(this.pathOf(id), { force: true });
+        }
+    }
+
+    /* Removes a bundle that came in, whether it was taken in or refused. */
+    async dropIncoming(id: string): Promise<void> {
+        this.expected.delete(id);
+        await this.uploads.run(id, () => rm(this.incomingPathOf(id), { force: true }));
+    }
+
+    private async unfinishedUploads(): Promise<number> {
+        let open = 0;
+        for (const name of await readdir(this.incoming)) {
+            const id = name.slice(0, -'.bundle'.length);
+            const total = this.expected.get(id);
+            const size = (await stat(join(this.incoming, name)).catch(() => null))?.size ?? 0;
+            if (name.endsWith('.bundle') && (total === undefined || size < total)) {
+                open += 1;
+            }
+        }
+        return open;
+    }
+
+    /*
+     * Appends a piece at the end of what came in so far; a piece at offset 0 starts the bundle over.
+     * `total` is the size the sender will have sent by the last piece, which is what tells a finished upload from an open one.
+     */
+    async receive(id: string, offset: number, bytes: Uint8Array, total?: number): Promise<number> {
         const path = this.incomingPathOf(id);
         return this.uploads.run(id, async () => {
-            if (bytes.byteLength > BYTES_CHUNK_MAX || offset + bytes.byteLength > BUNDLE_MAX_BYTES) {
+            if (
+                bytes.byteLength > BYTES_CHUNK_MAX ||
+                offset + bytes.byteLength > BUNDLE_MAX_BYTES ||
+                (total !== undefined && offset + bytes.byteLength > total)
+            ) {
                 throw new GitError('bundle-too-large', TOO_BIG);
             }
             await mkdir(this.incoming, { recursive: true, mode: 0o700 });
@@ -73,8 +135,11 @@ export class BundleStore {
             if (offset > 0 && have !== offset) {
                 throw new GitError('bundle-offset', `The bundle has ${have ?? 0} bytes here, not ${offset}. Send it again from the start.`);
             }
-            if (have === null && (await readdir(this.incoming)).length >= MAX_OPEN_UPLOADS) {
+            if (have === null && (await this.unfinishedUploads()) >= MAX_OPEN_UPLOADS) {
                 throw new GitError('bundle-uploads-busy', 'Too many bundles are being received at once.');
+            }
+            if (total !== undefined) {
+                this.expected.set(id, total);
             }
             const file = await open(path, offset === 0 ? 'w' : 'a', 0o600);
             try {
@@ -88,6 +153,8 @@ export class BundleStore {
 
     /* Removes every bundle not named in `keep`. Run at daemon start, when no transfer is open; never on a clock. */
     async sweep(keep: ReadonlySet<string> = new Set()): Promise<void> {
+        this.expected.clear();
+        this.madeFor.clear();
         for (const folder of [this.root, this.incoming]) {
             for (const name of await readdir(folder).catch(() => [])) {
                 if (name.endsWith('.bundle') && !keep.has(name.slice(0, -'.bundle'.length))) {
@@ -197,6 +264,9 @@ export async function makeBundle(
         if (made.code !== 0) {
             throw new GitError('git-failed', made.stderr.trim() || 'git bundle failed');
         }
+    } catch (e) {
+        await rm(path, { force: true });
+        throw e;
     } finally {
         await runGit(['update-ref', '-d', ref], top);
     }
@@ -227,6 +297,15 @@ async function refIsValid(top: string, ref: string): Promise<boolean> {
  * and a worktree is made on it, so the work is there to open and to merge.
  */
 export async function fetchBundle(store: BundleStore, worktrees: Worktrees, folder: string, payload: GitFetchBundlePayload): Promise<GitFetchBundleResult> {
+    try {
+        return await takeIn(store, worktrees, folder, payload);
+    } finally {
+        // Taken in or refused, the file is of no use again: a sender that tries once more sends it from the start.
+        await store.dropIncoming(payload.bundleId);
+    }
+}
+
+async function takeIn(store: BundleStore, worktrees: Worktrees, folder: string, payload: GitFetchBundlePayload): Promise<GitFetchBundleResult> {
     const file = store.incomingPathOf(payload.bundleId);
     if (!(await stat(file).catch(() => null))?.isFile()) {
         throw new GitError('bundle-missing', 'This bundle did not arrive.');

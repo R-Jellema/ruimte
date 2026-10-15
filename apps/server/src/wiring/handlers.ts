@@ -322,7 +322,8 @@ export function registerEditorHandlers(dispatcher: Dispatcher, input: EditorHand
             attachment: (chatId, id) => agents.chats.findAttachment(chatId, id),
             projectIcon: (projectId, theme) => store.iconFile(projectId, theme),
             file: readServedFile,
-            bundle: (id) => git.bundles.made(id)
+            bundle: (id) => git.bundles.made(id),
+            bundleRead: (id) => git.bundles.discard(id)
         },
         machine.machineHome
     );

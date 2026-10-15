@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BYTES_CHUNK_MAX } from '@ruimte/contracts';
@@ -199,4 +199,57 @@ test('pieces out of order and over the cap are refused, and a sweep clears what 
     await second.bundles.sweep();
 
     expect(await Bun.file(second.bundles.incomingPathOf('transfer-one')).exists()).toBe(false);
+});
+
+test('the file that came in is gone after a fetch, whether it was taken in or refused', async () => {
+    const made = await makeBundle(first.bundles, first.checkpoints, { path: first.repo, from: 'head', haves: [], name: 'Handoff' });
+    await send(first, second, made.bundleId);
+    const incoming = second.bundles.incomingPathOf(made.bundleId);
+    const request = { projectId: 'p', bundleId: made.bundleId, sha256: made.sha256, branch: 'atlas', into: 'worktree' as const };
+
+    await expect(fetchBundle(second.bundles, second.worktrees, second.repo, { ...request, sha256: '0'.repeat(64) })).rejects.toMatchObject({
+        code: 'bundle-corrupt'
+    });
+    expect(await Bun.file(incoming).exists()).toBe(false);
+
+    await send(first, second, made.bundleId);
+    await fetchBundle(second.bundles, second.worktrees, second.repo, request);
+    expect(await Bun.file(incoming).exists()).toBe(false);
+});
+
+test('an upload that reached its size no longer counts as open, and abandoned ones are refused past the limit', async () => {
+    const piece = new Uint8Array(4);
+    for (let i = 0; i < 16; i++) {
+        await second.bundles.receive(`finished-${i}`, 0, piece, 4);
+    }
+    // Sixteen files waiting for their fetch, and room for another transfer all the same.
+    await second.bundles.receive('another-one', 0, piece, 8);
+
+    for (let i = 0; i < 15; i++) {
+        await second.bundles.receive(`open-${i}`, 0, piece, 8);
+    }
+    await expect(second.bundles.receive('one-too-many', 0, piece, 8)).rejects.toMatchObject({ code: 'bundle-uploads-busy' });
+});
+
+test('a client holds only a few bundles that nobody read, and the machine keeps only the newest of all', async () => {
+    for (let i = 0; i < 4; i++) {
+        const made = await makeBundle(first.bundles, first.checkpoints, { path: first.repo, from: 'head', haves: [], name: `Handoff ${i}` });
+        await first.bundles.keep(made.bundleId, 'window');
+    }
+    expect(() => first.bundles.admit('window')).toThrow(expect.objectContaining({ code: 'bundle-limit' }));
+    expect(() => first.bundles.admit('other-window')).not.toThrow();
+
+    const lastRead = (await readdir(first.bundles.root)).find((name) => name.endsWith('.bundle'))!;
+    await first.bundles.discard(lastRead.slice(0, -'.bundle'.length));
+    expect(await Bun.file(join(first.bundles.root, lastRead)).exists()).toBe(false);
+    expect(() => first.bundles.admit('window')).not.toThrow();
+
+    const ids: string[] = [];
+    for (let i = 0; i < 18; i++) {
+        const made = await makeBundle(first.bundles, first.checkpoints, { path: first.repo, from: 'head', haves: [], name: `Many ${i}` });
+        ids.push(made.bundleId);
+        await first.bundles.keep(made.bundleId, `window-${i}`);
+    }
+    expect(await first.bundles.made(ids[0]!)).toBeNull();
+    expect(await first.bundles.made(ids.at(-1)!)).not.toBeNull();
 });

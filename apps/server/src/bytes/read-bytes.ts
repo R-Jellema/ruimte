@@ -17,6 +17,8 @@ export interface ByteSources {
     file(path: string): Promise<{ mime: string } | null>;
     /* The file of a bundle this machine wrote. */
     bundle?(bundleId: string): Promise<string | null>;
+    /* A bundle was read to its last byte, so nobody needs the file again. */
+    bundleRead?(bundleId: string): Promise<void>;
 }
 
 async function locate(sources: ByteSources, resource: ByteResource): Promise<{ path: string; mime: string } | null> {
@@ -58,11 +60,15 @@ export async function readBytes(sources: ByteSources, payload: BytesReadPayload)
         throw new BytesError('bad-offset', `Offset ${payload.offset} is past the end of a file of ${info.size} bytes`);
     }
     const end = Math.min(payload.offset + payload.length, info.size);
+    const piece = new Uint8Array(await Bun.file(found.path).slice(payload.offset, end).arrayBuffer());
+    if (payload.resource.kind === 'bundle' && end === info.size) {
+        await sources.bundleRead?.(payload.resource.bundleId);
+    }
     return {
         mime: found.mime,
         size: info.size,
         version: `${Math.trunc(info.mtimeMs)}-${info.size}`,
         offset: payload.offset,
-        bytes: new Uint8Array(await Bun.file(found.path).slice(payload.offset, end).arrayBuffer())
+        bytes: piece
     };
 }

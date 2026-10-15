@@ -755,7 +755,9 @@ export type GitBundleResult = z.infer<typeof GitBundleResultSchema>;
 export const GitBundlePutPayloadSchema = z.object({
     bundleId: z.string().min(1).max(64),
     offset: z.number().int().nonnegative(),
-    data: z.string().max(Math.ceil((BYTES_CHUNK_MAX * 4) / 3) + 4)
+    data: z.string().max(Math.ceil((BYTES_CHUNK_MAX * 4) / 3) + 4),
+    // The size of the whole bundle, which is how this machine tells an upload that is done from one still open.
+    total: z.number().int().positive().optional()
 });
 export type GitBundlePutPayload = z.infer<typeof GitBundlePutPayloadSchema>;
 

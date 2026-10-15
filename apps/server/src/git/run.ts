@@ -46,6 +46,7 @@ export type GitErrorCode =
     | 'diverged'
     // A bundle for another machine: too big to send, out of order, never arrived, not the one named, or not fitting this repository.
     | 'bundle-too-large'
+    | 'bundle-limit'
     | 'bundle-offset'
     | 'bundle-uploads-busy'
     | 'bundle-missing'

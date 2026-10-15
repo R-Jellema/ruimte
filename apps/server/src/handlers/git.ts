@@ -128,13 +128,16 @@ export function registerGitHandlers(
     if (bundleHost !== undefined) {
         const { bundles, checkpoints, folderOf } = bundleHost;
 
-        dispatcher.register('git.bundle', async (payload) => {
+        dispatcher.register('git.bundle', async (payload, client) => {
             await machineHome?.refuse(payload.path);
-            return makeBundle(bundles, checkpoints, payload);
+            bundles.admit(client.id);
+            const made = await makeBundle(bundles, checkpoints, payload);
+            await bundles.keep(made.bundleId, client.id);
+            return made;
         });
 
         dispatcher.register('git.bundlePut', async (payload) => ({
-            received: await bundles.receive(payload.bundleId, payload.offset, Buffer.from(payload.data, 'base64'))
+            received: await bundles.receive(payload.bundleId, payload.offset, Buffer.from(payload.data, 'base64'), payload.total)
         }));
 
         dispatcher.register('git.fetchBundle', async (payload) => {

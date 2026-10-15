@@ -12,6 +12,7 @@ import { BytesError, readBytes, type ByteSources } from './read-bytes.ts';
 let folder: string;
 let picture: Uint8Array;
 let sources: ByteSources;
+let read: string[] = [];
 
 beforeAll(async () => {
     folder = await mkdtemp(join(tmpdir(), 'ruimte-bytes-'));
@@ -29,6 +30,7 @@ beforeAll(async () => {
                 : null,
         projectIcon: async (projectId) => (projectId === 'p1' ? { path: join(folder, 'picture.gif'), mime: 'image/gif' } : null),
         file: readServedFile,
+        bundleRead: async (bundleId) => void read.push(bundleId),
         bundle: async (bundleId) => (bundleId === 'bundle-one' ? join(folder, 'one.bundle') : bundleId === 'bundle-huge' ? join(folder, 'huge.bundle') : null)
     };
     await writeFile(join(folder, 'one.bundle'), 'a bundle');
@@ -117,6 +119,15 @@ describe('readBytes', () => {
         await expect(readBytes(sources, { resource: { kind: 'bundle', bundleId: 'nope' }, offset: 0, length: 10 })).rejects.toMatchObject({
             code: 'not-found'
         });
+    });
+
+    test('a bundle is reported read once its last byte was served, and not before', async () => {
+        read = [];
+        const resource = { kind: 'bundle', bundleId: 'bundle-one' } as const;
+        await readBytes(sources, { resource, offset: 0, length: 4 });
+        expect(read).toEqual([]);
+        await readBytes(sources, { resource, offset: 4, length: 4 });
+        expect(read).toEqual(['bundle-one']);
     });
 
     test('an offset past the end is refused', async () => {

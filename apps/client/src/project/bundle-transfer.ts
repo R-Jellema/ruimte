@@ -25,7 +25,7 @@ export async function moveBundle(from: BundleSource, to: BundleTarget, bundleId:
         if (piece.size !== size || piece.bytes.byteLength === 0) {
             throw new Error('The bundle changed while it was being sent.');
         }
-        const { received } = await to.request('git.bundlePut', { bundleId, offset, data: base64(piece.bytes) });
+        const { received } = await to.request('git.bundlePut', { bundleId, offset, data: base64(piece.bytes), total: size });
         offset += piece.bytes.byteLength;
         if (received !== offset) {
             throw new Error('The other machine lost a piece of the bundle.');

@@ -48083,6 +48083,11 @@
       "data": {
         "type": "string",
         "maxLength": 349530
+      },
+      "total": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
       }
     },
     "required": [
