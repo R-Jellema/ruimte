@@ -1,10 +1,10 @@
-import { createHolder } from '@adecore/editor-react';
+import { createHolder, lspLanguageIdOf } from '@adecore/editor-react';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { storedPathOf } from '@ruimte/contracts';
 import { pathToFileUri } from '@adecore/lsp';
 import type { Editor } from '@adecore/editor';
 import { EditorLanguage } from '@/language/ruimte-editor-language';
-import { catalogLanguageIdOf, customLanguageIdOf } from '@/language/language-ids-host';
+import { customLanguageIdOf } from '@/language/language-ids-host';
 import { draftFiles } from '@/language/project-files';
 import { acquireProjectLanguage } from '@/language/ruimte-project-language';
 import { useEndpointId } from '@/state/keys';
@@ -52,7 +52,7 @@ export function useEditorLanguage(editor: Editor | null, path: string, language:
     const projectId = useProject((s) => s.current?.projectId ?? null);
     const folder = useProject((s) => s.current?.folder ?? null);
     const holder = useMemo(() => createHolder<EditorLanguage>(), []);
-    const builtIn = catalogLanguageIdOf(language);
+    const builtIn = lspLanguageIdOf(language);
     const ownId = useOwnLanguageId(editor !== null && builtIn === null, path, language);
     const languageId = builtIn ?? ownId;
 
