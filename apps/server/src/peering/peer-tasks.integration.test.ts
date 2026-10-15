@@ -180,3 +180,63 @@ test('a bundle that does not match what was said it is refused and nothing start
     expect(tasks.all()).toHaveLength(0);
     expect(enqueued).toHaveLength(0);
 });
+
+async function bundlesOnDisk(): Promise<string[]> {
+    return Array.fromAsync(new Bun.Glob('bundles/peers/**/*.bundle').scan({ cwd: homeB }));
+}
+
+test('three results fetched together all arrive, and acknowledging leaves no bundle behind', async () => {
+    const ids = ['chat-one', 'chat-two', 'chat-three'];
+    for (const nodeId of ids) {
+        const bundle = await sendFromA();
+        await peerTasks.start(A, 'client-1', {
+            projectId: PROJECT,
+            nodeId,
+            parentId: 'chat-parent',
+            title: nodeId,
+            prompt: 'Fix it',
+            provider: 'claude',
+            ceiling: 'full-access',
+            depth: 1,
+            bundle,
+            branch: nodeId
+        });
+    }
+    for (const task of tasks.all()) {
+        await tasks.settle(task.id, 'done', { text: 'Done', source: 'turn', at: 1 }, 2);
+    }
+
+    const reported = await Promise.all(ids.map((nodeId) => peerTasks.result(A, 'client-1', { nodeId })));
+    for (const result of reported) {
+        const bundle = result.bundle!;
+        const piece = await peerTasks.bundleRead(A, { bundleId: bundle.bundleId, offset: 0, length: bundle.size });
+        expect(piece.size).toBe(bundle.size);
+    }
+    expect(await bundlesOnDisk()).toEqual([]);
+
+    for (const nodeId of ids) {
+        expect(await peerTasks.result(A, 'client-1', { nodeId, ack: true })).toMatchObject({ status: 'done', bundle: null });
+    }
+    expect(await bundlesOnDisk()).toEqual([]);
+});
+
+test('an acknowledgment makes no bundle, and one that was offered and never read goes with it', async () => {
+    const bundle = await sendFromA();
+    await peerTasks.start(A, 'client-1', {
+        projectId: PROJECT,
+        nodeId: 'chat-one',
+        parentId: 'chat-parent',
+        title: 'Fix it',
+        prompt: 'Fix it',
+        provider: 'claude',
+        ceiling: 'full-access',
+        depth: 1,
+        bundle,
+        branch: 'fix-it'
+    });
+    await tasks.settle(tasks.all()[0]!.id, 'done', { text: 'Done', source: 'turn', at: 1 }, 2);
+    expect((await peerTasks.result(A, 'client-1', { nodeId: 'chat-one' })).bundle).not.toBeNull();
+    expect(await bundlesOnDisk()).toHaveLength(1);
+    expect((await peerTasks.result(A, 'client-1', { nodeId: 'chat-one', ack: true })).bundle).toBeNull();
+    expect(await bundlesOnDisk()).toEqual([]);
+});

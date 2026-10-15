@@ -361,10 +361,13 @@ export class PeerTasks {
         if (task.status === 'open') {
             return { status: 'open', result: null, bundle: null };
         }
-        const bundle = await this.resultBundle(machineId, clientId, task, payload.haves ?? []);
         if (payload.ack === true) {
+            // The machine has the work already; a bundle made for this call would be one nobody reads.
+            await this.discardOffered(machineId, task.childId);
             await this.settleDelivery(payload.nodeId, task);
+            return { status: task.status, result: task.result, bundle: null };
         }
+        const bundle = await this.resultBundle(machineId, clientId, task, payload.haves ?? []);
         return { status: task.status, result: task.result, bundle };
     }
 
@@ -378,6 +381,15 @@ export class PeerTasks {
             if (entry.kind === 'deliver-remote-result' && entry.payload.nodeId === nodeId) {
                 await this.deps.outbox.remove(entry.id);
             }
+        }
+    }
+
+    /* The result bundle offered to that machine for this node, if one is still there. */
+    private async discardOffered(machineId: string, nodeId: string): Promise<void> {
+        const offered = [...this.offered].find(([, who]) => who.machineId === machineId && who.nodeId === nodeId);
+        if (offered !== undefined) {
+            this.offered.delete(offered[0]);
+            await this.deps.peerBundles(machineId).discard(offered[0]);
         }
     }
 
@@ -399,11 +411,7 @@ export class PeerTasks {
         if (branch === null) {
             return null;
         }
-        const offered = [...this.offered].find(([, who]) => who.machineId === machineId && who.nodeId === task.childId);
-        if (offered !== undefined) {
-            await deps.peerBundles(machineId).discard(offered[0]);
-            this.offered.delete(offered[0]);
-        }
+        await this.discardOffered(machineId, task.childId);
         const bundles = deps.peerBundles(machineId);
         const { checkpoints } = deps.git();
         bundles.admit(clientId);

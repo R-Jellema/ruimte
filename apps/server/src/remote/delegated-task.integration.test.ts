@@ -227,9 +227,9 @@ async function leadIdle(daemon: TestDaemon): Promise<void> {
     await daemon.until(() => turnsOf(daemon, 'chat-lead').some((turn) => turn.state === 'done'));
 }
 
-async function give(prompt = 'Say hi'): Promise<{ nodeId: string; taskId: string }> {
+async function give(prompt = 'Say hi', title = 'Build it'): Promise<{ nodeId: string; taskId: string }> {
     await writeFile(join(a.repo, 'a.txt'), 'one, changed on A\n');
-    const [line] = await runVerb(daemonA, 'chat-lead', 'agent', ['claude', '--machine', 'Studio', '--task', 'Build it', '--prompt', prompt, '--worktree']);
+    const [line] = await runVerb(daemonA, 'chat-lead', 'agent', ['claude', '--machine', 'Studio', '--task', title, '--prompt', prompt, '--worktree']);
     const fields = line!.split('\t');
     expect(fields).toHaveLength(6);
     return { nodeId: fields[0]!, taskId: fields[5]! };
@@ -266,6 +266,22 @@ describe('a task given to another machine', () => {
         expect(await readFile(join(worktreeA!, 'a.txt'), 'utf8')).toBe('one, changed on A\n');
         // The checkout of A itself was not touched by the way back.
         expect(await readFile(join(a.repo, 'a.txt'), 'utf8')).toBe('one, changed on A\n');
+    });
+
+    test('five tasks with a worktree in a row each bring their branch back and leave no bundle on B', async () => {
+        await bootB();
+        await bootA();
+        await leadIdle(daemonA);
+        openLink();
+
+        for (let i = 1; i <= 5; i++) {
+            const task = await give('Say hi', `Build part ${i}`);
+            await daemonA.until(() => daemonA.tasks.get(task.taskId)?.status === 'done');
+            await daemonA.worker.settled();
+            await daemonB.worker.settled();
+            expect(daemonA.tasks.get(task.taskId)?.result?.text).toContain('The work came back as the branch ruimte/');
+        }
+        expect(await Array.fromAsync(new Bun.Glob('bundles/peers/**/*.bundle').scan({ cwd: b.home }))).toEqual([]);
     });
 
     test('waits while B is away, starts once the link opens, and a result that arrives while A is away is taken in when it is back', async () => {

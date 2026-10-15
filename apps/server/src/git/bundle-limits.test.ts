@@ -26,6 +26,21 @@ describe('the bundles one machine sends', () => {
         await store.receive('third-one', 0, piece(10), 10);
     });
 
+    test('results written for the machine do not take the place of a transfer, and have a limit of their own', async () => {
+        const store = new BundleStore(home, 'machine-a', { bundles: 2, bytes: 1000, results: 3 });
+        await store.receive('first-one', 0, piece(10), 10);
+        for (const id of ['result-one', 'result-two', 'result-three']) {
+            await Bun.write(store.pathOf(id), new Uint8Array(10));
+            await store.keep(id, 'client-1');
+        }
+        await store.receive('second-one', 0, piece(10), 10);
+        expect(await Promise.all(['result-one', 'result-two', 'result-three'].map((id) => store.made(id)))).not.toContain(null);
+        await Bun.write(store.pathOf('result-four'), new Uint8Array(10));
+        await store.keep('result-four', 'client-1');
+        expect(await store.made('result-one')).toBeNull();
+        expect(await store.made('result-four')).not.toBeNull();
+    });
+
     test('sending the same bundle again replaces it instead of adding another', async () => {
         const store = new BundleStore(home, 'machine-a', { bundles: 2, bytes: 1000 });
         const id = bundleIdFor('task-1');

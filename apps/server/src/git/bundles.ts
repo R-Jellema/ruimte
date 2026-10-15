@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import {
     BUNDLE_MAX_BYTES,
     BYTES_CHUNK_MAX,
+    PEER_MAX_OPEN_TASKS,
     type GitBundlePayload,
     type GitBundleResult,
     type GitFetchBundlePayload,
@@ -25,14 +26,19 @@ const MAX_OPEN_UPLOADS = 16;
 const MAX_MADE_PER_CLIENT = 4;
 const MAX_MADE = 16;
 
-// What one machine that works here may keep on this disk at once, finished transfers and unread results included.
+// What one machine that works here may have sent to this disk at once, finished transfers that were not taken in yet included.
 export const PEER_MAX_BUNDLES = 2;
 export const PEER_MAX_BUNDLE_BYTES = 512 * 1024 * 1024;
+// Results written for that machine and not read to the end yet: a place for every task it may have open, twice, so three fetched together all arrive.
+export const PEER_MAX_RESULT_BUNDLES = PEER_MAX_OPEN_TASKS * 2;
 
 /* How much of this disk the bundles of one machine may hold. */
 export interface BundleLimits {
+    /* Transfers it sent. */
     bundles: number;
     bytes: number;
+    /* Results written for it; its own count, so a result never takes the place of a transfer. */
+    results?: number;
 }
 
 const TOO_BIG = `The work to send is larger than ${BUNDLE_MAX_BYTES / 1024 / 1024} MiB. Push the branch to origin and fetch it there instead.`;
@@ -103,7 +109,7 @@ export class BundleStore {
     /* Notes a bundle written for a client, and drops the oldest ones of all clients beyond the machine's share. */
     async keep(id: string, clientId: string): Promise<void> {
         this.madeFor.set(id, clientId);
-        const share = this.limits?.bundles ?? MAX_MADE;
+        const share = this.limits === null ? MAX_MADE : (this.limits.results ?? PEER_MAX_RESULT_BUNDLES);
         for (const oldest of [...this.madeFor.keys()].slice(0, Math.max(0, this.madeFor.size - share))) {
             await this.discard(oldest);
         }
@@ -123,16 +129,14 @@ export class BundleStore {
         await this.uploads.run(id, () => rm(this.incomingPathOf(id), { force: true }));
     }
 
-    /* What the bundles held for this machine weigh, not counting the one `except` names, which a new upload replaces. */
+    /* What the transfers sent by this machine weigh, not counting the one `except` names, which a new upload replaces. */
     private async stored(except: string): Promise<{ count: number; bytes: number }> {
         let count = 0;
         let bytes = 0;
-        for (const folder of [this.root, this.incoming]) {
-            for (const name of await readdir(folder).catch(() => [])) {
-                if (name.endsWith('.bundle') && name.slice(0, -'.bundle'.length) !== except) {
-                    count += 1;
-                    bytes += (await stat(join(folder, name)).catch(() => null))?.size ?? 0;
-                }
+        for (const name of await readdir(this.incoming).catch(() => [])) {
+            if (name.endsWith('.bundle') && name.slice(0, -'.bundle'.length) !== except) {
+                count += 1;
+                bytes += (await stat(join(this.incoming, name)).catch(() => null))?.size ?? 0;
             }
         }
         return { count, bytes };
