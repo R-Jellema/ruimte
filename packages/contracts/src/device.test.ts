@@ -156,7 +156,70 @@ describe('device contracts', () => {
         const capabilities = { boot: true, shutdown: true, stream: true, input: true, screenshot: true };
         expect(deviceButtons({ capabilities })).toEqual(['home', 'swipeHome', 'appSwitcher', 'lock', 'siri']);
         expect(deviceTools({ capabilities, platform: 'ios', kind: 'simulator' })).toContain('push');
+        expect(deviceTools({ capabilities, platform: 'ios', kind: 'simulator' })).not.toContain('capture');
         expect(deviceTools({ capabilities, platform: 'ios', kind: 'physical' })).toEqual([]);
+    });
+
+    test('parses the tools, buttons and settings a person drives from the node', () => {
+        const target = { platform: 'ios', backendId: 'simctl', deviceId: 'phone-1' } as const;
+        const actions = [
+            { action: 'setStatusBar', value: 'clean' },
+            { action: 'setBattery', level: 40, charging: true },
+            { action: 'resetBattery' },
+            { action: 'biometric', sensor: 'face', event: 'match' },
+            { action: 'shake' },
+            { action: 'memoryWarning' },
+            { action: 'setAllPermissions', appId: 'com.example.app', decision: 'grant' },
+            { action: 'installApp', path: '/work/atlas/build/Atlas.app' },
+            { action: 'addMedia', paths: ['/work/atlas/shot.png'] },
+            { action: 'erase' },
+            { action: 'setFold', value: 'tabletop' },
+            { action: 'setHinge', degrees: 130 },
+            { action: 'setCamera', appId: 'com.example.app', source: 'file', path: '/work/atlas/qr.png' }
+        ];
+        for (const action of actions) {
+            expect(REQUEST_SCHEMAS['device.action'].payload.safeParse({ ...target, ...action }).success).toBe(true);
+        }
+        expect(REQUEST_SCHEMAS['device.action'].payload.safeParse({ ...target, action: 'setBattery', level: 101, charging: false }).success).toBe(false);
+        expect(REQUEST_SCHEMAS['device.action'].payload.safeParse({ ...target, action: 'addMedia', paths: [] }).success).toBe(false);
+        expect(REQUEST_SCHEMAS['device.action'].payload.safeParse({ ...target, action: 'setHinge', degrees: 200 }).success).toBe(false);
+        expect(REQUEST_SCHEMAS['device.input'].payload.safeParse({ ...target, input: { kind: 'key', phase: 'down', usage: 0x04 } }).success).toBe(true);
+        expect(REQUEST_SCHEMAS['device.input'].payload.safeParse({ ...target, input: { kind: 'key', phase: 'down', usage: 0 } }).success).toBe(false);
+        expect(REQUEST_SCHEMAS['device.input'].payload.safeParse({ ...target, input: { kind: 'button', button: 'volumeUp' } }).success).toBe(true);
+        expect(
+            REQUEST_SCHEMAS['device.detail'].result.safeParse({
+                ...target,
+                settings: { statusBar: 'clean', battery: { level: 80, charging: false }, biometricEnrolled: true, hinge: 90, panel: 'inner', recording: true }
+            }).success
+        ).toBe(true);
+    });
+
+    test('parses capture, record and clipboard requests', () => {
+        const target = { platform: 'android', backendId: 'android', deviceId: 'emulator-5554' } as const;
+        expect(REQUEST_SCHEMAS['device.capture'].payload.safeParse(target).success).toBe(true);
+        expect(REQUEST_SCHEMAS['device.capture'].result.safeParse({ path: '/home/.ruimte/device-captures/shot.png', width: 1080, height: 2400 }).success).toBe(
+            true
+        );
+        expect(REQUEST_SCHEMAS['device.record'].payload.safeParse({ ...target, mode: 'start' }).success).toBe(true);
+        expect(REQUEST_SCHEMAS['device.record'].payload.safeParse({ ...target, mode: 'pause' }).success).toBe(false);
+        expect(REQUEST_SCHEMAS['device.record'].result.safeParse({ recording: false, path: '/home/.ruimte/device-captures/clip.mp4' }).success).toBe(true);
+        expect(REQUEST_SCHEMAS['device.clipboard'].payload.safeParse(target).success).toBe(true);
+        expect(REQUEST_SCHEMAS['device.clipboard'].payload.safeParse({ ...target, text: 'héllo 👋', paste: true }).success).toBe(true);
+        expect(REQUEST_SCHEMAS['device.clipboard'].result.safeParse({ text: '' }).success).toBe(true);
+    });
+
+    test('keeps an announced tool a newer daemon added beside the new ones this version knows', () => {
+        const capabilities = {
+            boot: true,
+            shutdown: true,
+            stream: true,
+            input: true,
+            screenshot: true,
+            tools: ['capture', 'teleport', 'clipboard'],
+            buttons: ['volumeUp', 'crown']
+        };
+        expect(deviceTools({ capabilities, platform: 'android', kind: 'simulator' })).toEqual(['capture', 'clipboard']);
+        expect(deviceButtons({ capabilities })).toEqual(['volumeUp']);
     });
 
     test('names H.264 frames and their stream', () => {

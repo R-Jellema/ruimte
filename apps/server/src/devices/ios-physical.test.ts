@@ -38,7 +38,7 @@ describe('IosPhysicalBackend', () => {
                 name: 'Test iPhone',
                 runtime: 'iOS 27.2',
                 state: 'booted',
-                capabilities: { boot: false, shutdown: false, stream: true, input: false, screenshot: true }
+                capabilities: { boot: false, shutdown: false, stream: true, input: false, screenshot: true, tools: ['capture', 'installApp'] }
             }
         ]);
         expect(calls[0]).toContain("properties.hardware.platform = 'iOS' AND properties.hardware.reality = 'physical'");
@@ -102,5 +102,21 @@ describe('IosPhysicalBackend', () => {
 
         expect(await backend.screenshot('coredevice-phone-1')).toEqual(new Uint8Array([0x89, 0x50]));
         expect(shots).toEqual(['coredevice-phone-1']);
+    });
+
+    test('installs an .app or an .ipa through devicectl and refuses everything else', async () => {
+        const calls: string[][] = [];
+        const backend = new IosPhysicalBackend(async (arguments_) => {
+            calls.push(arguments_);
+            return { exitCode: 0, stdout: '', stderr: '' };
+        });
+        const target = { backendId: 'coredevice', platform: 'ios', deviceId: 'coredevice-phone-1' } as const;
+
+        await backend.action('coredevice-phone-1', { ...target, action: 'installApp', path: '/work/atlas/build/Atlas.ipa' });
+        expect(calls).toEqual([['device', 'install', 'app', '--device', 'coredevice-phone-1', '/work/atlas/build/Atlas.ipa']]);
+        await expect(backend.action('coredevice-phone-1', { ...target, action: 'installApp', path: '/work/atlas/app.apk' })).rejects.toMatchObject({
+            code: 'device-path-refused'
+        });
+        await expect(backend.action('coredevice-phone-1', { ...target, action: 'shake' })).rejects.toMatchObject({ code: 'device-action-unavailable' });
     });
 });

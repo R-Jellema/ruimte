@@ -1,6 +1,7 @@
 import type { DeviceAction, DeviceInfo, DeviceInput, DeviceSettings, LiveStreamFrame } from '@ruimte/contracts';
 import type { DeviceTree, DeviceTreeNode } from './device-tree.ts';
 import type { DeviceBackend, DeviceKeyboard, DeviceSource } from './manager.ts';
+import { DeviceRecordings, type RecordingProcess } from './recordings.ts';
 
 /* The first bytes of a png of this size: the signature and a header chunk, which is all a size is read from. */
 export function pngOf(width: number, height: number): Uint8Array {
@@ -27,7 +28,24 @@ export const SIMULATOR: DeviceInfo = {
         input: true,
         screenshot: true,
         buttons: ['home', 'swipeHome', 'appSwitcher', 'lock', 'siri'],
-        tools: ['launchApp']
+        tools: [
+            'launchApp',
+            'openUrl',
+            'terminateApp',
+            'appearance',
+            'textSize',
+            'statusBar',
+            'battery',
+            'location',
+            'clearLocation',
+            'permissions',
+            'push',
+            'biometrics',
+            'clipboard',
+            'record',
+            'installApp',
+            'addMedia'
+        ]
     }
 };
 
@@ -82,6 +100,9 @@ export class RecordingBackend implements DeviceBackend {
     info: DeviceInfo;
     shot = pngOf(1206, 2622);
     lists = 0;
+    clipboard = '';
+    /* The files of the recordings it began, and whether each was stopped. */
+    readonly recordings: Array<{ file: string; stopped: boolean }> = [];
 
     constructor(info: DeviceInfo = SIMULATOR) {
         this.info = info;
@@ -111,6 +132,26 @@ export class RecordingBackend implements DeviceBackend {
     action(_deviceId: string, action: DeviceAction): Promise<DeviceSettings> {
         this.actions.push(action);
         return Promise.resolve({});
+    }
+
+    readClipboard(): Promise<string> {
+        return Promise.resolve(this.clipboard);
+    }
+
+    writeClipboard(_deviceId: string, text: string): Promise<void> {
+        this.clipboard = text;
+        return Promise.resolve();
+    }
+
+    startRecording(_deviceId: string, file: string): Promise<void> {
+        this.recordings.push({ file, stopped: false });
+        return Promise.resolve();
+    }
+
+    stopRecording(): Promise<string> {
+        const recording = this.recordings.at(-1)!;
+        recording.stopped = true;
+        return Promise.resolve(recording.file);
     }
 }
 
@@ -166,5 +207,62 @@ export class ReadingBackend extends RecordingBackend {
 
     closeTree(deviceId: string): void {
         this.closed.push(deviceId);
+    }
+}
+
+/* Recorders and a clock a test runs by hand: a recorder exits when it is interrupted, a limit passes when the test says. */
+export class FakeRecorder {
+    readonly commands: string[][] = [];
+    readonly signals: string[] = [];
+    readonly timers: Array<{ ms: number; run: () => void; cancelled: boolean }> = [];
+    /* Off leaves an interrupted recorder running, as a recorder that hangs does. */
+    exitOnInterrupt = true;
+    private readonly exits: Array<(code: number) => void> = [];
+
+    launch = (command: readonly string[]): RecordingProcess => {
+        this.commands.push([...command]);
+        let exit: (code: number) => void = () => undefined;
+        const exited = new Promise<number>((resolve) => {
+            exit = resolve;
+        });
+        this.exits.push(exit);
+        return {
+            exited,
+            interrupt: () => {
+                this.signals.push('SIGINT');
+                if (this.exitOnInterrupt) {
+                    exit(0);
+                }
+            },
+            kill: () => {
+                this.signals.push('SIGKILL');
+                exit(137);
+            }
+        };
+    };
+
+    timer = (ms: number, run: () => void): (() => void) => {
+        const entry = { ms, run, cancelled: false };
+        this.timers.push(entry);
+        return () => {
+            entry.cancelled = true;
+        };
+    };
+
+    recordings(): DeviceRecordings {
+        return new DeviceRecordings(this.launch, this.timer);
+    }
+
+    /* The recorder of the `index`th recording stopping by itself. */
+    finish(index: number): void {
+        this.exits[index]?.(0);
+    }
+
+    /* Every limit of this length that is still set passes now. */
+    pass(ms: number): void {
+        for (const entry of this.timers.filter((candidate) => candidate.ms === ms && !candidate.cancelled)) {
+            entry.cancelled = true;
+            entry.run();
+        }
     }
 }

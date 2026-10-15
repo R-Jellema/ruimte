@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { closeSync, openSync, readFileSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { isAbsolute, join } from 'node:path';
+import { basename, isAbsolute, join } from 'node:path';
 import type {
     DeviceAction,
     DeviceButton,
@@ -17,6 +17,8 @@ import { locateAndroidSdk, type AndroidSdk } from './android-sdk.ts';
 import { androidTree, parseWmSize } from './android-tree.ts';
 import type { DeviceTree } from './device-tree.ts';
 import { DeviceError, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard, type DeviceSource } from './manager.ts';
+import { isVideo, requireExtension, requireMedia } from './device-paths.ts';
+import { DeviceRecordings } from './recordings.ts';
 import type { CommandResult } from './scrcpy-source.ts';
 
 export type AndroidRunner = (command: string, arguments_: string[]) => Promise<CommandResult>;
@@ -35,6 +37,8 @@ export interface AvdInfo {
     name: string;
     displayName: string;
     apiLevel: string | null;
+    /* An AVD with a hinge sensor, such as a Pixel Fold, which the emulator console folds and unfolds. */
+    foldable?: boolean;
 }
 
 export interface AndroidBackendOptions {
@@ -46,6 +50,7 @@ export interface AndroidBackendOptions {
     /* Null when this machine has no screen server to push, which leaves a device listed but not viewable. */
     createSource?: ((adb: string, serial: string) => DeviceSource) | null;
     sleep?: (ms: number) => Promise<void>;
+    recordings?: DeviceRecordings;
 }
 
 interface AdbEntry {
@@ -66,7 +71,8 @@ interface Booting {
     process: EmulatorProcess;
 }
 
-const BUTTONS: DeviceButton[] = ['back', 'home', 'appSwitcher', 'lock', 'siri'];
+/* Lock is Android's power key already, so power is not announced beside it. */
+const BUTTONS: DeviceButton[] = ['back', 'home', 'appSwitcher', 'lock', 'siri', 'volumeUp', 'volumeDown', 'playPause'];
 const BASE_TOOLS: DeviceTool[] = [
     'openUrl',
     'launchApp',
@@ -77,8 +83,29 @@ const BASE_TOOLS: DeviceTool[] = [
     'reduceMotion',
     'increaseContrast',
     'showBorders',
-    'permissions'
+    'permissions',
+    'capture',
+    'record',
+    'statusBar',
+    'battery',
+    'installApp',
+    'addMedia'
 ];
+
+/* SystemUI's demo mode, which draws the status bar of a marketing shot until it is left. */
+const DEMO = 'am broadcast -a com.android.systemui.demo -e command';
+const CLEAN_STATUS_BAR = [
+    'settings put global sysui_demo_allowed 1',
+    `${DEMO} enter`,
+    `${DEMO} clock -e hhmm 0941`,
+    `${DEMO} battery -e level 100 -e plugged false`,
+    `${DEMO} network -e wifi show -e level 4`,
+    `${DEMO} notifications -e visible false`
+].join('; ');
+
+/* Where a device records before the video is pulled; Android's own recorder stops itself after 180 seconds. */
+const RECORDING_ON_DEVICE = '/data/local/tmp/ruimte-rec.mp4';
+const RECORDING_LIMIT_SECONDS = 180;
 
 const TALKBACK_PACKAGE = 'com.google.android.marvin.talkback';
 const TALKBACK_SERVICE = `${TALKBACK_PACKAGE}/${TALKBACK_PACKAGE}.TalkBackService`;
@@ -188,7 +215,8 @@ export async function readAvdFolder(avdHome: string): Promise<AvdInfo[]> {
                     return {
                         name,
                         displayName: config['avd.ini.displayname'] || name.replaceAll('_', ' '),
-                        apiLevel: apiLevelOf(config) ?? apiLevelOf(pointer)
+                        apiLevel: apiLevelOf(config) ?? apiLevelOf(pointer),
+                        foldable: config['hw.sensor.hinge'] === 'yes'
                     };
                 } catch {
                     return null;
@@ -266,8 +294,14 @@ export class AndroidBackend implements DeviceBackend {
     private readonly probes = new Map<string, Probe>();
     private readonly booting = new Map<string, Booting>();
     private readonly serials = new Map<string, string>();
+    private readonly recordings: DeviceRecordings;
+    /* What the shell cannot read back, as this daemon last set it; unknown again after a restart. */
+    private readonly statusBars = new Map<string, DeviceSettings['statusBar']>();
+    private readonly batteries = new Map<string, NonNullable<DeviceSettings['battery']>>();
+    private readonly foldable = new Set<string>();
 
     constructor(options: AndroidBackendOptions = {}) {
+        this.recordings = options.recordings ?? new DeviceRecordings();
         this.locate = options.locate ?? (() => locateAndroidSdk());
         this.run = options.run ?? defaultRunner;
         this.runBytes = options.runBytes ?? defaultBytesRunner;
@@ -306,7 +340,11 @@ export class AndroidBackend implements DeviceBackend {
                 avds.push({ name, displayName: name.replaceAll('_', ' '), apiLevel: null });
             }
         }
+        this.foldable.clear();
         for (const avd of avds) {
+            if (avd.foldable === true) {
+                this.foldable.add(avd.name);
+            }
             devices.push(await this.emulator(sdk, avd, running.get(avd.name) ?? null));
         }
         return devices;
@@ -320,13 +358,18 @@ export class AndroidBackend implements DeviceBackend {
         if (current.state !== 'shutdown') {
             return current;
         }
+        return this.start(deviceId, []);
+    }
+
+    /* Starts a stopped emulator, with `extra` after the usual arguments. */
+    private async start(deviceId: string, extra: readonly string[]): Promise<DeviceInfo> {
         const sdk = this.sdk();
         if (sdk.emulator === null) {
             throw new DeviceError('emulator-unavailable', 'The Android emulator is not installed in the Android SDK');
         }
         const port = this.freeEmulatorPort();
         const serial = `emulator-${port}`;
-        const process = this.launch(sdk.emulator, ['-avd', deviceId, '-port', String(port), '-no-window', '-no-boot-anim'], deviceId);
+        const process = this.launch(sdk.emulator, ['-avd', deviceId, '-port', String(port), '-no-window', '-no-boot-anim', ...extra], deviceId);
         const booting: Booting = { serial, process };
         this.booting.set(deviceId, booting);
         this.avdNames.set(serial, deviceId);
@@ -361,6 +404,7 @@ export class AndroidBackend implements DeviceBackend {
             return current;
         }
         const sdk = this.sdk();
+        this.recordings.drop(deviceId);
         await this.adb(sdk, ['-s', serial, 'emu', 'kill']);
         this.booting.delete(deviceId);
         for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -370,6 +414,18 @@ export class AndroidBackend implements DeviceBackend {
             await this.sleep(500);
         }
         return this.find(deviceId);
+    }
+
+    /* An emulator stops if it runs and starts again from a wiped data partition; a phone is never erased. */
+    private async erase(deviceId: string): Promise<void> {
+        const current = await this.find(deviceId);
+        if (current.kind !== 'simulator') {
+            throw new DeviceError('device-action-unavailable', 'Ruimte never erases a phone');
+        }
+        if (current.state !== 'shutdown') {
+            await this.shutdown(deviceId);
+        }
+        await this.start(deviceId, ['-wipe-data']);
     }
 
     async detail(deviceId: string): Promise<DeviceSettings> {
@@ -413,11 +469,45 @@ export class AndroidBackend implements DeviceBackend {
             increaseContrast: contrast === '1',
             colorFilter: colorFilterOf(filterOn, filter),
             showBorders: layout === 'true',
-            ...(probe.talkBack ? { voiceOver: services.split(':').includes(TALKBACK_SERVICE) } : {})
+            ...(probe.talkBack ? { voiceOver: services.split(':').includes(TALKBACK_SERVICE) } : {}),
+            ...(this.foldable.has(deviceId) ? hingeOf(await this.shell(serial, 'cmd device_state state').catch(() => '')) : {}),
+            ...(this.statusBars.has(deviceId) ? { statusBar: this.statusBars.get(deviceId) } : {}),
+            ...(this.batteries.has(deviceId) ? { battery: this.batteries.get(deviceId) } : {}),
+            recording: this.recordings.isRecording(deviceId)
         };
     }
 
-    async action(deviceId: string, action: DeviceAction): Promise<DeviceSettings> {
+    async startRecording(deviceId: string, file: string): Promise<void> {
+        const { serial } = await this.booted(deviceId);
+        this.recordings.start(
+            deviceId,
+            file,
+            [this.sdk().adb, '-s', serial, 'shell', 'screenrecord', '--time-limit', String(RECORDING_LIMIT_SECONDS), RECORDING_ON_DEVICE],
+            null
+        );
+    }
+
+    /* The recorder finishes its file on an interrupt sent on the device itself, which a signal to the local adb does not reach. */
+    async stopRecording(deviceId: string): Promise<string> {
+        const { serial } = await this.booted(deviceId);
+        const sdk = this.sdk();
+        return this.recordings.stop(
+            deviceId,
+            async () => {
+                await this.shell(serial, 'pkill -INT screenrecord').catch(() => undefined);
+            },
+            async (file) => {
+                await this.adb(sdk, ['-s', serial, 'pull', RECORDING_ON_DEVICE, file]);
+                await this.shell(serial, `rm -f ${RECORDING_ON_DEVICE}`).catch(() => undefined);
+            }
+        );
+    }
+
+    async action(deviceId: string, action: DeviceAction, session: DeviceSource | null = null): Promise<DeviceSettings> {
+        if (action.action === 'erase') {
+            await this.erase(deviceId);
+            return {};
+        }
         const { serial, probe, emulator } = await this.booted(deviceId);
         switch (action.action) {
             case 'setAppearance':
@@ -463,9 +553,65 @@ export class AndroidBackend implements DeviceBackend {
             case 'terminateApp':
                 await this.shell(serial, `am force-stop ${shellQuote(requirePackage(action.appId))}`);
                 break;
-            case 'setLiquidGlass':
-            case 'clearLocation':
-            case 'sendPush':
+            case 'setStatusBar':
+                await this.shell(serial, action.value === 'clean' ? CLEAN_STATUS_BAR : `${DEMO} exit`);
+                this.statusBars.set(deviceId, action.value);
+                break;
+            case 'setBattery':
+                if (emulator) {
+                    await this.console(serial, ['power', 'capacity', String(action.level)]);
+                    await this.console(serial, ['power', 'ac', action.charging ? 'on' : 'off']);
+                } else {
+                    await this.shell(serial, `dumpsys battery set level ${action.level}; dumpsys battery set ac ${action.charging ? 1 : 0}`);
+                }
+                this.batteries.set(deviceId, { level: action.level, charging: action.charging });
+                break;
+            case 'resetBattery':
+                if (emulator) {
+                    await this.console(serial, ['power', 'capacity', '100']);
+                    await this.console(serial, ['power', 'ac', 'on']);
+                } else {
+                    await this.shell(serial, 'dumpsys battery reset');
+                }
+                this.batteries.delete(deviceId);
+                break;
+            case 'biometric':
+                // Only the emulator has a sensor to touch, and a fingerprint is enrolled in Settings on the device.
+                if (!emulator || action.sensor !== 'finger' || action.event === 'enroll' || action.event === 'unenroll') {
+                    throw new DeviceError('device-action-unavailable', 'Android takes only a fingerprint touch, on an emulator');
+                }
+                await this.console(serial, ['finger', 'touch', action.event === 'match' ? '1' : '99']);
+                break;
+            case 'setAllPermissions':
+                await this.allPermissions(serial, probe, requirePackage(action.appId), action.decision);
+                break;
+            case 'installApp': {
+                requireExtension(action.path, ['.apk'], 'an .apk');
+                const installed = await this.adb(this.sdk(), ['-s', serial, 'install', '-r', action.path]);
+                const failure = /^Failure.*$/m.exec(installed.stdout);
+                if (failure) {
+                    throw new DeviceError('adb-failed', failure[0]);
+                }
+                break;
+            }
+            case 'addMedia':
+                requireMedia(action.paths);
+                for (const path of action.paths) {
+                    await this.addMedia(serial, path);
+                }
+                break;
+            case 'setFold':
+                if (!emulator || !this.foldable.has(deviceId)) {
+                    throw new DeviceError('device-action-unavailable', 'Only an emulator with a hinge folds');
+                }
+                // The console knows folded and unfolded alone, so every pose but closed opens the device.
+                await this.console(serial, [action.value === 'closed' ? 'fold' : 'unfold']);
+                // Whether the screen server starts a picture of the new size by itself is unverified, so a fresh one is asked for.
+                session?.requestKeyFrame?.();
+                break;
+            case 'setHinge':
+                throw new DeviceError('device-action-unavailable', 'An Android emulator folds closed or open, not to an angle');
+            default:
                 throw new DeviceError('device-action-unavailable', 'This tool does not exist on Android');
         }
         return this.detail(deviceId);
@@ -642,7 +788,15 @@ export class AndroidBackend implements DeviceBackend {
                 input: streaming,
                 screenshot: true,
                 buttons: BUTTONS,
-                tools: [...BASE_TOOLS, ...(probe?.talkBack ? (['voiceOver'] as const) : []), 'location'],
+                tools: [
+                    ...BASE_TOOLS,
+                    ...(probe?.talkBack ? (['voiceOver'] as const) : []),
+                    'location',
+                    'biometrics',
+                    ...(avd.foldable === true ? (['fold'] as const) : []),
+                    ...sessionTools(streaming),
+                    ...(sdk.emulator === null ? [] : (['erase'] as const))
+                ],
                 permissions: PERMISSIONS
             }
         };
@@ -671,7 +825,7 @@ export class AndroidBackend implements DeviceBackend {
                 input: streaming,
                 screenshot: ready,
                 buttons: BUTTONS,
-                tools: [...BASE_TOOLS, ...(probe?.talkBack ? (['voiceOver'] as const) : [])],
+                tools: [...BASE_TOOLS, ...(probe?.talkBack ? (['voiceOver'] as const) : []), ...sessionTools(streaming)],
                 permissions: PERMISSIONS
             }
         };
@@ -740,6 +894,36 @@ export class AndroidBackend implements DeviceBackend {
         }
     }
 
+    /*
+     * Pushes a picture or a video where the gallery looks and asks for it to be scanned. The broadcast
+     * is the old way and the provider call the new one; which of them Android 14 and later still
+     * honor is unverified, so both are asked and a refusal of the second is not a failure.
+     */
+    private async addMedia(serial: string, path: string): Promise<void> {
+        const remote = `${isVideo(path) ? '/sdcard/Movies' : '/sdcard/Pictures'}/${basename(path)}`;
+        await this.adb(this.sdk(), ['-s', serial, 'push', path, remote]);
+        await this.shell(
+            serial,
+            `am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d ${shellQuote(`file://${encodeURI(remote)}`)} >/dev/null; content call --uri content://media/external/file --method scan_file --arg ${shellQuote(remote)} >/dev/null 2>&1; true`
+        );
+    }
+
+    /* Every permission this device has, the ones an app does not ask for skipped; refused only when none applied. */
+    private async allPermissions(serial: string, probe: Probe, appId: string, decision: 'grant' | 'revoke' | 'reset'): Promise<void> {
+        const failures: unknown[] = [];
+        for (const permission of PERMISSIONS) {
+            await this.permission(serial, probe, appId, permission, decision).catch((error: unknown) => failures.push(error));
+        }
+        if (failures.length === PERMISSIONS.length) {
+            throw failures[0];
+        }
+    }
+
+    /* The emulator console, which a phone does not have. */
+    private async console(serial: string, arguments_: string[]): Promise<void> {
+        await this.adb(this.sdk(), ['-s', serial, 'emu', ...arguments_]);
+    }
+
     private async shell(serial: string, script: string): Promise<string> {
         return (await this.adb(this.sdk(), ['-s', serial, 'shell', script])).stdout;
     }
@@ -765,6 +949,29 @@ export class AndroidBackend implements DeviceBackend {
         }
         return device;
     }
+}
+
+/*
+ * The hinge a foldable reports, from the state `cmd device_state state` commits: closed is 0 and
+ * open 180, a half open device 90. Absent when the output names no state this knows.
+ */
+export function hingeOf(output: string): Pick<DeviceSettings, 'hinge'> {
+    const name = /Committed state:.*?name='([^']+)'/.exec(output)?.[1]?.toUpperCase();
+    if (name === undefined) {
+        return {};
+    }
+    if (name.includes('HALF')) {
+        return { hinge: 90 };
+    }
+    if (name.includes('CLOSE') || name.includes('FOLD')) {
+        return { hinge: 0 };
+    }
+    return name.includes('OPEN') ? { hinge: 180 } : {};
+}
+
+/* The tools that go through the screen server's session, so only a device that can stream has them. */
+function sessionTools(streaming: boolean): DeviceTool[] {
+    return streaming ? ['clipboard', 'keyboard'] : [];
 }
 
 function nearestTextSize(scale: number): DeviceTextSize {

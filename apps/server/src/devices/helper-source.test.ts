@@ -147,6 +147,28 @@ describe('DeviceHelperSource', () => {
         await source.stop();
     });
 
+    test('sends a call to the helper and settles it with the reply of the same id', async () => {
+        const process = new FakeHelperProcess();
+        const source = new DeviceHelperSource('phone-1', () => process);
+        const started = source.start(() => undefined);
+        process.emit({ type: 'ready', width: 1179, height: 2556 });
+        await started;
+
+        const pose = source.call({ method: 'pose', name: 'book', fromDegrees: 180 });
+        const warning = source.call({ method: 'memoryWarning' });
+        const [first, second] = new DeviceHelperDecoder().push(join(...process.writes)) as Array<Extract<DeviceHelperMessage, { type: 'call' }>>;
+        process.emitAfterPreamble({ type: 'reply', id: second!.id, ok: false, message: 'No warning today' });
+        process.emitAfterPreamble({ type: 'reply', id: first!.id, ok: true, value: true });
+
+        expect(await pose).toBe(true);
+        await expect(warning).rejects.toEqual(new DeviceHelperFailure('device-helper-native', 'No warning today'));
+        const waiting = source.call({ method: 'isFoldable' });
+        const stopping = source.stop();
+        process.exit(0);
+        await stopping;
+        await expect(waiting).rejects.toMatchObject({ code: 'device-not-streaming' });
+    });
+
     test('kills a helper that ignores stop', async () => {
         const process = new FakeHelperProcess();
         const source = new DeviceHelperSource('phone-1', () => process, 0);

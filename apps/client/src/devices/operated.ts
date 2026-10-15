@@ -47,7 +47,20 @@ export function useOperatedDevice(endpointId: string, device: Target | null): De
 /* Android names three of the buttons its own way. */
 export const ANDROID_BUTTONS: Readonly<Record<string, string>> = { appSwitcher: 'recentApps', lock: 'power', siri: 'assistant' };
 
-const BUTTONS: ReadonlySet<string> = new Set(['home', 'back', 'swipeHome', 'appSwitcher', 'recentApps', 'lock', 'power', 'siri', 'assistant']);
+const BUTTONS: ReadonlySet<string> = new Set([
+    'home',
+    'back',
+    'swipeHome',
+    'appSwitcher',
+    'recentApps',
+    'lock',
+    'power',
+    'siri',
+    'assistant',
+    'volumeUp',
+    'volumeDown',
+    'playPause'
+]);
 
 /* What the agent is doing, in the words of the strip; a kind this client does not know reads as the machine said it. */
 export function stepWords(step: DeviceAgentStep, platform: DevicePlatform): string {
@@ -56,6 +69,16 @@ export function stepWords(step: DeviceAgentStep, platform: DevicePlatform): stri
         case 'swipe':
         case 'type':
         case 'shot':
+        case 'set':
+        case 'open':
+        case 'permission':
+        case 'push':
+        case 'biometric':
+        case 'clipboard':
+        case 'record':
+        case 'install':
+        case 'media':
+        case 'terminate':
             return i18next.t(`machines:device.operated.step.${step.kind}`);
         case 'launch':
             return i18next.t('machines:device.operated.step.launch', { app: step.target ?? '' });

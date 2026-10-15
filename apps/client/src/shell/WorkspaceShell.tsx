@@ -37,6 +37,7 @@ import { WorktreeDialog } from '@/shell/WorktreeDialog';
 import { useSettings } from '@/state/settings';
 import { useVoice } from '@/voice/state';
 import { useShownPanel, useUi } from '@/state/ui';
+import { useDevices } from '@/devices/state';
 import { startBytesWorker } from '@/transport/bytes-worker-host';
 import type { Workspace } from '@/transport/connections';
 import { ConnectionProvider } from '@/transport/ConnectionProvider';
@@ -111,6 +112,13 @@ const MoveChatDialog = lazyDialog(
     'MoveChatDialog',
     useUi,
     (s) => s.moveChatDialog !== null
+);
+
+const EraseDeviceDialog = lazyDialog(
+    () => import('@/devices/EraseDeviceDialog'),
+    'EraseDeviceDialog',
+    useDevices,
+    (s) => s.erasing !== null
 );
 
 const ConflictOverlay = lazyDialog(
@@ -248,6 +256,7 @@ export function WorkspaceShell({ workspace }: { workspace: Workspace }) {
                 </ErrorBoundary>
                 <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
                     <RemoteNodeDialog />
+                    <EraseDeviceDialog />
                 </ErrorBoundary>
                 <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
                     <NewWorktreeChatDialog />

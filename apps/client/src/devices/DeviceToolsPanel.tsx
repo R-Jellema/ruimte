@@ -1,6 +1,6 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LoaderCircle } from 'lucide-react';
+import { ClipboardCopy, ClipboardPaste, Copy, Download, Frame, ImagePlus, LoaderCircle, PackagePlus, Square, Video } from 'lucide-react';
 import {
     devicePermissions,
     deviceTools,
@@ -13,9 +13,31 @@ import {
     type DeviceToggleSetting,
     type DeviceTool
 } from '@ruimte/contracts';
+import { copyScreenshot, placeScreenshotOnCanvas, saveScreenshot, startRecording, stopRecording } from '@/devices/device-capture';
+import { isInstallable, isMedia } from '@/devices/device-files';
+import { MachineFilePicker } from '@/devices/MachineFilePicker';
+import { recordingKey, useDevices, useRecordingSince } from '@/devices/state';
 import { useEndpointId } from '@/state/keys';
+import { useProject } from '@/state/project';
 import { deviceClientFor } from '@/transport/connections';
-import { Segmented, Switch, Button, CloseButton, FormError, Icon, Input, PanelHeader, SectionLabel, Select } from '@adecore/ui';
+import { useMachineAnswers } from '@/transport/features';
+import { formatClockDuration } from '@adecore/ui/format';
+import {
+    Segmented,
+    Switch,
+    Button,
+    ButtonGroup,
+    CloseButton,
+    FormError,
+    Icon,
+    IconButton,
+    Input,
+    PanelHeader,
+    SectionLabel,
+    Select,
+    Slider,
+    useNow
+} from '@adecore/ui';
 
 type ActionBody = DeviceAction extends infer Action ? (Action extends DeviceAction ? Omit<Action, 'backendId' | 'platform' | 'deviceId'> : never) : never;
 
@@ -44,6 +66,9 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
     const [settings, setSettings] = useState<DeviceSettings | null>(null);
     const [pending, setPending] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const answersCapture = useMachineAnswers(endpointId, 'device.capture');
+    const answersRecord = useMachineAnswers(endpointId, 'device.record');
+    const answersClipboard = useMachineAnswers(endpointId, 'device.clipboard');
 
     useEffect(() => {
         let active = true;
@@ -52,6 +77,7 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
             .then((detail) => {
                 if (active) {
                     setSettings(detail.settings);
+                    noteRecording(endpointId, device, detail.settings.recording);
                 }
             })
             .catch((cause: unknown) => {
@@ -64,18 +90,21 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
         };
     }, [device, endpointId, t]);
 
-    const act = async (body: ActionBody): Promise<void> => {
+    /* Whether the device took the change; a refusal is shown above the tools. */
+    const act = async (body: ActionBody): Promise<boolean> => {
         const client = deviceClientFor(endpointId);
         if (!client) {
-            return;
+            return false;
         }
         setPending(true);
         setError(null);
         try {
             const detail = await client.action({ backendId: device.backendId, platform: device.platform, deviceId: device.deviceId, ...body } as DeviceAction);
             setSettings(detail.settings);
+            return true;
         } catch (cause) {
             setError(cause instanceof Error ? cause.message : t('device.tools.changeFailed'));
+            return false;
         } finally {
             setPending(false);
         }
@@ -83,6 +112,10 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
 
     const tools = deviceTools(device);
     const has = (tool: DeviceTool): boolean => tools.includes(tool);
+    /* A tool a person reaches through a request of its own, which the machine has to name too. */
+    const canCapture = has('capture') && answersCapture;
+    const canRecord = has('record') && answersRecord;
+    const canClipboard = has('clipboard') && answersClipboard;
     const appTools = APP_TOOLS.filter(has);
     const displayTools = DISPLAY_TOOLS.filter(has);
     const permissions = devicePermissions(device);
@@ -101,8 +134,13 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
                         <Icon icon={LoaderCircle} size={14} className="animate-spin" /> {t('device.tools.loading')}
                     </div>
                 )}
-                {appTools.length > 0 && (
+                {(canCapture || canRecord) && <CaptureTools device={device} canCapture={canCapture} canRecord={canRecord} onError={setError} />}
+                {canClipboard && <ClipboardTools device={device} onError={setError} />}
+                {(appTools.length > 0 || has('installApp') || has('addMedia')) && (
                     <ToolSection title={t('device.tools.app.title')}>
+                        {(has('installApp') || has('addMedia')) && (
+                            <InstallTools device={device} canInstall={has('installApp')} canMedia={has('addMedia')} disabled={pending} act={act} />
+                        )}
                         {has('openUrl') && (
                             <TextAction
                                 placeholder={t('device.tools.app.urlPlaceholder')}
@@ -200,6 +238,19 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
                 {(has('location') || has('clearLocation')) && (
                     <LocationTools canSet={has('location')} canClear={has('clearLocation')} disabled={disabled} act={act} />
                 )}
+                {(has('statusBar') || has('battery')) && (
+                    <StatusBarTools
+                        device={device}
+                        settings={settings}
+                        canStatusBar={has('statusBar')}
+                        canBattery={has('battery')}
+                        disabled={disabled}
+                        act={act}
+                    />
+                )}
+                {has('biometrics') && <BiometricTools device={device} settings={settings} disabled={disabled} act={act} />}
+                {has('fold') && <FoldTools device={device} settings={settings} disabled={disabled} act={act} />}
+                {has('camera') && <CameraTools appIdPlaceholder={appIdPlaceholder} disabled={disabled} act={act} />}
                 {has('permissions') && permissions.length > 0 && (
                     <PermissionTools permissions={permissions} appIdPlaceholder={appIdPlaceholder} disabled={disabled} act={act} />
                 )}
@@ -210,6 +261,478 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
                 )}
             </div>
         </aside>
+    );
+}
+
+/* A recording another client began, or one from before a reload, still shows; one that ended elsewhere goes. */
+function noteRecording(endpointId: string, device: DeviceInfo, recording: boolean | undefined): void {
+    const key = recordingKey(endpointId, device);
+    const known = useDevices.getState().recordings[key] !== undefined;
+    if (recording === true && !known) {
+        useDevices.getState().markRecording(key, Date.now());
+    } else if (recording === false && known) {
+        useDevices.getState().markRecording(key, null);
+    }
+}
+
+function CaptureTools({
+    device,
+    canCapture,
+    canRecord,
+    onError
+}: {
+    device: DeviceInfo;
+    canCapture: boolean;
+    canRecord: boolean;
+    onError: (message: string | null) => void;
+}) {
+    const { t } = useTranslation('machines');
+    const endpointId = useEndpointId();
+    const [busy, setBusy] = useState<'copy' | 'save' | 'place' | 'record' | null>(null);
+    const since = useRecordingSince(endpointId, device);
+    const now = useNow(1_000, since !== null);
+    const run = (step: Exclude<typeof busy, null>, work: () => Promise<unknown>, failure: string): void => {
+        setBusy(step);
+        onError(null);
+        void work()
+            .catch((cause: unknown) => onError(cause instanceof Error ? cause.message : failure))
+            .finally(() => setBusy(null));
+    };
+    const place = async (): Promise<void> => {
+        if (!(await placeScreenshotOnCanvas(endpointId, device))) {
+            onError(t('device.tools.capture.noCanvas'));
+        }
+    };
+    return (
+        <ToolSection title={t('device.tools.capture.title')}>
+            {canCapture && (
+                <ToolRow label={t('device.tools.capture.screenshot')}>
+                    <ButtonGroup>
+                        <IconButton
+                            icon={Copy}
+                            size="sm"
+                            busy={busy === 'copy'}
+                            disabled={busy !== null}
+                            label={t('device.tools.capture.copy')}
+                            onClick={() => run('copy', () => copyScreenshot(endpointId, device), t('device.tools.capture.failed'))}
+                        />
+                        <IconButton
+                            icon={Download}
+                            size="sm"
+                            busy={busy === 'save'}
+                            disabled={busy !== null}
+                            label={t('device.tools.capture.save')}
+                            onClick={() => run('save', () => saveScreenshot(endpointId, device), t('device.tools.capture.failed'))}
+                        />
+                        <IconButton
+                            icon={Frame}
+                            size="sm"
+                            busy={busy === 'place'}
+                            disabled={busy !== null}
+                            label={t('device.tools.capture.place')}
+                            onClick={() => run('place', place, t('device.tools.capture.failed'))}
+                        />
+                    </ButtonGroup>
+                </ToolRow>
+            )}
+            {canRecord && (
+                <>
+                    <ToolRow label={t('device.tools.capture.record')}>
+                        <div className="flex items-center gap-2">
+                            {since !== null && (
+                                <span className="font-mono text-xs text-text-muted tabular-nums">{formatClockDuration(Math.max(0, now - since))}</span>
+                            )}
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={busy !== null}
+                                onClick={() =>
+                                    run(
+                                        'record',
+                                        () => (since === null ? startRecording(endpointId, device) : stopRecording(endpointId, device)),
+                                        t('device.tools.capture.recordFailed')
+                                    )
+                                }
+                            >
+                                {busy === 'record' ? (
+                                    <Icon icon={LoaderCircle} size={12} className="animate-spin" />
+                                ) : (
+                                    <Icon icon={since === null ? Video : Square} size={12} />
+                                )}{' '}
+                                {since === null ? t('device.tools.capture.start') : t('device.tools.capture.stop')}
+                            </Button>
+                        </div>
+                    </ToolRow>
+                    {device.platform === 'android' && <p className="text-xs text-text-muted">{t('device.tools.capture.androidLimit')}</p>}
+                </>
+            )}
+        </ToolSection>
+    );
+}
+
+/*
+ * The clipboard of the client a person sits at, not the machine's, so the same buttons work from
+ * another machine or a browser.
+ */
+function ClipboardTools({ device, onError }: { device: DeviceInfo; onError: (message: string | null) => void }) {
+    const { t } = useTranslation('machines');
+    const endpointId = useEndpointId();
+    const [busy, setBusy] = useState<'send' | 'copy' | null>(null);
+    const run = (step: 'send' | 'copy', work: () => Promise<unknown>): void => {
+        setBusy(step);
+        onError(null);
+        void work()
+            .catch((cause: unknown) => onError(cause instanceof Error ? cause.message : t('device.tools.clipboard.failed')))
+            .finally(() => setBusy(null));
+    };
+    const send = async (): Promise<void> => {
+        const text = await navigator.clipboard.readText();
+        await deviceClientFor(endpointId)?.clipboard(device, text);
+    };
+    const copy = async (): Promise<void> => {
+        const text = await deviceClientFor(endpointId)?.clipboard(device);
+        if (text !== undefined) {
+            await navigator.clipboard.writeText(text);
+        }
+    };
+    return (
+        <ToolSection title={t('device.tools.clipboard.title')}>
+            <div className="flex flex-wrap gap-1.5">
+                <Button size="sm" variant="secondary" disabled={busy !== null} onClick={() => run('send', send)}>
+                    <Icon icon={busy === 'send' ? LoaderCircle : ClipboardPaste} size={12} className={busy === 'send' ? 'animate-spin' : undefined} />{' '}
+                    {t('device.tools.clipboard.send')}
+                </Button>
+                <Button size="sm" variant="secondary" disabled={busy !== null} onClick={() => run('copy', copy)}>
+                    <Icon icon={busy === 'copy' ? LoaderCircle : ClipboardCopy} size={12} className={busy === 'copy' ? 'animate-spin' : undefined} />{' '}
+                    {t('device.tools.clipboard.copy')}
+                </Button>
+            </div>
+        </ToolSection>
+    );
+}
+
+/* How long the battery slider rests before its level is sent, so a drag sends one change and not every step. */
+const BATTERY_SETTLE_MS = 250;
+
+function StatusBarTools({
+    device,
+    settings,
+    canStatusBar,
+    canBattery,
+    disabled,
+    act
+}: {
+    device: DeviceInfo;
+    settings: DeviceSettings | null;
+    canStatusBar: boolean;
+    canBattery: boolean;
+    disabled: boolean;
+    act: (body: ActionBody) => Promise<unknown>;
+}) {
+    const { t } = useTranslation('machines');
+    const [level, setLevel] = useState<number | null>(null);
+    const timer = useRef<number | null>(null);
+    const battery = settings?.battery;
+    const shownLevel = level ?? battery?.level ?? 100;
+    const charging = battery?.charging ?? false;
+    useEffect(
+        () => () => {
+            if (timer.current !== null) {
+                window.clearTimeout(timer.current);
+            }
+        },
+        []
+    );
+    const slide = (next: number): void => {
+        setLevel(next);
+        if (timer.current !== null) {
+            window.clearTimeout(timer.current);
+        }
+        timer.current = window.setTimeout(() => {
+            timer.current = null;
+            void act({ action: 'setBattery', level: next, charging }).finally(() => setLevel(null));
+        }, BATTERY_SETTLE_MS);
+    };
+    return (
+        <ToolSection title={t('device.tools.statusBar.title')}>
+            {canStatusBar && (
+                <ToolRow label={t('device.tools.statusBar.style')}>
+                    <Segmented
+                        label={t('device.tools.statusBar.style')}
+                        value={settings?.statusBar ?? 'default'}
+                        options={[
+                            { id: 'clean', label: t('device.tools.statusBar.clean') },
+                            { id: 'default', label: t('device.tools.statusBar.default') }
+                        ]}
+                        disabled={disabled}
+                        onValueChange={(value) => void act({ action: 'setStatusBar', value })}
+                    />
+                </ToolRow>
+            )}
+            {canBattery && (
+                <>
+                    <Slider
+                        label={t('device.tools.statusBar.battery')}
+                        value={shownLevel}
+                        min={0}
+                        max={100}
+                        unit="%"
+                        disabled={disabled}
+                        onValueChange={slide}
+                    />
+                    <ToolRow label={t('device.tools.statusBar.charging')}>
+                        <Switch
+                            checked={charging}
+                            label={t('device.tools.statusBar.charging')}
+                            disabled={disabled}
+                            onCheckedChange={(next) => void act({ action: 'setBattery', level: shownLevel, charging: next })}
+                        />
+                    </ToolRow>
+                    <div className="flex items-center justify-between gap-3">
+                        {device.platform === 'ios' && <p className="text-xs text-text-muted">{t('device.tools.statusBar.cosmetic')}</p>}
+                        <Button size="sm" className="ml-auto" disabled={disabled} onClick={() => void act({ action: 'resetBattery' })}>
+                            {t('device.tools.statusBar.reset')}
+                        </Button>
+                    </div>
+                </>
+            )}
+        </ToolSection>
+    );
+}
+
+/* How long the hinge slider rests before its angle is sent, like the battery's. */
+const HINGE_SETTLE_MS = 250;
+
+/* The hinge as an angle, which only a simulator takes; an emulator folds through the node's fold menu alone. */
+function FoldTools({
+    device,
+    settings,
+    disabled,
+    act
+}: {
+    device: DeviceInfo;
+    settings: DeviceSettings | null;
+    disabled: boolean;
+    act: (body: ActionBody) => Promise<unknown>;
+}) {
+    const { t } = useTranslation('machines');
+    const [degrees, setDegrees] = useState<number | null>(null);
+    const timer = useRef<number | null>(null);
+    useEffect(
+        () => () => {
+            if (timer.current !== null) {
+                window.clearTimeout(timer.current);
+            }
+        },
+        []
+    );
+    const slide = (next: number): void => {
+        setDegrees(next);
+        if (timer.current !== null) {
+            window.clearTimeout(timer.current);
+        }
+        timer.current = window.setTimeout(() => {
+            timer.current = null;
+            void act({ action: 'setHinge', degrees: next }).finally(() => setDegrees(null));
+        }, HINGE_SETTLE_MS);
+    };
+    const panel = settings?.panel;
+    return (
+        <ToolSection title={t('device.fold.title')}>
+            {device.platform === 'ios' && (
+                <Slider
+                    label={t('device.fold.hinge')}
+                    value={degrees ?? settings?.hinge ?? 180}
+                    min={0}
+                    max={180}
+                    unit="°"
+                    disabled={disabled}
+                    onValueChange={slide}
+                />
+            )}
+            {panel !== undefined && (
+                <ToolRow label={t('device.fold.screen')}>
+                    <span className="text-xs text-text">{t(`device.fold.panels.${panel}`)}</span>
+                </ToolRow>
+            )}
+            {device.platform === 'android' && settings?.hinge !== undefined && (
+                <ToolRow label={t('device.fold.hinge')}>
+                    <span className="text-xs text-text">{t(settings.hinge === 0 ? 'device.fold.poses.closed' : 'device.fold.poses.open')}</span>
+                </ToolRow>
+            )}
+        </ToolSection>
+    );
+}
+
+function BiometricTools({
+    device,
+    settings,
+    disabled,
+    act
+}: {
+    device: DeviceInfo;
+    settings: DeviceSettings | null;
+    disabled: boolean;
+    act: (body: ActionBody) => Promise<unknown>;
+}) {
+    const { t } = useTranslation('machines');
+    // Android has a fingerprint to touch on an emulator only, and enrolls it in its own Settings.
+    const sensors: ReadonlyArray<'face' | 'finger'> = device.platform === 'ios' ? ['face', 'finger'] : ['finger'];
+    const sensorName = (sensor: 'face' | 'finger'): string =>
+        sensor === 'face'
+            ? t('device.tools.biometrics.face')
+            : device.platform === 'ios'
+              ? t('device.tools.biometrics.touch')
+              : t('device.tools.biometrics.fingerprint');
+    return (
+        <ToolSection title={t('device.tools.biometrics.title')}>
+            {device.platform === 'ios' && (
+                <ToolRow label={t('device.tools.biometrics.enrolled')}>
+                    <Switch
+                        checked={settings?.biometricEnrolled ?? false}
+                        label={t('device.tools.biometrics.enrolled')}
+                        disabled={disabled}
+                        onCheckedChange={(next) => void act({ action: 'biometric', sensor: 'face', event: next ? 'enroll' : 'unenroll' })}
+                    />
+                </ToolRow>
+            )}
+            {sensors.map((sensor) => (
+                <ToolRow key={sensor} label={sensorName(sensor)}>
+                    <div className="flex gap-1.5">
+                        <Button size="sm" variant="secondary" disabled={disabled} onClick={() => void act({ action: 'biometric', sensor, event: 'match' })}>
+                            {t('device.tools.biometrics.match')}
+                        </Button>
+                        <Button size="sm" disabled={disabled} onClick={() => void act({ action: 'biometric', sensor, event: 'nomatch' })}>
+                            {t('device.tools.biometrics.noMatch')}
+                        </Button>
+                    </div>
+                </ToolRow>
+            ))}
+        </ToolSection>
+    );
+}
+
+/* What one app sees through the simulator's camera: a test pattern or a picture or video from the machine. */
+function CameraTools({ appIdPlaceholder, disabled, act }: { appIdPlaceholder: string; disabled: boolean; act: (body: ActionBody) => Promise<boolean> }) {
+    const { t } = useTranslation('machines');
+    const endpointId = useEndpointId();
+    const folder = useProject((state) => state.current?.folder ?? null);
+    const [appId, setAppId] = useState('');
+    const [source, setSource] = useState<'off' | 'placeholder' | 'file'>('off');
+    const [file, setFile] = useState<string | null>(null);
+    const [picking, setPicking] = useState(false);
+    const app = appId.trim();
+    const choose = (next: 'off' | 'placeholder' | 'file'): void => {
+        if (next === 'file') {
+            setPicking(true);
+            return;
+        }
+        void act({ action: 'setCamera', appId: app, source: next }).then((taken) => {
+            if (taken) {
+                setSource(next);
+            }
+        });
+    };
+    return (
+        <ToolSection title={t('device.tools.camera.title')}>
+            <Input
+                size="sm"
+                className="min-w-0 disabled:opacity-50"
+                value={appId}
+                disabled={disabled}
+                placeholder={appIdPlaceholder}
+                onChange={(event) => setAppId(event.target.value)}
+            />
+            <ToolRow label={t('device.tools.camera.source')}>
+                <Segmented
+                    label={t('device.tools.camera.source')}
+                    value={source}
+                    options={[
+                        { id: 'off', label: t('device.tools.camera.sources.off') },
+                        { id: 'placeholder', label: t('device.tools.camera.sources.placeholder') },
+                        { id: 'file', label: t('device.tools.camera.sources.file') }
+                    ]}
+                    disabled={disabled || app.length === 0}
+                    onValueChange={choose}
+                />
+            </ToolRow>
+            {picking && (
+                <MachineFilePicker
+                    endpointId={endpointId}
+                    start={folder ?? '/'}
+                    pickable={isMedia}
+                    multiple={false}
+                    confirmLabel={t('device.tools.camera.pickFile')}
+                    onPick={(paths) => {
+                        setPicking(false);
+                        const path = paths[0]!;
+                        void act({ action: 'setCamera', appId: app, source: 'file', path }).then((taken) => {
+                            if (taken) {
+                                setSource('file');
+                                setFile(path);
+                            }
+                        });
+                    }}
+                    onCancel={() => setPicking(false)}
+                />
+            )}
+            {source === 'file' && file !== null && (
+                <ToolRow label={t('device.tools.camera.file')}>
+                    <span className="min-w-0 truncate text-xs text-text">{file.split('/').pop()}</span>
+                </ToolRow>
+            )}
+            <p className="text-xs text-text-muted">{t('device.tools.camera.note')}</p>
+        </ToolSection>
+    );
+}
+
+/* An app or pictures from the machine the device runs on, picked there, so it works from another machine too. */
+function InstallTools({
+    device,
+    canInstall,
+    canMedia,
+    disabled,
+    act
+}: {
+    device: DeviceInfo;
+    canInstall: boolean;
+    canMedia: boolean;
+    disabled: boolean;
+    act: (body: ActionBody) => Promise<unknown>;
+}) {
+    const { t } = useTranslation('machines');
+    const endpointId = useEndpointId();
+    const folder = useProject((state) => state.current?.folder ?? null);
+    const [picking, setPicking] = useState<'app' | 'media' | null>(null);
+    if (picking !== null) {
+        return (
+            <MachineFilePicker
+                endpointId={endpointId}
+                start={folder ?? '/'}
+                pickable={picking === 'app' ? (path) => isInstallable(device, path) : isMedia}
+                multiple={picking === 'media'}
+                confirmLabel={t('device.tools.files.add')}
+                onPick={(paths) => {
+                    setPicking(null);
+                    void act(picking === 'app' ? { action: 'installApp', path: paths[0]! } : { action: 'addMedia', paths });
+                }}
+                onCancel={() => setPicking(null)}
+            />
+        );
+    }
+    return (
+        <div className="flex flex-wrap gap-1.5">
+            {canInstall && (
+                <Button size="sm" variant="secondary" disabled={disabled} onClick={() => setPicking('app')}>
+                    <Icon icon={PackagePlus} size={12} /> {t('device.tools.app.install')}
+                </Button>
+            )}
+            {canMedia && (
+                <Button size="sm" variant="secondary" disabled={disabled} onClick={() => setPicking('media')}>
+                    <Icon icon={ImagePlus} size={12} /> {t('device.tools.app.addMedia')}
+                </Button>
+            )}
+        </div>
     );
 }
 
@@ -242,7 +765,7 @@ function SettingToggle({
     setting: DeviceToggleSetting;
     value: boolean | undefined;
     disabled: boolean;
-    act: (body: ActionBody) => Promise<void>;
+    act: (body: ActionBody) => Promise<unknown>;
 }) {
     return (
         <ToolRow label={label}>
@@ -265,7 +788,7 @@ function TextAction({
     placeholder: string;
     label: string;
     disabled: boolean;
-    onSubmit: (value: string) => Promise<void>;
+    onSubmit: (value: string) => Promise<unknown>;
 }) {
     const [value, setValue] = useState('');
     const submit = (event: FormEvent): void => {
@@ -302,7 +825,7 @@ function LocationTools({
     canSet: boolean;
     canClear: boolean;
     disabled: boolean;
-    act: (body: ActionBody) => Promise<void>;
+    act: (body: ActionBody) => Promise<unknown>;
 }) {
     const { t } = useTranslation('machines');
     const [latitude, setLatitude] = useState('');
@@ -384,7 +907,7 @@ function PermissionTools({
     permissions: DevicePermission[];
     appIdPlaceholder: string;
     disabled: boolean;
-    act: (body: ActionBody) => Promise<void>;
+    act: (body: ActionBody) => Promise<unknown>;
 }) {
     const { t } = useTranslation('machines');
     const [appId, setAppId] = useState('');
@@ -393,6 +916,12 @@ function PermissionTools({
         const resolved = appId.trim();
         if (resolved) {
             void act({ action: 'setPermission', appId: resolved, permission, decision });
+        }
+    };
+    const decideAll = (decision: 'grant' | 'revoke' | 'reset'): void => {
+        const resolved = appId.trim();
+        if (resolved) {
+            void act({ action: 'setAllPermissions', appId: resolved, decision });
         }
     };
     return (
@@ -424,11 +953,22 @@ function PermissionTools({
                     {t('device.tools.permissions.reset')}
                 </Button>
             </div>
+            <div className="flex flex-wrap gap-1.5">
+                <Button size="sm" variant="secondary" disabled={disabled || !appId.trim()} onClick={() => decideAll('grant')}>
+                    {t('device.tools.permissions.grantAll')}
+                </Button>
+                <Button size="sm" variant="secondary" disabled={disabled || !appId.trim()} onClick={() => decideAll('revoke')}>
+                    {t('device.tools.permissions.revokeAll')}
+                </Button>
+                <Button size="sm" disabled={disabled || !appId.trim()} onClick={() => decideAll('reset')}>
+                    {t('device.tools.permissions.resetAll')}
+                </Button>
+            </div>
         </ToolSection>
     );
 }
 
-function PushAction({ appIdPlaceholder, disabled, act }: { appIdPlaceholder: string; disabled: boolean; act: (body: ActionBody) => Promise<void> }) {
+function PushAction({ appIdPlaceholder, disabled, act }: { appIdPlaceholder: string; disabled: boolean; act: (body: ActionBody) => Promise<unknown> }) {
     const { t } = useTranslation('machines');
     const [appId, setAppId] = useState('');
     const [payload, setPayload] = useState('');

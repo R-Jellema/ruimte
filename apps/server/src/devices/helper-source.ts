@@ -1,6 +1,6 @@
 import { hevcKeyFrame, type DeviceInput, type LiveStreamFrame } from '@ruimte/contracts';
 import type { LiveFrameSource } from '../streams/live-stream.ts';
-import { DEVICE_HELPER_MAGIC, DeviceHelperDecoder, encodeDeviceHelperMessage } from './helper-protocol.ts';
+import { DEVICE_HELPER_MAGIC, DeviceHelperDecoder, encodeDeviceHelperMessage, type DeviceHelperCall } from './helper-protocol.ts';
 
 export interface DeviceHelperProcess {
     readonly stdin: {
@@ -58,6 +58,9 @@ export class DeviceHelperSource implements LiveFrameSource {
     private abandonStart: ((error: unknown) => void) | null = null;
     private ready = false;
     private stderr = '';
+    private nextCall = 0;
+    /* The calls waiting for their reply, by id; the helper answers each in the order it was sent. */
+    private readonly calls = new Map<number, { resolve: (value: boolean | undefined) => void; reject: (error: unknown) => void }>();
 
     constructor(deviceId: string, launch: DeviceHelperLauncher, stopGraceMs = 500, format: 'jpeg' | 'hevc' = 'jpeg') {
         this.deviceId = deviceId;
@@ -111,6 +114,7 @@ export class DeviceHelperSource implements LiveFrameSource {
             }
             this.process = null;
             this.ready = false;
+            this.failCalls(new DeviceHelperFailure('device-helper-exited', 'The device capture helper exited before the tool answered'));
             const detail = this.stderr.trim();
             failReady(
                 new DeviceHelperFailure('device-helper-exited', detail || `The device capture helper exited${exitCode === 0 ? '' : ` with code ${exitCode}`}`)
@@ -171,6 +175,21 @@ export class DeviceHelperSource implements LiveFrameSource {
         this.process.stdin.flush();
     }
 
+    /* Asks the running helper to do something beside input; answers what a yes-or-no call said. */
+    call(call: DeviceHelperCall): Promise<boolean | undefined> {
+        if (this.process === null || !this.ready) {
+            return Promise.reject(new DeviceHelperFailure('device-not-streaming', 'Open the device stream before using this tool'));
+        }
+        this.nextCall = (this.nextCall + 1) >>> 0;
+        const id = this.nextCall;
+        const answered = new Promise<boolean | undefined>((resolve, reject) => {
+            this.calls.set(id, { resolve, reject });
+        });
+        this.process.stdin.write(encodeDeviceHelperMessage({ type: 'call', id, call }));
+        this.process.stdin.flush();
+        return answered;
+    }
+
     async stop(): Promise<void> {
         const child = this.process;
         if (child === null) {
@@ -178,6 +197,7 @@ export class DeviceHelperSource implements LiveFrameSource {
         }
         this.process = null;
         this.ready = false;
+        this.failCalls(new DeviceHelperFailure('device-not-streaming', 'The device stream closed before the tool answered'));
         this.abandonStart?.(new DeviceHelperFailure('device-helper-stopped', 'The device capture helper was stopped before it was ready'));
         try {
             child.stdin.write(encodeDeviceHelperMessage({ type: 'stop' }));
@@ -207,6 +227,14 @@ export class DeviceHelperSource implements LiveFrameSource {
                         throw new DeviceHelperFailure('device-helper-protocol', 'The device capture helper sent a frame before it was ready');
                     }
                     publish(this.format === 'hevc' ? { ...message.frame, format: 'hevc', keyFrame: hevcKeyFrame(message.frame.data) } : message.frame);
+                } else if (message.type === 'reply') {
+                    const waiting = this.calls.get(message.id);
+                    this.calls.delete(message.id);
+                    if (message.ok) {
+                        waiting?.resolve(message.value);
+                    } else {
+                        waiting?.reject(new DeviceHelperFailure('device-helper-native', message.message ?? 'The native simulator helper failed'));
+                    }
                 } else if (message.type === 'error') {
                     throw new DeviceHelperFailure(message.code, message.message);
                 } else {
@@ -214,6 +242,13 @@ export class DeviceHelperSource implements LiveFrameSource {
                 }
             }
         }
+    }
+
+    private failCalls(error: DeviceHelperFailure): void {
+        for (const waiting of this.calls.values()) {
+            waiting.reject(error);
+        }
+        this.calls.clear();
     }
 
     private async readStderr(child: DeviceHelperProcess): Promise<void> {

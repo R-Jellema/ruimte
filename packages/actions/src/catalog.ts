@@ -25,8 +25,12 @@ import {
     DatabaseAgentAccessSchema,
     DeviceControlModeSchema,
     DeviceControlPayloadSchema,
+    DeviceAppearanceSchema,
+    DevicePermissionSchema,
     DeviceReferenceSchema,
     DeviceStateSchema,
+    DeviceStatusBarSchema,
+    DeviceTextSizeSchema,
     DiagramDirectionSchema,
     DiagramShapeSchema,
     DrawingAlignSchema,
@@ -233,6 +237,9 @@ const devicePixel = z.number().min(0).describe('A pixel of the last device shot,
 const deviceDone = z.object({ nodeId, device: z.string() });
 const deviceElement = z.number().int().min(0).describe('An element by the number in brackets the last device state gave it');
 const deviceSize = z.object({ width: z.number().int(), height: z.number().int() });
+const deviceApp = z.string().trim().min(1).max(256).describe('A bundle id on iOS or a package name on Android');
+/* A path the agent hands a device, inside the project folder or one of its worktrees. */
+const devicePath = z.string().min(1).max(4096).describe('A file inside the project folder or one of its worktrees, relative to the folder or absolute');
 
 const computerApp = z.string().min(1).describe('The app: its name, bundle id or pid, as computer apps lists them');
 const computerAppRef = z.object({ name: z.string(), bundleId: z.string().nullable(), pid: z.number().int() });
@@ -2510,6 +2517,123 @@ export const ACTION_DEFINITIONS = {
             viewId: operatedView,
             app: z.string().trim().min(1).max(256).describe('A bundle id on iOS or a package name on Android')
         }),
+        output: deviceDone
+    },
+    'device.set': {
+        title: 'Set up a device',
+        description: 'Changes what a device node shows: its appearance, text size, status bar, battery and simulated location.',
+        effect: 'external',
+        domain: 'machine',
+        actors: AGENT,
+        input: z.object({
+            nodeId: deviceNode,
+            viewId: operatedView,
+            appearance: DeviceAppearanceSchema.nullish(),
+            textSize: DeviceTextSizeSchema.nullish(),
+            statusBar: DeviceStatusBarSchema.nullish(),
+            battery: z.number().int().min(0).max(100).nullish().describe('The battery level in percent'),
+            charging: z.boolean().nullish().describe('Whether the battery charges, with battery'),
+            latitude: z.number().min(-90).max(90).nullish(),
+            longitude: z.number().min(-180).max(180).nullish(),
+            clearLocation: z.boolean().nullish().describe('Takes the simulated location away')
+        }),
+        output: deviceDone
+    },
+    'device.open': {
+        title: 'Open a link on a device',
+        description: 'Opens a link or an app scheme on the device of a device node.',
+        effect: 'external',
+        domain: 'machine',
+        actors: AGENT,
+        input: z.object({ nodeId: deviceNode, viewId: operatedView, url: z.string().trim().min(1).max(2048) }),
+        output: deviceDone
+    },
+    'device.permission': {
+        title: 'Change an app permission on a device',
+        description: 'Grants, revokes or resets one permission of an app on a device, or all of them.',
+        effect: 'external',
+        domain: 'machine',
+        actors: AGENT,
+        input: z.object({
+            nodeId: deviceNode,
+            viewId: operatedView,
+            app: deviceApp,
+            decision: z.enum(['grant', 'revoke', 'reset']),
+            permission: DevicePermissionSchema.nullish().describe('One permission; without it every permission of the app')
+        }),
+        output: deviceDone
+    },
+    'device.push': {
+        title: 'Send a push to a device',
+        description: 'Sends a local push notification to an app on a simulator.',
+        effect: 'external',
+        domain: 'machine',
+        actors: AGENT,
+        input: z.object({ nodeId: deviceNode, viewId: operatedView, app: deviceApp, payload: z.string().min(1).max(16_384).describe('The alert text') }),
+        output: deviceDone
+    },
+    'device.biometric': {
+        title: 'Answer a biometric check on a device',
+        description: 'Enrolls Face ID or Touch ID on a simulator, or answers a check with a match or no match.',
+        effect: 'external',
+        domain: 'machine',
+        actors: AGENT,
+        input: z.object({
+            nodeId: deviceNode,
+            viewId: operatedView,
+            event: z.enum(['enroll', 'unenroll', 'match', 'nomatch']),
+            sensor: z.enum(['face', 'finger']).nullish().describe('Face ID or a fingerprint; face on iOS and finger on Android without it')
+        }),
+        output: deviceDone
+    },
+    'device.clipboard': {
+        title: 'Read or write a device clipboard',
+        description: 'Reads the clipboard of a device, or puts text on it.',
+        effect: 'external',
+        domain: 'machine',
+        actors: AGENT,
+        input: z.object({
+            nodeId: deviceNode,
+            viewId: operatedView,
+            text: z.string().max(1_048_576).nullish().describe('What to put on it; without it the clipboard is read')
+        }),
+        output: deviceDone.extend({ text: z.string() })
+    },
+    'device.record': {
+        title: 'Record a device',
+        description: 'Records the screen of a device node for some seconds and answers where the video is.',
+        effect: 'read',
+        domain: 'machine',
+        actors: AGENT,
+        input: z.object({ nodeId: deviceNode, viewId: operatedView, seconds: z.number().int().min(1).max(60) }),
+        // On this machine, outside the project folder.
+        output: deviceDone.extend({ path: z.string() })
+    },
+    'device.install': {
+        title: 'Install an app on a device',
+        description: 'Installs an app bundle from the project folder or its worktrees on a device.',
+        effect: 'external',
+        domain: 'machine',
+        actors: AGENT,
+        input: z.object({ nodeId: deviceNode, viewId: operatedView, path: devicePath }),
+        output: deviceDone
+    },
+    'device.media': {
+        title: 'Add pictures to a device',
+        description: 'Adds pictures and videos from the project folder or its worktrees to the photos of a device.',
+        effect: 'external',
+        domain: 'machine',
+        actors: AGENT,
+        input: z.object({ nodeId: deviceNode, viewId: operatedView, paths: z.array(devicePath).min(1).max(20) }),
+        output: deviceDone
+    },
+    'device.terminate': {
+        title: 'Stop an app on a device',
+        description: 'Stops an app that runs on a device node.',
+        effect: 'external',
+        domain: 'machine',
+        actors: AGENT,
+        input: z.object({ nodeId: deviceNode, viewId: operatedView, app: deviceApp }),
         output: deviceDone
     },
     'context.list': {

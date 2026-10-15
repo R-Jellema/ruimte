@@ -13,10 +13,9 @@ import {
     Power,
     PowerOff,
     RefreshCw,
-    SlidersHorizontal,
     Smartphone
 } from 'lucide-react';
-import { deviceTools, type DeviceInfo, type DeviceReference } from '@ruimte/contracts';
+import type { DeviceInfo, DeviceReference } from '@ruimte/contracts';
 import { createViewAction, placeViewOnCanvasAction } from '@/actions/client-actions';
 import { AndroidMark } from '@/devices/AndroidMark';
 import { controlDevice } from '@/devices/control';
@@ -31,11 +30,8 @@ import { useServer } from '@/state/server';
 import { deviceClientFor } from '@/transport/connections';
 import { useEndpointConnection } from '@/transport/status';
 import { EMPTY_DEVICE_LIST, useDevices } from '@/devices/state';
-import { ButtonGroup, Icon, IconButton, ListRow, PanelEmpty, Menu, ErrorBoundary, ContextMenu, Popover, lazyNamed, LazyBoundary } from '@adecore/ui';
+import { ButtonGroup, Icon, IconButton, ListRow, PanelEmpty, Menu, ContextMenu } from '@adecore/ui';
 import { SignInMark } from '@/ui/SignInMark';
-import { failed } from '@/shell/surface-failure';
-
-const DeviceToolsPanel = lazyNamed(() => import('@/devices/DeviceToolsPanel'), 'DeviceToolsPanel');
 
 function referenceOf(device: DeviceInfo): DeviceReference {
     return {
@@ -354,41 +350,12 @@ function DevicePanelToolbar({ device, onClose }: { device: DeviceInfo; onClose: 
         <div className="flex h-12 shrink-0 items-center justify-center border-t border-border bg-surface px-2">
             <ButtonGroup>
                 <DeviceControls device={device} />
-                <DeviceToolsFlyout device={device} />
                 <DevicePlacementMenu device={device} />
                 {device.state === 'booted' && device.capabilities.shutdown && (
                     <IconButton icon={Power} busy={shuttingDown} label={t('devices.shutdown')} disabled={shuttingDown} onClick={shutDown} />
                 )}
             </ButtonGroup>
         </div>
-    );
-}
-
-function DeviceToolsFlyout({ device }: { device: DeviceInfo }) {
-    const { t } = useTranslation('panels');
-    const [open, setOpen] = useState(false);
-    return (
-        <Popover.Root open={open} onOpenChange={setOpen}>
-            <IconButton
-                icon={SlidersHorizontal}
-                label={t('devices.tools')}
-                render={<Popover.Trigger />}
-                aria-pressed={open}
-                disabled={device.state !== 'booted' || deviceTools(device).length === 0}
-            />
-            <Popover.Popup
-                variant="plain"
-                side="left"
-                collisionPadding={16}
-                className="h-[min(720px,calc(100dvh-32px))] w-80 max-w-[calc(100vw-32px)] overflow-hidden rounded-xl border border-border bg-surface shadow-float outline-none"
-            >
-                <ErrorBoundary label={failed('deviceTools')} resetKeys={[device.deviceId]} compact className="h-full">
-                    <LazyBoundary>
-                        <DeviceToolsPanel device={device} onClose={() => setOpen(false)} />
-                    </LazyBoundary>
-                </ErrorBoundary>
-            </Popover.Popup>
-        </Popover.Root>
     );
 }
 

@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { platformPackageOf } from './launcher';
@@ -25,6 +25,11 @@ test('node runs the launcher, which runs the compiled binary', () => {
         stdio: ['ignore', 'inherit', 'inherit']
     });
     expect(compile.exitCode).toBe(0);
+    if (process.platform === 'darwin') {
+        expect(existsSync(join(work, 'binaries', target, 'native', 'serve-sim-duo-hid'))).toBe(true);
+        expect(existsSync(join(work, 'binaries', target, 'native', 'serve-sim-camera-helper'))).toBe(true);
+        expect(existsSync(join(work, 'binaries', target, 'native', 'libSimCameraInjector.dylib'))).toBe(true);
+    }
 
     const out = join(work, 'packages');
     const build = Bun.spawnSync(

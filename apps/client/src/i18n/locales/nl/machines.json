@@ -13,7 +13,10 @@
             "assistant": "Assistent",
             "rotate": "Apparaat draaien",
             "rotateLeft": "Links",
-            "rotateRight": "Rechts"
+            "rotateRight": "Rechts",
+            "volumeUp": "Volume omhoog",
+            "volumeDown": "Volume omlaag",
+            "playPause": "Afspelen of pauzeren"
         },
         "state": {
             "booted": "{{name}} draait.",
@@ -52,7 +55,9 @@
                 "urlPlaceholder": "https://… of myapp://",
                 "open": "Openen",
                 "launch": "Starten",
-                "terminate": "Stoppen"
+                "terminate": "Stoppen",
+                "install": "App installeren…",
+                "addMedia": "Foto's of video toevoegen…"
             },
             "display": {
                 "title": "Scherm",
@@ -109,12 +114,77 @@
                     "motion": "Beweging",
                     "media-library": "Mediabibliotheek",
                     "faceid": "Face ID"
-                }
+                },
+                "grantAll": "Alles geven",
+                "revokeAll": "Alles intrekken",
+                "resetAll": "Alles herstellen"
             },
             "push": {
                 "title": "Pushmelding",
                 "alertText": "Meldingstekst",
                 "send": "Versturen"
+            },
+            "capture": {
+                "title": "Vastleggen",
+                "screenshot": "Screenshot",
+                "copy": "Screenshot kopiëren",
+                "save": "Screenshot bewaren",
+                "place": "Screenshot op het canvas zetten",
+                "noCanvas": "Open een canvas om de screenshot op te zetten.",
+                "failed": "De screenshot kon niet worden gemaakt",
+                "record": "Schermopname",
+                "start": "Opnemen",
+                "stop": "Opname stoppen",
+                "recording": "Opname loopt, {{time}}",
+                "recordFailed": "De opname kon niet worden gemaakt",
+                "androidLimit": "Android stopt een opname zelf na 3 minuten."
+            },
+            "clipboard": {
+                "title": "Klembord",
+                "send": "Mijn klembord sturen",
+                "copy": "Klembord van het apparaat kopiëren",
+                "failed": "Het klembord was niet bereikbaar"
+            },
+            "statusBar": {
+                "title": "Statusbalk",
+                "style": "Statusbalk",
+                "clean": "Schoon",
+                "default": "Standaard",
+                "battery": "Batterij",
+                "charging": "Opladen",
+                "cosmetic": "Alleen de statusbalk toont dit niveau; apps lezen nog steeds een volle batterij.",
+                "reset": "Batterij herstellen"
+            },
+            "biometrics": {
+                "title": "Biometrie",
+                "enrolled": "Ingesteld",
+                "face": "Face ID",
+                "touch": "Touch ID",
+                "fingerprint": "Vingerafdruk",
+                "match": "Match",
+                "noMatch": "Geen match"
+            },
+            "files": {
+                "up": "Eén map omhoog",
+                "cancel": "Stoppen met kiezen",
+                "list": "Bestanden op de machine",
+                "empty": "Hier staat niets wat dit apparaat aanneemt.",
+                "add": "Toevoegen",
+                "drop": "Loslaten om de app te installeren of de foto's toe te voegen",
+                "dropFailed": "Het apparaat nam dat niet aan",
+                "notTaken": "Sleep één app-bundel die dit apparaat installeert, of maximaal 20 foto's en video's."
+            },
+            "camera": {
+                "title": "Camera",
+                "source": "Beeld",
+                "sources": {
+                    "off": "Uit",
+                    "placeholder": "Testbeeld",
+                    "file": "Bestand"
+                },
+                "pickFile": "Bestand kiezen…",
+                "file": "Toont",
+                "note": "De app start de eerste keer opnieuw met het camerabeeld."
             }
         },
         "operated": {
@@ -133,7 +203,17 @@
                 "type": "Typt",
                 "shot": "Kijkt",
                 "launch": "Opent {{app}}",
-                "button": "Drukt op {{button}}"
+                "button": "Drukt op {{button}}",
+                "set": "Wijzigt instellingen",
+                "open": "Opent een link",
+                "permission": "Wijzigt een toestemming",
+                "push": "Stuurt een push",
+                "biometric": "Beantwoordt een biometrische controle",
+                "clipboard": "Gebruikt het klembord",
+                "record": "Neemt het scherm op",
+                "install": "Installeert een app",
+                "media": "Voegt foto's toe",
+                "terminate": "Stopt een app"
             },
             "button": {
                 "home": "Drukt op Home",
@@ -144,7 +224,40 @@
                 "lock": "Drukt op Vergrendelen",
                 "power": "Drukt op Aan/uit",
                 "siri": "Roept Siri op",
-                "assistant": "Roept de assistent op"
+                "assistant": "Roept de assistent op",
+                "volumeUp": "Zet het volume hoger",
+                "volumeDown": "Zet het volume lager",
+                "playPause": "Drukt op afspelen"
+            }
+        },
+        "more": "Meer apparaatacties",
+        "restart": "Herstarten",
+        "erase": {
+            "open": "Wissen…",
+            "title": "{{name}} wissen?",
+            "description": "Alle apps, hun gegevens en de instellingen op {{name}} worden verwijderd, zoals op een nieuw apparaat. Een draaiend apparaat wordt eerst afgesloten en daarna weer gestart.",
+            "confirm": "Wissen",
+            "busy": "Wissen…",
+            "failed": "Het apparaat kon niet worden gewist"
+        },
+        "shake": "Schudden",
+        "memoryWarning": "Geheugenwaarschuwing nabootsen",
+        "fold": {
+            "label": "Vouwen",
+            "title": "Vouwen",
+            "hinge": "Scharnier",
+            "screen": "Scherm",
+            "failed": "Het apparaat vouwde niet",
+            "poses": {
+                "closed": "Dicht",
+                "tent": "Tent",
+                "tabletop": "Tafel",
+                "book": "Boek",
+                "open": "Open"
+            },
+            "panels": {
+                "cover": "Buitenscherm",
+                "inner": "Binnenscherm"
             }
         }
     },

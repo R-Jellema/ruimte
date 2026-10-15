@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { DeviceInfo, ProjectContent, ProjectEdge, ProjectNode } from '@ruimte/contracts';
 import { ManualTimers } from '../computer/computer-test-helpers.ts';
 import { DeviceDriver } from '../devices/agent-driver.ts';
+import { DeviceControl } from '../devices/control.ts';
 import { ReadingBackend, RecordingBackend, SIMULATOR, pngOf } from '../devices/device-test-helpers.ts';
 import { DeviceManager } from '../devices/manager.ts';
 import { refusalBody } from '@adecore/agents/context';
@@ -30,6 +31,7 @@ let nodes: ProjectNode[];
 let edges: ProjectEdge[];
 let host: CanvasHost;
 let bound: Set<string>;
+let projectFolder = '/tmp/p1';
 
 function content(): ProjectContent {
     return {
@@ -55,10 +57,11 @@ beforeEach(async () => {
 function hostWith(backends: RecordingBackend[]): CanvasHost {
     return {
         projects: {
-            locate: (id: string) => (id === 'chat-1' ? { projectId: 'p1', folder: '/tmp/p1', canvasId: 'main' } : null),
+            locate: (id: string) => (id === 'chat-1' ? { projectId: 'p1', folder: projectFolder, canvasId: 'main' } : null),
             read: async () => content(),
             machineOfNode: (nodeId: string) => (bound.has(nodeId) ? 'machine-b' : null)
         },
+        checkouts: { paths: async () => [] },
         devices: new DeviceDriver({ home, manager: new DeviceManager(backends), timers: new ManualTimers(), sleep: async () => undefined })
     } as unknown as CanvasHost;
 }
@@ -90,6 +93,34 @@ async function run(argv: string[]): Promise<string[]> {
 }
 
 describe('ruimte-context device', () => {
+    test('has no word that erases, starts, stops, restarts or folds a device or sets its camera, which only a person does', () => {
+        const words = noun.actions.map((action) => action.word);
+
+        for (const word of ['erase', 'boot', 'start', 'shutdown', 'stop', 'restart', 'fold', 'hinge', 'camera']) {
+            expect(words).not.toContain(word);
+        }
+        expect(words).toEqual([
+            'list',
+            'state',
+            'shot',
+            'tap',
+            'swipe',
+            'button',
+            'type',
+            'launch',
+            'set',
+            'open',
+            'permission',
+            'push',
+            'biometric',
+            'clipboard',
+            'record',
+            'install',
+            'media',
+            'terminate'
+        ]);
+    });
+
     test('says which device the node holds and what works on it', async () => {
         expect(await run(['state', 'phone-1'])).toEqual([
             'device\tphone-1\tiPhone 18 Pro\tios\tsimulator\tiOS 27.0',
@@ -306,5 +337,137 @@ describe('ruimte-context device on a device with a tree', () => {
         const help = noun.actions.find((action) => action.word === 'state')!.detail.join('\n');
         expect(help).toContain('no web content, and of a long list only the rows on screen. Take a shot for those');
         expect(help).toContain('an iPhone has shots only');
+    });
+});
+
+describe('ruimte-context device tools', () => {
+    let project: string;
+
+    beforeEach(async () => {
+        project = await mkdtemp(join(tmpdir(), 'ruimte-device-project-'));
+        await mkdir(join(project, 'build', 'Atlas.app'), { recursive: true });
+        await writeFile(join(project, 'shot.png'), 'png');
+        await writeFile(join(project, 'clip.mov'), 'mov');
+        projectFolder = project;
+        host = hostWith([backend]);
+    });
+
+    afterEach(async () => {
+        await rm(project, { recursive: true, force: true });
+    });
+
+    const target = { backendId: 'simctl', platform: 'ios', deviceId: SIMULATOR.deviceId } as const;
+
+    test('sets up the device in one step, in the order a person would', async () => {
+        expect(
+            await run(['set', 'phone-1', '--appearance', 'dark', '--status-bar', 'clean', '--battery', '40', '--charging', '--location', '52.3676,4.9041'])
+        ).toEqual(['done\tset\tphone-1\tiPhone 18 Pro', 'next\truimte-context device shot <id>\tshows what it did']);
+        expect(backend.actions).toEqual([
+            { ...target, action: 'setAppearance', value: 'dark' },
+            { ...target, action: 'setStatusBar', value: 'clean' },
+            { ...target, action: 'setBattery', level: 40, charging: true },
+            { ...target, action: 'setLocation', latitude: 52.3676, longitude: 4.9041 }
+        ]);
+        await run(['set', 'phone-1', '--clear-location', '--text-size', 'large']);
+        expect(backend.actions.slice(4)).toEqual([
+            { ...target, action: 'setTextSize', value: 'large' },
+            { ...target, action: 'clearLocation' }
+        ]);
+    });
+
+    test('refuses a set with nothing to change, a location and its clearing at once, or charging without a level', async () => {
+        expect((await run(['set', 'phone-1']))[0]).toStartWith('refused\tbad-arguments\tdevice set needs something to change');
+        expect((await run(['set', 'phone-1', '--location', '1,2', '--clear-location']))[0]).toStartWith('refused\tbad-arguments\t');
+        expect((await run(['set', 'phone-1', '--charging']))[0]).toStartWith('refused\tbad-arguments\t--charging goes with --battery');
+        expect((await run(['set', 'phone-1', '--battery', '120']))[0]).toStartWith('refused\tbad-arguments\t--battery is between 0 and 100');
+        expect((await run(['set', 'phone-1', '--location', 'Amsterdam']))[0]).toStartWith('refused\tbad-arguments\t--location takes a place as LAT,LON');
+        expect(backend.actions).toEqual([]);
+    });
+
+    test('opens a link, changes one permission or all, sends a push, answers a biometric check and stops an app', async () => {
+        await run(['open', 'phone-1', '--url', 'myapp://inbox']);
+        await run(['permission', 'phone-1', '--app', 'com.example.app', '--grant', '--name', 'camera']);
+        await run(['permission', 'phone-1', '--app', 'com.example.app', '--reset', '--all']);
+        await run(['push', 'phone-1', '--app', 'com.example.app', '--payload', 'Build is green']);
+        await run(['biometric', 'phone-1', '--match']);
+        await run(['biometric', 'phone-1', '--enroll', '--sensor', 'finger']);
+        await run(['terminate', 'phone-1', '--app', 'com.example.app']);
+
+        expect(backend.actions).toEqual([
+            { ...target, action: 'openUrl', url: 'myapp://inbox' },
+            { ...target, action: 'setPermission', appId: 'com.example.app', permission: 'camera', decision: 'grant' },
+            { ...target, action: 'setAllPermissions', appId: 'com.example.app', decision: 'reset' },
+            { ...target, action: 'sendPush', appId: 'com.example.app', payload: 'Build is green' },
+            { ...target, action: 'biometric', event: 'match', sensor: 'face' },
+            { ...target, action: 'biometric', event: 'enroll', sensor: 'finger' },
+            { ...target, action: 'terminateApp', appId: 'com.example.app' }
+        ]);
+    });
+
+    test('refuses a permission without one decision or without one target, and a biometric check without one event', async () => {
+        expect((await run(['permission', 'phone-1', '--app', 'a.b', '--name', 'camera']))[0]).toStartWith(
+            'refused\tbad-arguments\tdevice permission takes one of'
+        );
+        expect((await run(['permission', 'phone-1', '--app', 'a.b', '--grant']))[0]).toStartWith(
+            'refused\tbad-arguments\tdevice permission takes one permission'
+        );
+        expect((await run(['permission', 'phone-1', '--app', 'a.b', '--grant', '--all', '--name', 'camera']))[0]).toStartWith('refused\tbad-arguments\t');
+        expect((await run(['biometric', 'phone-1', '--match', '--nomatch']))[0]).toStartWith('refused\tbad-arguments\tdevice biometric takes one of');
+        expect(backend.actions).toEqual([]);
+    });
+
+    test('reads and writes the clipboard, and records for the seconds asked into the captures of the machine', async () => {
+        backend.clipboard = 'from the device';
+        expect(await run(['clipboard', 'phone-1'])).toEqual(['clipboard\t"from the device"']);
+        expect(await run(['clipboard', 'phone-1', '--text', 'mine'])).toEqual(['clipboard\t"mine"']);
+        expect(backend.clipboard).toBe('mine');
+
+        const [line] = await run(['record', 'phone-1', '--seconds', '5']);
+        expect(line).toMatch(new RegExp(`^recording\\t${join(home, 'device-captures')}/phone-1-\\d+\\.mp4\\t`));
+        expect(backend.recordings).toEqual([{ file: line!.split('\t')[1]!, stopped: true }]);
+        expect((await run(['record', 'phone-1', '--seconds', '61']))[0]).toStartWith('refused\tbad-arguments\t--seconds is between 1 and 60');
+    });
+
+    test('installs an app and adds media from the project folder, and refuses a path outside it', async () => {
+        await run(['install', 'phone-1', '--path', 'build/Atlas.app']);
+        await run(['media', 'phone-1', '--path', 'shot.png', join(project, 'clip.mov')]);
+        expect(backend.actions).toEqual([
+            { ...target, action: 'installApp', path: join(project, 'build', 'Atlas.app') },
+            { ...target, action: 'addMedia', paths: [join(project, 'shot.png'), join(project, 'clip.mov')] }
+        ]);
+
+        const outside = await mkdtemp(join(tmpdir(), 'ruimte-device-outside-'));
+        try {
+            await writeFile(join(outside, 'evil.apk'), 'apk');
+            expect((await run(['install', 'phone-1', '--path', join(outside, 'evil.apk')]))[0]).toStartWith('refused\tdevice-path-refused\t');
+            expect((await run(['media', 'phone-1', '--path', 'missing.png']))[0]).toStartWith('refused\tdevice-path-refused\t');
+        } finally {
+            await rm(outside, { recursive: true, force: true });
+        }
+        expect(backend.actions).toHaveLength(2);
+    });
+
+    test('a tool the device does not announce is refused before it runs, and so is one without a line', async () => {
+        backend.info = { ...SIMULATOR, capabilities: { ...SIMULATOR.capabilities, tools: ['launchApp'] } };
+        expect((await run(['open', 'phone-1', '--url', 'https://ruimte.app']))[0]).toBe(
+            'refused\tdevice-action-unavailable\tiPhone 18 Pro has no openUrl tool in Ruimte'
+        );
+        edges = [];
+        expect((await run(['install', 'phone-1', '--path', 'build/Atlas.app']))[0]).toStartWith('refused\tnot-linked\t');
+        expect(backend.actions).toEqual([]);
+    });
+
+    test('every tool waits while the person paused the agent', async () => {
+        const control = new DeviceControl();
+        host = {
+            ...hostWith([backend]),
+            devices: new DeviceDriver({ home, manager: new DeviceManager([backend]), timers: new ManualTimers(), sleep: async () => undefined, gate: control })
+        } as CanvasHost;
+        await run(['open', 'phone-1', '--url', 'https://ruimte.app']);
+        control.control(SIMULATOR, 'pause');
+
+        expect((await run(['set', 'phone-1', '--appearance', 'dark']))[0]).toStartWith('refused\tpaused\t');
+        expect((await run(['clipboard', 'phone-1']))[0]).toStartWith('refused\tpaused\t');
+        expect(backend.actions).toHaveLength(1);
     });
 });

@@ -1,8 +1,18 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react';
+import {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type KeyboardEvent as ReactKeyboardEvent,
+    type PointerEvent as ReactPointerEvent,
+    type WheelEvent as ReactWheelEvent
+} from 'react';
+import clsx from 'clsx';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { CircleAlert, LoaderCircle } from 'lucide-react';
-import { LiveStreamDecoder, liveStreamFormatOf, type DeviceInfo, type DeviceInput } from '@ruimte/contracts';
+import { deviceTools, LiveStreamDecoder, liveStreamFormatOf, type DeviceInfo, type DeviceInput } from '@ruimte/contracts';
+import { isApplePlatform } from '@/desktop/bridge';
 import { credentialFor } from '@/endpoint/credentials';
 import {
     approachGestureTotal,
@@ -13,7 +23,9 @@ import {
     positionInContainedFrame,
     trackpadGesturePoint
 } from '@/devices/device-layout';
+import { routeDeviceKey } from '@/devices/device-keys';
 import { DeviceTapPing } from '@/devices/DeviceOperatedStrip';
+import { hidUsageOf } from '@/devices/hid-usages';
 import { videoFrameDecoder } from '@/devices/video-decoder';
 import { useEndpoints } from '@/state/endpoints';
 import { useEndpointId } from '@/state/keys';
@@ -59,6 +71,8 @@ export function DeviceStream({ device }: { device: DeviceInfo }) {
         timer: null as number | null
     });
     const pinch = useRef({ active: false, spread: 0.12, center: { x: 0.5, y: 0.5 }, timer: null as number | null });
+    /* The keys a person holds down on the device, let go when the screen loses the focus so none stays stuck. */
+    const heldKeys = useRef(new Set<number>());
     const [streamId, setStreamId] = useState<string | null>(null);
     const [imageReady, setImageReady] = useState(false);
     const [streamError, setStreamError] = useState<string | null>(null);
@@ -184,6 +198,49 @@ export function DeviceStream({ device }: { device: DeviceInfo }) {
     const sendInput = (input: DeviceInput): void => {
         if (device.capabilities.input) {
             deviceClientFor(endpointId)?.input(target, input);
+        }
+    };
+    const keyboard = device.capabilities.input && deviceTools(device).includes('keyboard');
+    const onKeyDown = (event: ReactKeyboardEvent<HTMLCanvasElement>): void => {
+        if (!keyboard) {
+            return;
+        }
+        const route = routeDeviceKey(
+            { code: event.code, metaKey: event.metaKey, ctrlKey: event.ctrlKey, repeat: event.repeat, isComposing: event.nativeEvent.isComposing },
+            isApplePlatform()
+        );
+        if (route.kind === 'pass') {
+            return;
+        }
+        event.preventDefault();
+        if (route.kind === 'paste') {
+            void pasteClipboard();
+        } else if (route.kind === 'key' && !heldKeys.current.has(route.usage)) {
+            heldKeys.current.add(route.usage);
+            sendInput({ kind: 'key', phase: 'down', usage: route.usage });
+        }
+    };
+    const onKeyUp = (event: ReactKeyboardEvent<HTMLCanvasElement>): void => {
+        const usage = hidUsageOf(event.code);
+        if (usage !== null && heldKeys.current.delete(usage)) {
+            event.preventDefault();
+            sendInput({ kind: 'key', phase: 'up', usage });
+        }
+    };
+    const releaseKeys = (): void => {
+        for (const usage of heldKeys.current) {
+            sendInput({ kind: 'key', phase: 'up', usage });
+        }
+        heldKeys.current.clear();
+    };
+    const pasteClipboard = async (): Promise<void> => {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (text !== '') {
+                await deviceClientFor(endpointId)?.clipboard(target, text, true);
+            }
+        } catch (error) {
+            setStreamError(error instanceof Error ? error.message : i18next.t('machines:device.tools.clipboard.failed'));
         }
     };
     const releaseTrackpadGesture = (flush = false): void => {
@@ -401,10 +458,17 @@ export function DeviceStream({ device }: { device: DeviceInfo }) {
         <div className="relative flex h-full min-h-0 w-full items-center justify-center overflow-hidden bg-black">
             <canvas
                 ref={canvas}
-                className="block h-auto max-h-full w-auto max-w-full touch-none outline-none"
+                // With a keyboard the ring says where the keys go, however the screen got the focus.
+                className={clsx(
+                    'block h-auto max-h-full w-auto max-w-full touch-none outline-none',
+                    keyboard && 'focus:outline-2 focus:-outline-offset-2 focus:outline-accent'
+                )}
                 aria-label={t('device.stream.screen', { name: device.name })}
                 tabIndex={0}
                 onContextMenu={(event) => event.preventDefault()}
+                onKeyDown={onKeyDown}
+                onKeyUp={onKeyUp}
+                onBlur={releaseKeys}
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 onPointerUp={endPointer}

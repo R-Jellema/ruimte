@@ -1157,6 +1157,10 @@ describe('node new', () => {
             `see\truimte-context device state ${id} --view main\tnames the canvas it stands on`
         ]);
         expect((await post('device', ['shot', id!, '--view', 'board'], 'chat')).lines[0]).toBe(`refused\tnot-on-view\t${id} stands on main, not on board`);
+        expect((await post('device', ['open', id!, '--url', 'https://ruimte.app', '--view', 'main'], 'chat')).lines[0]).toBe(
+            `done\topen\t${id}\tiPhone 18 Pro`
+        );
+        expect((await post('device', ['open', id!, '--url', 'https://ruimte.app'], 'chat')).lines[0]).toStartWith('refused\tview-required\t');
         // The terminal beside it on that canvas has no line to it, and a line is still what it needs.
         expect((await post('device', ['state', id!])).lines[0]).toBe(
             `refused\tnot-linked\tNo line runs between you and ${id}, and that line is what lets you operate its device`

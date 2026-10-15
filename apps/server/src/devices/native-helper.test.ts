@@ -18,8 +18,8 @@ describe('runDeviceHelper', () => {
         const output: Uint8Array[] = [];
         const addon = {
             SimHID: class {
-                constructor(deviceId: string) {
-                    calls.push(['hid', deviceId]);
+                constructor(deviceId: string, duoHidPath: string) {
+                    calls.push(['hid', deviceId, duoHidPath]);
                 }
 
                 async touch(...arguments_: unknown[]): Promise<void> {
@@ -46,6 +46,36 @@ describe('runDeviceHelper', () => {
                 async key(type: 'down' | 'up', usage: number): Promise<void> {
                     calls.push(['key', type, usage]);
                 }
+
+                async buttonHid(...arguments_: unknown[]): Promise<void> {
+                    calls.push(['buttonHid', ...arguments_]);
+                }
+
+                async memoryWarning(): Promise<void> {
+                    calls.push(['memoryWarning']);
+                }
+
+                async softwareKeyboard(): Promise<void> {
+                    calls.push(['softwareKeyboard']);
+                }
+
+                async isFoldable(): Promise<boolean> {
+                    return false;
+                }
+
+                async pose(...arguments_: unknown[]): Promise<boolean> {
+                    calls.push(['pose', ...arguments_]);
+                    return true;
+                }
+
+                async hinge(degrees: number): Promise<boolean> {
+                    calls.push(['hinge', degrees]);
+                    return true;
+                }
+
+                async close(): Promise<void> {
+                    calls.push(['close']);
+                }
             },
             SimCapture: class {
                 private frame: ((data: Uint8Array, width: number, height: number, flags: number) => Promise<void>) | null = null;
@@ -68,6 +98,10 @@ describe('runDeviceHelper', () => {
                 async stop(): Promise<void> {
                     calls.push(['stop']);
                 }
+
+                async setPreferredScreenSize(width: number, height: number): Promise<void> {
+                    calls.push(['setPreferredScreenSize', width, height]);
+                }
             }
         } satisfies DeviceNativeAddon;
         const input = new ReadableStream<Uint8Array>({
@@ -84,6 +118,10 @@ describe('runDeviceHelper', () => {
                         encodeDeviceHelperMessage({ type: 'input', input: { kind: 'button', button: 'appSwitcher' } }),
                         encodeDeviceHelperMessage({ type: 'input', input: { kind: 'rotate', direction: 'left' } }),
                         encodeDeviceHelperMessage({ type: 'keys', usages: [0xe3, 0x19] }),
+                        encodeDeviceHelperMessage({ type: 'input', input: { kind: 'key', phase: 'down', usage: 0x04 } }),
+                        encodeDeviceHelperMessage({ type: 'input', input: { kind: 'button', button: 'volumeUp' } }),
+                        encodeDeviceHelperMessage({ type: 'call', id: 7, call: { method: 'memoryWarning' } }),
+                        encodeDeviceHelperMessage({ type: 'call', id: 8, call: { method: 'pose', name: 'book', fromDegrees: 180 } }),
                         encodeDeviceHelperMessage({ type: 'stop' })
                     )
                 );
@@ -91,13 +129,17 @@ describe('runDeviceHelper', () => {
             }
         });
 
-        expect(await runDeviceHelper('phone-1', { addon, input, write: (bytes) => output.push(bytes.slice()) })).toBe(0);
+        expect(await runDeviceHelper('phone-1', { addon, duoHidPath: '/native/serve-sim-duo-hid', input, write: (bytes) => output.push(bytes.slice()) })).toBe(
+            0
+        );
         expect(new DeviceHelperDecoder().push(join(...output))).toEqual([
             { type: 'ready', width: 1179, height: 2556 },
-            { type: 'frame', frame: { sequence: 0, width: 1179, height: 2556, data: new Uint8Array([0xff, 0xd8, 0xff]) } }
+            { type: 'frame', frame: { sequence: 0, width: 1179, height: 2556, data: new Uint8Array([0xff, 0xd8, 0xff]) } },
+            { type: 'reply', id: 7, ok: true },
+            { type: 'reply', id: 8, ok: true, value: true }
         ]);
         expect(calls).toEqual([
-            ['hid', 'phone-1'],
+            ['hid', 'phone-1', '/native/serve-sim-duo-hid'],
             ['capture', 'phone-1'],
             ['subscribe', 0],
             ['start'],
@@ -110,6 +152,10 @@ describe('runDeviceHelper', () => {
             ['key', 'down', 0x19],
             ['key', 'up', 0x19],
             ['key', 'up', 0xe3],
+            ['key', 'down', 0x04],
+            ['buttonHid', 0x0c, 0xe9, 'press'],
+            ['memoryWarning'],
+            ['pose', 'book', 180],
             ['unsubscribe'],
             ['stop']
         ]);
@@ -125,6 +171,13 @@ describe('runDeviceHelper', () => {
                 button = async (): Promise<void> => undefined;
                 orientation = async (): Promise<boolean> => true;
                 key = async (): Promise<void> => undefined;
+                buttonHid = async (): Promise<void> => undefined;
+                memoryWarning = async (): Promise<void> => undefined;
+                softwareKeyboard = async (): Promise<void> => undefined;
+                isFoldable = async (): Promise<boolean> => false;
+                pose = async (): Promise<boolean> => true;
+                hinge = async (): Promise<boolean> => true;
+                close = async (): Promise<void> => undefined;
             },
             SimCapture: class {
                 subscribe = async (): Promise<() => void> => () => undefined;
@@ -132,6 +185,7 @@ describe('runDeviceHelper', () => {
                     throw new Error('CoreSimulator capture unavailable');
                 };
                 stop = async (): Promise<void> => undefined;
+                setPreferredScreenSize = async (): Promise<void> => undefined;
             }
         } satisfies DeviceNativeAddon;
 

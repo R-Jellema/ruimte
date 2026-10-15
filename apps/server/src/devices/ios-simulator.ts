@@ -5,18 +5,22 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import {
     DevicePermissionSchema,
-    DeviceToolSchema,
     type DeviceAction,
     type DeviceButton,
     type DeviceInfo,
     type DevicePermission,
     type DeviceSettings,
     type DeviceTextSize,
-    type DeviceToggleSetting
+    type DeviceToggleSetting,
+    type DeviceTool
 } from '@ruimte/contracts';
 import { simulatorTree, type DeviceTree } from './device-tree.ts';
 import { DeviceHelperSource, type DeviceHelperLauncher } from './helper-source.ts';
-import { DeviceError, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard } from './manager.ts';
+import { DeviceError, KEY_LEFT_COMMAND, KEY_V, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard, type DeviceSource } from './manager.ts';
+import { requireExtension, requireMedia } from './device-paths.ts';
+import { DeviceRecordings } from './recordings.ts';
+import type { SimulatorCamera } from './simulator-camera.ts';
+import { realPanelMonitor, SimulatorFold, type PanelMonitorFactory } from './simulator-fold.ts';
 import type { SimulatorTreeReader } from './simulator-tree.ts';
 
 interface CommandResult {
@@ -31,8 +35,12 @@ const SimctlDeviceSchema = z.object({
     udid: z.string().min(1),
     isAvailable: z.boolean(),
     state: z.string(),
-    name: z.string().min(1)
+    name: z.string().min(1),
+    deviceTypeIdentifier: z.string().optional()
 });
+
+/* The one simulator with a hinge; whether this Xcode can fold it, the helper says when asked. */
+const FOLDABLE_TYPE = 'com.apple.CoreSimulator.SimDeviceType.iPhone-Duo';
 
 const SimctlListSchema = z.object({ devices: z.record(z.string(), z.array(SimctlDeviceSchema)) });
 
@@ -50,23 +58,85 @@ function stateOf(state: string): DeviceInfo['state'] {
 }
 
 async function defaultRunner(arguments_: string[], stdin?: string): Promise<CommandResult> {
-    // simctl reads stdin in the locale's encoding, and a daemon under launchd has none, which turns ü into √º.
+    // simctl reads and writes the pasteboard in the locale's encoding, and a daemon under launchd has none, which turns ü into √º.
+    const utf8 = stdin !== undefined || arguments_[0] === 'pbpaste';
     const process = Bun.spawn(['xcrun', 'simctl', ...arguments_], {
         stdin: stdin === undefined ? 'ignore' : 'pipe',
         stdout: 'pipe',
         stderr: 'pipe',
-        env: stdin === undefined ? undefined : { ...Bun.env, LC_ALL: 'en_US.UTF-8' }
+        env: utf8 ? { ...Bun.env, LC_ALL: 'en_US.UTF-8' } : undefined
     });
     const fed = stdin !== undefined && process.stdin ? Promise.all([process.stdin.write(stdin), process.stdin.end()]) : null;
     const [exitCode, stdout, stderr] = await Promise.all([process.exited, new Response(process.stdout).text(), new Response(process.stderr).text(), fed]);
     return { exitCode, stdout, stderr };
 }
 
+// todo(Bas): announce volumeUp, volumeDown, power and playPause, which the helper presses already, once side-buttons.device.integration.test.ts passed on a simulator.
 const IOS_BUTTONS: DeviceButton[] = ['home', 'swipeHome', 'appSwitcher', 'lock', 'siri'];
 
-/* USB HID keyboard usages (page 7). */
-const KEY_V = 0x19;
-const KEY_LEFT_COMMAND = 0xe3;
+/* What a simulator announces; each tool joins once its action does something. */
+const IOS_SIMULATOR_TOOLS: DeviceTool[] = [
+    'openUrl',
+    'launchApp',
+    'terminateApp',
+    'appearance',
+    'textSize',
+    'liquidGlass',
+    'colorFilter',
+    'reduceMotion',
+    'increaseContrast',
+    'reduceTransparency',
+    'showBorders',
+    'voiceOver',
+    'location',
+    'clearLocation',
+    'permissions',
+    'push',
+    'capture',
+    'record',
+    'clipboard',
+    'erase',
+    'statusBar',
+    'battery',
+    'biometrics',
+    'shake',
+    'installApp',
+    'addMedia'
+];
+
+/* The status bar of a marketing shot. */
+const CLEAN_STATUS_BAR = [
+    '--time',
+    '9:41',
+    '--dataNetwork',
+    'wifi',
+    '--wifiMode',
+    'active',
+    '--wifiBars',
+    '3',
+    '--cellularMode',
+    'active',
+    '--cellularBars',
+    '4',
+    '--batteryState',
+    'charged',
+    '--batteryLevel',
+    '100'
+];
+
+/*
+ * The Darwin notifications the simulator's biometric stand-in listens to. Not a documented API: they
+ * were seen working on Xcode 27, which a device test of Bas still has to confirm.
+ */
+const BIOMETRIC_ENROLLMENT = 'com.apple.BiometricKit.enrollmentChanged';
+const BIOMETRIC_MATCH: Record<'face' | 'finger', Record<'match' | 'nomatch', string>> = {
+    face: { match: 'com.apple.BiometricKit_Sim.pearl.match', nomatch: 'com.apple.BiometricKit_Sim.pearl.nomatch' },
+    finger: { match: 'com.apple.BiometricKit_Sim.fingerTouch.match', nomatch: 'com.apple.BiometricKit_Sim.fingerTouch.nomatch' }
+};
+const SHAKE = 'com.apple.UIKit.SimulatorShake';
+
+/* A recording a person forgot keeps going no longer than this, so it cannot fill the disk. */
+const RECORDING_LIMIT_MS = 10 * 60 * 1000;
 
 const IOS_TEXT_SIZES: Record<DeviceTextSize, string> = {
     small: 'small',
@@ -94,6 +164,34 @@ const IOS_PERMISSION_SERVICES: Record<DevicePermission, string> = {
     'media-library': 'media-library',
     faceid: 'faceid'
 };
+
+/* The capture of a foldable simulator, which follows its panel for as long as it runs. */
+class FoldingSource extends DeviceHelperSource {
+    private readonly fold: SimulatorFold;
+
+    constructor(deviceId: string, launch: DeviceHelperLauncher, fold: SimulatorFold) {
+        super(deviceId, launch);
+        this.fold = fold;
+    }
+
+    override async start(publish: Parameters<DeviceHelperSource['start']>[0]): Promise<void> {
+        await super.start(publish);
+        this.fold.attach(this);
+    }
+
+    override async stop(): Promise<void> {
+        this.fold.detach();
+        await super.stop();
+    }
+}
+
+/* The native helper of a simulator someone has open, which the tools that go through its HID need. */
+function helperOf(session: DeviceSource | null): DeviceHelperSource {
+    if (!(session instanceof DeviceHelperSource)) {
+        throw new DeviceError('device-not-open', 'Open the simulator before using this tool');
+    }
+    return session;
+}
 
 function textSizeFromIos(category: string): DeviceTextSize {
     const exact = (Object.entries(IOS_TEXT_SIZES) as Array<[DeviceTextSize, string]>).find(([, value]) => value === category);
@@ -132,17 +230,32 @@ export class IosSimulatorBackend implements DeviceBackend {
     private readonly sleep: (ms: number) => Promise<void>;
     private readonly treeReader: ((udid: string) => SimulatorTreeReader) | null;
     private readonly readers = new Map<string, SimulatorTreeReader>();
+    private readonly recordings: DeviceRecordings;
+    /* What simctl cannot read back, as this daemon last set it; unknown again after a restart. */
+    private readonly statusBars = new Map<string, DeviceSettings['statusBar']>();
+    private readonly batteries = new Map<string, NonNullable<DeviceSettings['battery']>>();
+    private readonly enrolled = new Map<string, boolean>();
+    private readonly foldable = new Set<string>();
+    private readonly folds = new Map<string, SimulatorFold>();
+    private readonly panelMonitor: PanelMonitorFactory;
+    private readonly camera: SimulatorCamera | null;
 
     constructor(
         run: SimctlRunner = defaultRunner,
         launch: DeviceHelperLauncher | null = null,
         sleep: (ms: number) => Promise<void> = (ms) => Bun.sleep(ms),
-        treeReader: ((udid: string) => SimulatorTreeReader) | null = null
+        treeReader: ((udid: string) => SimulatorTreeReader) | null = null,
+        recordings: DeviceRecordings = new DeviceRecordings(),
+        panelMonitor: PanelMonitorFactory = realPanelMonitor,
+        camera: SimulatorCamera | null = null
     ) {
+        this.camera = camera;
         this.run = run;
         this.launch = launch;
         this.sleep = sleep;
         this.treeReader = treeReader;
+        this.recordings = recordings;
+        this.panelMonitor = panelMonitor;
     }
 
     async list(): Promise<DeviceInfo[]> {
@@ -157,29 +270,39 @@ export class IosSimulatorBackend implements DeviceBackend {
         if (!parsed.success) {
             throw new DeviceError('invalid-simctl-output', 'simctl returned a device list Ruimte could not read');
         }
-        return Object.entries(parsed.data.devices).flatMap(([runtime, devices]) =>
-            devices
-                .filter((device) => device.isAvailable && runtime.includes('.iOS-'))
-                .map((device) => ({
-                    deviceId: device.udid,
-                    backendId: this.id,
-                    platform: this.platform,
-                    kind: 'simulator' as const,
-                    name: device.name,
-                    runtime: runtimeName(runtime),
-                    state: stateOf(device.state),
-                    capabilities: {
-                        boot: true,
-                        shutdown: true,
-                        stream: this.launch !== null,
-                        input: this.launch !== null,
-                        screenshot: true,
-                        buttons: IOS_BUTTONS,
-                        tools: [...DeviceToolSchema.options],
-                        permissions: [...DevicePermissionSchema.options]
-                    }
-                }))
+        const listed = Object.entries(parsed.data.devices).flatMap(([runtime, devices]) =>
+            devices.filter((device) => device.isAvailable && runtime.includes('.iOS-')).map((device) => ({ runtime, device }))
         );
+        this.foldable.clear();
+        for (const { device } of listed) {
+            if (device.deviceTypeIdentifier === FOLDABLE_TYPE) {
+                this.foldable.add(device.udid);
+            }
+        }
+        return listed.map(({ runtime, device }) => ({
+            deviceId: device.udid,
+            backendId: this.id,
+            platform: this.platform,
+            kind: 'simulator' as const,
+            name: device.name,
+            runtime: runtimeName(runtime),
+            state: stateOf(device.state),
+            capabilities: {
+                boot: true,
+                shutdown: true,
+                stream: this.launch !== null,
+                input: this.launch !== null,
+                screenshot: true,
+                buttons: IOS_BUTTONS,
+                tools: [
+                    ...IOS_SIMULATOR_TOOLS,
+                    ...(this.launch === null ? [] : (['keyboard', 'memoryWarning'] as const)),
+                    ...(this.launch !== null && this.foldable.has(device.udid) ? (['fold'] as const) : []),
+                    ...(this.camera?.available ? (['camera'] as const) : [])
+                ],
+                permissions: [...DevicePermissionSchema.options]
+            }
+        }));
     }
 
     async boot(deviceId: string): Promise<DeviceInfo> {
@@ -196,6 +319,8 @@ export class IosSimulatorBackend implements DeviceBackend {
         if (current.state === 'shutdown') {
             return current;
         }
+        this.recordings.drop(deviceId);
+        this.camera?.stop(deviceId);
         await this.command(['shutdown', deviceId]);
         return this.find(deviceId);
     }
@@ -240,12 +365,98 @@ export class IosSimulatorBackend implements DeviceBackend {
             ...(showBorders === undefined ? {} : { showBorders }),
             ...(voiceOver === undefined ? {} : { voiceOver }),
             ...(ax['liquid-glass'] === 'clear' || ax['liquid-glass'] === 'tinted' ? { liquidGlass: ax['liquid-glass'] } : {}),
-            ...(colorFilter === undefined ? {} : { colorFilter })
+            ...(colorFilter === undefined ? {} : { colorFilter }),
+            ...this.remembered(deviceId),
+            ...(this.folds.get(deviceId)?.settings() ?? {}),
+            recording: this.recordings.isRecording(deviceId)
         };
     }
 
-    async action(deviceId: string, action: DeviceAction): Promise<DeviceSettings> {
+    private remembered(deviceId: string): DeviceSettings {
+        const statusBar = this.statusBars.get(deviceId);
+        const battery = this.batteries.get(deviceId);
+        const enrolled = this.enrolled.get(deviceId);
+        return {
+            ...(statusBar === undefined ? {} : { statusBar }),
+            ...(battery === undefined ? {} : { battery }),
+            ...(enrolled === undefined ? {} : { biometricEnrolled: enrolled })
+        };
+    }
+
+    async action(deviceId: string, action: DeviceAction, session: DeviceSource | null = null): Promise<DeviceSettings> {
+        if (action.action === 'erase') {
+            await this.erase(deviceId);
+            return {};
+        }
         switch (action.action) {
+            case 'setStatusBar':
+                if (action.value === 'clean') {
+                    await this.command(['status_bar', deviceId, 'override', ...CLEAN_STATUS_BAR]);
+                } else {
+                    await this.command(['status_bar', deviceId, 'clear']);
+                    this.batteries.delete(deviceId);
+                }
+                this.statusBars.set(deviceId, action.value);
+                break;
+            case 'setBattery':
+                await this.command([
+                    'status_bar',
+                    deviceId,
+                    'override',
+                    '--batteryLevel',
+                    String(action.level),
+                    '--batteryState',
+                    action.charging ? 'charging' : 'discharging'
+                ]);
+                this.batteries.set(deviceId, { level: action.level, charging: action.charging });
+                break;
+            case 'resetBattery':
+                // A clear takes every override, so a clean status bar is put back after it.
+                await this.command(['status_bar', deviceId, 'clear']);
+                if (this.statusBars.get(deviceId) === 'clean') {
+                    await this.command(['status_bar', deviceId, 'override', ...CLEAN_STATUS_BAR]);
+                }
+                this.batteries.delete(deviceId);
+                break;
+            case 'biometric':
+                if (action.event === 'enroll' || action.event === 'unenroll') {
+                    const enrolled = action.event === 'enroll';
+                    await this.notify(deviceId, ['-s', BIOMETRIC_ENROLLMENT, enrolled ? '1' : '0']);
+                    await this.notify(deviceId, ['-p', BIOMETRIC_ENROLLMENT]);
+                    this.enrolled.set(deviceId, enrolled);
+                } else {
+                    await this.notify(deviceId, ['-p', BIOMETRIC_MATCH[action.sensor][action.event]]);
+                }
+                break;
+            case 'shake':
+                await this.notify(deviceId, ['-p', SHAKE]);
+                break;
+            case 'memoryWarning':
+                await helperOf(session).call({ method: 'memoryWarning' });
+                break;
+            case 'setFold':
+                await this.foldOf(deviceId).pose(helperOf(session), action.value);
+                break;
+            case 'setHinge':
+                await this.foldOf(deviceId).setHinge(helperOf(session), action.degrees);
+                break;
+            case 'setAllPermissions':
+                await this.command(['privacy', deviceId, action.decision, 'all', action.appId]);
+                break;
+            case 'setCamera':
+                if (this.camera === null) {
+                    throw new DeviceError('device-action-unavailable', 'This machine has no camera helper for simulators');
+                }
+                await this.camera.set(deviceId, action.appId, action.source, action.path);
+                break;
+            case 'installApp':
+                requireExtension(action.path, ['.app'], 'an .app built for the simulator; an .ipa is for an iPhone');
+                await this.command(['install', deviceId, action.path]);
+                break;
+            case 'addMedia':
+                requireMedia(action.paths);
+                await this.command(['addmedia', deviceId, ...action.paths]);
+                break;
             case 'setAppearance':
                 await this.command(['ui', deviceId, 'appearance', action.value]);
                 break;
@@ -290,15 +501,36 @@ export class IosSimulatorBackend implements DeviceBackend {
             case 'sendPush':
                 await this.command(['push', deviceId, action.appId, '-'], JSON.stringify({ aps: { alert: action.payload } }));
                 break;
+            default:
+                throw new DeviceError('device-action-unavailable', 'This tool is not available for iOS simulators');
         }
         return this.detail(deviceId);
+    }
+
+    /* simctl erases only a simulator that is shut down, and the person's client shuts it down first. */
+    private async erase(deviceId: string): Promise<void> {
+        if ((await this.find(deviceId)).state !== 'shutdown') {
+            throw new DeviceError('device-must-be-shut-down', 'Shut the simulator down before erasing it');
+        }
+        this.recordings.drop(deviceId);
+        this.camera?.stop(deviceId);
+        await this.command(['erase', deviceId]);
     }
 
     createSource(deviceId: string): DeviceHelperSource {
         if (this.launch === null) {
             throw new DeviceError('device-capture-unavailable', 'The native iOS simulator helper is not installed');
         }
-        return new DeviceHelperSource(deviceId, this.launch);
+        return this.foldable.has(deviceId) ? new FoldingSource(deviceId, this.launch, this.foldOf(deviceId)) : new DeviceHelperSource(deviceId, this.launch);
+    }
+
+    private foldOf(deviceId: string): SimulatorFold {
+        let fold = this.folds.get(deviceId);
+        if (!fold) {
+            fold = new SimulatorFold(deviceId, this.panelMonitor);
+            this.folds.set(deviceId, fold);
+        }
+        return fold;
     }
 
     async screenshot(deviceId: string): Promise<Uint8Array> {
@@ -310,6 +542,23 @@ export class IosSimulatorBackend implements DeviceBackend {
         } finally {
             await rm(directory, { recursive: true, force: true });
         }
+    }
+
+    async startRecording(deviceId: string, file: string): Promise<void> {
+        this.recordings.start(deviceId, file, ['xcrun', 'simctl', 'io', deviceId, 'recordVideo', '--codec=h264', '--force', file], RECORDING_LIMIT_MS);
+    }
+
+    /* simctl writes the end of the video only on an interrupt, so a kill would leave an empty file. */
+    stopRecording(deviceId: string): Promise<string> {
+        return this.recordings.stop(deviceId, (process) => process.interrupt());
+    }
+
+    async readClipboard(deviceId: string): Promise<string> {
+        return (await this.command(['pbpaste', deviceId])).stdout;
+    }
+
+    async writeClipboard(deviceId: string, text: string): Promise<void> {
+        await this.command(['pbcopy', deviceId], text);
     }
 
     /* Read through the device bridge, which stays running for this simulator until `closeTree`. */
@@ -342,6 +591,10 @@ export class IosSimulatorBackend implements DeviceBackend {
                 await this.sleep(PASTE_SETTLE_MS);
             }
         );
+    }
+
+    private async notify(deviceId: string, arguments_: string[]): Promise<void> {
+        await this.command(['spawn', deviceId, 'notifyutil', ...arguments_]);
     }
 
     private async ax(deviceId: string, arguments_: string[]): Promise<void> {

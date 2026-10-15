@@ -1,4 +1,8 @@
 import { describe, expect, test } from 'bun:test';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { MachineHome } from '../fs/machine-home.ts';
 import type { DeviceInfo, DeviceInput, LiveFrame, LiveFrameHeader, LiveStreamFrame } from '@ruimte/contracts';
 import { DeviceError, DeviceManager, type DeviceBackend, type DeviceSource } from './manager.ts';
 
@@ -37,6 +41,9 @@ class FakeBackend implements DeviceBackend {
 }
 
 class FakeSource implements DeviceSource {
+    keys?: (usages: readonly number[]) => void;
+    readClipboard?: () => Promise<string>;
+    writeClipboard?: (text: string) => Promise<void>;
     starts = 0;
     stops = 0;
     readonly inputs: DeviceInput[] = [];
@@ -300,5 +307,98 @@ describe('DeviceManager', () => {
 
         await expect(manager.hold('simctl', 'ios', 'phone-1', 'agent:chat-1')).rejects.toEqual(new DeviceError('device-helper-failed', 'capture failed'));
         await expect(manager.input('simctl', 'phone-1', 'agent:chat-1', { kind: 'button', button: 'home' })).rejects.toMatchObject({ code: 'device-not-open' });
+    });
+
+    test('takes a picture for a person through the screenshot when the backend has no capture of its own', async () => {
+        const backend = new FakeBackend();
+        const png = new Uint8Array([0x89, 0x50]);
+        Object.assign(backend, { screenshot: () => Promise.resolve(png) });
+        const manager = new DeviceManager([backend]);
+
+        expect(await manager.capture('simctl', 'ios', 'phone-1')).toBe(png);
+        await expect(manager.startRecording('simctl', 'ios', 'phone-1', '/captures/clip.mp4')).rejects.toMatchObject({ code: 'device-action-unavailable' });
+    });
+
+    test("reads and writes a backend's own clipboard, and pastes through the source's keys", async () => {
+        const backend = new FakeBackend();
+        backend.info = { ...phone, state: 'booted' };
+        let clipboard = 'from the device';
+        const keys: number[][] = [];
+        Object.assign(backend, {
+            readClipboard: () => Promise.resolve(clipboard),
+            writeClipboard: (_deviceId: string, text: string) => {
+                clipboard = text;
+                return Promise.resolve();
+            }
+        });
+        backend.source.keys = (usages: readonly number[]) => {
+            keys.push([...usages]);
+        };
+        const manager = new DeviceManager([backend]);
+
+        expect(await manager.clipboard('simctl', 'ios', 'phone-1', 'client-1')).toBe('from the device');
+        expect(await manager.clipboard('simctl', 'ios', 'phone-1', 'client-1', 'mine')).toBe('mine');
+        await expect(manager.clipboard('simctl', 'ios', 'phone-1', 'client-1', 'pasted', true)).rejects.toMatchObject({ code: 'device-not-open' });
+
+        manager.subscribe('client-1', () => undefined);
+        await manager.open('simctl', 'ios', 'phone-1', 'client-1', 'events');
+        await manager.clipboard('simctl', 'ios', 'phone-1', 'client-1', 'pasted', true);
+
+        expect(clipboard).toBe('pasted');
+        expect(keys).toEqual([[0xe3, 0x19]]);
+    });
+
+    test("goes through an open source's clipboard when the backend has none", async () => {
+        const backend = new FakeBackend();
+        backend.info = { ...phone, state: 'booted' };
+        const written: string[] = [];
+        backend.source.readClipboard = () => Promise.resolve('copied on the device');
+        backend.source.writeClipboard = (text: string) => {
+            written.push(text);
+            return Promise.resolve();
+        };
+        const manager = new DeviceManager([backend]);
+
+        await expect(manager.clipboard('simctl', 'ios', 'phone-1', 'client-1')).rejects.toMatchObject({ code: 'device-not-open' });
+        manager.subscribe('client-1', () => undefined);
+        await manager.open('simctl', 'ios', 'phone-1', 'client-1', 'events');
+
+        expect(await manager.clipboard('simctl', 'ios', 'phone-1', 'client-1')).toBe('copied on the device');
+        await manager.clipboard('simctl', 'ios', 'phone-1', 'client-1', 'mine');
+        expect(written).toEqual(['mine']);
+    });
+
+    test('refuses a path that is not absolute or that the machine does not hand out, before any backend sees it', async () => {
+        const home = await mkdtemp(join(tmpdir(), 'ruimte-device-paths-'));
+        const actions: unknown[] = [];
+        const backend = new FakeBackend();
+        Object.assign(backend, {
+            action: (_deviceId: string, action: unknown) => {
+                actions.push(action);
+                return Promise.resolve({});
+            }
+        });
+        const manager = new DeviceManager([backend], undefined, (path) => new MachineHome(home).refuse(path));
+        const install = (path: string) => manager.action({ backendId: 'simctl', platform: 'ios', deviceId: 'phone-1', action: 'installApp', path });
+
+        try {
+            await expect(install('build/Atlas.app')).rejects.toMatchObject({ code: 'device-path-refused' });
+            await expect(install(join(home, 'projects', 'secret.app'))).rejects.toMatchObject({ code: 'device-path-refused' });
+            await expect(
+                manager.action({
+                    backendId: 'simctl',
+                    platform: 'ios',
+                    deviceId: 'phone-1',
+                    action: 'addMedia',
+                    paths: ['/work/a.png', join(home, 'local.key')]
+                })
+            ).rejects.toMatchObject({ code: 'device-path-refused' });
+            expect(actions).toEqual([]);
+
+            await install(join(home, 'worktrees', 'atlas', 'build', 'Atlas.app'));
+            expect(actions).toHaveLength(1);
+        } finally {
+            await rm(home, { recursive: true, force: true });
+        }
     });
 });

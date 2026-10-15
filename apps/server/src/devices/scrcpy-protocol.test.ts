@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import {
     controlMessages,
+    encodeGetClipboard,
     encodeKeyChord,
     encodeScroll,
     encodeSetClipboard,
     encodeTouch,
+    metaStateOf,
     ScrcpyDeviceMessageReader,
     ScrcpyProtocolError,
     ScrcpyVideoReader
@@ -132,7 +134,7 @@ describe('typing messages', () => {
         expect(() => encodeSetClipboard(1n, 'x'.repeat(1 << 18), true)).toThrow(ScrcpyProtocolError);
     });
 
-    test('presses Return and Tab as Android key codes, let go in reverse, and knows no other key', () => {
+    test('presses a chord as Android key codes, let go in reverse, and refuses a key Android has no code for', () => {
         const chord = encodeKeyChord([0x2b, 0x28])!;
 
         expect(chord.map((message) => [message[1], new DataView(message.buffer).getInt32(2)])).toEqual([
@@ -141,7 +143,27 @@ describe('typing messages', () => {
             [1, 66],
             [1, 61]
         ]);
-        expect(encodeKeyChord([0xe3, 0x19])).toBeNull();
+        expect(encodeKeyChord([0xe1, 0x64])).toBeNull();
+    });
+
+    test('maps a keyboard key with the meta state of the modifiers held', () => {
+        const screen = { width: 1, height: 1 };
+        const [down] = controlMessages({ kind: 'key', phase: 'down', usage: 0x04 }, screen, metaStateOf([0xe1]));
+        const message = new DataView(down!.buffer);
+
+        expect([message.getUint8(0), message.getUint8(1), message.getInt32(2), message.getInt32(10)]).toEqual([0, 0, 29, 0x41]);
+        expect(new DataView(controlMessages({ kind: 'key', phase: 'up', usage: 0x52 }, screen)[0]!.buffer).getInt32(2)).toBe(19);
+        expect(new DataView(controlMessages({ kind: 'key', phase: 'down', usage: 0x27 }, screen)[0]!.buffer).getInt32(2)).toBe(7);
+        expect(controlMessages({ kind: 'key', phase: 'down', usage: 0x64 }, screen)).toEqual([]);
+    });
+
+    test('presses the volume, power and play keys as Android key codes', () => {
+        const screen = { width: 1, height: 1 };
+        const codes = (['volumeUp', 'volumeDown', 'power', 'playPause'] as const).map((button) =>
+            new DataView(controlMessages({ kind: 'button', button }, screen)[0]!.buffer).getInt32(2)
+        );
+
+        expect(codes).toEqual([24, 25, 26, 85]);
     });
 });
 
@@ -153,15 +175,24 @@ describe('ScrcpyDeviceMessageReader', () => {
         return new Uint8Array(message.buffer);
     }
 
-    test('reads acknowledgements split anywhere and reads past a copied clipboard and keyboard output', () => {
+    test('reads acknowledgements and the clipboard split anywhere, and reads past keyboard output', () => {
         const reader = new ScrcpyDeviceMessageReader();
-        const clipboard = new Uint8Array([0, 0, 0, 0, 2, 0x68, 0x69]);
+        const text = new TextEncoder().encode('hé 👋');
+        const clipboard = join(new Uint8Array([0, 0, 0, 0, text.byteLength]), text);
         const uhid = new Uint8Array([2, 0, 1, 0, 3, 9, 9, 9]);
         const stream = join(clipboard, ack(3n), uhid, ack(4n));
 
-        const acknowledged = [...stream].flatMap((byte) => reader.push(new Uint8Array([byte])));
+        const messages = [...stream].flatMap((byte) => reader.push(new Uint8Array([byte])));
 
-        expect(acknowledged).toEqual([3n, 4n]);
+        expect(messages).toEqual([
+            { kind: 'clipboard', text: 'hé 👋' },
+            { kind: 'ack', sequence: 3n },
+            { kind: 'ack', sequence: 4n }
+        ]);
+    });
+
+    test('asks for the clipboard without pressing copy', () => {
+        expect([...encodeGetClipboard()]).toEqual([8, 0]);
     });
 
     test('refuses a message it cannot size', () => {

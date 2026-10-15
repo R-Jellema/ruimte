@@ -121,7 +121,7 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
         })
     );
     registerBrowserHandlers(dispatcher, devices.browsers, devices.browserPages, () => identity.streamingAllowed);
-    registerDeviceHandlers(dispatcher, devices.devices, () => identity.streamingAllowed);
+    registerDeviceHandlers(dispatcher, devices.devices, () => identity.streamingAllowed, config.home);
     registerDeviceControlHandlers(dispatcher, devices.deviceControl);
     const forkDeps = chatForkDeps({
         chats,

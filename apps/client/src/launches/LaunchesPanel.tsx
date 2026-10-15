@@ -4,11 +4,13 @@ import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import type { TerminalViewHandle } from '@adecore/terminal';
 import { MachineTerminal } from '@/terminal/MachineTerminal';
-import { ChevronDown, ExternalLink, Play, Plus, Rocket } from 'lucide-react';
+import { ChevronDown, ExternalLink, Play, Plus, Rocket, Smartphone } from 'lucide-react';
 import { Button, ButtonGroup, Icon, Menu, PanelEmpty, useNow } from '@adecore/ui';
 import { formatAgo, formatDuration } from '@adecore/ui/format';
 import { isApplePlatform } from '@/desktop/bridge';
-import { openLaunchAddress, startLaunch } from '@/launches/actions';
+import { openLaunchAddress, showLaunchDevice, startLaunch } from '@/launches/actions';
+import { deviceTargetOf, matchLaunchDevice, type DeviceTarget } from '@/launches/device-target';
+import { useDeviceList } from '@/devices/state';
 import { LaunchMenu } from '@/launches/LaunchChip';
 import { LaunchButtons, LaunchStatusIcon } from '@/launches/LaunchControls';
 import { chosenLaunch, othersOf, outputOf, shortAddress, type LaunchView } from '@/launches/model';
@@ -21,7 +23,7 @@ import { useSettings } from '@/state/settings';
 import { useUi } from '@/state/ui';
 import { isAppShortcut, isTerminalPaste, macMotionSequence } from '@/terminal/keymap';
 import { fittedGrid } from '@/terminal/xterm';
-import { sessionClientFor } from '@/transport/connections';
+import { deviceClientFor, sessionClientFor } from '@/transport/connections';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -127,12 +129,48 @@ function LaunchPicker({ view }: { view: LaunchView }) {
     );
 }
 
+/*
+ * The device a launch runs its app on, beside its address: straight to it when the command names one
+ * this machine has, else a choice of the devices of the platform it runs on.
+ */
+function LaunchDevice({ target }: { target: DeviceTarget }) {
+    const { t } = useTranslation('launches');
+    const endpointId = useEndpointId();
+    const { devices } = useDeviceList(endpointId);
+    useEffect(() => deviceClientFor(endpointId)?.watch(), [endpointId]);
+    const matched = matchLaunchDevice(target, devices);
+    if (matched !== null) {
+        return (
+            <button type="button" className="flex shrink-0 items-center gap-1 text-accent hover:underline" onClick={() => showLaunchDevice(matched)}>
+                <Icon icon={Smartphone} size={12} /> {t('device.show')}
+            </button>
+        );
+    }
+    const choices = devices.filter((device) => target.platform === undefined || device.platform === target.platform);
+    return (
+        <Menu.Root>
+            <Menu.Trigger className="flex shrink-0 items-center gap-1 text-accent hover:underline">
+                <Icon icon={Smartphone} size={12} /> {t('device.pick')}
+            </Menu.Trigger>
+            <Menu.Popup align="end">
+                {choices.length === 0 && <Menu.Item disabled>{t('device.none')}</Menu.Item>}
+                {choices.map((choice) => (
+                    <Menu.Item key={`${choice.backendId}:${choice.deviceId}`} onClick={() => showLaunchDevice(choice)}>
+                        {choice.name} · {choice.runtime}
+                    </Menu.Item>
+                ))}
+            </Menu.Popup>
+        </Menu.Root>
+    );
+}
+
 /* The line above the output: where the command runs, what it is, and the address it answers on. */
 function LaunchOutput({ view }: { view: LaunchView }) {
     const { t } = useTranslation('launches');
     const reachable = useAddressReachable();
     const { launch, status } = view;
     const address = view.phase === 'running' && launch.url !== undefined ? launch.url : null;
+    const device = useMemo(() => (launch.command === undefined ? null : deviceTargetOf(launch.command)), [launch.command]);
 
     return (
         <div className="flex min-h-0 grow flex-col">
@@ -153,6 +191,7 @@ function LaunchOutput({ view }: { view: LaunchView }) {
                     ) : (
                         <span className="shrink-0">{shortAddress(address)}</span>
                     ))}
+                {device !== null && <LaunchDevice target={device} />}
             </div>
             {status === null ? (
                 <PanelEmpty

@@ -34,7 +34,8 @@ describe('the words of the strip', () => {
         expect(stepWords(step('button', { target: 'lock' }), 'ios')).toBe('Pressing Lock');
         expect(stepWords(step('button', { target: 'lock' }), 'android')).toBe('Pressing Power');
         expect(stepWords(step('button', { target: 'appSwitcher' }), 'android')).toBe('Opening recent apps');
-        expect(stepWords(step('button', { target: 'volumeUp' }), 'android')).toBe('Pressing volumeUp');
+        expect(stepWords(step('button', { target: 'volumeUp' }), 'android')).toBe('Turning the volume up');
+        expect(stepWords(step('button', { target: 'crown' }), 'android')).toBe('Pressing crown');
     });
 
     test('read a step this client does not know as the machine described it', () => {

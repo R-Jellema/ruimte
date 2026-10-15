@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import type { DeviceInfo } from '@ruimte/contracts';
+import type { DeviceAction, DeviceInfo, DeviceSettings } from '@ruimte/contracts';
+import { requireExtension } from './device-paths.ts';
 import { DeviceError, type DeviceBackend, type DeviceSource } from './manager.ts';
 import {
     capturePhysicalFrame,
@@ -61,7 +62,7 @@ export class IosPhysicalBackend implements DeviceBackend {
     readonly id = 'coredevice';
     readonly platform = 'ios' as const;
     readonly kinds = ['physical'] as const;
-    private readonly capture: PhysicalFrameCapture;
+    private readonly captureFrame: PhysicalFrameCapture;
     private readonly createLiveSource: PhysicalStreamSourceFactory | null;
     private readonly photograph: PhysicalScreenshot;
     private readonly udids = new Map<string, string>();
@@ -74,7 +75,7 @@ export class IosPhysicalBackend implements DeviceBackend {
         photograph: PhysicalScreenshot = capturePhysicalScreenshot
     ) {
         this.run = run;
-        this.capture = capture;
+        this.captureFrame = capture;
         this.createLiveSource = createLiveSource;
         this.photograph = photograph;
     }
@@ -122,7 +123,8 @@ export class IosPhysicalBackend implements DeviceBackend {
                     shutdown: false,
                     stream: paired && developerMode,
                     input: paired && developerMode && this.createLiveSource !== null,
-                    screenshot: paired && developerMode
+                    screenshot: paired && developerMode,
+                    tools: paired && developerMode ? ['capture', 'installApp'] : []
                 }
             };
         });
@@ -133,11 +135,26 @@ export class IosPhysicalBackend implements DeviceBackend {
         if (udid && this.createLiveSource) {
             return this.createLiveSource(deviceId, udid);
         }
-        return new PhysicalScreenshotSource(deviceId, this.capture);
+        return new PhysicalScreenshotSource(deviceId, this.captureFrame);
     }
 
     screenshot(deviceId: string): Promise<Uint8Array> {
         return this.photograph(deviceId);
+    }
+
+    /* A phone has no settings Ruimte reads; its tools only act. */
+    detail(): Promise<DeviceSettings> {
+        return Promise.resolve({});
+    }
+
+    /* An iPhone installs an app and does nothing else Ruimte asks. */
+    async action(deviceId: string, action: DeviceAction): Promise<DeviceSettings> {
+        if (action.action !== 'installApp') {
+            throw new DeviceError('device-action-unavailable', 'An iPhone takes no other tool from Ruimte');
+        }
+        requireExtension(action.path, ['.app', '.ipa'], 'an .app or an .ipa signed for it');
+        await this.command(['device', 'install', 'app', '--device', deviceId, action.path]);
+        return {};
     }
 
     private async command(arguments_: string[]): Promise<CommandResult> {

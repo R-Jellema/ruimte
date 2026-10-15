@@ -13,7 +13,10 @@
             "assistant": "Assistant",
             "rotate": "Rotate device",
             "rotateLeft": "Left",
-            "rotateRight": "Right"
+            "rotateRight": "Right",
+            "volumeUp": "Volume up",
+            "volumeDown": "Volume down",
+            "playPause": "Play or pause"
         },
         "state": {
             "booted": "{{name}} is running.",
@@ -52,7 +55,9 @@
                 "urlPlaceholder": "https://… or myapp://",
                 "open": "Open",
                 "launch": "Launch",
-                "terminate": "Terminate"
+                "terminate": "Terminate",
+                "install": "Install app…",
+                "addMedia": "Add photos or video…"
             },
             "display": {
                 "title": "Display",
@@ -109,12 +114,77 @@
                     "motion": "Motion",
                     "media-library": "Media library",
                     "faceid": "Face ID"
-                }
+                },
+                "grantAll": "Grant all",
+                "revokeAll": "Revoke all",
+                "resetAll": "Reset all"
             },
             "push": {
                 "title": "Push notification",
                 "alertText": "Alert text",
                 "send": "Send"
+            },
+            "capture": {
+                "title": "Capture",
+                "screenshot": "Screenshot",
+                "copy": "Copy screenshot",
+                "save": "Save screenshot",
+                "place": "Place screenshot on canvas",
+                "noCanvas": "Open a canvas to place the screenshot on.",
+                "failed": "The screenshot could not be taken",
+                "record": "Screen recording",
+                "start": "Record",
+                "stop": "Stop recording",
+                "recording": "Recording, {{time}}",
+                "recordFailed": "The recording could not be made",
+                "androidLimit": "Android stops a recording by itself after 3 minutes."
+            },
+            "clipboard": {
+                "title": "Clipboard",
+                "send": "Send my clipboard",
+                "copy": "Copy device clipboard",
+                "failed": "The clipboard could not be reached"
+            },
+            "statusBar": {
+                "title": "Status bar",
+                "style": "Status bar",
+                "clean": "Clean",
+                "default": "Default",
+                "battery": "Battery",
+                "charging": "Charging",
+                "cosmetic": "Only the status bar shows this level; apps still read a full battery.",
+                "reset": "Reset battery"
+            },
+            "biometrics": {
+                "title": "Biometrics",
+                "enrolled": "Enrolled",
+                "face": "Face ID",
+                "touch": "Touch ID",
+                "fingerprint": "Fingerprint",
+                "match": "Match",
+                "noMatch": "No match"
+            },
+            "files": {
+                "up": "Up one folder",
+                "cancel": "Stop picking",
+                "list": "Files on the machine",
+                "empty": "Nothing here this device takes.",
+                "add": "Add",
+                "drop": "Drop to install the app or add the pictures",
+                "dropFailed": "The device did not take that",
+                "notTaken": "Drop one app bundle this device installs, or up to 20 pictures and videos."
+            },
+            "camera": {
+                "title": "Camera",
+                "source": "Picture",
+                "sources": {
+                    "off": "Off",
+                    "placeholder": "Test pattern",
+                    "file": "File"
+                },
+                "pickFile": "Choose file…",
+                "file": "Showing",
+                "note": "The app starts again with the camera feed the first time."
             }
         },
         "operated": {
@@ -133,7 +203,17 @@
                 "type": "Typing",
                 "shot": "Looking",
                 "launch": "Opening {{app}}",
-                "button": "Pressing {{button}}"
+                "button": "Pressing {{button}}",
+                "set": "Changing settings",
+                "open": "Opening a link",
+                "permission": "Changing a permission",
+                "push": "Sending a push",
+                "biometric": "Answering a biometric check",
+                "clipboard": "Using the clipboard",
+                "record": "Recording the screen",
+                "install": "Installing an app",
+                "media": "Adding photos",
+                "terminate": "Stopping an app"
             },
             "button": {
                 "home": "Pressing Home",
@@ -144,7 +224,40 @@
                 "lock": "Pressing Lock",
                 "power": "Pressing Power",
                 "siri": "Calling Siri",
-                "assistant": "Calling the assistant"
+                "assistant": "Calling the assistant",
+                "volumeUp": "Turning the volume up",
+                "volumeDown": "Turning the volume down",
+                "playPause": "Pressing play"
+            }
+        },
+        "more": "More device actions",
+        "restart": "Restart",
+        "erase": {
+            "open": "Erase…",
+            "title": "Erase {{name}}?",
+            "description": "Every app, its data and the settings on {{name}} are deleted, as on a new device. A running device is shut down first and started again after.",
+            "confirm": "Erase",
+            "busy": "Erasing…",
+            "failed": "The device could not be erased"
+        },
+        "shake": "Shake",
+        "memoryWarning": "Simulate memory warning",
+        "fold": {
+            "label": "Fold",
+            "title": "Fold",
+            "hinge": "Hinge",
+            "screen": "Screen",
+            "failed": "The device did not fold",
+            "poses": {
+                "closed": "Closed",
+                "tent": "Tent",
+                "tabletop": "Tabletop",
+                "book": "Book",
+                "open": "Open"
+            },
+            "panels": {
+                "cover": "Cover screen",
+                "inner": "Inner screen"
             }
         }
     },

@@ -45,6 +45,9 @@ import {
 } from './browser.ts';
 import {
     DeviceActionPayloadSchema,
+    DeviceCaptureResultSchema,
+    DeviceClipboardPayloadSchema,
+    DeviceClipboardResultSchema,
     DeviceControlPayloadSchema,
     DeviceDetailPayloadSchema,
     DeviceDetailSchema,
@@ -56,6 +59,8 @@ import {
     DeviceOpenResultSchema,
     DeviceOperatedSchema,
     DeviceOperationsResultSchema,
+    DeviceRecordPayloadSchema,
+    DeviceRecordResultSchema,
     DeviceTargetPayloadSchema
 } from './device.ts';
 import {
@@ -504,6 +509,9 @@ export const REQUEST_SCHEMAS = {
     'device.action': { payload: DeviceActionPayloadSchema, result: DeviceDetailSchema },
     'device.operations': { payload: EmptySchema, result: DeviceOperationsResultSchema },
     'device.control': { payload: DeviceControlPayloadSchema, result: DeviceOperatedSchema },
+    'device.capture': { payload: DeviceTargetPayloadSchema, result: DeviceCaptureResultSchema },
+    'device.record': { payload: DeviceRecordPayloadSchema, result: DeviceRecordResultSchema },
+    'device.clipboard': { payload: DeviceClipboardPayloadSchema, result: DeviceClipboardResultSchema },
     'agent.resume': { payload: AgentResumePayloadSchema, result: EmptySchema },
     'chat.create': AGENT_REQUEST_SCHEMAS['chat.create'],
     'chat.history': AGENT_REQUEST_SCHEMAS['chat.history'],

@@ -109,6 +109,15 @@ class FakeHost implements ScrcpyHost {
         this.controlData?.(new Uint8Array(message.buffer));
     }
 
+    /* The device clipboard, as the server sends it when asked. */
+    sendClipboard(text: string) {
+        const bytes = new TextEncoder().encode(text);
+        const message = new Uint8Array(5 + bytes.byteLength);
+        new DataView(message.buffer).setUint32(1, bytes.byteLength);
+        message.set(bytes, 5);
+        this.controlData?.(message);
+    }
+
     markStarted() {
         this.started = true;
     }
@@ -209,6 +218,37 @@ describe('ScrcpySource', () => {
         expect(done).toBe(true);
     });
 
+    test('reads the device clipboard by asking the server for it, and writes it without pasting', async () => {
+        const host = new FakeHost();
+        host.wait = new Promise(() => undefined);
+        const source = new ScrcpySource(host, () => Promise.resolve('/native/scrcpy-server'));
+        await source.start(() => undefined);
+        host.markStarted();
+
+        const read = source.readClipboard();
+        await Promise.resolve();
+        expect([...host.control[0]!]).toEqual([8, 0]);
+        host.sendClipboard('copied on the phone ✓');
+        expect(await read).toBe('copied on the phone ✓');
+
+        const written = source.writeClipboard('mine');
+        await Promise.resolve();
+        const message = new DataView(host.control[1]!.buffer);
+        expect([message.getUint8(0), message.getUint8(9)]).toEqual([9, 0]);
+        host.acknowledge(message.getBigUint64(1));
+        await written;
+    });
+
+    test('reads an empty clipboard as empty, since the server sends nothing for it', async () => {
+        const host = new FakeHost();
+        host.wait = Promise.resolve();
+        const source = new ScrcpySource(host, () => Promise.resolve('/native/scrcpy-server'));
+        await source.start(() => undefined);
+        host.markStarted();
+
+        expect(await source.readClipboard()).toBe('');
+    });
+
     test('says so when the server never acknowledges a paste, or the stream ends while it waits', async () => {
         const host = new FakeHost();
         host.wait = Promise.resolve();
@@ -235,6 +275,25 @@ describe('ScrcpySource', () => {
             [0, 0, 66],
             [0, 1, 66]
         ]);
-        expect(() => source.keys([0xe3, 0x19])).toThrow('Ruimte presses only Return and Tab on an Android device');
+        expect(() => source.keys([0xe1, 0x64])).toThrow('Ruimte cannot press one of these keys on an Android device');
+    });
+
+    test("sends a person's keys with the modifiers they hold, before the first frame too", async () => {
+        const host = new FakeHost();
+        host.holdVideo = true;
+        const source = new ScrcpySource(host, () => Promise.resolve('/native/scrcpy-server'));
+        await source.start(() => undefined);
+
+        await source.input({ kind: 'key', phase: 'down', usage: 0xe1 });
+        await source.input({ kind: 'key', phase: 'down', usage: 0x04 });
+        await source.input({ kind: 'key', phase: 'up', usage: 0xe1 });
+        await source.input({ kind: 'key', phase: 'up', usage: 0x04 });
+
+        expect(host.control.map((message) => [message[1], new DataView(message.buffer).getInt32(2), new DataView(message.buffer).getInt32(10)])).toEqual([
+            [0, 59, 0x41],
+            [0, 29, 0x41],
+            [1, 59, 0],
+            [1, 29, 0]
+        ]);
     });
 });

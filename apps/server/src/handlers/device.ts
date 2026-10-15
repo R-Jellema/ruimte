@@ -1,9 +1,10 @@
 import type { DeviceControl } from '../devices/control.ts';
-import type { DeviceManager } from '../devices/manager.ts';
+import { DeviceError, type DeviceManager } from '../devices/manager.ts';
 import type { Dispatcher } from '../dispatcher.ts';
+import { captureFile, pngSize, writeCapture } from '../shots.ts';
 import { streamingGate } from './streaming.ts';
 
-export function registerDeviceHandlers(dispatcher: Dispatcher, devices: DeviceManager, streamingAllowed: () => boolean): void {
+export function registerDeviceHandlers(dispatcher: Dispatcher, devices: DeviceManager, streamingAllowed: () => boolean, home: string): void {
     const requireStreaming = streamingGate(streamingAllowed);
 
     dispatcher.register('device.list', () => {
@@ -44,6 +45,27 @@ export function registerDeviceHandlers(dispatcher: Dispatcher, devices: DeviceMa
             deviceId: payload.deviceId,
             settings: await devices.action(payload)
         };
+    });
+    dispatcher.register('device.capture', async (payload) => {
+        requireStreaming();
+        const image = await devices.capture(payload.backendId, payload.platform, payload.deviceId);
+        const size = pngSize(image);
+        if (size === null) {
+            throw new DeviceError('device-capture-failed', 'The device answered with a picture that is not a png');
+        }
+        return { path: await writeCapture(home, payload.deviceId, image), ...size };
+    });
+    dispatcher.register('device.clipboard', async (payload, client) => {
+        requireStreaming();
+        return { text: await devices.clipboard(payload.backendId, payload.platform, payload.deviceId, client.id, payload.text, payload.paste) };
+    });
+    dispatcher.register('device.record', async (payload) => {
+        requireStreaming();
+        if (payload.mode === 'start') {
+            await devices.startRecording(payload.backendId, payload.platform, payload.deviceId, await captureFile(home, payload.deviceId, 'mp4'));
+            return { recording: true };
+        }
+        return { recording: false, path: await devices.stopRecording(payload.backendId, payload.platform, payload.deviceId) };
     });
 }
 

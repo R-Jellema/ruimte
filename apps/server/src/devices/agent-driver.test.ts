@@ -184,6 +184,37 @@ describe('DeviceDriver', () => {
         expect(driver.abilities({ ...SIMULATOR, state: 'shutdown' })).toEqual({ shot: false, input: false, type: false, launch: false, tree: false });
     });
 
+    test('runs a tool as one step through the gate, and refuses one the device does not announce before any action', async () => {
+        await driver.act('chat-1', SIMULATOR, 'set', [
+            { action: 'setAppearance', value: 'dark' },
+            { action: 'setStatusBar', value: 'clean' }
+        ]);
+        expect(admitted).toEqual([{ caller: 'chat-1', step: { kind: 'set' } }]);
+        expect(backend.actions.map((action) => action.action)).toEqual(['setAppearance', 'setStatusBar']);
+
+        const bare = { ...SIMULATOR, capabilities: { ...SIMULATOR.capabilities, tools: ['appearance'] } };
+        await expect(
+            driver.act('chat-1', bare, 'set', [
+                { action: 'setAppearance', value: 'light' },
+                { action: 'setBattery', level: 10, charging: false }
+            ])
+        ).rejects.toMatchObject({ code: 'device-action-unavailable' });
+        expect(backend.actions).toHaveLength(2);
+        expect(admitted).toHaveLength(1);
+    });
+
+    test('records for the seconds asked into the machine captures, and reads the clipboard through a session it holds', async () => {
+        const path = await driver.record('chat-1', SIMULATOR, 90, 'phone-node');
+
+        expect(slept).toEqual([60_000]);
+        expect(path.startsWith(join(home, 'device-captures', 'phone-node-'))).toBe(true);
+        expect(backend.recordings).toEqual([{ file: path, stopped: true }]);
+        backend.clipboard = 'copied';
+        expect(await driver.clipboard('chat-1', SIMULATOR, null)).toBe('copied');
+        expect(backend.source.starts).toBe(1);
+        expect(admitted.map((entry) => entry.step.kind)).toEqual(['record', 'clipboard']);
+    });
+
     test('opens an app through the device tools', async () => {
         await driver.launch('chat-1', SIMULATOR, 'com.example.app');
         expect(backend.actions).toEqual([{ action: 'launchApp', appId: 'com.example.app', backendId: 'simctl', platform: 'ios', deviceId: 'sim-1' }]);

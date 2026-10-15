@@ -1,6 +1,20 @@
 import { describe, expect, test } from 'bun:test';
+import type { DeviceAction } from '@ruimte/contracts';
+import { FakeRecorder } from './device-test-helpers.ts';
 import type { DeviceSource } from './manager.ts';
-import { AndroidBackend, parseAdbDevices, shellQuote, type AndroidBackendOptions, type AvdInfo, type EmulatorProcess } from './android.ts';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+    AndroidBackend,
+    hingeOf,
+    parseAdbDevices,
+    readAvdFolder,
+    shellQuote,
+    type AndroidBackendOptions,
+    type AvdInfo,
+    type EmulatorProcess
+} from './android.ts';
 
 const SDK = { adb: '/sdk/platform-tools/adb', emulator: '/sdk/emulator/emulator', avdHome: '/home/.android/avd' };
 const PIXEL: AvdInfo = { name: 'Pixel_9_Pro_API_35', displayName: 'Pixel 9 Pro API 35', apiLevel: '35' };
@@ -98,7 +112,7 @@ describe('AndroidBackend', () => {
             shutdown: true,
             stream: true,
             input: true,
-            buttons: ['back', 'home', 'appSwitcher', 'lock', 'siri']
+            buttons: ['back', 'home', 'appSwitcher', 'lock', 'siri', 'volumeUp', 'volumeDown', 'playPause']
         });
         expect(devices[2]!.capabilities.tools).toContain('voiceOver');
         expect(devices[2]!.capabilities.tools).toContain('location');
@@ -260,7 +274,8 @@ describe('AndroidBackend', () => {
             increaseContrast: true,
             colorFilter: 'green-red',
             showBorders: true,
-            voiceOver: true
+            voiceOver: true,
+            recording: false
         });
     });
 
@@ -325,5 +340,236 @@ describe('AndroidBackend', () => {
             message: expect.stringContaining('could not get idle state')
         });
         await expect(backend.tree('Tablet_API_34')).rejects.toMatchObject({ code: 'device-not-booted' });
+    });
+
+    test('records through the device recorder, interrupts it on the device, then pulls the video and removes it there', async () => {
+        const adb = new FakeAdb();
+        const recorder = new FakeRecorder();
+        const answer = adb.run;
+        const interrupt = '-s emulator-5554 shell pkill -INT screenrecord';
+        const backend = backendWith(adb, {
+            recordings: recorder.recordings(),
+            run: async (command, arguments_) => {
+                if (arguments_.join(' ') === interrupt) {
+                    recorder.finish(0);
+                }
+                return answer(command, arguments_);
+            }
+        });
+
+        await backend.startRecording('Pixel_9_Pro_API_35', '/captures/Pixel-1.mp4');
+        expect(recorder.commands).toEqual([[SDK.adb, '-s', 'emulator-5554', 'shell', 'screenrecord', '--time-limit', '180', '/data/local/tmp/ruimte-rec.mp4']]);
+        expect((await backend.detail('Pixel_9_Pro_API_35')).recording).toBe(true);
+        await expect(backend.startRecording('Pixel_9_Pro_API_35', '/captures/again.mp4')).rejects.toMatchObject({ code: 'device-recording' });
+
+        expect(await backend.stopRecording('Pixel_9_Pro_API_35')).toBe('/captures/Pixel-1.mp4');
+        const tail = adb.calls.slice(-3).map((call) => call.join(' '));
+        expect(tail).toEqual([
+            interrupt,
+            '-s emulator-5554 pull /data/local/tmp/ruimte-rec.mp4 /captures/Pixel-1.mp4',
+            '-s emulator-5554 shell rm -f /data/local/tmp/ruimte-rec.mp4'
+        ]);
+        expect(recorder.signals).toEqual([]);
+    });
+
+    test("pulls a recording that reached Android's own limit without interrupting anything", async () => {
+        const adb = new FakeAdb();
+        const recorder = new FakeRecorder();
+        const backend = backendWith(adb, { recordings: recorder.recordings() });
+        await backend.startRecording('Pixel_9_Pro_API_35', '/captures/Pixel-1.mp4');
+
+        recorder.finish(0);
+        await Promise.resolve();
+
+        expect(await backend.stopRecording('Pixel_9_Pro_API_35')).toBe('/captures/Pixel-1.mp4');
+        expect(adb.calls.some((call) => call.includes('pkill -INT screenrecord'))).toBe(false);
+    });
+
+    test('erases a running emulator by stopping it and starting it again from a wiped data partition', async () => {
+        const adb = new FakeAdb();
+        const order: string[] = [];
+        const answer = adb.run;
+        const backend = backendWith(adb, {
+            run: async (command, arguments_) => {
+                if (arguments_.join(' ') === '-s emulator-5554 emu kill') {
+                    order.push('kill');
+                    adb.devices = 'List of devices attached\n';
+                }
+                return answer(command, arguments_);
+            },
+            launch: (_emulator, arguments_) => {
+                order.push(arguments_.join(' '));
+                return { exited: new Promise<number>(() => undefined), output: () => '' };
+            }
+        });
+        await backend.list();
+
+        expect(
+            await backend.action('Pixel_9_Pro_API_35', { backendId: 'android', platform: 'android', deviceId: 'Pixel_9_Pro_API_35', action: 'erase' })
+        ).toEqual({});
+        expect(order).toEqual(['kill', '-avd Pixel_9_Pro_API_35 -port 5554 -no-window -no-boot-anim -wipe-data']);
+    });
+
+    test('never erases a phone and announces erase only on an emulator', async () => {
+        const adb = new FakeAdb();
+        adb.devices += 'R5CT device usb:1-1 model:SM_S921B transport_id:3\n';
+        const backend = backendWith(adb);
+        const devices = await backend.list();
+
+        expect(devices.find((device) => device.deviceId === 'R5CT')!.capabilities.tools).not.toContain('erase');
+        expect(devices.find((device) => device.deviceId === 'Pixel_9_Pro_API_35')!.capabilities.tools).toContain('erase');
+        await expect(backend.action('R5CT', { backendId: 'android', platform: 'android', deviceId: 'R5CT', action: 'erase' })).rejects.toMatchObject({
+            code: 'device-action-unavailable'
+        });
+    });
+
+    test('runs the status bar, battery, fingerprint and permission tools as their exact adb commands', async () => {
+        const adb = new FakeAdb();
+        adb.devices += 'R5CT device usb:1-1 model:SM_S921B transport_id:3\n';
+        const backend = backendWith(adb);
+        await backend.list();
+        const act = async (deviceId: string, action: Record<string, unknown>) => {
+            adb.calls.length = 0;
+            await backend.action(deviceId, { backendId: 'android', platform: 'android', deviceId, ...action } as DeviceAction);
+            return adb.calls
+                .map((call) => call.join(' '))
+                .filter((call) => !call.includes('settings get') && !call.includes('devices -l') && !call.includes('emu avd name'));
+        };
+
+        expect(await act('Pixel_9_Pro_API_35', { action: 'setStatusBar', value: 'clean' })).toEqual([
+            '-s emulator-5554 shell settings put global sysui_demo_allowed 1; am broadcast -a com.android.systemui.demo -e command enter; am broadcast -a com.android.systemui.demo -e command clock -e hhmm 0941; am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false; am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4; am broadcast -a com.android.systemui.demo -e command notifications -e visible false'
+        ]);
+        expect(await act('Pixel_9_Pro_API_35', { action: 'setStatusBar', value: 'default' })).toEqual([
+            '-s emulator-5554 shell am broadcast -a com.android.systemui.demo -e command exit'
+        ]);
+        expect(await act('Pixel_9_Pro_API_35', { action: 'setBattery', level: 15, charging: false })).toEqual([
+            '-s emulator-5554 emu power capacity 15',
+            '-s emulator-5554 emu power ac off'
+        ]);
+        expect(await act('Pixel_9_Pro_API_35', { action: 'resetBattery' })).toEqual([
+            '-s emulator-5554 emu power capacity 100',
+            '-s emulator-5554 emu power ac on'
+        ]);
+        expect(await act('R5CT', { action: 'setBattery', level: 15, charging: true })).toEqual([
+            '-s R5CT shell dumpsys battery set level 15; dumpsys battery set ac 1'
+        ]);
+        expect(await act('R5CT', { action: 'resetBattery' })).toEqual(['-s R5CT shell dumpsys battery reset']);
+        expect(await act('Pixel_9_Pro_API_35', { action: 'biometric', sensor: 'finger', event: 'match' })).toEqual(['-s emulator-5554 emu finger touch 1']);
+        expect(await act('Pixel_9_Pro_API_35', { action: 'biometric', sensor: 'finger', event: 'nomatch' })).toEqual(['-s emulator-5554 emu finger touch 99']);
+        await expect(act('R5CT', { action: 'biometric', sensor: 'finger', event: 'match' })).rejects.toMatchObject({ code: 'device-action-unavailable' });
+        await expect(act('Pixel_9_Pro_API_35', { action: 'biometric', sensor: 'finger', event: 'enroll' })).rejects.toMatchObject({
+            code: 'device-action-unavailable'
+        });
+        await expect(act('Pixel_9_Pro_API_35', { action: 'shake' })).rejects.toMatchObject({ code: 'device-action-unavailable' });
+        const all = await act('Pixel_9_Pro_API_35', { action: 'setAllPermissions', appId: 'com.example.app', decision: 'grant' });
+        expect(all).toContain('-s emulator-5554 shell pm grant com.example.app android.permission.CAMERA');
+        expect(all).toContain('-s emulator-5554 shell pm grant com.example.app android.permission.ACTIVITY_RECOGNITION');
+        expect((await backend.detail('Pixel_9_Pro_API_35')).statusBar).toBe('default');
+    });
+
+    test('installs an .apk and pushes pictures and videos where the gallery looks, then asks for a scan', async () => {
+        const adb = new FakeAdb();
+        const backend = backendWith(adb);
+        await backend.list();
+        const act = async (action: Record<string, unknown>) => {
+            adb.calls.length = 0;
+            await backend.action('Pixel_9_Pro_API_35', {
+                backendId: 'android',
+                platform: 'android',
+                deviceId: 'Pixel_9_Pro_API_35',
+                ...action
+            } as DeviceAction);
+            return adb.calls
+                .map((call) => call.join(' '))
+                .filter((call) => !call.includes('settings get') && !call.includes('devices -l') && !call.includes('emu avd name'));
+        };
+
+        expect(await act({ action: 'installApp', path: '/work/atlas/app-debug.apk' })).toEqual(['-s emulator-5554 install -r /work/atlas/app-debug.apk']);
+        expect(await act({ action: 'addMedia', paths: ['/work/atlas/my shot.png', '/work/atlas/clip.mp4'] })).toEqual([
+            '-s emulator-5554 push /work/atlas/my shot.png /sdcard/Pictures/my shot.png',
+            "-s emulator-5554 shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/my%20shot.png >/dev/null; content call --uri content://media/external/file --method scan_file --arg '/sdcard/Pictures/my shot.png' >/dev/null 2>&1; true",
+            '-s emulator-5554 push /work/atlas/clip.mp4 /sdcard/Movies/clip.mp4',
+            '-s emulator-5554 shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Movies/clip.mp4 >/dev/null; content call --uri content://media/external/file --method scan_file --arg /sdcard/Movies/clip.mp4 >/dev/null 2>&1; true'
+        ]);
+        await expect(act({ action: 'installApp', path: '/work/atlas/Atlas.app' })).rejects.toMatchObject({ code: 'device-path-refused' });
+    });
+
+    test('says why adb refused an install', async () => {
+        const adb = new FakeAdb();
+        const answer = adb.run;
+        const backend = backendWith(adb, {
+            run: async (command, arguments_) =>
+                arguments_.includes('install')
+                    ? { exitCode: 0, stdout: 'Performing Streamed Install\nFailure [INSTALL_FAILED_OLDER_SDK]\n', stderr: '' }
+                    : answer(command, arguments_)
+        });
+        await backend.list();
+
+        await expect(
+            backend.action('Pixel_9_Pro_API_35', {
+                backendId: 'android',
+                platform: 'android',
+                deviceId: 'Pixel_9_Pro_API_35',
+                action: 'installApp',
+                path: '/work/a.apk'
+            })
+        ).rejects.toThrow('Failure [INSTALL_FAILED_OLDER_SDK]');
+    });
+
+    test('folds and unfolds an emulator with a hinge through its console, asks for a fresh picture, and reads the hinge back', async () => {
+        const adb = new FakeAdb();
+        adb.shell.set('cmd device_state state', "Committed state: DeviceState{identifier=0, name='CLOSED', app_accessible=true}\n");
+        const keyFrames: string[] = [];
+        const backend = backendWith(adb, { readAvds: async () => [{ ...PIXEL, foldable: true }, TABLET] });
+        const devices = await backend.list();
+        const pixel = devices.find((device) => device.deviceId === 'Pixel_9_Pro_API_35');
+        const tablet = devices.find((device) => device.deviceId === 'Tablet_API_34');
+        expect(pixel!.capabilities.tools).toEqual(expect.arrayContaining(['fold', 'biometrics']));
+        expect(tablet!.capabilities.tools).not.toContain('fold');
+        const session = { requestKeyFrame: () => keyFrames.push('reset') } as unknown as DeviceSource;
+        const fold = (value: string) =>
+            backend.action(
+                'Pixel_9_Pro_API_35',
+                { backendId: 'android', platform: 'android', deviceId: 'Pixel_9_Pro_API_35', action: 'setFold', value } as DeviceAction,
+                session
+            );
+
+        expect(await fold('closed')).toMatchObject({ hinge: 0 });
+        await fold('tabletop');
+
+        expect(adb.calls.map((call) => call.join(' ')).filter((call) => call.includes(' emu ') && call.includes('fold'))).toEqual([
+            '-s emulator-5554 emu fold',
+            '-s emulator-5554 emu unfold'
+        ]);
+        expect(keyFrames).toEqual(['reset', 'reset']);
+        await expect(
+            backend.action(
+                'Pixel_9_Pro_API_35',
+                { backendId: 'android', platform: 'android', deviceId: 'Pixel_9_Pro_API_35', action: 'setHinge', degrees: 90 },
+                null
+            )
+        ).rejects.toMatchObject({ code: 'device-action-unavailable' });
+    });
+
+    test('reads the hinge of the committed device state', () => {
+        expect(hingeOf("Committed state: DeviceState{identifier=2, name='OPENED', app_accessible=true}")).toEqual({ hinge: 180 });
+        expect(hingeOf("Committed state: DeviceState{identifier=1, name='HALF_OPENED', app_accessible=true}")).toEqual({ hinge: 90 });
+        expect(hingeOf("Committed state: DeviceState{identifier=0, name='FOLDED'}")).toEqual({ hinge: 0 });
+        expect(hingeOf('No device states')).toEqual({});
+    });
+
+    test('reads a hinge sensor from the configuration of an AVD', async () => {
+        const avdHome = await mkdtemp(join(tmpdir(), 'ruimte-avds-'));
+        try {
+            await mkdir(join(avdHome, 'Fold.avd'));
+            await writeFile(join(avdHome, 'Fold.ini'), `path=${join(avdHome, 'Fold.avd')}\n`);
+            await writeFile(
+                join(avdHome, 'Fold.avd', 'config.ini'),
+                'avd.ini.displayname=Pixel Fold\nhw.sensor.hinge = yes\nimage.sysdir.1=system-images/android-35/google_apis/arm64-v8a/\n'
+            );
+            expect(await readAvdFolder(avdHome)).toEqual([{ name: 'Fold', displayName: 'Pixel Fold', apiLevel: '35', foldable: true }]);
+        } finally {
+            await rm(avdHome, { recursive: true, force: true });
+        }
     });
 });

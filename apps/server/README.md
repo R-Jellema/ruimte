@@ -171,6 +171,7 @@ $RUIMTE_HOME/
     agent.sock, screenshots/       the helper's own (apps/computer-use/README.md)
   browser/                         the profile of the pages the daemon runs for clients without a browser
   screenshots/                     pngs `browser shot` and `device shot` wrote, swept after a day
+  device-captures/                 a person's screenshots and recordings of a device, read by the client over `bytes.read`, swept after a week
   language-servers/
     choices.json                   which PHP server this machine uses
     custom.json                    a person's own language servers
@@ -277,7 +278,7 @@ The helper is `Contents/Helpers/Ruimte Computer Use.app` in Ruimte.app and `apps
 
 ## Devices
 
-A device node shows a simulator, an emulator or a phone that runs on this machine (`src/devices`). `DeviceManager` has a backend per kind and keeps one capture session per device, shared by every client that shows it and every agent that holds it. A person starts and stops a simulator or an emulator from its node, and drives it with the pointer, its buttons and the tools panel (appearance, text size, color filters, permissions, location, opening a link or an app). An agent with a line to the node goes through `DeviceDriver` (`src/devices/agent-driver.ts`, `ruimte-context device`): it reads the elements, takes shots, taps, swipes, presses buttons, types and opens apps, with no approval card, and never starts or stops a device. An agent also lists the devices of the machine (`device list`) and puts one on its canvas itself (`node new device --device <id>`), with the line from it that lets it operate the device. A chat view puts one on the canvas it names with `--view`, with no line, and operates it by naming that canvas again. Only an agent types: a client sends no keys.
+A device node shows a simulator, an emulator or a phone that runs on this machine (`src/devices`). `DeviceManager` has a backend per kind and keeps one capture session per device, shared by every client that shows it and every agent that holds it. A person starts, stops, restarts and, after confirming, erases a simulator or an emulator from its node, and drives it with the pointer, its buttons and the tools panel (appearance, text size, color filters, permissions, location, opening a link or an app). An agent with a line to the node goes through `DeviceDriver` (`src/devices/agent-driver.ts`, `ruimte-context device`): it reads the elements, takes shots, taps, swipes, presses buttons, types, opens apps and links, changes settings, permissions and biometrics, sends a push, reads and writes the clipboard, records the screen, and installs an app or adds media from the project folder or its worktrees, with no approval card. It never starts, stops, restarts, erases or folds a device, nor sets its camera. An agent also lists the devices of the machine (`device list`) and puts one on its canvas itself (`node new device --device <id>`), with the line from it that lets it operate the device. A chat view puts one on the canvas it names with `--view`, with no line, and operates it by naming that canvas again. A person types while the screen has the focus; an agent types through device type.
 
 | | iOS simulator | Android emulator |
 | --- | --- | --- |
@@ -285,11 +286,24 @@ A device node shows a simulator, an emulator or a phone that runs on this machin
 | Start and stop | `simctl boot` and `shutdown` | `emulator -avd <name> -no-window` on a free console port, its output in `$TMPDIR/ruimte-emulator-<avd>.log`, so a start that fails says why; `adb emu kill` |
 | Screen and touch | the native helper the daemon starts as `device-helper`, JPEG or HEVC | the pinned scrcpy server (`src/devices/scrcpy-server.ts`), H.264, pushed to `/data/local/tmp` for each session and gone after it |
 | Shot | `simctl io screenshot` | `adb exec-out screencap -p` |
+| Capture | the shot, written to `device-captures/` for the client to copy, save or place on a canvas | the same |
+| Clipboard | `simctl pbpaste` and `pbcopy` | over the scrcpy control socket: `GET_CLIPBOARD` answered by a clipboard message, `SET_CLIPBOARD` acknowledged; only while the device is open |
+| Status bar | `simctl status_bar override` with 9:41, full Wi-Fi and cell bars and a charged battery; `clear` for the default | SystemUI demo mode (`sysui_demo_allowed`, then `com.android.systemui.demo` broadcasts); `exit` for the default |
+| Battery | `status_bar override --batteryLevel --batteryState`, which only the status bar shows | `adb emu power capacity` and `power ac` on an emulator, `dumpsys battery set` and `reset` on a phone |
+| Biometrics | `notifyutil` in the simulator: `com.apple.BiometricKit.enrollmentChanged` to enroll, `BiometricKit_Sim.pearl` (Face ID) and `fingerTouch` (Touch ID) `.match` or `.nomatch` | `adb emu finger touch 1` (match) or `99` (no match) on an emulator |
+| Shake, memory warning | `notifyutil -p com.apple.UIKit.SimulatorShake`; the memory warning through the native helper, so only on a simulator someone has open | none |
+| Install | `simctl install` of an `.app` built for the simulator; an iPhone takes an `.app` or `.ipa` through `devicectl device install app` | `adb install -r` of an `.apk`, on an emulator or a phone |
+| Media | `simctl addmedia` of png, jpg, jpeg, heic, gif, mp4 or mov | `adb push` to `/sdcard/Pictures` or `/sdcard/Movies`, then the media scanner broadcast and the provider's `scan_file` call |
+| Fold | an iPhone Duo with Xcode 27.1 and the iOS 27.1 runtime: five poses and a free angle through the native helper and its guest helper `serve-sim-duo-hid`; the capture follows the panel SpringBoard reports in its log (`src/devices/fold-panel.ts`), the angle deciding until it does | an AVD with `hw.sensor.hinge = yes`: closed with `adb emu fold`, any other pose with `emu unfold`, the hinge read back from `cmd device_state state` |
+| Camera | for one app a person names: `serve-sim-camera-helper` per simulator writes a test pattern, a picture or a video into shared memory, and the app is launched again once with `libSimCameraInjector.dylib` (`SIMCTL_CHILD_DYLD_INSERT_LIBRARIES`), after which a new choice only switches the helper (`src/devices/simulator-camera.ts`); never the Mac's own camera | none |
+| Erase | `simctl erase` on a simulator that is shut down, which the person's client shuts down first and starts again after | the emulator stopped and started again with `-wipe-data`; a phone is never erased |
+| Record | `simctl io recordVideo --codec=h264`, ended with SIGINT so it writes the end of the file, and by itself after 10 minutes | `screenrecord --time-limit 180` on the device, ended with `pkill -INT screenrecord` there, then pulled and removed |
 | Elements | the device bridge (`apps/ios-device-bridge`) | `uiautomator dump`, which needs nothing installed |
 | Typing | each run pasted through the simulator pasteboard and Cmd+V | each run pasted through the device clipboard over the scrcpy control socket, which presses paste |
+| Keyboard | a person's keys as HID usages through the native helper | the same usages as Android key codes with the meta state of the modifiers held, over the scrcpy control socket |
 | Settings | `simctl ui` and the accessibility helper of `serve-sim` | `settings`, `cmd uimode`, `setprop` and `pm` in the device shell |
 
-Typing on either replaces the device's clipboard. A newline is Return and a tab is Tab, so what a Return does is the app's: a chat sends, a note adds a line. Nothing is installed on an Android device, no app and no keyboard.
+The clipboard tools move text between the device and the clipboard of the client a person sits at, not the machine's, so they work the same from another machine. Typing on either replaces the device's clipboard. A newline is Return and a tab is Tab, so what a Return does is the app's: a chat sends, a note adds a line. Nothing is installed on an Android device, no app and no keyboard.
 
 An Android phone on USB or Wi-Fi debugging is listed by its serial and takes the same shots, touch, typing, elements and tools; it cannot be started, stopped or given a location. An iPhone streams through the device bridge and takes touch and shots, but no text and no elements.
 
@@ -301,6 +315,16 @@ What an Android emulator cannot do that a simulator can, and stays out of scope:
 - Rotate to a chosen side: the screen server turns between portrait and landscape whichever direction is asked.
 - Show borders on a screen already drawn: Android draws them from the next screen on.
 - Read elements on a screen that never stands still, such as one with an endless animation: `uiautomator` gives up, the agent gets `tree none`, and a shot still works.
+- Record for longer than 3 minutes: Android's own recorder stops there, and the node says so.
+- Shake, or warn an app of low memory: Android has no counterpart.
+- Feed the camera a picture: the emulator's camera is an AVD setting read at its start, not something to switch while it runs.
+- Enroll a fingerprint, or touch one on a phone: enrolling happens in the device's Settings, and only the emulator console has a sensor to touch.
+
+A path to install or add is always a file on the machine, never an upload: a client picks it in the machine's own files or drops it from the project's file tree, so it works the same from another machine. The daemon refuses a path that is not absolute or lies in the machine's own state under `$RUIMTE_HOME`, as `fs.read` does (`device-path-refused`), and a file the device does not take. Which of the two media scans Android 14 and later honor is not verified yet (`android-media.device.integration.test.ts`).
+
+The panels of an iPhone Duo are 1398x2034 (cover) and 2007x2853 (inner), as the simulator's device type has them; whether the scrcpy server starts a picture of the new size by itself after a fold is not verified, so the daemon asks it for a fresh one, and `fold.device.integration.test.ts` checks both platforms on a device.
+
+What the status bar and the battery are set to is remembered by the daemon, since neither platform reads it back, and is unknown again after a restart. A simulator's side buttons (volume, power, play) go through the native helper's HID but are announced only once `side-buttons.device.integration.test.ts` confirmed them on a simulator; an Android device presses volume and play as key codes.
 
 TalkBack shows up as a tool only on an image that has it, and typing needs Android 7 or later, the first with a paste key. A development checkout downloads the scrcpy server on first use into `.native`, checked against its pinned checksum; a build carries it in `native/`, and without it a device is listed with its shots, elements and tools but without a screen, touch or typing.
 

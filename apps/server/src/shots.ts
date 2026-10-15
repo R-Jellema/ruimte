@@ -4,17 +4,23 @@ import { join } from 'node:path';
 /* A shot is read once, by the agent that asked for it; a day later it is only a file nobody opens. */
 const SHOT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
+/* A person saves a capture or a recording where they want it; the machine's copy is gone after a week. */
+const CAPTURE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+/* Under `$RUIMTE_HOME`, and one of the folders a client may read from there. */
+export const DEVICE_CAPTURES_FOLDER = 'device-captures';
+
 /* An id comes from the project file, so it never becomes a path of its own. */
 function fileSafe(id: string): string {
     return id.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || 'shot';
 }
 
-/* Yesterday's shots, taken away as a new one is written, so nothing here grows without end. */
-async function sweep(folder: string, now: number): Promise<void> {
-    const oldest = now - SHOT_MAX_AGE_MS;
+/* Files past their age, taken away as a new one is written, so nothing here grows without end. */
+async function sweep(folder: string, now: number, maxAgeMs: number): Promise<void> {
+    const oldest = now - maxAgeMs;
     const names = await readdir(folder).catch(() => []);
     for (const name of names) {
-        const taken = Number(/-(\d+)\.png$/.exec(name)?.[1]);
+        const taken = Number(/-(\d+)\.(png|mp4)$/.exec(name)?.[1]);
         if (Number.isFinite(taken) && taken < oldest) {
             await rm(join(folder, name)).catch(() => undefined);
         }
@@ -26,8 +32,22 @@ export async function writeShot(home: string, id: string, image: Uint8Array): Pr
     const folder = join(home, 'screenshots');
     await mkdir(folder, { recursive: true });
     const now = Date.now();
-    await sweep(folder, now);
+    await sweep(folder, now, SHOT_MAX_AGE_MS);
     const path = join(folder, `${fileSafe(id)}-${now}.png`);
+    await writeFile(path, image);
+    return path;
+}
+
+/* A new file for a person's capture or recording of a device, which the client reads over `bytes.read`. */
+export async function captureFile(home: string, id: string, extension: 'png' | 'mp4', now = Date.now()): Promise<string> {
+    const folder = join(home, DEVICE_CAPTURES_FOLDER);
+    await mkdir(folder, { recursive: true });
+    await sweep(folder, now, CAPTURE_MAX_AGE_MS);
+    return join(folder, `${fileSafe(id)}-${now}.${extension}`);
+}
+
+export async function writeCapture(home: string, id: string, image: Uint8Array, now = Date.now()): Promise<string> {
+    const path = await captureFile(home, id, 'png', now);
     await writeFile(path, image);
     return path;
 }

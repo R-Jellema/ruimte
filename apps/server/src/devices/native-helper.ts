@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import type { DeviceInput } from '@ruimte/contracts';
-import { DEVICE_HELPER_MAGIC, DeviceHelperDecoder, encodeDeviceHelperMessage } from './helper-protocol.ts';
+import { DEVICE_HELPER_MAGIC, DeviceHelperDecoder, encodeDeviceHelperMessage, type DeviceHelperCall, type DeviceHelperMessage } from './helper-protocol.ts';
 
 interface NativeHidHandle {
     touch(type: 'begin' | 'move' | 'end', x: number, y: number, width: number, height: number, edge: number): Promise<void>;
@@ -11,21 +11,35 @@ interface NativeHidHandle {
     button(button: string): Promise<void>;
     orientation(orientation: number): Promise<boolean>;
     key(type: 'down' | 'up', usage: number): Promise<void>;
+    /* A hardware button by its HID page and usage; `press` is a down and an up, the other two hold it. */
+    buttonHid(page: number, usage: number, phase: 'press' | 'down' | 'up'): Promise<void>;
+    memoryWarning(): Promise<void>;
+    softwareKeyboard(): Promise<void>;
+    /* Whether the simulator has a hinge, which only an iPhone Duo on Xcode 27.1 with the iOS 27.1 runtime has. */
+    isFoldable(): Promise<boolean>;
+    /* A named pose (closed, tent, tabletop, book, open) from the hinge angle it has now; false when the simulator refused it. */
+    pose(name: string, fromDegrees: number): Promise<boolean>;
+    hinge(degrees: number): Promise<boolean>;
+    close(): Promise<void>;
 }
 
 interface NativeCaptureHandle {
     start(): Promise<void>;
     stop(): Promise<void>;
+    /* Captures the display of this size, a panel of a foldable; 0 by 0 lets the simulator choose again. */
+    setPreferredScreenSize(width: number, height: number): Promise<void>;
     subscribe(codec: number, onFrame: (data: Uint8Array, width: number, height: number, flags: number) => Promise<void>): Promise<() => void | Promise<void>>;
 }
 
 export interface DeviceNativeAddon {
-    SimHID: new (deviceId: string) => NativeHidHandle;
+    /* The second argument is the guest helper a foldable's hinge and buttons go through, which the addon starts inside the simulator. */
+    SimHID: new (deviceId: string, duoHidPath: string) => NativeHidHandle;
     SimCapture: new (deviceId: string) => NativeCaptureHandle;
 }
 
 interface DeviceHelperRuntime {
     addon?: DeviceNativeAddon;
+    duoHidPath?: string;
     input?: ReadableStream<Uint8Array>;
     write?(bytes: Uint8Array): void;
 }
@@ -44,6 +58,15 @@ const NATIVE_BUTTONS: Partial<Record<Extract<DeviceInput, { kind: 'button' }>['b
     siri: 'siri'
 };
 
+/* The consumer page (0x0C) of the HID usage tables, where a phone's side buttons sit. */
+const CONSUMER_PAGE = 0x0c;
+const CONSUMER_BUTTONS: Partial<Record<Extract<DeviceInput, { kind: 'button' }>['button'], number>> = {
+    volumeUp: 0xe9,
+    volumeDown: 0xea,
+    playPause: 0xcd,
+    power: 0x30
+};
+
 export function resolveDeviceNativeAddon(): string {
     const besideExecutable = join(dirname(process.execPath), 'native', 'serve-sim-native.node');
     if (existsSync(besideExecutable)) {
@@ -59,6 +82,23 @@ export function resolveDeviceNativeAddon(): string {
         // The stable error below names the missing runtime component without leaking resolver details.
     }
     throw new Error('serve-sim-native.node is not installed beside Ruimte or in its server dependencies');
+}
+
+/*
+ * The guest helper of an iPhone Duo, beside the addon in a build and in the package otherwise. A
+ * path that does not exist only leaves the hinge unavailable, so it never fails the session.
+ */
+export function resolveDuoHidHelper(): string {
+    const besideExecutable = join(dirname(process.execPath), 'native', 'serve-sim-duo-hid');
+    if (existsSync(besideExecutable)) {
+        return besideExecutable;
+    }
+    try {
+        const middleware = Bun.resolveSync('serve-sim/middleware', import.meta.dir);
+        return join(dirname(middleware), 'simduo', 'serve-sim-duo-hid');
+    } catch {
+        return besideExecutable;
+    }
 }
 
 export function loadDeviceNativeAddon(): DeviceNativeAddon {
@@ -87,8 +127,9 @@ export async function runDeviceHelper(deviceId: string, runtime?: DeviceHelperRu
     let unsubscribe: (() => void | Promise<void>) | null = null;
     try {
         const addon = runtime?.addon ?? loadDeviceNativeAddon();
-        const hid = new addon.SimHID(deviceId);
-        capture = new addon.SimCapture(deviceId);
+        const hid = new addon.SimHID(deviceId, runtime?.duoHidPath ?? resolveDuoHidHelper());
+        const opened = new addon.SimCapture(deviceId);
+        capture = opened;
         let width = 0;
         let height = 0;
         let sequence = 0;
@@ -121,6 +162,10 @@ export async function runDeviceHelper(deviceId: string, runtime?: DeviceHelperRu
                     await pressKeys(hid, message.usages);
                     continue;
                 }
+                if (message.type === 'call') {
+                    write(encodeDeviceHelperMessage(await answerCall(hid, opened, message.id, message.call)));
+                    continue;
+                }
                 if (message.type !== 'input') {
                     throw new Error('The device helper received an output-only protocol message');
                 }
@@ -136,6 +181,31 @@ export async function runDeviceHelper(deviceId: string, runtime?: DeviceHelperRu
         await unsubscribe?.();
         await capture?.stop();
         await protocolSink?.end();
+    }
+}
+
+/* A call that fails is answered as failed, so the daemon's request says why and the stream goes on. */
+async function answerCall(hid: NativeHidHandle, capture: NativeCaptureHandle, id: number, call: DeviceHelperCall): Promise<DeviceHelperMessage> {
+    try {
+        switch (call.method) {
+            case 'memoryWarning':
+                await hid.memoryWarning();
+                return { type: 'reply', id, ok: true };
+            case 'buttonHid':
+                await hid.buttonHid(call.page, call.usage, call.phase);
+                return { type: 'reply', id, ok: true };
+            case 'isFoldable':
+                return { type: 'reply', id, ok: true, value: await hid.isFoldable() };
+            case 'pose':
+                return { type: 'reply', id, ok: true, value: await hid.pose(call.name, call.fromDegrees) };
+            case 'hinge':
+                return { type: 'reply', id, ok: true, value: await hid.hinge(call.degrees) };
+            case 'preferredScreenSize':
+                await capture.setPreferredScreenSize(call.width, call.height);
+                return { type: 'reply', id, ok: true };
+        }
+    } catch (error) {
+        return { type: 'reply', id, ok: false, message: (error instanceof Error ? error.message : 'The native simulator helper failed').slice(0, 4096) };
     }
 }
 
@@ -159,9 +229,14 @@ async function applyDeviceInput(hid: NativeHidHandle, input: DeviceInput, width:
         void hid.scroll(input.deltaX, input.deltaY, input.x, input.y, width, height).catch(() => undefined);
     } else if (input.kind === 'button') {
         const button = NATIVE_BUTTONS[input.button];
+        const consumer = CONSUMER_BUTTONS[input.button];
         if (button !== undefined) {
             await hid.button(button);
+        } else if (consumer !== undefined) {
+            await hid.buttonHid(CONSUMER_PAGE, consumer, 'press');
         }
+    } else if (input.kind === 'key') {
+        await hid.key(input.phase, input.usage);
     } else {
         await hid.orientation(input.direction === 'left' ? ORIENTATION_LANDSCAPE_LEFT : ORIENTATION_LANDSCAPE_RIGHT);
     }
