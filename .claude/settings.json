@@ -1,0 +1,27 @@
+{
+    "permissions": {
+        "allow": [
+            "Bash(bun install)",
+            "Bash(bun test *)",
+            "Bash(bun run check)",
+            "Bash(bun run check:types)",
+            "Bash(bun run lint)",
+            "Bash(bun run test)",
+            "Bash(bun run test:dom)",
+            "Bash(bun run test:integration)",
+            "Bash(bun run test:package)",
+            "Bash(bun run format)",
+            "Bash(bun run format:check)",
+            "Bash(bun run build)",
+            "Bash(bun run adecore:status *)",
+            "Bash(bun run adecore:npm)",
+            "Bash(bun run adecore:link)",
+            "Bash(bun run adecore:bump *)"
+        ],
+        "deny": [
+            "Bash(git stash *)",
+            "Bash(git reset --hard *)",
+            "Bash(git clean *)"
+        ]
+    }
+}
