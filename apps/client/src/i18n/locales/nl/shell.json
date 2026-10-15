@@ -1093,7 +1093,6 @@
         "handoffIntro": "Een nieuwe chat op {{machine}} begint met een transcript van {{title}} en werkt daar in een checkout. Ruimte verstuurt niets voordat je het volgende bericht schrijft."
     },
     "editorMenu": {
-        "goToDeclaration": "Ga naar declaratie",
         "inlineEdit": "Inline wijzigen",
         "selectionToChat": "Selectie aan chat toevoegen",
         "askAgent": "Een agent vragen"

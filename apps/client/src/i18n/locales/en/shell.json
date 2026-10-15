@@ -1093,7 +1093,6 @@
         "handoffIntro": "A new chat on {{machine}} starts from a transcript of {{title}} and works in a checkout there. Ruimte sends nothing until you write the next message."
     },
     "editorMenu": {
-        "goToDeclaration": "Go to declaration",
         "inlineEdit": "Inline edit",
         "selectionToChat": "Add selection to chat",
         "askAgent": "Ask an agent"
