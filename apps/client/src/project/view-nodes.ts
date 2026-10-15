@@ -1,5 +1,5 @@
 import { useRef, useSyncExternalStore } from 'react';
-import { isCanvasView, isSessionView, type ProjectNode, type ProjectView } from '@ruimte/contracts';
+import { isCanvasView, isHiddenCanvasView, isSessionView, type ProjectNode, type ProjectView } from '@ruimte/contracts';
 import { defaultCanvases, liveCanvas, subscribeCanvases, type CanvasNode } from '@/state/canvas';
 import { useDocument } from '@/state/document';
 import type { StatusOf } from '@/state/sessions';
@@ -49,10 +49,14 @@ export function nodeRefsOfView(view: ProjectView): readonly ProjectNodeRef[] {
 /*
  * Every node the project holds, over every view, a standalone view counting as the one node it is.
  * Whatever looks at the whole project (the dock's counters, the notifications, the session
- * lifecycle) reads this rather than the canvas on screen.
+ * lifecycle) reads this rather than the canvas on screen. The canvas of another machine's nodes is left
+ * out: they are that machine's to show, and nothing here could open a view for them.
  */
 export function projectNodes(): ProjectNodeRef[] {
-    return useDocument.getState().views.flatMap(nodeRefsOfView);
+    return useDocument
+        .getState()
+        .views.filter((view) => !isHiddenCanvasView(view))
+        .flatMap(nodeRefsOfView);
 }
 
 export function subscribeViewNodes(listener: () => void): () => void {

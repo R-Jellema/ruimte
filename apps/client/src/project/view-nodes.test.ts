@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { Glob } from 'bun';
 import { parseSync, Visitor } from 'oxc-parser';
 import type { ProjectCanvasView, ProjectView } from '@ruimte/contracts';
-import { nodeRefsOfView, nodesOfView } from '@/project/view-nodes';
+import { nodeRefsOfView, nodesOfView, projectNodes } from '@/project/view-nodes';
+import { useDocument } from '@/state/document';
 import { defaultCanvases } from '@/state/canvas';
 
 /*
@@ -93,6 +94,15 @@ describe('nodeRefsOfView', () => {
         expect(nodeRefsOfView({ kind: 'terminal', id: 'term', name: 'Shell', node: {} } as ProjectView)).toEqual([
             { id: 'term', kind: 'terminal', title: 'Shell' }
         ]);
+    });
+});
+
+describe('projectNodes', () => {
+    test('leaves out the nodes of a canvas another machine draws here', () => {
+        const peer = { ...canvas('peer', ['theirs']), hidden: true } as ProjectCanvasView;
+        useDocument.setState({ views: [canvas('main', ['mine']), peer] } as never);
+        expect(projectNodes().map((node) => node.id)).toEqual(['mine']);
+        useDocument.setState({ views: [] } as never);
     });
 });
 
