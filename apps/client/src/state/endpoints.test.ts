@@ -3,6 +3,7 @@ import { forgetTicket, rememberLocalSecret, rememberTicket } from '@/endpoint/cr
 import {
     LOCAL_ENDPOINT_ID,
     endpointForDaemon,
+    endpointIdOfMachine,
     localMachineLabel,
     parseStoredEndpoints,
     storedLocalDirect,
@@ -284,5 +285,19 @@ describe('another window writing the list', () => {
         written([], LOCAL_ENDPOINT_ID);
         useEndpoints.getState().reload();
         expect(useEndpoints.getState().activeId).toBe(LOCAL_ENDPOINT_ID);
+    });
+});
+
+describe('the row of a machine named by its daemon id', () => {
+    test('is the row keyed on it, and this computer under local whatever its daemon is called', () => {
+        const before = useEndpoints.getState().endpoints;
+        useEndpoints.setState({
+            endpoints: [row(LOCAL_ENDPOINT_ID, { daemonId: 'daemon-here', reachability: 'loopback' }), row('daemon-b', { daemonId: 'daemon-b' })]
+        });
+        expect(endpointIdOfMachine('daemon-b')).toBe('daemon-b');
+        expect(endpointIdOfMachine('daemon-here')).toBe(LOCAL_ENDPOINT_ID);
+        // A machine without a row keeps the name it was given.
+        expect(endpointIdOfMachine('daemon-z')).toBe('daemon-z');
+        useEndpoints.setState({ endpoints: before });
     });
 });

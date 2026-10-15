@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { ProjectView } from '@ruimte/contracts';
 import { useViewNodes, type NodesOfView } from '@/project/view-nodes';
 import { shallow } from 'zustand/shallow';
-import { endpointById, useEndpoints, type Endpoint } from '@/state/endpoints';
+import { endpointById, endpointIdOfMachine, useEndpoints, type Endpoint } from '@/state/endpoints';
 import { pool } from '@/transport';
 
 /* The machines other than the workspace's that a node of the project runs on, each once. */
@@ -10,8 +10,9 @@ export function machinesOfNodes(views: readonly ProjectView[], nodesOf: NodesOfV
     const machines = new Set<string>();
     for (const view of views) {
         for (const node of nodesOf(view)) {
-            if (node.machine !== undefined && node.machine !== workspaceEndpointId) {
-                machines.add(node.machine);
+            const endpointId = node.machine === undefined ? undefined : endpointIdOfMachine(node.machine);
+            if (endpointId !== undefined && endpointId !== workspaceEndpointId) {
+                machines.add(endpointId);
             }
         }
     }

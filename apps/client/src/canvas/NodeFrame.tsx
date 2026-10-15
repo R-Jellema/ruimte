@@ -58,7 +58,7 @@ import { ComputerIndicator } from '@/computer/ComputerIndicator';
 import { NodeMenuPopup } from '@/canvas/NodeMenu';
 import { FlagMarkOf } from '@/project/FlagMark';
 import { SnoozeMenuItems } from '@/shell/Snooze';
-import { useEndpointId } from '@/state/keys';
+import { endpointOfNode, useEndpointId } from '@/state/keys';
 import { useUi } from '@/state/ui';
 import { useCellHasFocus } from '@/state/document';
 import { useProject } from '@/state/project';
@@ -487,8 +487,8 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     )}
                     {node.kind === 'terminal' && !renaming && <SessionPorts id={id} />}
                     {(node.kind === 'chat' || node.kind === 'terminal') && !renaming && <ComputerIndicator nodeId={id} />}
-                    {node.machine !== undefined && node.machine !== workspaceId && !renaming && (
-                        <MachinePill machine={node.machine} narrow={node.w < MACHINE_PILL_MIN_WIDTH} />
+                    {node.machine !== undefined && endpointOfNode(node, '') !== workspaceId && !renaming && (
+                        <MachinePill machine={endpointOfNode(node, '')} narrow={node.w < MACHINE_PILL_MIN_WIDTH} />
                     )}
                     {nodeWorktree && !renaming && <WorktreePill worktree={nodeWorktree} />}
                     {node.issue && !renaming && <IssuePill issue={node.issue} />}
@@ -549,7 +549,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                         <NodeBodyBoundary kind={node.kind}>
                             {remote !== 'ready' && node.machine !== undefined ? (
                                 <RemoteNodeOffline
-                                    machine={node.machine}
+                                    machine={endpointOfNode(node, '')}
                                     state={remote}
                                     onLinkAgain={() =>
                                         useUi.getState().setRemoteNodeDialog({

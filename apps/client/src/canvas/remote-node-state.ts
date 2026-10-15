@@ -35,10 +35,12 @@ export function remoteNodeStateOf(input: {
 
 /* The state of a node's machine; `ready` for a node that runs on the workspace's own. */
 export function useRemoteNodeState(machine: string | undefined, workspaceId: string | undefined): RemoteNodeState {
-    const remote = machine !== undefined && machine !== workspaceId ? machine : null;
-    const connection = useEndpointConnection(remote ?? '');
     const rows = useEndpoints((state) => state.endpoints);
-    const unlinked = useRemoteRefusals((state) => (remote === null ? false : state.unlinked[remote] === true));
+    const endpointId = machine === undefined ? null : (rows.find((row) => row.id === machine || row.daemonId === machine)?.id ?? machine);
+    const remote = endpointId !== null && endpointId !== workspaceId ? endpointId : null;
+    const connection = useEndpointConnection(remote ?? '');
+    // The mirror refuses a machine by the id the node names it with.
+    const unlinked = useRemoteRefusals((state) => (machine === undefined || remote === null ? false : state.unlinked[machine] === true));
     if (remote === null) {
         return 'ready';
     }

@@ -4,7 +4,7 @@ import { useCanvasStore } from '@/state/canvas';
 import { useChats } from '@adecore/agents-react/state';
 import { subscribeChatThreads } from '@/state/chats';
 import { computerApprovalsOf, useComputer } from '@/state/computer';
-import { useEndpointId } from '@/state/keys';
+import { endpointOfNode, useEndpointId } from '@/state/keys';
 import { secretRequestsOf, useSecrets } from '@/state/secrets';
 import { useSessions } from '@/state/sessions';
 
@@ -24,7 +24,7 @@ export function useCanvasPrompts(): CanvasPrompt[] {
         const update = (): void => {
             const nodes = Object.values(canvasStore.getState().nodes);
             // The cards of every machine a node on this canvas runs on: a card belongs to the node that asks, wherever that runs.
-            const machines = [...new Set([endpointId, ...nodes.flatMap((node) => (node.machine === undefined ? [] : [node.machine]))])];
+            const machines = [...new Set([endpointId, ...nodes.map((node) => endpointOfNode(node, endpointId))])];
             const next = canvasPrompts({
                 nodes,
                 endpointId,

@@ -301,6 +301,15 @@ export function brokerRouteOf(endpoint: Endpoint): { brokerUrl: string; machineK
     return { brokerUrl: endpoint.brokerUrl, machineKey: endpoint.daemonPublicKey };
 }
 
+/*
+ * The row of a machine named by its daemon id, which is how a node says where it runs. Every row but
+ * this computer's own is keyed on that id; this computer's row is `local` whatever its daemon is called.
+ * A machine this client has no row for keeps the name it was given.
+ */
+export function endpointIdOfMachine(machineId: string): string {
+    return useEndpoints.getState().endpoints.find((entry) => entry.id === machineId || entry.daemonId === machineId)?.id ?? machineId;
+}
+
 /* One machine by id, for code that is about a row rather than about the machine being worked on. */
 export function endpointById(id: string): Endpoint | null {
     return useEndpoints.getState().endpoints.find((entry) => entry.id === id) ?? null;

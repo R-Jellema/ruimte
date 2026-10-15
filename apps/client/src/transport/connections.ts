@@ -12,7 +12,7 @@ import { panelsPort } from '@/project/panels-port';
 import { ProjectClient, type ProjectSink } from '@/project/project-client';
 import { useChats, knownAccounts, providerAccountsOf, useProviderAccountsStore, watchProviderAccounts, providerSinkFor } from '@adecore/agents-react/state';
 import { chatSinkFor } from '@/state/chats';
-import { activeEndpoint, endpointById, useEndpoints, type Endpoint } from '@/state/endpoints';
+import { activeEndpoint, endpointById, endpointIdOfMachine, useEndpoints, type Endpoint } from '@/state/endpoints';
 import { isOfEndpoint } from '@/state/keys';
 import { isRealMachine } from '@/state/local-machine';
 import { useProjectList } from '@/state/project-list';
@@ -223,7 +223,7 @@ function connect(endpoint: Endpoint, onLoad: (connection: Connection, summary: P
             };
         },
         links: async (projectId) => (await connection.transport.request('remote.list', { projectId })).links,
-        transportOf: machineTransport
+        transportOf: (machineId) => machineTransport(endpointIdOfMachine(machineId))
     });
     const projects = new ProjectClient(transport, stores.canvases, stores.document, panelsPort, projectSink(endpointId), {
         remote: { close: () => mirror.close(), release: () => mirror.release() },

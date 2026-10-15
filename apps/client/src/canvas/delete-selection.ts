@@ -7,7 +7,7 @@ import { closeAfterSaving } from '@/shell/panels/unsaved-close';
 import { worktreesLeftBy } from '@/shell/panels/worktree-rows';
 import { nodesOfView } from '@/project/view-nodes';
 import { useDocument } from '@/state/document';
-import { currentEndpointId } from '@/state/keys';
+import { currentEndpointId, endpointOfNode } from '@/state/keys';
 import { transportFor } from '@/transport';
 import { useProject } from '@/state/project';
 import type { CanvasState } from '@/state/canvas';
@@ -37,8 +37,8 @@ export function deleteSelectionAsking(
     const goingIds = new Set(going);
     // A node that runs on another machine asks that machine which agents it opened.
     const askerOf = (id: string): Pick<Transport, 'request'> | null => {
-        const machine = nodes[id]?.machine;
-        return machine === undefined ? transport : transportFor(machine);
+        const node = nodes[id];
+        return node?.machine === undefined ? transport : transportFor(endpointOfNode(node, ''));
     };
     const leftBehind = async (): Promise<PendingEnd['worktrees']> => {
         if (transport === null || folder === null || sessions.length === 0) {
