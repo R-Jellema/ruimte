@@ -245,20 +245,21 @@ export function SplitItems({ at, separated = false }: { at?: CellAt; separated?:
                     <Kbd shortcut={CANVAS_SHORTCUTS.maximizeCell} />
                 </Menu.Item>
             )}
+            {(room('right') || room('down') || (multiple && standing !== null)) && closable && standing !== null && <Menu.Separator />}
             {closable && standing !== null && (
                 <Menu.Item onClick={() => closeCellAction(standing)}>
                     {/* In a host the key closes the tab in front, and the cell goes with its last one. */}
-                    <Icon icon={X} size={14} /> {t('cellToolbar.closeCell')} {!hosted && <Kbd shortcut={CANVAS_SHORTCUTS.closeCell} />}
+                    <Icon icon={X} size={14} /> {t('viewMenu.closeThisCell')} {!hosted && <Kbd shortcut={CANVAS_SHORTCUTS.closeCell} />}
                 </Menu.Item>
             )}
             {multiple && cell !== null && standing !== null && (
                 <Menu.Item onClick={() => closeOtherCellsAction(cell)}>
-                    <Icon icon={ListX} size={14} /> {t('viewMenu.closeOthers')}
+                    <Icon icon={ListX} size={14} /> {t('viewMenu.closeOtherCells')}
                 </Menu.Item>
             )}
             {closesRight && cell !== null && (
                 <Menu.Item onClick={() => closeCellsRightOfAction(cell)}>
-                    <Icon icon={ArrowRightToLine} size={14} /> {t('viewMenu.closeToRight')}
+                    <Icon icon={ArrowRightToLine} size={14} /> {t('viewMenu.closeCellsToRight')}
                 </Menu.Item>
             )}
             {/* The line under the group, drawn here rather than by the caller: with nothing to split

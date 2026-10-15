@@ -126,7 +126,8 @@
             "pin": "Pin tab",
             "stage": "Stage this file",
             "unpin": "Unpin tab",
-            "unstage": "Unstage this file"
+            "unstage": "Unstage this file",
+            "closeToRight": "Close tabs to the right"
         },
         "pdf": {
             "crashed": "The PDF viewer failed",

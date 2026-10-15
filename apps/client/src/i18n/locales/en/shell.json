@@ -278,8 +278,6 @@
         "splitDown": "Split downwards",
         "maximizeCell": "Maximize cell",
         "restoreSplit": "Restore split",
-        "closeOthers": "Close others",
-        "closeToRight": "Close to the right",
         "newView": "View",
         "putOnCanvas": "Put on canvas",
         "showOnCanvas": "Show on the canvas",
@@ -293,10 +291,15 @@
         "deleteView": "Delete view",
         "reveal": "Reveal in {{app}}",
         "openInNewTab": "Open in new tab",
-        "moveTabLeft": "Move tab left",
-        "moveTabRight": "Move tab right",
-        "moveTabToNewCell": "Move tab to new cell",
-        "ungroup": "Ungroup"
+        "moveTabLeft": "Left",
+        "moveTabRight": "Right",
+        "moveTabToNewCell": "To a new cell",
+        "ungroup": "Ungroup",
+        "closeThisCell": "Close this cell",
+        "closeOtherCells": "Close other cells",
+        "closeCellsToRight": "Close cells to the right",
+        "moveTab": "Move tab",
+        "cell": "Cell"
     },
     "share": {
         "start": "Share with your team",

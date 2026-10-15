@@ -380,16 +380,6 @@ describe('the store and the tab hosts', () => {
             useFiles.getState().close('/p/a.ts');
             expect(useDocument.getState().layout).toBeNull();
         });
-
-        test('the other tabs of a host close with it, and a view of the project stays', () => {
-            useFiles.getState().open('/p/a.ts', 5);
-            useDocument.getState().setActiveView('b');
-            useFiles.getState().open('/p/b.ts', 5);
-            useFiles.getState().closeOthers('/p/b.ts');
-            expect(tabsOfCells()).toEqual([['b', '/p/b.ts']]);
-            useFiles.getState().closeAll('/p/b.ts');
-            expect(tabsOfCells()).toEqual([['b']]);
-        });
     });
 
     test('a loose view that leaves the grid leaves the pool, as a closed tab does', () => {

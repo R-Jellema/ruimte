@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X } from 'lucide-react';
 import type { AgentStatus } from '@ruimte/contracts';
 import { viewIconOf, type ProjectView } from '@ruimte/contracts';
 import { StatusDot } from '@/canvas/NodeFrame';
@@ -15,7 +14,7 @@ import { isLooseView, type LooseCellView } from '@/shell/cell-view';
 import { FileMenuItems } from '@/shell/panels/FileMenuItems';
 import { LooseGlyph } from '@/shell/panels/LooseGlyph';
 import { basenameOf } from '@/shell/panels/files-tree';
-import { SplitItems, ViewMenuItems } from '@/shell/ViewMenuItems';
+import { ViewMenuItems } from '@/shell/ViewMenuItems';
 import { TabMenuItems } from '@/shell/TabMenuItems';
 import { useCellView } from '@/shell/use-cell-view';
 import { setDragging, VIEW_DRAG_TYPE } from '@/shell/view-drag';
@@ -27,7 +26,9 @@ import { useChats } from '@adecore/agents-react/state';
 import { sessionStatus, useSessionRow } from '@/state/sessions';
 import { endpointKey, useEndpointId } from '@/state/keys';
 import { isUnsavedDraft, useTextDrafts } from '@/state/text-drafts';
-import { ContextMenu, DocumentTab, Icon, Menu, TabStrip as CoreTabStrip } from '@adecore/ui';
+import { setTabPinned } from '@/state/tab-close';
+import { useViewPinned } from '@/state/view-pins';
+import { ContextMenu, DocumentTab, TabStrip as CoreTabStrip } from '@adecore/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 
 interface TabShellProps {
@@ -178,13 +179,13 @@ function TerminalAttention({ id }: { id: string }) {
     return <NeedsYouMark status={useSessionRow(id, sessionStatus)} />;
 }
 
-/* A view of the project as a tab: its mark and its name, the cell's own menu, and a close that only takes it off the screen. */
-function ProjectTabItem({ at, view }: { at: CellAt; view: ProjectView }) {
-    const { t } = useTranslation('panels');
+/* A view of the project as a tab: its mark and its name, its own menu, and a close that only takes it off the screen. */
+function ProjectTabItem({ view }: { view: ProjectView }) {
     const { t: td } = useTranslation('databases');
     const title = useBrowserDisplayTitle(view.id, view.name ?? '', 'titleSource' in view ? view.titleSource : undefined);
     const label = view.kind === 'browser' ? title : (view.name ?? '');
     const unsubmitted = useFiles((s) => view.kind === 'database' && s.unsubmitted[view.id] === true);
+    const pinned = useViewPinned(view.id);
     return (
         <TabShell
             id={view.id}
@@ -201,27 +202,20 @@ function ProjectTabItem({ at, view }: { at: CellAt; view: ProjectView }) {
                 />
             }
             attention={view.kind === 'chat' ? <ChatAttention id={view.id} /> : view.kind === 'terminal' ? <TerminalAttention id={view.id} /> : undefined}
+            pinned={pinned}
+            onDoubleClick={() => setTabPinned(view.id, !pinned)}
             onClose={() => closeTabAction(view.id)}
-            menu={
-                <>
-                    <Menu.Item onClick={() => closeTabAction(view.id)}>
-                        <Icon icon={X} size={14} /> {t('file.tab.close')}
-                    </Menu.Item>
-                    <Menu.Separator />
-                    <SplitItems at={at} separated />
-                    <ViewMenuItems viewId={view.id} kind={view.kind} />
-                </>
-            }
+            menu={<ViewMenuItems viewId={view.id} kind={view.kind} />}
         />
     );
 }
 
-function StripTab({ at, id }: { at: CellAt; id: string }) {
+function StripTab({ id }: { id: string }) {
     const view = useCellView(id);
     if (view === null) {
         return null;
     }
-    return isLooseView(view) ? <LooseTabItem view={view} /> : <ProjectTabItem at={at} view={view} />;
+    return isLooseView(view) ? <LooseTabItem view={view} /> : <ProjectTabItem view={view} />;
 }
 
 /*
@@ -238,7 +232,7 @@ export function TabStrip({ at, ids, active }: { at: CellAt; ids: readonly string
             value={active}
             onValueChange={(id) => useDocument.getState().activateTab(id)}
             focused={focused}
-            renderTab={({ id }) => <StripTab at={at} id={id} />}
+            renderTab={({ id }) => <StripTab id={id} />}
         />
     );
 }

@@ -126,7 +126,8 @@
             "pin": "Tab vastzetten",
             "stage": "Dit bestand stagen",
             "unpin": "Tab losmaken",
-            "unstage": "Dit bestand unstagen"
+            "unstage": "Dit bestand unstagen",
+            "closeToRight": "Tabs rechts ervan sluiten"
         },
         "pdf": {
             "crashed": "De PDF-weergave liep vast",
