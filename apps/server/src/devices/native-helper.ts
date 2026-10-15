@@ -193,6 +193,8 @@ async function applyDeviceInput(hid: NativeHidHandle, input: DeviceInput, width:
         if (button !== undefined) {
             await hid.button(button);
         }
+    } else if (input.kind === 'key') {
+        await hid.key(input.phase, input.usage);
     } else {
         await hid.orientation(input.direction === 'left' ? ORIENTATION_LANDSCAPE_LEFT : ORIENTATION_LANDSCAPE_RIGHT);
     }

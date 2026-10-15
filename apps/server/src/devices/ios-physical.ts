@@ -61,7 +61,7 @@ export class IosPhysicalBackend implements DeviceBackend {
     readonly id = 'coredevice';
     readonly platform = 'ios' as const;
     readonly kinds = ['physical'] as const;
-    private readonly capture: PhysicalFrameCapture;
+    private readonly captureFrame: PhysicalFrameCapture;
     private readonly createLiveSource: PhysicalStreamSourceFactory | null;
     private readonly photograph: PhysicalScreenshot;
     private readonly udids = new Map<string, string>();
@@ -74,7 +74,7 @@ export class IosPhysicalBackend implements DeviceBackend {
         photograph: PhysicalScreenshot = capturePhysicalScreenshot
     ) {
         this.run = run;
-        this.capture = capture;
+        this.captureFrame = capture;
         this.createLiveSource = createLiveSource;
         this.photograph = photograph;
     }
@@ -133,7 +133,7 @@ export class IosPhysicalBackend implements DeviceBackend {
         if (udid && this.createLiveSource) {
             return this.createLiveSource(deviceId, udid);
         }
-        return new PhysicalScreenshotSource(deviceId, this.capture);
+        return new PhysicalScreenshotSource(deviceId, this.captureFrame);
     }
 
     screenshot(deviceId: string): Promise<Uint8Array> {

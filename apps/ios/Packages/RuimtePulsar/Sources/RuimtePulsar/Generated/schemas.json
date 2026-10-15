@@ -10644,7 +10644,11 @@
                   "swipeHome",
                   "appSwitcher",
                   "lock",
-                  "siri"
+                  "siri",
+                  "volumeUp",
+                  "volumeDown",
+                  "power",
+                  "playPause"
                 ]
               }
             },
@@ -10671,6 +10675,32 @@
             "required": [
               "kind",
               "direction"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "key"
+              },
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "down",
+                  "up"
+                ]
+              },
+              "usage": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              }
+            },
+            "required": [
+              "kind",
+              "phase",
+              "usage"
             ]
           }
         ]
@@ -10787,6 +10817,48 @@
               "green-red",
               "blue-yellow"
             ]
+          },
+          "statusBar": {
+            "type": "string",
+            "enum": [
+              "clean",
+              "default"
+            ]
+          },
+          "battery": {
+            "type": "object",
+            "properties": {
+              "level": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "charging": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "level",
+              "charging"
+            ]
+          },
+          "biometricEnrolled": {
+            "type": "boolean"
+          },
+          "hinge": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 180
+          },
+          "panel": {
+            "type": "string",
+            "enum": [
+              "cover",
+              "inner"
+            ]
+          },
+          "recording": {
+            "type": "boolean"
           }
         }
       }
@@ -11309,6 +11381,527 @@
           "appId",
           "payload"
         ]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "const": "setStatusBar"
+          },
+          "value": {
+            "type": "string",
+            "enum": [
+              "clean",
+              "default"
+            ]
+          }
+        },
+        "required": [
+          "deviceId",
+          "backendId",
+          "platform",
+          "action",
+          "value"
+        ]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "const": "setBattery"
+          },
+          "level": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "charging": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "deviceId",
+          "backendId",
+          "platform",
+          "action",
+          "level",
+          "charging"
+        ]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "const": "resetBattery"
+          }
+        },
+        "required": [
+          "deviceId",
+          "backendId",
+          "platform",
+          "action"
+        ]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "const": "biometric"
+          },
+          "sensor": {
+            "type": "string",
+            "enum": [
+              "face",
+              "finger"
+            ]
+          },
+          "event": {
+            "type": "string",
+            "enum": [
+              "enroll",
+              "unenroll",
+              "match",
+              "nomatch"
+            ]
+          }
+        },
+        "required": [
+          "deviceId",
+          "backendId",
+          "platform",
+          "action",
+          "sensor",
+          "event"
+        ]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "const": "shake"
+          }
+        },
+        "required": [
+          "deviceId",
+          "backendId",
+          "platform",
+          "action"
+        ]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "const": "memoryWarning"
+          }
+        },
+        "required": [
+          "deviceId",
+          "backendId",
+          "platform",
+          "action"
+        ]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "const": "setAllPermissions"
+          },
+          "appId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "grant",
+              "revoke",
+              "reset"
+            ]
+          }
+        },
+        "required": [
+          "deviceId",
+          "backendId",
+          "platform",
+          "action",
+          "appId",
+          "decision"
+        ]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "const": "installApp"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "deviceId",
+          "backendId",
+          "platform",
+          "action",
+          "path"
+        ]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "const": "addMedia"
+          },
+          "paths": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        },
+        "required": [
+          "deviceId",
+          "backendId",
+          "platform",
+          "action",
+          "paths"
+        ]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "const": "erase"
+          }
+        },
+        "required": [
+          "deviceId",
+          "backendId",
+          "platform",
+          "action"
+        ]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "const": "setFold"
+          },
+          "value": {
+            "type": "string",
+            "enum": [
+              "closed",
+              "tent",
+              "tabletop",
+              "book",
+              "open"
+            ]
+          }
+        },
+        "required": [
+          "deviceId",
+          "backendId",
+          "platform",
+          "action",
+          "value"
+        ]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "const": "setHinge"
+          },
+          "degrees": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 180
+          }
+        },
+        "required": [
+          "deviceId",
+          "backendId",
+          "platform",
+          "action",
+          "degrees"
+        ]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "const": "setCamera"
+          },
+          "appId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "placeholder",
+              "file",
+              "off"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "deviceId",
+          "backendId",
+          "platform",
+          "action",
+          "appId",
+          "source"
+        ]
       }
     ]
   },
@@ -11383,6 +11976,48 @@
               "green-red",
               "blue-yellow"
             ]
+          },
+          "statusBar": {
+            "type": "string",
+            "enum": [
+              "clean",
+              "default"
+            ]
+          },
+          "battery": {
+            "type": "object",
+            "properties": {
+              "level": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "charging": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "level",
+              "charging"
+            ]
+          },
+          "biometricEnrolled": {
+            "type": "boolean"
+          },
+          "hinge": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 180
+          },
+          "panel": {
+            "type": "string",
+            "enum": [
+              "cover",
+              "inner"
+            ]
+          },
+          "recording": {
+            "type": "boolean"
           }
         }
       }
@@ -11617,6 +12252,161 @@
       "nodeId",
       "state",
       "step"
+    ]
+  },
+  "request.device.capture.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "deviceId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "backendId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "platform": {
+        "type": "string",
+        "enum": [
+          "ios",
+          "android"
+        ]
+      }
+    },
+    "required": [
+      "deviceId",
+      "backendId",
+      "platform"
+    ]
+  },
+  "request.device.capture.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "width": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 32768
+      },
+      "height": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 32768
+      }
+    },
+    "required": [
+      "path",
+      "width",
+      "height"
+    ]
+  },
+  "request.device.record.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "deviceId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "backendId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "platform": {
+        "type": "string",
+        "enum": [
+          "ios",
+          "android"
+        ]
+      },
+      "mode": {
+        "type": "string",
+        "enum": [
+          "start",
+          "stop"
+        ]
+      }
+    },
+    "required": [
+      "deviceId",
+      "backendId",
+      "platform",
+      "mode"
+    ]
+  },
+  "request.device.record.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "recording": {
+        "type": "boolean"
+      },
+      "path": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "required": [
+      "recording"
+    ]
+  },
+  "request.device.clipboard.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "deviceId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "backendId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "platform": {
+        "type": "string",
+        "enum": [
+          "ios",
+          "android"
+        ]
+      },
+      "text": {
+        "type": "string",
+        "maxLength": 1048576
+      },
+      "paste": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "deviceId",
+      "backendId",
+      "platform"
+    ]
+  },
+  "request.device.clipboard.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "maxLength": 1048576
+      }
+    },
+    "required": [
+      "text"
     ]
   },
   "request.agent.resume.payload": {

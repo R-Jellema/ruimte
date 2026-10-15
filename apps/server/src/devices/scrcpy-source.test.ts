@@ -235,6 +235,25 @@ describe('ScrcpySource', () => {
             [0, 0, 66],
             [0, 1, 66]
         ]);
-        expect(() => source.keys([0xe3, 0x19])).toThrow('Ruimte presses only Return and Tab on an Android device');
+        expect(() => source.keys([0xe1, 0x64])).toThrow('Ruimte cannot press one of these keys on an Android device');
+    });
+
+    test("sends a person's keys with the modifiers they hold, before the first frame too", async () => {
+        const host = new FakeHost();
+        host.holdVideo = true;
+        const source = new ScrcpySource(host, () => Promise.resolve('/native/scrcpy-server'));
+        await source.start(() => undefined);
+
+        await source.input({ kind: 'key', phase: 'down', usage: 0xe1 });
+        await source.input({ kind: 'key', phase: 'down', usage: 0x04 });
+        await source.input({ kind: 'key', phase: 'up', usage: 0xe1 });
+        await source.input({ kind: 'key', phase: 'up', usage: 0x04 });
+
+        expect(host.control.map((message) => [message[1], new DataView(message.buffer).getInt32(2), new DataView(message.buffer).getInt32(10)])).toEqual([
+            [0, 59, 0x41],
+            [0, 29, 0x41],
+            [1, 59, 0],
+            [1, 29, 0]
+        ]);
     });
 });

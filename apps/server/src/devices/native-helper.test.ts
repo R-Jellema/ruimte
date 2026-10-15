@@ -118,6 +118,7 @@ describe('runDeviceHelper', () => {
                         encodeDeviceHelperMessage({ type: 'input', input: { kind: 'button', button: 'appSwitcher' } }),
                         encodeDeviceHelperMessage({ type: 'input', input: { kind: 'rotate', direction: 'left' } }),
                         encodeDeviceHelperMessage({ type: 'keys', usages: [0xe3, 0x19] }),
+                        encodeDeviceHelperMessage({ type: 'input', input: { kind: 'key', phase: 'down', usage: 0x04 } }),
                         encodeDeviceHelperMessage({ type: 'stop' })
                     )
                 );
@@ -146,6 +147,7 @@ describe('runDeviceHelper', () => {
             ['key', 'down', 0x19],
             ['key', 'up', 0x19],
             ['key', 'up', 0xe3],
+            ['key', 'down', 0x04],
             ['unsubscribe'],
             ['stop']
         ]);

@@ -9,7 +9,7 @@ export const DeviceKindSchema = z.enum(['simulator', 'physical']);
 export const DeviceStateSchema = z.enum(['booted', 'shutdown', 'transitioning']);
 
 export const DeviceVideoFormatSchema = z.enum(['jpeg', 'hevc', 'h264']);
-export const DeviceButtonSchema = z.enum(['home', 'back', 'swipeHome', 'appSwitcher', 'lock', 'siri']);
+export const DeviceButtonSchema = z.enum(['home', 'back', 'swipeHome', 'appSwitcher', 'lock', 'siri', 'volumeUp', 'volumeDown', 'power', 'playPause']);
 export const DeviceToolSchema = z.enum([
     'openUrl',
     'launchApp',
@@ -26,7 +26,21 @@ export const DeviceToolSchema = z.enum([
     'location',
     'clearLocation',
     'permissions',
-    'push'
+    'push',
+    'capture',
+    'record',
+    'clipboard',
+    'keyboard',
+    'statusBar',
+    'battery',
+    'biometrics',
+    'shake',
+    'memoryWarning',
+    'installApp',
+    'addMedia',
+    'erase',
+    'fold',
+    'camera'
 ]);
 
 /*
@@ -124,6 +138,11 @@ export const DevicePermissionSchema = z.enum([
     'faceid'
 ]);
 
+export const DeviceStatusBarSchema = z.enum(['clean', 'default']);
+export const DeviceFoldPoseSchema = z.enum(['closed', 'tent', 'tabletop', 'book', 'open']);
+const DeviceBatteryLevelSchema = z.number().int().min(0).max(100);
+const DeviceHingeSchema = z.number().int().min(0).max(180);
+
 export const DeviceSettingsSchema = z.object({
     appearance: DeviceAppearanceSchema.optional(),
     textSize: DeviceTextSizeSchema.optional(),
@@ -133,7 +152,15 @@ export const DeviceSettingsSchema = z.object({
     showBorders: z.boolean().optional(),
     voiceOver: z.boolean().optional(),
     liquidGlass: z.enum(['clear', 'tinted']).optional(),
-    colorFilter: DeviceColorFilterSchema.optional()
+    colorFilter: DeviceColorFilterSchema.optional(),
+    statusBar: DeviceStatusBarSchema.optional(),
+    battery: z.object({ level: DeviceBatteryLevelSchema, charging: z.boolean() }).optional(),
+    biometricEnrolled: z.boolean().optional(),
+    /* The hinge of a foldable in degrees, 0 closed and 180 flat. */
+    hinge: DeviceHingeSchema.optional(),
+    /* Which screen of a foldable the picture shows. */
+    panel: z.enum(['cover', 'inner']).optional(),
+    recording: z.boolean().optional()
 });
 
 export const DeviceDetailSchema = DeviceTargetPayloadSchema.extend({ settings: DeviceSettingsSchema });
@@ -141,6 +168,8 @@ export const DeviceDetailPayloadSchema = DeviceTargetPayloadSchema;
 
 const DeviceActionTarget = DeviceTargetPayloadSchema.shape;
 const DeviceAppIdSchema = z.string().trim().min(1).max(256);
+/* An absolute path on the machine, never an upload; the daemon decides whether it may be read. */
+const DeviceMachinePathSchema = z.string().min(1).max(4096);
 
 export const DeviceActionPayloadSchema = z.discriminatedUnion('action', [
     z.object({ ...DeviceActionTarget, action: z.literal('setAppearance'), value: DeviceAppearanceSchema }),
@@ -165,8 +194,52 @@ export const DeviceActionPayloadSchema = z.discriminatedUnion('action', [
     z.object({ ...DeviceActionTarget, action: z.literal('openUrl'), url: z.string().trim().min(1).max(2048) }),
     z.object({ ...DeviceActionTarget, action: z.literal('launchApp'), appId: DeviceAppIdSchema }),
     z.object({ ...DeviceActionTarget, action: z.literal('terminateApp'), appId: DeviceAppIdSchema }),
-    z.object({ ...DeviceActionTarget, action: z.literal('sendPush'), appId: DeviceAppIdSchema, payload: z.string().min(1).max(16_384) })
+    z.object({ ...DeviceActionTarget, action: z.literal('sendPush'), appId: DeviceAppIdSchema, payload: z.string().min(1).max(16_384) }),
+    z.object({ ...DeviceActionTarget, action: z.literal('setStatusBar'), value: DeviceStatusBarSchema }),
+    z.object({ ...DeviceActionTarget, action: z.literal('setBattery'), level: DeviceBatteryLevelSchema, charging: z.boolean() }),
+    z.object({ ...DeviceActionTarget, action: z.literal('resetBattery') }),
+    z.object({
+        ...DeviceActionTarget,
+        action: z.literal('biometric'),
+        sensor: z.enum(['face', 'finger']),
+        event: z.enum(['enroll', 'unenroll', 'match', 'nomatch'])
+    }),
+    z.object({ ...DeviceActionTarget, action: z.literal('shake') }),
+    z.object({ ...DeviceActionTarget, action: z.literal('memoryWarning') }),
+    z.object({ ...DeviceActionTarget, action: z.literal('setAllPermissions'), appId: DeviceAppIdSchema, decision: z.enum(['grant', 'revoke', 'reset']) }),
+    z.object({ ...DeviceActionTarget, action: z.literal('installApp'), path: DeviceMachinePathSchema }),
+    z.object({ ...DeviceActionTarget, action: z.literal('addMedia'), paths: z.array(DeviceMachinePathSchema).min(1).max(20) }),
+    z.object({ ...DeviceActionTarget, action: z.literal('erase') }),
+    z.object({ ...DeviceActionTarget, action: z.literal('setFold'), value: DeviceFoldPoseSchema }),
+    z.object({ ...DeviceActionTarget, action: z.literal('setHinge'), degrees: DeviceHingeSchema }),
+    z.object({
+        ...DeviceActionTarget,
+        action: z.literal('setCamera'),
+        appId: DeviceAppIdSchema,
+        source: z.enum(['placeholder', 'file', 'off']),
+        path: DeviceMachinePathSchema.optional()
+    })
 ]);
+
+/* A png of the screen, written on the machine for the client to read over `bytes.read`. */
+export const DeviceCaptureResultSchema = z.object({
+    path: DeviceMachinePathSchema,
+    width: z.number().int().min(1).max(32_768),
+    height: z.number().int().min(1).max(32_768)
+});
+
+export const DeviceRecordPayloadSchema = DeviceTargetPayloadSchema.extend({ mode: z.enum(['start', 'stop']) });
+
+/* `path` is the finished video, set only by a stop. */
+export const DeviceRecordResultSchema = z.object({ recording: z.boolean(), path: DeviceMachinePathSchema.optional() });
+
+/* Without `text` it reads the device clipboard; `paste` also presses paste where the focus is. */
+export const DeviceClipboardPayloadSchema = DeviceTargetPayloadSchema.extend({
+    text: z.string().max(1_048_576).optional(),
+    paste: z.boolean().optional()
+});
+
+export const DeviceClipboardResultSchema = z.object({ text: z.string().max(1_048_576) });
 
 const DevicePointerInputSchema = z.object({
     kind: z.literal('pointer'),
@@ -201,12 +274,20 @@ const DeviceRotateInputSchema = z.object({
     direction: z.enum(['left', 'right'])
 });
 
+/* One key of a person's keyboard as a USB HID usage of the keyboard page (7). */
+const DeviceKeyInputSchema = z.object({
+    kind: z.literal('key'),
+    phase: z.enum(['down', 'up']),
+    usage: z.number().int().min(1).max(0xffff)
+});
+
 export const DeviceInputSchema = z.discriminatedUnion('kind', [
     DevicePointerInputSchema,
     DeviceMultiPointerInputSchema,
     DeviceScrollInputSchema,
     DeviceButtonInputSchema,
-    DeviceRotateInputSchema
+    DeviceRotateInputSchema,
+    DeviceKeyInputSchema
 ]);
 
 export const DeviceInputPayloadSchema = DeviceTargetPayloadSchema.extend({ input: DeviceInputSchema });
@@ -270,7 +351,25 @@ function known<Value extends string>(schema: z.ZodEnum<Record<Value, Value>>, an
 }
 
 const IOS_BUTTONS: readonly DeviceButton[] = ['home', 'swipeHome', 'appSwitcher', 'lock', 'siri'];
-const IOS_SIMULATOR_TOOLS: readonly DeviceTool[] = DeviceToolSchema.options;
+/* What a simulator could do before a daemon announced its tools; one that announces them says the rest. */
+const IOS_SIMULATOR_TOOLS: readonly DeviceTool[] = [
+    'openUrl',
+    'launchApp',
+    'terminateApp',
+    'appearance',
+    'textSize',
+    'liquidGlass',
+    'colorFilter',
+    'reduceMotion',
+    'increaseContrast',
+    'reduceTransparency',
+    'showBorders',
+    'voiceOver',
+    'location',
+    'clearLocation',
+    'permissions',
+    'push'
+];
 
 export function deviceButtons(device: Pick<DeviceInfo, 'capabilities'>): DeviceButton[] {
     return device.capabilities.buttons ? known(DeviceButtonSchema, device.capabilities.buttons) : [...IOS_BUTTONS];
@@ -297,6 +396,11 @@ export type DeviceAction = z.infer<typeof DeviceActionPayloadSchema>;
 export type DeviceAgentStep = z.infer<typeof DeviceAgentStepSchema>;
 export type DeviceAppearance = z.infer<typeof DeviceAppearanceSchema>;
 export type DeviceColorFilter = z.infer<typeof DeviceColorFilterSchema>;
+export type DeviceCaptureResult = z.infer<typeof DeviceCaptureResultSchema>;
+export type DeviceClipboardPayload = z.infer<typeof DeviceClipboardPayloadSchema>;
+export type DeviceFoldPose = z.infer<typeof DeviceFoldPoseSchema>;
+export type DeviceRecordResult = z.infer<typeof DeviceRecordResultSchema>;
+export type DeviceStatusBar = z.infer<typeof DeviceStatusBarSchema>;
 export type DeviceControlMode = z.infer<typeof DeviceControlModeSchema>;
 export type DeviceControlPayload = z.infer<typeof DeviceControlPayloadSchema>;
 export type DeviceDetail = z.infer<typeof DeviceDetailSchema>;

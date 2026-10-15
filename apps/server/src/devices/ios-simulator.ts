@@ -5,18 +5,18 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import {
     DevicePermissionSchema,
-    DeviceToolSchema,
     type DeviceAction,
     type DeviceButton,
     type DeviceInfo,
     type DevicePermission,
     type DeviceSettings,
     type DeviceTextSize,
-    type DeviceToggleSetting
+    type DeviceToggleSetting,
+    type DeviceTool
 } from '@ruimte/contracts';
 import { simulatorTree, type DeviceTree } from './device-tree.ts';
 import { DeviceHelperSource, type DeviceHelperLauncher } from './helper-source.ts';
-import { DeviceError, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard } from './manager.ts';
+import { DeviceError, KEY_LEFT_COMMAND, KEY_V, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard } from './manager.ts';
 import type { SimulatorTreeReader } from './simulator-tree.ts';
 
 interface CommandResult {
@@ -64,9 +64,25 @@ async function defaultRunner(arguments_: string[], stdin?: string): Promise<Comm
 
 const IOS_BUTTONS: DeviceButton[] = ['home', 'swipeHome', 'appSwitcher', 'lock', 'siri'];
 
-/* USB HID keyboard usages (page 7). */
-const KEY_V = 0x19;
-const KEY_LEFT_COMMAND = 0xe3;
+/* What a simulator announces; each tool joins once its action does something. */
+const IOS_SIMULATOR_TOOLS: DeviceTool[] = [
+    'openUrl',
+    'launchApp',
+    'terminateApp',
+    'appearance',
+    'textSize',
+    'liquidGlass',
+    'colorFilter',
+    'reduceMotion',
+    'increaseContrast',
+    'reduceTransparency',
+    'showBorders',
+    'voiceOver',
+    'location',
+    'clearLocation',
+    'permissions',
+    'push'
+];
 
 const IOS_TEXT_SIZES: Record<DeviceTextSize, string> = {
     small: 'small',
@@ -175,7 +191,7 @@ export class IosSimulatorBackend implements DeviceBackend {
                         input: this.launch !== null,
                         screenshot: true,
                         buttons: IOS_BUTTONS,
-                        tools: [...DeviceToolSchema.options],
+                        tools: [...IOS_SIMULATOR_TOOLS],
                         permissions: [...DevicePermissionSchema.options]
                     }
                 }))
@@ -290,6 +306,8 @@ export class IosSimulatorBackend implements DeviceBackend {
             case 'sendPush':
                 await this.command(['push', deviceId, action.appId, '-'], JSON.stringify({ aps: { alert: action.payload } }));
                 break;
+            default:
+                throw new DeviceError('device-action-unavailable', 'This tool is not available for iOS simulators');
         }
         return this.detail(deviceId);
     }

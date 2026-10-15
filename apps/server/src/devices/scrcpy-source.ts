@@ -5,6 +5,8 @@ import {
     encodeKeyChord,
     encodeResetVideo,
     encodeSetClipboard,
+    isModifierUsage,
+    metaStateOf,
     SCRCPY_PROTOCOL_VERSION,
     ScrcpyDeviceMessageReader,
     ScrcpyVideoReader,
@@ -44,8 +46,8 @@ const FIRST_FRAME_TIMEOUT_MS = 5_000;
 /* How long a paste waits for the server to say it set the clipboard. */
 const CLIPBOARD_ACK_TIMEOUT_MS = 5_000;
 
-function writeInput(control: ScrcpyConnection, screen: ScreenSize, input: DeviceInput): void {
-    for (const message of controlMessages(input, screen)) {
+function writeInput(control: ScrcpyConnection, screen: ScreenSize, input: DeviceInput, metaState: number): void {
+    for (const message of controlMessages(input, screen, metaState)) {
         control.write(message);
     }
 }
@@ -61,6 +63,8 @@ interface Session {
     settleFirstFrame: () => void;
     /* The pastes waiting for their acknowledgement, by sequence; each settles true when it came and false when the session ended. */
     acks: Map<bigint, (acknowledged: boolean) => void>;
+    /* The modifier keys a person holds, which Android reads from every key event rather than from the modifier's own. */
+    modifiers: Set<number>;
     ended: boolean;
 }
 
@@ -127,6 +131,7 @@ export class ScrcpySource implements DeviceSource {
             firstFrame,
             settleFirstFrame,
             acks: new Map(),
+            modifiers: new Set(),
             ended: false
         };
         this.session = session;
@@ -177,11 +182,27 @@ export class ScrcpySource implements DeviceSource {
 
     input(input: DeviceInput): void | Promise<void> {
         const session = this.controlled();
+        if (input.kind === 'key') {
+            this.key(session, input);
+            return;
+        }
         if (session.screen === null) {
             // A tap right after the stream opened, as an agent's first one is, waits for the pixels instead of vanishing.
             return this.inputAfterFirstFrame(session, input);
         }
-        writeInput(session.control, session.screen, input);
+        writeInput(session.control, session.screen, input, 0);
+    }
+
+    /* A key needs no picture, so it never waits for the first frame. */
+    private key(session: Session & { control: ScrcpyConnection }, input: Extract<DeviceInput, { kind: 'key' }>): void {
+        if (isModifierUsage(input.usage)) {
+            if (input.phase === 'down') {
+                session.modifiers.add(input.usage);
+            } else {
+                session.modifiers.delete(input.usage);
+            }
+        }
+        writeInput(session.control, session.screen ?? { width: 1, height: 1 }, input, metaStateOf(session.modifiers));
     }
 
     private async inputAfterFirstFrame(session: Session, input: DeviceInput): Promise<void> {
@@ -189,14 +210,14 @@ export class ScrcpySource implements DeviceSource {
         if (session.ended || session.control === null || session.screen === null) {
             throw new DeviceError('device-not-streaming', 'The Android screen sent no picture yet, so the touch had nowhere to land');
         }
-        writeInput(session.control, session.screen, input);
+        writeInput(session.control, session.screen, input, 0);
     }
 
     keys(usages: readonly number[]): void {
         const { control } = this.controlled();
         const messages = encodeKeyChord(usages);
         if (messages === null) {
-            throw new DeviceError('device-input-unavailable', 'Ruimte presses only Return and Tab on an Android device');
+            throw new DeviceError('device-input-unavailable', 'Ruimte cannot press one of these keys on an Android device');
         }
         for (const message of messages) {
             control.write(message);

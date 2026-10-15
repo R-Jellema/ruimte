@@ -38,13 +38,69 @@ const KEYCODES = {
     back: 4,
     lock: 26,
     appSwitcher: 187,
-    siri: 219
+    siri: 219,
+    volumeUp: 24,
+    volumeDown: 25,
+    power: 26,
+    playPause: 85
 } as const;
 
-/* Android `KeyEvent` codes of the USB HID keyboard usages Ruimte presses on a device. */
+/* Android `KeyEvent` codes of the USB HID keyboard usages (page 7) a keyboard sends. */
 const HID_KEYCODES: ReadonlyMap<number, number> = new Map([
+    // a to z
+    ...Array.from({ length: 26 }, (_, index): [number, number] => [0x04 + index, 29 + index]),
+    // 1 to 9, then 0
+    ...Array.from({ length: 9 }, (_, index): [number, number] => [0x1e + index, 8 + index]),
+    [0x27, 7],
     [0x28, 66],
-    [0x2b, 61]
+    [0x29, 111],
+    [0x2a, 67],
+    [0x2b, 61],
+    [0x2c, 62],
+    [0x2d, 69],
+    [0x2e, 70],
+    [0x2f, 71],
+    [0x30, 72],
+    [0x31, 73],
+    [0x33, 74],
+    [0x34, 75],
+    [0x35, 68],
+    [0x36, 55],
+    [0x37, 56],
+    [0x38, 76],
+    [0x39, 115],
+    // F1 to F12
+    ...Array.from({ length: 12 }, (_, index): [number, number] => [0x3a + index, 131 + index]),
+    [0x49, 124],
+    [0x4a, 122],
+    [0x4b, 92],
+    [0x4c, 112],
+    [0x4d, 123],
+    [0x4e, 93],
+    [0x4f, 22],
+    [0x50, 21],
+    [0x51, 20],
+    [0x52, 19],
+    [0xe0, 113],
+    [0xe1, 59],
+    [0xe2, 57],
+    [0xe3, 117],
+    [0xe4, 114],
+    [0xe5, 60],
+    [0xe6, 58],
+    [0xe7, 118]
+]);
+
+/* Android `KeyEvent` meta state of each modifier usage while it is held: the side's own flag and the either-side one. */
+const MODIFIER_META: ReadonlyMap<number, number> = new Map([
+    [0xe0, 0x1000 | 0x2000],
+    [0xe1, 0x1 | 0x40],
+    [0xe2, 0x2 | 0x10],
+    [0xe3, 0x10000 | 0x20000],
+    [0xe4, 0x1000 | 0x4000],
+    [0xe5, 0x1 | 0x80],
+    [0xe6, 0x2 | 0x20],
+    [0xe7, 0x10000 | 0x40000]
 ]);
 
 /* Pixels of the scroll delta that make one wheel step on the device. */
@@ -196,14 +252,27 @@ export interface ScreenSize {
     height: number;
 }
 
-export function encodeKeycode(action: typeof ACTION_DOWN | typeof ACTION_UP, keycode: number): Uint8Array {
+export function encodeKeycode(action: typeof ACTION_DOWN | typeof ACTION_UP, keycode: number, metaState = 0): Uint8Array {
     const message = new DataView(new ArrayBuffer(14));
     message.setUint8(0, TYPE_INJECT_KEYCODE);
     message.setUint8(1, action);
     message.setInt32(2, keycode);
     message.setInt32(6, 0);
-    message.setInt32(10, 0);
+    message.setInt32(10, metaState);
     return new Uint8Array(message.buffer);
+}
+
+/* The Android meta state of the modifier usages held down. */
+export function metaStateOf(held: Iterable<number>): number {
+    let state = 0;
+    for (const usage of held) {
+        state |= MODIFIER_META.get(usage) ?? 0;
+    }
+    return state;
+}
+
+export function isModifierUsage(usage: number): boolean {
+    return MODIFIER_META.has(usage);
 }
 
 export function encodeTouch(action: number, pointerId: number, x: number, y: number, screen: ScreenSize): Uint8Array {
@@ -269,8 +338,8 @@ export function encodeResetVideo(): Uint8Array {
     return new Uint8Array([TYPE_RESET_VIDEO]);
 }
 
-/* The control messages one input becomes, against the size of the screen the last frame showed. */
-export function controlMessages(input: DeviceInput, screen: ScreenSize): Uint8Array[] {
+/* The control messages one input becomes, against the size of the screen the last frame showed and the modifiers a person holds. */
+export function controlMessages(input: DeviceInput, screen: ScreenSize, metaState = 0): Uint8Array[] {
     switch (input.kind) {
         case 'pointer':
             return [encodeTouch(touchAction(input.phase), 0, input.x, input.y, screen)];
@@ -290,6 +359,11 @@ export function controlMessages(input: DeviceInput, screen: ScreenSize): Uint8Ar
         }
         case 'rotate':
             return [encodeRotate()];
+        case 'key': {
+            // A key Android has no code for is dropped, as a keyboard's unknown key would be.
+            const keycode = HID_KEYCODES.get(input.usage);
+            return keycode === undefined ? [] : [encodeKeycode(input.phase === 'down' ? ACTION_DOWN : ACTION_UP, keycode, metaState)];
+        }
     }
 }
 

@@ -463,9 +463,7 @@ export class AndroidBackend implements DeviceBackend {
             case 'terminateApp':
                 await this.shell(serial, `am force-stop ${shellQuote(requirePackage(action.appId))}`);
                 break;
-            case 'setLiquidGlass':
-            case 'clearLocation':
-            case 'sendPush':
+            default:
                 throw new DeviceError('device-action-unavailable', 'This tool does not exist on Android');
         }
         return this.detail(deviceId);

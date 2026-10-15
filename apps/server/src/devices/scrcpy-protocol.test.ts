@@ -5,6 +5,7 @@ import {
     encodeScroll,
     encodeSetClipboard,
     encodeTouch,
+    metaStateOf,
     ScrcpyDeviceMessageReader,
     ScrcpyProtocolError,
     ScrcpyVideoReader
@@ -132,7 +133,7 @@ describe('typing messages', () => {
         expect(() => encodeSetClipboard(1n, 'x'.repeat(1 << 18), true)).toThrow(ScrcpyProtocolError);
     });
 
-    test('presses Return and Tab as Android key codes, let go in reverse, and knows no other key', () => {
+    test('presses a chord as Android key codes, let go in reverse, and refuses a key Android has no code for', () => {
         const chord = encodeKeyChord([0x2b, 0x28])!;
 
         expect(chord.map((message) => [message[1], new DataView(message.buffer).getInt32(2)])).toEqual([
@@ -141,7 +142,27 @@ describe('typing messages', () => {
             [1, 66],
             [1, 61]
         ]);
-        expect(encodeKeyChord([0xe3, 0x19])).toBeNull();
+        expect(encodeKeyChord([0xe1, 0x64])).toBeNull();
+    });
+
+    test('maps a keyboard key with the meta state of the modifiers held', () => {
+        const screen = { width: 1, height: 1 };
+        const [down] = controlMessages({ kind: 'key', phase: 'down', usage: 0x04 }, screen, metaStateOf([0xe1]));
+        const message = new DataView(down!.buffer);
+
+        expect([message.getUint8(0), message.getUint8(1), message.getInt32(2), message.getInt32(10)]).toEqual([0, 0, 29, 0x41]);
+        expect(new DataView(controlMessages({ kind: 'key', phase: 'up', usage: 0x52 }, screen)[0]!.buffer).getInt32(2)).toBe(19);
+        expect(new DataView(controlMessages({ kind: 'key', phase: 'down', usage: 0x27 }, screen)[0]!.buffer).getInt32(2)).toBe(7);
+        expect(controlMessages({ kind: 'key', phase: 'down', usage: 0x64 }, screen)).toEqual([]);
+    });
+
+    test('presses the volume, power and play keys as Android key codes', () => {
+        const screen = { width: 1, height: 1 };
+        const codes = (['volumeUp', 'volumeDown', 'power', 'playPause'] as const).map((button) =>
+            new DataView(controlMessages({ kind: 'button', button }, screen)[0]!.buffer).getInt32(2)
+        );
+
+        expect(codes).toEqual([24, 25, 26, 85]);
     });
 });
 

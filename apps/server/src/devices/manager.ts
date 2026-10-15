@@ -27,6 +27,9 @@ export interface DeviceSource extends LiveFrameSource {
     keys?(usages: readonly number[]): void | Promise<void>;
     /* Puts the text on the device's clipboard and pastes it where the focus is; absent on a source that cannot. */
     paste?(text: string): Promise<void>;
+    /* The clipboard through the session, for a device whose clipboard only its screen server reaches. */
+    readClipboard?(): Promise<string>;
+    writeClipboard?(text: string): Promise<void>;
 }
 
 /* The keys and the clipboard of a device, through a session held for whoever types. */
@@ -38,6 +41,8 @@ export interface DeviceKeyboard {
 /* USB HID keyboard usages (page 7) of the keys typing presses itself. */
 export const KEY_RETURN = 0x28;
 export const KEY_TAB = 0x2b;
+export const KEY_V = 0x19;
+export const KEY_LEFT_COMMAND = 0xe3;
 
 /* The app reads the clipboard on its own time after a paste, so the next run waits before it writes the clipboard again. */
 export const PASTE_SETTLE_MS = 150;
@@ -71,6 +76,15 @@ export interface DeviceBackend {
     createSource?(deviceId: string): DeviceSource;
     /* A png of the screen as it is now, at the device's own resolution. */
     screenshot?(deviceId: string): Promise<Uint8Array>;
+    /* A png for a person to keep; absent takes `screenshot`. */
+    capture?(deviceId: string): Promise<Uint8Array>;
+    /* Records the screen into `file`, one recording per device at a time. */
+    startRecording?(deviceId: string, file: string): Promise<void>;
+    /* Ends the recording, or takes the one that ended on its own, once its file is whole; answers that file. */
+    stopRecording?(deviceId: string): Promise<string>;
+    /* The clipboard without a session; a backend without it goes through the device's open source. */
+    readClipboard?(deviceId: string): Promise<string>;
+    writeClipboard?(deviceId: string, text: string): Promise<void>;
     /*
      * Types text into whatever has the focus on the device, a newline as Return and a tab as Tab.
      * `keyboard` holds a session and answers its keys, for a backend that types through them.
@@ -126,7 +140,11 @@ const DEVICE_ERROR_CODES = [
     'emulator-failed',
     'scrcpy-unavailable',
     'scrcpy-failed',
-    'scrcpy-protocol'
+    'scrcpy-protocol',
+    'device-path-refused',
+    'device-recording',
+    'device-not-recording',
+    'device-must-be-shut-down'
 ] as const;
 
 export type DeviceErrorCode = (typeof DEVICE_ERROR_CODES)[number];
@@ -314,6 +332,71 @@ export class DeviceManager {
         }
     }
 
+    async capture(backendId: string, platform: DevicePlatform, deviceId: string): Promise<Uint8Array> {
+        const backend = this.backend(backendId, platform);
+        const take = backend.capture?.bind(backend) ?? backend.screenshot?.bind(backend);
+        if (!take) {
+            throw new DeviceError('device-capture-unavailable', 'This device cannot be photographed by Ruimte');
+        }
+        try {
+            return await take(deviceId);
+        } catch (error) {
+            throw this.sourceError(error);
+        }
+    }
+
+    async startRecording(backendId: string, platform: DevicePlatform, deviceId: string, file: string): Promise<void> {
+        const backend = this.backend(backendId, platform);
+        if (!backend.startRecording) {
+            throw new DeviceError('device-action-unavailable', 'This device cannot be recorded by Ruimte');
+        }
+        try {
+            await backend.startRecording(deviceId, file);
+        } catch (error) {
+            throw this.sourceError(error);
+        }
+    }
+
+    async stopRecording(backendId: string, platform: DevicePlatform, deviceId: string): Promise<string> {
+        const backend = this.backend(backendId, platform);
+        if (!backend.stopRecording) {
+            throw new DeviceError('device-action-unavailable', 'This device cannot be recorded by Ruimte');
+        }
+        try {
+            return await backend.stopRecording(deviceId);
+        } catch (error) {
+            throw this.sourceError(error);
+        }
+    }
+
+    /*
+     * Reads the device clipboard, or writes `text` to it and with `paste` presses paste too; answers
+     * what the clipboard holds after. A device whose backend has no clipboard of its own needs to be open.
+     */
+    async clipboard(backendId: string, platform: DevicePlatform, deviceId: string, clientId: string, text?: string, paste = false): Promise<string> {
+        const backend = this.backend(backendId, platform);
+        const session = this.sessions.get(sessionKey(backendId, deviceId));
+        const source = session?.clients.has(clientId) ? session.source : null;
+        try {
+            if (text === undefined) {
+                if (backend.readClipboard) {
+                    return await backend.readClipboard(deviceId);
+                }
+                return await clipboardOf(source).readClipboard();
+            }
+            if (paste) {
+                await this.pasteInto(backend, deviceId, source, text);
+            } else if (backend.writeClipboard) {
+                await backend.writeClipboard(deviceId, text);
+            } else {
+                await clipboardOf(source).writeClipboard(text);
+            }
+            return text;
+        } catch (error) {
+            throw this.sourceError(error);
+        }
+    }
+
     detach(backendId: string, deviceId: string, clientId: string): void {
         const key = sessionKey(backendId, deviceId);
         this.sessions.get(key)?.clients.delete(clientId);
@@ -417,6 +500,19 @@ export class DeviceManager {
         for (const key of [...this.sessions.keys()]) {
             this.destroy(key);
         }
+    }
+
+    /* A paste goes through the source when it pastes itself, and otherwise sets the clipboard and presses the paste chord. */
+    private async pasteInto(backend: DeviceBackend, deviceId: string, source: DeviceSource | null, text: string): Promise<void> {
+        if (source?.paste) {
+            await source.paste(text);
+            return;
+        }
+        if (!backend.writeClipboard || !source?.keys) {
+            throw new DeviceError('device-not-open', 'Open the device before pasting into it');
+        }
+        await backend.writeClipboard(deviceId, text);
+        await source.keys([KEY_LEFT_COMMAND, KEY_V]);
     }
 
     /* The running session of a device, or a new one; `formats` is what the client that asks can draw, null for a holder that draws nothing. */
@@ -527,6 +623,18 @@ export class DeviceManager {
 
 function sessionKey(backendId: string, deviceId: string): string {
     return streamKeyOf(backendId, deviceId);
+}
+
+/* The clipboard of an open source, for a backend that has none of its own. */
+function clipboardOf(source: DeviceSource | null): Required<Pick<DeviceSource, 'readClipboard' | 'writeClipboard'>> {
+    if (source === null) {
+        throw new DeviceError('device-not-open', 'Open the device before using its clipboard');
+    }
+    const { readClipboard, writeClipboard } = source;
+    if (!readClipboard || !writeClipboard) {
+        throw new DeviceError('device-action-unavailable', 'This device has no clipboard Ruimte reaches');
+    }
+    return { readClipboard: () => readClipboard.call(source), writeClipboard: (text) => writeClipboard.call(source, text) };
 }
 
 function requireFormat(source: DeviceSource, formats: readonly DeviceVideoFormat[]): void {
