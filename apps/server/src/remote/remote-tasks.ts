@@ -235,6 +235,7 @@ export class RemoteTasks {
             // Settled here before: only the machine's acknowledgment is left.
             if (task.status !== 'open') {
                 await link.request('peer.result', { nodeId: entry.target, ack: true });
+                this.wakeStarts(machineId, entry.target);
                 return undefined;
             }
             const reported = await link.request<PeerResultResult>('peer.result', {
@@ -246,6 +247,8 @@ export class RemoteTasks {
             }
             const text = await this.settle(link, entry, task.projectId, reported);
             await link.request('peer.result', { nodeId: entry.target, ack: true });
+            // A task that ended there leaves a place for one that waited for it.
+            this.wakeStarts(machineId, entry.target);
             deps.log?.(`Task ${taskId} on ${machineId} settled: ${text.slice(0, 80)}`);
         } catch (e) {
             if (deps.connections.link(machineId) === null) {

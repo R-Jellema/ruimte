@@ -112,7 +112,7 @@ async function sendFromA(): Promise<{ bundleId: string; sha256: string }> {
     const bytes = new Uint8Array(await Bun.file(storeA.pathOf(made.bundleId)).arrayBuffer());
     for (let offset = 0; offset < bytes.byteLength; offset += BYTES_CHUNK_MAX) {
         const chunk = bytes.slice(offset, offset + BYTES_CHUNK_MAX);
-        await peerTasks.bundlePut(A, { bundleId: made.bundleId, offset, data: Buffer.from(chunk).toString('base64'), total: bytes.byteLength });
+        await peerTasks.bundlePut(A, 'client-1', { bundleId: made.bundleId, offset, data: Buffer.from(chunk).toString('base64'), total: bytes.byteLength });
     }
     return { bundleId: made.bundleId, sha256: made.sha256 };
 }
@@ -239,4 +239,26 @@ test('an acknowledgment makes no bundle, and one that was offered and never read
     expect(await bundlesOnDisk()).toHaveLength(1);
     expect((await peerTasks.result(A, 'client-1', { nodeId: 'chat-one', ack: true })).bundle).toBeNull();
     expect(await bundlesOnDisk()).toEqual([]);
+});
+
+test('a transfer that broke off with its channel goes with it, so it takes no place from the next one', async () => {
+    const bundle = await sendFromA();
+    await peerTasks.bundlePut(A, 'client-1', { bundleId: 'broken-one', offset: 0, data: Buffer.from('half').toString('base64'), total: 100 });
+    expect(await bundlesOnDisk()).toHaveLength(2);
+    peerTasks.channelClosed('client-1');
+    // A start is judged after the drop, whatever it ends in.
+    await peerTasks
+        .start(A, 'client-2', {
+            projectId: 'another',
+            nodeId: 'chat-x',
+            parentId: 'chat-parent',
+            title: 'x',
+            prompt: 'x',
+            provider: 'claude',
+            ceiling: 'full-access',
+            depth: 1
+        })
+        .catch(() => undefined);
+    expect(await bundlesOnDisk()).toEqual([]);
+    expect(bundle.bundleId).toBeDefined();
 });

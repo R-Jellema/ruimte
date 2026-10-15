@@ -30,7 +30,9 @@ export function registerPeerTaskHandlers(dispatcher: Dispatcher, links: Pick<Pee
 
     dispatcher.register('peer.result', (payload, client) => tasks.result(machineOf(client), client.id, payload), { peer: true });
 
-    dispatcher.register('peer.bundlePut', async (payload, client) => ({ received: await tasks.bundlePut(machineOf(client), payload) }), { peer: true });
+    dispatcher.register('peer.bundlePut', async (payload, client) => ({ received: await tasks.bundlePut(machineOf(client), client.id, payload) }), {
+        peer: true
+    });
 
     dispatcher.register('peer.bundleRead', (payload, client) => tasks.bundleRead(machineOf(client), payload), { peer: true });
 

@@ -83,6 +83,8 @@ export class PeerTasks {
     private readonly offered = new Map<string, { machineId: string; nodeId: string }>();
     // Tasks that machine stopped itself, which it needs no word of.
     private readonly stoppedByPeer = new Set<string>();
+    // The transfers each channel began and no start used up yet, which go with the channel.
+    private readonly uploads = new Map<string, { machineId: string; bundleIds: Set<string> }>();
     // The projects held for the tasks of each machine, by the channel that asked.
     private readonly holding = new Map<string, { clientId: string; machineId: string; projectId: string }>();
 
@@ -103,6 +105,7 @@ export class PeerTasks {
             } finally {
                 // Used up or refused, the copy that came in is no use again: a machine that tries once more sends it anew.
                 if (payload.bundle !== undefined) {
+                    this.forgetUpload(payload.bundle.bundleId);
                     await this.deps
                         .peerBundles(machineId)
                         .dropIncoming(payload.bundle.bundleId)
@@ -422,7 +425,10 @@ export class PeerTasks {
     }
 
     /* A piece of a bundle that machine sends; the pieces come in order and a bundle is held apart from every other machine's. */
-    bundlePut(machineId: string, payload: PeerBundlePutPayload): Promise<number> {
+    bundlePut(machineId: string, clientId: string, payload: PeerBundlePutPayload): Promise<number> {
+        const begun = this.uploads.get(clientId) ?? { machineId, bundleIds: new Set<string>() };
+        begun.bundleIds.add(payload.bundleId);
+        this.uploads.set(clientId, begun);
         return this.deps.peerBundles(machineId).receive(payload.bundleId, payload.offset, Buffer.from(payload.data, 'base64'), payload.total);
     }
 
@@ -458,8 +464,33 @@ export class PeerTasks {
 
     /* The channel of a machine is gone: what it held goes with it, as a client's holds do. */
     channelClosed(clientId: string): void {
+        this.dropUploads(clientId);
         for (const held of [...this.holding.values()].filter((candidate) => candidate.clientId === clientId)) {
             this.close(held.clientId, held.projectId);
+        }
+    }
+
+    /* A transfer that broke off with its channel is sent again from the start, so what arrived of it only takes a place. */
+    private dropUploads(clientId: string): void {
+        const begun = this.uploads.get(clientId);
+        this.uploads.delete(clientId);
+        if (begun === undefined) {
+            return;
+        }
+        const store = this.deps.peerBundles(begun.machineId);
+        // After a start in flight, which may be reading one of them.
+        void this.starts
+            .run(begun.machineId, async () => {
+                for (const bundleId of begun.bundleIds) {
+                    await store.dropIncoming(bundleId);
+                }
+            })
+            .catch((e: unknown) => this.deps.log?.(`Dropping a broken transfer failed: ${e instanceof Error ? e.message : String(e)}`));
+    }
+
+    private forgetUpload(bundleId: string): void {
+        for (const begun of this.uploads.values()) {
+            begun.bundleIds.delete(bundleId);
         }
     }
 

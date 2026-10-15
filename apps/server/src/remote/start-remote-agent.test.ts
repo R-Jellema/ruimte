@@ -255,6 +255,41 @@ describe('agent --machine', () => {
         expect(daemon.outbox.list().map((entry) => entry.kind)).toEqual(['take-remote-result']);
     });
 
+    test('a start that waits for a place runs once the result of another task is taken in, without the machine saying anything', async () => {
+        open = fakeLink();
+        let full = false;
+        const finished = new Set<string>();
+        answer = (type, payload) => {
+            if (type === 'peer.taskStart') {
+                if (full) {
+                    throw new Error('peer-busy: This machine already runs 4 tasks for that machine');
+                }
+                full = true;
+                return { cwd: '/studio/work', branch: null };
+            }
+            if ((payload as { ack?: boolean }).ack === true) {
+                full = false;
+            }
+            return finished.has((payload as { nodeId: string }).nodeId)
+                ? { status: 'done', result: { text: 'Fixed', source: 'turn', at: 1 }, bundle: null }
+                : { status: 'open', result: null, bundle: null };
+        };
+        const [first] = await give();
+        const [second] = await give();
+        const firstNode = first!.split('\t')[0]!;
+        const secondNode = second!.split('\t')[0]!;
+        await daemon.worker.settled();
+        expect(daemon.outbox.list().map((entry) => [entry.kind, entry.target])).toEqual([
+            ['take-remote-result', firstNode],
+            ['start-remote-agent', secondNode]
+        ]);
+
+        finished.add(firstNode);
+        daemon.worker.wake(firstNode);
+        await daemon.worker.settled();
+        expect(daemon.outbox.list().map((entry) => [entry.kind, entry.target])).toEqual([['take-remote-result', secondNode]]);
+    });
+
     test('a machine out of reach for good fails what was owed to it, with a line each, and stops what already ran', async () => {
         open = fakeLink();
         const [started] = await give();
