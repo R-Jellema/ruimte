@@ -131,6 +131,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     sessions.observe((event) => computer.observe(event));
     chats.observe((event) => computer.observe(event));
     chats.observe((event) => launches.secrets.observe(event));
+    chats.observe((event) => agents.proposals.observe(event));
     chats.observe((event) => launches.afterSettle.chatEvent(event));
     chats.observe((event) => {
         if (event.event === 'chat.event' && event.payload.event.type === 'item' && event.payload.event.item.kind === 'user') {
@@ -208,7 +209,8 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         plans: agents.plans,
         provenance: language.provenance,
         computer,
-        secrets: launches.secrets
+        secrets: launches.secrets,
+        proposals: agents.proposals
     });
     // Before the socket answers, so no client attaches to or writes in a chat that is half moved; the outbox starts after.
     await repairChatMoves({

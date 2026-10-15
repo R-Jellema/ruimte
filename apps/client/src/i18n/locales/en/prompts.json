@@ -19,6 +19,11 @@
         "decline": "Decline",
         "approval": "Saving approves this variable for the launch, if you approved the launch before."
     },
+    "projectProposal": {
+        "title": "This chat suggests a project",
+        "review": "Review…",
+        "decline": "Decline"
+    },
     "waiting": {
         "heading": "Waiting for you in its terminal",
         "approval": "Approval requested by {{tool}}",

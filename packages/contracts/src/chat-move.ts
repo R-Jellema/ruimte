@@ -74,6 +74,40 @@ export const ChatMoveResultSchema = z.object({
 });
 export type ChatMoveResult = z.infer<typeof ChatMoveResultSchema>;
 
+export const PROJECT_PROPOSAL_LIMITS = { name: 120, folder: 1024, reason: 600 } as const;
+
+/* An agent in Chats suggesting that its chat become a project, as the card in that chat shows it. The suggestion makes nothing. */
+export const ProjectProposalSchema = z.object({
+    proposalId: z.string().min(1),
+    // The chat that suggests, by the id of its view.
+    chatId: z.string().min(1),
+    name: z.string().min(1),
+    // Absolute on the machine; absent when the agent leaves the folder to the person.
+    folder: z.string().min(1).optional(),
+    reason: z.string(),
+    createdAt: z.number(),
+    // When the card goes if nobody answers; every call of the agent for the same chat moves it on.
+    expiresAt: z.number()
+});
+export type ProjectProposal = z.infer<typeof ProjectProposalSchema>;
+
+// Every card of the machine at once, so a client that arrives late and one that missed a settle agree.
+export const ProjectProposalsSchema = z.object({
+    proposals: z.array(ProjectProposalSchema)
+});
+export type ProjectProposals = z.infer<typeof ProjectProposalsSchema>;
+
+export const ProjectProposalDeclinePayloadSchema = z.object({
+    proposalId: z.string().min(1)
+});
+export type ProjectProposalDeclinePayload = z.infer<typeof ProjectProposalDeclinePayloadSchema>;
+
+// False when the card was gone already: another client was first, the chat moved or it expired.
+export const ProjectProposalDeclineResultSchema = z.object({
+    accepted: z.boolean()
+});
+export type ProjectProposalDeclineResult = z.infer<typeof ProjectProposalDeclineResultSchema>;
+
 /*
  * Whether a chat does anything a move would cut off: a turn, a question or approval waiting on a
  * person, a subagent or command in the background, a goal, or a message in the queue. The status

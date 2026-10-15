@@ -9,6 +9,7 @@ import { ruimteUiSources } from '../chat/ui-sources.ts';
 import { restartConnectPeers } from '../remote/connect-peer.ts';
 import { RuimteTaskStore } from '../tasks/task-store.ts';
 import { OneShotPlace } from '../peering/one-shot-place.ts';
+import { ProjectProposals } from '../projects/project-proposals.ts';
 import { UntrustedFolders } from '../peering/untrusted.ts';
 import type { ComputerUse } from '../computer/computer-use.ts';
 import { ComputerUseStore } from '../computer/store.ts';
@@ -132,6 +133,8 @@ export interface AgentsBundle {
     visuals: VisualStore;
     /* What came from another machine, which never runs on the configuration of the files it sent. */
     untrusted: UntrustedFolders;
+    /* The suggestions of agents in Chats to become a project, which a person answers. */
+    proposals: ProjectProposals;
     /* Where a one-shot CLI run works, so a folder from another machine never lends it its configuration. */
     oneShot: OneShotPlace;
     /* Refuses a directory an agent node may not start in, at every start. */
@@ -158,6 +161,9 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
         cwdOf: (nodeId) => chats.get(nodeId)?.info.cwd ?? sessions.get(nodeId)?.cwd ?? null
     });
     const oneShot = new OneShotPlace(config.home, untrusted);
+    const proposals = new ProjectProposals({
+        chats: { hold: (chatId, key) => void chats.holdForPerson(chatId, key), release: (chatId, key) => chats.releaseHold(chatId, key) }
+    });
     const messagesFor = (targetId: string): string[] => notices.take(targetId).map(renderNotice);
     // One reader for chats and terminals, so a transcript both look at is only read on from where either stopped.
     const claudeTitles = new ClaudeTitleReader();
@@ -320,6 +326,7 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
         visuals,
         untrusted,
         oneShot,
+        proposals,
         startCwd,
         targetForToken,
         messagesFor

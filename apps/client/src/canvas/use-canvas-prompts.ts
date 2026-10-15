@@ -5,6 +5,7 @@ import { useChats } from '@adecore/agents-react/state';
 import { subscribeChatThreads } from '@/state/chats';
 import { computerApprovalsOf, useComputer } from '@/state/computer';
 import { endpointOfNode, useEndpointId } from '@/state/keys';
+import { proposalsOf, useProposals } from '@/state/proposals';
 import { secretRequestsOf, useSecrets } from '@/state/secrets';
 import { useSessions } from '@/state/sessions';
 
@@ -32,6 +33,7 @@ export function useCanvasPrompts(): CanvasPrompt[] {
                 chats: useChats.getState().byKey,
                 computer: machines.flatMap(computerApprovalsOf),
                 secrets: machines.flatMap(secretRequestsOf),
+                proposals: machines.flatMap(proposalsOf),
                 waitingSince: waitingSince.current
             });
             waitingSince.current = next.waitingSince;
@@ -43,7 +45,8 @@ export function useCanvasPrompts(): CanvasPrompt[] {
             subscribeChatThreads(update),
             useSessions.subscribe(update),
             useComputer.subscribe(update),
-            useSecrets.subscribe(update)
+            useSecrets.subscribe(update),
+            useProposals.subscribe(update)
         ];
         return () => {
             for (const off of unsubscribe) {

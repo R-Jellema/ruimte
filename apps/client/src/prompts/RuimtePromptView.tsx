@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Button, Input } from '@adecore/ui';
 import type { PromptViewProps } from '@adecore/agents-react/prompts';
 import { ApprovalActions, PromptPrimary, PromptCard } from '@adecore/agents-react/prompts';
-import type { SecretRequest } from '@ruimte/contracts';
+import type { ProjectProposal, SecretRequest } from '@ruimte/contracts';
 import { isRuimteApp } from '@/computer/ruimte-app';
 import { computerButtons, SECRET_ANSWER_FIELD, SECRET_DECLINE, type RuimtePrompt } from '@/prompts/ruimte-prompts';
+import { useUi } from '@/state/ui';
 
 /* A card of Ruimte's own, drawn the way a chat draws its prompts: a waiting terminal, the machine asking to let an agent into an app, or an agent asking for a launch's secret. */
 export function RuimtePromptView({ prompt, props }: { prompt: RuimtePrompt; props: PromptViewProps }) {
@@ -40,6 +41,10 @@ export function RuimtePromptView({ prompt, props }: { prompt: RuimtePrompt; prop
     if (data.kind === 'secret-request') {
         // Keyed on the request, so a field never carries what was typed for one card into the next.
         return <SecretCard key={data.request.requestId} request={data.request} props={props} />;
+    }
+
+    if (data.kind === 'project-proposal') {
+        return <ProposalCard proposal={data.proposal} props={props} />;
     }
 
     const { request } = data;
@@ -124,6 +129,48 @@ function SecretCard({ request, props }: { request: SecretRequest; props: PromptV
             <p className="text-xs text-text-muted">{t('secret.variable', words)}</p>
             {request.replaces && <p className="text-xs text-text-muted">{t('secret.replaces', words)}</p>}
             <p className="text-xs text-text-muted">{t('secret.approval')}</p>
+        </PromptCard>
+    );
+}
+
+/* An agent in Chats thinks its chat has become a project. The card only asks; the dialog that moves a chat does the rest. */
+function ProposalCard({ proposal, props }: { proposal: ProjectProposal; props: PromptViewProps }) {
+    const { t } = useTranslation('prompts');
+    const { onAction, disabled, sending, error, top } = props;
+    const locked = sending || disabled;
+
+    const review = (): void => {
+        useUi.getState().setMoveChatDialog({
+            chatId: proposal.chatId,
+            mode: 'make',
+            projectId: null,
+            suggest: { name: proposal.name, ...(proposal.folder === undefined ? {} : { folder: proposal.folder }) }
+        });
+    };
+
+    return (
+        <PromptCard
+            kind="question"
+            heading={t('projectProposal.title')}
+            top={top}
+            busy={sending}
+            notice={disabled ? t('error.notConnected') : null}
+            error={error}
+            actions={
+                <>
+                    <Button size="sm" disabled={locked} onClick={() => onAction({ kind: 'choose', choiceId: SECRET_DECLINE })}>
+                        {t('projectProposal.decline')}
+                    </Button>
+                    <span className="grow" />
+                    <PromptPrimary disabled={locked} onClick={review}>
+                        {t('projectProposal.review')}
+                    </PromptPrimary>
+                </>
+            }
+        >
+            <p className="break-words text-sm text-text">{proposal.name}</p>
+            {proposal.folder !== undefined && <p className="break-all font-mono text-xs text-text-muted select-text">{proposal.folder}</p>}
+            <p className="whitespace-pre-wrap break-words text-sm text-text-muted">{proposal.reason}</p>
         </PromptCard>
     );
 }

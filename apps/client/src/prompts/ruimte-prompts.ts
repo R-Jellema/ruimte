@@ -1,22 +1,24 @@
 import i18next from 'i18next';
-import type { AgentRequest, ComputerApproval, ComputerApprovalChoice, SecretRequest } from '@ruimte/contracts';
+import type { AgentRequest, ComputerApproval, ComputerApprovalChoice, ProjectProposal, SecretRequest } from '@ruimte/contracts';
 import type { PromptAction, ApprovalButtonSpec, HostPrompt, PromptSubject } from '@adecore/agents-react/prompts';
+import type { ProposalAnswers } from '@/proposals/answer';
 import type { SecretAnswers } from '@/secrets/answer';
 
 /*
  * What Ruimte asks beside a chat's own prompts: the machine's approval for an agent to operate an app
- * and an agent's ask for a launch's secret, which the machine asks and not the CLI, and a terminal
- * whose TUI waits, which only the TUI answers.
+ * an agent's ask for a launch's secret and an agent's suggestion to make its chat a project, which
+ * the machine asks and not the CLI, and a terminal whose TUI waits, which only the TUI answers.
  */
 export type RuimtePromptData =
     | { kind: 'computer-approval'; request: ComputerApproval }
     | { kind: 'secret-request'; endpointId: string; request: SecretRequest }
+    | { kind: 'project-proposal'; endpointId: string; proposal: ProjectProposal }
     | { kind: 'terminal-waiting'; since: number; request?: AgentRequest };
 
 /* The field of a secret card's answer; the value travels in it only from the card to the machine. */
 export const SECRET_ANSWER_FIELD = 'value';
 
-/* Decline is the one choice a secret card offers besides Save. */
+/* Decline is the one choice a secret card offers besides Save, and the one a suggestion's card sends to the machine. */
 export const SECRET_DECLINE = 'decline';
 
 export interface RuimtePrompt extends HostPrompt {
@@ -49,6 +51,16 @@ export function secretPrompt(endpointId: string, nodeId: string, request: Secret
     };
 }
 
+export function proposalPrompt(endpointId: string, chatId: string, proposal: ProjectProposal): RuimtePrompt {
+    return {
+        id: `project-proposal:${chatId}:${proposal.proposalId}`,
+        createdAt: proposal.createdAt,
+        blocking: true,
+        asks: 'question',
+        data: { kind: 'project-proposal', endpointId, proposal }
+    };
+}
+
 export function waitingPrompt(nodeId: string, since: number, request?: AgentRequest): RuimtePrompt {
     return {
         id: `waiting:${nodeId}${request ? `:${request.id}` : ''}`,
@@ -61,7 +73,7 @@ export function waitingPrompt(nodeId: string, since: number, request?: AgentRequ
 
 export function isRuimtePrompt(prompt: HostPrompt): prompt is RuimtePrompt {
     const data = prompt.data as Partial<RuimtePromptData> | null;
-    return data?.kind === 'computer-approval' || data?.kind === 'secret-request' || data?.kind === 'terminal-waiting';
+    return data?.kind === 'computer-approval' || data?.kind === 'secret-request' || data?.kind === 'project-proposal' || data?.kind === 'terminal-waiting';
 }
 
 /* Terminal status snapshots rebuild requests, so equal content must still keep the stack steady. */
@@ -75,6 +87,9 @@ export function ruimtePayloadOf(subject: PromptSubject): unknown {
     const { data } = subject.prompt;
     if (data.kind === 'computer-approval' || data.kind === 'secret-request') {
         return data.request;
+    }
+    if (data.kind === 'project-proposal') {
+        return data.proposal;
     }
     return data.request ? JSON.stringify(data.request) : data.since;
 }
@@ -97,10 +112,24 @@ export async function answerRuimtePrompt(
     prompt: HostPrompt,
     action: PromptAction,
     answerComputer: (requestId: string, choice: ComputerApprovalChoice) => Promise<boolean>,
-    secrets: SecretAnswers
+    secrets: SecretAnswers,
+    proposals?: ProposalAnswers
 ): Promise<void> {
     if (!isRuimtePrompt(prompt) || prompt.data.kind === 'terminal-waiting') {
         throw new Error(i18next.t('prompts:error.terminalOnly'));
+    }
+    if (prompt.data.kind === 'project-proposal') {
+        const { endpointId, proposal } = prompt.data;
+        // Review opens the dialog from the card itself; only a no reaches the machine from here.
+        if (
+            action.kind !== 'choose' ||
+            action.choiceId !== SECRET_DECLINE ||
+            proposals === undefined ||
+            !(await proposals.decline(endpointId, proposal.proposalId))
+        ) {
+            throw new Error(i18next.t('prompts:error.expired'));
+        }
+        return;
     }
     if (prompt.data.kind === 'secret-request') {
         const { endpointId, request } = prompt.data;

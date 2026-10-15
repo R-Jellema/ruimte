@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import type { ComputerApprovalChoice, SecretRequest } from '@ruimte/contracts';
+import type { ComputerApprovalChoice, ProjectProposal, SecretRequest } from '@ruimte/contracts';
 import { isBlockingSubject, promptCreatedAt, promptIdOf, type PromptSubject } from '@adecore/agents-react/prompts';
-import { answerRuimtePrompt, computerButtons, computerPrompt, ruimtePayloadOf, secretPrompt, waitingPrompt } from '@/prompts/ruimte-prompts';
+import { answerRuimtePrompt, computerButtons, computerPrompt, proposalPrompt, ruimtePayloadOf, secretPrompt, waitingPrompt } from '@/prompts/ruimte-prompts';
+import type { ProposalAnswers } from '@/proposals/answer';
 import type { SecretAnswers } from '@/secrets/answer';
 
 const request = {
@@ -130,5 +131,44 @@ describe('a secret card', () => {
         expect(promptCreatedAt(card)).toBe(9);
         expect(promptIdOf(card)).toBe('secret:chat-1:secret-1');
         expect(ruimtePayloadOf(card)).toBe(secret);
+    });
+});
+
+describe('a project suggestion card', () => {
+    const proposal: ProjectProposal = { proposalId: 'proposal-1', chatId: 'chat-1', name: 'Vinyl shelf', reason: 'It grew', createdAt: 11, expiresAt: 99 };
+    const card: PromptSubject = { kind: 'host', nodeId: 'chat-1', prompt: proposalPrompt('m1', 'chat-1', proposal) };
+
+    function proposalMachine(accepted = true) {
+        const calls: unknown[][] = [];
+        const answers: ProposalAnswers = {
+            decline: async (endpointId, proposalId) => {
+                calls.push(['decline', endpointId, proposalId]);
+                return accepted;
+            }
+        };
+        return { calls, answers };
+    }
+
+    test('declines at the machine that holds the card, and a card that is gone is an error', async () => {
+        const { calls, answers } = proposalMachine();
+        await answerRuimtePrompt(card.prompt, { kind: 'choose', choiceId: 'decline' }, machine().answer, NO_SECRETS, answers);
+        expect(calls).toEqual([['decline', 'm1', 'proposal-1']]);
+        const gone = proposalMachine(false);
+        await expect(answerRuimtePrompt(card.prompt, { kind: 'choose', choiceId: 'decline' }, machine().answer, NO_SECRETS, gone.answers)).rejects.toThrow(
+            'already answered'
+        );
+    });
+
+    test('sends nothing for any other choice', async () => {
+        const { calls, answers } = proposalMachine();
+        await expect(answerRuimtePrompt(card.prompt, { kind: 'choose', choiceId: 'review' }, machine().answer, NO_SECRETS, answers)).rejects.toThrow();
+        expect(calls).toEqual([]);
+    });
+
+    test('blocks, is dated by when the agent suggested, and stands for its proposal', () => {
+        expect(isBlockingSubject(card)).toBe(true);
+        expect(promptCreatedAt(card)).toBe(11);
+        expect(promptIdOf(card)).toBe('project-proposal:chat-1:proposal-1');
+        expect(ruimtePayloadOf(card)).toBe(proposal);
     });
 });

@@ -36,6 +36,7 @@ import { registerProjectHandlers } from '../handlers/project.ts';
 import { registerProvenanceHandlers } from '../handlers/provenance.ts';
 import { registerProviderAccountHandlers } from '../handlers/accounts.ts';
 import { registerPushHandlers } from '../handlers/push.ts';
+import { registerProposalHandlers } from '../handlers/project-proposals.ts';
 import { registerSecretHandlers } from '../handlers/secrets.ts';
 import { registerServerHandlers } from '../handlers/server.ts';
 import { registerSessionHandlers } from '../handlers/session.ts';
@@ -133,6 +134,7 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
     const beforeChatKill = (chatId: string): Promise<unknown> => {
         devices.computer.nodeClosed(chatId);
         launches.secrets.nodeClosed(chatId);
+        agents.proposals.forget(chatId);
         return work.endChildren.owe(chatId);
     };
     registerChatHandlers(
@@ -159,7 +161,8 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
             prWatches: work.prWatches,
             machineHome: machine.machineHome,
             journal: stores.chatMoves,
-            snoozes: work.snoozes
+            snoozes: work.snoozes,
+            proposals: agents.proposals
         }),
         (nodeId) => store.machineOfNode(nodeId),
         (chatId) => stores.lineage.peerOf(chatId) !== null && stores.outbox.list().some((entry) => entry.kind === 'start-agent' && entry.target === chatId)
@@ -354,6 +357,7 @@ export function registerEditorHandlers(dispatcher: Dispatcher, input: EditorHand
     registerSessionPortHandlers(dispatcher, processes.sessionPorts);
     registerComputerHandlers(dispatcher, devices.computer);
     registerSecretHandlers(dispatcher, launches.secrets);
+    registerProposalHandlers(dispatcher, agents.proposals);
     registerGitHandlers(
         dispatcher,
         git.worktrees,

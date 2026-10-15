@@ -29468,6 +29468,86 @@
       "refusal"
     ]
   },
+  "request.chat.proposals.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.chat.proposals.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "proposals": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "proposalId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "chatId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "folder": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reason": {
+              "type": "string"
+            },
+            "createdAt": {
+              "type": "number"
+            },
+            "expiresAt": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "proposalId",
+            "chatId",
+            "name",
+            "reason",
+            "createdAt",
+            "expiresAt"
+          ]
+        }
+      }
+    },
+    "required": [
+      "proposals"
+    ]
+  },
+  "request.chat.proposalDecline.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "proposalId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "proposalId"
+    ]
+  },
+  "request.chat.proposalDecline.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "accepted": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "accepted"
+    ]
+  },
   "request.skills.list.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -72191,6 +72271,56 @@
     },
     "required": [
       "requests"
+    ]
+  },
+  "event.chat.proposals": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "proposals": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "proposalId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "chatId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "folder": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reason": {
+              "type": "string"
+            },
+            "createdAt": {
+              "type": "number"
+            },
+            "expiresAt": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "proposalId",
+            "chatId",
+            "name",
+            "reason",
+            "createdAt",
+            "expiresAt"
+          ]
+        }
+      }
+    },
+    "required": [
+      "proposals"
     ]
   },
   "event.task.changed": {

@@ -170,7 +170,6 @@ panels, no executable code.
   beside it; changing that needs `@adecore/shell`.
 - A person who postpones the restart of this computer's own service after an update has no workspace until then;
   add a restart action to the lost screen, or leave it.
-- Whether an agent in Chats may suggest a project (chat-to-project B8), after the move has been tried.
 
 Automatic redelivery after an accepted parent turn fails stays off by an earlier product decision.
 

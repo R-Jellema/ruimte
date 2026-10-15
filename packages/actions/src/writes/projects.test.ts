@@ -38,6 +38,15 @@ describeWrites('projects', {
             'no chat': { endpointId: 'endpoint-1', to: { projectId: 'ruimte' }, ownFiles: 'leave' }
         }
     },
+    'project.propose': {
+        actors: ['agent'],
+        input: { name: 'Vinyl shelf', folder: '/work/vinyl-shelf', reason: 'The notes became a codebase' },
+        refused: {
+            'a blank name': { name: ' ', reason: 'The notes became a codebase' },
+            'no reason': { name: 'Vinyl shelf' },
+            'a wait past what a call holds': { name: 'Vinyl shelf', reason: 'The notes became a codebase', wait: 111 }
+        }
+    },
     'project.delete': {
         actors: ['person'],
         input: { ...project, removeFiles: true },

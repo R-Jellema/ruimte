@@ -11,6 +11,7 @@ import { Dispatcher } from '../dispatcher.ts';
 import { MachineHome } from '../fs/machine-home.ts';
 import { registerChatHandlers } from '../handlers/chat.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
+import { ProjectProposals } from '../projects/project-proposals.ts';
 import { chatMoveHandlers } from './chat-move.ts';
 
 describe('what the machine says about moving a chat', () => {
@@ -132,5 +133,28 @@ describe('what the machine says about moving a chat', () => {
         await daemon.chats.send(chatId, 'ask: which color');
         await daemon.until(() => daemon.chats.get(chatId)?.info.status === 'needs-you');
         expect((await moves().info({ chatId })).refusal).toEqual({ reason: 'working' });
+    });
+
+    test('lets a chat go whose only wait is the card of its own suggestion, and settles that card when it moves', async () => {
+        const proposals = new ProjectProposals({
+            chats: { hold: (id, key) => void daemon.chats.holdForPerson(id, key), release: (id, key) => daemon.chats.releaseHold(id, key) }
+        });
+        const waiting = proposals.ask({ chatId, name: 'Vinyl', reason: 'It grew' }, 30_000);
+        expect(daemon.chats.get(chatId)?.info.status).toBe('needs-you');
+        const handlers = chatMoveHandlers({
+            ...daemon,
+            store,
+            lineage: daemon.lineage,
+            prWatches: daemon.prWatches,
+            outbox: daemon.outbox,
+            machineHome: new MachineHome(store.home),
+            proposals
+        });
+        expect((await handlers.info({ chatId })).refusal).toBeNull();
+        // Without the wiring that knows the card, the same status is a chat that works.
+        expect((await moves().info({ chatId })).refusal).toEqual({ reason: 'working' });
+        proposals.moved(chatId, 'project-1');
+        expect((await waiting).outcome).toBe('moved');
+        expect(daemon.chats.get(chatId)?.info.status).not.toBe('needs-you');
     });
 });

@@ -15,11 +15,13 @@ import { useContextSources } from '@/context/sources';
 import { isApplePlatform } from '@/desktop/bridge';
 import { DictationTextarea } from '@/dictation/DictationTextarea';
 import { dictationPreview, dictationRange } from '@/dictation/editor';
-import { answerRuimtePrompt, computerPrompt, isRuimtePrompt, secretPrompt } from '@/prompts/ruimte-prompts';
+import { answerRuimtePrompt, computerPrompt, isRuimtePrompt, proposalPrompt, secretPrompt } from '@/prompts/ruimte-prompts';
+import { proposalAnswers } from '@/proposals/answer';
 import { RuimtePromptView } from '@/prompts/RuimtePromptView';
 import { openFileLink, parseFileRef, resolveFileRef, type FileRef } from '@/shell/panels/file-links';
 import { secretAnswers } from '@/secrets/answer';
 import { useNodeComputerApprovals } from '@/state/computer';
+import { useNodeProposals } from '@/state/proposals';
 import { useNodeSecretRequests } from '@/state/secrets';
 import { useToasts } from '@/state/toasts';
 import { isShellShortcut } from '@/terminal/keymap';
@@ -56,13 +58,18 @@ export const WORKSPACE_CHAT_HOST: Partial<ChatHost> = {
         useExtra: (endpointId, chatId) => {
             const requests = useNodeComputerApprovals(endpointId, chatId);
             const secrets = useNodeSecretRequests(endpointId, chatId);
+            const proposals = useNodeProposals(endpointId, chatId);
             return useMemo(
-                () => [...requests.map((request) => computerPrompt(chatId, request)), ...secrets.map((request) => secretPrompt(endpointId, chatId, request))],
-                [requests, secrets, endpointId, chatId]
+                () => [
+                    ...requests.map((request) => computerPrompt(chatId, request)),
+                    ...secrets.map((request) => secretPrompt(endpointId, chatId, request)),
+                    ...proposals.map((proposal) => proposalPrompt(endpointId, chatId, proposal))
+                ],
+                [requests, secrets, proposals, endpointId, chatId]
             );
         },
         render: (prompt, props) => (isRuimtePrompt(prompt) ? createElement(RuimtePromptView, { prompt, props }) : null),
-        answer: (prompt, action) => answerRuimtePrompt(prompt, action, answerComputerAsPerson, secretAnswers)
+        answer: (prompt, action) => answerRuimtePrompt(prompt, action, answerComputerAsPerson, secretAnswers, proposalAnswers)
     },
     openNewChat: (endpointId, chatId) => void openNewChatAfterSend(endpointId, chatId),
     useReferableChats: useProjectChats,

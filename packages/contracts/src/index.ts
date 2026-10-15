@@ -15,7 +15,15 @@ import {
     ChatSearchResultSchema
 } from './chat-search.ts';
 import { ChatHandoffPayloadSchema, ChatHandoffResultSchema } from './chat-handoff.ts';
-import { ChatMoveInfoPayloadSchema, ChatMoveInfoResultSchema, ChatMovePayloadSchema, ChatMoveResultSchema } from './chat-move.ts';
+import {
+    ChatMoveInfoPayloadSchema,
+    ChatMoveInfoResultSchema,
+    ChatMovePayloadSchema,
+    ChatMoveResultSchema,
+    ProjectProposalDeclinePayloadSchema,
+    ProjectProposalDeclineResultSchema,
+    ProjectProposalsSchema
+} from './chat-move.ts';
 import { ChatImageTargetPayloadSchema, ChatImageTargetResultSchema, ChatImageSavePayloadSchema, ChatImageSaveResultSchema } from './chat-image.ts';
 import { ProjectSidebarResultSchema, ProjectSummaryEventSchema } from './project-sidebar.ts';
 import { z } from 'zod';
@@ -535,6 +543,9 @@ export const REQUEST_SCHEMAS = {
     'chat.handoff': { payload: ChatHandoffPayloadSchema, result: ChatHandoffResultSchema },
     'chat.move': { payload: ChatMovePayloadSchema, result: ChatMoveResultSchema },
     'chat.moveInfo': { payload: ChatMoveInfoPayloadSchema, result: ChatMoveInfoResultSchema },
+    // The suggestions of agents in Chats that a person has not answered yet, and a person's no to one.
+    'chat.proposals': { payload: EmptySchema, result: ProjectProposalsSchema },
+    'chat.proposalDecline': { payload: ProjectProposalDeclinePayloadSchema, result: ProjectProposalDeclineResultSchema },
     'skills.list': AGENT_REQUEST_SCHEMAS['skills.list'],
     'provider.list': AGENT_REQUEST_SCHEMAS['provider.list'],
     'accounts.list': AGENT_REQUEST_SCHEMAS['accounts.list'],
@@ -796,6 +807,8 @@ export const EVENT_SCHEMAS = {
     'computer.approvals': ComputerApprovalsSchema,
     'computer.grants': ComputerAppGrantsSchema,
     'secret.requests': SecretRequestsSchema,
+    // Every open suggestion of an agent in Chats, to every client, whenever the list changes.
+    'chat.proposals': ProjectProposalsSchema,
     'task.changed': TaskChangedEventSchema,
     'plan.changed': PlanChangedEventSchema,
     'plan.removed': PlanRemovedEventSchema,

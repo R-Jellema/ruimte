@@ -24,6 +24,7 @@ import { openAction } from './open-verb.ts';
 import { operationVerb } from './operation-verb.ts';
 import { planVerb } from './plan-verb.ts';
 import { renameAction } from './rename-verb.ts';
+import { PROJECT_ACTIONS, PROJECT_DETAIL, PROJECT_SUMMARY } from './project-verb.ts';
 import { SECRET_ACTIONS, SECRET_DETAIL, SECRET_SUMMARY } from './secret-verb.ts';
 import { doneVerb, taskListAction, taskNewAction } from './task-verbs.ts';
 import { teamVerb } from './team-verb.ts';
@@ -180,6 +181,13 @@ const secretNoun = defineNoun({
     actions: [...SECRET_ACTIONS]
 });
 
+const projectNoun = defineNoun({
+    name: 'project',
+    summary: PROJECT_SUMMARY,
+    detail: PROJECT_DETAIL,
+    actions: [...PROJECT_ACTIONS]
+});
+
 const databaseNoun = defineNoun({
     name: 'database',
     summary: DATABASE_SUMMARY,
@@ -231,6 +239,7 @@ export const VERBS: readonly VerbEntry[] = [
     operationVerb,
     launchesNoun,
     secretNoun,
+    projectNoun,
     databaseNoun,
     languageNoun,
     computerNoun

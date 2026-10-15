@@ -19,6 +19,11 @@
         "decline": "Weigeren",
         "approval": "Bewaren keurt deze variabele goed voor de launch, als je de launch eerder goedkeurde."
     },
+    "projectProposal": {
+        "title": "Deze chat stelt een project voor",
+        "review": "Bekijken…",
+        "decline": "Weigeren"
+    },
     "waiting": {
         "approval": "Toestemming gevraagd door {{tool}}",
         "question": "Vraag van {{tool}}",

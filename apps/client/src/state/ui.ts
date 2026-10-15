@@ -150,6 +150,8 @@ export interface MoveChatRequest {
     chatId: string;
     mode: 'make' | 'pick';
     projectId: string | null;
+    /* What an agent in the chat suggested, which the form starts from: a name and, when it gave one, a folder. */
+    suggest?: { name: string; folder?: string };
 }
 
 /*

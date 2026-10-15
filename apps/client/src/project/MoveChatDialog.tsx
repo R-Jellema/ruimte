@@ -76,15 +76,16 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
     const projects = useMemo(() => moveCandidatesOf(rows, endpoints, endpointId), [rows, endpoints, endpointId]);
 
     const asksProject = request.mode === 'pick' && request.projectId === null;
-    const [form, setForm] = useState<MoveForm>({
+    const [typed, setTyped] = useState<MoveForm>({
         destination: request.mode === 'make' ? NEW_PROJECT : request.projectId,
         folder: 'new',
-        name: chatName,
-        newPath: '',
+        name: request.suggest?.name ?? chatName,
+        newPath: request.suggest?.folder ?? '',
         initGit: true,
         chosenPath: ''
     });
-    const [pathEdited, setPathEdited] = useState(false);
+    // A folder an agent suggested stands as typed, so the name does not rewrite it.
+    const [pathEdited, setPathEdited] = useState(request.suggest?.folder !== undefined);
     const [ownFiles, setOwnFiles] = useState<OwnFiles | null>(null);
     const [busy, setBusy] = useState(false);
     const [failure, setFailure] = useState<string | null>(null);
@@ -92,9 +93,17 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
     const [info, setInfo] = useState<ChatMoveInfoResult | null>(null);
     const [infoFailure, setInfoFailure] = useState<string | null>(null);
     const [recheck, setRecheck] = useState(0);
-    const [initialName] = useState(chatName);
+    const [initialName] = useState(request.suggest?.name ?? chatName);
     // What the conflicts are checked against: moved on blur and on a pick, not on every key. Null follows the first name.
-    const [queryPath, setQueryPath] = useState<string | null>(null);
+    const [queryPath, setQueryPath] = useState<string | null>(request.suggest?.folder ?? null);
+
+    // A suggested folder the chat worked in is picked from the cards, which know the project that is there, until the person picks one.
+    const [folderPicked, setFolderPicked] = useState(false);
+    const suggestedCard =
+        info === null || request.suggest?.folder === undefined
+            ? -1
+            : info.folders.slice(0, MAX_WORKED_CARDS).findIndex((folder) => folder.path === request.suggest?.folder);
+    const form: MoveForm = !folderPicked && suggestedCard >= 0 && typed.folder === 'new' ? { ...typed, folder: `worked:${suggestedCard}` } : typed;
 
     const newFolderFor = (name: string): string => (info === null ? '' : newFolderOf(info.newFolderParent, name));
     const folderText = pathEdited ? form.newPath : newFolderFor(form.name);
@@ -122,7 +131,12 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
         };
     }, [transport, request.chatId, queryKey, recheck, t]);
 
-    const update = (patch: Partial<MoveForm>): void => setForm((current) => ({ ...current, ...patch }));
+    const update = (patch: Partial<MoveForm>): void => {
+        if (patch.folder !== undefined) {
+            setFolderPicked(true);
+        }
+        setTyped((current) => ({ ...current, ...patch }));
+    };
     const refusal = info?.refusal ?? null;
     const loading = info === null && infoFailure === null;
     const worked = info?.folders.slice(0, MAX_WORKED_CARDS) ?? [];

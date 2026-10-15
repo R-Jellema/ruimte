@@ -18,6 +18,7 @@ import { repairInterruptedMoves, type MoveRepairDeps } from '../projects/move-re
 import { chatMoveInfo, type MoveInfoDeps } from '../projects/move-info.ts';
 import { ownFolderOf } from '../projects/own-files.ts';
 import { moveRefusal, type MoveRefusalDeps } from '../projects/move-refusal.ts';
+import type { ProjectProposals } from '../projects/project-proposals.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 
 export interface ChatMoveWiring {
@@ -33,6 +34,19 @@ export interface ChatMoveWiring {
     journal?: MoveJournal;
     /* Absent in a test with no snoozes. */
     snoozes?: SnoozeStore;
+    /* The suggestions that hold a chat at `needs-you`, and that a move settles; absent in a test with none. */
+    proposals?: Pick<ProjectProposals, 'stands' | 'moved'>;
+}
+
+/* Whether the chat is a chat view of the Chats project. */
+export function chatIsInChats(store: Pick<ProjectStore, 'index' | 'scratchFolder'>, chatId: string): boolean {
+    const place = store.index.locate(chatId);
+    return (
+        place !== null &&
+        place.folder === store.scratchFolder &&
+        place.canvasId === null &&
+        (store.index.viewsOf(place.projectId) ?? []).some((view) => view.id === chatId && view.kind === 'chat')
+    );
 }
 
 /* The checkout above a path that may be gone by now, by the nearest folder that still exists. */
@@ -58,18 +72,15 @@ async function branchOf(folder: string): Promise<string | null> {
 export function chatMoveRefusalDeps(wiring: ChatMoveWiring): MoveRefusalDeps {
     const { chats, store, lineage, tasks, outbox, notices, prWatches } = wiring;
     return {
-        inChats: (chatId) => {
-            const place = store.index.locate(chatId);
-            return (
-                place !== null &&
-                place.folder === store.scratchFolder &&
-                place.canvasId === null &&
-                (store.index.viewsOf(place.projectId) ?? []).some((view) => view.id === chatId && view.kind === 'chat')
-            );
-        },
+        inChats: (chatId) => chatIsInChats(store, chatId),
         working: (chatId) => {
             const session = chats.get(chatId);
-            return session !== undefined && (session.busy || chatIsWorking(session.info));
+            if (session === undefined) {
+                return false;
+            }
+            // The card of its own suggestion holds the chat at needs-you, and the move it asks for must not refuse for that.
+            const own = wiring.proposals?.stands(chatId) === true && session.info.status === 'needs-you';
+            return session.busy || chatIsWorking(own ? { ...session.info, status: 'idle' } : session.info);
         },
         lineage,
         tasks,
@@ -118,7 +129,14 @@ export function repairChatMoves(wiring: ChatMoveWiring & { journal: MoveJournal 
 /* What the move dialog asks the machine, and the move itself. */
 export function chatMoveHandlers(wiring: ChatMoveWiring): ChatMoveHandlers {
     const deps = chatMoveDeps(wiring);
-    return { info: (payload) => chatMoveInfo(payload, deps.info), move: (payload) => moveChat(payload, deps.move) };
+    return {
+        info: (payload) => chatMoveInfo(payload, deps.info),
+        move: async (payload) => {
+            const moved = await moveChat(payload, deps.move);
+            wiring.proposals?.moved(payload.chatId, moved.summary.projectId);
+            return moved;
+        }
+    };
 }
 
 /* The pieces of both requests over the daemon's stores; a test replaces one to make a step fail. */

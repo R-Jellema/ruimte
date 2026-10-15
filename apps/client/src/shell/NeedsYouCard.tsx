@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { ChatAttachResult, ComputerApproval, SecretRequest } from '@ruimte/contracts';
+import type { ChatAttachResult, ComputerApproval, ProjectProposal, SecretRequest } from '@ruimte/contracts';
 import { ButtonGroup, ErrorBoundary, IconButton, PreviewCard } from '@adecore/ui';
 import { answerPrompt, type ChatPromptClients, usePromptSession, PROMPT_SURFACE, PromptView } from '@adecore/agents-react/prompts';
 import { ChatScopeContext, useChatHost } from '@adecore/agents-react';
@@ -9,6 +9,7 @@ import { useChats, type ChatState, useProviders } from '@adecore/agents-react/st
 import { PERSON_PROMPT_CLIENTS } from '@/actions/client-actions';
 import { canvasPrompts, stackFront, type CanvasPrompt } from '@/canvas/prompts';
 import { useComputer } from '@/state/computer';
+import { useProposals } from '@/state/proposals';
 import { useSecrets } from '@/state/secrets';
 import { endpointKey, useEndpointId } from '@/state/keys';
 import { useSessions } from '@/state/sessions';
@@ -20,6 +21,7 @@ import type { SidebarNode } from './sidebar-rows';
 
 const NO_APPROVALS: readonly ComputerApproval[] = [];
 const NO_SECRETS: readonly SecretRequest[] = [];
+const NO_PROPOSALS: readonly ProjectProposal[] = [];
 
 function idOf(prompt: CanvasPrompt): string {
     return prompt.id;
@@ -74,6 +76,8 @@ function useWaitingPrompts(endpointId: string, node: SidebarNode): WaitingPrompt
     // The machine's cards are only answered through the workspace's own actions.
     const computer = useComputer((state) => (local ? (state.approvals[endpointId] ?? NO_APPROVALS) : NO_APPROVALS));
     const secrets = useSecrets((state) => state.requests[endpointId] ?? NO_SECRETS);
+    // Review opens the dialog of this window, so only the machine it works on is reviewed here.
+    const proposals = useProposals((state) => (local ? (state.proposals[endpointId] ?? NO_PROPOSALS) : NO_PROPOSALS));
     const [read, setRead] = useState<{ chat: ChatState | null; failed: boolean } | null>(null);
     const [revision, setRevision] = useState(0);
 
@@ -124,9 +128,10 @@ function useWaitingPrompts(endpointId: string, node: SidebarNode): WaitingPrompt
             chats: chat ? { [key]: chat } : {},
             computer,
             secrets,
+            proposals,
             waitingSince: new Map()
         }).prompts;
-    }, [inspects, read, chat, session, computer, secrets, endpointId, key, node.id, node.kind, node.title, node.provider]);
+    }, [inspects, read, chat, session, computer, secrets, proposals, endpointId, key, node.id, node.kind, node.title, node.provider]);
 
     return { prompts, failed: read?.failed ?? false, reread: () => setRevision((before) => before + 1) };
 }

@@ -47,6 +47,7 @@ export async function wireProjects({ home, machineId, stores, agents, computer, 
     const endSession = async (kind: 'terminal' | 'chat', nodeId: string): Promise<void> => {
         computer.nodeClosed(nodeId);
         later.launches().secrets.nodeClosed(nodeId);
+        agents.proposals.forget(nodeId);
         await later.work().endChildren.owe(nodeId);
         await (kind === 'terminal' ? sessions.kill(nodeId) : chats.kill(nodeId)).catch(() => undefined);
     };

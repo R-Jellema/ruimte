@@ -62,6 +62,7 @@ import {
     NodeKindSchema,
     NODE_ACCENT_NAMES,
     NOTE_COLOR_NAMES,
+    PROJECT_PROPOSAL_LIMITS,
     PROJECT_VIEW_KINDS,
     PlanChecksSchema,
     PlanKindSchema,
@@ -566,6 +567,38 @@ export const ACTION_DEFINITIONS = {
             ownFiles: z.enum(['move', 'leave']).describe('Whether the files the chat made in its own folder move into the project or stay in Chats')
         }),
         output: z.object({ project: z.string(), projectId: z.string(), viewId: z.string() })
+    },
+    'project.propose': {
+        title: 'Suggest a project',
+        description:
+            "Suggests, in a card of the caller's chat in Chats, that the chat becomes a project; the person reviews it and decides. Makes nothing itself.",
+        effect: 'external',
+        domain: 'projects',
+        actors: AGENT,
+        input: z.object({
+            name: z.string().trim().min(1).max(PROJECT_PROPOSAL_LIMITS.name).describe('The name of the project, such as the product or the repository'),
+            folder: z
+                .string()
+                .trim()
+                .min(1)
+                .max(PROJECT_PROPOSAL_LIMITS.folder)
+                .nullish()
+                .describe('An absolute folder on this machine the project would live in; the person picks one when it is left out'),
+            reason: z.string().trim().min(1).max(PROJECT_PROPOSAL_LIMITS.reason).describe('Why the work is a project now, in one or two sentences'),
+            wait: z
+                .number()
+                .int()
+                .min(1)
+                .max(110)
+                .nullish()
+                .describe('Seconds the call holds for the answer; 6 without it. A card that still waits after that is answered by asking again')
+        }),
+        // What became of the card; `moved` carries the project the chat now lives in.
+        output: z.object({
+            proposalId: z.string(),
+            outcome: z.enum(['moved', 'declined', 'cancelled', 'waiting']),
+            projectId: z.string().nullable()
+        })
     },
     'project.delete': {
         title: 'Delete project',

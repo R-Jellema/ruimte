@@ -26,6 +26,7 @@ import { MAX_TITLE_LENGTH } from '@ruimte/actions';
 import { z } from 'zod';
 import type { DriveOutcome, ShotOutcome } from '../browser/drive.ts';
 import type { ComputerUse } from '../computer/computer-use.ts';
+import type { ProposalAnswer, ProposalAsk } from '../projects/project-proposals.ts';
 import type { SecretAsk, SecretOutcome } from '../secrets/secret-requests.ts';
 import type { DeviceDriver } from '../devices/agent-driver.ts';
 import type { DatabaseAgentHost } from '../database/agent-databases.ts';
@@ -122,6 +123,8 @@ export interface CanvasHost {
     language?: LanguageAgentHost;
     /* The cards in which an agent asks a person for a launch's secret; absent on a host that keeps none. */
     secrets?: SecretHost;
+    /* The cards in which an agent in Chats suggests a project; absent on a host that keeps none. */
+    proposals?: ProposalHost;
     /* The machines this machine can give tasks to; absent on a host that links to none. */
     remote?: RemoteAgentHost;
     /* What came from another machine and so never runs on the configuration of its files; absent on a host that works with none. */
@@ -197,6 +200,13 @@ export interface MessageHost {
 /* Only what became of a card ever comes back; the value goes from the person's card to the store. */
 export interface SecretHost {
     ask(ask: SecretAsk, waitMs?: number): Promise<{ requestId: string; outcome: SecretOutcome }>;
+}
+
+/* A suggestion makes nothing: it only raises the card, and what became of it comes back. */
+export interface ProposalHost {
+    /* Whether the chat is a chat view of the Chats project, the only place a project is suggested from. */
+    inChats(chatId: string): boolean;
+    propose(ask: ProposalAsk, waitMs?: number): Promise<ProposalAnswer>;
 }
 
 export type LanguageAgentHost = Pick<AgentLanguage, 'diagnostics' | 'hover' | 'definition' | 'references' | 'symbols' | 'sqlFile'>;

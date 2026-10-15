@@ -1,9 +1,9 @@
-import type { AgentKind, ComputerApproval, SecretRequest } from '@ruimte/contracts';
+import type { AgentKind, ComputerApproval, ProjectProposal, SecretRequest } from '@ruimte/contracts';
 import { orderPrompts, isBlockingSubject, promptCreatedAt, promptIdOf, type PromptSubject } from '@adecore/agents-react/prompts';
 import type { CanvasNode } from '@/state/canvas';
 import { waitingRequestsOf, type ChatsById } from '@adecore/agents-react/state';
 import { endpointKey, endpointOfNode } from '@/state/keys';
-import { computerPrompt, ruimtePayloadOf, secretPrompt, waitingPrompt } from '@/prompts/ruimte-prompts';
+import { computerPrompt, proposalPrompt, ruimtePayloadOf, secretPrompt, waitingPrompt } from '@/prompts/ruimte-prompts';
 import { nodeStatus, type SessionsByKey } from '@/state/sessions';
 
 export interface CanvasPrompt {
@@ -23,6 +23,8 @@ export interface CanvasPromptsInput {
     computer: readonly ComputerApproval[];
     /* The cards in which an agent asks for a launch's secret, the same way; each belongs to the chat that asks. */
     secrets?: readonly SecretRequest[];
+    /* The suggestions of agents in Chats to become a project, the same way; each belongs to the chat that suggests. */
+    proposals?: readonly ProjectProposal[];
     /* When each waiting terminal was first seen waiting, by session key, as the previous call returned it. */
     waitingSince: ReadonlyMap<string, number>;
 }
@@ -38,7 +40,7 @@ export interface CanvasPrompts {
  * A waiting terminal is dated by when it was first seen waiting rather than by the agent's
  * `updatedAt`, which every later hook of the same prompt moves forward.
  */
-export function canvasPrompts({ nodes, endpointId, sessions, chats, computer, secrets = [], waitingSince }: CanvasPromptsInput): CanvasPrompts {
+export function canvasPrompts({ nodes, endpointId, sessions, chats, computer, secrets = [], proposals = [], waitingSince }: CanvasPromptsInput): CanvasPrompts {
     const prompts: CanvasPrompt[] = [];
     const since = new Map(waitingSince);
     const add = (node: CanvasPromptsInput['nodes'][number], subject: PromptSubject, provider: AgentKind | null, surface: CanvasPrompt['surface']) =>
@@ -59,6 +61,11 @@ export function canvasPrompts({ nodes, endpointId, sessions, chats, computer, se
             for (const request of secrets) {
                 if (request.nodeId === node.id) {
                     add(node, { kind: 'host', nodeId: node.id, prompt: secretPrompt(machine, node.id, request) }, provider, 'chat');
+                }
+            }
+            for (const proposal of proposals) {
+                if (proposal.chatId === node.id) {
+                    add(node, { kind: 'host', nodeId: node.id, prompt: proposalPrompt(machine, node.id, proposal) }, provider, 'chat');
                 }
             }
             for (const item of waitingRequestsOf(chats[key])) {

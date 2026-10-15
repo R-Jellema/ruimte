@@ -18,6 +18,7 @@ import type { GitBundle } from './git.ts';
 import type { LaunchesBundle } from './launches.ts';
 import type { ProjectsBundle } from './projects.ts';
 import type { ProvidersBundle } from './providers.ts';
+import { chatIsInChats } from './chat-move.ts';
 import type { RemoteBundle } from './remote.ts';
 
 export interface CanvasHostInput {
@@ -96,6 +97,7 @@ export function wireCanvasHost(input: CanvasHostInput): CanvasHost {
             sql: databases.sqlAnalysis
         }),
         secrets: launches.secrets,
+        proposals: { inChats: (chatId) => chatIsInChats(projects, chatId), propose: (ask, waitMs) => agents.proposals.ask(ask, waitMs) },
         snoozes: work.snoozes
     };
 }
