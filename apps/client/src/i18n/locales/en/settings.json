@@ -1134,7 +1134,7 @@
                 "current": "This is the client you are using. It loses access to this machine and forgets it here.",
                 "statement": "It loses access the next time it connects, and signing in through an account will not let it back in.",
                 "link": "It loses access the next time it connects.",
-                "machine": "It stops working here at once, and linking it again will not let it back in.",
+                "machine": "This machine can no longer give tasks here, and linking it again will not let it back in. Tasks it already started keep running here, but their results never reach it. To stop them, unlink its projects under Linked projects.",
                 "action": "Revoke"
             }
         },
@@ -1157,7 +1157,7 @@
             },
             "confirm": {
                 "title": "Unlink {{project}} from {{machine}}?",
-                "text": "Nodes from {{machine}} that work here stop. Its agents can no longer give tasks here. The checkout and its worktrees stay.",
+                "text": "Tasks from {{machine}} that run here stop, and it can no longer give tasks in this project. The checkout and its worktrees stay.",
                 "action": "Unlink"
             }
         }

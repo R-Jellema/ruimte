@@ -1134,7 +1134,7 @@
                 "current": "Dit is de client die je gebruikt. Hij verliest toegang tot deze machine en vergeet die hier.",
                 "statement": "Hij verliest toegang bij de volgende verbinding, en inloggen via een account laat hem er niet meer in.",
                 "link": "Hij verliest toegang bij de volgende verbinding.",
-                "machine": "Hij kan hier meteen niet meer werken, en opnieuw koppelen laat hem er niet meer in.",
+                "machine": "Deze machine kan hier geen taken meer geven, en opnieuw koppelen laat hem er niet meer in. Taken die hij al startte, blijven hier doorlopen, maar de resultaten bereiken hem niet meer. Om ze te stoppen, koppel je zijn projecten los onder Gekoppelde projecten.",
                 "action": "Intrekken"
             }
         },
@@ -1157,7 +1157,7 @@
             },
             "confirm": {
                 "title": "{{project}} loskoppelen van {{machine}}?",
-                "text": "Nodes van {{machine}} die hier werken, stoppen. Zijn agents kunnen hier geen taken meer geven. De checkout en de worktrees blijven staan.",
+                "text": "Taken van {{machine}} die hier draaien, stoppen, en hij kan in dit project geen taken meer geven. De checkout en de worktrees blijven staan.",
                 "action": "Loskoppelen"
             }
         }
