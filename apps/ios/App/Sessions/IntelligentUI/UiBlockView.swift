@@ -239,12 +239,13 @@ struct UiNodeView: View {
         case "Switch": UiSwitchView(node: node, context: context)
         case "Slider": UiSliderView(node: node, context: context)
         case "Segmented": UiSegmentedView(node: node, context: context)
+        case "Map": UiMapView(node: node, context: context)
         case "TextField": UiTextFieldView(node: node, context: context)
         case "Select": UiSelectView(node: node, context: context)
         case "Button": UiButtonView(node: node, context: context)
         case "Choices": UiChoicesView(node: node, context: context)
         case "Choice": UiChoiceView(node: node, context: context)
-        // Column and Option are metadata their parent reads; Show and Each arrive expanded.
+        // Column, Option and Place are metadata their parent reads; Show and Each arrive expanded.
         default: EmptyView()
         }
     }

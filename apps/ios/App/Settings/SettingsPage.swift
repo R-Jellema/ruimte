@@ -13,6 +13,7 @@ struct MobileSettings: View {
     @AppStorage("ruimte.ios.terminalFontSize") private var fontSize = 14.0
     @AppStorage("ruimte.ios.showHiddenFiles") private var hiddenFiles = false
     @AppStorage("ruimte.chat.streaming") private var streaming: ChatStreamingMode = .words
+    @AppStorage(UiMapSetting.key) private var mapTiles = true
 
     var body: some View {
         NavigationStack { content }
@@ -47,6 +48,16 @@ struct MobileSettings: View {
                 }
                 .pickerStyle(.menu)
                 .accessibilityIdentifier("settings.showReplies")
+                Toggle(isOn: $mapTiles) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Map tiles")
+                        Text(
+                            "Maps in chats draw their base map with Apple Maps, which receives the area you look at. When this is off, a map shows only dots and its list of places."
+                        )
+                        .font(.caption).foregroundStyle(MobileStyle.muted)
+                    }
+                }
+                .accessibilityIdentifier("settings.mapTiles")
                 NavigationLink("Notifications and Live Activities") {
                     NotificationsSettingsPage(coordinator: runtime.notifications, projects: projects)
                 }

@@ -314,6 +314,7 @@
 		E120D5A93435BDD2BB29492A /* CanvasDock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ADF9EDED24291297CDF6751 /* CanvasDock.swift */; };
 		E2188F2FE2D263B6F0876E58 /* RichChatComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3831E0DF8E82C62D0BB8F805 /* RichChatComposer.swift */; };
 		E35458562536C15CF137BA7C /* ChatLimits.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BC7EEB4644997BC2EAB10D4 /* ChatLimits.swift */; };
+		E5972E4E7761258D536C7BD1 /* UiMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FE434E0D7C1A062E4DBBF38 /* UiMapView.swift */; };
 		E95A1AC133CF67657CEA99A3 /* ProjectArtworkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ABABCDEEE659AD8B4D227A8 /* ProjectArtworkTests.swift */; };
 		EA1087F152F154A576654E20 /* UiLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ECF99ABEA88BF10A0185D58 /* UiLinks.swift */; };
 		EA568F00903EE93AF1613AA7 /* CanvasEditing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39056D51C8E87E6BB0A1342B /* CanvasEditing.swift */; };
@@ -490,6 +491,7 @@
 		3D5CDF11702A94CAD3FAE682 /* EclipseStars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EclipseStars.swift; sourceTree = "<group>"; };
 		3D803A055A81FD7C2DFD3B8A /* tone.aac */ = {isa = PBXFileReference; path = tone.aac; sourceTree = "<group>"; };
 		3DED45634E156A5B8CE75374 /* RuimteNotificationService.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = RuimteNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		3FE434E0D7C1A062E4DBBF38 /* UiMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UiMapView.swift; sourceTree = "<group>"; };
 		4105DA5DA1335746AF2CD167 /* tone.opus */ = {isa = PBXFileReference; path = tone.opus; sourceTree = "<group>"; };
 		429F4D64FA8A6FD134400A6C /* RuimteUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RuimteUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		433946B3E4C5D74991B5FDA5 /* image.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = image.jpg; sourceTree = "<group>"; };
@@ -1059,6 +1061,7 @@
 				8FF5E04A13B99B9A02435B7C /* UiHost.swift */,
 				3573D906C3AEB8F033DE0471 /* UiInputViews.swift */,
 				7ECF99ABEA88BF10A0185D58 /* UiLinks.swift */,
+				3FE434E0D7C1A062E4DBBF38 /* UiMapView.swift */,
 				08529C872DCA3316BA11C0B8 /* UiNode.swift */,
 				C74A1CFB609179C74C4E0F1D /* UiReplyView.swift */,
 				1D6A3ADF280950C5A55AD2F4 /* UiStructureViews.swift */,
@@ -1921,6 +1924,7 @@
 				1D68DB039EB573C984D12915 /* UiHost.swift in Sources */,
 				12D0242E00D0D496AF350508 /* UiInputViews.swift in Sources */,
 				EA1087F152F154A576654E20 /* UiLinks.swift in Sources */,
+				E5972E4E7761258D536C7BD1 /* UiMapView.swift in Sources */,
 				4AE507512E4729CB64C4C9C2 /* UiNode.swift in Sources */,
 				F06178CEC225BA7CD37FDBDB /* UiReplyView.swift in Sources */,
 				A81AF398A6AB9BD955032A59 /* UiStructureViews.swift in Sources */,

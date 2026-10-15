@@ -14,6 +14,8 @@ struct UiNode: Identifiable, Equatable {
     let fallback: String
     /// The interpreter's code for a node it could not evaluate, which then draws its fallback.
     let error: String?
+    /// How many children past the parent's limit the interpreter left out, such as the places of a Map past fifty.
+    let omitted: Int
 
     init?(_ value: JSONValue) {
         guard let id = value["id"]?.stringValue, let type = value["type"]?.stringValue else { return nil }
@@ -26,6 +28,7 @@ struct UiNode: Identifiable, Equatable {
         complete = value["complete"]?.boolValue == true
         fallback = value["fallback"]?.stringValue ?? ""
         error = value["error"]?.stringValue
+        omitted = value["omitted"]?.numberValue.map { max(0, Int($0)) } ?? 0
     }
 
     static func list(_ values: [JSONValue]) -> [UiNode] { values.compactMap(UiNode.init) }
@@ -96,14 +99,14 @@ enum UiCatalog {
         "Column", "Chart", "Tabs", "Tab", "Sections", "Section", "CodeBlock", "Image", "Sources", "Source", "File",
         "Diff", "Commit", "Node", "Checklist", "Item", "Switch", "Slider", "Segmented", "Option", "Show", "Each",
         "Button", "Choices", "Choice", "Timeline", "Event", "Gallery", "Compare", "TextField", "Select",
+        "Map", "Place",
     ]
     static let links: Set<String> = ["File", "Diff", "Commit", "Node"]
     /// Parents whose text is read as written: code, a short tag and the labels of controls, whose accessible name
     /// and sent text are that same string.
     static let literalParents: Set<String> = [
         "CodeBlock", "Tag", "Choice", "Item", "Switch", "Slider", "Segmented", "Option", "Column", "Button",
-        "TextField",
-        "Select",
+        "TextField", "Select",
     ]
 
     /// Which `$text` nodes of a block the agent wrote out; the value of an expression is data and stays as it is.

@@ -2,7 +2,7 @@ import RuimtePulsar
 import SwiftUI
 
 /// An input whose node has not closed yet stands at 60% and takes no touch.
-private struct UiPending: ViewModifier {
+struct UiPending: ViewModifier {
     let complete: Bool
 
     func body(content: Content) -> some View {

@@ -106,6 +106,23 @@ struct UiInterpreterTests {
         }
     }
 
+    @Test func pickingAPlaceSetsTheMapsValueToOneOfItsPlaces() async throws {
+        let interpreter = UiInterpreter()
+        let block = try block("map")
+        let initial = try await interpreter.evaluate(block: block)
+        let nodeID = try #require(initial["nodes"]?.arrayValue?.first?["id"])
+        #expect(initial["values"]?["$picked"] == .string("dom"))
+        let picked = try await interpreter.evaluate(block: block, change: .object([
+            "nodeId": nodeID, "prop": .string("value"), "value": .string("ams"),
+        ]))
+        #expect(picked["values"]?["$picked"] == .string("ams"))
+        await #expect(throws: UiInterpreterError.self) {
+            try await interpreter.evaluate(block: block, change: .object([
+                "nodeId": nodeID, "prop": .string("value"), "value": .string("not-a-place"),
+            ]))
+        }
+    }
+
     @Test func agentTextStaysDataAndOversizedInputIsRefused() async throws {
         let interpreter = UiInterpreter()
         let block = try block("local input")

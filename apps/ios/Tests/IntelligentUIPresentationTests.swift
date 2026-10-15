@@ -53,14 +53,14 @@ final class IntelligentUIPresentationTests: XCTestCase {
     }
 
     func testAComponentFromANewerDaemonFallsBackAloneBesideItsSiblings() throws {
-        let map = try node(
-            #"{"id":"m","type":"Map","props":{"places":[]},"fallback":"Utrecht\nAmsterdam"}"#)
+        let calendar = try node(
+            #"{"id":"m","type":"Calendar","props":{"days":[]},"fallback":"Mon\nTue"}"#)
         let flagged = try node(
-            #"{"id":"n","type":"Map","props":{},"error":"unknown_component","fallback":"Utrecht\nAmsterdam"}"#)
+            #"{"id":"n","type":"Calendar","props":{},"error":"unknown_component","fallback":"Mon\nTue"}"#)
         let sibling = try node(#"{"id":"s","type":"Summary","props":{}}"#)
-        XCTAssertEqual(UiFallbackProblem.of(map, catalogVersion: 1), .unknown("Map"))
-        XCTAssertEqual(UiFallbackProblem.of(flagged, catalogVersion: 1), .unknown("Map"))
-        XCTAssertEqual(map.fallback, "Utrecht\nAmsterdam")
+        XCTAssertEqual(UiFallbackProblem.of(calendar, catalogVersion: 1), .unknown("Calendar"))
+        XCTAssertEqual(UiFallbackProblem.of(flagged, catalogVersion: 1), .unknown("Calendar"))
+        XCTAssertEqual(calendar.fallback, "Mon\nTue")
         XCTAssertNil(UiFallbackProblem.of(sibling, catalogVersion: 1))
     }
 
@@ -265,6 +265,67 @@ final class IntelligentUIPresentationTests: XCTestCase {
             """#)
         XCTAssertEqual(select.ownLabel, "Pick a mode")
         XCTAssertEqual(select.label, "Alpha Pick a mode")
+    }
+
+    private func map(_ places: String, props: String = "{}", omitted: Int = 0) throws -> UiNode {
+        try node(
+            #"{"id":"m","type":"Map","props":\#(props),"complete":true,"omitted":\#(omitted),"children":[\#(places)]}"#)
+    }
+
+    private let utrecht =
+        #"{"id":"p1","type":"Place","props":{"lat":52.0907,"lon":5.1214,"detail":"Cathedral tower","value":"dom"},"children":[{"id":"t1","type":"$text","props":{"text":"Domtoren"}}]}"#
+    private let amsterdam =
+        #"{"id":"p2","type":"Place","props":{"lat":52.3676,"lon":4.9041},"children":[{"id":"t2","type":"$text","props":{"text":"Amsterdam"}}]}"#
+    private let unplaced =
+        #"{"id":"p3","type":"Place","props":{"address":"Oudegracht 1, Utrecht"},"children":[{"id":"t3","type":"$text","props":{"text":"Canal house"}}]}"#
+
+    func testAMapListsEveryPlaceAndMarksOnlyThoseWithAPoint() throws {
+        let places = UiMapPlace.of(try map([utrecht, amsterdam, unplaced].joined(separator: ",")))
+        XCTAssertEqual(places.map(\.number), [1, 2, 3])
+        XCTAssertEqual(places.map(\.name), ["Domtoren", "Amsterdam", "Canal house"])
+        XCTAssertEqual(places.map(\.hasPoint), [true, true, false])
+        XCTAssertEqual(places[0].detail, "Cathedral tower")
+        XCTAssertEqual(places[0].value, .string("dom"))
+        XCTAssertEqual(places[2].address, "Oudegracht 1, Utrecht")
+        XCTAssertNil(places[2].coordinate)
+    }
+
+    func testAPlaceWithoutANameIsListedByItsAddress() throws {
+        let nameless = #"{"id":"p4","type":"Place","props":{"address":"Oudegracht 1"},"children":[]}"#
+        let place = try XCTUnwrap(UiMapPlace.of(try map(nameless)).first)
+        XCTAssertEqual(place.name, "Oudegracht 1")
+        XCTAssertEqual(place.address, "")
+    }
+
+    func testAPlaceOutsideTheGlobeHasNoPoint() throws {
+        let off =
+            #"{"id":"p5","type":"Place","props":{"lat":95,"lon":5},"children":[{"id":"t5","type":"$text","props":{"text":"Nowhere"}}]}"#
+        XCTAssertEqual(UiMapPlace.of(try map(off)).map(\.hasPoint), [false])
+    }
+
+    func testTheMapFitsItsMarkersWithRoomAndNeverZoomsToAStreet() throws {
+        XCTAssertNil(UiMapFrame.fit(UiMapPlace.of(try map(unplaced))))
+        let one = try XCTUnwrap(UiMapFrame.fit(UiMapPlace.of(try map(utrecht))))
+        XCTAssertEqual(one.latitude, 52.0907, accuracy: 1e-9)
+        XCTAssertEqual(one.latitudeSpan, 0.02, accuracy: 1e-9)
+        let two = try XCTUnwrap(UiMapFrame.fit(UiMapPlace.of(try map([utrecht, amsterdam].joined(separator: ",")))))
+        XCTAssertEqual(two.latitude, (52.0907 + 52.3676) / 2, accuracy: 1e-9)
+        XCTAssertEqual(two.latitudeSpan, (52.3676 - 52.0907) * 1.5, accuracy: 1e-9)
+        let corner = two.unit(lat: 52.3676, lon: 4.9041)
+        XCTAssertTrue((0..<0.5).contains(corner.x) && (0..<0.5).contains(corner.y))
+    }
+
+    func testAMapOutOfItsPlacesReadsHowManyWereLeftOut() throws {
+        XCTAssertEqual(try map(utrecht, omitted: 3).omitted, 3)
+        XCTAssertEqual(try node(#"{"id":"x","type":"Map","props":{}}"#).omitted, 0)
+    }
+
+    func testTheMapSaysWhyItHasNoBaseMap() throws {
+        XCTAssertNil(UiMapView.note(tiles: true, online: true))
+        let off = try XCTUnwrap(UiMapView.note(tiles: false, online: true))
+        let offline = try XCTUnwrap(UiMapView.note(tiles: true, online: false))
+        XCTAssertNotEqual(off, offline)
+        XCTAssertEqual(UiMapView.note(tiles: false, online: false), off)
     }
 
     /// Every component the shared interpreter evaluates in the fixtures is one this version draws; a component the

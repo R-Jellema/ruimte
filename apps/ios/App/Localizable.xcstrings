@@ -63,6 +63,46 @@
         }
       }
     },
+    "%lld more places are not shown" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld more place is not shown"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld more places are not shown"
+                }
+              }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld plek meer wordt niet getoond"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld plekken meer worden niet getoond"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "After" : {
       "localizations" : {
         "nl" : {
@@ -114,12 +154,102 @@
         }
       }
     },
+    "Map of %lld places" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Map of %lld place"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Map of %lld places"
+                }
+              }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Kaart met %lld plek"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Kaart met %lld plekken"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Map tiles" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kaarttegels"
+          }
+        }
+      }
+    },
+    "Map tiles are not available offline. The places stay listed." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kaarttegels zijn offline niet beschikbaar. De plekken blijven in de lijst."
+          }
+        }
+      }
+    },
+    "Map tiles are off." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kaarttegels staan uit."
+          }
+        }
+      }
+    },
+    "Maps in chats draw their base map with Apple Maps, which receives the area you look at. When this is off, a map shows only dots and its list of places." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kaarten in chats tekenen hun basiskaart met Apple Kaarten, dat het gebied ontvangt waar je naar kijkt. Staat dit uit, dan toont een kaart alleen stippen en de lijst met plekken."
+          }
+        }
+      }
+    },
     "Not every folder is shown" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Niet elke map wordt getoond"
+          }
+        }
+      }
+    },
+    "Not on the map" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niet op de kaart"
           }
         }
       }
