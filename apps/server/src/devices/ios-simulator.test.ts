@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { writeFile } from 'node:fs/promises';
+import type { DeviceAction } from '@ruimte/contracts';
 import { FakeRecorder, pngOf } from './device-test-helpers.ts';
+import { DeviceHelperSource } from './helper-source.ts';
 import { IosSimulatorBackend, type SimctlRunner } from './ios-simulator.ts';
 import type { SimulatorTreeReader } from './simulator-tree.ts';
 
@@ -281,5 +283,95 @@ describe('IosSimulatorBackend', () => {
         expect(await backend.action('phone-1', erase)).toEqual({});
 
         expect(calls.filter((call) => call[0] !== 'list')).toEqual([['erase', 'phone-1']]);
+    });
+
+    test('runs the status bar, battery, biometric, shake and permission tools as their exact simctl commands', async () => {
+        const calls: string[][] = [];
+        const backend = new IosSimulatorBackend(async (arguments_) => {
+            calls.push(arguments_);
+            return { exitCode: 0, stdout: '', stderr: '' };
+        });
+        const target = { backendId: 'simctl', platform: 'ios', deviceId: 'phone-1' } as const;
+        const act = async (action: Record<string, unknown>) => {
+            calls.length = 0;
+            const settings = await backend.action('phone-1', { ...target, ...action } as DeviceAction);
+            return { calls: calls.filter((call) => (call[0] !== 'ui' && call[0] !== 'spawn') || call[2] === 'notifyutil'), settings };
+        };
+
+        expect(await act({ action: 'setStatusBar', value: 'clean' })).toMatchObject({
+            calls: [
+                [
+                    'status_bar',
+                    'phone-1',
+                    'override',
+                    '--time',
+                    '9:41',
+                    '--dataNetwork',
+                    'wifi',
+                    '--wifiMode',
+                    'active',
+                    '--wifiBars',
+                    '3',
+                    '--cellularMode',
+                    'active',
+                    '--cellularBars',
+                    '4',
+                    '--batteryState',
+                    'charged',
+                    '--batteryLevel',
+                    '100'
+                ]
+            ],
+            settings: { statusBar: 'clean' }
+        });
+        expect((await act({ action: 'setBattery', level: 40, charging: true })).calls).toEqual([
+            ['status_bar', 'phone-1', 'override', '--batteryLevel', '40', '--batteryState', 'charging']
+        ]);
+        expect((await act({ action: 'setBattery', level: 40, charging: true })).settings.battery).toEqual({ level: 40, charging: true });
+        const reset = await act({ action: 'resetBattery' });
+        expect(reset.calls[0]).toEqual(['status_bar', 'phone-1', 'clear']);
+        expect(reset.calls[1]!.slice(0, 5)).toEqual(['status_bar', 'phone-1', 'override', '--time', '9:41']);
+        expect(reset.settings.battery).toBeUndefined();
+        expect((await act({ action: 'setStatusBar', value: 'default' })).calls).toEqual([['status_bar', 'phone-1', 'clear']]);
+        const enroll = await act({ action: 'biometric', sensor: 'face', event: 'enroll' });
+        expect(enroll.calls).toEqual([
+            ['spawn', 'phone-1', 'notifyutil', '-s', 'com.apple.BiometricKit.enrollmentChanged', '1'],
+            ['spawn', 'phone-1', 'notifyutil', '-p', 'com.apple.BiometricKit.enrollmentChanged']
+        ]);
+        expect(enroll.settings.biometricEnrolled).toBe(true);
+        expect((await act({ action: 'biometric', sensor: 'face', event: 'unenroll' })).calls[0]).toEqual([
+            'spawn',
+            'phone-1',
+            'notifyutil',
+            '-s',
+            'com.apple.BiometricKit.enrollmentChanged',
+            '0'
+        ]);
+        expect((await act({ action: 'biometric', sensor: 'face', event: 'match' })).calls).toEqual([
+            ['spawn', 'phone-1', 'notifyutil', '-p', 'com.apple.BiometricKit_Sim.pearl.match']
+        ]);
+        expect((await act({ action: 'biometric', sensor: 'finger', event: 'nomatch' })).calls).toEqual([
+            ['spawn', 'phone-1', 'notifyutil', '-p', 'com.apple.BiometricKit_Sim.fingerTouch.nomatch']
+        ]);
+        expect((await act({ action: 'shake' })).calls).toEqual([['spawn', 'phone-1', 'notifyutil', '-p', 'com.apple.UIKit.SimulatorShake']]);
+        expect((await act({ action: 'setAllPermissions', appId: 'com.example.app', decision: 'grant' })).calls).toEqual([
+            ['privacy', 'phone-1', 'grant', 'all', 'com.example.app']
+        ]);
+    });
+
+    test('warns of low memory through the helper of a simulator someone has open, and says to open it otherwise', async () => {
+        const backend = new IosSimulatorBackend(async () => ({ exitCode: 0, stdout: '', stderr: '' }));
+        const target = { backendId: 'simctl', platform: 'ios', deviceId: 'phone-1', action: 'memoryWarning' } as const;
+        const called: unknown[] = [];
+        const session = Object.assign(Object.create(DeviceHelperSource.prototype) as DeviceHelperSource, {
+            call: async (call: unknown) => {
+                called.push(call);
+                return undefined;
+            }
+        });
+
+        await expect(backend.action('phone-1', target, null)).rejects.toMatchObject({ code: 'device-not-open' });
+        await backend.action('phone-1', target, session);
+        expect(called).toEqual([{ method: 'memoryWarning' }]);
     });
 });

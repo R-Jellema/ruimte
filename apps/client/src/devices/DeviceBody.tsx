@@ -9,6 +9,9 @@ import {
     LoaderCircle,
     Lock,
     Mic,
+    MemoryStick,
+    Play,
+    Power,
     RefreshCw,
     RotateCcw,
     RotateCw,
@@ -16,6 +19,9 @@ import {
     Smartphone,
     Square,
     Undo2,
+    Vibrate,
+    Volume1,
+    Volume2,
     type LucideIcon
 } from 'lucide-react';
 import { deviceButtons, deviceTools, type DeviceButton, type DeviceInfo, type DeviceInput, type DeviceReference } from '@ruimte/contracts';
@@ -38,7 +44,11 @@ const GESTURES: ReadonlyArray<{ button: DeviceButton; icon: LucideIcon }> = [
     { button: 'swipeHome', icon: Hand },
     { button: 'appSwitcher', icon: Smartphone },
     { button: 'lock', icon: Lock },
-    { button: 'siri', icon: Mic }
+    { button: 'siri', icon: Mic },
+    { button: 'volumeUp', icon: Volume2 },
+    { button: 'volumeDown', icon: Volume1 },
+    { button: 'power', icon: Power },
+    { button: 'playPause', icon: Play }
 ];
 
 function useDeviceFor(reference: DeviceReference | undefined): { device: DeviceInfo | null; loading: boolean; error: string | null } {
@@ -68,14 +78,28 @@ function DeviceMoreMenu({ device }: { device: DeviceInfo }) {
     const { t } = useTranslation('machines');
     const endpointId = useEndpointId();
     const [restarting, setRestarting] = useState(false);
+    const tools = deviceTools(device);
     const canRestart = device.capabilities.boot && device.capabilities.shutdown;
-    const canErase = deviceTools(device).includes('erase');
-    if (!canRestart && !canErase) {
+    const canErase = tools.includes('erase');
+    const canShake = tools.includes('shake');
+    const canWarn = tools.includes('memoryWarning');
+    if (!canRestart && !canErase && !canShake && !canWarn) {
         return null;
     }
     const restart = (): void => {
         setRestarting(true);
         void restartDevice(deviceClientFor(endpointId), device).finally(() => setRestarting(false));
+    };
+    const act = (action: 'shake' | 'memoryWarning'): void => {
+        void deviceClientFor(endpointId)
+            ?.action({ backendId: device.backendId, platform: device.platform, deviceId: device.deviceId, action })
+            .catch((error: unknown) =>
+                useToasts.getState().show({
+                    kind: 'error',
+                    title: t('device.tools.changeFailed'),
+                    description: error instanceof Error ? error.message : String(error)
+                })
+            );
     };
     return (
         <Menu.Root>
@@ -86,6 +110,17 @@ function DeviceMoreMenu({ device }: { device: DeviceInfo }) {
                         <Icon icon={RefreshCw} size={14} /> {t('device.restart')}
                     </Menu.Item>
                 )}
+                {canShake && (
+                    <Menu.Item onClick={() => act('shake')}>
+                        <Icon icon={Vibrate} size={14} /> {t('device.shake')}
+                    </Menu.Item>
+                )}
+                {canWarn && (
+                    <Menu.Item onClick={() => act('memoryWarning')}>
+                        <Icon icon={MemoryStick} size={14} /> {t('device.memoryWarning')}
+                    </Menu.Item>
+                )}
+                {canErase && (canRestart || canShake || canWarn) && <Menu.Separator />}
                 {canErase && (
                     <Menu.Item onClick={() => useDevices.getState().askErase({ endpointId, device })}>
                         <Icon icon={Eraser} size={14} /> {t('device.erase.open')}

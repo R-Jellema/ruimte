@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import type { DeviceInput } from '@ruimte/contracts';
-import { DEVICE_HELPER_MAGIC, DeviceHelperDecoder, encodeDeviceHelperMessage } from './helper-protocol.ts';
+import { DEVICE_HELPER_MAGIC, DeviceHelperDecoder, encodeDeviceHelperMessage, type DeviceHelperCall, type DeviceHelperMessage } from './helper-protocol.ts';
 
 interface NativeHidHandle {
     touch(type: 'begin' | 'move' | 'end', x: number, y: number, width: number, height: number, edge: number): Promise<void>;
@@ -56,6 +56,15 @@ const NATIVE_BUTTONS: Partial<Record<Extract<DeviceInput, { kind: 'button' }>['b
     appSwitcher: 'app_switcher',
     lock: 'lock',
     siri: 'siri'
+};
+
+/* The consumer page (0x0C) of the HID usage tables, where a phone's side buttons sit. */
+const CONSUMER_PAGE = 0x0c;
+const CONSUMER_BUTTONS: Partial<Record<Extract<DeviceInput, { kind: 'button' }>['button'], number>> = {
+    volumeUp: 0xe9,
+    volumeDown: 0xea,
+    playPause: 0xcd,
+    power: 0x30
 };
 
 export function resolveDeviceNativeAddon(): string {
@@ -119,7 +128,8 @@ export async function runDeviceHelper(deviceId: string, runtime?: DeviceHelperRu
     try {
         const addon = runtime?.addon ?? loadDeviceNativeAddon();
         const hid = new addon.SimHID(deviceId, runtime?.duoHidPath ?? resolveDuoHidHelper());
-        capture = new addon.SimCapture(deviceId);
+        const opened = new addon.SimCapture(deviceId);
+        capture = opened;
         let width = 0;
         let height = 0;
         let sequence = 0;
@@ -152,6 +162,10 @@ export async function runDeviceHelper(deviceId: string, runtime?: DeviceHelperRu
                     await pressKeys(hid, message.usages);
                     continue;
                 }
+                if (message.type === 'call') {
+                    write(encodeDeviceHelperMessage(await answerCall(hid, opened, message.id, message.call)));
+                    continue;
+                }
                 if (message.type !== 'input') {
                     throw new Error('The device helper received an output-only protocol message');
                 }
@@ -167,6 +181,31 @@ export async function runDeviceHelper(deviceId: string, runtime?: DeviceHelperRu
         await unsubscribe?.();
         await capture?.stop();
         await protocolSink?.end();
+    }
+}
+
+/* A call that fails is answered as failed, so the daemon's request says why and the stream goes on. */
+async function answerCall(hid: NativeHidHandle, capture: NativeCaptureHandle, id: number, call: DeviceHelperCall): Promise<DeviceHelperMessage> {
+    try {
+        switch (call.method) {
+            case 'memoryWarning':
+                await hid.memoryWarning();
+                return { type: 'reply', id, ok: true };
+            case 'buttonHid':
+                await hid.buttonHid(call.page, call.usage, call.phase);
+                return { type: 'reply', id, ok: true };
+            case 'isFoldable':
+                return { type: 'reply', id, ok: true, value: await hid.isFoldable() };
+            case 'pose':
+                return { type: 'reply', id, ok: true, value: await hid.pose(call.name, call.fromDegrees) };
+            case 'hinge':
+                return { type: 'reply', id, ok: true, value: await hid.hinge(call.degrees) };
+            case 'preferredScreenSize':
+                await capture.setPreferredScreenSize(call.width, call.height);
+                return { type: 'reply', id, ok: true };
+        }
+    } catch (error) {
+        return { type: 'reply', id, ok: false, message: (error instanceof Error ? error.message : 'The native simulator helper failed').slice(0, 4096) };
     }
 }
 
@@ -190,8 +229,11 @@ async function applyDeviceInput(hid: NativeHidHandle, input: DeviceInput, width:
         void hid.scroll(input.deltaX, input.deltaY, input.x, input.y, width, height).catch(() => undefined);
     } else if (input.kind === 'button') {
         const button = NATIVE_BUTTONS[input.button];
+        const consumer = CONSUMER_BUTTONS[input.button];
         if (button !== undefined) {
             await hid.button(button);
+        } else if (consumer !== undefined) {
+            await hid.buttonHid(CONSUMER_PAGE, consumer, 'press');
         }
     } else if (input.kind === 'key') {
         await hid.key(input.phase, input.usage);

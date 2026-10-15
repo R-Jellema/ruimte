@@ -68,7 +68,8 @@ interface Booting {
     process: EmulatorProcess;
 }
 
-const BUTTONS: DeviceButton[] = ['back', 'home', 'appSwitcher', 'lock', 'siri'];
+/* Lock is Android's power key already, so power is not announced beside it. */
+const BUTTONS: DeviceButton[] = ['back', 'home', 'appSwitcher', 'lock', 'siri', 'volumeUp', 'volumeDown', 'playPause'];
 const BASE_TOOLS: DeviceTool[] = [
     'openUrl',
     'launchApp',
@@ -81,8 +82,21 @@ const BASE_TOOLS: DeviceTool[] = [
     'showBorders',
     'permissions',
     'capture',
-    'record'
+    'record',
+    'statusBar',
+    'battery'
 ];
+
+/* SystemUI's demo mode, which draws the status bar of a marketing shot until it is left. */
+const DEMO = 'am broadcast -a com.android.systemui.demo -e command';
+const CLEAN_STATUS_BAR = [
+    'settings put global sysui_demo_allowed 1',
+    `${DEMO} enter`,
+    `${DEMO} clock -e hhmm 0941`,
+    `${DEMO} battery -e level 100 -e plugged false`,
+    `${DEMO} network -e wifi show -e level 4`,
+    `${DEMO} notifications -e visible false`
+].join('; ');
 
 /* Where a device records before the video is pulled; Android's own recorder stops itself after 180 seconds. */
 const RECORDING_ON_DEVICE = '/data/local/tmp/ruimte-rec.mp4';
@@ -275,6 +289,9 @@ export class AndroidBackend implements DeviceBackend {
     private readonly booting = new Map<string, Booting>();
     private readonly serials = new Map<string, string>();
     private readonly recordings: DeviceRecordings;
+    /* What the shell cannot read back, as this daemon last set it; unknown again after a restart. */
+    private readonly statusBars = new Map<string, DeviceSettings['statusBar']>();
+    private readonly batteries = new Map<string, NonNullable<DeviceSettings['battery']>>();
 
     constructor(options: AndroidBackendOptions = {}) {
         this.recordings = options.recordings ?? new DeviceRecordings();
@@ -442,6 +459,8 @@ export class AndroidBackend implements DeviceBackend {
             colorFilter: colorFilterOf(filterOn, filter),
             showBorders: layout === 'true',
             ...(probe.talkBack ? { voiceOver: services.split(':').includes(TALKBACK_SERVICE) } : {}),
+            ...(this.statusBars.has(deviceId) ? { statusBar: this.statusBars.get(deviceId) } : {}),
+            ...(this.batteries.has(deviceId) ? { battery: this.batteries.get(deviceId) } : {}),
             recording: this.recordings.isRecording(deviceId)
         };
     }
@@ -521,6 +540,38 @@ export class AndroidBackend implements DeviceBackend {
                 break;
             case 'terminateApp':
                 await this.shell(serial, `am force-stop ${shellQuote(requirePackage(action.appId))}`);
+                break;
+            case 'setStatusBar':
+                await this.shell(serial, action.value === 'clean' ? CLEAN_STATUS_BAR : `${DEMO} exit`);
+                this.statusBars.set(deviceId, action.value);
+                break;
+            case 'setBattery':
+                if (emulator) {
+                    await this.console(serial, ['power', 'capacity', String(action.level)]);
+                    await this.console(serial, ['power', 'ac', action.charging ? 'on' : 'off']);
+                } else {
+                    await this.shell(serial, `dumpsys battery set level ${action.level}; dumpsys battery set ac ${action.charging ? 1 : 0}`);
+                }
+                this.batteries.set(deviceId, { level: action.level, charging: action.charging });
+                break;
+            case 'resetBattery':
+                if (emulator) {
+                    await this.console(serial, ['power', 'capacity', '100']);
+                    await this.console(serial, ['power', 'ac', 'on']);
+                } else {
+                    await this.shell(serial, 'dumpsys battery reset');
+                }
+                this.batteries.delete(deviceId);
+                break;
+            case 'biometric':
+                // Only the emulator has a sensor to touch, and a fingerprint is enrolled in Settings on the device.
+                if (!emulator || action.sensor !== 'finger' || action.event === 'enroll' || action.event === 'unenroll') {
+                    throw new DeviceError('device-action-unavailable', 'Android takes only a fingerprint touch, on an emulator');
+                }
+                await this.console(serial, ['finger', 'touch', action.event === 'match' ? '1' : '99']);
+                break;
+            case 'setAllPermissions':
+                await this.allPermissions(serial, probe, requirePackage(action.appId), action.decision);
                 break;
             default:
                 throw new DeviceError('device-action-unavailable', 'This tool does not exist on Android');
@@ -801,6 +852,22 @@ export class AndroidBackend implements DeviceBackend {
         if (failures.length === names.length) {
             throw new DeviceError('adb-failed', failures[0]!);
         }
+    }
+
+    /* Every permission this device has, the ones an app does not ask for skipped; refused only when none applied. */
+    private async allPermissions(serial: string, probe: Probe, appId: string, decision: 'grant' | 'revoke' | 'reset'): Promise<void> {
+        const failures: unknown[] = [];
+        for (const permission of PERMISSIONS) {
+            await this.permission(serial, probe, appId, permission, decision).catch((error: unknown) => failures.push(error));
+        }
+        if (failures.length === PERMISSIONS.length) {
+            throw failures[0];
+        }
+    }
+
+    /* The emulator console, which a phone does not have. */
+    private async console(serial: string, arguments_: string[]): Promise<void> {
+        await this.adb(this.sdk(), ['-s', serial, 'emu', ...arguments_]);
     }
 
     private async shell(serial: string, script: string): Promise<string> {

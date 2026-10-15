@@ -288,6 +288,10 @@ A device node shows a simulator, an emulator or a phone that runs on this machin
 | Shot | `simctl io screenshot` | `adb exec-out screencap -p` |
 | Capture | the shot, written to `device-captures/` for the client to copy, save or place on a canvas | the same |
 | Clipboard | `simctl pbpaste` and `pbcopy` | over the scrcpy control socket: `GET_CLIPBOARD` answered by a clipboard message, `SET_CLIPBOARD` acknowledged; only while the device is open |
+| Status bar | `simctl status_bar override` with 9:41, full Wi-Fi and cell bars and a charged battery; `clear` for the default | SystemUI demo mode (`sysui_demo_allowed`, then `com.android.systemui.demo` broadcasts); `exit` for the default |
+| Battery | `status_bar override --batteryLevel --batteryState`, which only the status bar shows | `adb emu power capacity` and `power ac` on an emulator, `dumpsys battery set` and `reset` on a phone |
+| Biometrics | `notifyutil` in the simulator: `com.apple.BiometricKit.enrollmentChanged` to enroll, `BiometricKit_Sim.pearl` (Face ID) and `fingerTouch` (Touch ID) `.match` or `.nomatch` | `adb emu finger touch 1` (match) or `99` (no match) on an emulator |
+| Shake, memory warning | `notifyutil -p com.apple.UIKit.SimulatorShake`; the memory warning through the native helper, so only on a simulator someone has open | none |
 | Erase | `simctl erase` on a simulator that is shut down, which the person's client shuts down first and starts again after | the emulator stopped and started again with `-wipe-data`; a phone is never erased |
 | Record | `simctl io recordVideo --codec=h264`, ended with SIGINT so it writes the end of the file, and by itself after 10 minutes | `screenrecord --time-limit 180` on the device, ended with `pkill -INT screenrecord` there, then pulled and removed |
 | Elements | the device bridge (`apps/ios-device-bridge`) | `uiautomator dump`, which needs nothing installed |
@@ -308,6 +312,10 @@ What an Android emulator cannot do that a simulator can, and stays out of scope:
 - Show borders on a screen already drawn: Android draws them from the next screen on.
 - Read elements on a screen that never stands still, such as one with an endless animation: `uiautomator` gives up, the agent gets `tree none`, and a shot still works.
 - Record for longer than 3 minutes: Android's own recorder stops there, and the node says so.
+- Shake, or warn an app of low memory: Android has no counterpart.
+- Enroll a fingerprint, or touch one on a phone: enrolling happens in the device's Settings, and only the emulator console has a sensor to touch.
+
+What the status bar and the battery are set to is remembered by the daemon, since neither platform reads it back, and is unknown again after a restart. A simulator's side buttons (volume, power, play) go through the native helper's HID but are announced only once `side-buttons.device.integration.test.ts` confirmed them on a simulator; an Android device presses volume and play as key codes.
 
 TalkBack shows up as a tool only on an image that has it, and typing needs Android 7 or later, the first with a paste key. A development checkout downloads the scrcpy server on first use into `.native`, checked against its pinned checksum; a build carries it in `native/`, and without it a device is listed with its shots, elements and tools but without a screen, touch or typing.
 

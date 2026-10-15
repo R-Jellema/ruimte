@@ -16,7 +16,7 @@ import {
 } from '@ruimte/contracts';
 import { simulatorTree, type DeviceTree } from './device-tree.ts';
 import { DeviceHelperSource, type DeviceHelperLauncher } from './helper-source.ts';
-import { DeviceError, KEY_LEFT_COMMAND, KEY_V, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard } from './manager.ts';
+import { DeviceError, KEY_LEFT_COMMAND, KEY_V, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard, type DeviceSource } from './manager.ts';
 import { DeviceRecordings } from './recordings.ts';
 import type { SimulatorTreeReader } from './simulator-tree.ts';
 
@@ -64,6 +64,7 @@ async function defaultRunner(arguments_: string[], stdin?: string): Promise<Comm
     return { exitCode, stdout, stderr };
 }
 
+// todo(Bas): announce volumeUp, volumeDown, power and playPause, which the helper presses already, once side-buttons.device.integration.test.ts passed on a simulator.
 const IOS_BUTTONS: DeviceButton[] = ['home', 'swipeHome', 'appSwitcher', 'lock', 'siri'];
 
 /* What a simulator announces; each tool joins once its action does something. */
@@ -87,8 +88,43 @@ const IOS_SIMULATOR_TOOLS: DeviceTool[] = [
     'capture',
     'record',
     'clipboard',
-    'erase'
+    'erase',
+    'statusBar',
+    'battery',
+    'biometrics',
+    'shake'
 ];
+
+/* The status bar of a marketing shot. */
+const CLEAN_STATUS_BAR = [
+    '--time',
+    '9:41',
+    '--dataNetwork',
+    'wifi',
+    '--wifiMode',
+    'active',
+    '--wifiBars',
+    '3',
+    '--cellularMode',
+    'active',
+    '--cellularBars',
+    '4',
+    '--batteryState',
+    'charged',
+    '--batteryLevel',
+    '100'
+];
+
+/*
+ * The Darwin notifications the simulator's biometric stand-in listens to. Not a documented API: they
+ * were seen working on Xcode 27, which a device test of Bas still has to confirm.
+ */
+const BIOMETRIC_ENROLLMENT = 'com.apple.BiometricKit.enrollmentChanged';
+const BIOMETRIC_MATCH: Record<'face' | 'finger', Record<'match' | 'nomatch', string>> = {
+    face: { match: 'com.apple.BiometricKit_Sim.pearl.match', nomatch: 'com.apple.BiometricKit_Sim.pearl.nomatch' },
+    finger: { match: 'com.apple.BiometricKit_Sim.fingerTouch.match', nomatch: 'com.apple.BiometricKit_Sim.fingerTouch.nomatch' }
+};
+const SHAKE = 'com.apple.UIKit.SimulatorShake';
 
 /* A recording a person forgot keeps going no longer than this, so it cannot fill the disk. */
 const RECORDING_LIMIT_MS = 10 * 60 * 1000;
@@ -119,6 +155,14 @@ const IOS_PERMISSION_SERVICES: Record<DevicePermission, string> = {
     'media-library': 'media-library',
     faceid: 'faceid'
 };
+
+/* The native helper of a simulator someone has open, which the tools that go through its HID need. */
+function helperOf(session: DeviceSource | null): DeviceHelperSource {
+    if (!(session instanceof DeviceHelperSource)) {
+        throw new DeviceError('device-not-open', 'Open the simulator before using this tool');
+    }
+    return session;
+}
 
 function textSizeFromIos(category: string): DeviceTextSize {
     const exact = (Object.entries(IOS_TEXT_SIZES) as Array<[DeviceTextSize, string]>).find(([, value]) => value === category);
@@ -158,6 +202,10 @@ export class IosSimulatorBackend implements DeviceBackend {
     private readonly treeReader: ((udid: string) => SimulatorTreeReader) | null;
     private readonly readers = new Map<string, SimulatorTreeReader>();
     private readonly recordings: DeviceRecordings;
+    /* What simctl cannot read back, as this daemon last set it; unknown again after a restart. */
+    private readonly statusBars = new Map<string, DeviceSettings['statusBar']>();
+    private readonly batteries = new Map<string, NonNullable<DeviceSettings['battery']>>();
+    private readonly enrolled = new Map<string, boolean>();
 
     constructor(
         run: SimctlRunner = defaultRunner,
@@ -203,7 +251,7 @@ export class IosSimulatorBackend implements DeviceBackend {
                         input: this.launch !== null,
                         screenshot: true,
                         buttons: IOS_BUTTONS,
-                        tools: [...IOS_SIMULATOR_TOOLS, ...(this.launch === null ? [] : (['keyboard'] as const))],
+                        tools: [...IOS_SIMULATOR_TOOLS, ...(this.launch === null ? [] : (['keyboard', 'memoryWarning'] as const))],
                         permissions: [...DevicePermissionSchema.options]
                     }
                 }))
@@ -270,16 +318,76 @@ export class IosSimulatorBackend implements DeviceBackend {
             ...(voiceOver === undefined ? {} : { voiceOver }),
             ...(ax['liquid-glass'] === 'clear' || ax['liquid-glass'] === 'tinted' ? { liquidGlass: ax['liquid-glass'] } : {}),
             ...(colorFilter === undefined ? {} : { colorFilter }),
+            ...this.remembered(deviceId),
             recording: this.recordings.isRecording(deviceId)
         };
     }
 
-    async action(deviceId: string, action: DeviceAction): Promise<DeviceSettings> {
+    private remembered(deviceId: string): DeviceSettings {
+        const statusBar = this.statusBars.get(deviceId);
+        const battery = this.batteries.get(deviceId);
+        const enrolled = this.enrolled.get(deviceId);
+        return {
+            ...(statusBar === undefined ? {} : { statusBar }),
+            ...(battery === undefined ? {} : { battery }),
+            ...(enrolled === undefined ? {} : { biometricEnrolled: enrolled })
+        };
+    }
+
+    async action(deviceId: string, action: DeviceAction, session: DeviceSource | null = null): Promise<DeviceSettings> {
         if (action.action === 'erase') {
             await this.erase(deviceId);
             return {};
         }
         switch (action.action) {
+            case 'setStatusBar':
+                if (action.value === 'clean') {
+                    await this.command(['status_bar', deviceId, 'override', ...CLEAN_STATUS_BAR]);
+                } else {
+                    await this.command(['status_bar', deviceId, 'clear']);
+                    this.batteries.delete(deviceId);
+                }
+                this.statusBars.set(deviceId, action.value);
+                break;
+            case 'setBattery':
+                await this.command([
+                    'status_bar',
+                    deviceId,
+                    'override',
+                    '--batteryLevel',
+                    String(action.level),
+                    '--batteryState',
+                    action.charging ? 'charging' : 'discharging'
+                ]);
+                this.batteries.set(deviceId, { level: action.level, charging: action.charging });
+                break;
+            case 'resetBattery':
+                // A clear takes every override, so a clean status bar is put back after it.
+                await this.command(['status_bar', deviceId, 'clear']);
+                if (this.statusBars.get(deviceId) === 'clean') {
+                    await this.command(['status_bar', deviceId, 'override', ...CLEAN_STATUS_BAR]);
+                }
+                this.batteries.delete(deviceId);
+                break;
+            case 'biometric':
+                if (action.event === 'enroll' || action.event === 'unenroll') {
+                    const enrolled = action.event === 'enroll';
+                    await this.notify(deviceId, ['-s', BIOMETRIC_ENROLLMENT, enrolled ? '1' : '0']);
+                    await this.notify(deviceId, ['-p', BIOMETRIC_ENROLLMENT]);
+                    this.enrolled.set(deviceId, enrolled);
+                } else {
+                    await this.notify(deviceId, ['-p', BIOMETRIC_MATCH[action.sensor][action.event]]);
+                }
+                break;
+            case 'shake':
+                await this.notify(deviceId, ['-p', SHAKE]);
+                break;
+            case 'memoryWarning':
+                await helperOf(session).call({ method: 'memoryWarning' });
+                break;
+            case 'setAllPermissions':
+                await this.command(['privacy', deviceId, action.decision, 'all', action.appId]);
+                break;
             case 'setAppearance':
                 await this.command(['ui', deviceId, 'appearance', action.value]);
                 break;
@@ -404,6 +512,10 @@ export class IosSimulatorBackend implements DeviceBackend {
                 await this.sleep(PASTE_SETTLE_MS);
             }
         );
+    }
+
+    private async notify(deviceId: string, arguments_: string[]): Promise<void> {
+        await this.command(['spawn', deviceId, 'notifyutil', ...arguments_]);
     }
 
     private async ax(deviceId: string, arguments_: string[]): Promise<void> {

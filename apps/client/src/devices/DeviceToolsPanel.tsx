@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ClipboardCopy, ClipboardPaste, Copy, Download, Frame, LoaderCircle, Square, Video } from 'lucide-react';
 import {
@@ -32,6 +32,7 @@ import {
     PanelHeader,
     SectionLabel,
     Select,
+    Slider,
     useNow
 } from '@adecore/ui';
 
@@ -228,6 +229,17 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
                 {(has('location') || has('clearLocation')) && (
                     <LocationTools canSet={has('location')} canClear={has('clearLocation')} disabled={disabled} act={act} />
                 )}
+                {(has('statusBar') || has('battery')) && (
+                    <StatusBarTools
+                        device={device}
+                        settings={settings}
+                        canStatusBar={has('statusBar')}
+                        canBattery={has('battery')}
+                        disabled={disabled}
+                        act={act}
+                    />
+                )}
+                {has('biometrics') && <BiometricTools device={device} settings={settings} disabled={disabled} act={act} />}
                 {has('permissions') && permissions.length > 0 && (
                     <PermissionTools permissions={permissions} appIdPlaceholder={appIdPlaceholder} disabled={disabled} act={act} />
                 )}
@@ -384,6 +396,143 @@ function ClipboardTools({ device, onError }: { device: DeviceInfo; onError: (mes
                     {t('device.tools.clipboard.copy')}
                 </Button>
             </div>
+        </ToolSection>
+    );
+}
+
+/* How long the battery slider rests before its level is sent, so a drag sends one change and not every step. */
+const BATTERY_SETTLE_MS = 250;
+
+function StatusBarTools({
+    device,
+    settings,
+    canStatusBar,
+    canBattery,
+    disabled,
+    act
+}: {
+    device: DeviceInfo;
+    settings: DeviceSettings | null;
+    canStatusBar: boolean;
+    canBattery: boolean;
+    disabled: boolean;
+    act: (body: ActionBody) => Promise<void>;
+}) {
+    const { t } = useTranslation('machines');
+    const [level, setLevel] = useState<number | null>(null);
+    const timer = useRef<number | null>(null);
+    const battery = settings?.battery;
+    const shownLevel = level ?? battery?.level ?? 100;
+    const charging = battery?.charging ?? false;
+    useEffect(
+        () => () => {
+            if (timer.current !== null) {
+                window.clearTimeout(timer.current);
+            }
+        },
+        []
+    );
+    const slide = (next: number): void => {
+        setLevel(next);
+        if (timer.current !== null) {
+            window.clearTimeout(timer.current);
+        }
+        timer.current = window.setTimeout(() => {
+            timer.current = null;
+            void act({ action: 'setBattery', level: next, charging }).finally(() => setLevel(null));
+        }, BATTERY_SETTLE_MS);
+    };
+    return (
+        <ToolSection title={t('device.tools.statusBar.title')}>
+            {canStatusBar && (
+                <ToolRow label={t('device.tools.statusBar.style')}>
+                    <Segmented
+                        label={t('device.tools.statusBar.style')}
+                        value={settings?.statusBar ?? 'default'}
+                        options={[
+                            { id: 'clean', label: t('device.tools.statusBar.clean') },
+                            { id: 'default', label: t('device.tools.statusBar.default') }
+                        ]}
+                        disabled={disabled}
+                        onValueChange={(value) => void act({ action: 'setStatusBar', value })}
+                    />
+                </ToolRow>
+            )}
+            {canBattery && (
+                <>
+                    <Slider
+                        label={t('device.tools.statusBar.battery')}
+                        value={shownLevel}
+                        min={0}
+                        max={100}
+                        unit="%"
+                        disabled={disabled}
+                        onValueChange={slide}
+                    />
+                    <ToolRow label={t('device.tools.statusBar.charging')}>
+                        <Switch
+                            checked={charging}
+                            label={t('device.tools.statusBar.charging')}
+                            disabled={disabled}
+                            onCheckedChange={(next) => void act({ action: 'setBattery', level: shownLevel, charging: next })}
+                        />
+                    </ToolRow>
+                    <div className="flex items-center justify-between gap-3">
+                        {device.platform === 'ios' && <p className="text-xs text-text-muted">{t('device.tools.statusBar.cosmetic')}</p>}
+                        <Button size="sm" className="ml-auto" disabled={disabled} onClick={() => void act({ action: 'resetBattery' })}>
+                            {t('device.tools.statusBar.reset')}
+                        </Button>
+                    </div>
+                </>
+            )}
+        </ToolSection>
+    );
+}
+
+function BiometricTools({
+    device,
+    settings,
+    disabled,
+    act
+}: {
+    device: DeviceInfo;
+    settings: DeviceSettings | null;
+    disabled: boolean;
+    act: (body: ActionBody) => Promise<void>;
+}) {
+    const { t } = useTranslation('machines');
+    // Android has a fingerprint to touch on an emulator only, and enrolls it in its own Settings.
+    const sensors: ReadonlyArray<'face' | 'finger'> = device.platform === 'ios' ? ['face', 'finger'] : ['finger'];
+    const sensorName = (sensor: 'face' | 'finger'): string =>
+        sensor === 'face'
+            ? t('device.tools.biometrics.face')
+            : device.platform === 'ios'
+              ? t('device.tools.biometrics.touch')
+              : t('device.tools.biometrics.fingerprint');
+    return (
+        <ToolSection title={t('device.tools.biometrics.title')}>
+            {device.platform === 'ios' && (
+                <ToolRow label={t('device.tools.biometrics.enrolled')}>
+                    <Switch
+                        checked={settings?.biometricEnrolled ?? false}
+                        label={t('device.tools.biometrics.enrolled')}
+                        disabled={disabled}
+                        onCheckedChange={(next) => void act({ action: 'biometric', sensor: 'face', event: next ? 'enroll' : 'unenroll' })}
+                    />
+                </ToolRow>
+            )}
+            {sensors.map((sensor) => (
+                <ToolRow key={sensor} label={sensorName(sensor)}>
+                    <div className="flex gap-1.5">
+                        <Button size="sm" variant="secondary" disabled={disabled} onClick={() => void act({ action: 'biometric', sensor, event: 'match' })}>
+                            {t('device.tools.biometrics.match')}
+                        </Button>
+                        <Button size="sm" disabled={disabled} onClick={() => void act({ action: 'biometric', sensor, event: 'nomatch' })}>
+                            {t('device.tools.biometrics.noMatch')}
+                        </Button>
+                    </div>
+                </ToolRow>
+            ))}
         </ToolSection>
     );
 }
@@ -570,6 +719,12 @@ function PermissionTools({
             void act({ action: 'setPermission', appId: resolved, permission, decision });
         }
     };
+    const decideAll = (decision: 'grant' | 'revoke' | 'reset'): void => {
+        const resolved = appId.trim();
+        if (resolved) {
+            void act({ action: 'setAllPermissions', appId: resolved, decision });
+        }
+    };
     return (
         <ToolSection title={t('device.tools.permissions.title')}>
             <Input
@@ -597,6 +752,17 @@ function PermissionTools({
                 </Button>
                 <Button size="sm" disabled={disabled || !appId.trim()} onClick={() => decide('reset')}>
                     {t('device.tools.permissions.reset')}
+                </Button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+                <Button size="sm" variant="secondary" disabled={disabled || !appId.trim()} onClick={() => decideAll('grant')}>
+                    {t('device.tools.permissions.grantAll')}
+                </Button>
+                <Button size="sm" variant="secondary" disabled={disabled || !appId.trim()} onClick={() => decideAll('revoke')}>
+                    {t('device.tools.permissions.revokeAll')}
+                </Button>
+                <Button size="sm" disabled={disabled || !appId.trim()} onClick={() => decideAll('reset')}>
+                    {t('device.tools.permissions.resetAll')}
                 </Button>
             </div>
         </ToolSection>

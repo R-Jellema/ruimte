@@ -72,7 +72,8 @@ export interface DeviceBackend {
     boot?(deviceId: string): Promise<DeviceInfo>;
     shutdown?(deviceId: string): Promise<DeviceInfo>;
     detail?(deviceId: string): Promise<DeviceSettings>;
-    action?(deviceId: string, action: DeviceAction): Promise<DeviceSettings>;
+    /* `session` is the device's open source, for an action that goes through it; null while nobody has the device open. */
+    action?(deviceId: string, action: DeviceAction, session: DeviceSource | null): Promise<DeviceSettings>;
     createSource?(deviceId: string): DeviceSource;
     /* A png of the screen as it is now, at the device's own resolution. */
     screenshot?(deviceId: string): Promise<Uint8Array>;
@@ -237,7 +238,7 @@ export class DeviceManager {
             this.destroy(sessionKey(action.backendId, action.deviceId));
             backend.closeTree?.(action.deviceId);
         }
-        return backend.action(action.deviceId, action);
+        return backend.action(action.deviceId, action, this.sessions.get(sessionKey(action.backendId, action.deviceId))?.source ?? null);
     }
 
     async open(

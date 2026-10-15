@@ -47,7 +47,20 @@ export function useOperatedDevice(endpointId: string, device: Target | null): De
 /* Android names three of the buttons its own way. */
 export const ANDROID_BUTTONS: Readonly<Record<string, string>> = { appSwitcher: 'recentApps', lock: 'power', siri: 'assistant' };
 
-const BUTTONS: ReadonlySet<string> = new Set(['home', 'back', 'swipeHome', 'appSwitcher', 'recentApps', 'lock', 'power', 'siri', 'assistant']);
+const BUTTONS: ReadonlySet<string> = new Set([
+    'home',
+    'back',
+    'swipeHome',
+    'appSwitcher',
+    'recentApps',
+    'lock',
+    'power',
+    'siri',
+    'assistant',
+    'volumeUp',
+    'volumeDown',
+    'playPause'
+]);
 
 /* What the agent is doing, in the words of the strip; a kind this client does not know reads as the machine said it. */
 export function stepWords(step: DeviceAgentStep, platform: DevicePlatform): string {

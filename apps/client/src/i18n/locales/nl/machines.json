@@ -13,7 +13,10 @@
             "assistant": "Assistent",
             "rotate": "Apparaat draaien",
             "rotateLeft": "Links",
-            "rotateRight": "Rechts"
+            "rotateRight": "Rechts",
+            "volumeUp": "Volume omhoog",
+            "volumeDown": "Volume omlaag",
+            "playPause": "Afspelen of pauzeren"
         },
         "state": {
             "booted": "{{name}} draait.",
@@ -109,7 +112,10 @@
                     "motion": "Beweging",
                     "media-library": "Mediabibliotheek",
                     "faceid": "Face ID"
-                }
+                },
+                "grantAll": "Alles geven",
+                "revokeAll": "Alles intrekken",
+                "resetAll": "Alles herstellen"
             },
             "push": {
                 "title": "Pushmelding",
@@ -136,6 +142,25 @@
                 "send": "Mijn klembord sturen",
                 "copy": "Klembord van het apparaat kopiëren",
                 "failed": "Het klembord was niet bereikbaar"
+            },
+            "statusBar": {
+                "title": "Statusbalk",
+                "style": "Statusbalk",
+                "clean": "Schoon",
+                "default": "Standaard",
+                "battery": "Batterij",
+                "charging": "Opladen",
+                "cosmetic": "Alleen de statusbalk toont dit niveau; apps lezen nog steeds een volle batterij.",
+                "reset": "Batterij herstellen"
+            },
+            "biometrics": {
+                "title": "Biometrie",
+                "enrolled": "Ingesteld",
+                "face": "Face ID",
+                "touch": "Touch ID",
+                "fingerprint": "Vingerafdruk",
+                "match": "Match",
+                "noMatch": "Geen match"
             }
         },
         "operated": {
@@ -165,7 +190,10 @@
                 "lock": "Drukt op Vergrendelen",
                 "power": "Drukt op Aan/uit",
                 "siri": "Roept Siri op",
-                "assistant": "Roept de assistent op"
+                "assistant": "Roept de assistent op",
+                "volumeUp": "Zet het volume hoger",
+                "volumeDown": "Zet het volume lager",
+                "playPause": "Drukt op afspelen"
             }
         },
         "more": "Meer apparaatacties",
@@ -177,7 +205,9 @@
             "confirm": "Wissen",
             "busy": "Wissen…",
             "failed": "Het apparaat kon niet worden gewist"
-        }
+        },
+        "shake": "Schudden",
+        "memoryWarning": "Geheugenwaarschuwing nabootsen"
     },
     "handshake": {
         "noEndpoint": "Geen endpoint {{id}} om mee te verbinden"

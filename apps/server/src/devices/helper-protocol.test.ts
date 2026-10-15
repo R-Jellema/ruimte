@@ -36,6 +36,19 @@ describe('device helper protocol', () => {
         ).toEqual([input, keys, { type: 'stop' }]);
     });
 
+    test('carries a call to the helper and its reply back, matched by id', () => {
+        const call: DeviceHelperMessage = { type: 'call', id: 4, call: { method: 'pose', name: 'tabletop', fromDegrees: 180 } };
+        const reply: DeviceHelperMessage = { type: 'reply', id: 4, ok: true, value: false };
+        const failed: DeviceHelperMessage = { type: 'reply', id: 5, ok: false, message: 'No hinge' };
+
+        expect(new DeviceHelperDecoder().push(join(DEVICE_HELPER_MAGIC, ...[call, reply, failed].map(encodeDeviceHelperMessage)))).toEqual([
+            call,
+            reply,
+            failed
+        ]);
+        expect(() => encodeDeviceHelperMessage({ type: 'call', id: 1, call: { method: 'hinge', degrees: 270 } })).toThrow();
+    });
+
     test('rejects unknown preambles and oversized frames', () => {
         expect(() => new DeviceHelperDecoder().push(new Uint8Array(DEVICE_HELPER_MAGIC.byteLength))).toThrow('Unknown device helper protocol');
 

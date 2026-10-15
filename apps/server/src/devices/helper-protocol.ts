@@ -11,21 +11,51 @@ const ErrorSchema = z.object({ code: z.string().min(1).max(128), message: z.stri
 /* A chord of USB HID keyboard usages (page 7), pressed in order and let go in reverse. */
 const KeysSchema = z.object({ usages: z.array(z.number().int().min(0).max(0xffff)).min(1).max(8) });
 
+/* What the daemon asks the native simulator helper to do beside input, each answered by a reply with its id. */
+export const DeviceHelperCallSchema = z.discriminatedUnion('method', [
+    z.object({ method: z.literal('memoryWarning') }),
+    z.object({
+        method: z.literal('buttonHid'),
+        page: z.number().int().min(0).max(0xffff),
+        usage: z.number().int().min(0).max(0xffff),
+        phase: z.enum(['press', 'down', 'up'])
+    }),
+    z.object({ method: z.literal('isFoldable') }),
+    z.object({ method: z.literal('pose'), name: z.enum(['closed', 'tent', 'tabletop', 'book', 'open']), fromDegrees: z.number().min(0).max(180) }),
+    z.object({ method: z.literal('hinge'), degrees: z.number().min(0).max(180) }),
+    z.object({ method: z.literal('preferredScreenSize'), width: z.number().int().min(0).max(0xffff), height: z.number().int().min(0).max(0xffff) })
+]);
+
+export type DeviceHelperCall = z.infer<typeof DeviceHelperCallSchema>;
+
+const CallSchema = z.object({ id: z.number().int().min(0).max(0xffffffff), call: DeviceHelperCallSchema });
+/* `value` is what a call that answers yes or no answered; `message` says why a call failed. */
+const ReplySchema = z.object({
+    id: z.number().int().min(0).max(0xffffffff),
+    ok: z.boolean(),
+    value: z.boolean().optional(),
+    message: z.string().max(4096).optional()
+});
+
 export type DeviceHelperMessage =
     | { type: 'ready'; width: number; height: number }
     | { type: 'frame'; frame: LiveStreamFrame }
     | { type: 'error'; code: string; message: string }
+    | { type: 'reply'; id: number; ok: boolean; value?: boolean; message?: string }
     | { type: 'input'; input: DeviceInput }
     | { type: 'keys'; usages: number[] }
+    | { type: 'call'; id: number; call: DeviceHelperCall }
     | { type: 'stop' };
 
 const MessageKind = {
     ready: 1,
     frame: 2,
     error: 3,
+    reply: 4,
     input: 17,
     stop: 18,
-    keys: 19
+    keys: 19,
+    call: 20
 } as const;
 
 const textEncoder = new TextEncoder();
@@ -46,6 +76,11 @@ export function encodeDeviceHelperMessage(message: DeviceHelperMessage): Uint8Ar
         payload = textEncoder.encode(JSON.stringify(DeviceInputSchema.parse(message.input)));
     } else if (message.type === 'keys') {
         payload = textEncoder.encode(JSON.stringify(KeysSchema.parse({ usages: message.usages })));
+    } else if (message.type === 'call') {
+        payload = textEncoder.encode(JSON.stringify(CallSchema.parse({ id: message.id, call: message.call })));
+    } else if (message.type === 'reply') {
+        const { type: _type, ...reply } = message;
+        payload = textEncoder.encode(JSON.stringify(ReplySchema.parse(reply)));
     } else {
         payload = new Uint8Array();
     }
@@ -118,6 +153,12 @@ export class DeviceHelperDecoder {
         }
         if (kind === MessageKind.keys) {
             return { type: 'keys', ...KeysSchema.parse(this.json(payload)) };
+        }
+        if (kind === MessageKind.call) {
+            return { type: 'call', ...CallSchema.parse(this.json(payload)) };
+        }
+        if (kind === MessageKind.reply) {
+            return { type: 'reply', ...ReplySchema.parse(this.json(payload)) };
         }
         if (kind === MessageKind.stop && payload.byteLength === 0) {
             return { type: 'stop' };

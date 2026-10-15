@@ -119,6 +119,9 @@ describe('runDeviceHelper', () => {
                         encodeDeviceHelperMessage({ type: 'input', input: { kind: 'rotate', direction: 'left' } }),
                         encodeDeviceHelperMessage({ type: 'keys', usages: [0xe3, 0x19] }),
                         encodeDeviceHelperMessage({ type: 'input', input: { kind: 'key', phase: 'down', usage: 0x04 } }),
+                        encodeDeviceHelperMessage({ type: 'input', input: { kind: 'button', button: 'volumeUp' } }),
+                        encodeDeviceHelperMessage({ type: 'call', id: 7, call: { method: 'memoryWarning' } }),
+                        encodeDeviceHelperMessage({ type: 'call', id: 8, call: { method: 'pose', name: 'book', fromDegrees: 180 } }),
                         encodeDeviceHelperMessage({ type: 'stop' })
                     )
                 );
@@ -131,7 +134,9 @@ describe('runDeviceHelper', () => {
         );
         expect(new DeviceHelperDecoder().push(join(...output))).toEqual([
             { type: 'ready', width: 1179, height: 2556 },
-            { type: 'frame', frame: { sequence: 0, width: 1179, height: 2556, data: new Uint8Array([0xff, 0xd8, 0xff]) } }
+            { type: 'frame', frame: { sequence: 0, width: 1179, height: 2556, data: new Uint8Array([0xff, 0xd8, 0xff]) } },
+            { type: 'reply', id: 7, ok: true },
+            { type: 'reply', id: 8, ok: true, value: true }
         ]);
         expect(calls).toEqual([
             ['hid', 'phone-1', '/native/serve-sim-duo-hid'],
@@ -148,6 +153,9 @@ describe('runDeviceHelper', () => {
             ['key', 'up', 0x19],
             ['key', 'up', 0xe3],
             ['key', 'down', 0x04],
+            ['buttonHid', 0x0c, 0xe9, 'press'],
+            ['memoryWarning'],
+            ['pose', 'book', 180],
             ['unsubscribe'],
             ['stop']
         ]);

@@ -13,7 +13,10 @@
             "assistant": "Assistant",
             "rotate": "Rotate device",
             "rotateLeft": "Left",
-            "rotateRight": "Right"
+            "rotateRight": "Right",
+            "volumeUp": "Volume up",
+            "volumeDown": "Volume down",
+            "playPause": "Play or pause"
         },
         "state": {
             "booted": "{{name}} is running.",
@@ -109,7 +112,10 @@
                     "motion": "Motion",
                     "media-library": "Media library",
                     "faceid": "Face ID"
-                }
+                },
+                "grantAll": "Grant all",
+                "revokeAll": "Revoke all",
+                "resetAll": "Reset all"
             },
             "push": {
                 "title": "Push notification",
@@ -136,6 +142,25 @@
                 "send": "Send my clipboard",
                 "copy": "Copy device clipboard",
                 "failed": "The clipboard could not be reached"
+            },
+            "statusBar": {
+                "title": "Status bar",
+                "style": "Status bar",
+                "clean": "Clean",
+                "default": "Default",
+                "battery": "Battery",
+                "charging": "Charging",
+                "cosmetic": "Only the status bar shows this level; apps still read a full battery.",
+                "reset": "Reset battery"
+            },
+            "biometrics": {
+                "title": "Biometrics",
+                "enrolled": "Enrolled",
+                "face": "Face ID",
+                "touch": "Touch ID",
+                "fingerprint": "Fingerprint",
+                "match": "Match",
+                "noMatch": "No match"
             }
         },
         "operated": {
@@ -165,7 +190,10 @@
                 "lock": "Pressing Lock",
                 "power": "Pressing Power",
                 "siri": "Calling Siri",
-                "assistant": "Calling the assistant"
+                "assistant": "Calling the assistant",
+                "volumeUp": "Turning the volume up",
+                "volumeDown": "Turning the volume down",
+                "playPause": "Pressing play"
             }
         },
         "more": "More device actions",
@@ -177,7 +205,9 @@
             "confirm": "Erase",
             "busy": "Erasing…",
             "failed": "The device could not be erased"
-        }
+        },
+        "shake": "Shake",
+        "memoryWarning": "Simulate memory warning"
     },
     "handshake": {
         "noEndpoint": "No endpoint {{id}} to connect to"

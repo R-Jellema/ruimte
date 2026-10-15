@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import type { DeviceAction } from '@ruimte/contracts';
 import { FakeRecorder } from './device-test-helpers.ts';
 import type { DeviceSource } from './manager.ts';
 import { AndroidBackend, parseAdbDevices, shellQuote, type AndroidBackendOptions, type AvdInfo, type EmulatorProcess } from './android.ts';
@@ -99,7 +100,7 @@ describe('AndroidBackend', () => {
             shutdown: true,
             stream: true,
             input: true,
-            buttons: ['back', 'home', 'appSwitcher', 'lock', 'siri']
+            buttons: ['back', 'home', 'appSwitcher', 'lock', 'siri', 'volumeUp', 'volumeDown', 'playPause']
         });
         expect(devices[2]!.capabilities.tools).toContain('voiceOver');
         expect(devices[2]!.capabilities.tools).toContain('location');
@@ -408,5 +409,49 @@ describe('AndroidBackend', () => {
         await expect(backend.action('R5CT', { backendId: 'android', platform: 'android', deviceId: 'R5CT', action: 'erase' })).rejects.toMatchObject({
             code: 'device-action-unavailable'
         });
+    });
+
+    test('runs the status bar, battery, fingerprint and permission tools as their exact adb commands', async () => {
+        const adb = new FakeAdb();
+        adb.devices += 'R5CT device usb:1-1 model:SM_S921B transport_id:3\n';
+        const backend = backendWith(adb);
+        await backend.list();
+        const act = async (deviceId: string, action: Record<string, unknown>) => {
+            adb.calls.length = 0;
+            await backend.action(deviceId, { backendId: 'android', platform: 'android', deviceId, ...action } as DeviceAction);
+            return adb.calls
+                .map((call) => call.join(' '))
+                .filter((call) => !call.includes('settings get') && !call.includes('devices -l') && !call.includes('emu avd name'));
+        };
+
+        expect(await act('Pixel_9_Pro_API_35', { action: 'setStatusBar', value: 'clean' })).toEqual([
+            '-s emulator-5554 shell settings put global sysui_demo_allowed 1; am broadcast -a com.android.systemui.demo -e command enter; am broadcast -a com.android.systemui.demo -e command clock -e hhmm 0941; am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false; am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4; am broadcast -a com.android.systemui.demo -e command notifications -e visible false'
+        ]);
+        expect(await act('Pixel_9_Pro_API_35', { action: 'setStatusBar', value: 'default' })).toEqual([
+            '-s emulator-5554 shell am broadcast -a com.android.systemui.demo -e command exit'
+        ]);
+        expect(await act('Pixel_9_Pro_API_35', { action: 'setBattery', level: 15, charging: false })).toEqual([
+            '-s emulator-5554 emu power capacity 15',
+            '-s emulator-5554 emu power ac off'
+        ]);
+        expect(await act('Pixel_9_Pro_API_35', { action: 'resetBattery' })).toEqual([
+            '-s emulator-5554 emu power capacity 100',
+            '-s emulator-5554 emu power ac on'
+        ]);
+        expect(await act('R5CT', { action: 'setBattery', level: 15, charging: true })).toEqual([
+            '-s R5CT shell dumpsys battery set level 15; dumpsys battery set ac 1'
+        ]);
+        expect(await act('R5CT', { action: 'resetBattery' })).toEqual(['-s R5CT shell dumpsys battery reset']);
+        expect(await act('Pixel_9_Pro_API_35', { action: 'biometric', sensor: 'finger', event: 'match' })).toEqual(['-s emulator-5554 emu finger touch 1']);
+        expect(await act('Pixel_9_Pro_API_35', { action: 'biometric', sensor: 'finger', event: 'nomatch' })).toEqual(['-s emulator-5554 emu finger touch 99']);
+        await expect(act('R5CT', { action: 'biometric', sensor: 'finger', event: 'match' })).rejects.toMatchObject({ code: 'device-action-unavailable' });
+        await expect(act('Pixel_9_Pro_API_35', { action: 'biometric', sensor: 'finger', event: 'enroll' })).rejects.toMatchObject({
+            code: 'device-action-unavailable'
+        });
+        await expect(act('Pixel_9_Pro_API_35', { action: 'shake' })).rejects.toMatchObject({ code: 'device-action-unavailable' });
+        const all = await act('Pixel_9_Pro_API_35', { action: 'setAllPermissions', appId: 'com.example.app', decision: 'grant' });
+        expect(all).toContain('-s emulator-5554 shell pm grant com.example.app android.permission.CAMERA');
+        expect(all).toContain('-s emulator-5554 shell pm grant com.example.app android.permission.ACTIVITY_RECOGNITION');
+        expect((await backend.detail('Pixel_9_Pro_API_35')).statusBar).toBe('default');
     });
 });

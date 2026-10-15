@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
+import { act } from 'react';
 import type { ProjectView } from '@ruimte/contracts';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
@@ -97,6 +98,36 @@ describe('the clipboard of a device', () => {
             { backendId: 'android', platform: 'android', deviceId: FAKE_EMULATOR.deviceId }
         ]);
         expect(written).toEqual(['copied on the phone']);
+    });
+});
+
+describe('the status bar, biometrics and permissions of a device', () => {
+    test('sends a clean status bar, a Face ID match and every permission at once', async () => {
+        await openTools(PHONE);
+        await until(() => buttonWithText('Clean') !== null);
+
+        await clickOn(buttonWithText('Clean'));
+        await until(() => machine.requests('device.action').length === 1);
+        const faceRow = [...document.body.querySelectorAll<HTMLElement>('div')].find(
+            (row) => row.firstElementChild?.textContent === 'Face ID' && row.querySelector('button') !== null
+        );
+        await clickOn([...faceRow!.querySelectorAll<HTMLElement>('button')].find((button) => button.textContent?.trim() === 'Match') ?? null);
+        await until(() => machine.requests('device.action').length === 2);
+        const permissions = [...document.body.querySelectorAll('section')].find((section) => section.querySelector('h3')?.textContent === 'Permissions')!;
+        const appField = permissions.querySelector<HTMLInputElement>('input')!;
+        await act(async () => {
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+            setter.call(appField, 'com.example.app');
+            appField.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        await clickOn(buttonWithText('Grant all'));
+        await until(() => machine.requests('device.action').length === 3);
+
+        expect(machine.requests('device.action').map(({ backendId: _backend, platform: _platform, deviceId: _device, ...action }) => action)).toEqual([
+            { action: 'setStatusBar', value: 'clean' },
+            { action: 'biometric', sensor: 'face', event: 'match' },
+            { action: 'setAllPermissions', appId: 'com.example.app', decision: 'grant' }
+        ]);
     });
 });
 
