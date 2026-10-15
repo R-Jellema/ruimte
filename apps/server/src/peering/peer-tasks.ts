@@ -516,6 +516,23 @@ export class PeerTasks {
         }
     }
 
+    /* The link of that machine to this project is gone, so the results owed for it can never be acknowledged and are not owed any more. */
+    async lapseDeliveries(machineId: string, projectId: string): Promise<void> {
+        const { deps } = this;
+        for (const entry of deps.outbox.list()) {
+            if (entry.kind === 'deliver-remote-result' && entry.payload.machineId === machineId && entry.projectId === projectId) {
+                await deps.outbox.remove(entry.id);
+            }
+        }
+        // Left pending, a restart would owe them again.
+        const settled = deps.tasks
+            .all()
+            .filter((task) => task.projectId === projectId && task.status !== 'open' && task.wake === 'pending' && this.peerOfTask(task) === machineId);
+        if (settled.length > 0) {
+            await deps.tasks.markWoken(settled.map((task) => task.id));
+        }
+    }
+
     /* Owes the machine its result once a task of it settled; a task it cancelled itself owes nothing. */
     changed(task: Task): void {
         const machineId = this.peerOfTask(task);

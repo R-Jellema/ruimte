@@ -11,7 +11,12 @@ import type { ProjectStore } from '../projects/project-store.ts';
 export interface PeerHost {
     links: PeerLinks;
     /* The tasks of a machine that its link ends with: they are told to it when the link goes. */
-    tasks?: { openNodesOf(machineId: string, projectId: string): string[]; tellEnded(machineId: string, nodeIds: readonly string[]): void };
+    tasks?: {
+        openNodesOf(machineId: string, projectId: string): string[];
+        tellEnded(machineId: string, nodeIds: readonly string[]): void;
+        /* Lets go of the results owed to the machine for this project, which it can no longer acknowledge. */
+        lapseDeliveries(machineId: string, projectId: string): Promise<void>;
+    };
     /* Which nodes are a task's: a window that draws a machine's nodes never rewrites those. */
     lineage: Pick<AgentLineageStore, 'peerOf'>;
     projects: Pick<ProjectStore, 'known' | 'read' | 'mutate' | 'hold'> & { index: Pick<ProjectStore['index'], 'folderOf'> };
@@ -84,6 +89,7 @@ export function registerPeerHandlers(dispatcher: Dispatcher, { links, lineage, t
             }));
         }
         await links.unbind(payload.machineId, payload.projectId);
+        await tasks?.lapseDeliveries(payload.machineId, payload.projectId);
         // The tasks went with the link; the machine that gave them hears that and asks what became of them.
         tasks?.tellEnded(payload.machineId, open);
         return {};

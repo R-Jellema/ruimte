@@ -75,7 +75,8 @@ beforeEach(async () => {
         lineage,
         tasks: {
             openNodesOf: (machineId, project) => peerTasks.openNodesOf(machineId, project),
-            tellEnded: (machineId, ids) => peerTasks.tellEnded(machineId, ids)
+            tellEnded: (machineId, ids) => peerTasks.tellEnded(machineId, ids),
+            lapseDeliveries: (machineId, project) => peerTasks.lapseDeliveries(machineId, project)
         },
         projects: store,
         endSession: async (kind, nodeId) => void ended.push(`${kind}:${nodeId}`),

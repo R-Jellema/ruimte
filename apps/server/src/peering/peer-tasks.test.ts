@@ -364,6 +364,41 @@ describe('starting a task for another machine', () => {
         expect(removed).toEqual([owed.find((entry) => entry.kind === 'deliver-remote-result')!.id]);
     });
 
+    test('unlinking lets go of the results owed for that project, and nothing owes them again', async () => {
+        const owed: OutboxEntry[] = [];
+        const removed: string[] = [];
+        const peerTasks = new PeerTasks({
+            ...deps(),
+            outbox: { list: () => owed, remove: async (id) => void removed.push(id) },
+            enqueue: async (projectId, target, work) => {
+                owed.push({ ...work, id: `entry-${owed.length}`, projectId, target, createdAt: 0, attempts: 0, notBefore: 0 } as OutboxEntry);
+            }
+        });
+        tasks.onChange((task) => peerTasks.changed(task));
+        await peerTasks.start(MACHINE, 'client-1', start());
+        const [task] = tasks.all();
+        await tasks.settle(task!.id, 'done', { text: 'Done it', source: 'turn', at: 5 }, 6);
+        await tasks.settled();
+        await Promise.resolve();
+        // Another machine's entry in the same project, and this machine's in another project, stay.
+        owed.push({
+            kind: 'deliver-remote-result',
+            payload: { machineId: 'machine-b', nodeId: 'n', taskId: 't' },
+            id: 'other-machine',
+            projectId: PROJECT
+        } as OutboxEntry);
+        owed.push({
+            kind: 'deliver-remote-result',
+            payload: { machineId: MACHINE, nodeId: 'n', taskId: 't' },
+            id: 'other-project',
+            projectId: 'project-2'
+        } as OutboxEntry);
+
+        await peerTasks.lapseDeliveries(MACHINE, PROJECT);
+        expect(removed).toEqual([owed.find((entry) => entry.kind === 'deliver-remote-result' && entry.payload.taskId === task!.id)!.id]);
+        expect(tasks.get(task!.id)?.wake).toBe('sent');
+    });
+
     test('a task that is still open reports so, and another machine asks about nothing of this one', async () => {
         const peerTasks = new PeerTasks(deps());
         await peerTasks.start(MACHINE, 'client-1', start());
