@@ -65,6 +65,7 @@ let connections: FakeConnections;
 let reconnect: ConnectPeer;
 let owed: string[];
 let woken: string[];
+let gaveUp: string[];
 let random: number;
 
 function handlersWith(connectPeer: (entry: ConnectPeerEntry) => Promise<void>): OutboxHandlers<OutboxWork> {
@@ -98,12 +99,14 @@ beforeEach(async () => {
     connections = new FakeConnections();
     owed = ['chat-1'];
     woken = [];
+    gaveUp = [];
     random = 0.5;
     reconnect = new ConnectPeer({
         outbox,
         owedTargets: () => owed,
         enqueue: (projectId, target, work, notBefore) => worker.enqueue(projectId, target, work, notBefore),
         wake: (target) => woken.push(target),
+        giveUp: async (machineId) => void gaveUp.push(machineId),
         connections,
         now: () => clock.now(),
         random: () => random
@@ -230,6 +233,23 @@ describe('the reconnect of a link to another machine', () => {
         expect(clock.now() - since).toBeGreaterThanOrEqual(RECONNECT_LIFETIME_MS);
         expect(clock.now() - since).toBeLessThan(RECONNECT_LIFETIME_MS + RECONNECT_MAX_MS + 1);
         expect(connections.standing.at(-1)).toBe(`idle:${MACHINE}`);
+    });
+
+    test('fails what is owed once the 7 days are over, and work that comes after gets a window of its own', async () => {
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        const since = clock.now();
+        while (connectEntries().length > 0 && clock.now() - since < RECONNECT_LIFETIME_MS + RECONNECT_MAX_MS) {
+            expect(gaveUp).toEqual([]);
+            await advance(connectEntries()[0]!.notBefore - clock.now());
+        }
+        expect(gaveUp).toEqual([MACHINE]);
+        expect(connectEntries()).toEqual([]);
+
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        expect(connectEntries()[0]!.payload.since).toBe(clock.now());
+        expect(gaveUp).toEqual([MACHINE]);
     });
 
     test('owes nothing for a link that is open, and owes again when the link was lost during an attempt', async () => {

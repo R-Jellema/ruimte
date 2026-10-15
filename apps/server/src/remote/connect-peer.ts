@@ -34,6 +34,8 @@ export interface ConnectPeerDeps {
     enqueue(projectId: string, target: string, work: OutboxWork, notBefore?: number): Promise<void>;
     /* Looks again at whatever waited on this target. */
     wake(target: string): void;
+    /* Fails the work still owed to a machine that stayed out of reach for the whole window. */
+    giveUp(machineId: string): Promise<void>;
     connections: Pick<RemoteConnections, 'connect' | 'isOpen' | 'knows' | 'idle' | 'waiting'>;
     now(): number;
     random(): number;
@@ -102,8 +104,10 @@ export class ConnectPeer {
             connections.idle(machineId);
             return;
         }
-        // Given up on: the first owing stays on record, so asking again later does not start the 7 days over.
         if (this.deps.now() - since >= RECONNECT_LIFETIME_MS) {
+            // What was owed fails and wakes its parents, so work that comes after starts a window of its own.
+            this.firstOwed.delete(machineId);
+            await this.deps.giveUp(machineId);
             connections.idle(machineId);
             return;
         }

@@ -6,7 +6,7 @@ import type { CheckpointService } from '../git/checkpoints.ts';
 import type { Worktrees } from '../git/worktrees.ts';
 import { errorText } from '../error-text.ts';
 import type { OutboxEntry, OutboxWork, StartRemoteAgentEntry, StopRemoteAgentEntry, TakeRemoteResultEntry } from '../outbox/outbox.ts';
-import { peerTarget } from './connect-peer.ts';
+import { RECONNECT_LIFETIME_MS, peerTarget } from './connect-peer.ts';
 import type { RemoteConnections } from './remote-connections.ts';
 
 // A refusal that is a place not free yet: the entry waits for the machine to say a task settled, or for the link to open again.
@@ -335,6 +335,38 @@ export class RemoteTasks {
             await worktrees.claim(folder, taken.path, entry.target).catch(() => undefined);
         }
         return `The work came back as the branch ${taken.branch}${taken.path === undefined ? '' : ` in the worktree ${taken.path}`}; ruimte-context worktree merge ${taken.branch} brings it into your branch.`;
+    }
+
+    /*
+     * The machine stayed out of reach for as long as the reconnect tries. Each task given to it fails with a line
+     * that says so, which wakes its parent once, and an agent that already runs there is owed a stop.
+     */
+    async giveUp(machineId: string): Promise<void> {
+        const { deps } = this;
+        const days = Math.round(RECONNECT_LIFETIME_MS / (24 * 60 * 60 * 1000));
+        const owed = deps.outbox
+            .list()
+            .filter(
+                (entry): entry is StartRemoteAgentEntry | TakeRemoteResultEntry =>
+                    (entry.kind === 'start-remote-agent' || entry.kind === 'take-remote-result') && entry.payload.machineId === machineId
+            );
+        for (const entry of owed) {
+            await deps.outbox.remove(entry.id);
+            const text =
+                entry.kind === 'start-remote-agent'
+                    ? `The other machine could not be reached for ${days} days, so this task was never started there.`
+                    : `The other machine could not be reached for ${days} days, so what became of this task is not known. It is stopped there when that machine answers again.`;
+            await deps.coordinator.settleFromElsewhere(entry.payload.taskId, { text, source: 'exit', at: deps.now() }, 'failed');
+            const stopOwed = deps.outbox.list().some((other) => other.kind === 'stop-remote-agent' && other.payload.nodeId === entry.target);
+            if (entry.kind === 'take-remote-result' && !stopOwed) {
+                const task = deps.tasks.get(entry.payload.taskId);
+                await deps.enqueue(task?.projectId ?? entry.projectId, peerTarget(machineId), {
+                    kind: 'stop-remote-agent',
+                    payload: { machineId, nodeId: entry.target }
+                });
+            }
+        }
+        deps.refresh?.(machineId);
     }
 
     /* Tells the machine to end an agent of this one, until it heard. */

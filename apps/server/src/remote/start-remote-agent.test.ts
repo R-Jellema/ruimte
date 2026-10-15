@@ -246,6 +246,38 @@ describe('agent --machine', () => {
         expect(daemon.outbox.list().map((entry) => entry.kind)).toEqual(['take-remote-result']);
     });
 
+    test('a machine out of reach for good fails what was owed to it, with a line each, and stops what already ran', async () => {
+        open = fakeLink();
+        const [started] = await give();
+        const [startedNode, , , , , startedTask] = started!.split('\t');
+        await daemon.worker.settled();
+        open = null;
+        const [waiting] = await give();
+        const [waitingNode, , , , , waitingTask] = waiting!.split('\t');
+        await daemon.worker.settled();
+        expect(
+            daemon.outbox
+                .list()
+                .map((entry) => entry.kind)
+                .sort()
+        ).toEqual(['start-remote-agent', 'take-remote-result']);
+
+        await daemon.remoteTasks!.giveUp(MACHINE);
+        await daemon.worker.settled();
+
+        expect(daemon.tasks.get(waitingTask!)).toMatchObject({ status: 'failed', result: { text: expect.stringContaining('never started there') } });
+        expect(daemon.tasks.get(startedTask!)).toMatchObject({ status: 'failed', result: { text: expect.stringContaining('It is stopped there') } });
+        expect(daemon.outbox.list().map((entry) => [entry.kind, entry.target])).toEqual([['stop-remote-agent', `peer:${MACHINE}`]]);
+        expect(daemon.outbox.list()[0]).toMatchObject({ payload: { nodeId: startedNode } });
+        expect(waitingNode).toBeDefined();
+
+        // Once the machine answers again, the agent that ran there is stopped.
+        open = fakeLink();
+        daemon.worker.wake(`peer:${MACHINE}`);
+        await daemon.worker.settled();
+        expect(requests.at(-1)).toEqual({ type: 'peer.taskStop', payload: { nodeId: startedNode } });
+    });
+
     test('a task stopped before it started is dropped without asking the machine', async () => {
         const [line] = await give();
         const nodeId = line!.split('\t')[0]!;
