@@ -321,7 +321,7 @@ function CommitDiff({ tabKey, cwd, commit, base }: { tabKey: string; cwd: string
                                     )}
                                 </div>
                                 <div className="flex min-h-0 grow flex-col overflow-hidden py-1">
-                                    {files.length > 0 && <CommitFileTree files={files} shown={shown?.path ?? null} onPick={pick} />}
+                                    {files.length > 0 && <CommitFileTree files={files} shown={shown?.path ?? null} onPick={pick} menu={{ cwd, commit }} />}
                                     {ready.truncated === true && <p className="shrink-0 px-3 py-2 text-xs text-text-faint">{t('diff.moreFiles')}</p>}
                                 </div>
                                 <ColumnResizeHandle from="left" className="hidden @xl:block" onPointerDown={startResize} />

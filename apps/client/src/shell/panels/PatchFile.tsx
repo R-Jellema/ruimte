@@ -12,6 +12,7 @@ import { hasInconsistentHunk, patchSectionParts, sectionAt, sectionsOf, showsTre
 import { useEditorCaret } from '@/shell/panels/use-editor-caret';
 import { useGit } from '@/state/git';
 import { usePatchView } from '@/state/patch-view';
+import { useProject } from '@/state/project';
 
 /* The tree keeps room for a name and its counts and never takes more than half the view, as a commit's does. */
 const MIN_TREE_WIDTH = 160;
@@ -68,6 +69,8 @@ export function PatchFile({ path, read }: { path: string; read: FsReadText }) {
     const byPath = useMemo(() => new Map<string, PatchSection>(sections.map((section) => [section.path, section])), [sections]);
     const shown = sectionAt(sections, caret.line)?.path ?? picked ?? sections[0]?.path ?? null;
     const tree = patchOn && showsTree(sections);
+    /* A patch names its files from the root of the repository it was made in, which is the project's as often as not. */
+    const folder = useProject((s) => s.current?.folder ?? null);
 
     const marks = useCallback(
         (file: { path: string }) => {
@@ -116,7 +119,7 @@ export function PatchFile({ path, read }: { path: string; read: FsReadText }) {
                     tree={
                         tree ? (
                             <ErrorBoundary label={t('diff.commitCrashed')} resetKeys={[path]} className="min-h-0 grow">
-                                <CommitFileTree files={files} shown={shown} onPick={pick} marks={marks} />
+                                <CommitFileTree files={files} shown={shown} onPick={pick} marks={marks} menu={folder === null ? undefined : { cwd: folder }} />
                             </ErrorBoundary>
                         ) : null
                     }

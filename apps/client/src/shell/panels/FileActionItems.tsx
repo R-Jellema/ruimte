@@ -13,9 +13,10 @@ import { fileManagerName, useServer } from '@/state/server';
 import { useTransport } from '@/transport/context';
 import { Icon, Menu } from '@adecore/ui';
 
-/* Which of the three surfaces these items are on, since a file already on one does not offer to go
-   there again: a node is not shown on the canvas twice and a view is not opened as one. */
-export type FileSurfaceKind = 'tab' | 'node' | 'view';
+/* Where these items are drawn, since a file already there does not offer to go there again: a node is
+   not shown on the canvas twice, a view is not opened as one, and the files panel does not reveal a row
+   in itself. `list` is any other list that names files, such as the changes of a commit. */
+export type FileSurfaceKind = 'tab' | 'node' | 'view' | 'files' | 'list';
 
 interface FileActionItemsProps {
     /* Absolute on the daemon's machine. */
@@ -23,14 +24,16 @@ interface FileActionItemsProps {
     on: FileSurfaceKind;
     /* Reads the file again; absent where nothing is holding a read to redo. */
     onRefresh?: () => void;
+    /* A file a diff names that is no longer on disk: only its name and path can still be copied. */
+    gone?: boolean;
 }
 
 /*
- * What can be asked of a file wherever it is drawn: a preview tab, a node on the canvas or a view
- * of its own. Nothing here is about a tab, so the three surfaces offer the same things in the same
- * order and only the two that would point at themselves are left out.
+ * What can be asked of a file wherever it is drawn: a preview tab, a node on the canvas, a view of its
+ * own or a row of a list. Nothing here is about a tab, so every surface offers the same things in the
+ * same order: where it can stand, then where it is, then copying it.
  */
-export function FileActionItems({ path, on, onRefresh }: FileActionItemsProps) {
+export function FileActionItems({ path, on, onRefresh, gone = false }: FileActionItemsProps) {
     const { t } = useTranslation('panels');
     const platform = useServer((s) => s.platform);
     const folder = useProject((s) => s.current?.folder ?? null);
@@ -46,34 +49,36 @@ export function FileActionItems({ path, on, onRefresh }: FileActionItemsProps) {
 
     return (
         <>
-            <Menu.Item disabled={!revealableInFiles(folder, path)} onClick={() => void perform('file.reveal', { path }).catch(ignoreRefusal)}>
-                <Icon icon={Folder} size={14} /> {t('file.menu.revealInFiles')}
-            </Menu.Item>
+            {offerShow && (
+                <Menu.Item disabled={gone} onClick={() => void showFileOnCanvas(path)}>
+                    <Icon icon={Frame} size={14} /> {t('file.menu.showOnCanvas')}
+                </Menu.Item>
+            )}
+            {offerView && (
+                <Menu.Item disabled={gone} onClick={() => void createViewAction('file', { path })}>
+                    <Icon icon={Columns2} size={14} /> {t('file.menu.openAsView')}
+                </Menu.Item>
+            )}
+            {isHtmlName(name) && (
+                <Menu.Item disabled={gone} onClick={openInBrowserNode}>
+                    <Icon icon={Globe} size={14} /> {t('file.menu.openInBrowser')}
+                </Menu.Item>
+            )}
+            {on !== 'files' && (
+                <Menu.Item disabled={gone || !revealableInFiles(folder, path)} onClick={() => void perform('file.reveal', { path }).catch(ignoreRefusal)}>
+                    <Icon icon={Folder} size={14} /> {t('file.menu.revealInFiles')}
+                </Menu.Item>
+            )}
             <Menu.Item
+                disabled={gone}
                 onClick={() => {
                     revealFile(transport, path);
                 }}
             >
                 <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
             </Menu.Item>
-            {isHtmlName(name) && (
-                <Menu.Item onClick={openInBrowserNode}>
-                    <Icon icon={Globe} size={14} /> {t('file.menu.openInBrowser')}
-                </Menu.Item>
-            )}
-            {(offerShow || offerView) && <Menu.Separator />}
-            {offerShow && (
-                <Menu.Item onClick={() => void showFileOnCanvas(path)}>
-                    <Icon icon={Frame} size={14} /> {t('file.menu.showOnCanvas')}
-                </Menu.Item>
-            )}
-            {offerView && (
-                <Menu.Item onClick={() => void createViewAction('file', { path })}>
-                    <Icon icon={Columns2} size={14} /> {t('file.menu.openAsView')}
-                </Menu.Item>
-            )}
             <Menu.Separator />
-            <FileCopyRow targets={[{ absolute: path, relative: folder === null ? null : relativeTo(folder, path) }]} />
+            <FileCopyRow targets={[{ absolute: path, relative: folder === null ? null : relativeTo(folder, path), gone }]} />
             {onRefresh !== undefined && (
                 <>
                     <Menu.Separator />

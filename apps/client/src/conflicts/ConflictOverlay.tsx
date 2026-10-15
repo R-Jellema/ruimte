@@ -19,6 +19,7 @@ import {
     type ConflictFile
 } from '@/conflicts/conflict-model';
 import type { ConflictDraft } from '@/conflicts/editor';
+import { DiffRowMenuItems } from '@/shell/panels/DiffRowMenuItems';
 import { basenameOf } from '@/shell/panels/files-tree';
 import { cancelGitRunAction, perform } from '@/actions/client-actions';
 import { nextActionId } from '@/shell/panels/git-actions';
@@ -26,7 +27,7 @@ import { useGitStatus } from '@/state/git-watch';
 import { useToasts } from '@/state/toasts';
 import { useUi } from '@/state/ui';
 import { useTransport } from '@/transport/context';
-import { Button, ButtonGroup, CloseButton, Dialog, EmptyState, FormError, Icon, IconButton } from '@adecore/ui';
+import { Button, ButtonGroup, CloseButton, ContextMenu, Dialog, EmptyState, FormError, Icon, IconButton } from '@adecore/ui';
 
 type Reading = { cwd: string; answer: GitConflictsResult } | { cwd: string; failure: string };
 
@@ -406,7 +407,7 @@ export function ConflictOverlay() {
                 </header>
 
                 <div className="flex min-h-0 grow">
-                    <FileList list={list} open={open} activeFile={activeFile} busy={busy} onPick={setActivePath} />
+                    <FileList cwd={cwd} list={list} open={open} activeFile={activeFile} busy={busy} onPick={setActivePath} />
 
                     <div className="flex min-w-0 grow flex-col">
                         {failure !== null && <FormError className="border-b border-border px-3 py-2">{failure}</FormError>}
@@ -480,12 +481,14 @@ export function ConflictOverlay() {
 }
 
 function FileList({
+    cwd,
     list,
     open,
     activeFile,
     busy,
     onPick
 }: {
+    readonly cwd: string | null;
     readonly list: readonly GitConflictFile[];
     readonly open: Readonly<Record<string, number>>;
     readonly activeFile: string | null;
@@ -493,35 +496,54 @@ function FileList({
     onPick(path: string): void;
 }) {
     const { t } = useTranslation('conflicts');
+    /* The file a right click landed on, which the menu acts on. */
+    const [menuPath, setMenuPath] = useState<string | null>(null);
     return (
-        <nav className="w-64 shrink-0 overflow-y-auto border-r border-border py-1">
-            {list.length === 0 && <EmptyState>{t('list.none')}</EmptyState>}
-            {list.map((entry) => {
-                const remaining = open[entry.path];
-                return (
-                    <button
-                        key={entry.path}
-                        className={clsx(
-                            'flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-surface-hover',
-                            entry.path === activeFile && 'bg-surface-active'
-                        )}
-                        disabled={busy}
-                        onClick={() => onPick(entry.path)}
-                    >
-                        <Icon
-                            icon={remaining === 0 ? Check : FileWarning}
-                            size={14}
-                            className={remaining === 0 ? 'shrink-0 text-status-idle' : 'shrink-0 text-status-needs-you'}
-                        />
-                        <span className="min-w-0 grow">
-                            <span className="block truncate text-xs text-text">{basenameOf(entry.path)}</span>
-                            <span className="block truncate text-xs text-text-faint">{entry.path}</span>
-                        </span>
-                        {remaining !== undefined && remaining > 0 && <span className="shrink-0 text-xs text-text-faint tabular-nums">{remaining}</span>}
-                    </button>
-                );
-            })}
-        </nav>
+        <ContextMenu.Root>
+            <ContextMenu.Trigger
+                render={<nav />}
+                className="w-64 shrink-0 overflow-y-auto border-r border-border py-1"
+                onContextMenu={(event) => {
+                    const path = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-conflict-path]')?.dataset.conflictPath ?? null;
+                    if (path === null || cwd === null) {
+                        event.preventBaseUIHandler();
+                        return;
+                    }
+                    setMenuPath(path);
+                }}
+            >
+                {list.length === 0 && <EmptyState>{t('list.none')}</EmptyState>}
+                {list.map((entry) => {
+                    const remaining = open[entry.path];
+                    return (
+                        <button
+                            key={entry.path}
+                            data-conflict-path={entry.path}
+                            className={clsx(
+                                'flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-surface-hover',
+                                entry.path === activeFile && 'bg-surface-active'
+                            )}
+                            disabled={busy}
+                            onClick={() => onPick(entry.path)}
+                        >
+                            <Icon
+                                icon={remaining === 0 ? Check : FileWarning}
+                                size={14}
+                                className={remaining === 0 ? 'shrink-0 text-status-idle' : 'shrink-0 text-status-needs-you'}
+                            />
+                            <span className="min-w-0 grow">
+                                <span className="block truncate text-xs text-text">{basenameOf(entry.path)}</span>
+                                <span className="block truncate text-xs text-text-faint">{entry.path}</span>
+                            </span>
+                            {remaining !== undefined && remaining > 0 && <span className="shrink-0 text-xs text-text-faint tabular-nums">{remaining}</span>}
+                        </button>
+                    );
+                })}
+            </ContextMenu.Trigger>
+            <ContextMenu.Popup>
+                {cwd !== null && menuPath !== null && <DiffRowMenuItems cwd={cwd} path={menuPath} gone={false} onOpenChanges={() => onPick(menuPath)} />}
+            </ContextMenu.Popup>
+        </ContextMenu.Root>
     );
 }
 

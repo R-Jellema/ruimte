@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FileTreeVisibleRow } from '@pierre/trees';
-import { FileTree, useFileTree } from '@adecore/ui';
+import { ContextMenu, FileTree, useFileTree } from '@adecore/ui';
 import { useTranslation } from 'react-i18next';
 import { GitTreeMarks } from './GitTreeMarks';
 import type { GitDiffFile } from '@ruimte/contracts';
 import { diffFileParts, firstFile, folderParts } from '@/shell/panels/commit-tree';
+import { DiffRowMenuItems } from '@/shell/panels/DiffRowMenuItems';
 import type { DecorationPart } from '@/shell/panels/git-tree';
-const { applyExpansion, dirPathOf, focusRow, mergeCollapsedPaths, selectOnly, visibleRows } = FileTree;
+const { applyExpansion, dirPathOf, focusRow, mergeCollapsedPaths, rowPathOf, selectOnly, visibleRows } = FileTree;
 
 interface CommitFileTreeProps {
     files: readonly GitDiffFile[];
@@ -15,15 +16,19 @@ interface CommitFileTreeProps {
     onPick(path: string): void;
     /* The decoration after a file's name; the counts and letter of a commit's diff when absent. */
     marks?(file: GitDiffFile): DecorationPart[];
+    /* Where the paths count from, and the commit they are part of; without it a row has no menu. */
+    menu?: { cwd: string; commit?: string };
 }
 
 /*
  * The files of a commit or of a checkout's changes, as the tree the git panel draws its changes in.
- * A commit is read, not staged, so a row has no box and no menu: selecting it is what shows its
- * diff, by the pointer or by the arrow keys, and the keyboard stays here while it does.
+ * A commit is read, not staged, so a row has no box and its menu only reads: selecting it is what
+ * shows its diff, by the pointer or by the arrow keys, and the keyboard stays here while it does.
  */
-export function CommitFileTree({ files, shown, onPick, marks = diffFileParts }: CommitFileTreeProps) {
+export function CommitFileTree({ files, shown, onPick, marks = diffFileParts, menu }: CommitFileTreeProps) {
     const { t } = useTranslation('panels');
+    /* The file a right click landed on, which the menu acts on. */
+    const [menuPath, setMenuPath] = useState<string | null>(null);
     const filesRef = useRef(files);
     const byPathRef = useRef<ReadonlyMap<string, GitDiffFile>>(new Map());
     const onPickRef = useRef(onPick);
@@ -114,7 +119,7 @@ export function CommitFileTree({ files, shown, onPick, marks = diffFileParts }: 
         [model]
     );
 
-    return (
+    const tree = (
         <FileTree.Root
             model={model}
             className="min-h-0 grow overflow-hidden"
@@ -122,5 +127,39 @@ export function CommitFileTree({ files, shown, onPick, marks = diffFileParts }: 
             onActivate={(path) => selectOnly(model, path)}
             renderDecoration={decorate}
         />
+    );
+    if (menu === undefined) {
+        return tree;
+    }
+    const menuFile = menuPath === null ? undefined : byPath.get(menuPath);
+    return (
+        <ContextMenu.Root>
+            <ContextMenu.Trigger
+                render={<div />}
+                className="flex min-h-0 grow flex-col overflow-hidden"
+                onContextMenu={(event) => {
+                    const path = rowPathOf(event);
+                    // A folder of the tree is no file of the diff, and has nothing to offer.
+                    if (path === null || !byPath.has(path)) {
+                        event.preventBaseUIHandler();
+                        return;
+                    }
+                    setMenuPath(path);
+                }}
+            >
+                {tree}
+            </ContextMenu.Trigger>
+            <ContextMenu.Popup>
+                {menuFile !== undefined && (
+                    <DiffRowMenuItems
+                        cwd={menu.cwd}
+                        path={menuFile.path}
+                        gone={menuFile.kind === 'delete'}
+                        commit={menu.commit}
+                        onOpenChanges={() => selectOnly(model, menuFile.path)}
+                    />
+                )}
+            </ContextMenu.Popup>
+        </ContextMenu.Root>
     );
 }
