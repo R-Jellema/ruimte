@@ -95,7 +95,9 @@ export function evaluateNativeUi(request: NativeUiRequest): Record<string, unkno
     if (supported && block.complete) {
         links = uiLinkTargets(block, uiInputValues(block, state), request.queries, NATIVE_LIMITS);
     }
-    return { nodes: nodes(evaluated.nodes), diagnostics: evaluated.diagnostics, values: uiInputValues(block, state), links };
+    // A warning is for the agent that wrote the block; the phone shows what went wrong for the person.
+    const diagnostics = evaluated.diagnostics.filter((diagnostic) => diagnostic.severity !== 'warning');
+    return { nodes: nodes(evaluated.nodes), diagnostics, values: uiInputValues(block, state), links };
 }
 
 export function nativeUiJson(json: string): string {

@@ -33,3 +33,11 @@ test('the native bridge keeps the compiled fallback of a component beside a know
     expect(nodes[1].fallback).toBe(block.nodes[1].fallback);
     expect(nodes[1].fallback).toContain('Future fallback');
 });
+
+test('the native bridge hands the phone the errors of a block and keeps the warnings for its agent', () => {
+    const block = compileUiBlock('<Timeline><Event at="someday">Launch</Event></Timeline><Summary>{1}</Summary>', { id: 'a', final: true, now: () => 0 });
+    // The compiler already warned of the time; without that the evaluation says it again.
+    block.diagnostics = [];
+    block.nodes[1].children[0].expressions.text = { kind: 'future' } as never;
+    expect((evaluateNativeUi({ block }).diagnostics as { code: string }[]).map((diagnostic) => diagnostic.code)).toEqual(['invalid_expression']);
+});
