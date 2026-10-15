@@ -131,6 +131,17 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
         };
     }, [transport, request.chatId, queryKey, recheck, t]);
 
+    // The reason to refuse is the chat's state of now: ask again when it changes, so a chat that finishes its turn can move without reopening the dialog.
+    useEffect(
+        () =>
+            transport.on('chat.status', ({ chatId }) => {
+                if (chatId === request.chatId) {
+                    setRecheck((n) => n + 1);
+                }
+            }),
+        [transport, request.chatId]
+    );
+
     const update = (patch: Partial<MoveForm>): void => {
         if (patch.folder !== undefined) {
             setFolderPicked(true);

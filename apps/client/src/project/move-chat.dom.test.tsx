@@ -146,6 +146,31 @@ describe('making a project of a chat, or moving it into one', () => {
         expect(useProject.getState().current?.name).toBe('Chats');
     });
 
+    test('follows the chat while the dialog is open: a chat that finishes its turn makes the dialog usable again', async () => {
+        let working = true;
+        await open(() => ({ ...INFO, refusal: working ? { reason: 'working' } : null }));
+        await ask('make');
+        await until(() => dialog()!.textContent!.includes('This chat is still working'));
+        expect(nameField().disabled).toBe(true);
+        expect(footerButtons()).toEqual(['Close']);
+
+        working = false;
+        await act(async () => machine.emit('chat.status', { chatId: CHAT.id, info: { status: 'idle' } } as never));
+        await until(() => !dialog()!.textContent!.includes('This chat is still working'));
+        expect(nameField().disabled).toBe(false);
+        expect(footerButtons()).toEqual(['Cancel', 'Make project']);
+        expect(button('Make project')?.disabled).toBe(false);
+    });
+
+    test('a status of another chat does not ask again', async () => {
+        await open();
+        await ask('make');
+        await until(() => dialog()!.textContent!.includes('/work/vinyl-shelf'));
+        const asked = machine.requests('chat.moveInfo').length;
+        await act(async () => machine.emit('chat.status', { chatId: 'another', info: { status: 'idle' } } as never));
+        expect(machine.requests('chat.moveInfo')).toHaveLength(asked);
+    });
+
     test('confirming sends one chat.move and the window shows the project with the chat', async () => {
         await open();
         await ask('make');
