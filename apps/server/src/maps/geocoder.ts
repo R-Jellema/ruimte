@@ -32,10 +32,10 @@ const BLOCK_MS: Readonly<Partial<Record<GeocodeMissingCode, number>>> = {
 };
 
 const REASONS: Readonly<Record<GeocodeMissingCode, string>> = {
-    'no-account': 'This machine is on no account, so it has no map ticket to look an address up with.',
+    'no-account': 'This machine is on no account, so it cannot look up addresses.',
     'not-found': 'The map service found no place for this address.',
     unreachable: 'The map service could not be reached.',
-    'rate-limited': 'The map service is limiting lookups; the address was not looked up.',
+    'rate-limited': 'The map service is limiting lookups. Try again later.',
     'maps-unconfigured': 'The map service is not set up yet.',
     unavailable: 'The map service could not look this address up.'
 };

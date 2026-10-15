@@ -25,7 +25,7 @@ const MAX_OPEN_UPLOADS = 16;
 const MAX_MADE_PER_CLIENT = 4;
 const MAX_MADE = 16;
 
-const TOO_BIG = `A bundle over ${BUNDLE_MAX_BYTES / 1024 / 1024} MiB is not sent. Push the branch to origin and fetch it there instead.`;
+const TOO_BIG = `The work to send is larger than ${BUNDLE_MAX_BYTES / 1024 / 1024} MiB. Push the branch to origin and fetch it there instead.`;
 
 const NO_HOOKS = ['-c', 'core.hooksPath=/dev/null'];
 
@@ -77,7 +77,7 @@ export class BundleStore {
     /* Refuses a client that holds its share already. */
     admit(clientId: string): void {
         if (this.heldBy(clientId) >= MAX_MADE_PER_CLIENT) {
-            throw new GitError('bundle-limit', `Read or drop the ${MAX_MADE_PER_CLIENT} bundles that are waiting before asking for another.`);
+            throw new GitError('bundle-limit', `${MAX_MADE_PER_CLIENT} transfers are already waiting on this machine. Try again once they are done.`);
         }
     }
 
@@ -133,10 +133,10 @@ export class BundleStore {
             await mkdir(this.incoming, { recursive: true, mode: 0o700 });
             const have = (await stat(path).catch(() => null))?.size ?? null;
             if (offset > 0 && have !== offset) {
-                throw new GitError('bundle-offset', `The bundle has ${have ?? 0} bytes here, not ${offset}. Send it again from the start.`);
+                throw new GitError('bundle-offset', 'The transfer broke off. Send it again from the start.');
             }
             if (have === null && (await this.unfinishedUploads()) >= MAX_OPEN_UPLOADS) {
-                throw new GitError('bundle-uploads-busy', 'Too many bundles are being received at once.');
+                throw new GitError('bundle-uploads-busy', 'This machine is receiving too many transfers at once. Try again in a moment.');
             }
             if (total !== undefined) {
                 this.expected.set(id, total);
@@ -166,7 +166,7 @@ export class BundleStore {
 
     private checked(id: string): string {
         if (!BundleStore.isId(id)) {
-            throw new GitError('bundle-missing', 'Not a bundle id');
+            throw new GitError('bundle-missing', 'The transfer did not arrive. Send it again.');
         }
         return id;
     }
@@ -308,20 +308,20 @@ export async function fetchBundle(store: BundleStore, worktrees: Worktrees, fold
 async function takeIn(store: BundleStore, worktrees: Worktrees, folder: string, payload: GitFetchBundlePayload): Promise<GitFetchBundleResult> {
     const file = store.incomingPathOf(payload.bundleId);
     if (!(await stat(file).catch(() => null))?.isFile()) {
-        throw new GitError('bundle-missing', 'This bundle did not arrive.');
+        throw new GitError('bundle-missing', 'The transfer did not arrive. Send it again.');
     }
     if ((await sha256Of(file)) !== payload.sha256) {
-        throw new GitError('bundle-corrupt', 'The bundle that arrived is not the one that was sent.');
+        throw new GitError('bundle-corrupt', 'What arrived is not what was sent. Send it again.');
     }
     const top = await toplevel(folder);
     const verified = await runGit(['bundle', 'verify', file], top);
     if (verified.code !== 0) {
-        throw new GitError('bundle-unverified', verified.stderr.trim() || 'The bundle does not fit this repository.');
+        throw new GitError('bundle-unverified', verified.stderr.trim() || 'The work that arrived does not fit this repository.');
     }
     const heads = (await gitOrThrow(['bundle', 'list-heads', file], top)).split('\n');
     const source = heads.map((line) => line.split(' ')[1]).find((name): name is string => name !== undefined && name.startsWith(HANDOFF));
     if (source === undefined) {
-        throw new GitError('bundle-unverified', 'The bundle holds no handoff.');
+        throw new GitError('bundle-unverified', 'The work that arrived holds no chat.');
     }
     const kept = `${RECEIVED}${payload.bundleId}`;
     await gitOrThrow([...NO_HOOKS, 'fetch', '--quiet', '--no-tags', '--no-recurse-submodules', '--no-write-fetch-head', file, `+${source}:${kept}`], top);

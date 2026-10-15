@@ -508,7 +508,7 @@ describe('moving a chat from Chats into a project', () => {
                         }
                     }))
                 )
-            ).rejects.toMatchObject({ code: 'move-failed', message: expect.stringContaining('finished when the machine starts again') });
+            ).rejects.toMatchObject({ code: 'move-failed', message: expect.stringContaining('finishes the move the next time it starts') });
             const target = (await store.known()).find((project) => project.folder === join(root, 'vinyl'))!;
             expect(await viewIds(target.projectId)).toEqual([chatId]);
             expect(await viewIds(chatsId)).not.toContain(chatId);

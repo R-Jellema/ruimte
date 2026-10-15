@@ -37,7 +37,7 @@ export function brokerDialer(options: BrokerDialerOptions): PeerDialer {
         async dial(machine, statement) {
             const url = machine.brokerUrl ?? options.defaultBroker();
             if (url === null || url === undefined) {
-                throw new RemoteLinkError('no-broker', 'Neither machine names a broker to find the other through');
+                throw new RemoteLinkError('no-broker', 'Neither machine has a broker set, so they cannot find each other');
             }
             const timeoutMs = options.timeoutMs ?? PEER_ATTEMPT_TIMEOUT_MS;
             const line = await openBrokerLine({ url, signer: options.signer, machinePublicKey: machine.publicKey, timeoutMs });
@@ -149,7 +149,7 @@ export class RemoteConnections {
         } catch (e) {
             const refused = refusedByMachine(e);
             this.publish(machineId, this.options.owed(machineId) > 0 && !refused ? 'waiting' : null);
-            throw refused ? new RemoteLinkError('refused', e instanceof Error ? e.message : 'That machine will not have this one') : e;
+            throw refused ? new RemoteLinkError('refused', e instanceof Error ? e.message : 'That machine refused this one') : e;
         }
         // The machine let this key in, so the statement has done what it was for.
         this.options.pending.release(machineId);

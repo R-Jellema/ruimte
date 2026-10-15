@@ -26,9 +26,9 @@ const REFUSAL_SENTENCES: Record<ChatMoveRefusal['reason'], string> = {
     'not-in-chats': 'Only a chat in Chats can move to a project',
     working: 'This chat is still working. Stop it or wait for it to finish, then try again',
     agents: 'This chat started agents of its own, or an agent started it. A chat with agents cannot move to a project yet',
-    tasks: 'This chat gave or has a task. A chat with tasks cannot move to a project yet',
-    owed: 'The machine still owes this chat work. Try again once it is done',
-    messages: 'Messages from other chats still wait for this chat. It reads them in its next turn; move it after that',
+    tasks: 'This chat gave a task or has one. A chat with tasks cannot move to a project yet',
+    owed: 'The machine still has work queued for this chat. Try again once it is done',
+    messages: 'Messages from other chats are waiting for this chat. It reads them in its next turn. Move it after that',
     'pr-watch': 'This chat watches a pull request. Stop watching it first'
 };
 
@@ -270,7 +270,7 @@ export async function moveChat(payload: ChatMovePayload, deps: MoveChatDeps): Pr
         if (whole) {
             throw new ChatError(
                 'move-failed',
-                `The chat is in the project, but its record could not take the new folder (${errorText(e)}). The move is finished when the machine starts again`
+                `The chat is in the project, but the machine could not save its new folder (${errorText(e)}). It finishes the move the next time it starts`
             );
         }
         if (e instanceof ChatError && e.code === 'chat-busy') {
