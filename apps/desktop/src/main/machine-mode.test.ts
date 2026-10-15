@@ -28,7 +28,6 @@ function rig(mode: MachineMode, options: { writeFails?: boolean; removeFails?: b
         mode,
         store,
         machine: {
-            found: async () => false,
             stopPreview: async () => ({ work: null, home: '~/.ruimte', commandLine: false }),
             stopOnQuit: (stop) => void events.push(`stopOnQuit ${stop}`),
             removeOwnService() {

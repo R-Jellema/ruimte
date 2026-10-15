@@ -51,8 +51,6 @@ export interface Machine {
     stopOnQuit(stop: boolean): void;
     /* Takes the definition of this installation away when the app ran its own daemon; throws when it cannot. */
     removeOwnService(): void;
-    /* Whether a daemon answers on the port; only its health is asked, never the local secret. */
-    found(): Promise<boolean>;
     /* What a switch to `none` ends. */
     stopPreview(): Promise<MachineStopPreview>;
 }
@@ -294,7 +292,6 @@ export function createMachine(options: MachineOptions): Machine {
         removeOwnService() {
             removeOwnDefinition(manager, { ruimteHome, commandLineProgram: commandLineServiceProgram(ruimteHome) }, controller.state().owner);
         },
-        found: async () => options.mode !== 'local' && (await probeDaemon()) !== null,
         async stopPreview() {
             const home = tildeHome(ruimteHome, homedir());
             if (options.mode !== 'local') {

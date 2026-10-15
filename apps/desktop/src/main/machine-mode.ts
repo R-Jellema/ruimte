@@ -6,7 +6,7 @@ import type { Machine } from './service';
 
 export interface MachineModeOptions {
     mode: MachineMode;
-    machine: Pick<Machine, 'found' | 'stopPreview' | 'stopOnQuit' | 'removeOwnService'>;
+    machine: Pick<Machine, 'stopPreview' | 'stopOnQuit' | 'removeOwnService'>;
     store: MachineModeFile;
     /* Quits and starts the app again, without the question the page already asked. */
     relaunch(): void;
@@ -21,7 +21,6 @@ export function installMachineMode(ipc: AppIpc, options: MachineModeOptions): vo
     // Once a choice is on its way the app is going down, and a second one would write over it.
     let switching = false;
 
-    ipc.handle('machine:found', () => machine.found());
     ipc.handle('machine:stop-preview', () => machine.stopPreview());
     ipc.handle('machine:choose', (_event, next: unknown) => {
         if (next !== 'local' && next !== 'none') {

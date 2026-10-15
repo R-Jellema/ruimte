@@ -207,7 +207,6 @@ const bridge = {
     },
     machine: {
         mode: machineMode,
-        found: (): Promise<boolean> => ipcRenderer.invoke('machine:found'),
         stopPreview: (): Promise<MachineStopPreview> => ipcRenderer.invoke('machine:stop-preview'),
         choose: (mode: 'local' | 'none'): Promise<void> => ipcRenderer.invoke('machine:choose', mode)
     },

@@ -12,7 +12,6 @@ const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge
 let page: Mounted;
 let release: (() => void) | null;
 let chosen: string[];
-let found: boolean;
 let choose: (mode: 'local' | 'none') => Promise<void>;
 
 function text(): string {
@@ -49,7 +48,6 @@ async function open(machine: DesktopBridge['machine']): Promise<void> {
 beforeEach(() => {
     release = null;
     chosen = [];
-    found = false;
     choose = async (mode) => {
         chosen.push(mode);
     };
@@ -65,7 +63,7 @@ afterEach(async () => {
 
 describe('Settings > Machines of an app that runs no machine', () => {
     test('lists this computer, and its detail offers to run a machine, restarting only after a confirm', async () => {
-        await open(machineBridge('none', { found: async () => found, choose: (mode) => choose(mode) }));
+        await open(machineBridge('none', { choose: (mode) => choose(mode) }));
         await until(() => row('Only connects to your machines') !== null);
         await clickOn(row('This computer'));
         await until(() => everything().includes('Run a machine on this computer'));
@@ -76,21 +74,9 @@ describe('Settings > Machines of an app that runs no machine', () => {
         expect(chosen).toEqual(['local']);
     });
 
-    test('a machine that already runs here reads the same: one way to run a machine', async () => {
-        found = true;
-        await open(machineBridge('none', { found: async () => found, choose: (mode) => choose(mode) }));
-        await until(() => row('Only connects to your machines') !== null);
-        await clickOn(row('This computer'));
-        await until(() => button('Set up') !== null);
-        expect(everything()).toContain('Run a machine on this computer');
-        await clickOn(button('Set up'));
-        await clickOn(button('Restart'));
-        expect(chosen).toEqual(['local']);
-    });
-
     test('a choice that could not be saved stays in the dialog with its reason', async () => {
         choose = () => Promise.reject(new Error('disk full'));
-        await open(machineBridge('none', { found: async () => found, choose: (mode) => choose(mode) }));
+        await open(machineBridge('none', { choose: (mode) => choose(mode) }));
         await until(() => row('This computer') !== null);
         await clickOn(row('This computer'));
         await until(() => button('Set up') !== null);
@@ -102,7 +88,7 @@ describe('Settings > Machines of an app that runs no machine', () => {
 
     test('a failure of the shell itself is told in our own words', async () => {
         choose = () => Promise.reject(new Error("Error invoking remote method 'machine:choose': Error: EACCES"));
-        await open(machineBridge('none', { found: async () => found, choose: (mode) => choose(mode) }));
+        await open(machineBridge('none', { choose: (mode) => choose(mode) }));
         await until(() => row('This computer') !== null);
         await clickOn(row('This computer'));
         await until(() => button('Set up') !== null);

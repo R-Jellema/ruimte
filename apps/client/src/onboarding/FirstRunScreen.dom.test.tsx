@@ -10,7 +10,6 @@ const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge
 
 let page: Mounted;
 let chosen: string[];
-let found: Promise<boolean>;
 let choose: (mode: 'local' | 'none') => Promise<void>;
 
 function text(): string {
@@ -33,7 +32,7 @@ async function open(): Promise<void> {
         openGuestDevTools: () => undefined,
         isFullscreen: async () => false,
         onFullscreen: () => () => undefined,
-        machine: machineBridge('ask', { found: () => found, choose: (mode) => choose(mode) })
+        machine: machineBridge('ask', { choose: (mode) => choose(mode) })
     };
     page = mount();
     await page.renderApp();
@@ -42,7 +41,6 @@ async function open(): Promise<void> {
 
 beforeEach(() => {
     chosen = [];
-    found = Promise.resolve(false);
     choose = async (mode) => {
         chosen.push(mode);
     };
@@ -62,15 +60,6 @@ describe('the first start of a new install', () => {
         expect(radio('Run agents on this computer')?.getAttribute('aria-checked')).toBe('true');
         expect(radio('Only connect to my machines')?.getAttribute('aria-checked')).toBe('false');
         expect(text()).not.toContain('Open folder');
-    });
-
-    test('a machine that already runs here reads the same, and Continue runs it', async () => {
-        found = Promise.resolve(true);
-        await open();
-        expect(radio('Run agents on this computer')?.getAttribute('aria-checked')).toBe('true');
-        expect(text()).not.toContain('already');
-        await clickOn(button('Continue'));
-        expect(chosen).toEqual(['local']);
     });
 
     test('Continue runs a machine here and marks the task list to open without the welcome', async () => {
