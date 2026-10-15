@@ -12,7 +12,7 @@ import { ViewMenuItems } from '@/shell/ViewMenuItems';
 import { useUi } from '@/state/ui';
 import { useEndpointId } from '@/state/keys';
 import { SnoozeButton, SnoozedMark, SnoozeMenuItems } from '@/shell/Snooze';
-import { heaviestWork, waitsOnYou, type SidebarGroup, type SidebarNodeRow, type SidebarRow, type SidebarViewRow } from '@/shell/sidebar-rows';
+import { heaviestWork, viewNameOf, waitsOnYou, type SidebarGroup, type SidebarNodeRow, type SidebarRow, type SidebarViewRow } from '@/shell/sidebar-rows';
 import { AgentIcon } from '@adecore/agents-react/providers';
 import { UnseenMark } from '@/attention/UnseenMark';
 import { WorkingMark } from '@/attention/WorkingMark';
@@ -197,7 +197,7 @@ export function NodeRow({ row, tabbable, onFocus, onArrow, snoozable }: RowProps
                     <RowIcon id={node.id} kind={node.kind} provider={node.provider} />
                 </span>
                 <span className="min-w-0 truncate">{node.kind === 'browser' ? title : node.title}</span>
-                {row.viewName && <span className="min-w-0 shrink truncate text-xs text-text-faint">{row.viewName}</span>}
+                {viewNameOf(row) && <span className="min-w-0 shrink truncate text-xs text-text-faint">{viewNameOf(row)}</span>}
                 <span className="grow" />
                 <span className={SNOOZE_MARKS}>
                     {node.draft && (
@@ -663,7 +663,7 @@ export function BackgroundRow({ row, group, tabbable, onFocus, onArrow, snoozabl
                             ) : null}
                         </span>
                         <span className="min-w-0 truncate">{label || t('sidebar.noViews')}</span>
-                        {row.type === 'node' && row.viewName && <span className="min-w-0 shrink truncate text-xs text-text-faint">{row.viewName}</span>}
+                        {row.type === 'node' && viewNameOf(row) && <span className="min-w-0 shrink truncate text-xs text-text-faint">{viewNameOf(row)}</span>}
                         <span className="grow" />
                         <span className={SNOOZE_MARKS}>
                             {group.state === 'ready' && <RowStatus status={status} work={undefined} />}

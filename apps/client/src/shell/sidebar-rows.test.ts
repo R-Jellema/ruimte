@@ -11,7 +11,9 @@ import {
     isSessionKind,
     rowAfterArrow,
     rowOrder,
+    viewNameOf,
     type SidebarNode,
+    type SidebarNodeRow,
     type SidebarProject,
     type SidebarView
 } from './sidebar-rows';
@@ -138,7 +140,8 @@ describe('buildSidebar', () => {
 
     test('a view that is one node carries that node on its own row and never unfolds', () => {
         const [needs, list] = build([standalone('auth', 'needs-you'), frontend], 'frontend', ['frontend']);
-        expect(needs!.rows[0]).toMatchObject({ rowId: 'needs:auth', viewName: 'auth' });
+        expect(needs!.rows[0]).toMatchObject({ rowId: 'needs:auth', ownView: true });
+        expect(viewNameOf(needs!.rows[0] as SidebarNodeRow)).toBeNull();
         expect(list!.rows[0]).toMatchObject({ rowId: 'view:auth', expandable: false, status: 'needs-you', draft: true });
     });
 

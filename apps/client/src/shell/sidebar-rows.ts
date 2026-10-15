@@ -77,6 +77,13 @@ export interface SidebarNodeRow {
     viewId: string;
     /* Where the node lives, named only on a row that stands outside its own view. */
     viewName: string | null;
+    /* The node is the view itself (a chat view), so naming the view beside it would say the title twice. */
+    ownView?: boolean;
+}
+
+/* The view a row names beside its node, if it says anything the node's own title does not. */
+export function viewNameOf(row: SidebarNodeRow): string | null {
+    return row.ownView === true ? null : row.viewName;
 }
 
 export type SidebarRow = SidebarViewRow | SidebarNodeRow;
@@ -152,7 +159,14 @@ export function buildSidebar({ project, expandedIds }: SidebarInput): SidebarSec
     for (const view of project.views.filter((candidate) => !candidate.hidden)) {
         for (const node of [...view.nodes, ...(view.self ? [view.self] : [])]) {
             if (waitsOnYou(node)) {
-                waiting.push({ type: 'node', rowId: `needs:${node.id}`, node, viewId: view.id, viewName: view.name });
+                waiting.push({
+                    type: 'node',
+                    rowId: `needs:${node.id}`,
+                    node,
+                    viewId: view.id,
+                    viewName: view.name,
+                    ...(node === view.self ? { ownView: true } : {})
+                });
             }
         }
     }
