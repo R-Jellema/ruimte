@@ -42,6 +42,7 @@ import { DeviceManager } from '../devices/manager.ts';
 import { documentOnDisk, rawPrivateViews, setPrivateViews, projectLinks } from '../projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { DiagramStore } from '../projects/diagram-store.ts';
+import { peerCanvasId } from '../peering/links.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { AgentLineageStore, TaskStore } from '@adecore/agents/coordination';
 import { DIAGRAM_EXAMPLE } from './diagram-verb.ts';
@@ -2378,6 +2379,56 @@ describe('view rename', () => {
         expect(status).toBe(422);
         expect(lines[0]).toBe('refused\tunknown-view\tBoard is not a view of this project');
         expect(lines.at(-1)).toBe('note\tview rename takes a view id, never a name');
+    });
+});
+
+describe('the canvas another machine draws here', () => {
+    const PEER_CANVAS = peerCanvasId('machine-a');
+
+    /* The canvas as `peer.placeNodes` leaves it, with its machine linked so the store knows to hide it. */
+    async function peerCanvas(): Promise<void> {
+        await store.peers.bind('machine-a', 'MacBook Pro', projectId);
+        const next = content();
+        next.views.push({
+            kind: 'canvas',
+            id: PEER_CANVAS,
+            name: 'MacBook Pro',
+            nodes: [{ id: 'remote-term', kind: 'terminal', title: 'shell', x: 0, y: 0, w: 560, h: 360 }],
+            texts: [],
+            edges: [],
+            layouts: []
+        });
+        await store.mutate(projectId, () => ({ content: next, result: null }));
+    }
+
+    test('is left out of view list and out of the canvases a refusal offers', async () => {
+        await peerCanvas();
+        const { lines } = await post('view', ['list']);
+        expect(lines.some((line) => line.includes(PEER_CANVAS))).toBe(false);
+        const refused = await post('node', ['new', 'note', '--view', PEER_CANVAS]);
+        expect(refused.lines[0]).toBe(`refused\tnot-a-canvas\t${PEER_CANVAS} is not a canvas of this project`);
+        expect(refused.lines.some((line) => line.includes(PEER_CANVAS) && line.startsWith('canvas\t'))).toBe(false);
+    });
+
+    test.each([
+        ['view rename', (id: string) => ['rename', id, 'Mine']],
+        ['view icon', (id: string) => ['icon', id, PROJECT_ICON_NAMES[0]!]],
+        ['view move', (id: string) => ['move', id, '--after', 'board']],
+        ['view delete', (id: string) => ['delete', id]]
+    ])('%s answers as if it did not exist', async (_name, argv) => {
+        await peerCanvas();
+        deleteAnyView = true;
+        const { status, lines } = await post('view', argv(PEER_CANVAS));
+        expect(status).toBe(422);
+        expect(lines[0]).toBe(`refused\tunknown-view\t${PEER_CANVAS} is not a view of this project`);
+        expect(await viewOnDisk(PEER_CANVAS)).toMatchObject({ name: 'MacBook Pro', nodes: [{ id: 'remote-term' }] });
+    });
+
+    test('is not a place to move another view behind either', async () => {
+        await peerCanvas();
+        const { status, lines } = await post('view', ['move', 'board', '--after', PEER_CANVAS]);
+        expect(status).toBe(422);
+        expect(lines[0]).toBe(`refused\tunknown-view\t${PEER_CANVAS} is not a view of this project`);
     });
 });
 

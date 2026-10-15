@@ -2,6 +2,7 @@ import { ActionRefusal, type ActionHandlers, type ActionOutput } from '@ruimte/a
 import {
     flagOf,
     isCanvasView,
+    isHiddenCanvasView,
     isDividerView,
     isOpenableView,
     isUnknownView,
@@ -46,18 +47,20 @@ export const viewActions: ActionHandlers<ServerActionContext> = {
         const anyView = context.host.machine.agentsDeleteAnyView;
         return {
             output: {
-                views: content.views.map((view) => {
-                    const { may, why } = deleteReason(view, { caller: actor.id, place: context.place, anyView });
-                    return {
-                        viewId: view.id,
-                        kind: kindOf(view),
-                        name: view.name ?? '',
-                        deletable: may,
-                        why,
-                        icon: viewIconOf(view)?.value ?? null,
-                        flag: flagOf(content.flags, view.id)
-                    };
-                }),
+                views: content.views
+                    .filter((view) => !isHiddenCanvasView(view))
+                    .map((view) => {
+                        const { may, why } = deleteReason(view, { caller: actor.id, place: context.place, anyView });
+                        return {
+                            viewId: view.id,
+                            kind: kindOf(view),
+                            name: view.name ?? '',
+                            deletable: may,
+                            why,
+                            icon: viewIconOf(view)?.value ?? null,
+                            flag: flagOf(content.flags, view.id)
+                        };
+                    }),
                 self: context.place.canvasId ?? actor.id,
                 revision
             }

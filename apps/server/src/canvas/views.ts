@@ -2,6 +2,7 @@ import {
     PROJECT_ICON_NAMES,
     PROJECT_VIEW_KINDS,
     emptyCanvasView,
+    isHiddenCanvasView,
     storedPathOf,
     type ProjectContent,
     type ProjectIconChoice,
@@ -44,7 +45,7 @@ export function viewKindsFor(flag: ViewFlag): string {
 
 /* The views a refusal offers instead; the caller passes the ones its verb would actually take. */
 export function viewLines(views: readonly ProjectView[]): string[] {
-    return views.map((view) => `view\t${view.id}\t${view.kind}\t${field(view.name ?? '')}`);
+    return views.filter((view) => !isHiddenCanvasView(view)).map((view) => `view\t${view.id}\t${view.kind}\t${field(view.name ?? '')}`);
 }
 
 /*
@@ -54,6 +55,9 @@ export function viewLines(views: readonly ProjectView[]): string[] {
  * `yes` on a machine that frees everything does not read as a mistake to a caller that made none of them.
  */
 export function deleteReason(view: ProjectView, call: { caller: string; place: IndexedPlace; anyView: boolean }): { may: boolean; why: string } {
+    if (isHiddenCanvasView(view)) {
+        return { may: false, why: 'another machine draws it' };
+    }
     if (view.id === call.caller || view.id === call.place.canvasId) {
         return { may: false, why: 'you are in it' };
     }
@@ -87,7 +91,7 @@ export function iconChoice(value: string): ProjectIconChoice {
 /* The view an id names, refused with the list when it names none: the views are a closed set. */
 export function viewNamed(content: ProjectContent, id: string, flag: string): ProjectView {
     const view = content.views.find((candidate) => candidate.id === id);
-    if (!view) {
+    if (!view || isHiddenCanvasView(view)) {
         throw new VerbRefusal('unknown-view', `${id} is not a view of this project`, [
             ...viewLines(content.views),
             `note\t${flag} takes a view id, never a name`

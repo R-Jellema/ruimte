@@ -700,6 +700,11 @@ export function isHiddenView(view: ProjectView): view is ProjectChatView | Proje
     return (view.kind === 'chat' || view.kind === 'canvas') && view.hidden === true;
 }
 
+/* The canvas another machine draws its nodes on, which no agent and no window of this machine works on. */
+export function isHiddenCanvasView(view: ProjectView): view is ProjectCanvasView {
+    return view.kind === 'canvas' && view.hidden === true;
+}
+
 export function isUnlistedView(view: ProjectView): boolean {
     return isEmptyChatView(view) || isHiddenView(view);
 }

@@ -1,5 +1,6 @@
 import {
     isCanvasView,
+    isHiddenCanvasView,
     type AgentKind,
     type ContextSource,
     type AgentStatus,
@@ -382,7 +383,9 @@ export function titleField(name: string, needs: string): z.ZodString {
 
 export function canvasLines(content: ProjectContent): string[] {
     return orNote(
-        content.views.filter(isCanvasView).map((view) => `canvas\t${view.id}\t${field(view.name)}`),
+        content.views
+            .filter((view): view is ProjectCanvasView => isCanvasView(view) && !isHiddenCanvasView(view))
+            .map((view) => `canvas\t${view.id}\t${field(view.name)}`),
         'This project has no canvas; a node only ever lands on one'
     );
 }
@@ -394,7 +397,8 @@ export const OPENING_OFF_CANVAS =
 /* The canvas an id names, refused with the canvases there are when it names none. */
 export function canvasNamed(content: ProjectContent, viewId: string): ProjectCanvasView {
     const named = content.views.find((candidate) => candidate.id === viewId);
-    if (!named || !isCanvasView(named)) {
+    // The canvas of another machine's nodes is that machine's to draw, so it answers as one that does not exist.
+    if (!named || !isCanvasView(named) || isHiddenCanvasView(named)) {
         throw new VerbRefusal('not-a-canvas', `${viewId} is not a canvas of this project`, canvasLines(content));
     }
     return named;
