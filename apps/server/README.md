@@ -316,6 +316,7 @@ The chat lifecycle, the backends per CLI and the projector that builds the threa
 - A turn that was running when the daemon went down is resumed at start through a `resume-run` outbox entry, with a note in the thread. One that cannot be resumed ends `aborted` with a note saying why.
 - Attachments are any file type, at most 25 MB each and 8 per message, written to `attachments/<chatId>/<id>.<ext>`. The thread keeps only their metadata and path. `GET /attachments/<chatId>/<id>` serves them behind the same access rules as `/ws`, `inline` only for what a browser paints, with `nosniff` and an immutable cache. A chat's own thread says which id belongs to which file, so nothing else is reachable through the route. A visual's page goes through the same route and is always a download, never inline.
 - A turn takes a checkpoint when it starts (`src/git/checkpoints.ts`). The chat's folder is written as a git tree through a private index under `checkpoints/`, so the person's own index, stashes and commits are untouched. When the turn settles, the daemon diffs the working tree against it for the turn's diff.
+- `chat.handoff { chatId, turnId, remote }` writes the text a chat on another machine reads first: the last whole turns of the chat up to that turn as a transcript, within 12 KiB, under a header that names this machine and the checkout there. Nothing is made here; the client creates the chat on the other machine and seeds the text as its first message.
 
 ### Images an agent attaches
 

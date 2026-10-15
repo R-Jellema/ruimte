@@ -461,7 +461,11 @@
         "undoAfterTurn": "Het werk na deze turn ongedaan maken",
         "filesGone": "De bestanden van deze turn zitten niet meer in de repository, dus de worktree begint bij HEAD.",
         "fromTurnFiles": "De worktree begint bij de bestanden zoals ze na deze turn waren; het origineel houdt die van zichzelf.",
-        "fromHead": "De worktree begint bij HEAD, zonder niet-gecommit werk."
+        "fromHead": "De worktree begint bij HEAD, zonder niet-gecommit werk.",
+        "machine": "Machine",
+        "thisMachine": "Deze machine",
+        "onMachine": "Een nieuwe chat op {{machine}} begint met een transcript van deze. Daarna kies je de checkout.",
+        "chooseCheckout": "Kies een checkout…"
     },
     "merge": {
         "title": "Worktree mergen",
@@ -1076,6 +1080,7 @@
             "headHint": "De laatste commit van {{branch}}, zonder je wijzigingen.",
             "originHint": "Pusht {{branch}} vanaf hier naar origin en haalt hem daarna op bij {{machine}}."
         },
-        "sending": "{{size}} versturen…"
+        "sending": "{{size}} versturen…",
+        "handoffIntro": "Een nieuwe chat op {{machine}} begint met een transcript van {{title}} en werkt daar in een checkout. Er wordt niets verstuurd voordat je het volgende bericht schrijft."
     }
 }

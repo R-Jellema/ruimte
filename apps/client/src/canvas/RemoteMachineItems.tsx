@@ -3,14 +3,11 @@ import { useTranslation } from 'react-i18next';
 import type { RemoteLink } from '@ruimte/contracts';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import type { Point } from '@/canvas/math';
-import { usePulsarAccount } from '@/pulsar/account';
-import { usePulsarMachines } from '@/pulsar/machines';
 import { iconOfEntry } from '@/shell/settings/machine-icon';
-import { machineIdOf, mergeMachines, nameOf, type MachineEntry } from '@/shell/settings/machine-list';
+import { nameOf, type MachineEntry } from '@/shell/settings/machine-list';
+import { useOtherMachines } from '@/canvas/use-other-machines';
 import { useCanvasStore } from '@/state/canvas';
 import { useDocument } from '@/state/document';
-import { useEndpoints } from '@/state/endpoints';
-import { hasLocalMachine } from '@/state/local-machine';
 import { useProjectList } from '@/state/project-list';
 import { useProject } from '@/state/project';
 import { useServers } from '@/state/server';
@@ -20,18 +17,6 @@ import { machineAnswers } from '@/transport/features';
 import { useEndpointConnection } from '@/transport/status';
 import { machineLost } from '@/shell/machine-lost';
 import { ContextMenu, DisabledReason } from '@adecore/ui';
-
-/* The machines other than the one the project lives on, which a node can be put on. */
-function useOtherMachines(): MachineEntry[] {
-    const workspace = useWorkspace();
-    const endpoints = useEndpoints((s) => s.endpoints);
-    const accountStatus = usePulsarAccount((s) => s.status);
-    const accountMachines = usePulsarMachines((s) => s.machines);
-    const own = workspace === null ? null : endpoints.find((endpoint) => endpoint.id === workspace.connection.endpointId);
-    return mergeMachines({ endpoints, accountMachines: accountStatus === 'signed-in' ? accountMachines : null, showLocal: hasLocalMachine() }).filter(
-        (entry) => entry.endpoint?.id !== own?.id && entry.id !== (own === undefined || own === null ? null : machineIdOf(own))
-    );
-}
 
 /* The checkouts this project is linked to on the machines, so a row can say which one it would work in. */
 function useLinks(): RemoteLink[] {

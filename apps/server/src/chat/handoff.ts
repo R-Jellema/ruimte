@@ -21,6 +21,8 @@ export interface HandoffMeta {
     cwd: string;
     /* The worktree the fork works in, or null when it shares the original's folder. */
     worktree: { branch: string; afterTurn: boolean } | null;
+    /* Set when the conversation ran on another machine, which names it: that machine cannot be read from here, so no line says how to. */
+    remote?: { machine: string };
 }
 
 /* A moment as every machine writes it, so the text does not depend on the daemon's locale. */
@@ -72,14 +74,17 @@ export function handoffText(items: readonly ChatItem[], meta: HandoffMeta, budge
             ? `${meta.cwd}, the same folder the original works in, so its files may be newer than that turn.`
             : `${meta.cwd} (a git worktree on branch ${meta.worktree.branch}, ${meta.worktree.afterTurn ? 'with the files as they were after that turn' : 'from the current HEAD'}).`;
     const part = kept.length === rendered.length ? 'all of it' : `its last ${kept.length === 1 ? 'turn' : `${kept.length} turns`}`;
-    const text = [
-        `Ruimte: you take over a conversation that ran with ${meta.fromName} in ${where} ${meta.originalId} ("${meta.originalTitle}") on this machine, forked after its turn ${meta.turnNumber} of ${meta.totalTurns} on ${moment(meta.at)}.`,
-        `Folder: ${folder}`,
-        `The original is readable with: ruimte-context read ${meta.originalId} (add --tail 200 for the last part); only its turns up to turn ${meta.turnNumber} happened here. What follows is ${part}, as text. The tool lines are what ${meta.fromName} ran, not you, so check the files before you assume.`,
-        '---',
-        kept.join('\n\n'),
-        '---',
-        "Continue from here. The person's next message follows."
-    ].join('\n');
+    const lines = meta.remote
+        ? [
+              `Ruimte: you take over a conversation that ran with ${meta.fromName} on another machine (${meta.remote.machine}), in ${where} "${meta.originalTitle}", forked after its turn ${meta.turnNumber} of ${meta.totalTurns} on ${moment(meta.at)}.`,
+              `Folder: ${meta.cwd}, a checkout of the same project on this machine. Its files may differ from the ones the original worked on.`,
+              `The original cannot be read from this machine; only its turns up to turn ${meta.turnNumber} happened. What follows is ${part}, as text. The tool lines are what ${meta.fromName} ran, not you, so check the files before you assume.`
+          ]
+        : [
+              `Ruimte: you take over a conversation that ran with ${meta.fromName} in ${where} ${meta.originalId} ("${meta.originalTitle}") on this machine, forked after its turn ${meta.turnNumber} of ${meta.totalTurns} on ${moment(meta.at)}.`,
+              `Folder: ${folder}`,
+              `The original is readable with: ruimte-context read ${meta.originalId} (add --tail 200 for the last part); only its turns up to turn ${meta.turnNumber} happened here. What follows is ${part}, as text. The tool lines are what ${meta.fromName} ran, not you, so check the files before you assume.`
+          ];
+    const text = [...lines, '---', kept.join('\n\n'), '---', "Continue from here. The person's next message follows."].join('\n');
     return { text, turns: kept.length, all: kept.length === rendered.length };
 }

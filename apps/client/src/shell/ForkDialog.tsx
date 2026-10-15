@@ -20,7 +20,13 @@ import {
     readChatPreferences,
     selectionFor
 } from '@adecore/agents-react/chat';
+import { useOtherMachines } from '@/canvas/use-other-machines';
 import { forkOriginIn } from '@/chat/fork-origin';
+import { MachineGlyph } from '@/endpoint/MachineGlyph';
+import { iconOfEntry } from '@/shell/settings/machine-icon';
+import { nameOf } from '@/shell/settings/machine-list';
+import { defaultCanvases } from '@/state/canvas';
+import { useDocument } from '@/state/document';
 import { ModelPicker } from '@adecore/agents-react/chat/ui';
 import { useProviders, useChatRow, knownAccounts, providerAccountsOf } from '@adecore/agents-react/state';
 import { Switch, Button, ErrorBoundary, FieldHint, FormError, Icon, Input, Select, Dialog } from '@adecore/ui';
@@ -69,6 +75,12 @@ function ForkForm({ chatId, turnId, onDone }: { chatId: string; turnId: string; 
     const viewName = useViewNodes((views, nodesOf) => forkOriginIn(views, nodesOf, chatId)?.title);
     // A node's live editor names it before a save has brought the document up to date.
     const originalTitle = viewName ?? t('planPanel.chat');
+    const nodeView = useViewNodes((views, nodesOf) => forkOriginIn(views, nodesOf, chatId)?.viewId ?? null);
+    // A node of another machine goes on a canvas only you have, so a shared canvas offers no other machine.
+    const sharedCanvas = useDocument((state) => nodeView !== null && state.shared.includes(nodeView));
+    const machines = useOtherMachines();
+    const [machineChoice, setMachineChoice] = useState('here');
+    const remote = nodeView === null || sharedCanvas ? null : (machines.find((entry) => entry.id === machineChoice) ?? null);
     const shapes = forkShapes(origin);
     const [title, setTitle] = useState(clipText(t('fork.copyTitle', { title: originalTitle }), CHAT_FORK_TITLE_MAX));
     const [shape, setShape] = useState<ForkShape>(shapes[0]!);
@@ -114,10 +126,24 @@ function ForkForm({ chatId, turnId, onDone }: { chatId: string; turnId: string; 
         const remembered = provider === info?.provider ? info.selection : selectionFor(readChatPreferences(), provider);
         setCli({ provider, selection: remembered?.model === model ? remembered : { model, options: {} }, account: accountOn(provider) });
     };
-    const ready = refusal === null && point !== null && title.trim() !== '' && folder !== null && branchProblem === null;
+    const ready = refusal === null && point !== null && title.trim() !== '' && (remote !== null || (folder !== null && branchProblem === null));
 
     const submit = async (): Promise<void> => {
         if (!ready || busy) {
+            return;
+        }
+        if (remote !== null && nodeView !== null) {
+            // The next dialog picks the checkout there and makes the chat; this one only hands it the turn.
+            const original = defaultCanvases.peek(nodeView)?.getState().nodes[chatId];
+            useUi.getState().setRemoteNodeDialog({
+                machineId: remote.id,
+                kind: 'chat',
+                viewId: nodeView,
+                at: original === undefined ? null : { x: original.x + original.w + 40, y: original.y },
+                relink: false,
+                handoff: { chatId, turnId, title: title.trim(), ...(info === null ? {} : { provider: info.provider }) }
+            });
+            onDone();
             return;
         }
         setBusy(true);
@@ -153,10 +179,33 @@ function ForkForm({ chatId, turnId, onDone }: { chatId: string; turnId: string; 
     return (
         <>
             <Dialog.Text className="mt-1">{point ? forkPointLabel(point) : t('fork.turnGone')}</Dialog.Text>
+            {machines.length > 0 && nodeView !== null && !sharedCanvas && (
+                <div className="mt-3 flex items-center justify-between gap-3">
+                    <span className="text-xs text-text-muted">{t('fork.machine')}</span>
+                    <Select<string>
+                        label={t('fork.machine')}
+                        variant="outlined"
+                        value={remote === null ? 'here' : remote.id}
+                        onValueChange={setMachineChoice}
+                        items={[
+                            { value: 'here', label: t('fork.thisMachine') },
+                            ...machines.map((entry) => ({
+                                value: entry.id,
+                                label: nameOf(entry),
+                                icon: <MachineGlyph icon={iconOfEntry(entry, null)} size={14} />
+                            }))
+                        ]}
+                    />
+                </div>
+            )}
             <Dialog.Text className="mt-2">
-                {shape === 'view' ? t('fork.intoView', { after: origin === 'view' ? t('fork.theOriginal') : t('fork.itsCanvas') }) : t('fork.intoNode')}
+                {remote !== null
+                    ? t('fork.onMachine', { machine: nameOf(remote) })
+                    : shape === 'view'
+                      ? t('fork.intoView', { after: origin === 'view' ? t('fork.theOriginal') : t('fork.itsCanvas') })
+                      : t('fork.intoNode')}
             </Dialog.Text>
-            {chosenCli !== null && pickable.length > 0 && (
+            {remote === null && chosenCli !== null && pickable.length > 0 && (
                 <ForkCliFields
                     providers={pickable}
                     chosen={chosenCli}
@@ -184,7 +233,7 @@ function ForkForm({ chatId, turnId, onDone }: { chatId: string; turnId: string; 
                     }
                 }}
             />
-            {shapes.length > 1 && (
+            {remote === null && shapes.length > 1 && (
                 <div className="mt-3 flex items-center justify-between gap-3">
                     <span className="text-xs text-text-muted">{t('fork.into')}</span>
                     <Select<ForkShape>
@@ -196,24 +245,26 @@ function ForkForm({ chatId, turnId, onDone }: { chatId: string; turnId: string; 
                     />
                 </div>
             )}
-            <ForkFolder
-                folder={folder}
-                last={point?.last ?? true}
-                inWorktree={inWorktree}
-                onInWorktree={setInWorktree}
-                branch={branchName}
-                onBranch={setBranch}
-                branchProblem={branchProblem}
-                filesAfterTurn={filesAfterTurn}
-                onFilesAfterTurn={setFilesAfterTurn}
-                onSubmit={() => void submit()}
-            />
+            {remote === null && (
+                <ForkFolder
+                    folder={folder}
+                    last={point?.last ?? true}
+                    inWorktree={inWorktree}
+                    onInWorktree={setInWorktree}
+                    branch={branchName}
+                    onBranch={setBranch}
+                    branchProblem={branchProblem}
+                    filesAfterTurn={filesAfterTurn}
+                    onFilesAfterTurn={setFilesAfterTurn}
+                    onSubmit={() => void submit()}
+                />
+            )}
             {refusal !== null && <p className="mt-2 text-sm text-text-muted">{refusal}.</p>}
             {failure && <FormError className="mt-2">{failure}</FormError>}
             <Dialog.Footer>
                 <Button onClick={onDone}>{t('common:action.cancel')}</Button>
                 <Button variant="primary" disabled={busy || !ready} onClick={() => void submit()}>
-                    {busy ? t('fork.forking') : t('fork.fork')}
+                    {busy ? t('fork.forking') : remote !== null ? t('fork.chooseCheckout') : t('fork.fork')}
                 </Button>
             </Dialog.Footer>
         </>

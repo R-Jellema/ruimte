@@ -90,6 +90,7 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `chatSearch` = "chat.search"
     case `chatSearchCancel` = "chat.searchCancel"
     case `chatExternal` = "chat.external"
+    case `chatHandoff` = "chat.handoff"
     case `chatMove` = "chat.move"
     case `chatMoveInfo` = "chat.moveInfo"
     case `skillsList` = "skills.list"

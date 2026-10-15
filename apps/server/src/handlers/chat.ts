@@ -5,6 +5,8 @@ import type {
     ChatForkInfoResult,
     ChatForkPayload,
     ChatForkResult,
+    ChatHandoffPayload,
+    ChatHandoffResult,
     ChatMoveInfoPayload,
     ChatMoveInfoResult,
     ChatMovePayload,
@@ -23,6 +25,7 @@ import type { BeforeKill } from './session.ts';
 export interface ChatForkHandlers {
     fork(payload: ChatForkPayload): Promise<ChatForkResult>;
     info(payload: ChatForkInfoPayload): Promise<ChatForkInfoResult>;
+    handoff(payload: ChatHandoffPayload): Promise<ChatHandoffResult>;
     summarize(chatId: string): Promise<ChatSummarizeResult>;
     continueOn(payload: ChatContinueOnPayload): Promise<ChatContinueOnResult>;
 }
@@ -82,6 +85,8 @@ export function registerChatHandlers(
     dispatcher.register('chat.fork', (payload) => forking().fork(payload));
 
     dispatcher.register('chat.forkInfo', (payload) => forking().info(payload));
+
+    dispatcher.register('chat.handoff', (payload) => forking().handoff(payload));
 
     dispatcher.register('chat.summarize', (payload) => forking().summarize(payload.chatId));
 

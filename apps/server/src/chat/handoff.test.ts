@@ -58,4 +58,15 @@ describe('handoffText', () => {
         expect(text).toContain('Folder: /work/lexer (a git worktree on branch lexer-fork, with the files as they were after that turn).');
         expect(text).not.toMatch(/[–—]/);
     });
+
+    test('a conversation from another machine names it and says nothing about reading the original', () => {
+        const { text } = handoffText(sixTurns(10), { ...meta, cwd: '/Users/b/lexer', remote: { machine: 'Studio' } });
+        expect(text).toStartWith(
+            'Ruimte: you take over a conversation that ran with Claude Code on another machine (Studio), in node "Lexer", forked after its turn 6 of 6'
+        );
+        expect(text).toContain('Folder: /Users/b/lexer, a checkout of the same project on this machine.');
+        expect(text).not.toContain('ruimte-context');
+        expect(text).toContain('What follows is all of it, as text.');
+        expect(text).toEndWith("Continue from here. The person's next message follows.");
+    });
 });

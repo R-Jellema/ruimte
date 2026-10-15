@@ -6,6 +6,8 @@ import type { NodesOfView } from '@/project/view-nodes';
 export interface ForkOrigin {
     shape: ForkShape;
     title: string;
+    /* The canvas a node is on; null for a chat view, which is no node of any canvas. */
+    viewId: string | null;
 }
 
 export function forkOriginIn(
@@ -15,11 +17,11 @@ export function forkOriginIn(
 ): ForkOrigin | null {
     for (const view of views) {
         if (view.kind === 'chat' && view.id === chatId) {
-            return { shape: 'view', title: view.name };
+            return { shape: 'view', title: view.name, viewId: null };
         }
         const node = nodesOf(view).find((candidate) => candidate.id === chatId && candidate.kind === 'chat');
         if (node) {
-            return { shape: 'node', title: node.title };
+            return { shape: 'node', title: node.title, viewId: view.id };
         }
     }
     return null;

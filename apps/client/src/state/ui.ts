@@ -164,6 +164,8 @@ export interface RemoteNodeRequest {
     /* Where on the canvas it goes, in world units; null lets the canvas place it. */
     at: { x: number; y: number } | null;
     relink: boolean;
+    /* A fork of this chat after this turn: the new chat starts from a transcript of the original instead of from nothing. */
+    handoff?: { chatId: string; turnId: string; title: string; provider?: AgentKind };
 }
 
 export type PaletteMode = 'default' | 'grep' | 'chats' | 'file';

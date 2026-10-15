@@ -3,7 +3,7 @@ import { usageRootsOf } from '@adecore/agents/usage';
 import type { CanvasHost } from '../canvas/verb.ts';
 import { continueOn } from '../chat/continue-on.ts';
 import { ExternalChatSessions, ownSessionSources } from '../chat/external.ts';
-import { chatForkDeps, forkChat, readForkInfo } from '../chat/fork.ts';
+import { chatForkDeps, forkChat, readForkInfo, readHandoff } from '../chat/fork.ts';
 import { ChatImageFiles } from '../chat/image-files.ts';
 import { chatsLocatedIn, chatsOfViews, ProjectChatSearch } from '../chat/project-search.ts';
 import type { Dispatcher } from '../dispatcher.ts';
@@ -140,6 +140,7 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
         {
             fork: (payload) => forkChat(forkDeps, payload),
             info: (payload) => readForkInfo(forkDeps, payload),
+            handoff: (payload) => readHandoff(forkDeps, payload),
             summarize: (chatId) => work.summaries.summarize(chatId),
             continueOn: (payload) => continueOn({ chats, fork: (fork) => forkChat(forkDeps, fork) }, payload)
         },

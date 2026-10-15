@@ -14,6 +14,7 @@ import {
     ChatSearchPayloadSchema,
     ChatSearchResultSchema
 } from './chat-search.ts';
+import { ChatHandoffPayloadSchema, ChatHandoffResultSchema } from './chat-handoff.ts';
 import { ChatMoveInfoPayloadSchema, ChatMoveInfoResultSchema, ChatMovePayloadSchema, ChatMoveResultSchema } from './chat-move.ts';
 import { ChatImageTargetPayloadSchema, ChatImageTargetResultSchema, ChatImageSavePayloadSchema, ChatImageSaveResultSchema } from './chat-image.ts';
 import { ProjectSidebarResultSchema, ProjectSummaryEventSchema } from './project-sidebar.ts';
@@ -348,6 +349,7 @@ export * from './browser.ts';
 export * from './bytes.ts';
 export * from './chat.ts';
 export * from './chat-image.ts';
+export * from './chat-handoff.ts';
 export * from './chat-move.ts';
 export * from './chat-search.ts';
 export * from './computer.ts';
@@ -501,6 +503,7 @@ export const REQUEST_SCHEMAS = {
     'chat.searchCancel': { payload: ChatSearchCancelPayloadSchema, result: EmptySchema },
     'chat.external': { payload: ChatExternalPayloadSchema, result: ChatExternalResultSchema },
     // Errors: `move-refused`, `files-conflict` and `move-failed`; each leaves the chat where it was.
+    'chat.handoff': { payload: ChatHandoffPayloadSchema, result: ChatHandoffResultSchema },
     'chat.move': { payload: ChatMovePayloadSchema, result: ChatMoveResultSchema },
     'chat.moveInfo': { payload: ChatMoveInfoPayloadSchema, result: ChatMoveInfoResultSchema },
     'skills.list': AGENT_REQUEST_SCHEMAS['skills.list'],

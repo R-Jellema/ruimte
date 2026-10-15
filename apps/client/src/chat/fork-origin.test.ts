@@ -18,8 +18,8 @@ describe('the original of a fork', () => {
             { kind: 'chat', id: 'chat-1', name: 'Lexer', node: {} },
             { kind: 'terminal', id: 'term-1', name: 'Shell', node: {} }
         ];
-        expect(forkOriginIn(views, nodesOfView, 'chat-1')).toEqual({ shape: 'view', title: 'Lexer' });
-        expect(forkOriginIn(views, nodesOfView, 'chat-2')).toEqual({ shape: 'node', title: 'Parser' });
+        expect(forkOriginIn(views, nodesOfView, 'chat-1')).toEqual({ shape: 'view', title: 'Lexer', viewId: null });
+        expect(forkOriginIn(views, nodesOfView, 'chat-2')).toEqual({ shape: 'node', title: 'Parser', viewId: 'main' });
         expect(forkOriginIn(views, nodesOfView, 'term-1')).toBeNull();
         expect(forkOriginIn(views, nodesOfView, 'chat-3')).toBeNull();
     });

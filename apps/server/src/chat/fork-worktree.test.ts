@@ -108,6 +108,25 @@ async function fork(payload: Record<string, unknown>): Promise<{ nodeId: string;
     return (answer as { result: { nodeId: string; info: ChatInfo; worktree?: { path: string; branch: string } } }).result;
 }
 
+test('a handoff for a chat on another machine carries the turns up to the one asked, names the checkout there, and changes nothing here', async () => {
+    const turns = await twoTurns();
+    const before = await gitIn(folder, ['status', '--porcelain']);
+    const answer = (await daemon.request('chat.handoff', {
+        chatId: 'chat-lead',
+        turnId: turns[0]!.id,
+        remote: { machine: 'Studio', cwd: '/Users/b/repo' }
+    })) as { ok: boolean; result: { text: string; turns: number; all: boolean } };
+
+    expect(answer.ok).toBe(true);
+    expect(answer.result).toMatchObject({ turns: 1, all: true });
+    expect(answer.result.text).toContain('on another machine (Studio)');
+    expect(answer.result.text).toContain('forked after its turn 1 of 2');
+    expect(answer.result.text).toContain('Folder: /Users/b/repo');
+    expect(answer.result.text).not.toContain('ruimte-context');
+    expect(answer.result.text).not.toContain(folder);
+    expect(await gitIn(folder, ['status', '--porcelain'])).toBe(before);
+});
+
 test('a fork after turn 1 in a worktree holds the files after turn 1, with the index on HEAD and the difference unstaged', async () => {
     const turns = await twoTurns();
     expect(await daemon.request('chat.forkInfo', { chatId: 'chat-lead', turnId: turns[0]!.id })).toMatchObject({

@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Server } from 'lucide-react';
 import type { DeviceInfo, ProjectNode } from '@ruimte/contracts';
-import { rememberChatSelection } from '@adecore/agents-react/chat';
+import { EMPTY_DRAFT, rememberChatSelection, writeDraft } from '@adecore/agents-react/chat';
 import { deleteNodesAction } from '@/actions/client-actions';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import { handOff } from '@/project/bundle-transfer';
@@ -201,6 +201,53 @@ function RemoteNodeForm({
                 return;
             }
             const canvas = request.viewId === null ? null : defaultCanvases.peek(request.viewId);
+            let handoffText: string | null = null;
+            const placeCheckout = async (): Promise<string | null> => {
+                const branch = checkout?.branch ?? null;
+                if (startFrom === 'files' || startFrom === 'head') {
+                    const sent = await handOff({
+                        from: workspace.connection.transport,
+                        to: there,
+                        bundle: {
+                            path: project.folder,
+                            from: startFrom,
+                            haves: candidate.heads,
+                            name: `Handoff of ${branch ?? 'HEAD'} from ${self?.label ?? selfId}`
+                        },
+                        projectId: candidate.projectId,
+                        branch: branch ?? 'handoff',
+                        into: 'worktree',
+                        machine: self?.label ?? selfId,
+                        onSize: setSending
+                    });
+                    return sent.path ?? null;
+                }
+                if (startFrom === 'origin' && branch !== null) {
+                    await workspace.connection.transport.request('git.action', {
+                        cwd: project.folder,
+                        actionId: crypto.randomUUID(),
+                        kind: checkout?.upstream === true ? 'push' : 'publish'
+                    });
+                    await there.request('git.action', { cwd: candidate.folder, actionId: crypto.randomUUID(), kind: 'fetch' });
+                    const { worktree } = await there.request('git.worktree-add', {
+                        repo: candidate.folder,
+                        branch: `ruimte/${branch}`,
+                        projectId: candidate.projectId,
+                        base: `origin/${branch}`
+                    });
+                    return worktree.path;
+                }
+                if (!ownWorktree || start === null) {
+                    return null;
+                }
+                const { worktree } = await there.request('git.worktree-add', {
+                    repo: candidate.folder,
+                    branch: start.branch.trim(),
+                    projectId: candidate.projectId,
+                    ...(start.reuses ? {} : { base: start.base.trim() })
+                });
+                return worktree.path;
+            };
             await createRemoteNode({
                 linked: checkouts.links.some((known) => known.machineId === request.machineId && known.remoteProjectId === candidate.projectId),
                 bindThere: async () => {
@@ -210,50 +257,16 @@ function RemoteNodeForm({
                     await workspace.connection.transport.request('remote.link', link);
                 },
                 makeWorktree: async () => {
-                    const branch = checkout?.branch ?? null;
-                    if (startFrom === 'files' || startFrom === 'head') {
-                        const sent = await handOff({
-                            from: workspace.connection.transport,
-                            to: there,
-                            bundle: {
-                                path: project.folder,
-                                from: startFrom,
-                                haves: candidate.heads,
-                                name: `Handoff of ${branch ?? 'HEAD'} from ${self?.label ?? selfId}`
-                            },
-                            projectId: candidate.projectId,
-                            branch: branch ?? 'handoff',
-                            into: 'worktree',
-                            machine: self?.label ?? selfId,
-                            onSize: setSending
+                    const path = await placeCheckout();
+                    if (request.handoff !== undefined) {
+                        const answer = await workspace.connection.transport.request('chat.handoff', {
+                            chatId: request.handoff.chatId,
+                            turnId: request.handoff.turnId,
+                            remote: { machine: self?.label ?? selfId, cwd: path ?? candidate.folder }
                         });
-                        return sent.path ?? null;
+                        handoffText = answer.text;
                     }
-                    if (startFrom === 'origin' && branch !== null) {
-                        await workspace.connection.transport.request('git.action', {
-                            cwd: project.folder,
-                            actionId: crypto.randomUUID(),
-                            kind: checkout?.upstream === true ? 'push' : 'publish'
-                        });
-                        await there.request('git.action', { cwd: candidate.folder, actionId: crypto.randomUUID(), kind: 'fetch' });
-                        const { worktree } = await there.request('git.worktree-add', {
-                            repo: candidate.folder,
-                            branch: `ruimte/${branch}`,
-                            projectId: candidate.projectId,
-                            base: `origin/${branch}`
-                        });
-                        return worktree.path;
-                    }
-                    if (!ownWorktree || start === null) {
-                        return null;
-                    }
-                    const { worktree } = await there.request('git.worktree-add', {
-                        repo: candidate.folder,
-                        branch: start.branch.trim(),
-                        projectId: candidate.projectId,
-                        ...(start.reuses ? {} : { base: start.base.trim() })
-                    });
-                    return worktree.path;
+                    return path;
                 },
                 addNode: (cwd) => {
                     if (canvas === null) {
@@ -262,12 +275,18 @@ function RemoteNodeForm({
                     if (start !== null && start.provider !== null && start.selection !== null && kind === 'chat') {
                         rememberChatSelection(start.provider, start.selection);
                     }
-                    return canvas.getState().addNode(kind, request.at ?? { x: 0, y: 0 }, {
+                    const nodeId = canvas.getState().addNode(kind, request.at ?? { x: 0, y: 0 }, {
                         machine: request.machineId,
                         cwd: cwd ?? candidate.folder,
-                        ...(kind === 'chat' ? { provider: start?.provider ?? 'claude', providerFixed: true } : {}),
+                        ...(request.handoff === undefined ? {} : { title: request.handoff.title }),
+                        ...(kind === 'chat' ? { provider: request.handoff?.provider ?? start?.provider ?? 'claude', providerFixed: true } : {}),
                         ...(kind === 'device' && device !== null ? { device: deviceReference(device) } : {})
                     });
+                    // Seeded, never sent: the person reads it and writes the first message, as for a fork on this machine.
+                    if (nodeId !== null && handoffText !== null) {
+                        writeDraft(nodeId, { ...EMPTY_DRAFT, text: handoffText });
+                    }
+                    return nodeId;
                 },
                 removeNode: (nodeId) => {
                     if (canvas !== null) {
@@ -291,9 +310,11 @@ function RemoteNodeForm({
             <Dialog.Text className="mt-1">
                 {request.relink
                     ? t('remoteNode.relinkIntro', { machine })
-                    : t(kind === 'chat' ? 'remoteNode.intro' : 'remoteNode.introOther', { kind: t(`shell:nodeKinds.${kind}`).toLowerCase(), machine })}
+                    : request.handoff !== undefined
+                      ? t('remoteNode.handoffIntro', { machine, title: request.handoff.title })
+                      : t(kind === 'chat' ? 'remoteNode.intro' : 'remoteNode.introOther', { kind: t(`shell:nodeKinds.${kind}`).toLowerCase(), machine })}
             </Dialog.Text>
-            {!request.relink && (
+            {!request.relink && request.handoff === undefined && (
                 <div className="mt-3 flex items-center justify-between gap-3">
                     <span className="text-xs text-text-muted">{t('remoteNode.kind')}</span>
                     <Select<Kind>

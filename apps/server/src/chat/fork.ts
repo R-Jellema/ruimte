@@ -6,6 +6,8 @@ import {
     withView,
     type AgentKind,
     type ChatForkInfoPayload,
+    type ChatHandoffPayload,
+    type ChatHandoffResult,
     type ChatForkInfoResult,
     type ChatForkPayload,
     type ChatForkResult,
@@ -230,6 +232,29 @@ export async function readForkInfo(deps: ChatForkDeps, payload: ChatForkInfoPayl
     const filesAfterTurn = tree === null ? index === turns.length - 1 : await deps.treeExists(info.cwd, tree);
     const title = `${deps.titleFor(payload.chatId) ?? nameOf(info.provider)} (fork)`;
     return { repository: true, branches, branch: freeBranch(branchSlug(title), new Set(branches)), filesAfterTurn };
+}
+
+/* What a chat on another machine reads first when it takes over this conversation up to a turn. */
+export async function readHandoff(deps: ChatForkDeps, payload: ChatHandoffPayload): Promise<ChatHandoffResult> {
+    const { info, items, turns, index, turn } = await forkSource(deps, payload.chatId, payload.turnId);
+    const place = deps.locate(payload.chatId);
+    const {
+        text,
+        turns: kept,
+        all
+    } = handoffText(itemsThrough(items, turn.id), {
+        fromName: nameOf(info.provider),
+        originalId: payload.chatId,
+        originalTitle: deps.titleFor(payload.chatId) ?? nameOf(info.provider),
+        view: place?.canvasId === null,
+        turnNumber: index + 1,
+        totalTurns: turns.length,
+        at: deps.now(),
+        cwd: payload.remote.cwd,
+        worktree: null,
+        remote: { machine: payload.remote.machine }
+    });
+    return { text, turns: kept, all };
 }
 
 /* Steps taken back in reverse when a later one is refused. */

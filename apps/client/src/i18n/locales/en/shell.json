@@ -461,7 +461,11 @@
         "undoAfterTurn": "Undo the work after this turn",
         "filesGone": "The files of this turn are no longer in the repository, so the worktree starts from HEAD.",
         "fromTurnFiles": "The worktree starts from the files as they were after this turn; the original keeps its own.",
-        "fromHead": "The worktree starts from HEAD, without uncommitted work."
+        "fromHead": "The worktree starts from HEAD, without uncommitted work.",
+        "machine": "Machine",
+        "thisMachine": "This machine",
+        "onMachine": "A new chat on {{machine}} starts from a transcript of this one. You choose its checkout next.",
+        "chooseCheckout": "Choose a checkout…"
     },
     "merge": {
         "title": "Merge worktree",
@@ -1076,6 +1080,7 @@
             "headHint": "The last commit of {{branch}}, without your changes.",
             "originHint": "Pushes {{branch}} to origin from here, then fetches it on {{machine}}."
         },
-        "sending": "Sending {{size}}…"
+        "sending": "Sending {{size}}…",
+        "handoffIntro": "A new chat on {{machine}} starts from a transcript of {{title}} and works in a checkout there. Nothing is sent until you write the next message."
     }
 }

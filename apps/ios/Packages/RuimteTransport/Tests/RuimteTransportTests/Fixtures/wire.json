@@ -182,6 +182,7 @@
     "chat.search",
     "chat.searchCancel",
     "chat.external",
+    "chat.handoff",
     "chat.move",
     "chat.moveInfo",
     "skills.list",
