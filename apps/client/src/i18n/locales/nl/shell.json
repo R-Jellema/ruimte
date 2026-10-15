@@ -1034,12 +1034,12 @@
     "remoteNode": {
         "title": "Nieuwe {{kind}} op {{machine}}",
         "relinkTitle": "{{machine}} opnieuw koppelen",
-        "intro": "Een {{kind}}-node komt op dit canvas en werkt in een checkout op {{machine}}. Er wordt niets verstuurd voordat je het eerste bericht schrijft.",
+        "intro": "Een {{kind}}-node komt op dit canvas en werkt in een checkout op {{machine}}. Ruimte verstuurt niets voordat je het eerste bericht schrijft.",
         "introOther": "Een {{kind}}-node komt op dit canvas en werkt in een checkout op {{machine}}.",
-        "relinkIntro": "{{machine}} koppelt dit project niet meer. Kies daar opnieuw de checkout.",
+        "relinkIntro": "Dit project is niet meer gekoppeld op {{machine}}. Kies daar opnieuw de checkout.",
         "kind": "Soort",
         "checkout": "Checkout",
-        "looking": "{{machine}} wordt bekeken…",
+        "looking": "Checkouts op {{machine}} zoeken…",
         "sameRepository": "Dezelfde repository",
         "otherRepository": "Een andere repository",
         "none": "Geen checkout van deze repository",
@@ -1051,23 +1051,23 @@
         "worktree": "Werk in een git worktree op {{machine}}",
         "device": "Apparaat",
         "devices": {
-            "looking": "Apparaten op {{machine}} worden gezocht…",
+            "looking": "Apparaten op {{machine}} zoeken…",
             "none": "{{machine}} heeft nu geen simulator of telefoon.",
-            "failed": "{{machine}} gaf zijn apparaten niet."
+            "failed": "{{machine}} kon zijn apparaten niet tonen."
         },
-        "create": "Maak",
-        "creating": "Bezig…",
-        "link": "Koppel",
-        "linking": "Bezig met koppelen…",
-        "failed": "De node is niet gemaakt.",
-        "failedToRender": "Dit dialoogvenster kon niet worden getoond",
+        "create": "Maken",
+        "creating": "Maken…",
+        "link": "Koppelen",
+        "linking": "Koppelen…",
+        "failed": "De node kon niet worden gemaakt.",
+        "failedToRender": "Dit dialoogvenster kon niet worden getekend",
         "folders": {
             "title": "Mappen op {{machine}}",
             "path": "Pad op {{machine}}",
             "up": "Een map omhoog",
             "none": "Geen mappen hier",
-            "use": "Gebruik deze map",
-            "opening": "Bezig met openen…",
+            "use": "Deze map gebruiken",
+            "opening": "Openen…",
             "failed": "{{machine}} kon die map niet openen.",
             "back": "Terug naar de checkouts"
         },
@@ -1081,6 +1081,6 @@
             "originHint": "Pusht {{branch}} vanaf hier naar origin en haalt hem daarna op bij {{machine}}."
         },
         "sending": "{{size}} versturen…",
-        "handoffIntro": "Een nieuwe chat op {{machine}} begint met een transcript van {{title}} en werkt daar in een checkout. Er wordt niets verstuurd voordat je het volgende bericht schrijft."
+        "handoffIntro": "Een nieuwe chat op {{machine}} begint met een transcript van {{title}} en werkt daar in een checkout. Ruimte verstuurt niets voordat je het volgende bericht schrijft."
     }
 }

@@ -218,7 +218,7 @@ describe('making a project of a chat, or moving it into one', () => {
     test('shows the line about @ references only when a chat would lose one', async () => {
         await open();
         await ask('make');
-        await until(() => dialog()!.textContent!.includes('Own files'));
+        await until(() => dialog()!.textContent!.includes('Files this chat made'));
         expect(dialog()!.textContent).not.toContain('attached to this one with @');
         await dismiss();
         await until(() => dialog() === null);
@@ -232,13 +232,13 @@ describe('making a project of a chat, or moving it into one', () => {
         await open(() => (refused ? { ...INFO, refusal: { reason: 'messages' } } : INFO));
         machine.answer('chat.move', () => {
             refused = true;
-            throw new TransportError('move-refused', 'Messages from other chats still wait for this chat');
+            throw new TransportError('move-refused', 'Messages from other chats are waiting for this chat');
         });
         await ask('pick', VINYL.projectId);
         await until(() => button('Move') !== undefined && !button('Move')!.disabled);
         const before = machine.requests('chat.moveInfo').length;
         await clickOn(button('Move') ?? null);
-        await until(() => dialog()!.textContent!.includes('Messages from other chats still wait'));
+        await until(() => dialog()!.textContent!.includes('Messages from other chats are waiting'));
         expect(machine.requests('chat.moveInfo').length).toBeGreaterThan(before);
         expect(footerButtons()).toEqual(['Close']);
         expect(useProject.getState().current?.name).toBe('Chats');

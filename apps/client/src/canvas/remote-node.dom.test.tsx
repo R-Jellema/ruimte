@@ -236,7 +236,7 @@ describe('the machine of a node', () => {
             there.reopen();
         });
         await until(() => cardOf(REMOTE_SHELL.id) !== null);
-        expect(cardOf(REMOTE_SHELL.id)).toContain('MacBook Pro no longer links this project.');
+        expect(cardOf(REMOTE_SHELL.id)).toContain('This project is no longer linked on MacBook Pro.');
 
         const again = [...frame(REMOTE_SHELL.id).querySelectorAll('button')].find((button) => button.textContent === 'Link again') ?? null;
         await clickOn(again);

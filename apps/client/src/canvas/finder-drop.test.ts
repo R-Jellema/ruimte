@@ -62,7 +62,7 @@ describe('finderPaths', () => {
         expect(finderPaths(dragOf({ path: '/work/a.png', directory: false }), 'machine', { folders: true, refusal: 'terminal' })).toEqual([]);
         const [toast] = useToasts.getState().toasts;
         expect(toast?.title).toBe('This project runs on Build server');
-        expect(toast?.description).toBe('That machine cannot read files from Finder, so their paths would mean nothing in its shell.');
+        expect(toast?.description).toBe('That machine cannot read files from Finder. Type or paste a path that exists there instead.');
     });
 
     test('a window without the desktop shell types nothing and says to type the path', () => {

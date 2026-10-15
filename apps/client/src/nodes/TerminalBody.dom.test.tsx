@@ -124,6 +124,6 @@ describe('a file dropped on a terminal node', () => {
         await dispatch(bodyOf(), finderDrag('drop', '/work/a.png'));
 
         expect(machine.requests('session.write')).toEqual([]);
-        expect(useToasts.getState().toasts[0]?.description).toBe('That machine cannot read files from Finder, so their paths would mean nothing in its shell.');
+        expect(useToasts.getState().toasts[0]?.description).toBe('That machine cannot read files from Finder. Type or paste a path that exists there instead.');
     });
 });

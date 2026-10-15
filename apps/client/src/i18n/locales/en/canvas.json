@@ -196,7 +196,7 @@
     "drop": {
         "controlCharacter": {
             "title": "That file name cannot be typed",
-            "description": "A name with a control character could run commands, so nothing from this drop was typed."
+            "description": "A name with a control character could run a command in the terminal, so Ruimte typed nothing from this drop."
         },
         "noBridge": {
             "title": "Files from {{app}} only drop in the desktop app",
@@ -206,7 +206,7 @@
         "otherMachine": {
             "title": "This project runs on {{machine}}",
             "description": "That machine cannot read files from {{app}}. Open the file from the Files panel instead.",
-            "terminalDescription": "That machine cannot read files from {{app}}, so their paths would mean nothing in its shell.",
+            "terminalDescription": "That machine cannot read files from {{app}}. Type or paste a path that exists there instead.",
             "unknown": "another machine"
         }
     },
@@ -302,11 +302,11 @@
     "remote": {
         "offline": "{{machine}} is not answering. It may be asleep.",
         "retrying": "Trying to reach {{machine}} again…",
-        "unlinked": "{{machine}} no longer links this project.",
+        "unlinked": "This project is no longer linked on {{machine}}.",
         "linkAgain": "Link again",
         "tooOld": "{{machine}} runs an older Ruimte. Update it to use this node.",
         "pill": "This node runs on {{machine}}",
-        "pillLapsed": "This node runs on {{machine}}. Agents cannot give tasks there yet: click to link again.",
+        "pillLapsed": "This node runs on {{machine}}. Agents there cannot give tasks until you link it again. Click to link.",
         "linkAgainFailed": "Could not link {{machine}} again"
     },
     "otherMachine": {
@@ -314,12 +314,12 @@
         "notAnswering": "Not answering",
         "needsUpdate": "Needs an update",
         "needsUpdateTip": "{{machine}} runs an older Ruimte",
-        "shared": "A node on another machine goes on a private canvas"
+        "shared": "A canvas shared with the team cannot hold a node on another machine"
     },
     "bringBack": {
         "item": "Bring back to this machine",
         "working": "Bringing {{what}} back from {{machine}}…",
-        "done": "{{branch}} from {{machine}} is here",
+        "done": "Brought {{branch}} back from {{machine}}",
         "merge": "Merge…",
         "failed": "Could not bring {{what}} back",
         "failedDescription": "{{machine}} did not send its work."

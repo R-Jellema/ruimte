@@ -1034,12 +1034,12 @@
     "remoteNode": {
         "title": "New {{kind}} on {{machine}}",
         "relinkTitle": "Link {{machine}} again",
-        "intro": "A {{kind}} node goes on this canvas and works in a checkout on {{machine}}. Nothing is sent until you write the first message.",
+        "intro": "A {{kind}} node goes on this canvas and works in a checkout on {{machine}}. Ruimte sends nothing until you write the first message.",
         "introOther": "A {{kind}} node goes on this canvas and works in a checkout on {{machine}}.",
-        "relinkIntro": "{{machine}} no longer links this project. Choose its checkout there again.",
+        "relinkIntro": "This project is no longer linked on {{machine}}. Choose its checkout there again.",
         "kind": "Kind",
         "checkout": "Checkout",
-        "looking": "Looking at {{machine}}…",
+        "looking": "Looking for checkouts on {{machine}}…",
         "sameRepository": "Same repository",
         "otherRepository": "Another repository",
         "none": "No checkout of this repository",
@@ -1053,13 +1053,13 @@
         "devices": {
             "looking": "Looking for devices on {{machine}}…",
             "none": "{{machine}} has no simulator or phone right now.",
-            "failed": "{{machine}} did not list its devices."
+            "failed": "{{machine}} could not list its devices."
         },
         "create": "Create",
         "creating": "Creating…",
         "link": "Link",
         "linking": "Linking…",
-        "failed": "The node was not made.",
+        "failed": "Could not create the node.",
         "failedToRender": "This dialog failed to render",
         "folders": {
             "title": "Folders on {{machine}}",
@@ -1081,6 +1081,6 @@
             "originHint": "Pushes {{branch}} to origin from here, then fetches it on {{machine}}."
         },
         "sending": "Sending {{size}}…",
-        "handoffIntro": "A new chat on {{machine}} starts from a transcript of {{title}} and works in a checkout there. Nothing is sent until you write the next message."
+        "handoffIntro": "A new chat on {{machine}} starts from a transcript of {{title}} and works in a checkout there. Ruimte sends nothing until you write the next message."
     }
 }
