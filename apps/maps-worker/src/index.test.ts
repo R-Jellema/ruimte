@@ -240,7 +240,7 @@ describe('what the style names', () => {
             }
         });
         expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
-        expect(response.headers.get('content-type')).toBe('application/x-protobuf');
+        expect(response.headers.get('content-type')).toBe('image/pbf');
         expect(response.headers.get('set-cookie')).toBeNull();
         expect(response.headers.get('access-control-allow-origin')).toBe('app://ruimte');
         const [call] = maps.upstream;
