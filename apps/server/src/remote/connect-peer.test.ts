@@ -132,6 +132,14 @@ describe('the reconnect of a link to another machine', () => {
         });
     });
 
+    test('is not owed while nothing waits on the machine', async () => {
+        owed = [];
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        expect(connectEntries()).toEqual([]);
+        expect(connections.attempts).toBe(0);
+    });
+
     test('waits a minute after the first failure and doubles that up to ten minutes', async () => {
         await reconnect.owe(MACHINE);
         await worker.settled();

@@ -55,9 +55,9 @@ export class ConnectPeer {
         this.deps = deps;
     }
 
-    /* Owes a reconnect to this machine unless the link is open or one is owed already. */
+    /* Owes a reconnect to this machine, if work waits on it, unless the link is open or one is owed already. */
     async owe(machineId: string): Promise<void> {
-        if (this.deps.connections.isOpen(machineId) || !this.deps.connections.knows(machineId)) {
+        if (this.deps.connections.isOpen(machineId) || !this.deps.connections.knows(machineId) || this.owedTo(machineId) === 0) {
             return;
         }
         if (this.running.has(machineId)) {
