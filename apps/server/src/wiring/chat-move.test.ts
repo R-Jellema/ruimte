@@ -12,7 +12,8 @@ import { MachineHome } from '../fs/machine-home.ts';
 import { registerChatHandlers } from '../handlers/chat.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
 import { ProjectProposals } from '../projects/project-proposals.ts';
-import { chatMoveHandlers } from './chat-move.ts';
+import { moveChat } from '../projects/move-chat.ts';
+import { chatMoveDeps, chatMoveHandlers, type ChatMoveWiring } from './chat-move.ts';
 
 describe('what the machine says about moving a chat', () => {
     let root: string;
@@ -156,5 +157,61 @@ describe('what the machine says about moving a chat', () => {
         proposals.moved(chatId, 'project-1');
         expect((await waiting).outcome).toBe('moved');
         expect(daemon.chats.get(chatId)?.info.status).not.toBe('needs-you');
+    });
+
+    describe('moving the chat that holds a card of its own suggestion', () => {
+        let proposals: ProjectProposals;
+        let waiting: ReturnType<ProjectProposals['ask']>;
+
+        const wiring = (): ChatMoveWiring => ({
+            ...daemon,
+            store,
+            lineage: daemon.lineage,
+            prWatches: daemon.prWatches,
+            outbox: daemon.outbox,
+            machineHome: new MachineHome(store.home),
+            proposals
+        });
+
+        beforeEach(() => {
+            proposals = new ProjectProposals({
+                chats: { hold: (id, key) => void daemon.chats.holdForPerson(id, key), release: (id, key) => daemon.chats.releaseHold(id, key) }
+            });
+            waiting = proposals.ask({ chatId, name: 'Vinyl', reason: 'It grew' }, 30_000);
+        });
+
+        test('makes the project, settles the card as moved and frees the chat', async () => {
+            const folder = join(root, 'vinyl');
+            const result = await chatMoveHandlers(wiring()).move({
+                chatId,
+                to: { folder, name: 'Vinyl', createFolder: true, initGit: false },
+                ownFiles: 'leave'
+            });
+            expect(result.summary.folder).toBe(folder);
+            expect(daemon.chats.get(chatId)?.info.cwd).toBe(folder);
+            expect(await waiting).toMatchObject({ outcome: 'moved', projectId: result.summary.projectId });
+            expect(proposals.stands(chatId)).toBe(false);
+            expect(daemon.chats.get(chatId)?.thread.held).toBe(false);
+        });
+
+        test('a move that fails after the hold was let go puts the hold back', async () => {
+            const folder = join(root, 'vinyl');
+            const failing = chatMoveDeps(wiring()).move;
+            await expect(
+                moveChat(
+                    { chatId, to: { folder, name: 'Vinyl', createFolder: true, initGit: false }, ownFiles: 'move' },
+                    {
+                        ...failing,
+                        moveOwnFiles: async () => {
+                            throw new Error('injected');
+                        }
+                    }
+                )
+            ).rejects.toThrow('injected');
+            expect(proposals.stands(chatId)).toBe(true);
+            expect(daemon.chats.get(chatId)?.thread.held).toBe(true);
+            expect(daemon.chats.get(chatId)?.info.status).toBe('needs-you');
+            expect(daemon.chats.get(chatId)?.info.cwd).toBe(join(store.scratchFolder, chatId));
+        });
     });
 });

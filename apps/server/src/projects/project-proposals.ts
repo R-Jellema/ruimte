@@ -114,6 +114,24 @@ export class ProjectProposals {
         return this.pending.has(chatId);
     }
 
+    /*
+     * Lets go of the hold of the card that stands, since a held chat does not relocate. The returned function
+     * puts it back for a move that did not happen, as long as the same card stands; null when no card stands.
+     */
+    pauseHold(chatId: string): (() => void) | null {
+        const pending = this.pending.get(chatId);
+        if (pending === undefined) {
+            return null;
+        }
+        const key = holdKeyOf(pending.proposal.proposalId);
+        this.chats.release(chatId, key);
+        return () => {
+            if (this.pending.get(chatId) === pending) {
+                this.chats.hold(chatId, key);
+            }
+        };
+    }
+
     /* A person's no. False when the card is gone already, which tells a second client it lost the race. */
     decline(proposalId: string): boolean {
         const found = this.find(proposalId);

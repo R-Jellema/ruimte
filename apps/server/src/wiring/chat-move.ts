@@ -35,7 +35,7 @@ export interface ChatMoveWiring {
     /* Absent in a test with no snoozes. */
     snoozes?: SnoozeStore;
     /* The suggestions that hold a chat at `needs-you`, and that a move settles; absent in a test with none. */
-    proposals?: Pick<ProjectProposals, 'stands' | 'moved'>;
+    proposals?: Pick<ProjectProposals, 'stands' | 'moved' | 'pauseHold'>;
 }
 
 /* Whether the chat is a chat view of the Chats project. */
@@ -201,7 +201,16 @@ export function chatMoveDeps(wiring: ChatMoveWiring): { info: MoveInfoDeps; move
         },
         chats: {
             load: (chatId) => loadedInfo(chats, chatId),
-            relocate: (chatId, cwd, during) => chats.relocate(chatId, cwd, during),
+            relocate: async (chatId, cwd, during) => {
+                // The card holds the chat, and a held chat does not relocate: the move it asks for lets go of the hold and puts it back if it fails.
+                const putBack = wiring.proposals?.pauseHold(chatId);
+                try {
+                    return await chats.relocate(chatId, cwd, during);
+                } catch (e) {
+                    putBack?.();
+                    throw e;
+                }
+            },
             deliverNote: (chatId, delivery) => chats.deliverNote(chatId, delivery),
             claudeProjectsDirOf: (info) => chats.claudeProjectsDirOf(info)
         },
