@@ -558,14 +558,15 @@ export function ProjectHeading({
                     }}
                     className={clsx(ROW, 'group font-medium text-text hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-accent')}
                 >
-                    <span className={clsx(ICON_SLOT, group.active && 'text-accent')}>
+                    <span className={ICON_SLOT}>
                         <ProjectGlyph
                             projectId={group.summary.projectId}
                             endpointId={group.endpointId}
                             icon={group.summary.icon}
                             size={14}
                             scratch={group.summary.scratch === true}
-                            color={group.active ? 'var(--accent)' : group.summary.color}
+                            color={group.summary.color}
+                            tinted
                             className="col-start-1 row-start-1 group-hover:hidden group-focus-visible:hidden"
                         />
                         <Icon

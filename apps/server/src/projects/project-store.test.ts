@@ -105,6 +105,14 @@ describe('ProjectStore', () => {
         expect(canvas(again.document).nodes[0]?.cwd).toBe(join(folder, 'apps', 'server'));
     });
 
+    test('a color set with the identity goes into the shared file and the summary, and the rest of the identity stays', async () => {
+        const opened = await store.openProject({ folder });
+        const summary = await store.setIdentity({ projectId: opened.summary.projectId, color: '#e7000b' });
+        expect(summary).toMatchObject({ name: 'repo', color: '#e7000b' });
+        expect((await documentOnDisk(folder)).color).toBe('#e7000b');
+        expect((await store.list())[0]).toMatchObject({ color: '#e7000b' });
+    });
+
     test('a folder is never found against the folder the daemon runs in, nor in its own state', async () => {
         await expect(store.openProject({ folder: 'repo' })).rejects.toThrow('is not a full path');
         await mkdir(join(home, 'auth'), { recursive: true });

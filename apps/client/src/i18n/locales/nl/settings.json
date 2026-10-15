@@ -73,6 +73,10 @@
         "needsYou": {
             "label": "Wacht op jou uit elk open project",
             "description": "Toon ook wat in je andere open projecten op je wacht, gegroepeerd per project."
+        },
+        "projectGlow": {
+            "label": "Gloed in de kleur van het project",
+            "description": "De gloed bovenaan de sidebar krijgt de kleur van het project op het scherm. Met de sidebar dicht staat hij in de werkbalk."
         }
     },
     "editor": {

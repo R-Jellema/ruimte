@@ -315,6 +315,15 @@ export class ProjectClient {
         this.scheduleSave();
     }
 
+    /* The color lives in the shared file beside the name, so a save carries it like a rename. */
+    async setColor(color: string): Promise<void> {
+        const current = this.sink.getState().current;
+        if (!current || current.color === color) {
+            return;
+        }
+        await this.rename(current.name, color);
+    }
+
     /* A Lucide name goes into the shared file; null means "use what the folder declares". */
     async setChosenIcon(icon: ProjectIconChoice | null): Promise<void> {
         const current = this.sink.getState().current;

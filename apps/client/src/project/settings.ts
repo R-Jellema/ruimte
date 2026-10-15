@@ -26,7 +26,7 @@ function remember(endpointId: string, summary: ProjectSummary): ProjectSettingsR
 export async function setProjectIdentity(
     endpointId: string,
     projectId: string,
-    identity: { name?: string; icon?: ProjectIconChoice | null }
+    identity: { name?: string; icon?: ProjectIconChoice | null; color?: string }
 ): Promise<ProjectSettingsResult> {
     const connected = await connectedTransport(endpointId);
     const { summary } = await connected.transport.request('project.setIdentity', { projectId, ...identity });

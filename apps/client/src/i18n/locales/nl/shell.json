@@ -384,7 +384,9 @@
         "chooseImage": "Afbeelding kiezen…",
         "useFolderIcon": "Het icoon van de map gebruiken",
         "tooLarge": "Die afbeelding is groter dan 256 KB",
-        "unreadable": "Dat bestand kon niet worden gelezen"
+        "unreadable": "Dat bestand kon niet worden gelezen",
+        "color": "Kleur",
+        "defaultColor": "Standaard"
     },
     "linkMachine": {
         "title": "Een machine koppelen met een code",

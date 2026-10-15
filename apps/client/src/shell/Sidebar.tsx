@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, ChartNoAxesColumn, Plus, Settings } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -46,10 +46,7 @@ import { NeedsYouCard } from './NeedsYouCard';
 import { BackgroundRow, MaybeTooltip, NodeRow, ProjectHeading, SeparatorRow, SubheaderRow, UnknownViewRow, ViewRow } from '@/shell/SidebarListRows';
 import { useProjectMenu } from '@/shell/project-menu-model';
 import { useSidebarProjects } from '@/shell/sidebar-projects';
-
-/* How wide the list is when it is open. The inner column keeps this width while the wrapper
-   animates to zero, so nothing reflows on the way out. */
-export const SIDEBAR_WIDTH_PX = 248;
+import { SIDEBAR_WIDTH_PX, SidebarGlow } from '@/shell/SidebarGlow';
 
 const NEW_VIEW_BUTTON =
     'flex h-8 grow items-center gap-2 rounded-md px-2 text-sm text-text-muted hover:bg-surface-hover hover:text-text disabled:opacity-50 disabled:hover:bg-transparent data-[popup-open]:bg-surface-active';
@@ -64,30 +61,6 @@ function insertionIndex(list: HTMLElement, clientY: number, viewCount: number): 
         return { index: Number(row.dataset.viewIndex), middle: rect.top + rect.height / 2 };
     });
     return gapIndex(rows, clientY, viewCount);
-}
-
-/* The diameters and strengths of the rings at the top of the sidebar. */
-const GLOW_ORBITS = [
-    { size: 130, alpha: 0.05 },
-    { size: 230, alpha: 0.035 },
-    { size: 340, alpha: 0.025 }
-] as const;
-
-/* A part centered on the middle of the sidebar's top edge, `size` pixels across. */
-function atTop(size: number): CSSProperties {
-    return { width: size, height: size, margin: `-${size / 2}px 0 0 -${size / 2}px` };
-}
-
-/* The eclipse's orbits rising over the top edge, the way the welcome and About draw it. */
-function SidebarGlow() {
-    return (
-        <div aria-hidden className="sidebar-glow">
-            <span className="sidebar-glow-light" style={atTop(240)} />
-            {GLOW_ORBITS.map((orbit) => (
-                <span key={orbit.size} className="sidebar-glow-orbit" style={{ ...atTop(orbit.size), '--sidebar-glow-alpha': orbit.alpha } as CSSProperties} />
-            ))}
-        </div>
-    );
 }
 
 export function Sidebar() {

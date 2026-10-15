@@ -187,7 +187,7 @@ function useProjectSettings(endpoints: readonly Endpoint[], isCurrent: (row: Pro
         []
     );
 
-    const appearance = async (change: Partial<Pick<ActionInput<'project.setAppearance'>, 'name' | 'icon' | 'image'>>): Promise<void> => {
+    const appearance = async (change: Partial<Pick<ActionInput<'project.setAppearance'>, 'name' | 'icon' | 'image' | 'color'>>): Promise<void> => {
         if (target === null) {
             return;
         }
@@ -196,7 +196,8 @@ function useProjectSettings(endpoints: readonly Endpoint[], isCurrent: (row: Pro
             projectId: target.summary.projectId,
             name: change.name ?? null,
             icon: change.icon ?? null,
-            image: change.image ?? null
+            image: change.image ?? null,
+            color: change.color ?? null
         });
         const row = useProjectList
             .getState()
@@ -214,6 +215,7 @@ function useProjectSettings(endpoints: readonly Endpoint[], isCurrent: (row: Pro
                   endpointId: target.endpointId,
                   actions: {
                       rename: (name) => appearance({ name }),
+                      setColor: (color) => appearance({ color }),
                       setChosenIcon: (icon) => appearance({ icon: icon.value }),
                       uploadIcon: (mime, base64) => appearance({ image: { mime, base64 } }),
                       useFolderIcon: () => appearance({ icon: 'folder' })

@@ -2,7 +2,7 @@ import { MAX_TITLE_LENGTH } from '../index.ts';
 import { describeWrites } from './harness.ts';
 
 const project = { endpointId: 'endpoint-1', projectId: 'ruimte' } as const;
-const appearance = { ...project, name: 'Ruimte', icon: null } as const;
+const appearance = { ...project, name: 'Ruimte', icon: null, color: null } as const;
 
 describeWrites('projects', {
     'project.switch': {
@@ -58,7 +58,8 @@ describeWrites('projects', {
         refused: {
             'a name past the title limit': { ...appearance, name: 'x'.repeat(MAX_TITLE_LENGTH + 1) },
             'an empty icon': { ...appearance, icon: '' },
-            'no icon at all': { ...project, name: 'Ruimte' }
+            'no icon at all': { ...project, name: 'Ruimte', color: null },
+            'a color that is no hex': { ...appearance, color: 'red' }
         },
         restricted: {
             image: { value: { mime: 'image/png', base64: 'iVBORw0KGgo=' }, actors: ['person'] }

@@ -42,10 +42,11 @@ interface Calls {
     removed: string[];
     renamed: string[];
     icons: string[];
+    colors: string[];
 }
 
 function fake(projects: ListedProject[], overrides: Partial<ProjectMachine> = {}) {
-    const calls: Calls = { opened: [], closed: [], removed: [], renamed: [], icons: [] };
+    const calls: Calls = { opened: [], closed: [], removed: [], renamed: [], icons: [], colors: [] };
     const machine: Partial<ProjectMachine> = {
         projects: () => projects,
         switching: async () => false,
@@ -62,6 +63,9 @@ function fake(projects: ListedProject[], overrides: Partial<ProjectMachine> = {}
         },
         rename: async (project, name) => {
             calls.renamed.push(`${project.projectId}:${name}`);
+        },
+        setColor: async (project, color) => {
+            calls.colors.push(`${project.projectId}:${color}`);
         },
         chooseIcon: async (project, icon) => {
             calls.icons.push(`${project.projectId}:${icon.value}`);
@@ -187,20 +191,32 @@ describe('project actions', () => {
     test('Voice renames and marks a project, and never uploads an image, creates or deletes one', async () => {
         const { registry, calls } = fake([listed('atlas', 'Atlas')]);
         expect(
-            await registry.execute('project.setAppearance', { endpointId: 'mac', projectId: 'atlas', name: 'Atlas 2', icon: 'rocket' }, VOICE_ACTION_CALL)
+            await registry.execute(
+                'project.setAppearance',
+                { endpointId: 'mac', projectId: 'atlas', name: 'Atlas 2', icon: 'rocket', color: null },
+                VOICE_ACTION_CALL
+            )
         ).toMatchObject({ status: 'completed' });
         expect(calls.renamed).toEqual(['atlas:Atlas 2']);
         expect(calls.icons).toEqual(['atlas:rocket']);
         expect(
-            await registry.execute('project.setAppearance', { endpointId: 'mac', projectId: 'atlas', name: null, icon: 'folder' }, VOICE_ACTION_CALL)
+            await registry.execute(
+                'project.setAppearance',
+                { endpointId: 'mac', projectId: 'atlas', name: null, icon: 'folder', color: null },
+                VOICE_ACTION_CALL
+            )
         ).toMatchObject({ output: { icon: 'folder' } });
         expect(
-            await registry.execute('project.setAppearance', { endpointId: 'mac', projectId: 'atlas', name: null, icon: 'no-such-icon' }, VOICE_ACTION_CALL)
+            await registry.execute(
+                'project.setAppearance',
+                { endpointId: 'mac', projectId: 'atlas', name: null, icon: 'no-such-icon', color: null },
+                VOICE_ACTION_CALL
+            )
         ).toMatchObject({ error: { code: 'unknown-icon' } });
         expect(
             await registry.execute(
                 'project.setAppearance',
-                { endpointId: 'mac', projectId: 'atlas', name: null, icon: null, image: { mime: 'image/png', base64: 'AA==' } },
+                { endpointId: 'mac', projectId: 'atlas', name: null, icon: null, image: { mime: 'image/png', base64: 'AA==' }, color: null },
                 VOICE_ACTION_CALL
             )
         ).toMatchObject({ error: { code: 'forbidden-field' } });
@@ -210,6 +226,21 @@ describe('project actions', () => {
         expect(await registry.execute('project.delete', { endpointId: 'mac', projectId: 'atlas', removeFiles: null }, VOICE_ACTION_CALL)).toMatchObject({
             error: { code: 'forbidden-action' }
         });
+    });
+
+    test('a color goes to the project, and the color it has already changes nothing', async () => {
+        const { registry, calls } = fake([listed('atlas', 'Atlas')]);
+        expect(
+            await registry.execute(
+                'project.setAppearance',
+                { endpointId: 'mac', projectId: 'atlas', name: null, icon: null, color: '#e7000b' },
+                VOICE_ACTION_CALL
+            )
+        ).toMatchObject({ status: 'completed' });
+        expect(calls.colors).toEqual(['atlas:#e7000b']);
+        expect(
+            await registry.execute('project.setAppearance', { endpointId: 'mac', projectId: 'atlas', name: null, icon: null, color: null }, VOICE_ACTION_CALL)
+        ).toMatchObject({ error: { code: 'nothing-to-change' } });
     });
 
     test('deleting asks even a person, names the folder, and only removes after yes', async () => {
