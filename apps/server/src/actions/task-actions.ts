@@ -87,6 +87,13 @@ export const taskActions: ActionHandlers<ServerActionContext> = {
                 `see\truimte-context notify ${nodeId}\tsends it a message along a line, which it acts on itself and never reports back from`
             ]);
         }
+        if (host.projects.machineOfNode(nodeId) !== null) {
+            throw new VerbRefusal(
+                'task-on-other-machine',
+                `${nodeId} runs on another machine and takes the one task it was given there; open another agent there with agent --machine for more work`,
+                lines()
+            );
+        }
         if (target.kind !== 'chat') {
             throw new VerbRefusal(
                 'not-a-chat',

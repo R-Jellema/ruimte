@@ -104,6 +104,14 @@ describe('agent --machine', () => {
         expect(daemon.tasks.all()).toHaveLength(0);
     });
 
+    test('a task is not given to an agent that runs on another machine', async () => {
+        const [line] = await give();
+        const nodeId = line!.split('\t')[0]!;
+        const [first] = await runVerb(daemon, 'chat-lead', 'task', ['new', nodeId, '--prompt', 'and one more thing']);
+        expect(first).toStartWith('refused\ttask-on-other-machine\t');
+        expect(daemon.tasks.involving(nodeId)).toHaveLength(1);
+    });
+
     test('refuses what means nothing on another machine', async () => {
         const cases: Array<[string[], string]> = [
             [['--cwd', folder], 'machine-and-cwd'],
