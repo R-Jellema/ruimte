@@ -40,6 +40,7 @@ import { useUnseen } from '@/state/attention';
 import { deleteSelectionAsking } from '@/canvas/delete-selection';
 import { useWorkspace } from '@/transport/connections';
 import { markPeerLapsed, usePeerLapse } from '@/project/peer-lapse';
+import { linkToPeer } from '@/project/peer-linker';
 import { useToasts } from '@/state/toasts';
 import { NodeMachineScope } from '@/transport/node-machine';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
@@ -199,9 +200,7 @@ function MachinePill({ machine, narrow }: { machine: string; narrow: boolean }) 
         if (workspace === null) {
             return;
         }
-        // Loaded when it is clicked; the account code reaches back into the transport this file is drawn from.
-        void import('@/pulsar/peer-link')
-            .then((peer) => peer.linkPeerThroughAccount(machine, workspace.connection.transport))
+        void linkToPeer(machine, workspace.connection.transport)
             .then(() => markPeerLapsed(machine, false))
             .catch((e: unknown) =>
                 useToasts.getState().show({ kind: 'error', title: t('remote.linkAgainFailed', { machine: name }), description: messageOf(e) })

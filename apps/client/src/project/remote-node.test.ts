@@ -6,6 +6,7 @@ function steps(log: string[], overrides: Partial<RemoteNodeSteps> = {}): RemoteN
         linked: false,
         bindThere: async () => void log.push('peer.bind'),
         linkHere: async () => void log.push('remote.link'),
+        connectPeer: async () => void log.push('connect'),
         makeWorktree: async () => null,
         addNode: () => {
             log.push('add');
@@ -25,7 +26,7 @@ describe('making a node on another machine', () => {
     test('links the machine, saves the node and only then lets the other machine hear of it', async () => {
         const log: string[] = [];
         expect(await createRemoteNode(steps(log))).toBe('node-1');
-        expect(log).toEqual(['peer.bind', 'remote.link', 'hold', 'add', 'save', 'release']);
+        expect(log).toEqual(['peer.bind', 'remote.link', 'connect', 'hold', 'add', 'save', 'release']);
     });
 
     test('asks neither side again for a machine that links the project already', async () => {
@@ -47,7 +48,7 @@ describe('making a node on another machine', () => {
             }
         });
         await expect(createRemoteNode(refusing)).rejects.toThrow('refused');
-        expect(log).toEqual(['peer.bind', 'remote.link', 'hold', 'add', 'save', 'remove', 'save', 'release']);
+        expect(log).toEqual(['peer.bind', 'remote.link', 'connect', 'hold', 'add', 'save', 'remove', 'save', 'release']);
     });
 
     test('a link that fails makes no node', async () => {

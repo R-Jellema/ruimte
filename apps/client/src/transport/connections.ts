@@ -26,6 +26,7 @@ import { workspaceOf, useWindow, windowWorkspace } from '@/state/window';
 import { forgetProjectSessions } from '@/terminal/lifecycle';
 import { SessionClient } from '@/terminal/session-client';
 import { PeerRenewal } from '@/project/peer-renewal';
+import { linkToPeer } from '@/project/peer-linker';
 import { RemoteMirror } from '@/project/remote-mirror';
 import { nodesOfView, subscribeViewNodes } from '@/project/view-nodes';
 import { machineTransport, pool } from '@/transport';
@@ -201,8 +202,7 @@ function connect(endpoint: Endpoint, onLoad: (connection: Connection, summary: P
     const peerRenewal = new PeerRenewal({
         selfId: () => endpointById(connection.endpointId)?.daemonId ?? connection.endpointId,
         transportOf: (machineId) => machineTransport(endpointIdOfMachine(machineId)),
-        // Loaded when a window first has a node on another machine; the account code it needs reaches back into this module.
-        link: async (machineId) => (await import('@/pulsar/peer-link')).linkPeerThroughAccount(machineId, transport)
+        link: (machineId) => linkToPeer(machineId, transport)
     });
     const mirror = new RemoteMirror({
         projectId: () => {

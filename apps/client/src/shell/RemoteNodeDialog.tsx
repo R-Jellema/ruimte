@@ -7,6 +7,7 @@ import { EMPTY_DRAFT, rememberChatSelection, writeDraft } from '@adecore/agents-
 import { deleteNodesAction } from '@/actions/client-actions';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import { handOff } from '@/project/bundle-transfer';
+import { linkToPeerOrMark } from '@/project/peer-linker';
 import { createRemoteNode } from '@/project/remote-node';
 import type { RemoteCandidate } from '@/project/remote-candidates';
 import { describeLastSeen } from '@/shell/connection-info';
@@ -125,6 +126,10 @@ function RemoteNodeForm({
             : [];
     const candidate = candidates.find((entry) => entry.projectId === picked) ?? candidates[0] ?? null;
     const scoped = useMemo(() => endpointById(machineEndpointId) !== null, [machineEndpointId]);
+    const hereId = workspace?.connection.endpointId ?? '';
+    const canSign = useMachineAnswers(hereId, 'endpoint.signPeerAccess');
+    const canConnect = useMachineAnswers(hereId, 'remote.connect');
+    const canLink = canSign && canConnect;
     const bundlesHere = useMachineAnswers(workspace?.connection.endpointId ?? '', 'git.bundle');
     const bundlesThere = useMachineAnswers(machineEndpointId, 'git.fetchBundle');
     const checkout = useCheckoutState(here, project?.folder ?? null, !request.relink && kind !== 'device' && bundlesHere && bundlesThere);
@@ -255,6 +260,11 @@ function RemoteNodeForm({
                 },
                 linkHere: async () => {
                     await workspace.connection.transport.request('remote.link', link);
+                },
+                connectPeer: async () => {
+                    if (canLink) {
+                        await linkToPeerOrMark(request.machineId, workspace.connection.transport);
+                    }
                 },
                 makeWorktree: async () => {
                     const path = await placeCheckout();

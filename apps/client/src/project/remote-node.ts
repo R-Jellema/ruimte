@@ -11,6 +11,8 @@ export interface RemoteNodeSteps {
     bindThere(): Promise<void>;
     /* `remote.link` on the machine the project lives on. */
     linkHere(): Promise<void>;
+    /* Lets the two machines give each other tasks, before the other machine hears of the node; the node works without it, so it never throws. */
+    connectPeer?(): Promise<void>;
     /* A worktree of the checkout on the other machine, when the person asked for one; its folder is where the node works. */
     makeWorktree(): Promise<string | null>;
     /* Puts the node on the canvas and answers its id. */
@@ -26,6 +28,7 @@ export async function createRemoteNode(steps: RemoteNodeSteps): Promise<string> 
     if (!steps.linked) {
         await steps.bindThere();
         await steps.linkHere();
+        await steps.connectPeer?.();
     }
     const cwd = await steps.makeWorktree();
     const release = steps.holdMirror();

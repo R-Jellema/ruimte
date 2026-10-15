@@ -4,6 +4,10 @@ import type { GitIdentity, ProjectCanvasView, ProjectNode, ProjectSummary, Provi
 import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 import { useDocument } from '@/state/document';
 import { useUi } from '@/state/ui';
+import { usePeerLapse } from '@/project/peer-lapse';
+import { swapPeerLinker } from '@/project/peer-linker';
+import { linkPeer } from '@/pulsar/peer-link';
+import type { PeerStatement } from '@ruimte/pulsar';
 import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
@@ -48,6 +52,8 @@ let disconnectThere: () => void;
 let page: Mounted;
 let order: string[];
 let links: RemoteLink[];
+let restoreLinker: () => void;
+let statementRefused: boolean;
 
 async function openDialog(kind: 'chat' | 'terminal' | 'device' = 'chat'): Promise<void> {
     await act(async () => useUi.getState().setRemoteNodeDialog({ machineId: REMOTE, kind, viewId: 'main', at: { x: 400, y: 400 }, relink: false }));
@@ -64,7 +70,42 @@ function button(text: string): HTMLElement | null {
 beforeEach(async () => {
     order = [];
     links = [];
+    statementRefused = false;
+    // The address book is the one part the page cannot reach here; the two requests to this machine are real.
+    restoreLinker = swapPeerLinker((machineId, self) =>
+        linkPeer({
+            machineId,
+            self,
+            brokerUrl: null,
+            request: async (payload) => {
+                order.push('address book');
+                if (statementRefused) {
+                    throw new Error('Sign in first');
+                }
+                return {
+                    machineId: payload.machineId,
+                    machinePublicKey: 'B'.repeat(43),
+                    accountId: 'owner',
+                    peerPublicKey: payload.peerPublicKey,
+                    peerMachineId: payload.peerMachineId,
+                    peerMachinePublicKey: 'A'.repeat(43),
+                    nonce: payload.nonce,
+                    issuedAt: 1,
+                    expiresAt: 2,
+                    signature: 's'.repeat(86)
+                } satisfies PeerStatement;
+            }
+        })
+    );
     here = new FakeMachine();
+    here.answer('endpoint.signPeerAccess', () => {
+        order.push('endpoint.signPeerAccess');
+        return { peerMachineId: 'machine-a', peerPublicKey: 'P'.repeat(43), peerSignature: 'p'.repeat(86), machineSignature: 'm'.repeat(86) };
+    });
+    here.answer('remote.connect', () => {
+        order.push('remote.connect');
+        return {};
+    });
     here.answer('project.save', ({ baseRev }) => {
         order.push('project.save');
         return { rev: baseRev + 1 } as never;
@@ -112,6 +153,8 @@ afterEach(async () => {
     await page.unmount();
     workspace.close();
     disconnectThere();
+    restoreLinker();
+    usePeerLapse.setState({ lapsed: {} });
     useEndpoints.getState().setActive(LOCAL_ENDPOINT_ID);
     useEndpoints.getState().remove(REMOTE);
 });
@@ -152,7 +195,7 @@ describe('a new node on another machine', () => {
         await clickOn(button('Create'));
 
         await until(() => order.includes('peer.placeNodes'));
-        expect(order).toEqual(['peer.bind', 'remote.link', 'project.save', 'peer.placeNodes']);
+        expect(order).toEqual(['peer.bind', 'remote.link', 'endpoint.signPeerAccess', 'address book', 'remote.connect', 'project.save', 'peer.placeNodes']);
         expect(there.requests('peer.bind')[0]).toMatchObject({ projectId: 'ruimte' });
         expect(here.requests('remote.link')[0]).toMatchObject({ machineId: REMOTE, remoteProjectId: 'ruimte', rootCommit: 'root-a' });
         const saved = here.requests('project.save').at(-1)!.content.views[0] as ProjectCanvasView;
@@ -160,6 +203,37 @@ describe('a new node on another machine', () => {
         expect(made).toMatchObject({ kind: 'chat', cwd: '/Users/b/ruimte', machine: REMOTE });
         expect(there.requests('peer.placeNodes')[0]).toMatchObject({ projectId: 'ruimte', nodes: [{ id: made.id, cwd: '/Users/b/ruimte' }] });
         await until(() => dialog() === null);
+    });
+
+    test('links the two machines to each other after the link of the project, and hands the statement and the broker of the account to this machine', async () => {
+        await openDialog();
+        await until(() => button('Create')?.hasAttribute('disabled') === false);
+        await clickOn(button('Create'));
+        await until(() => order.includes('peer.placeNodes'));
+        expect(here.requests('endpoint.signPeerAccess')[0]).toMatchObject({ machineId: REMOTE });
+        expect(here.requests('remote.connect')[0]).toMatchObject({ machineId: REMOTE, statement: { machineId: REMOTE } });
+        expect(usePeerLapse.getState().lapsed[REMOTE]).toBeUndefined();
+    });
+
+    test('still makes the node when the account cannot vouch for the link, and marks the machine so the node offers the way back', async () => {
+        statementRefused = true;
+        await openDialog();
+        await until(() => button('Create')?.hasAttribute('disabled') === false);
+        await clickOn(button('Create'));
+        await until(() => order.includes('peer.placeNodes'));
+        expect(here.requests('remote.connect')).toEqual([]);
+        expect(here.requests('project.save').length).toBeGreaterThan(0);
+        expect(usePeerLapse.getState().lapsed[REMOTE]).toBe(true);
+    });
+
+    test('leaves the machines unlinked when this machine runs a Ruimte that cannot link them', async () => {
+        await act(async () => here.answersOnly(['project.save', 'git.identity', 'remote.list', 'remote.link', 'project.list']));
+        await openDialog();
+        await until(() => button('Create')?.hasAttribute('disabled') === false);
+        await clickOn(button('Create'));
+        await until(() => order.includes('peer.placeNodes'));
+        expect(here.requests('endpoint.signPeerAccess')).toEqual([]);
+        expect(usePeerLapse.getState().lapsed[REMOTE]).toBeUndefined();
     });
 
     test('Create with your files here bundles them here, sends them, and makes the worktree before the node is saved', async () => {
@@ -186,7 +260,18 @@ describe('a new node on another machine', () => {
         await clickOn(button('Create'));
 
         await until(() => order.includes('peer.placeNodes'));
-        expect(order).toEqual(['peer.bind', 'remote.link', 'git.bundle', 'git.bundlePut', 'git.fetchBundle', 'project.save', 'peer.placeNodes']);
+        expect(order).toEqual([
+            'peer.bind',
+            'remote.link',
+            'endpoint.signPeerAccess',
+            'address book',
+            'remote.connect',
+            'git.bundle',
+            'git.bundlePut',
+            'git.fetchBundle',
+            'project.save',
+            'peer.placeNodes'
+        ]);
         expect(here.requests('git.bundle')[0]).toMatchObject({ path: '/work/atlas', from: 'files' });
         expect(there.requests('git.fetchBundle')[0]).toMatchObject({ projectId: 'ruimte', bundleId: 'bundle-one', sha256: 'a'.repeat(64), into: 'worktree' });
         expect(there.requests('peer.placeNodes')[0]).toMatchObject({ nodes: [{ cwd: '/Users/b/worktrees/ruimte/main' }] });
@@ -233,7 +318,18 @@ describe('a new node on another machine', () => {
         await clickOn(button('Create'));
 
         await until(() => order.includes('peer.placeNodes'));
-        expect(order).toEqual(['peer.bind', 'remote.link', 'here push', 'there fetch', 'git.worktree-add', 'project.save', 'peer.placeNodes']);
+        expect(order).toEqual([
+            'peer.bind',
+            'remote.link',
+            'endpoint.signPeerAccess',
+            'address book',
+            'remote.connect',
+            'here push',
+            'there fetch',
+            'git.worktree-add',
+            'project.save',
+            'peer.placeNodes'
+        ]);
         expect(there.requests('git.worktree-add')[0]).toMatchObject({ repo: '/Users/b/ruimte', branch: 'ruimte/main', base: 'origin/main' });
     });
 
