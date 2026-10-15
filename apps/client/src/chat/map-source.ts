@@ -4,8 +4,15 @@ import type { UiMapSource } from '@adecore/agents-react';
 // A ticket is asked for again this long before it ends, so a map being panned never meets the end of one.
 const REFRESH_MARGIN_MS = 5 * 60_000;
 
-// After a failed ask the next one waits, so a service that is down is not asked for with every tile.
+// The shortest wait before a renewal, so a ticket that arrives nearly over cannot start a loop.
+const MIN_RENEW_DELAY_MS = 30_000;
+
+// What a ticket lasts when the address book does not say when it issued it; the lifetime a client accepts is capped at twice that.
+const DEFAULT_LIFETIME_MS = 3_600_000;
+
+// After a failed ask the next one waits this long, doubling with every failure in a row up to the cap, so a service that is down is not asked for with every tile.
 const RETRY_AFTER_FAILURE_MS = 60_000;
+const MAX_RETRY_MS = 10 * 60_000;
 
 export type MapTicketState = { state: 'none' } | { state: 'ready'; ticket: MapsTicket } | { state: 'failed'; since: number };
 
@@ -19,24 +26,43 @@ export interface MapTicketsOptions {
 
 const REAL_TIMERS = { after: (run: () => void, ms: number): unknown => setTimeout(run, ms), cancel: (handle: unknown): void => clearTimeout(handle as number) };
 
+interface Held {
+    ticket: MapsTicket;
+    /* On this client's clock: when the ticket arrived plus what it lasts, which the address book's clock cannot be trusted to give. */
+    validUntil: number;
+    renewAt: number;
+}
+
+/* A ticket as the client keeps it: its lifetime counted from its arrival, so a clock that is wrong in either direction changes nothing. */
+function held(ticket: MapsTicket, arrived: number): Held {
+    const stated = ticket.issuedAt === undefined ? DEFAULT_LIFETIME_MS : ticket.expiresAt - ticket.issuedAt;
+    const lifetime = Math.min(Math.max(stated, 2 * MIN_RENEW_DELAY_MS), 2 * DEFAULT_LIFETIME_MS);
+    return { ticket, validUntil: arrived + lifetime, renewAt: arrived + Math.max(MIN_RENEW_DELAY_MS, lifetime - REFRESH_MARGIN_MS, lifetime / 2) };
+}
+
 /*
  * The ticket the maps service accepts, held and renewed for every map on the page. A tile asks for
  * `header()` on each request, which is a read that also starts a renewal when one is due. While a map
  * listens, a timer asks again before the ticket ends and another after a failed ask; the ticket held
  * stays in use until it really ends, so a service that is down for a while does not blank a map that
- * had tiles.
+ * had tiles. A ticket belongs to the account that asked for it: when the account changes or the source
+ * goes inactive the ticket is dropped, and an ask still under way for the old one is thrown away.
  */
 export class MapTickets {
     private readonly options: MapTicketsOptions;
     private readonly timers: NonNullable<MapTicketsOptions['timers']>;
-    private ticket: MapsTicket | null = null;
+    private current: Held | null = null;
     private failedAt: number | null = null;
+    private failures = 0;
     private snapshot: MapTicketState = { state: 'none' };
     private pending: Promise<void> | null = null;
     private readonly listeners = new Set<() => void>();
     private refresh: unknown = null;
     private expiry: unknown = null;
-    private active = true;
+    /* Who the tickets are for; null while nothing is to be asked. */
+    private identity: string | null = '';
+    /* Bumped whenever the ticket stops belonging to whoever asked, so a late answer can be told from a current one. */
+    private generation = 0;
 
     constructor(options: MapTicketsOptions) {
         this.options = options;
@@ -56,58 +82,78 @@ export class MapTickets {
         };
     }
 
-    /* Off while the setting is off or nobody is signed in: nothing is asked for, no timer runs and the ticket held is dropped. */
-    setActive(active: boolean): void {
-        if (this.active === active) {
+    /*
+     * For whom tickets are asked: the id of the account signed in, or null while the setting is off or nobody is signed in,
+     * when nothing is asked, no timer runs and the ticket held is dropped. Another account is another ticket.
+     */
+    setIdentity(identity: string | null): void {
+        if (this.identity === identity) {
             return;
         }
-        this.active = active;
-        if (!active) {
-            this.ticket = null;
-            this.failedAt = null;
-        }
+        this.identity = identity;
+        this.generation++;
+        this.current = null;
+        this.failedAt = null;
+        this.failures = 0;
+        this.pending = null;
         this.publish();
     }
 
     /* Asks for a ticket when there is none, it is about to end or the last ask failed long enough ago. */
     ensure(): Promise<void> {
-        if (this.pending !== null || !this.active) {
+        if (this.pending !== null || this.identity === null) {
             return this.pending ?? Promise.resolve();
         }
         const now = this.options.now();
-        const due = this.ticket === null || this.ticket.expiresAt - REFRESH_MARGIN_MS <= now;
-        const waiting = this.failedAt !== null && now - this.failedAt < RETRY_AFTER_FAILURE_MS;
-        if (!due || waiting) {
+        const due = this.current === null || this.current.renewAt <= now;
+        if (!due || (this.failedAt !== null && now < this.failedAt + this.retryDelay())) {
             return Promise.resolve();
         }
-        this.pending = this.options
+        const generation = this.generation;
+        const ask: Promise<void> = this.options
             .fetchTicket()
             .then(
                 (ticket) => {
-                    this.ticket = ticket;
-                    this.failedAt = null;
+                    if (generation === this.generation) {
+                        this.current = held(ticket, this.options.now());
+                        this.failedAt = null;
+                        this.failures = 0;
+                    }
                 },
                 () => {
-                    this.failedAt = this.options.now();
+                    if (generation === this.generation) {
+                        this.failedAt = this.options.now();
+                        this.failures++;
+                    }
                 }
             )
             .finally(() => {
-                this.pending = null;
-                this.publish();
+                if (generation === this.generation) {
+                    this.pending = null;
+                    this.publish();
+                }
             });
-        return this.pending;
+        this.pending = ask;
+        return ask;
     }
 
-    /* The `authorization` header of a request to the maps service, or null when no ticket is held; a held ticket past its end counts as none. */
+    /* The `authorization` header of a request to the maps service, or null while inactive or when no ticket is held; a held ticket past its end counts as none. */
     header(): string | null {
+        if (this.identity === null) {
+            return null;
+        }
         void this.ensure();
-        const held = this.ticket;
-        return held !== null && held.expiresAt > this.options.now() ? `Bearer ${held.ticket}` : null;
+        const ticket = this.current;
+        return ticket !== null && ticket.validUntil > this.options.now() ? `Bearer ${ticket.ticket.ticket}` : null;
+    }
+
+    private retryDelay(): number {
+        return Math.min(RETRY_AFTER_FAILURE_MS * 2 ** Math.max(0, this.failures - 1), MAX_RETRY_MS);
     }
 
     private derive(): MapTicketState {
-        if (this.ticket !== null && this.ticket.expiresAt > this.options.now()) {
-            return { state: 'ready', ticket: this.ticket };
+        if (this.current !== null && this.current.validUntil > this.options.now()) {
+            return { state: 'ready', ticket: this.current.ticket };
         }
         return this.failedAt === null ? { state: 'none' } : { state: 'failed', since: this.failedAt };
     }
@@ -134,16 +180,15 @@ export class MapTickets {
         }
         this.refresh = null;
         this.expiry = null;
-        if (this.listeners.size === 0 || !this.active) {
+        if (this.listeners.size === 0 || this.identity === null) {
             return;
         }
         const now = this.options.now();
-        const ticket = this.ticket;
-        const renewAt = ticket === null ? now : ticket.expiresAt - REFRESH_MARGIN_MS;
-        const retryAt = this.failedAt === null ? 0 : this.failedAt + RETRY_AFTER_FAILURE_MS;
+        const renewAt = this.current === null ? now : this.current.renewAt;
+        const retryAt = this.failedAt === null ? 0 : this.failedAt + this.retryDelay();
         this.refresh = this.timers.after(() => void this.ensure(), Math.max(0, Math.max(renewAt, retryAt) - now));
-        if (ticket !== null && ticket.expiresAt > now) {
-            this.expiry = this.timers.after(() => this.publish(), ticket.expiresAt - now);
+        if (this.current !== null && this.current.validUntil > now) {
+            this.expiry = this.timers.after(() => this.publish(), this.current.validUntil - now);
         }
     }
 }

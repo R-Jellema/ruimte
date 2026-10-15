@@ -15,14 +15,15 @@ const tickets = new MapTickets({
  */
 export function useMapSource(_scopeId: string): UiMapSource {
     const enabled = useSettings((s) => s.chatMapTiles);
-    const signedIn = usePulsarAccount((s) => s.status === 'signed-in');
+    const accountId = usePulsarAccount((s) => (s.status === 'signed-in' ? (s.account?.id ?? null) : null));
+    const signedIn = accountId !== null;
     const held = useSyncExternalStore(
         (listener) => tickets.subscribe(listener),
         () => tickets.state()
     );
     useEffect(() => {
-        tickets.setActive(enabled && signedIn);
+        tickets.setIdentity(enabled ? accountId : null);
         void tickets.ensure();
-    }, [enabled, signedIn]);
+    }, [enabled, accountId]);
     return useMemo(() => mapSourceFor({ enabled, signedIn, tickets: { header: () => tickets.header(), state: () => held } }), [enabled, signedIn, held]);
 }
