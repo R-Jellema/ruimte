@@ -4,6 +4,7 @@ import {
     CircleAlert,
     Ellipsis,
     Eraser,
+    FoldVertical,
     Hand,
     House,
     LoaderCircle,
@@ -24,7 +25,16 @@ import {
     Volume2,
     type LucideIcon
 } from 'lucide-react';
-import { absoluteOf, deviceButtons, deviceTools, type DeviceButton, type DeviceInfo, type DeviceInput, type DeviceReference } from '@ruimte/contracts';
+import {
+    absoluteOf,
+    deviceButtons,
+    deviceTools,
+    type DeviceButton,
+    type DeviceFoldPose,
+    type DeviceInfo,
+    type DeviceInput,
+    type DeviceReference
+} from '@ruimte/contracts';
 import { PATHS_DRAG_TYPE } from '@/canvas/drop';
 import { useNodeHost } from '@/nodes/node-host';
 import { restartDevice } from '@/devices/control';
@@ -70,9 +80,40 @@ export function DeviceControls({ device }: { device: DeviceInfo }) {
     return (
         <ButtonGroup>
             {device.capabilities.input && <DeviceButtons device={device} />}
+            {deviceTools(device).includes('fold') && <DeviceFoldMenu device={device} />}
             {deviceTools(device).length > 0 && <DeviceToolsFlyout device={device} />}
             <DeviceMoreMenu device={device} />
         </ButtonGroup>
+    );
+}
+
+/* The poses of a foldable: Android's console knows closed and open alone. */
+function DeviceFoldMenu({ device }: { device: DeviceInfo }) {
+    const { t } = useTranslation('machines');
+    const endpointId = useEndpointId();
+    const poses: readonly DeviceFoldPose[] = device.platform === 'ios' ? ['closed', 'tent', 'tabletop', 'book', 'open'] : ['closed', 'open'];
+    const fold = (value: DeviceFoldPose): void => {
+        void deviceClientFor(endpointId)
+            ?.action({ backendId: device.backendId, platform: device.platform, deviceId: device.deviceId, action: 'setFold', value })
+            .catch((error: unknown) =>
+                useToasts.getState().show({
+                    kind: 'error',
+                    title: t('device.fold.failed'),
+                    description: error instanceof Error ? error.message : String(error)
+                })
+            );
+    };
+    return (
+        <Menu.Root>
+            <IconButton render={<Menu.Trigger />} icon={FoldVertical} label={t('device.fold.label')} />
+            <Menu.Popup align="end">
+                {poses.map((pose) => (
+                    <Menu.Item key={pose} onClick={() => fold(pose)}>
+                        {t(`device.fold.poses.${pose}`)}
+                    </Menu.Item>
+                ))}
+            </Menu.Popup>
+        </Menu.Root>
     );
 }
 

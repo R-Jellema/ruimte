@@ -229,7 +229,25 @@
             "failed": "Het apparaat kon niet worden gewist"
         },
         "shake": "Schudden",
-        "memoryWarning": "Geheugenwaarschuwing nabootsen"
+        "memoryWarning": "Geheugenwaarschuwing nabootsen",
+        "fold": {
+            "label": "Vouwen",
+            "title": "Vouwen",
+            "hinge": "Scharnier",
+            "screen": "Scherm",
+            "failed": "Het apparaat vouwde niet",
+            "poses": {
+                "closed": "Dicht",
+                "tent": "Tent",
+                "tabletop": "Tafel",
+                "book": "Boek",
+                "open": "Open"
+            },
+            "panels": {
+                "cover": "Buitenscherm",
+                "inner": "Binnenscherm"
+            }
+        }
     },
     "handshake": {
         "noEndpoint": "Geen endpoint {{id}} om mee te verbinden"

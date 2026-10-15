@@ -19,6 +19,7 @@ import { DeviceHelperSource, type DeviceHelperLauncher } from './helper-source.t
 import { DeviceError, KEY_LEFT_COMMAND, KEY_V, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard, type DeviceSource } from './manager.ts';
 import { requireExtension, requireMedia } from './device-paths.ts';
 import { DeviceRecordings } from './recordings.ts';
+import { realPanelMonitor, SimulatorFold, type PanelMonitorFactory } from './simulator-fold.ts';
 import type { SimulatorTreeReader } from './simulator-tree.ts';
 
 interface CommandResult {
@@ -33,8 +34,12 @@ const SimctlDeviceSchema = z.object({
     udid: z.string().min(1),
     isAvailable: z.boolean(),
     state: z.string(),
-    name: z.string().min(1)
+    name: z.string().min(1),
+    deviceTypeIdentifier: z.string().optional()
 });
+
+/* The one simulator with a hinge; whether this Xcode can fold it, the helper says when asked. */
+const FOLDABLE_TYPE = 'com.apple.CoreSimulator.SimDeviceType.iPhone-Duo';
 
 const SimctlListSchema = z.object({ devices: z.record(z.string(), z.array(SimctlDeviceSchema)) });
 
@@ -159,6 +164,26 @@ const IOS_PERMISSION_SERVICES: Record<DevicePermission, string> = {
     faceid: 'faceid'
 };
 
+/* The capture of a foldable simulator, which follows its panel for as long as it runs. */
+class FoldingSource extends DeviceHelperSource {
+    private readonly fold: SimulatorFold;
+
+    constructor(deviceId: string, launch: DeviceHelperLauncher, fold: SimulatorFold) {
+        super(deviceId, launch);
+        this.fold = fold;
+    }
+
+    override async start(publish: Parameters<DeviceHelperSource['start']>[0]): Promise<void> {
+        await super.start(publish);
+        this.fold.attach(this);
+    }
+
+    override async stop(): Promise<void> {
+        this.fold.detach();
+        await super.stop();
+    }
+}
+
 /* The native helper of a simulator someone has open, which the tools that go through its HID need. */
 function helperOf(session: DeviceSource | null): DeviceHelperSource {
     if (!(session instanceof DeviceHelperSource)) {
@@ -209,19 +234,24 @@ export class IosSimulatorBackend implements DeviceBackend {
     private readonly statusBars = new Map<string, DeviceSettings['statusBar']>();
     private readonly batteries = new Map<string, NonNullable<DeviceSettings['battery']>>();
     private readonly enrolled = new Map<string, boolean>();
+    private readonly foldable = new Set<string>();
+    private readonly folds = new Map<string, SimulatorFold>();
+    private readonly panelMonitor: PanelMonitorFactory;
 
     constructor(
         run: SimctlRunner = defaultRunner,
         launch: DeviceHelperLauncher | null = null,
         sleep: (ms: number) => Promise<void> = (ms) => Bun.sleep(ms),
         treeReader: ((udid: string) => SimulatorTreeReader) | null = null,
-        recordings: DeviceRecordings = new DeviceRecordings()
+        recordings: DeviceRecordings = new DeviceRecordings(),
+        panelMonitor: PanelMonitorFactory = realPanelMonitor
     ) {
         this.run = run;
         this.launch = launch;
         this.sleep = sleep;
         this.treeReader = treeReader;
         this.recordings = recordings;
+        this.panelMonitor = panelMonitor;
     }
 
     async list(): Promise<DeviceInfo[]> {
@@ -236,29 +266,38 @@ export class IosSimulatorBackend implements DeviceBackend {
         if (!parsed.success) {
             throw new DeviceError('invalid-simctl-output', 'simctl returned a device list Ruimte could not read');
         }
-        return Object.entries(parsed.data.devices).flatMap(([runtime, devices]) =>
-            devices
-                .filter((device) => device.isAvailable && runtime.includes('.iOS-'))
-                .map((device) => ({
-                    deviceId: device.udid,
-                    backendId: this.id,
-                    platform: this.platform,
-                    kind: 'simulator' as const,
-                    name: device.name,
-                    runtime: runtimeName(runtime),
-                    state: stateOf(device.state),
-                    capabilities: {
-                        boot: true,
-                        shutdown: true,
-                        stream: this.launch !== null,
-                        input: this.launch !== null,
-                        screenshot: true,
-                        buttons: IOS_BUTTONS,
-                        tools: [...IOS_SIMULATOR_TOOLS, ...(this.launch === null ? [] : (['keyboard', 'memoryWarning'] as const))],
-                        permissions: [...DevicePermissionSchema.options]
-                    }
-                }))
+        const listed = Object.entries(parsed.data.devices).flatMap(([runtime, devices]) =>
+            devices.filter((device) => device.isAvailable && runtime.includes('.iOS-')).map((device) => ({ runtime, device }))
         );
+        this.foldable.clear();
+        for (const { device } of listed) {
+            if (device.deviceTypeIdentifier === FOLDABLE_TYPE) {
+                this.foldable.add(device.udid);
+            }
+        }
+        return listed.map(({ runtime, device }) => ({
+            deviceId: device.udid,
+            backendId: this.id,
+            platform: this.platform,
+            kind: 'simulator' as const,
+            name: device.name,
+            runtime: runtimeName(runtime),
+            state: stateOf(device.state),
+            capabilities: {
+                boot: true,
+                shutdown: true,
+                stream: this.launch !== null,
+                input: this.launch !== null,
+                screenshot: true,
+                buttons: IOS_BUTTONS,
+                tools: [
+                    ...IOS_SIMULATOR_TOOLS,
+                    ...(this.launch === null ? [] : (['keyboard', 'memoryWarning'] as const)),
+                    ...(this.launch !== null && this.foldable.has(device.udid) ? (['fold'] as const) : [])
+                ],
+                permissions: [...DevicePermissionSchema.options]
+            }
+        }));
     }
 
     async boot(deviceId: string): Promise<DeviceInfo> {
@@ -322,6 +361,7 @@ export class IosSimulatorBackend implements DeviceBackend {
             ...(ax['liquid-glass'] === 'clear' || ax['liquid-glass'] === 'tinted' ? { liquidGlass: ax['liquid-glass'] } : {}),
             ...(colorFilter === undefined ? {} : { colorFilter }),
             ...this.remembered(deviceId),
+            ...(this.folds.get(deviceId)?.settings() ?? {}),
             recording: this.recordings.isRecording(deviceId)
         };
     }
@@ -387,6 +427,12 @@ export class IosSimulatorBackend implements DeviceBackend {
                 break;
             case 'memoryWarning':
                 await helperOf(session).call({ method: 'memoryWarning' });
+                break;
+            case 'setFold':
+                await this.foldOf(deviceId).pose(helperOf(session), action.value);
+                break;
+            case 'setHinge':
+                await this.foldOf(deviceId).setHinge(helperOf(session), action.degrees);
                 break;
             case 'setAllPermissions':
                 await this.command(['privacy', deviceId, action.decision, 'all', action.appId]);
@@ -462,7 +508,16 @@ export class IosSimulatorBackend implements DeviceBackend {
         if (this.launch === null) {
             throw new DeviceError('device-capture-unavailable', 'The native iOS simulator helper is not installed');
         }
-        return new DeviceHelperSource(deviceId, this.launch);
+        return this.foldable.has(deviceId) ? new FoldingSource(deviceId, this.launch, this.foldOf(deviceId)) : new DeviceHelperSource(deviceId, this.launch);
+    }
+
+    private foldOf(deviceId: string): SimulatorFold {
+        let fold = this.folds.get(deviceId);
+        if (!fold) {
+            fold = new SimulatorFold(deviceId, this.panelMonitor);
+            this.folds.set(deviceId, fold);
+        }
+        return fold;
     }
 
     async screenshot(deviceId: string): Promise<Uint8Array> {

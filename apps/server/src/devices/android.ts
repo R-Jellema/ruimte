@@ -37,6 +37,8 @@ export interface AvdInfo {
     name: string;
     displayName: string;
     apiLevel: string | null;
+    /* An AVD with a hinge sensor, such as a Pixel Fold, which the emulator console folds and unfolds. */
+    foldable?: boolean;
 }
 
 export interface AndroidBackendOptions {
@@ -213,7 +215,8 @@ export async function readAvdFolder(avdHome: string): Promise<AvdInfo[]> {
                     return {
                         name,
                         displayName: config['avd.ini.displayname'] || name.replaceAll('_', ' '),
-                        apiLevel: apiLevelOf(config) ?? apiLevelOf(pointer)
+                        apiLevel: apiLevelOf(config) ?? apiLevelOf(pointer),
+                        foldable: config['hw.sensor.hinge'] === 'yes'
                     };
                 } catch {
                     return null;
@@ -295,6 +298,7 @@ export class AndroidBackend implements DeviceBackend {
     /* What the shell cannot read back, as this daemon last set it; unknown again after a restart. */
     private readonly statusBars = new Map<string, DeviceSettings['statusBar']>();
     private readonly batteries = new Map<string, NonNullable<DeviceSettings['battery']>>();
+    private readonly foldable = new Set<string>();
 
     constructor(options: AndroidBackendOptions = {}) {
         this.recordings = options.recordings ?? new DeviceRecordings();
@@ -336,7 +340,11 @@ export class AndroidBackend implements DeviceBackend {
                 avds.push({ name, displayName: name.replaceAll('_', ' '), apiLevel: null });
             }
         }
+        this.foldable.clear();
         for (const avd of avds) {
+            if (avd.foldable === true) {
+                this.foldable.add(avd.name);
+            }
             devices.push(await this.emulator(sdk, avd, running.get(avd.name) ?? null));
         }
         return devices;
@@ -462,6 +470,7 @@ export class AndroidBackend implements DeviceBackend {
             colorFilter: colorFilterOf(filterOn, filter),
             showBorders: layout === 'true',
             ...(probe.talkBack ? { voiceOver: services.split(':').includes(TALKBACK_SERVICE) } : {}),
+            ...(this.foldable.has(deviceId) ? hingeOf(await this.shell(serial, 'cmd device_state state').catch(() => '')) : {}),
             ...(this.statusBars.has(deviceId) ? { statusBar: this.statusBars.get(deviceId) } : {}),
             ...(this.batteries.has(deviceId) ? { battery: this.batteries.get(deviceId) } : {}),
             recording: this.recordings.isRecording(deviceId)
@@ -494,7 +503,7 @@ export class AndroidBackend implements DeviceBackend {
         );
     }
 
-    async action(deviceId: string, action: DeviceAction): Promise<DeviceSettings> {
+    async action(deviceId: string, action: DeviceAction, session: DeviceSource | null = null): Promise<DeviceSettings> {
         if (action.action === 'erase') {
             await this.erase(deviceId);
             return {};
@@ -591,6 +600,17 @@ export class AndroidBackend implements DeviceBackend {
                     await this.addMedia(serial, path);
                 }
                 break;
+            case 'setFold':
+                if (!emulator || !this.foldable.has(deviceId)) {
+                    throw new DeviceError('device-action-unavailable', 'Only an emulator with a hinge folds');
+                }
+                // The console knows folded and unfolded alone, so every pose but closed opens the device.
+                await this.console(serial, [action.value === 'closed' ? 'fold' : 'unfold']);
+                // Whether the screen server starts a picture of the new size by itself is unverified, so a fresh one is asked for.
+                session?.requestKeyFrame?.();
+                break;
+            case 'setHinge':
+                throw new DeviceError('device-action-unavailable', 'An Android emulator folds closed or open, not to an angle');
             default:
                 throw new DeviceError('device-action-unavailable', 'This tool does not exist on Android');
         }
@@ -772,6 +792,8 @@ export class AndroidBackend implements DeviceBackend {
                     ...BASE_TOOLS,
                     ...(probe?.talkBack ? (['voiceOver'] as const) : []),
                     'location',
+                    'biometrics',
+                    ...(avd.foldable === true ? (['fold'] as const) : []),
                     ...sessionTools(streaming),
                     ...(sdk.emulator === null ? [] : (['erase'] as const))
                 ],
@@ -927,6 +949,24 @@ export class AndroidBackend implements DeviceBackend {
         }
         return device;
     }
+}
+
+/*
+ * The hinge a foldable reports, from the state `cmd device_state state` commits: closed is 0 and
+ * open 180, a half open device 90. Absent when the output names no state this knows.
+ */
+export function hingeOf(output: string): Pick<DeviceSettings, 'hinge'> {
+    const name = /Committed state:.*?name='([^']+)'/.exec(output)?.[1]?.toUpperCase();
+    if (name === undefined) {
+        return {};
+    }
+    if (name.includes('HALF')) {
+        return { hinge: 90 };
+    }
+    if (name.includes('CLOSE') || name.includes('FOLD')) {
+        return { hinge: 0 };
+    }
+    return name.includes('OPEN') ? { hinge: 180 } : {};
 }
 
 /* The tools that go through the screen server's session, so only a device that can stream has them. */

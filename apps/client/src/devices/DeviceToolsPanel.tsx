@@ -246,6 +246,7 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
                     />
                 )}
                 {has('biometrics') && <BiometricTools device={device} settings={settings} disabled={disabled} act={act} />}
+                {has('fold') && <FoldTools device={device} settings={settings} disabled={disabled} act={act} />}
                 {has('permissions') && permissions.length > 0 && (
                     <PermissionTools permissions={permissions} appIdPlaceholder={appIdPlaceholder} disabled={disabled} act={act} />
                 )}
@@ -490,6 +491,70 @@ function StatusBarTools({
                         </Button>
                     </div>
                 </>
+            )}
+        </ToolSection>
+    );
+}
+
+/* How long the hinge slider rests before its angle is sent, like the battery's. */
+const HINGE_SETTLE_MS = 250;
+
+/* The hinge as an angle, which only a simulator takes; an emulator folds through the node's fold menu alone. */
+function FoldTools({
+    device,
+    settings,
+    disabled,
+    act
+}: {
+    device: DeviceInfo;
+    settings: DeviceSettings | null;
+    disabled: boolean;
+    act: (body: ActionBody) => Promise<void>;
+}) {
+    const { t } = useTranslation('machines');
+    const [degrees, setDegrees] = useState<number | null>(null);
+    const timer = useRef<number | null>(null);
+    useEffect(
+        () => () => {
+            if (timer.current !== null) {
+                window.clearTimeout(timer.current);
+            }
+        },
+        []
+    );
+    const slide = (next: number): void => {
+        setDegrees(next);
+        if (timer.current !== null) {
+            window.clearTimeout(timer.current);
+        }
+        timer.current = window.setTimeout(() => {
+            timer.current = null;
+            void act({ action: 'setHinge', degrees: next }).finally(() => setDegrees(null));
+        }, HINGE_SETTLE_MS);
+    };
+    const panel = settings?.panel;
+    return (
+        <ToolSection title={t('device.fold.title')}>
+            {device.platform === 'ios' && (
+                <Slider
+                    label={t('device.fold.hinge')}
+                    value={degrees ?? settings?.hinge ?? 180}
+                    min={0}
+                    max={180}
+                    unit="°"
+                    disabled={disabled}
+                    onValueChange={slide}
+                />
+            )}
+            {panel !== undefined && (
+                <ToolRow label={t('device.fold.screen')}>
+                    <span className="text-xs text-text">{t(`device.fold.panels.${panel}`)}</span>
+                </ToolRow>
+            )}
+            {device.platform === 'android' && settings?.hinge !== undefined && (
+                <ToolRow label={t('device.fold.hinge')}>
+                    <span className="text-xs text-text">{t(settings.hinge === 0 ? 'device.fold.poses.closed' : 'device.fold.poses.open')}</span>
+                </ToolRow>
             )}
         </ToolSection>
     );

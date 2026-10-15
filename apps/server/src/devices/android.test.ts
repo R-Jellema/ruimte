@@ -2,7 +2,19 @@ import { describe, expect, test } from 'bun:test';
 import type { DeviceAction } from '@ruimte/contracts';
 import { FakeRecorder } from './device-test-helpers.ts';
 import type { DeviceSource } from './manager.ts';
-import { AndroidBackend, parseAdbDevices, shellQuote, type AndroidBackendOptions, type AvdInfo, type EmulatorProcess } from './android.ts';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+    AndroidBackend,
+    hingeOf,
+    parseAdbDevices,
+    readAvdFolder,
+    shellQuote,
+    type AndroidBackendOptions,
+    type AvdInfo,
+    type EmulatorProcess
+} from './android.ts';
 
 const SDK = { adb: '/sdk/platform-tools/adb', emulator: '/sdk/emulator/emulator', avdHome: '/home/.android/avd' };
 const PIXEL: AvdInfo = { name: 'Pixel_9_Pro_API_35', displayName: 'Pixel 9 Pro API 35', apiLevel: '35' };
@@ -502,5 +514,62 @@ describe('AndroidBackend', () => {
                 path: '/work/a.apk'
             })
         ).rejects.toThrow('Failure [INSTALL_FAILED_OLDER_SDK]');
+    });
+
+    test('folds and unfolds an emulator with a hinge through its console, asks for a fresh picture, and reads the hinge back', async () => {
+        const adb = new FakeAdb();
+        adb.shell.set('cmd device_state state', "Committed state: DeviceState{identifier=0, name='CLOSED', app_accessible=true}\n");
+        const keyFrames: string[] = [];
+        const backend = backendWith(adb, { readAvds: async () => [{ ...PIXEL, foldable: true }, TABLET] });
+        const devices = await backend.list();
+        const pixel = devices.find((device) => device.deviceId === 'Pixel_9_Pro_API_35');
+        const tablet = devices.find((device) => device.deviceId === 'Tablet_API_34');
+        expect(pixel!.capabilities.tools).toEqual(expect.arrayContaining(['fold', 'biometrics']));
+        expect(tablet!.capabilities.tools).not.toContain('fold');
+        const session = { requestKeyFrame: () => keyFrames.push('reset') } as unknown as DeviceSource;
+        const fold = (value: string) =>
+            backend.action(
+                'Pixel_9_Pro_API_35',
+                { backendId: 'android', platform: 'android', deviceId: 'Pixel_9_Pro_API_35', action: 'setFold', value } as DeviceAction,
+                session
+            );
+
+        expect(await fold('closed')).toMatchObject({ hinge: 0 });
+        await fold('tabletop');
+
+        expect(adb.calls.map((call) => call.join(' ')).filter((call) => call.includes(' emu ') && call.includes('fold'))).toEqual([
+            '-s emulator-5554 emu fold',
+            '-s emulator-5554 emu unfold'
+        ]);
+        expect(keyFrames).toEqual(['reset', 'reset']);
+        await expect(
+            backend.action(
+                'Pixel_9_Pro_API_35',
+                { backendId: 'android', platform: 'android', deviceId: 'Pixel_9_Pro_API_35', action: 'setHinge', degrees: 90 },
+                null
+            )
+        ).rejects.toMatchObject({ code: 'device-action-unavailable' });
+    });
+
+    test('reads the hinge of the committed device state', () => {
+        expect(hingeOf("Committed state: DeviceState{identifier=2, name='OPENED', app_accessible=true}")).toEqual({ hinge: 180 });
+        expect(hingeOf("Committed state: DeviceState{identifier=1, name='HALF_OPENED', app_accessible=true}")).toEqual({ hinge: 90 });
+        expect(hingeOf("Committed state: DeviceState{identifier=0, name='FOLDED'}")).toEqual({ hinge: 0 });
+        expect(hingeOf('No device states')).toEqual({});
+    });
+
+    test('reads a hinge sensor from the configuration of an AVD', async () => {
+        const avdHome = await mkdtemp(join(tmpdir(), 'ruimte-avds-'));
+        try {
+            await mkdir(join(avdHome, 'Fold.avd'));
+            await writeFile(join(avdHome, 'Fold.ini'), `path=${join(avdHome, 'Fold.avd')}\n`);
+            await writeFile(
+                join(avdHome, 'Fold.avd', 'config.ini'),
+                'avd.ini.displayname=Pixel Fold\nhw.sensor.hinge = yes\nimage.sysdir.1=system-images/android-35/google_apis/arm64-v8a/\n'
+            );
+            expect(await readAvdFolder(avdHome)).toEqual([{ name: 'Fold', displayName: 'Pixel Fold', apiLevel: '35', foldable: true }]);
+        } finally {
+            await rm(avdHome, { recursive: true, force: true });
+        }
     });
 });

@@ -229,7 +229,25 @@
             "failed": "The device could not be erased"
         },
         "shake": "Shake",
-        "memoryWarning": "Simulate memory warning"
+        "memoryWarning": "Simulate memory warning",
+        "fold": {
+            "label": "Fold",
+            "title": "Fold",
+            "hinge": "Hinge",
+            "screen": "Screen",
+            "failed": "The device did not fold",
+            "poses": {
+                "closed": "Closed",
+                "tent": "Tent",
+                "tabletop": "Tabletop",
+                "book": "Book",
+                "open": "Open"
+            },
+            "panels": {
+                "cover": "Cover screen",
+                "inner": "Inner screen"
+            }
+        }
     },
     "handshake": {
         "noEndpoint": "No endpoint {{id}} to connect to"

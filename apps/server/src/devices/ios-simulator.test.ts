@@ -395,4 +395,56 @@ describe('IosSimulatorBackend', () => {
             code: 'device-path-refused'
         });
     });
+
+    test('announces fold on an iPhone Duo and folds it through the helper of an open session', async () => {
+        const duoList = JSON.stringify({
+            devices: {
+                'com.apple.CoreSimulator.SimRuntime.iOS-27-1': [
+                    {
+                        udid: 'duo-1',
+                        isAvailable: true,
+                        state: 'Booted',
+                        name: 'iPhone Duo',
+                        deviceTypeIdentifier: 'com.apple.CoreSimulator.SimDeviceType.iPhone-Duo'
+                    },
+                    {
+                        udid: 'phone-1',
+                        isAvailable: true,
+                        state: 'Booted',
+                        name: 'iPhone 18 Pro',
+                        deviceTypeIdentifier: 'com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro'
+                    }
+                ]
+            }
+        });
+        const backend = new IosSimulatorBackend(
+            async (arguments_) => ({ exitCode: 0, stdout: arguments_[0] === 'list' ? duoList : '', stderr: '' }),
+            () => {
+                throw new Error('not started in this test');
+            },
+            undefined,
+            null,
+            undefined,
+            () => ({ start: () => undefined, stop: async () => undefined })
+        );
+        const [duo, phone] = await backend.list();
+        expect(duo!.capabilities.tools).toContain('fold');
+        expect(phone!.capabilities.tools).not.toContain('fold');
+
+        const calls: unknown[] = [];
+        const session = Object.assign(Object.create(DeviceHelperSource.prototype) as DeviceHelperSource, {
+            call: async (call: { method: string }) => {
+                calls.push(call);
+                return call.method === 'preferredScreenSize' ? undefined : true;
+            }
+        });
+        const settings = await backend.action('duo-1', { backendId: 'simctl', platform: 'ios', deviceId: 'duo-1', action: 'setFold', value: 'tent' }, session);
+
+        expect(calls).toEqual([
+            { method: 'isFoldable' },
+            { method: 'pose', name: 'tent', fromDegrees: 180 },
+            { method: 'preferredScreenSize', width: 1398, height: 2034 }
+        ]);
+        expect(settings).toMatchObject({ hinge: 80, panel: 'cover' });
+    });
 });
