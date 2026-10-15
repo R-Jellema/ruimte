@@ -246,6 +246,25 @@ final class IntelligentUIPresentationTests: XCTestCase {
         XCTAssertEqual(text("after lunch"), "after lunch")
     }
 
+    /// Every component the shared interpreter evaluates in the fixtures is one this version draws; a component the
+    /// catalog gained and the renderer lacks would read as unknown here.
+    func testEveryEvaluatedComponentOfTheFixturesIsOneTheAppDraws() throws {
+        let url = try XCTUnwrap(
+            Bundle(for: Self.self).url(forResource: "intelligent-ui-presentation", withExtension: "json"))
+        let cases = try XCTUnwrap(JSONValue.decode(Data(contentsOf: url)).arrayValue)
+        for fixture in cases {
+            let name = fixture["name"]?.stringValue ?? ""
+            func visit(_ list: [UiNode]) {
+                for node in list where node.error == nil && !node.isText {
+                    XCTAssertTrue(
+                        UiCatalog.components.contains(node.type) || name == "unknown component", "\(name) \(node.type)")
+                    visit(node.children)
+                }
+            }
+            visit(UiNode.list(fixture["nodes"]?.arrayValue ?? []))
+        }
+    }
+
     /// Labels, table columns and chart data against the desktop's own functions, from fixtures the generator writes.
     func testTablesChartsAndLabelsMatchTheDesktop() throws {
         let url = try XCTUnwrap(

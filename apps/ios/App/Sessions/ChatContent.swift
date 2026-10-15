@@ -221,6 +221,8 @@ struct ChatInlineText: View {
 struct ChatInlineImage: View {
     let resource: JSONValue
     let name: String
+    /// A cell of a grid: a square the picture fills, rather than the picture at its own shape.
+    var square = false
     @Environment(\.chatContent) private var context
     @Environment(\.colorScheme) private var colorScheme
     @State private var image: UIImage?
@@ -236,7 +238,7 @@ struct ChatInlineImage: View {
                 Button {
                     Task { await openPreview() }
                 } label: {
-                    Image(uiImage: image).resizable().scaledToFit().frame(maxWidth: 320, maxHeight: 200)
+                    picture(image)
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                         .overlay {
                             RoundedRectangle(cornerRadius: 10).strokeBorder(
@@ -244,9 +246,14 @@ struct ChatInlineImage: View {
                         }
                 }.buttonStyle(.plain).disabled(previewLoading).accessibilityLabel("Preview \(name)")
             } else if failure {
-                Label(String(localized: "Image preview unavailable"), lucideIcon: "image", iconSize: 14).font(.caption)
-                    .foregroundStyle(
-                        MobileStyle.muted)
+                if square {
+                    UiQuietSquare(text: name)
+                } else {
+                    Label(String(localized: "Image preview unavailable"), lucideIcon: "image", iconSize: 14)
+                        .font(.caption).foregroundStyle(MobileStyle.muted)
+                }
+            } else if square {
+                UiQuietSquare(text: nil).accessibilityLabel(String(localized: "Loading image"))
             } else {
                 MobileLoadingRow(String(localized: "Loading image")).frame(width: 120, height: 80)
             }
@@ -289,6 +296,15 @@ struct ChatInlineImage: View {
                 try? FileManager.default.removeItem(at: downloaded)
                 self.downloaded = nil
             }
+        }
+    }
+
+    @ViewBuilder private func picture(_ image: UIImage) -> some View {
+        if square {
+            Color.clear.aspectRatio(1, contentMode: .fit)
+                .overlay { Image(uiImage: image).resizable().scaledToFill() }
+        } else {
+            Image(uiImage: image).resizable().scaledToFit().frame(maxWidth: 320, maxHeight: 200)
         }
     }
 

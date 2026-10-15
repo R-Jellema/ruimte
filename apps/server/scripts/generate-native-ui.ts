@@ -80,6 +80,8 @@ const cases: ParityCase[] = [
         name: 'timeline',
         source: '<Timeline><Event at="14:02" tone="warning" detail="p95 above 2 s">Alert fired</Event><Event at="2026-10-14T12:20:00Z">Recovered</Event><Event at="after lunch">Unreadable time</Event></Timeline>'
     },
+    { name: 'gallery', source: '<Gallery><Image attachment="shot-1">Login</Image><Image attachment="shot-2" alt="Settings"/></Gallery>' },
+    { name: 'compare', source: '<Compare before="shot-1" after="shot-2" beforeLabel="Old">Header spacing</Compare>' },
     { name: 'segmented input', source: '$mode = "a"\n<Segmented value={$mode}><Option value="a">A</Option><Option value="b">B</Option></Segmented>' }
 ];
 

@@ -229,6 +229,8 @@ struct UiNodeView: View {
         case "Section": UiSectionView(node: node, touched: false, context: context)
         case "CodeBlock": UiCodeBlockView(node: node)
         case "Image": UiImageView(node: node)
+        case "Gallery": UiGalleryView(node: node, context: context)
+        case "Compare": UiCompareView(node: node)
         case "Sources": UiSourcesView(node: node, context: context)
         case "Source": UiSourceView(node: node, number: nil, context: context)
         case "File", "Diff", "Commit", "Node": UiLinkRow(node: node, context: context)

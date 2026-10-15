@@ -12,6 +12,77 @@
         }
       }
     },
+    "%lld images" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld image"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld images"
+                }
+              }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld afbeelding"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld afbeeldingen"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "After" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Na"
+          }
+        }
+      }
+    },
+    "Before" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voor"
+          }
+        }
+      }
+    },
+    "Compare %@ and %@" : {
+      "comment" : "The two labels of a before and after comparison of images",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vergelijk %1$@ en %2$@"
+          }
+        }
+      }
+    },
     "Danger" : {
       "localizations" : {
         "nl" : {
@@ -38,6 +109,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Niet elke map wordt getoond"
+          }
+        }
+      }
+    },
+    "One image is not available" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eén afbeelding is niet beschikbaar"
           }
         }
       }
