@@ -169,6 +169,60 @@ describe('the style', () => {
     });
 });
 
+describe('the query of an address the style names', () => {
+    async function rewritten(maps: Maps, tiles: string): Promise<string> {
+        maps.answers = [() => json({ ...TOMTOM_STYLE, sources: { vector: { type: 'vector', tiles: [tiles] } } })];
+        const style = (await (await maps.request('/v1/style?theme=light')).json()) as { sources: { vector: { tiles: string[] } } };
+        maps.upstream.length = 0;
+        return style.sources.vector.tiles[0]!;
+    }
+
+    const TILE = 'https://api.tomtom.com/maps/orbis/display/vector/tile/{z}/{x}/{y}';
+
+    test('is kept as TomTom wrote it: percent-encoding stays, a value may hold an equals sign, only the key is left out', async () => {
+        const maps = harness();
+        const tiles = await rewritten(maps, `${TILE}?apiVersion=2&layers=a%2Cb%20c&filter=x=1=2&key=${KEY}&view=Unified`);
+        expect(tiles).not.toBe('');
+        maps.answers = [() => new Response('t', { headers: { 'content-type': 'application/x-protobuf' } })];
+        await maps.request(pathOf(tiles).replace('{z}/{x}/{y}', '3/4/5'));
+        expect(maps.upstream[0]!.url).toBe(
+            `https://api.tomtom.com/maps/orbis/display/vector/tile/3/4/5?apiVersion=2&layers=a%2Cb%20c&filter=x=1=2&view=Unified&key=${KEY}`
+        );
+    });
+
+    test('is split at the first question mark and the first equals sign, so no later part is lost', async () => {
+        const maps = harness();
+        const tiles = await rewritten(maps, `${TILE}?token=abc==&k=a=b`);
+        maps.answers = [() => new Response('t', { headers: { 'content-type': 'application/x-protobuf' } })];
+        await maps.request(pathOf(tiles).replace('{z}/{x}/{y}', '1/1/1'));
+        expect(maps.upstream[0]!.url).toBe(`https://api.tomtom.com/maps/orbis/display/vector/tile/1/1/1?token=abc==&k=a=b&key=${KEY}`);
+    });
+
+    test('an address with a character TomTom does not write in a query is not served', async () => {
+        const maps = harness();
+        for (const query of ['a=b?c', 'a=<script>', 'a=b c', 'a=\\x', 'a=b#c', 'a="q"']) {
+            expect(await rewritten(maps, `${TILE}?${query}`), query).toBe('');
+        }
+    });
+
+    test('an address that holds the key, in its path or in any value, plain or percent-encoded, is not served', async () => {
+        const maps = harness();
+        const encoded = KEY.replaceAll('-', '%2D');
+        for (const address of [
+            `${TILE}?apiVersion=2&token=${KEY}`,
+            `${TILE}?apiVersion=2&token=x${KEY}y`,
+            `${TILE}?${KEY}=1`,
+            `${TILE}?token=${encoded}`,
+            `${TILE.replace('/tile/', `/tile-${KEY}/`)}?apiVersion=2`,
+            `${TILE}?token=${[...KEY].map((char) => `%${char.charCodeAt(0).toString(16)}`).join('')}`
+        ]) {
+            expect(await rewritten(maps, address), address).toBe('');
+        }
+        // A key as the `key` parameter is the one thing taken out, and the rest is served.
+        expect(await rewritten(maps, `${TILE}?apiVersion=2&key=${KEY}`)).not.toBe('');
+    });
+});
+
 describe('what the style names', () => {
     test('a tile is fetched with the key and nothing of the client, and arrives as the bytes TomTom sent', async () => {
         const maps = harness();

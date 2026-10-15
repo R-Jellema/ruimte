@@ -19,9 +19,9 @@ export function bodyKind(contentType: string | null): BodyKind {
 }
 
 export function upstreamUrl(path: string, query: readonly (readonly [string, string])[], key: string): string {
-    const params = new URLSearchParams(query as [string, string][]);
-    params.set('key', key);
-    return `${TOMTOM_ORIGIN}/${path}?${params.toString()}`;
+    // Written as the style wrote them: the values are percent-encoded already, and the key is a plain token.
+    const parts = [...query.map(([name, value]) => `${name}=${value}`), `key=${encodeURIComponent(key)}`];
+    return `${TOMTOM_ORIGIN}/${path}?${parts.join('&')}`;
 }
 
 /* How long TomTom lets a response be kept, in seconds; 0 for one it does not. */

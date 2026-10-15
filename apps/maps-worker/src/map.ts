@@ -76,7 +76,7 @@ export async function fetchMapResource(deps: Deps, env: Env, resource: Resource,
     if (kind === 'json') {
         let text: string;
         try {
-            text = JSON.stringify(await rewriteDocument(JSON.parse(await upstream.text()), secret, env.PUBLIC_ORIGIN));
+            text = JSON.stringify(await rewriteDocument(JSON.parse(await upstream.text()), secret, key, env.PUBLIC_ORIGIN));
         } catch {
             return failure('upstream', 'The map provider sent a body this service cannot read');
         }
