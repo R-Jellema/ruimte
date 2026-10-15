@@ -586,11 +586,9 @@ export const ACTION_DEFINITIONS = {
                 .describe('An absolute folder on this machine the project would live in; the person picks one when it is left out'),
             reason: z.string().trim().min(1).max(PROJECT_PROPOSAL_LIMITS.reason).describe('Why the work is a project now, in one or two sentences')
         }),
-        // What became of the card; `moved` carries the project the chat now lives in.
         output: z.object({
             proposalId: z.string(),
-            outcome: z.enum(['moved', 'declined', 'cancelled', 'waiting']),
-            projectId: z.string().nullable()
+            outcome: z.enum(['declined', 'cancelled', 'waiting'])
         })
     },
     'project.delete': {

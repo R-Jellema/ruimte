@@ -7,7 +7,7 @@ import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 /* A card is a suggestion to think over, so it outlasts the turn that raised it; a day without a new ask takes it down. */
 export const PROPOSAL_CARD_MS = 24 * 60 * 60_000;
 
-export type ProposalOutcome = 'moved' | 'declined' | 'cancelled' | 'waiting';
+export type ProposalOutcome = 'declined' | 'cancelled' | 'waiting';
 
 export interface ProposalAsk {
     chatId: string;
@@ -19,8 +19,6 @@ export interface ProposalAsk {
 export interface ProposalAnswer {
     proposalId: string;
     outcome: ProposalOutcome;
-    /* The project the chat lives in now; only on `moved`. */
-    projectId: string | null;
 }
 
 /* Holds the suggesting chat at `needs-you` while its card stands, the way a question of its CLI does. */
@@ -49,9 +47,9 @@ function holdKeyOf(proposalId: string): string {
  * The cards in which an agent in Chats suggests that its chat becomes a project. One card per chat,
  * so an agent that suggests again joins the card that stands. It goes to every client; whoever
  * answers first settles it. Nothing is made here: the person reviews it in the dialog that moves a
- * chat, and a move of that chat settles the card as `moved`. A suggestion never waits for the person,
- * since a call that holds the turn open blocks the very move the card offers; an answer reaches the
- * agent on its next suggestion, once.
+ * chat, and a move of that chat takes the card down. A suggestion never waits for the person, since a
+ * call that holds the turn open blocks the very move the card offers; a decline reaches the agent on its
+ * next suggestion, once. A chat that moved suggests nothing more, so a move tells it nothing.
  */
 export class ProjectProposals {
     private readonly chats: ProposalChats;
@@ -80,7 +78,7 @@ export class ProjectProposals {
             this.unheard.delete(ask.chatId);
             return told;
         }
-        return { proposalId: this.raise(ask).proposal.proposalId, outcome: 'waiting', projectId: null };
+        return { proposalId: this.raise(ask).proposal.proposalId, outcome: 'waiting' };
     }
 
     list(): ProjectProposal[] {
@@ -116,23 +114,24 @@ export class ProjectProposals {
         if (found === undefined) {
             return false;
         }
-        this.settle(found, { proposalId, outcome: 'declined', projectId: null });
+        this.settle(found, { proposalId, outcome: 'declined' });
         return true;
     }
 
-    /* The chat left Chats for a project, however the person got there. */
-    moved(chatId: string, projectId: string): void {
+    /* The chat left Chats for a project, however the person got there: it can suggest nothing more, so nothing is left to tell it. */
+    moved(chatId: string): void {
         const pending = this.pending.get(chatId);
         if (pending !== undefined) {
-            this.settle(pending, { proposalId: pending.proposal.proposalId, outcome: 'moved', projectId });
+            this.settle(pending, null);
         }
+        this.unheard.delete(chatId);
     }
 
     /* The chat stopped running or is gone: nobody is left to hear an answer. */
     forget(chatId: string): void {
         const pending = this.pending.get(chatId);
         if (pending !== undefined) {
-            this.settle(pending, { proposalId: pending.proposal.proposalId, outcome: 'cancelled', projectId: null });
+            this.settle(pending, null);
         }
         this.unheard.delete(chatId);
     }
@@ -192,11 +191,11 @@ export class ProjectProposals {
     }
 
     private expireLater(pending: Pending): () => void {
-        return this.timers.set(() => this.settle(pending, { proposalId: pending.proposal.proposalId, outcome: 'cancelled', projectId: null }), this.cardMs);
+        return this.timers.set(() => this.settle(pending, null), this.cardMs);
     }
 
-    /* The agent hears the answer with its next suggestion, unless the card only lapsed. */
-    private settle(pending: Pending, answer: ProposalAnswer): void {
+    /* The agent hears the answer with its next suggestion; a card that only lapsed or whose chat is gone or moved has none. */
+    private settle(pending: Pending, answer: ProposalAnswer | null): void {
         const { chatId, proposalId } = pending.proposal;
         if (this.pending.get(chatId) !== pending) {
             return;
@@ -204,7 +203,7 @@ export class ProjectProposals {
         pending.cancelExpiry();
         this.pending.delete(chatId);
         this.chats.release(chatId, holdKeyOf(proposalId));
-        if (answer.outcome !== 'cancelled') {
+        if (answer !== null) {
             this.unheard.set(chatId, answer);
         }
         this.publish();

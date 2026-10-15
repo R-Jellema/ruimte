@@ -154,14 +154,13 @@ describe('what the machine says about moving a chat', () => {
         expect((await handlers.info({ chatId })).refusal).toBeNull();
         // Without the wiring that knows the card, the same status is a chat that works.
         expect((await moves().info({ chatId })).refusal).toEqual({ reason: 'working' });
-        proposals.moved(chatId, 'project-1');
-        expect(proposals.ask({ chatId, name: 'Vinyl', reason: 'It grew' })).toMatchObject({ outcome: 'moved', projectId: 'project-1' });
+        proposals.moved(chatId);
+        expect(proposals.stands(chatId)).toBe(false);
         expect(daemon.chats.get(chatId)?.info.status).not.toBe('needs-you');
     });
 
     describe('moving the chat that holds a card of its own suggestion', () => {
         let proposals: ProjectProposals;
-        let proposalId: string;
 
         const wiring = (): ChatMoveWiring => ({
             ...daemon,
@@ -177,7 +176,7 @@ describe('what the machine says about moving a chat', () => {
             proposals = new ProjectProposals({
                 chats: { hold: (id, key) => void daemon.chats.holdForPerson(id, key), release: (id, key) => daemon.chats.releaseHold(id, key) }
             });
-            ({ proposalId } = proposals.ask({ chatId, name: 'Vinyl', reason: 'It grew' }));
+            proposals.ask({ chatId, name: 'Vinyl', reason: 'It grew' });
         });
 
         test('makes the project, settles the card as moved and frees the chat', async () => {
@@ -189,7 +188,6 @@ describe('what the machine says about moving a chat', () => {
             });
             expect(result.summary.folder).toBe(folder);
             expect(daemon.chats.get(chatId)?.info.cwd).toBe(folder);
-            expect(proposals.ask({ chatId, name: 'Vinyl', reason: 'It grew' })).toEqual({ proposalId, outcome: 'moved', projectId: result.summary.projectId });
             expect(proposals.stands(chatId)).toBe(false);
             expect(daemon.chats.get(chatId)?.thread.held).toBe(false);
         });

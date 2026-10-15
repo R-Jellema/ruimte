@@ -12,7 +12,7 @@ let host: CanvasHost;
 
 beforeEach(() => {
     asks = [];
-    answer = { proposalId: 'prop-1', outcome: 'declined', projectId: null };
+    answer = { proposalId: 'prop-1', outcome: 'declined' };
     host = {
         projects: {
             locate: (id: string) => ({ projectId: 'chats', folder: '/home/.ruimte/scratch', canvasId: null, id }),
@@ -43,16 +43,14 @@ const PROPOSE = ['propose', '--name', 'Vinyl shelf', '--reason', 'The notes beca
 
 describe('ruimte-context project', () => {
     test('suggests a project and prints only what became of the card', async () => {
-        expect(await run([...PROPOSE, '--folder', '/work/vinyl-shelf'])).toEqual(['proposal\tprop-1\tdeclined\t-']);
+        expect(await run([...PROPOSE, '--folder', '/work/vinyl-shelf'])).toEqual(['proposal\tprop-1\tdeclined']);
         expect(asks).toEqual([{ chatId: 'chat-1', name: 'Vinyl shelf', folder: '/work/vinyl-shelf', reason: 'The notes became a codebase' }]);
     });
 
-    test('prints the project a moved chat now lives in, and every other outcome', async () => {
-        answer = { proposalId: 'prop-1', outcome: 'moved', projectId: 'project-9' };
-        expect(await run(PROPOSE)).toEqual(['proposal\tprop-1\tmoved\tproject-9']);
+    test('prints every outcome', async () => {
         for (const outcome of ['declined', 'cancelled', 'waiting'] as const) {
-            answer = { proposalId: 'prop-1', outcome, projectId: null };
-            expect((await run(PROPOSE))[0]).toBe(`proposal\tprop-1\t${outcome}\t-`);
+            answer = { proposalId: 'prop-1', outcome };
+            expect((await run(PROPOSE))[0]).toBe(`proposal\tprop-1\t${outcome}`);
         }
         expect(asks.at(-1)).not.toHaveProperty('folder');
     });
@@ -69,9 +67,11 @@ describe('ruimte-context project', () => {
     test('help names every outcome and says the person decides', async () => {
         const help = await (verbNamed('help') as Verb).run(['project', 'propose'], { caller: 'chat-1', host });
         const text = help.join('\n');
-        for (const word of ['moved', 'declined', 'waiting', 'cancelled', '--folder', 'next turn', 'closes the card', 'Nothing']) {
+        for (const word of ['declined', 'waiting', 'cancelled', '--folder', 'next turn', 'closes the card', 'Nothing']) {
             expect(text).toContain(word);
         }
         expect(text).not.toContain('--wait');
+        // A chat that moved is out of Chats and cannot suggest again, so no later suggestion can report it.
+        expect(text).not.toContain('outcome\tmoved');
     });
 });

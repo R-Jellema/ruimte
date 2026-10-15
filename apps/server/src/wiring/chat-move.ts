@@ -132,7 +132,7 @@ export function chatMoveHandlers(wiring: ChatMoveWiring): ChatMoveHandlers {
         info: (payload) => chatMoveInfo(payload, deps.info),
         move: async (payload) => {
             const moved = await moveChat(payload, deps.move);
-            wiring.proposals?.moved(payload.chatId, moved.summary.projectId);
+            wiring.proposals?.moved(payload.chatId);
             return moved;
         }
     };

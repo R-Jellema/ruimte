@@ -42,20 +42,25 @@ describe('a project suggestion', () => {
     test('raises one card, holds the chat for a person, tells every client and answers waiting at once', () => {
         const answer = proposals.ask(ask);
         const [card] = proposals.list();
-        expect(answer).toEqual({ proposalId: card!.proposalId, outcome: 'waiting', projectId: null });
+        expect(answer).toEqual({ proposalId: card!.proposalId, outcome: 'waiting' });
         expect(card).toMatchObject({ chatId: 'chat-1', name: 'Vinyl shelf', folder: '/work/vinyl-shelf', reason: 'The notes became a codebase' });
         expect(heldKeys('chat-1')).toHaveLength(1);
         expect(proposals.stands('chat-1')).toBe(true);
         expect(published.at(-1)).toEqual([card!]);
     });
 
-    test('a person who reviews it and moves the chat settles it as moved, and the agent hears it once', () => {
-        const { proposalId } = proposals.ask(ask);
-        proposals.moved('chat-1', 'project-9');
+    test('a person who reviews it and moves the chat takes the card down and frees the chat', () => {
+        proposals.ask(ask);
+        proposals.moved('chat-1');
         expect(proposals.list()).toEqual([]);
         expect(heldKeys('chat-1')).toEqual([]);
         expect(proposals.stands('chat-1')).toBe(false);
-        expect(proposals.ask(ask)).toEqual({ proposalId, outcome: 'moved', projectId: 'project-9' });
+    });
+
+    test('a decline nobody heard is gone once the chat moved', () => {
+        const { proposalId } = proposals.ask(ask);
+        proposals.decline(proposalId);
+        proposals.moved('chat-1');
         expect(proposals.ask(ask).outcome).toBe('waiting');
     });
 
@@ -64,7 +69,7 @@ describe('a project suggestion', () => {
         expect(proposals.decline(proposalId)).toBe(true);
         expect(proposals.decline(proposalId)).toBe(false);
         expect(heldKeys('chat-1')).toEqual([]);
-        expect(proposals.ask(ask)).toEqual({ proposalId, outcome: 'declined', projectId: null });
+        expect(proposals.ask(ask)).toEqual({ proposalId, outcome: 'declined' });
         // Told once: the next suggestion raises a new card.
         expect(proposals.ask(ask).proposalId).not.toBe(proposalId);
     });
