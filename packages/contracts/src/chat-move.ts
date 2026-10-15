@@ -111,15 +111,21 @@ export type ProjectProposalDeclineResult = z.infer<typeof ProjectProposalDecline
 /*
  * Whether a chat does anything a move would cut off: a turn, a question or approval waiting on a
  * person, a subagent or command in the background, a goal, or a message in the queue. The status
- * alone reads idle between turns while some of these still run.
+ * alone reads idle between turns while some of these still run. With `ownCard`, the card of the
+ * chat's own project suggestion holds a chat with no turn at `needs-you`, which a move it asks for
+ * does not count as work.
  */
-export function chatIsWorking(info: Pick<ChatInfo, 'status' | 'delegating' | 'background' | 'goal' | 'requests' | 'queue'> | null | undefined): boolean {
+export function chatIsWorking(
+    info: (Pick<ChatInfo, 'status' | 'delegating' | 'background' | 'goal' | 'requests' | 'queue'> & Partial<Pick<ChatInfo, 'activeTurnId'>>) | null | undefined,
+    ownCard = false
+): boolean {
     if (info === null || info === undefined) {
         return false;
     }
+    const heldByCard = ownCard && info.status === 'needs-you' && (info.activeTurnId ?? null) === null;
     return (
         info.status === 'running' ||
-        info.status === 'needs-you' ||
+        (info.status === 'needs-you' && !heldByCard) ||
         info.delegating === true ||
         (info.background?.length ?? 0) > 0 ||
         info.goal?.status === 'active' ||

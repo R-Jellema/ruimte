@@ -4,6 +4,7 @@ import { REQUEST_SCHEMAS, type ChatInfo, type ProjectView, type RequestType } fr
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { useChats } from '@adecore/agents-react/state';
+import { useProposals } from '@/state/proposals';
 import { useUi } from '@/state/ui';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
@@ -77,6 +78,68 @@ describe('moving a chat out of Chats, from its view menu', () => {
         expect(makeProjectRow()?.getAttribute('aria-disabled')).toBe('true');
         await clickOn(makeProjectRow() ?? null);
         expect(useUi.getState().moveChatDialog).toBeNull();
+    });
+
+    test('both rows stay on while the only thing the chat waits for is the card of its own suggestion', async () => {
+        await open({ scratch: true });
+        await act(async () =>
+            useProposals
+                .getState()
+                .setProposals('fake-machine', [{ proposalId: 'proposal-1', chatId: WRITTEN.id, name: 'Vinyl', reason: 'It grew', createdAt: 1, expiresAt: 2 }])
+        );
+        await setChatStatus('needs-you', { activeTurnId: null });
+        await openViewMenu(WRITTEN.id);
+        expect(makeProjectRow()?.getAttribute('aria-disabled')).not.toBe('true');
+        await act(async () => useProposals.getState().forget('fake-machine'));
+    });
+
+    describe('in the command palette', () => {
+        const paletteLabels = (): string[] => ([...document.querySelectorAll('[role="option"]')] as HTMLElement[]).map((row) => row.textContent ?? '');
+
+        async function openPalette(): Promise<void> {
+            await act(async () => useUi.getState().setPaletteOpen(true));
+            await until(() => paletteLabels().length > 2);
+            await act(async () => {
+                const field = document.querySelector<HTMLInputElement>('input[role="combobox"]')!;
+                Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(field, 'project');
+                field.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        }
+
+        afterEach(async () => {
+            await act(async () => useUi.getState().setPaletteOpen(false));
+        });
+
+        test('both rows are there for a quiet chat in Chats', async () => {
+            await open({ scratch: true });
+            await setChatStatus('idle');
+            await openPalette();
+            expect(paletteLabels()).toEqual(
+                expect.arrayContaining([expect.stringContaining('Make a project from this chat'), expect.stringContaining('Move this chat to a project')])
+            );
+        });
+
+        test('and for a chat that only waits for the card of its own suggestion', async () => {
+            await open({ scratch: true });
+            await act(async () =>
+                useProposals
+                    .getState()
+                    .setProposals('fake-machine', [
+                        { proposalId: 'proposal-1', chatId: WRITTEN.id, name: 'Vinyl', reason: 'It grew', createdAt: 1, expiresAt: 2 }
+                    ])
+            );
+            await setChatStatus('needs-you', { activeTurnId: null });
+            await openPalette();
+            expect(paletteLabels().some((label) => label.includes('Make a project'))).toBe(true);
+            await act(async () => useProposals.getState().forget('fake-machine'));
+        });
+
+        test('neither is offered while the chat works, since the palette cannot grey a row', async () => {
+            await open({ scratch: true });
+            await setChatStatus('running');
+            await openPalette();
+            expect(paletteLabels().some((label) => label.includes('Make a project'))).toBe(false);
+        });
     });
 
     test.each([

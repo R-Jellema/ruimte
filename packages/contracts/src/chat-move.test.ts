@@ -90,4 +90,12 @@ describe('chatIsWorking', () => {
             expect(chatIsWorking({ ...quiet, goal: { status } as never })).toBe(false);
         }
     });
+
+    test('lets the card of its own suggestion hold a chat with no turn, and nothing else', () => {
+        expect(chatIsWorking({ status: 'needs-you', activeTurnId: null }, true)).toBe(false);
+        expect(chatIsWorking({ status: 'needs-you', activeTurnId: null }, false)).toBe(true);
+        expect(chatIsWorking({ status: 'needs-you', activeTurnId: 'turn-1' }, true)).toBe(true);
+        expect(chatIsWorking({ status: 'needs-you', activeTurnId: null, requests: [{ id: 'r1' } as never] }, true)).toBe(true);
+        expect(chatIsWorking({ status: 'running', activeTurnId: null }, true)).toBe(true);
+    });
 });

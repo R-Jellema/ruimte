@@ -12,6 +12,7 @@ import { subscribeChatThreads } from '@/state/chats';
 import { useDocument } from '@/state/document';
 import { usePrRepos } from '@/state/pr-repos';
 import { useProject } from '@/state/project';
+import { useProposals } from '@/state/proposals';
 import { useServers } from '@/state/server';
 import { useSessions } from '@/state/sessions';
 import { useSettings } from '@/state/settings';
@@ -50,6 +51,7 @@ export function useNativeMenu(): void {
             useProvidersStore.subscribe(schedule),
             subscribeChatThreads(schedule),
             useSessions.subscribe(schedule),
+            useProposals.subscribe(schedule),
             useSettings.subscribe(schedule),
             useServers.subscribe(schedule),
             useWindow.subscribe(schedule),

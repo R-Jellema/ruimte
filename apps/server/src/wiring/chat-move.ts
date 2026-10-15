@@ -79,8 +79,7 @@ export function chatMoveRefusalDeps(wiring: ChatMoveWiring): MoveRefusalDeps {
                 return false;
             }
             // The card of its own suggestion holds the chat at needs-you, and the move it asks for must not refuse for that.
-            const own = wiring.proposals?.stands(chatId) === true && session.info.status === 'needs-you';
-            return session.busy || chatIsWorking(own ? { ...session.info, status: 'idle' } : session.info);
+            return session.busy || chatIsWorking(session.info, wiring.proposals?.stands(chatId) === true);
         },
         lineage,
         tasks,

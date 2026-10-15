@@ -41,6 +41,7 @@ import { canSplit, cellAt, cellCount, cellsRightOf, freeViewFor, isTabHost, maxi
 import { useChatRow, useProviders } from '@adecore/agents-react/state';
 import { cellViewOf, hasActiveCanvas, useDocument } from '@/state/document';
 import { isScratchProject, useProject } from '@/state/project';
+import { useNodeProposals } from '@/state/proposals';
 import { useSessionRow } from '@/state/sessions';
 import { fileManagerName, useServer } from '@/state/server';
 import { useTransport } from '@/transport/context';
@@ -80,6 +81,7 @@ export function ViewMenuItems({ viewId, kind, onSidebar = false }: ViewMenuItems
     const providers = useProviders((state) => state.providers);
     const offersFork = useOffersFork(viewId);
     const endpointId = useProject((state) => state.currentEndpointId ?? '');
+    const ownCard = useNodeProposals(endpointId, viewId).length > 0;
     const moves = useMachineAnswers(endpointId, 'chat.move');
     const transport = useTransport();
 
@@ -139,7 +141,7 @@ export function ViewMenuItems({ viewId, kind, onSidebar = false }: ViewMenuItems
                 </Menu.Item>
             )}
             {offerFork && <ForkMenuItem chatId={viewId} />}
-            {offerMove && <MoveChatItems chatId={viewId} endpointId={endpointId} working={chatIsWorking(chat)} />}
+            {offerMove && <MoveChatItems chatId={viewId} endpointId={endpointId} working={chatIsWorking(chat, ownCard)} />}
 
             {place && <Menu.Separator />}
             {offerPut && (

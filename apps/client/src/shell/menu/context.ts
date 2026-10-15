@@ -25,6 +25,7 @@ import { machineAnswers } from '@/transport/features';
 import { activeViewOf, hasActiveCanvas, useDocument } from '@/state/document';
 import { currentEndpointId, endpointKey } from '@/state/keys';
 import { prReposOfCurrent } from '@/state/pr-repos';
+import { proposalsOf } from '@/state/proposals';
 import { isScratchProject, shownFolderOf, useProject } from '@/state/project';
 import { fileManagerName, serverInfoOf } from '@/state/server';
 import { useSessions } from '@/state/sessions';
@@ -86,7 +87,10 @@ export function activeViewFacts(): ActiveViewFacts | null {
         written: !(view.kind === 'chat' && isEmptyChatView(view)),
         moves: machineAnswers(pool.statusOf(endpointId), 'chat.move')
     });
-    const working = chatIsWorking(chatRow?.info);
+    const working = chatIsWorking(
+        chatRow?.info,
+        proposalsOf(endpointId).some((proposal) => proposal.chatId === view.id)
+    );
     return { view, offers, shared, asChat, asTerminal, workingFolder, forkTurn, working };
 }
 
