@@ -25,6 +25,8 @@ import { defaultWorkspaceStores } from '@/state/workspace';
 import { workspaceOf, useWindow, windowWorkspace } from '@/state/window';
 import { forgetProjectSessions } from '@/terminal/lifecycle';
 import { SessionClient } from '@/terminal/session-client';
+import { RemoteMirror } from '@/project/remote-mirror';
+import { nodesOfView, subscribeViewNodes } from '@/project/view-nodes';
 import { machineTransport, pool } from '@/transport';
 import { useOptionalConnection } from '@/transport/context';
 import type { Transport } from '@/transport/transport';
@@ -75,6 +77,8 @@ const stores = defaultWorkspaceStores;
 const machines = new Map<string, Machine>();
 /* The hold each workspace connection keeps on its machine's link for as long as it lives. */
 const connectionHolds = new WeakMap<Connection, LinkHold>();
+/* The copy of its remote nodes each workspace keeps on the machines they run on, for as long as the connection lives. */
+const connectionMirrors = new WeakMap<Connection, RemoteMirror>();
 /* Connections whose clients are gone; the window may still show one while a switch replaces it. */
 const disposed = new WeakSet<Connection>();
 /* Machines whose session and chat rows a closed workspace cleared since their socket last opened. */
@@ -193,7 +197,36 @@ function connect(endpoint: Endpoint, onLoad: (connection: Connection, summary: P
     const diagrams = new DiagramClient(transport, stores.diagrams, stores.document, stores.project, {
         flushProject: (): Promise<void> => projects.flush()
     });
+    const mirror = new RemoteMirror({
+        projectId: () => {
+            const { current, currentEndpointId, switching } = stores.project.getState();
+            return current !== null && currentEndpointId === connection.endpointId && !switching ? current.projectId : null;
+        },
+        selfId: () => endpointById(connection.endpointId)?.daemonId ?? connection.endpointId,
+        views: () => stores.document.getState().views,
+        nodesOf: nodesOfView,
+        // The project reaching its store is a change too: the document may have landed before the project did.
+        subscribe: (listener) => {
+            const offNodes = subscribeViewNodes(listener);
+            const offProject = stores.project.subscribe((state, previous) => {
+                if (
+                    state.current?.projectId !== previous.current?.projectId ||
+                    state.switching !== previous.switching ||
+                    state.currentEndpointId !== previous.currentEndpointId
+                ) {
+                    listener();
+                }
+            });
+            return () => {
+                offNodes();
+                offProject();
+            };
+        },
+        links: async (projectId) => (await connection.transport.request('remote.list', { projectId })).links,
+        transportOf: machineTransport
+    });
     const projects = new ProjectClient(transport, stores.canvases, stores.document, panelsPort, projectSink(endpointId), {
+        remote: { close: () => mirror.close(), release: () => mirror.release() },
         drawings: stores.drawings,
         diagrams: stores.diagrams,
         beforeLeave: async (): Promise<void> => {
@@ -235,6 +268,8 @@ function connect(endpoint: Endpoint, onLoad: (connection: Connection, summary: P
     const hold = new LinkHold((row) => pool.hold(row));
     hold.set(endpoint);
     connectionHolds.set(connection, hold);
+    connectionMirrors.set(connection, mirror);
+    mirror.start();
     return connection;
 }
 
@@ -249,6 +284,8 @@ function dropClients(connection: Connection): boolean {
     disposed.add(connection);
     connectionHolds.get(connection)?.set(null);
     connectionHolds.delete(connection);
+    connectionMirrors.get(connection)?.dispose();
+    connectionMirrors.delete(connection);
     connection.projects.dispose();
     connection.drawings.dispose();
     connection.diagrams.dispose();
@@ -476,6 +513,11 @@ function followRekey(): void {
     if (hold) {
         connectionHolds.delete(connection);
         connectionHolds.set(renamed, hold);
+    }
+    const mirror = connectionMirrors.get(connection);
+    if (mirror) {
+        connectionMirrors.delete(connection);
+        connectionMirrors.set(renamed, mirror);
     }
     stores.project.setState({ currentEndpointId: activeId });
     useWindow.getState().show({ kind: 'workspace', workspace: { connection: renamed } });

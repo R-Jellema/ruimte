@@ -55,7 +55,7 @@ export function projectNodes(): ProjectNodeRef[] {
     return useDocument.getState().views.flatMap(nodeRefsOfView);
 }
 
-function subscribeViewNodes(listener: () => void): () => void {
+export function subscribeViewNodes(listener: () => void): () => void {
     const offDocument = useDocument.subscribe((state, previous) => {
         if (state.views !== previous.views) {
             listener();

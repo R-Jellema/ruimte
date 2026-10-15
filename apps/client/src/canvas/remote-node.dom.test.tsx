@@ -98,6 +98,7 @@ async function tellFromThere(patch: Partial<ChatInfo>, items: ChatItem[] = []): 
 beforeEach(async () => {
     here = new FakeMachine();
     here.answer('project.save', ({ baseRev }) => ({ rev: baseRev + 1 }) as never);
+    here.answer('remote.list', () => ({ links: [{ machineId: REMOTE, remoteProjectId: 'remote-project', label: 'MacBook Pro', rootCommit: 'abc' }] }));
     there = new FakeMachine();
     there.answer('provider.list', () => ({ providers: [CLAUDE] }));
     there.answer('chat.attach', ({ chatId }) => ({ info: infoOf(chatId), items: [], seq }) as never);
@@ -163,5 +164,18 @@ describe('a node that runs on another machine', () => {
             useSnoozes.getState().byKey
         );
         expect(groups.needsYou).toEqual([REMOTE_CHAT.id]);
+    });
+
+    test('is placed on its machine when the project opens, and the project is closed there when it is closed here', async () => {
+        await until(() => there.requests('peer.placeNodes').length > 0);
+        expect(there.requests('peer.placeNodes')[0]).toMatchObject({
+            projectId: 'remote-project',
+            nodes: [{ id: REMOTE_SHELL.id }, { id: REMOTE_CHAT.id }],
+            edges: []
+        });
+        expect(here.requests('peer.placeNodes')).toEqual([]);
+
+        await act(async () => windowWorkspace()!.connection.projects.closeProject());
+        expect(there.requests('project.close')).toEqual([{ projectId: 'remote-project' }]);
     });
 });

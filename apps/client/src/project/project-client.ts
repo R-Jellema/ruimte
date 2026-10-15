@@ -120,6 +120,8 @@ interface ProjectClientOptions {
     forgetSessions?: (endpointId: string, views: readonly ProjectView[]) => void;
     /* Runs once the project is open on the daemon again after the link came back, so the drawings on screen can follow. */
     afterResume?: () => Promise<void>;
+    /* The copy of this project's remote nodes on the machines they run on, which is let go of with the project. */
+    remote?: { close(): Promise<void>; release(): void };
     /* Left out in tests, where there is no window to listen on. */
     window?: Pick<Window, 'addEventListener' | 'removeEventListener'> | null;
 }
@@ -147,6 +149,7 @@ export class ProjectClient {
     private readonly onLoad: (summary: ProjectSummary) => void;
     private readonly forgetSessions: (endpointId: string, views: readonly ProjectView[]) => void;
     private readonly afterResume: () => Promise<void>;
+    private readonly remote: NonNullable<ProjectClientOptions['remote']>;
     private readonly unsubscribe: Array<() => void> = [];
     private saveTimer: ReturnType<typeof setTimeout> | null = null;
     private localTimer: ReturnType<typeof setTimeout> | null = null;
@@ -187,6 +190,7 @@ export class ProjectClient {
         this.onLoad = options.onLoad ?? ((): void => undefined);
         this.forgetSessions = options.forgetSessions ?? ((): void => undefined);
         this.afterResume = options.afterResume ?? (() => Promise.resolve());
+        this.remote = options.remote ?? { close: () => Promise.resolve(), release: (): void => undefined };
         this.unsubscribe.push(
             transport.on('project.changed', ({ projectId, document }) => this.onChanged(projectId, document)),
             transport.on('project.summary', ({ summary }) => this.applySummary(summary)),
@@ -216,6 +220,7 @@ export class ProjectClient {
                 if (!this.opened) {
                     return;
                 }
+                this.remote.release();
                 const trashed = this.documents.getState().trashed.length > 0;
                 if (trashed) {
                     this.documents.getState().purgeTrash();
@@ -263,6 +268,7 @@ export class ProjectClient {
         await this.flush();
         this.flushLocal();
         this.opened = false;
+        this.remote.release();
         if (current && this.transport.status === 'open' && !this.locallyDrafted) {
             await this.transport.request('project.release', { projectId: current.projectId }).catch(() => undefined);
         }
@@ -282,6 +288,7 @@ export class ProjectClient {
         await this.beforeLeave();
         await this.flush();
         this.flushLocal();
+        await this.remote.close();
         if (current) {
             this.forgetSessions(this.endpointId(), this.documents.getState().exportViews());
             if (this.transport.status === 'open' && !this.locallyDrafted) {
