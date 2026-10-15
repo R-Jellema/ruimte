@@ -56460,6 +56460,10 @@
               "required": [
                 "kind"
               ]
+            },
+            "machine": {
+              "type": "string",
+              "minLength": 1
             }
           },
           "required": [
@@ -71919,6 +71923,10 @@
             "required": [
               "kind"
             ]
+          },
+          "machine": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [

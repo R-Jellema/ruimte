@@ -85,9 +85,9 @@ describe('verbsNote', () => {
         expect(VISUAL_RESUME_NOTE).not.toContain(RUIMTE_UI_FENCE);
     });
 
-    test('the UI and visual notes together stay within their size budget, listing names instead of props', () => {
+    test('the UI and visual notes together stay within their size budget, listing names and required props instead of every prop', () => {
         const added = verbsNote({ depth: 0, visuals: true }).length - verbsNote({ depth: 0 }).length;
-        expect(added).toBeLessThanOrEqual(3967);
+        expect(added).toBeLessThanOrEqual(4400);
         expect(VISUAL_NOTE).not.toContain('Props:');
     });
 
