@@ -367,10 +367,15 @@ export class ProjectStore {
         return this.sinks.subscribe(clientId, sink);
     }
 
-    /* This client put the project on screen, which is what makes it one `showView` reaches. */
-    hold(clientId: string, projectId: string): void {
+    /*
+     * This client put the project on screen, which is what makes it one `showView` reaches. Opening it starts its
+     * autostart launches; a hold that is not a person opening it does not.
+     */
+    hold(clientId: string, projectId: string, options: { startsLaunches?: boolean } = {}): void {
         this.holds.add(clientId, projectId);
-        this.links.launches.opened(projectId);
+        if (options.startsLaunches !== false) {
+            this.links.launches.opened(projectId);
+        }
     }
 
     /*

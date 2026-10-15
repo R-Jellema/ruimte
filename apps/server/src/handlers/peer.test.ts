@@ -15,6 +15,7 @@ let store: ProjectStore;
 let dispatcher: Dispatcher;
 let ended: string[];
 let heard: string[];
+let launched: string[];
 let projectId: string;
 
 beforeEach(async () => {
@@ -23,7 +24,15 @@ beforeEach(async () => {
     await mkdir(folder);
     ended = [];
     heard = [];
-    store = new ProjectStore(join(root, 'home'), projectLinks({ endSession: async (kind, nodeId) => void ended.push(`${kind}:${nodeId}`) }), new FakeWatch());
+    launched = [];
+    store = new ProjectStore(
+        join(root, 'home'),
+        projectLinks({
+            endSession: async (kind, nodeId) => void ended.push(`${kind}:${nodeId}`),
+            launches: { opened: (id) => void launched.push(id), running: () => 0, end: async () => 0 }
+        }),
+        new FakeWatch()
+    );
     store.peers.subscribe('c1', (event) => void heard.push(event.event));
     dispatcher = new Dispatcher();
     registerPeerHandlers(dispatcher, {
@@ -184,7 +193,7 @@ describe('the nodes another machine draws here', () => {
         expect(await store.revision(projectId)).toBe(rev);
     });
 
-    test('ends the session of a node the other machine no longer draws, before the canvas drops it', async () => {
+    test('ends the session of a node the other machine no longer draws, once the canvas dropped it', async () => {
         await linked();
         await place([TERM, CHAT]);
         ended.length = 0;
@@ -192,6 +201,29 @@ describe('the nodes another machine draws here', () => {
         expect(ended).toEqual(['chat:remote-chat']);
         const canvas = (await store.read(projectId)).views.find((view) => view.id === peerCanvasId('machine-a'));
         expect(canvas).toMatchObject({ nodes: [{ id: 'remote-term' }] });
+    });
+
+    test('keeps the sessions of a node it could not drop, when the write is refused', async () => {
+        const own = withPeerCanvas();
+        own.views = own.views.slice(0, 1);
+        await store.save(projectId, await store.revision(projectId), own);
+        await linked();
+        await place([TERM, CHAT]);
+        ended.length = 0;
+        // The id of a node of this machine's own canvas: the whole write is refused, and nothing may have ended before it.
+        expect(await place([{ id: 'own', kind: 'terminal', title: 'taken' }])).toMatchObject({ ok: false, error: { code: 'peer-node-taken' } });
+        expect(ended).toEqual([]);
+        const canvas = (await store.read(projectId)).views.find((view) => view.id === peerCanvasId('machine-a'));
+        expect(canvas).toMatchObject({ nodes: [{ id: 'remote-term' }, { id: 'remote-chat' }] });
+    });
+
+    test('is a hold that starts no launch of this machine, where a person opening the project does', async () => {
+        await linked();
+        await place([TERM]);
+        expect(launched).toEqual([]);
+        expect(store.holdersOf(projectId)).toEqual(['phone']);
+        store.hold('person', projectId);
+        expect(launched).toEqual([projectId]);
     });
 
     test('refuses a line with an end that is not among the nodes', async () => {

@@ -91,7 +91,7 @@ export function registerPeerHandlers(dispatcher: Dispatcher, { links, projects, 
     /*
      * The nodes another machine draws on its canvas for this one, kept on a canvas of their own so this
      * machine's rules reach them like any node: folders, modes, launch approvals and lines. The
-     * window that asks holds the project from then on, as one that opened it.
+     * window that asks holds the project from then on, but starts none of its autostart launches: only a person opening it does.
      */
     dispatcher.register('peer.placeNodes', async (payload, client) => {
         const { machineId, projectId, nodes, edges } = payload;
@@ -116,12 +116,6 @@ export function registerPeerHandlers(dispatcher: Dispatcher, { links, projects, 
         }
         const canvasId = peerCanvasId(machineId);
         const before = (await projects.read(projectId)).views.find((view): view is ProjectCanvasView => view.id === canvasId && isCanvasView(view));
-        // A node the other machine no longer draws ends like a deleted one, before the write that drops it.
-        for (const gone of (before?.nodes ?? []).filter((node) => !ids.has(node.id))) {
-            if (gone.kind === 'terminal' || gone.kind === 'chat') {
-                await endSession(gone.kind, gone.id);
-            }
-        }
         const canvas: ProjectCanvasView = {
             kind: 'canvas',
             id: canvasId,
@@ -132,6 +126,13 @@ export function registerPeerHandlers(dispatcher: Dispatcher, { links, projects, 
             layouts: before?.layouts ?? []
         };
         await projects.mutate(projectId, (current) => {
+            // A node of this machine's own with the same id would fail every flush of the other machine, so it is told apart here.
+            const taken = current.views.find(
+                (view) => view.id !== canvasId && (ids.has(view.id) || (isCanvasView(view) && view.nodes.some((node) => ids.has(node.id))))
+            );
+            if (taken !== undefined) {
+                throw new RequestError('peer-node-taken', 'A node of that machine has the id of a view or node here');
+            }
             const held = current.views.find((view) => view.id === canvasId);
             if (held !== undefined && sameCanvas(held, canvas)) {
                 return { content: null, result: null };
@@ -139,9 +140,16 @@ export function registerPeerHandlers(dispatcher: Dispatcher, { links, projects, 
             const views = held === undefined ? [...current.views, canvas] : current.views.map((view) => (view.id === canvasId ? canvas : view));
             return { content: { ...current, views }, result: null };
         });
+        // A node the other machine no longer draws ends like a deleted one, once the write that drops it landed.
+        for (const gone of (before?.nodes ?? []).filter((node) => !ids.has(node.id))) {
+            if (gone.kind === 'terminal' || gone.kind === 'chat') {
+                await endSession(gone.kind, gone.id);
+            }
+        }
         await links.touch(machineId, projectId);
         if (!client.closed) {
-            projects.hold(client.id, projectId);
+            // Holding keeps the project loaded for these nodes; only a person opening it starts its autostart launches.
+            projects.hold(client.id, projectId, { startsLaunches: false });
         }
         return {};
     });
