@@ -128,6 +128,19 @@ final class WorkspaceViewSectionsTests: XCTestCase {
         XCTAssertEqual(moved[1], empty)
     }
 
+    func testAHiddenViewIsNeverListedAndKeepsItsSlot() throws {
+        let canvas = JSONValue.object(["id": .string("peer"), "kind": .string("canvas"), "name": .string("MacBook Pro"), "hidden": .bool(true)])
+        let inline = view("inline").setting("hidden", .bool(true))
+        let views = [view("a"), canvas, view("b"), inline]
+        let listed = { WorkspaceViewSections.isListed($0, selectedID: "peer") }
+        XCTAssertEqual(views.filter(listed).map(\.stableID), ["a", "b"])
+        XCTAssertFalse(WorkspaceViewSections.isListed(inline, selectedID: "inline"))
+        let moved = try XCTUnwrap(
+            WorkspaceViewSections.moving(
+                views, sectionID: .leading, expectedIDs: ["a", "b"], from: [1], to: 0, listed: listed))
+        XCTAssertEqual(moved.map(\.stableID), ["b", "peer", "a", "inline"])
+    }
+
     private func view(_ id: String, _ name: String? = nil) -> JSONValue {
         .object(["id": .string(id), "kind": .string("chat"), "name": .string(name ?? id)])
     }
