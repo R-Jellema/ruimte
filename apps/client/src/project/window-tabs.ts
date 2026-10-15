@@ -14,17 +14,44 @@ export interface WindowTabs {
     keys: string[];
     /* Null on the start screen and in the Chats project, which has no tab. */
     active: string | null;
+    /* The tabs pinned in this window, which lead the strip in this order. Absent when none is. */
+    pinned?: string[];
 }
 
 export const NO_TABS: WindowTabs = { keys: [], active: null };
 
-/* A project the window already had is picked; a new one goes right after the tab that was in front. */
+export function pinnedOf(tabs: WindowTabs): readonly string[] {
+    return tabs.pinned ?? [];
+}
+
+/* The pins that still have a tab, and those tabs in front of the rest. */
+function settled(tabs: WindowTabs): WindowTabs {
+    const { pinned: was, ...rest } = tabs;
+    const pinned = (was ?? []).filter((key) => tabs.keys.includes(key));
+    if (pinned.length === 0) {
+        return rest;
+    }
+    return { ...rest, keys: [...pinned, ...tabs.keys.filter((key) => !pinned.includes(key))], pinned };
+}
+
+/* A project the window already had is picked; a new one goes right after the tab that was in front, never before a pinned one. */
 export function showTab(tabs: WindowTabs, key: string): WindowTabs {
     if (tabs.keys.includes(key)) {
         return tabs.active === key ? tabs : { ...tabs, active: key };
     }
-    const after = tabs.active === null ? tabs.keys.length : tabs.keys.indexOf(tabs.active) + 1;
-    return { keys: [...tabs.keys.slice(0, after), key, ...tabs.keys.slice(after)], active: key };
+    const after = Math.max(pinnedOf(tabs).length, tabs.active === null ? tabs.keys.length : tabs.keys.indexOf(tabs.active) + 1);
+    return { ...tabs, keys: [...tabs.keys.slice(0, after), key, ...tabs.keys.slice(after)], active: key };
+}
+
+/* A pinned tab goes to the end of the pinned ones, and one that is let go of to the start of the rest. */
+export function pinTab(tabs: WindowTabs, key: string, pin: boolean): WindowTabs {
+    const was = pinnedOf(tabs);
+    if (!tabs.keys.includes(key) || was.includes(key) === pin) {
+        return tabs;
+    }
+    const pinned = pin ? [...was, key] : was.filter((one) => one !== key);
+    const rest = tabs.keys.filter((one) => !pinned.includes(one) && one !== key);
+    return settled({ ...tabs, keys: pin ? [...pinned, ...rest] : [...pinned, key, ...rest], pinned });
 }
 
 /* What the window shows has no tab; the tabs stay, since leaving one is not closing it. */
@@ -36,7 +63,7 @@ export function withoutTab(tabs: WindowTabs, key: string): WindowTabs {
     if (!tabs.keys.includes(key)) {
         return tabs;
     }
-    return { keys: tabs.keys.filter((one) => one !== key), active: tabs.active === key ? null : tabs.active };
+    return settled({ ...tabs, keys: tabs.keys.filter((one) => one !== key), active: tabs.active === key ? null : tabs.active });
 }
 
 /* Takes out the tabs of the projects this client closed, in this window or another. */
@@ -44,10 +71,11 @@ export function withoutClosed(tabs: WindowTabs, closed: ReadonlySet<string>): Wi
     if (!tabs.keys.some((key) => closed.has(key))) {
         return tabs;
     }
-    return {
+    return settled({
+        ...tabs,
         keys: tabs.keys.filter((key) => !closed.has(key)),
         active: tabs.active !== null && closed.has(tabs.active) ? null : tabs.active
-    };
+    });
 }
 
 /* The tab that comes to the front when `key` closes: the one to its right, or else the one to its left. */
@@ -59,22 +87,24 @@ export function neighborOf(tabs: WindowTabs, key: string): string | null {
     return tabs.keys[index + 1] ?? tabs.keys[index - 1] ?? null;
 }
 
-/* The tabs with `key` moved to `index` among them. */
+/* The tabs with `key` moved to `index` among them, on its own side of the pinned ones. */
 export function moveTab(tabs: WindowTabs, key: string, index: number): WindowTabs {
     const from = tabs.keys.indexOf(key);
-    const to = Math.max(0, Math.min(index, tabs.keys.length - 1));
+    const pins = pinnedOf(tabs);
+    const pinned = pins.includes(key);
+    const to = Math.max(pinned ? 0 : pins.length, Math.min(index, pinned ? pins.length - 1 : tabs.keys.length - 1));
     if (from === -1 || from === to) {
         return tabs;
     }
     const keys = tabs.keys.filter((one) => one !== key);
     keys.splice(to, 0, key);
-    return { ...tabs, keys };
+    return { ...tabs, keys, ...(pinned ? { pinned: keys.slice(0, pins.length) } : {}) };
 }
 
 /* The tabs that are left of the ones a window asked to keep, in their order. */
 export function keptTabs(tabs: WindowTabs, kept: readonly string[]): WindowTabs {
     const refused = tabs.keys.filter((key) => !kept.includes(key) && key !== tabs.active);
-    return refused.length === 0 ? tabs : { ...tabs, keys: tabs.keys.filter((key) => !refused.includes(key)) };
+    return refused.length === 0 ? tabs : settled({ ...tabs, keys: tabs.keys.filter((key) => !refused.includes(key)) });
 }
 
 /* The tab `step` places from the one in front, round the ends; the first or the last when none is. */
@@ -99,17 +129,43 @@ export interface TabsPlace {
     write(state: string | null): void;
 }
 
-/* `keep` leaves out the keys it refuses, such as the projects of a machine this app no longer runs. */
-export function parseTabsState(state: string | null, keep: (key: string) => boolean = () => true): string[] {
+function keysIn(value: unknown, keep: (key: string) => boolean): string[] {
+    return Array.isArray(value) ? [...new Set(value.filter((key): key is string => typeof key === 'string' && key !== '' && keep(key)))] : [];
+}
+
+/*
+ * The tabs a window kept, and the ones pinned among them: `{ tabs, pinned }`, or the bare list of keys
+ * a window without pins writes and a release before pins wrote. `keep` leaves out the keys it refuses,
+ * such as the projects of a machine this app no longer runs.
+ */
+export function parseWindowState(state: string | null, keep: (key: string) => boolean = () => true): { keys: string[]; pinned: string[] } {
     if (state === null) {
-        return [];
+        return { keys: [], pinned: [] };
     }
     try {
-        const keys = JSON.parse(state) as unknown;
-        return Array.isArray(keys) ? [...new Set(keys.filter((key): key is string => typeof key === 'string' && key !== '' && keep(key)))] : [];
+        const value = JSON.parse(state) as unknown;
+        if (Array.isArray(value)) {
+            return { keys: keysIn(value, keep), pinned: [] };
+        }
+        const { tabs, pinned } = (value ?? {}) as { tabs?: unknown; pinned?: unknown };
+        const keys = keysIn(tabs, keep);
+        return { keys, pinned: keysIn(pinned, keep).filter((key) => keys.includes(key)) };
     } catch {
-        return [];
+        return { keys: [], pinned: [] };
     }
+}
+
+export function parseTabsState(state: string | null, keep: (key: string) => boolean = () => true): string[] {
+    return parseWindowState(state, keep).keys;
+}
+
+/* What `parseWindowState` reads back; null for a window without tabs. */
+export function windowStateOf(tabs: WindowTabs): string | null {
+    if (tabs.keys.length === 0) {
+        return null;
+    }
+    const pinned = pinnedOf(tabs);
+    return JSON.stringify(pinned.length === 0 ? tabs.keys : { tabs: tabs.keys, pinned });
 }
 
 function windowPlace(): TabsPlace | null {
@@ -225,12 +281,17 @@ function commit(tabs: WindowTabs, tell = true): void {
         return;
     }
     useWindowTabs.setState({ tabs });
-    if (tabs.keys !== previous.keys) {
-        place?.write(tabs.keys.length === 0 ? null : JSON.stringify(tabs.keys));
-        if (tell) {
-            hold(tabs.keys);
-        }
+    if (tabs.keys !== previous.keys || tabs.pinned !== previous.pinned) {
+        place?.write(windowStateOf(tabs));
     }
+    if (tabs.keys !== previous.keys && tell) {
+        hold(tabs.keys);
+    }
+}
+
+/* Pins a tab of this window, or lets it go. */
+export function pinWindowTab(key: string, pin: boolean): void {
+    commit(pinTab(useWindowTabs.getState().tabs, key, pin));
 }
 
 /* Takes a tab out of this window, without closing its project or showing another one. */
@@ -318,9 +379,10 @@ function take(key: string, x: number | null, open: (key: string) => void): void 
     leaving.delete(key);
     const { tabs } = useWindowTabs.getState();
     taken = { key, before: tabs.active === key ? null : tabs.active };
-    const index = x === null || stripIndexAt === null ? tabs.keys.length : stripIndexAt(key, x);
     const others = tabs.keys.filter((one) => one !== key);
-    commit({ ...tabs, keys: [...others.slice(0, index), key, ...others.slice(index)] });
+    // A tab that comes in is not pinned here, so it lands after the pinned ones.
+    const index = Math.max(pinnedOf(tabs).length, x === null || stripIndexAt === null ? tabs.keys.length : stripIndexAt(key, x));
+    commit(settled({ ...tabs, keys: [...others.slice(0, index), key, ...others.slice(index)], pinned: pinnedOf(tabs).filter((one) => one !== key) }));
     open(key);
 }
 
@@ -358,9 +420,10 @@ export function startWindowTabs(deps: WindowTabsDeps = REAL_DEPS): () => void {
         place = deps.place;
         shell = deps.shell();
         // A reload or a restart hands the page the tabs its window had.
-        const keys = parseTabsState(place?.read() ?? null, (key) => isRealMachine(splitKey(key).endpointId));
-        useWindowTabs.setState({ tabs: { keys, active: null } });
-        hold(keys);
+        const { keys, pinned } = parseWindowState(place?.read() ?? null, (key) => isRealMachine(splitKey(key).endpointId));
+        const restored = settled({ keys, active: null, pinned });
+        useWindowTabs.setState({ tabs: restored });
+        hold(restored.keys);
         offs = [
             useProject.subscribe(follow),
             useWindow.subscribe(follow),

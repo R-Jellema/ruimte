@@ -6,7 +6,7 @@ import { startWindowTabs } from '@/project/window-tabs';
 import { useSettings } from '@/state/settings';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
-import { mount, until, type Mounted } from '../../testing/dom';
+import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const SHOWN = 'fake-machine:project-atlas';
 const BEHIND = 'fake-machine:project-borealis';
@@ -121,5 +121,43 @@ describe('tearing a project tab out of its window', () => {
         expect(tab(SHOWN)!.getAttribute('aria-selected')).toBe('true');
         expect(page.host.textContent).toContain('Atlas');
         expect(machine.requests('project.open')).toHaveLength(1);
+    });
+});
+
+function tabOrder(): string[] {
+    return [...page.host.querySelectorAll<HTMLElement>('[data-tab-key]')].map((element) => element.dataset.tabKey ?? '');
+}
+
+function menuItem(text: string): HTMLElement | null {
+    return ([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.trim().startsWith(text)) ?? null;
+}
+
+async function openTabMenu(key: string): Promise<void> {
+    await act(async () => {
+        tab(key)!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10, button: 2 }));
+    });
+    await until(() => document.querySelector('[role="menu"]') !== null);
+}
+
+describe('pinning a project tab', () => {
+    test('a pinned tab moves to the front, loses its close button and its name, and is kept in the address of the window', async () => {
+        expect(tabOrder()).toEqual([BEHIND, SHOWN]);
+        await openTabMenu(SHOWN);
+        await clickOn(menuItem('Pin tab'));
+        await until(() => tab(SHOWN)?.hasAttribute('data-pinned') === true);
+        expect(tabOrder()).toEqual([SHOWN, BEHIND]);
+        expect(tab(SHOWN)!.querySelector('button')).toBeNull();
+        expect(tab(SHOWN)!.textContent).not.toContain('Atlas');
+        expect(new URLSearchParams(location.search).get('state')).toBe(JSON.stringify({ tabs: [SHOWN, BEHIND], pinned: [SHOWN] }));
+    });
+
+    test('Unpin tab gives a tab its name and its close button back', async () => {
+        await openTabMenu(SHOWN);
+        await clickOn(menuItem('Pin tab'));
+        await until(() => tab(SHOWN)?.hasAttribute('data-pinned') === true);
+        await openTabMenu(SHOWN);
+        await clickOn(menuItem('Unpin tab'));
+        await until(() => tab(SHOWN)?.hasAttribute('data-pinned') === false);
+        expect(tab(SHOWN)!.textContent).toContain('Atlas');
     });
 });
