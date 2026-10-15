@@ -1,20 +1,9 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import type { Database } from 'bun:sqlite';
-import { generateKeyPairSync, sign, type KeyObject } from 'node:crypto';
-import {
-    MAPS_TICKET_LIFETIME_MS,
-    MAPS_TICKET_MACHINE_MAX_SKEW_MS,
-    MapsTicketSchema,
-    machineRegistrationMessage,
-    mapsTicketMessage,
-    mapsTicketSubject,
-    verifyMapsTicket,
-    type MapsTicket,
-    type RegisterMachinePayload
-} from '@ruimte/pulsar';
+import { generateKeyPairSync, type KeyObject } from 'node:crypto';
+import { MAPS_TICKET_LIFETIME_MS, MapsTicketSchema, mapsTicketSubject, verifyMapsTicket, type MapsTicket } from '@ruimte/pulsar';
 import type { Env } from './env.ts';
 import { issueMapsTicket } from './maps-ticket.ts';
-import { deleteMachine, registerMachine } from './machines.ts';
 import { LIMITS } from './rate-limit.ts';
 import { windowStartOf } from './rate-window.ts';
 import { createSession } from './sessions.ts';
@@ -28,10 +17,6 @@ interface Pair {
 function newPair(): Pair {
     const keys = generateKeyPairSync('ed25519');
     return { publicKey: keys.publicKey.export({ format: 'jwk' }).x!, privateKey: keys.privateKey };
-}
-
-function signWith(pair: Pair, message: string): string {
-    return sign(null, Buffer.from(message), pair.privateKey).toString('base64url');
 }
 
 // 32 bytes in base64url, as `openssl rand -base64 32` spells them once made url safe.
@@ -53,23 +38,6 @@ function post(body: unknown, token?: string, ip = '192.0.2.1'): Request {
         headers: { 'cf-connecting-ip': ip, ...(token === undefined ? {} : { authorization: `Bearer ${token}` }) },
         body: JSON.stringify(body)
     });
-}
-
-async function listMachine(token: string, machine: Pair, machineId: string, accountId: string): Promise<void> {
-    const issuedAt = Date.now();
-    const payload: RegisterMachinePayload = {
-        id: machineId,
-        name: 'Studio',
-        icon: null,
-        publicKey: machine.publicKey,
-        issuedAt,
-        signature: signWith(machine, machineRegistrationMessage(accountId, machineId, machine.publicKey, 'Studio', issuedAt))
-    };
-    expect((await registerMachine(post(payload, token), env)).status).toBe(200);
-}
-
-function machineRequest(machine: Pair, machineId: string, issuedAt = Date.now()): unknown {
-    return { machineId, issuedAt, signature: signWith(machine, mapsTicketMessage(machineId, issuedAt)) };
 }
 
 async function errorCode(response: Response): Promise<string> {
@@ -99,14 +67,11 @@ describe('a ticket for a signed-in client', () => {
         expect(await verifyMapsTicket(SECRET, issued.ticket, issued.expiresAt)).toBeNull();
     });
 
-    test('is refused for a token the address book does not know, and the machine route is not a way around it', async () => {
+    test('is refused for a token the address book does not know, and for a request without one', async () => {
         const response = await issueMapsTicket(post({}, 'A'.repeat(43)), env);
         expect(response.status).toBe(401);
         expect(await errorCode(response)).toBe('unauthorized');
-        const machine = newPair();
-        const token = await signIn('owner');
-        await listMachine(token, machine, 'studio', 'owner');
-        expect(await errorCode(await issueMapsTicket(post(machineRequest(machine, 'studio'), 'A'.repeat(43)), env))).toBe('unauthorized');
+        expect(await errorCode(await issueMapsTicket(post({}), env))).toBe('unauthorized');
     });
 
     test('two clients of one account get a ticket for the same subject', async () => {
@@ -115,76 +80,6 @@ describe('a ticket for a signed-in client', () => {
         const one = MapsTicketSchema.parse(await (await issueMapsTicket(post({}, first), env)).json());
         const two = MapsTicketSchema.parse(await (await issueMapsTicket(post({}, second.accessToken), env)).json());
         expect(one.ticket.split('.')[0]).toBe(two.ticket.split('.')[0]);
-    });
-});
-
-describe('a ticket for a machine', () => {
-    test('is issued to the key the account lists, for that account and no other', async () => {
-        const token = await signIn('owner');
-        await signIn('other');
-        const machine = newPair();
-        await listMachine(token, machine, 'studio', 'owner');
-        const response = await issueMapsTicket(post(machineRequest(machine, 'studio')), env);
-        expect(response.status).toBe(200);
-        const issued = MapsTicketSchema.parse(await response.json());
-        expect((await verifyMapsTicket(SECRET, issued.ticket, Date.now()))?.subject).toBe(await mapsTicketSubject(SECRET, 'owner'));
-    });
-
-    test('a namesake on another account cannot ask for the ticket of the first', async () => {
-        const owner = await signIn('owner');
-        const attacker = await signIn('attacker');
-        const machine = newPair();
-        const squatter = newPair();
-        await listMachine(owner, machine, 'studio', 'owner');
-        await listMachine(attacker, squatter, 'studio', 'attacker');
-        const mine = MapsTicketSchema.parse(await (await issueMapsTicket(post(machineRequest(machine, 'studio')), env)).json());
-        const theirs = MapsTicketSchema.parse(await (await issueMapsTicket(post(machineRequest(squatter, 'studio')), env)).json());
-        expect((await verifyMapsTicket(SECRET, mine.ticket, Date.now()))?.subject).toBe(await mapsTicketSubject(SECRET, 'owner'));
-        expect((await verifyMapsTicket(SECRET, theirs.ticket, Date.now()))?.subject).toBe(await mapsTicketSubject(SECRET, 'attacker'));
-    });
-
-    test('a signature by another key, for another machine or for another purpose is refused', async () => {
-        const token = await signIn('owner');
-        const machine = newPair();
-        await listMachine(token, machine, 'studio', 'owner');
-        await listMachine(token, newPair(), 'laptop', 'owner');
-        const outsider = newPair();
-        for (const body of [
-            machineRequest(outsider, 'studio'),
-            { ...(machineRequest(machine, 'studio') as object), machineId: 'laptop' },
-            { machineId: 'studio', issuedAt: Date.now(), signature: signWith(machine, 'pulsar-session-refresh-v1\n[]') },
-            machineRequest(machine, 'unknown')
-        ]) {
-            const response = await issueMapsTicket(post(body), env);
-            expect(response.status).toBe(404);
-            expect(await errorCode(response)).toBe('not-found');
-        }
-    });
-
-    test('a request signed too long ago, or in the future, is refused as clock skew', async () => {
-        const token = await signIn('owner');
-        const machine = newPair();
-        await listMachine(token, machine, 'studio', 'owner');
-        for (const issuedAt of [Date.now() - MAPS_TICKET_MACHINE_MAX_SKEW_MS - 5_000, Date.now() + MAPS_TICKET_MACHINE_MAX_SKEW_MS + 5_000]) {
-            expect(await errorCode(await issueMapsTicket(post(machineRequest(machine, 'studio', issuedAt)), env))).toBe('clock-skew');
-        }
-    });
-
-    test('a machine taken off its account gets no ticket', async () => {
-        const token = await signIn('owner');
-        const machine = newPair();
-        await listMachine(token, machine, 'studio', 'owner');
-        expect((await issueMapsTicket(post(machineRequest(machine, 'studio')), env)).status).toBe(200);
-        expect(
-            (await deleteMachine(new Request('https://pulsar.test', { method: 'DELETE', headers: { authorization: `Bearer ${token}` } }), env, 'studio')).status
-        ).toBe(204);
-        const response = await issueMapsTicket(post(machineRequest(machine, 'studio')), env);
-        expect(response.status).toBe(404);
-        expect(await errorCode(response)).toBe('not-found');
-    });
-
-    test('a body that is no request is a bad request', async () => {
-        expect(await errorCode(await issueMapsTicket(post({ machineId: 'studio' }), env))).toBe('bad-request');
     });
 });
 

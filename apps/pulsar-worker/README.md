@@ -36,7 +36,7 @@ in `packages/pulsar/src/statement-key.ts`. The wire shapes live in `packages/pul
 | `DELETE /v1/machines/<id>` | Take a machine off the list and remember that it was removed |
 | `POST /v1/statements` | A signed statement for one machine and one client key, two minutes |
 | `POST /v1/peer-statements` | A signed statement that one machine of the account may work in another under a peer key, ten minutes |
-| `POST /v1/maps/ticket` | A map ticket for the account, one hour, for a bearer session or a machine signature; `not-configured` without `MAP_TICKET_SECRET` |
+| `POST /v1/maps/ticket` | A map ticket for the account, one hour, for a bearer session; `not-configured` without `MAP_TICKET_SECRET` |
 | `POST /v1/device/start`, `poll`, `complete`, `cancel` | The machine's side of a device link (`ruimte login`) |
 | `POST /v1/device/lookup`, `approve`, `deny` | The person's side, from the link page (`DEVICE_LINK_PAGE_URL`) |
 | `POST /v1/push/devices` | Register a device's APNs token for this session |
@@ -192,9 +192,7 @@ kept in `~/.private/ruimte.secrets.env` as `PULSAR_STATEMENT_PRIVATE_KEY`.
 
 ## Map tickets
 
-`POST /v1/maps/ticket` answers `{ ticket, expiresAt }` (`MapsTicketSchema` in `packages/pulsar`), good for one hour. A signed-in client sends its bearer token. A machine sends no token and
-signs `mapsTicketMessage(machineId, issuedAt)` with the key the account lists it under, `issuedAt` within two minutes of the Worker's clock (`MachineMapsTicketPayloadSchema`); a machine taken off
-its account is refused with `not-found`. The ticket is `<subject>.<expiresAt>.<mac>`: the subject is an HMAC of the account id under a key derived from `MAP_TICKET_SECRET` for that purpose alone, so the maps service tells tickets apart without learning whose they are, and
+`POST /v1/maps/ticket` answers `{ ticket, expiresAt }` (`MapsTicketSchema` in `packages/pulsar`), good for one hour. A signed-in client sends its bearer token; a machine asks for none, since only a client draws the map. The ticket is `<subject>.<expiresAt>.<mac>`: the subject is an HMAC of the account id under a key derived from `MAP_TICKET_SECRET` for that purpose alone, so the maps service tells tickets apart without learning whose they are, and
 the mac is HMAC-SHA256 over `mapsTicketBytes` with the secret's bytes. The maps service checks it with `verifyMapsTicket` and the same secret, and never calls this database. Without the secret the route answers
 `503` with `not-configured`. An account may ask ten times a minute and an address thirty.
 

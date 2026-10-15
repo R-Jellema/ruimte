@@ -1,41 +1,12 @@
-import {
-    MAPS_TICKET_LIFETIME_MS,
-    MAPS_TICKET_MACHINE_MAX_SKEW_MS,
-    MachineMapsTicketPayloadSchema,
-    mapsSecretBytes,
-    mapsTicketMessage,
-    mapsTicketSubject,
-    signMapsTicket
-} from '@ruimte/pulsar';
-import { verifySignature } from '@ruimte/pulsar/verify-web';
+import { MAPS_TICKET_LIFETIME_MS, mapsSecretBytes, mapsTicketSubject, signMapsTicket } from '@ruimte/pulsar';
 import type { Env } from './env.ts';
-import { clientIp, failure, json, readBody } from './http.ts';
+import { clientIp, failure, json } from './http.ts';
 import { LIMITS, overAnyLimit } from './rate-limit.ts';
 import { authenticate } from './sessions.ts';
 
 /*
- * The account of the machine that signed this request: the one listing the machine id under the key
- * that verifies. An id is no secret and another account may list it under a key of its own, so the
- * signature decides, not the id.
- */
-async function accountOfMachine(db: D1Database, machineId: string, issuedAt: number, signature: string): Promise<string | null> {
-    const { results } = await db
-        .prepare('SELECT account_id, public_key FROM machine WHERE id = ?1')
-        .bind(machineId)
-        .all<{ account_id: string; public_key: string }>();
-    const message = mapsTicketMessage(machineId, issuedAt);
-    for (const row of results) {
-        if (await verifySignature(row.public_key, message, signature)) {
-            return row.account_id;
-        }
-    }
-    return null;
-}
-
-/*
- * `POST /v1/maps/ticket`. A signed-in client sends its bearer token; a machine with no token signs the
- * request with its own key. Either gets a ticket for its account that the maps service checks with the
- * shared secret alone, so a tile request never reaches this database.
+ * `POST /v1/maps/ticket`. A signed-in client sends its bearer token and gets a ticket for its account that
+ * the maps service checks with the shared secret alone, so a tile request never reaches this database.
  */
 export async function issueMapsTicket(request: Request, env: Env): Promise<Response> {
     const ip = clientIp(request);
@@ -50,29 +21,11 @@ export async function issueMapsTicket(request: Request, env: Env): Promise<Respo
     if (mapsSecretBytes(secret) === null) {
         return failure('not-configured', 'The map ticket secret is not 32 bytes of base64url');
     }
-    let accountId: string;
-    if (request.headers.has('authorization')) {
-        const session = await authenticate(request, env.DB);
-        if (!session) {
-            return failure('unauthorized', 'Sign in again');
-        }
-        accountId = session.account.id;
-    } else {
-        const body = await readBody(request, MachineMapsTicketPayloadSchema);
-        if ('response' in body) {
-            return body.response;
-        }
-        const { machineId, issuedAt, signature } = body.value;
-        if (Math.abs(Date.now() - issuedAt) > MAPS_TICKET_MACHINE_MAX_SKEW_MS) {
-            return failure('clock-skew', 'The request was signed too long ago, or the machine clock is off');
-        }
-        // A machine taken off its account has no row left, so it answers the same as one that never joined.
-        const owner = await accountOfMachine(env.DB, machineId, issuedAt, signature);
-        if (owner === null) {
-            return failure('not-found', 'No account lists this machine under the key that signed the request');
-        }
-        accountId = owner;
+    const session = await authenticate(request, env.DB);
+    if (!session) {
+        return failure('unauthorized', 'Sign in again');
     }
+    const accountId = session.account.id;
     const perAccount = await overAnyLimit(env.DB, [[`account:${accountId}:maps`, LIMITS.mapsTicketAccount]]);
     if (perAccount) {
         return perAccount;

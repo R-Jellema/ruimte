@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
     MAPS_TICKET_LIFETIME_MS,
-    MachineMapsTicketPayloadSchema,
     MapsTicketSchema,
     mapsSecretBytes,
     signMapsPath,
@@ -87,12 +86,5 @@ describe('maps tickets', () => {
         expect(await signMapsPath(secret, 'a')).not.toBe(await signMapsPath(secret, 'b'));
         const ticket = await signMapsTicket(secret, await mapsTicketSubject(secret, 'account-1'), now + 60_000);
         expect(await verifyMapsPath(secret, ticket.ticket.split('.')[0]!, ticket.ticket.split('.')[2]!)).toBe(false);
-    });
-
-    test('a machine request names a machine, a time and a signature', () => {
-        const payload = { machineId: 'machine-1', issuedAt: 1, signature: 's'.repeat(86) };
-        expect(MachineMapsTicketPayloadSchema.safeParse(payload).success).toBe(true);
-        expect(MachineMapsTicketPayloadSchema.safeParse({ ...payload, signature: 's' }).success).toBe(false);
-        expect(MachineMapsTicketPayloadSchema.safeParse({ machineId: '', issuedAt: 1, signature: payload.signature }).success).toBe(false);
     });
 });

@@ -1,13 +1,9 @@
 import { z } from 'zod';
 import { fromBase64Url, toBase64Url } from './base64url.ts';
-import { MachineIdSchema, SignatureSchema } from './keys.ts';
 import { mapsTicketBytes } from './signing.ts';
 
 // How long a ticket admits requests to the maps service; a client asks for a new one a little before.
 export const MAPS_TICKET_LIFETIME_MS = 3_600_000;
-
-// How far a machine's request may lie from the address book's clock, either way.
-export const MAPS_TICKET_MACHINE_MAX_SKEW_MS = 120_000;
 
 // The secret is 32 random bytes in base64url; anything shorter would make every ticket cheaper to forge.
 export const MAPS_SECRET_MIN_BYTES = 32;
@@ -27,14 +23,6 @@ export const MapsTicketSchema = z.object({
     issuedAt: z.number().int().min(0).optional()
 });
 export type MapsTicket = z.infer<typeof MapsTicketSchema>;
-
-// A machine asks without an account token; the signature is by the key the account lists it with.
-export const MachineMapsTicketPayloadSchema = z.object({
-    machineId: MachineIdSchema,
-    issuedAt: z.number().int().min(0),
-    signature: SignatureSchema
-});
-export type MachineMapsTicketPayload = z.infer<typeof MachineMapsTicketPayloadSchema>;
 
 /* The key bytes of a secret, or null when it is not base64url or holds fewer than `MAPS_SECRET_MIN_BYTES` bytes. */
 export function mapsSecretBytes(secret: string): Uint8Array<ArrayBuffer> | null {
