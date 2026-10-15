@@ -579,6 +579,65 @@ describe('auth handlers', () => {
         });
     });
 
+    describe('for a peer', () => {
+        const PEER = { reachability: 'lan', sessionId: 'peer-session', peer: { machineId: 'machine-a' } } as const;
+
+        async function admitPeer(): Promise<{ sessionId: string; publicKey: string }> {
+            const key = generateKeyPair();
+            const admitted = await store.admitStatement({
+                publicKey: key.publicKey,
+                label: 'Studio',
+                nonce: 'p'.repeat(22),
+                keepNonceUntil: Date.now() + 60_000,
+                accountId: 'owner',
+                peer: { machineId: 'machine-a', machinePublicKey: generateKeyPair().publicKey }
+            });
+            return { sessionId: sessionOf(admitted), publicKey: key.publicKey };
+        }
+
+        test('endpoint.info names only the requests a peer may ask, and a person still sees them all', async () => {
+            const asPeer = await ask(PEER, 'endpoint.info');
+            expect(asPeer).toMatchObject({ ok: true, result: { id: identity.id } });
+            expect('ok' in asPeer && asPeer.ok && (asPeer.result as { features: string[] }).features).toEqual(['endpoint.info']);
+            const asPerson = await ask({ reachability: 'lan', sessionId: 's1' }, 'endpoint.info');
+            expect('ok' in asPerson && asPerson.ok && (asPerson.result as { features: string[] }).features).toContain('auth.revoke');
+        });
+
+        test('asks nothing else of this machine: not its sessions, not a revoke, not a signature, not a registration', async () => {
+            for (const type of [
+                'auth.sessions',
+                'auth.revoke',
+                'endpoint.signPeerAccess',
+                'endpoint.signRegistration',
+                'endpoint.leaveAccount',
+                'endpoint.installUpdate'
+            ]) {
+                expect(await ask(PEER, type, {})).toMatchObject({ ok: false, error: { code: 'forbidden' } });
+            }
+        });
+
+        test('is listed as a machine beside the clients, and revoking it closes its channel and refuses its key for good', async () => {
+            const peer = await admitPeer();
+            expect(await ask(LOCAL, 'auth.sessions')).toMatchObject({
+                ok: true,
+                result: { sessions: [{ id: peer.sessionId, label: 'Studio', origin: 'statement', machineId: 'machine-a' }] }
+            });
+            expect(await ask(LOCAL, 'auth.revoke', { id: peer.sessionId })).toMatchObject({ ok: true });
+            expect(disconnected).toContain(peer.sessionId);
+            expect(await store.sessionForPublicKey(peer.publicKey)).toBeNull();
+            expect(
+                await store.admitStatement({
+                    publicKey: peer.publicKey,
+                    label: 'Studio',
+                    nonce: 'q'.repeat(22),
+                    keepNonceUntil: Date.now() + 60_000,
+                    accountId: 'owner',
+                    peer: { machineId: 'machine-a', machinePublicKey: generateKeyPair().publicKey }
+                })
+            ).toEqual({ refused: 'revoked' });
+        });
+    });
+
     test('only the app on this machine is told which account the machine is on', async () => {
         await ask(LOCAL, 'endpoint.signRegistration', { accountId: 'account-1' });
         const paired = await ask({ reachability: 'lan', sessionId: 's1' }, 'endpoint.info');

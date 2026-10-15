@@ -1122,7 +1122,8 @@
             "session": "{{origin}} {{date}}, last seen {{ago}}",
             "origin": {
                 "statement": "Signed in through an account",
-                "link": "Paired with a link"
+                "link": "Paired with a link",
+                "machine": "Another machine on your account"
             },
             "silent": {
                 "label": "Not answering",
@@ -1133,6 +1134,7 @@
                 "current": "This is the client you are using. It loses access to this machine and forgets it here.",
                 "statement": "It loses access the next time it connects, and signing in through an account will not let it back in.",
                 "link": "It loses access the next time it connects.",
+                "machine": "It stops working here at once, and linking it again will not let it back in.",
                 "action": "Revoke"
             }
         },

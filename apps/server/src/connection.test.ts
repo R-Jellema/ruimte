@@ -118,6 +118,16 @@ describe('connectionOpener', () => {
         expect(order.slice(0, NAMES.length)).toEqual(NAMES.map((name) => `subscribe:${name}`));
     });
 
+    test('subscribes a peer to nothing, so another machine hears no event of what happens here', () => {
+        const { open, sources, order } = setup();
+        const channel = new FakeChannel();
+        const connection = open(channel, { reachability: 'lan', sessionId: 'peer-1', peer: { machineId: 'machine-a' } });
+
+        expect(order).toEqual([]);
+        sources.processes.emit(connection.client.id, { event: 'processes.alerts', payload: { alerts: [] } } as unknown as SessionEvent);
+        expect(channel.frames).toEqual([]);
+    });
+
     test('answers a request on the channel it came in on', async () => {
         const { open } = setup();
         const channel = new FakeChannel();

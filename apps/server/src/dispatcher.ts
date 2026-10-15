@@ -17,6 +17,8 @@ export interface ClientAccess {
     reachability: 'loopback' | 'lan' | 'tunnel' | 'public';
     // The session behind the socket; null for a client that presented the local secret.
     sessionId: string | null;
+    /* Set when the client is another machine of the account that works here, not a person. It asks for the requests on the peer list and nothing else. */
+    peer?: { machineId: string };
 }
 
 export interface ClientConnection {
@@ -54,6 +56,12 @@ export class RequestError extends CodedError {}
 export interface HandlerOptions {
     /* Only a client that presented the local secret may ask; any other is refused as `forbidden` before the handler runs. */
     owner?: boolean;
+    /*
+     * Puts the request on the list a peer (another machine) may ask. Every other request is refused to a
+     * peer as `forbidden`, so a request registered later stays closed to it until someone adds it here.
+     * An owner-only request can never carry it.
+     */
+    peer?: boolean;
 }
 
 function errorReply(id: string | null, code: string, message: string): ReplyError {
@@ -67,14 +75,21 @@ function errorReply(id: string | null, code: string, message: string): ReplyErro
 export class Dispatcher {
     private readonly handlers = new Map<RequestType, Handler<RequestType>>();
     private readonly ownerOnly = new Set<RequestType>();
+    private readonly peerAllowed = new Set<RequestType>();
 
     register<T extends RequestType>(type: T, handler: Handler<T>, options: HandlerOptions = {}): void {
         if (this.handlers.has(type)) {
             throw new Error(`Handler for ${type} is already registered`);
         }
+        if (options.owner === true && options.peer === true) {
+            throw new Error(`${type} cannot be owner-only and open to a peer`);
+        }
         this.handlers.set(type, handler as Handler<RequestType>);
         if (options.owner === true) {
             this.ownerOnly.add(type);
+        }
+        if (options.peer === true) {
+            this.peerAllowed.add(type);
         }
     }
 
@@ -84,6 +99,11 @@ export class Dispatcher {
 
     types(): RequestType[] {
         return [...this.handlers.keys()];
+    }
+
+    /* The requests a peer may ask, which is all `endpoint.info` tells it about. */
+    peerTypes(): RequestType[] {
+        return [...this.peerAllowed];
     }
 
     async handle(client: ClientConnection, raw: string | Uint8Array): Promise<void> {
@@ -104,6 +124,10 @@ export class Dispatcher {
         }
 
         const { id, type, payload } = parsed.value;
+        if (client.access?.peer !== undefined && !(isRequestType(type) && this.peerAllowed.has(type))) {
+            client.send(errorReply(id, 'forbidden', 'Another machine may not ask this'));
+            return;
+        }
         const handler = isRequestType(type) ? this.handlers.get(type) : undefined;
         if (!isRequestType(type) || !handler) {
             client.send(errorReply(id, 'unknown-request', `Unknown request type: ${type}`));

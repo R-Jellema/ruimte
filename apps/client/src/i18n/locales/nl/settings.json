@@ -1122,7 +1122,8 @@
             "session": "{{origin}} {{date}}, laatst gezien {{ago}}",
             "origin": {
                 "statement": "Ingelogd via een account",
-                "link": "Gekoppeld met een link"
+                "link": "Gekoppeld met een link",
+                "machine": "Een andere machine van je account"
             },
             "silent": {
                 "label": "Geeft geen antwoord",
@@ -1133,6 +1134,7 @@
                 "current": "Dit is de client die je gebruikt. Hij verliest toegang tot deze machine en vergeet die hier.",
                 "statement": "Hij verliest toegang bij de volgende verbinding, en inloggen via een account laat hem er niet meer in.",
                 "link": "Hij verliest toegang bij de volgende verbinding.",
+                "machine": "Hij kan hier meteen niet meer werken, en opnieuw koppelen laat hem er niet meer in.",
                 "action": "Intrekken"
             }
         },

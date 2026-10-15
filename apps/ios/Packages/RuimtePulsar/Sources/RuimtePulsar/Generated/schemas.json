@@ -55236,6 +55236,10 @@
                 "statement"
               ]
             },
+            "machineId": {
+              "type": "string",
+              "minLength": 1
+            },
             "createdAt": {
               "type": "number"
             },

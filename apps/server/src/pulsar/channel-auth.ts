@@ -7,7 +7,7 @@ import {
     type AuthTicketPayload,
     type AuthTicketResult
 } from '@ruimte/contracts';
-import type { TicketGrant, TicketUse } from '../auth/handshake.ts';
+import type { ChannelGrant } from '../auth/handshake.ts';
 import { sameSecret } from '../auth/local-secret.ts';
 import type { ClientAccess } from '../dispatcher.ts';
 import { AUTHENTICATED_FRAME_CHARS, UNAUTHENTICATED_FRAME_CHARS, type DirectChannel } from './data-channel.ts';
@@ -25,9 +25,8 @@ export interface ChannelAuthOptions {
     binding: string;
     handshake: {
         challenge(binding: string | null): AuthChallengeResult;
-        redeem(payload: AuthTicketPayload, binding: string | null): Promise<AuthTicketResult | null>;
+        redeemChannel(payload: AuthTicketPayload, binding: string | null): Promise<ChannelGrant | null>;
         spend(challenge: string, binding: string | null): boolean;
-        ticketAccess(ticket: string, use: TicketUse): Promise<TicketGrant | null>;
     };
     daemonId: string;
     localSecret: string;
@@ -99,13 +98,12 @@ export function authenticateChannel(options: ChannelAuthOptions): Promise<Client
                 return;
             }
             if (proof.type === 'direct.key') {
-                const ticket = await handshake.redeem({ publicKey: proof.publicKey, challenge: proof.challenge, signature: proof.signature }, binding);
-                const sessionId = ticket === null ? null : ((await handshake.ticketAccess(ticket.ticket, 'bytes'))?.sessionId ?? null);
-                if (ticket === null || sessionId === null) {
+                const grant = await handshake.redeemChannel({ publicKey: proof.publicKey, challenge: proof.challenge, signature: proof.signature }, binding);
+                if (grant === null) {
                     refuse('This machine does not know this device. Sign in to the account it is on to be let in again.');
                     return;
                 }
-                accept({ reachability: options.reachability, sessionId }, ticket);
+                accept({ reachability: options.reachability, sessionId: grant.sessionId, ...(grant.peer === null ? {} : { peer: grant.peer }) }, grant.ticket);
                 return;
             }
             const expected = localSecretProof(options.localSecret, options.daemonId, proof.challenge, binding);

@@ -99,7 +99,15 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
         ...(isOwner(access) ? { accountId: (await store.accountBinding())?.id ?? null, worktreeRoot: identity.worktreeRoot } : {})
     });
 
-    dispatcher.register('endpoint.info', async (_payload, client) => ({ ...(await info(client.access)), features: dispatcher.types() }));
+    // A peer is told only of the requests it may ask, so it never learns what else this machine answers.
+    dispatcher.register(
+        'endpoint.info',
+        async (_payload, client) => ({
+            ...(await info(client.access)),
+            features: client.access?.peer === undefined ? dispatcher.types() : dispatcher.peerTypes()
+        }),
+        { peer: true }
+    );
 
     /*
      * Any client the machine let in may name it. A name and an icon are how a person tells two

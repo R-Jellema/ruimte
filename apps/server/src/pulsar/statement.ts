@@ -1,4 +1,12 @@
-import { PULSAR_STATEMENT_PUBLIC_KEYS, accessStatementMessage, accessStatementV2Message, type AccessStatement, type SignalOfferAccess } from '@ruimte/pulsar';
+import {
+    PULSAR_STATEMENT_PUBLIC_KEYS,
+    accessStatementMessage,
+    accessStatementV2Message,
+    peerStatementMessage,
+    type AccessStatement,
+    type PeerStatement,
+    type SignalOfferAccess
+} from '@ruimte/pulsar';
 import type { StatementAdmission, StatementEntry } from '../auth/auth-store.ts';
 import { isPublicKey, verifySignature } from '@ruimte/pulsar/verify-node';
 
@@ -15,7 +23,7 @@ export const STATEMENT_CLOCK_SKEW_MS = 30_000;
  */
 export const TEST_STATEMENT_KEY_VARIABLE = 'RUIMTE_PULSAR_TEST_STATEMENT_KEY';
 
-export type StatementRefusal = 'wrong-machine' | 'wrong-machine-key' | 'wrong-key' | 'not-yet-valid' | 'expired' | 'bad-signature';
+export type StatementRefusal = 'wrong-machine' | 'wrong-machine-key' | 'wrong-key' | 'not-yet-valid' | 'expired' | 'bad-signature' | 'wrong-peer';
 
 export interface StatementExpectation {
     machineId: string;
@@ -72,6 +80,48 @@ export function checkStatement(statement: AccessStatement, expected: StatementEx
     return signedByTrustedKey(expected.trustedKeys, v2, accountSignature) ? null : 'bad-signature';
 }
 
+/*
+ * Whether a peer statement lets the machine that offered it work here right now; null when it does. It
+ * names this machine and its key, the key that signed the offer, and a different machine for the peer.
+ */
+export function checkPeerStatement(statement: PeerStatement, expected: StatementExpectation): StatementRefusal | null {
+    if (statement.machineId !== expected.machineId) {
+        return 'wrong-machine';
+    }
+    if (statement.machinePublicKey !== expected.machinePublicKey) {
+        return 'wrong-machine-key';
+    }
+    if (statement.peerPublicKey !== expected.clientPublicKey) {
+        return 'wrong-key';
+    }
+    // A machine does not work in itself, and its own keys are never its peer's.
+    if (
+        statement.peerMachineId === expected.machineId ||
+        statement.peerPublicKey === expected.machinePublicKey ||
+        statement.peerMachinePublicKey === expected.machinePublicKey
+    ) {
+        return 'wrong-peer';
+    }
+    if (expected.now + STATEMENT_CLOCK_SKEW_MS < statement.issuedAt) {
+        return 'not-yet-valid';
+    }
+    if (expected.now - STATEMENT_CLOCK_SKEW_MS > statement.expiresAt) {
+        return 'expired';
+    }
+    const message = peerStatementMessage(
+        statement.machineId,
+        statement.machinePublicKey,
+        statement.accountId,
+        statement.peerPublicKey,
+        statement.peerMachineId,
+        statement.peerMachinePublicKey,
+        statement.nonce,
+        statement.issuedAt,
+        statement.expiresAt
+    );
+    return signedByTrustedKey(expected.trustedKeys, message, statement.signature) ? null : 'bad-signature';
+}
+
 /* The pinned keys, or the bench's own key in their place when this daemon runs from source and was handed one. */
 export function trustedStatementKeys(env: Record<string, string | undefined>, compiled: boolean): readonly string[] {
     const testKey = env[TEST_STATEMENT_KEY_VARIABLE]?.trim() ?? '';
@@ -111,17 +161,16 @@ export class StatementGate {
     }
 
     async admit(from: string, access: SignalOfferAccess): Promise<StatementVerdict> {
-        if ('peer' in access) {
-            return 'refused';
-        }
-        const { statement, label } = access;
-        const refusal = checkStatement(statement, {
+        const { label } = access;
+        const statement = 'peer' in access ? access.peer : access.statement;
+        const expected = {
             machineId: this.options.machineId,
             machinePublicKey: this.options.machinePublicKey,
             clientPublicKey: from,
             trustedKeys: this.options.trustedKeys,
             now: this.now()
-        });
+        };
+        const refusal = 'peer' in access ? checkPeerStatement(access.peer, expected) : checkStatement(access.statement, expected);
         const tag = from.slice(0, 8);
         if (refusal !== null) {
             this.log.warn(`Refused a statement for key ${tag}: ${refusal}`);
@@ -133,14 +182,15 @@ export class StatementGate {
             label,
             nonce: statement.nonce,
             keepNonceUntil: statement.expiresAt + STATEMENT_CLOCK_SKEW_MS,
-            accountId
+            accountId,
+            ...('peer' in access ? { peer: { machineId: access.peer.peerMachineId, machinePublicKey: access.peer.peerMachinePublicKey } } : {})
         });
         if ('refused' in result) {
             this.log.warn(`Refused a statement for key ${tag}: ${result.refused}`);
             return 'refused';
         }
         if (result.created) {
-            this.log.log(`Let "${label}" (key ${tag}) in through a statement from the address book`);
+            this.log.log(`Let "${label}" (key ${tag}) in through a ${'peer' in access ? 'peer ' : ''}statement from the address book`);
         }
         return 'admitted';
     }

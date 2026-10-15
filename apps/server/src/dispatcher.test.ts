@@ -144,3 +144,73 @@ describe('Dispatcher', () => {
         expect(socket.last()).toEqual({ type: 'event', event: 'session.exit', payload: { sessionId: 'n1', exitCode: 0 } });
     });
 });
+
+describe('Dispatcher and a peer', () => {
+    const PEER = { reachability: 'lan', sessionId: 'peer-session', peer: { machineId: 'machine-a' } } as const;
+
+    class PeerSocket extends FakeSocket {
+        readonly access = PEER;
+    }
+
+    function listed(): Dispatcher {
+        const dispatcher = new Dispatcher();
+        dispatcher.register('server.hello', () => ({ version: '1', platform: 'test', home: '/home' }));
+        dispatcher.register('server.ping', () => ({ time: 1 }), { peer: true });
+        return dispatcher;
+    }
+
+    test('answers a request on the peer list and refuses every other as forbidden before its handler runs', async () => {
+        const dispatcher = listed();
+        let ran = 0;
+        dispatcher.register('fs.read', () => {
+            ran += 1;
+            return {} as never;
+        });
+        const socket = new PeerSocket();
+
+        await dispatcher.handle(socket, JSON.stringify({ id: 'r1', type: 'server.ping', payload: {} }));
+        expect(socket.last()).toMatchObject({ id: 'r1', ok: true });
+        for (const type of ['server.hello', 'fs.read', 'session.create', 'auth.revoke', 'endpoint.signRegistration', 'not-a-request']) {
+            await dispatcher.handle(socket, JSON.stringify({ id: type, type, payload: {} }));
+            expect(socket.last()).toMatchObject({ id: type, ok: false, error: { code: 'forbidden' } });
+        }
+        expect(ran).toBe(0);
+    });
+
+    test('keeps a request registered later closed to a peer, and opens it only when it is added on purpose', async () => {
+        const dispatcher = new Dispatcher();
+        dispatcher.register('server.ping', () => ({ time: 1 }), { peer: true });
+        dispatcher.register('server.hello', () => ({ version: '1', platform: 'test', home: '/home' }));
+        const socket = new PeerSocket();
+        await dispatcher.handle(socket, JSON.stringify({ id: 'r1', type: 'server.hello', payload: {} }));
+        expect(socket.last()).toMatchObject({ ok: false, error: { code: 'forbidden' } });
+
+        const opened = new Dispatcher();
+        opened.register('server.hello', () => ({ version: '1', platform: 'test', home: '/home' }), { peer: true });
+        await opened.handle(socket, JSON.stringify({ id: 'r2', type: 'server.hello', payload: {} }));
+        expect(socket.last()).toMatchObject({ id: 'r2', ok: true });
+    });
+
+    test('refuses a peer on every owner-only request, and refuses to register one that is both', async () => {
+        const dispatcher = listed();
+        dispatcher.register('endpoint.leaveAccount', () => ({ revoked: 0 }), { owner: true });
+        const socket = new PeerSocket();
+        await dispatcher.handle(socket, JSON.stringify({ id: 'r1', type: 'endpoint.leaveAccount', payload: {} }));
+        expect(socket.last()).toMatchObject({ ok: false, error: { code: 'forbidden' } });
+        expect(() => dispatcher.register('endpoint.signRegistration', () => ({}) as never, { owner: true, peer: true })).toThrow(/owner-only/);
+        expect(dispatcher.has('endpoint.signRegistration')).toBe(false);
+    });
+
+    test('lists the peer requests apart from the rest', () => {
+        const dispatcher = listed();
+        expect(dispatcher.peerTypes()).toEqual(['server.ping']);
+        expect(dispatcher.types()).toEqual(['server.hello', 'server.ping']);
+    });
+
+    test('leaves a client that is no peer alone', async () => {
+        const dispatcher = listed();
+        const socket = new FakeSocket();
+        await dispatcher.handle(socket, JSON.stringify({ id: 'r1', type: 'server.hello', payload: {} }));
+        expect(socket.last()).toMatchObject({ ok: true });
+    });
+});

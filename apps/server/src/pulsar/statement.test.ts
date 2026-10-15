@@ -7,12 +7,15 @@ import {
     PULSAR_STATEMENT_PUBLIC_KEYS,
     accessStatementMessage,
     accessStatementV2Message,
+    peerStatementMessage,
     type AccessStatement,
-    type SignalAccess
+    type PeerStatement,
+    type SignalAccess,
+    type SignalOfferAccess
 } from '@ruimte/pulsar';
 import { AuthStore } from '../auth/auth-store.ts';
 import { generateKeyPair, signMessage } from '../auth/keys.ts';
-import { STATEMENT_CLOCK_SKEW_MS, StatementGate, TEST_STATEMENT_KEY_VARIABLE, checkStatement, trustedStatementKeys } from './statement.ts';
+import { STATEMENT_CLOCK_SKEW_MS, StatementGate, TEST_STATEMENT_KEY_VARIABLE, checkPeerStatement, checkStatement, trustedStatementKeys } from './statement.ts';
 
 const MACHINE_ID = 'machine-under-test';
 const NOW = 1_800_000_000_000;
@@ -295,5 +298,214 @@ describe('StatementGate', () => {
         expect(await new AuthStore(home, () => now).accountBinding()).toMatchObject({ id: 'owner' });
         await store.leaveAccount();
         expect(await new AuthStore(home, () => now).accountBinding()).toBeNull();
+    });
+});
+
+// The machine that works here, as the account lists it.
+const peerMachine = generateKeyPair();
+
+/* A peer statement as the address book signs it: both machine keys, the account and the peer key. */
+function peerStatementFor(peerPublicKey: string, accountId: string, overrides: Partial<PeerStatement> = {}, signer = addressBook): PeerStatement {
+    const base = {
+        machineId: MACHINE_ID,
+        machinePublicKey: machine.publicKey,
+        accountId,
+        peerPublicKey,
+        peerMachineId: 'machine-a',
+        peerMachinePublicKey: peerMachine.publicKey,
+        nonce: `peer-nonce-${Math.random().toString(36).slice(2)}-${'n'.repeat(16)}`,
+        issuedAt: NOW,
+        expiresAt: NOW + 600_000,
+        ...overrides
+    };
+    return {
+        ...base,
+        signature: signMessage(
+            signer.privateKey,
+            peerStatementMessage(
+                base.machineId,
+                base.machinePublicKey,
+                base.accountId,
+                base.peerPublicKey,
+                base.peerMachineId,
+                base.peerMachinePublicKey,
+                base.nonce,
+                base.issuedAt,
+                base.expiresAt
+            )
+        )
+    };
+}
+
+describe('checkPeerStatement', () => {
+    const peer = generateKeyPair();
+    const expected = {
+        machineId: MACHINE_ID,
+        machinePublicKey: machine.publicKey,
+        clientPublicKey: peer.publicKey,
+        trustedKeys: [addressBook.publicKey],
+        now: NOW + 1_000
+    };
+
+    test('a peer statement for this machine and this key, inside its ten minutes, holds', () => {
+        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner'), expected)).toBeNull();
+        const statement = peerStatementFor(peer.publicKey, 'owner');
+        expect(checkPeerStatement(statement, { ...expected, now: statement.expiresAt + STATEMENT_CLOCK_SKEW_MS })).toBeNull();
+        expect(checkPeerStatement(statement, { ...expected, now: statement.expiresAt + STATEMENT_CLOCK_SKEW_MS + 1 })).toBe('expired');
+        expect(checkPeerStatement(statement, { ...expected, now: statement.issuedAt - STATEMENT_CLOCK_SKEW_MS - 1 })).toBe('not-yet-valid');
+    });
+
+    test('is refused for another machine, another machine key or another offering key', () => {
+        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner', { machineId: 'next-door' }), expected)).toBe('wrong-machine');
+        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner', { machinePublicKey: generateKeyPair().publicKey }), expected)).toBe(
+            'wrong-machine-key'
+        );
+        expect(checkPeerStatement(peerStatementFor(generateKeyPair().publicKey, 'owner'), expected)).toBe('wrong-key');
+    });
+
+    test('is refused when the peer is this machine itself, by id or by either key', () => {
+        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner', { peerMachineId: MACHINE_ID }), expected)).toBe('wrong-peer');
+        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner', { peerMachinePublicKey: machine.publicKey }), expected)).toBe('wrong-peer');
+        expect(checkPeerStatement(peerStatementFor(machine.publicKey, 'owner'), { ...expected, clientPublicKey: machine.publicKey })).toBe('wrong-peer');
+    });
+
+    test('is refused when signed by anyone but a trusted key, or changed after signing', () => {
+        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner', {}, generateKeyPair()), expected)).toBe('bad-signature');
+        expect(checkPeerStatement({ ...peerStatementFor(peer.publicKey, 'owner'), accountId: 'attacker' }, expected)).toBe('bad-signature');
+        expect(checkPeerStatement({ ...peerStatementFor(peer.publicKey, 'owner'), peerMachineId: 'machine-z' }, expected)).toBe('bad-signature');
+    });
+
+    test('a client statement does not verify as a peer statement, and the other way round', () => {
+        const key = generateKeyPair();
+        const client = statementV2For(key.publicKey, 'owner');
+        const asPeer = { ...peerStatementFor(key.publicKey, 'owner'), signature: client.signature };
+        expect(checkPeerStatement(asPeer, { ...expected, clientPublicKey: key.publicKey })).toBe('bad-signature');
+        const peerSigned = peerStatementFor(key.publicKey, 'owner');
+        expect(
+            checkStatement(
+                { ...client, signature: peerSigned.signature, accountSignature: peerSigned.signature },
+                { ...expected, clientPublicKey: key.publicKey }
+            )
+        ).toBe('bad-signature');
+    });
+});
+
+describe('StatementGate and a peer', () => {
+    let home: string;
+    let store: AuthStore;
+    let now: number;
+    let warnings: string[];
+
+    const gate = (): StatementGate =>
+        new StatementGate({
+            machineId: MACHINE_ID,
+            machinePublicKey: machine.publicKey,
+            trustedKeys: [addressBook.publicKey],
+            store,
+            now: () => now,
+            log: { log: () => undefined, warn: (line: string) => warnings.push(line) }
+        });
+
+    const offer = (statement: PeerStatement, label = 'Studio'): SignalOfferAccess => ({ peer: statement, label });
+    const access = (statement: AccessStatement, label = 'Laptop'): SignalAccess => ({ statement, label });
+
+    beforeEach(async () => {
+        home = await mkdtemp(join(tmpdir(), 'ruimte-peer-statement-'));
+        store = new AuthStore(home, () => now);
+        now = NOW + 1_000;
+        warnings = [];
+    });
+
+    afterEach(async () => {
+        await rm(home, { recursive: true, force: true });
+    });
+
+    test('a good peer statement lets the key in as a peer of that machine, listed as a machine and as a statement', async () => {
+        await store.bindAccount('owner');
+        const peer = generateKeyPair();
+        expect(await gate().admit(peer.publicKey, offer(peerStatementFor(peer.publicKey, 'owner')))).toBe('admitted');
+        const sessionId = (await store.sessionForPublicKey(peer.publicKey))!;
+        expect(await store.peerOf(sessionId)).toEqual({ machineId: 'machine-a', machinePublicKey: peerMachine.publicKey });
+        expect(await store.list(null)).toEqual([expect.objectContaining({ label: 'Studio', origin: 'statement', machineId: 'machine-a' })]);
+    });
+
+    test('a peer statement is good once, and stays in the file as a peer across a restart', async () => {
+        const peer = generateKeyPair();
+        const statement = peerStatementFor(peer.publicKey, 'owner');
+        expect(await gate().admit(peer.publicKey, offer(statement))).toBe('admitted');
+        expect(await gate().admit(peer.publicKey, offer(statement))).toBe('refused');
+
+        store = new AuthStore(home, () => now);
+        const sessionId = (await store.sessionForPublicKey(peer.publicKey))!;
+        expect(await store.peerOf(sessionId)).toMatchObject({ machineId: 'machine-a' });
+        const onDisk = JSON.parse(await readFile(join(home, 'auth.json'), 'utf8')) as { sessions: Array<{ origin: string }> };
+        expect(onDisk.sessions.map((record) => record.origin)).toEqual(['peer']);
+    });
+
+    test('a machine on an account takes a peer statement of that account only', async () => {
+        await store.bindAccount('owner');
+        const peer = generateKeyPair();
+        expect(await gate().admit(peer.publicKey, offer(peerStatementFor(peer.publicKey, 'colleague')))).toBe('refused');
+        expect(warnings.some((line) => line.includes('wrong-account'))).toBe(true);
+        expect(await store.list(null)).toEqual([]);
+    });
+
+    test('a revoked peer key is refused on a new statement for good', async () => {
+        const peer = generateKeyPair();
+        expect(await gate().admit(peer.publicKey, offer(peerStatementFor(peer.publicKey, 'owner')))).toBe('admitted');
+        await store.revoke((await store.list(null))[0]!.id);
+        expect(await store.sessionForPublicKey(peer.publicKey)).toBeNull();
+        expect(await gate().admit(peer.publicKey, offer(peerStatementFor(peer.publicKey, 'owner')))).toBe('refused');
+        expect(warnings.some((line) => line.includes('revoked'))).toBe(true);
+        expect(await store.sessionForPublicKey(peer.publicKey)).toBeNull();
+    });
+
+    test('a key that is a client is not turned into a peer, nor a peer key into a client', async () => {
+        const client = generateKeyPair();
+        expect(await gate().admit(client.publicKey, access(statementV2For(client.publicKey, 'owner')))).toBe('admitted');
+        expect(await gate().admit(client.publicKey, offer(peerStatementFor(client.publicKey, 'owner')))).toBe('refused');
+        expect(await store.peerOf((await store.sessionForPublicKey(client.publicKey))!)).toBeNull();
+
+        const peer = generateKeyPair();
+        expect(await gate().admit(peer.publicKey, offer(peerStatementFor(peer.publicKey, 'owner')))).toBe('admitted');
+        expect(await gate().admit(peer.publicKey, access(statementV2For(peer.publicKey, 'owner')))).toBe('refused');
+        // Another machine cannot take over a peer key either.
+        expect(await gate().admit(peer.publicKey, offer(peerStatementFor(peer.publicKey, 'owner', { peerMachineId: 'machine-z' })))).toBe('refused');
+        expect(await store.list(null)).toHaveLength(2);
+    });
+
+    test('leaving the account takes the peers with it, and joining another one takes the peers of the first', async () => {
+        await store.bindAccount('owner');
+        const peer = generateKeyPair();
+        expect(await gate().admit(peer.publicKey, offer(peerStatementFor(peer.publicKey, 'owner')))).toBe('admitted');
+        const sessionId = (await store.sessionForPublicKey(peer.publicKey))!;
+        expect(await store.leaveAccount()).toEqual([sessionId]);
+        expect(await store.sessionForPublicKey(peer.publicKey)).toBeNull();
+    });
+
+    test('a daemon from before peers drops a peer record instead of keeping it as a client, and so does one that lost the machine', async () => {
+        const peer = generateKeyPair();
+        const kept = generateKeyPair();
+        await writeFile(
+            join(home, 'auth.json'),
+            JSON.stringify({
+                sessions: [
+                    {
+                        id: 'a',
+                        label: 'Studio',
+                        publicKey: peer.publicKey,
+                        origin: 'peer',
+                        machineId: 'machine-a',
+                        machinePublicKey: peerMachine.publicKey,
+                        createdAt: 1,
+                        lastSeenAt: 1
+                    },
+                    { id: 'b', label: 'No machine', publicKey: kept.publicKey, origin: 'peer', createdAt: 1, lastSeenAt: 1 }
+                ]
+            })
+        );
+        store = new AuthStore(home, () => now);
+        expect(await store.peerOf('a')).toMatchObject({ machineId: 'machine-a' });
+        expect(await store.sessionForPublicKey(kept.publicKey)).toBeNull();
     });
 });

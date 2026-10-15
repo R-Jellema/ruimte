@@ -208,6 +208,8 @@ export const AuthSessionSchema = z.object({
     label: z.string(),
     // Optional: a daemon from before statements answers without one, and all of its clients came in on a link.
     origin: PairingOriginSchema.optional(),
+    // Set when this session is another machine of the account that works here (a peer) rather than a client.
+    machineId: z.string().min(1).optional(),
     createdAt: z.number(),
     lastSeenAt: z.number(),
     // The session the asking client itself holds.

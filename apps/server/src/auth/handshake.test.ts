@@ -289,3 +289,73 @@ describe('Handshake on a direct channel', () => {
         expect(handshake.spend(challenge, BINDING)).toBe(false);
     });
 });
+
+describe('Handshake and a peer', () => {
+    async function admitPeer(key: { publicKey: string }): Promise<string> {
+        nonces += 1;
+        const admitted = await store.admitStatement({
+            publicKey: key.publicKey,
+            label: 'Studio',
+            nonce: `peer-nonce-${nonces}`.padEnd(22, 'n'),
+            keepNonceUntil: clock + 150_000,
+            accountId: 'owner',
+            peer: { machineId: 'machine-a', machinePublicKey: generateKeyPair().publicKey }
+        });
+        if (!('sessionId' in admitted)) {
+            throw new Error(`Not admitted: ${admitted.refused}`);
+        }
+        return admitted.sessionId;
+    }
+
+    async function proof(key: { publicKey: string; privateKey: string }) {
+        const { challenge } = handshake.challenge(BINDING);
+        return {
+            publicKey: key.publicKey,
+            challenge,
+            signature: signMessage(key.privateKey, clientChannelMessage(DAEMON_ID, challenge, key.publicKey, BINDING))
+        };
+    }
+
+    test('a peer proves its key and is let in as a machine, with no ticket for the HTTP routes', async () => {
+        const key = generateKeyPair();
+        const sessionId = await admitPeer(key);
+        expect(await handshake.redeemChannel(await proof(key), BINDING)).toEqual({ sessionId, ticket: null, peer: { machineId: 'machine-a' } });
+    });
+
+    test('redeem hands a peer no ticket either, and a client still gets its own', async () => {
+        const peer = generateKeyPair();
+        await admitPeer(peer);
+        expect(await handshake.redeem(await proof(peer), BINDING)).toBeNull();
+
+        const client = generateKeyPair();
+        const clientSession = await admit(client);
+        const grant = await handshake.redeemChannel(await proof(client), BINDING);
+        expect(grant).toMatchObject({ sessionId: clientSession, peer: null });
+        expect(await sessionOf(grant!.ticket!.ticket)).toBe(clientSession);
+    });
+
+    test('a ticket that somehow names a peer session opens nothing', async () => {
+        let becamePeer = false;
+        const swappable = {
+            sessionForPublicKey: (publicKey: string) => store.sessionForPublicKey(publicKey),
+            noteSeen: (id: string) => store.noteSeen(id),
+            hasSession: (id: string) => store.hasSession(id),
+            peerOf: async (id: string) => (becamePeer ? { machineId: 'machine-a', machinePublicKey: generateKeyPair().publicKey } : store.peerOf(id))
+        };
+        const own = new Handshake(swappable as unknown as AuthStore, identity, () => clock);
+        const client = generateKeyPair();
+        const sessionId = await admit(client);
+        const { challenge } = own.challenge(BINDING);
+        const grant = await own.redeemChannel(
+            {
+                publicKey: client.publicKey,
+                challenge,
+                signature: signMessage(client.privateKey, clientChannelMessage(DAEMON_ID, challenge, client.publicKey, BINDING))
+            },
+            BINDING
+        );
+        expect(await own.ticketAccess(grant!.ticket!.ticket, 'bytes')).toEqual({ sessionId });
+        becamePeer = true;
+        expect(await own.ticketAccess(grant!.ticket!.ticket, 'bytes')).toBeNull();
+    });
+});

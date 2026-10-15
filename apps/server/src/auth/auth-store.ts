@@ -11,12 +11,18 @@ import { errorText } from '../error-text.ts';
  * A client a statement let in, by the key it proves per connection. A record of a pairing link from
  * before links went (`origin` absent or `link`, or a session token without a key) still reads, and
  * is dropped as the file loads, so that client has to come back through the account.
+ *
+ * A peer (another machine of the account) has `origin: 'peer'`, never `statement`: a daemon from before
+ * peers drops an origin it does not know, where it would have kept a peer as a full client.
  */
 const StoredRecordSchema = z.object({
     id: z.string().min(1),
     label: z.string(),
     publicKey: z.string().min(1).optional(),
-    origin: z.enum(['link', 'statement']).optional().catch(undefined),
+    origin: z.enum(['link', 'statement', 'peer']).optional().catch(undefined),
+    // The machine a peer is, as the account lists it; a peer record without both is dropped as the file loads.
+    machineId: z.string().min(1).optional().catch(undefined),
+    machinePublicKey: z.string().min(1).optional().catch(undefined),
     // The account whose statement let this client in; absent for a statement that named none.
     account: z.string().min(1).optional().catch(undefined),
     createdAt: z.number(),
@@ -28,7 +34,10 @@ interface SessionRecord {
     id: string;
     label: string;
     publicKey: string;
-    origin: 'statement';
+    origin: 'statement' | 'peer';
+    // Set on a peer only.
+    machineId?: string;
+    machinePublicKey?: string;
     account?: string;
     createdAt: number;
     lastSeenAt: number;
@@ -40,7 +49,16 @@ function emptyState(account: Binding): State {
 }
 
 function statementRecord(record: z.infer<typeof StoredRecordSchema>): SessionRecord | null {
-    return record.origin === 'statement' && record.publicKey !== undefined ? { ...record, publicKey: record.publicKey, origin: 'statement' } : null;
+    if (record.publicKey === undefined) {
+        return null;
+    }
+    if (record.origin === 'statement') {
+        return { ...record, publicKey: record.publicKey, origin: 'statement' };
+    }
+    if (record.origin === 'peer' && record.machineId !== undefined && record.machinePublicKey !== undefined) {
+        return { ...record, publicKey: record.publicKey, origin: 'peer', machineId: record.machineId, machinePublicKey: record.machinePublicKey };
+    }
+    return null;
 }
 
 const AccountBindingSchema = z.object({ id: z.string().min(1), since: z.number() });
@@ -84,11 +102,16 @@ export interface StatementEntry {
     keepNonceUntil: number;
     // The account a statement v2 named and the address book signed; null for a statement that names none.
     accountId: string | null;
+    // Set for a peer statement: the machine that works here and the key the account lists it with.
+    peer?: { machineId: string; machinePublicKey: string };
 }
 
 export type StatementAccountRefusal = 'wrong-account' | 'account-required' | 'no-account';
 
-export type StatementAdmission = { sessionId: string; created: boolean } | { refused: 'replayed' | 'revoked' | 'bad-key' | StatementAccountRefusal };
+export type StatementAdmission =
+    | { sessionId: string; created: boolean }
+    // `key-in-use`: the key is a client here and a peer is asked, or the other way round, or it is another machine's peer key.
+    | { refused: 'replayed' | 'revoked' | 'bad-key' | 'key-in-use' | StatementAccountRefusal };
 
 /* Whether a statement of `accountId` may let a client in on this binding; null when it may. */
 export function statementAccountRefusal(binding: Binding, accountId: string | null): StatementAccountRefusal | null {
@@ -157,6 +180,14 @@ export class AuthStore {
         }
         const known = state.sessions.find((record) => record.publicKey === entry.publicKey);
         if (known) {
+            const sameKind =
+                entry.peer === undefined
+                    ? known.origin === 'statement'
+                    : known.origin === 'peer' && known.machineId === entry.peer.machineId && known.machinePublicKey === entry.peer.machinePublicKey;
+            if (!sameKind) {
+                await this.save({ ...state, spentNonces });
+                return { refused: 'key-in-use' };
+            }
             known.lastSeenAt = now;
             await this.save({ ...state, spentNonces });
             return { sessionId: known.id, created: false };
@@ -165,7 +196,8 @@ export class AuthStore {
             id: randomBytes(6).toString('base64url'),
             label: entry.label,
             publicKey: entry.publicKey,
-            origin: 'statement',
+            origin: entry.peer === undefined ? 'statement' : 'peer',
+            ...(entry.peer === undefined ? {} : { machineId: entry.peer.machineId, machinePublicKey: entry.peer.machinePublicKey }),
             ...(entry.accountId === null ? {} : { account: entry.accountId }),
             createdAt: now,
             lastSeenAt: now
@@ -191,7 +223,7 @@ export class AuthStore {
         if (state.account !== undefined && state.account !== null) {
             return { bound: state.account.id === accountId, revoked: [] };
         }
-        const revoked = state.sessions.filter((record) => record.origin === 'statement' && record.account !== undefined && record.account !== accountId);
+        const revoked = state.sessions.filter((record) => record.account !== undefined && record.account !== accountId);
         await this.save({
             ...state,
             sessions: state.sessions.filter((record) => !revoked.includes(record)),
@@ -208,7 +240,7 @@ export class AuthStore {
     async leaveAccount(): Promise<string[]> {
         const state = await this.load();
         const left = state.account?.id;
-        const revoked = state.sessions.filter((record) => record.origin === 'statement' && (record.account === undefined || record.account === left));
+        const revoked = state.sessions.filter((record) => record.account === undefined || record.account === left);
         await this.save({ ...state, sessions: state.sessions.filter((record) => !revoked.includes(record)), account: null });
         return revoked.map((record) => record.id);
     }
@@ -217,6 +249,14 @@ export class AuthStore {
     async sessionForPublicKey(publicKey: string): Promise<string | null> {
         const state = await this.load();
         return state.sessions.find((entry) => entry.publicKey === publicKey)?.id ?? null;
+    }
+
+    /* The machine a session is, or null for a client; a peer is a machine of the account and never an owner. */
+    async peerOf(sessionId: string): Promise<{ machineId: string; machinePublicKey: string } | null> {
+        const record = (await this.load()).sessions.find((entry) => entry.id === sessionId);
+        return record?.origin === 'peer' && record.machineId !== undefined && record.machinePublicKey !== undefined
+            ? { machineId: record.machineId, machinePublicKey: record.machinePublicKey }
+            : null;
     }
 
     /* Whether a session still has its access, which a credential handed out before a revoke has to ask again. */
@@ -264,7 +304,8 @@ export class AuthStore {
         return (await this.load()).sessions.map((entry) => ({
             id: entry.id,
             label: entry.label,
-            origin: entry.origin,
+            origin: entry.origin === 'peer' ? 'statement' : entry.origin,
+            ...(entry.origin === 'peer' ? { machineId: entry.machineId } : {}),
             createdAt: entry.createdAt,
             lastSeenAt: entry.lastSeenAt,
             current: entry.id === currentId

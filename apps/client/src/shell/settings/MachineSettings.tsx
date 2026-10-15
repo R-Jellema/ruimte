@@ -372,7 +372,12 @@ export function MachineAccess({ endpoint }: { endpoint: Endpoint }) {
                         </span>
                     }
                     description={t('machine.access.session', {
-                        origin: session.origin === 'statement' ? t('machine.access.origin.statement') : t('machine.access.origin.link'),
+                        origin:
+                            session.machineId !== undefined
+                                ? t('machine.access.origin.machine')
+                                : session.origin === 'statement'
+                                  ? t('machine.access.origin.statement')
+                                  : t('machine.access.origin.link'),
                         date: formatNumericDate(session.createdAt),
                         ago: ago(session.lastSeenAt)
                     })}
@@ -404,9 +409,11 @@ export function MachineAccess({ endpoint }: { endpoint: Endpoint }) {
                 description={
                     target?.current
                         ? t('machine.access.confirm.current')
-                        : target?.origin === 'statement'
-                          ? t('machine.access.confirm.statement')
-                          : t('machine.access.confirm.link')
+                        : target?.machineId !== undefined
+                          ? t('machine.access.confirm.machine')
+                          : target?.origin === 'statement'
+                            ? t('machine.access.confirm.statement')
+                            : t('machine.access.confirm.link')
                 }
                 confirmLabel={t('machine.access.confirm.action')}
                 onConfirm={revoke}

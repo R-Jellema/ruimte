@@ -11,10 +11,12 @@ import {
     brokerHostOf,
     lanDoorMessage,
     lanDoorUrl,
+    peerStatementMessage,
     signalMessage,
     type AccessStatement,
     type BrokerRelayed,
     type LanDoorMachineFrame,
+    type PeerStatement,
     type SignalEnvelope
 } from '@ruimte/pulsar';
 import { verifySignature } from '@ruimte/pulsar/verify-node';
@@ -263,6 +265,43 @@ function statementFor(machine: Machine, clientPublicKey: string, overrides: Part
     };
 }
 
+/* A peer statement for another machine of the account to work in the container, signed with this run's key. */
+function peerStatementFor(machine: Machine, peerPublicKey: string, overrides: Partial<PeerStatement> = {}): PeerStatement {
+    if (STATEMENT_PRIVATE_KEY === null) {
+        throw new Error('No statement key to sign with; run the suite with `bun run --cwd apps/server docker:test`, which makes one');
+    }
+    const issuedAt = Date.now();
+    const base = {
+        machineId: machine.id,
+        machinePublicKey: machine.publicKey,
+        accountId: 'bench-account',
+        peerPublicKey,
+        peerMachineId: 'bench-peer-machine',
+        peerMachinePublicKey: generateKeyPair().publicKey,
+        nonce: randomNonce(),
+        issuedAt,
+        expiresAt: issuedAt + 600_000,
+        ...overrides
+    };
+    return {
+        ...base,
+        signature: signMessage(
+            STATEMENT_PRIVATE_KEY,
+            peerStatementMessage(
+                base.machineId,
+                base.machinePublicKey,
+                base.accountId,
+                base.peerPublicKey,
+                base.peerMachineId,
+                base.peerMachinePublicKey,
+                base.nonce,
+                base.issuedAt,
+                base.expiresAt
+            )
+        )
+    };
+}
+
 /* A way to the machine's signals: sends what the client signed, and hands back only what the pinned machine key signed for it. */
 interface SignalLine {
     send(envelope: SignalEnvelope): void;
@@ -399,6 +438,8 @@ function keyCredential(key: KeyPair, machine: Machine): DirectCredential {
 
 interface OfferOptions {
     statement?: AccessStatement;
+    // Offered in place of a client statement, by a machine of the account that works here.
+    peer?: PeerStatement;
     // Pings a quiet channel the way the app does.
     ping?: { idleMs?: number; timeoutMs?: number };
 }
@@ -409,6 +450,7 @@ function offerOver(line: SignalLine, credential: DirectCredential, options: Offe
         stunServers: [],
         credential,
         ...(options.statement ? { access: { statement: options.statement, label: CLIENT_LABEL } } : {}),
+        ...(options.peer ? { access: { peer: options.peer, label: CLIENT_LABEL } } : {}),
         ...(options.ping ? { ping: options.ping } : {}),
         timeoutMs: 20_000,
         signal: (envelope) => line.send(envelope)
@@ -977,6 +1019,68 @@ describe.skipIf(!ENABLED)('a direct connection through the door', () => {
             } finally {
                 line.close();
             }
+        }
+    }, 60_000);
+});
+
+describe.skipIf(!ENABLED)('another machine of the account as a peer', () => {
+    let owner: RemoteClient;
+
+    beforeAll(async () => {
+        await waitUntil(`a daemon on ${BASE_URL}`, () => answers(BASE_URL), 5_000);
+        owner = await connectOwner();
+    }, 30_000);
+
+    afterAll(() => {
+        owner?.close();
+    });
+
+    async function asPeer(key = generateKeyPair()) {
+        const machine = await machineInContainer();
+        const line = await doorLine(key, machine);
+        try {
+            const channel = offerOver(line, keyCredential(key, machine), { peer: peerStatementFor(machine, key.publicKey) });
+            const { ticket } = await channel.open();
+            return { key, machine, channel, ticket };
+        } finally {
+            line.close();
+        }
+    }
+
+    test('it gets in on a peer statement without a ticket, and is told of the peer requests alone', async () => {
+        const { channel, ticket } = await asPeer();
+        expect(ticket).toBeNull();
+        const info = await channel.request<EndpointInfo>('endpoint.info', {});
+        expect(info.features).toEqual(expect.arrayContaining(['endpoint.info']));
+        expect(info.features).not.toContain('fs.read');
+        expect(info.features).not.toContain('session.write');
+        expect(info.accountId).toBeUndefined();
+    }, 60_000);
+
+    test('it is refused file reads, terminal input, launches and project saves, and is listed as a machine', async () => {
+        const { channel } = await asPeer();
+        await expect(channel.request('fs.read', { path: `${REPO}/README.md` })).rejects.toThrow(/^forbidden:/);
+        await expect(channel.request('session.write', { sessionId: 'any', data: 'id\n' })).rejects.toThrow(/^forbidden:/);
+        await expect(channel.request('launch.start', { projectId: 'any', launchId: 'any' })).rejects.toThrow(/^forbidden:/);
+        await expect(channel.request('project.save', { projectId: 'any' })).rejects.toThrow(/^forbidden:/);
+        await expect(channel.request('endpoint.signRegistration', { accountId: 'bench-account' })).rejects.toThrow(/^forbidden:/);
+        const listed = (await owner.request<AuthSessionsResult>('auth.sessions', {})).sessions.filter((session) => session.machineId === 'bench-peer-machine');
+        expect(listed.length).toBeGreaterThan(0);
+    }, 60_000);
+
+    test('revoking it closes its channel, and neither its key nor a new peer statement for it gets back in', async () => {
+        const peer = await asPeer();
+        const session = (await owner.request<AuthSessionsResult>('auth.sessions', {})).sessions.find(
+            (entry) => entry.machineId === 'bench-peer-machine' && entry.label === CLIENT_LABEL
+        );
+        await owner.request('auth.revoke', { id: session!.id });
+        await waitUntil('the channel of a revoked peer to close', () => !peer.channel.isOpen);
+        const line = await doorLine(peer.key, peer.machine);
+        try {
+            const attempt = offerOver(line, keyCredential(peer.key, peer.machine), { peer: peerStatementFor(peer.machine, peer.key.publicKey) });
+            await expect(attempt.open()).rejects.toThrow('The machine closed the attempt: not-paired');
+        } finally {
+            line.close();
         }
     }, 60_000);
 });

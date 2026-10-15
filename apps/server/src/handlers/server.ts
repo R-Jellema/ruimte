@@ -16,5 +16,5 @@ export function registerServerHandlers(dispatcher: Dispatcher, options: ServerHa
     }));
 
     // There is nothing to compute. The round trip is the answer, and the client times it.
-    dispatcher.register('server.ping', () => ({ time: Date.now() }));
+    dispatcher.register('server.ping', () => ({ time: Date.now() }), { peer: true });
 }

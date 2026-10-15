@@ -35,6 +35,13 @@ export interface TicketGrant {
     sessionId: string | null;
 }
 
+// What a proven key gets on a direct channel: its session, a ticket for the HTTP routes (never a peer's), and the machine a peer is.
+export interface ChannelGrant {
+    sessionId: string;
+    ticket: AuthTicketResult | null;
+    peer: { machineId: string } | null;
+}
+
 // A socket takes a ticket once; bytes take it for as long as it lives.
 export type TicketUse = 'socket' | 'bytes';
 
@@ -87,8 +94,16 @@ export class Handshake {
         };
     }
 
-    /* Checks a signed challenge and answers with a ticket; null when anything about it does not hold up. */
+    /* Checks a signed challenge and answers with a ticket; null when anything about it does not hold up, and for a peer, which gets none. */
     async redeem(payload: AuthTicketPayload, binding: string): Promise<AuthTicketResult | null> {
+        return (await this.redeemChannel(payload, binding))?.ticket ?? null;
+    }
+
+    /*
+     * The same check for a channel, which also needs to know whose it is. A peer is another machine, not
+     * a person: it gets no ticket, so no HTTP route and no byte stream of this machine opens to it.
+     */
+    async redeemChannel(payload: AuthTicketPayload, binding: string): Promise<ChannelGrant | null> {
         if (!this.spend(payload.challenge, binding)) {
             return null;
         }
@@ -102,7 +117,11 @@ export class Handshake {
         if (!(await this.store.noteSeen(sessionId))) {
             return null;
         }
-        return { ticket: this.issueTicket(sessionId), expiresIn: TICKET_TTL_MS };
+        const peer = await this.store.peerOf(sessionId);
+        if (peer !== null) {
+            return { sessionId, ticket: null, peer: { machineId: peer.machineId } };
+        }
+        return { sessionId, ticket: { ticket: this.issueTicket(sessionId), expiresIn: TICKET_TTL_MS }, peer: null };
     }
 
     /* A ticket for the app on this machine, which the caller already saw present the local secret. */
@@ -143,7 +162,7 @@ export class Handshake {
             entry.socket = 'open';
         }
         entry.expiresAt = this.now() + TICKET_TTL_MS;
-        if (entry.sessionId !== null && !(await this.store.hasSession(entry.sessionId))) {
+        if (entry.sessionId !== null && (!(await this.store.hasSession(entry.sessionId)) || (await this.store.peerOf(entry.sessionId)) !== null)) {
             this.tickets.delete(ticket);
             return null;
         }

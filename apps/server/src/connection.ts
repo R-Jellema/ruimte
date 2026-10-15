@@ -136,43 +136,47 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
             }
             sendEvent(client, event.event, event.payload);
         };
-        const unsubscribes = [
-            services.presence?.connected(access.sessionId) ?? (() => undefined),
-            services.presence?.observeAttention?.((entry) => sendEvent(client, 'push.attention', entry)) ?? (() => undefined),
-            services.presence?.observeNotification?.((alert) => sendEvent(client, 'push.notification', alert)) ?? (() => undefined),
-            services.sessions.subscribe(clientId, sink),
-            services.chats.subscribe(clientId, sink),
-            services.browsers?.subscribe(clientId, sink) ?? (() => undefined),
-            services.browserPages?.subscribe(clientId, sink) ?? (() => undefined),
-            services.devices?.subscribe(clientId, sink) ?? (() => undefined),
-            services.deviceControl?.subscribe(clientId, sink) ?? (() => undefined),
-            services.identity.subscribe(clientId, sink),
-            services.updates?.subscribe(clientId, sink) ?? (() => undefined),
-            services.projects.subscribe(clientId, sink),
-            services.drawings.subscribe(clientId, sink),
-            services.diagrams.subscribe(clientId, sink),
-            services.launchStore?.subscribe(clientId, sink) ?? (() => undefined),
-            services.launches?.subscribe(clientId, sink) ?? (() => undefined),
-            services.databaseConnections?.subscribe(clientId, sink) ?? (() => undefined),
-            services.databaseAgents?.subscribe(clientId, sink) ?? (() => undefined),
-            services.language?.subscribe(clientId, sink) ?? (() => undefined),
-            services.sqlAnalysis?.subscribe(clientId, sink) ?? (() => undefined),
-            services.folders.subscribe(clientId, sink),
-            services.statuses.subscribe(clientId, sink),
-            services.usage.subscribe(clientId, sink),
-            services.limits.subscribe(clientId, sink),
-            services.providerAccounts?.subscribe(clientId, sink) ?? (() => undefined),
-            services.processes.subscribe(clientId, sink),
-            services.tasks?.subscribe(clientId, sink) ?? (() => undefined),
-            services.worktrees?.subscribe(clientId, sink) ?? (() => undefined),
-            services.plans?.subscribe(clientId, sink) ?? (() => undefined),
-            services.provenance?.subscribe(clientId, sink) ?? (() => undefined),
-            services.computer?.subscribe(clientId, sink) ?? (() => undefined),
-            services.secrets?.subscribe(clientId, sink) ?? (() => undefined),
-            services.snoozes?.subscribe(clientId, sink) ?? (() => undefined),
-            services.prWatches?.subscribe(clientId, sink) ?? (() => undefined),
-            services.peers?.subscribe(clientId, sink) ?? (() => undefined)
-        ];
+        // Events carry what other clients are doing here; another machine asks for what it needs and hears nothing else.
+        const unsubscribes =
+            access.peer !== undefined
+                ? []
+                : [
+                      services.presence?.connected(access.sessionId) ?? (() => undefined),
+                      services.presence?.observeAttention?.((entry) => sendEvent(client, 'push.attention', entry)) ?? (() => undefined),
+                      services.presence?.observeNotification?.((alert) => sendEvent(client, 'push.notification', alert)) ?? (() => undefined),
+                      services.sessions.subscribe(clientId, sink),
+                      services.chats.subscribe(clientId, sink),
+                      services.browsers?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.browserPages?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.devices?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.deviceControl?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.identity.subscribe(clientId, sink),
+                      services.updates?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.projects.subscribe(clientId, sink),
+                      services.drawings.subscribe(clientId, sink),
+                      services.diagrams.subscribe(clientId, sink),
+                      services.launchStore?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.launches?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.databaseConnections?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.databaseAgents?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.language?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.sqlAnalysis?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.folders.subscribe(clientId, sink),
+                      services.statuses.subscribe(clientId, sink),
+                      services.usage.subscribe(clientId, sink),
+                      services.limits.subscribe(clientId, sink),
+                      services.providerAccounts?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.processes.subscribe(clientId, sink),
+                      services.tasks?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.worktrees?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.plans?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.provenance?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.computer?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.secrets?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.snoozes?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.prWatches?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.peers?.subscribe(clientId, sink) ?? (() => undefined)
+                  ];
 
         channel.onDrain(() => {
             if (!closed) {

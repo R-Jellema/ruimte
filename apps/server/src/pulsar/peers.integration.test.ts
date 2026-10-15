@@ -15,7 +15,16 @@ import { DirectClient, type DirectCredential } from './direct-client.ts';
 import { DirectPeers } from './peers.ts';
 import { LanDoor } from './lan-door.ts';
 import { SignalGate } from './signal-gate.ts';
-import { lanDoorMessage, lanDoorUrl, signalMessage, type LanDoorMachineFrame, type SignalEnvelope } from '@ruimte/pulsar';
+import {
+    lanDoorMessage,
+    lanDoorUrl,
+    peerStatementMessage,
+    signalMessage,
+    type LanDoorMachineFrame,
+    type PeerStatement,
+    type SignalEnvelope
+} from '@ruimte/pulsar';
+import { StatementGate } from './statement.ts';
 import { verifySignature } from '@ruimte/pulsar/verify-node';
 
 /*
@@ -44,7 +53,7 @@ beforeAll(async () => {
     store = new AuthStore(home);
     handshake = new Handshake(store, { id: DAEMON_ID, publicKey: daemonKey.publicKey, sign: (message) => signMessage(daemonKey.privateKey, message) });
     const dispatcher = new Dispatcher();
-    dispatcher.register('server.ping', (payload) => ({ ...payload, serverTime: Date.now() }) as never);
+    dispatcher.register('server.ping', (payload) => ({ ...payload, serverTime: Date.now() }) as never, { peer: true });
     dispatcher.register(
         'endpoint.info',
         (_payload, client) => ({ reachability: client.access?.reachability, authenticated: client.access?.sessionId !== null }) as never
@@ -339,4 +348,101 @@ describe('the door on the local network', () => {
         expect((await fetch(`http://127.0.0.1:${door.port}/ws`)).status).toBe(404);
         expect((await fetch(`http://127.0.0.1:${door.port}/health`)).status).toBe(404);
     });
+});
+
+describe('a machine of the account working here as a peer', () => {
+    const addressBook = generateKeyPair();
+    const peerMachine = generateKeyPair();
+
+    function statementFor(peerKey: string, nonce: string): PeerStatement {
+        const issuedAt = Date.now();
+        const expiresAt = issuedAt + 600_000;
+        const fields = [DAEMON_ID, daemonKey.publicKey, 'owner', peerKey, 'machine-a', peerMachine.publicKey, nonce, issuedAt, expiresAt] as const;
+        return {
+            machineId: DAEMON_ID,
+            machinePublicKey: daemonKey.publicKey,
+            accountId: 'owner',
+            peerPublicKey: peerKey,
+            peerMachineId: 'machine-a',
+            peerMachinePublicKey: peerMachine.publicKey,
+            nonce,
+            issuedAt,
+            expiresAt,
+            signature: signMessage(addressBook.privateKey, peerStatementMessage(...fields))
+        };
+    }
+
+    // The offer goes through a gate that takes peer statements, signed by the peer key the way a daemon on the other end signs it.
+    function viaGate(peerKey: { publicKey: string; privateKey: string }, access: PeerStatement | null): DirectClient {
+        const statements = new StatementGate({
+            machineId: DAEMON_ID,
+            machinePublicKey: daemonKey.publicKey,
+            trustedKeys: [addressBook.publicKey],
+            store,
+            log: { log: () => undefined, warn: () => undefined }
+        });
+        const gate = new SignalGate({
+            publicKey: daemonKey.publicKey,
+            isPaired: async (publicKey) => (await store.sessionForPublicKey(publicKey)) !== null,
+            admitStatement: (publicKey, offered) => statements.admit(publicKey, offered),
+            receive: (envelope, reply) => peers.receive(envelope, reply),
+            log: { warn: () => undefined }
+        });
+        const client: DirectClient = new DirectClient({
+            stunServers: [],
+            credential: {
+                kind: 'key',
+                publicKey: peerKey.publicKey,
+                privateKey: peerKey.privateKey,
+                daemonId: DAEMON_ID,
+                daemonPublicKey: daemonKey.publicKey
+            },
+            timeoutMs: 10_000,
+            ...(access === null ? {} : { access: { peer: access, label: 'Studio' } }),
+            signal: (envelope) =>
+                void gate.accept(
+                    peerKey.publicKey,
+                    envelope,
+                    signMessage(peerKey.privateKey, signalMessage(peerKey.publicKey, daemonKey.publicKey, envelope)),
+                    (reply) => client.receiveSignal(reply)
+                )
+        });
+        clients.push(client);
+        return client;
+    }
+
+    test('is let in by its statement, gets no ticket, and asks the peer list and nothing else', async () => {
+        const key = generateKeyPair();
+        const client = viaGate(key, statementFor(key.publicKey, 'first-peer-nonce'.padEnd(22, 'n')));
+        const verdict = await client.open();
+        expect(verdict.ticket).toBeNull();
+        const access = opened.at(-1)?.access;
+        expect(access).toMatchObject({ reachability: 'lan', peer: { machineId: 'machine-a' } });
+        expect(access?.sessionId).not.toBeNull();
+
+        expect(await client.request<{ serverTime: number }>('server.ping', {})).toMatchObject({ serverTime: expect.any(Number) });
+        await expect(client.request('endpoint.info', {})).rejects.toThrow(/forbidden/);
+        await expect(client.request('fs.read', { path: '/etc/passwd' })).rejects.toThrow(/forbidden/);
+    }, 20_000);
+
+    test('proves its key from then on without a statement, until a person revokes it', async () => {
+        const key = generateKeyPair();
+        await viaGate(key, statementFor(key.publicKey, 'second-peer-nonce'.padEnd(22, 'n'))).open();
+        const again = viaGate(key, null);
+        expect((await again.open()).ticket).toBeNull();
+        expect(opened.at(-1)?.access.peer).toEqual({ machineId: 'machine-a' });
+
+        const sessionId = (await store.sessionForPublicKey(key.publicKey))!;
+        await store.revoke(sessionId);
+        await expect(viaGate(key, null).open()).rejects.toThrow(/does not know this device|not-paired/);
+        await expect(viaGate(key, statementFor(key.publicKey, 'third-peer-nonce'.padEnd(22, 'n'))).open()).rejects.toThrow(/not-paired/);
+    }, 40_000);
+
+    test('a statement a key does not hold, or another account signed, lets nobody in', async () => {
+        const key = generateKeyPair();
+        const thief = generateKeyPair();
+        const count = opened.length;
+        await expect(viaGate(thief, statementFor(key.publicKey, 'stolen-peer-nonce'.padEnd(22, 'n'))).open()).rejects.toThrow(/not-paired/);
+        expect(opened.length).toBe(count);
+    }, 20_000);
 });
