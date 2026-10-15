@@ -268,13 +268,13 @@ describe('a task given to another machine', () => {
         expect(await readFile(join(a.repo, 'a.txt'), 'utf8')).toBe('one, changed on A\n');
     });
 
-    test('five tasks with a worktree in a row each bring their branch back and leave no bundle on B', async () => {
+    test('three tasks with a worktree in a row each bring their branch back and leave no bundle on B, which is one more than the two bundles a machine may keep', async () => {
         await bootB();
         await bootA();
         await leadIdle(daemonA);
         openLink();
 
-        for (let i = 1; i <= 5; i++) {
+        for (let i = 1; i <= 3; i++) {
             const task = await give('Say hi', `Build part ${i}`);
             await daemonA.until(() => daemonA.tasks.get(task.taskId)?.status === 'done');
             await daemonA.worker.settled();
