@@ -191,7 +191,17 @@
                 "type": "Typt",
                 "shot": "Kijkt",
                 "launch": "Opent {{app}}",
-                "button": "Drukt op {{button}}"
+                "button": "Drukt op {{button}}",
+                "set": "Wijzigt instellingen",
+                "open": "Opent een link",
+                "permission": "Wijzigt een toestemming",
+                "push": "Stuurt een push",
+                "biometric": "Beantwoordt een biometrische controle",
+                "clipboard": "Gebruikt het klembord",
+                "record": "Neemt het scherm op",
+                "install": "Installeert een app",
+                "media": "Voegt foto's toe",
+                "terminate": "Stopt een app"
             },
             "button": {
                 "home": "Drukt op Home",

@@ -28,7 +28,24 @@ export const SIMULATOR: DeviceInfo = {
         input: true,
         screenshot: true,
         buttons: ['home', 'swipeHome', 'appSwitcher', 'lock', 'siri'],
-        tools: ['launchApp']
+        tools: [
+            'launchApp',
+            'openUrl',
+            'terminateApp',
+            'appearance',
+            'textSize',
+            'statusBar',
+            'battery',
+            'location',
+            'clearLocation',
+            'permissions',
+            'push',
+            'biometrics',
+            'clipboard',
+            'record',
+            'installApp',
+            'addMedia'
+        ]
     }
 };
 
@@ -83,6 +100,9 @@ export class RecordingBackend implements DeviceBackend {
     info: DeviceInfo;
     shot = pngOf(1206, 2622);
     lists = 0;
+    clipboard = '';
+    /* The files of the recordings it began, and whether each was stopped. */
+    readonly recordings: Array<{ file: string; stopped: boolean }> = [];
 
     constructor(info: DeviceInfo = SIMULATOR) {
         this.info = info;
@@ -112,6 +132,26 @@ export class RecordingBackend implements DeviceBackend {
     action(_deviceId: string, action: DeviceAction): Promise<DeviceSettings> {
         this.actions.push(action);
         return Promise.resolve({});
+    }
+
+    readClipboard(): Promise<string> {
+        return Promise.resolve(this.clipboard);
+    }
+
+    writeClipboard(_deviceId: string, text: string): Promise<void> {
+        this.clipboard = text;
+        return Promise.resolve();
+    }
+
+    startRecording(_deviceId: string, file: string): Promise<void> {
+        this.recordings.push({ file, stopped: false });
+        return Promise.resolve();
+    }
+
+    stopRecording(): Promise<string> {
+        const recording = this.recordings.at(-1)!;
+        recording.stopped = true;
+        return Promise.resolve(recording.file);
     }
 }
 

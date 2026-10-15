@@ -191,7 +191,17 @@
                 "type": "Typing",
                 "shot": "Looking",
                 "launch": "Opening {{app}}",
-                "button": "Pressing {{button}}"
+                "button": "Pressing {{button}}",
+                "set": "Changing settings",
+                "open": "Opening a link",
+                "permission": "Changing a permission",
+                "push": "Sending a push",
+                "biometric": "Answering a biometric check",
+                "clipboard": "Using the clipboard",
+                "record": "Recording the screen",
+                "install": "Installing an app",
+                "media": "Adding photos",
+                "terminate": "Stopping an app"
             },
             "button": {
                 "home": "Pressing Home",

@@ -54,6 +54,7 @@ const CWD_RULE: InsideRule = { flag: '--cwd', badCode: 'bad-cwd', outsideCode: '
 const PROMPT_FILE_RULE: InsideRule = { flag: '--prompt-file', badCode: 'bad-prompt-file', outsideCode: 'prompt-file-outside-project' };
 const RESULT_FILE_RULE: InsideRule = { flag: '--result-file', badCode: 'bad-result-file', outsideCode: 'result-file-outside-project' };
 const FILE_RULE: InsideRule = { flag: 'the path', badCode: 'bad-path', outsideCode: 'path-outside-project' };
+const DEVICE_PATH_RULE: InsideRule = { flag: '--path', badCode: 'device-path-refused', outsideCode: 'device-path-refused' };
 
 /* Where a shell or an agent may start: a directory inside the project folder or a worktree of it. */
 export async function checkCwd(folder: string, cwd: string, worktreePaths: (folder: string) => Promise<string[]>): Promise<string> {
@@ -105,6 +106,11 @@ export async function checkInsideFile(folder: string, path: string, worktreePath
         throw new VerbRefusal(FILE_RULE.badCode, `${resolved} is not a file; ${FILE_RULE.flag} is resolved against the project folder unless it is absolute`);
     }
     return resolved;
+}
+
+/* A file or an app bundle an agent hands a device, under the folder rule a cwd follows; a bundle is a folder. */
+export async function checkDevicePath(folder: string, path: string, worktreePaths: (folder: string) => Promise<string[]>): Promise<string> {
+    return (await checkInsideProject(folder, DEVICE_PATH_RULE, path, worktreePaths)).resolved;
 }
 
 /* The prompt a caller put in a file, under the same folder rule a cwd follows. */

@@ -69,6 +69,16 @@ export function stepWords(step: DeviceAgentStep, platform: DevicePlatform): stri
         case 'swipe':
         case 'type':
         case 'shot':
+        case 'set':
+        case 'open':
+        case 'permission':
+        case 'push':
+        case 'biometric':
+        case 'clipboard':
+        case 'record':
+        case 'install':
+        case 'media':
+        case 'terminate':
             return i18next.t(`machines:device.operated.step.${step.kind}`);
         case 'launch':
             return i18next.t('machines:device.operated.step.launch', { app: step.target ?? '' });

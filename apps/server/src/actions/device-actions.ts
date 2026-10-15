@@ -10,7 +10,9 @@ import {
     type ProjectCanvasView
 } from '@ruimte/contracts';
 import { arrangedCanvas, isChatView, notOnView, viewRequired } from '../canvas/chat-view.ts';
+import { checkDevicePath } from '../canvas/project-paths.ts';
 import { refuseOtherMachine } from '../canvas/remote-node.ts';
+import type { DeviceActionBody } from '../devices/agent-driver.ts';
 import { VerbRefusal, field, orNote, type CanvasHost, type DeviceDriveHost } from '../canvas/verb.ts';
 import { CodedError } from '@adecore/agents';
 import type { ServerActionContext } from './context.ts';
@@ -133,6 +135,54 @@ export async function machineDevice(host: CanvasHost, deviceId: string): Promise
     return { platform: device.platform, kind: device.kind, name: device.name, runtime: device.runtime };
 }
 
+/* A path an agent hands a device, held to the folder rule of --cwd: the project folder or one of its worktrees. */
+function devicePath({ host, place }: ServerActionContext, path: string): Promise<string> {
+    return checkDevicePath(place.folder, path, (folder) => host.checkouts.paths(folder));
+}
+
+/* What device set asks for, one action per thing it changes, in the order a person would set them. */
+function setBodies(input: {
+    appearance?: 'light' | 'dark' | null;
+    textSize?: 'small' | 'default' | 'large' | 'extra-large' | null;
+    statusBar?: 'clean' | 'default' | null;
+    battery?: number | null;
+    charging?: boolean | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    clearLocation?: boolean | null;
+}): DeviceActionBody[] {
+    const bodies: DeviceActionBody[] = [];
+    if (input.appearance) {
+        bodies.push({ action: 'setAppearance', value: input.appearance });
+    }
+    if (input.textSize) {
+        bodies.push({ action: 'setTextSize', value: input.textSize });
+    }
+    if (input.statusBar) {
+        bodies.push({ action: 'setStatusBar', value: input.statusBar });
+    }
+    if (input.battery !== null && input.battery !== undefined) {
+        bodies.push({ action: 'setBattery', level: input.battery, charging: input.charging ?? false });
+    } else if (input.charging !== null && input.charging !== undefined) {
+        throw new VerbRefusal('bad-arguments', '--charging goes with --battery N, the level it charges at');
+    }
+    const located = input.latitude !== null && input.latitude !== undefined && input.longitude !== null && input.longitude !== undefined;
+    if (located && input.clearLocation) {
+        throw new VerbRefusal('bad-arguments', 'A device takes --location or --clear-location, not both');
+    }
+    if (located) {
+        bodies.push({ action: 'setLocation', latitude: input.latitude!, longitude: input.longitude! });
+    } else if (input.clearLocation) {
+        bodies.push({ action: 'clearLocation' });
+    }
+    if (bodies.length === 0) {
+        throw new VerbRefusal('bad-arguments', 'device set needs something to change', [
+            'note\t--appearance, --text-size, --status-bar, --battery with --charging, --location or --clear-location'
+        ]);
+    }
+    return bodies;
+}
+
 export const deviceActions: ActionHandlers<ServerActionContext> = {
     'device.list': async (_input, { context }) => {
         const devices = await driverOf(context.host).list();
@@ -243,6 +293,63 @@ export const deviceActions: ActionHandlers<ServerActionContext> = {
     'device.type': async ({ nodeId, viewId, text }, { actor, context }) => {
         const device = await bootedDevice(context, actor.id, nodeId, viewId);
         await driverOf(context.host).type(actor.id, device, text);
+        return { output: { nodeId, device: device.name } };
+    },
+    'device.set': async (input, { actor, context }) => {
+        const bodies = setBodies(input);
+        const device = await bootedDevice(context, actor.id, input.nodeId, input.viewId);
+        await driverOf(context.host).act(actor.id, device, 'set', bodies);
+        return { output: { nodeId: input.nodeId, device: device.name } };
+    },
+    'device.open': async ({ nodeId, viewId, url }, { actor, context }) => {
+        const device = await bootedDevice(context, actor.id, nodeId, viewId);
+        await driverOf(context.host).act(actor.id, device, 'open', [{ action: 'openUrl', url }]);
+        return { output: { nodeId, device: device.name } };
+    },
+    'device.permission': async ({ nodeId, viewId, app, decision, permission }, { actor, context }) => {
+        const device = await bootedDevice(context, actor.id, nodeId, viewId);
+        await driverOf(context.host).act(actor.id, device, 'permission', [
+            permission ? { action: 'setPermission', appId: app, permission, decision } : { action: 'setAllPermissions', appId: app, decision }
+        ]);
+        return { output: { nodeId, device: device.name } };
+    },
+    'device.push': async ({ nodeId, viewId, app, payload }, { actor, context }) => {
+        const device = await bootedDevice(context, actor.id, nodeId, viewId);
+        await driverOf(context.host).act(actor.id, device, 'push', [{ action: 'sendPush', appId: app, payload }]);
+        return { output: { nodeId, device: device.name } };
+    },
+    'device.biometric': async ({ nodeId, viewId, event, sensor }, { actor, context }) => {
+        const device = await bootedDevice(context, actor.id, nodeId, viewId);
+        await driverOf(context.host).act(actor.id, device, 'biometric', [
+            { action: 'biometric', event, sensor: sensor ?? (device.platform === 'ios' ? 'face' : 'finger') }
+        ]);
+        return { output: { nodeId, device: device.name } };
+    },
+    'device.clipboard': async ({ nodeId, viewId, text }, { actor, context }) => {
+        const device = await bootedDevice(context, actor.id, nodeId, viewId);
+        const held = await driverOf(context.host).clipboard(actor.id, device, text ?? null);
+        return { output: { nodeId, device: device.name, text: held } };
+    },
+    'device.record': async ({ nodeId, viewId, seconds }, { actor, context }) => {
+        const device = await bootedDevice(context, actor.id, nodeId, viewId);
+        const path = await driverOf(context.host).record(actor.id, device, seconds, nodeId);
+        return { output: { nodeId, device: device.name, path } };
+    },
+    'device.install': async ({ nodeId, viewId, path }, { actor, context }) => {
+        const device = await bootedDevice(context, actor.id, nodeId, viewId);
+        const checked = await devicePath(context, path);
+        await driverOf(context.host).act(actor.id, device, 'install', [{ action: 'installApp', path: checked }]);
+        return { output: { nodeId, device: device.name } };
+    },
+    'device.media': async ({ nodeId, viewId, paths }, { actor, context }) => {
+        const device = await bootedDevice(context, actor.id, nodeId, viewId);
+        const checked = await Promise.all(paths.map((path) => devicePath(context, path)));
+        await driverOf(context.host).act(actor.id, device, 'media', [{ action: 'addMedia', paths: checked }]);
+        return { output: { nodeId, device: device.name } };
+    },
+    'device.terminate': async ({ nodeId, viewId, app }, { actor, context }) => {
+        const device = await bootedDevice(context, actor.id, nodeId, viewId);
+        await driverOf(context.host).act(actor.id, device, 'terminate', [{ action: 'terminateApp', appId: app }]);
         return { output: { nodeId, device: device.name } };
     },
     'device.launch': async ({ nodeId, viewId, app }, { actor, context }) => {

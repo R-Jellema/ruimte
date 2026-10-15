@@ -110,6 +110,73 @@ describeWrites('machine', {
         refused: { 'a blank app': { nodeId: 'device-1', app: ' ' }, 'an app id past its limit': { nodeId: 'device-1', app: 'x'.repeat(257) } },
         restricted: { viewId: { value: 'main', actors: ['agent'] } }
     },
+    'device.set': {
+        actors: ['agent'],
+        input: { nodeId: 'device-1', appearance: 'dark', statusBar: 'clean', battery: 40, charging: true, latitude: 52.37, longitude: 4.9 },
+        refused: {
+            'a battery past full': { nodeId: 'device-1', battery: 101 },
+            'a latitude off the globe': { nodeId: 'device-1', latitude: 91, longitude: 0 },
+            'a text size it has not': { nodeId: 'device-1', textSize: 'huge' }
+        },
+        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+    },
+    'device.open': {
+        actors: ['agent'],
+        input: { nodeId: 'device-1', url: 'https://ruimte.app' },
+        refused: { 'a blank link': { nodeId: 'device-1', url: ' ' } },
+        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+    },
+    'device.permission': {
+        actors: ['agent'],
+        input: { nodeId: 'device-1', app: 'app.ruimte.ios', decision: 'grant', permission: 'camera' },
+        refused: {
+            'a decision it has not': { nodeId: 'device-1', app: 'app.ruimte.ios', decision: 'allow' },
+            'a permission it has not': { nodeId: 'device-1', app: 'app.ruimte.ios', decision: 'grant', permission: 'telepathy' }
+        },
+        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+    },
+    'device.push': {
+        actors: ['agent'],
+        input: { nodeId: 'device-1', app: 'app.ruimte.ios', payload: 'Build is green' },
+        refused: { 'nothing to say': { nodeId: 'device-1', app: 'app.ruimte.ios', payload: '' } },
+        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+    },
+    'device.biometric': {
+        actors: ['agent'],
+        input: { nodeId: 'device-1', event: 'match', sensor: 'face' },
+        refused: {
+            'an event it has not': { nodeId: 'device-1', event: 'blink' },
+            'a sensor it has not': { nodeId: 'device-1', event: 'match', sensor: 'iris' }
+        },
+        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+    },
+    'device.clipboard': {
+        actors: ['agent'],
+        input: { nodeId: 'device-1', text: 'héllo' },
+        refused: { 'more than a megabyte': { nodeId: 'device-1', text: 'x'.repeat(1_048_577) } },
+        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+    },
+    'device.install': {
+        actors: ['agent'],
+        input: { nodeId: 'device-1', path: 'build/Atlas.app' },
+        refused: { 'no path': { nodeId: 'device-1', path: '' } },
+        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+    },
+    'device.media': {
+        actors: ['agent'],
+        input: { nodeId: 'device-1', paths: ['shots/a.png', 'clips/b.mov'] },
+        refused: {
+            'no pictures': { nodeId: 'device-1', paths: [] },
+            'more than twenty': { nodeId: 'device-1', paths: Array.from({ length: 21 }, () => 'a.png') }
+        },
+        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+    },
+    'device.terminate': {
+        actors: ['agent'],
+        input: { nodeId: 'device-1', app: 'app.ruimte.ios' },
+        refused: { 'a blank app': { nodeId: 'device-1', app: ' ' } },
+        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+    },
     'machine.setIdentity': {
         actors: ['person'],
         input: identity,

@@ -1,7 +1,7 @@
-import { deviceTools, type DeviceButton, type DeviceInfo, type DeviceInput, type DeviceReference } from '@ruimte/contracts';
+import { deviceTools, type DeviceAction, type DeviceButton, type DeviceInfo, type DeviceInput, type DeviceReference, type DeviceTool } from '@ruimte/contracts';
 import { realTimers, type Timers } from '../computer/approvals.ts';
 import { CodedError } from '@adecore/agents';
-import { pngSize, writeShot } from '../shots.ts';
+import { captureFile, pngSize, writeShot } from '../shots.ts';
 import { centerOf, findElements, flattenTree, type DeviceElement } from './device-tree.ts';
 import type { DeviceManager } from './manager.ts';
 
@@ -52,7 +52,40 @@ export type AgentStep =
     | { kind: 'type' }
     | { kind: 'button'; button: DeviceButton }
     | { kind: 'launch'; app: string }
-    | { kind: 'shot' };
+    | { kind: 'shot' }
+    | { kind: ToolStepKind };
+
+/* The steps of the tools beside shots and taps, each named after its verb. */
+export type ToolStepKind = 'set' | 'open' | 'permission' | 'push' | 'biometric' | 'clipboard' | 'record' | 'install' | 'media' | 'terminate';
+
+/* An action of a device without the device it acts on, which the driver adds. */
+export type DeviceActionBody = DeviceAction extends infer Action
+    ? Action extends DeviceAction
+        ? Omit<Action, 'backendId' | 'platform' | 'deviceId'>
+        : never
+    : never;
+
+/* The tool a device has to announce before an agent may use an action on it. */
+const ACTION_TOOLS: Partial<Record<DeviceAction['action'], DeviceTool>> = {
+    setAppearance: 'appearance',
+    setTextSize: 'textSize',
+    setStatusBar: 'statusBar',
+    setBattery: 'battery',
+    resetBattery: 'battery',
+    setLocation: 'location',
+    clearLocation: 'clearLocation',
+    openUrl: 'openUrl',
+    setPermission: 'permissions',
+    setAllPermissions: 'permissions',
+    sendPush: 'push',
+    biometric: 'biometrics',
+    installApp: 'installApp',
+    addMedia: 'addMedia',
+    terminateApp: 'terminateApp'
+};
+
+/* What a recording an agent asks for may last, so a forgotten one cannot hold the device for long. */
+export const AGENT_RECORDING_MAX_SECONDS = 60;
 
 /*
  * Whether a person lets an agent take a step on a device right now. The one place a pause or a
@@ -69,7 +102,23 @@ export const OPEN_GATE: DeviceGate = { admit: () => null, recheck: () => null };
 
 type Manager = Pick<
     DeviceManager,
-    'list' | 'find' | 'hold' | 'release' | 'input' | 'keys' | 'paste' | 'canType' | 'type' | 'screenshot' | 'action' | 'canTree' | 'tree' | 'closeTree'
+    | 'list'
+    | 'find'
+    | 'hold'
+    | 'release'
+    | 'input'
+    | 'keys'
+    | 'paste'
+    | 'canType'
+    | 'type'
+    | 'screenshot'
+    | 'action'
+    | 'canTree'
+    | 'tree'
+    | 'closeTree'
+    | 'clipboard'
+    | 'startRecording'
+    | 'stopRecording'
 >;
 
 export interface DeviceDriverOptions {
@@ -277,6 +326,53 @@ export class DeviceDriver {
     async launch(caller: string, device: DeviceInfo, app: string): Promise<void> {
         this.pass(caller, device, { kind: 'launch', app });
         await this.manager.action({ action: 'launchApp', appId: app, backendId: device.backendId, platform: device.platform, deviceId: device.deviceId });
+    }
+
+    /*
+     * Runs one or more actions of a tool as one step: the person sees it on the strip and may pause it
+     * first. An action the device does not announce the tool of is refused before any of them runs.
+     */
+    async act(caller: string, device: DeviceInfo, step: ToolStepKind, bodies: readonly DeviceActionBody[]): Promise<void> {
+        const tools = deviceTools(device);
+        for (const body of bodies) {
+            const tool = ACTION_TOOLS[body.action];
+            if (tool === undefined || !tools.includes(tool)) {
+                throw new CodedError('device-action-unavailable', `${device.name} has no ${tool ?? body.action} tool in Ruimte`, [
+                    `note\tIt announces: ${tools.join(' ') || 'nothing'}`
+                ]);
+            }
+        }
+        this.pass(caller, device, { kind: step });
+        for (const body of bodies) {
+            await this.manager.action({ ...body, backendId: device.backendId, platform: device.platform, deviceId: device.deviceId } as DeviceAction);
+        }
+    }
+
+    /* Reads the device clipboard, or writes it with `text`; an Android device reaches its clipboard only through a session, which this holds. */
+    async clipboard(caller: string, device: DeviceInfo, text: string | null): Promise<string> {
+        if (!deviceTools(device).includes('clipboard')) {
+            throw new CodedError('device-action-unavailable', `Ruimte cannot reach the clipboard of ${device.name}`);
+        }
+        this.pass(caller, device, { kind: 'clipboard' });
+        const holder = `agent:${caller}`;
+        await this.hold(device, holder);
+        try {
+            return await this.manager.clipboard(device.backendId, device.platform, device.deviceId, holder, text ?? undefined);
+        } finally {
+            this.keep(device, holder);
+        }
+    }
+
+    /* Records the screen for `seconds` and answers the video, in the machine's captures and outside the project. */
+    async record(caller: string, device: DeviceInfo, seconds: number, id: string): Promise<string> {
+        if (!deviceTools(device).includes('record')) {
+            throw new CodedError('device-action-unavailable', `Ruimte cannot record ${device.name}`);
+        }
+        this.pass(caller, device, { kind: 'record' });
+        const file = await captureFile(this.home, id, 'mp4');
+        await this.manager.startRecording(device.backendId, device.platform, device.deviceId, file);
+        await this.sleep(Math.min(seconds, AGENT_RECORDING_MAX_SECONDS) * 1000);
+        return this.manager.stopRecording(device.backendId, device.platform, device.deviceId);
     }
 
     /* Every hold ended at once, for a daemon that stops; the sessions themselves close with the manager. */
