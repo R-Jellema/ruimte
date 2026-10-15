@@ -173,6 +173,18 @@
                 "drop": "Loslaten om de app te installeren of de foto's toe te voegen",
                 "dropFailed": "Het apparaat nam dat niet aan",
                 "notTaken": "Sleep één app-bundel die dit apparaat installeert, of maximaal 20 foto's en video's."
+            },
+            "camera": {
+                "title": "Camera",
+                "source": "Beeld",
+                "sources": {
+                    "off": "Uit",
+                    "placeholder": "Testbeeld",
+                    "file": "Bestand"
+                },
+                "pickFile": "Bestand kiezen…",
+                "file": "Toont",
+                "note": "De app start de eerste keer opnieuw met het camerabeeld."
             }
         },
         "operated": {

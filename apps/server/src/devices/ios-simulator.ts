@@ -19,6 +19,7 @@ import { DeviceHelperSource, type DeviceHelperLauncher } from './helper-source.t
 import { DeviceError, KEY_LEFT_COMMAND, KEY_V, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard, type DeviceSource } from './manager.ts';
 import { requireExtension, requireMedia } from './device-paths.ts';
 import { DeviceRecordings } from './recordings.ts';
+import type { SimulatorCamera } from './simulator-camera.ts';
 import { realPanelMonitor, SimulatorFold, type PanelMonitorFactory } from './simulator-fold.ts';
 import type { SimulatorTreeReader } from './simulator-tree.ts';
 
@@ -237,6 +238,7 @@ export class IosSimulatorBackend implements DeviceBackend {
     private readonly foldable = new Set<string>();
     private readonly folds = new Map<string, SimulatorFold>();
     private readonly panelMonitor: PanelMonitorFactory;
+    private readonly camera: SimulatorCamera | null;
 
     constructor(
         run: SimctlRunner = defaultRunner,
@@ -244,8 +246,10 @@ export class IosSimulatorBackend implements DeviceBackend {
         sleep: (ms: number) => Promise<void> = (ms) => Bun.sleep(ms),
         treeReader: ((udid: string) => SimulatorTreeReader) | null = null,
         recordings: DeviceRecordings = new DeviceRecordings(),
-        panelMonitor: PanelMonitorFactory = realPanelMonitor
+        panelMonitor: PanelMonitorFactory = realPanelMonitor,
+        camera: SimulatorCamera | null = null
     ) {
+        this.camera = camera;
         this.run = run;
         this.launch = launch;
         this.sleep = sleep;
@@ -293,7 +297,8 @@ export class IosSimulatorBackend implements DeviceBackend {
                 tools: [
                     ...IOS_SIMULATOR_TOOLS,
                     ...(this.launch === null ? [] : (['keyboard', 'memoryWarning'] as const)),
-                    ...(this.launch !== null && this.foldable.has(device.udid) ? (['fold'] as const) : [])
+                    ...(this.launch !== null && this.foldable.has(device.udid) ? (['fold'] as const) : []),
+                    ...(this.camera?.available ? (['camera'] as const) : [])
                 ],
                 permissions: [...DevicePermissionSchema.options]
             }
@@ -315,6 +320,7 @@ export class IosSimulatorBackend implements DeviceBackend {
             return current;
         }
         this.recordings.drop(deviceId);
+        this.camera?.stop(deviceId);
         await this.command(['shutdown', deviceId]);
         return this.find(deviceId);
     }
@@ -437,6 +443,12 @@ export class IosSimulatorBackend implements DeviceBackend {
             case 'setAllPermissions':
                 await this.command(['privacy', deviceId, action.decision, 'all', action.appId]);
                 break;
+            case 'setCamera':
+                if (this.camera === null) {
+                    throw new DeviceError('device-action-unavailable', 'This machine has no camera helper for simulators');
+                }
+                await this.camera.set(deviceId, action.appId, action.source, action.path);
+                break;
             case 'installApp':
                 requireExtension(action.path, ['.app'], 'an .app built for the simulator; an .ipa is for an iPhone');
                 await this.command(['install', deviceId, action.path]);
@@ -501,6 +513,7 @@ export class IosSimulatorBackend implements DeviceBackend {
             throw new DeviceError('device-must-be-shut-down', 'Shut the simulator down before erasing it');
         }
         this.recordings.drop(deviceId);
+        this.camera?.stop(deviceId);
         await this.command(['erase', deviceId]);
     }
 

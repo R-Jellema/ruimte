@@ -36,7 +36,8 @@ export const FAKE_SIMULATOR: DeviceInfo = {
             'memoryWarning',
             'installApp',
             'addMedia',
-            'erase'
+            'erase',
+            'camera'
         ],
         permissions: ['camera', 'photos']
     }

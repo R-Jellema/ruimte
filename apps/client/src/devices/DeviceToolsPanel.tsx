@@ -90,18 +90,21 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
         };
     }, [device, endpointId, t]);
 
-    const act = async (body: ActionBody): Promise<void> => {
+    /* Whether the device took the change; a refusal is shown above the tools. */
+    const act = async (body: ActionBody): Promise<boolean> => {
         const client = deviceClientFor(endpointId);
         if (!client) {
-            return;
+            return false;
         }
         setPending(true);
         setError(null);
         try {
             const detail = await client.action({ backendId: device.backendId, platform: device.platform, deviceId: device.deviceId, ...body } as DeviceAction);
             setSettings(detail.settings);
+            return true;
         } catch (cause) {
             setError(cause instanceof Error ? cause.message : t('device.tools.changeFailed'));
+            return false;
         } finally {
             setPending(false);
         }
@@ -247,6 +250,7 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
                 )}
                 {has('biometrics') && <BiometricTools device={device} settings={settings} disabled={disabled} act={act} />}
                 {has('fold') && <FoldTools device={device} settings={settings} disabled={disabled} act={act} />}
+                {has('camera') && <CameraTools appIdPlaceholder={appIdPlaceholder} disabled={disabled} act={act} />}
                 {has('permissions') && permissions.length > 0 && (
                     <PermissionTools permissions={permissions} appIdPlaceholder={appIdPlaceholder} disabled={disabled} act={act} />
                 )}
@@ -423,7 +427,7 @@ function StatusBarTools({
     canStatusBar: boolean;
     canBattery: boolean;
     disabled: boolean;
-    act: (body: ActionBody) => Promise<void>;
+    act: (body: ActionBody) => Promise<unknown>;
 }) {
     const { t } = useTranslation('machines');
     const [level, setLevel] = useState<number | null>(null);
@@ -509,7 +513,7 @@ function FoldTools({
     device: DeviceInfo;
     settings: DeviceSettings | null;
     disabled: boolean;
-    act: (body: ActionBody) => Promise<void>;
+    act: (body: ActionBody) => Promise<unknown>;
 }) {
     const { t } = useTranslation('machines');
     const [degrees, setDegrees] = useState<number | null>(null);
@@ -569,7 +573,7 @@ function BiometricTools({
     device: DeviceInfo;
     settings: DeviceSettings | null;
     disabled: boolean;
-    act: (body: ActionBody) => Promise<void>;
+    act: (body: ActionBody) => Promise<unknown>;
 }) {
     const { t } = useTranslation('machines');
     // Android has a fingerprint to touch on an emulator only, and enrolls it in its own Settings.
@@ -608,6 +612,80 @@ function BiometricTools({
     );
 }
 
+/* What one app sees through the simulator's camera: a test pattern or a picture or video from the machine. */
+function CameraTools({ appIdPlaceholder, disabled, act }: { appIdPlaceholder: string; disabled: boolean; act: (body: ActionBody) => Promise<boolean> }) {
+    const { t } = useTranslation('machines');
+    const endpointId = useEndpointId();
+    const folder = useProject((state) => state.current?.folder ?? null);
+    const [appId, setAppId] = useState('');
+    const [source, setSource] = useState<'off' | 'placeholder' | 'file'>('off');
+    const [file, setFile] = useState<string | null>(null);
+    const [picking, setPicking] = useState(false);
+    const app = appId.trim();
+    const choose = (next: 'off' | 'placeholder' | 'file'): void => {
+        if (next === 'file') {
+            setPicking(true);
+            return;
+        }
+        void act({ action: 'setCamera', appId: app, source: next }).then((taken) => {
+            if (taken) {
+                setSource(next);
+            }
+        });
+    };
+    return (
+        <ToolSection title={t('device.tools.camera.title')}>
+            <Input
+                size="sm"
+                className="min-w-0 disabled:opacity-50"
+                value={appId}
+                disabled={disabled}
+                placeholder={appIdPlaceholder}
+                onChange={(event) => setAppId(event.target.value)}
+            />
+            <ToolRow label={t('device.tools.camera.source')}>
+                <Segmented
+                    label={t('device.tools.camera.source')}
+                    value={source}
+                    options={[
+                        { id: 'off', label: t('device.tools.camera.sources.off') },
+                        { id: 'placeholder', label: t('device.tools.camera.sources.placeholder') },
+                        { id: 'file', label: t('device.tools.camera.sources.file') }
+                    ]}
+                    disabled={disabled || app.length === 0}
+                    onValueChange={choose}
+                />
+            </ToolRow>
+            {picking && (
+                <MachineFilePicker
+                    endpointId={endpointId}
+                    start={folder ?? '/'}
+                    pickable={isMedia}
+                    multiple={false}
+                    confirmLabel={t('device.tools.camera.pickFile')}
+                    onPick={(paths) => {
+                        setPicking(false);
+                        const path = paths[0]!;
+                        void act({ action: 'setCamera', appId: app, source: 'file', path }).then((taken) => {
+                            if (taken) {
+                                setSource('file');
+                                setFile(path);
+                            }
+                        });
+                    }}
+                    onCancel={() => setPicking(false)}
+                />
+            )}
+            {source === 'file' && file !== null && (
+                <ToolRow label={t('device.tools.camera.file')}>
+                    <span className="min-w-0 truncate text-xs text-text">{file.split('/').pop()}</span>
+                </ToolRow>
+            )}
+            <p className="text-xs text-text-muted">{t('device.tools.camera.note')}</p>
+        </ToolSection>
+    );
+}
+
 /* An app or pictures from the machine the device runs on, picked there, so it works from another machine too. */
 function InstallTools({
     device,
@@ -620,7 +698,7 @@ function InstallTools({
     canInstall: boolean;
     canMedia: boolean;
     disabled: boolean;
-    act: (body: ActionBody) => Promise<void>;
+    act: (body: ActionBody) => Promise<unknown>;
 }) {
     const { t } = useTranslation('machines');
     const endpointId = useEndpointId();
@@ -687,7 +765,7 @@ function SettingToggle({
     setting: DeviceToggleSetting;
     value: boolean | undefined;
     disabled: boolean;
-    act: (body: ActionBody) => Promise<void>;
+    act: (body: ActionBody) => Promise<unknown>;
 }) {
     return (
         <ToolRow label={label}>
@@ -710,7 +788,7 @@ function TextAction({
     placeholder: string;
     label: string;
     disabled: boolean;
-    onSubmit: (value: string) => Promise<void>;
+    onSubmit: (value: string) => Promise<unknown>;
 }) {
     const [value, setValue] = useState('');
     const submit = (event: FormEvent): void => {
@@ -747,7 +825,7 @@ function LocationTools({
     canSet: boolean;
     canClear: boolean;
     disabled: boolean;
-    act: (body: ActionBody) => Promise<void>;
+    act: (body: ActionBody) => Promise<unknown>;
 }) {
     const { t } = useTranslation('machines');
     const [latitude, setLatitude] = useState('');
@@ -829,7 +907,7 @@ function PermissionTools({
     permissions: DevicePermission[];
     appIdPlaceholder: string;
     disabled: boolean;
-    act: (body: ActionBody) => Promise<void>;
+    act: (body: ActionBody) => Promise<unknown>;
 }) {
     const { t } = useTranslation('machines');
     const [appId, setAppId] = useState('');
@@ -890,7 +968,7 @@ function PermissionTools({
     );
 }
 
-function PushAction({ appIdPlaceholder, disabled, act }: { appIdPlaceholder: string; disabled: boolean; act: (body: ActionBody) => Promise<void> }) {
+function PushAction({ appIdPlaceholder, disabled, act }: { appIdPlaceholder: string; disabled: boolean; act: (body: ActionBody) => Promise<unknown> }) {
     const { t } = useTranslation('machines');
     const [appId, setAppId] = useState('');
     const [payload, setPayload] = useState('');

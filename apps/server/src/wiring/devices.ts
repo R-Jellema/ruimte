@@ -15,6 +15,7 @@ import { DeviceManager } from '../devices/manager.ts';
 import { createPhysicalStreamSourceFactory, physicalStreamHelperPath } from '../devices/physical-stream-source.ts';
 import { ScrcpyServerFile, scrcpyServerDirectory } from '../devices/scrcpy-server.ts';
 import { adbScrcpyHost, ScrcpySource } from '../devices/scrcpy-source.ts';
+import { realCameraHost, SimulatorCamera, simctlWithEnv } from '../devices/simulator-camera.ts';
 import { createTreeLauncher, SimulatorTreeReader } from '../devices/simulator-tree.ts';
 import { MachineHome } from '../fs/machine-home.ts';
 import { LiveStreamHub } from '../streams/live-stream.ts';
@@ -95,7 +96,10 @@ export function wireDevices(runtime: DaemonRuntime, computer: ComputerUse): Devi
                       undefined,
                       createDeviceHelperLauncher(deviceHelperCommand),
                       undefined,
-                      treeLauncher === null ? null : (udid) => new SimulatorTreeReader(udid, treeLauncher)
+                      treeLauncher === null ? null : (udid) => new SimulatorTreeReader(udid, treeLauncher),
+                      undefined,
+                      undefined,
+                      new SimulatorCamera(config.home, realCameraHost, simctlWithEnv)
                   ),
                   new IosPhysicalBackend(undefined, undefined, physicalStreamSource),
                   android

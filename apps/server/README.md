@@ -295,6 +295,7 @@ A device node shows a simulator, an emulator or a phone that runs on this machin
 | Install | `simctl install` of an `.app` built for the simulator; an iPhone takes an `.app` or `.ipa` through `devicectl device install app` | `adb install -r` of an `.apk`, on an emulator or a phone |
 | Media | `simctl addmedia` of png, jpg, jpeg, heic, gif, mp4 or mov | `adb push` to `/sdcard/Pictures` or `/sdcard/Movies`, then the media scanner broadcast and the provider's `scan_file` call |
 | Fold | an iPhone Duo with Xcode 27.1 and the iOS 27.1 runtime: five poses and a free angle through the native helper and its guest helper `serve-sim-duo-hid`; the capture follows the panel SpringBoard reports in its log (`src/devices/fold-panel.ts`), the angle deciding until it does | an AVD with `hw.sensor.hinge = yes`: closed with `adb emu fold`, any other pose with `emu unfold`, the hinge read back from `cmd device_state state` |
+| Camera | for one app a person names: `serve-sim-camera-helper` per simulator writes a test pattern, a picture or a video into shared memory, and the app is launched again once with `libSimCameraInjector.dylib` (`SIMCTL_CHILD_DYLD_INSERT_LIBRARIES`), after which a new choice only switches the helper (`src/devices/simulator-camera.ts`); never the Mac's own camera | none |
 | Erase | `simctl erase` on a simulator that is shut down, which the person's client shuts down first and starts again after | the emulator stopped and started again with `-wipe-data`; a phone is never erased |
 | Record | `simctl io recordVideo --codec=h264`, ended with SIGINT so it writes the end of the file, and by itself after 10 minutes | `screenrecord --time-limit 180` on the device, ended with `pkill -INT screenrecord` there, then pulled and removed |
 | Elements | the device bridge (`apps/ios-device-bridge`) | `uiautomator dump`, which needs nothing installed |
@@ -316,6 +317,7 @@ What an Android emulator cannot do that a simulator can, and stays out of scope:
 - Read elements on a screen that never stands still, such as one with an endless animation: `uiautomator` gives up, the agent gets `tree none`, and a shot still works.
 - Record for longer than 3 minutes: Android's own recorder stops there, and the node says so.
 - Shake, or warn an app of low memory: Android has no counterpart.
+- Feed the camera a picture: the emulator's camera is an AVD setting read at its start, not something to switch while it runs.
 - Enroll a fingerprint, or touch one on a phone: enrolling happens in the device's Settings, and only the emulator console has a sensor to touch.
 
 A path to install or add is always a file on the machine, never an upload: a client picks it in the machine's own files or drops it from the project's file tree, so it works the same from another machine. The daemon refuses a path that is not absolute or lies in the machine's own state under `$RUIMTE_HOME`, as `fs.read` does (`device-path-refused`), and a file the device does not take. Which of the two media scans Android 14 and later honor is not verified yet (`android-media.device.integration.test.ts`).

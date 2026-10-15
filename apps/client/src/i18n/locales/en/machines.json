@@ -173,6 +173,18 @@
                 "drop": "Drop to install the app or add the pictures",
                 "dropFailed": "The device did not take that",
                 "notTaken": "Drop one app bundle this device installs, or up to 20 pictures and videos."
+            },
+            "camera": {
+                "title": "Camera",
+                "source": "Picture",
+                "sources": {
+                    "off": "Off",
+                    "placeholder": "Test pattern",
+                    "file": "File"
+                },
+                "pickFile": "Choose file…",
+                "file": "Showing",
+                "note": "The app starts again with the camera feed the first time."
             }
         },
         "operated": {

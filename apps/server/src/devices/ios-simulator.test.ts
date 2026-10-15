@@ -4,6 +4,7 @@ import type { DeviceAction } from '@ruimte/contracts';
 import { FakeRecorder, pngOf } from './device-test-helpers.ts';
 import { DeviceHelperSource } from './helper-source.ts';
 import { IosSimulatorBackend, type SimctlRunner } from './ios-simulator.ts';
+import { SimulatorCamera } from './simulator-camera.ts';
 import type { SimulatorTreeReader } from './simulator-tree.ts';
 
 const listOutput = JSON.stringify({
@@ -446,5 +447,37 @@ describe('IosSimulatorBackend', () => {
             { method: 'preferredScreenSize', width: 1398, height: 2034 }
         ]);
         expect(settings).toMatchObject({ hinge: 80, panel: 'cover' });
+    });
+
+    test('announces the camera only with its helper, and hands the choice to it', async () => {
+        const chosen: unknown[] = [];
+        const camera = new SimulatorCamera(
+            '/Users/bas/.ruimte',
+            {
+                files: { helper: 'helper', injector: 'injector' },
+                spawn: () => ({ kill: () => undefined }),
+                listening: async () => true,
+                send: async () => true
+            },
+            async () => ({ exitCode: 0, stderr: '' })
+        );
+        camera.set = async (...arguments_: unknown[]) => {
+            chosen.push(arguments_);
+        };
+        const run: SimctlRunner = async () => ({ exitCode: 0, stdout: listOutput, stderr: '' });
+        const withCamera = new IosSimulatorBackend(run, null, undefined, null, undefined, undefined, camera);
+
+        expect((await withCamera.list())[0]?.capabilities.tools).toContain('camera');
+        expect((await new IosSimulatorBackend(run).list())[0]?.capabilities.tools).not.toContain('camera');
+        await withCamera.action('phone-1', {
+            backendId: 'simctl',
+            platform: 'ios',
+            deviceId: 'phone-1',
+            action: 'setCamera',
+            appId: 'com.example.scan',
+            source: 'file',
+            path: '/Users/bas/Code/app/qr.png'
+        });
+        expect(chosen).toEqual([['phone-1', 'com.example.scan', 'file', '/Users/bas/Code/app/qr.png']]);
     });
 });

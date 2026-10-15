@@ -27,6 +27,8 @@ test('node runs the launcher, which runs the compiled binary', () => {
     expect(compile.exitCode).toBe(0);
     if (process.platform === 'darwin') {
         expect(existsSync(join(work, 'binaries', target, 'native', 'serve-sim-duo-hid'))).toBe(true);
+        expect(existsSync(join(work, 'binaries', target, 'native', 'serve-sim-camera-helper'))).toBe(true);
+        expect(existsSync(join(work, 'binaries', target, 'native', 'libSimCameraInjector.dylib'))).toBe(true);
     }
 
     const out = join(work, 'packages');

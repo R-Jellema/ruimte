@@ -166,6 +166,46 @@ describe('installing on a device', () => {
     });
 });
 
+describe('the camera of a simulator', () => {
+    test('shows a test pattern to the app named, then a picture picked from the files of the machine', async () => {
+        machine.answer('fs.list', ({ path }) => ({
+            path,
+            entries: ['qr.png', 'notes.txt'].map((name) => ({
+                name,
+                path: `/work/atlas/${name}`,
+                kind: 'file' as const,
+                size: 1,
+                mtime: 1,
+                hidden: false,
+                ignored: false
+            })),
+            truncated: false
+        }));
+        await openTools(PHONE);
+        const camera = [...document.body.querySelectorAll('section')].find((section) => section.querySelector('h3')?.textContent === 'Camera')!;
+        expect(camera.querySelector<HTMLButtonElement>('button')?.disabled).toBe(true);
+        const appField = camera.querySelector<HTMLInputElement>('input')!;
+        await act(async () => {
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+            setter.call(appField, 'com.example.scan');
+            appField.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+
+        await clickOn(buttonWithText('Test pattern'));
+        await until(() => machine.requests('device.action').length === 1);
+        await clickOn(buttonWithText('File'));
+        await until(() => buttonWithText('qr.png') !== null);
+        expect(buttonWithText('notes.txt')).toBeNull();
+        await clickOn(buttonWithText('qr.png'));
+        await until(() => machine.requests('device.action').length === 2);
+
+        expect(machine.requests('device.action').map(({ backendId: _backend, platform: _platform, deviceId: _device, ...action }) => action)).toEqual([
+            { action: 'setCamera', appId: 'com.example.scan', source: 'placeholder' },
+            { action: 'setCamera', appId: 'com.example.scan', source: 'file', path: '/work/atlas/qr.png' }
+        ]);
+    });
+});
+
 describe('capturing a device', () => {
     test('copies and saves a screenshot the machine took for the person', async () => {
         await openTools(PHONE);

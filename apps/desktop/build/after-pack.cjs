@@ -21,6 +21,12 @@ module.exports = async (context) => {
     }
     if (
         context.electronPlatformName === 'darwin' &&
+        !['serve-sim-camera-helper', 'libSimCameraInjector.dylib'].every((name) => existsSync(join(resources, 'bin', 'native', name)))
+    ) {
+        throw new Error('No simulator camera helper; compile the server resources for this os and arch first');
+    }
+    if (
+        context.electronPlatformName === 'darwin' &&
         !existsSync(join(resources, '..', 'Helpers', 'Ruimte Computer Use.app', 'Contents', 'MacOS', 'RuimteComputerUse'))
     ) {
         throw new Error('No computer use helper; compile the server resources for this os and arch first');
