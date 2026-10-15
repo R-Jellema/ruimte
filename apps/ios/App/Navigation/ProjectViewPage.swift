@@ -26,7 +26,7 @@ struct ProjectViewPage: View {
                 if let item = shownItem(workspace) {
                     ProjectItemPage(
                         workspace: workspace, item: item, showsProject: true, projectName: preview?.projectName)
-                } else if workspace.ready && arrived == false {
+                } else if workspace.ready && arrived != nil {
                     ContentUnavailableView(
                         String(localized: "This view was removed"), lucideIcon: "square-x",
                         description: Text("It is no longer in \(workspace.title)."))
