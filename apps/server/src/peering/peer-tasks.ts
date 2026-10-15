@@ -497,10 +497,17 @@ export class PeerTasks {
         void this.starts
             .run(begun.machineId, async () => {
                 for (const bundleId of begun.bundleIds) {
-                    await store.dropIncoming(bundleId);
+                    // A channel that came back began this transfer anew under the same id, and that copy is its own.
+                    if (!this.heldByLiveChannel(bundleId)) {
+                        await store.dropIncoming(bundleId);
+                    }
                 }
             })
             .catch((e: unknown) => this.deps.log?.(`Dropping a broken transfer failed: ${e instanceof Error ? e.message : String(e)}`));
+    }
+
+    private heldByLiveChannel(bundleId: string): boolean {
+        return [...this.uploads.values()].some((begun) => begun.bundleIds.has(bundleId));
     }
 
     private forgetUpload(bundleId: string): void {

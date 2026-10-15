@@ -299,6 +299,27 @@ describe('starting a task for another machine', () => {
             expect(tasks.all()).toHaveLength(0);
         });
 
+        test('a transfer that broke off with its channel is dropped, but not one the reconnected channel began under the same id', async () => {
+            const { peerTasks, bundles } = withBundles();
+            const piece = (clientId: string, offset: number): Promise<number> =>
+                peerTasks.bundlePut(MACHINE, clientId, { bundleId: bundle.bundleId, offset, data: Buffer.from('abcd').toString('base64'), total: 8 });
+            await piece('client-1', 0);
+            peerTasks.channelClosed('client-1');
+            // The channel is back and starts the transfer over before the drop of the old one ran.
+            await piece('client-2', 0);
+            // Behind the drop in the machine's queue.
+            await expect(peerTasks.start(MACHINE, 'client-2', start({ branch: 'b'.repeat(PEER_MAX_BRANCH_LENGTH + 1) }))).rejects.toMatchObject({
+                code: 'branch-too-long'
+            });
+            expect(await Bun.file(bundles.incomingPathOf(bundle.bundleId)).exists()).toBe(true);
+
+            peerTasks.channelClosed('client-2');
+            await expect(peerTasks.start(MACHINE, 'client-2', start({ branch: 'b'.repeat(PEER_MAX_BRANCH_LENGTH + 1) }))).rejects.toMatchObject({
+                code: 'branch-too-long'
+            });
+            expect(await Bun.file(bundles.incomingPathOf(bundle.bundleId)).exists()).toBe(false);
+        });
+
         test('a person removing one frees a place, and nothing here removes a worktree', async () => {
             const paths = await keepWorktrees(PEER_MAX_WORKTREES);
             await rm(paths[0]!, { recursive: true });
