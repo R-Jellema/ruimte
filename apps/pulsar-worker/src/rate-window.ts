@@ -18,6 +18,9 @@ export const LIMITS = {
     registerIp: 30,
     statementAccount: 30,
     statementIp: 60,
+    // A person links a machine to another once; a few tries cover a machine that was away.
+    peerStatementAccount: 10,
+    peerStatementIp: 20,
     // A terminal starts one link per `ruimte login` and polls every five seconds; a person types a code a few times.
     deviceStartIp: 10,
     devicePollIp: 60,

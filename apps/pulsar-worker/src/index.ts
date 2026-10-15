@@ -1,4 +1,4 @@
-import { ProviderIdSchema } from '@ruimte/pulsar';
+import { PEER_STATEMENTS_PATH, ProviderIdSchema } from '@ruimte/pulsar';
 import { readBenchmarks, refreshBenchmarks } from './benchmarks.ts';
 import { refreshDeployedBenchmarks } from './deploy-benchmarks.ts';
 import { readCatalogs } from './catalog.ts';
@@ -13,6 +13,7 @@ import { completeIdentityLink, getAccount, listProviders, startIdentityLink, unl
 import { issueMapsTicket } from './maps-ticket.ts';
 import { deleteMachine, listMachines, registerMachine } from './machines.ts';
 import { PROVIDERS } from './providers.ts';
+import { issuePeerStatement } from './peer-statements.ts';
 import { issueStatement } from './statements.ts';
 import { completeNativeApple, startNativeApple } from './native-apple.ts';
 
@@ -37,6 +38,7 @@ const ROUTES: Readonly<Record<string, Readonly<Record<string, Handler>>>> = {
     '/v1/account/identities': { POST: completeIdentityLink },
     '/v1/machines': { GET: listMachines, POST: registerMachine },
     '/v1/statements': { POST: issueStatement },
+    [PEER_STATEMENTS_PATH]: { POST: issuePeerStatement },
     '/v1/maps/ticket': { POST: issueMapsTicket },
     '/v1/session': { POST: exchangeLoginCode, DELETE: endSession },
     '/v1/session/refresh': { POST: refreshSession }

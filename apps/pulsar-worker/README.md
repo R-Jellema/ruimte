@@ -35,6 +35,7 @@ in `packages/pulsar/src/statement-key.ts`. The wire shapes live in `packages/pul
 | `POST /v1/machines` | Register a machine with the daemon's signature; `automatic` skips a removed one |
 | `DELETE /v1/machines/<id>` | Take a machine off the list and remember that it was removed |
 | `POST /v1/statements` | A signed statement for one machine and one client key, two minutes |
+| `POST /v1/peer-statements` | A signed statement that one machine of the account may work in another under a peer key, ten minutes |
 | `POST /v1/maps/ticket` | A map ticket for the account, one hour, for a bearer session or a machine signature; `not-configured` without `MAP_TICKET_SECRET` |
 | `POST /v1/device/start`, `poll`, `complete`, `cancel` | The machine's side of a device link (`ruimte login`) |
 | `POST /v1/device/lookup`, `approve`, `deny` | The person's side, from the link page (`DEVICE_LINK_PAGE_URL`) |
@@ -80,7 +81,10 @@ Sign in with Apple in the Apple ID settings.
 A statement (`POST /v1/statements`) carries `signature` over `accessStatementMessage` and `accountSignature`
 over `accessStatementV2Message`, which adds the key the account lists the machine with and the account.
 `POST /v1/machines` and a device link refuse a machine key another account lists with
-`machine-on-other-account` (409). What a machine accepts is in
+`machine-on-other-account` (409). A peer statement (`POST /v1/peer-statements`) carries one `signature` over
+`peerStatementMessage`, naming both machines, their keys, the account and the peer key. The request is signed twice
+over `peerAccessRequestMessage`, by the peer key and by the key the account lists for the machine that works; a
+machine of another account answers `not-found`. The log marks it `kind = 'peer'`. What a machine accepts is in
 [`apps/server/README.md`](../server/README.md#one-account-per-machine).
 
 ## Local dev
