@@ -805,7 +805,7 @@ export class AndroidBackend implements DeviceBackend {
 
 /* The tools that go through the screen server's session, so only a device that can stream has them. */
 function sessionTools(streaming: boolean): DeviceTool[] {
-    return streaming ? ['clipboard'] : [];
+    return streaming ? ['clipboard', 'keyboard'] : [];
 }
 
 function nearestTextSize(scale: number): DeviceTextSize {

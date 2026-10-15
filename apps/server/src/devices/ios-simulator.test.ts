@@ -246,7 +246,9 @@ describe('IosSimulatorBackend', () => {
         const backend = new IosSimulatorBackend(async () => ({ exitCode: 0, stdout: listOutput, stderr: '' }));
         const [phone] = await backend.list();
 
-        expect(phone!.capabilities.tools).toEqual(expect.arrayContaining(['capture', 'record']));
+        expect(phone!.capabilities.tools).toEqual(expect.arrayContaining(['capture', 'record', 'clipboard']));
+        // Keys go through the native helper, which this backend was made without.
+        expect(phone!.capabilities.tools).not.toContain('keyboard');
     });
 
     test('reads the clipboard with pbpaste and writes it through pbcopy on stdin', async () => {

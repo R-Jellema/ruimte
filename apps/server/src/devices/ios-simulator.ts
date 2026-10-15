@@ -202,7 +202,7 @@ export class IosSimulatorBackend implements DeviceBackend {
                         input: this.launch !== null,
                         screenshot: true,
                         buttons: IOS_BUTTONS,
-                        tools: [...IOS_SIMULATOR_TOOLS],
+                        tools: [...IOS_SIMULATOR_TOOLS, ...(this.launch === null ? [] : (['keyboard'] as const))],
                         permissions: [...DevicePermissionSchema.options]
                     }
                 }))
