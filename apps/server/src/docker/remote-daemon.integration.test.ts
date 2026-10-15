@@ -442,6 +442,8 @@ interface OfferOptions {
     peer?: PeerStatement;
     // Pings a quiet channel the way the app does.
     ping?: { idleMs?: number; timeoutMs?: number };
+    // Tells the sessions of two keys apart in `auth.sessions`; they share CLIENT_LABEL otherwise.
+    label?: string;
 }
 
 /* A channel offered over `line`; `open()` answers its ticket, or rejects with what the machine said. */
@@ -449,8 +451,8 @@ function offerOver(line: SignalLine, credential: DirectCredential, options: Offe
     const client = new DirectClient({
         stunServers: [],
         credential,
-        ...(options.statement ? { access: { statement: options.statement, label: CLIENT_LABEL } } : {}),
-        ...(options.peer ? { access: { peer: options.peer, label: CLIENT_LABEL } } : {}),
+        ...(options.statement ? { access: { statement: options.statement, label: options.label ?? CLIENT_LABEL } } : {}),
+        ...(options.peer ? { access: { peer: options.peer, label: options.label ?? CLIENT_LABEL } } : {}),
         ...(options.ping ? { ping: options.ping } : {}),
         timeoutMs: 20_000,
         signal: (envelope) => line.send(envelope)
@@ -1038,10 +1040,11 @@ describe.skipIf(!ENABLED)('another machine of the account as a peer', () => {
     async function asPeer(key = generateKeyPair()) {
         const machine = await machineInContainer();
         const line = await doorLine(key, machine);
+        const label = `${CLIENT_LABEL} ${key.publicKey.slice(0, 8)}`;
         try {
-            const channel = offerOver(line, keyCredential(key, machine), { peer: peerStatementFor(machine, key.publicKey) });
+            const channel = offerOver(line, keyCredential(key, machine), { peer: peerStatementFor(machine, key.publicKey), label });
             const { ticket } = await channel.open();
-            return { key, machine, channel, ticket };
+            return { key, machine, channel, ticket, label };
         } finally {
             line.close();
         }
@@ -1071,7 +1074,7 @@ describe.skipIf(!ENABLED)('another machine of the account as a peer', () => {
     test('revoking it closes its channel, and neither its key nor a new peer statement for it gets back in', async () => {
         const peer = await asPeer();
         const session = (await owner.request<AuthSessionsResult>('auth.sessions', {})).sessions.find(
-            (entry) => entry.machineId === 'bench-peer-machine' && entry.label === CLIENT_LABEL
+            (entry) => entry.machineId === 'bench-peer-machine' && entry.label === peer.label
         );
         await owner.request('auth.revoke', { id: session!.id });
         await waitUntil('the channel of a revoked peer to close', () => !peer.channel.isOpen);
