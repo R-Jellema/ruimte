@@ -43735,7 +43735,8 @@
           "docker",
           "eslint",
           "tailwind",
-          "sql-native"
+          "sql-native",
+          "rust"
         ]
       }
     },
@@ -43893,7 +43894,8 @@
           "docker",
           "eslint",
           "tailwind",
-          "sql-native"
+          "sql-native",
+          "rust"
         ]
       }
     },
@@ -44051,7 +44053,8 @@
           "docker",
           "eslint",
           "tailwind",
-          "sql-native"
+          "sql-native",
+          "rust"
         ]
       }
     },

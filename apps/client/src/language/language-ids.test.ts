@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { LanguageServerStatus } from '@ruimte/contracts';
 import { lspLanguageIdOf } from '@adecore/editor-react';
-import { customLanguageIdOf } from './language-ids-host';
+import { catalogLanguageIdOf, customLanguageIdOf } from './language-ids-host';
 
 function own(languages: string[], patterns: string[]): LanguageServerStatus {
     return { server: 'custom:a', state: 'stopped', version: '', documents: 0, name: 'Zig', languages, patterns };
@@ -16,6 +16,13 @@ describe('the language a file opens with', () => {
         expect(lspLanguageIdOf('twig')).toBe('twig');
         expect(lspLanguageIdOf('zig')).toBeNull();
         expect(lspLanguageIdOf(undefined)).toBeNull();
+    });
+
+    test('knows Rust, which the shared table lacks, and still nothing for a language no catalog server serves', () => {
+        expect(catalogLanguageIdOf('rust')).toBe('rust');
+        expect(catalogLanguageIdOf('css')).toBe('css');
+        expect(catalogLanguageIdOf('zig')).toBeNull();
+        expect(catalogLanguageIdOf(undefined)).toBeNull();
     });
 
     test('is the language of a file a server of a person serves, or its own pattern', () => {

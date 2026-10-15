@@ -56,6 +56,7 @@ import { CustomLanguageServers, customProfile } from './custom.ts';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 import { LanguageChoices } from './choices.ts';
 import { LanguageInstaller, type CheckoutRevision } from './installer.ts';
+import { findManifests } from './manifests.ts';
 import type { Download, NativePolicy } from './native.ts';
 import { pinnedItem, tagCallHierarchy } from './call-hierarchy.ts';
 import { MERGED_METHODS, mergeAnswers, mergeProviders } from './merge.ts';
@@ -122,6 +123,8 @@ export interface LanguageHostOptions {
     runtime?: LanguageRuntime;
     spawn?: SpawnLanguageProcess;
     run?: RunCommand;
+    /* Where a toolchain's program may be (`LanguageInstallerOptions.findProgram`). */
+    findProgram?: (program: string) => string[];
     clock?: LanguageClock;
     exists?: (path: string) => Promise<boolean>;
     isFolder?: (path: string) => Promise<boolean>;
@@ -300,7 +303,8 @@ export class LanguageHost {
             download: options.download,
             onChange: (kind) => this.installChanged(kind),
             onSwitched: (kind) => this.installSwitched(kind),
-            ...(options.checkoutRevision === undefined ? {} : { checkoutRevision: options.checkoutRevision })
+            ...(options.checkoutRevision === undefined ? {} : { checkoutRevision: options.checkoutRevision }),
+            ...(options.findProgram === undefined ? {} : { findProgram: options.findProgram })
         });
     }
 
@@ -787,7 +791,8 @@ export class LanguageHost {
             const facts: ProjectFacts = {
                 folder: project.folder,
                 packageJson: await this.readText(join(project.folder, 'package.json')),
-                exists: this.exists
+                exists: this.exists,
+                find: (file, depth) => findManifests(project.folder, file, depth)
             };
             const active = await Promise.all(candidates.map(([, needs]) => activates(needs, facts)));
             kinds.push(...candidates.filter((_, index) => active[index]).map(([kind]) => kind));

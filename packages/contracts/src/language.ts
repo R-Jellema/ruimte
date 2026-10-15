@@ -24,7 +24,9 @@ export const LanguageServerKindSchema = z.enum([
     'docker',
     'eslint',
     'tailwind',
-    'sql-native'
+    'sql-native',
+    // rust-analyzer as the Rust toolchain brings it; Ruimte finds it and never installs it.
+    'rust'
 ]);
 export type LanguageServerKind = z.infer<typeof LanguageServerKindSchema>;
 

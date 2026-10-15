@@ -73,6 +73,7 @@ function rig(
         root,
         folderOf: (projectId) => (projectId === 'p1' ? '/work' : null),
         holders: () => [...holders],
+        findProgram: () => [],
         machineHome: {
             refuse: async (path) => {
                 if (path.startsWith('/home/.ruimte/')) {
@@ -829,6 +830,7 @@ describe('language servers of a person', () => {
             holders: () => [],
             machineHome: { refuse: async () => undefined },
             spawn: spawner.spawn,
+            findProgram: () => [],
             custom: second
         });
         held.subscribe('client-1', () => undefined);
@@ -1082,6 +1084,7 @@ describe('install and status', () => {
             holders: () => [],
             machineHome: { refuse: async () => undefined },
             run: async () => 1,
+            findProgram: () => [],
             spawn: failing.spawner.spawn
         });
         await host.install('php');

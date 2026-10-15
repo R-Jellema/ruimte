@@ -26,6 +26,15 @@ import {
 } from './native.ts';
 import { KIND_PROFILES } from './profiles.ts';
 import { runCommand, type LanguageRuntime, type RunCommand } from './runtime.ts';
+import {
+    isToolchainKind,
+    toolchainCandidates,
+    toolchainMissingOf,
+    toolchainPath,
+    toolchainProgramOf,
+    toolchainVersionOf,
+    type ToolchainKind
+} from './toolchain.ts';
 import { pinnedVersionsOf, versionOf, type NpmKind } from './versions.ts';
 
 const MARKER = 'installed.json';
@@ -60,6 +69,8 @@ export interface LanguageInstallerOptions {
     /* A kind runs another install now: an update, a rebuild or a step back, so what runs it has to start again. */
     onSwitched?: (kind: LanguageServerKind) => void;
     checkoutRevision?: CheckoutRevision;
+    /* Where a toolchain's program may be; the PATH and rustup's own folder by default. */
+    findProgram?: (program: string) => string[];
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -150,6 +161,8 @@ export class LanguageInstaller {
     private readonly known = new Map<LanguageServerKind, Installs>();
     /* The revision of the checkout a native kind builds from, as last read. */
     private readonly revisions = new Map<NativeKind, string | null>();
+    /* The program of a toolchain kind this machine has, as last looked for; null when it has none. */
+    private readonly toolchains = new Map<ToolchainKind, { executable: string; version: string } | null>();
 
     constructor(options: LanguageInstallerOptions) {
         this.options = options;
@@ -157,19 +170,25 @@ export class LanguageInstaller {
         this.native = options.native ?? new NativePolicy({ checkouts: {} });
     }
 
-    /* Reads what every kind has installed. */
+    /* Reads what every kind has installed, and looks for the programs the toolchains bring. */
     async load(): Promise<void> {
-        await Promise.all(LanguageServerKindSchema.options.map((kind) => this.refresh(kind)));
+        await Promise.all(LanguageServerKindSchema.options.map((kind) => (isToolchainKind(kind) ? this.detect(kind) : this.refresh(kind))));
     }
 
     /* The version a kind runs, or for one not installed the version an install brings; empty for a native kind this build cannot install. */
     versionOf(kind: LanguageServerKind): string {
+        if (isToolchainKind(kind)) {
+            return this.toolchains.get(kind)?.version ?? '';
+        }
         const current = this.known.get(kind)?.current;
         return current ? (current.marker.version ?? this.legacyVersionOf(kind, current.marker)) : this.pinnedVersionOf(kind);
     }
 
-    /* The version an install brings now. */
+    /* The version an install brings now; nothing for a toolchain kind, whose version is the toolchain's. */
     pinnedVersionOf(kind: LanguageServerKind): string {
+        if (isToolchainKind(kind)) {
+            return '';
+        }
         return isNativeKind(kind) ? (this.pinnedPlanOf(kind)?.version ?? '') : versionOf(kind);
     }
 
@@ -180,6 +199,10 @@ export class LanguageInstaller {
 
     /* What a native kind runs: the program of the install in use and the stubs beside it. Null for any other kind and for one not installed. */
     launchOf(kind: LanguageServerKind): { executable: string; stubsCommit?: string } | null {
+        if (isToolchainKind(kind)) {
+            const found = this.toolchains.get(kind);
+            return found ? { executable: found.executable } : null;
+        }
         if (!isNativeKind(kind)) {
             return null;
         }
@@ -211,7 +234,7 @@ export class LanguageInstaller {
     /* What an install would bring over the one the kind runs: a newer pin, or a checkout that changed. Null when it runs what it would get, or runs nothing. */
     updateOf(kind: LanguageServerKind): InstallUpdate | null {
         const current = this.known.get(kind)?.current;
-        if (!current) {
+        if (!current || isToolchainKind(kind)) {
             return null;
         }
         if (!isNativeKind(kind)) {
@@ -254,9 +277,13 @@ export class LanguageInstaller {
         return log;
     }
 
-    /* Why the last install of the kind failed, until the next one starts. */
+    /* Why the last install of the kind failed, until the next one starts; for a toolchain kind this machine lacks, how to get it. */
     failureOf(kind: LanguageServerKind): string | null {
-        return this.failures.get(kind) ?? null;
+        const failure = this.failures.get(kind) ?? null;
+        if (failure === null && isToolchainKind(kind) && this.toolchains.has(kind) && this.toolchains.get(kind) === null) {
+            return toolchainMissingOf(kind);
+        }
+        return failure;
     }
 
     async state(kind: LanguageServerKind): Promise<InstallState> {
@@ -266,8 +293,12 @@ export class LanguageInstaller {
         return (await this.isInstalled(kind)) ? 'installed' : 'missing';
     }
 
-    /* Whether the install the kind runs is whole, whichever version it is. */
+    /* Whether the install the kind runs is whole, whichever version it is; for a toolchain kind, whether its program was found. */
     async isInstalled(kind: LanguageServerKind): Promise<boolean> {
+        if (isToolchainKind(kind)) {
+            const found = this.toolchains.has(kind) ? this.toolchains.get(kind) : await this.detect(kind);
+            return found !== null && found !== undefined;
+        }
         const { current } = await this.refresh(kind, false);
         return current !== null && (await this.isWhole(kind, current));
     }
@@ -289,6 +320,9 @@ export class LanguageInstaller {
 
     /* Goes back to the install before the one in use, which becomes the one to go back to in turn. */
     async rollback(kind: LanguageServerKind): Promise<void> {
+        if (isToolchainKind(kind)) {
+            throw new Error("The version of this server is the toolchain's, so there is no earlier one here to go back to");
+        }
         if (this.installing.has(kind)) {
             throw new Error('An install of this server is running');
         }
@@ -326,6 +360,9 @@ export class LanguageInstaller {
 
     /* The id an install of the pins takes: a hash of the packages, the version of a release, or the one install of a checkout. */
     private pinnedIdOf(kind: LanguageServerKind): string | null {
+        if (isToolchainKind(kind)) {
+            return null;
+        }
         if (isNativeKind(kind)) {
             const plan = this.pinnedPlanOf(kind);
             return plan === null ? null : plan.source === 'dev' ? DEV : plan.version;
@@ -373,6 +410,9 @@ export class LanguageInstaller {
 
     /* A legacy marker names its packages and not a version to read; the main package is that version. */
     private legacyVersionOf(kind: LanguageServerKind, marker: Marker): string {
+        if (isToolchainKind(kind)) {
+            return '';
+        }
         if (isNativeKind(kind)) {
             return marker.versions?.[nativeProgramOf(kind)] ?? '';
         }
@@ -393,6 +433,9 @@ export class LanguageInstaller {
     }
 
     private matchesPins(kind: LanguageServerKind, marker: Marker): boolean {
+        if (isToolchainKind(kind)) {
+            return true;
+        }
         if (isNativeKind(kind)) {
             const plan = this.pinnedPlanOf(kind);
             return (
@@ -440,9 +483,45 @@ export class LanguageInstaller {
         }
     }
 
+    /*
+     * Looks for the program of a toolchain kind: the first candidate that runs and names itself for
+     * `--version`. A rustup proxy without its component is on the PATH all the same, and only running it tells.
+     */
+    private async detect(kind: ToolchainKind): Promise<{ executable: string; version: string } | null> {
+        const program = toolchainProgramOf(kind);
+        const candidates = (this.options.findProgram ?? toolchainCandidates)(program);
+        let found: { executable: string; version: string } | null = null;
+        for (const executable of candidates) {
+            if (!(await exists(executable))) {
+                continue;
+            }
+            const lines: string[] = [];
+            const code = await this.run({ command: executable, args: ['--version'], cwd: dirname(executable), env: { PATH: toolchainPath() } }, (line) =>
+                lines.push(line)
+            ).catch(() => null);
+            const version = code === 0 ? toolchainVersionOf(program, lines) : null;
+            if (version !== null) {
+                found = { executable, version };
+                break;
+            }
+        }
+        this.toolchains.set(kind, found);
+        return found;
+    }
+
     private async perform(kind: LanguageServerKind): Promise<void> {
         const log = this.logOf(kind);
         this.failures.delete(kind);
+        if (isToolchainKind(kind)) {
+            const found = await this.detect(kind);
+            if (found === null) {
+                log.push('install', toolchainMissingOf(kind));
+                return;
+            }
+            log.push('install', `Found ${toolchainProgramOf(kind)} ${found.version} at ${found.executable}`);
+            this.options.onSwitched?.(kind);
+            return;
+        }
         try {
             if ((await this.isInstalled(kind)) && this.updateOf(kind) === null) {
                 return;

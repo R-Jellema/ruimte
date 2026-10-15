@@ -1,8 +1,9 @@
 import type { LanguageServerKind } from '@ruimte/contracts';
 import type { NativeKind } from './native.ts';
+import type { ToolchainKind } from './toolchain.ts';
 
-/* A kind installed as npm packages, which is every kind but the native ones. */
-export type NpmKind = Exclude<LanguageServerKind, NativeKind>;
+/* A kind installed as npm packages, which is every kind but the native ones and the ones a toolchain brings. */
+export type NpmKind = Exclude<LanguageServerKind, NativeKind | ToolchainKind>;
 
 /*
  * What a server install pins, exactly. The `typescript` kind runs the native server of TypeScript 7.

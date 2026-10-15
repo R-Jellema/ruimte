@@ -16,7 +16,8 @@ export const SERVER_NAMES: Record<LanguageServerKind, { name: string; package: s
     docker: { name: 'Dockerfile', package: 'dockerfile-language-server-nodejs' },
     eslint: { name: 'ESLint', package: 'vscode-langservers-extracted' },
     tailwind: { name: 'Tailwind CSS', package: '@tailwindcss/language-server' },
-    'sql-native': { name: 'SQL', package: 'sql-language-server' }
+    'sql-native': { name: 'SQL', package: 'sql-language-server' },
+    rust: { name: 'Rust', package: 'rust-analyzer' }
 };
 
 export type ServerTone = 'ok' | 'busy' | 'error' | 'idle';
@@ -55,7 +56,7 @@ export const SERVER_GROUPS = [
     { id: 'scripts', kinds: ['typescript', 'vue', 'eslint'] },
     { id: 'web', kinds: ['html', 'css', 'tailwind'] },
     { id: 'data', kinds: ['json', 'yaml', 'sql-native'] },
-    { id: 'other', kinds: ['php-native', 'php', 'python', 'bash', 'docker'] }
+    { id: 'other', kinds: ['php-native', 'php', 'python', 'rust', 'bash', 'docker'] }
 ] as const satisfies readonly { id: string; kinds: readonly LanguageServerKind[] }[];
 
 export type ServerGroupId = (typeof SERVER_GROUPS)[number]['id'];

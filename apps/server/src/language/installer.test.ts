@@ -648,4 +648,50 @@ describe('the SQL server install', () => {
         await installer.install('sql-native');
         expect(installer.failureOf('sql-native')).toBe('cargo is not installed, and the SQL server is built with it when Ruimte runs from a checkout');
     });
+
+    it('finds rust-analyzer where the toolchain put it, never installs it, and says how to get it when it is not there', async () => {
+        const executable = join(root, 'cargo', 'bin', 'rust-analyzer');
+        const proxy = join(root, 'path', 'rust-analyzer');
+        await mkdir(dirname(executable), { recursive: true });
+        await mkdir(dirname(proxy), { recursive: true });
+        await writeFile(proxy, '');
+        const calls: string[] = [];
+        const run: RunCommand = async (spec, onLine) => {
+            calls.push(spec.command);
+            if (spec.command === proxy) {
+                onLine("error: Unknown binary 'rust-analyzer' in official toolchain 'stable-aarch64-apple-darwin'.");
+                return 1;
+            }
+            onLine('rust-analyzer 1.85.0 (4d91de4e 2025-02-17)');
+            return 0;
+        };
+        const switched: string[] = [];
+        const installer = new LanguageInstaller({
+            root,
+            runtime,
+            run,
+            onChange: () => undefined,
+            onSwitched: (kind) => switched.push(kind),
+            findProgram: () => [proxy, executable]
+        });
+        await installer.load();
+        expect(await installer.state('rust')).toBe('missing');
+        expect(installer.failureOf('rust')).toBe(
+            'rust-analyzer is not on this machine. It comes with the Rust toolchain: run rustup component add rust-analyzer'
+        );
+        expect(installer.launchOf('rust')).toBeNull();
+        expect(installer.updateOf('rust')).toBeNull();
+
+        await writeFile(executable, '');
+        await installer.install('rust');
+        expect(await installer.state('rust')).toBe('installed');
+        expect(installer.failureOf('rust')).toBeNull();
+        expect(installer.versionOf('rust')).toBe('1.85.0 (4d91de4e 2025-02-17)');
+        expect(installer.pinnedVersionOf('rust')).toBe('');
+        expect(installer.launchOf('rust')).toEqual({ executable });
+        expect(switched).toEqual(['rust']);
+        expect(calls).toEqual([proxy, proxy, executable]);
+        expect(await readdir(root)).not.toContain('rust');
+        await expect(installer.rollback('rust')).rejects.toThrow();
+    });
 });

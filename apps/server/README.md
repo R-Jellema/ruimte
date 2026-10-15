@@ -360,6 +360,7 @@ Completion negotiation advertises snippets, both insertion modes (as-is and adju
 | `eslint` | `vscode-langservers-extracted` | JavaScript, TypeScript and Vue, in a project with an ESLint config |
 | `tailwind` | `@tailwindcss/language-server` | HTML, CSS, scripts, Vue and PHP, in a project that uses Tailwind |
 | `sql-native` | the native server from `basmilius/language-server-sql`, shown as SQL | `.sql` files, against the project's schema snapshots |
+| `rust` | rust-analyzer from the Rust toolchain, never installed by Ruimte | Rust, in a project with a `Cargo.toml` in its folder or up to three folders down |
 
 The pinned npm versions are in `src/language/versions.ts`. A kind is installed only when a person presses Install (`language.install`); no verb, agent or daemon start installs anything.
 
@@ -370,6 +371,8 @@ The native servers install differently (`src/language/native.ts`, `installer.ts`
 - A development daemon builds a checkout with `cargo build --release --locked`. It uses `RUIMTE_PHP_LANGUAGE_SERVER_SOURCE` or `RUIMTE_SQL_LANGUAGE_SERVER_SOURCE` when set, else `../language-servers/php` or `../language-servers/sql` beside Ruimte's source checkout (or beside the primary checkout of a worktree). Discovery reads files only and never touches git. Cargo is found on `PATH` or in `~/.cargo/bin`.
 - Without a valid checkout, and always in a compiled daemon, Install downloads the release pinned in `src/language/php-native-release.json` or `src/language/sql-native-release.json`. A pin names the URL, SHA-256, archive format and executable path per platform. The checksum must match before extraction, entries that escape the install folder are refused, and `--version` must answer the pinned version.
 - PHP's standard library stubs are downloaded at Install for the commit the server was built against. The server starts with `storagePath` and `stubsPath`, so it never goes to the network.
+
+The `rust` kind is a toolchain's (`src/language/toolchain.ts`): rust-analyzer has to match the toolchain a project builds with, so Ruimte pins and downloads nothing. It runs the `rust-analyzer` found on `PATH` or in `~/.cargo/bin` that answers `--version` (a rustup proxy without the component does not), with `~/.cargo/bin` added to its `PATH` for cargo. Without one the kind is not installed and says to run `rustup component add rust-analyzer`; Install only looks again, and there is no update or previous version. The server is told every `Cargo.toml` of the project that no other one holds (`linkedProjects`, `src/language/manifests.ts`), since it looks only in its folder and one level down by itself.
 
 `$RUIMTE_HOME/language-servers/choices.json` holds which PHP kind the machine uses (`php-native` by default), set with `language.prefer`.
 
