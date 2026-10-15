@@ -5,6 +5,7 @@ import { useEndpoints, type Endpoint } from '@/state/endpoints';
 import { useUi } from '@/state/ui';
 import { useWindow } from '@/state/window';
 import { clickOn, mount, until, type Mounted } from '../../../../testing/dom';
+import { connectFakeMachine, FakeMachine } from '../../../../testing/fake-machine';
 import { machineBridge } from '../../../../testing/machine-bridge';
 
 const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
@@ -22,6 +23,7 @@ const ATTIC: Endpoint = {
 
 let page: Mounted;
 let chosen: string[];
+let release: (() => void) | null;
 
 function everything(): string {
     return document.body.textContent ?? '';
@@ -50,12 +52,14 @@ async function open(platform: string, machine: DesktopBridge['machine']): Promis
 
 beforeEach(() => {
     chosen = [];
+    release = null;
     useWindow.getState().setBooting(false);
 });
 
 afterEach(async () => {
     await act(async () => useUi.getState().setSettings({ open: false }));
     await page.unmount();
+    release?.();
     useEndpoints.getState().remove(ATTIC.id);
     delete scope.window.ruimteDesktop;
 });
@@ -88,6 +92,8 @@ describe('Settings > Computer Use of an app that runs no machine', () => {
     });
 
     test('an app that runs a machine has no row', async () => {
+        // An app with a machine connects to it, so a fake stands behind the pool instead of a socket.
+        release = connectFakeMachine(new FakeMachine());
         await open('darwin', machineBridge('local'));
         expect(everything()).not.toContain('Allow computer use on this Mac');
     });
