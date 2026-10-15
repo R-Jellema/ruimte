@@ -4,10 +4,15 @@ This plan holds only open implementation, decisions and verification. Each numbe
 is a reviewable change; split a larger package into issues when implementation starts. The order
 is a recommended priority. Run measurements or a design spike before estimating larger work.
 
-Reviewed against `10098374c` on October 14, 2026. Implementation, acceptance and product decisions
+Reviewed against `672113617` on October 15, 2026. Implementation, acceptance and product decisions
 are separate tasks below. The ADE CORE extraction, initial language-server implementation and
 multiwindow implementation are complete; their remaining acceptance does not require rebuilding them.
 The decisions of October 14 are written into the packages. Everything built from this plan ships in 0.19.0.
+Since the review of October 14 the 0.19.0 work is built: work on another machine, the desktop without
+a machine of its own, moving a chat into a project, the larger Intelligent UI catalog with maps,
+stored fields kept across versions, the minimum `features` gate (issue #60), the terminal and chat
+quick wins, and Linux integration in CI. What is left of it is acceptance and a few decisions, in
+package 18.
 
 ## Implementation order
 
@@ -29,7 +34,8 @@ The decisions of October 14 are written into the packages. Everything built from
 | 14. Copilot and Gemini chat           | Later                                         | 1 and 9; compatibility checks below                         |
 | 15. Editor and language servers       | Acceptance and remaining features             | Existing implementation; server policy per addition         |
 | 16. Plugins                           | After 1.0                                     | Registry inventory and a compatibility release              |
-| 17. Linux and Windows                 | Linux package checks, Windows per its plan    | Platform spikes and CI; ADE CORE API cleanup before Windows |
+| 17. Linux and Windows                 | Linux package checks, Windows per its plan    | Platform spikes and CI; ADE CORE 0.25 cleanup is released   |
+| 18. Acceptance of 0.19.0              | Before the release                            | Everything built for 0.19.0; device rows in ACCEPTANCE.md   |
 
 Measurements must finish before changing the WebGL budget, splitting the composer chunk or
 choosing media buffer sizes.
@@ -140,10 +146,9 @@ are tested and reset restores defaults.
 
 1. Let a file node keep a location. `FileLocation` (`packages/contracts/src/file-location.ts`)
    and opening a tab at a line, column or range (`state/files.ts`, `shell/panels/reveal-location.ts`)
-   exist; a file node still stores only its path. Older clients must keep the stored node, but
-   `ProjectNodeSchema` is a plain object that drops a field it does not know. Ship a release that
-   keeps unknown node fields in the client and the daemon first, as for a new kind, and write the
-   location only in the release after it.
+   exist; a file node still stores only its path. 0.19.0 keeps the fields of a stored node that it
+   does not know, in the client, the daemon and the iPhone app. Write the location only from the
+   release after it (0.20), so an older client never drops it.
 2. Probe installed external editors, add an editor preference and implement `fs.open` with a
    structured path/line location. The preference belongs to the machine that holds the file. Route
    file menus, diff rows and terminal file links through it, on that machine. Handle an
@@ -154,17 +159,12 @@ preserve the stored node.
 
 ## 6. Terminal basics
 
-1. Register xterm as a host of the shared find bar, with next/previous, result state and disposal.
-2. Type a shell-quoted path when a local file is dropped on a terminal. Use the existing Finder
-   bridge and remote-machine refusal rules; dragging a local path to a remote shell is not a valid path.
-3. Enable matching Unicode 11 widths on client and headless xterms. Compare attach/resync snapshots
-   with the client after resize, wide characters and emoji.
-4. Add Clear to the node context menu (`canvas/NodeMenu.tsx`) and the terminal's own context menu
-   through the existing `terminal.clear` action. The app menu already has it.
 5. Add Send to linked chat for a terminal selection. Append a fenced block to the chosen linked
    chat's draft without sending; offer a chooser when several chats qualify.
 
-Done when search, drop and Clear work in both a terminal view and node.
+Find, dropping a file, Unicode 11 widths and Clear are built; their Electron check is in package 18.
+
+Done when Send to linked chat works in both a terminal view and node.
 
 ## 7. Canvas ergonomics
 
@@ -192,14 +192,9 @@ and image/line/note data survives save and reload. Confirm the measurements from
 
 ## 8. Chat depth
 
-1. Preserve attached chats in `StashedPrompt`, parsing older entries as an empty list. Restore only
-   references still readable in the destination project.
 2. Keep a settled question outside its turn fold; today it still folds with the turn. A running
    workflow already stays outside the fold and the activity chip shows progress and who waits.
    Include workflow members in the activity list above the composer.
-3. Offer Continue in an empty composer after a person stopped a turn. Reuse the normal continuation
-   path and keep its queue/limit behavior consistent with package 1.
-4. Add Clear to a chat node's menu through the existing action, after package 1 defines child cleanup.
 6. Expose fork to agents through the action registry and context CLI. An agent forks only a chat
    it opened itself, within its permission ceiling, and a fork counts toward depth. Check lineage,
    project, account and ceiling. `chat.fork` currently admits only person/voice actors.
@@ -208,8 +203,11 @@ and image/line/note data survives save and reload. Confirm the measurements from
    in the diff, which the person reviews before the restore runs. Keep the existing fork into a
    new worktree behavior; that does not restore the original folder.
 
-Done when draft references survive stashing, folds do not hide needed context or active work,
-and fork and restore actions enforce their actor and file boundaries.
+Stashed attached chats, Continue after a stop and Clear in a chat node's menu are built; their
+Electron check is in package 18.
+
+Done when folds do not hide needed context or active work, and fork and restore actions enforce
+their actor and file boundaries.
 
 ## 9. Accounts
 
@@ -251,11 +249,6 @@ remaining provider limitation. Folder-isolation tests alone cannot establish log
    The infrastructure cutover/deletion is a separate operational step when implementation reaches it.
 5. Check an expired station login at cold start and during reconnect. The start screen must show
    the reason and a usable sign-in action instead of an indefinitely waiting project.
-6. Remove the branches for machines without `features` (issue #60). The first release that sends
-   `features` is the minimum, and from the release after it clients check `features` only. After
-   this, nothing outside the transport layer catches `unknown-request` (11 catches in the client,
-   21 in the iPhone app). A machine whose `endpoint.info` has no `features` makes the client ask
-   to update the machine; cover that with a DOM test.
 7. Verify the implemented LAN door on real devices: iPhone and iPad on the same Wi-Fi as
    the MacBook show Local network, also with `--no-broker` after a first connection; on 4G the
    connection opens through the broker with at most a second more. Check whether the macOS firewall
@@ -271,8 +264,7 @@ remaining provider limitation. Folder-isolation tests alone cannot establish log
    does not establish what is running.
 
 Done when connection drops have an explained, tested outcome, real-network media/terminal
-measurements meet the agreed budgets, broker migration has verified rollback and nothing outside
-the transport layer catches `unknown-request`. Preserve the existing binary reply path, range
+measurements meet the agreed budgets and broker migration has verified rollback. Preserve the existing binary reply path, range
 streaming and explicit direct-connection failure behavior.
 
 ## 11. iOS, devices and worktrees
@@ -291,11 +283,13 @@ remain out of scope.
 
 ## 12. Intelligent UI
 
-Blocks render and take input on the desktop and the iPhone, and choices reach the chat. What is
-left is native presentation, the size of the agent's note and acceptance measurements. The
-catalog additions decided on October 14 (timeline, gallery, map, text fields, diff and schema
-views, host components) are planned in the Generative UI report; this package keeps the items
-below.
+Blocks render and take input on the desktop and the iPhone, and choices reach the chat. The
+catalog additions of October 14 are built on both: timeline, gallery, compare, text field, select
+and map, with agent images attached through `ruimte-context chat attach`. A map takes its tiles
+from `maps.ruimte.app` for a signed-in client, and Ruimte looks up no addresses, so agents give
+`lat` and `lon` for every `Place`. The diff and schema views and the host components (phase 2 of
+the Generative UI report) are not built. What is left is native presentation and acceptance
+measurements; this package keeps the items below.
 
 1. Collect the appearance review per element in the real desktop and iPhone apps, including light,
    dark, narrow windows and accessibility, and work it through. No concrete list exists yet.
@@ -309,12 +303,12 @@ below.
 4. Fade in newly written words of prose that grows in a native block, without changing the
    identity or focus of an input. Expressions, code and labels stay literal; reduced motion shows
    the text at once.
-5. Shorten the UI note an agent gets. The plan's goal was under 600 tokens, and the catalog
-   additions of October 10 brought the UI and visual notes to about 3,700 characters. Keep the
-   example, which stops agents from writing components as function calls, and the rules for
-   bindings and choices. The example must still compile after the visual note joins it and on resume.
 6. Run the evaluation set: twenty real work questions per CLI and model, three times each, with no
-   syntax hint in the prompt. Record CLI and model versions, language, fresh start or resume,
+   syntax hint in the prompt. The note names components per group and `help ui <group>` gives
+   props, and a test holds the UI and visual notes together to 4,400 added characters
+   (`context-note.test.ts`); the evaluation shows whether agents still compile without the props in
+   the note. Add the questions for the new components (an incident timeline, a gallery of device
+   shots, a coffee map, a search form); a map is accepted at 18 compiles out of 20. Record CLI and model versions, language, fresh start or resume,
    compiles without diagnostics, empty renders, the choice between a block and prose, and prompt
    cost. A recurring failure gets a catalog rule and a regression test.
 7. Measure cold replay, several concurrent chats and recorded real Claude and Codex answers. Agree
@@ -322,8 +316,8 @@ below.
 8. Run the iOS app test target, beyond the Swift package tests that already pass, and check the
    other consumers of `@adecore/intelligent-ui` against the published release.
 
-Done when the native views match the desktop for sources, live values and growing prose, the note
-meets an agreed size with a compiling example, and the evaluation and measurements are recorded
+Done when the native views match the desktop for sources, live values and growing prose, the
+evaluation shows the note still compiles within its size budget, and the measurements are recorded
 with their limits.
 
 ## 13. Multiple windows
@@ -412,17 +406,87 @@ without it, with bounded capabilities and intact stored data.
    `@adecore/ui`. XWayland stays the default until the fractional-scaling measurement settles
    native Wayland.
 3. Windows follows [WINDOWS.md](WINDOWS.md), tracked in
-   [issue #15](https://github.com/basmilius/ruimte/issues/15). The ADE CORE public API cleanup
-   (ADE CORE 0.25.0, with the rebased `feat/chat-file-source-and-shell-slot` branch) comes before
-   the Windows work in ADE CORE.
+   [issue #15](https://github.com/basmilius/ruimte/issues/15). The ADE CORE public API cleanup is
+   released (ADE CORE 0.25.0), so the Windows work in ADE CORE can start.
 
 Done when each supported platform has CI and recorded packaged-app checks for its claimed
 architectures/formats.
+
+## 18. Acceptance of 0.19.0
+
+Everything here is built and tested. What is left needs the Electron dev app (`bun dev`), two
+machines or a published build. Rows for a device, the Docker bench and the evaluation are in
+[ACCEPTANCE.md](ACCEPTANCE.md). The iOS commits of 0.19.0 are not pushed yet; a push starts Xcode
+Cloud, so push them together when you want that run.
+
+1. Work on another machine, with the Linux workstation as the machine you work on and the MacBook
+   as the machine that takes the task. Check the pill, the narrow header and the offline card of a
+   node on another machine in light and dark; the menu group for a node on another machine on a
+   private canvas and on a shared one, which cannot hold it; the dialog in its four Checkout
+   states; and the linked projects under Settings > Machines.
+2. Send your files to the other machine and watch the progress, then "Bring back" and check that
+   the branch lands in the merge dialog. Fork a chat to another machine. Check the waiting pill when
+   a task waits for a machine, and the number when several wait for one.
+3. Give a task to a chat on the other machine from an agent (`--machine`). Let the MacBook sleep
+   halfway and wake: the result arrives once and the parent wakes once. Then stop a task on the
+   machine that runs it, unlink its project, and remove the access of the other machine under
+   Settings > Apps with access. Its confirm text now says that tasks it already started keep
+   running there and their results never reach it, and that unlinking stops them; check that it
+   reads right and matches what happens. A simulator stream from the Mac on Linux may stay black
+   (HEVC); if it does, offering H.264 is a follow-up.
+4. Confirm that the address book runs with its peer statement route and migration, and that the
+   map service runs with `TOMTOM_API_KEY` and the same `MAP_TICKET_SECRET` as the address book, on
+   `maps.ruimte.app`, with a usage alert at TomTom. Read TomTom's terms on caching tiles at the
+   edge. Storing geocoded coordinates no longer applies, since Ruimte looks up no addresses.
+5. The desktop without a machine of its own. `RUIMTE_MACHINE=none bun dev`: the Ruimte menu has
+   no "Stop the Machine and Quit", quitting asks nothing, the start screen leads with "Sign in",
+   the list holds no "This machine", and Settings has no Keep awake. First run (`ask`): the welcome
+   in light and dark, focus ring and arrow keys, the "Use this machine" wording while
+   `npx ruimte service install` runs, and "This computer runs agents" landing on the task list
+   after the restart. Settings > Machines > This computer: "Set up", the computer use row with its
+   reason, and the stop dialog with real counts, its checkbox and the restart after it.
+6. A packaged app in `none` on a clean macOS user account: no `~/.ruimte`, no Ruimte plist in
+   `~/Library/LaunchAgents`, nothing on port 4210; "Set up" brings them back after the restart.
+   The same switch both ways on Linux with the AppImage. This needs a release build or a local
+   pack. Decision: after a switch a window on another machine comes back alone, without a start
+   screen beside it, since that needs a change in `@adecore/shell`; say if you want it.
+7. Moving a chat into a project. In Chats, the view menu, the menu bar and the palette offer
+   "Make project" and "Move" on a written chat, disabled while it works. Make a project in a new
+   folder with its own files moved: the window lands in the project with the chat, the next
+   message runs in the new folder. Move into a project open in a second window: that window comes
+   to the front. Check the refused state (a chat that opened an agent), the conflict state, the
+   references line, the loading state and the smallest width, in light and dark. After trying it,
+   decide whether an agent in Chats may suggest a project; that step is not built.
+8. Terminal and chat quick wins. Clear in a terminal node's menu and in its own context menu sends
+   one `session.clear`; Clear in a chat node's menu ends its children. The find key opens the
+   shared find bar in a terminal node and view (Enter, Shift+Enter, Escape, the last query comes
+   back). A Finder drop types `'/path/with space/file.png' ` and makes no file node; on a remote
+   project it shows a toast and types nothing. Wide characters and emoji stay aligned after a
+   resize and a resync. Continue appears in an empty composer after a stop, and a stashed prompt
+   keeps its attached chats.
+9. Machines without `features` (issue #60). With a v0.17.1 daemon on the dev port, the start
+   screen row, Settings > Machines and an open project's lost screen show the older-Ruimte line,
+   and after switching back everything opens without a reload. A machine's settings show every
+   switch, and the local machine still connects after a daemon restart. Decision: a person who
+   postpones the restart of this computer's own service after an update has no workspace until
+   the restart; add a restart action to the lost screen, or leave it.
+10. The Intelligent UI catalog and maps. Attach a device shot with `ruimte-context chat attach`;
+    Settings has the "Map tiles" row; the Utrecht example shows four markers and the list in light
+    and dark, with zoom buttons, command-scroll zooming and plain scroll moving the thread; the
+    setting off shows the base map, and airplane mode shows it with the offline line. Check
+    Timeline, Gallery, Compare, TextField and Select once in light, dark and a narrow window.
+11. After the ADE CORE 0.25 cleanup: a finished `bash` block in a chat still shows "Prepare in
+    terminal" beside Copy, the editor opens a file with hover and completion, and the database
+    panel and the usage dialog open.
+
+Done when each item has been run and written down, or has a defect filed.
 
 ## Decisions and completion rules
 
 One step still waits on a decision: the execution rules for later language servers (15.4). Decide
 it before the implementation that depends on it, and keep going with the other steps meanwhile.
+Package 18 holds three smaller ones: the window beside a window on another machine after a switch,
+a restart action for this computer's own service, and whether an agent in Chats may suggest a project.
 Measurements settle the buffer, cap and chunk choices, and the fractional-scaling measurement
 settles native Wayland. Automatic redelivery after an accepted parent turn fails remains disabled
 by the existing product decision; it is not an unanswered implementation question.

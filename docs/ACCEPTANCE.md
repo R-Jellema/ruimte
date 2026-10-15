@@ -56,10 +56,39 @@ Features, in a disposable project where something writes:
   find it in the machine's Trash. Mention a file in a chat that is open and in one that is not. Bind a group to a
   worktree and start a chat in it on the desktop. Stop a rebase halfway and finish it from the Changes segment.
 - [ ] VoiceOver and larger text on the main pages, the chat and the composer.
+- [ ] Intelligent UI blocks in a chat, on a device. Timeline: VoiceOver reads time, title and tone per
+  event. Gallery: three device shots attached with `ruimte-context chat attach` show as a grid. Compare:
+  the handle drags and VoiceOver adjusts it. TextField and Select take input, refuse text over the
+  limit and lock after an answer. Map: the Utrecht example shows four markers and the list, airplane
+  mode keeps the list, the "Map tiles" switch in Settings off shows no map, and VoiceOver reads each
+  place.
+- [ ] Remove a view on the desktop while the phone has it open: the phone says it was removed instead of
+  opening it forever. Also connect to a machine that names no `features`, if one is at hand: the
+  session shows the older-Ruimte line.
 - [ ] iPad multitasking: split view and Slide Over with a chat and a terminal open.
 - [ ] Visual timing of streaming text and the composer's prompt transitions, with and without Reduce Motion.
 - [ ] Long background runs and network switches during a turn.
 - [ ] Startup time and memory on a device, recorded with the device and build.
+
+## Work on another machine
+
+Two machines of one account, such as the Linux workstation (the machine you work on) and the MacBook (the machine
+that takes the task). The checks in the desktop app are in [NEXT.md](NEXT.md), package 18.
+
+- [ ] The Docker bench on a host with Docker: `bun run --cwd apps/server docker:test` sets `RUIMTE_DOCKER=1` and
+  runs `src/docker/remote-daemon.integration.test.ts` against a container of its own. All cases pass, those of
+  "another machine of the account as a peer" included. Record the Docker version.
+- [ ] Over a real network and not loopback: a task from the workstation's agent runs on the MacBook, the
+  MacBook sleeps halfway and wakes, and the result arrives once. Note the route (broker or relay) and how long the
+  link took to come back.
+- [ ] A fifth task while four are open on the MacBook waits instead of failing, and starts once one settles.
+
+## Intelligent UI evaluation
+
+- [ ] The evaluation set of `docs/NEXT.md` (package 12, item 6) with the new questions: an incident timeline,
+  a gallery of device shots, a coffee map and a search form. Three runs per CLI and model, with versions,
+  language, fresh start or resume, compiles without diagnostics, empty renders and prompt cost. A map is
+  accepted at 18 compiles out of 20.
 
 ## Push notifications
 
