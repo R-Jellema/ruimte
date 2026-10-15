@@ -130,11 +130,7 @@ export function chatMoveHandlers(wiring: ChatMoveWiring): ChatMoveHandlers {
     const deps = chatMoveDeps(wiring);
     return {
         info: (payload) => chatMoveInfo(payload, deps.info),
-        move: async (payload) => {
-            const moved = await moveChat(payload, deps.move);
-            wiring.proposals?.moved(payload.chatId);
-            return moved;
-        }
+        move: (payload) => moveChat(payload, deps.move)
     };
 }
 
@@ -214,6 +210,7 @@ export function chatMoveDeps(wiring: ChatMoveWiring): { info: MoveInfoDeps; move
             claudeProjectsDirOf: (info) => chats.claudeProjectsDirOf(info)
         },
         lineage: wiring.lineage,
+        moved: (chatId) => wiring.proposals?.moved(chatId),
         ...(wiring.journal ? { journal: wiring.journal } : {}),
         ...(wiring.snoozes ? { snoozes: wiring.snoozes } : {})
     };

@@ -71,6 +71,8 @@ export interface MoveChatDeps {
     snoozes?: Pick<SnoozeStore, 'list' | 'set'>;
     /* Written before the first step and dropped once the move is whole or put back, so a stop in between is finished at the next start (`move-repair.ts`). */
     journal?: Pick<MoveJournal, 'begin' | 'end'>;
+    /* Told once the chat is in its project, also when saving its new folder failed after: the move is done either way. */
+    moved?(chatId: string): void;
     /* Seams for a test that makes a step fail; the file system's own by default. */
     moveTranscript?: typeof moveClaudeTranscript;
     moveOwnFiles?: typeof moveOwnFiles;
@@ -284,6 +286,7 @@ export async function moveChat(payload: ChatMovePayload, deps: MoveChatDeps): Pr
     } catch (e) {
         // Past this point the queue of the chat went on, so nothing is taken back: the journal stays and the next start finishes the move.
         if (whole) {
+            deps.moved?.(chatId);
             throw new ChatError(
                 'move-failed',
                 `The chat is in the project, but the machine could not save its new folder (${errorText(e)}). It finishes the move the next time it starts`
@@ -297,6 +300,7 @@ export async function moveChat(payload: ChatMovePayload, deps: MoveChatDeps): Pr
         throw e;
     }
     await endJournal();
+    deps.moved?.(chatId);
 
     const words = movedNote({ name: target.name, folder, leftAt });
     await deps.chats

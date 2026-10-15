@@ -522,6 +522,46 @@ describe('moving a chat from Chats into a project', () => {
             expect(daemon.chats.get(chatId)!.info.cwd).toBe(join(root, 'vinyl'));
         });
 
+        test('the move is told as done once the chat is in its project, also when saving its folder failed after', async () => {
+            const told: string[] = [];
+            await moveChat(
+                { chatId, to: make('vinyl'), ownFiles: 'move' },
+                deps(() => ({ moved: (id) => void told.push(id) }))
+            );
+            expect(told).toEqual([chatId]);
+        });
+
+        test('a move that failed before the chat was in its project tells nothing', async () => {
+            const told: string[] = [];
+            await expect(
+                moveChat(
+                    { chatId, to: make('vinyl'), ownFiles: 'move' },
+                    deps(() => ({ moved: (id) => void told.push(id), moveOwnFiles: () => Promise.reject(FAILED) }))
+                )
+            ).rejects.toBe(FAILED);
+            expect(told).toEqual([]);
+        });
+
+        test('a record that cannot take the new folder tells the move as done, so a card of the chat does not stand without a hold', async () => {
+            const told: string[] = [];
+            await expect(
+                moveChat(
+                    { chatId, to: make('vinyl'), ownFiles: 'move' },
+                    deps((base) => ({
+                        moved: (id) => void told.push(id),
+                        chats: {
+                            ...base.chats,
+                            relocate: async (id, cwd, during) => {
+                                await base.chats.relocate(id, cwd, during);
+                                throw FAILED;
+                            }
+                        }
+                    }))
+                )
+            ).rejects.toMatchObject({ code: 'move-failed' });
+            expect(told).toEqual([chatId]);
+        });
+
         test('a record that cannot take the new folder takes nothing back and leaves the journal for the next start', async () => {
             await expect(
                 moveChat(

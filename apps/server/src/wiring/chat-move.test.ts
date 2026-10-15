@@ -192,6 +192,28 @@ describe('what the machine says about moving a chat', () => {
             expect(daemon.chats.get(chatId)?.thread.held).toBe(false);
         });
 
+        test('a move that is whole but could not save the folder settles the card, since nothing holds the chat any more', async () => {
+            const folder = join(root, 'vinyl');
+            const base = chatMoveDeps(wiring()).move;
+            await expect(
+                moveChat(
+                    { chatId, to: { folder, name: 'Vinyl', createFolder: true, initGit: false }, ownFiles: 'leave' },
+                    {
+                        ...base,
+                        chats: {
+                            ...base.chats,
+                            relocate: async (id, cwd, during) => {
+                                await base.chats.relocate(id, cwd, during);
+                                throw new Error('injected');
+                            }
+                        }
+                    }
+                )
+            ).rejects.toMatchObject({ code: 'move-failed' });
+            expect(proposals.stands(chatId)).toBe(false);
+            expect(daemon.chats.get(chatId)?.thread.held).toBe(false);
+        });
+
         test('a move that fails after the hold was let go puts the hold back', async () => {
             const folder = join(root, 'vinyl');
             const failing = chatMoveDeps(wiring()).move;
