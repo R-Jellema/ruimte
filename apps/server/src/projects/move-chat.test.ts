@@ -286,6 +286,23 @@ describe('moving a chat from Chats into a project', () => {
         await expectUntouched();
     });
 
+    test('a chat that cannot be relocated is refused before a folder, a repository or a project is made', async () => {
+        daemon.chats.holdForPerson(chatId, 'some-card');
+        const folder = join(root, 'vinyl');
+        const before = (await store.known()).length;
+        await expect(
+            moveChat(
+                { chatId, to: make('vinyl', { initGit: true }), ownFiles: 'move' },
+                deps(() => ({ refusal: () => null }))
+            )
+        ).rejects.toMatchObject({
+            code: 'move-refused'
+        });
+        expect(existsSync(folder)).toBe(false);
+        expect((await store.known()).length).toBe(before);
+        await expectUntouched();
+    });
+
     test('a project places the chat at every moment of the move', async () => {
         const seen: Array<string | null> = [];
         const result = await moveChat(

@@ -60,6 +60,8 @@ export interface MoveChatDeps {
     chats: {
         /* The chat's record, loaded from disk when nobody has it; throws `chat-not-found` for an id with no chat. */
         load(chatId: string): Promise<ChatInfo>;
+        /* Asks whether the chat can be relocated at all, with the hold of its own suggestion let go. Null when it cannot; else the way back for a move that does not happen. */
+        claim(chatId: string): (() => void) | null;
         relocate(chatId: string, cwd: string, during: () => Promise<void>): Promise<ChatInfo>;
         deliverNote(chatId: string, delivery: { noteId: string; note: string; preamble: string }): Promise<boolean>;
         claudeProjectsDirOf(info: Pick<ChatInfo, 'account'>): string;
@@ -90,6 +92,14 @@ function movedView(view: ProjectChatView): ProjectChatView {
     const { cwd: _cwd, ...node } = view.node;
     const { empty: _empty, ...rest } = view;
     return { ...rest, node };
+}
+
+/* A catch handler that runs `undo` and lets the failure through. */
+function failWith(undo: () => void): (e: unknown) => never {
+    return (e) => {
+        undo();
+        throw e;
+    };
 }
 
 function chatViewOf(content: ProjectContent, chatId: string): ProjectChatView {
@@ -150,9 +160,14 @@ export async function moveChat(payload: ChatMovePayload, deps: MoveChatDeps): Pr
     if (chats === undefined) {
         throw new ChatError('move-refused', moveRefusalSentence({ reason: 'not-in-chats' }));
     }
-    const target = chosen ?? known.find((project) => project.folder === folder) ?? (await makeProject(payload, folder, deps));
     const info = await deps.chats.load(chatId);
     refuse(deps, chatId);
+    // The last refusal: from here on the move makes things on disk.
+    const putBack = deps.chats.claim(chatId);
+    if (putBack === null) {
+        throw new ChatError('move-refused', moveRefusalSentence({ reason: 'working' }));
+    }
+    const target = chosen ?? known.find((project) => project.folder === folder) ?? (await makeProject(payload, folder, deps).catch(failWith(putBack)));
 
     const undo: Array<() => Promise<void>> = [];
     let leftAt: string | null = null;
@@ -274,6 +289,7 @@ export async function moveChat(payload: ChatMovePayload, deps: MoveChatDeps): Pr
                 `The chat is in the project, but the machine could not save its new folder (${errorText(e)}). It finishes the move the next time it starts`
             );
         }
+        putBack();
         // The relocation throws the library's error, not Ruimte's subclass, and its sentence names the chat id.
         if (e instanceof AgentChatError && e.code === 'chat-busy') {
             throw new ChatError('move-refused', moveRefusalSentence({ reason: 'working' }));

@@ -201,16 +201,16 @@ export function chatMoveDeps(wiring: ChatMoveWiring): { info: MoveInfoDeps; move
         },
         chats: {
             load: (chatId) => loadedInfo(chats, chatId),
-            relocate: async (chatId, cwd, during) => {
-                // The card holds the chat, and a held chat does not relocate: the move it asks for lets go of the hold and puts it back if it fails.
-                const putBack = wiring.proposals?.pauseHold(chatId);
-                try {
-                    return await chats.relocate(chatId, cwd, during);
-                } catch (e) {
-                    putBack?.();
-                    throw e;
+            claim: (chatId) => {
+                // The card holds the chat, and a held chat does not relocate: the move it asks for lets go of the hold and puts it back if the move fails.
+                const putBack = wiring.proposals?.pauseHold(chatId) ?? (() => undefined);
+                if (chats.get(chatId)?.relocatable === false) {
+                    putBack();
+                    return null;
                 }
+                return putBack;
             },
+            relocate: (chatId, cwd, during) => chats.relocate(chatId, cwd, during),
             deliverNote: (chatId, delivery) => chats.deliverNote(chatId, delivery),
             claudeProjectsDirOf: (info) => chats.claudeProjectsDirOf(info)
         },
