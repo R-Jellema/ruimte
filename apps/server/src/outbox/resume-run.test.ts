@@ -106,6 +106,7 @@ async function boot(spawn?: SpawnChatProcess): Promise<Daemon> {
             'deliver-pr-watch': () => Promise.reject(new Error('no pull request watches in these tests')),
             'run-after-settle': () => Promise.reject(new Error('no launches after a settle in these tests')),
             'connect-peer': () => Promise.reject(new Error('no links to other machines in these tests')),
+            'deliver-remote-result': () => Promise.reject(new Error('no tasks from other machines in these tests')),
             'resume-limit': () => Promise.reject(new Error('no limits in these tests')),
             'background-limit': () => Promise.reject(new Error('no limits in these tests')),
             'give-task': () => Promise.reject(new Error('no tasks are given in these tests')),

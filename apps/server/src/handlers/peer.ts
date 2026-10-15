@@ -1,18 +1,9 @@
-import { isDeepStrictEqual } from 'node:util';
-import {
-    NODE_SIZE,
-    isCanvasView,
-    sessionNodesOfView,
-    type PeerLink,
-    type PeerNode,
-    type ProjectCanvasView,
-    type ProjectNode,
-    type ProjectView
-} from '@ruimte/contracts';
+import { isCanvasView, sessionNodesOfView, type PeerLink, type ProjectCanvasView } from '@ruimte/contracts';
 import { VerbRefusal } from '../canvas/verb.ts';
 import { checkCwd } from '../canvas/project-paths.ts';
 import { RequestError, type Dispatcher } from '../dispatcher.ts';
 import { peerCanvasId, type PeerLinks } from '../peering/links.ts';
+import { nodeOf, sameCanvas } from '../peering/peer-canvas.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 
 /* What the requests of another machine's links reach of this one. */
@@ -25,15 +16,6 @@ export interface PeerHost {
     endSession(kind: 'terminal' | 'chat', nodeId: string): Promise<void>;
     /* The worktrees of the repository in a project folder, which a node may start in as well. */
     worktreePaths(folder: string): Promise<string[]>;
-}
-
-// The mirror is never looked at, so its nodes only need a place of their own and a size that holds.
-const COLUMNS = 3;
-const GAP = 40;
-
-function nodeOf(node: PeerNode, index: number): ProjectNode {
-    const { w, h } = NODE_SIZE[node.kind];
-    return { ...node, x: (index % COLUMNS) * (w + GAP), y: Math.floor(index / COLUMNS) * (h + GAP), w, h };
 }
 
 /*
@@ -164,10 +146,4 @@ export function registerPeerHandlers(dispatcher: Dispatcher, { links, projects, 
         }
         return {};
     });
-}
-
-/* Hidden is laid over the document and is no part of what the other machine drew. */
-function sameCanvas(held: ProjectView, next: ProjectCanvasView): boolean {
-    const { hidden: _hidden, ...rest } = held as ProjectCanvasView;
-    return isDeepStrictEqual(rest, next);
 }

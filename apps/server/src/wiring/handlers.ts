@@ -26,6 +26,7 @@ import { registerLanguageHandlers } from '../handlers/language.ts';
 import { registerLaunchHandlers } from '../handlers/launches.ts';
 import { registerOnDeviceHandlers } from '../handlers/ondevice.ts';
 import { registerPeerHandlers } from '../handlers/peer.ts';
+import { registerPeerTaskHandlers } from '../handlers/peer-tasks.ts';
 import { registerPlanHandlers } from '../handlers/plan.ts';
 import { registerRemoteHandlers } from '../handlers/remote.ts';
 import { trustedStatementKeys } from '../pulsar/statement.ts';
@@ -229,6 +230,7 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
         worktreePaths: (folder) => git.checkouts.paths(folder),
         attestedUntil: (machineId) => machine.auth.attestedUntil(machineId)
     });
+    registerPeerTaskHandlers(dispatcher, store.peers, work.peerTasks);
     registerRemoteHandlers(dispatcher, store.remote, store, {
         machineId: identity.id,
         machinePublicKey: identity.publicKey,

@@ -61,10 +61,21 @@ import {
 import { RenderSceneResultSchema } from './render.ts';
 import {
     PeerBindPayloadSchema,
+    PeerBundlePutPayloadSchema,
+    PeerBundlePutResultSchema,
+    PeerBundleReadPayloadSchema,
+    PeerBundleReadResultSchema,
+    PeerClosePayloadSchema,
     PeerLinkSchema,
     PeerListResultSchema,
     PeerPlaceNodesPayloadSchema,
+    PeerResultPayloadSchema,
+    PeerResultResultSchema,
     PeerSetCeilingPayloadSchema,
+    PeerTaskSettledEventSchema,
+    PeerTaskStartPayloadSchema,
+    PeerTaskStartResultSchema,
+    PeerTaskStopPayloadSchema,
     PeerUnbindPayloadSchema
 } from './peer.ts';
 import {
@@ -432,6 +443,13 @@ export const REQUEST_SCHEMAS = {
     'peer.unbind': { payload: PeerUnbindPayloadSchema, result: EmptySchema },
     // The asking client holds the project from then on, as one that opened it.
     'peer.placeNodes': { payload: PeerPlaceNodesPayloadSchema, result: EmptySchema },
+    // What a machine that works here asks (the peer list): each starts with the link a person made, and none is a person's.
+    'peer.taskStart': { payload: PeerTaskStartPayloadSchema, result: PeerTaskStartResultSchema },
+    'peer.taskStop': { payload: PeerTaskStopPayloadSchema, result: EmptySchema },
+    'peer.result': { payload: PeerResultPayloadSchema, result: PeerResultResultSchema },
+    'peer.bundlePut': { payload: PeerBundlePutPayloadSchema, result: PeerBundlePutResultSchema },
+    'peer.bundleRead': { payload: PeerBundleReadPayloadSchema, result: PeerBundleReadResultSchema },
+    'peer.close': { payload: PeerClosePayloadSchema, result: EmptySchema },
     'remote.list': { payload: RemoteListPayloadSchema, result: RemoteListResultSchema },
     'remote.link': { payload: RemoteLinkPayloadSchema, result: RemoteLinkSchema },
     'remote.connect': { payload: RemoteConnectPayloadSchema, result: EmptySchema },
@@ -712,6 +730,8 @@ export const EVENT_SCHEMAS = {
     'snooze.changed': SnoozeListSchema,
     // The links of other machines to projects here changed, so the list in settings reloads.
     'peer.changed': EmptySchema,
+    // Sent to the machine that gave the task, over its own link only.
+    'peer.taskSettled': PeerTaskSettledEventSchema,
     // The link to another machine opened, was lost or is waiting to be tried again.
     'remote.status': RemoteStatusEventSchema,
     'push.notification': z.object({

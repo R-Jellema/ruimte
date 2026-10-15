@@ -82,7 +82,8 @@ function handlersWith(connectPeer: (entry: ConnectPeerEntry) => Promise<void>): 
         'deliver-waiting': unexpected,
         'deliver-pr-watch': unexpected,
         'run-after-settle': unexpected,
-        'connect-peer': connectPeer
+        'connect-peer': connectPeer,
+        'deliver-remote-result': () => Promise.reject(new Error('not used here'))
     };
 }
 

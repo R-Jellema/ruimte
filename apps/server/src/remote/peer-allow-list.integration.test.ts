@@ -112,10 +112,37 @@ afterAll(async () => {
     await rm(homeA, { recursive: true, force: true });
 });
 
+const PAYLOADS: Record<string, unknown> = {
+    'peer.taskStart': {
+        projectId: 'project-1',
+        nodeId: 'chat-one',
+        parentId: 'chat-parent',
+        title: 'Task',
+        prompt: 'Do it',
+        provider: 'claude',
+        ceiling: 'full-access',
+        depth: 1
+    },
+    'peer.taskStop': { nodeId: 'chat-one' },
+    'peer.result': { nodeId: 'chat-one' },
+    'peer.bundlePut': { bundleId: 'a-bundle-id', offset: 0, data: '' },
+    'peer.bundleRead': { bundleId: 'a-bundle-id', offset: 0, length: 10 },
+    'peer.close': { projectId: 'project-1' }
+};
+
 describe('a peer in the whole daemon', () => {
-    test('the requests it may ask are exactly endpoint.info and server.ping', async () => {
+    test('the requests it may ask are exactly the peer list', async () => {
         const info = await link.request<{ features: string[]; accountId?: string }>('endpoint.info', {});
-        expect(info.features.toSorted()).toEqual(['endpoint.info', 'server.ping']);
+        expect(info.features.toSorted()).toEqual([
+            'endpoint.info',
+            'peer.bundlePut',
+            'peer.bundleRead',
+            'peer.close',
+            'peer.result',
+            'peer.taskStart',
+            'peer.taskStop',
+            'server.ping'
+        ]);
         expect(info.accountId).toBeUndefined();
         await expect(link.request('server.ping', {})).resolves.toBeDefined();
     }, 30_000);
@@ -131,9 +158,19 @@ describe('a peer in the whole daemon', () => {
             'endpoint.signRegistration',
             'endpoint.signPeerAccess',
             'remote.connect',
-            'peer.bind'
+            'peer.bind',
+            'peer.placeNodes',
+            'git.bundlePut',
+            'git.fetchBundle',
+            'bytes.read'
         ]) {
             await expect(link.request(type, {})).rejects.toThrow(/^forbidden:/);
+        }
+    }, 30_000);
+
+    test('and every request on the list answers peer-not-linked until a person here links the machine', async () => {
+        for (const type of ['peer.taskStart', 'peer.taskStop', 'peer.result', 'peer.bundlePut', 'peer.bundleRead', 'peer.close']) {
+            await expect(link.request(type, PAYLOADS[type])).rejects.toThrow(/^peer-not-linked:/);
         }
     }, 30_000);
 });

@@ -1,7 +1,7 @@
 import type { ServerWebSocket } from 'bun';
 import type { Handshake } from '../auth/handshake.ts';
 import { connectionOpener, type ClientChannel, type ConnectionServices, type OpenConnection, type SocketChannel } from '../connection.ts';
-import type { ClientAccess } from '../dispatcher.ts';
+import { sendEvent, type ClientAccess } from '../dispatcher.ts';
 
 export interface SocketConnection {
     channel: SocketChannel;
@@ -20,6 +20,8 @@ export interface ClientsBundle {
     open(channel: ClientChannel, access: ClientAccess): OpenConnection;
     /* Revoking must take effect now, not at the next connection, so a session's sockets and channels close here. */
     disconnectSession(sessionId: string): void;
+    /* Tells a machine that works here its task settled, over the link it holds now; nothing when it holds none. */
+    notifyPeer(machineId: string, nodeId: string): void;
 }
 
 export function wireClients(handshake: Handshake, services: ConnectionServices): ClientsBundle {
@@ -33,5 +35,12 @@ export function wireClients(handshake: Handshake, services: ConnectionServices):
             }
         }
     };
-    return { sockets, direct, open: connectionOpener(services), disconnectSession };
+    const notifyPeer = (machineId: string, nodeId: string): void => {
+        for (const { connection } of [...sockets.values(), ...direct]) {
+            if (connection.client.access?.peer?.machineId === machineId) {
+                sendEvent(connection.client, 'peer.taskSettled', { nodeId });
+            }
+        }
+    };
+    return { sockets, direct, open: connectionOpener(services), disconnectSession, notifyPeer };
 }

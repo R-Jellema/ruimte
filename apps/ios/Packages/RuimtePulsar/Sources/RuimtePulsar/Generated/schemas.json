@@ -7501,6 +7501,389 @@
     "type": "object",
     "properties": {}
   },
+  "request.peer.taskStart.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "nodeId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "parentId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "title": {
+        "type": "string",
+        "maxLength": 200
+      },
+      "prompt": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      },
+      "provider": {
+        "type": "string",
+        "x-open-enum": [
+          "claude",
+          "codex",
+          "gemini",
+          "copilot",
+          "apple"
+        ]
+      },
+      "terminal": {
+        "type": "boolean"
+      },
+      "mode": {
+        "type": "string",
+        "x-open-enum": [
+          "supervised",
+          "auto-accept-edits",
+          "auto",
+          "full-access"
+        ]
+      },
+      "ceiling": {
+        "type": "string",
+        "x-open-enum": [
+          "supervised",
+          "auto-accept-edits",
+          "auto",
+          "full-access"
+        ]
+      },
+      "depth": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 8
+      },
+      "bundle": {
+        "type": "object",
+        "properties": {
+          "bundleId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "sha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "bundleId",
+          "sha256"
+        ]
+      },
+      "branch": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      }
+    },
+    "required": [
+      "projectId",
+      "nodeId",
+      "parentId",
+      "title",
+      "prompt",
+      "provider",
+      "ceiling",
+      "depth"
+    ]
+  },
+  "request.peer.taskStart.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "cwd": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "branch": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "cwd",
+      "branch"
+    ]
+  },
+  "request.peer.taskStop.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "nodeId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "nodeId"
+    ]
+  },
+  "request.peer.taskStop.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.peer.result.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "nodeId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "ack": {
+        "type": "boolean"
+      },
+      "haves": {
+        "maxItems": 200,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "required": [
+      "nodeId"
+    ]
+  },
+  "request.peer.result.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "status": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "open",
+              "done",
+              "failed",
+              "cancelled"
+            ]
+          },
+          {
+            "type": "string",
+            "const": "unknown"
+          }
+        ]
+      },
+      "result": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "done",
+                  "turn",
+                  "exit"
+                ]
+              },
+              "at": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "text",
+              "source",
+              "at"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "bundle": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "bundleId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "size": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "sha256": {
+                "type": "string",
+                "minLength": 64,
+                "maxLength": 64
+              },
+              "commit": {
+                "type": "string",
+                "minLength": 1
+              },
+              "base": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "branch": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "bundleId",
+              "size",
+              "sha256",
+              "commit",
+              "base",
+              "branch"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "status",
+      "result",
+      "bundle"
+    ]
+  },
+  "request.peer.bundlePut.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "bundleId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "offset": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "data": {
+        "type": "string",
+        "maxLength": 349530
+      },
+      "total": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "bundleId",
+      "offset",
+      "data"
+    ]
+  },
+  "request.peer.bundlePut.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "received": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "received"
+    ]
+  },
+  "request.peer.bundleRead.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "bundleId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "offset": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "length": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 262144
+      }
+    },
+    "required": [
+      "bundleId",
+      "offset",
+      "length"
+    ]
+  },
+  "request.peer.bundleRead.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "size": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "offset": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "data": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "size",
+      "offset",
+      "data"
+    ]
+  },
+  "request.peer.close.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "projectId"
+    ]
+  },
+  "request.peer.close.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
   "request.remote.list.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -57425,6 +57808,19 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {}
+  },
+  "event.peer.taskSettled": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "nodeId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "nodeId"
+    ]
   },
   "event.remote.status": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",

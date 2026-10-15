@@ -440,3 +440,23 @@ test('what the index says while it warms at start is owed only once the outbox c
     await Promise.resolve();
     expect(owed).toEqual(['gone-lead']);
 });
+
+test("an agent another machine's agent opened is not an orphan, since its opener never was in this project", async () => {
+    const lineage = new AgentLineageStore(home);
+    await lineage.put({ projectId: 'project', nodeId: 'child', openedBy: 'peer:machine-a:lead', depth: 1, agent: true, peer: { machineId: 'machine-a' } });
+    const owed: string[] = [];
+    const wiring = wireEndChildren({
+        lineage,
+        outbox: new OutboxStore(home),
+        tasks: new TaskStore(home),
+        chats: { get: () => undefined, stop: async () => undefined },
+        sessions: { get: () => undefined, end: async () => undefined },
+        enqueue: async (_projectId, target) => {
+            owed.push(target);
+        }
+    });
+    wiring.start();
+    wiring.places('project', new Set(['child']));
+    await Promise.resolve();
+    expect(owed).toEqual([]);
+});

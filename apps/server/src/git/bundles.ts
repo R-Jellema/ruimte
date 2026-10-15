@@ -29,6 +29,11 @@ const TOO_BIG = `The work to send is larger than ${BUNDLE_MAX_BYTES / 1024 / 102
 
 const NO_HOOKS = ['-c', 'core.hooksPath=/dev/null'];
 
+/* A machine id as a folder name, whatever characters the id holds. */
+function peerFolder(machineId: string): string {
+    return new Bun.CryptoHasher('sha256').update(machineId).digest('hex').slice(0, 32);
+}
+
 /*
  * The bundles of this machine: the ones it wrote for another machine to read, and the ones another
  * machine is sending. Both live under `$RUIMTE_HOME/bundles` and nothing outside it is reachable by
@@ -43,8 +48,8 @@ export class BundleStore {
     // The client each bundle written here was for, oldest first.
     private readonly madeFor = new Map<string, string>();
 
-    constructor(home: string) {
-        this.root = join(home, 'bundles');
+    constructor(home: string, peer?: string) {
+        this.root = peer === undefined ? join(home, 'bundles') : join(home, 'bundles', 'peers', peerFolder(peer));
         this.incoming = join(this.root, 'incoming');
     }
 
@@ -155,6 +160,8 @@ export class BundleStore {
     async sweep(keep: ReadonlySet<string> = new Set()): Promise<void> {
         this.expected.clear();
         this.madeFor.clear();
+        // What machines that work here sent lives in a store of its own per machine, below the root.
+        await rm(join(this.root, 'peers'), { recursive: true, force: true });
         for (const folder of [this.root, this.incoming]) {
             for (const name of await readdir(folder).catch(() => [])) {
                 if (name.endsWith('.bundle') && !keep.has(name.slice(0, -'.bundle'.length))) {

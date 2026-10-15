@@ -17,6 +17,11 @@ import { ConnectPeer, owedTargetsIn } from '../remote/connect-peer.ts';
 import type { AgentStores, AgentsBundle } from './agents.ts';
 import type { RemoteBundle } from './remote.ts';
 import type { LaunchesBundle } from './launches.ts';
+import type { ClientsBundle } from './clients.ts';
+import type { GitBundle } from './git.ts';
+import type { ProvidersBundle } from './providers.ts';
+import { PeerTasks } from '../peering/peer-tasks.ts';
+import { BundleStore } from '../git/bundles.ts';
 
 /* What the outbox drives on behalf of agents: starts, tasks, wakes and what a node takes along when it goes. */
 export interface AgentWorkBundle {
@@ -29,6 +34,8 @@ export interface AgentWorkBundle {
     afterSettleStore: AfterSettleStore;
     /* The reconnect of the links to other machines, owed through the outbox. */
     reconnect: ConnectPeer;
+    /* The tasks other machines give agents here. */
+    peerTasks: PeerTasks;
 }
 
 export interface AgentWorkInput {
@@ -38,13 +45,16 @@ export interface AgentWorkInput {
     agents: AgentsBundle;
     projects: ProjectStore;
     remote: RemoteBundle;
+    providers: ProvidersBundle;
     later: {
         push(): PushService;
         launches(): LaunchesBundle;
+        git(): GitBundle;
+        clients(): ClientsBundle;
     };
 }
 
-export function wireAgentWork({ home, identity, stores, agents, projects, remote, later }: AgentWorkInput): AgentWorkBundle {
+export function wireAgentWork({ home, identity, stores, agents, projects, remote, providers, later }: AgentWorkInput): AgentWorkBundle {
     const { outbox } = stores;
     const { outboxLink } = agents;
     const prWatches = new PrWatchStore({
@@ -70,6 +80,15 @@ export function wireAgentWork({ home, identity, stores, agents, projects, remote
     remote.connections.onLost((machineId) => {
         void reconnect.owe(machineId).catch((e: unknown) => console.error('Owing a reconnect failed:', errorText(e)));
     });
+    // The tasks other machines give need the git and the end-children that are wired once the outbox is, so they are built lazily.
+    let peerTasks: PeerTasks | null = null;
+    const peerStores = new Map<string, BundleStore>();
+    const peerTasksNow = (): PeerTasks => {
+        if (peerTasks === null) {
+            throw new Error('A task from another machine is asked for before the daemon is up');
+        }
+        return peerTasks;
+    };
     const wiring = wireOutbox({
         link: outboxLink,
         outbox,
@@ -85,9 +104,38 @@ export function wireAgentWork({ home, identity, stores, agents, projects, remote
         checkCwd: agents.startCwd,
         resumeAtReset: () => identity.resumeAtReset,
         runAfterSettle: (entry) => later.launches().afterSettle.handle(entry),
-        connectPeer: reconnect.handler
+        connectPeer: reconnect.handler,
+        peerTasks: {
+            deliver: (entry) => peerTasksNow().deliver(entry),
+            isPeerTask: (task) => peerTasks?.isPeerTask(task) === true,
+            parents: (projectId) => projects.peers.canvasIdsOf(projectId)
+        }
     });
     worker = wiring.worker;
+    peerTasks = new PeerTasks({
+        links: projects.peers,
+        projects,
+        lineage: stores.lineage,
+        tasks: stores.tasks,
+        outbox,
+        enqueue: (projectId, target, work) => outboxLink.enqueue(projectId, target, work),
+        prompts: stores.prompts,
+        stopNode: (nodeId, reason) => wiring.endChildren.stopNode(nodeId, reason),
+        installed: async () => (await providers.providers.list()).filter((provider) => provider.installed).map((provider) => provider.kind),
+        peerBundles: (machineId) => {
+            let held = peerStores.get(machineId);
+            if (held === undefined) {
+                held = new BundleStore(home, machineId);
+                peerStores.set(machineId, held);
+            }
+            return held;
+        },
+        git: () => later.git(),
+        worktreePaths: (folder) => later.git().checkouts.paths(folder),
+        notify: (machineId, nodeId) => later.clients().notifyPeer(machineId, nodeId),
+        log: (line) => console.error(line)
+    });
+    stores.tasks.onChange((task) => peerTasksNow().changed(task));
     const snoozes = new SnoozeStore({ path: join(home, 'snoozes.json') });
     const afterSettleStore = new AfterSettleStore({ path: join(home, 'launch-after-settle.json') });
     projects.index.onPlaces = (projectId, ids) => {
@@ -103,6 +151,7 @@ export function wireAgentWork({ home, identity, stores, agents, projects, remote
         prWatches,
         snoozes,
         afterSettleStore,
-        reconnect
+        reconnect,
+        peerTasks: peerTasksNow()
     };
 }

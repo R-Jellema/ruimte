@@ -81,7 +81,16 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     });
     const databases = await wireDatabases(home, machine.machineHome, projects.store, { language: () => language });
     const remote = await wireRemote({ home, identity, machine, outbox: stores.outbox, later: { brokerUrl: () => network.brokerSwitch.describe().brokerUrl } });
-    const work = wireAgentWork({ home, identity, stores, agents, projects: projects.store, remote, later: { push: () => push, launches: () => launches } });
+    const work = wireAgentWork({
+        home,
+        identity,
+        stores,
+        agents,
+        projects: projects.store,
+        remote,
+        providers,
+        later: { push: () => push, launches: () => launches, git: () => git, clients: () => clients }
+    });
     const launches = wireLaunches({ home, stores, agents, work, projects: projects.store, later: { git: () => git } });
     // Before the socket answers, so an agent whose project nobody opened since the restart still reads its links.
     await projects.store.warmIndex();
@@ -224,6 +233,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     sessions.contextUrl = `http://127.0.0.1:${server.port}${CONTEXT_PATH}`;
     // Only once `hookUrl` is set: a terminal the worker starts before that runs without hooks for good.
     await work.tasks.recover();
+    await work.peerTasks.recover();
     work.worker.start();
     work.endChildren.start();
     // Beside the daemon answering: a turn a restart interrupted is taken up again without waiting for a client.

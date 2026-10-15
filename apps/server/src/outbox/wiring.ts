@@ -1,4 +1,5 @@
 import type { AgentLineageStore, NoticeStore, TaskStore } from '@adecore/agents/coordination';
+import type { Task } from '@ruimte/contracts';
 import type { PendingPromptStore } from '../agents/pending-prompts.ts';
 import type { ChatManager } from '../chat/chat-manager.ts';
 import { limitResumeAt, chatOpener } from '@adecore/agents/chat';
@@ -11,7 +12,7 @@ import type { SessionManager } from '../sessions/manager.ts';
 import { wireTasks, type TaskWiring } from '../tasks/wiring.ts';
 import { errorText } from '../error-text.ts';
 import { wireEndChildren, type EndChildrenWiring } from './end-children.ts';
-import type { ConnectPeerEntry, OutboxStore, OutboxWork, RunAfterSettleEntry } from './outbox.ts';
+import type { ConnectPeerEntry, DeliverRemoteResultEntry, OutboxStore, OutboxWork, RunAfterSettleEntry } from './outbox.ts';
 import { oweResume, resumeRunHandler, resumeRunParked } from './resume-run.ts';
 import { startAgentHandler } from './start-agent.ts';
 import { placesOf } from '../projects/project-index.ts';
@@ -119,6 +120,17 @@ export interface OutboxWiringDeps {
     runAfterSettle?: (entry: RunAfterSettleEntry) => Promise<void>;
     /* The reconnect of the link to another machine (`remote/connect-peer.ts`); absent on a host that links to none, where the entry lapses. */
     connectPeer?: (entry: ConnectPeerEntry) => Promise<void>;
+    /*
+     * The tasks other machines gave this one (`peering/peer-tasks.ts`). Their parent is no chat here, so
+     * nothing wakes it, the project's prune keeps them while the machine's canvas stands, and their
+     * result is owed to that machine. Absent on a host that takes none.
+     */
+    peerTasks?: {
+        deliver(entry: DeliverRemoteResultEntry): Promise<'wait' | undefined>;
+        isPeerTask(task: Task): boolean;
+        /* The ids of a project that stand in for the parents of such tasks. */
+        parents(projectId: string): ReadonlySet<string>;
+    };
 }
 
 export interface OutboxWiring {
@@ -212,7 +224,11 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
             // A node that left the document takes its entry along through the prune; one that is still owed runs here.
             'resume-limit': (entry) => (placed(entry.target) ? chats.takeUpAfterLimit(entry.target, entry.payload.turnId) : Promise.resolve()),
             'background-limit': taskWiring.backgroundLimit,
-            'wake-parent': taskWiring.wakeParent,
+            // A task another machine gave has no chat here to wake; its result goes back over the link instead.
+            'wake-parent': (entry) => {
+                const task = tasks.get(entry.payload.taskId);
+                return task !== undefined && deps.peerTasks?.isPeerTask(task) === true ? Promise.resolve() : taskWiring.wakeParent(entry);
+            },
             'give-task': taskWiring.giveTask,
             'deliver-message': deliverMessageHandler({
                 notices,
@@ -239,7 +255,8 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
                 return chat.wake({ text: entry.payload.text, label: entry.payload.label, taskIds: [] }) ? undefined : 'wait';
             },
             'run-after-settle': (entry) => deps.runAfterSettle?.(entry) ?? Promise.resolve(),
-            'connect-peer': (entry) => deps.connectPeer?.(entry) ?? Promise.resolve()
+            'connect-peer': (entry) => deps.connectPeer?.(entry) ?? Promise.resolve(),
+            'deliver-remote-result': (entry) => deps.peerTasks?.deliver(entry) ?? Promise.resolve(undefined)
         },
         onParked: (entry, error) => {
             resumeRunParked(chats)(entry, error);
@@ -270,7 +287,9 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
             void lineage.prune(projectId, ids).catch((e) => failed('Pruning agent lineage failed', e));
             void notices.prune(projectId, ids).catch((e) => failed('Pruning waiting messages failed', e));
             void outbox.prune(projectId, ids).catch((e) => failed('Pruning the outbox failed', e));
-            void taskWiring.prune(projectId, ids).catch((e) => failed('Pruning tasks failed', e));
+            void taskWiring
+                .prune(projectId, deps.peerTasks ? new Set([...ids, ...deps.peerTasks.parents(projectId)]) : ids)
+                .catch((e) => failed('Pruning tasks failed', e));
         }
     };
 }

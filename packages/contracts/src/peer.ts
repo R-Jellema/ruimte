@@ -1,4 +1,6 @@
+import { AgentKindSchema, TaskResultSchema, TaskStatusSchema } from '@adecore/agent-contracts';
 import { z } from 'zod';
+import { GitBundlePutPayloadSchema, GitBundlePutResultSchema, GitBundleResultSchema } from './git.ts';
 import { RuntimeModeSchema } from './model.ts';
 import { ProjectEdgeSchema, ProjectNodeSchema } from './project.ts';
 
@@ -66,3 +68,96 @@ export const PeerPlaceNodesPayloadSchema = PeerLinkSchema.pick({ machineId: true
     edges: z.array(ProjectEdgeSchema).max(400)
 });
 export type PeerPlaceNodesPayload = z.infer<typeof PeerPlaceNodesPayloadSchema>;
+
+// How many tasks one machine may have open here at a time; the next `peer.taskStart` answers `peer-busy`.
+export const PEER_MAX_OPEN_TASKS = 4;
+
+// What a task prompt may hold: the line a terminal agent is started with cannot carry more.
+export const PEER_PROMPT_MAX_LENGTH = 2000;
+
+/*
+ * A task another machine gives an agent here, in the project its link names. The work arrives as a
+ * bundle `peer.bundlePut` took in (`bundle` and `branch` go together) and is started in a worktree on
+ * `ruimte/<branch>`; without one the agent starts in the project's folder. `mode` and `ceiling` are
+ * what that machine asks and allows; the link's ceiling here narrows both. `depth` is the depth the
+ * agent has there. Errors: `peer-not-linked`, `peer-busy`, `depth-limit`, `project-not-found`,
+ * `peer-node-taken` and the bundle errors of `git.fetchBundle`.
+ */
+export const PeerTaskStartPayloadSchema = z.object({
+    projectId: PeerLinkSchema.shape.projectId,
+    nodeId: ProjectNodeSchema.shape.id,
+    // The node on the other machine that gave the task.
+    parentId: ProjectNodeSchema.shape.id,
+    title: ProjectNodeSchema.shape.title.max(200),
+    prompt: z.string().min(1).max(PEER_PROMPT_MAX_LENGTH),
+    provider: AgentKindSchema,
+    terminal: z.boolean().optional(),
+    mode: RuntimeModeSchema.optional(),
+    ceiling: RuntimeModeSchema,
+    depth: z.number().int().min(0).max(8),
+    bundle: z.object({ bundleId: z.string().min(1).max(64), sha256: z.string().length(64) }).optional(),
+    branch: z.string().min(1).max(200).optional()
+});
+export type PeerTaskStartPayload = z.infer<typeof PeerTaskStartPayloadSchema>;
+
+export const PeerTaskStartResultSchema = z.object({
+    // Where the agent works here and on which branch, for the node that stands for it on the other machine.
+    cwd: z.string().nullable(),
+    branch: z.string().nullable()
+});
+export type PeerTaskStartResult = z.infer<typeof PeerTaskStartResultSchema>;
+
+// Ends the agent and its task; a task that is gone already is ended as well.
+export const PeerTaskStopPayloadSchema = z.object({ nodeId: ProjectNodeSchema.shape.id });
+export type PeerTaskStopPayload = z.infer<typeof PeerTaskStopPayloadSchema>;
+
+/*
+ * Where a task stands and, once it settled, its result and the work as a bundle for `peer.bundleRead`.
+ * `ack` says the other machine has the result, so it is not offered again. `haves` are commits that
+ * machine has, which the bundle leaves out.
+ */
+export const PeerResultPayloadSchema = z.object({
+    nodeId: ProjectNodeSchema.shape.id,
+    ack: z.boolean().optional(),
+    haves: z.array(z.string().min(1).max(64)).max(200).optional()
+});
+export type PeerResultPayload = z.infer<typeof PeerResultPayloadSchema>;
+
+export const PeerResultResultSchema = z.object({
+    // `unknown` for a task this machine has nothing of, such as one it never got.
+    status: z.union([TaskStatusSchema, z.literal('unknown')]),
+    result: TaskResultSchema.nullable(),
+    bundle: GitBundleResultSchema.extend({ branch: z.string() }).nullable()
+});
+export type PeerResultResult = z.infer<typeof PeerResultResultSchema>;
+
+export const PeerBundlePutPayloadSchema = GitBundlePutPayloadSchema;
+export type PeerBundlePutPayload = z.infer<typeof PeerBundlePutPayloadSchema>;
+export const PeerBundlePutResultSchema = GitBundlePutResultSchema;
+
+// A piece of a bundle `peer.result` offered.
+export const PeerBundleReadPayloadSchema = z.object({
+    bundleId: z.string().min(1).max(64),
+    offset: z.number().int().nonnegative(),
+    length: z
+        .number()
+        .int()
+        .positive()
+        .max(256 * 1024)
+});
+export type PeerBundleReadPayload = z.infer<typeof PeerBundleReadPayloadSchema>;
+
+export const PeerBundleReadResultSchema = z.object({
+    size: z.number().int().nonnegative(),
+    offset: z.number().int().nonnegative(),
+    data: z.string()
+});
+export type PeerBundleReadResult = z.infer<typeof PeerBundleReadResultSchema>;
+
+// Lets go of the hold this machine has on a project here; the last holder out ends nothing by it.
+export const PeerClosePayloadSchema = z.object({ projectId: PeerLinkSchema.shape.projectId });
+export type PeerClosePayload = z.infer<typeof PeerClosePayloadSchema>;
+
+// A task of that machine settled here; it asks `peer.result` for the rest.
+export const PeerTaskSettledEventSchema = z.object({ nodeId: ProjectNodeSchema.shape.id });
+export type PeerTaskSettledEvent = z.infer<typeof PeerTaskSettledEventSchema>;

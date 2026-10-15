@@ -76,7 +76,13 @@ export function wireEndChildren({
             early.set(projectId, ids);
             return;
         }
-        for (const openedBy of new Set(lineage.orphans(projectId, ids).map((orphan) => orphan.openedBy))) {
+        // An agent another machine's agent opened has its opener there, never in this project.
+        for (const openedBy of new Set(
+            lineage
+                .orphans(projectId, ids)
+                .filter((orphan) => lineage.peerOf(orphan.nodeId) === null)
+                .map((orphan) => orphan.openedBy)
+        )) {
             void owe(openedBy).catch((e: unknown) => log(`Owing the end of the agents ${openedBy} opened failed: ${errorText(e)}`));
         }
     };
