@@ -91,7 +91,7 @@ function LineCount({ tabKey }: { tabKey: string }) {
         return null;
     }
     return (
-        <span className="flex shrink-0 items-center gap-1 tabular-nums">
+        <span className="flex shrink-0 items-center gap-1 font-mono text-2xs tabular-nums">
             {count.added > 0 && <span className="text-term-green">+{count.added}</span>}
             {count.deleted > 0 && <span className="text-term-red">-{count.deleted}</span>}
         </span>
