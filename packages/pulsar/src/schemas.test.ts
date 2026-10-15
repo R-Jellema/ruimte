@@ -5,6 +5,9 @@ import {
     isAppRedirectUri,
     AccessRequestPayloadSchema,
     AccessStatementSchema,
+    PEER_STATEMENT_LIFETIME_MS,
+    PeerAccessRequestPayloadSchema,
+    PeerStatementSchema,
     AddressBookErrorSchema,
     BrokerPeerFrameSchema,
     BrokerServerFrameSchema,
@@ -246,5 +249,50 @@ describe('address book', () => {
         ]) {
             expect(isAppRedirectUri(refused)).toBe(false);
         }
+    });
+});
+
+describe('peer statements', () => {
+    const peerStatement = {
+        machineId: 'machine-1',
+        machinePublicKey: key,
+        accountId: 'account-1',
+        peerPublicKey: otherKey,
+        peerMachineId: 'machine-2',
+        peerMachinePublicKey: key,
+        nonce,
+        issuedAt: 1_800_000_000_000,
+        expiresAt: 1_800_000_000_000 + PEER_STATEMENT_LIFETIME_MS,
+        signature
+    };
+
+    test('a request, a statement and an offer carrying one survive a round trip', () => {
+        const request = {
+            machineId: 'machine-1',
+            peerMachineId: 'machine-2',
+            peerPublicKey: key,
+            nonce,
+            peerSignature: signature,
+            machineSignature: signature
+        };
+        expect(roundTrip(PeerAccessRequestPayloadSchema, request)).toEqual(request);
+        expect(roundTrip(PeerStatementSchema, peerStatement)).toEqual(peerStatement);
+        const offer = { connectionId: 'attempt-1', signal: { kind: 'offer', sdp: 'v=0', access: { peer: peerStatement, label: 'Laptop' } } };
+        expect(roundTrip(SignalEnvelopeSchema, offer as never)).toEqual(offer as never);
+    });
+
+    test('a peer statement lasts ten minutes at most, and expires after it is issued', () => {
+        expect(PeerStatementSchema.safeParse({ ...peerStatement, expiresAt: peerStatement.issuedAt + PEER_STATEMENT_LIFETIME_MS + 1 }).success).toBe(false);
+        expect(PeerStatementSchema.safeParse({ ...peerStatement, expiresAt: peerStatement.issuedAt }).success).toBe(false);
+    });
+
+    test('an offer carries a client statement or a peer one, and a client statement is not read as a peer one', () => {
+        const client = { machineId: 'machine-1', clientPublicKey: key, nonce, issuedAt: 0, expiresAt: ACCESS_STATEMENT_LIFETIME_MS, signature };
+        const offer = (access: unknown) => ({ connectionId: 'attempt-1', signal: { kind: 'offer', sdp: 'v=0', access } });
+        expect(SignalEnvelopeSchema.safeParse(offer({ peer: peerStatement, label: 'Laptop' })).success).toBe(true);
+        expect(SignalEnvelopeSchema.safeParse(offer({ peer: client, label: 'Laptop' })).success).toBe(false);
+        expect(SignalEnvelopeSchema.safeParse(offer({ statement: peerStatement, label: 'Laptop' })).success).toBe(false);
+        const both = SignalEnvelopeSchema.parse(offer({ statement: client, peer: peerStatement, label: 'Laptop' }));
+        expect(both.signal.kind === 'offer' && both.signal.access && 'peer' in both.signal.access).toBe(false);
     });
 });

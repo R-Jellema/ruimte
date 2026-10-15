@@ -1,4 +1,4 @@
-import { PULSAR_STATEMENT_PUBLIC_KEYS, accessStatementMessage, accessStatementV2Message, type AccessStatement, type SignalAccess } from '@ruimte/pulsar';
+import { PULSAR_STATEMENT_PUBLIC_KEYS, accessStatementMessage, accessStatementV2Message, type AccessStatement, type SignalOfferAccess } from '@ruimte/pulsar';
 import type { StatementAdmission, StatementEntry } from '../auth/auth-store.ts';
 import { isPublicKey, verifySignature } from '@ruimte/pulsar/verify-node';
 
@@ -110,7 +110,10 @@ export class StatementGate {
         this.log = options.log ?? console;
     }
 
-    async admit(from: string, access: SignalAccess): Promise<StatementVerdict> {
+    async admit(from: string, access: SignalOfferAccess): Promise<StatementVerdict> {
+        if ('peer' in access) {
+            return 'refused';
+        }
         const { statement, label } = access;
         const refusal = checkStatement(statement, {
             machineId: this.options.machineId,

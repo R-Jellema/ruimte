@@ -2,6 +2,8 @@ import type { z } from 'zod';
 import {
     ADDRESS_BOOK_URL,
     AccessStatementSchema,
+    PEER_STATEMENTS_PATH,
+    PeerStatementSchema,
     AccountResultSchema,
     AddressBookErrorSchema,
     IdentityLinkStartResultSchema,
@@ -13,6 +15,8 @@ import {
     SessionResultSchema,
     type AccessRequestPayload,
     type AccessStatement,
+    type PeerAccessRequestPayload,
+    type PeerStatement,
     type AccountDeletePayload,
     type AccountResult,
     type AddressBookErrorCode,
@@ -145,6 +149,10 @@ export class AddressBookClient {
 
     requestStatement(accessToken: string, payload: AccessRequestPayload): Promise<AccessStatement> {
         return this.call({ method: 'POST', path: '/v1/statements', token: accessToken, body: payload, schema: AccessStatementSchema });
+    }
+
+    requestPeerStatement(accessToken: string, payload: PeerAccessRequestPayload): Promise<PeerStatement> {
+        return this.call({ method: 'POST', path: PEER_STATEMENTS_PATH, token: accessToken, body: payload, schema: PeerStatementSchema });
     }
 
     startDeviceLink(payload: DeviceLinkStartPayload): Promise<DeviceLinkStartResult> {

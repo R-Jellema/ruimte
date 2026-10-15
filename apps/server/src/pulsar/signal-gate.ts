@@ -1,4 +1,4 @@
-import { signalMessage, type SignalAccess, type SignalEnvelope } from '@ruimte/pulsar';
+import { signalMessage, type SignalOfferAccess, type SignalEnvelope } from '@ruimte/pulsar';
 import { verifySignature } from '@ruimte/pulsar/verify-node';
 import type { StatementVerdict } from './statement.ts';
 
@@ -14,7 +14,7 @@ export interface SignalGateOptions {
     /* Whether a client key is one this machine already let in. */
     isPaired(publicKey: string): Promise<boolean>;
     /* What an offer from a key the machine does not know gets for the statement it carries (`StatementGate`); without it no statement is taken. */
-    admitStatement?(publicKey: string, access: SignalAccess): Promise<StatementVerdict>;
+    admitStatement?(publicKey: string, access: SignalOfferAccess): Promise<StatementVerdict>;
     /* The WebRTC answer code, which takes a signal and a way back and knows nothing of where either goes. */
     receive(envelope: SignalEnvelope, reply: (envelope: SignalEnvelope) => void): void;
     log?: Pick<Console, 'warn'>;

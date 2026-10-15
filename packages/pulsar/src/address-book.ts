@@ -13,6 +13,11 @@ export const ADDRESS_BOOK_URL = 'https://pulsar.ruimte.app';
 // How long a statement is good for, counted from `issuedAt`.
 export const ACCESS_STATEMENT_LIFETIME_MS = 120_000;
 
+// A peer statement is longer-lived than a client's, since it only serves the first admission of a link and a person may take a while to hand it over.
+export const PEER_STATEMENT_LIFETIME_MS = 600_000;
+
+export const PEER_STATEMENTS_PATH = '/v1/peer-statements';
+
 // How far a registration's `issuedAt` may lie from the address book's clock, either way.
 export const MACHINE_REGISTRATION_MAX_SKEW_MS = 600_000;
 
@@ -398,6 +403,42 @@ export const AccessStatementSchema = z
         path: ['expiresAt']
     });
 export type AccessStatement = z.infer<typeof AccessStatementSchema>;
+
+/*
+ * `POST /v1/peer-statements`: a signed-in client asking for a statement that lets one machine of the
+ * account work in another. `machineId` is the machine worked in ("B"), `peerMachineId` the one that
+ * works ("A"). Both signatures are over `peerAccessRequestMessage`, so a key only one of the two
+ * covers is refused.
+ */
+export const PeerAccessRequestPayloadSchema = z.object({
+    machineId: MachineIdSchema,
+    peerMachineId: MachineIdSchema,
+    peerPublicKey: PublicKeySchema,
+    nonce: NonceSchema,
+    peerSignature: SignatureSchema,
+    machineSignature: SignatureSchema
+});
+export type PeerAccessRequestPayload = z.infer<typeof PeerAccessRequestPayloadSchema>;
+
+/* The answer to `POST /v1/peer-statements`: `signature` is over `peerStatementMessage`, from the address book's statement key. */
+export const PeerStatementSchema = z
+    .object({
+        machineId: MachineIdSchema,
+        machinePublicKey: PublicKeySchema,
+        accountId: AccountSchema.shape.id,
+        peerPublicKey: PublicKeySchema,
+        peerMachineId: MachineIdSchema,
+        peerMachinePublicKey: PublicKeySchema,
+        nonce: NonceSchema,
+        issuedAt: z.number().int().min(0),
+        expiresAt: z.number().int().min(0),
+        signature: SignatureSchema
+    })
+    .refine((statement) => statement.expiresAt > statement.issuedAt && statement.expiresAt - statement.issuedAt <= PEER_STATEMENT_LIFETIME_MS, {
+        message: `A peer statement is valid for at most ${PEER_STATEMENT_LIFETIME_MS} ms`,
+        path: ['expiresAt']
+    });
+export type PeerStatement = z.infer<typeof PeerStatementSchema>;
 
 export const AddressBookErrorCodeSchema = z.enum([
     'bad-request',

@@ -1067,6 +1067,109 @@
       "expiresAt"
     ]
   },
+  "PeerAccessRequestPayloadSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "machineId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "peerMachineId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "peerPublicKey": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{43}$"
+      },
+      "nonce": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{22,128}$"
+      },
+      "peerSignature": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{86}$"
+      },
+      "machineSignature": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{86}$"
+      }
+    },
+    "required": [
+      "machineId",
+      "peerMachineId",
+      "peerPublicKey",
+      "nonce",
+      "peerSignature",
+      "machineSignature"
+    ]
+  },
+  "PeerStatementSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "machineId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "machinePublicKey": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{43}$"
+      },
+      "accountId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "peerPublicKey": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{43}$"
+      },
+      "peerMachineId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "peerMachinePublicKey": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{43}$"
+      },
+      "nonce": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{22,128}$"
+      },
+      "issuedAt": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "expiresAt": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "signature": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{86}$"
+      }
+    },
+    "required": [
+      "machineId",
+      "machinePublicKey",
+      "accountId",
+      "peerPublicKey",
+      "peerMachineId",
+      "peerMachinePublicKey",
+      "nonce",
+      "issuedAt",
+      "expiresAt",
+      "signature"
+    ]
+  },
   "ProviderIdSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "string",
@@ -1699,71 +1802,152 @@
                         "maxLength": 32768
                       },
                       "access": {
-                        "type": "object",
-                        "properties": {
-                          "statement": {
+                        "anyOf": [
+                          {
                             "type": "object",
                             "properties": {
-                              "machineId": {
+                              "peer": {
+                                "type": "object",
+                                "properties": {
+                                  "machineId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128
+                                  },
+                                  "machinePublicKey": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{43}$"
+                                  },
+                                  "accountId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 64
+                                  },
+                                  "peerPublicKey": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{43}$"
+                                  },
+                                  "peerMachineId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128
+                                  },
+                                  "peerMachinePublicKey": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{43}$"
+                                  },
+                                  "nonce": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                                  },
+                                  "issuedAt": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "expiresAt": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "signature": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{86}$"
+                                  }
+                                },
+                                "required": [
+                                  "machineId",
+                                  "machinePublicKey",
+                                  "accountId",
+                                  "peerPublicKey",
+                                  "peerMachineId",
+                                  "peerMachinePublicKey",
+                                  "nonce",
+                                  "issuedAt",
+                                  "expiresAt",
+                                  "signature"
+                                ]
+                              },
+                              "label": {
                                 "type": "string",
                                 "minLength": 1,
-                                "maxLength": 128
-                              },
-                              "clientPublicKey": {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9_-]{43}$"
-                              },
-                              "nonce": {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9_-]{22,128}$"
-                              },
-                              "issuedAt": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 9007199254740991
-                              },
-                              "expiresAt": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 9007199254740991
-                              },
-                              "signature": {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9_-]{86}$"
-                              },
-                              "machinePublicKey": {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9_-]{43}$"
-                              },
-                              "accountId": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 64
-                              },
-                              "accountSignature": {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                                "maxLength": 80
                               }
                             },
                             "required": [
-                              "machineId",
-                              "clientPublicKey",
-                              "nonce",
-                              "issuedAt",
-                              "expiresAt",
-                              "signature"
+                              "peer",
+                              "label"
                             ],
-                            "x-statement-lifetime-ms": 120000
+                            "additionalProperties": false
                           },
-                          "label": {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 80
+                          {
+                            "type": "object",
+                            "properties": {
+                              "statement": {
+                                "type": "object",
+                                "properties": {
+                                  "machineId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128
+                                  },
+                                  "clientPublicKey": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{43}$"
+                                  },
+                                  "nonce": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                                  },
+                                  "issuedAt": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "expiresAt": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "signature": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{86}$"
+                                  },
+                                  "machinePublicKey": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{43}$"
+                                  },
+                                  "accountId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 64
+                                  },
+                                  "accountSignature": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{86}$"
+                                  }
+                                },
+                                "required": [
+                                  "machineId",
+                                  "clientPublicKey",
+                                  "nonce",
+                                  "issuedAt",
+                                  "expiresAt",
+                                  "signature"
+                                ],
+                                "x-statement-lifetime-ms": 120000
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80
+                              }
+                            },
+                            "required": [
+                              "statement",
+                              "label"
+                            ]
                           }
-                        },
-                        "required": [
-                          "statement",
-                          "label"
                         ]
                       }
                     },
@@ -1999,71 +2183,152 @@
                     "maxLength": 32768
                   },
                   "access": {
-                    "type": "object",
-                    "properties": {
-                      "statement": {
+                    "anyOf": [
+                      {
                         "type": "object",
                         "properties": {
-                          "machineId": {
+                          "peer": {
+                            "type": "object",
+                            "properties": {
+                              "machineId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "machinePublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "accountId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "peerPublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "peerMachineId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "peerMachinePublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "nonce": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                              },
+                              "issuedAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "expiresAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "signature": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                              }
+                            },
+                            "required": [
+                              "machineId",
+                              "machinePublicKey",
+                              "accountId",
+                              "peerPublicKey",
+                              "peerMachineId",
+                              "peerMachinePublicKey",
+                              "nonce",
+                              "issuedAt",
+                              "expiresAt",
+                              "signature"
+                            ]
+                          },
+                          "label": {
                             "type": "string",
                             "minLength": 1,
-                            "maxLength": 128
-                          },
-                          "clientPublicKey": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{43}$"
-                          },
-                          "nonce": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{22,128}$"
-                          },
-                          "issuedAt": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "expiresAt": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "signature": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{86}$"
-                          },
-                          "machinePublicKey": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{43}$"
-                          },
-                          "accountId": {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 64
-                          },
-                          "accountSignature": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{86}$"
+                            "maxLength": 80
                           }
                         },
                         "required": [
-                          "machineId",
-                          "clientPublicKey",
-                          "nonce",
-                          "issuedAt",
-                          "expiresAt",
-                          "signature"
+                          "peer",
+                          "label"
                         ],
-                        "x-statement-lifetime-ms": 120000
+                        "additionalProperties": false
                       },
-                      "label": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 80
+                      {
+                        "type": "object",
+                        "properties": {
+                          "statement": {
+                            "type": "object",
+                            "properties": {
+                              "machineId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "clientPublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "nonce": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                              },
+                              "issuedAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "expiresAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "signature": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                              },
+                              "machinePublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "accountId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "accountSignature": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                              }
+                            },
+                            "required": [
+                              "machineId",
+                              "clientPublicKey",
+                              "nonce",
+                              "issuedAt",
+                              "expiresAt",
+                              "signature"
+                            ],
+                            "x-statement-lifetime-ms": 120000
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          }
+                        },
+                        "required": [
+                          "statement",
+                          "label"
+                        ]
                       }
-                    },
-                    "required": [
-                      "statement",
-                      "label"
                     ]
                   }
                 },
@@ -2211,71 +2476,152 @@
                     "maxLength": 32768
                   },
                   "access": {
-                    "type": "object",
-                    "properties": {
-                      "statement": {
+                    "anyOf": [
+                      {
                         "type": "object",
                         "properties": {
-                          "machineId": {
+                          "peer": {
+                            "type": "object",
+                            "properties": {
+                              "machineId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "machinePublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "accountId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "peerPublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "peerMachineId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "peerMachinePublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "nonce": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                              },
+                              "issuedAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "expiresAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "signature": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                              }
+                            },
+                            "required": [
+                              "machineId",
+                              "machinePublicKey",
+                              "accountId",
+                              "peerPublicKey",
+                              "peerMachineId",
+                              "peerMachinePublicKey",
+                              "nonce",
+                              "issuedAt",
+                              "expiresAt",
+                              "signature"
+                            ]
+                          },
+                          "label": {
                             "type": "string",
                             "minLength": 1,
-                            "maxLength": 128
-                          },
-                          "clientPublicKey": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{43}$"
-                          },
-                          "nonce": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{22,128}$"
-                          },
-                          "issuedAt": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "expiresAt": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "signature": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{86}$"
-                          },
-                          "machinePublicKey": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{43}$"
-                          },
-                          "accountId": {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 64
-                          },
-                          "accountSignature": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{86}$"
+                            "maxLength": 80
                           }
                         },
                         "required": [
-                          "machineId",
-                          "clientPublicKey",
-                          "nonce",
-                          "issuedAt",
-                          "expiresAt",
-                          "signature"
+                          "peer",
+                          "label"
                         ],
-                        "x-statement-lifetime-ms": 120000
+                        "additionalProperties": false
                       },
-                      "label": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 80
+                      {
+                        "type": "object",
+                        "properties": {
+                          "statement": {
+                            "type": "object",
+                            "properties": {
+                              "machineId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "clientPublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "nonce": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                              },
+                              "issuedAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "expiresAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "signature": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                              },
+                              "machinePublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "accountId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "accountSignature": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                              }
+                            },
+                            "required": [
+                              "machineId",
+                              "clientPublicKey",
+                              "nonce",
+                              "issuedAt",
+                              "expiresAt",
+                              "signature"
+                            ],
+                            "x-statement-lifetime-ms": 120000
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          }
+                        },
+                        "required": [
+                          "statement",
+                          "label"
+                        ]
                       }
-                    },
-                    "required": [
-                      "statement",
-                      "label"
                     ]
                   }
                 },
@@ -2485,71 +2831,152 @@
                         "maxLength": 32768
                       },
                       "access": {
-                        "type": "object",
-                        "properties": {
-                          "statement": {
+                        "anyOf": [
+                          {
                             "type": "object",
                             "properties": {
-                              "machineId": {
+                              "peer": {
+                                "type": "object",
+                                "properties": {
+                                  "machineId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128
+                                  },
+                                  "machinePublicKey": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{43}$"
+                                  },
+                                  "accountId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 64
+                                  },
+                                  "peerPublicKey": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{43}$"
+                                  },
+                                  "peerMachineId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128
+                                  },
+                                  "peerMachinePublicKey": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{43}$"
+                                  },
+                                  "nonce": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                                  },
+                                  "issuedAt": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "expiresAt": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "signature": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{86}$"
+                                  }
+                                },
+                                "required": [
+                                  "machineId",
+                                  "machinePublicKey",
+                                  "accountId",
+                                  "peerPublicKey",
+                                  "peerMachineId",
+                                  "peerMachinePublicKey",
+                                  "nonce",
+                                  "issuedAt",
+                                  "expiresAt",
+                                  "signature"
+                                ]
+                              },
+                              "label": {
                                 "type": "string",
                                 "minLength": 1,
-                                "maxLength": 128
-                              },
-                              "clientPublicKey": {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9_-]{43}$"
-                              },
-                              "nonce": {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9_-]{22,128}$"
-                              },
-                              "issuedAt": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 9007199254740991
-                              },
-                              "expiresAt": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 9007199254740991
-                              },
-                              "signature": {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9_-]{86}$"
-                              },
-                              "machinePublicKey": {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9_-]{43}$"
-                              },
-                              "accountId": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 64
-                              },
-                              "accountSignature": {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                                "maxLength": 80
                               }
                             },
                             "required": [
-                              "machineId",
-                              "clientPublicKey",
-                              "nonce",
-                              "issuedAt",
-                              "expiresAt",
-                              "signature"
+                              "peer",
+                              "label"
                             ],
-                            "x-statement-lifetime-ms": 120000
+                            "additionalProperties": false
                           },
-                          "label": {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 80
+                          {
+                            "type": "object",
+                            "properties": {
+                              "statement": {
+                                "type": "object",
+                                "properties": {
+                                  "machineId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128
+                                  },
+                                  "clientPublicKey": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{43}$"
+                                  },
+                                  "nonce": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                                  },
+                                  "issuedAt": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "expiresAt": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "signature": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{86}$"
+                                  },
+                                  "machinePublicKey": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{43}$"
+                                  },
+                                  "accountId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 64
+                                  },
+                                  "accountSignature": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{86}$"
+                                  }
+                                },
+                                "required": [
+                                  "machineId",
+                                  "clientPublicKey",
+                                  "nonce",
+                                  "issuedAt",
+                                  "expiresAt",
+                                  "signature"
+                                ],
+                                "x-statement-lifetime-ms": 120000
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80
+                              }
+                            },
+                            "required": [
+                              "statement",
+                              "label"
+                            ]
                           }
-                        },
-                        "required": [
-                          "statement",
-                          "label"
                         ]
                       }
                     },
@@ -3026,71 +3453,152 @@
                 "maxLength": 32768
               },
               "access": {
-                "type": "object",
-                "properties": {
-                  "statement": {
+                "anyOf": [
+                  {
                     "type": "object",
                     "properties": {
-                      "machineId": {
+                      "peer": {
+                        "type": "object",
+                        "properties": {
+                          "machineId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "machinePublicKey": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{43}$"
+                          },
+                          "accountId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          "peerPublicKey": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{43}$"
+                          },
+                          "peerMachineId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "peerMachinePublicKey": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{43}$"
+                          },
+                          "nonce": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                          },
+                          "issuedAt": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "expiresAt": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "signature": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{86}$"
+                          }
+                        },
+                        "required": [
+                          "machineId",
+                          "machinePublicKey",
+                          "accountId",
+                          "peerPublicKey",
+                          "peerMachineId",
+                          "peerMachinePublicKey",
+                          "nonce",
+                          "issuedAt",
+                          "expiresAt",
+                          "signature"
+                        ]
+                      },
+                      "label": {
                         "type": "string",
                         "minLength": 1,
-                        "maxLength": 128
-                      },
-                      "clientPublicKey": {
-                        "type": "string",
-                        "pattern": "^[A-Za-z0-9_-]{43}$"
-                      },
-                      "nonce": {
-                        "type": "string",
-                        "pattern": "^[A-Za-z0-9_-]{22,128}$"
-                      },
-                      "issuedAt": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991
-                      },
-                      "expiresAt": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991
-                      },
-                      "signature": {
-                        "type": "string",
-                        "pattern": "^[A-Za-z0-9_-]{86}$"
-                      },
-                      "machinePublicKey": {
-                        "type": "string",
-                        "pattern": "^[A-Za-z0-9_-]{43}$"
-                      },
-                      "accountId": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 64
-                      },
-                      "accountSignature": {
-                        "type": "string",
-                        "pattern": "^[A-Za-z0-9_-]{86}$"
+                        "maxLength": 80
                       }
                     },
                     "required": [
-                      "machineId",
-                      "clientPublicKey",
-                      "nonce",
-                      "issuedAt",
-                      "expiresAt",
-                      "signature"
+                      "peer",
+                      "label"
                     ],
-                    "x-statement-lifetime-ms": 120000
+                    "additionalProperties": false
                   },
-                  "label": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 80
+                  {
+                    "type": "object",
+                    "properties": {
+                      "statement": {
+                        "type": "object",
+                        "properties": {
+                          "machineId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "clientPublicKey": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{43}$"
+                          },
+                          "nonce": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                          },
+                          "issuedAt": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "expiresAt": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "signature": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{86}$"
+                          },
+                          "machinePublicKey": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{43}$"
+                          },
+                          "accountId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          "accountSignature": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{86}$"
+                          }
+                        },
+                        "required": [
+                          "machineId",
+                          "clientPublicKey",
+                          "nonce",
+                          "issuedAt",
+                          "expiresAt",
+                          "signature"
+                        ],
+                        "x-statement-lifetime-ms": 120000
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      }
+                    },
+                    "required": [
+                      "statement",
+                      "label"
+                    ]
                   }
-                },
-                "required": [
-                  "statement",
-                  "label"
                 ]
               }
             },
@@ -3191,20 +3699,87 @@
       "signal"
     ]
   },
-  "SignalOfferSchema": {
+  "SignalOfferAccessSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "kind": {
-        "type": "string",
-        "const": "offer"
+    "anyOf": [
+      {
+        "type": "object",
+        "properties": {
+          "peer": {
+            "type": "object",
+            "properties": {
+              "machineId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "machinePublicKey": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{43}$"
+              },
+              "accountId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "peerPublicKey": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{43}$"
+              },
+              "peerMachineId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "peerMachinePublicKey": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{43}$"
+              },
+              "nonce": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{22,128}$"
+              },
+              "issuedAt": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "expiresAt": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "signature": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{86}$"
+              }
+            },
+            "required": [
+              "machineId",
+              "machinePublicKey",
+              "accountId",
+              "peerPublicKey",
+              "peerMachineId",
+              "peerMachinePublicKey",
+              "nonce",
+              "issuedAt",
+              "expiresAt",
+              "signature"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "peer",
+          "label"
+        ],
+        "additionalProperties": false
       },
-      "sdp": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 32768
-      },
-      "access": {
+      {
         "type": "object",
         "properties": {
           "statement": {
@@ -3272,28 +3847,101 @@
           "label"
         ]
       }
-    },
-    "required": [
-      "kind",
-      "sdp"
     ]
   },
-  "SignalSchema": {
+  "SignalOfferSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "oneOf": [
-      {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "const": "offer"
+    "type": "object",
+    "properties": {
+      "kind": {
+        "type": "string",
+        "const": "offer"
+      },
+      "sdp": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 32768
+      },
+      "access": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "peer": {
+                "type": "object",
+                "properties": {
+                  "machineId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "machinePublicKey": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{43}$"
+                  },
+                  "accountId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "peerPublicKey": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{43}$"
+                  },
+                  "peerMachineId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "peerMachinePublicKey": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{43}$"
+                  },
+                  "nonce": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                  },
+                  "issuedAt": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "expiresAt": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "signature": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{86}$"
+                  }
+                },
+                "required": [
+                  "machineId",
+                  "machinePublicKey",
+                  "accountId",
+                  "peerPublicKey",
+                  "peerMachineId",
+                  "peerMachinePublicKey",
+                  "nonce",
+                  "issuedAt",
+                  "expiresAt",
+                  "signature"
+                ]
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              }
+            },
+            "required": [
+              "peer",
+              "label"
+            ],
+            "additionalProperties": false
           },
-          "sdp": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 32768
-          },
-          "access": {
+          {
             "type": "object",
             "properties": {
               "statement": {
@@ -3359,6 +4007,256 @@
             "required": [
               "statement",
               "label"
+            ]
+          }
+        ]
+      }
+    },
+    "required": [
+      "kind",
+      "sdp"
+    ]
+  },
+  "SignalPeerAccessSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "peer": {
+        "type": "object",
+        "properties": {
+          "machineId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "machinePublicKey": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          },
+          "accountId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "peerPublicKey": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          },
+          "peerMachineId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "peerMachinePublicKey": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          },
+          "nonce": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{22,128}$"
+          },
+          "issuedAt": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "expiresAt": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "signature": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{86}$"
+          }
+        },
+        "required": [
+          "machineId",
+          "machinePublicKey",
+          "accountId",
+          "peerPublicKey",
+          "peerMachineId",
+          "peerMachinePublicKey",
+          "nonce",
+          "issuedAt",
+          "expiresAt",
+          "signature"
+        ]
+      },
+      "label": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "required": [
+      "peer",
+      "label"
+    ],
+    "additionalProperties": false
+  },
+  "SignalSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "oneOf": [
+      {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "offer"
+          },
+          "sdp": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32768
+          },
+          "access": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "peer": {
+                    "type": "object",
+                    "properties": {
+                      "machineId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "machinePublicKey": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{43}$"
+                      },
+                      "accountId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "peerPublicKey": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{43}$"
+                      },
+                      "peerMachineId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "peerMachinePublicKey": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{43}$"
+                      },
+                      "nonce": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                      },
+                      "issuedAt": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "expiresAt": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "signature": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{86}$"
+                      }
+                    },
+                    "required": [
+                      "machineId",
+                      "machinePublicKey",
+                      "accountId",
+                      "peerPublicKey",
+                      "peerMachineId",
+                      "peerMachinePublicKey",
+                      "nonce",
+                      "issuedAt",
+                      "expiresAt",
+                      "signature"
+                    ]
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "peer",
+                  "label"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "statement": {
+                    "type": "object",
+                    "properties": {
+                      "machineId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "clientPublicKey": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{43}$"
+                      },
+                      "nonce": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                      },
+                      "issuedAt": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "expiresAt": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "signature": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{86}$"
+                      },
+                      "machinePublicKey": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{43}$"
+                      },
+                      "accountId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "accountSignature": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{86}$"
+                      }
+                    },
+                    "required": [
+                      "machineId",
+                      "clientPublicKey",
+                      "nonce",
+                      "issuedAt",
+                      "expiresAt",
+                      "signature"
+                    ],
+                    "x-statement-lifetime-ms": 120000
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "statement",
+                  "label"
+                ]
+              }
             ]
           }
         },
@@ -3719,71 +4617,152 @@
                     "maxLength": 32768
                   },
                   "access": {
-                    "type": "object",
-                    "properties": {
-                      "statement": {
+                    "anyOf": [
+                      {
                         "type": "object",
                         "properties": {
-                          "machineId": {
+                          "peer": {
+                            "type": "object",
+                            "properties": {
+                              "machineId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "machinePublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "accountId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "peerPublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "peerMachineId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "peerMachinePublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "nonce": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                              },
+                              "issuedAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "expiresAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "signature": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                              }
+                            },
+                            "required": [
+                              "machineId",
+                              "machinePublicKey",
+                              "accountId",
+                              "peerPublicKey",
+                              "peerMachineId",
+                              "peerMachinePublicKey",
+                              "nonce",
+                              "issuedAt",
+                              "expiresAt",
+                              "signature"
+                            ]
+                          },
+                          "label": {
                             "type": "string",
                             "minLength": 1,
-                            "maxLength": 128
-                          },
-                          "clientPublicKey": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{43}$"
-                          },
-                          "nonce": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{22,128}$"
-                          },
-                          "issuedAt": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "expiresAt": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "signature": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{86}$"
-                          },
-                          "machinePublicKey": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{43}$"
-                          },
-                          "accountId": {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 64
-                          },
-                          "accountSignature": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{86}$"
+                            "maxLength": 80
                           }
                         },
                         "required": [
-                          "machineId",
-                          "clientPublicKey",
-                          "nonce",
-                          "issuedAt",
-                          "expiresAt",
-                          "signature"
+                          "peer",
+                          "label"
                         ],
-                        "x-statement-lifetime-ms": 120000
+                        "additionalProperties": false
                       },
-                      "label": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 80
+                      {
+                        "type": "object",
+                        "properties": {
+                          "statement": {
+                            "type": "object",
+                            "properties": {
+                              "machineId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "clientPublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "nonce": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                              },
+                              "issuedAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "expiresAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "signature": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                              },
+                              "machinePublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "accountId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "accountSignature": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                              }
+                            },
+                            "required": [
+                              "machineId",
+                              "clientPublicKey",
+                              "nonce",
+                              "issuedAt",
+                              "expiresAt",
+                              "signature"
+                            ],
+                            "x-statement-lifetime-ms": 120000
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          }
+                        },
+                        "required": [
+                          "statement",
+                          "label"
+                        ]
                       }
-                    },
-                    "required": [
-                      "statement",
-                      "label"
                     ]
                   }
                 },
@@ -54195,71 +55174,152 @@
                     "maxLength": 32768
                   },
                   "access": {
-                    "type": "object",
-                    "properties": {
-                      "statement": {
+                    "anyOf": [
+                      {
                         "type": "object",
                         "properties": {
-                          "machineId": {
+                          "peer": {
+                            "type": "object",
+                            "properties": {
+                              "machineId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "machinePublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "accountId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "peerPublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "peerMachineId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "peerMachinePublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "nonce": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                              },
+                              "issuedAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "expiresAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "signature": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                              }
+                            },
+                            "required": [
+                              "machineId",
+                              "machinePublicKey",
+                              "accountId",
+                              "peerPublicKey",
+                              "peerMachineId",
+                              "peerMachinePublicKey",
+                              "nonce",
+                              "issuedAt",
+                              "expiresAt",
+                              "signature"
+                            ]
+                          },
+                          "label": {
                             "type": "string",
                             "minLength": 1,
-                            "maxLength": 128
-                          },
-                          "clientPublicKey": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{43}$"
-                          },
-                          "nonce": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{22,128}$"
-                          },
-                          "issuedAt": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "expiresAt": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "signature": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{86}$"
-                          },
-                          "machinePublicKey": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{43}$"
-                          },
-                          "accountId": {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 64
-                          },
-                          "accountSignature": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{86}$"
+                            "maxLength": 80
                           }
                         },
                         "required": [
-                          "machineId",
-                          "clientPublicKey",
-                          "nonce",
-                          "issuedAt",
-                          "expiresAt",
-                          "signature"
+                          "peer",
+                          "label"
                         ],
-                        "x-statement-lifetime-ms": 120000
+                        "additionalProperties": false
                       },
-                      "label": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 80
+                      {
+                        "type": "object",
+                        "properties": {
+                          "statement": {
+                            "type": "object",
+                            "properties": {
+                              "machineId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "clientPublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "nonce": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                              },
+                              "issuedAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "expiresAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "signature": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                              },
+                              "machinePublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "accountId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "accountSignature": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                              }
+                            },
+                            "required": [
+                              "machineId",
+                              "clientPublicKey",
+                              "nonce",
+                              "issuedAt",
+                              "expiresAt",
+                              "signature"
+                            ],
+                            "x-statement-lifetime-ms": 120000
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          }
+                        },
+                        "required": [
+                          "statement",
+                          "label"
+                        ]
                       }
-                    },
-                    "required": [
-                      "statement",
-                      "label"
                     ]
                   }
                 },
@@ -63015,71 +64075,152 @@
                     "maxLength": 32768
                   },
                   "access": {
-                    "type": "object",
-                    "properties": {
-                      "statement": {
+                    "anyOf": [
+                      {
                         "type": "object",
                         "properties": {
-                          "machineId": {
+                          "peer": {
+                            "type": "object",
+                            "properties": {
+                              "machineId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "machinePublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "accountId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "peerPublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "peerMachineId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "peerMachinePublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "nonce": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                              },
+                              "issuedAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "expiresAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "signature": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                              }
+                            },
+                            "required": [
+                              "machineId",
+                              "machinePublicKey",
+                              "accountId",
+                              "peerPublicKey",
+                              "peerMachineId",
+                              "peerMachinePublicKey",
+                              "nonce",
+                              "issuedAt",
+                              "expiresAt",
+                              "signature"
+                            ]
+                          },
+                          "label": {
                             "type": "string",
                             "minLength": 1,
-                            "maxLength": 128
-                          },
-                          "clientPublicKey": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{43}$"
-                          },
-                          "nonce": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{22,128}$"
-                          },
-                          "issuedAt": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "expiresAt": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "signature": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{86}$"
-                          },
-                          "machinePublicKey": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{43}$"
-                          },
-                          "accountId": {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 64
-                          },
-                          "accountSignature": {
-                            "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{86}$"
+                            "maxLength": 80
                           }
                         },
                         "required": [
-                          "machineId",
-                          "clientPublicKey",
-                          "nonce",
-                          "issuedAt",
-                          "expiresAt",
-                          "signature"
+                          "peer",
+                          "label"
                         ],
-                        "x-statement-lifetime-ms": 120000
+                        "additionalProperties": false
                       },
-                      "label": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 80
+                      {
+                        "type": "object",
+                        "properties": {
+                          "statement": {
+                            "type": "object",
+                            "properties": {
+                              "machineId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "clientPublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "nonce": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{22,128}$"
+                              },
+                              "issuedAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "expiresAt": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "signature": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                              },
+                              "machinePublicKey": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{43}$"
+                              },
+                              "accountId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "accountSignature": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{86}$"
+                              }
+                            },
+                            "required": [
+                              "machineId",
+                              "clientPublicKey",
+                              "nonce",
+                              "issuedAt",
+                              "expiresAt",
+                              "signature"
+                            ],
+                            "x-statement-lifetime-ms": 120000
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          }
+                        },
+                        "required": [
+                          "statement",
+                          "label"
+                        ]
                       }
-                    },
-                    "required": [
-                      "statement",
-                      "label"
                     ]
                   }
                 },

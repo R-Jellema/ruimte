@@ -19,7 +19,9 @@ export const SIGNING_PURPOSES = {
     push: 'pulsar-push-v1',
     lanDoor: 'pulsar-lan-door-v1',
     mapsTicket: 'pulsar-maps-ticket-v1',
-    mapsTicketMac: 'pulsar-maps-ticket-mac-v1'
+    mapsTicketMac: 'pulsar-maps-ticket-mac-v1',
+    peerAccessRequest: 'pulsar-peer-access-request-v1',
+    peerStatement: 'pulsar-peer-statement-v1'
 } as const;
 export type SigningPurpose = (typeof SIGNING_PURPOSES)[keyof typeof SIGNING_PURPOSES];
 
@@ -51,6 +53,24 @@ export function signalMessage(from: string, to: string, envelope: SignalEnvelope
                 const access = signal.access;
                 if (!access) {
                     return [signal.sdp];
+                }
+                if ('peer' in access) {
+                    const { peer } = access;
+                    return [
+                        signal.sdp,
+                        'peer',
+                        peer.machineId,
+                        peer.machinePublicKey,
+                        peer.accountId,
+                        peer.peerPublicKey,
+                        peer.peerMachineId,
+                        peer.peerMachinePublicKey,
+                        peer.nonce,
+                        peer.issuedAt,
+                        peer.expiresAt,
+                        peer.signature,
+                        access.label
+                    ];
                 }
                 const { statement } = access;
                 return [
@@ -175,4 +195,40 @@ export function mapsTicketMessage(machineId: string, issuedAt: number): string {
  */
 export function mapsTicketBytes(subject: string, expiresAt: number): string {
     return signedBytes(SIGNING_PURPOSES.mapsTicketMac, [subject, expiresAt]);
+}
+
+/*
+ * A machine asking to work in another one of its account, signed twice over these bytes: by the peer key,
+ * which proves it holds the key the statement will name, and by the machine key, which proves it is that machine.
+ */
+export function peerAccessRequestMessage(machineId: string, peerPublicKey: string, peerMachineId: string, nonce: string): string {
+    return signedBytes(SIGNING_PURPOSES.peerAccessRequest, [machineId, peerPublicKey, peerMachineId, nonce]);
+}
+
+/*
+ * The address book vouching that one machine of an account may connect to another under a peer key. Both
+ * machine keys and the account are in it, so a namesake machine on another account never fits.
+ */
+export function peerStatementMessage(
+    machineId: string,
+    machinePublicKey: string,
+    accountId: string,
+    peerPublicKey: string,
+    peerMachineId: string,
+    peerMachinePublicKey: string,
+    nonce: string,
+    issuedAt: number,
+    expiresAt: number
+): string {
+    return signedBytes(SIGNING_PURPOSES.peerStatement, [
+        machineId,
+        machinePublicKey,
+        accountId,
+        peerPublicKey,
+        peerMachineId,
+        peerMachinePublicKey,
+        nonce,
+        issuedAt,
+        expiresAt
+    ]);
 }

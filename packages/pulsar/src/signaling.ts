@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AccessStatementSchema } from './address-book.ts';
+import { AccessStatementSchema, PeerStatementSchema } from './address-book.ts';
 
 /*
  * What two peers say to each other to open a DataChannel. It rides inside a relayed broker message,
@@ -22,12 +22,29 @@ export const SignalAccessSchema = z.object({
     statement: AccessStatementSchema,
     label: z.string().min(1).max(80)
 });
+
+/*
+ * The same for a machine of the account that works in this one: a peer statement in place of a client
+ * statement, never both. Strict, so an offer that carries the two is read as the client one it is.
+ */
+export const SignalPeerAccessSchema = z
+    .object({
+        peer: PeerStatementSchema,
+        label: z.string().min(1).max(80)
+    })
+    .strict();
+
 export type SignalAccess = z.infer<typeof SignalAccessSchema>;
+export type SignalPeerAccess = z.infer<typeof SignalPeerAccessSchema>;
+
+// What an offer carries to get in: a client's statement, or a machine's as a peer.
+export const SignalOfferAccessSchema = z.union([SignalPeerAccessSchema, SignalAccessSchema]);
+export type SignalOfferAccess = z.infer<typeof SignalOfferAccessSchema>;
 
 export const SignalOfferSchema = z.object({
     kind: z.literal('offer'),
     sdp: z.string().min(1).max(SDP_MAX_LENGTH),
-    access: SignalAccessSchema.optional()
+    access: SignalOfferAccessSchema.optional()
 });
 export type SignalOffer = z.infer<typeof SignalOfferSchema>;
 

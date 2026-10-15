@@ -1094,6 +1094,122 @@ public struct NativeAppleStartResult: Codable, Sendable, Equatable {
     }
 }
 
+public struct PeerAccessRequestPayload: Codable, Sendable, Equatable {
+    public let `machineId`: String
+    public let `peerMachineId`: String
+    public let `peerPublicKey`: String
+    public let `nonce`: String
+    public let `peerSignature`: String
+    public let `machineSignature`: String
+
+    public init(`machineId`: String, `peerMachineId`: String, `peerPublicKey`: String, `nonce`: String, `peerSignature`: String, `machineSignature`: String) {
+        self.`machineId` = `machineId`
+        self.`peerMachineId` = `peerMachineId`
+        self.`peerPublicKey` = `peerPublicKey`
+        self.`nonce` = `nonce`
+        self.`peerSignature` = `peerSignature`
+        self.`machineSignature` = `machineSignature`
+    }
+
+    public init(from decoder: Decoder) throws {
+        _ = try WireSchema.validate("PeerAccessRequestPayloadSchema", JSONValue(from: decoder))
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `machineId` = try container.decode(String.self, forKey: .`machineId`)
+        `peerMachineId` = try container.decode(String.self, forKey: .`peerMachineId`)
+        `peerPublicKey` = try container.decode(String.self, forKey: .`peerPublicKey`)
+        `nonce` = try container.decode(String.self, forKey: .`nonce`)
+        `peerSignature` = try container.decode(String.self, forKey: .`peerSignature`)
+        `machineSignature` = try container.decode(String.self, forKey: .`machineSignature`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`machineId`, forKey: .`machineId`)
+        try container.encode(`peerMachineId`, forKey: .`peerMachineId`)
+        try container.encode(`peerPublicKey`, forKey: .`peerPublicKey`)
+        try container.encode(`nonce`, forKey: .`nonce`)
+        try container.encode(`peerSignature`, forKey: .`peerSignature`)
+        try container.encode(`machineSignature`, forKey: .`machineSignature`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `machineId` = "machineId"
+        case `peerMachineId` = "peerMachineId"
+        case `peerPublicKey` = "peerPublicKey"
+        case `nonce` = "nonce"
+        case `peerSignature` = "peerSignature"
+        case `machineSignature` = "machineSignature"
+    }
+}
+
+public struct PeerStatement: Codable, Sendable, Equatable {
+    public let `machineId`: String
+    public let `machinePublicKey`: String
+    public let `accountId`: String
+    public let `peerPublicKey`: String
+    public let `peerMachineId`: String
+    public let `peerMachinePublicKey`: String
+    public let `nonce`: String
+    public let `issuedAt`: Int64
+    public let `expiresAt`: Int64
+    public let `signature`: String
+
+    public init(`machineId`: String, `machinePublicKey`: String, `accountId`: String, `peerPublicKey`: String, `peerMachineId`: String, `peerMachinePublicKey`: String, `nonce`: String, `issuedAt`: Int64, `expiresAt`: Int64, `signature`: String) {
+        self.`machineId` = `machineId`
+        self.`machinePublicKey` = `machinePublicKey`
+        self.`accountId` = `accountId`
+        self.`peerPublicKey` = `peerPublicKey`
+        self.`peerMachineId` = `peerMachineId`
+        self.`peerMachinePublicKey` = `peerMachinePublicKey`
+        self.`nonce` = `nonce`
+        self.`issuedAt` = `issuedAt`
+        self.`expiresAt` = `expiresAt`
+        self.`signature` = `signature`
+    }
+
+    public init(from decoder: Decoder) throws {
+        _ = try WireSchema.validate("PeerStatementSchema", JSONValue(from: decoder))
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `machineId` = try container.decode(String.self, forKey: .`machineId`)
+        `machinePublicKey` = try container.decode(String.self, forKey: .`machinePublicKey`)
+        `accountId` = try container.decode(String.self, forKey: .`accountId`)
+        `peerPublicKey` = try container.decode(String.self, forKey: .`peerPublicKey`)
+        `peerMachineId` = try container.decode(String.self, forKey: .`peerMachineId`)
+        `peerMachinePublicKey` = try container.decode(String.self, forKey: .`peerMachinePublicKey`)
+        `nonce` = try container.decode(String.self, forKey: .`nonce`)
+        `issuedAt` = try container.decode(Int64.self, forKey: .`issuedAt`)
+        `expiresAt` = try container.decode(Int64.self, forKey: .`expiresAt`)
+        `signature` = try container.decode(String.self, forKey: .`signature`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`machineId`, forKey: .`machineId`)
+        try container.encode(`machinePublicKey`, forKey: .`machinePublicKey`)
+        try container.encode(`accountId`, forKey: .`accountId`)
+        try container.encode(`peerPublicKey`, forKey: .`peerPublicKey`)
+        try container.encode(`peerMachineId`, forKey: .`peerMachineId`)
+        try container.encode(`peerMachinePublicKey`, forKey: .`peerMachinePublicKey`)
+        try container.encode(`nonce`, forKey: .`nonce`)
+        try container.encode(`issuedAt`, forKey: .`issuedAt`)
+        try container.encode(`expiresAt`, forKey: .`expiresAt`)
+        try container.encode(`signature`, forKey: .`signature`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `machineId` = "machineId"
+        case `machinePublicKey` = "machinePublicKey"
+        case `accountId` = "accountId"
+        case `peerPublicKey` = "peerPublicKey"
+        case `peerMachineId` = "peerMachineId"
+        case `peerMachinePublicKey` = "peerMachinePublicKey"
+        case `nonce` = "nonce"
+        case `issuedAt` = "issuedAt"
+        case `expiresAt` = "expiresAt"
+        case `signature` = "signature"
+    }
+}
+
 public struct ProvidersResult: Codable, Sendable, Equatable {
     public let `providers`: [String]
 
@@ -1788,9 +1904,9 @@ public enum Signal: Codable, Sendable, Equatable {
 public struct SignalOffer: Codable, Sendable, Equatable {
     public let `kind`: String
     public let `sdp`: String
-    public let `access`: SignalAccess?
+    public let `access`: SignalOfferAccess?
 
-    public init(`kind`: String = "offer", `sdp`: String, `access`: SignalAccess? = nil) {
+    public init(`kind`: String = "offer", `sdp`: String, `access`: SignalOfferAccess? = nil) {
         self.`kind` = `kind`
         self.`sdp` = `sdp`
         self.`access` = `access`
@@ -1801,7 +1917,7 @@ public struct SignalOffer: Codable, Sendable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         `kind` = try container.decode(String.self, forKey: .`kind`)
         `sdp` = try container.decode(String.self, forKey: .`sdp`)
-        `access` = try container.decodeIfPresent(SignalAccess.self, forKey: .`access`)
+        `access` = try container.decodeIfPresent(SignalOfferAccess.self, forKey: .`access`)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -1815,6 +1931,52 @@ public struct SignalOffer: Codable, Sendable, Equatable {
         case `kind` = "kind"
         case `sdp` = "sdp"
         case `access` = "access"
+    }
+}
+
+public enum SignalOfferAccess: Codable, Sendable, Equatable {
+    case `variant0`(SignalPeerAccess)
+    case `variant1`(SignalAccess)
+
+    public init(from decoder: Decoder) throws {
+        if let value = try? SignalPeerAccess(from: decoder) { self = .`variant0`(value); return }
+        if let value = try? SignalAccess(from: decoder) { self = .`variant1`(value); return }
+        throw WireValidationError.invalid("Invalid SignalOfferAccess")
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .`variant0`(let value): try value.encode(to: encoder)
+        case .`variant1`(let value): try value.encode(to: encoder)
+        }
+    }
+}
+
+public struct SignalPeerAccess: Codable, Sendable, Equatable {
+    public let `peer`: PeerStatement
+    public let `label`: String
+
+    public init(`peer`: PeerStatement, `label`: String) {
+        self.`peer` = `peer`
+        self.`label` = `label`
+    }
+
+    public init(from decoder: Decoder) throws {
+        _ = try WireSchema.validate("SignalPeerAccessSchema", JSONValue(from: decoder))
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `peer` = try container.decode(PeerStatement.self, forKey: .`peer`)
+        `label` = try container.decode(String.self, forKey: .`label`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`peer`, forKey: .`peer`)
+        try container.encode(`label`, forKey: .`label`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `peer` = "peer"
+        case `label` = "label"
     }
 }
 

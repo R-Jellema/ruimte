@@ -11,6 +11,8 @@ import {
     machineRegistrationMessage,
     mapsTicketBytes,
     mapsTicketMessage,
+    peerAccessRequestMessage,
+    peerStatementMessage,
     pushMessage,
     sessionKeyMessage,
     sessionRefreshMessage,
@@ -41,7 +43,9 @@ function everyPurpose(): Record<keyof typeof SIGNING_PURPOSES, string> {
         push: pushMessage(alert),
         lanDoor: lanDoorMessage(nonce, 'machine-1', key),
         mapsTicket: mapsTicketMessage('machine-1', 0),
-        mapsTicketMac: mapsTicketBytes(key, 3_600_000)
+        mapsTicketMac: mapsTicketBytes(key, 3_600_000),
+        peerAccessRequest: peerAccessRequestMessage('machine-1', key, 'machine-2', nonce),
+        peerStatement: peerStatementMessage('machine-1', key, 'account-1', otherKey, 'machine-2', key, nonce, 0, 600_000)
     };
 }
 
@@ -189,5 +193,89 @@ describe('signed bytes', () => {
         expect(mapsTicketBytes(key, 3_600_001)).not.toBe(base);
         expect(base.split('\n')[0]).toBe('pulsar-maps-ticket-mac-v1');
         expect(base).not.toBe(mapsTicketMessage(key, 3_600_000));
+    });
+
+    test('a signature for any purpose does not verify as any other, peer purposes included', () => {
+        const pair = generateKeyPairSync('ed25519');
+        const messages = Object.entries(everyPurpose());
+        for (const [purpose, message] of messages) {
+            const signature = sign(null, Buffer.from(message), pair.privateKey);
+            for (const [other, otherMessage] of messages) {
+                expect(verify(null, Buffer.from(otherMessage), pair.publicKey, signature)).toBe(purpose === other);
+            }
+        }
+    });
+
+    test('a peer request binds the machine worked in, the peer key, the machine that works and the nonce', () => {
+        const base = peerAccessRequestMessage('machine-1', key, 'machine-2', nonce);
+        expect(peerAccessRequestMessage('machine-3', key, 'machine-2', nonce)).not.toBe(base);
+        expect(peerAccessRequestMessage('machine-1', otherKey, 'machine-2', nonce)).not.toBe(base);
+        expect(peerAccessRequestMessage('machine-1', key, 'machine-3', nonce)).not.toBe(base);
+        expect(peerAccessRequestMessage('machine-1', key, 'machine-2', 'm'.repeat(22))).not.toBe(base);
+        expect(base).not.toBe(accessRequestMessage('machine-1', key, nonce));
+    });
+
+    test('a peer statement binds every field, and neither statement kind verifies as the other', () => {
+        const base = peerStatementMessage('machine-1', key, 'account-1', otherKey, 'machine-2', key, nonce, 0, 600_000);
+        const variants = [
+            peerStatementMessage('machine-3', key, 'account-1', otherKey, 'machine-2', key, nonce, 0, 600_000),
+            peerStatementMessage('machine-1', otherKey, 'account-1', otherKey, 'machine-2', key, nonce, 0, 600_000),
+            peerStatementMessage('machine-1', key, 'account-2', otherKey, 'machine-2', key, nonce, 0, 600_000),
+            peerStatementMessage('machine-1', key, 'account-1', key, 'machine-2', key, nonce, 0, 600_000),
+            peerStatementMessage('machine-1', key, 'account-1', otherKey, 'machine-3', key, nonce, 0, 600_000),
+            peerStatementMessage('machine-1', key, 'account-1', otherKey, 'machine-2', otherKey, nonce, 0, 600_000),
+            peerStatementMessage('machine-1', key, 'account-1', otherKey, 'machine-2', key, 'm'.repeat(22), 0, 600_000),
+            peerStatementMessage('machine-1', key, 'account-1', otherKey, 'machine-2', key, nonce, 1, 600_000),
+            peerStatementMessage('machine-1', key, 'account-1', otherKey, 'machine-2', key, nonce, 0, 599_999)
+        ];
+        for (const variant of variants) {
+            expect(variant).not.toBe(base);
+        }
+
+        const pair = generateKeyPairSync('ed25519');
+        const client = accessStatementV2Message('machine-1', key, 'account-1', otherKey, nonce, 0, 120_000);
+        const clientSignature = sign(null, Buffer.from(client), pair.privateKey);
+        const peerSignature = sign(null, Buffer.from(base), pair.privateKey);
+        expect(verify(null, Buffer.from(base), pair.publicKey, clientSignature)).toBe(false);
+        expect(verify(null, Buffer.from(client), pair.publicKey, peerSignature)).toBe(false);
+    });
+
+    test('an offer signs the peer statement it carries, and one without access signs exactly as before', () => {
+        const peer = {
+            machineId: 'machine-1',
+            machinePublicKey: key,
+            accountId: 'account-1',
+            peerPublicKey: otherKey,
+            peerMachineId: 'machine-2',
+            peerMachinePublicKey: key,
+            nonce,
+            issuedAt: 0,
+            expiresAt: 600_000,
+            signature: 's'.repeat(86)
+        };
+        const offer = (patch: Partial<typeof peer> = {}, label = 'Laptop'): SignalEnvelope => ({
+            connectionId: 'attempt-1',
+            signal: { kind: 'offer', sdp: 'v=0', access: { peer: { ...peer, ...patch }, label } }
+        });
+        const base = signalMessage(key, otherKey, offer());
+
+        expect(signalMessage(key, otherKey, { connectionId: 'attempt-1', signal: { kind: 'offer', sdp: 'v=0' } })).toBe(
+            `${SIGNING_PURPOSES.signal}\n${JSON.stringify([key, otherKey, 'attempt-1', 'offer', 'v=0'])}`
+        );
+        for (const patch of [
+            { machineId: 'machine-3' },
+            { machinePublicKey: otherKey },
+            { accountId: 'account-2' },
+            { peerPublicKey: key },
+            { peerMachineId: 'machine-3' },
+            { peerMachinePublicKey: otherKey },
+            { nonce: 'm'.repeat(22) },
+            { issuedAt: 1 },
+            { expiresAt: 599_999 },
+            { signature: 't'.repeat(86) }
+        ]) {
+            expect(signalMessage(key, otherKey, offer(patch))).not.toBe(base);
+        }
+        expect(signalMessage(key, otherKey, offer({}, 'Phone'))).not.toBe(base);
     });
 });

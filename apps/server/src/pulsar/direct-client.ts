@@ -12,7 +12,7 @@ import {
     DirectVerdictFrameSchema,
     type DirectProofFrame
 } from '@ruimte/contracts';
-import type { SignalAccess, SignalEnvelope } from '@ruimte/pulsar';
+import type { SignalEnvelope, SignalOfferAccess } from '@ruimte/pulsar';
 import { randomBytes } from 'node:crypto';
 import { RTCPeerConnection, type RTCDataChannel } from 'werift';
 import { verifySignature } from '@ruimte/pulsar/verify-node';
@@ -35,7 +35,7 @@ export interface DirectClientOptions {
     signal(envelope: SignalEnvelope): void;
     credential: DirectCredential;
     /* A statement for a machine this key never paired with, carried in the offer the way the app does. */
-    access?: SignalAccess;
+    access?: SignalOfferAccess;
     timeoutMs?: number;
     /* Pings a quiet channel the way the app does, and closes it when nothing answers; off unless asked. */
     ping?: { idleMs?: number; timeoutMs?: number };
