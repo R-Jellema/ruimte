@@ -282,7 +282,11 @@ export class Worktrees {
         const fromBranch = based?.branch ?? (await git(['rev-parse', '--abbrev-ref', 'HEAD'], repo))?.trim();
         const head = based?.commit ?? (await git(['rev-parse', 'HEAD'], repo))?.trim();
         const fork = branchExists && head ? (await git(['merge-base', `refs/heads/${branch}`, head], repo))?.trim() : head;
-        await run(branchExists ? ['worktree', 'add', path, branch] : ['worktree', 'add', '-b', branch, path, ...(based ? [based.commit] : [])], main);
+        const hooks = options.hooksOff === true ? ['-c', 'core.hooksPath=/dev/null'] : [];
+        await run(
+            [...hooks, ...(branchExists ? ['worktree', 'add', path, branch] : ['worktree', 'add', '-b', branch, path, ...(based ? [based.commit] : [])])],
+            main
+        );
         const record: WorktreeRecord | null = fork
             ? {
                   branch,
@@ -584,6 +588,8 @@ export class Worktrees {
 /* Where a new branch starts: a branch, a tag or a commit. */
 export interface MakeOptions {
     base?: string;
+    /* Runs no hook of the repository while the checkout is made, for a tree that came from elsewhere. */
+    hooksOff?: boolean;
 }
 
 function recordFields(record: WorktreeRecord): Pick<Worktree, 'from' | 'projectId' | 'nodeId' | 'madeAt'> {

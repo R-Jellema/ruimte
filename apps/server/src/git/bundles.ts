@@ -326,17 +326,24 @@ async function takeIn(store: BundleStore, worktrees: Worktrees, folder: string, 
     const kept = `${RECEIVED}${payload.bundleId}`;
     await gitOrThrow([...NO_HOOKS, 'fetch', '--quiet', '--no-tags', '--no-recurse-submodules', '--no-write-fetch-head', file, `+${source}:${kept}`], top);
     const commit = (await commitOf(top, kept)) ?? '';
-    const name = payload.branch.replace(/^ruimte\//, '');
-    if (!(await refIsValid(top, `refs/heads/ruimte/${name}`))) {
-        throw new GitError('git-failed', `${payload.branch} is not a usable branch name.`);
-    }
-    if (payload.into === 'remote-ref') {
-        const remoteRef = `refs/remotes/ruimte-${slug(payload.machine ?? 'machine')}/${payload.branch}`;
-        if (!(await refIsValid(top, remoteRef))) {
+    try {
+        const name = payload.branch.replace(/^ruimte\//, '');
+        if (!(await refIsValid(top, `refs/heads/ruimte/${name}`))) {
             throw new GitError('git-failed', `${payload.branch} is not a usable branch name.`);
         }
-        await gitOrThrow(['update-ref', remoteRef, commit], top);
+        if (payload.into === 'remote-ref') {
+            const remoteRef = `refs/remotes/ruimte-${slug(payload.machine ?? 'machine')}/${payload.branch}`;
+            if (!(await refIsValid(top, remoteRef))) {
+                throw new GitError('git-failed', `${payload.branch} is not a usable branch name.`);
+            }
+            // Only from what it was a moment ago: a branch that moved meanwhile is not overwritten blind.
+            const before = (await git(['rev-parse', '--verify', '--quiet', remoteRef], top))?.trim() ?? '';
+            await gitOrThrow([...NO_HOOKS, 'update-ref', remoteRef, commit, before], top);
+        }
+        const made = await worktrees.addFresh(top, `ruimte/${name}`, { madeBy: 'client', projectId: payload.projectId }, { base: kept, hooksOff: true });
+        return { path: made.path, branch: made.branch, commit };
+    } finally {
+        // The worktree and the remote ref hold the commit now, or the take-in failed; either way the staging ref is done.
+        await runGit([...NO_HOOKS, 'update-ref', '-d', kept], top);
     }
-    const made = await worktrees.addFresh(top, `ruimte/${name}`, { madeBy: 'client', projectId: payload.projectId }, { base: kept });
-    return { path: made.path, branch: made.branch, commit };
 }

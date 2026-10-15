@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BYTES_CHUNK_MAX } from '@ruimte/contracts';
@@ -252,4 +252,79 @@ test('a client holds only a few bundles that nobody read, and the machine keeps 
     }
     expect(await first.bundles.made(ids[0]!)).toBeNull();
     expect(await first.bundles.made(ids.at(-1)!)).not.toBeNull();
+});
+
+test('no hook of the receiving repository runs while a bundle is taken in, and the staging ref is gone afterwards', async () => {
+    const marker = join(root, 'hook-ran');
+    for (const name of ['post-checkout', 'reference-transaction']) {
+        const hook = join(second.repo, '.git', 'hooks', name);
+        await writeFile(hook, `#!/bin/sh\ntouch '${marker}'\n`);
+        await chmod(hook, 0o755);
+    }
+    // A control: the hooks do fire for a worktree made the ordinary way.
+    await gitIn(second.repo, ['worktree', 'add', '--quiet', join(root, 'control'), '-b', 'control']);
+    expect(await Bun.file(marker).exists()).toBe(true);
+    await rm(marker);
+
+    const made = await makeBundle(first.bundles, first.checkpoints, { path: first.repo, from: 'head', haves: [], name: 'Handoff' });
+    await send(first, second, made.bundleId);
+    await fetchBundle(second.bundles, second.worktrees, second.repo, {
+        projectId: 'p',
+        bundleId: made.bundleId,
+        sha256: made.sha256,
+        branch: 'atlas',
+        into: 'remote-ref',
+        machine: 'Studio'
+    });
+
+    expect(await Bun.file(marker).exists()).toBe(false);
+    expect(await gitIn(second.repo, ['for-each-ref', 'refs/ruimte'])).toBe('');
+});
+
+test('only the handoff ref of a bundle is read, whatever else it carries', async () => {
+    await writeFile(join(first.repo, 'extra.txt'), 'extra\n');
+    await gitIn(first.repo, ['add', '.']);
+    await gitIn(first.repo, ['commit', '--quiet', '--message', 'main moved on']);
+    const moved = (await gitIn(first.repo, ['rev-parse', 'main'])).trim();
+    const handoff = (await gitIn(first.repo, ['rev-parse', 'HEAD'])).trim();
+    await gitIn(first.repo, ['update-ref', 'refs/ruimte/handoff/crafted', handoff]);
+    await mkdir(first.bundles.root, { recursive: true });
+    const crafted = 'crafted-bundle-1';
+    await gitIn(first.repo, ['bundle', 'create', '--quiet', first.bundles.pathOf(crafted), 'refs/ruimte/handoff/crafted', 'refs/heads/main']);
+    const mainThere = (await gitIn(second.repo, ['rev-parse', 'main'])).trim();
+    await send(first, second, crafted);
+
+    await fetchBundle(second.bundles, second.worktrees, second.repo, {
+        projectId: 'p',
+        bundleId: crafted,
+        sha256: await sha256Of(first.bundles.pathOf(crafted)),
+        branch: 'atlas',
+        into: 'worktree'
+    });
+
+    expect((await gitIn(second.repo, ['rev-parse', 'main'])).trim()).toBe(mainThere);
+    expect(mainThere).not.toBe(moved);
+    expect(await gitIn(second.repo, ['for-each-ref', 'refs/ruimte'])).toBe('');
+});
+
+test('bringing a branch back twice moves its remote ref to the newer tip', async () => {
+    const head = (await gitIn(first.repo, ['rev-parse', 'HEAD'])).trim();
+    const bringBack = async (title: string): Promise<string> => {
+        const made = await makeBundle(second.bundles, second.checkpoints, { path: second.repo, from: 'files', haves: [head], name: title });
+        await send(second, first, made.bundleId);
+        await fetchBundle(first.bundles, first.worktrees, first.repo, {
+            projectId: 'p',
+            bundleId: made.bundleId,
+            sha256: made.sha256,
+            branch: 'atlas',
+            into: 'remote-ref',
+            machine: 'Studio'
+        });
+        return made.commit;
+    };
+    await writeFile(join(second.repo, 'one.txt'), '1\n');
+    await bringBack('One');
+    await writeFile(join(second.repo, 'two.txt'), '2\n');
+    const newer = await bringBack('Two');
+    expect((await gitIn(first.repo, ['rev-parse', 'refs/remotes/ruimte-studio/atlas'])).trim()).toBe(newer);
 });
