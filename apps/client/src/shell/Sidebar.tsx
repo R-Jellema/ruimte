@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ChartNoAxesColumn, Plus, Settings } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChartNoAxesColumn, Plus, Settings } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { usePanelGap } from '@/shell/panel-layout';
@@ -30,7 +30,7 @@ import { SidebarToggle } from '@/shell/SidebarToggle';
 import { StationMenu } from '@/shell/menu/StationMenu';
 import { IS_STATION } from '@/station';
 import { NewViewItems } from '@/shell/NewViewMenu';
-import { draggedViewId, dragging as draggedView, draggingWholeCell, setDragging as setDraggedView, VIEW_DRAG_TYPE } from '@/shell/view-drag';
+import { draggedViewId, dragging as draggedView, draggingWholeCell, PROJECT_DRAG_TYPE, setDragging as setDraggedView, VIEW_DRAG_TYPE } from '@/shell/view-drag';
 import { useInstantWidth } from '@/shell/useInstantWidth';
 import { UsageLimitsCard } from '@adecore/agents-react/usage';
 import { ConnectionDot } from '@/shell/ConnectionDot';
@@ -45,6 +45,7 @@ import { buildCombinedSidebar, buildSidebarEverywhere, type SidebarGroup, type S
 import { NeedsYouCard } from './NeedsYouCard';
 import { BackgroundRow, MaybeTooltip, NodeRow, ProjectHeading, SeparatorRow, SubheaderRow, UnknownViewRow, ViewRow } from '@/shell/SidebarListRows';
 import { useProjectMenu } from '@/shell/project-menu-model';
+import { useSidebarProjects } from '@/shell/sidebar-projects';
 
 /* How wide the list is when it is open. The inner column keeps this width while the wrapper
    animates to zero, so nothing reflows on the way out. */
@@ -119,6 +120,9 @@ export function Sidebar() {
     const [dragging, setDragging] = useState<{ sectionId: string; viewId: string } | null>(null);
     /* The gap the row would drop into, drawn as a line between two rows. */
     const [insertAt, setInsertAt] = useState<number | null>(null);
+    /* The project heading being dragged, and the project it would land before or after. */
+    const [projectDrag, setProjectDrag] = useState<string | null>(null);
+    const [projectInsert, setProjectInsert] = useState<{ key: string; after: boolean } | null>(null);
 
     const project = useMemo<SidebarProject>(
         () => ({
@@ -243,6 +247,53 @@ export function Sidebar() {
         void newFileViewsAfter(paths, after);
     };
 
+    /* The projects a person can move, in the order they show; the Chats project leads and stays. */
+    const movable = groups.filter((group) => group.summary.scratch !== true).map((group) => group.key);
+
+    const onProjectDrag = (key: string | null, transfer?: DataTransfer): void => {
+        setProjectDrag(key);
+        setProjectInsert(null);
+        if (key !== null && transfer) {
+            transfer.setData(PROJECT_DRAG_TYPE, key);
+            transfer.effectAllowed = 'move';
+        }
+    };
+
+    /* Over the upper half of a project it lands before it, over the lower half after it. */
+    const projectOver = (event: React.DragEvent<HTMLDivElement>, key: string): void => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        const box = event.currentTarget.getBoundingClientRect();
+        const after = event.clientY > box.top + box.height / 2;
+        setProjectInsert((was) => (was?.key === key && was.after === after ? was : { key, after }));
+    };
+
+    const projectDrop = (key: string): void => {
+        const dragged = projectDrag;
+        const after = projectInsert?.key === key ? projectInsert.after : false;
+        onProjectDrag(null);
+        if (dragged === null || dragged === key) {
+            return;
+        }
+        const others = movable.filter((one) => one !== dragged);
+        useSidebarProjects.getState().move(movable, dragged, others.indexOf(key) + (after ? 1 : 0));
+    };
+
+    /* Move up and Move down in a project's menu, the way a drag moves it, for whoever works without a mouse. */
+    const moveItems = (key: string): ReactNode => {
+        const index = movable.indexOf(key);
+        return (
+            <>
+                <Menu.Item disabled={index < 1} onClick={() => useSidebarProjects.getState().move(movable, key, index - 1)}>
+                    <Icon icon={ArrowUp} size={14} /> {t('sidebar.moveUp')}
+                </Menu.Item>
+                <Menu.Item disabled={index === -1 || index === movable.length - 1} onClick={() => useSidebarProjects.getState().move(movable, key, index + 1)}>
+                    <Icon icon={ArrowDown} size={14} /> {t('sidebar.moveDown')}
+                </Menu.Item>
+            </>
+        );
+    };
+
     /* The group of another project a row stands for, which then draws as a background row. */
     const ownerOf = (row: SidebarRow): SidebarGroup | undefined => {
         const target = row.target;
@@ -329,69 +380,93 @@ export function Sidebar() {
                             const takesDrop = section.kind === 'views' && (!section.group || (section.group.active && !section.group.collapsed));
                             // A reorder lands only in the list the row came out of.
                             const reorderable = takesDrop && dragging?.sectionId === section.id;
+                            const group = section.group;
+                            const movableGroup = group !== undefined && group !== null && group.summary.scratch !== true ? group : null;
+                            const viewDragOver: ((e: React.DragEvent<HTMLDivElement>) => void) | undefined = takesDrop
+                                ? (e) => {
+                                      // Only a file or a table promotes: a diff, a commit or a designer has no row to become, and a whole host is no tab.
+                                      const loose = useFiles.getState().tabs.find((entry) => entry.key === draggedView());
+                                      const temporary = isPromotableTab(loose) && !draggingWholeCell();
+                                      if (!reorderable && !temporary && !carriesPaths(e.dataTransfer.types) && !carriesFiles(e.dataTransfer.types)) {
+                                          return;
+                                      }
+                                      e.preventDefault();
+                                      if (!reorderable) {
+                                          e.dataTransfer.dropEffect = dropEffectFor(e.dataTransfer.effectAllowed);
+                                      }
+                                      setInsertAt(insertionIndex(e.currentTarget, e.clientY, section.viewCount));
+                                  }
+                                : (e) => {
+                                      e.preventDefault();
+                                      e.dataTransfer.dropEffect = 'none';
+                                  };
+                            const viewDragLeave: ((e: React.DragEvent<HTMLDivElement>) => void) | undefined = takesDrop
+                                ? (e) => {
+                                      // A drag from outside the list has no drag end here to clear the gap.
+                                      if (!reorderable && !e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                                          setInsertAt(null);
+                                      }
+                                  }
+                                : undefined;
+                            const viewDrop: (e: React.DragEvent<HTMLDivElement>) => void = takesDrop
+                                ? (e) => {
+                                      const index = insertionIndex(e.currentTarget, e.clientY, section.viewCount);
+                                      e.preventDefault();
+                                      if (reorderable) {
+                                          dropAt(index);
+                                          return;
+                                      }
+                                      dropFilesAt(index, e.dataTransfer);
+                                  }
+                                : (e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                  };
                             return (
                                 <div
                                     key={section.id}
                                     className={clsx('flex flex-col gap-px', section.group ? 'mb-px' : 'mb-3')}
-                                    onDragOver={
-                                        takesDrop
-                                            ? (e) => {
-                                                  // Only a file or a table promotes: a diff, a commit or a designer has no row to become, and a whole host is no tab.
-                                                  const loose = useFiles.getState().tabs.find((entry) => entry.key === draggedView());
-                                                  const temporary = isPromotableTab(loose) && !draggingWholeCell();
-                                                  if (
-                                                      !reorderable &&
-                                                      !temporary &&
-                                                      !carriesPaths(e.dataTransfer.types) &&
-                                                      !carriesFiles(e.dataTransfer.types)
-                                                  ) {
-                                                      return;
-                                                  }
-                                                  e.preventDefault();
-                                                  if (!reorderable) {
-                                                      e.dataTransfer.dropEffect = dropEffectFor(e.dataTransfer.effectAllowed);
-                                                  }
-                                                  setInsertAt(insertionIndex(e.currentTarget, e.clientY, section.viewCount));
-                                              }
-                                            : (e) => {
-                                                  e.preventDefault();
-                                                  e.dataTransfer.dropEffect = 'none';
-                                              }
-                                    }
-                                    onDragLeave={
-                                        takesDrop
-                                            ? (e) => {
-                                                  // A drag from outside the list has no drag end here to clear the gap.
-                                                  if (!reorderable && !e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                                                      setInsertAt(null);
-                                                  }
-                                              }
-                                            : undefined
-                                    }
-                                    onDrop={
-                                        takesDrop
-                                            ? (e) => {
-                                                  const index = insertionIndex(e.currentTarget, e.clientY, section.viewCount);
-                                                  e.preventDefault();
-                                                  if (reorderable) {
-                                                      dropAt(index);
-                                                      return;
-                                                  }
-                                                  dropFilesAt(index, e.dataTransfer);
-                                              }
-                                            : (e) => {
-                                                  e.preventDefault();
-                                                  e.stopPropagation();
-                                              }
-                                    }
+                                    onDragOver={(e) => {
+                                        if (e.dataTransfer.types.includes(PROJECT_DRAG_TYPE)) {
+                                            if (movableGroup !== null && projectDrag !== null) {
+                                                projectOver(e, movableGroup.key);
+                                            }
+                                            return;
+                                        }
+                                        viewDragOver?.(e);
+                                    }}
+                                    onDragLeave={(e) => {
+                                        if (movableGroup !== null && !e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                                            setProjectInsert((was) => (was?.key === movableGroup.key ? null : was));
+                                        }
+                                        viewDragLeave?.(e);
+                                    }}
+                                    onDrop={(e) => {
+                                        if (e.dataTransfer.types.includes(PROJECT_DRAG_TYPE)) {
+                                            e.preventDefault();
+                                            if (movableGroup !== null) {
+                                                projectDrop(movableGroup.key);
+                                            }
+                                            return;
+                                        }
+                                        viewDrop(e);
+                                    }}
                                 >
                                     {section.group && sections[sectionIndex - 1]?.group && (
                                         <div role="separator" className="my-1 h-px shrink-0 bg-border-soft" />
                                     )}
+                                    {movableGroup !== null && projectInsert?.key === movableGroup.key && !projectInsert.after && (
+                                        <div className={INSERT_LINE} />
+                                    )}
                                     {section.group && (
                                         <ProjectHeading
                                             group={section.group}
-                                            menu={(row) => projectMenu.actionsOf(row)}
+                                            menu={(row) => projectMenu.actionsOf(row, movableGroup === null ? undefined : moveItems(movableGroup.key))}
+                                            onDrag={
+                                                movableGroup === null
+                                                    ? undefined
+                                                    : (transfer) => onProjectDrag(transfer === null ? null : movableGroup.key, transfer ?? undefined)
+                                            }
                                             tabbable={roving === `project:${section.id}`}
                                             onFocus={() => setRovingId(`project:${section.id}`)}
                                             onArrow={moveFocus}
@@ -479,6 +554,7 @@ export function Sidebar() {
                                               );
                                           })}
                                     {takesDrop && insertAt === section.viewCount && <div className={INSERT_LINE} />}
+                                    {movableGroup !== null && projectInsert?.key === movableGroup.key && projectInsert.after && <div className={INSERT_LINE} />}
                                 </div>
                             );
                         })

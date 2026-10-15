@@ -100,13 +100,16 @@ export function useSidebarGroups(enabled: boolean, active: SidebarProject, expan
         if (kept.length === 0) {
             added.sort((a, b) => b.summary.lastOpenedAt - a.summary.lastOpenedAt);
         }
-        const nextOrder = [...kept, ...added.map((group) => group.key)];
-        groups.sort((a, b) => nextOrder.indexOf(a.key) - nextOrder.indexOf(b.key));
+        // The keys of projects not on screen stay, so a project that opens again takes its old place.
+        const nextOrder = [...order, ...added.map((group) => group.key)];
+        // The Chats project leads, wherever the order has it.
+        const rank = (group: SidebarGroup): number => (group.summary.scratch === true ? -1 : nextOrder.indexOf(group.key));
+        groups.sort((a, b) => rank(a) - rank(b));
         return { groups, incomplete, order: nextOrder };
     }, [enabled, machines, endpoints, current, currentEndpointId, selected, collapsed, expandedViews, expandedIds, active, order, snoozes]);
     useEffect(() => {
         if (result.order.length !== order.length || result.order.some((key, at) => key !== order[at])) {
-            useSidebarProjects.setState({ order: result.order });
+            useSidebarProjects.getState().setOrder(result.order);
         }
     }, [result.order, order]);
     return result;

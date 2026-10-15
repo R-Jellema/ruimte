@@ -518,7 +518,19 @@ export function ViewRow({ row, tabbable, onFocus, onArrow, onToggle, onDrag }: V
     );
 }
 
-export function ProjectHeading({ group, tabbable, onFocus, onArrow, menu }: RowProps & { group: SidebarGroup; menu(row: ProjectMenuRow): ReactNode }) {
+export function ProjectHeading({
+    group,
+    tabbable,
+    onFocus,
+    onArrow,
+    menu,
+    onDrag
+}: RowProps & {
+    group: SidebarGroup;
+    menu(row: ProjectMenuRow): ReactNode;
+    /* A transfer as a drag of the heading starts, null as it ends; absent for a project that stays where it is. */
+    onDrag?(transfer: DataTransfer | null): void;
+}) {
     const { t } = useTranslation('shell');
     const machineIcon = useServers((state) => state.byEndpoint[group.endpointId]?.icon ?? null);
     const collapse = (value: boolean) => useSidebarProjects.getState().collapse(group.key, value);
@@ -529,6 +541,9 @@ export function ProjectHeading({ group, tabbable, onFocus, onArrow, menu }: RowP
                 <ContextMenu.Trigger
                     render={<ListRow variant="inset" render={<button type="button" />} />}
                     data-sidebar-row={`project:${group.key}`}
+                    draggable={onDrag !== undefined}
+                    onDragStart={onDrag === undefined ? undefined : (event) => onDrag(event.dataTransfer)}
+                    onDragEnd={onDrag === undefined ? undefined : () => onDrag(null)}
                     tabIndex={tabbable ? 0 : -1}
                     aria-expanded={!group.collapsed}
                     aria-label={`${group.summary.name} · ${group.machineLabel}${group.active ? ` · ${t('sidebar.activeProject')}` : ''}`}

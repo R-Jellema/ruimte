@@ -31,7 +31,9 @@
             "offline": "Not connected",
             "error": "Could not load project overview"
         },
-        "unsavedFile": "Unsaved changes"
+        "unsavedFile": "Unsaved changes",
+        "moveUp": "Move up",
+        "moveDown": "Move down"
     },
     "snooze": {
         "action": "Snooze",
@@ -370,7 +372,9 @@
         "closeTitle": "Close {{name}}?",
         "openInNewWindow": "Open in new window",
         "moveToNewWindow": "Move to new window",
-        "copyPath": "Copy path"
+        "copyPath": "Copy path",
+        "pinTab": "Pin tab",
+        "unpinTab": "Unpin tab"
     },
     "projectSettings": {
         "title": "Project settings",

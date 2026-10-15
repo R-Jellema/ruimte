@@ -31,7 +31,9 @@
             "offline": "Niet verbonden",
             "error": "Projectoverzicht kon niet worden geladen"
         },
-        "unsavedFile": "Niet-opgeslagen wijzigingen"
+        "unsavedFile": "Niet-opgeslagen wijzigingen",
+        "moveUp": "Omhoog",
+        "moveDown": "Omlaag"
     },
     "snooze": {
         "action": "Snoozen",
@@ -370,7 +372,9 @@
         "closeTitle": "{{name}} sluiten?",
         "openInNewWindow": "Openen in nieuw venster",
         "moveToNewWindow": "Naar nieuw venster verplaatsen",
-        "copyPath": "Pad kopiëren"
+        "copyPath": "Pad kopiëren",
+        "pinTab": "Tab vastzetten",
+        "unpinTab": "Tab losmaken"
     },
     "projectSettings": {
         "title": "Projectinstellingen",
