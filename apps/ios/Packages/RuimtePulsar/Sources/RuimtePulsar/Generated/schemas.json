@@ -12269,6 +12269,10 @@
                             },
                             "nodeId": {
                               "type": "string"
+                            },
+                            "severity": {
+                              "type": "string",
+                              "const": "warning"
                             }
                           },
                           "required": [
@@ -14593,6 +14597,10 @@
                             },
                             "nodeId": {
                               "type": "string"
+                            },
+                            "severity": {
+                              "type": "string",
+                              "const": "warning"
                             }
                           },
                           "required": [
@@ -16168,6 +16176,10 @@
                             },
                             "nodeId": {
                               "type": "string"
+                            },
+                            "severity": {
+                              "type": "string",
+                              "const": "warning"
                             }
                           },
                           "required": [
@@ -17737,6 +17749,10 @@
                                     },
                                     "nodeId": {
                                       "type": "string"
+                                    },
+                                    "severity": {
+                                      "type": "string",
+                                      "const": "warning"
                                     }
                                   },
                                   "required": [
@@ -19131,6 +19147,10 @@
                             },
                             "nodeId": {
                               "type": "string"
+                            },
+                            "severity": {
+                              "type": "string",
+                              "const": "warning"
                             }
                           },
                           "required": [
@@ -21000,6 +21020,10 @@
                                       },
                                       "nodeId": {
                                         "type": "string"
+                                      },
+                                      "severity": {
+                                        "type": "string",
+                                        "const": "warning"
                                       }
                                     },
                                     "required": [
@@ -26131,6 +26155,10 @@
                             },
                             "nodeId": {
                               "type": "string"
+                            },
+                            "severity": {
+                              "type": "string",
+                              "const": "warning"
                             }
                           },
                           "required": [
@@ -58337,6 +58365,10 @@
                                   },
                                   "nodeId": {
                                     "type": "string"
+                                  },
+                                  "severity": {
+                                    "type": "string",
+                                    "const": "warning"
                                   }
                                 },
                                 "required": [
@@ -59731,6 +59763,10 @@
                           },
                           "nodeId": {
                             "type": "string"
+                          },
+                          "severity": {
+                            "type": "string",
+                            "const": "warning"
                           }
                         },
                         "required": [
@@ -61600,6 +61636,10 @@
                                     },
                                     "nodeId": {
                                       "type": "string"
+                                    },
+                                    "severity": {
+                                      "type": "string",
+                                      "const": "warning"
                                     }
                                   },
                                   "required": [

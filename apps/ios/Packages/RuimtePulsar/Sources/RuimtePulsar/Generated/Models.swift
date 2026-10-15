@@ -4763,13 +4763,15 @@ public struct ChatUiBlockDiagnosticsItem: Codable, Sendable, Equatable {
     public let `start`: Int64
     public let `end`: Int64
     public let `nodeId`: String?
+    public let `severity`: String?
 
-    public init(`code`: String, `message`: String, `start`: Int64, `end`: Int64, `nodeId`: String? = nil) {
+    public init(`code`: String, `message`: String, `start`: Int64, `end`: Int64, `nodeId`: String? = nil, `severity`: String? = nil) {
         self.`code` = `code`
         self.`message` = `message`
         self.`start` = `start`
         self.`end` = `end`
         self.`nodeId` = `nodeId`
+        self.`severity` = `severity`
     }
 
     public init(from decoder: Decoder) throws {
@@ -4779,6 +4781,7 @@ public struct ChatUiBlockDiagnosticsItem: Codable, Sendable, Equatable {
         `start` = try container.decode(Int64.self, forKey: .`start`)
         `end` = try container.decode(Int64.self, forKey: .`end`)
         `nodeId` = try container.decodeIfPresent(String.self, forKey: .`nodeId`)
+        `severity` = try container.decodeIfPresent(String.self, forKey: .`severity`)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -4788,6 +4791,7 @@ public struct ChatUiBlockDiagnosticsItem: Codable, Sendable, Equatable {
         try container.encode(`start`, forKey: .`start`)
         try container.encode(`end`, forKey: .`end`)
         try container.encodeIfPresent(`nodeId`, forKey: .`nodeId`)
+        try container.encodeIfPresent(`severity`, forKey: .`severity`)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -4796,6 +4800,7 @@ public struct ChatUiBlockDiagnosticsItem: Codable, Sendable, Equatable {
         case `start` = "start"
         case `end` = "end"
         case `nodeId` = "nodeId"
+        case `severity` = "severity"
     }
 }
 
