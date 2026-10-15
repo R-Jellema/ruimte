@@ -94,7 +94,8 @@ export const CHAT_HOST: Partial<ChatHost> = {
         current: () => useSettings.getState().accent
     },
     isApplePlatform,
-    maps: { useSource: useMapSource },
+    // Named here, in the app's own source, so Vite serves the worker while it pre-bundles the chat package.
+    maps: { useSource: useMapSource, workerUrl: new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).href },
     notify: (toast) => void useToasts.getState().show(toast),
     actions: PERSON_CHAT_ACTIONS,
     intelligentUi: {
