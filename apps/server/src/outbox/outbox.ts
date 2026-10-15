@@ -89,7 +89,8 @@ const StartRemoteAgentSchema = z.object({
 const StopRemoteAgentSchema = z.object({
     kind: z.literal('stop-remote-agent'),
     // The target is `peer:<machineId>`. Owed because the node or the task is gone, so it outlives any node.
-    payload: z.object({ machineId: z.string().min(1), nodeId: z.string().min(1) })
+    // `once` is a stop placed after the reconnect gave up: asked over a link that happens to be open, and never the reason to open one.
+    payload: z.object({ machineId: z.string().min(1), nodeId: z.string().min(1), once: z.boolean().optional() })
 });
 
 const TakeRemoteResultSchema = z.object({

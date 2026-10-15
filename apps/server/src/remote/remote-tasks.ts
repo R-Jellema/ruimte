@@ -352,7 +352,8 @@ export class RemoteTasks {
 
     /*
      * The machine stayed out of reach for as long as the reconnect tries. Each task given to it fails with a line
-     * that says so, which wakes its parent once, and an agent that already runs there is owed a stop.
+     * that says so, which wakes its parent once, and an agent that may already run there is owed a stop, asked
+     * once over a link that is open: the 7 days are over, and a stop never starts a window of its own.
      */
     async giveUp(machineId: string): Promise<void> {
         const { deps } = this;
@@ -371,11 +372,12 @@ export class RemoteTasks {
                     : `The other machine could not be reached for ${days} days, so what became of this task is not known. It is stopped there when that machine answers again.`;
             await deps.coordinator.settleFromElsewhere(entry.payload.taskId, { text, source: 'exit', at: deps.now() }, 'failed');
             const stopOwed = deps.outbox.list().some((other) => other.kind === 'stop-remote-agent' && other.payload.nodeId === entry.target);
-            if (entry.kind === 'take-remote-result' && !stopOwed) {
+            // A start may have reached the machine without its answer reaching this one, so it too may have an agent to stop.
+            if (!stopOwed) {
                 const task = deps.tasks.get(entry.payload.taskId);
                 await deps.enqueue(task?.projectId ?? entry.projectId, peerTarget(machineId), {
                     kind: 'stop-remote-agent',
-                    payload: { machineId, nodeId: entry.target }
+                    payload: { machineId, nodeId: entry.target, once: true }
                 });
             }
         }
@@ -385,12 +387,15 @@ export class RemoteTasks {
     /* Tells the machine to end an agent of this one, until it heard. */
     readonly stop = async (entry: StopRemoteAgentEntry): Promise<'wait' | undefined> => {
         const { deps } = this;
-        const { machineId, nodeId } = entry.payload;
-        if (deps.now() - entry.createdAt >= STOP_LIFETIME_MS) {
+        const { machineId, nodeId, once } = entry.payload;
+        if (once !== true && deps.now() - entry.createdAt >= STOP_LIFETIME_MS) {
             return undefined;
         }
         const link = deps.connections.link(machineId);
         if (link === null) {
+            if (once === true) {
+                return undefined;
+            }
             await deps.reconnect.owe(machineId);
             return 'wait';
         }

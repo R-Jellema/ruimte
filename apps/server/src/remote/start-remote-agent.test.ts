@@ -290,14 +290,14 @@ describe('agent --machine', () => {
         expect(daemon.outbox.list().map((entry) => [entry.kind, entry.target])).toEqual([['take-remote-result', secondNode]]);
     });
 
-    test('a machine out of reach for good fails what was owed to it, with a line each, and stops what already ran', async () => {
+    test('a machine out of reach for good fails what was owed to it, with a line each, and opens no new window for the stop of what may run there', async () => {
         open = fakeLink();
         const [started] = await give();
-        const [startedNode, , , , , startedTask] = started!.split('\t');
+        const startedTask = started!.split('\t')[5]!;
         await daemon.worker.settled();
         open = null;
         const [waiting] = await give();
-        const [waitingNode, , , , , waitingTask] = waiting!.split('\t');
+        const waitingTask = waiting!.split('\t')[5]!;
         await daemon.worker.settled();
         expect(
             daemon.outbox
@@ -305,21 +305,43 @@ describe('agent --machine', () => {
                 .map((entry) => entry.kind)
                 .sort()
         ).toEqual(['start-remote-agent', 'take-remote-result']);
+        owed = [];
+
+        await daemon.remoteTasks!.giveUp(MACHINE);
+        // With no link open they are let go, and neither asks for a reconnect.
+        await daemon.worker.settled();
+        expect(daemon.tasks.get(waitingTask)).toMatchObject({ status: 'failed', result: { text: expect.stringContaining('never started there') } });
+        expect(daemon.tasks.get(startedTask)).toMatchObject({ status: 'failed', result: { text: expect.stringContaining('It is stopped there') } });
+        expect(daemon.outbox.list()).toEqual([]);
+        expect(owed).toEqual([]);
+    });
+
+    test('the stops a machine out of reach for good leaves are asked over a link that happens to be open, for an agent that started and for a start that may have', async () => {
+        open = fakeLink();
+        let busy = false;
+        answer = (type) => {
+            if (type === 'peer.taskStart' && busy) {
+                throw new Error('peer-busy: This machine already runs 4 tasks for that machine');
+            }
+            return type === 'peer.result' ? { status: 'open', result: null, bundle: null } : { cwd: '/studio/work', branch: null };
+        };
+        const [started] = await give();
+        const startedNode = started!.split('\t')[0]!;
+        await daemon.worker.settled();
+        busy = true;
+        const [waiting] = await give();
+        const waitingNode = waiting!.split('\t')[0]!;
+        await daemon.worker.settled();
+        expect(daemon.outbox.list().map((entry) => [entry.kind, entry.target])).toEqual([
+            ['take-remote-result', startedNode],
+            ['start-remote-agent', waitingNode]
+        ]);
 
         await daemon.remoteTasks!.giveUp(MACHINE);
         await daemon.worker.settled();
-
-        expect(daemon.tasks.get(waitingTask!)).toMatchObject({ status: 'failed', result: { text: expect.stringContaining('never started there') } });
-        expect(daemon.tasks.get(startedTask!)).toMatchObject({ status: 'failed', result: { text: expect.stringContaining('It is stopped there') } });
-        expect(daemon.outbox.list().map((entry) => [entry.kind, entry.target])).toEqual([['stop-remote-agent', `peer:${MACHINE}`]]);
-        expect(daemon.outbox.list()[0]).toMatchObject({ payload: { nodeId: startedNode } });
-        expect(waitingNode).toBeDefined();
-
-        // Once the machine answers again, the agent that ran there is stopped.
-        open = fakeLink();
-        daemon.worker.wake(`peer:${MACHINE}`);
-        await daemon.worker.settled();
-        expect(requests.at(-1)).toEqual({ type: 'peer.taskStop', payload: { nodeId: startedNode } });
+        const stops = requests.filter((request) => request.type === 'peer.taskStop').map((request) => (request.payload as { nodeId: string }).nodeId);
+        expect(stops.sort()).toEqual([startedNode, waitingNode].sort());
+        expect(daemon.outbox.list()).toEqual([]);
     });
 
     test('a CLI the machine will not run for another machine fails the task for good, with the words of the machine', async () => {
