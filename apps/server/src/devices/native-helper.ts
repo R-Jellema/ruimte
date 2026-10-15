@@ -11,21 +11,35 @@ interface NativeHidHandle {
     button(button: string): Promise<void>;
     orientation(orientation: number): Promise<boolean>;
     key(type: 'down' | 'up', usage: number): Promise<void>;
+    /* A hardware button by its HID page and usage; `press` is a down and an up, the other two hold it. */
+    buttonHid(page: number, usage: number, phase: 'press' | 'down' | 'up'): Promise<void>;
+    memoryWarning(): Promise<void>;
+    softwareKeyboard(): Promise<void>;
+    /* Whether the simulator has a hinge, which only an iPhone Duo on Xcode 27.1 with the iOS 27.1 runtime has. */
+    isFoldable(): Promise<boolean>;
+    /* A named pose (closed, tent, tabletop, book, open) from the hinge angle it has now; false when the simulator refused it. */
+    pose(name: string, fromDegrees: number): Promise<boolean>;
+    hinge(degrees: number): Promise<boolean>;
+    close(): Promise<void>;
 }
 
 interface NativeCaptureHandle {
     start(): Promise<void>;
     stop(): Promise<void>;
+    /* Captures the display of this size, a panel of a foldable; 0 by 0 lets the simulator choose again. */
+    setPreferredScreenSize(width: number, height: number): Promise<void>;
     subscribe(codec: number, onFrame: (data: Uint8Array, width: number, height: number, flags: number) => Promise<void>): Promise<() => void | Promise<void>>;
 }
 
 export interface DeviceNativeAddon {
-    SimHID: new (deviceId: string) => NativeHidHandle;
+    /* The second argument is the guest helper a foldable's hinge and buttons go through, which the addon starts inside the simulator. */
+    SimHID: new (deviceId: string, duoHidPath: string) => NativeHidHandle;
     SimCapture: new (deviceId: string) => NativeCaptureHandle;
 }
 
 interface DeviceHelperRuntime {
     addon?: DeviceNativeAddon;
+    duoHidPath?: string;
     input?: ReadableStream<Uint8Array>;
     write?(bytes: Uint8Array): void;
 }
@@ -61,6 +75,23 @@ export function resolveDeviceNativeAddon(): string {
     throw new Error('serve-sim-native.node is not installed beside Ruimte or in its server dependencies');
 }
 
+/*
+ * The guest helper of an iPhone Duo, beside the addon in a build and in the package otherwise. A
+ * path that does not exist only leaves the hinge unavailable, so it never fails the session.
+ */
+export function resolveDuoHidHelper(): string {
+    const besideExecutable = join(dirname(process.execPath), 'native', 'serve-sim-duo-hid');
+    if (existsSync(besideExecutable)) {
+        return besideExecutable;
+    }
+    try {
+        const middleware = Bun.resolveSync('serve-sim/middleware', import.meta.dir);
+        return join(dirname(middleware), 'simduo', 'serve-sim-duo-hid');
+    } catch {
+        return besideExecutable;
+    }
+}
+
 export function loadDeviceNativeAddon(): DeviceNativeAddon {
     return require(resolveDeviceNativeAddon()) as DeviceNativeAddon;
 }
@@ -87,7 +118,7 @@ export async function runDeviceHelper(deviceId: string, runtime?: DeviceHelperRu
     let unsubscribe: (() => void | Promise<void>) | null = null;
     try {
         const addon = runtime?.addon ?? loadDeviceNativeAddon();
-        const hid = new addon.SimHID(deviceId);
+        const hid = new addon.SimHID(deviceId, runtime?.duoHidPath ?? resolveDuoHidHelper());
         capture = new addon.SimCapture(deviceId);
         let width = 0;
         let height = 0;

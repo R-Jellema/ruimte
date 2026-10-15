@@ -16,6 +16,9 @@ module.exports = async (context) => {
     if (context.electronPlatformName === 'darwin' && !existsSync(join(resources, 'bin', 'native', 'speech-bridge'))) {
         throw new Error('No speech helper; compile the server resources for this os and arch first');
     }
+    if (context.electronPlatformName === 'darwin' && !existsSync(join(resources, 'bin', 'native', 'serve-sim-duo-hid'))) {
+        throw new Error('No iPhone Duo guest helper; compile the server resources for this os and arch first');
+    }
     if (
         context.electronPlatformName === 'darwin' &&
         !existsSync(join(resources, '..', 'Helpers', 'Ruimte Computer Use.app', 'Contents', 'MacOS', 'RuimteComputerUse'))

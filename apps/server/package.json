@@ -37,7 +37,7 @@
         "@xterm/headless": "^6.0.0",
         "linkedom": "^0.18.13",
         "reflect-metadata": "0.2.2",
-        "serve-sim": "0.1.46",
+        "serve-sim": "0.1.48",
         "werift": "0.24.4",
         "zod": "^4.6.5"
     },

@@ -111,6 +111,10 @@ if (values.os === 'mac') {
     const axHelper = join(nativeDir, 'serve-sim-ax-settings');
     await copyFile(join(dirname(middleware), 'simax', 'serve-sim-ax-settings'), axHelper);
     await chmod(axHelper, 0o755);
+    // Runs inside an iPhone Duo simulator for its hinge and buttons; the 3D preview beside it in the package is not used.
+    const duoHelper = join(nativeDir, 'serve-sim-duo-hid');
+    await copyFile(join(dirname(middleware), 'simduo', 'serve-sim-duo-hid'), duoHelper);
+    await chmod(duoHelper, 0o755);
 
     /* The speech helper links a prebuilt ONNX Runtime that needs a newer glibc and libstdc++ than
        the Linux build targets, so Speech to Text stays macOS only until that floor moves. A build
