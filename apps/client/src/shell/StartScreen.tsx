@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { isRecentProject } from '@ruimte/contracts';
-import { AppWindow, FolderOpen, LogIn, MessageSquarePlus, MessagesSquare, MonitorSmartphone, RotateCw } from 'lucide-react';
+import { FolderOpen, LogIn, MessageSquarePlus, MessagesSquare, MonitorSmartphone, RotateCw } from 'lucide-react';
 import { isDesktop } from '@/desktop/bridge';
 import { STRIP_PADDING_PX, useTrafficLightInset } from '@/desktop/useFullscreen';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
@@ -10,11 +10,10 @@ import { chatsProjects, openableRows, recentProjects, type ProjectMenuRow } from
 import { newChat, useOffersNewChat } from '@/project/new-chat';
 import { openProject } from '@/project/open';
 import { openProjectAction, openProjectClickAction } from '@/actions/client-actions';
-import { canOpenWindows, openInNewWindow } from '@/project/windows';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
 import { usePulsarAccount } from '@/pulsar/account';
 import { usePulsarMachines } from '@/pulsar/machines';
-import { FolderMenuItems } from '@/shell/FolderMenuItems';
+import { ProjectPlaceActions } from '@/shell/ProjectActions';
 import { LinkMachineDialog } from '@/shell/LinkMachineDialog';
 import { linkDot, linkHint, machineLink } from '@/shell/palette-browse';
 import { SignInButtons } from '@/shell/SignInButtons';
@@ -28,6 +27,7 @@ import { useEndpoints } from '@/state/endpoints';
 import { hasLocalMachine, startScreenMachine } from '@/state/local-machine';
 import { useProjectList } from '@/state/project-list';
 import { canShowReleaseNotes, openReleaseNotes } from '@/state/release-notes';
+import { useServers } from '@/state/server';
 import { useUi } from '@/state/ui';
 import { useUpdates } from '@/state/updates';
 import { useWindow, type BootFailure } from '@/state/window';
@@ -113,23 +113,14 @@ function ChatsTile({ row, showMachine, disabled }: { row: ProjectMenuRow; showMa
 function RecentRowMenu({ row }: { row: ProjectMenuRow }) {
     const { t } = useTranslation('shell');
     const { summary } = row;
-    const folder = summary.folder ?? null;
+    const platform = useServers((s) => s.byEndpoint[row.endpointId]?.platform ?? null);
     return (
         <ContextMenu.Popup>
             <ContextMenu.Item onClick={() => openProjectAction(row.endpointId, summary.projectId)}>
                 <Icon icon={FolderOpen} size={14} /> {t('common:action.open')}
             </ContextMenu.Item>
-            {canOpenWindows() && (
-                <ContextMenu.Item onClick={() => openInNewWindow(row.endpointId, summary.projectId)}>
-                    <Icon icon={AppWindow} size={14} /> {t('projectMenu.openInNewWindow')}
-                </ContextMenu.Item>
-            )}
-            {folder !== null && (
-                <>
-                    <ContextMenu.Separator />
-                    <FolderMenuItems endpointId={row.endpointId} folder={folder} connected={row.connected} />
-                </>
-            )}
+            <ContextMenu.Separator />
+            <ProjectPlaceActions row={row} platform={platform} current={false} />
         </ContextMenu.Popup>
     );
 }

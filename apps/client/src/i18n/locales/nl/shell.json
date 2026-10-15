@@ -31,7 +31,9 @@
             "offline": "Niet verbonden",
             "error": "Projectoverzicht kon niet worden geladen"
         },
-        "unsavedFile": "Niet-opgeslagen wijzigingen"
+        "unsavedFile": "Niet-opgeslagen wijzigingen",
+        "moveUp": "Omhoog",
+        "moveDown": "Omlaag"
     },
     "snooze": {
         "action": "Snoozen",
@@ -278,10 +280,7 @@
         "splitDown": "Naar beneden splitsen",
         "maximizeCell": "Cel maximaliseren",
         "restoreSplit": "Splitsing herstellen",
-        "closeOthers": "Andere sluiten",
-        "closeToRight": "Rechts ervan sluiten",
         "newView": "Weergave",
-        "putOnCanvas": "Op het canvas zetten",
         "showOnCanvas": "Op het canvas tonen",
         "openInChat": "In een chat openen",
         "openInTerminal": "In een terminal openen",
@@ -291,12 +290,18 @@
         "moveWhileWorking": "Stop de chat of wacht tot hij klaar is.",
         "viewSettings": "Instellingen…",
         "deleteView": "Weergave verwijderen",
-        "reveal": "Tonen in {{app}}",
         "openInNewTab": "Openen in nieuw tabblad",
-        "moveTabLeft": "Tabblad naar links",
-        "moveTabRight": "Tabblad naar rechts",
-        "moveTabToNewCell": "Tabblad naar nieuwe cel",
-        "ungroup": "Tabbladen ontgroeperen"
+        "moveTabLeft": "Naar links",
+        "moveTabRight": "Naar rechts",
+        "moveTabToNewCell": "Naar een nieuwe cel",
+        "ungroup": "Tabbladen ontgroeperen",
+        "closeThisCell": "Deze cel sluiten",
+        "closeOtherCells": "Andere cellen sluiten",
+        "closeCellsToRight": "Cellen rechts ervan sluiten",
+        "moveTab": "Tabblad verplaatsen",
+        "cell": "Cel",
+        "conversation": "Gesprek",
+        "openIn": "Openen in {{app}}"
     },
     "share": {
         "start": "Delen met je team",
@@ -366,7 +371,10 @@
         "openFolder": "Map openen",
         "closeTitle": "{{name}} sluiten?",
         "openInNewWindow": "Openen in nieuw venster",
-        "moveToNewWindow": "Naar nieuw venster verplaatsen"
+        "moveToNewWindow": "Naar nieuw venster verplaatsen",
+        "copyPath": "Pad kopiëren",
+        "pinTab": "Tab vastzetten",
+        "unpinTab": "Tab losmaken"
     },
     "projectSettings": {
         "title": "Projectinstellingen",
@@ -376,7 +384,9 @@
         "chooseImage": "Afbeelding kiezen…",
         "useFolderIcon": "Het icoon van de map gebruiken",
         "tooLarge": "Die afbeelding is groter dan 256 KB",
-        "unreadable": "Dat bestand kon niet worden gelezen"
+        "unreadable": "Dat bestand kon niet worden gelezen",
+        "color": "Kleur",
+        "defaultColor": "Standaard"
     },
     "linkMachine": {
         "title": "Een machine koppelen met een code",
@@ -533,8 +543,7 @@
         "connectMachine": "Machine verbinden",
         "throughAccount": "Via je account",
         "commandPalette": "Commandopalet",
-        "whatsNew": "Wat is er nieuw",
-        "copyFolder": "Mappad kopiëren"
+        "whatsNew": "Wat is er nieuw"
     },
     "palette": {
         "newAgent": {
@@ -706,7 +715,7 @@
             "maximizeCell": "Cel maximaliseren",
             "newBrowserView": "Nieuwe browserweergave",
             "openAsView": "Als weergave openen",
-            "putOnCanvas": "Op het canvas zetten",
+            "putOnCanvas": "Op het canvas tonen",
             "lockAll": "Alles vergrendelen",
             "unlockAll": "Alles ontgrendelen",
             "zoomToFit": "Zoomen tot alles past",
@@ -892,7 +901,7 @@
         "moveToProject": "Naar project verplaatsen",
         "otherProject": "Ander project…",
         "duplicate": "Dupliceren",
-        "putOnCanvas": "Op het canvas zetten",
+        "putOnCanvas": "Op het canvas tonen",
         "share": "Deel met je team",
         "unshare": "Houd voor jezelf",
         "viewSettings": "Instellingen van de weergave…",
@@ -1082,5 +1091,11 @@
         },
         "sending": "{{size}} versturen…",
         "handoffIntro": "Een nieuwe chat op {{machine}} begint met een transcript van {{title}} en werkt daar in een checkout. Ruimte verstuurt niets voordat je het volgende bericht schrijft."
+    },
+    "editorMenu": {
+        "goToDeclaration": "Ga naar declaratie",
+        "inlineEdit": "Inline wijzigen",
+        "selectionToChat": "Selectie aan chat toevoegen",
+        "askAgent": "Een agent vragen"
     }
 }

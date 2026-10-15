@@ -601,8 +601,9 @@ export const ACTION_DEFINITIONS = {
         output: z.object({ project: z.string(), endpointId: z.string(), projectId: z.string() })
     },
     'project.setAppearance': {
-        title: 'Change project name or icon',
-        description: 'Renames a project of the list, or gives it a Lucide icon from the set the picker has, or folder for what the folder itself declares.',
+        title: 'Change project name, icon or color',
+        description:
+            'Renames a project of the list, gives it a Lucide icon from the set the picker has (or folder for what the folder itself declares), or a color. The color is in the shared project file, so a team sees it.',
         effect: 'shared',
         domain: 'projects',
         actors: PERSON_AND_VOICE,
@@ -613,7 +614,12 @@ export const ACTION_DEFINITIONS = {
             icon: z.string().min(1).nullable().describe('A Lucide name, or folder'),
             image: forActors(PERSON, z.object({ mime: z.string().min(1), base64: z.string().min(1) })).describe(
                 'An image the icon becomes, written into the folder'
-            )
+            ),
+            color: z
+                .string()
+                .regex(/^#[0-9a-fA-F]{6}$/)
+                .nullable()
+                .describe('The color of the project as #rrggbb')
         }),
         output: z.object({ project: z.string(), endpointId: z.string(), projectId: z.string(), icon: z.string() })
     },

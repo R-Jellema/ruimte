@@ -13,6 +13,9 @@ import {
     neighborOf,
     NO_TABS,
     parseTabsState,
+    parseWindowState,
+    pinTab,
+    pinWindowTab,
     showNoTab,
     showTab,
     startWindowTabs,
@@ -20,6 +23,7 @@ import {
     useWindowTabs,
     withoutClosed,
     withoutTab,
+    windowStateOf,
     dropWindowTab,
     type TabsShell,
     type TabsPlace,
@@ -98,6 +102,41 @@ describe('the tabs a window keeps', () => {
 
     test('leave out the keys the caller refuses', () => {
         expect(parseTabsState('["local:a","m1:b"]', (key) => !key.startsWith('local:'))).toEqual(['m1:b']);
+    });
+});
+
+describe('pinned tabs', () => {
+    const pinned = (keys: string[], active: string | null, pins: string[]): WindowTabs => ({ keys, active, pinned: pins });
+
+    test('a pinned tab goes to the end of the pinned ones, and one let go of to the start of the rest', () => {
+        const first = pinTab(tabs(['a', 'b', 'c'], 'a'), 'c', true);
+        expect(first).toEqual(pinned(['c', 'a', 'b'], 'a', ['c']));
+        expect(pinTab(first, 'b', true)).toEqual(pinned(['c', 'b', 'a'], 'a', ['c', 'b']));
+        expect(pinTab(pinned(['c', 'b', 'a'], 'a', ['c', 'b']), 'c', false)).toEqual(pinned(['b', 'c', 'a'], 'a', ['b']));
+        expect(pinTab(pinned(['b', 'a'], 'a', ['b']), 'b', false)).toEqual(tabs(['b', 'a'], 'a'));
+    });
+
+    test('a new project never lands before a pinned tab', () => {
+        expect(showTab(pinned(['p', 'a'], null, ['p']), 'b')).toEqual(pinned(['p', 'a', 'b'], 'b', ['p']));
+        expect(showTab(pinned(['p', 'q', 'a'], 'p', ['p', 'q']), 'b')).toEqual(pinned(['p', 'q', 'b', 'a'], 'b', ['p', 'q']));
+    });
+
+    test('a drag keeps a tab on its own side of the pinned ones', () => {
+        expect(moveTab(pinned(['p', 'a', 'b'], 'a', ['p']), 'b', 0)).toEqual(pinned(['p', 'b', 'a'], 'a', ['p']));
+        expect(moveTab(pinned(['p', 'q', 'a'], 'a', ['p', 'q']), 'p', 2)).toEqual(pinned(['q', 'p', 'a'], 'a', ['q', 'p']));
+    });
+
+    test('a closed pinned tab takes its pin along', () => {
+        expect(withoutTab(pinned(['p', 'a'], 'a', ['p']), 'p')).toEqual(tabs(['a'], 'a'));
+    });
+
+    test('are written beside the tabs and read back, and an older list of keys still reads', () => {
+        const state = windowStateOf(pinned(['p', 'a'], 'a', ['p']));
+        expect(state).toBe('{"tabs":["p","a"],"pinned":["p"]}');
+        expect(parseWindowState(state)).toEqual({ keys: ['p', 'a'], pinned: ['p'] });
+        expect(windowStateOf(tabs(['a', 'b'], 'a'))).toBe('["a","b"]');
+        expect(parseWindowState('["a","b"]')).toEqual({ keys: ['a', 'b'], pinned: [] });
+        expect(parseWindowState('{"tabs":["a"],"pinned":["a","gone"]}')).toEqual({ keys: ['a'], pinned: ['a'] });
     });
 });
 
@@ -237,6 +276,17 @@ describe('following the window', () => {
         expect(place.written).toEqual([]);
         show('c');
         expect(place.written).toEqual(['["local:a","local:b","local:c"]']);
+    });
+
+    test('a pin survives a reload, in front of the other tabs', async () => {
+        const place = memoryPlace('["local:a","local:b"]');
+        await start(place);
+        pinWindowTab('local:b', true);
+        expect(place.written).toEqual(['{"tabs":["local:b","local:a"],"pinned":["local:b"]}']);
+        stop?.();
+        stop = null;
+        await start(place);
+        expect(useWindowTabs.getState().tabs).toEqual({ keys: ['local:b', 'local:a'], active: null, pinned: ['local:b'] });
     });
 
     test('leaves out the tabs of this computer when the app runs no machine, and keeps the rest', async () => {

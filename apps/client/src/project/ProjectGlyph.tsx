@@ -16,10 +16,12 @@ interface ProjectGlyphProps {
     className?: string;
     /* The machine's Chats project, which is no folder and wears a mark of its own whatever its icon says. */
     scratch?: boolean;
+    /* A picked symbol in the project's color too, where the project is told apart by it: its tab and its heading in the sidebar. */
+    tinted?: boolean;
 }
 
 /* A project's icon at one size: what was picked, what the folder declares, or its initial. */
-export function ProjectGlyph({ projectId, endpointId, icon, color, size = 16, className, scratch = false }: ProjectGlyphProps) {
+export function ProjectGlyph({ projectId, endpointId, icon, color, size = 16, className, scratch = false, tinted = false }: ProjectGlyphProps) {
     const theme = useTheme((s) => s.resolved);
     const box = { width: size, height: size };
     const image = useMachineUrl(icon.kind === 'image' && !scratch ? { kind: 'projectIcon', projectId, theme, version: icon.version } : null, endpointId);
@@ -34,7 +36,11 @@ export function ProjectGlyph({ projectId, endpointId, icon, color, size = 16, cl
     }
 
     if (picked) {
-        return <Icon icon={picked} size={size} className={clsx('shrink-0', className)} />;
+        return (
+            <span className={clsx('flex shrink-0', className)} style={tinted ? { color } : undefined}>
+                <Icon icon={picked} size={size} />
+            </span>
+        );
     }
     if (icon.kind === 'image') {
         // The box holds its place while the bytes are on their way, so the name beside it does not jump.

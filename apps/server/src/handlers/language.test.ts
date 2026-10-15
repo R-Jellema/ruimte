@@ -29,6 +29,7 @@ beforeEach(async () => {
         holders: () => [],
         machineHome: new MachineHome(home),
         spawn: fakeSpawner().spawn,
+        findProgram: () => [],
         custom: new CustomLanguageServers({
             path: join(home, 'language-servers', 'custom.json'),
             resolve: (command) => (command === 'zls' ? '/bin/zls' : null)

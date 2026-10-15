@@ -90,6 +90,27 @@ describe('server profiles', () => {
         expect(await activates(KIND_PROFILES.typescript, facts(null, ['/work/eslint.config.js']))).toBe(false);
     });
 
+    it('runs rust-analyzer beside nothing, in a project with a crate at its root or a few folders down, told every topmost crate', async () => {
+        expect(kindForLanguage('rust')).toBeNull();
+        expect(additionKindsForLanguage('rust')).toEqual(['rust']);
+        const facts = (files: string[], found: string[] = []) => ({
+            folder: '/work',
+            packageJson: null,
+            exists: async (path: string) => files.includes(path),
+            find: async () => found
+        });
+        expect(await activates(KIND_PROFILES.rust, facts(['/work/Cargo.toml']))).toBe(true);
+        expect(await activates(KIND_PROFILES.rust, facts([], ['/work/apps/bridge/Cargo.toml']))).toBe(true);
+        expect(await activates(KIND_PROFILES.rust, facts([]))).toBe(false);
+        expect(await activates(KIND_PROFILES.rust, { folder: '/work', packageJson: null, exists: async () => false })).toBe(false);
+        const [component] = KIND_PROFILES.rust.components;
+        const launch = { ...context, native: { executable: '/home/.cargo/bin/rust-analyzer' } };
+        expect(component!.program!(launch)).toBe('/home/.cargo/bin/rust-analyzer');
+        expect(component!.initializationOptions(launch)).toEqual({});
+        const manifests = ['/work/apps/bridge/Cargo.toml', '/work/apps/speech/Cargo.toml'];
+        expect(component!.initializationOptions({ ...launch, cargoManifests: manifests })).toEqual({ linkedProjects: manifests });
+    });
+
     it('opens a JSON file that allows comments as JSONC and any other as JSON', () => {
         expect(documentLanguageId('json', 'tsconfig.json')).toBe('jsonc');
         expect(documentLanguageId('json', 'packages/app/tsconfig.build.json')).toBe('jsonc');

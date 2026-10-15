@@ -5,6 +5,8 @@ import { planCreate } from '../fs/create.ts';
 import { planDelete } from '../fs/delete.ts';
 import { createEntry } from '../fs/create.ts';
 import { listDirectory } from '../fs/list.ts';
+import { locateFile } from '../fs/locate.ts';
+import { cachedRepos } from '../git/repo-cache.ts';
 import type { FileMove, LanguageHost } from '../language/host.ts';
 import type { MachineHome } from '../fs/machine-home.ts';
 import { readFile } from '../fs/read.ts';
@@ -59,6 +61,11 @@ export function registerFsHandlers(
             limit: payload.limit,
             policy: await machineHome.policy()
         });
+    });
+
+    dispatcher.register('fs.locate', async (payload) => {
+        await machineHome.refuse(payload.cwd);
+        return locateFile(payload, { repos: (folder) => cachedRepos(folder), policy: await machineHome.policy() });
     });
 
     dispatcher.register('fs.list', (payload) => listDirectory(payload.path, { depth: payload.depth, hidden: payload.hidden }));

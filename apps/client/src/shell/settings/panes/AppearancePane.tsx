@@ -164,6 +164,7 @@ export function AppearancePane() {
     const projectNavigation = useSettings((s) => s.projectNavigation);
     const sidebarScope = useSettings((s) => s.sidebarScope);
     const needsYouAllProjects = useSettings((s) => s.needsYouAllProjects);
+    const projectGlow = useSettings((s) => s.projectGlow);
     const dockAutoHide = useSettings((s) => s.dockAutoHide);
     const update = useSettings((s) => s.update);
 
@@ -232,6 +233,18 @@ export function AppearancePane() {
                             align="end"
                             items={(['current', 'all-open'] as const).map((value) => ({ value, label: t(`appearance.sidebar.${value}`) }))}
                             onValueChange={(value) => update({ sidebarScope: value })}
+                        />
+                    }
+                />
+                <SettingsRow
+                    searchId="appearance.projectGlow"
+                    label={t('appearance.projectGlow.label')}
+                    description={t('appearance.projectGlow.description')}
+                    control={
+                        <Switch
+                            checked={projectGlow}
+                            onCheckedChange={(checked) => update({ projectGlow: checked })}
+                            label={t('appearance.projectGlow.label')}
                         />
                     }
                 />

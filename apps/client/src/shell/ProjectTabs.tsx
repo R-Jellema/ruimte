@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Pin, PinOff } from 'lucide-react';
 import { openProjectAction } from '@/actions/client-actions';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
 import { desktop } from '@/desktop/bridge';
-import { dragsWindow, reorderWindowTab, setStripIndexAt, useWindowTabs } from '@/project/window-tabs';
+import { dragsWindow, pinnedOf, pinWindowTab, reorderWindowTab, setStripIndexAt, useWindowTabs } from '@/project/window-tabs';
 import {
     canDragTabs,
     canOpenWindows,
@@ -22,7 +24,7 @@ import { splitKey } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { useProjectList, type ProjectRow } from '@/state/project-list';
 import { useServers } from '@/state/server';
-import { ContextMenu, Tabs, Tooltip } from '@adecore/ui';
+import { ContextMenu, Icon, Menu, Tabs, Tooltip } from '@adecore/ui';
 
 /* How far a pressed tab moves before it is a drag rather than a click. */
 const DRAG_THRESHOLD_PX = 4;
@@ -59,8 +61,10 @@ function dropIndex(strip: Element, key: string, x: number): number {
  * A tab whose row the list does not have yet waits for it, since a tab without a name says nothing.
  */
 export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
+    const { t } = useTranslation('shell');
     const model = useProjectMenu();
     const tabs = useWindowTabs((s) => s.tabs);
+    const pins = pinnedOf(tabs);
     const rows = useProjectList((s) => s.projects);
     const current = useProject((s) => s.current);
     const endpoints = useEndpoints((s) => s.endpoints);
@@ -229,6 +233,44 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
                                 const active = key === tabs.active;
                                 const summary = active && current?.projectId === row.summary.projectId ? current : row.summary;
                                 const machine = row.endpointId === LOCAL_ENDPOINT_ID ? null : endpoints.find((endpoint) => endpoint.id === row.endpointId);
+                                // A pinned tab is its mark alone, with its name in the tooltip and no close button to hit by accident.
+                                const pinned = pins.includes(key);
+                                if (pinned) {
+                                    return (
+                                        <Tabs.Tab
+                                            key={key}
+                                            value={key}
+                                            data-tab-key={key}
+                                            data-pinned=""
+                                            aria-label={summary.name}
+                                            className="app-no-drag"
+                                            onClick={(event) => {
+                                                if (wantsNewWindow(event)) {
+                                                    event.preventBaseUIHandler();
+                                                    openInNewWindow(row.endpointId, row.summary.projectId);
+                                                }
+                                            }}
+                                            onPointerDown={(event) => onPointerDown(event, key)}
+                                            onPointerMove={onPointerMove}
+                                            onPointerUp={onPointerEnd}
+                                            onPointerCancel={onPointerEnd}
+                                            onLostPointerCapture={onLostCapture}
+                                        >
+                                            <Tooltip label={machine ? `${summary.name} · ${machine.label}` : summary.name}>
+                                                <span className="flex items-center">
+                                                    <ProjectGlyph
+                                                        projectId={summary.projectId}
+                                                        endpointId={row.endpointId}
+                                                        icon={summary.icon}
+                                                        color={summary.color}
+                                                        tinted
+                                                    />
+                                                </span>
+                                            </Tooltip>
+                                            {active && dirty && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-text-faint" />}
+                                        </Tabs.Tab>
+                                    );
+                                }
                                 return (
                                     <Tabs.Tab
                                         key={key}
@@ -248,7 +290,13 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
                                         onPointerCancel={onPointerEnd}
                                         onLostPointerCapture={onLostCapture}
                                     >
-                                        <ProjectGlyph projectId={summary.projectId} endpointId={row.endpointId} icon={summary.icon} color={summary.color} />
+                                        <ProjectGlyph
+                                            projectId={summary.projectId}
+                                            endpointId={row.endpointId}
+                                            icon={summary.icon}
+                                            color={summary.color}
+                                            tinted
+                                        />
                                         <span className="max-w-40 truncate">{summary.name}</span>
                                         {machine && (
                                             <Tooltip label={machine.label}>
@@ -263,7 +311,17 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
                             })}
                         </Tabs.List>
                     </ContextMenu.Trigger>
-                    <ContextMenu.Popup className="min-w-52">{menuRow && model.actionsOf({ ...menuRow, machineLabel: '', connected: true })}</ContextMenu.Popup>
+                    <ContextMenu.Popup className="min-w-52">
+                        {menuRow &&
+                            menuKey !== null &&
+                            model.actionsOf(
+                                { ...menuRow, machineLabel: '', connected: true },
+                                <Menu.Item onClick={() => pinWindowTab(menuKey, !pins.includes(menuKey))}>
+                                    <Icon icon={pins.includes(menuKey) ? PinOff : Pin} size={14} />{' '}
+                                    {t(pins.includes(menuKey) ? 'projectMenu.unpinTab' : 'projectMenu.pinTab')}
+                                </Menu.Item>
+                            )}
+                    </ContextMenu.Popup>
                 </ContextMenu.Root>
             </Tabs.Root>
             {model.dialogs}

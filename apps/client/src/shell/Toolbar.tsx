@@ -6,6 +6,7 @@ import { STRIP_PADDING_PX, useTrafficLightInset } from '@/desktop/useFullscreen'
 import { LaunchChip } from '@/launches/LaunchChip';
 import { PanelControls } from '@/shell/PanelControls';
 import { ProjectMenu } from '@/shell/ProjectMenu';
+import { SIDEBAR_WIDTH_PX, SidebarGlow } from '@/shell/SidebarGlow';
 import { SidebarToggle } from '@/shell/SidebarToggle';
 import { StationMenu } from '@/shell/menu/StationMenu';
 import { IS_STATION } from '@/station';
@@ -47,6 +48,12 @@ export function Toolbar() {
             className="workspace-toolbar app-drag relative flex h-[47px] shrink-0 items-center gap-2 bg-surface pr-2 pl-2 text-xs text-text-muted transition-[padding] duration-200 ease-out"
             style={sidebarOpen ? undefined : { paddingLeft: inset ?? STRIP_PADDING_PX }}
         >
+            {/* The glow of the sidebar stays where the sidebar was, cut off at the bottom of the bar. */}
+            {!sidebarOpen && (
+                <div data-toolbar-glow="" className="pointer-events-none absolute inset-y-0 left-0 isolate overflow-hidden" style={{ width: SIDEBAR_WIDTH_PX }}>
+                    <SidebarGlow />
+                </div>
+            )}
             {/* The web client's menu goes where the wordmark went, so it stays one press away. */}
             {!sidebarOpen && IS_STATION && <StationMenu variant="symbol" />}
             {!sidebarOpen && <SidebarToggle />}

@@ -3,11 +3,12 @@ import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { FolderSearch, ImageUp } from 'lucide-react';
 import { MAX_TITLE_LENGTH } from '@ruimte/actions';
-import { type ProjectIconChoice, type ProjectSummary } from '@ruimte/contracts';
+import { DEFAULT_PROJECT_COLOR, type ProjectIconChoice, type ProjectSummary } from '@ruimte/contracts';
+import { accentLabel, NODE_ACCENTS } from '@/canvas/accents';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
 import { PROJECT_ICON_KEYWORDS } from '@/project/project-icons';
 import { useProjectIconGroups } from '@/project/use-project-icon-groups';
-import { Button, Icon, useAsyncAction, Dialog, Field, FormError, IconPicker, Input, SectionLabel } from '@adecore/ui';
+import { Button, ColorSwatch, Icon, useAsyncAction, Dialog, Field, FormError, IconPicker, Input, SectionLabel, Tooltip } from '@adecore/ui';
 
 // The daemon rejects larger files, so the picker catches them before sending the bytes.
 const MAX_BYTES = 256 * 1024;
@@ -33,6 +34,7 @@ export interface ProjectSettingsSubject {
     endpointId: string;
     actions: {
         rename(name: string): Promise<void>;
+        setColor(color: string): Promise<void>;
         setChosenIcon(icon: ProjectIconChoice): Promise<void>;
         uploadIcon(mime: string, base64: string): Promise<void>;
         useFolderIcon(): Promise<void>;
@@ -97,6 +99,41 @@ function ProjectSettingsForm({ project, endpointId, actions, onOpenChange }: Pro
                         }}
                     />
                 </Field>
+            )}
+
+            {!scratch && (
+                <>
+                    <SectionLabel render={<div />} className="mt-5 mb-1.5">
+                        {t('projectSettings.color')}
+                    </SectionLabel>
+                    {/* In the shared project file, beside the name, so the whole team sees the project in it. */}
+                    <div role="radiogroup" aria-label={t('projectSettings.color')} className="flex flex-wrap gap-1.5">
+                        <Tooltip label={t('projectSettings.defaultColor')}>
+                            <ColorSwatch
+                                role="radio"
+                                aria-checked={project.color === DEFAULT_PROJECT_COLOR}
+                                aria-label={t('projectSettings.defaultColor')}
+                                color={DEFAULT_PROJECT_COLOR}
+                                picked={project.color === DEFAULT_PROJECT_COLOR}
+                                disabled={busy}
+                                onClick={() => void run(() => actions.setColor(DEFAULT_PROJECT_COLOR))}
+                            />
+                        </Tooltip>
+                        {NODE_ACCENTS.map((accent) => (
+                            <Tooltip key={accent.id} label={accentLabel(accent.id)}>
+                                <ColorSwatch
+                                    role="radio"
+                                    aria-checked={project.color === accent.color}
+                                    aria-label={accentLabel(accent.id)}
+                                    color={accent.color}
+                                    picked={project.color === accent.color}
+                                    disabled={busy}
+                                    onClick={() => void run(() => actions.setColor(accent.color))}
+                                />
+                            </Tooltip>
+                        ))}
+                    </div>
+                </>
             )}
 
             <SectionLabel render={<div />} className="mt-5 mb-1.5">

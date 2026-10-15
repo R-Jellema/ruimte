@@ -7,6 +7,7 @@ import {
     Frame,
     ListX,
     MessageSquare,
+    MessagesSquare,
     PanelBottom,
     PanelRight,
     Settings2,
@@ -109,9 +110,12 @@ export function ViewMenuItems({ viewId, kind, onSidebar = false }: ViewMenuItems
     const offerShare = view !== undefined && offers.share;
     const offerFork = offers.fork;
     const offerMove = offers.makeProject;
-    const copies = drawn || offerFork || offerMove || asChat !== null || asTerminal !== null;
     const offerPut = offers.putOnCanvas;
     const offerShow = offers.showOnCanvas;
+    // A chat's own rows go under one heading once there is more than the bookmarks to put there.
+    const conversation = kind === 'chat' && (offerFork || asTerminal !== null);
+    const handoffs = !conversation && (asChat !== null || asTerminal !== null);
+    const kindRows = conversation || handoffs || offerMove;
     const place = offerPut || offerShow || filePath !== null || workingFolder !== null;
     if (!saved && filePath !== null) {
         return <FileActionItems path={filePath} on="view" />;
@@ -121,32 +125,49 @@ export function ViewMenuItems({ viewId, kind, onSidebar = false }: ViewMenuItems
             <Menu.Item onClick={() => askViewSettings(viewId)}>
                 <Icon icon={Settings2} size={14} /> {t('viewMenu.viewSettings')} {onSidebar && <Kbd shortcut={KEY_SHORTCUTS.rename} />}
             </Menu.Item>
-            <FlagSubmenu id={viewId} />
-            {kind === 'chat' && <BookmarkSubmenu chatId={viewId} />}
-
-            {copies && <Menu.Separator />}
             {drawn && (
                 <Menu.Item onClick={() => duplicateViewAction(viewId)}>
                     <Icon icon={Copy} size={14} /> {t('sidebar.duplicate')}
                 </Menu.Item>
             )}
-            {asChat !== null && (
+
+            {kindRows && <Menu.Separator />}
+            {conversation && (
+                <Menu.SubmenuRoot>
+                    <Menu.SubmenuTrigger>
+                        <Icon icon={MessagesSquare} size={14} /> {t('viewMenu.conversation')}
+                    </Menu.SubmenuTrigger>
+                    <Menu.Popup>
+                        {offerFork && <ForkMenuItem chatId={viewId} />}
+                        <BookmarkSubmenu chatId={viewId} />
+                        {asTerminal !== null && (
+                            <Menu.Item onClick={() => void openSessionInKind(viewId, 'terminal', asTerminal)}>
+                                <Icon icon={Terminal} size={14} /> {t('viewMenu.openInTerminal')}
+                            </Menu.Item>
+                        )}
+                    </Menu.Popup>
+                </Menu.SubmenuRoot>
+            )}
+            {!conversation && kind === 'chat' && <BookmarkSubmenu chatId={viewId} />}
+            {handoffs && asChat !== null && (
                 <Menu.Item onClick={() => void openSessionInKind(viewId, 'chat', asChat)}>
                     <Icon icon={MessageSquare} size={14} /> {t('viewMenu.openInChat')}
                 </Menu.Item>
             )}
-            {asTerminal !== null && (
+            {handoffs && asTerminal !== null && (
                 <Menu.Item onClick={() => void openSessionInKind(viewId, 'terminal', asTerminal)}>
                     <Icon icon={Terminal} size={14} /> {t('viewMenu.openInTerminal')}
                 </Menu.Item>
             )}
-            {offerFork && <ForkMenuItem chatId={viewId} />}
             {offerMove && <MoveChatItems chatId={viewId} endpointId={endpointId} working={chatIsWorking(chat, ownCard)} />}
+
+            <Menu.Separator />
+            <FlagSubmenu id={viewId} />
 
             {place && <Menu.Separator />}
             {offerPut && (
                 <Menu.Item onClick={() => placeViewOnCanvasAction(viewId)}>
-                    <Icon icon={Frame} size={14} /> {t('viewMenu.putOnCanvas')}
+                    <Icon icon={Frame} size={14} /> {t('viewMenu.showOnCanvas')}
                 </Menu.Item>
             )}
             {offerShow && (
@@ -159,7 +180,7 @@ export function ViewMenuItems({ viewId, kind, onSidebar = false }: ViewMenuItems
             {filePath !== null && <FileActionItems path={filePath} on="view" />}
             {workingFolder !== null && (
                 <Menu.Item onClick={() => void transport.request('fs.reveal', { path: workingFolder }).catch(() => undefined)}>
-                    <Icon icon={CornerUpRight} size={14} /> {t('viewMenu.reveal', { app: fileManagerName(platform) })}
+                    <Icon icon={CornerUpRight} size={14} /> {t('viewMenu.openIn', { app: fileManagerName(platform) })}
                 </Menu.Item>
             )}
 
@@ -245,20 +266,21 @@ export function SplitItems({ at, separated = false }: { at?: CellAt; separated?:
                     <Kbd shortcut={CANVAS_SHORTCUTS.maximizeCell} />
                 </Menu.Item>
             )}
+            {(room('right') || room('down') || (multiple && standing !== null)) && closable && standing !== null && <Menu.Separator />}
             {closable && standing !== null && (
                 <Menu.Item onClick={() => closeCellAction(standing)}>
                     {/* In a host the key closes the tab in front, and the cell goes with its last one. */}
-                    <Icon icon={X} size={14} /> {t('cellToolbar.closeCell')} {!hosted && <Kbd shortcut={CANVAS_SHORTCUTS.closeCell} />}
+                    <Icon icon={X} size={14} /> {t('viewMenu.closeThisCell')} {!hosted && <Kbd shortcut={CANVAS_SHORTCUTS.closeCell} />}
                 </Menu.Item>
             )}
             {multiple && cell !== null && standing !== null && (
                 <Menu.Item onClick={() => closeOtherCellsAction(cell)}>
-                    <Icon icon={ListX} size={14} /> {t('viewMenu.closeOthers')}
+                    <Icon icon={ListX} size={14} /> {t('viewMenu.closeOtherCells')}
                 </Menu.Item>
             )}
             {closesRight && cell !== null && (
                 <Menu.Item onClick={() => closeCellsRightOfAction(cell)}>
-                    <Icon icon={ArrowRightToLine} size={14} /> {t('viewMenu.closeToRight')}
+                    <Icon icon={ArrowRightToLine} size={14} /> {t('viewMenu.closeCellsToRight')}
                 </Menu.Item>
             )}
             {/* The line under the group, drawn here rather than by the caller: with nothing to split

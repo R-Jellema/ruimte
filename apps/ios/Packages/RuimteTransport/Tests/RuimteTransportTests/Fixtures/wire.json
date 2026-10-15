@@ -266,6 +266,7 @@
     "fs.reveal",
     "fs.search",
     "fs.grep",
+    "fs.locate",
     "fs.list",
     "fs.read",
     "fs.create",

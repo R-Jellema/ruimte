@@ -9,7 +9,7 @@ import { pool } from '@/transport';
 import { startServerInfo } from '@/transport/server-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
-import { clickOn, mount, pressKey, until, type Mounted } from '../../testing/dom';
+import { clickOn, mount, openSubmenu, pressKey, until, type Mounted } from '../../testing/dom';
 
 const MACHINE = 'fake-machine';
 const PLAN: ProjectNode = { id: 'plan', kind: 'note', title: 'Plan', body: 'Ship it', x: 0, y: 0, w: 400, h: 320 };
@@ -138,6 +138,7 @@ describe('a default size per node kind', () => {
     test('a node’s menu makes its frame the size of its kind on the machine, says so, and the next node of that kind takes it', async () => {
         await open();
         await openNodeMenu(PLAN.id);
+        await openSubmenu('Size and position');
         const item = menuItem('Make this the default size');
         expect(item?.textContent).toContain('400 × 320');
         await clickOn(item);

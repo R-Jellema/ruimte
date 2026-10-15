@@ -78,13 +78,14 @@ export function useProjectMenu() {
         }
     };
 
-    const actionsOf = (row: ProjectMenuRow): ReactNode => (
+    /* `leading` is what only the place that draws the menu offers, such as the pin of a tab. The Chats project has no settings and never closes. */
+    const actionsOf = (row: ProjectMenuRow, leading?: ReactNode): ReactNode => (
         <ProjectActions
             row={row}
             platform={servers[row.endpointId]?.platform ?? null}
             current={isCurrent(row)}
-            onSettings={() => settings.openFor(row)}
-            onClose={() => void askClose(row)}
+            leading={leading}
+            {...(row.summary.scratch === true ? {} : { onSettings: () => settings.openFor(row), onClose: () => void askClose(row) })}
         />
     );
 
@@ -169,8 +170,9 @@ function useProjectSettings(endpoints: readonly Endpoint[], isCurrent: (row: Pro
     // The application menu asks for the settings of the project that is open.
     useEffect(
         () =>
-            useUi.subscribe((state) => {
-                if (!state.projectSettingsAsked) {
+            useUi.subscribe(() => {
+                // Read now and not off the change: another menu on screen may have answered the ask already.
+                if (!useUi.getState().projectSettingsAsked) {
                     return;
                 }
                 useUi.getState().askProjectSettings(false);
@@ -185,7 +187,7 @@ function useProjectSettings(endpoints: readonly Endpoint[], isCurrent: (row: Pro
         []
     );
 
-    const appearance = async (change: Partial<Pick<ActionInput<'project.setAppearance'>, 'name' | 'icon' | 'image'>>): Promise<void> => {
+    const appearance = async (change: Partial<Pick<ActionInput<'project.setAppearance'>, 'name' | 'icon' | 'image' | 'color'>>): Promise<void> => {
         if (target === null) {
             return;
         }
@@ -194,7 +196,8 @@ function useProjectSettings(endpoints: readonly Endpoint[], isCurrent: (row: Pro
             projectId: target.summary.projectId,
             name: change.name ?? null,
             icon: change.icon ?? null,
-            image: change.image ?? null
+            image: change.image ?? null,
+            color: change.color ?? null
         });
         const row = useProjectList
             .getState()
@@ -212,6 +215,7 @@ function useProjectSettings(endpoints: readonly Endpoint[], isCurrent: (row: Pro
                   endpointId: target.endpointId,
                   actions: {
                       rename: (name) => appearance({ name }),
+                      setColor: (color) => appearance({ color }),
                       setChosenIcon: (icon) => appearance({ icon: icon.value }),
                       uploadIcon: (mime, base64) => appearance({ image: { mime, base64 } }),
                       useFolderIcon: () => appearance({ icon: 'folder' })

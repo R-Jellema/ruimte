@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Monitor } from 'lucide-react';
 import type { RemoteLink } from '@ruimte/contracts';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import type { Point } from '@/canvas/math';
@@ -16,7 +17,7 @@ import { useWorkspace } from '@/transport/connections';
 import { machineAnswers } from '@/transport/features';
 import { useEndpointConnection } from '@/transport/status';
 import { machineLost } from '@/shell/machine-lost';
-import { ContextMenu, DisabledReason } from '@adecore/ui';
+import { ContextMenu, DisabledReason, Icon } from '@adecore/ui';
 
 /* The checkouts this project is linked to on the machines, so a row can say which one it would work in. */
 function useLinks(): RemoteLink[] {
@@ -40,8 +41,9 @@ function useLinks(): RemoteLink[] {
 }
 
 /*
- * "On another machine": one row per machine of the account, below the node kinds. A node of another
- * machine goes on a canvas only you have, so on a shared canvas the group says why it is off.
+ * "On another machine": one row per machine of the account, in a submenu below the node kinds, so the
+ * menu does not grow with every machine. A node of another machine goes on a canvas only you have,
+ * so on a shared canvas each row says why it is off.
  */
 export function RemoteMachineItems({ at }: { at: () => Point }) {
     const { t } = useTranslation('canvas');
@@ -54,21 +56,24 @@ export function RemoteMachineItems({ at }: { at: () => Point }) {
         return null;
     }
     return (
-        <>
-            <ContextMenu.Separator />
-            <ContextMenu.Label>{t('otherMachine.group')}</ContextMenu.Label>
-            {machines.map((entry) => (
-                <MachineRow
-                    key={entry.id}
-                    entry={entry}
-                    shared={shared}
-                    link={links.find((known) => known.machineId === entry.id) ?? null}
-                    onPick={() => {
-                        useUi.getState().setRemoteNodeDialog({ machineId: entry.id, kind: 'chat', viewId, at: at(), relink: false });
-                    }}
-                />
-            ))}
-        </>
+        <ContextMenu.SubmenuRoot>
+            <ContextMenu.SubmenuTrigger>
+                <Icon icon={Monitor} size={14} /> {t('otherMachine.group')}
+            </ContextMenu.SubmenuTrigger>
+            <ContextMenu.Popup className="min-w-52">
+                {machines.map((entry) => (
+                    <MachineRow
+                        key={entry.id}
+                        entry={entry}
+                        shared={shared}
+                        link={links.find((known) => known.machineId === entry.id) ?? null}
+                        onPick={() => {
+                            useUi.getState().setRemoteNodeDialog({ machineId: entry.id, kind: 'chat', viewId, at: at(), relink: false });
+                        }}
+                    />
+                ))}
+            </ContextMenu.Popup>
+        </ContextMenu.SubmenuRoot>
     );
 }
 

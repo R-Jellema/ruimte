@@ -22,16 +22,52 @@ function readCollapsed(): string[] {
     return storedCollapsed.read() ?? [];
 }
 
+/*
+ * The order of the projects in "All open projects", per client like which ones are folded. A project
+ * that closes keeps its key here, so it comes back in its old place when it opens again.
+ */
+export const SIDEBAR_ORDER_STORAGE_KEY = 'ruimte.sidebar.order';
+const storedOrder = storedJson(
+    SIDEBAR_ORDER_STORAGE_KEY,
+    z.array(z.unknown()).transform((items) => items.filter((item): item is string => typeof item === 'string'))
+);
+
+function readOrder(): string[] {
+    return storedOrder.read() ?? [];
+}
+
+/*
+ * `stored` with `key` moved to `index` among the keys on screen (`visible`, in the order they show). The
+ * keys of projects not on screen keep their place among the rest, so each comes back where it was.
+ */
+export function moveInOrder(stored: readonly string[], visible: readonly string[], key: string, index: number): string[] {
+    const others = visible.filter((one) => one !== key);
+    const to = Math.max(0, Math.min(index, others.length));
+    const rest = stored.filter((one) => one !== key);
+    if (others.length === 0) {
+        return [key, ...rest];
+    }
+    if (to < others.length) {
+        const before = rest.indexOf(others[to]!);
+        return before === -1 ? [...rest, key] : [...rest.slice(0, before), key, ...rest.slice(before)];
+    }
+    const after = rest.indexOf(others[others.length - 1]!);
+    return after === -1 ? [...rest, key] : [...rest.slice(0, after + 1), key, ...rest.slice(after + 1)];
+}
+
 export const useSidebarProjects = create<{
     order: string[];
     collapsed: string[];
     expandedViews: Record<string, string[]>;
     collapse(key: string, collapsed: boolean): void;
     expandView(key: string, viewId: string, expanded: boolean): void;
-    /* Folds the projects the way another window left them. */
+    setOrder(order: string[]): void;
+    /* Moves a project to `index` among the projects on screen, which `visible` names in their order. */
+    move(visible: readonly string[], key: string, index: number): void;
+    /* Folds and orders the projects the way another window left them. */
     reload(): void;
-}>((set) => ({
-    order: [],
+}>((set, get) => ({
+    order: readOrder(),
     collapsed: readCollapsed(),
     expandedViews: {},
     collapse(key, collapsed) {
@@ -47,13 +83,21 @@ export const useSidebarProjects = create<{
             return { expandedViews: { ...state.expandedViews, [key]: expanded ? [...new Set([...before, viewId])] : before.filter((id) => id !== viewId) } };
         });
     },
+    setOrder(order) {
+        storedOrder.write(order);
+        set({ order });
+    },
+    move(visible, key, index) {
+        get().setOrder(moveInOrder(get().order, visible, key, index));
+    },
     reload() {
-        set({ collapsed: readCollapsed() });
+        set({ collapsed: readCollapsed(), order: readOrder() });
     }
 }));
 
 // Loaded with the sidebar, which only a workspace draws, so the start screen does not listen for it.
 followOtherWindows(SIDEBAR_PROJECTS_STORAGE_KEY, () => useSidebarProjects.getState().reload());
+followOtherWindows(SIDEBAR_ORDER_STORAGE_KEY, () => useSidebarProjects.getState().reload());
 
 export function useSidebarMachines(enabled: boolean, endpointIds: readonly string[]): Record<string, SidebarMachineSnapshot> {
     const ids = [...endpointIds].sort().join('\0');

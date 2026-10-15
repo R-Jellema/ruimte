@@ -1,6 +1,7 @@
 import { readdir } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 import { FS_SEARCH_MAX_RESULTS, type FsSearchResult } from '@ruimte/contracts';
+import { cachedRepos } from '../git/repo-cache.ts';
 import { NO_MACHINE_HOME, type MachineHomePolicy } from './machine-home.ts';
 import { isOpenName, isOpenPath, searchRoot } from './searchable.ts';
 import { classifyEntry } from './visibility.ts';
@@ -181,11 +182,36 @@ function isUnder(path: string, ancestor: string): boolean {
     return path === ancestor || path.startsWith(ancestor.endsWith(sep) ? ancestor : `${ancestor}${sep}`);
 }
 
-/* The files a search of this folder walks: what git tracks, or the walk that stands in for it. */
+const TRACKED_ARGS = ['--cached', '--others', '--exclude-standard'];
+
+/*
+ * The files of the repositories inside `cwd` (submodules, repositories beside the folder's own), under
+ * the folder they sit in. Git lists a submodule as one entry and cannot list `--others` across one, so
+ * each repository is asked on its own; the entry that stood for it goes.
+ */
+async function filesOfInnerRepos(cwd: string, own: string[]): Promise<string[]> {
+    const root = resolve(cwd);
+    let repos: string[];
+    try {
+        repos = (await cachedRepos(root)).repos.map((repo) => resolve(repo.path)).filter((path) => path !== root && isUnder(path, root));
+    } catch {
+        return own;
+    }
+    if (repos.length === 0) {
+        return own;
+    }
+    const prefixes = repos.map((path) => toPosix(relative(root, path)));
+    const files = new Set(own.filter((file) => !prefixes.includes(file.replace(/\/$/, ''))));
+    const lists = await Promise.all(repos.map((path) => gitLsFiles(path, TRACKED_ARGS)));
+    lists.forEach((list, index) => list?.forEach((file) => files.add(`${prefixes[index]}/${file}`)));
+    return [...files];
+}
+
+/* The files a search of this folder walks: what git tracks, in its own repository and the ones inside it, or the walk that stands in for it. */
 export function listSearchableFiles(cwd: string): Promise<Listing> {
     return remembered(trackedCache, cwd, async () => {
-        const fromGit = await gitLsFiles(cwd, ['--cached', '--others', '--exclude-standard']);
-        return fromGit ? { files: fromGit, truncated: false } : await walk(cwd);
+        const fromGit = await gitLsFiles(cwd, TRACKED_ARGS);
+        return fromGit ? { files: await filesOfInnerRepos(cwd, fromGit), truncated: false } : await walk(cwd);
     });
 }
 

@@ -1,6 +1,7 @@
 import { dirname, join } from 'node:path';
 import { matchesFilePattern, type LanguageServerId, type LanguageServerKind } from '@ruimte/contracts';
 import { nativeStorageOf, nativeStubsOf } from './native.ts';
+import { toolchainPath } from './toolchain.ts';
 
 /* What a component needs to know about where it runs. */
 export interface LaunchContext {
@@ -15,6 +16,8 @@ export interface LaunchContext {
     native?: { executable: string; stubsCommit?: string } | null;
     /* What the project's SQL comes down to for the servers that read it (`sql-settings.ts`); null before anything was worked out. */
     sql?: ProjectSqlSettings | null;
+    /* The topmost `Cargo.toml` files of the project, absolute, for a component that asks for them. */
+    cargoManifests?: readonly string[];
 }
 
 /* The settings of the project's SQL as each server that reads it takes them. */
@@ -66,6 +69,8 @@ export interface ComponentProfile {
     sidecar?: boolean;
     /* The package under the install's `node_modules` whose `lib/tsserver.js` the process drives when the project has none of its own; `typescript` when absent. */
     sdkPackage?: string;
+    /* Reads the Cargo manifests of the project before it starts (`LaunchContext.cargoManifests`). */
+    cargoManifests?: boolean;
 }
 
 /* What a project has to hold for an addition to serve it: any of the files, or a dependency, or a field of its `package.json`. */
@@ -73,6 +78,8 @@ export interface Activation {
     files: readonly string[];
     dependency?: RegExp;
     packageField?: string;
+    /* A file that may sit deeper than the project folder, as a crate of a project with more than one language does, and how many folders down it is looked for. */
+    deeper?: { file: string; depth: number };
 }
 
 export interface KindProfile {
@@ -253,6 +260,9 @@ const TAILWIND_SETTINGS = {
         experimental: { classRegex: [] }
     }
 };
+
+/* How many folders below the project a crate is looked for: `apps/<name>/Cargo.toml` and one more. */
+export const CARGO_DEPTH = 3;
 
 export const KIND_PROFILES: Record<LanguageServerKind, KindProfile> = {
     typescript: { kind: 'typescript', components: [nativeTypescriptComponent(), typescriptActionsComponent()] },
@@ -452,6 +462,30 @@ export const KIND_PROFILES: Record<LanguageServerKind, KindProfile> = {
             }
         ]
     },
+    /*
+     * rust-analyzer, found where the Rust toolchain put it (`toolchain.ts`), in a project with a crate.
+     * It looks for `Cargo.toml` in the folder it opens and one level down only, so it is told every crate
+     * of the project that is no member of another, deeper ones included.
+     */
+    rust: {
+        kind: 'rust',
+        activation: { files: ['Cargo.toml'], deeper: { file: 'Cargo.toml', depth: CARGO_DEPTH } },
+        components: [
+            {
+                name: 'rust',
+                title: 'rust-analyzer',
+                languages: ['rust'],
+                entry: 'rust-analyzer',
+                program: (context) => context.native?.executable ?? '',
+                args: () => [],
+                initializationOptions: (context) =>
+                    context.cargoManifests !== undefined && context.cargoManifests.length > 0 ? { linkedProjects: context.cargoManifests } : {},
+                cargoManifests: true,
+                // cargo, which rust-analyzer runs, may only be in rustup's own folder for a daemon the desktop app started.
+                env: { PATH: toolchainPath() }
+            }
+        ]
+    },
     tailwind: {
         kind: 'tailwind',
         activation: {
@@ -581,6 +615,8 @@ export interface ProjectFacts {
     /* The text of the `package.json` in the folder, or null without one. */
     packageJson: string | null;
     exists(path: string): Promise<boolean>;
+    /* The files of a name in the folder and the folders below it, `depth` folders down (`manifests.ts`). */
+    find?(file: string, depth: number): Promise<string[]>;
 }
 
 const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'];
@@ -617,7 +653,11 @@ export async function activates(profile: { activation?: Activation }, facts: Pro
     if (packageJsonHas(facts.packageJson, activation)) {
         return true;
     }
-    return (await Promise.all(activation.files.map((file) => facts.exists(join(facts.folder, file))))).some(Boolean);
+    if ((await Promise.all(activation.files.map((file) => facts.exists(join(facts.folder, file))))).some(Boolean)) {
+        return true;
+    }
+    const { deeper } = activation;
+    return deeper !== undefined && facts.find !== undefined && (await facts.find(deeper.file, deeper.depth)).length > 0;
 }
 
 /*

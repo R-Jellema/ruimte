@@ -32,6 +32,32 @@ export const FsRevealPayloadSchema = z.object({
 });
 export type FsRevealPayload = z.infer<typeof FsRevealPayloadSchema>;
 
+// Past this a link names nothing a person would pick from.
+export const FS_LOCATE_MAX_MATCHES = 20;
+
+/*
+ * Where a path an agent wrote down is on this machine: the agent's own folder first, then the root of
+ * every repository there (submodules, repositories beside it), then the project's checkout when the
+ * agent works in a worktree of it. Asked when a link is followed, never when it is drawn.
+ */
+export const FsLocatePayloadSchema = z.object({
+    // Relative to whichever folder holds it, or absolute.
+    path: z.string().min(1).max(4096),
+    // The folder the agent works in.
+    cwd: z.string().min(1),
+    // The project's folder, when the agent works somewhere else, such as a worktree.
+    folder: z.string().min(1).optional(),
+    // A link that ends in a separator names a folder.
+    directory: z.boolean().optional()
+});
+export type FsLocatePayload = z.infer<typeof FsLocatePayloadSchema>;
+
+export const FsLocateResultSchema = z.object({
+    // Absolute, in the order the folders were tried; empty when the path is nowhere.
+    matches: z.array(z.string())
+});
+export type FsLocateResult = z.infer<typeof FsLocateResultSchema>;
+
 export const FS_SEARCH_MAX_RESULTS = 200;
 
 // A fuzzy search over the files under a directory, for `@file` mentions in a chat.

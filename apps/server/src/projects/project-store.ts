@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdir, readFile, rm, rmdir, stat } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import {
+    DEFAULT_PROJECT_COLOR,
     EMPTY_LOCAL,
     projectSidebarViews,
     type ProjectSidebarResult,
@@ -80,7 +81,7 @@ function asProjectError(e: unknown): unknown {
 // Editors and git write in bursts; one event per burst is what the client wants.
 const WATCH_SETTLE_MS = 150;
 
-export const DEFAULT_COLOR = '#7c74ff';
+export const DEFAULT_COLOR = DEFAULT_PROJECT_COLOR;
 
 function newId(): string {
     return randomBytes(6).toString('base64url');
@@ -927,10 +928,11 @@ export class ProjectStore {
             await this.mutateUnlocked(payload.projectId, (current) => {
                 const name = payload.name ?? current.name;
                 const icon = payload.icon === undefined ? (current.icon ?? null) : payload.icon;
-                if (name === current.name && sameIcon(icon, current.icon ?? null)) {
+                const color = payload.color ?? current.color;
+                if (name === current.name && color === current.color && sameIcon(icon, current.icon ?? null)) {
                     return { content: null, result: null };
                 }
-                const next: ProjectContent = { ...current, name };
+                const next: ProjectContent = { ...current, name, color };
                 if (icon === null) {
                     delete next.icon;
                 } else {

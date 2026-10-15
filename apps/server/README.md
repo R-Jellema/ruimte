@@ -360,6 +360,7 @@ Completion negotiation advertises snippets, both insertion modes (as-is and adju
 | `eslint` | `vscode-langservers-extracted` | JavaScript, TypeScript and Vue, in a project with an ESLint config |
 | `tailwind` | `@tailwindcss/language-server` | HTML, CSS, scripts, Vue and PHP, in a project that uses Tailwind |
 | `sql-native` | the native server from `basmilius/language-server-sql`, shown as SQL | `.sql` files, against the project's schema snapshots |
+| `rust` | rust-analyzer from the Rust toolchain, never installed by Ruimte | Rust, in a project with a `Cargo.toml` in its folder or up to three folders down |
 
 The pinned npm versions are in `src/language/versions.ts`. A kind is installed only when a person presses Install (`language.install`); no verb, agent or daemon start installs anything.
 
@@ -370,6 +371,8 @@ The native servers install differently (`src/language/native.ts`, `installer.ts`
 - A development daemon builds a checkout with `cargo build --release --locked`. It uses `RUIMTE_PHP_LANGUAGE_SERVER_SOURCE` or `RUIMTE_SQL_LANGUAGE_SERVER_SOURCE` when set, else `../language-servers/php` or `../language-servers/sql` beside Ruimte's source checkout (or beside the primary checkout of a worktree). Discovery reads files only and never touches git. Cargo is found on `PATH` or in `~/.cargo/bin`.
 - Without a valid checkout, and always in a compiled daemon, Install downloads the release pinned in `src/language/php-native-release.json` or `src/language/sql-native-release.json`. A pin names the URL, SHA-256, archive format and executable path per platform. The checksum must match before extraction, entries that escape the install folder are refused, and `--version` must answer the pinned version.
 - PHP's standard library stubs are downloaded at Install for the commit the server was built against. The server starts with `storagePath` and `stubsPath`, so it never goes to the network.
+
+The `rust` kind is a toolchain's (`src/language/toolchain.ts`): rust-analyzer has to match the toolchain a project builds with, so Ruimte pins and downloads nothing. It runs the `rust-analyzer` found on `PATH` or in `~/.cargo/bin` that answers `--version` (a rustup proxy without the component does not), with `~/.cargo/bin` added to its `PATH` for cargo. Without one the kind is not installed and says to run `rustup component add rust-analyzer`; Install only looks again, and there is no update or previous version. The server is told every `Cargo.toml` of the project that no other one holds (`linkedProjects`, `src/language/manifests.ts`), since it looks only in its folder and one level down by itself.
 
 `$RUIMTE_HOME/language-servers/choices.json` holds which PHP kind the machine uses (`php-native` by default), set with `language.prefer`.
 
@@ -383,14 +386,15 @@ One server runs per project per kind. It starts with the first document that nee
 
 ## Files
 
-The file requests (`fs.read`, `fs.write`, `fs.create`, `fs.rename`, `fs.delete`, `fs.grep`, `fs.list`, `fs.browse`, `bytes.read`) live in `src/fs`.
+The file requests (`fs.read`, `fs.write`, `fs.create`, `fs.rename`, `fs.delete`, `fs.grep`, `fs.locate`, `fs.list`, `fs.browse`, `bytes.read`) live in `src/fs`.
 
 - No file request reaches under `$RUIMTE_HOME`, by name or by where a link leads, except the Chats project, the worktrees, the screenshots and the attachments (`src/fs/machine-home.ts`). A client the machine let in is not the owner, and the local secret, the key pair and the approvals there are what tell the two apart. Such a path answers `machine-state`.
 - `fs.write`, `fs.create`, `fs.rename` and `fs.delete` work only inside a project folder the calling client holds, or a worktree of its repository that the daemon made (under `$RUIMTE_HOME/worktrees`, or where the register says), compared on real paths (`outside-project`). `.ruimte` at the root of such a folder is closed (`ruimte-state`), except `.ruimte/private/consoles`, and `.git` is closed at any level.
 - `fs.rename` refuses a move to another volume (`other-volume`) before it touches anything. With `overwrite` the replaced file goes to the trash; on Linux its `.trashinfo` records the path it had, so a restore puts it back there. On macOS the item lands in `~/.Trash` under its own file name; Put Back needs a record only Finder writes, so it is not offered there.
 - `fs.read` and `fs.write` treat a file over 2 MB as too large for the socket. `fs.write` checks the mtime it read (`stale`) and never writes over a file that is not text. Agents have no verb for writing; they write with their own CLI.
 - `GET /fs/file?path=<absolute>&v=<mtime>-<size>` (`src/fs/file-route.ts`) serves images, video, sound, PDFs and large text files behind the same access rules as the socket. Text always goes out as `text/plain`, so an HTML file never runs in the page's origin. Responses carry `nosniff`, an immutable cache, `Range` support for video and, for an SVG, a policy that allows nothing but its own styles.
-- `fs.grep` uses ripgrep when it is on PATH, and a JavaScript search over the cached file list otherwise.
+- `fs.grep` uses ripgrep when it is on PATH, and a JavaScript search over the cached file list otherwise. The file list of a repository takes in the files of the repositories inside it (submodules, repositories beside its own), so `fs.search` finds them too.
+- `fs.locate` says where a path an agent wrote down is, when a person follows the link: the agent's folder, and only when that has no such file the root of every repository in it, then the project's checkout of a worktree. It answers existing paths only and never one of the machine's own state.
 
 ## Remote clients
 

@@ -1198,10 +1198,18 @@ export const ProjectSetIconPayloadSchema = z.object({
 });
 export type ProjectSetIconPayload = z.infer<typeof ProjectSetIconPayloadSchema>;
 
+// A project's color as the shared file keeps it.
+export const ProjectColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+// What a new project gets, and what "Default" in its settings goes back to.
+export const DEFAULT_PROJECT_COLOR = '#7c74ff';
+
 export const ProjectSetIdentityPayloadSchema = z.object({
     projectId: ProjectIdSchema,
     name: z.string().min(1).optional(),
-    icon: ProjectIconChoiceSchema.nullable().optional()
+    icon: ProjectIconChoiceSchema.nullable().optional(),
+    // Written to the shared file, where the color already is; an older machine leaves it out.
+    color: ProjectColorSchema.optional()
 });
 export type ProjectSetIdentityPayload = z.infer<typeof ProjectSetIdentityPayloadSchema>;
 

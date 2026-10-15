@@ -102,14 +102,18 @@
         "openInTerminal": "In een terminal openen",
         "openAsView": "Als weergave openen",
         "openAsViewHint": "De sessie blijft behouden",
-        "reveal": "Tonen in {{app}}",
         "startAgentFromNote": "Agent starten vanuit de notitie",
         "noteColor": "Kleur van de notitie",
         "color": "Kleur",
         "noAccent": "Geen",
         "stopPrWatch": "Pull request niet meer volgen",
         "stopWaiting": "Niet meer wachten",
-        "makeDefaultSize": "Maak dit de standaardgrootte"
+        "makeDefaultSize": "Maak dit de standaardgrootte",
+        "conversation": "Gesprek",
+        "worktree": "Worktree",
+        "sizeAndPosition": "Grootte en positie",
+        "clearAsking": "Wissen…",
+        "openIn": "Openen in {{app}}"
     },
     "kinds": {
         "terminal": "Terminal",
@@ -241,7 +245,7 @@
     },
     "terminal": {
         "links": {
-            "previewFile": "Bestand in preview openen",
+            "previewFile": "In preview openen",
             "openFile": "{{modifier}}+klik om bestand in preview te openen",
             "open": "{{modifier}}+klik om in je browser te openen",
             "openInRuimte": "{{modifier}}+klik om in Ruimte te openen",

@@ -7,6 +7,9 @@ import type { SplitRect } from '@adecore/ui';
  */
 export const VIEW_DRAG_TYPE = 'application/x-ruimte-view';
 
+/* A project heading of the sidebar, which only the sidebar takes, so it never lands in a cell and a view never lands between projects. */
+export const PROJECT_DRAG_TYPE = 'application/x-ruimte-project';
+
 /* The id of the view being dragged, or null for a drag that is about something else. */
 export function draggedViewId(transfer: Pick<DataTransfer, 'types' | 'getData'>): string | null {
     if (!transfer.types.includes(VIEW_DRAG_TYPE)) {

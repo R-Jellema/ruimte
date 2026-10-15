@@ -12,10 +12,13 @@ import {
     Frame,
     GitBranch,
     GitMerge,
+    Group,
     LayoutGrid,
     Link2,
     Maximize2,
     MessageSquare,
+    MessagesSquare,
+    Move,
     Palette,
     Pencil,
     Scaling,
@@ -199,6 +202,12 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
     // What the node holds is stored against the project folder; the menu acts on the daemon's path.
     const filePath = node.kind === 'file' && node.path ? resolveStoredPath(projectFolder, node.path) : null;
 
+    // A collapsed group is only its header, which is no size to start a group at.
+    const sizable = !(node.kind === 'group' && node.collapsed);
+    const worktreeOf = nodeWorktree && projectFolder !== null ? nodeWorktree : null;
+    const groupWorktreePaths = groupWorktrees.length > 0 && projectFolder !== null ? groupWorktrees.map((worktree) => worktree.path) : [];
+    const place = canOpenAsView(node.kind) || workingFolder !== null || filePath !== null;
+
     return (
         <ContextMenu.Popup>
             {snooze}
@@ -208,104 +217,141 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
             <ContextMenu.Item onClick={() => duplicateNodeAction(canvasStore.getState().viewId, id)}>
                 <Icon icon={Copy} size={14} /> {t('menu.duplicate')}
             </ContextMenu.Item>
-            <ContextMenu.Item onClick={() => focusNodeAction(canvasStore.getState().viewId, id)}>
-                <Icon icon={Maximize2} size={14} /> {t('node.zoomTo')}
-            </ContextMenu.Item>
-            {node.kind !== 'group' && (
-                <ContextMenu.Item onClick={() => canvasStore.getState().toggleMaximizedNode(id)}>
-                    <Icon icon={maximized ? Shrink : Expand} size={14} /> {t(maximized ? 'node.restore' : 'node.maximize')}{' '}
-                    <Kbd shortcut={CANVAS_SHORTCUTS.maximizeCell} />
-                </ContextMenu.Item>
-            )}
-            {/* A collapsed group is only its header, which is no size to start a group at. */}
-            {!(node.kind === 'group' && node.collapsed) && (
-                <ContextMenu.Item onClick={() => void makeDefaultSize(endpointId, kind, { w: node.w, h: node.h })}>
-                    <Icon icon={Scaling} size={14} /> {t('menu.makeDefaultSize')}
-                    <ContextMenu.Hint>{formatNodeSize(node)}</ContextMenu.Hint>
-                </ContextMenu.Item>
-            )}
             <ContextMenu.Item onClick={() => canvasStore.getState().startLink(id)}>
                 <Icon icon={Link2} size={14} /> {t('menu.connect')}
                 <ContextMenu.Hint>{t('menu.connectHint')}</ContextMenu.Hint>
             </ContextMenu.Item>
-            {node.kind === 'group' && (
-                <>
-                    <ContextMenu.Item onClick={() => canvasStore.getState().toggleGroupCollapse(id)}>
-                        {node.collapsed ? <Icon icon={ChevronsUpDown} size={14} /> : <Icon icon={ChevronsDownUp} size={14} />}{' '}
-                        {node.collapsed ? t('group.expand') : t('group.collapse')}
-                    </ContextMenu.Item>
-                    <DisabledReason reason={node.collapsed ? t('group.arrangeCollapsed') : moveLocked ? t('group.arrangeLocked') : null}>
-                        <ContextMenu.Item disabled={node.collapsed || moveLocked} onClick={() => arrangeGroupAction(canvasStore.getState().viewId, id)}>
-                            <Icon icon={LayoutGrid} size={14} /> {t('group.arrange')}
-                        </ContextMenu.Item>
-                    </DisabledReason>
-                    {node.worktree ? (
-                        <ContextMenu.Item onClick={() => canvasStore.getState().setGroupWorktree(id, null)}>
-                            <Icon icon={GitBranch} size={14} /> {t('menu.unbindWorktree')}
-                            <ContextMenu.Hint>{t('menu.unbindWorktreeHint')}</ContextMenu.Hint>
-                        </ContextMenu.Item>
-                    ) : (
-                        <ContextMenu.Item onClick={() => useUi.getState().setWorktreeDialogFor(id)}>
-                            <Icon icon={GitBranch} size={14} /> {t('menu.bindWorktree')}
-                        </ContextMenu.Item>
-                    )}
-                    {groupWorktrees.length > 0 && projectFolder !== null && (
-                        <WorktreeItems folder={projectFolder} paths={groupWorktrees.map((worktree) => worktree.path)} />
-                    )}
-                </>
-            )}
-            {nodeWorktree && projectFolder !== null && (
-                <>
-                    <ContextMenu.Separator />
-                    <ContextMenu.Item
-                        onClick={() => {
-                            // Selecting the node is what points the git panel at the worktree it works in.
-                            canvasStore.getState().select([id]);
-                            useUi.getState().setPanel({ open: true, kind: 'git' });
-                            const tab = worktreeDiffTab(nodeWorktree);
-                            useFiles.getState().open(tab.path, useSettings.getState().filesTabLimit, tab.view);
-                        }}
-                    >
-                        <Icon icon={GitBranch} size={14} /> {t('menu.viewWorktree')}
-                        <ContextMenu.Hint className="font-mono">{nodeWorktree.branch}</ContextMenu.Hint>
-                    </ContextMenu.Item>
-                    <WorktreeItems folder={projectFolder} paths={[nodeWorktree.path]} />
-                    <ContextMenu.Separator />
-                </>
-            )}
-            {(node.kind === 'terminal' || node.kind === 'chat') && <BringBackItem node={node} />}
-            {node.kind === 'terminal' && canOpenInChat && (
-                <ContextMenu.Item onClick={openInChat}>
-                    <Icon icon={MessageSquare} size={14} /> {t('menu.openInChat')}
-                </ContextMenu.Item>
+            <ContextMenu.Separator />
+            {node.kind === 'chat' && (
+                <ContextMenu.SubmenuRoot>
+                    <ContextMenu.SubmenuTrigger>
+                        <Icon icon={MessagesSquare} size={14} /> {t('menu.conversation')}
+                    </ContextMenu.SubmenuTrigger>
+                    <ContextMenu.Popup>
+                        <ForkMenuItem chatId={id} />
+                        <BookmarkSubmenu chatId={id} />
+                        {chatSession && (
+                            <ContextMenu.Item onClick={openInTerminal}>
+                                <Icon icon={Terminal} size={14} /> {t('menu.openInTerminal')}
+                            </ContextMenu.Item>
+                        )}
+                        {prWatch !== null && (
+                            <ContextMenu.Item onClick={() => void stopPrWatch(endpointId, id)}>
+                                <Icon icon={EyeOff} size={14} /> {t('menu.stopPrWatch')}
+                            </ContextMenu.Item>
+                        )}
+                    </ContextMenu.Popup>
+                </ContextMenu.SubmenuRoot>
             )}
             {node.kind === 'terminal' && (
-                <ContextMenu.Item onClick={() => clearTerminalAction(id)}>
-                    <Icon icon={Eraser} size={14} /> {t('menu.clear')}
-                </ContextMenu.Item>
+                <ContextMenu.SubmenuRoot>
+                    <ContextMenu.SubmenuTrigger>
+                        <Icon icon={Terminal} size={14} /> {t('kinds.terminal')}
+                    </ContextMenu.SubmenuTrigger>
+                    <ContextMenu.Popup>
+                        {canOpenInChat && (
+                            <ContextMenu.Item onClick={openInChat}>
+                                <Icon icon={MessageSquare} size={14} /> {t('menu.openInChat')}
+                            </ContextMenu.Item>
+                        )}
+                        <ContextMenu.Item onClick={() => clearTerminalAction(id)}>
+                            <Icon icon={Eraser} size={14} /> {t('menu.clear')}
+                        </ContextMenu.Item>
+                    </ContextMenu.Popup>
+                </ContextMenu.SubmenuRoot>
             )}
-            {node.kind === 'chat' && chatSession && (
-                <ContextMenu.Item onClick={openInTerminal}>
-                    <Icon icon={Terminal} size={14} /> {t('menu.openInTerminal')}
-                </ContextMenu.Item>
+            {node.kind === 'group' && (
+                <ContextMenu.SubmenuRoot>
+                    <ContextMenu.SubmenuTrigger>
+                        <Icon icon={Group} size={14} /> {t('kinds.group')}
+                    </ContextMenu.SubmenuTrigger>
+                    <ContextMenu.Popup>
+                        <ContextMenu.Item onClick={() => canvasStore.getState().toggleGroupCollapse(id)}>
+                            {node.collapsed ? <Icon icon={ChevronsUpDown} size={14} /> : <Icon icon={ChevronsDownUp} size={14} />}{' '}
+                            {node.collapsed ? t('group.expand') : t('group.collapse')}
+                        </ContextMenu.Item>
+                        <DisabledReason reason={node.collapsed ? t('group.arrangeCollapsed') : moveLocked ? t('group.arrangeLocked') : null}>
+                            <ContextMenu.Item disabled={node.collapsed || moveLocked} onClick={() => arrangeGroupAction(canvasStore.getState().viewId, id)}>
+                                <Icon icon={LayoutGrid} size={14} /> {t('group.arrange')}
+                            </ContextMenu.Item>
+                        </DisabledReason>
+                        {node.worktree ? (
+                            <ContextMenu.Item onClick={() => canvasStore.getState().setGroupWorktree(id, null)}>
+                                <Icon icon={GitBranch} size={14} /> {t('menu.unbindWorktree')}
+                                <ContextMenu.Hint>{t('menu.unbindWorktreeHint')}</ContextMenu.Hint>
+                            </ContextMenu.Item>
+                        ) : (
+                            <ContextMenu.Item onClick={() => useUi.getState().setWorktreeDialogFor(id)}>
+                                <Icon icon={GitBranch} size={14} /> {t('menu.bindWorktree')}
+                            </ContextMenu.Item>
+                        )}
+                    </ContextMenu.Popup>
+                </ContextMenu.SubmenuRoot>
             )}
+            {(worktreeOf !== null || groupWorktreePaths.length > 0) && projectFolder !== null && (
+                <ContextMenu.SubmenuRoot>
+                    <ContextMenu.SubmenuTrigger>
+                        <Icon icon={GitBranch} size={14} /> {t('menu.worktree')}
+                    </ContextMenu.SubmenuTrigger>
+                    <ContextMenu.Popup>
+                        {worktreeOf !== null && (
+                            <ContextMenu.Item
+                                onClick={() => {
+                                    // Selecting the node is what points the git panel at the worktree it works in.
+                                    canvasStore.getState().select([id]);
+                                    useUi.getState().setPanel({ open: true, kind: 'git' });
+                                    const tab = worktreeDiffTab(worktreeOf);
+                                    useFiles.getState().open(tab.path, useSettings.getState().filesTabLimit, tab.view);
+                                }}
+                            >
+                                <Icon icon={GitBranch} size={14} /> {t('menu.viewWorktree')}
+                                <ContextMenu.Hint className="font-mono">{worktreeOf.branch}</ContextMenu.Hint>
+                            </ContextMenu.Item>
+                        )}
+                        <WorktreeItems folder={projectFolder} paths={worktreeOf !== null ? [worktreeOf.path] : groupWorktreePaths} />
+                    </ContextMenu.Popup>
+                </ContextMenu.SubmenuRoot>
+            )}
+            <ContextMenu.SubmenuRoot>
+                <ContextMenu.SubmenuTrigger>
+                    <Icon icon={Move} size={14} /> {t('menu.sizeAndPosition')}
+                </ContextMenu.SubmenuTrigger>
+                <ContextMenu.Popup>
+                    <ContextMenu.Item onClick={() => focusNodeAction(canvasStore.getState().viewId, id)}>
+                        <Icon icon={Maximize2} size={14} /> {t('node.zoomTo')}
+                    </ContextMenu.Item>
+                    {node.kind !== 'group' && (
+                        <ContextMenu.Item onClick={() => canvasStore.getState().toggleMaximizedNode(id)}>
+                            <Icon icon={maximized ? Shrink : Expand} size={14} /> {t(maximized ? 'node.restore' : 'node.maximize')}{' '}
+                            <Kbd shortcut={CANVAS_SHORTCUTS.maximizeCell} />
+                        </ContextMenu.Item>
+                    )}
+                    {sizable && (
+                        <ContextMenu.Item onClick={() => void makeDefaultSize(endpointId, kind, { w: node.w, h: node.h })}>
+                            <Icon icon={Scaling} size={14} /> {t('menu.makeDefaultSize')}
+                            <ContextMenu.Hint>{formatNodeSize(node)}</ContextMenu.Hint>
+                        </ContextMenu.Item>
+                    )}
+                </ContextMenu.Popup>
+            </ContextMenu.SubmenuRoot>
+            {(node.kind === 'terminal' || node.kind === 'chat') && <BringBackItem node={node} />}
             {waitingTask !== null && (
                 <ContextMenu.Item onClick={() => stopWaiting(waitingTask)}>
                     <Icon icon={CircleStop} size={14} /> {t('menu.stopWaiting')}
                 </ContextMenu.Item>
             )}
-            {node.kind === 'chat' && prWatch !== null && (
-                <ContextMenu.Item onClick={() => void stopPrWatch(endpointId, id)}>
-                    <Icon icon={EyeOff} size={14} /> {t('menu.stopPrWatch')}
-                </ContextMenu.Item>
+            {node.kind === 'note' && (
+                <ChatAgentSubmenu
+                    label={t('menu.startAgentFromNote')}
+                    icon={<Icon icon={Sparkles} size={14} />}
+                    onPick={(provider) => void startAgentFromNote(provider)}
+                />
             )}
-            {node.kind === 'chat' && <ForkMenuItem chatId={id} />}
-            {node.kind === 'chat' && <BookmarkSubmenu chatId={id} />}
-            {node.kind === 'chat' && (
-                <ContextMenu.Item onClick={clearChat}>
-                    <Icon icon={Eraser} size={14} /> {t('menu.clear')}
-                </ContextMenu.Item>
-            )}
+            <ContextMenu.Separator />
+            <FlagSubmenu id={id} />
+            <AccentSubmenu id={id} picked={node.accent} />
+            {node.kind === 'note' && <NoteColorSubmenu viewId={viewId} id={id} picked={node.color ?? DEFAULT_NOTE_COLOR} />}
+            {place && <ContextMenu.Separator />}
             {canOpenAsView(node.kind) && (
                 <ContextMenu.Item onClick={() => askOpenAsView(id)}>
                     <Icon icon={Frame} size={14} /> {t('menu.openAsView')}
@@ -314,29 +360,16 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
             )}
             {workingFolder && (
                 <ContextMenu.Item onClick={() => void transport.request('fs.reveal', { path: workingFolder }).catch(() => undefined)}>
-                    <Icon icon={ExternalLink} size={14} /> {t('menu.reveal', { app: fileManagerName(platform) })}
+                    <Icon icon={ExternalLink} size={14} /> {t('menu.openIn', { app: fileManagerName(platform) })}
                 </ContextMenu.Item>
             )}
-            {node.kind === 'file' && filePath !== null && (
-                <>
-                    <ContextMenu.Separator />
-                    <FileActionItems path={filePath} on="node" />
-                    <ContextMenu.Separator />
-                </>
-            )}
-            {node.kind === 'note' && (
-                <>
-                    <ChatAgentSubmenu
-                        label={t('menu.startAgentFromNote')}
-                        icon={<Icon icon={Sparkles} size={14} />}
-                        onPick={(provider) => void startAgentFromNote(provider)}
-                    />
-                    <NoteColorSubmenu viewId={viewId} id={id} picked={node.color ?? DEFAULT_NOTE_COLOR} />
-                </>
-            )}
-            <FlagSubmenu id={id} />
-            <AccentSubmenu id={id} picked={node.accent} />
+            {node.kind === 'file' && filePath !== null && <FileActionItems path={filePath} on="node" />}
             <ContextMenu.Separator />
+            {node.kind === 'chat' && (
+                <ContextMenu.Item onClick={clearChat}>
+                    <Icon icon={Eraser} size={14} /> {t('menu.clearAsking')}
+                </ContextMenu.Item>
+            )}
             <ContextMenu.Item className="text-status-error" onClick={remove}>
                 <Icon icon={Trash} size={14} /> {t('common:action.delete')} <Kbd shortcut={CANVAS_SHORTCUTS.deleteSelection} />
             </ContextMenu.Item>
@@ -351,7 +384,7 @@ function WorktreeItems({ folder, paths }: { folder: string; paths: string[] }) {
             <ContextMenu.Item onClick={() => useUi.getState().setWorktreeMerge({ folder, paths })}>
                 <Icon icon={GitMerge} size={14} /> {t('menu.mergeWorktrees', { count: paths.length })}
             </ContextMenu.Item>
-            <ContextMenu.Item onClick={() => useUi.getState().setWorktreeRemoval({ folder, paths })}>
+            <ContextMenu.Item className="text-status-error" onClick={() => useUi.getState().setWorktreeRemoval({ folder, paths })}>
                 <Icon icon={Trash} size={14} /> {t('menu.removeWorktrees', { count: paths.length })}
             </ContextMenu.Item>
         </>

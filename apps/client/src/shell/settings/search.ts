@@ -59,6 +59,12 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         label: 'settings:appearance.needsYou.label',
         description: 'settings:appearance.needsYou.description'
     },
+    {
+        id: 'appearance.projectGlow',
+        section: 'appearance',
+        label: 'settings:appearance.projectGlow.label',
+        description: 'settings:appearance.projectGlow.description'
+    },
     { id: 'appearance.language', section: 'appearance', label: 'settings:appearance.language.label', description: 'settings:appearance.language.description' },
     { id: 'appearance.region', section: 'appearance', label: 'settings:appearance.region.label', description: 'settings:appearance.region.description' },
     {

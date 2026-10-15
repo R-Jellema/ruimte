@@ -31,6 +31,7 @@ import { Sidebar } from '@/shell/Sidebar';
 import { FLOATING_FAILURE, failed } from '@/shell/surface-failure';
 import { Toolbar } from '@/shell/Toolbar';
 import { ViewDialogs } from '@/shell/ViewDialogs';
+import { useFileChoice } from '@/shell/panels/file-links';
 import { ViewHost } from '@/shell/ViewHost';
 import { WorktreeDialog } from '@/shell/WorktreeDialog';
 import { useSettings } from '@/state/settings';
@@ -89,6 +90,13 @@ const PullRequestDialog = lazyDialog(
     'PullRequestDialog',
     useUi,
     (s) => s.pullRequestDialog !== null
+);
+
+const FileChoiceDialog = lazyDialog(
+    () => import('@/shell/FileChoiceDialog'),
+    'FileChoiceDialog',
+    useFileChoice,
+    (s) => s.choice !== null
 );
 
 const RemoteNodeDialog = lazyDialog(
@@ -249,6 +257,9 @@ export function WorkspaceShell({ workspace }: { workspace: Workspace }) {
                 </ErrorBoundary>
                 <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
                     <PullRequestDialog />
+                </ErrorBoundary>
+                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                    <FileChoiceDialog />
                 </ErrorBoundary>
                 <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
                     <ImageSaveHost />

@@ -307,10 +307,6 @@ interface FilesStore extends TabPool {
     closeGuarded(key: string): Promise<boolean>;
     /* The tabs one after another, each through its own questions; stops at the first a person keeps. */
     closeInOrder(keys: readonly string[]): Promise<boolean>;
-    /* The other loose tabs of the host the tab stands in; a pinned tab goes too, and a project view stays. */
-    closeOthers(key: string): void;
-    /* Every loose tab of the host the tab stands in. */
-    closeAll(key: string): void;
     /* Takes the tab out of the pool without remembering it, for a tab that goes on as something else. */
     release(key: string): void;
     /* The answer to that question. */
@@ -535,13 +531,6 @@ export const useFiles = create<FilesStore>((set, get) => {
                 }
             }
             return true;
-        },
-        /* A pinned tab goes with the rest, since the person asked for this one tab and nothing else. */
-        closeOthers(key) {
-            void get().closeInOrder(hostTabs(key).flatMap((tab) => (tab.key === key ? [] : [tab.key])));
-        },
-        closeAll(key) {
-            void get().closeInOrder(hostTabs(key).map((tab) => tab.key));
         },
         release(key) {
             const { [key]: _dropped, ...unsubmitted } = get().unsubmitted;

@@ -73,6 +73,10 @@
         "needsYou": {
             "label": "Needs you from every open project",
             "description": "Also list what waits for you in your other open projects, grouped by project."
+        },
+        "projectGlow": {
+            "label": "Glow in the project's color",
+            "description": "The glow at the top of the sidebar takes the color of the project on screen. With the sidebar closed it shows in the toolbar."
         }
     },
     "editor": {

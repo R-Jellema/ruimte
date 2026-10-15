@@ -43,6 +43,7 @@ export interface ProjectMachine {
     close(endpointId: string, summary: ProjectSummary): Promise<void>;
     remove(endpointId: string, projectId: string, removeFiles: boolean): Promise<void>;
     rename(project: ListedProject, name: string): Promise<void>;
+    setColor(project: ListedProject, color: string): Promise<void>;
     chooseIcon(project: ListedProject, icon: ProjectIconChoice): Promise<void>;
     uploadIcon(project: ListedProject, mime: string, base64: string): Promise<void>;
     useFolderIcon(project: ListedProject): Promise<void>;
@@ -86,6 +87,13 @@ const LIVE_MACHINE: ProjectMachine = {
             return;
         }
         await (await import('@/project/settings')).setProjectIdentity(project.endpointId, project.projectId, { name });
+    },
+    setColor: async (project, color) => {
+        if (isHere(project)) {
+            await windowWorkspace()!.connection.projects.setColor(color);
+            return;
+        }
+        await (await import('@/project/settings')).setProjectIdentity(project.endpointId, project.projectId, { color });
     },
     chooseIcon: async (project, icon) => {
         if (isHere(project)) {
@@ -213,10 +221,10 @@ export function projectActions(document: StoreApi<DocumentState>, overrides: Par
             }
             return { output: projectOutput(project) };
         },
-        'project.setAppearance': async ({ endpointId, projectId, name, icon, image }) => {
+        'project.setAppearance': async ({ endpointId, projectId, name, icon, image, color }) => {
             const project = listed(endpointId, projectId);
-            if (name == null && icon == null && image == null) {
-                throw new ActionRefusal('nothing-to-change', 'Give a name, an icon or an image.');
+            if (name == null && icon == null && image == null && color == null) {
+                throw new ActionRefusal('nothing-to-change', 'Give a name, an icon, an image or a color.');
             }
             if (icon != null && image != null) {
                 throw new ActionRefusal('two-icons', 'Give an icon or an image, not both.');
@@ -227,6 +235,9 @@ export function projectActions(document: StoreApi<DocumentState>, overrides: Par
             try {
                 if (name != null && name !== project.name) {
                     await machine.rename(project, name);
+                }
+                if (color != null && color !== project.summary.color) {
+                    await machine.setColor(project, color);
                 }
                 if (image != null) {
                     await machine.uploadIcon(project, image.mime, image.base64);

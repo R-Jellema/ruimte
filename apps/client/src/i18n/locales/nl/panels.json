@@ -1,6 +1,6 @@
 {
     "devices": {
-        "addToCanvas": "Toevoegen aan canvas",
+        "addToCanvas": "Op het canvas tonen",
         "back": "Terug naar apparaten",
         "finding": "Apparaten zoeken…",
         "group": {
@@ -126,7 +126,8 @@
             "pin": "Tab vastzetten",
             "stage": "Dit bestand stagen",
             "unpin": "Tab losmaken",
-            "unstage": "Dit bestand unstagen"
+            "unstage": "Dit bestand unstagen",
+            "closeToRight": "Tabs rechts ervan sluiten"
         },
         "pdf": {
             "crashed": "De PDF-weergave liep vast",
@@ -240,6 +241,11 @@
             "commentAdds": "Zet {{label}} in het concept in {{chat}}",
             "addToDraft": "Aan concept toevoegen",
             "noChat": "De chat bestaat niet meer"
+        },
+        "notFound": "{{path}} staat niet op deze machine",
+        "choice": {
+            "title": "Welke {{path}}?",
+            "description": "Meer dan één map van het project heeft dit bestand. Kies het bestand dat de agent bedoelde."
         }
     },
     "files": {
@@ -276,7 +282,7 @@
                 "too-large": "Die tekst is te groot."
             }
         },
-        "delete": "Naar de prullenbak",
+        "delete": "Naar de prullenbak…",
         "deleteDialog": {
             "confirm": "Naar de prullenbak",
             "fallback": "Dit naar de prullenbak verplaatsen?",
@@ -288,7 +294,7 @@
             "manyTitle": "{{count}} items naar de prullenbak verplaatsen?"
         },
         "deleteFailed": "Kon niet naar de prullenbak verplaatsen",
-        "deleteMany": "{{count}} items naar de prullenbak",
+        "deleteMany": "{{count}} items naar de prullenbak…",
         "empty": "Deze map is leeg.",
         "filter": "Bestanden filteren",
         "noMatch": "Geen bestanden die aan het filter voldoen.",
@@ -350,7 +356,7 @@
             "deleteBranch": "Branch verwijderen…",
             "fetch": "Fetch",
             "fetchAll": "Fetch alles",
-            "forcePush": "Force push",
+            "forcePush": "Force push…",
             "merge": "Branch mergen…",
             "more": "Meer git-acties",
             "popStash": "Stash poppen",
@@ -364,7 +370,10 @@
             "stash": "Wijzigingen stashen…",
             "sync": "Sync",
             "syncAll": "Sync alles",
-            "syncHint": "eerst pull, dan push"
+            "syncHint": "eerst pull, dan push",
+            "branchGroup": "Branch",
+            "stashGroup": "Stash",
+            "pullRequestGroup": "Pull request"
         },
         "pr": {
             "title": "Pull request",
@@ -577,10 +586,10 @@
         },
         "list": {
             "collapseFolder": "Deze map inklappen",
-            "deleteFile": "Naar de prullenbak",
-            "deleteMany": "{{count}} nieuwe bestanden naar de prullenbak",
-            "discard": "Wijzigingen weggooien",
-            "discardMany": "{{count}} bestanden weggooien",
+            "deleteFile": "Naar de prullenbak…",
+            "deleteMany": "{{count}} nieuwe bestanden naar de prullenbak…",
+            "discard": "Wijzigingen weggooien…",
+            "discardMany": "{{count}} bestanden weggooien…",
             "expandFolder": "Deze map uitklappen",
             "files_one": "{{count}} bestand",
             "files_other": "{{count}} bestanden",
@@ -1003,12 +1012,12 @@
             "actions": "Worktree-acties",
             "folderMissing": "map ontbreekt",
             "locked": "Vergrendeld",
-            "merge": "Mergen…",
+            "merge": "Worktree mergen…",
             "inspect": "Bekijken",
             "noNode": "geen node",
-            "remove": "Verwijderen…",
+            "remove": "Worktree verwijderen…",
             "title": "Worktrees",
-            "view": "Bekijken"
+            "view": "Worktree bekijken"
         },
         "verdict": {
             "inspecting": "Bezig met inspecteren…",

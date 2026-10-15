@@ -143,6 +143,8 @@ export interface Settings {
     needsYouAllProjects: boolean;
     /* One of the node accents. Blue is the brand's own and the one a fresh client starts on. */
     accent: AccentId;
+    /* The glow at the top of the sidebar, and of the toolbar while the sidebar is closed, in the color of the project. */
+    projectGlow: boolean;
     interfaceFont: InterfaceFontId;
     font: MonoFontId;
     /* Terminal font size in px; every terminal refits when it changes. */
@@ -284,6 +286,7 @@ const DEFAULT_SETTINGS: Settings = {
     projectNavigation: 'switcher',
     needsYouAllProjects: true,
     accent: 'blue',
+    projectGlow: false,
     interfaceFont: 'system',
     font: 'system',
     fontSize: 13,
@@ -392,6 +395,7 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         smartKeys: smartKeysFrom(stored.smartKeys),
         // A client that stored null for the theme's own accent, or an id that has since gone, lands on the brand's.
         accent: NODE_ACCENTS.find((entry) => entry.id === stored.accent)?.id ?? DEFAULT_SETTINGS.accent,
+        projectGlow: stored.projectGlow === true,
         // Nothing moves a person's eyes unless that person said so, so only a stored `true` turns it on.
         agentsShowViews: stored.agentsShowViews === true,
         // On unless a person turned it off, so a client that stored nothing yet draws maps.
@@ -499,6 +503,7 @@ export const useSettings = create<SettingsStore>((set, get) => {
                 projectNavigation,
                 needsYouAllProjects,
                 accent,
+                projectGlow,
                 interfaceFont,
                 font,
                 fontSize,
@@ -560,6 +565,7 @@ export const useSettings = create<SettingsStore>((set, get) => {
                 projectNavigation,
                 needsYouAllProjects,
                 accent,
+                projectGlow,
                 interfaceFont,
                 font,
                 fontSize,

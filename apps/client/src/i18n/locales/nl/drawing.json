@@ -125,7 +125,9 @@
         "bringToFront": "Naar voren",
         "sendToBack": "Naar achteren",
         "lock": "Vergrendelen",
-        "unlock": "Ontgrendelen"
+        "unlock": "Ontgrendelen",
+        "arrange": "Schikken",
+        "zoom": "Zoom"
     },
     "empty": {
         "description": "Er is nog niets getekend. Kies een gereedschap met <tools/> of plak vormen uit een andere tekening met <paste/>."

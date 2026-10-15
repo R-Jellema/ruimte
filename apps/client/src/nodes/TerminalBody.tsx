@@ -34,7 +34,7 @@ import { useTransportStatus } from '@/transport/status';
 import { isApplePlatform } from '@/desktop/bridge';
 import { NodeNotice } from '@/nodes/NodeNotice';
 import { closeHost, readNodeHost, useSuggestedTitle } from '@/nodes/node-host';
-import { Button, copyText, readClipboardText, Icon, ContextMenu, ErrorBoundary, Kbd, prefetcher } from '@adecore/ui';
+import { Button, copyText, readClipboardText, Icon, ContextMenu, ErrorBoundary, Kbd, prefetcher, EDIT_SHORTCUTS } from '@adecore/ui';
 
 // A terminal loads the WebGL addon on its first context; prefetched, it is there by then.
 prefetcher.register(() => import('@xterm/addon-webgl'));
@@ -221,16 +221,17 @@ export function TerminalBody({ id, focused }: { id: string; focused: boolean }) 
                         <ContextMenu.Separator />
                     </>
                 )}
-                {/* xterm keeps its selection to itself, so this asks the terminal instead of the document. */}
+                {/* xterm keeps its selection to itself, so this asks the terminal instead of the document.
+                    Off macOS Ctrl+C and Ctrl+A are the program's, so only paste names a key there. */}
                 <ContextMenu.Item disabled={!selected} onClick={() => copyText(viewRef.current?.selection() ?? '')}>
-                    <Icon icon={Copy} size={14} /> {t('common:action.copy')}
+                    <Icon icon={Copy} size={14} /> {t('common:action.copy')} {isApplePlatform() && <Kbd shortcut={EDIT_SHORTCUTS.copy} />}
                 </ContextMenu.Item>
                 <ContextMenu.Item onClick={() => void paste()}>
-                    <Icon icon={ClipboardPaste} size={14} /> {t('edit.paste')}
+                    <Icon icon={ClipboardPaste} size={14} /> {t('edit.paste')} <Kbd shortcut={EDIT_SHORTCUTS.paste} />
                 </ContextMenu.Item>
                 <ContextMenu.Separator />
                 <ContextMenu.Item onClick={() => viewRef.current?.selectAll()}>
-                    <Icon icon={Scan} size={14} /> {t('common:action.selectAll')}
+                    <Icon icon={Scan} size={14} /> {t('common:action.selectAll')} {isApplePlatform() && <Kbd shortcut={EDIT_SHORTCUTS.selectAll} />}
                 </ContextMenu.Item>
                 <ContextMenu.Separator />
                 <ContextMenu.Item onClick={() => clearTerminalAction(id)}>

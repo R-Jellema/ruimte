@@ -50,9 +50,9 @@ import type { ChatPromptClients } from '@adecore/agents-react/prompts';
 import type { CellAt, SplitDirection, SplitZone } from '@/shell/split';
 import { defaultCanvases, focusedCanvas, type CanvasState, type Locks } from '@/state/canvas';
 import { useChats, providersOf } from '@adecore/agents-react/state';
-import { activeViewOf, cellViewOf, useDocument, viewOfNode, type DocumentState } from '@/state/document';
+import { activeViewOf, useDocument, viewOfNode, type DocumentState } from '@/state/document';
 import { closeCellsRightOfGuarded, closeOtherCellsGuarded } from '@/state/cell-close';
-import { useFiles } from '@/state/files';
+import { closeTabGuarded, closeTabsAround, type TabsClosing } from '@/state/tab-close';
 import { currentEndpointId, endpointKey } from '@/state/keys';
 import { chatClient, chatClientFor, diagramClient, drawingClient, sessionClient, sessionClientFor } from '@/transport/connections';
 import { endpointOfNodeId } from '@/state/node-endpoint';
@@ -588,11 +588,12 @@ export function closeCellsRightOfAction(at: CellAt): void {
  * place in the list stay, but a database view with unsubmitted edits asks first as well.
  */
 export function closeTabAction(viewId: string): void {
-    if (cellViewOf(useDocument.getState(), viewId) === null || useFiles.getState().unsubmitted[viewId] === true) {
-        useFiles.getState().close(viewId);
-        return;
-    }
-    useDocument.getState().closeViewTab(viewId);
+    void closeTabGuarded(viewId);
+}
+
+/* The other tabs of the host, the ones to the right of it or all of them; a pinned tab stays. */
+export function closeTabsAction(viewId: string, closing: TabsClosing): void {
+    void closeTabsAround(viewId, closing);
 }
 
 export function focusCellAction(direction: SplitDirection): void {

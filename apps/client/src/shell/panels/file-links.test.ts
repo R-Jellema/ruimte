@@ -1,8 +1,12 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { openFileLink, parseFileRef, resolveFileRef } from '@/shell/panels/file-links';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
+import type { FsLocatePayload, RequestType } from '@ruimte/contracts';
+import { normalizedPath, openFileLink, parseFileRef, resolveFileRef, useFileChoice } from '@/shell/panels/file-links';
 import { useDocument } from '@/state/document';
 import { useFiles } from '@/state/files';
+import { currentEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
+import { useToasts } from '@/state/toasts';
+import { machineTransport } from '@/transport';
 
 describe('parseFileRef', () => {
     test('takes a path with a separator, whatever the extension is', () => {
@@ -87,6 +91,20 @@ describe('resolveFileRef', () => {
     });
 });
 
+describe('normalizedPath', () => {
+    test('takes out the dots, so one file reached two ways is one path', () => {
+        expect(normalizedPath('/repo/./src/../lib/a.ts')).toBe('/repo/lib/a.ts');
+        expect(normalizedPath('/repo/src/')).toBe('/repo/src');
+        expect(normalizedPath('/../a.ts')).toBe('/a.ts');
+        expect(normalizedPath('C:\\repo\\src\\..\\a.ts')).toBe('C:\\repo\\a.ts');
+        expect(normalizedPath('../a.ts')).toBe('../a.ts');
+    });
+
+    test('a relative reference that climbs out of its folder resolves to where it lands', () => {
+        expect(resolveFileRef('/repo/apps/client', { path: '../server/main.ts', directory: false })).toBe('/repo/apps/server/main.ts');
+    });
+});
+
 describe('openFileLink', () => {
     beforeEach(() => {
         // Without a project id, the tabs stay out of the storage the test environment does not have.
@@ -133,5 +151,61 @@ describe('openFileLink', () => {
         await openFileLink(null, { path: 'src/main.ts', directory: false });
         expect(useFiles.getState().tabs).toEqual([]);
         expect(useDocument.getState().layout).toBeNull();
+    });
+});
+
+describe('openFileLink on a machine that locates files', () => {
+    const asked: FsLocatePayload[] = [];
+    let matches: string[] = [];
+    let restore: () => void = () => undefined;
+
+    beforeEach(() => {
+        asked.length = 0;
+        useFiles.setState({ projectId: null, tabs: [], focusRequest: null, reveal: null, revealLine: null });
+        useDocument.getState().load(null, null);
+        useProject.setState({ current: { folder: '/repo' } as never, currentEndpointId: currentEndpointId() });
+        useFileChoice.setState({ choice: null });
+        useToasts.setState({ toasts: [] } as never);
+        const transport = machineTransport(currentEndpointId());
+        Object.defineProperty(transport, 'connection', { configurable: true, get: () => ({ status: 'open', features: ['fs.locate'] }) });
+        const request = spyOn(transport, 'request').mockImplementation((async (type: RequestType, payload: unknown) => {
+            if (type === 'fs.locate') {
+                asked.push(payload as FsLocatePayload);
+                return { matches };
+            }
+            throw new Error(`unexpected ${type}`);
+        }) as never);
+        restore = () => {
+            request.mockRestore();
+            delete (transport as unknown as Record<string, unknown>).connection;
+        };
+    });
+
+    afterEach(() => {
+        restore();
+        useProject.setState({ current: null, currentEndpointId: null });
+        useFileChoice.setState({ choice: null });
+    });
+
+    test("asks with the agent's folder and the project's, and opens the one place the machine names", async () => {
+        matches = ['/repo/lib/src/a.ts'];
+        await openFileLink('/worktree', { path: 'src/a.ts', line: 3, directory: false });
+        expect(asked).toEqual([{ path: 'src/a.ts', cwd: '/worktree', folder: '/repo' }]);
+        expect(useFiles.getState().tabs.map((tab) => tab.key)).toEqual(['/repo/lib/src/a.ts']);
+        expect(useFiles.getState().revealLine?.line).toBe(3);
+    });
+
+    test('a path that is nowhere opens nothing and says so', async () => {
+        matches = [];
+        await openFileLink('/repo', { path: 'src/gone.ts', directory: false });
+        expect(useFiles.getState().tabs).toEqual([]);
+        expect(useToasts.getState().toasts.map((toast) => toast.title)).toEqual(['src/gone.ts is not on this machine']);
+    });
+
+    test('more than one place asks the person which one', async () => {
+        matches = ['/repo/lib/src/a.ts', '/repo/other/src/a.ts'];
+        await openFileLink('/repo', { path: 'src/a.ts', directory: false });
+        expect(useFiles.getState().tabs).toEqual([]);
+        expect(useFileChoice.getState().choice?.matches).toEqual(matches);
     });
 });

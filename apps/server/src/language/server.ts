@@ -32,8 +32,10 @@ import {
 import { errorText } from '../error-text.ts';
 import type { FileChange } from './file-watch.ts';
 import { LanguageLog } from './log.ts';
+import { findManifests, topmostManifests } from './manifests.ts';
 import { mergeCodeActions, mergeProviders } from './merge.ts';
 import {
+    CARGO_DEPTH,
     componentServes,
     lspLanguageId,
     resolveNativeTypescript,
@@ -740,7 +742,10 @@ export class LanguageServer {
                       readText: this.options.readText ?? ((path) => readFile(path, 'utf8').catch(() => null)),
                       realPath: this.options.realPath ?? realpath
                   })
-                : ''
+                : '',
+            ...(this.options.profile.components.some((component) => component.cargoManifests)
+                ? { cargoManifests: topmostManifests(await findManifests(folder, 'Cargo.toml', CARGO_DEPTH)) }
+                : {})
         };
     }
 
