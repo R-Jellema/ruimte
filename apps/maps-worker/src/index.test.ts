@@ -104,7 +104,7 @@ describe('the style', () => {
         maps.answers = [() => json(TOMTOM_STYLE)];
         const response = await maps.request('/v1/style?theme=dark');
         expect(response.status).toBe(200);
-        expect(maps.upstream[0]!.url).toBe(`https://api.tomtom.com/maps/orbis/assets/styles/0.*/style?apiVersion=1&map=basic_mono-dark&key=${KEY}`);
+        expect(maps.upstream[0]!.url).toBe(`https://api.tomtom.com/maps/orbis/assets/styles/0.6.*/style?apiVersion=1&map=basic_mono-dark&key=${KEY}`);
         const text = await response.text();
         expect(text).not.toContain(KEY);
         expect(text).not.toContain('key=');

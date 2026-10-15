@@ -70,12 +70,12 @@ Until both exist every route but `/health` answers `maps-unconfigured`. A push t
 `packages/pulsar` deploys it (`.github/workflows/maps-worker.yml`, repository secret `CLOUDFLARE_API_TOKEN`); the custom
 domain `maps.ruimte.app` is created by the first deploy when the zone is on the same account.
 
-## Not verified against the live service
+## The style version
 
-The style path (`maps/orbis/assets/styles/0.*/style`) and the search path (`maps/orbis/places/search/<text>.json`) follow TomTom's
-documentation of 15 October 2026 but were never called with a key. What the style names is served whatever its shape, as long as it is
+The style path (`maps/orbis/assets/styles/0.6.*/style`) is pinned to a minor version: TomTom answers 403 for `0.*` and 200 for `0.6.*`
+(checked with the real key), and patch updates come along. What the style names is served whatever its shape, as long as it is
 map display or assets with the placeholders of a tile (`{z}/{x}/{y}`) or of glyphs (`{fontstack}/{range}`); another placeholder, such as
-`{ratio}`, makes the address unservable and it is blanked from the style. The first deploy with a key shows whether the live style fits.
+`{ratio}`, makes the address unservable and it is blanked from the style.
 
 ## Development
 

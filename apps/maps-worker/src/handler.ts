@@ -6,7 +6,7 @@ import { allowedOrigin, corsHeaders, failure, json } from './http.ts';
 import { pathFor, readGrant } from './grant.ts';
 import { fetchMapResource } from './map.ts';
 
-const STYLE_PATH = 'maps/orbis/assets/styles/0.*/style';
+const STYLE_PATH = 'maps/orbis/assets/styles/0.6.*/style';
 
 // Monochrome, so the markers of a block carry the colour.
 const STYLE_OF = { light: 'basic_mono-light', dark: 'basic_mono-dark' } as const;
