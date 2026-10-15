@@ -9,7 +9,7 @@ import { registerPeerTaskHandlers } from '../handlers/peer-tasks.ts';
 import type { OutboxEntry, OutboxWork } from '../outbox/outbox.ts';
 import { BundleStore } from '../git/bundles.ts';
 import { PeerLinks, peerCanvasId } from './links.ts';
-import { PEER_MAX_WORKTREES, PeerTasks, peerCaller, type PeerTasksDeps } from './peer-tasks.ts';
+import { PEER_MAX_BRANCH_LENGTH, PEER_MAX_WORKTREES, PeerTasks, peerCaller, type PeerTasksDeps } from './peer-tasks.ts';
 
 const MACHINE = 'machine-a';
 const PROJECT = 'project-1';
@@ -41,7 +41,8 @@ function deps(): PeerTasksDeps {
             taskRecord: (machineId, nodeId) => peerLinks.taskRecord(machineId, nodeId),
             taskRecordsOf: (machineId) => peerLinks.taskRecordsOf(machineId),
             recordTask: (machineId, nodeId, record) => peerLinks.recordTask(machineId, nodeId, record),
-            forgetTask: (machineId, nodeId) => peerLinks.forgetTask(machineId, nodeId)
+            forgetTask: (machineId, nodeId) => peerLinks.forgetTask(machineId, nodeId),
+            untrustFolder: (cwd) => peerLinks.untrustFolder(cwd)
         },
         projects: {
             read: async () => structuredClone(content),
@@ -283,6 +284,16 @@ describe('starting a task for another machine', () => {
             await expect(peerTasks.start(MACHINE, 'client-1', start({ bundle, branch: 'fix-it' }))).rejects.toMatchObject({
                 code: 'peer-worktrees-full',
                 message: expect.stringContaining('git panel')
+            });
+            expect(await Bun.file(bundles.incomingPathOf(bundle.bundleId)).exists()).toBe(false);
+            expect(tasks.all()).toHaveLength(0);
+        });
+
+        test('a branch past the limit is refused before anything is fetched, and the copy that came in is dropped', async () => {
+            const { peerTasks, bundles } = withBundles();
+            await bundles.receive(bundle.bundleId, 0, new Uint8Array(4), 4);
+            await expect(peerTasks.start(MACHINE, 'client-1', start({ bundle, branch: 'b'.repeat(PEER_MAX_BRANCH_LENGTH + 1) }))).rejects.toMatchObject({
+                code: 'branch-too-long'
             });
             expect(await Bun.file(bundles.incomingPathOf(bundle.bundleId)).exists()).toBe(false);
             expect(tasks.all()).toHaveLength(0);

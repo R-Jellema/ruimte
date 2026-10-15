@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BYTES_CHUNK_MAX, isCanvasView, type ProjectCanvasView, type ProjectContent } from '@ruimte/contracts';
@@ -10,7 +10,7 @@ import { gitIn, initRepo, NO_WORKTREE_AGENTS } from '../git/test-repo.ts';
 import { Worktrees } from '../git/worktrees.ts';
 import type { OutboxWork } from '../outbox/outbox.ts';
 import { PeerLinks, peerCanvasId } from './links.ts';
-import { PeerTasks } from './peer-tasks.ts';
+import { PEER_MAX_BRANCH_LENGTH, PeerTasks } from './peer-tasks.ts';
 
 /*
  * The work travels as a bundle both ways: machine A sends its checkout with an uncommitted change, this
@@ -31,6 +31,8 @@ let peerTasks: PeerTasks;
 let tasks: TaskStore;
 let bundlesB: BundleStore;
 let enqueued: OutboxWork[];
+let untrustedAt: Array<{ cwd: string; existed: boolean }>;
+let links: PeerLinks;
 
 beforeEach(async () => {
     root = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-peer-tasks-git-')));
@@ -46,13 +48,14 @@ beforeEach(async () => {
     }
     content = { name: 'One', views: [] } as unknown as ProjectContent;
     enqueued = [];
+    untrustedAt = [];
     const lineage = new AgentLineageStore(homeB);
     tasks = new TaskStore(homeB);
     await Promise.all([lineage.load(), tasks.load()]);
     bundlesB = new BundleStore(homeB);
     const stores = new Map<string, BundleStore>();
     const worktrees = new Worktrees(homeB, NO_WORKTREE_AGENTS);
-    const links = new PeerLinks(homeB);
+    links = new PeerLinks(homeB);
     await links.bind(A, 'Studio', PROJECT);
     peerTasks = new PeerTasks({
         links: {
@@ -64,7 +67,11 @@ beforeEach(async () => {
             taskRecord: (machineId, nodeId) => links.taskRecord(machineId, nodeId),
             taskRecordsOf: (machineId) => links.taskRecordsOf(machineId),
             recordTask: (machineId, nodeId, record) => links.recordTask(machineId, nodeId, record),
-            forgetTask: (machineId, nodeId) => links.forgetTask(machineId, nodeId)
+            forgetTask: (machineId, nodeId) => links.forgetTask(machineId, nodeId),
+            untrustFolder: async (cwd) => {
+                untrustedAt.push({ cwd, existed: (await stat(cwd).catch(() => null)) !== null });
+                await links.untrustFolder(cwd);
+            }
         },
         projects: {
             read: async () => structuredClone(content),
@@ -159,6 +166,42 @@ test('the files of the other machine land in a worktree, and what the agent does
     if (piece.size <= BYTES_CHUNK_MAX) {
         await expect(peerTasks.bundleRead(A, { bundleId, offset: 0, length: 10 })).rejects.toMatchObject({ code: 'bundle-missing' });
     }
+});
+
+test('the folder is untrusted before git makes it', async () => {
+    const bundle = await sendFromA();
+    const started = await peerTasks.start(A, 'client-1', {
+        projectId: PROJECT,
+        nodeId: 'chat-one',
+        parentId: 'chat-parent',
+        title: 'Fix it',
+        prompt: 'Fix it',
+        provider: 'claude',
+        ceiling: 'full-access',
+        depth: 1,
+        bundle,
+        branch: 'fix-it'
+    });
+    expect(untrustedAt).toContainEqual({ cwd: started.cwd!, existed: false });
+    expect(links.worktreeFolders()).toContain(started.cwd!);
+});
+
+test('a branch name of any length the path allows still leaves a record of the folder', async () => {
+    const bundle = await sendFromA();
+    const started = await peerTasks.start(A, 'client-1', {
+        projectId: PROJECT,
+        nodeId: 'chat-one',
+        parentId: 'chat-parent',
+        title: 'Fix it',
+        prompt: 'Fix it',
+        provider: 'claude',
+        ceiling: 'full-access',
+        depth: 1,
+        bundle,
+        branch: 'b'.repeat(PEER_MAX_BRANCH_LENGTH)
+    });
+    expect(links.worktreeFolders()).toContain(started.cwd!);
+    expect(links.taskRecord(A, 'chat-one')).not.toBeNull();
 });
 
 test('a bundle that does not match what was said it is refused and nothing starts', async () => {

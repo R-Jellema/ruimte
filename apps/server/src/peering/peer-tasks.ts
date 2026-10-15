@@ -40,7 +40,10 @@ import { nodeOf, sameCanvas, stripHidden } from './peer-canvas.ts';
 
 /* What a machine that works here is given of this one: its tasks, bundles and holds, each judged by the link a person made. */
 export interface PeerTasksDeps {
-    links: Pick<PeerLinks, 'linkOf' | 'touch' | 'canvasIdsOf' | 'placedOf' | 'setPlaced' | 'taskRecord' | 'taskRecordsOf' | 'recordTask' | 'forgetTask'>;
+    links: Pick<
+        PeerLinks,
+        'linkOf' | 'touch' | 'canvasIdsOf' | 'placedOf' | 'setPlaced' | 'taskRecord' | 'taskRecordsOf' | 'recordTask' | 'forgetTask' | 'untrustFolder'
+    >;
     projects: Pick<ProjectStore, 'read' | 'mutate' | 'hold' | 'letGo'> & { index: Pick<ProjectStore['index'], 'folderOf'> };
     lineage: Pick<AgentLineageStore, 'put' | 'peerOf' | 'openedCount'>;
     tasks: Pick<TaskStore, 'open' | 'all' | 'get' | 'markWoken' | 'settle'>;
@@ -61,6 +64,9 @@ export interface PeerTasksDeps {
     notify(machineId: string, nodeId: string): void;
     log?: (line: string) => void;
 }
+
+// A branch longer than this is refused, so the folder and the files named after it stay far below any path limit.
+export const PEER_MAX_BRANCH_LENGTH = 100;
 
 // How many worktrees one machine's tasks may leave on this machine; a person removes them, nothing here does.
 export const PEER_MAX_WORKTREES = 8;
@@ -134,6 +140,9 @@ export class PeerTasks {
             // A start the other machine asks again because it never heard the answer.
             return await this.startedAs(machineId, nodeId, folder);
         }
+        if (payload.branch !== undefined && payload.branch.length > PEER_MAX_BRANCH_LENGTH) {
+            throw new RequestError('branch-too-long', `A branch from another machine may be ${PEER_MAX_BRANCH_LENGTH} characters long at most here`);
+        }
         const provider = providerFor(payload.provider);
         if (provider.ignoresProjectConfig !== true) {
             throw new RequestError(
@@ -183,17 +192,23 @@ export class PeerTasks {
                 throw new RequestError('bad-request', 'Work that comes as a bundle names its branch');
             }
             await this.refuseWhenFull(machineId, projectId, folder);
-            const made = await fetchBundle(deps.peerBundles(machineId), deps.git().worktrees, folder, {
-                projectId,
-                bundleId: payload.bundle.bundleId,
-                sha256: payload.bundle.sha256,
-                branch: payload.branch,
-                into: 'worktree',
-                machine: link.label
-            });
+            // Untrusted before the folder exists, so there is no moment a folder with the files of that machine is trusted.
+            const made = await fetchBundle(
+                deps.peerBundles(machineId),
+                deps.git().worktrees,
+                folder,
+                {
+                    projectId,
+                    bundleId: payload.bundle.bundleId,
+                    sha256: payload.bundle.sha256,
+                    branch: payload.branch,
+                    into: 'worktree',
+                    machine: link.label
+                },
+                (path) => deps.links.untrustFolder(path)
+            );
             cwd = made.path ?? folder;
             branch = made.branch;
-            // Written down before anything can fail, so a folder made here is never lost sight of.
             await deps.links.recordTask(machineId, nodeId, { projectId, cwd, worktree: made.path !== undefined });
         }
         await checkCwd(folder, cwd, deps.worktreePaths).catch((e: unknown) => {

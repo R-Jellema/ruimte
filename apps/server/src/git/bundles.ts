@@ -354,18 +354,31 @@ async function refIsValid(top: string, ref: string): Promise<boolean> {
 /*
  * Takes a received bundle into a repository without running anything it carries: the fetch has git's
  * hooks off and nothing but one ref of the bundle is read. The tip is kept under `refs/ruimte/received`
- * and a worktree is made on it, so the work is there to open and to merge.
+ * and a worktree is made on it, so the work is there to open and to merge. `beforeWorktree` hears the
+ * folder before git makes it.
  */
-export async function fetchBundle(store: BundleStore, worktrees: Worktrees, folder: string, payload: GitFetchBundlePayload): Promise<GitFetchBundleResult> {
+export async function fetchBundle(
+    store: BundleStore,
+    worktrees: Worktrees,
+    folder: string,
+    payload: GitFetchBundlePayload,
+    beforeWorktree?: (path: string) => Promise<void>
+): Promise<GitFetchBundleResult> {
     try {
-        return await takeIn(store, worktrees, folder, payload);
+        return await takeIn(store, worktrees, folder, payload, beforeWorktree);
     } finally {
         // Taken in or refused, the file is of no use again: a sender that tries once more sends it from the start.
         await store.dropIncoming(payload.bundleId);
     }
 }
 
-async function takeIn(store: BundleStore, worktrees: Worktrees, folder: string, payload: GitFetchBundlePayload): Promise<GitFetchBundleResult> {
+async function takeIn(
+    store: BundleStore,
+    worktrees: Worktrees,
+    folder: string,
+    payload: GitFetchBundlePayload,
+    beforeWorktree?: (path: string) => Promise<void>
+): Promise<GitFetchBundleResult> {
     const file = store.incomingPathOf(payload.bundleId);
     if (!(await stat(file).catch(() => null))?.isFile()) {
         throw new GitError('bundle-missing', 'The transfer did not arrive. Send it again.');
@@ -400,7 +413,16 @@ async function takeIn(store: BundleStore, worktrees: Worktrees, folder: string, 
             const before = (await git(['rev-parse', '--verify', '--quiet', remoteRef], top))?.trim() ?? '';
             await gitOrThrow([...NO_HOOKS, 'update-ref', remoteRef, commit, before], top);
         }
-        const made = await worktrees.addFresh(top, `ruimte/${name}`, { madeBy: 'client', projectId: payload.projectId }, { base: kept, hooksOff: true });
+        const made = await worktrees.addFresh(
+            top,
+            `ruimte/${name}`,
+            { madeBy: 'client', projectId: payload.projectId },
+            {
+                base: kept,
+                hooksOff: true,
+                ...(beforeWorktree === undefined ? {} : { beforeAdd: beforeWorktree })
+            }
+        );
         return { path: made.path, branch: made.branch, commit };
     } finally {
         // The worktree and the remote ref hold the commit now, or the take-in failed; either way the staging ref is done.

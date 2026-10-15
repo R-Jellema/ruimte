@@ -283,6 +283,7 @@ export class Worktrees {
         const head = based?.commit ?? (await git(['rev-parse', 'HEAD'], repo))?.trim();
         const fork = branchExists && head ? (await git(['merge-base', `refs/heads/${branch}`, head], repo))?.trim() : head;
         const hooks = options.hooksOff === true ? ['-c', 'core.hooksPath=/dev/null'] : [];
+        await options.beforeAdd?.(path);
         await run(
             [...hooks, ...(branchExists ? ['worktree', 'add', path, branch] : ['worktree', 'add', '-b', branch, path, ...(based ? [based.commit] : [])])],
             main
@@ -590,6 +591,8 @@ export interface MakeOptions {
     base?: string;
     /* Runs no hook of the repository while the checkout is made, for a tree that came from elsewhere. */
     hooksOff?: boolean;
+    /* Called with the folder before git makes it, so a caller can write it down before anything of it exists. */
+    beforeAdd?: (path: string) => Promise<void>;
 }
 
 function recordFields(record: WorktreeRecord): Pick<Worktree, 'from' | 'projectId' | 'nodeId' | 'madeAt'> {

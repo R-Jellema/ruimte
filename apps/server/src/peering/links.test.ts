@@ -1,0 +1,35 @@
+import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { PeerLinks } from './links.ts';
+
+let home: string;
+
+beforeEach(async () => {
+    home = await mkdtemp(join(tmpdir(), 'ruimte-links-'));
+});
+
+afterEach(async () => {
+    await rm(home, { recursive: true, force: true });
+});
+
+test('a folder with a very long path is recorded, and is still known after a restart', async () => {
+    const cwd = join(home, 'worktrees', 'repo-1234abcd', `ruimte-${'b'.repeat(240)}`);
+    const links = new PeerLinks(home);
+    await links.untrustFolder(cwd);
+    const names = await readdir(join(home, 'peer-worktrees'));
+    expect(names).toHaveLength(1);
+    expect(names[0]!.length).toBeLessThan(100);
+
+    const reloaded = new PeerLinks(home);
+    await reloaded.load();
+    expect(reloaded.worktreeFolders()).toEqual([cwd]);
+});
+
+test('the same folder written twice is one record', async () => {
+    const links = new PeerLinks(home);
+    await links.untrustFolder('/a/b');
+    await links.untrustFolder('/a/b');
+    expect(await readdir(join(home, 'peer-worktrees'))).toHaveLength(1);
+});

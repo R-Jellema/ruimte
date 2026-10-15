@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { RuntimeModeSchema, isCanvasView, type PeerLink, type ProjectContent, type RuntimeMode } from '@ruimte/contracts';
 import { RecordDirectory } from '@adecore/agents';
@@ -35,6 +36,11 @@ const PeerFileSchema = z.looseObject({
 type PeerFile = z.infer<typeof PeerFileSchema>;
 
 const WorktreeSchema = z.looseObject({ cwd: z.string().min(1) });
+
+/* The record of a folder is keyed on a hash, since a path of any length is no file name. */
+function folderKey(cwd: string): string {
+    return createHash('sha256').update(cwd).digest('hex');
+}
 
 /* What a link is until a person says otherwise: an agent from the other machine asks before it acts. */
 export const DEFAULT_CEILING: RuntimeMode = 'supervised';
@@ -79,7 +85,7 @@ export class PeerLinks {
 
     constructor(home: string, clock: () => number = Date.now) {
         this.files = new RecordDirectory({ dir: join(home, 'peers'), schema: PeerFileSchema, idOf: (file) => file.machineId });
-        this.worktrees = new RecordDirectory({ dir: join(home, 'peer-worktrees'), schema: WorktreeSchema, idOf: (record) => record.cwd });
+        this.worktrees = new RecordDirectory({ dir: join(home, 'peer-worktrees'), schema: WorktreeSchema, idOf: (record) => folderKey(record.cwd) });
         this.clock = clock;
     }
 
@@ -145,11 +151,16 @@ export class PeerLinks {
         return Object.entries(this.files.get(machineId)?.tasks ?? {});
     }
 
+    /* Makes a folder one this machine never vouched for, whoever asked for it and whether or not a link is left. */
+    async untrustFolder(cwd: string): Promise<void> {
+        await this.worktrees.write({ cwd });
+    }
+
     async recordTask(machineId: string, nodeId: string, record: PeerTaskRecord): Promise<void> {
         const file = this.files.get(machineId);
         if (file !== undefined) {
             if (record.worktree) {
-                await this.worktrees.write({ cwd: record.cwd });
+                await this.untrustFolder(record.cwd);
             }
             await this.files.write({ ...file, tasks: { ...file.tasks, [nodeId]: record } });
         }
