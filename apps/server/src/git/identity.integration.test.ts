@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { GitIdentity } from '@ruimte/contracts';
@@ -110,6 +110,10 @@ test('the root commits are kept while HEAD moves on, and the heads are not', asy
 });
 
 test('a git that takes too long is ended and says so', async () => {
-    const result = await runGit(['-c', 'alias.hang=!sleep 5', 'hang'], root, { timeoutMs: 100 });
+    // The script becomes the sleep itself, so ending it closes the pipes. A git alias would leave a child holding them until it is done.
+    const bin = join(root, 'stuck-bin');
+    await mkdir(bin);
+    await writeFile(join(bin, 'git'), '#!/bin/sh\nexec sleep 30\n', { mode: 0o755 });
+    const result = await runGit(['status'], root, { env: { PATH: `${bin}:${process.env.PATH}` }, timeoutMs: 100 });
     expect(result.timedOut).toBe(true);
 });
