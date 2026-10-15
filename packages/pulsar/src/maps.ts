@@ -22,7 +22,9 @@ const PATH_MAC_PREFIX = 'pulsar-maps-path-v1\n';
  */
 export const MapsTicketSchema = z.object({
     ticket: z.string().regex(/^[A-Za-z0-9_-]{43}\.[1-9]\d{0,15}\.[A-Za-z0-9_-]{43}$/, 'Expected a maps ticket'),
-    expiresAt: z.number().int().min(1)
+    expiresAt: z.number().int().min(1),
+    // The address book's clock when it issued the ticket, so a client with a clock of its own measures the lifetime from its arrival.
+    issuedAt: z.number().int().min(0).optional()
 });
 export type MapsTicket = z.infer<typeof MapsTicketSchema>;
 

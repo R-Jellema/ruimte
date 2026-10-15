@@ -77,5 +77,6 @@ export async function issueMapsTicket(request: Request, env: Env): Promise<Respo
     if (perAccount) {
         return perAccount;
     }
-    return json(await signMapsTicket(secret, await mapsTicketSubject(secret, accountId), Date.now() + MAPS_TICKET_LIFETIME_MS));
+    const issuedAt = Date.now();
+    return json({ ...(await signMapsTicket(secret, await mapsTicketSubject(secret, accountId), issuedAt + MAPS_TICKET_LIFETIME_MS)), issuedAt });
 }

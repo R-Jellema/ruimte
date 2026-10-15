@@ -88,6 +88,8 @@ describe('a ticket for a signed-in client', () => {
         const response = await issueMapsTicket(post({}, token), env);
         expect(response.status).toBe(200);
         const issued = MapsTicketSchema.parse(await response.json()) satisfies MapsTicket;
+        expect(issued.issuedAt).toBeGreaterThanOrEqual(before);
+        expect(issued.expiresAt - issued.issuedAt!).toBe(MAPS_TICKET_LIFETIME_MS);
         expect(issued.expiresAt).toBeGreaterThanOrEqual(before + MAPS_TICKET_LIFETIME_MS);
         expect(issued.expiresAt).toBeLessThanOrEqual(Date.now() + MAPS_TICKET_LIFETIME_MS);
         const subject = await mapsTicketSubject(SECRET, 'owner');
