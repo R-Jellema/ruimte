@@ -63,6 +63,33 @@ with the next push to main, which starts Xcode Cloud.
   CLI-03, and the iOS fixtures in UnifiedProjectsTests, WorkspaceVisualTests, SessionVisualTests,
   AttentionStoreTests and PhaseZeroTests.
 
+## Devices
+
+On a Mac with Xcode 27.1, an iOS 27.1 simulator, an iPhone Duo simulator, an Android emulator (one AVD with a hinge)
+and, where an item says so, a phone. Start with `bun run test:devices` and note which files could not run.
+
+- [ ] `side-buttons.device.integration.test.ts` passes; then announce volume, power and play/pause on a simulator
+  (the `todo(Bas)` above `IOS_BUTTONS` in `apps/server/src/devices/ios-simulator.ts`).
+- [ ] Biometrics and shake on Xcode 27: enroll Face ID, then match and no match in an app that asks for Face ID, the
+  same for Touch ID on a simulator that has it, and Shake in an app that listens for it.
+- [ ] `fold.device.integration.test.ts` on both platforms; on the node, the five poses and the hinge slider of an
+  iPhone Duo, the picture following the cover and inner screen, and Closed and Open on the emulator with the picture
+  at its new size.
+- [ ] `android-media.device.integration.test.ts`: a picture and a video added to an emulator on Android 14 or later
+  show up in Photos.
+- [ ] Camera: a test pattern, then a QR code picture, in an app that scans, on the dev daemon and on a packaged app
+  whose daemon runs as a launchd service; Off launches the app with its own camera again.
+- [ ] Keyboard: typing, arrows, Shift and ⌘V on a simulator and an emulator while the screen has the focus, while
+  every other ⌘ chord stays Ruimte's; the same on an Android phone over USB.
+- [ ] Clipboard both ways on a simulator, an emulator and an Android phone; text with accents and emoji.
+- [ ] Capture and record: copy, save and place a screenshot; a recording on a simulator ended by hand and one ended
+  by its limit, and on an emulator past 3 minutes.
+- [ ] Erase a simulator and an emulator after the dialog: both start again empty; a phone offers no Erase.
+- [ ] Install an `.app` on a simulator, an `.apk` on an emulator and an `.ipa` on an iPhone, picked and dropped.
+- [ ] An agent with a line to a device sets the status bar, reads the clipboard, records 10 seconds and installs an
+  app from the project folder; a path outside it is refused, and Erase, Fold and Camera are not offered to it.
+- [ ] A Flutter launch: "Show device" opens the simulator `flutter run -d` names, and the web run opens in a browser.
+
 ## Accounts and networks
 
 - [ ] Two real Claude account folders keep separate logins after a restart of the daemon, the app and the Mac, each
