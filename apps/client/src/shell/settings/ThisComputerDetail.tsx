@@ -7,13 +7,12 @@ import { SetUpMachineDialog } from '@/shell/settings/SetUpMachineDialog';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 
 /*
- * What a desktop app without a machine of its own offers for this computer. It never connects by
- * itself: the person sets one up, or picks the one that already runs here, and the app restarts.
+ * What a desktop app without a machine of its own offers for this computer. It never starts one by
+ * itself: the person asks, and the app restarts. A machine that already runs here is the shell's to use.
  */
-export function ThisComputerDetail({ found }: { found: boolean }) {
+export function ThisComputerDetail() {
     const { t } = useTranslation('settings');
     const [confirming, setConfirming] = useState(false);
-    const key = found ? 'use' : 'setUp';
     return (
         <>
             <DetailHeader
@@ -28,11 +27,11 @@ export function ThisComputerDetail({ found }: { found: boolean }) {
             <SettingsSection>
                 <SettingsRow
                     searchId="machines.thisComputer"
-                    label={t(`machines.thisComputer.${key}.label`)}
-                    description={t(`machines.thisComputer.${key}.description`)}
+                    label={t('machines.thisComputer.setUp.label')}
+                    description={t('machines.thisComputer.setUp.description')}
                     control={
                         <Button variant="secondary" onClick={() => setConfirming(true)}>
-                            {t(`machines.thisComputer.${key}.action`)}
+                            {t('machines.thisComputer.setUp.action')}
                         </Button>
                     }
                 />

@@ -100,10 +100,10 @@ describe('stopping the machine this app runs', () => {
         let answer: (value: MachineStopPreview) => void = () => undefined;
         preview = new Promise((resolve) => (answer = resolve));
         await open();
-        expect(everything()).toContain('Checking what runs…');
+        expect(everything()).toContain('Checking what is running…');
         expect(button('Stop and restart')?.disabled).toBe(true);
         answer({ work: { agents: 0, terminals: 0 }, home: '~/.ruimte', commandLine: false });
-        await until(() => everything().includes('Nothing runs on it right now.'));
+        await until(() => everything().includes('No agents or terminals are running.'));
         expect(button('Stop and restart')?.disabled).toBe(false);
     });
 
@@ -133,7 +133,7 @@ describe('stopping the machine this app runs', () => {
         await open();
         await until(() => box() !== null);
         expect(box()?.hasAttribute('disabled') || box()?.getAttribute('aria-disabled') === 'true').toBe(true);
-        expect(everything()).toContain('This machine is not reachable, so it stays on your account.');
+        expect(everything()).toContain('This machine is not answering, so it stays on your account.');
     });
 
     test('a machine from the command line is left running, and the checkbox is not offered without an account', async () => {

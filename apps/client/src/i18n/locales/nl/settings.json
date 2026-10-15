@@ -701,7 +701,7 @@
         },
         "stopRunning": {
             "label": "Hier geen machine meer draaien",
-            "description": "Ruimte haalt zijn achtergronddienst weg en start opnieuw zonder machine. Je projecten en chats blijven op deze computer.",
+            "description": "Ruimte start opnieuw en verbindt daarna alleen met je machines. Je projecten en chats blijven op deze computer.",
             "action": "Stoppen…"
         },
         "confirmStopRunning": {
@@ -716,15 +716,15 @@
             "agentCount_other": "{{count}} agents",
             "terminalCount_one": "een terminal",
             "terminalCount_other": "{{count}} terminals",
-            "nothing": "Er draait nu niets op.",
-            "data": "Ruimte haalt zijn achtergronddienst weg en start opnieuw. Je projecten, chats en worktrees blijven in {{home}} en komen terug als je hier weer een machine draait.",
-            "commandLine": "De machine die je via de opdrachtregel hebt ingesteld, blijft draaien. Ruimte maakt er geen verbinding meer mee en start opnieuw.",
-            "leave": "Haal {{machine}} ook van je account",
-            "unreachable": "Deze machine is niet bereikbaar, dus hij blijft op je account.",
+            "nothing": "Er draaien nu geen agents of terminals.",
+            "data": "Ruimte start opnieuw en verbindt daarna alleen met je machines. Je projecten, chats en worktrees blijven in {{home}} en komen terug als je hier weer een machine draait.",
+            "commandLine": "Je hebt deze machine via de opdrachtregel ingesteld, dus hij blijft draaien. Ruimte start opnieuw zonder hem.",
+            "leave": "Verwijder {{machine}} ook van je account",
+            "unreachable": "Deze machine antwoordt niet, dus hij blijft op je account.",
             "action": "Stoppen en opnieuw starten",
             "busy": "Stoppen…",
             "failed": "Ruimte kon niet zonder machine opnieuw starten. Probeer het opnieuw.",
-            "dataAnywhere": "Ruimte haalt zijn achtergronddienst weg en start opnieuw. Je projecten, chats en worktrees blijven op deze computer en komen terug als je hier weer een machine draait."
+            "dataAnywhere": "Ruimte start opnieuw en verbindt daarna alleen met je machines. Je projecten, chats en worktrees blijven op deze computer en komen terug als je hier weer een machine draait."
         }
     },
     "reach": {
@@ -836,7 +836,7 @@
             },
             "mapTiles": {
                 "label": "Kaarttegels",
-                "description": "Kaarten in chats laden hun tegels via de kaartdienst van Ruimte. Uit toont een kaart een eenvoudige omtrek en de lijst met plekken."
+                "description": "Kaarten in chats laden hun tegels van de kaartdienst van Ruimte. Staat dit uit, dan toont een kaart alleen een omtrek en de lijst met plekken."
             },
             "sendKey": {
                 "label": "Versturen met",
@@ -1047,8 +1047,8 @@
         },
         "thisMac": {
             "label": "Computer Use toestaan op deze Mac",
-            "description": "Vraagt een machine op deze computer. Agents bedienen de apps van de computer waarop hun machine draait.",
-            "reason": "Op deze computer draait geen machine",
+            "description": "Agents bedienen alleen apps op de computer waarop hun machine draait. Draai hier eerst een machine.",
+            "reason": "Draai eerst een machine op deze computer",
             "setUp": "Machine instellen…"
         }
     },
@@ -1140,11 +1140,11 @@
         },
         "links": {
             "title": "Gekoppelde projecten",
-            "description": "Andere machines van je account die in een project hier werken.",
+            "description": "Projecten op deze machine waarin je andere machines werken.",
             "listFailed": "De gekoppelde projecten konden niet worden opgehaald",
             "changeFailed": "De modus kon niet worden gewijzigd",
             "unlinkFailed": "Het project kon niet worden losgekoppeld",
-            "empty": "Geen andere machine werkt in een project hier.",
+            "empty": "Geen andere machine werkt in een project op deze machine.",
             "from": "van {{machine}}",
             "used": "Agents van {{machine}} starten hoogstens in de gekozen modus. Gekoppeld {{date}}, laatst gebruikt {{ago}}.",
             "unused": "Agents van {{machine}} starten hoogstens in de gekozen modus. Gekoppeld {{date}}, nog niet gebruikt.",
@@ -1157,7 +1157,7 @@
             },
             "confirm": {
                 "title": "{{project}} loskoppelen van {{machine}}?",
-                "text": "Nodes van {{machine}} die hier werken stoppen, en zijn agents kunnen hier geen taken meer geven. De checkout en de worktrees blijven staan.",
+                "text": "Nodes van {{machine}} die hier werken, stoppen. Zijn agents kunnen hier geen taken meer geven. De checkout en de worktrees blijven staan.",
                 "action": "Loskoppelen"
             }
         }
@@ -1294,18 +1294,12 @@
         "failed": "De instellingen van het account konden niet worden getekend",
         "thisComputer": {
             "row": "Deze computer",
-            "none": "Hier draait geen machine",
-            "foundRow": "Hier draait een machine, niet verbonden",
+            "none": "Verbindt alleen met je machines",
             "subtitle": "Ruimte verbindt alleen met de machines op je account.",
             "setUp": {
                 "label": "Een machine op deze computer draaien",
-                "description": "Projecten, terminals en agents draaien hier, bereikbaar vanaf je andere clients. Ruimte start opnieuw om hem in te stellen.",
+                "description": "Projecten, terminals en agents draaien hier, en je opent ze ook vanaf je andere computers en je telefoon. Ruimte start één keer opnieuw om dit in te stellen.",
                 "action": "Instellen"
-            },
-            "use": {
-                "label": "De machine op deze computer gebruiken",
-                "description": "Hier draait al een machine, buiten deze app. Ruimte maakt er na een herstart verbinding mee.",
-                "action": "Deze machine gebruiken"
             },
             "confirm": {
                 "title": "Ruimte opnieuw starten om hier een machine te draaien?",

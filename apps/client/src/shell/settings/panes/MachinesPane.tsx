@@ -13,7 +13,6 @@ import { MachineListItem } from '@/shell/settings/MachineListItem';
 import { currentPick, mergeMachines, pickForTarget, type MachinePick } from '@/shell/settings/machine-list';
 import { RuimteAccountDetail } from '@/shell/settings/RuimteAccountDetail';
 import { ThisComputerDetail } from '@/shell/settings/ThisComputerDetail';
-import { useMachineFound } from '@/shell/settings/use-machine-found';
 import { useEndpoints } from '@/state/endpoints';
 import { hasLocalMachine } from '@/state/local-machine';
 import { useUi } from '@/state/ui';
@@ -44,9 +43,7 @@ export function MachinesPane() {
 
     const signedIn = status === 'signed-in';
     const entries = mergeMachines({ endpoints, accountMachines: signedIn ? machines : null, showLocal: hasLocalMachine() });
-    // An app that runs no machine of its own offers to run one, or to use the one it finds.
     const offersThisComputer = isDesktop() && !hasLocalMachine();
-    const found = useMachineFound(offersThisComputer);
     const current = currentPick(picked, entries, offersThisComputer);
     const currentEntry = current.kind === 'machine' ? (entries.find((entry) => entry.id === current.id) ?? null) : null;
 
@@ -81,7 +78,7 @@ export function MachinesPane() {
                     </span>
                     <span className="flex min-w-0 grow flex-col">
                         <span className="truncate text-sm text-text">{t('machines.thisComputer.row')}</span>
-                        <span className="truncate text-xs text-text-muted">{t(found ? 'machines.thisComputer.foundRow' : 'machines.thisComputer.none')}</span>
+                        <span className="truncate text-xs text-text-muted">{t('machines.thisComputer.none')}</span>
                     </span>
                 </MasterItem>
             )}
@@ -129,7 +126,7 @@ export function MachinesPane() {
                 <ErrorBoundary label={t('machines.failed')} resetKeys={[current.kind, currentEntry?.id]}>
                     <div className="flex min-w-0 flex-col gap-7">
                         {current.kind === 'this-computer' ? (
-                            <ThisComputerDetail found={found} />
+                            <ThisComputerDetail />
                         ) : currentEntry !== null ? (
                             <MachineDetail key={currentEntry.id} entry={currentEntry} />
                         ) : (

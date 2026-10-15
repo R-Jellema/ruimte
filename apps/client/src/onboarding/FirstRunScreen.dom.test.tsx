@@ -59,17 +59,18 @@ afterEach(async () => {
 describe('the first start of a new install', () => {
     test('asks before anything else, with this computer running agents chosen', async () => {
         await open();
-        expect(radio('This computer runs agents')?.getAttribute('aria-checked')).toBe('true');
+        expect(radio('Run agents on this computer')?.getAttribute('aria-checked')).toBe('true');
         expect(radio('Only connect to my machines')?.getAttribute('aria-checked')).toBe('false');
         expect(text()).not.toContain('Open folder');
     });
 
-    test('offers the machine that already runs here', async () => {
+    test('a machine that already runs here reads the same, and Continue runs it', async () => {
         found = Promise.resolve(true);
         await open();
-        await until(() => radio('Use this machine') !== null);
-        expect(radio('Use this machine')?.getAttribute('aria-checked')).toBe('true');
-        expect(text()).not.toContain('This computer runs agents');
+        expect(radio('Run agents on this computer')?.getAttribute('aria-checked')).toBe('true');
+        expect(text()).not.toContain('already');
+        await clickOn(button('Continue'));
+        expect(chosen).toEqual(['local']);
     });
 
     test('Continue runs a machine here and marks the task list to open without the welcome', async () => {
@@ -95,7 +96,7 @@ describe('the first start of a new install', () => {
         await clickOn(button('Continue'));
         await until(() => text().includes('Ruimte could not save this choice. disk full'));
         expect(button('Continue')?.disabled).toBe(false);
-        expect(radio('This computer runs agents')?.getAttribute('aria-checked')).toBe('true');
+        expect(radio('Run agents on this computer')?.getAttribute('aria-checked')).toBe('true');
         expect(useSettings.getState().onboardingSkipWelcome).toBe(false);
     });
 
@@ -130,6 +131,6 @@ describe('the first start of a new install', () => {
         expect(next).not.toBeNull();
         expect((group as Node).compareDocumentPosition(next as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         expect(next?.tabIndex).toBe(0);
-        expect(radio('This computer runs agents')?.tabIndex).toBe(0);
+        expect(radio('Run agents on this computer')?.tabIndex).toBe(0);
     });
 });

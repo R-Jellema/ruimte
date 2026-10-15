@@ -89,19 +89,15 @@
         "description": "De korte taken van de eerste start: hoe Ruimte werkt, de agent-CLI's op deze machine en computer use."
     },
     "firstRun": {
-        "body": "Ruimte kan agents op deze computer draaien, of alleen de machines op je account openen.",
+        "body": "Ruimte kan je projecten en agents op deze computer draaien, of alleen de machines op je account openen.",
         "choices": "Hoe Ruimte op deze computer draait",
         "local": {
-            "title": "Deze computer draait agents",
-            "description": "Projecten, terminals en agents draaien hier, en je andere clients bereiken ze."
-        },
-        "found": {
-            "title": "Deze machine gebruiken",
-            "description": "Er draait al een machine op deze computer. Ruimte maakt er verbinding mee."
+            "title": "Agents op deze computer draaien",
+            "description": "Projecten, terminals en agents draaien hier. Je opent ze ook vanaf je andere computers en je telefoon."
         },
         "none": {
             "title": "Alleen verbinden met mijn machines",
-            "description": "Log in en open de machines op je account. Hier draait niets."
+            "description": "Log in en open de machines op je account. Op deze computer draaien geen agents."
         },
         "note": "Ruimte start daarna één keer opnieuw. Je kunt dit later wijzigen in Instellingen, onder Machines.",
         "continue": "Doorgaan",

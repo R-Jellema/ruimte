@@ -66,7 +66,7 @@ afterEach(async () => {
 describe('Settings > Machines of an app that runs no machine', () => {
     test('lists this computer, and its detail offers to run a machine, restarting only after a confirm', async () => {
         await open(machineBridge('none', { found: async () => found, choose: (mode) => choose(mode) }));
-        await until(() => row('No machine runs here') !== null);
+        await until(() => row('Only connects to your machines') !== null);
         await clickOn(row('This computer'));
         await until(() => everything().includes('Run a machine on this computer'));
         await clickOn(button('Set up'));
@@ -76,13 +76,16 @@ describe('Settings > Machines of an app that runs no machine', () => {
         expect(chosen).toEqual(['local']);
     });
 
-    test('offers the machine that already runs here', async () => {
+    test('a machine that already runs here reads the same: one way to run a machine', async () => {
         found = true;
         await open(machineBridge('none', { found: async () => found, choose: (mode) => choose(mode) }));
-        await until(() => row('A machine runs here, not connected') !== null);
+        await until(() => row('Only connects to your machines') !== null);
         await clickOn(row('This computer'));
-        await until(() => button('Use this machine') !== null);
-        expect(everything()).toContain('Use the machine on this computer');
+        await until(() => button('Set up') !== null);
+        expect(everything()).toContain('Run a machine on this computer');
+        await clickOn(button('Set up'));
+        await clickOn(button('Restart'));
+        expect(chosen).toEqual(['local']);
     });
 
     test('a choice that could not be saved stays in the dialog with its reason', async () => {
@@ -114,7 +117,7 @@ describe('Settings > Machines of an app that runs no machine', () => {
         release = connectFakeMachine(new FakeMachine());
         await open(undefined);
         await until(() => everything().includes('This machine'));
-        expect(row('No machine runs here')).toBeNull();
+        expect(row('Only connects to your machines')).toBeNull();
         expect(text()).not.toContain('Run a machine on this computer');
     });
 });

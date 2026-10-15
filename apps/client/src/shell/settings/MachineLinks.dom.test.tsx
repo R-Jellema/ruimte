@@ -67,7 +67,7 @@ describe('MachineLinks', () => {
     test('says so when no machine works here', async () => {
         links = [];
         await show();
-        await until(() => everything().includes('No other machine works in a project here.'));
+        await until(() => everything().includes('No other machine works in a project on this machine.'));
     });
 
     test('a failing list shows the failure instead of an empty list', async () => {
@@ -103,6 +103,6 @@ describe('MachineLinks', () => {
         await clickOn(button('Unlink'));
         await until(() => machine.requests('peer.unbind').length === 1);
         expect(machine.requests('peer.unbind')[0]).toEqual({ machineId: 'machine-b', projectId: 'atlas' });
-        await until(() => everything().includes('No other machine works in a project here.'));
+        await until(() => everything().includes('No other machine works in a project on this machine.'));
     });
 });

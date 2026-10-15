@@ -89,19 +89,15 @@
         "description": "The short tasks of the first start: how Ruimte works, the agent CLIs on this machine and computer use."
     },
     "firstRun": {
-        "body": "Ruimte can run agents on this computer, or only open the machines on your account.",
+        "body": "Ruimte can run your projects and agents on this computer, or only open the machines on your account.",
         "choices": "How Ruimte runs on this computer",
         "local": {
-            "title": "This computer runs agents",
-            "description": "Projects, terminals and agents run here, and your other clients reach them."
-        },
-        "found": {
-            "title": "Use this machine",
-            "description": "A machine already runs on this computer. Ruimte connects to it."
+            "title": "Run agents on this computer",
+            "description": "Projects, terminals and agents run here. You can also open them from your other computers and your phone."
         },
         "none": {
             "title": "Only connect to my machines",
-            "description": "Sign in and open the machines on your account. Nothing runs here."
+            "description": "Sign in and open the machines on your account. No agents run on this computer."
         },
         "note": "Ruimte restarts once to apply this. You can change it later in Settings, under Machines.",
         "continue": "Continue",

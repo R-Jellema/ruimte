@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { MonitorSmartphone, Server } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { desktop } from '@/desktop/bridge';
@@ -14,43 +14,23 @@ type FirstChoice = 'local' | 'none';
 
 /*
  * What a new install shows before anything runs: whether this computer runs agents or only opens the
- * machines of an account. The shell restarts the app with the answer.
+ * machines of an account. The shell restarts the app with the answer; a machine that already runs here
+ * is the shell's to use, so the choice reads the same either way.
  */
 export function FirstRunScreen() {
     const { t } = useTranslation('onboarding');
     const inset = useTrafficLightInset();
     const machine = desktop()?.machine;
     const [value, setValue] = useState<FirstChoice>('local');
-    const [found, setFound] = useState(false);
     const [busy, setBusy] = useState(false);
     const [failure, setFailure] = useState<string | null>(null);
 
-    useEffect(() => {
-        let alive = true;
-        machine
-            ?.found()
-            .then((answer) => {
-                if (alive) {
-                    setFound(answer);
-                }
-            })
-            .catch(() => undefined);
-        return () => {
-            alive = false;
-        };
-    }, [machine]);
-
     const choices = useMemo<Choice<FirstChoice>[]>(
         () => [
-            {
-                value: 'local',
-                title: t(found ? 'firstRun.found.title' : 'firstRun.local.title'),
-                description: t(found ? 'firstRun.found.description' : 'firstRun.local.description'),
-                icon: Server
-            },
+            { value: 'local', title: t('firstRun.local.title'), description: t('firstRun.local.description'), icon: Server },
             { value: 'none', title: t('firstRun.none.title'), description: t('firstRun.none.description'), icon: MonitorSmartphone }
         ],
-        [found, t]
+        [t]
     );
 
     const proceed = (): void => {

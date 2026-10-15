@@ -55,10 +55,10 @@ describe('backgroundServiceRow', () => {
 describe('stopRunningLines', () => {
     const home = '~/.ruimte';
     const DATA =
-        'Ruimte removes its background service and restarts. Your projects, chats and worktrees stay in ~/.ruimte and come back when you run a machine here again.';
+        'Ruimte restarts and only connects to your machines. Your projects, chats and worktrees stay in ~/.ruimte and come back when you run a machine here again.';
 
     test('says it is checking until the machine answered', () => {
-        expect(stopRunningLines(null)).toEqual(['Checking what runs…']);
+        expect(stopRunningLines(null)).toEqual(['Checking what is running…']);
     });
 
     test('names nothing when the machine cannot say what runs, and still says where the data stays', () => {
@@ -73,7 +73,7 @@ describe('stopRunningLines', () => {
     });
 
     test('says that nothing runs', () => {
-        expect(stopRunningLines({ work: { agents: 0, terminals: 0 }, home, commandLine: false })).toEqual(['Nothing runs on it right now.', DATA]);
+        expect(stopRunningLines({ work: { agents: 0, terminals: 0 }, home, commandLine: false })).toEqual(['No agents or terminals are running.', DATA]);
     });
 
     test('counts an agent, or terminals, alone', () => {
@@ -88,7 +88,7 @@ describe('stopRunningLines', () => {
 
     test('a machine from the command line keeps running, and that is all the question says', () => {
         expect(stopRunningLines({ work: { agents: 2, terminals: 0 }, home, commandLine: true })).toEqual([
-            'The machine set up from the command line keeps running. Ruimte stops connecting to it and restarts.'
+            'You set up this machine from the command line, so it keeps running. Ruimte restarts without it.'
         ]);
     });
 });

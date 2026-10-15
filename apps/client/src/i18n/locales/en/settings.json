@@ -701,12 +701,12 @@
         },
         "stopRunning": {
             "label": "Stop running a machine here",
-            "description": "Ruimte removes its background service and restarts without a machine. Your projects and chats stay on this computer.",
+            "description": "Ruimte restarts and only connects to your machines. Your projects and chats stay on this computer.",
             "action": "Stop running…"
         },
         "confirmStopRunning": {
             "title": "Stop running a machine on this computer?",
-            "checking": "Checking what runs…",
+            "checking": "Checking what is running…",
             "agents_one": "An agent ends now.",
             "agents_other": "{{count}} agents end now.",
             "terminals_one": "A terminal ends now.",
@@ -716,15 +716,15 @@
             "agentCount_other": "{{count}} agents",
             "terminalCount_one": "a terminal",
             "terminalCount_other": "{{count}} terminals",
-            "nothing": "Nothing runs on it right now.",
-            "data": "Ruimte removes its background service and restarts. Your projects, chats and worktrees stay in {{home}} and come back when you run a machine here again.",
-            "commandLine": "The machine set up from the command line keeps running. Ruimte stops connecting to it and restarts.",
-            "leave": "Also take {{machine}} off your account",
-            "unreachable": "This machine is not reachable, so it stays on your account.",
+            "nothing": "No agents or terminals are running.",
+            "data": "Ruimte restarts and only connects to your machines. Your projects, chats and worktrees stay in {{home}} and come back when you run a machine here again.",
+            "commandLine": "You set up this machine from the command line, so it keeps running. Ruimte restarts without it.",
+            "leave": "Also remove {{machine}} from your account",
+            "unreachable": "This machine is not answering, so it stays on your account.",
             "action": "Stop and restart",
             "busy": "Stopping…",
             "failed": "Ruimte could not restart without a machine. Try again.",
-            "dataAnywhere": "Ruimte removes its background service and restarts. Your projects, chats and worktrees stay on this computer and come back when you run a machine here again."
+            "dataAnywhere": "Ruimte restarts and only connects to your machines. Your projects, chats and worktrees stay on this computer and come back when you run a machine here again."
         }
     },
     "reach": {
@@ -836,7 +836,7 @@
             },
             "mapTiles": {
                 "label": "Map tiles",
-                "description": "Maps in chats load their tiles through Ruimte's map service. Off, a map shows a simple outline and its list of places."
+                "description": "Maps in chats load their tiles from Ruimte's map service. When this is off, a map shows only an outline and its list of places."
             },
             "sendKey": {
                 "label": "Send with",
@@ -1047,8 +1047,8 @@
         },
         "thisMac": {
             "label": "Allow computer use on this Mac",
-            "description": "Needs a machine on this computer. Agents operate the apps of the computer their machine runs on.",
-            "reason": "No machine runs on this computer",
+            "description": "Agents operate apps only on the computer their machine runs on. Run a machine here first.",
+            "reason": "Run a machine on this computer first",
             "setUp": "Set up a machine…"
         }
     },
@@ -1140,11 +1140,11 @@
         },
         "links": {
             "title": "Linked projects",
-            "description": "Other machines on your account that work in a project here.",
+            "description": "Projects on this machine that your other machines work in.",
             "listFailed": "Could not list the linked projects",
             "changeFailed": "Could not change the mode",
             "unlinkFailed": "Could not unlink the project",
-            "empty": "No other machine works in a project here.",
+            "empty": "No other machine works in a project on this machine.",
             "from": "from {{machine}}",
             "used": "Agents from {{machine}} start in the chosen mode at most. Linked {{date}}, last used {{ago}}.",
             "unused": "Agents from {{machine}} start in the chosen mode at most. Linked {{date}}, not used yet.",
@@ -1157,7 +1157,7 @@
             },
             "confirm": {
                 "title": "Unlink {{project}} from {{machine}}?",
-                "text": "Nodes of {{machine}} that work here stop, and its agents can no longer give tasks here. The checkout and its worktrees stay.",
+                "text": "Nodes from {{machine}} that work here stop. Its agents can no longer give tasks here. The checkout and its worktrees stay.",
                 "action": "Unlink"
             }
         }
@@ -1294,18 +1294,12 @@
         "failed": "The account settings failed to render",
         "thisComputer": {
             "row": "This computer",
-            "none": "No machine runs here",
-            "foundRow": "A machine runs here, not connected",
+            "none": "Only connects to your machines",
             "subtitle": "Ruimte only connects to the machines on your account.",
             "setUp": {
                 "label": "Run a machine on this computer",
-                "description": "Projects, terminals and agents run here, reachable from your other clients. Ruimte restarts to set it up.",
+                "description": "Projects, terminals and agents run here, and you can open them from your other computers and your phone. Ruimte restarts once to set this up.",
                 "action": "Set up"
-            },
-            "use": {
-                "label": "Use the machine on this computer",
-                "description": "A machine already runs here, outside this app. Ruimte connects to it after a restart.",
-                "action": "Use this machine"
             },
             "confirm": {
                 "title": "Restart Ruimte to run a machine here?",
