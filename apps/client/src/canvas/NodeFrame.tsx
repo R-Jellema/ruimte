@@ -191,19 +191,20 @@ const MACHINE_PILL_MIN_WIDTH = 380;
  * Which machine a node runs on, for a node that is not on the workspace's own. A canvas of one
  * machine draws none, so it looks as it always did.
  */
-function MachinePill({ machine, narrow }: { machine: string; narrow: boolean }) {
+function MachinePill({ machineId, endpointId, narrow }: { machineId: string; endpointId: string; narrow: boolean }) {
     const { t } = useTranslation('canvas');
-    const entry = useMachineEntry(machine);
+    const entry = useMachineEntry(endpointId);
     const icon = useMachineIcon(entry);
     const name = nameOf(entry);
     const workspace = useWorkspace();
-    const lapsed = usePeerLapse((state) => state.lapsed[machine] === true);
+    // The link between the machines is kept under the id the machine mints, which is not the key of its row on this computer.
+    const lapsed = usePeerLapse((state) => state.lapsed[machineId] === true);
     const linkAgain = (): void => {
         if (workspace === null) {
             return;
         }
-        void linkToPeer(machine, workspace.connection.transport)
-            .then(() => markPeerLapsed(machine, false))
+        void linkToPeer(machineId, workspace.connection.transport)
+            .then(() => markPeerLapsed(machineId, false))
             .catch((e: unknown) =>
                 useToasts.getState().show({ kind: 'error', title: t('remote.linkAgainFailed', { machine: name }), description: messageOf(e) })
             );
@@ -529,7 +530,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     {node.kind === 'terminal' && !renaming && <SessionPorts id={id} />}
                     {(node.kind === 'chat' || node.kind === 'terminal') && !renaming && <ComputerIndicator nodeId={id} />}
                     {node.machine !== undefined && endpointOfNode(node, '') !== workspaceId && !renaming && (
-                        <MachinePill machine={endpointOfNode(node, '')} narrow={node.w < MACHINE_PILL_MIN_WIDTH} />
+                        <MachinePill machineId={node.machine} endpointId={endpointOfNode(node, '')} narrow={node.w < MACHINE_PILL_MIN_WIDTH} />
                     )}
                     {!renaming && waitingFor.map((machine) => <RemoteWaitPill key={machine} machine={machine} />)}
                     {nodeWorktree && !renaming && <WorktreePill worktree={nodeWorktree} />}
