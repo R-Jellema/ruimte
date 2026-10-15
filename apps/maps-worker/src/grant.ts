@@ -27,7 +27,7 @@ export function validTemplatePath(path: string): boolean {
     const segments = path.split('/');
     return (
         path.length <= 300 &&
-        /^maps\/orbis\/(display|assets)\//.test(path) &&
+        /^maps\/orbis\/(map-display|assets)\//.test(path) &&
         segments.every((segment) => segment !== '.' && segment !== '..' && SEGMENT.test(segment))
     );
 }
@@ -105,7 +105,7 @@ export function pathFor(grant: Grant, tail: string): string | null {
  * display and its assets, and any `%` is only a space or a comma of a font stack.
  */
 export function upstreamPathAllowed(path: string): boolean {
-    if (path.length > 400 || !/^maps\/orbis\/(display|assets)\/[A-Za-z0-9._~*@%,/-]+$/.test(path) || /%(?!20|2C)/i.test(path)) {
+    if (path.length > 400 || !/^maps\/orbis\/(map-display|assets)\/[A-Za-z0-9._~*@%,/-]+$/.test(path) || /%(?!20|2C)/i.test(path)) {
         return false;
     }
     const segments = path.split('/');
