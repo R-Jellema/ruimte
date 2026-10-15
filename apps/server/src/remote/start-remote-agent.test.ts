@@ -255,6 +255,24 @@ describe('agent --machine', () => {
         expect(daemon.outbox.list().map((entry) => entry.kind)).toEqual(['take-remote-result']);
     });
 
+    test('a machine that names a node it was given no task for wakes nothing', async () => {
+        open = fakeLink();
+        const [line] = await give();
+        const nodeId = line!.split('\t')[0]!;
+        await daemon.worker.settled();
+        const woken: string[] = [];
+        const wake = daemon.worker.wake.bind(daemon.worker);
+        daemon.worker.wake = (target: string) => {
+            woken.push(target);
+            wake(target);
+        };
+        daemon.remoteTasks!.peerSettled(MACHINE, 'chat-lead');
+        daemon.remoteTasks!.peerSettled('machine-c', nodeId);
+        expect(woken).toEqual([]);
+        daemon.remoteTasks!.peerSettled(MACHINE, nodeId);
+        expect(woken).toContain(nodeId);
+    });
+
     test('a start that waits for a place runs once the result of another task is taken in, without the machine saying anything', async () => {
         open = fakeLink();
         let full = false;

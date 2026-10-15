@@ -148,6 +148,10 @@ export class RemoteTasks {
 
     /* A machine said a task of this one settled: its result is asked for, and the tasks that waited for a place try again. */
     peerSettled(machineId: string, nodeId: string): void {
+        // The machine names the node, so a node it was never given a task for is none of its business.
+        if (!this.deps.tasks.all().some((task) => task.machine === machineId && task.childId === nodeId)) {
+            return;
+        }
         this.deps.wake(nodeId);
         this.wakeStarts(machineId, nodeId);
     }
