@@ -4,6 +4,7 @@ import type { ProjectCanvasView, ProjectNode, RemoteStatusEvent, Task } from '@r
 import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 import { useAttention } from '@/state/attention';
 import { startRemoteStatusWatch } from '@/state/remote-status';
+import { startTaskWatch } from '@/tasks/watch';
 import { useTasks } from '@/state/tasks';
 import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
@@ -35,6 +36,7 @@ let disconnectThere: () => void;
 let workspace: FakeWorkspace;
 let page: Mounted;
 let stopWatching: () => void;
+let stopTasks: () => void;
 
 /* `unstarted` is the nodes whose task the machine has not been asked to start yet; a task it took leaves that out and only its result is owed. */
 function status(state: RemoteStatusEvent['state'], unstarted: string[] = state === 'waiting' ? [CHILD.id] : []): RemoteStatusEvent {
@@ -70,6 +72,7 @@ beforeEach(async () => {
     disconnectThere = connectFakeMachine(there, REMOTE);
     workspace = await openFakeWorkspace(here, { views: [MAIN] }, { activeViewId: MAIN.id, views: {} });
     stopWatching = startRemoteStatusWatch();
+    stopTasks = startTaskWatch();
     page = mount();
     await page.renderApp();
     await until(() => page.host.querySelector(`[data-node-id="${CHILD.id}"]`) !== null);
@@ -78,6 +81,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
     stopWatching();
+    stopTasks();
     useTasks.getState().forget(WORKSPACE);
     await page.unmount();
     workspace.close();
@@ -116,7 +120,12 @@ describe('a task that waits for another machine', () => {
         await until(() => !pillOf(PARENT.id).includes('Waiting for'));
     });
 
-    test('offers Stop waiting on the node that waits, and stops its task', async () => {
+    test('offers Stop waiting on the node that waits, asks first, and has the machine stop the task for real', async () => {
+        // The machine closes the task the way the daemon does when its agent is stopped: it cancels the task and tells every socket.
+        here.answer('chat.stopSubagent', () => {
+            queueMicrotask(() => here.emit('task.changed', { task: { ...TASK, status: 'cancelled', settledAt: 2, wake: 'none' } }));
+            return {};
+        });
         await act(async () => here.emit('remote.status', status('waiting')));
         await until(() => pillOf(PARENT.id).includes('Waiting for MacBook Pro'));
         const frame = page.host.querySelector(`[data-node-id="${CHILD.id}"]`)!;
@@ -127,8 +136,18 @@ describe('a task that waits for another machine', () => {
         const item = ([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((entry) => entry.textContent?.includes('Stop waiting'));
         expect(item).toBeDefined();
         await clickOn(item ?? null);
-        await until(() => here.requests('chat.stopTask').length > 0);
-        expect(here.requests('chat.stopTask')[0]).toEqual({ chatId: PARENT.id, taskId: TASK.id });
+
+        // Stopping asks first: nothing is sent until the person agrees.
+        await until(() => document.querySelector('[role="dialog"]') !== null);
+        expect(here.requests('chat.stopSubagent')).toEqual([]);
+        await clickOn(([...document.querySelectorAll('[role="dialog"] button')] as HTMLElement[]).find((entry) => entry.textContent?.includes('Stop')) ?? null);
+        await until(() => here.requests('chat.stopSubagent').length > 0);
+        expect(here.requests('chat.stopSubagent')[0]).toEqual({ chatId: PARENT.id, toolUseId: `task-${TASK.id}` });
+        expect(here.requests('chat.stopTask')).toEqual([]);
+
+        // The task is closed once the machine says so, and with it the pill and the card go.
+        await until(() => useTasks.getState().byEndpoint[WORKSPACE]?.[TASK.id]?.status === 'cancelled');
+        await until(() => !pillOf(PARENT.id).includes('Waiting for') && !bodyOf(CHILD.id).includes('not started'));
     });
 
     test('offers no Stop waiting while the link is open', async () => {

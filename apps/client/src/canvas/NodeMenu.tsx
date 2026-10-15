@@ -24,7 +24,7 @@ import {
     Terminal,
     Trash
 } from 'lucide-react';
-import type { ProviderInfo } from '@ruimte/contracts';
+import type { ProviderInfo, Task } from '@ruimte/contracts';
 import {
     arrangeGroupAction,
     clearTerminalAction,
@@ -38,7 +38,7 @@ import {
 } from '@/actions/client-actions';
 import { BringBackItem } from '@/canvas/BringBackItem';
 import { ChatAgentSubmenu } from '@/agents/AgentMenus';
-import { askBeforeClearingChat } from '@/agents/end-children';
+import { askBeforeClearingChat, askBeforeStoppingTask } from '@/agents/end-children';
 import { FlagSubmenu } from '@/project/FlagSubmenu';
 import { askOpenAsView, canOpenAsView } from '@/project/views';
 import { accentLabel, NODE_ACCENTS } from '@/canvas/accents';
@@ -141,6 +141,12 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
                 at: beside
             });
         }
+    };
+    // The task was given by a chat of the workspace's machine, which owes the start and is the one that ends it.
+    const stopWaiting = (task: Task): void => {
+        void askBeforeStoppingTask(workspaceTransport, id, task.title, () => {
+            void perform('chat.stopSubagent', { chatId: task.parentId, toolUseId: `task-${task.id}` }).catch(ignoreRefusal);
+        });
     };
     const clearChat = (): void => {
         void askBeforeClearingChat(transport, id, node.title, () => {
@@ -284,7 +290,7 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
                 </ContextMenu.Item>
             )}
             {waitingTask !== null && (
-                <ContextMenu.Item onClick={() => void perform('chat.stopTask', { chatId: waitingTask.parentId, taskId: waitingTask.id }).catch(ignoreRefusal)}>
+                <ContextMenu.Item onClick={() => stopWaiting(waitingTask)}>
                     <Icon icon={CircleStop} size={14} /> {t('menu.stopWaiting')}
                 </ContextMenu.Item>
             )}
