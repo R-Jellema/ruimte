@@ -48,7 +48,7 @@ export async function fetchMapResource(deps: Deps, env: Env, resource: Resource,
     }
     let upstream: Response;
     try {
-        upstream = await deps.fetch(upstreamUrl(resource.path, resource.query, key), { method: 'GET', headers: UPSTREAM_HEADERS, redirect: 'error' });
+        upstream = await deps.fetch(upstreamUrl(resource.path, resource.query, key), { method: 'GET', headers: UPSTREAM_HEADERS, redirect: 'manual' });
     } catch {
         return failure('upstream', 'The map provider did not answer');
     }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { MapsErrorSchema, MapsGeocodeResultSchema, signMapsPath } from '@ruimte/pulsar';
-import { KEY, ORIGIN, SECRET, harness } from './test/harness.ts';
+import { KEY, ORIGIN, SECRET, assertWorkerdFetchOptions, harness } from './test/harness.ts';
 
 const SPRITE = `https://api.tomtom.com/maps/orbis/assets/sprites/1.0.0/basic_mono-light/sprite?apiVersion=1&key=${KEY}`;
 const GLYPHS = `https://api.tomtom.com/maps/orbis/assets/fonts/1.0.0/{fontstack}/{range}.pbf?key=${KEY}&apiVersion=1`;
@@ -374,6 +374,28 @@ describe('what the style names', () => {
         expect((await maps.request(tile)).status).toBe(502);
         maps.answers = [() => new Response(new Uint8Array([1]), { headers: { 'content-type': 'image/webp' } })];
         expect((await maps.request(tile)).status).toBe(200);
+    });
+});
+
+describe('a redirect from TomTom', () => {
+    test('is not followed and not passed on: a 3xx fails closed, for a tile and for a search', async () => {
+        const maps = harness();
+        const { tiles } = await styled(maps);
+        maps.answers = [() => new Response(null, { status: 302, headers: { location: 'https://evil.test/tile' } })];
+        const tile = await maps.request(pathOf(tiles).replace('{z}/{x}/{y}', '1/1/1'));
+        expect(tile.status).toBe(502);
+        expect(tile.headers.get('location')).toBeNull();
+        const search = await maps.request('/v1/geocode', { method: 'POST', body: JSON.stringify({ query: 'Utrecht' }) });
+        expect(search.status).toBe(502);
+        expect(search.headers.get('location')).toBeNull();
+    });
+
+    test('every request to TomTom uses fetch options workerd accepts', async () => {
+        expect(() => assertWorkerdFetchOptions({ redirect: 'error' })).toThrow('must be one of "follow" or "manual"');
+        const maps = harness();
+        await maps.request('/v1/style?theme=light');
+        await maps.request('/v1/geocode', { method: 'POST', body: JSON.stringify({ query: 'Utrecht' }) });
+        expect(maps.upstream.length).toBe(2);
     });
 });
 

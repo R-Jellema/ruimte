@@ -8,6 +8,19 @@ export const SECRET = 'rpEgLz0VDkQ2M4v1o9s3bYt7JfHaCwXn6iUeNy8PqKg';
 export const KEY = 'tomtom-key-0123456789abcdef';
 export const ORIGIN = 'https://maps.test';
 
+/*
+ * The options workerd accepts on `fetch`, which Bun is looser about: `redirect` is `follow` or `manual` there and `error`
+ * is refused, so a handler that passes it answers 502 on every request in production and never in a test.
+ */
+export function assertWorkerdFetchOptions(init: RequestInit): void {
+    if (init.redirect !== undefined && init.redirect !== 'follow' && init.redirect !== 'manual') {
+        throw new TypeError(`Invalid redirect value, must be one of "follow" or "manual" (got "${String(init.redirect)}").`);
+    }
+    if (init.method !== undefined && init.method !== 'GET') {
+        throw new TypeError(`The maps service only ever sends GET upstream (got "${init.method}").`);
+    }
+}
+
 export interface Upstream {
     url: string;
     headers: Headers;
@@ -49,6 +62,7 @@ export function harness(overrides: Partial<Env> = {}): Harness {
             const pending: Promise<unknown>[] = [];
             const deps: Deps = {
                 fetch: async (url, requestInit) => {
+                    assertWorkerdFetchOptions(requestInit);
                     const call = { url, headers: new Headers(requestInit.headers), method: requestInit.method ?? 'GET' };
                     state.upstream.push(call);
                     const answer = state.answers[Math.min(state.upstream.length - 1, state.answers.length - 1)]!;

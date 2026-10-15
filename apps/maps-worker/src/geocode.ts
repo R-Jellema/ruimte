@@ -77,7 +77,7 @@ export async function geocode(request: Request, deps: Deps, env: Env): Promise<R
         upstream = await deps.fetch(`${TOMTOM_ORIGIN}/maps/orbis/places/search/${encodeURIComponent(body.data.query)}.json?${params.toString()}`, {
             method: 'GET',
             headers: { ...UPSTREAM_HEADERS, 'tomtom-api-key': key },
-            redirect: 'error'
+            redirect: 'manual'
         });
     } catch {
         return failure('upstream', 'The map provider did not answer');
