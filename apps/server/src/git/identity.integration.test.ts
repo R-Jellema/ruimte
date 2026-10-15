@@ -117,3 +117,12 @@ test('a git that takes too long is ended and says so', async () => {
     const result = await runGit(['status'], root, { env: { PATH: `${bin}:${process.env.PATH}` }, timeoutMs: 100 });
     expect(result.timedOut).toBe(true);
 });
+
+test('a git that left a child holding its pipes is ended with the child, and says so', async () => {
+    // Like a credential helper or an alias: git itself is gone at the end, the child keeps stdout and stderr open.
+    const bin = join(root, 'stuck-child-bin');
+    await mkdir(bin);
+    await writeFile(join(bin, 'git'), '#!/bin/sh\nsleep 30 &\nwait\n', { mode: 0o755 });
+    const result = await runGit(['status'], root, { env: { PATH: `${bin}:${process.env.PATH}` }, timeoutMs: 100 });
+    expect(result.timedOut).toBe(true);
+});

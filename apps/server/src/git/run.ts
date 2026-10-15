@@ -61,6 +61,7 @@ export const FIELD = '\u001f';
 /* `runGit` with stdout as the bytes git wrote, for content that is not known to be text. A git that
    cannot start reads as code 128, the same code git itself uses for "this is not a repository". */
 export async function runGitBytes(args: string[], cwd: string, options: GitOptions = {}): Promise<GitResult<Uint8Array>> {
+    const timed = options.timeoutMs !== undefined;
     try {
         const proc = Bun.spawn(['git', ...args], {
             cwd,
@@ -68,10 +69,28 @@ export async function runGitBytes(args: string[], cwd: string, options: GitOptio
             stdin: options.stdin === undefined ? 'ignore' : new TextEncoder().encode(options.stdin),
             stdout: 'pipe',
             stderr: 'pipe',
-            ...(options.timeoutMs === undefined ? {} : { timeout: options.timeoutMs })
+            // A group of its own, so the end takes a credential helper or an alias with it: whatever git started holds the pipes until it is gone.
+            detached: timed
         });
-        const [stdout, stderr, code] = await Promise.all([new Response(proc.stdout).bytes(), new Response(proc.stderr).text(), proc.exited]);
-        return { code, stdout, stderr, ...(options.timeoutMs !== undefined && proc.signalCode !== null ? { timedOut: true } : {}) };
+        let timedOut = false;
+        const timer = timed
+            ? setTimeout(() => {
+                  timedOut = true;
+                  try {
+                      process.kill(-proc.pid, 'SIGKILL');
+                  } catch {
+                      proc.kill('SIGKILL');
+                  }
+              }, options.timeoutMs)
+            : null;
+        try {
+            const [stdout, stderr, code] = await Promise.all([new Response(proc.stdout).bytes(), new Response(proc.stderr).text(), proc.exited]);
+            return { code, stdout, stderr, ...(timedOut ? { timedOut: true } : {}) };
+        } finally {
+            if (timer !== null) {
+                clearTimeout(timer);
+            }
+        }
     } catch {
         return { code: 128, stdout: new Uint8Array(), stderr: '' };
     }
