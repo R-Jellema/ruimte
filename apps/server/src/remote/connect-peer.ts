@@ -84,6 +84,16 @@ export class ConnectPeer {
         }
     }
 
+    /* Ends every reconnect, as leaving the account does. */
+    async lapseAll(remove: (id: string) => Promise<void>): Promise<void> {
+        this.firstOwed.clear();
+        for (const entry of this.deps.outbox.list()) {
+            if (entry.kind === 'connect-peer') {
+                await remove(entry.id);
+            }
+        }
+    }
+
     readonly handler = async (entry: ConnectPeerEntry): Promise<void> => {
         const { machineId, since, interval } = entry.payload;
         const { connections } = this.deps;

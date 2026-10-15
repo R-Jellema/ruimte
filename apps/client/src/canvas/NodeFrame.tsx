@@ -39,6 +39,8 @@ import { useChildTask } from '@/state/tasks';
 import { useUnseen } from '@/state/attention';
 import { deleteSelectionAsking } from '@/canvas/delete-selection';
 import { useWorkspace } from '@/transport/connections';
+import { markPeerLapsed, usePeerLapse } from '@/project/peer-lapse';
+import { useToasts } from '@/state/toasts';
 import { NodeMachineScope } from '@/transport/node-machine';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import { RemoteNodeOffline } from '@/canvas/RemoteNodeOffline';
@@ -63,7 +65,7 @@ import { useUi } from '@/state/ui';
 import { useCellHasFocus } from '@/state/document';
 import { useProject } from '@/state/project';
 import { useGroupWorktrees, useWorktreeOf } from '@/state/worktrees';
-import { ButtonGroup, ErrorBoundary, Pill, Tooltip, FileIcon, Icon, IconButton, Input, ContextMenu } from '@adecore/ui';
+import { ButtonGroup, ErrorBoundary, Pill, messageOf, Tooltip, FileIcon, Icon, IconButton, Input, ContextMenu } from '@adecore/ui';
 import { useHeldWhileVisible, useNodeInViewport, useReadableZoom } from '@/canvas/culling';
 import { TerminalBody, TerminalPlate } from '@/nodes/TerminalBody';
 import { SessionPorts } from '@/terminal/SessionPorts';
@@ -191,9 +193,29 @@ function MachinePill({ machine, narrow }: { machine: string; narrow: boolean }) 
     const entry = useMachineEntry(machine);
     const icon = useMachineIcon(entry);
     const name = nameOf(entry);
+    const workspace = useWorkspace();
+    const lapsed = usePeerLapse((state) => state.lapsed[machine] === true);
+    const linkAgain = (): void => {
+        if (workspace === null) {
+            return;
+        }
+        // Loaded when it is clicked; the account code reaches back into the transport this file is drawn from.
+        void import('@/pulsar/peer-link')
+            .then((peer) => peer.linkPeerThroughAccount(machine, workspace.connection.transport))
+            .then(() => markPeerLapsed(machine, false))
+            .catch((e: unknown) =>
+                useToasts.getState().show({ kind: 'error', title: t('remote.linkAgainFailed', { machine: name }), description: messageOf(e) })
+            );
+    };
+    const label = lapsed ? t('remote.pillLapsed', { machine: name }) : t('remote.pill', { machine: name });
     return (
-        <Tooltip label={t('remote.pill', { machine: name })}>
-            <Pill icon={<MachineGlyph icon={icon} size={12} />} className="max-w-40" aria-label={t('remote.pill', { machine: name })}>
+        <Tooltip label={label}>
+            <Pill
+                icon={<MachineGlyph icon={icon} size={12} />}
+                className="max-w-40"
+                aria-label={label}
+                {...(lapsed ? { tone: 'error' as const, onClick: linkAgain } : {})}
+            >
                 {narrow ? null : name}
             </Pill>
         </Tooltip>

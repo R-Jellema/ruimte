@@ -226,7 +226,8 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
         links: store.peers,
         projects: store,
         endSession: projects.endSession,
-        worktreePaths: (folder) => git.checkouts.paths(folder)
+        worktreePaths: (folder) => git.checkouts.paths(folder),
+        attestedUntil: (machineId) => machine.auth.attestedUntil(machineId)
     });
     registerRemoteHandlers(dispatcher, store.remote, store, {
         machineId: identity.id,

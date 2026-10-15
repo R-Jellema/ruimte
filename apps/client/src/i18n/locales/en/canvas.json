@@ -305,7 +305,9 @@
         "unlinked": "{{machine}} no longer links this project.",
         "linkAgain": "Link again",
         "tooOld": "{{machine}} runs an older Ruimte. Update it to use this node.",
-        "pill": "This node runs on {{machine}}"
+        "pill": "This node runs on {{machine}}",
+        "pillLapsed": "This node runs on {{machine}}. Agents cannot give tasks there yet: click to link again.",
+        "linkAgainFailed": "Could not link {{machine}} again"
     },
     "otherMachine": {
         "group": "On another machine",

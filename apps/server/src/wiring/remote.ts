@@ -11,6 +11,8 @@ export interface RemoteBundle {
     machines: PeerMachines;
     status: RemoteStatus;
     connections: RemoteConnections;
+    /* Runs after the machine left its account and forgot what it held of it, for what is built after this bundle. */
+    onLeave(listener: () => Promise<void> | void): void;
 }
 
 export interface RemoteInput {
@@ -36,5 +38,16 @@ export async function wireRemote({ home, identity, machine, outbox, later }: Rem
         owed: (machineId) => owedTargets(machineId).length,
         dialer: brokerDialer({ signer: machine.peerKey, defaultBroker: () => later.brokerUrl(), label: () => identity.label })
     });
-    return { machines, status, connections };
+    const leaving: Array<() => Promise<void> | void> = [];
+    // Another account's machines never vouched for this one: its key, the machines it knew and the statements it held go with the account.
+    machine.auth.onLeft(async () => {
+        connections.closeAll();
+        machine.pendingAdmissions.clear();
+        await machines.wipe();
+        await machine.peerKey.wipe();
+        for (const listener of leaving) {
+            await listener();
+        }
+    });
+    return { machines, status, connections, onLeave: (listener) => void leaving.push(listener) };
 }

@@ -305,7 +305,9 @@
         "unlinked": "{{machine}} koppelt dit project niet meer.",
         "linkAgain": "Opnieuw koppelen",
         "tooOld": "Op {{machine}} draait een oudere Ruimte. Werk hem bij om deze node te gebruiken.",
-        "pill": "Deze node draait op {{machine}}"
+        "pill": "Deze node draait op {{machine}}",
+        "pillLapsed": "Deze node draait op {{machine}}. Agents kunnen daar nog geen taken geven: klik om opnieuw te koppelen.",
+        "linkAgainFailed": "{{machine}} kon niet opnieuw worden gekoppeld"
     },
     "otherMachine": {
         "group": "Op een andere machine",

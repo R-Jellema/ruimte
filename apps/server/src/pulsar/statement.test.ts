@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PushSubscribePayloadSchema } from '@ruimte/contracts';
+import { PushSubscribePayloadSchema, clientChannelMessage } from '@ruimte/contracts';
 import { z } from 'zod';
 import {
     ACCESS_STATEMENT_LIFETIME_MS,
@@ -15,7 +15,9 @@ import {
     type SignalAccess,
     type SignalOfferAccess
 } from '@ruimte/pulsar';
-import { AuthStore } from '../auth/auth-store.ts';
+import { AuthStore, PEER_ATTESTATION_TTL_MS } from '../auth/auth-store.ts';
+import { Handshake } from '../auth/handshake.ts';
+import { PeerLinks } from '../peering/links.ts';
 import { generateKeyPair, signMessage } from '../auth/keys.ts';
 import { STATEMENT_CLOCK_SKEW_MS, StatementGate, TEST_STATEMENT_KEY_VARIABLE, checkPeerStatement, checkStatement, trustedStatementKeys } from './statement.ts';
 
@@ -548,5 +550,62 @@ describe('StatementGate and a peer', () => {
         expect(await store.bindAccount('owner')).toEqual({ bound: true, revoked: [sessions[0]!, sessions[1]!] });
         expect(await store.sessionForPublicKey(peer.publicKey)).toBeNull();
         expect(await store.sessionForPublicKey(owner.publicKey)).not.toBeNull();
+    });
+    test('a peer is let in for thirty days after the address book last vouched for it, and a new statement brings it back under the same session', async () => {
+        const peer = generateKeyPair();
+        expect(await gate().admit(peer.publicKey, offer(peerStatementFor(peer.publicKey, 'owner')))).toBe('admitted');
+        const sessionId = (await store.sessionForPublicKey(peer.publicKey))!;
+        const links = new PeerLinks(home);
+        await links.load();
+        await links.bind('machine-a', 'Studio', 'project-1', 'auto-accept-edits');
+
+        now += PEER_ATTESTATION_TTL_MS;
+        expect(await store.sessionForPublicKey(peer.publicKey)).toBe(sessionId);
+        now += 1;
+        expect(await store.sessionForPublicKey(peer.publicKey)).toBeNull();
+        expect(await store.hasSession(sessionId)).toBe(false);
+        expect(await store.noteSeen(sessionId)).toBe(false);
+        // It stays on record as the machine it was, never as a client, and a person can still see and revoke it.
+        expect(await store.peerOf(sessionId)).toMatchObject({ machineId: 'machine-a' });
+        expect(await store.list(null)).toEqual([expect.objectContaining({ id: sessionId, machineId: 'machine-a' })]);
+        expect(await store.attestedUntil('machine-a')).toBeLessThan(now);
+
+        // The gate sees an unknown key again and takes a fresh statement for it.
+        const statement = peerStatementFor(peer.publicKey, 'owner', { issuedAt: now, expiresAt: now + 600_000 });
+        expect(await gate().admit(peer.publicKey, offer(statement))).toBe('admitted');
+        expect(await store.sessionForPublicKey(peer.publicKey)).toBe(sessionId);
+        expect(await store.attestedUntil('machine-a')).toBe(now + PEER_ATTESTATION_TTL_MS);
+        expect(await store.list(null)).toHaveLength(1);
+        // The links a person made here belong to the machine, not to its attestation.
+        expect(links.linkOf('machine-a', 'project-1')).toMatchObject({ ceiling: 'auto-accept-edits' });
+    });
+
+    test('an expired peer cannot prove its key on a channel until it is renewed', async () => {
+        const daemon = generateKeyPair();
+        const handshake = new Handshake(
+            store,
+            { id: MACHINE_ID, publicKey: daemon.publicKey, sign: (message) => signMessage(daemon.privateKey, message) },
+            () => now
+        );
+        const peer = generateKeyPair();
+        const proof = async () => {
+            const { challenge } = handshake.challenge('binding');
+            return handshake.redeemChannel(
+                {
+                    publicKey: peer.publicKey,
+                    challenge,
+                    signature: signMessage(peer.privateKey, clientChannelMessage(MACHINE_ID, challenge, peer.publicKey, 'binding'))
+                },
+                'binding'
+            );
+        };
+        expect(await gate().admit(peer.publicKey, offer(peerStatementFor(peer.publicKey, 'owner')))).toBe('admitted');
+        expect(await proof()).toMatchObject({ peer: { machineId: 'machine-a' }, ticket: null });
+        now += PEER_ATTESTATION_TTL_MS + 1;
+        expect(await proof()).toBeNull();
+        expect(await gate().admit(peer.publicKey, offer(peerStatementFor(peer.publicKey, 'owner', { issuedAt: now, expiresAt: now + 600_000 })))).toBe(
+            'admitted'
+        );
+        expect(await proof()).toMatchObject({ peer: { machineId: 'machine-a' } });
     });
 });

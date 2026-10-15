@@ -15,7 +15,9 @@ export const PeerLinkSchema = z.object({
     // The widest mode an agent from the other machine may start in here.
     ceiling: RuntimeModeSchema,
     createdAt: z.number().int().nonnegative(),
-    lastUsedAt: z.number().int().nonnegative().optional()
+    lastUsedAt: z.number().int().nonnegative().optional(),
+    // Until when the address book vouches for that machine working here; past it the machine has to be linked from its side again. Absent when it never did.
+    attestedUntil: z.number().int().nonnegative().optional()
 });
 export type PeerLink = z.infer<typeof PeerLinkSchema>;
 

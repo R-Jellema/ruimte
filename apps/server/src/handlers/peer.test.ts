@@ -16,6 +16,7 @@ let dispatcher: Dispatcher;
 let ended: string[];
 let heard: string[];
 let launched: string[];
+let attested: Record<string, number>;
 let projectId: string;
 
 beforeEach(async () => {
@@ -33,13 +34,15 @@ beforeEach(async () => {
         }),
         new FakeWatch()
     );
+    attested = {};
     store.peers.subscribe('c1', (event) => void heard.push(event.event));
     dispatcher = new Dispatcher();
     registerPeerHandlers(dispatcher, {
         links: store.peers,
         projects: store,
         endSession: async (kind, nodeId) => void ended.push(`${kind}:${nodeId}`),
-        worktreePaths: async () => []
+        worktreePaths: async () => [],
+        attestedUntil: async (machineId) => attested[machineId] ?? null
     });
     projectId = (await store.openProject({ folder })).summary.projectId;
 });
@@ -97,6 +100,16 @@ describe('linking a project to another machine', () => {
             result: { links: [{ machineId: 'machine-a', label: 'MacBook Pro', projectName: 'repo' }] }
         });
         expect(heard).toEqual(['peer.changed']);
+    });
+
+    test('says until when the address book vouches for the machine, so a lapsed link can be made again from its side', async () => {
+        await ask('peer.bind', { machineId: 'machine-a', label: 'MacBook Pro', projectId });
+        await ask('peer.bind', { machineId: 'machine-b', label: 'Studio', projectId });
+        attested = { 'machine-a': 1_800_000_000_000 };
+        const answer = await ask('peer.list', {});
+        const links = 'ok' in answer && answer.ok ? (answer.result as { links: Array<{ machineId: string; attestedUntil?: number }> }).links : [];
+        expect(links.find((link) => link.machineId === 'machine-a')?.attestedUntil).toBe(1_800_000_000_000);
+        expect(links.find((link) => link.machineId === 'machine-b')).not.toHaveProperty('attestedUntil');
     });
 
     test('a ceiling is kept, changed on request, and a link of nobody has none to change', async () => {

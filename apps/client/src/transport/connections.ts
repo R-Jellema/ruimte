@@ -25,6 +25,7 @@ import { defaultWorkspaceStores } from '@/state/workspace';
 import { workspaceOf, useWindow, windowWorkspace } from '@/state/window';
 import { forgetProjectSessions } from '@/terminal/lifecycle';
 import { SessionClient } from '@/terminal/session-client';
+import { PeerRenewal } from '@/project/peer-renewal';
 import { RemoteMirror } from '@/project/remote-mirror';
 import { nodesOfView, subscribeViewNodes } from '@/project/view-nodes';
 import { machineTransport, pool } from '@/transport';
@@ -197,6 +198,12 @@ function connect(endpoint: Endpoint, onLoad: (connection: Connection, summary: P
     const diagrams = new DiagramClient(transport, stores.diagrams, stores.document, stores.project, {
         flushProject: (): Promise<void> => projects.flush()
     });
+    const peerRenewal = new PeerRenewal({
+        selfId: () => endpointById(connection.endpointId)?.daemonId ?? connection.endpointId,
+        transportOf: (machineId) => machineTransport(endpointIdOfMachine(machineId)),
+        // Loaded when a window first has a node on another machine; the account code it needs reaches back into this module.
+        link: async (machineId) => (await import('@/pulsar/peer-link')).linkPeerThroughAccount(machineId, transport)
+    });
     const mirror = new RemoteMirror({
         projectId: () => {
             const { current, currentEndpointId, switching } = stores.project.getState();
@@ -223,7 +230,8 @@ function connect(endpoint: Endpoint, onLoad: (connection: Connection, summary: P
             };
         },
         links: async (projectId) => (await connection.transport.request('remote.list', { projectId })).links,
-        transportOf: (machineId) => machineTransport(endpointIdOfMachine(machineId))
+        transportOf: (machineId) => machineTransport(endpointIdOfMachine(machineId)),
+        renewPeer: (machineId) => peerRenewal.ensure(machineId)
     });
     const projects = new ProjectClient(transport, stores.canvases, stores.document, panelsPort, projectSink(endpointId), {
         remote: { close: () => mirror.close(), release: () => mirror.release() },

@@ -206,6 +206,15 @@ describe('the reconnect of a link to another machine', () => {
         expect(connectEntries()).toEqual([]);
     });
 
+    test('ends for every machine when the machine leaves its account', async () => {
+        await reconnect.owe(MACHINE);
+        await reconnect.owe('machine-c');
+        await worker.settled();
+        expect(connectEntries()).toHaveLength(2);
+        await reconnect.lapseAll((id) => outbox.remove(id));
+        expect(connectEntries()).toEqual([]);
+    });
+
     test('gives up after 7 days, counted from when the link was first owed', async () => {
         await reconnect.owe(MACHINE);
         await worker.settled();

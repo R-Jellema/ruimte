@@ -66,6 +66,7 @@ export function wireAgentWork({ home, identity, stores, agents, projects, remote
         now: () => Date.now(),
         random: () => Math.random()
     });
+    remote.onLeave(() => reconnect.lapseAll((id) => outbox.remove(id)));
     remote.connections.onLost((machineId) => {
         void reconnect.owe(machineId).catch((e: unknown) => console.error('Owing a reconnect failed:', errorText(e)));
     });

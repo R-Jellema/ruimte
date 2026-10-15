@@ -23,6 +23,8 @@ const StoredRecordSchema = z.object({
     // The machine a peer is, as the account lists it; a peer record without both is dropped as the file loads.
     machineId: z.string().min(1).optional().catch(undefined),
     machinePublicKey: z.string().min(1).optional().catch(undefined),
+    // When the address book last vouched for a peer; a peer is let in only for `PEER_ATTESTATION_TTL_MS` after that.
+    attestedAt: z.number().optional().catch(undefined),
     // The account whose statement let this client in; absent for a statement that named none.
     account: z.string().min(1).optional().catch(undefined),
     createdAt: z.number(),
@@ -38,11 +40,19 @@ interface SessionRecord {
     // Set on a peer only.
     machineId?: string;
     machinePublicKey?: string;
+    attestedAt?: number;
     account?: string;
     createdAt: number;
     lastSeenAt: number;
     push?: PushSubscribePayload;
 }
+
+/*
+ * How long a peer stays let in after the last statement the address book signed for it. A machine that
+ * left the account, or was taken off it, stops being vouched for, and nothing here would otherwise
+ * notice; the machine that works here renews the statement silently while a person uses the link.
+ */
+export const PEER_ATTESTATION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function emptyState(account: Binding): State {
     return { sessions: [], spentNonces: [], revokedKeys: [], account };
@@ -145,6 +155,7 @@ export class AuthStore {
     private state: State | null = null;
     private readonly writes = new Serializer();
     private readonly now: () => number;
+    private readonly leftListeners: Array<() => Promise<void> | void> = [];
 
     constructor(home: string, now: () => number = Date.now) {
         this.path = join(home, 'auth.json');
@@ -189,6 +200,9 @@ export class AuthStore {
                 return { refused: 'key-in-use' };
             }
             known.lastSeenAt = now;
+            if (known.origin === 'peer') {
+                known.attestedAt = now;
+            }
             await this.save({ ...state, spentNonces });
             return { sessionId: known.id, created: false };
         }
@@ -197,7 +211,7 @@ export class AuthStore {
             label: entry.label,
             publicKey: entry.publicKey,
             origin: entry.peer === undefined ? 'statement' : 'peer',
-            ...(entry.peer === undefined ? {} : { machineId: entry.peer.machineId, machinePublicKey: entry.peer.machinePublicKey }),
+            ...(entry.peer === undefined ? {} : { machineId: entry.peer.machineId, machinePublicKey: entry.peer.machinePublicKey, attestedAt: now }),
             ...(entry.accountId === null ? {} : { account: entry.accountId }),
             createdAt: now,
             lastSeenAt: now
@@ -242,13 +256,39 @@ export class AuthStore {
         const left = state.account?.id;
         const revoked = state.sessions.filter((record) => record.account === undefined || record.account === left);
         await this.save({ ...state, sessions: state.sessions.filter((record) => !revoked.includes(record)), account: null });
+        for (const listener of this.leftListeners) {
+            await listener();
+        }
         return revoked.map((record) => record.id);
+    }
+
+    /* Told once the machine left its account, so what it holds of that account's other machines goes with it. */
+    onLeft(listener: () => Promise<void> | void): void {
+        this.leftListeners.push(listener);
     }
 
     /* The session a public key belongs to; the caller checks the signature that goes with it. */
     async sessionForPublicKey(publicKey: string): Promise<string | null> {
         const state = await this.load();
-        return state.sessions.find((entry) => entry.publicKey === publicKey)?.id ?? null;
+        const record = state.sessions.find((entry) => entry.publicKey === publicKey);
+        return record !== undefined && this.attested(record) ? record.id : null;
+    }
+
+    /*
+     * Until when the address book vouches for the machine that works here, whether or not that has run
+     * out already; null for a machine that never worked here. A peer whose time ran out stays on record
+     * so that a new statement brings it back under the same session, and its links with it.
+     */
+    async attestedUntil(machineId: string): Promise<number | null> {
+        const times = (await this.load()).sessions.flatMap((record) =>
+            record.origin === 'peer' && record.machineId === machineId ? [(record.attestedAt ?? record.createdAt) + PEER_ATTESTATION_TTL_MS] : []
+        );
+        return times.length === 0 ? null : Math.max(...times);
+    }
+
+    /* A client is let in until it is revoked, a peer for as long as the address book last vouched for it. */
+    private attested(record: SessionRecord): boolean {
+        return record.origin !== 'peer' || this.now() <= (record.attestedAt ?? record.createdAt) + PEER_ATTESTATION_TTL_MS;
     }
 
     /* The machine a session is, or null for a client; a peer is a machine of the account and never an owner. */
@@ -261,14 +301,14 @@ export class AuthStore {
 
     /* Whether a session still has its access, which a credential handed out before a revoke has to ask again. */
     async hasSession(sessionId: string): Promise<boolean> {
-        return (await this.load()).sessions.some((entry) => entry.id === sessionId);
+        return (await this.load()).sessions.some((entry) => entry.id === sessionId && this.attested(entry));
     }
 
     /* Notes that a client proved its key just now; false when it was revoked since it was looked up. */
     async noteSeen(sessionId: string): Promise<boolean> {
         const state = await this.load();
         const record = state.sessions.find((entry) => entry.id === sessionId);
-        if (!record) {
+        if (!record || !this.attested(record)) {
             return false;
         }
         record.lastSeenAt = this.now();

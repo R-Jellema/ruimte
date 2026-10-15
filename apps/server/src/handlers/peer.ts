@@ -19,6 +19,8 @@ import type { ProjectStore } from '../projects/project-store.ts';
 export interface PeerHost {
     links: PeerLinks;
     projects: Pick<ProjectStore, 'known' | 'read' | 'mutate' | 'hold'> & { index: Pick<ProjectStore['index'], 'folderOf'> };
+    /* Until when the address book vouches for a machine's peer key, null when it never worked here. */
+    attestedUntil?(machineId: string): Promise<number | null>;
     /* Ends the shell or the CLI behind a node, the way deleting the node does. */
     endSession(kind: 'terminal' | 'chat', nodeId: string): Promise<void>;
     /* The worktrees of the repository in a project folder, which a node may start in as well. */
@@ -39,7 +41,7 @@ function nodeOf(node: PeerNode, index: number): ProjectNode {
  * person on any client of the account is a person on this machine as far as its projects go. An agent
  * has no socket, so it never reaches these.
  */
-export function registerPeerHandlers(dispatcher: Dispatcher, { links, projects, endSession, worktreePaths }: PeerHost): void {
+export function registerPeerHandlers(dispatcher: Dispatcher, { links, projects, endSession, worktreePaths, attestedUntil }: PeerHost): void {
     const namesOf = async (): Promise<Map<string, string>> => new Map((await projects.known()).map((project) => [project.projectId, project.name]));
 
     const withName = (link: Omit<PeerLink, 'projectName'>, names: ReadonlyMap<string, string>): PeerLink => ({
@@ -49,7 +51,16 @@ export function registerPeerHandlers(dispatcher: Dispatcher, { links, projects, 
 
     dispatcher.register('peer.list', async () => {
         const names = await namesOf();
-        return { links: links.list().map((link) => withName(link, names)) };
+        const attested = new Map<string, number | null>();
+        for (const machineId of new Set(links.list().map((link) => link.machineId))) {
+            attested.set(machineId, (await attestedUntil?.(machineId)) ?? null);
+        }
+        return {
+            links: links.list().map((link) => {
+                const until = attested.get(link.machineId) ?? null;
+                return { ...withName(link, names), ...(until === null ? {} : { attestedUntil: until }) };
+            })
+        };
     });
 
     dispatcher.register('peer.bind', async (payload) => {

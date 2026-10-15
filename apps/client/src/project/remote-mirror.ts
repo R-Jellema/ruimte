@@ -79,6 +79,8 @@ export interface RemoteMirrorHost {
     /* The links of this project to checkouts on other machines. */
     links(projectId: string): Promise<RemoteLink[]>;
     transportOf(machineId: string): Requester | null;
+    /* A machine now shows nodes of this window; its right to work in this one may need renewing. */
+    renewPeer?(machineId: string): Promise<void>;
 }
 
 /*
@@ -259,6 +261,9 @@ export class RemoteMirror {
                 });
                 this.sent.set(machine, signature);
                 markUnlinked(machine, false);
+                if (mirror.nodes.length > 0) {
+                    void this.host.renewPeer?.(machine).catch(() => undefined);
+                }
             } catch (e) {
                 // Not marked as sent, so the next change or the link coming back sends it again.
                 markUnlinked(machine, e instanceof TransportError && e.code === 'peer-not-linked');

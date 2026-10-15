@@ -46,6 +46,13 @@ export class PeerMachines {
         return next;
     }
 
+    /* Every machine, as leaving the account forgets them. */
+    async wipe(): Promise<void> {
+        for (const machine of this.files.all()) {
+            await this.files.remove(machine.machineId);
+        }
+    }
+
     remove(machineId: string): Promise<void> {
         return this.files.remove(machineId);
     }

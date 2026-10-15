@@ -41,6 +41,7 @@ describe('what each machine draws of a project', () => {
 
 /* A window with one project, a machine to talk to and the stores a change comes from. */
 function rig(views: () => ProjectView[], links: RemoteLink[] = [{ machineId: B, remoteProjectId: 'remote-1', label: 'MacBook Pro', rootCommit: 'abc' }]) {
+    const renewed: string[] = [];
     const sent: Array<{ type: string; payload: unknown }> = [];
     let changed: (() => void) | null = null;
     let status: 'open' | 'closed' = 'open';
@@ -70,11 +71,13 @@ function rig(views: () => ProjectView[], links: RemoteLink[] = [{ machineId: B, 
             };
         },
         links: async () => links,
-        transportOf: () => transport as never
+        transportOf: () => transport as never,
+        renewPeer: async (machineId) => void renewed.push(machineId)
     };
     const mirror = new RemoteMirror(host);
     return {
         mirror,
+        renewed,
         sent,
         change: () => changed?.(),
         setStatus(next: 'open' | 'closed') {
@@ -85,6 +88,18 @@ function rig(views: () => ProjectView[], links: RemoteLink[] = [{ machineId: B, 
 }
 
 describe('the copy on the other machine', () => {
+    test('has the machine renew its right to work here once it shows nodes of this window, and not for an empty copy', async () => {
+        let nodes: CanvasNode[] = [];
+        const { mirror, renewed, change } = rig(() => [canvas(nodes)]);
+        mirror.start();
+        await mirror.settled();
+        expect(renewed).toEqual([]);
+        nodes = [node('chat', 'chat', B)];
+        change();
+        await mirror.settled();
+        expect(renewed).toEqual([B]);
+    });
+
     test('is sent once per change, however many changes land in one turn', async () => {
         let nodes = [node('chat', 'chat', B)];
         const { mirror, sent, change } = rig(() => [canvas(nodes)]);

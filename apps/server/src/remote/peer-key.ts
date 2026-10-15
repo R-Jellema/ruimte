@@ -1,4 +1,4 @@
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isNotFound, writeAtomic } from '@adecore/agents';
 import { z } from 'zod';
@@ -33,6 +33,13 @@ export class PeerKey {
 
     async sign(message: string): Promise<string> {
         return signMessage((await this.pair()).privateKey, message);
+    }
+
+    /* Forgets the key for good: a machine that left its account is not the machine the other ones vouched for, and gets a new key when it asks again. */
+    async wipe(): Promise<void> {
+        await this.loading?.catch(() => undefined);
+        this.loading = null;
+        await rm(this.path, { force: true });
     }
 
     private pair(): Promise<KeyPair> {

@@ -31,6 +31,10 @@ export class PendingAdmissions {
         return statement;
     }
 
+    clear(): void {
+        this.statements.clear();
+    }
+
     release(machineId: string): void {
         this.statements.delete(machineId);
     }
