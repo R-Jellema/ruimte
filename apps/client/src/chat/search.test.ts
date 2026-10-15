@@ -41,6 +41,17 @@ describe('searchChat', () => {
         expect(keys(thread, query('sidebar'))).toEqual(['u1:text:0', 'b1:summary:0', 'b1:output:0', 'b1:output:1', 'b2:output:0', 'a1:text:0', 'a1:text:1']);
     });
 
+    test('a ruimte-context call is found by the titles its line draws and by the ids behind them', () => {
+        const call = tool('c1', { command: 'ruimte-context browser go browser-3f2a9k1d --view main' }, '');
+        const nameOf = (word: string, option: string | null) =>
+            word === 'browser-3f2a9k1d' ? { name: 'Downloads' } : word === 'main' && option === '--view' ? { name: 'Feature: Views' } : null;
+        expect(searchChat([call], query('Downloads'), nameOf).hits).toHaveLength(1);
+        expect(searchChat([call], query('3f2a9k1d'), nameOf).hits).toHaveLength(1);
+        expect(searchChat([call], query('Feature'), nameOf).hits).toHaveLength(1);
+        expect(searchChat([call], query('Downloads')).hits).toEqual([]);
+        expect(searchChat([call], query('3f2a9k1d')).hits).toHaveLength(1);
+    });
+
     test('ignores case unless asked to match it', () => {
         expect(keys(thread, query('Sidebar', { caseSensitive: true }))).toEqual(['u1:text:0', 'b1:output:0']);
     });

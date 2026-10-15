@@ -8,6 +8,7 @@ import { perform, PERSON_PROMPT_CLIENTS } from '@/actions/client-actions';
 import { askBeforeStoppingSubagents, askBeforeStoppingTask } from '@/agents/end-children';
 import { FEATURED_ACCENTS, NODE_ACCENTS, accentLabel, type AccentId } from '@/canvas/accents';
 import { searchFiles } from '@/chat/file-search';
+import { RUIMTE_COMMAND_LOOKS } from '@/chat/ruimte-command-look';
 import { openLogin } from '@/chat/login';
 import { gitStatusConcernsChat } from '@/chat/ui-refresh';
 import { useMapSource } from '@/chat/use-map-source';
@@ -229,5 +230,6 @@ export const CHAT_HOST: Partial<ChatHost> = {
     // A chat on screen belongs to the project the window shows, and the Chats project shows none of its folders.
     useHidesFolder: () => useProject((s) => isScratchProject(s.current)),
     // A chat of the Chats project is a conversation of its own, so it opens the way one does.
-    useWelcome: () => useProject((s) => isScratchProject(s.current))
+    useWelcome: () => useProject((s) => isScratchProject(s.current)),
+    commandLooks: RUIMTE_COMMAND_LOOKS
 };

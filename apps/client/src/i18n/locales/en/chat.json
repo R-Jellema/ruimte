@@ -76,5 +76,11 @@
         "done": "Agent session restarted",
         "doneDescription": "The next message starts a fresh session that goes on with the conversation and picks up new skills, plugins, commands and MCP servers.",
         "failed": "Could not restart the agent session"
+    },
+    "commandLook": {
+        "used_one": "Used Ruimte {{name}} once",
+        "used_other": "Used Ruimte {{name}} {{count}} times",
+        "usedAny_one": "Used Ruimte once",
+        "usedAny_other": "Used Ruimte {{count}} times"
     }
 }

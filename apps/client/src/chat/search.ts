@@ -1,8 +1,10 @@
 import type { ChatItem } from '@ruimte/contracts';
 import { compileFind, matchesIn, MATCH_LIMIT, type FindQuery } from '@adecore/editor-react/models';
-import { handbackReportOf, toolSummary, stripAnsi } from '@adecore/agents-react/chat';
+import type { CommandName } from '@adecore/agents-react';
+import { handbackReportOf, matchCommandLook, toolSummary, stripAnsi } from '@adecore/agents-react/chat';
 import type { TimelineRow } from '@adecore/agents-react/chat';
 import type { ChatFindField } from '@adecore/agents-react/chat/ui';
+import { RUIMTE_COMMAND_LOOKS } from '@/chat/ruimte-command-look';
 
 /*
  * Find in a chat, over the thread's data and not its DOM: the timeline only draws the rows on screen,
@@ -29,8 +31,34 @@ function isChild(item: ChatItem): boolean {
     return (item.kind === 'tool' || item.kind === 'assistant' || item.kind === 'subagent') && Boolean(item.parentToolUseId);
 }
 
+/* The title a word of a `ruimte-context` call is drawn as, or null for one drawn as it was typed. */
+export type CallNames = (word: string, option: string | null) => CommandName | null;
+
+/*
+ * The line of a `ruimte-context` call as its row draws it: the detail, a named word as its title with
+ * the id behind it, the way the frame holds both. Null for any other call.
+ */
+function contextCallLine(item: Extract<ChatItem, { kind: 'tool' }>, nameOf: CallNames | undefined): string | null {
+    const input = item.input as { command?: unknown } | null;
+    const command = item.name === 'Bash' && typeof input?.command === 'string' ? input.command : null;
+    const run = command === null ? null : matchCommandLook(command, RUIMTE_COMMAND_LOOKS);
+    if (run === null) {
+        return null;
+    }
+    let line = '';
+    let at = 0;
+    for (const word of run.words) {
+        const named = nameOf?.(word.text, word.option) ?? null;
+        if (named !== null) {
+            line += `${run.detail.slice(at, word.start)}${named.name}${word.text}`;
+            at = word.end;
+        }
+    }
+    return line + run.detail.slice(at);
+}
+
 /* What a reader can find in an item, part by part, in the order its row draws them. */
-export function findableFields(item: ChatItem): { field: ChatFindField; text: string }[] {
+export function findableFields(item: ChatItem, nameOf?: CallNames): { field: ChatFindField; text: string }[] {
     if (isChild(item)) {
         return [];
     }
@@ -45,7 +73,7 @@ export function findableFields(item: ChatItem): { field: ChatFindField; text: st
                 return [{ field: 'text', text: report }];
             }
             return [
-                { field: 'summary', text: toolSummary(item.name, item.input) },
+                { field: 'summary', text: contextCallLine(item, nameOf) ?? toolSummary(item.name, item.input) },
                 { field: 'output', text: stripAnsi(item.output ?? '') }
             ];
         }
@@ -69,7 +97,7 @@ export function findableFields(item: ChatItem): { field: ChatFindField; text: st
     }
 }
 
-export function searchChat(items: readonly ChatItem[], query: FindQuery): ChatSearch {
+export function searchChat(items: readonly ChatItem[], query: FindQuery, nameOf?: CallNames): ChatSearch {
     const compiled = compileFind(query);
     if (compiled.kind === 'empty') {
         return NOTHING;
@@ -79,7 +107,7 @@ export function searchChat(items: readonly ChatItem[], query: FindQuery): ChatSe
     }
     const hits: ChatHit[] = [];
     for (const item of items) {
-        for (const { field, text } of findableFields(item)) {
+        for (const { field, text } of findableFields(item, nameOf)) {
             if (text === '') {
                 continue;
             }

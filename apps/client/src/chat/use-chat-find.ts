@@ -1,4 +1,5 @@
 import { createElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useContextNames } from '@/chat/ruimte-command-look';
 import { hitKey, hitRow, indexRows, NOTHING, placeOfHit, searchChat, type ChatHit } from '@/chat/search';
 import type { FindReveal } from '@adecore/agents-react/chat/ui';
 import type { TimelineFind, TimelineFindOptions } from '@adecore/agents-react';
@@ -7,6 +8,7 @@ import { FindBar } from '@/find/FindBar';
 import { clearFindHighlights, setFindHighlights } from '@/find/highlights';
 import { compileFind, stepIndex } from '@adecore/editor-react/models';
 import { useFind, type FindState } from '@/find/use-find';
+import { currentEndpointId } from '@/state/keys';
 
 // A fold that opens but still hides the hit would otherwise be asked again on every render.
 const MAX_SEEK_STEPS = 4;
@@ -34,6 +36,8 @@ export interface ChatFind {
 export function useChatFind(options: TimelineFindOptions): ChatFind {
     const { chatId, rows, structure, order } = options;
     const find = useFind(options.frame, options.enabled);
+    // The thread of a workspace is a chat of the machine this window works on.
+    const nameOf = useContextNames(currentEndpointId(), chatId);
     // The structure and not the items, so a streamed word does not search the whole thread again; a reply is searched once it settles.
     const search = useMemo(() => {
         if (!find.open || structure === undefined || order === undefined) {
@@ -41,9 +45,10 @@ export function useChatFind(options: TimelineFindOptions): ChatFind {
         }
         return searchChat(
             order.flatMap((id) => structure[id] ?? []),
-            find.query
+            find.query,
+            nameOf
         );
-    }, [find.open, find.query, structure, order]);
+    }, [find.open, find.query, structure, order, nameOf]);
     const rowIndex = useMemo(() => indexRows(rows), [rows]);
     // In the order the thread shows them, which is not always the order the items came in.
     const ordered = useMemo(
