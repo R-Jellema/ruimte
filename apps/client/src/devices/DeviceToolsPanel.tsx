@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ClipboardCopy, ClipboardPaste, Copy, Download, Frame, LoaderCircle, Square, Video } from 'lucide-react';
+import { ClipboardCopy, ClipboardPaste, Copy, Download, Frame, ImagePlus, LoaderCircle, PackagePlus, Square, Video } from 'lucide-react';
 import {
     devicePermissions,
     deviceTools,
@@ -14,8 +14,11 @@ import {
     type DeviceTool
 } from '@ruimte/contracts';
 import { copyScreenshot, placeScreenshotOnCanvas, saveScreenshot, startRecording, stopRecording } from '@/devices/device-capture';
+import { isInstallable, isMedia } from '@/devices/device-files';
+import { MachineFilePicker } from '@/devices/MachineFilePicker';
 import { recordingKey, useDevices, useRecordingSince } from '@/devices/state';
 import { useEndpointId } from '@/state/keys';
+import { useProject } from '@/state/project';
 import { deviceClientFor } from '@/transport/connections';
 import { useMachineAnswers } from '@/transport/features';
 import { formatClockDuration } from '@adecore/ui/format';
@@ -130,8 +133,11 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
                 )}
                 {(canCapture || canRecord) && <CaptureTools device={device} canCapture={canCapture} canRecord={canRecord} onError={setError} />}
                 {canClipboard && <ClipboardTools device={device} onError={setError} />}
-                {appTools.length > 0 && (
+                {(appTools.length > 0 || has('installApp') || has('addMedia')) && (
                     <ToolSection title={t('device.tools.app.title')}>
+                        {(has('installApp') || has('addMedia')) && (
+                            <InstallTools device={device} canInstall={has('installApp')} canMedia={has('addMedia')} disabled={pending} act={act} />
+                        )}
                         {has('openUrl') && (
                             <TextAction
                                 placeholder={t('device.tools.app.urlPlaceholder')}
@@ -534,6 +540,56 @@ function BiometricTools({
                 </ToolRow>
             ))}
         </ToolSection>
+    );
+}
+
+/* An app or pictures from the machine the device runs on, picked there, so it works from another machine too. */
+function InstallTools({
+    device,
+    canInstall,
+    canMedia,
+    disabled,
+    act
+}: {
+    device: DeviceInfo;
+    canInstall: boolean;
+    canMedia: boolean;
+    disabled: boolean;
+    act: (body: ActionBody) => Promise<void>;
+}) {
+    const { t } = useTranslation('machines');
+    const endpointId = useEndpointId();
+    const folder = useProject((state) => state.current?.folder ?? null);
+    const [picking, setPicking] = useState<'app' | 'media' | null>(null);
+    if (picking !== null) {
+        return (
+            <MachineFilePicker
+                endpointId={endpointId}
+                start={folder ?? '/'}
+                pickable={picking === 'app' ? (path) => isInstallable(device, path) : isMedia}
+                multiple={picking === 'media'}
+                confirmLabel={t('device.tools.files.add')}
+                onPick={(paths) => {
+                    setPicking(null);
+                    void act(picking === 'app' ? { action: 'installApp', path: paths[0]! } : { action: 'addMedia', paths });
+                }}
+                onCancel={() => setPicking(null)}
+            />
+        );
+    }
+    return (
+        <div className="flex flex-wrap gap-1.5">
+            {canInstall && (
+                <Button size="sm" variant="secondary" disabled={disabled} onClick={() => setPicking('app')}>
+                    <Icon icon={PackagePlus} size={12} /> {t('device.tools.app.install')}
+                </Button>
+            )}
+            {canMedia && (
+                <Button size="sm" variant="secondary" disabled={disabled} onClick={() => setPicking('media')}>
+                    <Icon icon={ImagePlus} size={12} /> {t('device.tools.app.addMedia')}
+                </Button>
+            )}
+        </div>
     );
 }
 

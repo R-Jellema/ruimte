@@ -55,7 +55,9 @@
                 "urlPlaceholder": "https://… of myapp://",
                 "open": "Openen",
                 "launch": "Starten",
-                "terminate": "Stoppen"
+                "terminate": "Stoppen",
+                "install": "App installeren…",
+                "addMedia": "Foto's of video toevoegen…"
             },
             "display": {
                 "title": "Scherm",
@@ -161,6 +163,16 @@
                 "fingerprint": "Vingerafdruk",
                 "match": "Match",
                 "noMatch": "Geen match"
+            },
+            "files": {
+                "up": "Eén map omhoog",
+                "cancel": "Stoppen met kiezen",
+                "list": "Bestanden op de machine",
+                "empty": "Hier staat niets wat dit apparaat aanneemt.",
+                "add": "Toevoegen",
+                "drop": "Loslaten om de app te installeren of de foto's toe te voegen",
+                "dropFailed": "Het apparaat nam dat niet aan",
+                "notTaken": "Sleep één app-bundel die dit apparaat installeert, of maximaal 20 foto's en video's."
             }
         },
         "operated": {

@@ -292,6 +292,8 @@ A device node shows a simulator, an emulator or a phone that runs on this machin
 | Battery | `status_bar override --batteryLevel --batteryState`, which only the status bar shows | `adb emu power capacity` and `power ac` on an emulator, `dumpsys battery set` and `reset` on a phone |
 | Biometrics | `notifyutil` in the simulator: `com.apple.BiometricKit.enrollmentChanged` to enroll, `BiometricKit_Sim.pearl` (Face ID) and `fingerTouch` (Touch ID) `.match` or `.nomatch` | `adb emu finger touch 1` (match) or `99` (no match) on an emulator |
 | Shake, memory warning | `notifyutil -p com.apple.UIKit.SimulatorShake`; the memory warning through the native helper, so only on a simulator someone has open | none |
+| Install | `simctl install` of an `.app` built for the simulator; an iPhone takes an `.app` or `.ipa` through `devicectl device install app` | `adb install -r` of an `.apk`, on an emulator or a phone |
+| Media | `simctl addmedia` of png, jpg, jpeg, heic, gif, mp4 or mov | `adb push` to `/sdcard/Pictures` or `/sdcard/Movies`, then the media scanner broadcast and the provider's `scan_file` call |
 | Erase | `simctl erase` on a simulator that is shut down, which the person's client shuts down first and starts again after | the emulator stopped and started again with `-wipe-data`; a phone is never erased |
 | Record | `simctl io recordVideo --codec=h264`, ended with SIGINT so it writes the end of the file, and by itself after 10 minutes | `screenrecord --time-limit 180` on the device, ended with `pkill -INT screenrecord` there, then pulled and removed |
 | Elements | the device bridge (`apps/ios-device-bridge`) | `uiautomator dump`, which needs nothing installed |
@@ -314,6 +316,8 @@ What an Android emulator cannot do that a simulator can, and stays out of scope:
 - Record for longer than 3 minutes: Android's own recorder stops there, and the node says so.
 - Shake, or warn an app of low memory: Android has no counterpart.
 - Enroll a fingerprint, or touch one on a phone: enrolling happens in the device's Settings, and only the emulator console has a sensor to touch.
+
+A path to install or add is always a file on the machine, never an upload: a client picks it in the machine's own files or drops it from the project's file tree, so it works the same from another machine. The daemon refuses a path that is not absolute or lies in the machine's own state under `$RUIMTE_HOME`, as `fs.read` does (`device-path-refused`), and a file the device does not take. Which of the two media scans Android 14 and later honor is not verified yet (`android-media.device.integration.test.ts`).
 
 What the status bar and the battery are set to is remembered by the daemon, since neither platform reads it back, and is unknown again after a restart. A simulator's side buttons (volume, power, play) go through the native helper's HID but are announced only once `side-buttons.device.integration.test.ts` confirmed them on a simulator; an Android device presses volume and play as key codes.
 

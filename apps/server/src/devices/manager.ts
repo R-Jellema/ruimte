@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { randomUUID } from 'node:crypto';
+import { isAbsolute } from 'node:path';
 import {
     deviceMatches,
     type DeviceAction,
@@ -19,6 +20,7 @@ import { LiveStreamHub, type LiveFrameSource } from '../streams/live-stream.ts';
 import { CodedError } from '@adecore/agents';
 import { FrameFanout, streamKeyOf } from '../streams/frame-fanout.ts';
 import { LiveSinks, type LiveEvent, type LiveSink } from '../client-sinks.ts';
+import { actionPaths } from './device-paths.ts';
 import type { DeviceTree } from './device-tree.ts';
 
 export interface DeviceSource extends LiveFrameSource {
@@ -166,10 +168,14 @@ export class DeviceManager {
     private readonly sinks = new LiveSinks();
     private readonly frames: FrameFanout;
 
-    constructor(backends: DeviceBackend[], streams = new LiveStreamHub()) {
+    private readonly refusePath: (path: string) => Promise<void>;
+
+    /* `refusePath` rejects a path on the machine a device may not be handed, such as the machine's own state. */
+    constructor(backends: DeviceBackend[], streams = new LiveStreamHub(), refusePath: (path: string) => Promise<void> = async () => undefined) {
         this.backends = new Map(backends.map((backend) => [backend.id, backend]));
         this.streams = streams;
         this.frames = new FrameFanout(streams, this.sinks);
+        this.refusePath = refusePath;
     }
 
     subscribe(clientId: string, sink: LiveSink): () => void {
@@ -232,6 +238,9 @@ export class DeviceManager {
         const backend = this.backend(action.backendId, action.platform);
         if (!backend.action) {
             throw new DeviceError('device-tools-unavailable', 'This device has no tools in Ruimte');
+        }
+        for (const path of actionPaths(action)) {
+            await this.checkPath(path);
         }
         if (action.action === 'erase') {
             // An erased device shows nothing of before, so nobody keeps watching it.
@@ -505,6 +514,17 @@ export class DeviceManager {
     closeAll(): void {
         for (const key of [...this.sessions.keys()]) {
             this.destroy(key);
+        }
+    }
+
+    private async checkPath(path: string): Promise<void> {
+        if (!isAbsolute(path)) {
+            throw new DeviceError('device-path-refused', `${path} is not a path on this machine: name it from the root`);
+        }
+        try {
+            await this.refusePath(path);
+        } catch (error) {
+            throw new DeviceError('device-path-refused', error instanceof Error ? error.message : `${path} is not handed to a device`);
         }
     }
 

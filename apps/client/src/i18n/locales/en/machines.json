@@ -55,7 +55,9 @@
                 "urlPlaceholder": "https://… or myapp://",
                 "open": "Open",
                 "launch": "Launch",
-                "terminate": "Terminate"
+                "terminate": "Terminate",
+                "install": "Install app…",
+                "addMedia": "Add photos or video…"
             },
             "display": {
                 "title": "Display",
@@ -161,6 +163,16 @@
                 "fingerprint": "Fingerprint",
                 "match": "Match",
                 "noMatch": "No match"
+            },
+            "files": {
+                "up": "Up one folder",
+                "cancel": "Stop picking",
+                "list": "Files on the machine",
+                "empty": "Nothing here this device takes.",
+                "add": "Add",
+                "drop": "Drop to install the app or add the pictures",
+                "dropFailed": "The device did not take that",
+                "notTaken": "Drop one app bundle this device installs, or up to 20 pictures and videos."
             }
         },
         "operated": {

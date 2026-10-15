@@ -17,6 +17,7 @@ import {
 import { simulatorTree, type DeviceTree } from './device-tree.ts';
 import { DeviceHelperSource, type DeviceHelperLauncher } from './helper-source.ts';
 import { DeviceError, KEY_LEFT_COMMAND, KEY_V, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard, type DeviceSource } from './manager.ts';
+import { requireExtension, requireMedia } from './device-paths.ts';
 import { DeviceRecordings } from './recordings.ts';
 import type { SimulatorTreeReader } from './simulator-tree.ts';
 
@@ -92,7 +93,9 @@ const IOS_SIMULATOR_TOOLS: DeviceTool[] = [
     'statusBar',
     'battery',
     'biometrics',
-    'shake'
+    'shake',
+    'installApp',
+    'addMedia'
 ];
 
 /* The status bar of a marketing shot. */
@@ -387,6 +390,14 @@ export class IosSimulatorBackend implements DeviceBackend {
                 break;
             case 'setAllPermissions':
                 await this.command(['privacy', deviceId, action.decision, 'all', action.appId]);
+                break;
+            case 'installApp':
+                requireExtension(action.path, ['.app'], 'an .app built for the simulator; an .ipa is for an iPhone');
+                await this.command(['install', deviceId, action.path]);
+                break;
+            case 'addMedia':
+                requireMedia(action.paths);
+                await this.command(['addmedia', deviceId, ...action.paths]);
                 break;
             case 'setAppearance':
                 await this.command(['ui', deviceId, 'appearance', action.value]);

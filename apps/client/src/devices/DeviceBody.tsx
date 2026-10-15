@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type DragEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     CircleAlert,
@@ -24,15 +24,18 @@ import {
     Volume2,
     type LucideIcon
 } from 'lucide-react';
-import { deviceButtons, deviceTools, type DeviceButton, type DeviceInfo, type DeviceInput, type DeviceReference } from '@ruimte/contracts';
+import { absoluteOf, deviceButtons, deviceTools, type DeviceButton, type DeviceInfo, type DeviceInput, type DeviceReference } from '@ruimte/contracts';
+import { PATHS_DRAG_TYPE } from '@/canvas/drop';
 import { useNodeHost } from '@/nodes/node-host';
 import { restartDevice } from '@/devices/control';
 import { stopRecording } from '@/devices/device-capture';
+import { dropAction } from '@/devices/device-files';
 import { ANDROID_BUTTONS } from '@/devices/operated';
 import { useDeviceList, useDevices, useRecordingSince, useResolvedDevice } from '@/devices/state';
 import { DeviceStream } from '@/devices/DeviceStream';
 import { failed } from '@/shell/surface-failure';
 import { useEndpointId } from '@/state/keys';
+import { useProject } from '@/state/project';
 import { useToasts } from '@/state/toasts';
 import { deviceClientFor } from '@/transport/connections';
 import { formatClockDuration } from '@adecore/ui/format';
@@ -269,9 +272,66 @@ export function DeviceSurface({ device }: { device: DeviceInfo }) {
         return <DeviceMessage icon={CircleAlert} message={t('device.noStream')} />;
     }
     return (
-        <div className="relative h-full min-h-0 w-full">
+        <DeviceDropZone device={device}>
             <DeviceStream key={`${device.backendId}:${device.deviceId}`} device={device} />
             <DeviceRecordingBadge device={device} />
+        </DeviceDropZone>
+    );
+}
+
+/* The paths a drag out of Ruimte's own file tree carries, against the project folder; a file from the Finder has no path here. */
+function draggedPaths(transfer: DataTransfer, folder: string): string[] {
+    return transfer
+        .getData(PATHS_DRAG_TYPE)
+        .split(/\s+/)
+        .filter((path) => path !== '')
+        .map((path) => absoluteOf(folder, path));
+}
+
+/* Takes an app to install or pictures to add, dropped from the project's file tree. */
+function DeviceDropZone({ device, children }: { device: DeviceInfo; children: ReactNode }) {
+    const { t } = useTranslation('machines');
+    const endpointId = useEndpointId();
+    const folder = useProject((state) => state.current?.folder ?? null);
+    const [over, setOver] = useState(false);
+    const tools = deviceTools(device);
+    const accepts = folder !== null && (tools.includes('installApp') || tools.includes('addMedia'));
+    const fail = (description: string): void => {
+        useToasts.getState().show({ kind: 'error', title: t('device.tools.files.dropFailed'), description });
+    };
+    const drop = (event: DragEvent<HTMLDivElement>): void => {
+        setOver(false);
+        if (!accepts || !event.dataTransfer.types.includes(PATHS_DRAG_TYPE)) {
+            return;
+        }
+        event.preventDefault();
+        const action = dropAction(device, draggedPaths(event.dataTransfer, folder));
+        if (action === null) {
+            fail(t('device.tools.files.notTaken'));
+            return;
+        }
+        void deviceClientFor(endpointId)
+            ?.action({ backendId: device.backendId, platform: device.platform, deviceId: device.deviceId, ...action })
+            .catch((error: unknown) => fail(error instanceof Error ? error.message : String(error)));
+    };
+    return (
+        <div
+            className="relative h-full min-h-0 w-full"
+            onDragOver={(event) => {
+                if (accepts && event.dataTransfer.types.includes(PATHS_DRAG_TYPE)) {
+                    event.preventDefault();
+                    setOver(true);
+                }
+            }}
+            onDragLeave={() => setOver(false)}
+            onDrop={drop}
+        >
+            {children}
+            {over && (
+                <div className="pointer-events-none absolute inset-2 grid place-items-center rounded-lg border-2 border-dashed border-accent bg-bg/80 px-4 text-center text-sm text-text">
+                    {t('device.tools.files.drop')}
+                </div>
+            )}
         </div>
     );
 }

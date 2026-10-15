@@ -454,4 +454,53 @@ describe('AndroidBackend', () => {
         expect(all).toContain('-s emulator-5554 shell pm grant com.example.app android.permission.ACTIVITY_RECOGNITION');
         expect((await backend.detail('Pixel_9_Pro_API_35')).statusBar).toBe('default');
     });
+
+    test('installs an .apk and pushes pictures and videos where the gallery looks, then asks for a scan', async () => {
+        const adb = new FakeAdb();
+        const backend = backendWith(adb);
+        await backend.list();
+        const act = async (action: Record<string, unknown>) => {
+            adb.calls.length = 0;
+            await backend.action('Pixel_9_Pro_API_35', {
+                backendId: 'android',
+                platform: 'android',
+                deviceId: 'Pixel_9_Pro_API_35',
+                ...action
+            } as DeviceAction);
+            return adb.calls
+                .map((call) => call.join(' '))
+                .filter((call) => !call.includes('settings get') && !call.includes('devices -l') && !call.includes('emu avd name'));
+        };
+
+        expect(await act({ action: 'installApp', path: '/work/atlas/app-debug.apk' })).toEqual(['-s emulator-5554 install -r /work/atlas/app-debug.apk']);
+        expect(await act({ action: 'addMedia', paths: ['/work/atlas/my shot.png', '/work/atlas/clip.mp4'] })).toEqual([
+            '-s emulator-5554 push /work/atlas/my shot.png /sdcard/Pictures/my shot.png',
+            "-s emulator-5554 shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/my%20shot.png >/dev/null; content call --uri content://media/external/file --method scan_file --arg '/sdcard/Pictures/my shot.png' >/dev/null 2>&1; true",
+            '-s emulator-5554 push /work/atlas/clip.mp4 /sdcard/Movies/clip.mp4',
+            '-s emulator-5554 shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Movies/clip.mp4 >/dev/null; content call --uri content://media/external/file --method scan_file --arg /sdcard/Movies/clip.mp4 >/dev/null 2>&1; true'
+        ]);
+        await expect(act({ action: 'installApp', path: '/work/atlas/Atlas.app' })).rejects.toMatchObject({ code: 'device-path-refused' });
+    });
+
+    test('says why adb refused an install', async () => {
+        const adb = new FakeAdb();
+        const answer = adb.run;
+        const backend = backendWith(adb, {
+            run: async (command, arguments_) =>
+                arguments_.includes('install')
+                    ? { exitCode: 0, stdout: 'Performing Streamed Install\nFailure [INSTALL_FAILED_OLDER_SDK]\n', stderr: '' }
+                    : answer(command, arguments_)
+        });
+        await backend.list();
+
+        await expect(
+            backend.action('Pixel_9_Pro_API_35', {
+                backendId: 'android',
+                platform: 'android',
+                deviceId: 'Pixel_9_Pro_API_35',
+                action: 'installApp',
+                path: '/work/a.apk'
+            })
+        ).rejects.toThrow('Failure [INSTALL_FAILED_OLDER_SDK]');
+    });
 });

@@ -374,4 +374,25 @@ describe('IosSimulatorBackend', () => {
         await backend.action('phone-1', target, session);
         expect(called).toEqual([{ method: 'memoryWarning' }]);
     });
+
+    test('installs an .app and adds pictures and videos with simctl, and says an .ipa is for an iPhone', async () => {
+        const calls: string[][] = [];
+        const backend = new IosSimulatorBackend(async (arguments_) => {
+            calls.push(arguments_);
+            return { exitCode: 0, stdout: '', stderr: '' };
+        });
+        const target = { backendId: 'simctl', platform: 'ios', deviceId: 'phone-1' } as const;
+
+        await backend.action('phone-1', { ...target, action: 'installApp', path: '/work/atlas/build/Atlas.app/' });
+        await backend.action('phone-1', { ...target, action: 'addMedia', paths: ['/work/atlas/a.HEIC', '/work/atlas/b.mov'] });
+
+        expect(calls.filter((call) => call[0] === 'install' || call[0] === 'addmedia')).toEqual([
+            ['install', 'phone-1', '/work/atlas/build/Atlas.app/'],
+            ['addmedia', 'phone-1', '/work/atlas/a.HEIC', '/work/atlas/b.mov']
+        ]);
+        await expect(backend.action('phone-1', { ...target, action: 'installApp', path: '/work/atlas/Atlas.ipa' })).rejects.toThrow('an .ipa is for an iPhone');
+        await expect(backend.action('phone-1', { ...target, action: 'addMedia', paths: ['/work/atlas/notes.txt'] })).rejects.toMatchObject({
+            code: 'device-path-refused'
+        });
+    });
 });

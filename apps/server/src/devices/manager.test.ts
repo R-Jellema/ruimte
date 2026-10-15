@@ -1,4 +1,8 @@
 import { describe, expect, test } from 'bun:test';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { MachineHome } from '../fs/machine-home.ts';
 import type { DeviceInfo, DeviceInput, LiveFrame, LiveFrameHeader, LiveStreamFrame } from '@ruimte/contracts';
 import { DeviceError, DeviceManager, type DeviceBackend, type DeviceSource } from './manager.ts';
 
@@ -362,5 +366,39 @@ describe('DeviceManager', () => {
         expect(await manager.clipboard('simctl', 'ios', 'phone-1', 'client-1')).toBe('copied on the device');
         await manager.clipboard('simctl', 'ios', 'phone-1', 'client-1', 'mine');
         expect(written).toEqual(['mine']);
+    });
+
+    test('refuses a path that is not absolute or that the machine does not hand out, before any backend sees it', async () => {
+        const home = await mkdtemp(join(tmpdir(), 'ruimte-device-paths-'));
+        const actions: unknown[] = [];
+        const backend = new FakeBackend();
+        Object.assign(backend, {
+            action: (_deviceId: string, action: unknown) => {
+                actions.push(action);
+                return Promise.resolve({});
+            }
+        });
+        const manager = new DeviceManager([backend], undefined, (path) => new MachineHome(home).refuse(path));
+        const install = (path: string) => manager.action({ backendId: 'simctl', platform: 'ios', deviceId: 'phone-1', action: 'installApp', path });
+
+        try {
+            await expect(install('build/Atlas.app')).rejects.toMatchObject({ code: 'device-path-refused' });
+            await expect(install(join(home, 'projects', 'secret.app'))).rejects.toMatchObject({ code: 'device-path-refused' });
+            await expect(
+                manager.action({
+                    backendId: 'simctl',
+                    platform: 'ios',
+                    deviceId: 'phone-1',
+                    action: 'addMedia',
+                    paths: ['/work/a.png', join(home, 'local.key')]
+                })
+            ).rejects.toMatchObject({ code: 'device-path-refused' });
+            expect(actions).toEqual([]);
+
+            await install(join(home, 'worktrees', 'atlas', 'build', 'Atlas.app'));
+            expect(actions).toHaveLength(1);
+        } finally {
+            await rm(home, { recursive: true, force: true });
+        }
     });
 });

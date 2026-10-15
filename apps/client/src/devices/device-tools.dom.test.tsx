@@ -131,6 +131,41 @@ describe('the status bar, biometrics and permissions of a device', () => {
     });
 });
 
+describe('installing on a device', () => {
+    test('installs an app picked from the files of the machine', async () => {
+        const entry = (name: string, kind: 'file' | 'directory') => ({
+            name,
+            path: `/work/atlas/${name}`,
+            kind,
+            size: null,
+            mtime: 1,
+            hidden: false,
+            ignored: false
+        });
+        machine.answer('fs.list', ({ path }) => ({
+            path,
+            entries: [entry('build', 'directory'), entry('Atlas.app', 'directory'), entry('notes.txt', 'file')],
+            truncated: false
+        }));
+        await openTools(PHONE);
+
+        await clickOn(buttonWithText('Install app…'));
+        await until(() => buttonWithText('Atlas.app') !== null);
+        expect(buttonWithText('notes.txt')).toBeNull();
+        await clickOn(buttonWithText('Atlas.app'));
+        await until(() => machine.requests('device.action').length === 1);
+
+        expect(machine.requests('fs.list')[0]).toEqual({ path: '/work/atlas' });
+        expect(machine.requests('device.action')[0]).toEqual({
+            backendId: 'simctl',
+            platform: 'ios',
+            deviceId: FAKE_SIMULATOR.deviceId,
+            action: 'installApp',
+            path: '/work/atlas/Atlas.app'
+        });
+    });
+});
+
 describe('capturing a device', () => {
     test('copies and saves a screenshot the machine took for the person', async () => {
         await openTools(PHONE);

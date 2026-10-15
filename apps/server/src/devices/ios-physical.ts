@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import type { DeviceInfo, DeviceSettings } from '@ruimte/contracts';
+import type { DeviceAction, DeviceInfo, DeviceSettings } from '@ruimte/contracts';
+import { requireExtension } from './device-paths.ts';
 import { DeviceError, type DeviceBackend, type DeviceSource } from './manager.ts';
 import {
     capturePhysicalFrame,
@@ -123,7 +124,7 @@ export class IosPhysicalBackend implements DeviceBackend {
                     stream: paired && developerMode,
                     input: paired && developerMode && this.createLiveSource !== null,
                     screenshot: paired && developerMode,
-                    tools: paired && developerMode ? ['capture'] : []
+                    tools: paired && developerMode ? ['capture', 'installApp'] : []
                 }
             };
         });
@@ -144,6 +145,16 @@ export class IosPhysicalBackend implements DeviceBackend {
     /* A phone has no settings Ruimte reads; its tools only act. */
     detail(): Promise<DeviceSettings> {
         return Promise.resolve({});
+    }
+
+    /* An iPhone installs an app and does nothing else Ruimte asks. */
+    async action(deviceId: string, action: DeviceAction): Promise<DeviceSettings> {
+        if (action.action !== 'installApp') {
+            throw new DeviceError('device-action-unavailable', 'An iPhone takes no other tool from Ruimte');
+        }
+        requireExtension(action.path, ['.app', '.ipa'], 'an .app or an .ipa signed for it');
+        await this.command(['device', 'install', 'app', '--device', deviceId, action.path]);
+        return {};
     }
 
     private async command(arguments_: string[]): Promise<CommandResult> {

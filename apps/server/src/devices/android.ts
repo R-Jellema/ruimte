@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { closeSync, openSync, readFileSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { isAbsolute, join } from 'node:path';
+import { basename, isAbsolute, join } from 'node:path';
 import type {
     DeviceAction,
     DeviceButton,
@@ -17,6 +17,7 @@ import { locateAndroidSdk, type AndroidSdk } from './android-sdk.ts';
 import { androidTree, parseWmSize } from './android-tree.ts';
 import type { DeviceTree } from './device-tree.ts';
 import { DeviceError, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard, type DeviceSource } from './manager.ts';
+import { isVideo, requireExtension, requireMedia } from './device-paths.ts';
 import { DeviceRecordings } from './recordings.ts';
 import type { CommandResult } from './scrcpy-source.ts';
 
@@ -84,7 +85,9 @@ const BASE_TOOLS: DeviceTool[] = [
     'capture',
     'record',
     'statusBar',
-    'battery'
+    'battery',
+    'installApp',
+    'addMedia'
 ];
 
 /* SystemUI's demo mode, which draws the status bar of a marketing shot until it is left. */
@@ -573,6 +576,21 @@ export class AndroidBackend implements DeviceBackend {
             case 'setAllPermissions':
                 await this.allPermissions(serial, probe, requirePackage(action.appId), action.decision);
                 break;
+            case 'installApp': {
+                requireExtension(action.path, ['.apk'], 'an .apk');
+                const installed = await this.adb(this.sdk(), ['-s', serial, 'install', '-r', action.path]);
+                const failure = /^Failure.*$/m.exec(installed.stdout);
+                if (failure) {
+                    throw new DeviceError('adb-failed', failure[0]);
+                }
+                break;
+            }
+            case 'addMedia':
+                requireMedia(action.paths);
+                for (const path of action.paths) {
+                    await this.addMedia(serial, path);
+                }
+                break;
             default:
                 throw new DeviceError('device-action-unavailable', 'This tool does not exist on Android');
         }
@@ -852,6 +870,20 @@ export class AndroidBackend implements DeviceBackend {
         if (failures.length === names.length) {
             throw new DeviceError('adb-failed', failures[0]!);
         }
+    }
+
+    /*
+     * Pushes a picture or a video where the gallery looks and asks for it to be scanned. The broadcast
+     * is the old way and the provider call the new one; which of them Android 14 and later still
+     * honor is unverified, so both are asked and a refusal of the second is not a failure.
+     */
+    private async addMedia(serial: string, path: string): Promise<void> {
+        const remote = `${isVideo(path) ? '/sdcard/Movies' : '/sdcard/Pictures'}/${basename(path)}`;
+        await this.adb(this.sdk(), ['-s', serial, 'push', path, remote]);
+        await this.shell(
+            serial,
+            `am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d ${shellQuote(`file://${encodeURI(remote)}`)} >/dev/null; content call --uri content://media/external/file --method scan_file --arg ${shellQuote(remote)} >/dev/null 2>&1; true`
+        );
     }
 
     /* Every permission this device has, the ones an app does not ask for skipped; refused only when none applied. */
