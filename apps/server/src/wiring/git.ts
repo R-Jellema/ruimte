@@ -2,6 +2,8 @@ import type { CheckoutHost } from '../canvas/verb.ts';
 import type { EndpointIdentity } from '../endpoint-id.ts';
 import { SharedWatch } from '../fs/shared-watch.ts';
 import { FolderWatcher } from '../fs/watch.ts';
+import { Checkpoints } from '../git/checkpoints.ts';
+import { BundleStore } from '../git/bundles.ts';
 import { GitStatusWatcher } from '../git/status-watcher.ts';
 import { worktreeAgents } from '../git/worktree-agents.ts';
 import { checkoutHost } from '../git/worktree-host.ts';
@@ -19,6 +21,9 @@ export interface GitBundle {
     worktrees: Worktrees;
     merges: WorktreeMerge;
     checkouts: CheckoutHost;
+    /* The bundles written for and received from other machines. */
+    bundles: BundleStore;
+    checkpoints: Checkpoints;
 }
 
 export function wireGit(home: string, identity: EndpointIdentity, agents: AgentsBundle, work: AgentWorkBundle): GitBundle {
@@ -32,5 +37,6 @@ export function wireGit(home: string, identity: EndpointIdentity, agents: Agents
     });
     const worktrees = new Worktrees(home, agentsInWorktrees, Date.now, () => identity.worktreeRoot);
     const merges = new WorktreeMerge(worktrees, agentsInWorktrees);
-    return { watches, folders, statuses, worktrees, merges, checkouts: checkoutHost(worktrees) };
+    const bundles = new BundleStore(home);
+    return { watches, folders, statuses, worktrees, merges, checkouts: checkoutHost(worktrees), bundles, checkpoints: new Checkpoints(home) };
 }

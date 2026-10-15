@@ -9,7 +9,9 @@ import { z } from 'zod';
 export const ByteResourceSchema = z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('attachment'), chatId: z.string().min(1), attachmentId: z.string().min(1) }),
     z.object({ kind: z.literal('projectIcon'), projectId: z.string().min(1), theme: z.enum(['light', 'dark']) }),
-    z.object({ kind: z.literal('file'), path: z.string().min(1) })
+    z.object({ kind: z.literal('file'), path: z.string().min(1) }),
+    // A git bundle this machine wrote for a handoff, named by the id `git.bundle` answered.
+    z.object({ kind: z.literal('bundle'), bundleId: z.string().min(1).max(64) })
 ]);
 export type ByteResource = z.infer<typeof ByteResourceSchema>;
 
@@ -18,6 +20,9 @@ export type ByteResource = z.infer<typeof ByteResourceSchema>;
  * under the output gate's 1 MB high-water mark, so a picture on its way never pauses a terminal on the same connection.
  */
 export const BYTES_CHUNK_MAX = 256 * 1024;
+
+// The largest bundle either end writes or serves; a checkout that needs more goes through its remote.
+export const BUNDLE_MAX_BYTES = 256 * 1024 * 1024;
 
 // What a client loads whole into memory as one blob. The daemon serves a file of any size, piece by piece.
 export const BYTES_READ_MAX_BYTES = 32 * 1024 * 1024;

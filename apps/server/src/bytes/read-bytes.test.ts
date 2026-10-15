@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { mkdtemp, rm, truncate, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { BYTES_CHUNK_MAX, decodeBytesReply, type ByteResource } from '@ruimte/contracts';
+import { BUNDLE_MAX_BYTES, BYTES_CHUNK_MAX, decodeBytesReply, type ByteResource } from '@ruimte/contracts';
 import { Dispatcher, type ClientConnection } from '../dispatcher.ts';
 import { MachineHome } from '../fs/machine-home.ts';
 import { readServedFile } from '../fs/read.ts';
@@ -28,8 +28,13 @@ beforeAll(async () => {
                 ? { id: 'a1', name: 'picture.gif', mime: 'image/gif', size: picture.length, path: join(folder, 'picture.gif') }
                 : null,
         projectIcon: async (projectId) => (projectId === 'p1' ? { path: join(folder, 'picture.gif'), mime: 'image/gif' } : null),
-        file: readServedFile
+        file: readServedFile,
+        bundle: async (bundleId) => (bundleId === 'bundle-one' ? join(folder, 'one.bundle') : bundleId === 'bundle-huge' ? join(folder, 'huge.bundle') : null)
     };
+    await writeFile(join(folder, 'one.bundle'), 'a bundle');
+    await writeFile(join(folder, 'huge.bundle'), 'x');
+    // Sparse, so the file costs no disk.
+    await truncate(join(folder, 'huge.bundle'), BUNDLE_MAX_BYTES + 1);
 });
 
 afterAll(async () => {
@@ -100,6 +105,18 @@ describe('readBytes', () => {
         const piece = await readBytes(sources, { resource: { kind: 'file', path }, offset: 90 * 1024 * 1024, length: 10 });
         expect(piece).toMatchObject({ size: 100 * 1024 * 1024, offset: 90 * 1024 * 1024 });
         expect(Buffer.from(piece.bytes)).toHaveLength(10);
+    });
+
+    test('a bundle this machine wrote is served in pieces, and one over the cap is not', async () => {
+        const piece = await readBytes(sources, { resource: { kind: 'bundle', bundleId: 'bundle-one' }, offset: 2, length: 100 });
+        expect(new TextDecoder().decode(piece.bytes)).toBe('bundle');
+        expect(piece).toMatchObject({ mime: 'application/x-git-bundle', size: 8 });
+        await expect(readBytes(sources, { resource: { kind: 'bundle', bundleId: 'bundle-huge' }, offset: 0, length: 10 })).rejects.toMatchObject({
+            code: 'bundle-too-large'
+        });
+        await expect(readBytes(sources, { resource: { kind: 'bundle', bundleId: 'nope' }, offset: 0, length: 10 })).rejects.toMatchObject({
+            code: 'not-found'
+        });
     });
 
     test('an offset past the end is refused', async () => {

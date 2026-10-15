@@ -43,7 +43,10 @@ export type GitErrorCode =
     | 'agent-working'
     | 'merge-conflict'
     // A pull that can only fast-forward while both sides have moved on: the person picks how they come together.
-    | 'diverged';
+    | 'diverged'
+    // A bundle for another machine: too big to send, or not one this machine holds.
+    | 'bundle-too-large'
+    | 'bundle-missing';
 
 export class GitError extends CodedError<GitErrorCode> {}
 

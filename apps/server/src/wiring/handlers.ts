@@ -320,7 +320,8 @@ export function registerEditorHandlers(dispatcher: Dispatcher, input: EditorHand
         {
             attachment: (chatId, id) => agents.chats.findAttachment(chatId, id),
             projectIcon: (projectId, theme) => store.iconFile(projectId, theme),
-            file: readServedFile
+            file: readServedFile,
+            bundle: (id) => git.bundles.made(id)
         },
         machine.machineHome
     );
@@ -338,6 +339,10 @@ export function registerEditorHandlers(dispatcher: Dispatcher, input: EditorHand
         providers.providers,
         work.prWatches,
         (id) => store.index.locate(id),
-        machine.machineHome
+        machine.machineHome,
+        {
+            bundles: git.bundles,
+            checkpoints: git.checkpoints
+        }
     );
 }

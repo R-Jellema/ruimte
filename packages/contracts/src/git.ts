@@ -720,3 +720,32 @@ export const WorktreeMergeResultSchema = GitActionResultSchema.extend({
 export type WorktreeMergeResult = z.infer<typeof WorktreeMergeResultSchema>;
 
 export { WorktreeSchema, WorktreeWorkSchema, type Worktree, type WorktreeWork } from '@adecore/agent-contracts/worktree';
+
+/*
+ * A checkout's state as a git bundle in this machine's bundle folder, for another machine to read with
+ * `bytes.read`. `files` is the working tree as it is, uncommitted and untracked files included, as a
+ * commit on HEAD; `head` is HEAD's tree the same way; `branch` is the branch as it stands. Nothing in
+ * the checkout changes.
+ */
+export const GitBundlePayloadSchema = z.object({
+    path: z.string().min(1),
+    from: z.enum(['files', 'head', 'branch']),
+    // Required for `branch`.
+    branch: z.string().min(1).optional(),
+    // Commits the receiving machine has; whatever they reach is left out of the bundle. Those this checkout lacks are ignored.
+    haves: z.array(z.string().min(1).max(64)).max(200),
+    // The subject of the handoff commit.
+    name: z.string().min(1).max(120)
+});
+export type GitBundlePayload = z.infer<typeof GitBundlePayloadSchema>;
+
+export const GitBundleResultSchema = z.object({
+    bundleId: z.string().min(1).max(64),
+    size: z.number().int().nonnegative(),
+    sha256: z.string().length(64),
+    // The tip of the bundle.
+    commit: z.string().min(1),
+    // The commit it builds on, null for the first commit of a repository.
+    base: z.string().nullable()
+});
+export type GitBundleResult = z.infer<typeof GitBundleResultSchema>;

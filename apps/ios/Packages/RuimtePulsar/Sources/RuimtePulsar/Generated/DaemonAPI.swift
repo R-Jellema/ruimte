@@ -204,6 +204,7 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `gitOperation` = "git.operation"
     case `gitCapabilities` = "git.capabilities"
     case `gitSuggestMessage` = "git.suggestMessage"
+    case `gitBundle` = "git.bundle"
     case `usageSummary` = "usage.summary"
     case `usageSubscribe` = "usage.subscribe"
     case `usageUnsubscribe` = "usage.unsubscribe"

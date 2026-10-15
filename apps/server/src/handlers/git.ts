@@ -1,5 +1,7 @@
 import type { AgentKind, GitActionPhase } from '@ruimte/contracts';
 import { RequestError, sendEvent, type ClientConnection, type Dispatcher } from '../dispatcher.ts';
+import { makeBundle, type BundleStore } from '../git/bundles.ts';
+import type { CheckpointService } from '../git/checkpoints.ts';
 import { GitActions } from '../git/actions.ts';
 import { blameFile } from '../git/blame.ts';
 import { readCapabilities } from '../git/capabilities.ts';
@@ -22,6 +24,12 @@ import type { WorktreeMerge } from '../git/worktree-merge.ts';
 import type { Worktrees } from '../git/worktrees.ts';
 import type { ProviderRegistry } from '../providers/registry.ts';
 
+/* What writing and taking in a bundle needs from the rest of the daemon. */
+export interface BundleHost {
+    bundles: BundleStore;
+    checkpoints: Pick<CheckpointService, 'take' | 'head'>;
+}
+
 interface AgentRunOptions {
     provider?: AgentKind;
     onSpawn(kill: () => void): void;
@@ -42,7 +50,8 @@ export function registerGitHandlers(
     providers: ProviderRegistry,
     prWatches?: PrWatchStore,
     placeOf?: (id: string) => { projectId: string } | null,
-    machineHome?: Pick<MachineHome, 'refuse'>
+    machineHome?: Pick<MachineHome, 'refuse'>,
+    bundleHost?: BundleHost
 ): void {
     const actions = new GitActions();
     const identities = new IdentityReader();
@@ -114,6 +123,15 @@ export function registerGitHandlers(
         await Promise.all(payload.paths.map((path) => machineHome?.refuse(path)));
         return identities.read(payload.paths);
     });
+
+    if (bundleHost !== undefined) {
+        const { bundles, checkpoints } = bundleHost;
+
+        dispatcher.register('git.bundle', async (payload) => {
+            await machineHome?.refuse(payload.path);
+            return makeBundle(bundles, checkpoints, payload);
+        });
+    }
 
     dispatcher.register('git.stage', async (payload) => {
         await (payload.staged ? stagePaths(payload.cwd, payload.paths) : unstagePaths(payload.cwd, payload.paths));

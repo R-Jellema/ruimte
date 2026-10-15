@@ -1,8 +1,8 @@
 import { stat } from 'node:fs/promises';
-import { type BytesReadHeader, type BytesReadPayload, type ByteResource, type ChatAttachment } from '@ruimte/contracts';
+import { BUNDLE_MAX_BYTES, type BytesReadHeader, type BytesReadPayload, type ByteResource, type ChatAttachment } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
 
-type BytesErrorCode = 'not-found' | 'bad-offset';
+type BytesErrorCode = 'not-found' | 'bad-offset' | 'bundle-too-large';
 
 export class BytesError extends CodedError<BytesErrorCode> {}
 
@@ -15,6 +15,8 @@ export interface ByteSources {
     attachment(chatId: string, attachmentId: string): Promise<ChatAttachment | null>;
     projectIcon(projectId: string, theme: 'light' | 'dark'): Promise<{ path: string; mime: string } | null>;
     file(path: string): Promise<{ mime: string } | null>;
+    /* The file of a bundle this machine wrote. */
+    bundle?(bundleId: string): Promise<string | null>;
 }
 
 async function locate(sources: ByteSources, resource: ByteResource): Promise<{ path: string; mime: string } | null> {
@@ -24,6 +26,10 @@ async function locate(sources: ByteSources, resource: ByteResource): Promise<{ p
     }
     if (resource.kind === 'projectIcon') {
         return sources.projectIcon(resource.projectId, resource.theme);
+    }
+    if (resource.kind === 'bundle') {
+        const path = await sources.bundle?.(resource.bundleId);
+        return path ? { path, mime: 'application/x-git-bundle' } : null;
     }
     const served = await sources.file(resource.path).catch(() => null);
     return served ? { path: resource.path, mime: served.mime } : null;
@@ -44,6 +50,9 @@ export async function readBytes(sources: ByteSources, payload: BytesReadPayload)
     const info = found ? await stat(found.path).catch(() => null) : null;
     if (!found || !info?.isFile()) {
         throw new BytesError('not-found', 'Not a file this machine serves');
+    }
+    if (payload.resource.kind === 'bundle' && info.size > BUNDLE_MAX_BYTES) {
+        throw new BytesError('bundle-too-large', 'A bundle this large is not sent. Push the branch to origin and fetch it there instead.');
     }
     if (payload.offset > info.size) {
         throw new BytesError('bad-offset', `Offset ${payload.offset} is past the end of a file of ${info.size} bytes`);
