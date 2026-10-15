@@ -49,6 +49,7 @@ import { DEFAULT_NOTE_COLOR, NOTE_COLORS } from '@/canvas/note-colors';
 import { EMPTY_DRAFT, writeDraft } from '@adecore/agents-react/chat';
 import { BookmarkSubmenu } from '@adecore/agents-react/chat/ui';
 import { ForkMenuItem } from '@/chat/ForkMenuItem';
+import { useOffersFork } from '@/chat/use-offers-fork';
 import { stopPrWatch } from '@/shell/pr-watch-actions';
 import { useUnstartedTask } from '@/canvas/remote-wait';
 import { useEndpointId } from '@/state/keys';
@@ -70,7 +71,7 @@ import { useToasts } from '@/state/toasts';
 import { useWorkspace } from '@/transport/connections';
 import { NodeMachineScope } from '@/transport/node-machine';
 import { useTransport } from '@/transport/context';
-import { ColorSwatch, DisabledReason, Icon, Tooltip, Kbd, ContextMenu } from '@adecore/ui';
+import { DisabledReason, Icon, Kbd, ContextMenu } from '@adecore/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { formatNodeSize, makeDefaultSize } from '@/canvas/default-size';
 
@@ -99,6 +100,8 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
     const agent = useSessionRow(id, (row) => row?.agent);
     const sessionAccount = useSessionRow(id, (row) => row?.account);
     const chatSession = useChatRow(id, (row) => row?.info.agentSessionId);
+    const offersFork = useOffersFork(id);
+    const bookmarked = useChatRow(id, (row) => (row?.bookmarks?.length ?? 0) > 0);
     const chatCwd = useChatRow(id, (row) => row?.info.cwd);
     const chatProvider = useChatRow(id, (row) => row?.info.provider);
     const chatAccount = useChatRow(id, (row) => row?.info.account);
@@ -207,6 +210,8 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
     const worktreeOf = nodeWorktree && projectFolder !== null ? nodeWorktree : null;
     const groupWorktreePaths = groupWorktrees.length > 0 && projectFolder !== null ? groupWorktrees.map((worktree) => worktree.path) : [];
     const place = canOpenAsView(node.kind) || workingFolder !== null || filePath !== null;
+    // A chat that has not run a turn yet has nothing to put under Conversation.
+    const conversation = node.kind === 'chat' && (offersFork || bookmarked || Boolean(chatSession) || prWatch !== null);
 
     return (
         <ContextMenu.Popup>
@@ -222,7 +227,7 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
                 <ContextMenu.Hint>{t('menu.connectHint')}</ContextMenu.Hint>
             </ContextMenu.Item>
             <ContextMenu.Separator />
-            {node.kind === 'chat' && (
+            {conversation && (
                 <ContextMenu.SubmenuRoot>
                     <ContextMenu.SubmenuTrigger>
                         <Icon icon={MessagesSquare} size={14} /> {t('menu.conversation')}
@@ -418,28 +423,21 @@ function AccentSubmenu({ id, picked }: { id: string; picked: string | undefined 
             <ContextMenu.SubmenuTrigger>
                 <Icon icon={Palette} size={14} /> {t('menu.color')}
             </ContextMenu.SubmenuTrigger>
-            {/* Every hue at once as a grid the eye reads in one pass; a color's name lives in its tooltip. */}
-            <ContextMenu.Popup className="grid min-w-0 grid-cols-6 gap-1 p-2">
-                <Tooltip label={t('menu.noAccent')}>
-                    <ColorSwatch
-                        render={<ContextMenu.Item unstyled />}
-                        aria-label={t('menu.noAccent')}
-                        picked={!picked}
-                        onClick={() => canvasStore.getState().setNodeAccent(id, null)}
-                    />
-                </Tooltip>
-                {NODE_ACCENTS.map((accent) => (
-                    <Tooltip key={accent.id} label={accentLabel(accent.id)}>
-                        <ColorSwatch
-                            render={<ContextMenu.Item unstyled />}
-                            aria-label={accentLabel(accent.id)}
-                            color={accent.color}
-                            picked={picked === accent.id}
-                            on="popup"
-                            onClick={() => canvasStore.getState().setNodeAccent(id, accent.id)}
-                        />
-                    </Tooltip>
-                ))}
+            {/* The same list as Flag; only the colors scroll, so None stays in sight in a short window. */}
+            <ContextMenu.Popup className="flex min-w-44 flex-col overflow-hidden">
+                <div className="min-h-0 overflow-y-auto overscroll-contain">
+                    {NODE_ACCENTS.map((accent) => (
+                        <ContextMenu.Item key={accent.id} onClick={() => canvasStore.getState().setNodeAccent(id, accent.id)}>
+                            <ContextMenu.Check kind="radio" checked={picked === accent.id} />
+                            <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: accent.color }} aria-hidden />
+                            <span className="grow">{accentLabel(accent.id)}</span>
+                        </ContextMenu.Item>
+                    ))}
+                </div>
+                <ContextMenu.Separator />
+                <ContextMenu.Item onClick={() => canvasStore.getState().setNodeAccent(id, null)}>
+                    <ContextMenu.Check kind="radio" checked={!picked} /> {t('menu.noAccent')}
+                </ContextMenu.Item>
             </ContextMenu.Popup>
         </ContextMenu.SubmenuRoot>
     );
