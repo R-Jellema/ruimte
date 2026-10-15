@@ -312,7 +312,8 @@
         "pillLapsed": "Deze node draait op {{machine}}. Agents daar kunnen pas taken geven als je hem opnieuw koppelt. Klik om te koppelen.",
         "linkAgainFailed": "{{machine}} kon niet opnieuw worden gekoppeld",
         "waiting": "Wacht op {{machine}}",
-        "waitTooltip": "De taak wacht tot {{machine}} antwoordt. Daarna gaat hij daar zelf verder."
+        "waitTooltip_one": "De taak wacht tot {{machine}} antwoordt. Daarna gaat hij daar zelf verder.",
+        "waitTooltip_other": "{{count}} taken wachten tot {{machine}} antwoordt. Daarna gaan ze daar zelf verder."
     },
     "otherMachine": {
         "group": "Op een andere machine",

@@ -19,25 +19,31 @@ export function openTaskOf(tasks: TasksById | undefined, childId: string): Task 
     return found;
 }
 
+/* A machine a node waits for, and how many of its tasks wait on it. */
+export interface WaitedFor {
+    machine: string;
+    count: number;
+}
+
 /* The machines a node waits for: those its open tasks were given to and that have not taken them yet. */
 export function waitingMachinesOf(
     tasks: TasksById | undefined,
     parentId: string,
     machineOf: (childId: string) => string | undefined,
     status: StatusByMachine
-): string[] {
-    const machines = new Set<string>();
+): WaitedFor[] {
+    const counts = new Map<string, number>();
     for (const task of Object.values(tasks ?? {})) {
         const machine = task.parentId === parentId && task.status === 'open' ? machineOf(task.childId) : undefined;
         if (machine !== undefined && isUnstarted(status?.[machine], task.childId)) {
-            machines.add(machine);
+            counts.set(machine, (counts.get(machine) ?? 0) + 1);
         }
     }
-    return [...machines];
+    return [...counts].map(([machine, count]) => ({ machine, count }));
 }
 
 /* The machines a node waits for. */
-export function useWaitingMachines(parentId: string): string[] {
+export function useWaitingMachines(parentId: string): WaitedFor[] {
     const workspaceId = useWorkspace()?.connection.endpointId ?? '';
     const tasks = useTasks((state) => state.byEndpoint[workspaceId]);
     const status = useRemoteStatus((state) => state.byEndpoint[workspaceId]);

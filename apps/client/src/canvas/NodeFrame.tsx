@@ -225,12 +225,12 @@ function MachinePill({ machineId, endpointId, narrow }: { machineId: string; end
 }
 
 /* A parent whose task was given to a machine that does not answer yet: the task starts there by itself once it does. */
-function RemoteWaitPill({ machine }: { machine: string }) {
+function RemoteWaitPill({ machine, count }: { machine: string; count: number }) {
     const { t } = useTranslation('canvas');
     const entry = useMachineEntry(endpointIdOfMachine(machine));
     const icon = useMachineIcon(entry);
     const name = nameOf(entry);
-    const label = t('remote.waitTooltip', { machine: name });
+    const label = t('remote.waitTooltip', { machine: name, count });
     return (
         <Tooltip label={label}>
             <Pill icon={<MachineGlyph icon={icon} size={12} />} className="max-w-48" aria-label={label}>
@@ -532,7 +532,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     {node.machine !== undefined && endpointOfNode(node, '') !== workspaceId && !renaming && (
                         <MachinePill machineId={node.machine} endpointId={endpointOfNode(node, '')} narrow={node.w < MACHINE_PILL_MIN_WIDTH} />
                     )}
-                    {!renaming && waitingFor.map((machine) => <RemoteWaitPill key={machine} machine={machine} />)}
+                    {!renaming && waitingFor.map(({ machine, count }) => <RemoteWaitPill key={machine} machine={machine} count={count} />)}
                     {nodeWorktree && !renaming && <WorktreePill worktree={nodeWorktree} />}
                     {node.issue && !renaming && <IssuePill issue={node.issue} />}
                     {isGroup && !node.worktree && groupWorktrees.length > 0 && (

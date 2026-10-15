@@ -312,7 +312,8 @@
         "pillLapsed": "This node runs on {{machine}}. Agents there cannot give tasks until you link it again. Click to link.",
         "linkAgainFailed": "Could not link {{machine}} again",
         "waiting": "Waiting for {{machine}}",
-        "waitTooltip": "The task waits until {{machine}} answers. It carries on there by itself then."
+        "waitTooltip_one": "The task waits until {{machine}} answers. It carries on there by itself then.",
+        "waitTooltip_other": "{{count}} tasks wait until {{machine}} answers. They carry on there by themselves then."
     },
     "otherMachine": {
         "group": "On another machine",

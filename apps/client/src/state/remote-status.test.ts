@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
+import i18next from 'i18next';
 import type { RemoteStatusEvent, Task } from '@ruimte/contracts';
 import { waitingMachinesOf } from '@/canvas/remote-wait';
 import { isUnstarted, isWaiting, useRemoteStatus } from './remote-status';
@@ -68,8 +69,16 @@ describe('the machines a node waits for', () => {
     );
 
     test('are those an open task of it was given to and that have not taken it yet', () => {
-        expect(waitingMachinesOf(tasks, 'parent', machineOf, { 'machine-b': WAITING })).toEqual(['machine-b']);
-        expect(waitingMachinesOf(tasks, 'parent', machineOf, { 'machine-b': { ...WAITING, state: 'connecting' } })).toEqual(['machine-b']);
+        expect(waitingMachinesOf(tasks, 'parent', machineOf, { 'machine-b': WAITING })).toEqual([{ machine: 'machine-b', count: 1 }]);
+        expect(waitingMachinesOf(tasks, 'parent', machineOf, { 'machine-b': { ...WAITING, state: 'connecting' } })).toEqual([
+            { machine: 'machine-b', count: 1 }
+        ]);
+    });
+
+    test('count the tasks that wait on each, one by one', () => {
+        const several = Object.fromEntries([task('one'), task('two'), task('three')].map((entry) => [entry.id, entry]));
+        const status: RemoteStatusEvent = { ...WAITING, unstartedNodeIds: ['child-one', 'child-two'] };
+        expect(waitingMachinesOf(several, 'parent', machineOf, { 'machine-b': status })).toEqual([{ machine: 'machine-b', count: 2 }]);
     });
 
     test('are none while the link is open, or once the machine took the task, or when the link is unknown', () => {
@@ -81,5 +90,16 @@ describe('the machines a node waits for', () => {
 
     test('are none for a node that gave nothing to a machine', () => {
         expect(waitingMachinesOf(tasks, 'elsewhere', () => undefined, { 'machine-b': WAITING })).toEqual([]);
+    });
+});
+
+describe('what the pill of a waiting node says', () => {
+    test('names one task or counts several', () => {
+        expect(i18next.t('canvas:remote.waitTooltip', { machine: 'MacBook Pro', count: 1 })).toBe(
+            'The task waits until MacBook Pro answers. It carries on there by itself then.'
+        );
+        expect(i18next.t('canvas:remote.waitTooltip', { machine: 'MacBook Pro', count: 3 })).toBe(
+            '3 tasks wait until MacBook Pro answers. They carry on there by themselves then.'
+        );
     });
 });
