@@ -8,7 +8,7 @@ import { fetchMapResource } from './map.ts';
 const STYLE_PATH = 'maps/orbis/assets/styles/0.6.*/style';
 
 // Monochrome, so the markers of a block carry the colour.
-const STYLE_OF = { light: 'basic_mono-light', dark: 'basic_mono-dark' } as const;
+const STYLE_OF = { light: 'basic_street-light', dark: 'basic_street-dark' } as const;
 
 /* The ticket of a request: its `authorization` bearer, checked with the secret alone. */
 async function subjectOf(request: Request, env: Env, deps: Deps): Promise<string | null> {
