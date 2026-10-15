@@ -1135,6 +1135,29 @@
                 "link": "It loses access the next time it connects.",
                 "action": "Revoke"
             }
+        },
+        "links": {
+            "title": "Linked projects",
+            "description": "Other machines on your account that work in a project here.",
+            "listFailed": "Could not list the linked projects",
+            "changeFailed": "Could not change the mode",
+            "unlinkFailed": "Could not unlink the project",
+            "empty": "No other machine works in a project here.",
+            "from": "from {{machine}}",
+            "used": "Agents from {{machine}} start in the chosen mode at most. Linked {{date}}, last used {{ago}}.",
+            "unused": "Agents from {{machine}} start in the chosen mode at most. Linked {{date}}, not used yet.",
+            "ceiling": "Highest mode for agents from {{machine}}",
+            "unlink": "Unlink",
+            "unlinkOne": "Unlink {{project}} from {{machine}}",
+            "silent": {
+                "label": "Not answering",
+                "description": "The list loads once the machine is back."
+            },
+            "confirm": {
+                "title": "Unlink {{project}} from {{machine}}?",
+                "text": "Nodes of {{machine}} that work here stop, and its agents can no longer give tasks here. The checkout and its worktrees stay.",
+                "action": "Unlink"
+            }
         }
     },
     "machineDialog": {

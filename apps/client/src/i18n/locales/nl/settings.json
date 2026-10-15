@@ -1135,6 +1135,29 @@
                 "link": "Hij verliest toegang bij de volgende verbinding.",
                 "action": "Intrekken"
             }
+        },
+        "links": {
+            "title": "Gekoppelde projecten",
+            "description": "Andere machines van je account die in een project hier werken.",
+            "listFailed": "De gekoppelde projecten konden niet worden opgehaald",
+            "changeFailed": "De modus kon niet worden gewijzigd",
+            "unlinkFailed": "Het project kon niet worden losgekoppeld",
+            "empty": "Geen andere machine werkt in een project hier.",
+            "from": "van {{machine}}",
+            "used": "Agents van {{machine}} starten hoogstens in de gekozen modus. Gekoppeld {{date}}, laatst gebruikt {{ago}}.",
+            "unused": "Agents van {{machine}} starten hoogstens in de gekozen modus. Gekoppeld {{date}}, nog niet gebruikt.",
+            "ceiling": "Hoogste modus voor agents van {{machine}}",
+            "unlink": "Loskoppelen",
+            "unlinkOne": "{{project}} loskoppelen van {{machine}}",
+            "silent": {
+                "label": "Antwoordt niet",
+                "description": "De lijst laadt zodra de machine terug is."
+            },
+            "confirm": {
+                "title": "{{project}} loskoppelen van {{machine}}?",
+                "text": "Nodes van {{machine}} die hier werken stoppen, en zijn agents kunnen hier geen taken meer geven. De checkout en de worktrees blijven staan.",
+                "action": "Loskoppelen"
+            }
         }
     },
     "machineDialog": {

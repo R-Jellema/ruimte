@@ -10,7 +10,7 @@ import { useRegistrationFailures } from '@/pulsar/auto-register-watch';
 import { addMachineToAccount, leaveAccount, openAccountMachine, refreshAccountMachines, usePulsarMachines } from '@/pulsar/machines';
 import { BackgroundServiceSection } from '@/shell/settings/BackgroundServiceSection';
 import { MachineIdentityForm } from '@/shell/settings/MachineIdentityForm';
-import { BrokerRow, DirectRow, LanDoorRow, MachineAccess, StreamingRow, WithReason, WorktreeFolderRow } from '@/shell/settings/MachineSettings';
+import { BrokerRow, DirectRow, LanDoorRow, MachineAccess, MachineLinks, StreamingRow, WithReason, WorktreeFolderRow } from '@/shell/settings/MachineSettings';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { useMachineIcon } from '@/shell/settings/machine-icon';
 import { forgetOnClient, machineDialogModel, removeFromAccount, type MachineActionDeps, type MachineDialogModel } from '@/shell/settings/machine-actions';
@@ -100,6 +100,7 @@ export function MachineDetail({ entry }: { entry: MachineEntry }) {
                     )}
                     {entry.local && <BackgroundServiceSection />}
                     <MachineAccess endpoint={entry.endpoint} />
+                    <MachineLinks endpoint={entry.endpoint} />
                 </>
             )}
             <RemoveSection entry={entry} model={model} />

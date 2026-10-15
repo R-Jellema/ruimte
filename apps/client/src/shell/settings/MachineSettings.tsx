@@ -3,8 +3,9 @@ import i18next from 'i18next';
 import { Trash } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { brokerHostOf, brokerUrlProblem, type BrokerSetting } from '@ruimte/pulsar';
-import type { AuthSession, LanDoor } from '@ruimte/contracts';
-import { messageOf, Segmented, Skeleton, Switch, Button, IconButton, Tooltip, FormError, Input } from '@adecore/ui';
+import type { AuthSession, LanDoor, PeerLink, RuntimeMode } from '@ruimte/contracts';
+import { RUNTIME_MODES, runtimeModeLabel } from '@adecore/agents-react/chat';
+import { messageOf, Segmented, Select, Skeleton, Switch, Button, IconButton, Tooltip, FormError, Input } from '@adecore/ui';
 import { formatNumericDate, formatAgo } from '@adecore/ui/format';
 import { ConfirmDialog, SettingsRow } from '@adecore/ui/settings';
 import { perform } from '@/actions/client-actions';
@@ -15,6 +16,7 @@ import { useEndpoints, type Endpoint } from '@/state/endpoints';
 import { useServers } from '@/state/server';
 import { useToasts } from '@/state/toasts';
 import { pool, transportFor } from '@/transport';
+import { useMachineAnswers } from '@/transport/features';
 import { useEndpointConnection } from '@/transport/status';
 
 /* A disabled control does not take the pointer, so the reason sits on a wrapper around it. */
@@ -408,6 +410,141 @@ export function MachineAccess({ endpoint }: { endpoint: Endpoint }) {
                 }
                 confirmLabel={t('machine.access.confirm.action')}
                 onConfirm={revoke}
+            />
+        </SettingsSection>
+    );
+}
+
+/* The projects on this machine that another machine of the account works in, each with the widest mode its agents may start in and a way to cut the link. */
+export function MachineLinks({ endpoint }: { endpoint: Endpoint }) {
+    const { t } = useTranslation('settings');
+    const status = useEndpointConnection(endpoint.id).status;
+    const answers = useMachineAnswers(endpoint.id, 'peer.list');
+    const [links, setLinks] = useState<PeerLink[] | null>(null);
+    const [failure, setFailure] = useState<string | null>(null);
+    const [target, setTarget] = useState<PeerLink | null>(null);
+
+    const load = (): void => {
+        const transport = transportFor(endpoint.id);
+        if (!transport) {
+            return;
+        }
+        transport
+            .request('peer.list', {})
+            .then((answer) => {
+                setLinks(answer.links);
+                setFailure(null);
+            })
+            .catch((e: unknown) => setFailure(messageOf(e, t('machine.links.listFailed'))));
+    };
+
+    useEffect(() => {
+        if (status === 'open' && answers) {
+            load();
+        }
+        // oxlint-disable-next-line react-hooks/exhaustive-deps
+    }, [status, answers, endpoint.id]);
+
+    useEffect(() => {
+        if (!answers) {
+            return;
+        }
+        return transportFor(endpoint.id)?.on('peer.changed', load);
+        // oxlint-disable-next-line react-hooks/exhaustive-deps
+    }, [answers, endpoint.id]);
+
+    const setCeiling = async (link: PeerLink, ceiling: RuntimeMode): Promise<void> => {
+        try {
+            await transportFor(endpoint.id)?.request('peer.setCeiling', { machineId: link.machineId, projectId: link.projectId, ceiling });
+            setFailure(null);
+        } catch (e) {
+            setFailure(messageOf(e, t('machine.links.changeFailed')));
+        }
+        load();
+    };
+
+    const unlink = async (): Promise<void> => {
+        const link = target;
+        if (!link) {
+            return;
+        }
+        try {
+            await transportFor(endpoint.id)?.request('peer.unbind', { machineId: link.machineId, projectId: link.projectId });
+            setFailure(null);
+        } catch (e) {
+            setFailure(messageOf(e, t('machine.links.unlinkFailed')));
+        }
+        load();
+    };
+
+    if (!answers && status === 'open') {
+        return null;
+    }
+
+    const modes = RUNTIME_MODES.map((mode) => ({ value: mode, label: runtimeModeLabel(mode) }));
+
+    return (
+        <SettingsSection title={t('machine.links.title')} description={t('machine.links.description')}>
+            {status !== 'open' && links === null && failure === null && (
+                <SettingsRow muted label={t('machine.links.silent.label')} description={t('machine.links.silent.description')} />
+            )}
+            {status === 'open' && links === null && failure === null && (
+                <SettingsRow label={<Skeleton className="w-40" />} control={<Skeleton className="w-8" />} />
+            )}
+            {links?.length === 0 && <SettingsRow muted label={t('machine.links.empty')} />}
+            {links?.map((link) => (
+                <SettingsRow
+                    key={`${link.machineId}/${link.projectId}`}
+                    label={
+                        <span className="break-words">
+                            {link.projectName === '' ? link.projectId : link.projectName}
+                            <span className="ml-1.5 text-xs text-text-muted">{t('machine.links.from', { machine: link.label })}</span>
+                        </span>
+                    }
+                    description={t(link.lastUsedAt === undefined ? 'machine.links.unused' : 'machine.links.used', {
+                        machine: link.label,
+                        date: formatNumericDate(link.createdAt),
+                        ago: link.lastUsedAt === undefined ? '' : ago(link.lastUsedAt)
+                    })}
+                    control={
+                        <div className="flex shrink-0 items-center gap-1">
+                            <Select<RuntimeMode>
+                                label={t('machine.links.ceiling', { machine: link.label })}
+                                variant="outlined"
+                                value={link.ceiling}
+                                onValueChange={(ceiling) => void setCeiling(link, ceiling)}
+                                items={modes}
+                            />
+                            <IconButton
+                                icon={Trash}
+                                label={t('machine.links.unlinkOne', {
+                                    project: link.projectName === '' ? link.projectId : link.projectName,
+                                    machine: link.label
+                                })}
+                                tooltip={t('machine.links.unlink')}
+                                onClick={() => setTarget(link)}
+                            />
+                        </div>
+                    }
+                />
+            ))}
+            {failure && (
+                <SettingsRow
+                    muted
+                    label={
+                        <span className="break-words text-status-error" role="alert">
+                            {failure}
+                        </span>
+                    }
+                />
+            )}
+            <ConfirmDialog
+                open={target !== null}
+                onOpenChange={(open) => (open ? undefined : setTarget(null))}
+                title={t('machine.links.confirm.title', { project: target?.projectName ?? '', machine: target?.label ?? '' })}
+                description={t('machine.links.confirm.text', { machine: target?.label ?? '' })}
+                confirmLabel={t('machine.links.confirm.action')}
+                onConfirm={unlink}
             />
         </SettingsSection>
     );
