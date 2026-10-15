@@ -1,3 +1,4 @@
+import { PeerStatementSchema } from '@ruimte/pulsar';
 import { z } from 'zod';
 
 /*
@@ -28,3 +29,13 @@ export type RemoteLinkPayload = z.infer<typeof RemoteLinkPayloadSchema>;
 // Refused with `machine-in-use` while a node of the project still runs on that machine.
 export const RemoteUnlinkPayloadSchema = RemoteLinkPayloadSchema.pick({ projectId: true, machineId: true });
 export type RemoteUnlinkPayload = z.infer<typeof RemoteUnlinkPayloadSchema>;
+
+/*
+ * The statement the address book signed for this machine to work in `machineId`, handed over by the page
+ * that asked for it. The machine opens the link with it once and proves its peer key from then on.
+ */
+export const RemoteConnectPayloadSchema = z.object({
+    machineId: z.string().min(1).max(256),
+    statement: PeerStatementSchema
+});
+export type RemoteConnectPayload = z.infer<typeof RemoteConnectPayloadSchema>;

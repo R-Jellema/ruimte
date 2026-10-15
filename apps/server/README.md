@@ -116,6 +116,7 @@ $RUIMTE_HOME/
   endpoint.json                    the machine's id, key pair and settings (above)
   agent-integrations.json          0600, which CLIs Ruimte may write status hooks into, and what it wrote
   local.key                        the local secret (0600), written on the first start
+  peer-key.json                    the key other machines let this one in under (0600), made when this machine first asks to work in one
   auth.json                        the clients this machine let in by public key, their push subscriptions, and the account the machine is on
   projects.json                    every project the machine knows: id, name, color, folder, and when it was last closed
   providers.json                   the accounts of each agent CLI: kind, label, color, config folder; never a credential

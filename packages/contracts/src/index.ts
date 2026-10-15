@@ -67,7 +67,14 @@ import {
     PeerSetCeilingPayloadSchema,
     PeerUnbindPayloadSchema
 } from './peer.ts';
-import { RemoteLinkPayloadSchema, RemoteLinkSchema, RemoteListPayloadSchema, RemoteListResultSchema, RemoteUnlinkPayloadSchema } from './remote.ts';
+import {
+    RemoteConnectPayloadSchema,
+    RemoteLinkPayloadSchema,
+    RemoteLinkSchema,
+    RemoteListPayloadSchema,
+    RemoteListResultSchema,
+    RemoteUnlinkPayloadSchema
+} from './remote.ts';
 import { SnoozeClearPayloadSchema, SnoozeListSchema, SnoozeSetPayloadSchema } from './snooze.ts';
 import {
     EndpointInstallUpdatePayloadSchema,
@@ -179,6 +186,8 @@ import {
     EndpointSetIdentityPayloadSchema,
     EndpointSetNodeSizePayloadSchema,
     EndpointSettingsSchema,
+    EndpointSignPeerAccessPayloadSchema,
+    EndpointSignPeerAccessResultSchema,
     EndpointSignRegistrationPayloadSchema,
     EndpointSignRegistrationResultSchema
 } from './auth.ts';
@@ -424,6 +433,7 @@ export const REQUEST_SCHEMAS = {
     'peer.placeNodes': { payload: PeerPlaceNodesPayloadSchema, result: EmptySchema },
     'remote.list': { payload: RemoteListPayloadSchema, result: RemoteListResultSchema },
     'remote.link': { payload: RemoteLinkPayloadSchema, result: RemoteLinkSchema },
+    'remote.connect': { payload: RemoteConnectPayloadSchema, result: EmptySchema },
     'remote.unlink': { payload: RemoteUnlinkPayloadSchema, result: EmptySchema },
     'snooze.list': { payload: EmptySchema, result: SnoozeListSchema },
     // Setting a moment already past ends the snooze, as clearing it does.
@@ -665,6 +675,7 @@ export const REQUEST_SCHEMAS = {
     'endpoint.agentIntegrations': { payload: EmptySchema, result: AgentIntegrationsResultSchema },
     'endpoint.setAgentIntegration': { payload: AgentIntegrationSetPayloadSchema, result: AgentIntegrationSetResultSchema },
     'endpoint.closedLidRule': { payload: EndpointClosedLidRulePayloadSchema, result: EndpointInfoSchema },
+    'endpoint.signPeerAccess': { payload: EndpointSignPeerAccessPayloadSchema, result: EndpointSignPeerAccessResultSchema },
     'endpoint.signRegistration': { payload: EndpointSignRegistrationPayloadSchema, result: EndpointSignRegistrationResultSchema },
     'endpoint.leaveAccount': { payload: EmptySchema, result: EndpointLeaveAccountResultSchema },
     // The desktop app on this machine saying where its updater stands. Local secret only: it speaks for the machine.

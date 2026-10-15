@@ -7616,6 +7616,88 @@
       "rootCommit"
     ]
   },
+  "request.remote.connect.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "machineId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "statement": {
+        "type": "object",
+        "properties": {
+          "machineId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "machinePublicKey": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          },
+          "accountId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "peerPublicKey": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          },
+          "peerMachineId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "peerMachinePublicKey": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          },
+          "nonce": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{22,128}$"
+          },
+          "issuedAt": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "expiresAt": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "signature": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{86}$"
+          }
+        },
+        "required": [
+          "machineId",
+          "machinePublicKey",
+          "accountId",
+          "peerPublicKey",
+          "peerMachineId",
+          "peerMachinePublicKey",
+          "nonce",
+          "issuedAt",
+          "expiresAt",
+          "signature"
+        ]
+      }
+    },
+    "required": [
+      "machineId",
+      "statement"
+    ]
+  },
+  "request.remote.connect.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
   "request.remote.unlink.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -54863,6 +54945,54 @@
       "version",
       "reachability",
       "authenticated"
+    ]
+  },
+  "request.endpoint.signPeerAccess.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "machineId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "nonce": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{22,128}$"
+      }
+    },
+    "required": [
+      "machineId",
+      "nonce"
+    ]
+  },
+  "request.endpoint.signPeerAccess.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "peerMachineId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "peerPublicKey": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{43}$"
+      },
+      "peerSignature": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{86}$"
+      },
+      "machineSignature": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{86}$"
+      }
+    },
+    "required": [
+      "peerMachineId",
+      "peerPublicKey",
+      "peerSignature",
+      "machineSignature"
     ]
   },
   "request.endpoint.signRegistration.payload": {

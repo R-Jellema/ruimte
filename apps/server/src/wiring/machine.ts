@@ -4,6 +4,8 @@ import { readOrCreateLocalSecret } from '../auth/local-secret.ts';
 import type { ServerConfig } from '../config.ts';
 import { readOrCreateEndpointIdentity, type EndpointIdentity } from '../endpoint-id.ts';
 import { MachineHome } from '../fs/machine-home.ts';
+import { PeerKey } from '../remote/peer-key.ts';
+import { PendingAdmissions } from '../remote/pending-admissions.ts';
 
 /* Who the machine is and who may reach it. */
 export interface MachineBundle {
@@ -14,6 +16,9 @@ export interface MachineBundle {
     access: { localSecret: string; tickets: Handshake };
     /* Where a client's file request stops under `$RUIMTE_HOME`. */
     machineHome: MachineHome;
+    // The key other machines let this one in under, and the statements that open them to it once.
+    peerKey: PeerKey;
+    pendingAdmissions: PendingAdmissions;
 }
 
 export async function wireMachine(config: ServerConfig): Promise<MachineBundle> {
@@ -22,5 +27,13 @@ export async function wireMachine(config: ServerConfig): Promise<MachineBundle> 
     const [identity, localSecret] = await Promise.all([readOrCreateEndpointIdentity(config.home, config.label), readOrCreateLocalSecret(config.home)]);
     const auth = new AuthStore(config.home);
     const handshake = new Handshake(auth, identity);
-    return { identity, auth, handshake, access: { localSecret, tickets: handshake }, machineHome: new MachineHome(config.home) };
+    return {
+        identity,
+        auth,
+        handshake,
+        access: { localSecret, tickets: handshake },
+        machineHome: new MachineHome(config.home),
+        peerKey: new PeerKey(config.home),
+        pendingAdmissions: new PendingAdmissions()
+    };
 }

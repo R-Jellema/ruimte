@@ -11,6 +11,8 @@ import {
 import { RequestError, type ClientAccess, type Dispatcher } from '../dispatcher.ts';
 import { isOwner } from '../auth/access.ts';
 import { signForAccount } from '../auth/registration.ts';
+import { peerAccessRequestMessage } from '@ruimte/pulsar';
+import type { PeerKey } from '../remote/peer-key.ts';
 import type { AuthStore } from '../auth/auth-store.ts';
 import type { EndpointIdentity, IdentityFlags } from '../endpoint-id.ts';
 import { checkWorktreeRoot } from '../git/worktree-root.ts';
@@ -21,6 +23,8 @@ import { DEFAULT_ADMIN_PROMPT } from '../power/closed-lid.ts';
 
 interface EndpointHost {
     identity: EndpointIdentity;
+    // The key another machine lets this one in under, signed with next to the machine key.
+    peerKey: Pick<PeerKey, 'publicKey' | 'sign'>;
     // `$RUIMTE_HOME`, which a worktree folder may not sit in.
     home: string;
     version: string;
@@ -287,6 +291,24 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
         }),
         { owner: true }
     );
+
+    /*
+     * Not owner-only: any client acts as a person here, and what it gets is a request the address book
+     * still has to vouch for. It gives no access to this machine.
+     */
+    dispatcher.register('endpoint.signPeerAccess', async ({ machineId, nonce }) => {
+        if (machineId === identity.id) {
+            throw new RequestError('bad-request', 'A machine cannot work in itself');
+        }
+        const peerPublicKey = await host.peerKey.publicKey();
+        const message = peerAccessRequestMessage(machineId, peerPublicKey, identity.id, nonce);
+        return {
+            peerMachineId: identity.id,
+            peerPublicKey,
+            peerSignature: await host.peerKey.sign(message),
+            machineSignature: identity.sign(message)
+        };
+    });
 
     /* A person on this machine taking it off its account: every client a statement let in loses its access at once. */
     dispatcher.register(

@@ -1,4 +1,4 @@
-import { BrokerSettingSchema, RegisterMachinePayloadSchema } from '@ruimte/pulsar';
+import { BrokerSettingSchema, MachineIdSchema, NonceSchema, PublicKeySchema, RegisterMachinePayloadSchema, SignatureSchema } from '@ruimte/pulsar';
 import { z } from 'zod';
 import { MachineUpdateSchema } from './machine-update.ts';
 import { NodeKindSchema, ProjectIconChoiceSchema } from './project.ts';
@@ -277,6 +277,26 @@ export const EndpointSignRegistrationResultSchema = z.object({
     registration: RegisterMachinePayloadSchema
 });
 export type EndpointSignRegistrationResult = z.infer<typeof EndpointSignRegistrationResultSchema>;
+
+/*
+ * `endpoint.signPeerAccess`: this machine asking to work in `machineId`. Any client may ask, since it is a
+ * person who links two machines and the answer gives a client nothing beyond what it can already do.
+ * The page posts the answer, with `machineId` and `nonce`, to the address book with its own session.
+ */
+export const EndpointSignPeerAccessPayloadSchema = z.object({
+    machineId: MachineIdSchema,
+    nonce: NonceSchema
+});
+export type EndpointSignPeerAccessPayload = z.infer<typeof EndpointSignPeerAccessPayloadSchema>;
+
+// Both signatures are over the same request: one by the peer key, one by this machine's own key.
+export const EndpointSignPeerAccessResultSchema = z.object({
+    peerMachineId: MachineIdSchema,
+    peerPublicKey: PublicKeySchema,
+    peerSignature: SignatureSchema,
+    machineSignature: SignatureSchema
+});
+export type EndpointSignPeerAccessResult = z.infer<typeof EndpointSignPeerAccessResultSchema>;
 
 /*
  * `endpoint.leaveAccount`, local secret only. Every client a statement let in loses its access until the

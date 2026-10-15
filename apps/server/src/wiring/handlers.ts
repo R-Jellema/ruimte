@@ -225,12 +225,17 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
         endSession: projects.endSession,
         worktreePaths: (folder) => git.checkouts.paths(folder)
     });
-    registerRemoteHandlers(dispatcher, store.remote, store);
+    registerRemoteHandlers(dispatcher, store.remote, store, {
+        machineId: identity.id,
+        peerPublicKey: () => machine.peerKey.publicKey(),
+        pending: machine.pendingAdmissions
+    });
     registerDrawingHandlers(dispatcher, projects.drawings);
     registerDiagramHandlers(dispatcher, projects.diagrams);
     registerLaunchHandlers(dispatcher, launches.store, launches.runner);
     registerAuthHandlers(dispatcher, machine.auth, {
         identity,
+        peerKey: machine.peerKey,
         home: config.home,
         version: VERSION,
         broker: () => later.network().brokerSwitch.describe(),

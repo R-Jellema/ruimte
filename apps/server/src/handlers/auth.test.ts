@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import { PROTOCOL_VERSION, type RequestType, type ServerFrame } from '@ruimte/contracts';
 import { AuthStore, type StatementAdmission } from '../auth/auth-store.ts';
 import { admitClient } from '../auth/test-admit.ts';
-import { machineRegistrationMessage } from '@ruimte/pulsar';
+import { machineRegistrationMessage, peerAccessRequestMessage } from '@ruimte/pulsar';
+import { PeerKey } from '../remote/peer-key.ts';
 import { verifySignature } from '@ruimte/pulsar/verify-node';
 import { generateKeyPair } from '../auth/keys.ts';
 import { Dispatcher, type ClientAccess, type ClientConnection } from '../dispatcher.ts';
@@ -30,6 +31,7 @@ let lidCancels: boolean;
 let ruleRequests: { install: boolean; prompt: string }[];
 let updates: MachineUpdates;
 let integrations: AgentIntegrations;
+let peerKey: PeerKey;
 
 function client(access?: ClientAccess): { connection: ClientConnection; frames: ServerFrame[] } {
     const frames: ServerFrame[] = [];
@@ -82,8 +84,10 @@ beforeEach(async () => {
         accountHomes: () => []
     });
     await integrations.load();
+    peerKey = new PeerKey(home);
     registerAuthHandlers(dispatcher, store, {
         identity,
+        peerKey,
         home,
         version: '0.0.0',
         broker: () => ({ brokerUrl: identity.broker.mode === 'custom' ? identity.broker.url : null, brokerFixed: false }),
@@ -539,6 +543,40 @@ describe('auth handlers', () => {
         expect(await ask(LOCAL, 'endpoint.info')).toMatchObject({ ok: true, result: { accountId: null } });
         expect(await ask(LOCAL, 'endpoint.signRegistration', { accountId: 'account-2' })).toMatchObject({ ok: true });
         expect(await store.accountBinding()).toMatchObject({ id: 'account-2' });
+    });
+
+    test('a peer access request is signed by the peer key and by the machine key, for any client', async () => {
+        const nonce = 'n'.repeat(22);
+        for (const access of [LOCAL, { reachability: 'lan', sessionId: 's1' } as const]) {
+            const frame = await ask(access, 'endpoint.signPeerAccess', { machineId: 'machine-b', nonce });
+            if (!('ok' in frame) || !frame.ok) {
+                throw new Error(`Expected an answer, got ${JSON.stringify(frame)}`);
+            }
+            const result = frame.result as { peerMachineId: string; peerPublicKey: string; peerSignature: string; machineSignature: string };
+            const message = peerAccessRequestMessage('machine-b', result.peerPublicKey, identity.id, nonce);
+            expect(result.peerMachineId).toBe(identity.id);
+            expect(result.peerPublicKey).toBe(await peerKey.publicKey());
+            expect(result.peerPublicKey).not.toBe(identity.publicKey);
+            expect(verifySignature(result.peerPublicKey, message, result.peerSignature)).toBe(true);
+            expect(verifySignature(identity.publicKey, message, result.machineSignature)).toBe(true);
+            // Each signature belongs to its own key and its own request.
+            expect(verifySignature(identity.publicKey, message, result.peerSignature)).toBe(false);
+            expect(verifySignature(result.peerPublicKey, message, result.machineSignature)).toBe(false);
+            expect(
+                verifySignature(result.peerPublicKey, peerAccessRequestMessage('machine-c', result.peerPublicKey, identity.id, nonce), result.peerSignature)
+            ).toBe(false);
+        }
+    });
+
+    test('a machine does not ask to work in itself, and the request needs a nonce', async () => {
+        expect(await ask(LOCAL, 'endpoint.signPeerAccess', { machineId: identity.id, nonce: 'n'.repeat(22) })).toMatchObject({
+            ok: false,
+            error: { code: 'bad-request' }
+        });
+        expect(await ask(LOCAL, 'endpoint.signPeerAccess', { machineId: 'machine-b', nonce: 'short' })).toMatchObject({
+            ok: false,
+            error: { code: 'bad-request' }
+        });
     });
 
     test('only the app on this machine is told which account the machine is on', async () => {
