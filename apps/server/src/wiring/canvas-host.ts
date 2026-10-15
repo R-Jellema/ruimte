@@ -18,6 +18,7 @@ import type { GitBundle } from './git.ts';
 import type { LaunchesBundle } from './launches.ts';
 import type { ProjectsBundle } from './projects.ts';
 import type { ProvidersBundle } from './providers.ts';
+import type { RemoteBundle } from './remote.ts';
 
 export interface CanvasHostInput {
     identity: EndpointIdentity;
@@ -30,6 +31,7 @@ export interface CanvasHostInput {
     git: GitBundle;
     devices: DevicesBundle;
     databases: DatabasesBundle;
+    remote: RemoteBundle;
     later: {
         language(): LanguageHost;
         push(): PushService;
@@ -38,7 +40,7 @@ export interface CanvasHostInput {
 
 /* The services the agent verbs reach the daemon through. */
 export function wireCanvasHost(input: CanvasHostInput): CanvasHost {
-    const { identity, stores, providers, agents, work, launches, git, devices, databases, later } = input;
+    const { identity, stores, providers, agents, work, launches, git, devices, databases, remote, later } = input;
     const { lineage, outbox, tasks } = stores;
     const { sessions, chats } = agents;
     const { store: projects } = input.projects;
@@ -58,6 +60,16 @@ export function wireCanvasHost(input: CanvasHostInput): CanvasHost {
             openedCount: (callerId) => openedAgentCount({ lineage, hiddenAgents: projects.hiddenAgents, tasks, outbox, chats, sessions }, callerId)
         }),
         checkouts: git.checkouts,
+        remote: {
+            machines: (projectId) =>
+                projects.remote.linksOf(projectId).map((link) => ({
+                    machineId: link.machineId,
+                    label: link.label,
+                    remoteProjectId: link.remoteProjectId,
+                    ready: remote.machines.get(link.machineId) !== null
+                })),
+            give: (projectId, nodeId, payload) => enqueue(projectId, nodeId, { kind: 'start-remote-agent', payload })
+        },
         machine: identity,
         endSession: input.projects.endSession,
         messages: agentMessages({ notices: stores.notices, sessions, chats, projects, enqueue, push: later.push }),

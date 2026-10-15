@@ -21,6 +21,7 @@ import type { ClientsBundle } from './clients.ts';
 import type { GitBundle } from './git.ts';
 import type { ProvidersBundle } from './providers.ts';
 import { PeerTasks } from '../peering/peer-tasks.ts';
+import { RemoteTasks } from '../remote/remote-tasks.ts';
 import { BundleStore } from '../git/bundles.ts';
 
 /* What the outbox drives on behalf of agents: starts, tasks, wakes and what a node takes along when it goes. */
@@ -82,6 +83,13 @@ export function wireAgentWork({ home, identity, stores, agents, projects, remote
     });
     // The tasks other machines give need the git and the end-children that are wired once the outbox is, so they are built lazily.
     let peerTasks: PeerTasks | null = null;
+    let remoteTasks: RemoteTasks | null = null;
+    const remoteTasksNow = (): RemoteTasks => {
+        if (remoteTasks === null) {
+            throw new Error('A task on another machine is asked for before the daemon is up');
+        }
+        return remoteTasks;
+    };
     const peerStores = new Map<string, BundleStore>();
     const peerTasksNow = (): PeerTasks => {
         if (peerTasks === null) {
@@ -109,7 +117,26 @@ export function wireAgentWork({ home, identity, stores, agents, projects, remote
             deliver: (entry) => peerTasksNow().deliver(entry),
             isPeerTask: (task) => peerTasks?.isPeerTask(task) === true,
             parents: (projectId) => projects.peers.canvasIdsOf(projectId)
+        },
+        remoteTasks: {
+            start: (entry) => remoteTasksNow().start(entry),
+            stop: (entry) => remoteTasksNow().stop(entry),
+            take: (entry) => remoteTasksNow().take(entry),
+            oweStop: (nodeId) => remoteTasksNow().oweStop(nodeId)
         }
+    });
+    remoteTasks = new RemoteTasks({
+        connections: remote.connections,
+        reconnect,
+        refresh: (machineId, except) => remote.connections.refresh(machineId, except),
+        tasks: stores.tasks,
+        coordinator: wiring.tasks.coordinator,
+        placed: (nodeId) => projects.index.locate(nodeId) !== null,
+        git: () => later.git(),
+        outbox,
+        enqueue: (projectId, target, work) => outboxLink.enqueue(projectId, target, work),
+        now: () => Date.now(),
+        log: (line) => console.error(line)
     });
     worker = wiring.worker;
     peerTasks = new PeerTasks({

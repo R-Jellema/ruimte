@@ -7,6 +7,7 @@ import { modeForOpening } from '../canvas/mode.ts';
 import { selectionForOpening } from '../canvas/model.ts';
 import { MAX_CANVAS_NODES, canvasFull, newId, nodeLines, nodesNamed } from '../canvas/nodes.ts';
 import { refuseMissingNodes } from '../canvas/own-view.ts';
+import { refuseRemoteStart, resolveMachine, sourceCheckout } from '../canvas/remote-agent.ts';
 import { groupMembers, placeBeside, placeFree, placeInGroup, placeTeam } from '../canvas/placement.ts';
 import { checkCwd } from '../canvas/project-paths.ts';
 import { MAX_TASK_PROMPT_LENGTH, requireChatParent, taskBrief } from '../canvas/tasks.ts';
@@ -31,6 +32,20 @@ const startAgent: StartHandler = async (input, call) => {
     const { host, place } = context;
     const caller = verbCallOf(call);
     const kind = input.provider;
+    const readIds = readsOf(input.reads);
+    const hidden = input.viewId === null && place.canvasId === null;
+    // The machine is judged before the agent is: a name that is none, or a combination that means nothing there, makes nothing.
+    const remote = input.machine == null ? null : resolveMachine(host, place.projectId, input.machine);
+    if (remote !== null) {
+        refuseRemoteStart({
+            cwd: input.cwd,
+            task: input.task !== null,
+            model: input.model != null,
+            base: input.base != null,
+            reads: readIds.length,
+            hidden
+        });
+    }
     const depth = depthForOpening(caller, 'agent', 1);
     const ceiling = modeForOpening(caller, input.mode ?? undefined);
     const chat = !input.terminal && providerFor(kind).capabilities.chat;
@@ -47,8 +62,6 @@ const startAgent: StartHandler = async (input, call) => {
     if (input.beside !== null && input.group !== null) {
         throw new VerbRefusal('two-places', '--beside and --group both say where the node goes; give one of them');
     }
-    const readIds = readsOf(input.reads);
-    const hidden = input.viewId === null && place.canvasId === null;
     if (hidden && (input.beside !== null || input.group !== null || readIds.length > 0)) {
         throw new VerbRefusal('view-required', '--beside, --group and --reads place nodes or lines on a canvas; name one with --view');
     }
@@ -72,7 +85,11 @@ const startAgent: StartHandler = async (input, call) => {
     const runtimeMode = chat ? (input.mode ?? undefined) : terminalMode(caller, input.mode ?? undefined, ceiling);
     const account = inheritedAccount(caller, kind);
     let undoWorktrees = async (): Promise<void> => undefined;
-    if (input.worktree) {
+    // A worktree on another machine is made there, from this checkout, when the task starts.
+    const source = remote !== null && input.worktree ? await sourceCheckout(host, place, caller.caller) : undefined;
+    if (input.worktree && remote !== null) {
+        await requireRepository(caller, place.folder);
+    } else if (input.worktree) {
         await requireRepository(caller, place.folder);
         if (!dryRun) {
             const want = input.branch === null ? { fresh: branchSlug(input.task ?? input.title ?? kind) } : { branch: input.branch };
@@ -119,7 +136,7 @@ const startAgent: StartHandler = async (input, call) => {
                             kind: kindName,
                             viewId: canvas?.id ?? null,
                             provider: kind,
-                            edge: self ? { edgeId: null, from: self.id, to: NEW_NODE } : null,
+                            edge: self && remote === null ? { edgeId: null, from: self.id, to: NEW_NODE } : null,
                             reads: read.map((node) => ({ edgeId: null, from: node.id, to: NEW_NODE })),
                             taskId: null
                         }
@@ -148,7 +165,8 @@ const startAgent: StartHandler = async (input, call) => {
                 account,
                 ...(runtimeMode === undefined ? {} : { runtimeMode })
             });
-            const edge: ProjectEdge | null = self ? { id: mint(), from: self.id, to: id, label: 'context' } : null;
+            // No line reaches an agent on another machine, so the opener keeps none to it.
+            const edge: ProjectEdge | null = self && remote === null ? { id: mint(), from: self.id, to: id, label: 'context' } : null;
             const reading: ProjectEdge[] = [];
             const readLines = read.map((source) => {
                 /* Your own line is the one drawn above: naming yourself in --reads is that line
@@ -178,6 +196,31 @@ const startAgent: StartHandler = async (input, call) => {
                     await host.hiddenAgents!.put({ projectId: place.projectId, openedBy: caller.caller, node: { ...node, kind: kindName } });
                 }
                 await host.lineage.put({ projectId: place.projectId, nodeId: id, openedBy: caller.caller, depth, agent: true, ceiling });
+                if (remote !== null && input.task !== null && prompt !== null) {
+                    // The task first, then the entry that asks the machine to start it; the task is what the machine's answer settles.
+                    const task = await host.tasks.open({
+                        projectId: place.projectId,
+                        parentId: caller.caller,
+                        childId: id,
+                        title: input.task,
+                        prompt,
+                        machine: remote.machineId
+                    });
+                    output.taskId = task.id;
+                    await host.remote!.give(place.projectId, id, {
+                        machineId: remote.machineId,
+                        remoteProjectId: remote.remoteProjectId,
+                        taskId: task.id,
+                        node: kindName,
+                        provider: kind,
+                        parentId: caller.caller,
+                        ...(input.mode == null ? {} : { mode: input.mode }),
+                        ceiling,
+                        depth,
+                        ...(source === undefined ? {} : { source, branch: input.branch ?? branchSlug(input.task) })
+                    });
+                    return;
+                }
                 if (input.worktree && cwd !== undefined) {
                     await host.checkouts.claim(place.folder, cwd, id);
                 }
@@ -220,6 +263,7 @@ const startAgent: StartHandler = async (input, call) => {
                           )
                       }
                     : null,
+                ...(remote === null ? {} : { bindMachines: new Map([[id, remote.machineId]]) }),
                 // Started is not done: the outbox starts the agent, and its task or its first turn says how it went.
                 result: { output, operation: { id: operationIdOf('agent.start', [id]), status: 'running' } }
             };
@@ -279,6 +323,17 @@ export const startActions: ActionHandlers<ServerActionContext> = {
         if (input.worktree && input.cwd !== null) {
             throw new VerbRefusal('worktree-and-cwd', '--worktree and --cwd both say where the agents start; give one of them');
         }
+        const remote = input.machine == null ? null : resolveMachine(host, place.projectId, input.machine);
+        if (remote !== null) {
+            refuseRemoteStart({
+                cwd: input.cwd,
+                task: input.task,
+                model: roles.some((role) => role.model != null),
+                base: false,
+                reads: readIds.length,
+                hidden
+            });
+        }
 
         const installed = await host.starts.installedAgents();
         roles.forEach((role, index) => requireInstalled(installed, role.provider, `role ${index} (${role.provider})`));
@@ -287,7 +342,11 @@ export const startActions: ActionHandlers<ServerActionContext> = {
         const cwd = input.cwd === null ? undefined : await checkCwd(place.folder, input.cwd, (folder) => host.checkouts.paths(folder));
         const roleCwds: Array<string | undefined> = roles.map(() => cwd);
         let undoWorktrees = async (): Promise<void> => undefined;
-        if (input.worktree) {
+        // A worktree on another machine is made there, from this checkout, when its task starts.
+        const source = remote !== null && input.worktree ? await sourceCheckout(host, place, caller.caller) : undefined;
+        if (input.worktree && remote !== null) {
+            await requireRepository(caller, place.folder);
+        } else if (input.worktree) {
             await requireRepository(caller, place.folder);
             if (!dryRun) {
                 const wants = roles.map((role) => ({ fresh: branchSlug(role.title) }));
@@ -333,7 +392,7 @@ export const startActions: ActionHandlers<ServerActionContext> = {
                                     kind: kindOf(role),
                                     title: role.title,
                                     provider: role.provider,
-                                    edge: self ? { edgeId: null, from: self.id, to: placeholders[index]! } : null,
+                                    edge: self && remote === null ? { edgeId: null, from: self.id, to: placeholders[index]! } : null,
                                     taskId: null
                                 })),
                                 reads: placeholders.flatMap((placeholder) => read.map((node) => ({ edgeId: null, from: node.id, to: placeholder })))
@@ -378,7 +437,8 @@ export const startActions: ActionHandlers<ServerActionContext> = {
                         })
                     );
                     let edge: ProjectEdge | null = null;
-                    if (self) {
+                    // No line reaches an agent on another machine, so the opener keeps none to it.
+                    if (self && remote === null) {
                         edge = { id: mint('edge'), from: self.id, to: id, label: 'context' };
                         edges.push(edge);
                     }
@@ -412,6 +472,20 @@ export const startActions: ActionHandlers<ServerActionContext> = {
                             await host.hiddenAgents!.put({ projectId: place.projectId, openedBy: caller.caller, node: { ...node, kind: made.kind } });
                         }
                         await host.lineage.put({ projectId: place.projectId, nodeId: made.nodeId, openedBy: caller.caller, depth, agent: true, ceiling });
+                        if (remote !== null && batchId !== undefined) {
+                            const role = roles[index]!;
+                            const task = await host.tasks.open({
+                                projectId: place.projectId,
+                                parentId: caller.caller,
+                                childId: made.nodeId,
+                                title: made.title,
+                                prompt: role.prompt,
+                                batchId,
+                                machine: remote.machineId
+                            });
+                            made.taskId = task.id;
+                            continue;
+                        }
                         const roleCwd = roleCwds[index];
                         if (input.worktree && roleCwd !== undefined) {
                             await host.checkouts.claim(place.folder, roleCwd, made.nodeId);
@@ -429,6 +503,22 @@ export const startActions: ActionHandlers<ServerActionContext> = {
                         }
                     }
                     for (const [index, made] of output.agents.entries()) {
+                        if (remote !== null) {
+                            // Every task is written before the first is owed, so a role that is done at once never finds its team complete without the others.
+                            await host.remote!.give(place.projectId, made.nodeId, {
+                                machineId: remote.machineId,
+                                remoteProjectId: remote.remoteProjectId,
+                                taskId: made.taskId!,
+                                node: made.kind,
+                                provider: made.provider,
+                                parentId: caller.caller,
+                                ...(input.mode == null ? {} : { mode: input.mode }),
+                                ceiling,
+                                depth,
+                                ...(source === undefined ? {} : { source, branch: branchSlug(made.title) })
+                            });
+                            continue;
+                        }
                         const chat = made.kind === 'chat';
                         const prompt = roles[index]!.prompt;
                         await host.starts.holdPrompt(place.projectId, made.nodeId, input.task ? `${prompt}${taskBrief(chat)}` : prompt);
@@ -458,6 +548,7 @@ export const startActions: ActionHandlers<ServerActionContext> = {
                               )
                           }
                         : null,
+                    ...(remote === null ? {} : { bindMachines: new Map(output.agents.map((made) => [made.nodeId, remote.machineId])) }),
                     result: {
                         output,
                         operation: {

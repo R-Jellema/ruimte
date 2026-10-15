@@ -6,6 +6,7 @@ import { DEPTH_LIMIT_LINES, MAX_TEAM_DEPTH } from './depth.ts';
 import { readsFlag, readsLines } from './link-verb.ts';
 import { modeFlag } from '@adecore/agents/providers';
 import { MODE_LINES } from './mode.ts';
+import { MACHINE_LINES } from './remote-agent.ts';
 import { modelFlag, modelLines } from './model.ts';
 import { MAX_CANVAS_NODES, idList } from './nodes.ts';
 import { TEAM_COLUMNS } from './placement.ts';
@@ -80,6 +81,7 @@ const TEAM_DETAIL: readonly string[] = [
     ...DEPTH_LIMIT_LINES,
     ...MODE_LINES,
     ...WORKTREE_LINES,
+    ...MACHINE_LINES,
     `depth\tA role lands at depth ${MAX_TEAM_DEPTH}: it may open a single agent of its own with agent, and a team of its own is refused`,
     'operation\tStarting is not succeeding: ruimte-context operation get team.start:<id>,<id> with the ids of the roles in the order they were printed says how the team goes, role by role',
     'note\tThe machine starts every agent right away, whether or not anyone has its canvas open; a client that shows one later joins what runs'
@@ -118,7 +120,7 @@ function parseRoles(raw: string): Role[] {
 export const teamVerb = defineStandaloneActionVerb({
     name: 'team',
     action: 'team.start',
-    usage: `--label L --roles '${ROLES_SHAPE}' [--view V] [--cwd P] [--reads A,B] [--task] [--mode M] [--worktree] [--dry-run]`,
+    usage: `--label L --roles '${ROLES_SHAPE}' [--view V] [--cwd P] [--reads A,B] [--task] [--mode M] [--worktree] [--machine M] [--dry-run]`,
     params: [
         { syntax: '--label L', need: 'required', field: 'label', text: `The name of the group the agents land in, at most ${MAX_TITLE_LENGTH} characters` },
         { syntax: '--roles J', need: 'required', field: 'roles', text: `The roles as JSON, ${ROLES_SHAPE}` },
@@ -139,6 +141,12 @@ export const teamVerb = defineStandaloneActionVerb({
         { syntax: '--worktree', need: 'no value', field: 'worktree', more: 'not together with --cwd' },
         { syntax: '--task', need: 'no value', field: 'task', more: `each prompt at most ${MAX_TASK_PROMPT_LENGTH} characters` },
         {
+            syntax: '--machine M',
+            need: 'optional',
+            field: 'machine',
+            text: 'Runs every role on another machine this project is linked to, by its name or id; needs --task'
+        },
+        {
             syntax: '--dry-run',
             need: 'no value',
             text: `Checks everything and makes nothing; the first field of every line is dry-run and the last names the edge it would draw, as <from> -> <the role's title>; every role is checked before any is made, and ${DRY_RUN_PREVIEW}`
@@ -154,7 +162,8 @@ export const teamVerb = defineStandaloneActionVerb({
         cwd: z.string().min(1, '--cwd needs the path of a directory').optional(),
         reads: readsFlag,
         view: z.string().min(1, '--view needs the id of a canvas').optional(),
-        mode: modeFlag
+        mode: modeFlag,
+        machine: z.string().min(1, '--machine needs the name or id of a machine').optional()
     }),
     async run({ flags, switches, dryRun }, call) {
         const roles = parseRoles(flags.roles);
@@ -176,7 +185,8 @@ export const teamVerb = defineStandaloneActionVerb({
                 viewId: flags.view ?? null,
                 mode: flags.mode ?? null,
                 worktree: switches.has('worktree'),
-                task: tasked
+                task: tasked,
+                machine: flags.machine ?? null
             },
             dryRun
         );

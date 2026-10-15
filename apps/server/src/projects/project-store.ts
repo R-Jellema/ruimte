@@ -142,6 +142,12 @@ export interface ProjectMutation<T> {
     result: T;
     /* The node fields the private file keeps one person's after this write; absent leaves the list as it was. */
     overlayFields?: readonly string[];
+    /*
+     * Nodes this change adds that run on another machine, by node id to the daemon id of that machine:
+     * the daemon's own way to bind one, since a verb's content never carries `machine`. Refused for a node
+     * on a canvas that is shared. Bound before the write, like a person's save, so no client starts the node here.
+     */
+    bindMachines?: ReadonlyMap<string, string>;
     /* Runs once the document is on disk and before `project.changed` goes out, so what a new node
        needs beside the file exists before a client mounts it, and never for a change that was refused. */
     landed?: () => Promise<void>;
@@ -740,7 +746,14 @@ export class ProjectStore {
             return mutation.result;
         }
         this.refuseBoundViews(projectId, mutation.content);
-        mutation.content = withBoundMachines(mutation.content, bound);
+        const binding = mutation.bindMachines ?? new Map<string, string>();
+        const nowBound = { ...bound, ...Object.fromEntries(binding) };
+        if (binding.size > 0) {
+            this.refuseSharedRemoteNodes(projectId, mutation.content, shared, nowBound);
+            // A write that fails leaves a binding for an id no document places; the next write prunes it.
+            await this.remote.bind(projectId, binding, idsOf(mutation.content));
+        }
+        mutation.content = withBoundMachines(mutation.content, nowBound);
         const overlayFields = mutation.overlayFields === undefined ? held : [...mutation.overlayFields];
         const parsed = ProjectDocumentSchema.safeParse({ version: PROJECT_VERSION, rev: rev + 1, ...toPortable(mutation.content, entry.folder), shared });
         if (!parsed.success) {
@@ -1301,8 +1314,13 @@ export class ProjectStore {
     }
 
     /* A view is shared whole, and a node of another machine reaches the shared file as a node of this one. */
-    private refuseSharedRemoteNodes(projectId: string, content: ProjectContent, shared: readonly string[]): void {
-        const bound = { ...this.remote.nodesOf(projectId), ...Object.fromEntries(machinesOf(content)) };
+    private refuseSharedRemoteNodes(
+        projectId: string,
+        content: ProjectContent,
+        shared: readonly string[],
+        binding: Readonly<Record<string, string>> = {}
+    ): void {
+        const bound = { ...this.remote.nodesOf(projectId), ...binding, ...Object.fromEntries(machinesOf(content)) };
         for (const view of content.views) {
             if (shared.includes(view.id) && isCanvasView(view) && view.hidden === true) {
                 throw new ProjectError('hidden-view-shared', `${view.name} is kept for another machine and stays on this one`);

@@ -54,6 +54,8 @@ export const RemoteStatusEventSchema = z.object({
     owed: z.number().int().min(0),
     nextAttemptAt: z.number().int().min(0).optional(),
     // The broker the link signals through, when that machine names one of its own; absent means this machine's own broker.
-    brokerUrl: z.string().max(512).optional()
+    brokerUrl: z.string().max(512).optional(),
+    // The nodes here whose task that machine has not been asked to start yet, because the link is down; absent when there are none.
+    unstartedNodeIds: z.array(z.string().min(1).max(256)).max(200).optional()
 });
 export type RemoteStatusEvent = z.infer<typeof RemoteStatusEventSchema>;

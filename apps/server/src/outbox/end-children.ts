@@ -21,6 +21,8 @@ export interface EndChildrenWiringDeps {
     now?: () => number;
     log?: (line: string) => void;
     ended?: (nodeIds: readonly string[]) => Promise<void>;
+    /* Ends what runs on another machine for a node, which nothing here shows. */
+    remoteStop?: ((nodeId: string) => Promise<void>) | undefined;
 }
 
 export interface EndChildrenWiring {
@@ -49,7 +51,8 @@ export function wireEndChildren({
     enqueue,
     now = Date.now,
     log = console.error,
-    ended
+    ended,
+    remoteStop
 }: EndChildrenWiringDeps): EndChildrenWiring {
     const ending = endChildren({
         lineage,
@@ -60,6 +63,7 @@ export function wireEndChildren({
         stop: async (nodeId, reason) => {
             await chats.stop(nodeId, reason);
             await sessions.end(nodeId);
+            await remoteStop?.(nodeId);
         },
         ended,
         now

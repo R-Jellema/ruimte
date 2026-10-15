@@ -30,7 +30,8 @@ export class RemoteStatus {
             held.state === status.state &&
             held.owed === status.owed &&
             held.nextAttemptAt === status.nextAttemptAt &&
-            held.brokerUrl === status.brokerUrl
+            held.brokerUrl === status.brokerUrl &&
+            JSON.stringify(held.unstartedNodeIds ?? []) === JSON.stringify(status.unstartedNodeIds ?? [])
         ) {
             return;
         }

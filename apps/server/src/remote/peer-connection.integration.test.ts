@@ -151,6 +151,7 @@ beforeAll(async () => {
         pending,
         status,
         owed: () => 0,
+        unstarted: () => [],
         dialer: brokerDialer({ signer: peerKey, defaultBroker: () => brokerUrl, label: () => 'Studio', timeoutMs: 15_000 })
     });
     await machines.put({ machineId: MACHINE_ID, publicKey: machineKey.publicKey }, Date.now());

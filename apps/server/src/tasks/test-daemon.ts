@@ -40,6 +40,7 @@ import { FakePtyAdapter } from '../pty/fake-pty.ts';
 import type { PtyAdapter } from '../pty/pty.ts';
 import { SessionManager } from '../sessions/manager.ts';
 import { agentVisuals } from '../visuals/agent-host.ts';
+import { RemoteTasks, type RemoteTasksDeps } from '../remote/remote-tasks.ts';
 
 const providers = new ProviderRegistry({ detect: async () => ({ installed: true, version: '0.0.0' }) });
 
@@ -102,6 +103,13 @@ export interface TestDaemonOptions {
     visualRender?: Pick<VisualHost, 'preview' | 'measure'>;
     /* What `gh` answers a pull request watch; without it every call fails. */
     gh?: GhRunner;
+    /* The machines this one gives tasks to: which are linked, the link to each and the reconnect owed while one is away. */
+    remote?: {
+        machines: NonNullable<CanvasHost['remote']>['machines'];
+        connections: RemoteTasksDeps['connections'];
+        reconnect: RemoteTasksDeps['reconnect'];
+        git?: RemoteTasksDeps['git'];
+    };
 }
 
 export async function bootTestDaemon({
@@ -118,7 +126,8 @@ export async function bootTestDaemon({
     env = { PATH: process.env.PATH, HOME: home },
     onLimits,
     visualRender = {},
-    gh = () => Promise.resolve({ code: 1, stdout: '', stderr: 'no gh in this test' })
+    gh = () => Promise.resolve({ code: 1, stdout: '', stderr: 'no gh in this test' }),
+    remote
 }: TestDaemonOptions): Promise<TestDaemon> {
     await store.hiddenAgents.load();
     const prompts = new PendingPromptStore(home);
@@ -212,6 +221,7 @@ export async function bootTestDaemon({
         entries: () => outbox.list(),
         removeEntry: (id) => outbox.remove(id)
     });
+    let remoteTasks: RemoteTasks | null = null;
     const outboxWiring = wireOutbox({
         link: outboxLink,
         outbox,
@@ -229,8 +239,35 @@ export async function bootTestDaemon({
         log: () => undefined,
         onDropped: (drop) => drops.push(drop),
         onFailed: () => undefined,
-        resumeAtReset: () => machine.resumeAtReset
+        resumeAtReset: () => machine.resumeAtReset,
+        ...(remote
+            ? {
+                  remoteTasks: {
+                      start: (entry) => remoteTasks!.start(entry),
+                      stop: (entry) => remoteTasks!.stop(entry),
+                      take: (entry) => remoteTasks!.take(entry),
+                      oweStop: (nodeId) => remoteTasks!.oweStop(nodeId)
+                  }
+              }
+            : {})
     });
+    if (remote) {
+        remoteTasks = new RemoteTasks({
+            connections: remote.connections,
+            reconnect: remote.reconnect,
+            tasks,
+            coordinator: outboxWiring.tasks.coordinator,
+            placed: (nodeId) => store.index.locate(nodeId) !== null,
+            git:
+                remote.git ??
+                (() => {
+                    throw new Error('no git in this test');
+                }),
+            outbox,
+            enqueue: (projectId, target, work) => outboxLink.enqueue(projectId, target, work),
+            now: () => clock.now()
+        });
+    }
     const worker = outboxWiring.worker;
     const wiring = outboxWiring.tasks;
     await wiring.recover();
@@ -264,6 +301,14 @@ export async function bootTestDaemon({
             lineage,
             openedCount: (callerId) => openedAgentCount({ lineage, hiddenAgents: store.hiddenAgents, tasks, outbox, chats, sessions }, callerId)
         }),
+        ...(remote
+            ? {
+                  remote: {
+                      machines: remote.machines,
+                      give: (projectId: string, nodeId: string, payload) => enqueue(projectId, nodeId, { kind: 'start-remote-agent', payload })
+                  }
+              }
+            : {}),
         checkouts: worktrees
             ? checkoutHost(worktrees)
             : {

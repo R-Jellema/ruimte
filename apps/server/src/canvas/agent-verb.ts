@@ -6,6 +6,7 @@ import { DEPTH_LIMIT_LINES } from './depth.ts';
 import { readsFlag, readsLines } from './link-verb.ts';
 import { modeFlag } from '@adecore/agents/providers';
 import { MODE_LINES } from './mode.ts';
+import { MACHINE_LINES } from './remote-agent.ts';
 import { modelFlag, modelLines } from './model.ts';
 import { MAX_CANVAS_NODES, idList } from './nodes.ts';
 import { TASK_LINES, nextLine } from './task-verbs.ts';
@@ -45,6 +46,7 @@ const AGENT_DETAIL: readonly string[] = [
     ...DEPTH_LIMIT_LINES,
     ...MODE_LINES,
     ...WORKTREE_LINES,
+    ...MACHINE_LINES,
     'retry\t--request-id R: the same id with the same command answers with the node, task and worktree the first call made, also after the machine restarted; another command under the same id is refused',
     'operation\tStarting is not succeeding: ruimte-context operation get agent.start:<id> says whether the agent is queued, running, completed, failed or cancelled, from its task when it has one',
     'note\tThe machine starts the node right away, whether or not anyone has its canvas open; a client that shows it later joins what runs'
@@ -53,7 +55,7 @@ const AGENT_DETAIL: readonly string[] = [
 export const agentVerb = defineStandaloneActionVerb({
     name: 'agent',
     action: 'agent.start',
-    usage: `<${AGENT_KINDS.join('|')}> [--terminal] [--prompt T | --prompt-file F] [--cwd P] [--reads A,B] [--view V] [--beside N] [--group G] [--title T] [--task T] [--model M] [--mode M] [--worktree [--branch B] [--base R]] [--request-id R] [--dry-run]`,
+    usage: `<${AGENT_KINDS.join('|')}> [--terminal] [--prompt T | --prompt-file F] [--cwd P] [--reads A,B] [--view V] [--beside N] [--group G] [--title T] [--task T] [--model M] [--mode M] [--worktree [--branch B] [--base R]] [--machine M] [--request-id R] [--dry-run]`,
     params: [
         { syntax: '<cli>', need: 'required', field: 'provider', text: AGENT_KINDS.join(', ') },
         {
@@ -106,6 +108,12 @@ export const agentVerb = defineStandaloneActionVerb({
             text: 'With --worktree: the branch to use instead of one named after the task or the title; an existing branch is checked out as it is'
         },
         {
+            syntax: '--machine M',
+            need: 'optional',
+            field: 'machine',
+            text: 'Runs the agent on another machine this project is linked to, by its name or id; needs --task. The task is delivered when that machine is reachable, however long that takes'
+        },
+        {
             syntax: '--request-id R',
             need: 'optional',
             field: 'requestId',
@@ -146,7 +154,8 @@ export const agentVerb = defineStandaloneActionVerb({
             .string()
             .regex(/^[A-Za-z0-9._:-]{1,128}$/, '--request-id takes 1 to 128 characters of letters, digits and . _ : -')
             .optional(),
-        base: z.string().min(1, '--base needs a branch, tag or commit').optional()
+        base: z.string().min(1, '--base needs a branch, tag or commit').optional(),
+        machine: z.string().min(1, '--machine needs the name or id of a machine').optional()
     }),
     async run({ positionals: [kind], flags, switches, dryRun }, call) {
         const started = await runAction(
@@ -169,7 +178,8 @@ export const agentVerb = defineStandaloneActionVerb({
                 worktree: switches.has('worktree'),
                 branch: flags.branch ?? null,
                 requestId: flags['request-id'] ?? null,
-                base: flags.base ?? null
+                base: flags.base ?? null,
+                machine: flags.machine ?? null
             },
             dryRun
         );

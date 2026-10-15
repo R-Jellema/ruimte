@@ -36,6 +36,12 @@ export async function wireRemote({ home, identity, machine, outbox, later }: Rem
         pending: machine.pendingAdmissions,
         status,
         owed: (machineId) => owedTargets(machineId).length,
+        unstarted: (machineId, except) =>
+            outbox
+                .list()
+                .flatMap((entry) =>
+                    entry.kind === 'start-remote-agent' && entry.payload.machineId === machineId && entry.id !== except ? [entry.target] : []
+                ),
         dialer: brokerDialer({ signer: machine.peerKey, defaultBroker: () => later.brokerUrl(), label: () => identity.label })
     });
     const leaving: Array<() => Promise<void> | void> = [];

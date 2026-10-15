@@ -1640,6 +1640,25 @@ describe('the machine of a node', () => {
         expect(await textOfProjectFiles()).not.toContain('"machine"');
     });
 
+    test("is bound by the daemon's own path for a node it adds, never into a shared canvas and never into a file", async () => {
+        const opened = await store.openProject({ folder });
+        const projectId = opened.summary.projectId;
+        await store.save(projectId, 0, content(), ['main']);
+        const add = (bindMachines: ReadonlyMap<string, string>) => (current: ProjectContent) => {
+            const view = canvas(current);
+            const added = { id: 'n9', kind: 'chat' as const, title: 'there', x: 0, y: 900, w: 560, h: 640 };
+            return { content: { ...current, views: [{ ...view, nodes: [...view.nodes, added] }] }, result: null, bindMachines };
+        };
+        await expect(store.mutate(projectId, add(new Map([['n9', 'machine-b']])))).rejects.toMatchObject({ code: 'remote-node-shared' });
+        expect(store.remote.machineOf(projectId, 'n9')).toBeNull();
+        await store.save(projectId, 1, content(), []);
+        await store.mutate(projectId, add(new Map([['n9', 'machine-b']])));
+        expect(store.remote.machineOf(projectId, 'n9')).toBe('machine-b');
+        expect(canvas(await store.read(projectId)).nodes.find((node) => node.id === 'n9')).not.toHaveProperty('machine');
+        expect(canvas((await store.openProject({ projectId })).document).nodes.find((node) => node.id === 'n9')).toMatchObject({ machine: 'machine-b' });
+        expect(await textOfProjectFiles()).not.toContain('"machine"');
+    });
+
     test('keeps its node off a shared canvas, whether the node or the sharing comes second', async () => {
         const opened = await store.openProject({ folder });
         const projectId = opened.summary.projectId;

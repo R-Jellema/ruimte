@@ -2551,7 +2551,14 @@ export const ACTION_DEFINITIONS = {
                 .regex(/^[A-Za-z0-9._:-]{1,128}$/)
                 .nullable()
                 .describe('An id of your choosing; a retry with the same id and the same input answers with what the first call made'),
-            base: z.string().min(1).nullish().describe('With a worktree: the branch, tag or commit a new branch starts at instead of HEAD')
+            base: z.string().min(1).nullish().describe('With a worktree: the branch, tag or commit a new branch starts at instead of HEAD'),
+            machine: z
+                .string()
+                .min(1)
+                .nullish()
+                .describe(
+                    'Runs the agent on another machine this project is linked to, named by its name or id; needs a task, and a worktree there is made from your checkout'
+                )
         }),
         output: z.object({
             nodeId,
@@ -2596,6 +2603,13 @@ export const ACTION_DEFINITIONS = {
                 .boolean()
                 .describe(
                     'Gives every role a task titled after the role, which its prompt describes; you are woken once, with the results of all roles, when the last of them settles'
+                ),
+            machine: z
+                .string()
+                .min(1)
+                .nullish()
+                .describe(
+                    'Runs every role on another machine this project is linked to, named by its name or id; needs a task, and a worktree there is made from your checkout'
                 )
         }),
         output: z.object({

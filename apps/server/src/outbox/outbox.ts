@@ -64,6 +64,40 @@ const ConnectPeerSchema = z.object({
     payload: z.object({ machineId: z.string().min(1), since: z.number(), interval: z.number().positive() })
 });
 
+const StartRemoteAgentSchema = z.object({
+    kind: z.literal('start-remote-agent'),
+    // The target is the node here that stands for the agent. What the task asks is in its record (`taskId`); this is where and how it runs there.
+    payload: z.object({
+        machineId: z.string().min(1),
+        // The project there that the link names.
+        remoteProjectId: z.string().min(1),
+        taskId: z.string().min(1),
+        node: z.enum(['chat', 'terminal']),
+        provider: AgentKindSchema,
+        // The node here that gave the task, which that machine counts its agents under.
+        parentId: z.string().min(1),
+        // What the verb asked and the mode its parent has; that machine narrows both again.
+        mode: RuntimeModeSchema.optional(),
+        ceiling: RuntimeModeSchema,
+        depth: z.number().int().min(0),
+        // With a worktree there: the checkout here that is sent over, and the branch it becomes. Both or neither.
+        source: z.string().min(1).optional(),
+        branch: z.string().min(1).optional()
+    })
+});
+
+const StopRemoteAgentSchema = z.object({
+    kind: z.literal('stop-remote-agent'),
+    // The target is `peer:<machineId>`. Owed because the node or the task is gone, so it outlives any node.
+    payload: z.object({ machineId: z.string().min(1), nodeId: z.string().min(1) })
+});
+
+const TakeRemoteResultSchema = z.object({
+    kind: z.literal('take-remote-result'),
+    // The target is the node here that stands for the agent; it is owed from the moment the task started there until its result is taken in.
+    payload: z.object({ machineId: z.string().min(1), taskId: z.string().min(1) })
+});
+
 const DeliverRemoteResultSchema = z.object({
     kind: z.literal('deliver-remote-result'),
     // The target is `peer:<machineId>`, the machine that gave the task. The entry stays until that machine says it has the result (`peer.result` with `ack`), however long it is away.
@@ -85,7 +119,10 @@ const OutboxWorkSchema = z.discriminatedUnion('kind', [
     DeliverPrWatchSchema,
     RunAfterSettleSchema,
     ConnectPeerSchema,
-    DeliverRemoteResultSchema
+    DeliverRemoteResultSchema,
+    StartRemoteAgentSchema,
+    StopRemoteAgentSchema,
+    TakeRemoteResultSchema
 ]);
 
 export type OutboxWork = z.infer<typeof OutboxWorkSchema>;
@@ -103,12 +140,16 @@ export type DeliverWaitingEntry = Extract<OutboxEntry, { kind: 'deliver-waiting'
 export type DeliverPrWatchEntry = Extract<OutboxEntry, { kind: 'deliver-pr-watch' }>;
 export type RunAfterSettleEntry = Extract<OutboxEntry, { kind: 'run-after-settle' }>;
 export type ConnectPeerEntry = Extract<OutboxEntry, { kind: 'connect-peer' }>;
+export type StartRemoteAgentEntry = Extract<OutboxEntry, { kind: 'start-remote-agent' }>;
+export type StopRemoteAgentEntry = Extract<OutboxEntry, { kind: 'stop-remote-agent' }>;
+export type TakeRemoteResultEntry = Extract<OutboxEntry, { kind: 'take-remote-result' }>;
+export type StartRemoteAgentPayload = StartRemoteAgentEntry['payload'];
 export type DeliverRemoteResultEntry = Extract<OutboxEntry, { kind: 'deliver-remote-result' }>;
 
 /*
  * Work the daemon still owes, under `$RUIMTE_HOME/outbox`. Only a verb or a restart puts something
  * here, never a clock; the exceptions are a `resume-limit`, only where a person turned it on, a
- * `background-limit`, the grace of a `deliver-waiting` and a `connect-peer`, each due at a time. A `deliver-remote-result` is due at once and waits for an answer from the machine, never a clock. A `deliver-pr-watch`
+ * `background-limit`, the grace of a `deliver-waiting` and a `connect-peer`, each due at a time. A `deliver-remote-result`, a `start-remote-agent`, a `take-remote-result` and a `stop-remote-agent` are due at once and wait for the link to a machine, never for a clock of their own. A `deliver-pr-watch`
  * is due at once: the poll that wrote it is the PR-watch's own clock, not the outbox's. A
  * `run-after-settle` is due at once too, owed when a chat in a worktree settles.
  */
@@ -120,7 +161,8 @@ export class OutboxStore extends BaseOutboxStore<OutboxWork> {
             // Ending children holds their lanes too, so no start or resume of one runs beside it.
             lanesOf: (entry) => (entry.kind === 'end-children' ? [entry.target, ...entry.payload.nodeIds] : [entry.target]),
             // Ending the children of a deleted node is owed exactly because it is gone, and what is owed to a machine has no node for a target.
-            outlivesTarget: (entry) => entry.kind === 'end-children' || entry.kind === 'connect-peer' || entry.kind === 'deliver-remote-result'
+            outlivesTarget: (entry) =>
+                entry.kind === 'end-children' || entry.kind === 'connect-peer' || entry.kind === 'deliver-remote-result' || entry.kind === 'stop-remote-agent'
         });
     }
 }

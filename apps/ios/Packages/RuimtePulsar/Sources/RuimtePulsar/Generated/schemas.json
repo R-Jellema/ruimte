@@ -57853,6 +57853,15 @@
       "brokerUrl": {
         "type": "string",
         "maxLength": 512
+      },
+      "unstartedNodeIds": {
+        "maxItems": 200,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
       }
     },
     "required": [

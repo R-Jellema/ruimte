@@ -117,6 +117,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         git,
         devices,
         databases,
+        remote,
         later: { language: () => language.host, push: () => push }
     });
 

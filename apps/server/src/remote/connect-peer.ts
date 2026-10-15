@@ -15,8 +15,8 @@ export function peerTarget(machineId: string): string {
     return `peer:${machineId}`;
 }
 
-// What an entry that is owed to another machine is called; the kinds that carry a task over the link are written in a later step.
-const OWED_KINDS: ReadonlySet<string> = new Set(['start-remote-agent', 'deliver-remote-result', 'stop-remote-agent']);
+// What an entry that is owed to another machine is called: a task given to it, its result taken in, a stop.
+const OWED_KINDS: ReadonlySet<string> = new Set(['start-remote-agent', 'take-remote-result', 'deliver-remote-result', 'stop-remote-agent']);
 
 /* The machine a piece of work for another machine is owed to, or null for any other entry. */
 export function machineOwed(entry: { kind: string; payload?: unknown }): string | null {

@@ -83,7 +83,10 @@ function handlersWith(connectPeer: (entry: ConnectPeerEntry) => Promise<void>): 
         'deliver-pr-watch': unexpected,
         'run-after-settle': unexpected,
         'connect-peer': connectPeer,
-        'deliver-remote-result': () => Promise.reject(new Error('not used here'))
+        'deliver-remote-result': () => Promise.reject(new Error('not used here')),
+        'start-remote-agent': () => Promise.reject(new Error('not used here')),
+        'stop-remote-agent': () => Promise.reject(new Error('not used here')),
+        'take-remote-result': () => Promise.reject(new Error('not used here'))
     };
 }
 

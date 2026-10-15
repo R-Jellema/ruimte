@@ -58,6 +58,8 @@ export interface RemoteConnectionsOptions {
     status: RemoteStatus;
     /* How many pieces of work wait on the link to that machine. */
     owed(machineId: string): number;
+    /* The nodes whose task that machine has not been asked to start yet; `except` is an entry that is done and about to go. */
+    unstarted(machineId: string, except?: string): string[];
 }
 
 /*
@@ -131,9 +133,26 @@ export class RemoteConnections {
         this.options.status.set({ ...this.standing(machineId, 'waiting'), nextAttemptAt });
     }
 
-    private standing(machineId: string, state: 'open' | 'connecting' | 'waiting'): RemoteStatusEvent {
+    /* Says again how many tasks wait, as the standing of a link that is already told of. `except` is an entry that is done. */
+    refresh(machineId: string, except?: string): void {
+        const held = this.options.status.get(machineId);
+        if (held === null || held.state === 'closed') {
+            return;
+        }
+        this.options.status.set(this.standing(machineId, held.state, except, held.nextAttemptAt));
+    }
+
+    private standing(machineId: string, state: 'open' | 'connecting' | 'waiting', except?: string, nextAttemptAt?: number): RemoteStatusEvent {
         const brokerUrl = this.options.machines.get(machineId)?.brokerUrl;
-        return { machineId, state, owed: this.options.owed(machineId), ...(brokerUrl ? { brokerUrl } : {}) };
+        const unstarted = this.options.unstarted(machineId, except);
+        return {
+            machineId,
+            state,
+            owed: this.options.owed(machineId),
+            ...(nextAttemptAt === undefined ? {} : { nextAttemptAt }),
+            ...(brokerUrl ? { brokerUrl } : {}),
+            ...(unstarted.length === 0 ? {} : { unstartedNodeIds: unstarted })
+        };
     }
 
     private async dial(machineId: string): Promise<PeerLink> {

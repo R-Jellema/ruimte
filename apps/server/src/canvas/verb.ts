@@ -37,6 +37,7 @@ import type { IndexedPlace } from '../projects/project-index.ts';
 import type { HiddenAgentStore } from '../agents/hidden-agents.ts';
 import type { StartClaims } from '../actions/start-claims.ts';
 import type { VisualPreview } from '../visuals/renderer.ts';
+import type { StartRemoteAgentPayload } from '../outbox/outbox.ts';
 import type { ProjectMutation, ProjectStore } from '../projects/project-store.ts';
 import type { DiagramStore } from '../projects/diagram-store.ts';
 import type { SnoozeStore } from '../push/snoozes.ts';
@@ -120,6 +121,8 @@ export interface CanvasHost {
     language?: LanguageAgentHost;
     /* The cards in which an agent asks a person for a launch's secret; absent on a host that keeps none. */
     secrets?: SecretHost;
+    /* The machines this machine can give tasks to; absent on a host that links to none. */
+    remote?: RemoteAgentHost;
     /* When a person's snooze on a node ends, in epoch milliseconds; absent on a host without snoozes. */
     snoozes?: Pick<SnoozeStore, 'until'>;
 }
@@ -153,6 +156,14 @@ export interface AgentStartHost {
     terminalModePreference(): RuntimeMode | undefined;
     /* The agent nodes this caller has opened and not lost, which is what caps one caller in a loop. */
     openedCount(callerId: string): number;
+}
+
+/* The other machines an agent may give work to, and the owing of that work. */
+export interface RemoteAgentHost {
+    /* The machines a project is linked to; `ready` is whether this machine holds the link that lets it work in them. */
+    machines(projectId: string): Array<{ machineId: string; label: string; remoteProjectId: string; ready: boolean }>;
+    /* Owes the start of a task on another machine for the node that stands for it here. */
+    give(projectId: string, nodeId: string, work: StartRemoteAgentPayload): Promise<void>;
 }
 
 /* The repository a project folder is in, as far as a node that starts in it goes. */

@@ -53,6 +53,7 @@ function statement(): PeerStatement {
 
 let known: PeerMachine | null;
 let owed: number;
+let unstarted: string[];
 let dials: Array<PeerStatement | null>;
 let next: Promise<PeerLink> | (() => Promise<PeerLink>);
 let status: RemoteStatus;
@@ -63,6 +64,7 @@ let heard: string[];
 beforeEach(() => {
     known = MACHINE;
     owed = 0;
+    unstarted = [];
     dials = [];
     heard = [];
     status = new RemoteStatus();
@@ -78,7 +80,14 @@ beforeEach(() => {
             return typeof next === 'function' ? next() : next;
         }
     };
-    connections = new RemoteConnections({ machines: { get: () => known }, pending, dialer, status, owed: () => owed });
+    connections = new RemoteConnections({
+        machines: { get: () => known },
+        pending,
+        dialer,
+        status,
+        owed: () => owed,
+        unstarted: (_machineId, except) => unstarted.filter((nodeId) => nodeId !== except)
+    });
     next = async () => new FakeLink();
 });
 
@@ -193,5 +202,29 @@ describe('the standing of the links', () => {
             }
         });
         expect(late).toEqual(['machine-b:open']);
+    });
+});
+
+describe('the tasks that have not started', () => {
+    test('are named in the standing of a link that is down, and left out once they started', async () => {
+        const events: Array<string[] | undefined> = [];
+        status.subscribe('client-2', (event: SessionEvent) => {
+            if (event.event === 'remote.status') {
+                events.push(event.payload.unstartedNodeIds);
+            }
+        });
+        owed = 2;
+        unstarted = ['chat-a', 'chat-b'];
+        next = Promise.reject(new Error('That machine is not online'));
+        await connections.connect('machine-b').catch(() => undefined);
+        expect(status.get('machine-b')).toMatchObject({ state: 'waiting', unstartedNodeIds: ['chat-a', 'chat-b'] });
+
+        // One was asked and is done; the standing says so before its entry has left the outbox.
+        connections.refresh('machine-b', 'chat-a');
+        expect(status.get('machine-b')?.unstartedNodeIds).toEqual(['chat-b']);
+        unstarted = [];
+        connections.refresh('machine-b');
+        expect(status.get('machine-b')).not.toHaveProperty('unstartedNodeIds');
+        expect(events.at(-1)).toBeUndefined();
     });
 });

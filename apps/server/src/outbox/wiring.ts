@@ -12,7 +12,16 @@ import type { SessionManager } from '../sessions/manager.ts';
 import { wireTasks, type TaskWiring } from '../tasks/wiring.ts';
 import { errorText } from '../error-text.ts';
 import { wireEndChildren, type EndChildrenWiring } from './end-children.ts';
-import type { ConnectPeerEntry, DeliverRemoteResultEntry, OutboxStore, OutboxWork, RunAfterSettleEntry } from './outbox.ts';
+import type {
+    ConnectPeerEntry,
+    DeliverRemoteResultEntry,
+    OutboxStore,
+    OutboxWork,
+    RunAfterSettleEntry,
+    StartRemoteAgentEntry,
+    StopRemoteAgentEntry,
+    TakeRemoteResultEntry
+} from './outbox.ts';
 import { oweResume, resumeRunHandler, resumeRunParked } from './resume-run.ts';
 import { startAgentHandler } from './start-agent.ts';
 import { placesOf } from '../projects/project-index.ts';
@@ -131,6 +140,16 @@ export interface OutboxWiringDeps {
         /* The ids of a project that stand in for the parents of such tasks. */
         parents(projectId: string): ReadonlySet<string>;
     };
+    /*
+     * The tasks this machine gives agents on other machines (`remote/remote-tasks.ts`). An agent that is
+     * ended, or whose node is gone, is stopped there too. Absent on a host that links to none, where the entries lapse.
+     */
+    remoteTasks?: {
+        start(entry: StartRemoteAgentEntry): Promise<'wait' | undefined>;
+        stop(entry: StopRemoteAgentEntry): Promise<'wait' | undefined>;
+        take(entry: TakeRemoteResultEntry): Promise<'wait' | undefined>;
+        oweStop(nodeId: string): Promise<void>;
+    };
 }
 
 export interface OutboxWiring {
@@ -185,6 +204,7 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
         chats,
         sessions,
         enqueue,
+        remoteStop: deps.remoteTasks ? (nodeId) => deps.remoteTasks!.oweStop(nodeId) : undefined,
         ended: async (nodeIds) => {
             const projectIds = new Set(nodeIds.map((id) => lineage.projectOf(id)).filter((id) => id !== null));
             for (const projectId of projectIds) {
@@ -256,7 +276,10 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
             },
             'run-after-settle': (entry) => deps.runAfterSettle?.(entry) ?? Promise.resolve(),
             'connect-peer': (entry) => deps.connectPeer?.(entry) ?? Promise.resolve(),
-            'deliver-remote-result': (entry) => deps.peerTasks?.deliver(entry) ?? Promise.resolve(undefined)
+            'deliver-remote-result': (entry) => deps.peerTasks?.deliver(entry) ?? Promise.resolve(undefined),
+            'start-remote-agent': (entry) => deps.remoteTasks?.start(entry) ?? Promise.resolve(undefined),
+            'stop-remote-agent': (entry) => deps.remoteTasks?.stop(entry) ?? Promise.resolve(undefined),
+            'take-remote-result': (entry) => deps.remoteTasks?.take(entry) ?? Promise.resolve(undefined)
         },
         onParked: (entry, error) => {
             resumeRunParked(chats)(entry, error);
@@ -274,6 +297,12 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
         // A node deleted before anyone ran it takes its prompt with it, and a node that is gone frees the count its opener is held to.
         places: (projectId, ids) => {
             endChildren.places(projectId, ids);
+            // A node that ran an agent on another machine and is gone ends that agent as well.
+            for (const task of tasks.ofProject(projectId)) {
+                if (task.machine !== undefined && task.status === 'open' && !ids.has(task.childId)) {
+                    void deps.remoteTasks?.oweStop(task.childId).catch((e) => failed('Stopping an agent on another machine failed', e));
+                }
+            }
             prWatches.prune(projectId, ids);
             void prompts.prune(projectId, ids).catch((e) => failed('Pruning pending prompts failed', e));
             for (const forkId of lineage.forksLeaving(projectId, ids)) {
