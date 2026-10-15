@@ -367,6 +367,7 @@ export function registerEditorHandlers(dispatcher: Dispatcher, input: EditorHand
             bundles: git.bundles,
             checkpoints: git.checkpoints,
             folderOf: async (projectId) => (await store.known()).find((project) => project.projectId === projectId)?.folder ?? null
-        }
+        },
+        agents.oneShot
     );
 }

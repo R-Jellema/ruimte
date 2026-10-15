@@ -7,6 +7,7 @@ import { startCwdGuard } from '../canvas/project-paths.ts';
 import { ChatManager } from '../chat/chat-manager.ts';
 import { ruimteUiSources } from '../chat/ui-sources.ts';
 import { restartConnectPeers } from '../remote/connect-peer.ts';
+import { OneShotPlace } from '../peering/one-shot-place.ts';
 import { UntrustedFolders } from '../peering/untrusted.ts';
 import type { ComputerUse } from '../computer/computer-use.ts';
 import { ComputerUseStore } from '../computer/store.ts';
@@ -130,6 +131,8 @@ export interface AgentsBundle {
     visuals: VisualStore;
     /* What came from another machine, which never runs on the configuration of the files it sent. */
     untrusted: UntrustedFolders;
+    /* Where a one-shot CLI run works, so a folder from another machine never lends it its configuration. */
+    oneShot: OneShotPlace;
     /* Refuses a directory an agent node may not start in, at every start. */
     startCwd(nodeId: string, cwd: string): Promise<void>;
     /* A bearer token speaks for a terminal session or a chat, for reading context and for agent commands alike. */
@@ -153,6 +156,7 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
         folders: () => later.projects().store.peers.worktreeFolders(),
         cwdOf: (nodeId) => chats.get(nodeId)?.info.cwd ?? sessions.get(nodeId)?.cwd ?? null
     });
+    const oneShot = new OneShotPlace(config.home, untrusted);
     const messagesFor = (targetId: string): string[] => notices.take(targetId).map(renderNotice);
     // One reader for chats and terminals, so a transcript both look at is only read on from where either stopped.
     const claudeTitles = new ClaudeTitleReader();
@@ -284,7 +288,7 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
         onLimits: (update) => later.usage().limits.applyLive(update),
         claudeTitles,
         // One one-shot call per Codex chat, on whichever CLI here answers a single prompt.
-        nameChat: (provider, input) => suggestChatTitle(providers.providers, provider, input),
+        nameChat: async (provider, input) => suggestChatTitle(providers.providers, provider, { ...input, cwd: await oneShot.cwdFor(input.cwd) }),
         onInterruptedRun: outboxLink.onInterruptedRun,
         taskRows: (chatId) => tasks.ofParent(chatId),
         dropWakes: (chatId) => tasks.dropWake(chatId),
@@ -314,6 +318,7 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
         bookmarks,
         visuals,
         untrusted,
+        oneShot,
         startCwd,
         targetForToken,
         messagesFor

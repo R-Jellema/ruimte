@@ -74,6 +74,8 @@ export interface SuggestOptions {
     provider?: AgentKind;
     /* The process, so `git.cancel` can end a CLI that is taking its time. */
     onSpawn?(kill: () => void): void;
+    /* Where the CLI runs for a checkout; the checkout itself unless it is not to be trusted with the CLI's configuration. */
+    cwdFor?(folder: string): Promise<string>;
 }
 
 /*
@@ -94,7 +96,7 @@ export async function suggestMessage(cwd: string, registry: ProviderRegistry, op
     if (args === null) {
         throw new GitError('git-failed', `${provider.name} cannot answer a single prompt.`);
     }
-    const result = await streamWithTimeout(provider.command[0]!, args, top, TIMEOUT_MS, { onSpawn: options.onSpawn });
+    const result = await streamWithTimeout(provider.command[0]!, args, (await options.cwdFor?.(top)) ?? top, TIMEOUT_MS, { onSpawn: options.onSpawn });
     const suggestion = result.code === 0 ? parseSuggestion(result.stdout) : null;
     if (suggestion === null || suggestion.subject === '') {
         throw new GitError('git-failed', `${provider.name} wrote no message: ${result.stderr.trim() || 'no output'}`);

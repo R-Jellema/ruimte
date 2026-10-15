@@ -22,6 +22,7 @@ import type { GitStatusWatcher } from '../git/status-watcher.ts';
 import { mergeBaseWith } from '../git/status.ts';
 import type { WorktreeMerge } from '../git/worktree-merge.ts';
 import type { Worktrees } from '../git/worktrees.ts';
+import type { OneShotPlace } from '../peering/one-shot-place.ts';
 import type { ProviderRegistry } from '../providers/registry.ts';
 
 /* What writing and taking in a bundle needs from the rest of the daemon. */
@@ -34,6 +35,7 @@ export interface BundleHost {
 interface AgentRunOptions {
     provider?: AgentKind;
     onSpawn(kill: () => void): void;
+    cwdFor?(folder: string): Promise<string>;
 }
 
 /* Streams an action's progress to the client that asked, under the action id it chose. */
@@ -52,7 +54,8 @@ export function registerGitHandlers(
     prWatches?: PrWatchStore,
     placeOf?: (id: string) => { projectId: string } | null,
     machineHome?: Pick<MachineHome, 'refuse'>,
-    bundleHost?: BundleHost
+    bundleHost?: BundleHost,
+    oneShotPlace?: Pick<OneShotPlace, 'cwdFor'>
 ): void {
     const actions = new GitActions();
     const identities = new IdentityReader();
@@ -218,7 +221,11 @@ export function registerGitHandlers(
     const runAgent = async <T>(actionId: string, provider: AgentKind | undefined, run: (options: AgentRunOptions) => Promise<T>): Promise<T> => {
         const job = actions.claim(actionId);
         try {
-            return await run({ ...(provider ? { provider } : {}), onSpawn: (kill) => job.hold(kill) });
+            return await run({
+                ...(provider ? { provider } : {}),
+                ...(oneShotPlace ? { cwdFor: (folder: string) => oneShotPlace.cwdFor(folder) } : {}),
+                onSpawn: (kill) => job.hold(kill)
+            });
         } finally {
             job.release();
         }

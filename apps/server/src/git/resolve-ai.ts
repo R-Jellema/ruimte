@@ -128,6 +128,8 @@ export interface ResolveOptions {
     provider?: AgentKind;
     /* The process, so `git.cancel` can end a CLI that is taking its time. */
     onSpawn?(kill: () => void): void;
+    /* Where the CLI runs for a checkout; the checkout itself unless it is not to be trusted with the CLI's configuration. */
+    cwdFor?(folder: string): Promise<string>;
 }
 
 /*
@@ -165,7 +167,10 @@ export async function resolveWithAgent(
     if (run === null) {
         throw new GitError('git-failed', `${provider.name} cannot answer a single prompt.`);
     }
-    const result = await streamWithTimeout(provider.command[0]!, run.args, top, TIMEOUT_MS, { onSpawn: options.onSpawn, stdin: run.stdin });
+    const result = await streamWithTimeout(provider.command[0]!, run.args, (await options.cwdFor?.(top)) ?? top, TIMEOUT_MS, {
+        onSpawn: options.onSpawn,
+        stdin: run.stdin
+    });
     if (result.code !== 0) {
         throw new GitError('git-failed', `${provider.name} stopped: ${result.stderr.trim() || 'no output'}`);
     }
