@@ -31,11 +31,21 @@ export async function linkToPeerOrMark(machineId: string, self: Requester): Prom
     try {
         await linkToPeer(machineId, self);
         markPeerLapsed(machineId, false);
+        failed.delete(machineId);
         return true;
     } catch {
         markPeerLapsed(machineId, true);
+        failed.add(machineId);
         return false;
     }
+}
+
+// Machines whose link just failed at the place a person made it; the renewal that follows would only ask the address book the same thing again.
+const failed = new Set<string>();
+
+/* Whether the last link made along the way failed, said once: the renewal leaves that machine to the pill, which offers the way back. */
+export function takeLinkFailure(machineId: string): boolean {
+    return failed.delete(machineId);
 }
 
 /* For tests: stands in for the account; the returned function puts the real one back. */
@@ -44,5 +54,6 @@ export function swapPeerLinker(next: PeerLinker): () => void {
     return () => {
         linker = throughAccount;
         running.clear();
+        failed.clear();
     };
 }

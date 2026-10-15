@@ -26,7 +26,7 @@ import { workspaceOf, useWindow, windowWorkspace } from '@/state/window';
 import { forgetProjectSessions } from '@/terminal/lifecycle';
 import { SessionClient } from '@/terminal/session-client';
 import { PeerRenewal } from '@/project/peer-renewal';
-import { linkToPeer } from '@/project/peer-linker';
+import { linkToPeer, takeLinkFailure } from '@/project/peer-linker';
 import { RemoteMirror } from '@/project/remote-mirror';
 import { nodesOfView, subscribeViewNodes } from '@/project/view-nodes';
 import { machineTransport, pool } from '@/transport';
@@ -202,7 +202,8 @@ function connect(endpoint: Endpoint, onLoad: (connection: Connection, summary: P
     const peerRenewal = new PeerRenewal({
         selfId: () => endpointById(connection.endpointId)?.daemonId ?? connection.endpointId,
         transportOf: (machineId) => machineTransport(endpointIdOfMachine(machineId)),
-        link: (machineId) => linkToPeer(machineId, transport)
+        link: (machineId) => linkToPeer(machineId, transport),
+        linkFailed: takeLinkFailure
     });
     const mirror = new RemoteMirror({
         projectId: () => {

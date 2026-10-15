@@ -14,6 +14,8 @@ export interface PeerRenewalHost {
     /* Links this machine to that one anew; rejects when the account cannot vouch for it. */
     link(machineId: string): Promise<void>;
     now?(): number;
+    /* Whether a link made just now failed, said once; the machine is then left to the pill that offers the way back. */
+    linkFailed?(machineId: string): boolean;
 }
 
 /*
@@ -33,6 +35,11 @@ export class PeerRenewal {
     /* Once per machine per window, and again after a failure the next time it is asked. */
     async ensure(machineId: string): Promise<void> {
         if (this.checked.has(machineId)) {
+            return;
+        }
+        // A failure costs one attempt: the link that was just made failed for a reason the same ask would meet again.
+        if (this.host.linkFailed?.(machineId)) {
+            this.checked.add(machineId);
             return;
         }
         const transport = this.host.transportOf(machineId);
