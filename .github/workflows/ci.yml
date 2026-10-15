@@ -114,8 +114,6 @@ jobs:
   integration-linux:
     name: integration (Linux)
     runs-on: ubuntu-latest
-    # Until its first runs are understood; a later step makes it required.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # The shell tests start /bin/zsh, which the runner image does not promise.
@@ -129,7 +127,6 @@ jobs:
   packaged-linux:
     name: packaged (Linux)
     runs-on: ubuntu-22.04
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/install
@@ -203,7 +200,7 @@ jobs:
   checks:
     name: CI checks
     if: ${{ always() }}
-    needs: [changes, verify, build, unit, dom, integration, packaged, rust, swift-pulsar, swift-transport, computer-use, foundation-models]
+    needs: [changes, verify, build, unit, dom, integration, packaged, integration-linux, packaged-linux, rust, swift-pulsar, swift-transport, computer-use, foundation-models]
     runs-on: ubuntu-latest
     steps:
       - name: Check job results
