@@ -108,6 +108,7 @@
         "color": "Kleur",
         "noAccent": "Geen",
         "stopPrWatch": "Pull request niet meer volgen",
+        "stopWaiting": "Niet meer wachten",
         "makeDefaultSize": "Maak dit de standaardgrootte"
     },
     "kinds": {
@@ -307,7 +308,9 @@
         "tooOld": "Op {{machine}} draait een oudere Ruimte. Werk hem bij om deze node te gebruiken.",
         "pill": "Deze node draait op {{machine}}",
         "pillLapsed": "Deze node draait op {{machine}}. Agents daar kunnen pas taken geven als je hem opnieuw koppelt. Klik om te koppelen.",
-        "linkAgainFailed": "{{machine}} kon niet opnieuw worden gekoppeld"
+        "linkAgainFailed": "{{machine}} kon niet opnieuw worden gekoppeld",
+        "waiting": "Wacht op {{machine}}",
+        "waitTooltip": "De taak wacht tot {{machine}} antwoordt. Daarna gaat hij daar zelf verder."
     },
     "otherMachine": {
         "group": "Op een andere machine",

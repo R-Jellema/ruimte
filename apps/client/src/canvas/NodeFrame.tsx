@@ -41,6 +41,8 @@ import { deleteSelectionAsking } from '@/canvas/delete-selection';
 import { useWorkspace } from '@/transport/connections';
 import { markPeerLapsed, usePeerLapse } from '@/project/peer-lapse';
 import { linkToPeer } from '@/project/peer-linker';
+import { useWaitingMachines } from '@/canvas/remote-wait';
+import { endpointIdOfMachine } from '@/state/endpoints';
 import { useToasts } from '@/state/toasts';
 import { NodeMachineScope } from '@/transport/node-machine';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
@@ -221,6 +223,22 @@ function MachinePill({ machine, narrow }: { machine: string; narrow: boolean }) 
     );
 }
 
+/* A parent whose task was given to a machine that does not answer yet: the task starts there by itself once it does. */
+function RemoteWaitPill({ machine }: { machine: string }) {
+    const { t } = useTranslation('canvas');
+    const entry = useMachineEntry(endpointIdOfMachine(machine));
+    const icon = useMachineIcon(entry);
+    const name = nameOf(entry);
+    const label = t('remote.waitTooltip', { machine: name });
+    return (
+        <Tooltip label={label}>
+            <Pill icon={<MachineGlyph icon={icon} size={12} />} className="max-w-48" aria-label={label}>
+                {t('remote.waiting', { machine: name })}
+            </Pill>
+        </Tooltip>
+    );
+}
+
 function IssuePill({ issue }: { issue: { repo: string; number: number; url: string } }) {
     const { t } = useTranslation('canvas');
     const open = (): void => {
@@ -389,6 +407,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
     const unseen = useUnseen(id);
     const processAlerts = useNodeAlerts(id);
     const task = useChildTask(id);
+    const waitingFor = useWaitingMachines(id);
     const hasContext = useHasContextLinks(id);
     const nodeWorktree = useWorktreeOf(node?.kind === 'terminal' || node?.kind === 'chat' ? node.cwd : undefined);
     const groupWorktrees = useGroupWorktrees(node?.kind === 'group' && !node.worktree ? id : null);
@@ -511,6 +530,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     {node.machine !== undefined && endpointOfNode(node, '') !== workspaceId && !renaming && (
                         <MachinePill machine={endpointOfNode(node, '')} narrow={node.w < MACHINE_PILL_MIN_WIDTH} />
                     )}
+                    {!renaming && waitingFor.map((machine) => <RemoteWaitPill key={machine} machine={machine} />)}
                     {nodeWorktree && !renaming && <WorktreePill worktree={nodeWorktree} />}
                     {node.issue && !renaming && <IssuePill issue={node.issue} />}
                     {isGroup && !node.worktree && groupWorktrees.length > 0 && (

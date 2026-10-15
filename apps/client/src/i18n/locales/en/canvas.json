@@ -108,6 +108,7 @@
         "color": "Color",
         "noAccent": "None",
         "stopPrWatch": "Stop watching pull request",
+        "stopWaiting": "Stop waiting",
         "makeDefaultSize": "Make this the default size"
     },
     "kinds": {
@@ -307,7 +308,9 @@
         "tooOld": "{{machine}} runs an older Ruimte. Update it to use this node.",
         "pill": "This node runs on {{machine}}",
         "pillLapsed": "This node runs on {{machine}}. Agents there cannot give tasks until you link it again. Click to link.",
-        "linkAgainFailed": "Could not link {{machine}} again"
+        "linkAgainFailed": "Could not link {{machine}} again",
+        "waiting": "Waiting for {{machine}}",
+        "waitTooltip": "The task waits until {{machine}} answers. It carries on there by itself then."
     },
     "otherMachine": {
         "group": "On another machine",

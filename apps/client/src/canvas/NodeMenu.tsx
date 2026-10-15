@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
     ChevronsDownUp,
     ChevronsUpDown,
+    CircleStop,
     Copy,
     Eraser,
     EyeOff,
@@ -31,6 +32,7 @@ import {
     createNodeAction,
     duplicateNodeAction,
     focusNodeAction,
+    ignoreRefusal,
     linkNodesAction,
     perform
 } from '@/actions/client-actions';
@@ -45,6 +47,7 @@ import { EMPTY_DRAFT, writeDraft } from '@adecore/agents-react/chat';
 import { BookmarkSubmenu } from '@adecore/agents-react/chat/ui';
 import { ForkMenuItem } from '@/chat/ForkMenuItem';
 import { stopPrWatch } from '@/shell/pr-watch-actions';
+import { useWaitingTask } from '@/canvas/remote-wait';
 import { useEndpointId } from '@/state/keys';
 import { useChatPrWatch } from '@/state/pr-watches';
 import { FileActionItems } from '@/shell/panels/FileActionItems';
@@ -87,6 +90,7 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
     const node = useCanvas((s) => s.nodes[id]);
     const endpointId = useEndpointId();
     const prWatch = useChatPrWatch(id);
+    const waitingTask = useWaitingTask(id, node?.machine);
     const maximized = useCanvas((s) => maximizedNodeOf(s) === id);
     const moveLocked = useCanvas((s) => s.locks.move);
     const agent = useSessionRow(id, (row) => row?.agent);
@@ -277,6 +281,11 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
             {node.kind === 'chat' && chatSession && (
                 <ContextMenu.Item onClick={openInTerminal}>
                     <Icon icon={Terminal} size={14} /> {t('menu.openInTerminal')}
+                </ContextMenu.Item>
+            )}
+            {waitingTask !== null && (
+                <ContextMenu.Item onClick={() => void perform('chat.stopTask', { chatId: waitingTask.parentId, taskId: waitingTask.id }).catch(ignoreRefusal)}>
+                    <Icon icon={CircleStop} size={14} /> {t('menu.stopWaiting')}
                 </ContextMenu.Item>
             )}
             {node.kind === 'chat' && prWatch !== null && (
