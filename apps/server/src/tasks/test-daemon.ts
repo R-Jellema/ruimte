@@ -44,7 +44,6 @@ import { RemoteTasks, type RemoteTasksDeps } from '../remote/remote-tasks.ts';
 import { registerPeerTaskHandlers } from '../handlers/peer-tasks.ts';
 import type { PeerLinks } from '../peering/links.ts';
 import { UntrustedFolders } from '../peering/untrusted.ts';
-import { RuimteTaskStore } from './task-store.ts';
 import { PeerTasks, type PeerTasksDeps } from '../peering/peer-tasks.ts';
 import { BundleStore } from '../git/bundles.ts';
 
@@ -157,7 +156,7 @@ export async function bootTestDaemon({
     const outbox = new OutboxStore(home);
     await outbox.load();
     await restartBackgroundLimits(outbox, clock.now());
-    const tasks = new RuimteTaskStore(home);
+    const tasks = new TaskStore(home);
     await tasks.load();
     const notices = new NoticeStore(home, () => clock.now());
     await notices.load();
