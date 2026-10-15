@@ -33,3 +33,10 @@ test('the same folder written twice is one record', async () => {
     await links.untrustFolder('/a/b');
     expect(await readdir(join(home, 'peer-worktrees'))).toHaveLength(1);
 });
+
+test('a task recorded after its link went still leaves its worktree untrusted', async () => {
+    const links = new PeerLinks(home);
+    await links.recordTask('machine-a', 'node', { projectId: 'p', cwd: '/worktrees/task', worktree: true });
+    expect(links.taskRecord('machine-a', 'node')).toBeNull();
+    expect(links.worktreeFolders()).toEqual(['/worktrees/task']);
+});

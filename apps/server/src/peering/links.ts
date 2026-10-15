@@ -157,11 +157,12 @@ export class PeerLinks {
     }
 
     async recordTask(machineId: string, nodeId: string, record: PeerTaskRecord): Promise<void> {
+        // Whether or not the link is still there: the folder exists and holds that machine's files either way.
+        if (record.worktree) {
+            await this.untrustFolder(record.cwd);
+        }
         const file = this.files.get(machineId);
         if (file !== undefined) {
-            if (record.worktree) {
-                await this.untrustFolder(record.cwd);
-            }
             await this.files.write({ ...file, tasks: { ...file.tasks, [nodeId]: record } });
         }
     }
