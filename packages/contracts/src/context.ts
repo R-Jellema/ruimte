@@ -20,3 +20,39 @@ export const ContextSourceSchema = z.object({
     flag: z.string().optional()
 });
 export type ContextSource = z.infer<typeof ContextSourceSchema>;
+
+/*
+ * The first word of every `ruimte-context` call, in the order `help` lists them. The daemon's verb table
+ * is the source and a test of its own holds this list to it; a client reads it to name what a call does.
+ */
+export const CONTEXT_VERBS = [
+    'help',
+    'list',
+    'read',
+    'done',
+    'notify',
+    'alert',
+    'answer',
+    'agent',
+    'team',
+    'flag',
+    'node',
+    'link',
+    'browser',
+    'device',
+    'view',
+    'task',
+    'plan',
+    'visual',
+    'chat',
+    'ui',
+    'worktree',
+    'operation',
+    'launches',
+    'secret',
+    'project',
+    'database',
+    'language',
+    'computer'
+] as const;
+export type ContextVerb = (typeof CONTEXT_VERBS)[number];
