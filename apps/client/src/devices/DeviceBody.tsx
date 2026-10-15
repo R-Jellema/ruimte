@@ -2,11 +2,14 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     CircleAlert,
+    Ellipsis,
+    Eraser,
     Hand,
     House,
     LoaderCircle,
     Lock,
     Mic,
+    RefreshCw,
     RotateCcw,
     RotateCw,
     SlidersHorizontal,
@@ -17,9 +20,10 @@ import {
 } from 'lucide-react';
 import { deviceButtons, deviceTools, type DeviceButton, type DeviceInfo, type DeviceInput, type DeviceReference } from '@ruimte/contracts';
 import { useNodeHost } from '@/nodes/node-host';
+import { restartDevice } from '@/devices/control';
 import { stopRecording } from '@/devices/device-capture';
 import { ANDROID_BUTTONS } from '@/devices/operated';
-import { useDeviceList, useRecordingSince, useResolvedDevice } from '@/devices/state';
+import { useDeviceList, useDevices, useRecordingSince, useResolvedDevice } from '@/devices/state';
 import { DeviceStream } from '@/devices/DeviceStream';
 import { failed } from '@/shell/surface-failure';
 import { useEndpointId } from '@/state/keys';
@@ -54,7 +58,41 @@ export function DeviceControls({ device }: { device: DeviceInfo }) {
         <ButtonGroup>
             {device.capabilities.input && <DeviceButtons device={device} />}
             {deviceTools(device).length > 0 && <DeviceToolsFlyout device={device} />}
+            <DeviceMoreMenu device={device} />
         </ButtonGroup>
+    );
+}
+
+/* What a person does to the device as a whole, which an agent never does. */
+function DeviceMoreMenu({ device }: { device: DeviceInfo }) {
+    const { t } = useTranslation('machines');
+    const endpointId = useEndpointId();
+    const [restarting, setRestarting] = useState(false);
+    const canRestart = device.capabilities.boot && device.capabilities.shutdown;
+    const canErase = deviceTools(device).includes('erase');
+    if (!canRestart && !canErase) {
+        return null;
+    }
+    const restart = (): void => {
+        setRestarting(true);
+        void restartDevice(deviceClientFor(endpointId), device).finally(() => setRestarting(false));
+    };
+    return (
+        <Menu.Root>
+            <IconButton render={<Menu.Trigger />} icon={Ellipsis} busy={restarting} label={t('device.more')} />
+            <Menu.Popup align="end">
+                {canRestart && (
+                    <Menu.Item disabled={restarting} onClick={restart}>
+                        <Icon icon={RefreshCw} size={14} /> {t('device.restart')}
+                    </Menu.Item>
+                )}
+                {canErase && (
+                    <Menu.Item onClick={() => useDevices.getState().askErase({ endpointId, device })}>
+                        <Icon icon={Eraser} size={14} /> {t('device.erase.open')}
+                    </Menu.Item>
+                )}
+            </Menu.Popup>
+        </Menu.Root>
     );
 }
 

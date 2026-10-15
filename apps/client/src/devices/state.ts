@@ -26,11 +26,19 @@ function persistCollapsedGroups(keys: readonly string[]): void {
     storedCollapsedGroups.write(keys);
 }
 
+export interface EraseRequest {
+    endpointId: string;
+    device: DeviceInfo;
+}
+
 interface DevicesState {
     byEndpoint: Record<string, DeviceListState>;
     /* When a person's recording of a device began, by `recordingKey`, so a node shows it with its panel closed. */
     recordings: Record<string, number>;
     markRecording(key: string, startedAt: number | null): void;
+    /* The device a person asked to erase, while the question is up. */
+    erasing: EraseRequest | null;
+    askErase(request: EraseRequest | null): void;
     /* The groups of the devices panel a person folded away, on every machine alike. */
     collapsedGroups: readonly string[];
     collapseGroup(key: string, collapsed: boolean): void;
@@ -44,6 +52,10 @@ interface DevicesState {
 export const useDevices = create<DevicesState>((set, get) => ({
     byEndpoint: {},
     recordings: {},
+    erasing: null,
+    askErase(request) {
+        set({ erasing: request });
+    },
     markRecording(key, startedAt) {
         const { [key]: _removed, ...others } = get().recordings;
         set({ recordings: startedAt === null ? others : { ...others, [key]: startedAt } });

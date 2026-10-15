@@ -5,7 +5,7 @@ import { isApplePlatform } from '@/desktop/bridge';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { answerDevices, FAKE_SIMULATOR, referenceOf, type FakeDevices } from '../../testing/fake-devices';
-import { mount, until, type Mounted } from '../../testing/dom';
+import { mount, pressKey, until, type Mounted } from '../../testing/dom';
 
 const PHONE: ProjectView = { kind: 'device', id: 'phone', name: FAKE_SIMULATOR.name, device: referenceOf(FAKE_SIMULATOR) };
 const COMMAND = isApplePlatform() ? { metaKey: true } : { ctrlKey: true };
@@ -77,6 +77,8 @@ describe("a person's keyboard on a device", () => {
         await until(() => document.querySelector('[role="dialog"]') !== null);
 
         expect(keyInputs()).toEqual([]);
+        await pressKey(document.activeElement!, 'Escape');
+        await until(() => document.querySelector('[role="dialog"]') === null);
     });
 
     test('lets go of the keys still held when the screen loses the focus', async () => {

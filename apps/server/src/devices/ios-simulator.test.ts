@@ -266,4 +266,20 @@ describe('IosSimulatorBackend', () => {
             [['pbcopy', 'phone-1'], 'from my Mac']
         ]);
     });
+
+    test('erases a simulator only once it is shut down', async () => {
+        const calls: string[][] = [];
+        let state = 'Booted';
+        const backend = new IosSimulatorBackend(async (arguments_) => {
+            calls.push(arguments_);
+            return { exitCode: 0, stdout: arguments_[0] === 'list' ? listOutput.replace('"state":"Shutdown"', `"state":"${state}"`) : '', stderr: '' };
+        });
+        const erase = { backendId: 'simctl', platform: 'ios', deviceId: 'phone-1', action: 'erase' } as const;
+
+        await expect(backend.action('phone-1', erase)).rejects.toMatchObject({ code: 'device-must-be-shut-down' });
+        state = 'Shutdown';
+        expect(await backend.action('phone-1', erase)).toEqual({});
+
+        expect(calls.filter((call) => call[0] !== 'list')).toEqual([['erase', 'phone-1']]);
+    });
 });

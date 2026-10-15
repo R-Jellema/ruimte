@@ -90,6 +90,14 @@ async function run(argv: string[]): Promise<string[]> {
 }
 
 describe('ruimte-context device', () => {
+    test('has no word that erases, starts, stops or restarts a device, which only a person does', () => {
+        const words = noun.actions.map((action) => action.word);
+
+        for (const word of ['erase', 'boot', 'start', 'shutdown', 'stop', 'restart']) {
+            expect(words).not.toContain(word);
+        }
+    });
+
     test('says which device the node holds and what works on it', async () => {
         expect(await run(['state', 'phone-1'])).toEqual([
             'device\tphone-1\tiPhone 18 Pro\tios\tsimulator\tiOS 27.0',

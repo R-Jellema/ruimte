@@ -86,7 +86,8 @@ const IOS_SIMULATOR_TOOLS: DeviceTool[] = [
     'push',
     'capture',
     'record',
-    'clipboard'
+    'clipboard',
+    'erase'
 ];
 
 /* A recording a person forgot keeps going no longer than this, so it cannot fill the disk. */
@@ -274,6 +275,10 @@ export class IosSimulatorBackend implements DeviceBackend {
     }
 
     async action(deviceId: string, action: DeviceAction): Promise<DeviceSettings> {
+        if (action.action === 'erase') {
+            await this.erase(deviceId);
+            return {};
+        }
         switch (action.action) {
             case 'setAppearance':
                 await this.command(['ui', deviceId, 'appearance', action.value]);
@@ -323,6 +328,15 @@ export class IosSimulatorBackend implements DeviceBackend {
                 throw new DeviceError('device-action-unavailable', 'This tool is not available for iOS simulators');
         }
         return this.detail(deviceId);
+    }
+
+    /* simctl erases only a simulator that is shut down, and the person's client shuts it down first. */
+    private async erase(deviceId: string): Promise<void> {
+        if ((await this.find(deviceId)).state !== 'shutdown') {
+            throw new DeviceError('device-must-be-shut-down', 'Shut the simulator down before erasing it');
+        }
+        this.recordings.drop(deviceId);
+        await this.command(['erase', deviceId]);
     }
 
     createSource(deviceId: string): DeviceHelperSource {

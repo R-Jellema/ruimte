@@ -232,6 +232,11 @@ export class DeviceManager {
         if (!backend.action) {
             throw new DeviceError('device-tools-unavailable', 'This device has no tools in Ruimte');
         }
+        if (action.action === 'erase') {
+            // An erased device shows nothing of before, so nobody keeps watching it.
+            this.destroy(sessionKey(action.backendId, action.deviceId));
+            backend.closeTree?.(action.deviceId);
+        }
         return backend.action(action.deviceId, action);
     }
 

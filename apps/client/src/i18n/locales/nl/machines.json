@@ -167,6 +167,16 @@
                 "siri": "Roept Siri op",
                 "assistant": "Roept de assistent op"
             }
+        },
+        "more": "Meer apparaatacties",
+        "restart": "Herstarten",
+        "erase": {
+            "open": "Wissen…",
+            "title": "{{name}} wissen?",
+            "description": "Alle apps, hun gegevens en de instellingen op {{name}} worden verwijderd, zoals op een nieuw apparaat. Een draaiend apparaat wordt eerst afgesloten en daarna weer gestart.",
+            "confirm": "Wissen",
+            "busy": "Wissen…",
+            "failed": "Het apparaat kon niet worden gewist"
         }
     },
     "handshake": {

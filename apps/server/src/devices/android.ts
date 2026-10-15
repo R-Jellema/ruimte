@@ -330,13 +330,18 @@ export class AndroidBackend implements DeviceBackend {
         if (current.state !== 'shutdown') {
             return current;
         }
+        return this.start(deviceId, []);
+    }
+
+    /* Starts a stopped emulator, with `extra` after the usual arguments. */
+    private async start(deviceId: string, extra: readonly string[]): Promise<DeviceInfo> {
         const sdk = this.sdk();
         if (sdk.emulator === null) {
             throw new DeviceError('emulator-unavailable', 'The Android emulator is not installed in the Android SDK');
         }
         const port = this.freeEmulatorPort();
         const serial = `emulator-${port}`;
-        const process = this.launch(sdk.emulator, ['-avd', deviceId, '-port', String(port), '-no-window', '-no-boot-anim'], deviceId);
+        const process = this.launch(sdk.emulator, ['-avd', deviceId, '-port', String(port), '-no-window', '-no-boot-anim', ...extra], deviceId);
         const booting: Booting = { serial, process };
         this.booting.set(deviceId, booting);
         this.avdNames.set(serial, deviceId);
@@ -381,6 +386,18 @@ export class AndroidBackend implements DeviceBackend {
             await this.sleep(500);
         }
         return this.find(deviceId);
+    }
+
+    /* An emulator stops if it runs and starts again from a wiped data partition; a phone is never erased. */
+    private async erase(deviceId: string): Promise<void> {
+        const current = await this.find(deviceId);
+        if (current.kind !== 'simulator') {
+            throw new DeviceError('device-action-unavailable', 'Ruimte never erases a phone');
+        }
+        if (current.state !== 'shutdown') {
+            await this.shutdown(deviceId);
+        }
+        await this.start(deviceId, ['-wipe-data']);
     }
 
     async detail(deviceId: string): Promise<DeviceSettings> {
@@ -456,6 +473,10 @@ export class AndroidBackend implements DeviceBackend {
     }
 
     async action(deviceId: string, action: DeviceAction): Promise<DeviceSettings> {
+        if (action.action === 'erase') {
+            await this.erase(deviceId);
+            return {};
+        }
         const { serial, probe, emulator } = await this.booted(deviceId);
         switch (action.action) {
             case 'setAppearance':
@@ -678,7 +699,13 @@ export class AndroidBackend implements DeviceBackend {
                 input: streaming,
                 screenshot: true,
                 buttons: BUTTONS,
-                tools: [...BASE_TOOLS, ...(probe?.talkBack ? (['voiceOver'] as const) : []), 'location', ...sessionTools(streaming)],
+                tools: [
+                    ...BASE_TOOLS,
+                    ...(probe?.talkBack ? (['voiceOver'] as const) : []),
+                    'location',
+                    ...sessionTools(streaming),
+                    ...(sdk.emulator === null ? [] : (['erase'] as const))
+                ],
                 permissions: PERMISSIONS
             }
         };

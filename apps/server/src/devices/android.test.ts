@@ -371,4 +371,42 @@ describe('AndroidBackend', () => {
         expect(await backend.stopRecording('Pixel_9_Pro_API_35')).toBe('/captures/Pixel-1.mp4');
         expect(adb.calls.some((call) => call.includes('pkill -INT screenrecord'))).toBe(false);
     });
+
+    test('erases a running emulator by stopping it and starting it again from a wiped data partition', async () => {
+        const adb = new FakeAdb();
+        const order: string[] = [];
+        const answer = adb.run;
+        const backend = backendWith(adb, {
+            run: async (command, arguments_) => {
+                if (arguments_.join(' ') === '-s emulator-5554 emu kill') {
+                    order.push('kill');
+                    adb.devices = 'List of devices attached\n';
+                }
+                return answer(command, arguments_);
+            },
+            launch: (_emulator, arguments_) => {
+                order.push(arguments_.join(' '));
+                return { exited: new Promise<number>(() => undefined), output: () => '' };
+            }
+        });
+        await backend.list();
+
+        expect(
+            await backend.action('Pixel_9_Pro_API_35', { backendId: 'android', platform: 'android', deviceId: 'Pixel_9_Pro_API_35', action: 'erase' })
+        ).toEqual({});
+        expect(order).toEqual(['kill', '-avd Pixel_9_Pro_API_35 -port 5554 -no-window -no-boot-anim -wipe-data']);
+    });
+
+    test('never erases a phone and announces erase only on an emulator', async () => {
+        const adb = new FakeAdb();
+        adb.devices += 'R5CT device usb:1-1 model:SM_S921B transport_id:3\n';
+        const backend = backendWith(adb);
+        const devices = await backend.list();
+
+        expect(devices.find((device) => device.deviceId === 'R5CT')!.capabilities.tools).not.toContain('erase');
+        expect(devices.find((device) => device.deviceId === 'Pixel_9_Pro_API_35')!.capabilities.tools).toContain('erase');
+        await expect(backend.action('R5CT', { backendId: 'android', platform: 'android', deviceId: 'R5CT', action: 'erase' })).rejects.toMatchObject({
+            code: 'device-action-unavailable'
+        });
+    });
 });

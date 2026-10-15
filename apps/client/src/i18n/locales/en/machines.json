@@ -167,6 +167,16 @@
                 "siri": "Calling Siri",
                 "assistant": "Calling the assistant"
             }
+        },
+        "more": "More device actions",
+        "restart": "Restart",
+        "erase": {
+            "open": "Erase…",
+            "title": "Erase {{name}}?",
+            "description": "Every app, its data and the settings on {{name}} are deleted, as on a new device. A running device is shut down first and started again after.",
+            "confirm": "Erase",
+            "busy": "Erasing…",
+            "failed": "The device could not be erased"
         }
     },
     "handshake": {
