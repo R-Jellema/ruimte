@@ -57,7 +57,6 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     const agents = await wireAgents({
         runtime,
         identity,
-        auth: machine.auth,
         stores,
         providers,
         computer,

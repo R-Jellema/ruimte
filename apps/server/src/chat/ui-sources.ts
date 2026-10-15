@@ -7,7 +7,6 @@ import { ChatUiRefusal, type ChatUiHost, type ChatUiSource } from '@adecore/agen
 import { checkCwd, isInside } from '../canvas/project-paths.ts';
 import type { LaunchReading } from '../canvas/verb.ts';
 import type { AgentDatabases, DatabasePlace } from '../database/agent-databases.ts';
-import type { GeocodeReading } from '../maps/geocoder.ts';
 import { UiSourceAccessSchema } from './ui-access.ts';
 import { UI_SOURCE_ARGS } from './ui-source-args.ts';
 import { resolveUiProjectLink } from './ui-links.ts';
@@ -22,8 +21,6 @@ export interface UiSourceHosts {
     launches(projectId: string): Promise<LaunchReading[]>;
     tasks(chatId: string): Task[];
     databases(): Pick<AgentDatabases, 'captureUiAccess' | 'authorizeUiRead' | 'query'>;
-    /* Looks an address up once, for a Place that names one; absent, such a place reads as not found. */
-    geocode?(address: string, signal: AbortSignal): Promise<GeocodeReading>;
 }
 
 // A busy checkout lists thousands of files, and a reading stops at 64 KB.
@@ -206,7 +203,6 @@ export function ruimteUiSources(host: UiSourceHosts): ChatUiHost {
     return {
         sources,
         link: (info, access, target) => resolveUiProjectLink(host, info, access, target),
-        ...(host.geocode === undefined ? {} : { place: (_info, query, signal) => host.geocode!(query.address, signal) }),
         capture: async (info) => {
             const current = place(info);
             const [access, databases] = await Promise.all([capturePlace(info, current), host.databases().captureUiAccess(current)]);

@@ -334,9 +334,7 @@ When a CLI generates an image, the daemon saves it as an attachment before the t
 
 ## Maps
 
-A `Place` that names an address has its point looked up once, when the reply settles, and frozen beside the block (`uiQueries.blocks[id].places`), so every client and every later reader sees the same point. The daemon does it as this machine (`src/maps/geocoder.ts`): it asks the address book for a map ticket, signed with the machine's key and kept until five minutes before it ends, and sends the address to the map service (`apps/maps-worker`). It holds no account token, and a machine on no account looks nothing up. It asks in English and stores the label the service returns; a client words the place from the agent's own text.
-
-A lookup that comes back without a point is frozen as `missing` with a `code` and is never tried again for that place: `no-account`, `not-found`, `unreachable`, `rate-limited`, `maps-unconfigured` or `unavailable` (the map provider refused, such as a key without the Search right). A refusal that will not pass in a moment also holds the next lookups off for a while, so a reply of fifty places asks once. A machine that signs in later does not retry the places it froze.
+Ruimte does not look up addresses: the map service is free to use and TomTom's Search API stays off. A `Place` is drawn from its `lat` and `lon`, and the agent help for the `places` group (`ruimte-context help ui places`) tells agents to give both for every `Place`. An address may still be given as text, but a `Place` with only an address has no point, so it reads as not found and nothing is requested. The daemon holds no map ticket and never contacts the map service (`apps/maps-worker`); the client takes tiles from it.
 
 ## Language servers
 

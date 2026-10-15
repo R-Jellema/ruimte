@@ -1,6 +1,6 @@
 # Map service
 
-`ruimte-maps` at `maps.ruimte.app`: a Cloudflare Worker that puts TomTom's Orbis map display and search behind a
+`ruimte-maps` at `maps.ruimte.app`: a Cloudflare Worker that puts TomTom's Orbis map display behind a
 ticket from the address book. It holds the TomTom key and nothing else of value, stores nothing, has no database and logs
 nothing (`observability` is off in `wrangler.jsonc`, since Workers Logs would record which area was looked at).
 
@@ -14,11 +14,10 @@ book (`apps/pulsar-worker`). The ticket rides in a header, never the URL, so it 
 | `GET /health` | `{ ok: true }`, without a ticket |
 | `GET /v1/style?theme=light\|dark` | The monochrome Orbis style, with every address in it pointed at this service and the key removed |
 | `GET /v1/m/<grant>/<tail>` | A tile, sprite, glyph range or TileJSON the style named, and only that: see below |
-| `POST /v1/geocode` | `{ query, language? }` to `{ results: [{ lat, lon, label }] }`, at most one, from TomTom's Orbis search |
 
 Answers that fail are `{ error: { code, message } }` with `maps-unconfigured` (503), `bad-ticket` (401), `rate-limited`
 (429, with `retry-after`), `not-found` (404), `bad-request` (400) or `upstream` (502). TomTom's own error body is never
-passed on, since it may echo the key. A key without the Search right makes `/v1/geocode` answer `upstream`.
+passed on, since it may echo the key.
 
 ## What it serves
 
@@ -50,14 +49,14 @@ Whether TomTom's terms allow a shared cache is not verified; turning it off is r
 ## Who calls it
 
 The client asks the address book for a ticket with its session (`AddressBookClient.mapsTicket`), keeps it until five minutes before it ends and sends it as a header
-on every request to this origin and no other (`apps/client/src/chat/map-source.ts`). The daemon asks as the machine (`apps/server/src/maps/geocoder.ts`). The page's
+on every request to this origin and no other (`apps/client/src/chat/map-source.ts`). The page's
 policy already lets `https:` be fetched and `blob:` workers run, which is all MapLibre needs (`packages/csp`).
 
 ## Secrets
 
 | Secret | What |
 | --- | --- |
-| `TOMTOM_API_KEY` | A TomTom key with Map Display, Assets and Search (Orbis) rights |
+| `TOMTOM_API_KEY` | A TomTom key with Map Display and Assets (Orbis) rights; the Search right is not used |
 | `MAP_TICKET_SECRET` | The same value as the address book's, at least 32 bytes in base64url |
 
 ```sh

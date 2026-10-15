@@ -295,25 +295,6 @@ test('git.status reads the branch, the counts and the first files of a busy chec
     expect(JSON.stringify(status).length).toBeLessThan(64 * 1024);
 });
 
-test('a place is looked up through the geocoder the host gives, with the address as written and the abort signal', async () => {
-    const asked: Array<[string, AbortSignal]> = [];
-    const signal = new AbortController().signal;
-    const ui = ruimteUiSources({
-        ...hosts,
-        geocode: async (address, aborts) => {
-            asked.push([address, aborts]);
-            return { state: 'found', lat: 52.09, lon: 5.12, label: 'Utrecht' };
-        }
-    });
-    expect(await ui.place!(info(), { address: 'Domplein 1, Utrecht', name: 'Domtoren' }, signal)).toEqual({
-        state: 'found',
-        lat: 52.09,
-        lon: 5.12,
-        label: 'Utrecht'
-    });
-    expect(asked).toEqual([['Domplein 1, Utrecht', signal]]);
-});
-
-test('a host with no geocoder gives the chat no place lookup, so such a place reads as not found', () => {
+test('a chat gets no place lookup, so a place with only an address reads as not found', () => {
     expect(ruimteUiSources(hosts).place).toBeUndefined();
 });

@@ -127,21 +127,6 @@ export async function verifyMapsTicket(secret: string, ticket: string, now: numb
 // Where the maps service lives; the address book only issues the ticket it admits.
 export const MAPS_URL = 'https://maps.ruimte.app';
 
-// The language of a geocoding query, an IETF tag such as `nl` or `en-GB`.
-export const MapsLanguageSchema = z.string().regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,2}$/, 'Expected a language tag');
-
-export const MapsGeocodeRequestSchema = z.object({
-    query: z.string().trim().min(1).max(200),
-    language: MapsLanguageSchema.optional()
-});
-export type MapsGeocodeRequest = z.infer<typeof MapsGeocodeRequestSchema>;
-
-// At most one result: the first place the search finds for the text.
-export const MapsGeocodeResultSchema = z.object({
-    results: z.array(z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180), label: z.string() })).max(1)
-});
-export type MapsGeocodeResult = z.infer<typeof MapsGeocodeResultSchema>;
-
 export const MapsErrorCodeSchema = z.enum([
     // The service has no TomTom key or no ticket secret yet.
     'maps-unconfigured',

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { MapsErrorSchema, MapsGeocodeResultSchema, signMapsPath } from '@ruimte/pulsar';
+import { MapsErrorSchema, signMapsPath } from '@ruimte/pulsar';
 import { KEY, ORIGIN, SECRET, assertWorkerdFetchOptions, harness } from './test/harness.ts';
 
 const SPRITE = `https://api.tomtom.com/maps/orbis/assets/sprites/1.0.0/basic_mono-light/sprite?apiVersion=1&key=${KEY}`;
@@ -432,24 +432,20 @@ describe('what the style names', () => {
 });
 
 describe('a redirect from TomTom', () => {
-    test('is not followed and not passed on: a 3xx fails closed, for a tile and for a search', async () => {
+    test('is not followed and not passed on: a 3xx fails closed', async () => {
         const maps = harness();
         const { tiles } = await styled(maps);
         maps.answers = [() => new Response(null, { status: 302, headers: { location: 'https://evil.test/tile' } })];
         const tile = await maps.request(pathOf(tiles).replace('{z}/{x}/{y}', '1/1/1'));
         expect(tile.status).toBe(502);
         expect(tile.headers.get('location')).toBeNull();
-        const search = await maps.request('/v1/geocode', { method: 'POST', body: JSON.stringify({ query: 'Utrecht' }) });
-        expect(search.status).toBe(502);
-        expect(search.headers.get('location')).toBeNull();
     });
 
     test('every request to TomTom uses fetch options workerd accepts', async () => {
         expect(() => assertWorkerdFetchOptions({ redirect: 'error' })).toThrow('must be one of "follow" or "manual"');
         const maps = harness();
         await maps.request('/v1/style?theme=light');
-        await maps.request('/v1/geocode', { method: 'POST', body: JSON.stringify({ query: 'Utrecht' }) });
-        expect(maps.upstream.length).toBe(2);
+        expect(maps.upstream.length).toBe(1);
     });
 });
 
@@ -518,92 +514,11 @@ describe('the edge cache', () => {
     });
 });
 
-describe('geocoding', () => {
-    function ask(maps: ReturnType<typeof harness>, body: unknown): Promise<Response> {
-        return maps.request('/v1/geocode', { method: 'POST', body: typeof body === 'string' ? body : JSON.stringify(body) });
-    }
-
-    test('answers the first place TomTom finds, with its name and address', async () => {
+describe('a search', () => {
+    test('has no route, so nothing can spend Search quota', async () => {
         const maps = harness();
-        maps.answers = [
-            () =>
-                json({
-                    summary: { numResults: 1 },
-                    results: [{ position: { lat: 52.0907, lon: 5.1214 }, address: { freeformAddress: 'Domplein, 3512 JC Utrecht' }, poi: { name: 'Domtoren' } }]
-                })
-        ];
-        const response = await ask(maps, { query: 'Domtoren Utrecht/Netherlands?', language: 'nl' });
-        expect(MapsGeocodeResultSchema.parse(await response.json())).toEqual({
-            results: [{ lat: 52.0907, lon: 5.1214, label: 'Domtoren, Domplein, 3512 JC Utrecht' }]
-        });
-        const [call] = maps.upstream;
-        expect(call!.url).toBe('https://api.tomtom.com/maps/orbis/places/search/Domtoren%20Utrecht%2FNetherlands%3F.json?apiVersion=1&limit=1&language=nl');
-        expect(call!.url).not.toContain(KEY);
-        expect(call!.headers.get('tomtom-api-key')).toBe(KEY);
-        expect([...call!.headers.keys()].toSorted()).toEqual(['accept', 'tomtom-api-key', 'user-agent']);
-    });
-
-    test('a search that finds nothing is an empty list', async () => {
-        const maps = harness();
-        maps.answers = [() => json({ summary: { numResults: 0 }, results: [] })];
-        expect(await (await ask(maps, { query: 'zzzzzz' })).json()).toEqual({ results: [] });
-    });
-
-    test('a key without the Search right, a limit and a failure are told apart and never echo TomTom', async () => {
-        for (const [from, status, code] of [
-            [403, 502, 'upstream'],
-            [429, 429, 'rate-limited'],
-            [500, 502, 'upstream']
-        ] as const) {
-            const maps = harness();
-            maps.answers = [() => new Response(`no for ${KEY}`, { status: from })];
-            const response = await ask(maps, { query: 'Utrecht' });
-            expect(response.status).toBe(status);
-            expect(await errorCode(response.clone())).toBe(code);
-            expect(await response.text()).not.toContain(KEY);
-        }
-    });
-
-    test('a request that is no query is a bad request and asks TomTom nothing', async () => {
-        const maps = harness();
-        for (const body of [
-            'not json',
-            {},
-            { query: '' },
-            { query: '   ' },
-            { query: 'x'.repeat(201) },
-            { query: 'a', language: 'not a language' },
-            'x'.repeat(3000)
-        ]) {
-            expect((await ask(maps, body)).status).toBe(400);
-        }
-        expect((await maps.request('/v1/geocode')).status).toBe(404);
-        expect(maps.upstream).toEqual([]);
-    });
-});
-
-describe('a large geocoding body', () => {
-    test('is refused by its declared size or counted as it arrives, and never held whole', async () => {
-        const maps = harness();
-        const declared = await maps.request('/v1/geocode', {
-            method: 'POST',
-            body: JSON.stringify({ query: 'x'.repeat(5000) }),
-            headers: { 'content-length': '5030' }
-        });
-        expect(declared.status).toBe(400);
-        let sent = 0;
-        const stream = new ReadableStream<Uint8Array>({
-            pull(controller) {
-                sent += 1024;
-                controller.enqueue(new Uint8Array(1024).fill(0x61));
-                if (sent > 1024 * 1024) {
-                    controller.close();
-                }
-            }
-        });
-        const chunked = await maps.request('/v1/geocode', { method: 'POST', body: stream, duplex: 'half' } as RequestInit);
-        expect(chunked.status).toBe(400);
-        expect(sent).toBeLessThan(64 * 1024);
+        const response = await maps.request('/v1/geocode', { method: 'POST', body: JSON.stringify({ query: 'Utrecht' }) });
+        expect(response.status).toBe(404);
         expect(maps.upstream).toEqual([]);
     });
 });

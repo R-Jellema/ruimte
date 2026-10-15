@@ -63,6 +63,12 @@ test('every group prints a rule and at least one component with a description', 
     }
 });
 
+test('the places group tells agents to give lat and lon since Ruimte looks up no addresses', async () => {
+    const rules = (await run('ui', 'places')).find((line) => line.startsWith('rules\t'));
+    expect(rules).toContain('Ruimte does not look up addresses, so give lat and lon for every Place');
+    expect(rules).toContain('an address may still be given as text');
+});
+
 test('the content group says how to attach a file of your own', async () => {
     const rules = (await run('ui', 'content')).find((line) => line.startsWith('rules\t'));
     expect(rules).toContain('ruimte-context chat attach --file <path>');

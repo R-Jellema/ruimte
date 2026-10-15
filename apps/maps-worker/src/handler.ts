@@ -1,7 +1,6 @@
 import { mapsSecretBytes, verifyMapsTicket } from '@ruimte/pulsar';
 import type { Deps } from './deps.ts';
 import type { Env } from './env.ts';
-import { geocode } from './geocode.ts';
 import { allowedOrigin, corsHeaders, failure, json } from './http.ts';
 import { pathFor, readGrant } from './grant.ts';
 import { fetchMapResource } from './map.ts';
@@ -63,9 +62,6 @@ async function api(request: Request, env: Env, deps: Deps): Promise<Response> {
     }
     if (request.method === 'GET' && url.pathname.startsWith('/v1/m/')) {
         return granted(url.pathname.slice('/v1/m/'.length), env, deps);
-    }
-    if (request.method === 'POST' && url.pathname === '/v1/geocode') {
-        return geocode(request, deps, env);
     }
     return failure('not-found', 'No such route');
 }
