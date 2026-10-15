@@ -48,7 +48,7 @@ describe('ruimte-context project', () => {
     });
 
     test('prints every outcome', async () => {
-        for (const outcome of ['declined', 'cancelled', 'waiting'] as const) {
+        for (const outcome of ['declined', 'waiting'] as const) {
             answer = { proposalId: 'prop-1', outcome };
             expect((await run(PROPOSE))[0]).toBe(`proposal\tprop-1\t${outcome}`);
         }
@@ -67,11 +67,13 @@ describe('ruimte-context project', () => {
     test('help names every outcome and says the person decides', async () => {
         const help = await (verbNamed('help') as Verb).run(['project', 'propose'], { caller: 'chat-1', host });
         const text = help.join('\n');
-        for (const word of ['declined', 'waiting', 'cancelled', '--folder', 'next turn', 'closes the card', 'Nothing']) {
+        for (const word of ['declined', 'waiting', '--folder', 'next turn', 'closes the card', 'Nothing']) {
             expect(text).toContain(word);
         }
         expect(text).not.toContain('--wait');
         // A chat that moved is out of Chats and cannot suggest again, so no later suggestion can report it.
         expect(text).not.toContain('outcome\tmoved');
+        // A card that lapsed or whose chat stopped is not reported either: the next suggestion simply raises a new one.
+        expect(text).not.toContain('outcome\tcancelled');
     });
 });

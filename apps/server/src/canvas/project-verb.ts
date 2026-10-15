@@ -28,8 +28,7 @@ const proposeAction = defineActionVerb('project', {
         'outcome\twaiting\tthe card stands in your chat and the command does not wait for it: go on or end your turn, since a command that holds your turn would block the very move the card offers',
         'answer\tThe person answers on the card. A move shows in your next turn, which runs in the new folder and suggests nothing more; a decline closes the card',
         'outcome\tdeclined\tonly on a later suggestion: the person said no, so go on in Chats and do not suggest it again unless something changed',
-        `outcome\tcancelled\tthe chat stopped before an answer, or nobody answered within ${PROJECT_CARD_HOURS} hours of your last suggestion`,
-        'again\tSuggesting again from the same chat is the same card, with the new name, folder and reason; a decline that came while nobody waited is told once',
+        `again\tSuggesting again from the same chat is the same card, with the new name, folder and reason; a decline that came while nobody waited is told once, and a card nobody answered goes after ${PROJECT_CARD_HOURS} hours without one`,
         'makes\tNothing: the person reviews the name and folder in a dialog and decides; the chat keeps its conversation when it moves',
         'when\tOnly when the work has become something with a folder of its own, such as code that keeps growing; not for every chat',
         SCOPE_LINE

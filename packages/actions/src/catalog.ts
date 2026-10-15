@@ -588,7 +588,7 @@ export const ACTION_DEFINITIONS = {
         }),
         output: z.object({
             proposalId: z.string(),
-            outcome: z.enum(['declined', 'cancelled', 'waiting'])
+            outcome: z.enum(['declined', 'waiting'])
         })
     },
     'project.delete': {
