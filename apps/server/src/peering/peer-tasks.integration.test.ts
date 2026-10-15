@@ -62,6 +62,7 @@ beforeEach(async () => {
             placedOf: (machineId, projectId) => links.placedOf(machineId, projectId),
             setPlaced: (machineId, projectId, ids) => links.setPlaced(machineId, projectId, ids),
             taskRecord: (machineId, nodeId) => links.taskRecord(machineId, nodeId),
+            taskRecordsOf: (machineId) => links.taskRecordsOf(machineId),
             recordTask: (machineId, nodeId, record) => links.recordTask(machineId, nodeId, record),
             forgetTask: (machineId, nodeId) => links.forgetTask(machineId, nodeId)
         },

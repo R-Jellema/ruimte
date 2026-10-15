@@ -165,15 +165,85 @@ describe('agent --machine', () => {
     test('fails the task when the machine refuses it, and wakes the parent with why', async () => {
         open = fakeLink();
         answer = () => {
-            throw new Error('peer-busy: This machine already runs 4 tasks for that machine');
+            throw new Error('depth-limit: An agent from another machine may sit at depth 2 here, and this one would be at 3');
         };
         const [line] = await give();
         const taskId = line!.split('\t')[5]!;
         await daemon.worker.settled();
         const task = daemon.tasks.get(taskId)!;
         expect(task.status).toBe('failed');
-        expect(task.result?.text).toContain('already runs 4 tasks');
+        expect(task.result?.text).toContain('may sit at depth 2');
         expect(daemon.outbox.list().filter((entry) => entry.kind === 'start-remote-agent')).toEqual([]);
+    });
+
+    test('a team larger than the places the machine has starts the rest as places free up, and fails none', async () => {
+        open = fakeLink();
+        const running = new Set<string>();
+        const settled = new Set<string>();
+        answer = (type, payload) => {
+            const { nodeId } = payload as { nodeId: string };
+            if (type === 'peer.taskStart') {
+                if (running.size >= 4) {
+                    throw new Error('peer-busy: This machine already runs 4 tasks for that machine. Try again when one is done');
+                }
+                running.add(nodeId);
+                return { cwd: '/studio/work', branch: null };
+            }
+            return settled.has(nodeId)
+                ? { status: 'done', result: { text: `${nodeId} done`, source: 'turn', at: 5 }, bundle: null }
+                : { status: 'open', result: null, bundle: null };
+        };
+        const roles = Array.from({ length: 6 }, (_, i) => ({ title: `Role ${i}`, prompt: `Do part ${i}`, provider: 'claude' }));
+        const lines = await runVerb(daemon, 'chat-lead', 'team', ['--label', 'Crew', '--task', '--machine', 'Studio', '--roles', JSON.stringify(roles)]);
+        const ids = lines.slice(1, 7).map((line) => line.split('\t')[0]!);
+        await daemon.worker.settled();
+
+        const started = (): number =>
+            requests.filter((request) => request.type === 'peer.taskStart' && running.has((request.payload as { nodeId: string }).nodeId)).length;
+        expect(started()).toBe(4);
+        expect(daemon.outbox.list().filter((entry) => entry.kind === 'start-remote-agent')).toHaveLength(2);
+        expect(daemon.tasks.ofParent('chat-lead').filter((task) => task.status === 'failed')).toEqual([]);
+
+        // The machine says one settled: it frees a place, and one of the two that waited goes.
+        const first = ids.find((id) => running.has(id))!;
+        settled.add(first);
+        running.delete(first);
+        daemon.remoteTasks!.peerSettled(MACHINE, first);
+        await daemon.worker.settled();
+        expect(daemon.outbox.list().filter((entry) => entry.kind === 'start-remote-agent')).toHaveLength(1);
+
+        const second = ids.find((id) => running.has(id) && id !== first)!;
+        settled.add(second);
+        running.delete(second);
+        daemon.remoteTasks!.peerSettled(MACHINE, second);
+        await daemon.worker.settled();
+        expect(daemon.outbox.list().filter((entry) => entry.kind === 'start-remote-agent')).toEqual([]);
+        expect(daemon.tasks.ofParent('chat-lead').filter((task) => task.status === 'failed')).toEqual([]);
+        expect(daemon.tasks.ofParent('chat-lead').filter((task) => task.status === 'done')).toHaveLength(2);
+    });
+
+    test('a task a machine had no place for starts when the link opens again, with nothing on a clock', async () => {
+        open = fakeLink();
+        let busy = true;
+        answer = (type) => {
+            if (type === 'peer.taskStart' && busy) {
+                throw new Error('peer-busy: This machine already runs 4 tasks for that machine');
+            }
+            return type === 'peer.result' ? { status: 'open', result: null, bundle: null } : { cwd: '/studio/work', branch: null };
+        };
+        const [line] = await give();
+        const nodeId = line!.split('\t')[0]!;
+        await daemon.worker.settled();
+        expect(daemon.outbox.list().map((entry) => entry.kind)).toEqual(['start-remote-agent']);
+        expect(daemon.outbox.list()[0]).toMatchObject({ attempts: 0 });
+        clock.advance(8 * 24 * 60 * 60 * 1000);
+        await daemon.worker.settled();
+        expect(requests.filter((request) => request.type === 'peer.taskStart')).toHaveLength(1);
+
+        busy = false;
+        daemon.worker.wake(nodeId);
+        await daemon.worker.settled();
+        expect(daemon.outbox.list().map((entry) => entry.kind)).toEqual(['take-remote-result']);
     });
 
     test('a task stopped before it started is dropped without asking the machine', async () => {

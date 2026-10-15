@@ -1,4 +1,4 @@
-import { mkdir, open, readdir, rm, stat } from 'node:fs/promises';
+import { mkdir, open, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
     BUNDLE_MAX_BYTES,
@@ -25,6 +25,16 @@ const MAX_OPEN_UPLOADS = 16;
 const MAX_MADE_PER_CLIENT = 4;
 const MAX_MADE = 16;
 
+// What one machine that works here may keep on this disk at once, finished transfers and unread results included.
+export const PEER_MAX_BUNDLES = 2;
+export const PEER_MAX_BUNDLE_BYTES = 512 * 1024 * 1024;
+
+/* How much of this disk the bundles of one machine may hold. */
+export interface BundleLimits {
+    bundles: number;
+    bytes: number;
+}
+
 const TOO_BIG = `The work to send is larger than ${BUNDLE_MAX_BYTES / 1024 / 1024} MiB. Push the branch to origin and fetch it there instead.`;
 
 const NO_HOOKS = ['-c', 'core.hooksPath=/dev/null'];
@@ -43,14 +53,18 @@ export class BundleStore {
     readonly root: string;
     readonly incoming: string;
     private readonly uploads = new KeyedQueue();
+    private readonly admitting = new KeyedQueue();
     // What each incoming bundle is meant to weigh, as the sender said; a file that reached it waits for its fetch and is no open upload.
     private readonly expected = new Map<string, number>();
     // The client each bundle written here was for, oldest first.
     private readonly madeFor = new Map<string, string>();
+    // Only the bundles of a machine that works here are capped; a person's own are bounded per client.
+    private readonly limits: BundleLimits | null;
 
-    constructor(home: string, peer?: string) {
+    constructor(home: string, peer?: string, limits: BundleLimits = { bundles: PEER_MAX_BUNDLES, bytes: PEER_MAX_BUNDLE_BYTES }) {
         this.root = peer === undefined ? join(home, 'bundles') : join(home, 'bundles', 'peers', peerFolder(peer));
         this.incoming = join(this.root, 'incoming');
+        this.limits = peer === undefined ? null : limits;
     }
 
     static isId(id: string): boolean {
@@ -89,7 +103,8 @@ export class BundleStore {
     /* Notes a bundle written for a client, and drops the oldest ones of all clients beyond the machine's share. */
     async keep(id: string, clientId: string): Promise<void> {
         this.madeFor.set(id, clientId);
-        for (const oldest of [...this.madeFor.keys()].slice(0, Math.max(0, this.madeFor.size - MAX_MADE))) {
+        const share = this.limits?.bundles ?? MAX_MADE;
+        for (const oldest of [...this.madeFor.keys()].slice(0, Math.max(0, this.madeFor.size - share))) {
             await this.discard(oldest);
         }
     }
@@ -106,6 +121,21 @@ export class BundleStore {
     async dropIncoming(id: string): Promise<void> {
         this.expected.delete(id);
         await this.uploads.run(id, () => rm(this.incomingPathOf(id), { force: true }));
+    }
+
+    /* What the bundles held for this machine weigh, not counting the one `except` names, which a new upload replaces. */
+    private async stored(except: string): Promise<{ count: number; bytes: number }> {
+        let count = 0;
+        let bytes = 0;
+        for (const folder of [this.root, this.incoming]) {
+            for (const name of await readdir(folder).catch(() => [])) {
+                if (name.endsWith('.bundle') && name.slice(0, -'.bundle'.length) !== except) {
+                    count += 1;
+                    bytes += (await stat(join(folder, name)).catch(() => null))?.size ?? 0;
+                }
+            }
+        }
+        return { count, bytes };
     }
 
     private async unfinishedUploads(): Promise<number> {
@@ -139,6 +169,20 @@ export class BundleStore {
             const have = (await stat(path).catch(() => null))?.size ?? null;
             if (offset > 0 && have !== offset) {
                 throw new GitError('bundle-offset', 'The transfer broke off. Send it again from the start.');
+            }
+            const { limits } = this;
+            if (offset === 0 && limits !== null) {
+                // The file is made inside the check, so two transfers that begin together cannot both take the last place.
+                await this.admitting.run('peer', async () => {
+                    const held = await this.stored(id);
+                    if (held.count >= limits.bundles || held.bytes + (total ?? bytes.byteLength) > limits.bytes) {
+                        throw new GitError(
+                            'peer-bundle-limit',
+                            `This machine already keeps ${limits.bundles} transfers for that machine. Try again once they are taken in.`
+                        );
+                    }
+                    await writeFile(path, new Uint8Array(0), { mode: 0o600 });
+                });
             }
             if (have === null && (await this.unfinishedUploads()) >= MAX_OPEN_UPLOADS) {
                 throw new GitError('bundle-uploads-busy', 'This machine is receiving too many transfers at once. Try again in a moment.');
@@ -177,6 +221,11 @@ export class BundleStore {
         }
         return id;
     }
+}
+
+/* The id the bundle of one piece of work always has, so sending it again replaces the earlier copy instead of adding to it. */
+export function bundleIdFor(key: string): string {
+    return `bundle-${new Bun.CryptoHasher('sha256').update(key).digest('hex').slice(0, 32)}`;
 }
 
 /* Keeps the hash of a file without holding it in memory. */
@@ -221,10 +270,10 @@ async function sharedCommits(top: string, haves: readonly string[]): Promise<str
 export async function makeBundle(
     store: BundleStore,
     checkpoints: Pick<CheckpointService, 'take' | 'head'>,
-    payload: GitBundlePayload
+    payload: GitBundlePayload,
+    id: string = crypto.randomUUID()
 ): Promise<GitBundleResult> {
     const top = await toplevel(payload.path);
-    const id = crypto.randomUUID();
     const ref = `${HANDOFF}${id}`;
     const head = await commitOf(top, 'HEAD');
     let commit: string;

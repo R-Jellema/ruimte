@@ -71,6 +71,8 @@ export interface TestDaemon {
     endChildren: EndChildrenWiring;
     /* The tasks other machines gave, when the daemon takes any. */
     peerTasks: PeerTasks | null;
+    /* The tasks this machine gave other machines, when it gives any. */
+    remoteTasks: RemoteTasks | null;
     host: CanvasHost;
     alerts: string[];
     /* Every piece of work owed since boot, kept after the worker took it off the outbox. */
@@ -291,6 +293,7 @@ export async function bootTestDaemon({
             labelOf: (projectId, machineId) => remote.machines(projectId).find((machineLink) => machineLink.machineId === machineId)?.label ?? 'machine',
             outbox,
             enqueue: (projectId, target, work) => outboxLink.enqueue(projectId, target, work),
+            wake: (target) => outboxWiring.worker.wake(target),
             now: () => clock.now()
         });
     }
@@ -443,6 +446,7 @@ export async function bootTestDaemon({
         wiring,
         endChildren,
         peerTasks,
+        remoteTasks,
         prWatches,
         host,
         alerts,

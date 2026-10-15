@@ -147,6 +147,7 @@ export function wireAgentWork({ home, identity, stores, agents, projects, remote
         labelOf: (projectId, machineId) => projects.remote.linksOf(projectId).find((link) => link.machineId === machineId)?.label ?? 'machine',
         outbox,
         enqueue: (projectId, target, work) => outboxLink.enqueue(projectId, target, work),
+        wake: (target) => worker?.wake(target),
         now: () => Date.now(),
         log: (line) => console.error(line)
     });
@@ -177,10 +178,10 @@ export function wireAgentWork({ home, identity, stores, agents, projects, remote
     });
     stores.tasks.onChange((task) => peerTasksNow().changed(task));
     // A machine that works for this one says its task settled; the entry that waits for the result looks again.
-    remote.connections.onFrame((_machineId, raw) => {
+    remote.connections.onFrame((machineId, raw) => {
         const nodeId = settledNodeOf(raw);
         if (nodeId !== null) {
-            wiring.worker.wake(nodeId);
+            remoteTasksNow().peerSettled(machineId, nodeId);
         }
     });
     const snoozes = new SnoozeStore({ path: join(home, 'snoozes.json') });

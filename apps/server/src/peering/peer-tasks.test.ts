@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { isCanvasView, type PeerTaskStartPayload, type ProjectCanvasView, type ProjectContent } from '@ruimte/contracts';
@@ -7,8 +7,9 @@ import { AgentLineageStore, TaskStore } from '@adecore/agents/coordination';
 import { Dispatcher, type ClientConnection } from '../dispatcher.ts';
 import { registerPeerTaskHandlers } from '../handlers/peer-tasks.ts';
 import type { OutboxEntry, OutboxWork } from '../outbox/outbox.ts';
+import { BundleStore } from '../git/bundles.ts';
 import { PeerLinks, peerCanvasId } from './links.ts';
-import { PeerTasks, peerCaller, type PeerTasksDeps } from './peer-tasks.ts';
+import { PEER_MAX_WORKTREES, PeerTasks, peerCaller, type PeerTasksDeps } from './peer-tasks.ts';
 
 const MACHINE = 'machine-a';
 const PROJECT = 'project-1';
@@ -38,6 +39,7 @@ function deps(): PeerTasksDeps {
             placedOf: (machineId, projectId) => peerLinks.placedOf(machineId, projectId),
             setPlaced: (machineId, projectId, ids) => peerLinks.setPlaced(machineId, projectId, ids),
             taskRecord: (machineId, nodeId) => peerLinks.taskRecord(machineId, nodeId),
+            taskRecordsOf: (machineId) => peerLinks.taskRecordsOf(machineId),
             recordTask: (machineId, nodeId, record) => peerLinks.recordTask(machineId, nodeId, record),
             forgetTask: (machineId, nodeId) => peerLinks.forgetTask(machineId, nodeId)
         },
@@ -254,6 +256,53 @@ describe('starting a task for another machine', () => {
         // Nothing is let go of twice.
         peerTasks.channelClosed('client-2');
         expect(letGo).toHaveLength(2);
+    });
+
+    describe('the worktrees one machine may leave here', () => {
+        const withBundles = (): { peerTasks: PeerTasks; bundles: BundleStore } => {
+            const bundles = new BundleStore(home, MACHINE);
+            return { peerTasks: new PeerTasks({ ...deps(), peerBundles: () => bundles }), bundles };
+        };
+        const bundle = { bundleId: 'a-bundle-id', sha256: 'f'.repeat(64) };
+
+        async function keepWorktrees(count: number): Promise<string[]> {
+            const paths: string[] = [];
+            for (let i = 0; i < count; i++) {
+                const path = join(home, `worktree-${i}`);
+                await mkdir(path);
+                await peerLinks.recordTask(MACHINE, `old-${i}`, { projectId: PROJECT, cwd: path, worktree: true });
+                paths.push(path);
+            }
+            return paths;
+        }
+
+        test('the ninth is refused with where to remove the others, and the copy that came in is dropped', async () => {
+            await keepWorktrees(PEER_MAX_WORKTREES);
+            const { peerTasks, bundles } = withBundles();
+            await bundles.receive(bundle.bundleId, 0, new Uint8Array(4), 4);
+            await expect(peerTasks.start(MACHINE, 'client-1', start({ bundle, branch: 'fix-it' }))).rejects.toMatchObject({
+                code: 'peer-worktrees-full',
+                message: expect.stringContaining('git panel')
+            });
+            expect(await Bun.file(bundles.incomingPathOf(bundle.bundleId)).exists()).toBe(false);
+            expect(tasks.all()).toHaveLength(0);
+        });
+
+        test('a person removing one frees a place, and nothing here removes a worktree', async () => {
+            const paths = await keepWorktrees(PEER_MAX_WORKTREES);
+            await rm(paths[0]!, { recursive: true });
+            const { peerTasks } = withBundles();
+            // Past the limit, the start goes on to take the bundle in, and this test has no git for that.
+            await expect(peerTasks.start(MACHINE, 'client-1', start({ bundle, branch: 'fix-it' }))).rejects.toThrow('no git in this test');
+            expect(peerLinks.taskRecord(MACHINE, 'old-0')).toBeNull();
+            expect(peerLinks.taskRecord(MACHINE, 'old-1')).not.toBeNull();
+        });
+
+        test('a task that works in the project folder takes no place', async () => {
+            await keepWorktrees(PEER_MAX_WORKTREES);
+            await new PeerTasks(deps()).start(MACHINE, 'client-1', start());
+            expect(tasks.all()).toHaveLength(1);
+        });
     });
 
     test('a machine without a link for the project gets nothing started', async () => {

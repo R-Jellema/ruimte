@@ -1,3 +1,4 @@
+import { stat } from 'node:fs/promises';
 import {
     BUNDLE_MAX_BYTES,
     PEER_MAX_OPEN_TASKS,
@@ -39,7 +40,7 @@ import { nodeOf, sameCanvas, stripHidden } from './peer-canvas.ts';
 
 /* What a machine that works here is given of this one: its tasks, bundles and holds, each judged by the link a person made. */
 export interface PeerTasksDeps {
-    links: Pick<PeerLinks, 'linkOf' | 'touch' | 'canvasIdsOf' | 'placedOf' | 'setPlaced' | 'taskRecord' | 'recordTask' | 'forgetTask'>;
+    links: Pick<PeerLinks, 'linkOf' | 'touch' | 'canvasIdsOf' | 'placedOf' | 'setPlaced' | 'taskRecord' | 'taskRecordsOf' | 'recordTask' | 'forgetTask'>;
     projects: Pick<ProjectStore, 'read' | 'mutate' | 'hold' | 'letGo'> & { index: Pick<ProjectStore['index'], 'folderOf'> };
     lineage: Pick<AgentLineageStore, 'put' | 'peerOf' | 'openedCount'>;
     tasks: Pick<TaskStore, 'open' | 'all' | 'get' | 'markWoken' | 'settle'>;
@@ -60,6 +61,9 @@ export interface PeerTasksDeps {
     notify(machineId: string, nodeId: string): void;
     log?: (line: string) => void;
 }
+
+// How many worktrees one machine's tasks may leave on this machine; a person removes them, nothing here does.
+export const PEER_MAX_WORKTREES = 8;
 
 /* The caller a peer's agents are counted under: the node that gave the task, on the machine that did. */
 export function peerCaller(machineId: string, parentId: string): string {
@@ -93,7 +97,19 @@ export class PeerTasks {
 
     start(machineId: string, clientId: string, payload: PeerTaskStartPayload): Promise<PeerTaskStartResult> {
         // One start at a time per machine, so the count of open tasks is true when the next one is judged.
-        return this.starts.run(machineId, () => this.startNow(machineId, clientId, payload));
+        return this.starts.run(machineId, async () => {
+            try {
+                return await this.startNow(machineId, clientId, payload);
+            } finally {
+                // Used up or refused, the copy that came in is no use again: a machine that tries once more sends it anew.
+                if (payload.bundle !== undefined) {
+                    await this.deps
+                        .peerBundles(machineId)
+                        .dropIncoming(payload.bundle.bundleId)
+                        .catch(() => undefined);
+                }
+            }
+        });
     }
 
     private async startNow(machineId: string, clientId: string, payload: PeerTaskStartPayload): Promise<PeerTaskStartResult> {
@@ -150,6 +166,7 @@ export class PeerTasks {
             if (payload.branch === undefined) {
                 throw new RequestError('bad-request', 'Work that comes as a bundle names its branch');
             }
+            await this.refuseWhenFull(machineId, projectId, folder);
             const made = await fetchBundle(deps.peerBundles(machineId), deps.git().worktrees, folder, {
                 projectId,
                 bundleId: payload.bundle.bundleId,
@@ -222,6 +239,28 @@ export class PeerTasks {
         deps.projects.hold(clientId, projectId, { startsLaunches: false });
         this.holding.set(`${clientId}\t${projectId}`, { clientId, machineId, projectId });
         return { cwd, branch };
+    }
+
+    /* A person removes worktrees, so the places still taken are those whose folder is still there. */
+    private async refuseWhenFull(machineId: string, projectId: string, folder: string): Promise<void> {
+        const { links } = this.deps;
+        let kept = 0;
+        for (const [nodeId, record] of links.taskRecordsOf(machineId)) {
+            if (record.projectId !== projectId || !record.worktree) {
+                continue;
+            }
+            if ((await stat(record.cwd).catch(() => null))?.isDirectory() === true) {
+                kept += 1;
+            } else {
+                await links.forgetTask(machineId, nodeId);
+            }
+        }
+        if (kept >= PEER_MAX_WORKTREES) {
+            throw new RequestError(
+                'peer-worktrees-full',
+                `This machine already keeps ${kept} worktrees for tasks of that machine in ${folder}. Remove the ones that are done from the worktrees of this project in the git panel on this machine, then give the task again.`
+            );
+        }
     }
 
     /* A start that failed after its task opened: the task fails with the reason, so it holds no place and a retry hears what became of it. */
@@ -349,10 +388,11 @@ export class PeerTasks {
         }
         const offered = [...this.offered].find(([, who]) => who.machineId === machineId && who.nodeId === task.childId);
         if (offered !== undefined) {
-            await deps.git().bundles.discard(offered[0]);
+            await deps.peerBundles(machineId).discard(offered[0]);
             this.offered.delete(offered[0]);
         }
-        const { bundles, checkpoints } = deps.git();
+        const bundles = deps.peerBundles(machineId);
+        const { checkpoints } = deps.git();
         bundles.admit(clientId);
         const made = await makeBundle(bundles, checkpoints, { path: cwd, from: 'files', haves, name: task.title.slice(0, 120) });
         await bundles.keep(made.bundleId, clientId);
@@ -368,7 +408,7 @@ export class PeerTasks {
     /* A piece of a bundle offered to that machine, and only to it. */
     async bundleRead(machineId: string, payload: PeerBundleReadPayload): Promise<PeerBundleReadResult> {
         const who = this.offered.get(payload.bundleId);
-        const path = who?.machineId === machineId ? await this.deps.git().bundles.made(payload.bundleId) : null;
+        const path = who?.machineId === machineId ? await this.deps.peerBundles(machineId).made(payload.bundleId) : null;
         if (path === null) {
             throw new RequestError('bundle-missing', 'That machine was not offered this work, or it is gone. Ask for the result again.');
         }
@@ -384,7 +424,7 @@ export class PeerTasks {
         const data = Buffer.from(await file.slice(payload.offset, end).arrayBuffer()).toString('base64');
         if (end === size) {
             this.offered.delete(payload.bundleId);
-            await this.deps.git().bundles.discard(payload.bundleId);
+            await this.deps.peerBundles(machineId).discard(payload.bundleId);
         }
         return { size, offset: payload.offset, data };
     }

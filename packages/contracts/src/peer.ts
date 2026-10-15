@@ -80,8 +80,8 @@ export const PEER_PROMPT_MAX_LENGTH = 2000;
  * bundle `peer.bundlePut` took in (`bundle` and `branch` go together) and is started in a worktree on
  * `ruimte/<branch>`; without one the agent starts in the project's folder. `mode` and `ceiling` are
  * what that machine asks and allows; the link's ceiling here narrows both. `depth` is the depth the
- * agent has there. Errors: `peer-not-linked`, `peer-busy`, `depth-limit`, `project-not-found`,
- * `peer-node-taken` and the bundle errors of `git.fetchBundle`.
+ * agent has there. Errors: `peer-not-linked`, `peer-busy` (the other machine waits), `peer-worktrees-full`,
+ * `depth-limit`, `project-not-found`, `peer-node-taken` and the bundle errors of `git.fetchBundle`.
  */
 export const PeerTaskStartPayloadSchema = z.object({
     projectId: PeerLinkSchema.shape.projectId,

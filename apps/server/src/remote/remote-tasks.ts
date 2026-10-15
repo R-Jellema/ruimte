@@ -1,13 +1,16 @@
 import { BYTES_CHUNK_MAX, type PeerResultResult, type PeerTaskStartPayload, type PeerTaskStartResult } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
 import type { TaskCoordinator, TaskStore } from '@adecore/agents/coordination';
-import { BundleStore, fetchBundle, makeBundle } from '../git/bundles.ts';
+import { BundleStore, bundleIdFor, fetchBundle, makeBundle } from '../git/bundles.ts';
 import type { CheckpointService } from '../git/checkpoints.ts';
 import type { Worktrees } from '../git/worktrees.ts';
 import { errorText } from '../error-text.ts';
 import type { OutboxEntry, OutboxWork, StartRemoteAgentEntry, StopRemoteAgentEntry, TakeRemoteResultEntry } from '../outbox/outbox.ts';
 import { peerTarget } from './connect-peer.ts';
 import type { RemoteConnections } from './remote-connections.ts';
+
+// A refusal that is a place not free yet: the entry waits for the machine to say a task settled, or for the link to open again.
+const WAITS: ReadonlySet<string> = new Set(['peer-busy', 'peer-bundle-limit']);
 
 // A stop that cannot reach its machine in this long is given up on, as the reconnect is.
 const STOP_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
@@ -29,6 +32,8 @@ export interface RemoteTasksDeps {
     labelOf(projectId: string, machineId: string): string;
     outbox: { list(): readonly OutboxEntry[]; remove(id: string): Promise<void> };
     enqueue(projectId: string, target: string, work: OutboxWork): Promise<void>;
+    /* Looks again at whatever waits on this target. */
+    wake(target: string): void;
     now(): number;
     log?: (line: string) => void;
 }
@@ -108,6 +113,11 @@ export class RemoteTasks {
             if (refused === null) {
                 throw e;
             }
+            if (WAITS.has(refused.code)) {
+                // The machine has no place for it yet; it says when a task settled, and a link that opens again runs this too.
+                deps.refresh?.(machineId);
+                return 'wait';
+            }
             await deps.coordinator.settleFromElsewhere(
                 taskId,
                 { text: `The task could not be started on the other machine: ${refused.message}`, source: 'exit', at: deps.now() },
@@ -122,8 +132,26 @@ export class RemoteTasks {
             }
         }
         deps.refresh?.(machineId, entry.id);
+        // A checkout sent and taken in leaves room for the next one that waited for it.
+        if (entry.payload.source !== undefined) {
+            this.wakeStarts(machineId, entry.target);
+        }
         return undefined;
     };
+
+    /* A machine said a task of this one settled: its result is asked for, and the tasks that waited for a place try again. */
+    peerSettled(machineId: string, nodeId: string): void {
+        this.deps.wake(nodeId);
+        this.wakeStarts(machineId, nodeId);
+    }
+
+    private wakeStarts(machineId: string, except: string): void {
+        for (const entry of this.deps.outbox.list()) {
+            if (entry.kind === 'start-remote-agent' && entry.payload.machineId === machineId && entry.target !== except) {
+                this.deps.wake(entry.target);
+            }
+        }
+    }
 
     /* Writes the checkout as a bundle and sends it a piece at a time; a transfer that stops starts over, since offset 0 starts a bundle anew. */
     private async send(
@@ -132,7 +160,13 @@ export class RemoteTasks {
         name: string
     ): Promise<{ bundleId: string; sha256: string }> {
         const { bundles, checkpoints } = this.deps.git();
-        const made = await makeBundle(bundles, checkpoints, { path: entry.payload.source!, from: 'files', haves: [], name: name.slice(0, 120) });
+        // Under the id of the task, so a second try replaces the copy the machine still holds of the first.
+        const made = await makeBundle(
+            bundles,
+            checkpoints,
+            { path: entry.payload.source!, from: 'files', haves: [], name: name.slice(0, 120) },
+            bundleIdFor(entry.payload.taskId)
+        );
         const file = Bun.file(bundles.pathOf(made.bundleId));
         for (let offset = 0; offset < made.size; offset += BYTES_CHUNK_MAX) {
             const piece = new Uint8Array(await file.slice(offset, Math.min(offset + BYTES_CHUNK_MAX, made.size)).arrayBuffer());
@@ -317,6 +351,8 @@ export class RemoteTasks {
         }
         try {
             await link.request('peer.taskStop', { nodeId });
+            // The place it held is free.
+            this.wakeStarts(machineId, nodeId);
         } catch (e) {
             if (deps.connections.link(machineId) === null) {
                 await deps.reconnect.owe(machineId);

@@ -49,6 +49,7 @@ export type GitErrorCode =
     | 'bundle-limit'
     | 'bundle-offset'
     | 'bundle-uploads-busy'
+    | 'peer-bundle-limit'
     | 'bundle-missing'
     | 'bundle-corrupt'
     | 'bundle-unverified';
