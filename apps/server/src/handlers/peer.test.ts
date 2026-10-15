@@ -366,6 +366,26 @@ describe('the nodes of a machine and the tasks it gave share one canvas', () => 
         expect(await canvasNodes()).toMatchObject([{ id: 'remote-chat', providerFixed: true }, { id: 'remote-term' }]);
     });
 
+    test('a person can close the project once the tasks of the machine are done', async () => {
+        const giving = giver();
+        tasks.onChange((task) => giving.changed(task));
+        await giving.start('machine-a', 'peer-client', {
+            projectId,
+            nodeId: 'task-chat',
+            parentId: 'parent',
+            title: 'Fix the lexer',
+            prompt: 'Fix it',
+            provider: 'claude',
+            ceiling: 'full-access',
+            depth: 1
+        });
+        expect(store.holdersOf(projectId)).toEqual(['peer-client']);
+        await tasks.settle(tasks.all()[0]!.id, 'done', { text: 'ok', source: 'turn', at: 1 }, 2);
+        expect(store.holdersOf(projectId)).toEqual([]);
+        store.hold('person', projectId);
+        expect(await store.closeProject(projectId, 'person')).toMatchObject({ otherClients: 0 });
+    });
+
     test('a task never takes over a node a person placed, and the window never rewrites or ends it', async () => {
         await store.save(projectId, await store.revision(projectId), withPeerCanvas());
         await expect(give('remote-term')).rejects.toMatchObject({ code: 'peer-node-taken' });

@@ -25,6 +25,7 @@ let existing: Set<string>;
 let failEnqueue: boolean;
 let peerLinks: PeerLinks;
 let held: Array<{ clientId: string; startsLaunches: boolean | undefined }>;
+let letGo: Array<{ clientId: string; projectId: string }>;
 
 function deps(): PeerTasksDeps {
     return {
@@ -51,7 +52,7 @@ function deps(): PeerTasksDeps {
             hold: (clientId: string, _projectId: string, options?: { startsLaunches?: boolean }) => {
                 held.push({ clientId, startsLaunches: options?.startsLaunches });
             },
-            letGo: () => undefined,
+            letGo: (clientId: string, projectId: string) => void letGo.push({ clientId, projectId }),
             index: { folderOf: () => home }
         } as unknown as PeerTasksDeps['projects'],
         lineage,
@@ -114,6 +115,7 @@ beforeEach(async () => {
     existing = new Set();
     failEnqueue = false;
     held = [];
+    letGo = [];
 });
 
 afterEach(async () => {
@@ -222,6 +224,34 @@ describe('starting a task for another machine', () => {
         await expect(new PeerTasks(deps()).start(MACHINE, 'client-1', start())).rejects.toMatchObject({ code: 'peer-node-taken' });
         expect(tasks.all()).toHaveLength(0);
         expect(lineage.peerOf('chat-one')).toBeNull();
+    });
+
+    test('the project held for the tasks of a machine is let go when its last open task settles', async () => {
+        const peerTasks = new PeerTasks(deps());
+        tasks.onChange((task) => peerTasks.changed(task));
+        await peerTasks.start(MACHINE, 'client-1', start({ nodeId: 'n1' }));
+        await peerTasks.start(MACHINE, 'client-1', start({ nodeId: 'n2' }));
+        const [first, second] = tasks.all();
+        await tasks.settle(first!.id, 'done', { text: 'ok', source: 'turn', at: 1 }, 2);
+        expect(letGo).toEqual([]);
+        await tasks.settle(second!.id, 'cancelled', null, 3);
+        expect(letGo).toEqual([{ clientId: 'client-1', projectId: PROJECT }]);
+    });
+
+    test('a channel that closes lets go of what it held, and asking to close does the same', async () => {
+        const peerTasks = new PeerTasks(deps());
+        await peerTasks.start(MACHINE, 'client-1', start());
+        await peerTasks.start(MACHINE, 'client-2', start({ nodeId: 'chat-two' }));
+        peerTasks.channelClosed('client-1');
+        expect(letGo).toEqual([{ clientId: 'client-1', projectId: PROJECT }]);
+        peerTasks.close('client-2', PROJECT);
+        expect(letGo).toEqual([
+            { clientId: 'client-1', projectId: PROJECT },
+            { clientId: 'client-2', projectId: PROJECT }
+        ]);
+        // Nothing is let go of twice.
+        peerTasks.channelClosed('client-2');
+        expect(letGo).toHaveLength(2);
     });
 
     test('a machine without a link for the project gets nothing started', async () => {

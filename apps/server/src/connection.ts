@@ -87,6 +87,8 @@ export interface ConnectionServices {
     peers?: Subscribable;
     /* Where the links to the machines this one works in stand, which every client hears change. */
     remote?: Subscribable;
+    /* The projects another machine's channel held for the tasks it gave, which go with the channel. */
+    peerTasks?: { channelClosed(clientId: string): void };
 }
 
 export interface OpenConnection {
@@ -199,6 +201,9 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
             services.devices?.detachAll(clientId);
             services.folders.detachAll(clientId);
             services.statuses.detachAll(clientId);
+            if (access.peer !== undefined) {
+                services.peerTasks?.channelClosed(clientId);
+            }
             void services.databases?.release(clientId);
             for (const unsubscribe of unsubscribes) {
                 unsubscribe();

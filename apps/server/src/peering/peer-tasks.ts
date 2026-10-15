@@ -77,6 +77,8 @@ export class PeerTasks {
     private readonly starts = new KeyedQueue();
     // The bundles offered for a result and the machine each was made for, in memory like the files themselves.
     private readonly offered = new Map<string, { machineId: string; nodeId: string }>();
+    // The projects held for the tasks of each machine, by the channel that asked.
+    private readonly holding = new Map<string, { clientId: string; machineId: string; projectId: string }>();
 
     constructor(deps: PeerTasksDeps) {
         this.deps = deps;
@@ -216,6 +218,7 @@ export class PeerTasks {
         }
         // Holding keeps the project loaded for the agent; only a person opening it starts its autostart launches.
         deps.projects.hold(clientId, projectId, { startsLaunches: false });
+        this.holding.set(`${clientId}\t${projectId}`, { clientId, machineId, projectId });
         return { cwd, branch };
     }
 
@@ -381,12 +384,30 @@ export class PeerTasks {
 
     /* Lets go of the project the machine held. */
     close(clientId: string, projectId: string): void {
+        this.holding.delete(`${clientId}\t${projectId}`);
         this.deps.projects.letGo(clientId, projectId);
+    }
+
+    /* The channel of a machine is gone: what it held goes with it, as a client's holds do. */
+    channelClosed(clientId: string): void {
+        for (const held of [...this.holding.values()].filter((candidate) => candidate.clientId === clientId)) {
+            this.close(held.clientId, held.projectId);
+        }
+    }
+
+    /* Nothing runs here for that machine any more, so nothing keeps its projects loaded or keeps a person from closing them. */
+    private releaseHolds(machineId: string): void {
+        for (const held of [...this.holding.values()].filter((candidate) => candidate.machineId === machineId)) {
+            this.close(held.clientId, held.projectId);
+        }
     }
 
     /* Owes the machine its result once a task of it settled; a task it cancelled itself owes nothing. */
     changed(task: Task): void {
         const machineId = this.peerOfTask(task);
+        if (machineId !== null && task.status !== 'open' && this.openCount(machineId) === 0) {
+            this.releaseHolds(machineId);
+        }
         if (machineId === null || (task.status !== 'done' && task.status !== 'failed') || task.wake !== 'pending') {
             return;
         }
