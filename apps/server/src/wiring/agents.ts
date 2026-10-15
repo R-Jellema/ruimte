@@ -7,6 +7,7 @@ import { startCwdGuard } from '../canvas/project-paths.ts';
 import { ChatManager } from '../chat/chat-manager.ts';
 import { ruimteUiSources } from '../chat/ui-sources.ts';
 import { restartConnectPeers } from '../remote/connect-peer.ts';
+import { UntrustedFolders } from '../peering/untrusted.ts';
 import type { ComputerUse } from '../computer/computer-use.ts';
 import { ComputerUseStore } from '../computer/store.ts';
 import { referencedChats } from '../context/chat-references.ts';
@@ -127,6 +128,8 @@ export interface AgentsBundle {
     plans: PlanStore;
     bookmarks: BookmarkStore;
     visuals: VisualStore;
+    /* What came from another machine, which never runs on the configuration of the files it sent. */
+    untrusted: UntrustedFolders;
     /* Refuses a directory an agent node may not start in, at every start. */
     startCwd(nodeId: string, cwd: string): Promise<void>;
     /* A bearer token speaks for a terminal session or a chat, for reading context and for agent commands alike. */
@@ -144,6 +147,11 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
         madeByAgent: (nodeId) => lineage.madeBy(nodeId) !== null,
         folderOf,
         worktreePaths: (folder) => later.git().checkouts.paths(folder)
+    });
+    const untrusted = new UntrustedFolders({
+        lineage,
+        folders: () => later.projects().store.peers.worktreeFolders(),
+        cwdOf: (nodeId) => chats.get(nodeId)?.info.cwd ?? sessions.get(nodeId)?.cwd ?? null
     });
     const messagesFor = (targetId: string): string[] => notices.take(targetId).map(renderNotice);
     // One reader for chats and terminals, so a transcript both look at is only read on from where either stopped.
@@ -254,7 +262,7 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
             return folder !== undefined && hasDatabaseConnections(folder);
         },
         modeCeiling: (chatId) => lineage.ceilingOf(chatId),
-        peerChat: (chatId) => lineage.peerOf(chatId) !== null,
+        peerChat: (chatId) => untrusted.node(chatId),
         checkCwd: startCwd,
         holdsProject: async (chatId, clientId) => {
             const place = index().locate(chatId);
@@ -305,6 +313,7 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
         plans,
         bookmarks,
         visuals,
+        untrusted,
         startCwd,
         targetForToken,
         messagesFor

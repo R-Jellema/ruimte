@@ -4,22 +4,45 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ChatTurnItem } from '@ruimte/contracts';
 import { ManualClock } from '@adecore/agents/testing';
+import { PeerLinks } from '../peering/links.ts';
 import { projectLinks } from '../projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../projects/project-store.ts';
-import { bootTestDaemon, type TestDaemon } from '../tasks/test-daemon.ts';
+import { bootTestDaemon, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
 
 let root: string;
 let folder: string;
 let store: ProjectStore;
 let daemon: TestDaemon;
+let links: PeerLinks;
+let projectId: string;
 
 beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'ruimte-peer-config-'));
     folder = join(root, 'repo');
     await mkdir(folder, { recursive: true });
     store = new ProjectStore(join(root, 'home'), projectLinks());
-    await store.openProject({ folder });
-    daemon = await bootTestDaemon({ home: join(root, 'home'), store, clock: new ManualClock(), installed: ['claude', 'codex'] });
+    const opened = await store.openProject({ folder });
+    projectId = opened.summary.projectId;
+    await store.save(projectId, opened.document.rev, {
+        name: 'repo',
+        color: '#123456',
+        views: [{ kind: 'chat', id: 'chat-lead', name: 'Lead', node: { provider: 'claude' } }]
+    });
+    links = new PeerLinks(join(root, 'home'));
+    await links.load();
+    daemon = await bootTestDaemon({
+        home: join(root, 'home'),
+        store,
+        clock: new ManualClock(),
+        installed: ['claude', 'codex'],
+        peer: {
+            links,
+            git: () => {
+                throw new Error('no git in this test');
+            },
+            notify: () => undefined
+        }
+    });
     daemon.worker.start();
 });
 
@@ -56,5 +79,65 @@ describe('the configuration a chat CLI loads from its folder', () => {
         await say('chat-peer');
         expect(daemon.chatCommands.at(-1)).toContain('--setting-sources=user');
         expect(daemon.chatCommands.at(-1)).toContain('--strict-mcp-config');
+    });
+
+    test('an agent that a peer chat opened never loads them either, however deep', async () => {
+        await daemon.lineage.put({
+            projectId,
+            nodeId: 'chat-lead',
+            openedBy: 'peer:machine-a:parent',
+            depth: 1,
+            agent: true,
+            peer: { machineId: 'machine-a' }
+        });
+        const [line] = await runVerb(daemon, 'chat-lead', 'agent', ['claude', '--prompt', 'look around']);
+        const childId = line!.split('\t')[0]!;
+        expect(daemon.host.untrusted?.node(childId)).toBe(true);
+        await daemon.until(() => daemon.chatCommands.length > 0);
+        expect(daemon.chatCommands.at(-1)).toContain('--setting-sources=user');
+        expect(daemon.chatCommands.at(-1)).toContain('--strict-mcp-config');
+    });
+
+    test('a chat of this machine that works in a folder made from a peer task never loads them', async () => {
+        const worktree = join(root, 'worktrees', 'task');
+        await mkdir(worktree, { recursive: true });
+        await links.bind('machine-a', 'Studio', projectId);
+        await links.recordTask('machine-a', 'chat-given', { projectId, cwd: worktree, worktree: true });
+        await daemon.chats.create({ chatId: 'chat-own', provider: 'claude', cwd: worktree });
+        await say('chat-own');
+        expect(daemon.chatCommands.at(-1)).toContain('--setting-sources=user');
+    });
+});
+
+describe('what an untrusted caller or folder may start', () => {
+    async function peerLead(): Promise<void> {
+        await daemon.lineage.put({
+            projectId,
+            nodeId: 'chat-lead',
+            openedBy: 'peer:machine-a:parent',
+            depth: 0,
+            agent: true,
+            peer: { machineId: 'machine-a' }
+        });
+    }
+
+    test('a caller that came from a peer opens no Codex chat and no terminal agent', async () => {
+        await peerLead();
+        expect((await runVerb(daemon, 'chat-lead', 'agent', ['codex', '--prompt', 'x']))[0]).toStartWith('refused\tuntrusted-folder\t');
+        expect((await runVerb(daemon, 'chat-lead', 'agent', ['claude', '--terminal', '--prompt', 'x']))[0]).toStartWith('refused\tuntrusted-folder\t');
+        const roles = JSON.stringify([{ title: 'Counter', prompt: 'count', provider: 'codex' }]);
+        expect((await runVerb(daemon, 'chat-lead', 'team', ['--label', 'Counters', '--roles', roles]))[0]).toStartWith('refused\tuntrusted-folder\t');
+        expect(daemon.outbox.list()).toEqual([]);
+    });
+
+    test('a caller of this machine opens none of them into a folder made from a peer task', async () => {
+        const worktree = join(folder, 'task');
+        await mkdir(worktree, { recursive: true });
+        await links.bind('machine-a', 'Studio', projectId);
+        await links.recordTask('machine-a', 'chat-given', { projectId, cwd: worktree, worktree: true });
+        const refused = await runVerb(daemon, 'chat-lead', 'agent', ['codex', '--cwd', worktree, '--prompt', 'x', '--dry-run']);
+        expect(refused[0]).toStartWith('refused\tuntrusted-folder\t');
+        const own = await runVerb(daemon, 'chat-lead', 'agent', ['codex', '--prompt', 'x', '--dry-run']);
+        expect(own[0]).toStartWith('dry-run\t');
     });
 });

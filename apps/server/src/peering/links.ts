@@ -34,6 +34,8 @@ const PeerFileSchema = z.looseObject({
 
 type PeerFile = z.infer<typeof PeerFileSchema>;
 
+const WorktreeSchema = z.looseObject({ cwd: z.string().min(1) });
+
 /* What a link is until a person says otherwise: an agent from the other machine asks before it acts. */
 export const DEFAULT_CEILING: RuntimeMode = 'supervised';
 
@@ -70,17 +72,30 @@ export function withHiddenCanvases<T extends ProjectContent>(content: T, hidden:
  */
 export class PeerLinks {
     private readonly files: RecordDirectory<PeerFile>;
+    // Every folder this machine made from work another machine sent. A link can go, the folder and what it holds stay.
+    private readonly worktrees: RecordDirectory<z.infer<typeof WorktreeSchema>>;
     private readonly sinks = new ClientSinks();
     private readonly clock: () => number;
 
     constructor(home: string, clock: () => number = Date.now) {
         this.files = new RecordDirectory({ dir: join(home, 'peers'), schema: PeerFileSchema, idOf: (file) => file.machineId });
+        this.worktrees = new RecordDirectory({ dir: join(home, 'peer-worktrees'), schema: WorktreeSchema, idOf: (record) => record.cwd });
         this.clock = clock;
     }
 
     /* Reads what an earlier run of the daemon wrote down. Call before any request is answered. */
-    load(): Promise<void> {
-        return this.files.load();
+    async load(): Promise<void> {
+        await Promise.all([this.files.load(), this.worktrees.load()]);
+    }
+
+    /* The folders made from another machine's work, whose contents that machine wrote and this one never vouched for. */
+    worktreeFolders(): string[] {
+        const recorded = this.files.all().flatMap((file) =>
+            Object.values(file.tasks ?? {})
+                .filter((record) => record.worktree)
+                .map((record) => record.cwd)
+        );
+        return [...new Set([...recorded, ...this.worktrees.all().map((record) => record.cwd)])];
     }
 
     /* Every client hears when a link is made, changed or removed. */
@@ -133,6 +148,9 @@ export class PeerLinks {
     async recordTask(machineId: string, nodeId: string, record: PeerTaskRecord): Promise<void> {
         const file = this.files.get(machineId);
         if (file !== undefined) {
+            if (record.worktree) {
+                await this.worktrees.write({ cwd: record.cwd });
+            }
             await this.files.write({ ...file, tasks: { ...file.tasks, [nodeId]: record } });
         }
     }

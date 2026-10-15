@@ -43,6 +43,7 @@ import { agentVisuals } from '../visuals/agent-host.ts';
 import { RemoteTasks, type RemoteTasksDeps } from '../remote/remote-tasks.ts';
 import { registerPeerTaskHandlers } from '../handlers/peer-tasks.ts';
 import type { PeerLinks } from '../peering/links.ts';
+import { UntrustedFolders } from '../peering/untrusted.ts';
 import { PeerTasks, type PeerTasksDeps } from '../peering/peer-tasks.ts';
 import { BundleStore } from '../git/bundles.ts';
 
@@ -187,6 +188,11 @@ export async function bootTestDaemon({
     const visuals = new VisualStore(home, attachments);
     const chatEnvs: Array<Record<string, string>> = [];
     const chatCommands: string[][] = [];
+    const untrusted = new UntrustedFolders({
+        lineage,
+        folders: () => peer?.links.worktreeFolders() ?? [],
+        cwdOf: (nodeId) => chats.get(nodeId)?.info.cwd ?? sessions.get(nodeId)?.cwd ?? null
+    });
     const chats = new ChatManager({
         providers,
         store: new ChatStore(home, { attachments, isSidecar: isPlanFileName }),
@@ -208,7 +214,7 @@ export async function bootTestDaemon({
         dropWakes: (chatId) => tasks.dropWake(chatId),
         endChildren: (chatId) => endChildren.stopNode(chatId, 'a person cleared this chat'),
         endedAt: (chatId) => lineage.endedAt(chatId),
-        peerChat: (chatId) => lineage.peerOf(chatId) !== null,
+        peerChat: (chatId) => untrusted.node(chatId),
         plans,
         visuals,
         visualReplies: () => machine.visualReplies !== false,
@@ -326,6 +332,7 @@ export async function bootTestDaemon({
         projects: store,
         hiddenAgents: store.hiddenAgents,
         lineage,
+        untrusted,
         starts: agentStartHost({
             installed: async () => installed,
             prompts,

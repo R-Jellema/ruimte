@@ -61,7 +61,7 @@ export function wireLaunches({ home, stores, agents, work, projects, later }: La
         launches: store,
         runner,
         projectOf: (chatId) => projects.index.locate(chatId)?.projectId ?? null,
-        isPeerChat: (chatId) => stores.lineage.peerOf(chatId) !== null,
+        isPeerChat: (chatId) => agents.untrusted.node(chatId),
         folderOf: (projectId) => projects.index.folderOf(projectId),
         worktreesOf: (folder) =>
             later

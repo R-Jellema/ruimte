@@ -42,6 +42,7 @@ import type { ProjectMutation, ProjectStore } from '../projects/project-store.ts
 import type { DiagramStore } from '../projects/diagram-store.ts';
 import type { SnoozeStore } from '../push/snoozes.ts';
 import type { EndpointIdentity } from '../endpoint-id.ts';
+import type { UntrustedFolders } from '../peering/untrusted.ts';
 import {
     field,
     REVISION_FLAG,
@@ -123,6 +124,8 @@ export interface CanvasHost {
     secrets?: SecretHost;
     /* The machines this machine can give tasks to; absent on a host that links to none. */
     remote?: RemoteAgentHost;
+    /* What came from another machine and so never runs on the configuration of its files; absent on a host that works with none. */
+    untrusted?: Pick<UntrustedFolders, 'node' | 'inFolder'>;
     /* When a person's snooze on a node ends, in epoch milliseconds; absent on a host without snoozes. */
     snoozes?: Pick<SnoozeStore, 'until'>;
 }

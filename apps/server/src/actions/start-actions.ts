@@ -13,6 +13,7 @@ import { checkCwd } from '../canvas/project-paths.ts';
 import { MAX_TASK_PROMPT_LENGTH, requireChatParent, taskBrief } from '../canvas/tasks.ts';
 import { NEW_NODE, OPENING_OFF_CANVAS, VerbRefusal, canvasFor, field, newNode } from '../canvas/verb.ts';
 import { branchSlug, makeWorktrees, requireRepository } from '../canvas/worktree.ts';
+import { untrustedStartProblem } from '../peering/untrusted.ts';
 import { providerFor } from '../providers/registry.ts';
 import { verbCallOf, type ServerActionContext } from './context.ts';
 import { startInputHash } from './start-claims.ts';
@@ -22,6 +23,28 @@ type TeamRole = { provider: AgentKind; terminal: boolean };
 
 function kindOf(role: TeamRole): 'chat' | 'terminal' {
     return !role.terminal && providerFor(role.provider).capabilities.chat ? 'chat' : 'terminal';
+}
+
+/*
+ * An agent that came from another machine, or that stands in a folder made from its work, opens nothing
+ * that would load the configuration of those files: the same refusals `peer.taskStart` gives.
+ */
+function refuseUntrustedStart(
+    host: ServerActionContext['host'],
+    callerId: string,
+    cwd: string | undefined,
+    agents: Array<{ provider: AgentKind; chat: boolean }>
+): void {
+    const { untrusted } = host;
+    if (untrusted === undefined || !(untrusted.node(callerId) || (cwd !== undefined && untrusted.inFolder(cwd)))) {
+        return;
+    }
+    for (const agent of agents) {
+        const problem = untrustedStartProblem(agent.provider, !agent.chat);
+        if (problem !== null) {
+            throw new VerbRefusal('untrusted-folder', problem);
+        }
+    }
 }
 
 type StartHandler = NonNullable<ActionHandlers<ServerActionContext>['agent.start']>;
@@ -82,6 +105,7 @@ const startAgent: StartHandler = async (input, call) => {
         );
     }
     let cwd = input.cwd === null ? undefined : await checkCwd(place.folder, input.cwd, (folder) => host.checkouts.paths(folder));
+    refuseUntrustedStart(host, caller.caller, cwd, [{ provider: kind, chat }]);
     const runtimeMode = chat ? (input.mode ?? undefined) : terminalMode(caller, input.mode ?? undefined, ceiling);
     const account = inheritedAccount(caller, kind);
     let undoWorktrees = async (): Promise<void> => undefined;
@@ -340,6 +364,12 @@ export const startActions: ActionHandlers<ServerActionContext> = {
 
         // Everything that touches the disk or git runs before the lock, so a slow repository holds up no save.
         const cwd = input.cwd === null ? undefined : await checkCwd(place.folder, input.cwd, (folder) => host.checkouts.paths(folder));
+        refuseUntrustedStart(
+            host,
+            caller.caller,
+            cwd,
+            roles.map((role) => ({ provider: role.provider, chat: kindOf(role) === 'chat' }))
+        );
         const roleCwds: Array<string | undefined> = roles.map(() => cwd);
         let undoWorktrees = async (): Promise<void> => undefined;
         // A worktree on another machine is made there, from this checkout, when its task starts.

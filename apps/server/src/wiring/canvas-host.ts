@@ -60,6 +60,7 @@ export function wireCanvasHost(input: CanvasHostInput): CanvasHost {
             openedCount: (callerId) => openedAgentCount({ lineage, hiddenAgents: projects.hiddenAgents, tasks, outbox, chats, sessions }, callerId)
         }),
         checkouts: git.checkouts,
+        untrusted: agents.untrusted,
         remote: {
             machines: (projectId) =>
                 projects.remote.linksOf(projectId).map((link) => ({
