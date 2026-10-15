@@ -8,7 +8,7 @@ for x64 and arm64 on Ubuntu 22.04 runners, as AppImage, deb and rpm; see `docs/L
 
 ## Build caches
 
-CI's integration job, the macOS desktop release and the macOS npm build share the native build
+CI's `packaged (macOS)` job, the macOS desktop release and the macOS npm build share the native build
 caches through `.github/actions/cache-native-builds`. CI on `main` fills them: GitHub lets a release
 tag restore `main`'s caches, but isolates caches written under different tags.
 

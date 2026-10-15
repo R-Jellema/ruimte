@@ -1,6 +1,6 @@
 # Linux
 
-Linux packaging exists; CI coverage and packaged-app acceptance are still open. The daemon has a Debian setup in `apps/server/docker`, spawns PTYs through
+Linux packaging exists; packaged-app acceptance is still open. The daemon has a Debian setup in `apps/server/docker`, spawns PTYs through
 `Bun.spawn({ terminal })`, reads DMI and the device tree for the machine model, reveals through
 `xdg-open` and falls back to per-directory watching. Newer native dependencies, such as the
 ADE CORE database helper and the separately installed PHP language server, need Linux build and
@@ -51,20 +51,19 @@ The `linux` job in `.github/workflows/release.yml` builds x64 on `ubuntu-22.04` 
 - **`rpm` from apt.** The rpm goes through fpm, which needs `rpmbuild` on the runner. The default
   rpm dependencies are the right ones, so no `rpm.depends` block is needed.
 - **A draft job of its own**, so three parallel builds do not wait on the macOS job.
-- **CI gates the release.** The reusable CI workflow runs verification and integration tests on
-  macOS. Its Ubuntu jobs handle changed-path detection and the final status; they do not run the
-  application tests on Linux.
+- **CI gates the release.** The reusable CI workflow runs the core integration suite and the
+  packaged daemon on Linux as well as on macOS: `integration (Linux)` on `ubuntu-latest` and
+  `packaged (Linux)` on `ubuntu-22.04`, the release's own runner. Both are required by `CI checks`.
+  Verification, the unit shards and the DOM tests run on Linux too.
 
 ## Open
 
-1. **Linux verification and integration jobs in `.github/workflows/ci.yml`.** Those jobs run on
-   `macos-latest`; the Ubuntu bookkeeping jobs say nothing about Linux behavior.
-2. **Fonts with a Linux face.** `--font-sans` and `--font-mono` in `@adecore/ui/theme.css` name
+1. **Fonts with a Linux face.** `--font-sans` and `--font-mono` in `@adecore/ui/theme.css` name
    only Apple, Microsoft and web faces (an issue for that library, not a patch here), so both fall
    through to the generic on a Linux desktop. Candidates are Cantarell, Ubuntu and Noto Sans for the
    first, and DejaVu Sans Mono, Liberation Mono and Noto Sans Mono for the second. `DEFAULT_FONT_STACKS` in `@adecore/drawing/text.ts` has the
    same gap, and its `hand` stack names nothing a stock Linux box ships.
-3. **Wayland.** The app runs under XWayland by default, which is blurry on fractional scaling.
+2. **Wayland.** The app runs under XWayland by default, which is blurry on fractional scaling.
    Whether to pass `--ozone-platform-hint=auto` is a choice, not a bug.
 
 Unverified:
@@ -77,6 +76,5 @@ Unverified:
   Fedora allows;
 - the frameless window under GNOME on X11 and under KDE, where resize borders and the compositor's
   own title bar menu are worth a look;
-- both test suites on Linux. Deterministic cases run under `bun run test`; real shells, processes,
-  sockets and watchers belong to `bun run test:integration`. The September smoke result is not a
-  Linux test run.
+- what stays macOS-only in CI: the file system tests on a case-insensitive volume and the Swift and
+  device-bridge jobs. The `ports` listener test has no Linux probe and skips there.

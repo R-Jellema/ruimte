@@ -29,7 +29,7 @@ The decisions of October 14 are written into the packages. Everything built from
 | 14. Copilot and Gemini chat           | Later                                         | 1 and 9; compatibility checks below                         |
 | 15. Editor and language servers       | Acceptance and remaining features             | Existing implementation; server policy per addition         |
 | 16. Plugins                           | After 1.0                                     | Registry inventory and a compatibility release              |
-| 17. Linux and Windows                 | Linux integration first, Windows per its plan | Platform spikes and CI; ADE CORE API cleanup before Windows |
+| 17. Linux and Windows                 | Linux package checks, Windows per its plan    | Platform spikes and CI; ADE CORE API cleanup before Windows |
 
 Measurements must finish before changing the WebGL budget, splitting the composer chunk or
 choosing media buffer sizes.
@@ -406,10 +406,8 @@ without it, with bounded capabilities and intact stored data.
 
 ## 17. Linux and Windows
 
-1. Unit shards, DOM tests and verify already run on Linux. Run the integration tests on
-   `ubuntu-latest` as well as `macos-latest` and keep three runs in a row green, then rewrite
-   "Open 1" in [LINUX.md](LINUX.md). Record package smoke checks for deb on Debian trixie/Ubuntu
-   noble, arm64, AppImage on Ubuntu and GNOME/KDE/X11/Wayland.
+1. Record package smoke checks for deb on Debian trixie/Ubuntu noble, arm64, AppImage on Ubuntu
+   and GNOME/KDE/X11/Wayland.
 2. Address Linux font fallbacks in drawing text and request the generic UI font change in
    `@adecore/ui`. XWayland stays the default until the fractional-scaling measurement settles
    native Wayland.
