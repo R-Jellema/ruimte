@@ -140,24 +140,24 @@ async function openTabMenu(key: string): Promise<void> {
 }
 
 describe('pinning a project tab', () => {
-    test('a pinned tab moves to the front, loses its close button and its name, and is kept in the address of the window', async () => {
+    test('a pinned tab moves to the front, keeps its name, loses its close button, and is kept in the address of the window', async () => {
         expect(tabOrder()).toEqual([BEHIND, SHOWN]);
         await openTabMenu(SHOWN);
         await clickOn(menuItem('Pin tab'));
         await until(() => tab(SHOWN)?.hasAttribute('data-pinned') === true);
         expect(tabOrder()).toEqual([SHOWN, BEHIND]);
         expect(tab(SHOWN)!.querySelector('button')).toBeNull();
-        expect(tab(SHOWN)!.textContent).not.toContain('Atlas');
+        expect(tab(SHOWN)!.textContent).toContain('Atlas');
         expect(new URLSearchParams(location.search).get('state')).toBe(JSON.stringify({ tabs: [SHOWN, BEHIND], pinned: [SHOWN] }));
     });
 
-    test('Unpin tab gives a tab its name and its close button back', async () => {
+    test('Unpin tab gives a tab its close button back', async () => {
         await openTabMenu(SHOWN);
         await clickOn(menuItem('Pin tab'));
         await until(() => tab(SHOWN)?.hasAttribute('data-pinned') === true);
         await openTabMenu(SHOWN);
         await clickOn(menuItem('Unpin tab'));
         await until(() => tab(SHOWN)?.hasAttribute('data-pinned') === false);
-        expect(tab(SHOWN)!.textContent).toContain('Atlas');
+        expect(tab(SHOWN)!.querySelector('button')).not.toBeNull();
     });
 });
