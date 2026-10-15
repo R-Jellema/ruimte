@@ -1,5 +1,6 @@
 import { lstat, realpath } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
+import { ChatError as AgentChatError } from '@adecore/agents/chat';
 import type { AgentLineageStore } from '@adecore/agents/coordination';
 import {
     initialIconOf,
@@ -273,7 +274,8 @@ export async function moveChat(payload: ChatMovePayload, deps: MoveChatDeps): Pr
                 `The chat is in the project, but the machine could not save its new folder (${errorText(e)}). It finishes the move the next time it starts`
             );
         }
-        if (e instanceof ChatError && e.code === 'chat-busy') {
+        // The relocation throws the library's error, not Ruimte's subclass, and its sentence names the chat id.
+        if (e instanceof AgentChatError && e.code === 'chat-busy') {
             throw new ChatError('move-refused', moveRefusalSentence({ reason: 'working' }));
         }
         throw e;

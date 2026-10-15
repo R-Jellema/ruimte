@@ -275,6 +275,17 @@ describe('moving a chat from Chats into a project', () => {
         expect(existsSync(join(root, 'vinyl'))).toBe(false);
     });
 
+    test('a chat the library will not relocate is refused in the plain sentence, without its id', async () => {
+        daemon.chats.holdForPerson(chatId, 'some-card');
+        const refused = await moveChat(
+            { chatId, to: make('vinyl'), ownFiles: 'move' },
+            deps(() => ({ refusal: () => null }))
+        ).catch((e: unknown) => e);
+        expect(refused).toMatchObject({ code: 'move-refused', message: 'This chat is still working. Stop it or wait for it to finish, then try again' });
+        expect((refused as Error).message).not.toContain(chatId);
+        await expectUntouched();
+    });
+
     test('a project places the chat at every moment of the move', async () => {
         const seen: Array<string | null> = [];
         const result = await moveChat(
