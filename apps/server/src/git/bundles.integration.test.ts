@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { BundleStore, makeBundle, sha256Of } from './bundles.ts';
+import { BYTES_CHUNK_MAX } from '@ruimte/contracts';
+import { BundleStore, fetchBundle, makeBundle, sha256Of } from './bundles.ts';
 import { Checkpoints } from './checkpoints.ts';
-import { gitIn, initRepo } from './test-repo.ts';
+import { listRefs } from './refs.ts';
+import { gitIn, initRepo, NO_WORKTREE_AGENTS } from './test-repo.ts';
+import { Worktrees } from './worktrees.ts';
 
 let root: string;
 let first: Machine;
@@ -15,6 +18,7 @@ interface Machine {
     repo: string;
     bundles: BundleStore;
     checkpoints: Checkpoints;
+    worktrees: Worktrees;
 }
 
 async function machine(name: string): Promise<Machine> {
@@ -24,8 +28,17 @@ async function machine(name: string): Promise<Machine> {
         home,
         repo: join(root, name),
         bundles: new BundleStore(home),
-        checkpoints: new Checkpoints(home)
+        checkpoints: new Checkpoints(home),
+        worktrees: new Worktrees(home, NO_WORKTREE_AGENTS)
     };
+}
+
+/* Moves a bundle between two machines the way the client does: a piece at a time. */
+async function send(from: Machine, to: Machine, bundleId: string): Promise<void> {
+    const bytes = new Uint8Array(await Bun.file(from.bundles.pathOf(bundleId)).arrayBuffer());
+    for (let offset = 0; offset < bytes.byteLength; offset += BYTES_CHUNK_MAX) {
+        await to.bundles.receive(bundleId, offset, bytes.slice(offset, offset + BYTES_CHUNK_MAX));
+    }
 }
 
 beforeEach(async () => {
@@ -102,4 +115,88 @@ test('a branch is bundled as it stands', async () => {
 
     expect(made.commit).toBe(tip);
     expect(made.base).toBe(base);
+});
+
+test('a bundle taken in on the other machine is a worktree holding the files', async () => {
+    await dirty();
+    const head = (await gitIn(first.repo, ['rev-parse', 'HEAD'])).trim();
+    const made = await makeBundle(first.bundles, first.checkpoints, { path: first.repo, from: 'files', haves: [head], name: 'Handoff' });
+    await send(first, second, made.bundleId);
+
+    const result = await fetchBundle(second.bundles, second.worktrees, second.repo, {
+        projectId: 'p',
+        bundleId: made.bundleId,
+        sha256: made.sha256,
+        branch: 'atlas',
+        into: 'worktree'
+    });
+
+    expect(result.branch).toBe('ruimte/atlas');
+    expect(result.commit).toBe(made.commit);
+    expect(await readFile(join(result.path!, 'a.txt'), 'utf8')).toBe('one, changed\n');
+    expect(await readFile(join(result.path!, 'new.txt'), 'utf8')).toBe('untracked\n');
+    expect((await second.worktrees.list(second.repo)).map((worktree) => worktree.path)).toContain(result.path!);
+    // The other machine's own branch and checkout are untouched.
+    expect((await gitIn(second.repo, ['status', '--porcelain'])).trim()).toBe('');
+});
+
+test('the work comes back as a remote branch and a worktree to merge', async () => {
+    const head = (await gitIn(first.repo, ['rev-parse', 'HEAD'])).trim();
+    const out = await makeBundle(first.bundles, first.checkpoints, { path: first.repo, from: 'head', haves: [head], name: 'Handoff' });
+    await send(first, second, out.bundleId);
+    const there = await fetchBundle(second.bundles, second.worktrees, second.repo, {
+        projectId: 'p',
+        bundleId: out.bundleId,
+        sha256: out.sha256,
+        branch: 'atlas',
+        into: 'worktree'
+    });
+    await writeFile(join(there.path!, 'done.txt'), 'done\n');
+    await gitIn(there.path!, ['add', '.']);
+    await gitIn(there.path!, ['commit', '--quiet', '--message', 'the work']);
+
+    const back = await makeBundle(second.bundles, second.checkpoints, { path: there.path!, from: 'branch', branch: there.branch, haves: [head], name: 'Back' });
+    await send(second, first, back.bundleId);
+    const here = await fetchBundle(first.bundles, first.worktrees, first.repo, {
+        projectId: 'p',
+        bundleId: back.bundleId,
+        sha256: back.sha256,
+        branch: there.branch,
+        into: 'remote-ref',
+        machine: 'MacBook Pro'
+    });
+
+    const refs = (await listRefs(first.repo)).refs;
+    expect(refs.some((ref) => ref.kind === 'remote' && ref.name === 'ruimte-macbook-pro/ruimte/atlas' && ref.commit === back.commit)).toBe(true);
+    expect((await first.worktrees.list(first.repo)).map((worktree) => worktree.path)).toContain(here.path!);
+    expect(await readFile(join(here.path!, 'done.txt'), 'utf8')).toBe('done\n');
+    // Not the person's own checkout.
+    expect((await gitIn(first.repo, ['rev-parse', 'HEAD'])).trim()).toBe(head);
+});
+
+test('a bundle that is not the one named is refused before git reads it', async () => {
+    const made = await makeBundle(first.bundles, first.checkpoints, { path: first.repo, from: 'head', haves: [], name: 'Handoff' });
+    await send(first, second, made.bundleId);
+
+    const refused = fetchBundle(second.bundles, second.worktrees, second.repo, {
+        projectId: 'p',
+        bundleId: made.bundleId,
+        sha256: '0'.repeat(64),
+        branch: 'atlas',
+        into: 'worktree'
+    });
+
+    await expect(refused).rejects.toMatchObject({ code: 'bundle-corrupt' });
+    expect(await gitIn(second.repo, ['for-each-ref', 'refs/ruimte'])).toBe('');
+});
+
+test('pieces out of order and over the cap are refused, and a sweep clears what is left', async () => {
+    await second.bundles.receive('transfer-one', 0, new Uint8Array(10));
+    await expect(second.bundles.receive('transfer-one', 5, new Uint8Array(10))).rejects.toMatchObject({ code: 'bundle-offset' });
+    await expect(second.bundles.receive('transfer-one', 10, new Uint8Array(BYTES_CHUNK_MAX + 1))).rejects.toMatchObject({ code: 'bundle-too-large' });
+    await expect(second.bundles.receive('../escape', 0, new Uint8Array(1))).rejects.toMatchObject({ code: 'bundle-missing' });
+
+    await second.bundles.sweep();
+
+    expect(await Bun.file(second.bundles.incomingPathOf('transfer-one')).exists()).toBe(false);
 });

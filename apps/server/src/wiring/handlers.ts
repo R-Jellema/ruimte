@@ -342,7 +342,8 @@ export function registerEditorHandlers(dispatcher: Dispatcher, input: EditorHand
         machine.machineHome,
         {
             bundles: git.bundles,
-            checkpoints: git.checkpoints
+            checkpoints: git.checkpoints,
+            folderOf: async (projectId) => (await store.known()).find((project) => project.projectId === projectId)?.folder ?? null
         }
     );
 }

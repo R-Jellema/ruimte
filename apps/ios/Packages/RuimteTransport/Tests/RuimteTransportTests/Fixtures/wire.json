@@ -297,6 +297,8 @@
     "git.capabilities",
     "git.suggestMessage",
     "git.bundle",
+    "git.bundlePut",
+    "git.fetchBundle",
     "usage.summary",
     "usage.subscribe",
     "usage.unsubscribe",

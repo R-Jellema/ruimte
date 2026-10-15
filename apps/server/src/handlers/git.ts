@@ -1,6 +1,6 @@
 import type { AgentKind, GitActionPhase } from '@ruimte/contracts';
 import { RequestError, sendEvent, type ClientConnection, type Dispatcher } from '../dispatcher.ts';
-import { makeBundle, type BundleStore } from '../git/bundles.ts';
+import { fetchBundle, makeBundle, type BundleStore } from '../git/bundles.ts';
 import type { CheckpointService } from '../git/checkpoints.ts';
 import { GitActions } from '../git/actions.ts';
 import { blameFile } from '../git/blame.ts';
@@ -28,6 +28,7 @@ import type { ProviderRegistry } from '../providers/registry.ts';
 export interface BundleHost {
     bundles: BundleStore;
     checkpoints: Pick<CheckpointService, 'take' | 'head'>;
+    folderOf(projectId: string): Promise<string | null>;
 }
 
 interface AgentRunOptions {
@@ -125,11 +126,23 @@ export function registerGitHandlers(
     });
 
     if (bundleHost !== undefined) {
-        const { bundles, checkpoints } = bundleHost;
+        const { bundles, checkpoints, folderOf } = bundleHost;
 
         dispatcher.register('git.bundle', async (payload) => {
             await machineHome?.refuse(payload.path);
             return makeBundle(bundles, checkpoints, payload);
+        });
+
+        dispatcher.register('git.bundlePut', async (payload) => ({
+            received: await bundles.receive(payload.bundleId, payload.offset, Buffer.from(payload.data, 'base64'))
+        }));
+
+        dispatcher.register('git.fetchBundle', async (payload) => {
+            const folder = await folderOf(payload.projectId);
+            if (folder === null) {
+                throw new RequestError('project-not-found', `No project ${payload.projectId} is on this machine`);
+            }
+            return fetchBundle(bundles, worktrees, folder, payload);
         });
     }
 

@@ -1,24 +1,43 @@
-import { mkdir, rm, stat } from 'node:fs/promises';
+import { mkdir, open, readdir, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { BUNDLE_MAX_BYTES, type GitBundlePayload, type GitBundleResult } from '@ruimte/contracts';
+import {
+    BUNDLE_MAX_BYTES,
+    BYTES_CHUNK_MAX,
+    type GitBundlePayload,
+    type GitBundleResult,
+    type GitFetchBundlePayload,
+    type GitFetchBundleResult
+} from '@ruimte/contracts';
+import { KeyedQueue } from '../keyed-queue.ts';
 import type { CheckpointService } from './checkpoints.ts';
 import { GitError, git, gitOrThrow, runGit, toplevel } from './run.ts';
+import type { Worktrees } from './worktrees.ts';
 
 const ID = /^[a-z0-9][a-z0-9-]{5,63}$/;
 const COMMIT = /^[0-9a-f]{7,64}$/;
 const HANDOFF = 'refs/ruimte/handoff/';
+const RECEIVED = 'refs/ruimte/received/';
+
+// More than a few pieces of different bundles on their way in at once means a client that never finishes.
+const MAX_OPEN_UPLOADS = 16;
 
 const TOO_BIG = `A bundle over ${BUNDLE_MAX_BYTES / 1024 / 1024} MiB is not sent. Push the branch to origin and fetch it there instead.`;
 
+const NO_HOOKS = ['-c', 'core.hooksPath=/dev/null'];
+
 /*
- * The bundles this machine wrote for another machine to read. They live under `$RUIMTE_HOME/bundles`
- * and nothing outside it is reachable by an id, since an id is only a name of that folder.
+ * The bundles of this machine: the ones it wrote for another machine to read, and the ones another
+ * machine is sending. Both live under `$RUIMTE_HOME/bundles` and nothing outside it is reachable by
+ * an id, since an id is only a name of that folder.
  */
 export class BundleStore {
     readonly root: string;
+    readonly incoming: string;
+    private readonly uploads = new KeyedQueue();
 
     constructor(home: string) {
         this.root = join(home, 'bundles');
+        this.incoming = join(this.root, 'incoming');
     }
 
     static isId(id: string): boolean {
@@ -29,6 +48,10 @@ export class BundleStore {
         return join(this.root, `${this.checked(id)}.bundle`);
     }
 
+    incomingPathOf(id: string): string {
+        return join(this.incoming, `${this.checked(id)}.bundle`);
+    }
+
     /* The file of a bundle this machine wrote, or null when it is gone. */
     async made(id: string): Promise<string | null> {
         if (!BundleStore.isId(id)) {
@@ -36,6 +59,42 @@ export class BundleStore {
         }
         const path = this.pathOf(id);
         return (await stat(path).catch(() => null))?.isFile() ? path : null;
+    }
+
+    /* Appends a piece at the end of what came in so far; a piece at offset 0 starts the bundle over. */
+    async receive(id: string, offset: number, bytes: Uint8Array): Promise<number> {
+        const path = this.incomingPathOf(id);
+        return this.uploads.run(id, async () => {
+            if (bytes.byteLength > BYTES_CHUNK_MAX || offset + bytes.byteLength > BUNDLE_MAX_BYTES) {
+                throw new GitError('bundle-too-large', TOO_BIG);
+            }
+            await mkdir(this.incoming, { recursive: true, mode: 0o700 });
+            const have = (await stat(path).catch(() => null))?.size ?? null;
+            if (offset > 0 && have !== offset) {
+                throw new GitError('bundle-offset', `The bundle has ${have ?? 0} bytes here, not ${offset}. Send it again from the start.`);
+            }
+            if (have === null && (await readdir(this.incoming)).length >= MAX_OPEN_UPLOADS) {
+                throw new GitError('bundle-uploads-busy', 'Too many bundles are being received at once.');
+            }
+            const file = await open(path, offset === 0 ? 'w' : 'a', 0o600);
+            try {
+                await file.write(bytes);
+            } finally {
+                await file.close();
+            }
+            return offset + bytes.byteLength;
+        });
+    }
+
+    /* Removes every bundle not named in `keep`. Run at daemon start, when no transfer is open; never on a clock. */
+    async sweep(keep: ReadonlySet<string> = new Set()): Promise<void> {
+        for (const folder of [this.root, this.incoming]) {
+            for (const name of await readdir(folder).catch(() => [])) {
+                if (name.endsWith('.bundle') && !keep.has(name.slice(0, -'.bundle'.length))) {
+                    await rm(join(folder, name), { force: true });
+                }
+            }
+        }
     }
 
     private checked(id: string): string {
@@ -147,4 +206,58 @@ export async function makeBundle(
         throw new GitError('bundle-too-large', TOO_BIG);
     }
     return { bundleId: id, size, sha256: await sha256Of(path), commit, base };
+}
+
+function slug(text: string): string {
+    return (
+        text
+            .toLowerCase()
+            .replace(/[^a-z0-9._-]+/g, '-')
+            .replace(/^[-.]+|[-.]+$/g, '') || 'machine'
+    );
+}
+
+async function refIsValid(top: string, ref: string): Promise<boolean> {
+    return (await runGit(['check-ref-format', ref], top)).code === 0;
+}
+
+/*
+ * Takes a received bundle into a repository without running anything it carries: the fetch has git's
+ * hooks off and nothing but one ref of the bundle is read. The tip is kept under `refs/ruimte/received`
+ * and a worktree is made on it, so the work is there to open and to merge.
+ */
+export async function fetchBundle(store: BundleStore, worktrees: Worktrees, folder: string, payload: GitFetchBundlePayload): Promise<GitFetchBundleResult> {
+    const file = store.incomingPathOf(payload.bundleId);
+    if (!(await stat(file).catch(() => null))?.isFile()) {
+        throw new GitError('bundle-missing', 'This bundle did not arrive.');
+    }
+    if ((await sha256Of(file)) !== payload.sha256) {
+        throw new GitError('bundle-corrupt', 'The bundle that arrived is not the one that was sent.');
+    }
+    const top = await toplevel(folder);
+    const verified = await runGit(['bundle', 'verify', file], top);
+    if (verified.code !== 0) {
+        throw new GitError('bundle-unverified', verified.stderr.trim() || 'The bundle does not fit this repository.');
+    }
+    const heads = (await gitOrThrow(['bundle', 'list-heads', file], top)).split('\n');
+    const source = heads.map((line) => line.split(' ')[1]).find((name): name is string => name !== undefined && name.startsWith(HANDOFF));
+    if (source === undefined) {
+        throw new GitError('bundle-unverified', 'The bundle holds no handoff.');
+    }
+    const kept = `${RECEIVED}${payload.bundleId}`;
+    await gitOrThrow([...NO_HOOKS, 'fetch', '--quiet', '--no-tags', '--no-recurse-submodules', '--no-write-fetch-head', file, `+${source}:${kept}`], top);
+    const commit = (await commitOf(top, kept)) ?? '';
+    const name = payload.branch.replace(/^ruimte\//, '');
+    if (!(await refIsValid(top, `refs/heads/ruimte/${name}`))) {
+        throw new GitError('git-failed', `${payload.branch} is not a usable branch name.`);
+    }
+    if (payload.into === 'remote-ref') {
+        const remoteRef = `refs/remotes/ruimte-${slug(payload.machine ?? 'machine')}/${payload.branch}`;
+        if (!(await refIsValid(top, remoteRef))) {
+            throw new GitError('git-failed', `${payload.branch} is not a usable branch name.`);
+        }
+        await gitOrThrow(['update-ref', remoteRef, commit], top);
+    }
+    const made = await worktrees.addFresh(top, `ruimte/${name}`, { madeBy: 'client', projectId: payload.projectId }, { base: kept });
+    return { path: made.path, branch: made.branch, commit };
 }

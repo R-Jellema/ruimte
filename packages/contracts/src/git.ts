@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AgentKindSchema } from './agent.ts';
 import { WorktreeSchema } from '@adecore/agent-contracts/worktree';
+import { BYTES_CHUNK_MAX } from './bytes.ts';
 
 // Made under the app data dir when the branch has no worktree yet.
 export const WorktreeAddPayloadSchema = z.object({
@@ -749,3 +750,37 @@ export const GitBundleResultSchema = z.object({
     base: z.string().nullable()
 });
 export type GitBundleResult = z.infer<typeof GitBundleResultSchema>;
+
+// A piece of a bundle on its way in; the pieces come in order and `offset` is where this one starts.
+export const GitBundlePutPayloadSchema = z.object({
+    bundleId: z.string().min(1).max(64),
+    offset: z.number().int().nonnegative(),
+    data: z.string().max(Math.ceil((BYTES_CHUNK_MAX * 4) / 3) + 4)
+});
+export type GitBundlePutPayload = z.infer<typeof GitBundlePutPayloadSchema>;
+
+export const GitBundlePutResultSchema = z.object({ received: z.number().int().nonnegative() });
+export type GitBundlePutResult = z.infer<typeof GitBundlePutResultSchema>;
+
+/*
+ * Takes a bundle that came in with `git.bundlePut` into a project's repository. `worktree` makes a
+ * worktree on a new branch `ruimte/<branch>`. `remote-ref` keeps the tip as `ruimte-<machine>/<branch>`
+ * among the remote branches and makes a worktree on it, the way back from another machine.
+ */
+export const GitFetchBundlePayloadSchema = z.object({
+    projectId: z.string().min(1),
+    bundleId: z.string().min(1).max(64),
+    sha256: z.string().length(64),
+    branch: z.string().min(1).max(200),
+    into: z.enum(['worktree', 'remote-ref']),
+    // What the other machine is called, for the remote the branch is listed under.
+    machine: z.string().min(1).max(120).optional()
+});
+export type GitFetchBundlePayload = z.infer<typeof GitFetchBundlePayloadSchema>;
+
+export const GitFetchBundleResultSchema = z.object({
+    path: z.string().optional(),
+    branch: z.string(),
+    commit: z.string()
+});
+export type GitFetchBundleResult = z.infer<typeof GitFetchBundleResultSchema>;

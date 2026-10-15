@@ -38,5 +38,7 @@ export function wireGit(home: string, identity: EndpointIdentity, agents: Agents
     const worktrees = new Worktrees(home, agentsInWorktrees, Date.now, () => identity.worktreeRoot);
     const merges = new WorktreeMerge(worktrees, agentsInWorktrees);
     const bundles = new BundleStore(home);
+    // Nothing is in flight at start, so what an earlier run left is of no one.
+    bundles.sweep().catch((e: unknown) => console.warn('Clearing the bundles failed:', e instanceof Error ? e.message : String(e)));
     return { watches, folders, statuses, worktrees, merges, checkouts: checkoutHost(worktrees), bundles, checkpoints: new Checkpoints(home) };
 }

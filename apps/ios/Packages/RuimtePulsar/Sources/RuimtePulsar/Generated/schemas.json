@@ -48007,6 +48007,108 @@
       "base"
     ]
   },
+  "request.git.bundlePut.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "bundleId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "offset": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "data": {
+        "type": "string",
+        "maxLength": 349530
+      }
+    },
+    "required": [
+      "bundleId",
+      "offset",
+      "data"
+    ]
+  },
+  "request.git.bundlePut.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "received": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "received"
+    ]
+  },
+  "request.git.fetchBundle.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "bundleId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "sha256": {
+        "type": "string",
+        "minLength": 64,
+        "maxLength": 64
+      },
+      "branch": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "into": {
+        "type": "string",
+        "enum": [
+          "worktree",
+          "remote-ref"
+        ]
+      },
+      "machine": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      }
+    },
+    "required": [
+      "projectId",
+      "bundleId",
+      "sha256",
+      "branch",
+      "into"
+    ]
+  },
+  "request.git.fetchBundle.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string"
+      },
+      "branch": {
+        "type": "string"
+      },
+      "commit": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "branch",
+      "commit"
+    ]
+  },
   "request.usage.summary.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
