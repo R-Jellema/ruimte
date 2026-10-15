@@ -76,6 +76,10 @@ const cases: ParityCase[] = [
         source: '$limit = 1\n$zeta = @Query("git.status", {})\n$alpha = @Query("git.status", {})\n<Slider value={$limit} min={0} max={5}>Limit</Slider><Stats><Stat label="Files" value={@Count($zeta.files) + @Count($alpha.files)}/></Stats>',
         queries: { $zeta: { files: ['a'] }, $alpha: { files: [] } }
     },
+    {
+        name: 'timeline',
+        source: '<Timeline><Event at="14:02" tone="warning" detail="p95 above 2 s">Alert fired</Event><Event at="2026-10-14T12:20:00Z">Recovered</Event><Event at="after lunch">Unreadable time</Event></Timeline>'
+    },
     { name: 'segmented input', source: '$mode = "a"\n<Segmented value={$mode}><Option value="a">A</Option><Option value="b">B</Option></Segmented>' }
 ];
 

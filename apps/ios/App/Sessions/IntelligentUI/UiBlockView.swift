@@ -215,6 +215,8 @@ struct UiNodeView: View {
         case "Progress": UiProgressView(node: node, context: context)
         case "Steps": UiStepsView(node: node, context: context)
         case "Step": UiStepView(node: node, context: context)
+        case "Timeline": UiTimelineView(node: node, context: context)
+        case "Event": UiEventView(node: node, context: context)
         case "Stats": UiStatsView(node: node, context: context)
         case "Stat": UiStatView(node: node)
         case "EntityList": UiEntityListView(node: node, context: context)

@@ -30,6 +30,114 @@ enum UiFormat {
     }
 }
 
+/// The moment an Event's `at` names, read as `parseUiEventTime` in `@adecore/intelligent-ui` does.
+struct UiEventTime: Equatable {
+    enum Kind: Equatable { case time, date, dateTime }
+
+    let kind: Kind
+    let date: Date
+    /// No offset was given: `date` holds the parts as written in UTC and is written in UTC, so no zone or clock
+    /// change moves them. Otherwise it is a real instant, written in the reader's zone.
+    let written: Bool
+    /// A lone time that wrote seconds shows them; a date-time shows its minutes only.
+    let seconds: Bool
+
+    private static let pattern = try! NSRegularExpression(
+        pattern:
+            #"^(?:([0-9]{2}):([0-9]{2})(?::([0-9]{2})(?:\.[0-9]{1,9})?)?|([0-9]{4})-([0-9]{2})-([0-9]{2})(?:T([0-9]{2}):([0-9]{2})(?::([0-9]{2})(?:\.[0-9]{1,9})?)?(Z|[+-][0-9]{2}:[0-9]{2})?)?)\z"#
+    )
+
+    private static var utc: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }
+
+    /// Nil when `at` is no `HH:MM[:SS]`, `YYYY-MM-DD` or date-time with an optional offset, or names a day or a time
+    /// that does not exist.
+    init?(_ at: String) {
+        let range = NSRange(at.startIndex..., in: at)
+        guard let match = Self.pattern.firstMatch(in: at, range: range) else { return nil }
+        func part(_ index: Int) -> Int? {
+            Range(match.range(at: index), in: at).flatMap { Int(at[$0]) }
+        }
+        func validClock(_ hour: Int, _ minute: Int, _ second: Int) -> Bool {
+            hour <= 23 && minute <= 59 && second <= 59
+        }
+        let calendar = Self.utc
+        if let hour = part(1), let minute = part(2) {
+            let second = part(3) ?? 0
+            guard validClock(hour, minute, second),
+                let date = calendar.date(
+                    from: DateComponents(year: 2000, month: 1, day: 1, hour: hour, minute: minute, second: second))
+            else { return nil }
+            self.init(kind: .time, date: date, written: true, seconds: part(3) != nil)
+            return
+        }
+        // The desktop reads a year under 100 as 19xx, which then differs from the one written.
+        guard let year = part(4), year >= 100, let month = part(5), let day = part(6),
+            let calendarDay = calendar.date(from: DateComponents(year: year, month: month, day: day)),
+            calendar.dateComponents([.year, .month, .day], from: calendarDay)
+                == DateComponents(year: year, month: month, day: day)
+        else { return nil }
+        guard let hour = part(7), let minute = part(8) else {
+            self.init(kind: .date, date: calendarDay, written: true, seconds: false)
+            return
+        }
+        let second = part(9) ?? 0
+        guard validClock(hour, minute, second),
+            let instant = calendar.date(
+                from: DateComponents(
+                    year: year, month: month, day: day, hour: hour, minute: minute, second: second))
+        else { return nil }
+        guard let zone = Range(match.range(at: 10), in: at).map({ String(at[$0]) }) else {
+            self.init(kind: .dateTime, date: instant, written: true, seconds: false)
+            return
+        }
+        guard let offset = Self.offsetMinutes(zone) else { return nil }
+        self.init(
+            kind: .dateTime, date: instant.addingTimeInterval(-Double(offset) * 60), written: false, seconds: false)
+    }
+
+    private init(kind: Kind, date: Date, written: Bool, seconds: Bool) {
+        self.kind = kind
+        self.date = date
+        self.written = written
+        self.seconds = seconds
+    }
+
+    /// The minutes east of UTC that `Z` or `+02:00` stand for, or nil for an offset no zone has: -12:00 to +14:00.
+    private static func offsetMinutes(_ zone: String) -> Int? {
+        if zone == "Z" { return 0 }
+        guard let hours = Int(zone.dropFirst().prefix(2)), let minutes = Int(zone.suffix(2)) else { return nil }
+        let offset = (zone.first == "-" ? -1 : 1) * (hours * 60 + minutes)
+        return minutes > 59 || offset < -12 * 60 || offset > 14 * 60 ? nil : offset
+    }
+
+    /// What the row shows: a time as the region's clock, a date or date-time with its year once it is not this one.
+    /// Text that names no moment stays as written.
+    static func text(_ at: String, now: Date = .now, in locale: FormatLocale = .current) -> String {
+        guard let moment = Self(at) else { return at }
+        return moment.text(now: now, in: locale)
+    }
+
+    func text(now: Date = .now, in locale: FormatLocale = .current) -> String {
+        var zoned = locale
+        if written { zoned.timeZone = TimeZone(identifier: "UTC")! }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zoned.timeZone
+        var reader = Calendar(identifier: .gregorian)
+        reader.timeZone = locale.timeZone
+        let withYear = calendar.component(.year, from: date) != reader.component(.year, from: now)
+        switch kind {
+        case .time: return seconds ? Format.clockSeconds(date, in: zoned) : Format.clock(date, in: zoned)
+        case .date: return withYear ? Format.dayWithYear(date, in: zoned) : Format.day(date, in: zoned)
+        case .dateTime:
+            return withYear ? Format.dayClockWithYear(date, in: zoned) : Format.dayClock(date, in: zoned)
+        }
+    }
+}
+
 struct UiTableColumn: Equatable {
     enum Kind: String { case text, number, bytes, duration, date, file, tag }
 

@@ -195,3 +195,73 @@ struct UiStepView: View {
         .accessibilityValue(state.word)
     }
 }
+
+extension EnvironmentValues {
+    /// The Event that closes the Timeline around it, whose row draws no rule below its dot.
+    @Entry fileprivate var uiLastEventID: String?
+}
+
+/// Events in time order on a rule; each row draws its own stretch of it, so one that failed leaves the rest whole.
+struct UiTimelineView: View {
+    let node: UiNode
+    let context: UiRenderContext
+
+    var body: some View {
+        UiNodesView(nodes: node.children, parent: node.type, context: context, spacing: 0)
+            .padding(.horizontal, 8)
+            .environment(\.uiLastEventID, node.children(of: "Event").last?.id)
+            .accessibilityElement(children: .contain)
+    }
+}
+
+/// A dot in the tone, the time, the title and an optional detail. A time nobody could read stays as written.
+struct UiEventView: View {
+    let node: UiNode
+    let context: UiRenderContext
+    @Environment(\.uiLastEventID) private var lastID
+
+    private static let dot: CGFloat = 8
+
+    var body: some View {
+        let tone = node.tone ?? .neutral
+        let time = UiEventTime.text(node.string("at") ?? "")
+        let detail = node.string("detail") ?? ""
+        let last = lastID == node.id
+        HStack(alignment: .top, spacing: 12) {
+            Circle().fill(UiToneStyle.color(tone)).frame(width: Self.dot, height: Self.dot)
+                .padding(.top, 5)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(time).font(.caption.monospacedDigit()).foregroundStyle(MobileStyle.faint)
+                UiNodesView(nodes: node.children, parent: node.type, context: context)
+                    .font(.subheadline).foregroundStyle(MobileStyle.text)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if !detail.isEmpty {
+                    Text(detail).font(.caption).foregroundStyle(MobileStyle.faint)
+                }
+            }
+        }
+        .padding(.bottom, last ? 0 : 12)
+        .frame(minHeight: 28, alignment: .top)
+        .background(alignment: .topLeading) {
+            if !last {
+                Rectangle().fill(MobileStyle.border).frame(width: 1)
+                    .padding(.leading, 3).padding(.top, 5 + Self.dot + 2)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            [time, node.label, tone == .neutral ? "" : Self.word(tone), detail].filter { !$0.isEmpty }
+                .joined(separator: ", "))
+    }
+
+    private static func word(_ tone: UiTone) -> String {
+        switch tone {
+        case .neutral: ""
+        case .info: String(localized: "Info")
+        case .success: String(localized: "Success")
+        case .warning: String(localized: "Warning")
+        case .danger: String(localized: "Danger")
+        }
+    }
+}

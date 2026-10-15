@@ -132,6 +132,8 @@ struct FormatTests {
         #expect(Format.clock(at, in: american) == "08:05 AM")
         #expect(Format.hour(at, in: dutch) == "08")
         #expect(Format.hour(at, in: american) == "8 AM")
+        #expect(Format.clockSeconds(at, in: dutch) == "08:05:00")
+        #expect(Format.clockSeconds(at, in: american) == "08:05:00 AM")
     }
 
     @Test func aDateIsOrderedByTheRegionAndWordedInTheLanguage() {
@@ -139,6 +141,7 @@ struct FormatTests {
         #expect(Format.dayWithYear(at, in: dutch) == "19 Sep 2026")
         #expect(Format.weekdayDay(at, in: dutch) == "Sat 19 Sep")
         #expect(Format.dayClock(at, in: dutch) == "19 Sep, 08:05")
+        #expect(Format.dayClockWithYear(at, in: dutch) == "19 Sep 2026, 08:05")
         #expect(Format.day(at, in: american) == "Sep 19")
         #expect(Format.weekdayDay(at, in: american) == "Sat, Sep 19")
         #expect(Format.numericDate(at, in: dutch) == "19-9-2026")

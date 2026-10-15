@@ -12,6 +12,16 @@
         }
       }
     },
+    "Danger" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gevaar"
+          }
+        }
+      }
+    },
     "Enter a file name without a slash" : {
       "localizations" : {
         "nl" : {
@@ -368,6 +378,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Log in om je machines te bereiken."
+          }
+        }
+      }
+    },
+    "Success" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gelukt"
           }
         }
       }

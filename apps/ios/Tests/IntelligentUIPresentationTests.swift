@@ -187,6 +187,65 @@ final class IntelligentUIPresentationTests: XCTestCase {
         XCTAssertNil(UiReason.text(code: nil, reason: nil))
     }
 
+    private func reader(_ region: String = "nl_NL") -> FormatLocale {
+        FormatLocale(
+            region: Locale(identifier: region), language: Locale(identifier: "en"),
+            timeZone: TimeZone(identifier: "Europe/Amsterdam")!)
+    }
+
+    func testAnEventTimeIsReadAsWrittenOrAsAnInstant() throws {
+        let time = try XCTUnwrap(UiEventTime("14:05"))
+        XCTAssertEqual(time.kind, .time)
+        XCTAssertTrue(time.written)
+        XCTAssertFalse(time.seconds)
+        XCTAssertTrue(try XCTUnwrap(UiEventTime("15:41:55.123456789")).seconds)
+        XCTAssertEqual(try XCTUnwrap(UiEventTime("2026-10-14")).kind, .date)
+        XCTAssertEqual(try XCTUnwrap(UiEventTime("2026-10-14T14:05:30.250")).kind, .dateTime)
+        XCTAssertFalse(try XCTUnwrap(UiEventTime("2026-10-14T14:05:30")).seconds)
+        let offset = try XCTUnwrap(UiEventTime("2026-10-14T14:05:00+02:00"))
+        XCTAssertFalse(offset.written)
+        XCTAssertEqual(offset.date, ISO8601DateFormatter().date(from: "2026-10-14T12:05:00Z"))
+        XCTAssertEqual(
+            try XCTUnwrap(UiEventTime("2026-10-14T00:30:00-05:30")).date,
+            ISO8601DateFormatter().date(from: "2026-10-14T06:00:00Z"))
+        for good in ["-12:00", "+05:30", "+14:00"] {
+            XCTAssertNotNil(UiEventTime("2026-10-14T12:00:00\(good)"), good)
+        }
+        for bad in ["-12:01", "-13:00", "+14:01", "+02:60", "+23:59"] {
+            XCTAssertNil(UiEventTime("2026-10-14T12:00:00\(bad)"), bad)
+        }
+    }
+
+    func testAnEventTimeThatNamesNoMomentIsNotRead() {
+        for bad in [
+            "", "2pm", "24:00", "14:60", "14:05:60", "14:05:3", "14:05:30.", "14:05:30Z", "9:05", "2026-02-30",
+            "2026-13-01", "2026-10-14T25:00", "2026-10-14T14:05:61", "2026-10-14 14:05", "0050-01-01", "14:05Z",
+            "14:05\n", "after lunch",
+        ] {
+            XCTAssertNil(UiEventTime(bad), bad)
+        }
+        XCTAssertNotNil(UiEventTime("2028-02-29"))
+        XCTAssertNil(UiEventTime("2027-02-29"))
+    }
+
+    func testAnEventWritesItsTimeAsTheRegionDoesAndKeepsWhatItCannotRead() throws {
+        let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-10-14T12:00:00Z"))
+        func text(_ at: String, _ region: String = "nl_NL") -> String {
+            UiEventTime.text(at, now: now, in: reader(region))
+        }
+        XCTAssertEqual(text("14:05"), "14:05")
+        XCTAssertEqual(text("14:05", "en_US"), "02:05 PM")
+        XCTAssertEqual(text("15:41:55"), "15:41:55")
+        XCTAssertEqual(text("15:41:55.250"), "15:41:55")
+        XCTAssertEqual(text("2026-03-02"), "2 Mar")
+        XCTAssertEqual(text("2025-03-02"), "2 Mar 2025")
+        XCTAssertEqual(text("2025-03-02T09:30"), "2 Mar 2025, 09:30")
+        XCTAssertEqual(text("2027-06-01T12:00:00Z"), "1 Jun 2027, 14:00")
+        // The clock change skips 02:30 in this zone; a time without an offset stays as written.
+        XCTAssertEqual(text("2026-03-29T02:30"), "29 Mar, 02:30")
+        XCTAssertEqual(text("after lunch"), "after lunch")
+    }
+
     /// Labels, table columns and chart data against the desktop's own functions, from fixtures the generator writes.
     func testTablesChartsAndLabelsMatchTheDesktop() throws {
         let url = try XCTUnwrap(

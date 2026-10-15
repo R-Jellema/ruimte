@@ -181,6 +181,13 @@ public enum Format {
         dateTime(date, Date.FormatStyle().hour(.twoDigits(amPM: .abbreviated)).minute(.twoDigits), in: locale)
     }
 
+    /// `08:05:09`, for a time that was written to the second.
+    public static func clockSeconds(_ date: Date, in locale: FormatLocale = .current) -> String {
+        dateTime(
+            date, Date.FormatStyle().hour(.twoDigits(amPM: .abbreviated)).minute(.twoDigits).second(.twoDigits),
+            in: locale)
+    }
+
     /// A time far enough off that its day is part of the answer: `Sat 08:05`.
     public static func weekdayClock(_ date: Date, in locale: FormatLocale = .current) -> String {
         dateTime(
@@ -212,6 +219,11 @@ public enum Format {
     public static func dayClock(_ date: Date, in locale: FormatLocale = .current) -> String {
         // Foundation joins a day and a time with "at" in English, where the desktop's engine writes a comma.
         "\(day(date, in: locale)), \(clock(date, in: locale))"
+    }
+
+    /// `19 Sep 2025, 08:05`: a moment of another year.
+    public static func dayClockWithYear(_ date: Date, in locale: FormatLocale = .current) -> String {
+        "\(dayWithYear(date, in: locale)), \(clock(date, in: locale))"
     }
 
     /// All numbers, as a form would print it: `19-9-2026` here, `9/19/2026` in the United States.
