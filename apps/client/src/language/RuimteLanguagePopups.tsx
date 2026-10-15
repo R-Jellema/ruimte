@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { EditorRenderingProvider, LanguagePopups, type HoverView } from '@adecore/editor-react';
 import { AgentIcon } from '@adecore/agents-react/providers';
 import { Button, ContextMenu, Icon, Kbd, Tooltip } from '@adecore/ui';
-import { Bot, Cpu, MapPin, MessageSquarePlus, Sparkles } from 'lucide-react';
+import { Bot, Cpu, MessageSquarePlus, Sparkles } from 'lucide-react';
 import { InlineEditLayer } from '@/editor-ai/InlineEditLayer';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { highlightCode } from '@/shell/panels/highlight';
@@ -67,12 +67,6 @@ function MenuActions({ language }: { language: EditorLanguage }) {
     const agents = useAskAgents();
     return (
         <>
-            {language.project.service.supports('textDocument/declaration', language.uri) && (
-                <ContextMenu.Item onClick={() => void language.navigation.go('declaration')}>
-                    <Icon icon={MapPin} size={14} /> {t('editorMenu.goToDeclaration')}
-                </ContextMenu.Item>
-            )}
-            <ContextMenu.Separator />
             <ContextMenu.Item onClick={() => language.inlineEdit.start()}>
                 <Icon icon={Sparkles} size={14} /> {t('editorMenu.inlineEdit')} <Kbd shortcut={CANVAS_SHORTCUTS.inlineEdit} />
             </ContextMenu.Item>

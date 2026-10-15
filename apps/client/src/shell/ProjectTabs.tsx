@@ -233,49 +233,12 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
                                 const active = key === tabs.active;
                                 const summary = active && current?.projectId === row.summary.projectId ? current : row.summary;
                                 const machine = row.endpointId === LOCAL_ENDPOINT_ID ? null : endpoints.find((endpoint) => endpoint.id === row.endpointId);
-                                // A pinned tab is its mark alone, with its name in the tooltip and no close button to hit by accident.
-                                const pinned = pins.includes(key);
-                                if (pinned) {
-                                    return (
-                                        <Tabs.Tab
-                                            key={key}
-                                            value={key}
-                                            data-tab-key={key}
-                                            data-pinned=""
-                                            aria-label={summary.name}
-                                            className="app-no-drag"
-                                            onClick={(event) => {
-                                                if (wantsNewWindow(event)) {
-                                                    event.preventBaseUIHandler();
-                                                    openInNewWindow(row.endpointId, row.summary.projectId);
-                                                }
-                                            }}
-                                            onPointerDown={(event) => onPointerDown(event, key)}
-                                            onPointerMove={onPointerMove}
-                                            onPointerUp={onPointerEnd}
-                                            onPointerCancel={onPointerEnd}
-                                            onLostPointerCapture={onLostCapture}
-                                        >
-                                            <Tooltip label={machine ? `${summary.name} · ${machine.label}` : summary.name}>
-                                                <span className="flex items-center">
-                                                    <ProjectGlyph
-                                                        projectId={summary.projectId}
-                                                        endpointId={row.endpointId}
-                                                        icon={summary.icon}
-                                                        color={summary.color}
-                                                        tinted
-                                                    />
-                                                </span>
-                                            </Tooltip>
-                                            {active && dirty && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-text-faint" />}
-                                        </Tabs.Tab>
-                                    );
-                                }
                                 return (
                                     <Tabs.Tab
                                         key={key}
                                         value={key}
                                         data-tab-key={key}
+                                        pinned={pins.includes(key)}
                                         className="app-no-drag"
                                         onClick={(event) => {
                                             if (wantsNewWindow(event)) {
