@@ -1,6 +1,15 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { GitIdentity, ProjectCanvasView, ProjectNode, ProjectSummary, ProviderInfo, RemoteLink } from '@ruimte/contracts';
+import {
+    REQUEST_SCHEMAS,
+    type GitIdentity,
+    type ProjectCanvasView,
+    type ProjectNode,
+    type ProjectSummary,
+    type ProviderInfo,
+    type RemoteLink,
+    type RequestType
+} from '@ruimte/contracts';
 import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 import { useDocument } from '@/state/document';
 import { useUi } from '@/state/ui';
@@ -14,6 +23,7 @@ import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-worksp
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const REMOTE = 'machine-b';
+const REQUEST_TYPES = Object.keys(REQUEST_SCHEMAS) as RequestType[];
 const SHELL: ProjectNode = { id: 'shell', kind: 'terminal', title: 'Shell here', x: 0, y: 0, w: 560, h: 360 };
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [SHELL], texts: [], edges: [], layouts: [] };
 
@@ -310,6 +320,18 @@ describe('a new node on another machine', () => {
         await clickOn(button('Create'));
         await until(() => order.includes('peer.placeNodes'));
         expect(here.requests('endpoint.signPeerAccess')).toEqual([]);
+        expect(usePeerLapse.getState().lapsed[REMOTE]).toBeUndefined();
+    });
+
+    test('leaves the machines unlinked when the other machine runs a Ruimte that takes no tasks from this one', async () => {
+        await act(async () => there.answersOnly(REQUEST_TYPES.filter((type) => type !== 'peer.taskStart')));
+        await openDialog();
+        await until(() => button('Create')?.hasAttribute('disabled') === false);
+        await clickOn(button('Create'));
+        await until(() => order.includes('peer.placeNodes'));
+        await until(() => dialog() === null);
+        expect(here.requests('endpoint.signPeerAccess')).toEqual([]);
+        expect(order).not.toContain('address book');
         expect(usePeerLapse.getState().lapsed[REMOTE]).toBeUndefined();
     });
 

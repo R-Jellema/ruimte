@@ -129,7 +129,9 @@ function RemoteNodeForm({
     const hereId = workspace?.connection.endpointId ?? '';
     const canSign = useMachineAnswers(hereId, 'endpoint.signPeerAccess');
     const canConnect = useMachineAnswers(hereId, 'remote.connect');
-    const canLink = canSign && canConnect;
+    // Both ends have to know the requests of the link: this one signs and connects, and that one takes the tasks a link is for.
+    const canTake = useMachineAnswers(machineEndpointId, 'peer.taskStart');
+    const canLink = canSign && canConnect && canTake;
     const bundlesHere = useMachineAnswers(workspace?.connection.endpointId ?? '', 'git.bundle');
     const bundlesThere = useMachineAnswers(machineEndpointId, 'git.fetchBundle');
     const checkout = useCheckoutState(here, project?.folder ?? null, !request.relink && kind !== 'device' && bundlesHere && bundlesThere);
