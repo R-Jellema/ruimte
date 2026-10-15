@@ -7,7 +7,7 @@ export const TOMTOM_ORIGIN = 'https://api.tomtom.com';
 
 /* The body types a map resource comes in. Text is only JSON, which is read; the rest is passed through as it is. */
 const JSON_TYPE = /^application\/(json|[a-z.+-]*\+json)(;|$)/i;
-const BINARY_TYPE = /^(application\/(x-protobuf|vnd\.mapbox-vector-tile|octet-stream)|image\/(png|jpeg|webp|gif))(;|$)/i;
+const BINARY_TYPE = /^(application\/(x-protobuf|vnd\.mapbox-vector-tile|octet-stream)|image\/(pbf|png|jpeg|webp|gif))(;|$)/i;
 
 export type BodyKind = 'json' | 'binary' | 'refused';
 

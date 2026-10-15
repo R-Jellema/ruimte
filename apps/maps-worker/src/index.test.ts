@@ -229,7 +229,7 @@ describe('what the style names', () => {
         const { tiles } = await styled(maps);
         const bytes = new Uint8Array([0x1a, 0x02, 0x08, 0x01]);
         maps.answers = [
-            () => new Response(bytes, { headers: { 'content-type': 'application/x-protobuf', 'set-cookie': 'a=b', 'access-control-allow-origin': '*' } })
+            () => new Response(bytes, { headers: { 'content-type': 'image/pbf', 'set-cookie': 'a=b', 'access-control-allow-origin': '*' } })
         ];
         const response = await maps.request(pathOf(tiles).replace('{z}/{x}/{y}', '12/2105/1348'), {
             headers: {
