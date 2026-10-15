@@ -329,7 +329,10 @@ describe('agent --machine', () => {
         // With no link open they are let go, and neither asks for a reconnect.
         await daemon.worker.settled();
         expect(daemon.tasks.get(waitingTask)).toMatchObject({ status: 'failed', result: { text: expect.stringContaining('never started there') } });
-        expect(daemon.tasks.get(startedTask)).toMatchObject({ status: 'failed', result: { text: expect.stringContaining('It is stopped there') } });
+        expect(daemon.tasks.get(startedTask)).toMatchObject({
+            status: 'failed',
+            result: { text: expect.stringContaining('may still run until a person stops it on that machine') }
+        });
         expect(daemon.outbox.list()).toEqual([]);
         expect(owed).toEqual([]);
     });
@@ -360,6 +363,26 @@ describe('agent --machine', () => {
         const stops = requests.filter((request) => request.type === 'peer.taskStop').map((request) => (request.payload as { nodeId: string }).nodeId);
         expect(stops.sort()).toEqual([startedNode, waitingNode].sort());
         expect(daemon.outbox.list()).toEqual([]);
+    });
+
+    test('a once stop whose link drops mid-request is let go and owes no reconnect', async () => {
+        open = fakeLink();
+        const [started] = await give();
+        await daemon.worker.settled();
+        answer = (type) => {
+            if (type === 'peer.taskStop') {
+                open = null;
+                throw new Error('The channel closed');
+            }
+            return { status: 'open', result: null, bundle: null };
+        };
+        owed = [];
+        await daemon.remoteTasks!.giveUp(MACHINE);
+        await daemon.worker.settled();
+        expect(requests.some((request) => request.type === 'peer.taskStop')).toBe(true);
+        expect(owed).toEqual([]);
+        expect(daemon.outbox.list()).toEqual([]);
+        expect(daemon.tasks.get(started!.split('\t')[5]!)?.status).toBe('failed');
     });
 
     test('a CLI the machine will not run for another machine fails the task for good, with the words of the machine', async () => {

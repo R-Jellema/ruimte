@@ -373,7 +373,7 @@ export class RemoteTasks {
             const text =
                 entry.kind === 'start-remote-agent'
                     ? `The other machine could not be reached for ${days} days, so this task was never started there.`
-                    : `The other machine could not be reached for ${days} days, so what became of this task is not known. It is stopped there when that machine answers again.`;
+                    : `The other machine could not be reached for ${days} days, so what became of this task is not known. The agent there may still run until a person stops it on that machine.`;
             await deps.coordinator.settleFromElsewhere(entry.payload.taskId, { text, source: 'exit', at: deps.now() }, 'failed');
             const stopOwed = deps.outbox.list().some((other) => other.kind === 'stop-remote-agent' && other.payload.nodeId === entry.target);
             // A start may have reached the machine without its answer reaching this one, so it too may have an agent to stop.
@@ -409,6 +409,9 @@ export class RemoteTasks {
             this.wakeStarts(machineId, nodeId);
         } catch (e) {
             if (deps.connections.link(machineId) === null) {
+                if (once === true) {
+                    return undefined;
+                }
                 await deps.reconnect.owe(machineId);
                 return 'wait';
             }
