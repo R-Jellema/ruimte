@@ -22,6 +22,7 @@ let prompts: Map<string, string>;
 let ceiling: 'supervised' | 'auto-accept-edits' | 'auto' | 'full-access';
 let linked: boolean;
 let existing: Set<string>;
+let told: string[];
 let failEnqueue: boolean;
 let peerLinks: PeerLinks;
 let held: Array<{ clientId: string; startsLaunches: boolean | undefined }>;
@@ -82,7 +83,7 @@ function deps(): PeerTasksDeps {
             throw new Error('no bundles in this test');
         },
         worktreePaths: async () => [],
-        notify: () => undefined
+        notify: (_machineId, nodeId) => void told.push(nodeId)
     };
 }
 
@@ -113,6 +114,7 @@ beforeEach(async () => {
     ceiling = 'supervised';
     linked = true;
     existing = new Set();
+    told = [];
     failEnqueue = false;
     held = [];
     letGo = [];
@@ -299,6 +301,19 @@ describe('starting a task for another machine', () => {
         await peerTasks.start(MACHINE, 'client-1', start());
         expect(await peerTasks.result(MACHINE, 'client-1', { nodeId: 'chat-one' })).toEqual({ status: 'open', result: null, bundle: null });
         expect(await peerTasks.result('machine-b', 'client-2', { nodeId: 'chat-one' })).toEqual({ status: 'unknown', result: null, bundle: null });
+    });
+
+    test('a task a person stopped or removed here is told to its machine, and one that machine stopped itself is not', async () => {
+        const peerTasks = new PeerTasks({ ...deps(), stopNode: async (nodeId) => void (await tasks.cancelOpen(new Set([nodeId]), 'stopped', 5)) });
+        tasks.onChange((task) => peerTasks.changed(task));
+        await peerTasks.start(MACHINE, 'client-1', start({ nodeId: 'n1' }));
+        await peerTasks.start(MACHINE, 'client-1', start({ nodeId: 'n2' }));
+        await peerTasks.start(MACHINE, 'client-1', start({ nodeId: 'n3' }));
+        await tasks.cancelOpen(new Set(['n1']), 'a person stopped this chat', 6);
+        await tasks.prune(PROJECT, new Set(['n1', 'n3', peerCanvasId(MACHINE)]), 7);
+        await peerTasks.stop(MACHINE, 'n3');
+        expect(told).toEqual(['n1', 'n2']);
+        expect(await peerTasks.result(MACHINE, 'client-1', { nodeId: 'n2' })).toMatchObject({ status: 'cancelled' });
     });
 
     test('a machine stops only the tasks it gave', async () => {

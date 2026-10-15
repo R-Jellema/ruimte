@@ -253,6 +253,38 @@ describe('agent --machine', () => {
         expect(await daemon.wiring.coordinator.settleFromElsewhere(taskId!, { text: 'again', source: 'turn', at: 6 })).toBeNull();
     });
 
+    test('a task a person stopped on the machine fails here once, with what happened there', async () => {
+        open = fakeLink();
+        const [line] = await give();
+        const [nodeId, , , , , taskId] = line!.split('\t');
+        await daemon.worker.settled();
+        answer = (type) =>
+            type === 'peer.result' ? { status: 'cancelled', result: { text: 'a person cleared this chat', source: 'exit', at: 5 }, bundle: null } : {};
+        daemon.worker.wake(nodeId!);
+        await daemon.worker.settled();
+        expect(daemon.tasks.get(taskId!)).toMatchObject({
+            status: 'failed',
+            result: { text: 'The task was stopped on the other machine: a person cleared this chat.' }
+        });
+        expect(daemon.outbox.list()).toEqual([]);
+    });
+
+    test('a task whose project the machine unlinked fails here with a line that says so', async () => {
+        open = fakeLink();
+        const [line] = await give();
+        const [nodeId, , , , , taskId] = line!.split('\t');
+        await daemon.worker.settled();
+        answer = (type) => {
+            if (type === 'peer.result') {
+                throw new Error('peer-not-linked: No project here is linked to this machine');
+            }
+            return {};
+        };
+        daemon.worker.wake(nodeId!);
+        await daemon.worker.settled();
+        expect(daemon.tasks.get(taskId!)).toMatchObject({ status: 'failed', result: { text: expect.stringContaining('no longer links this project') } });
+    });
+
     test('a task that ended with the machine unreachable is acknowledged when the link is back, and a task that machine never knew fails', async () => {
         open = fakeLink();
         const [line] = await give();

@@ -22,6 +22,31 @@ let attested: Record<string, number>;
 let projectId: string;
 let lineage: AgentLineageStore;
 let tasks: TaskStore;
+let peerTasks: PeerTasks;
+let told: string[];
+
+function makePeerTasks(): PeerTasks {
+    return new PeerTasks({
+        links: store.peers,
+        projects: store,
+        lineage,
+        tasks,
+        outbox: { list: () => [], remove: async () => undefined },
+        enqueue: async () => undefined,
+        prompts: { put: async () => undefined, take: async () => null },
+        stopNode: async () => undefined,
+        installed: async () => ['claude'],
+        exists: () => false,
+        git: () => {
+            throw new Error('no git in this test');
+        },
+        peerBundles: () => {
+            throw new Error('no bundles in this test');
+        },
+        worktreePaths: async () => [],
+        notify: (_machineId, nodeId) => void told.push(nodeId)
+    });
+}
 
 beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'ruimte-peer-handlers-'));
@@ -42,17 +67,23 @@ beforeEach(async () => {
     lineage = new AgentLineageStore(join(root, 'home'));
     tasks = new TaskStore(join(root, 'home'));
     await Promise.all([lineage.load(), tasks.load()]);
+    told = [];
     store.peers.subscribe('c1', (event) => void heard.push(event.event));
     dispatcher = new Dispatcher();
     registerPeerHandlers(dispatcher, {
         links: store.peers,
         lineage,
+        tasks: {
+            openNodesOf: (machineId, project) => peerTasks.openNodesOf(machineId, project),
+            tellEnded: (machineId, ids) => peerTasks.tellEnded(machineId, ids)
+        },
         projects: store,
         endSession: async (kind, nodeId) => void ended.push(`${kind}:${nodeId}`),
         worktreePaths: async () => [],
         attestedUntil: async (machineId) => attested[machineId] ?? null
     });
     projectId = (await store.openProject({ folder })).summary.projectId;
+    peerTasks = makePeerTasks();
 });
 
 afterEach(async () => {
@@ -287,31 +318,8 @@ describe('the nodes of a machine and the tasks it gave share one canvas', () => 
     const CHAT = { id: 'remote-chat', kind: 'chat' as const, title: 'chat' };
     const TASK = { id: 'task-chat', kind: 'chat' as const, title: 'Fix the lexer' };
 
-    function giver(): PeerTasks {
-        return new PeerTasks({
-            links: store.peers,
-            projects: store,
-            lineage,
-            tasks,
-            outbox: { list: () => [], remove: async () => undefined },
-            enqueue: async () => undefined,
-            prompts: { put: async () => undefined, take: async () => null },
-            stopNode: async () => undefined,
-            installed: async () => ['claude'],
-            exists: () => false,
-            git: () => {
-                throw new Error('no git in this test');
-            },
-            peerBundles: () => {
-                throw new Error('no bundles in this test');
-            },
-            worktreePaths: async () => [],
-            notify: () => undefined
-        });
-    }
-
     const give = (nodeId: string) =>
-        giver().start('machine-a', 'peer-client', {
+        peerTasks.start('machine-a', 'peer-client', {
             projectId,
             nodeId,
             parentId: 'parent',
@@ -367,9 +375,8 @@ describe('the nodes of a machine and the tasks it gave share one canvas', () => 
     });
 
     test('a person can close the project once the tasks of the machine are done', async () => {
-        const giving = giver();
-        tasks.onChange((task) => giving.changed(task));
-        await giving.start('machine-a', 'peer-client', {
+        tasks.onChange((task) => peerTasks.changed(task));
+        await peerTasks.start('machine-a', 'peer-client', {
             projectId,
             nodeId: 'task-chat',
             parentId: 'parent',
@@ -384,6 +391,16 @@ describe('the nodes of a machine and the tasks it gave share one canvas', () => 
         expect(store.holdersOf(projectId)).toEqual([]);
         store.hold('person', projectId);
         expect(await store.closeProject(projectId, 'person')).toMatchObject({ otherClients: 0 });
+    });
+
+    test('unlinking the project tells the machine which of its open tasks ended with the link', async () => {
+        await give('task-chat');
+        await give('second-chat');
+        await tasks.settle(tasks.all()[1]!.id, 'done', { text: 'ok', source: 'turn', at: 1 }, 2);
+        told.length = 0;
+        expect(await ask('peer.unbind', { machineId: 'machine-a', projectId })).toMatchObject({ ok: true });
+        expect(told).toContain('task-chat');
+        expect(told).not.toContain('second-chat');
     });
 
     test('a task never takes over a node a person placed, and the window never rewrites or ends it', async () => {

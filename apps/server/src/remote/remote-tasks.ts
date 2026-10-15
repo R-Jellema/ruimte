@@ -218,7 +218,14 @@ export class RemoteTasks {
             }
             await deps.coordinator.settleFromElsewhere(
                 taskId,
-                { text: `The other machine would not report on this task: ${refused.message}`, source: 'exit', at: deps.now() },
+                {
+                    text:
+                        refused.code === 'peer-not-linked'
+                            ? 'The other machine no longer links this project to this one, so the task ended there.'
+                            : `The other machine would not report on this task: ${refused.message}`,
+                    source: 'exit',
+                    at: deps.now()
+                },
                 'failed'
             );
         }
@@ -238,7 +245,14 @@ export class RemoteTasks {
             await deps.coordinator.settleFromElsewhere(entry.payload.taskId, { text, source: 'exit', at: deps.now() }, 'failed');
             return text;
         }
-        const base = reported.result ?? { text: 'The other machine ended this task without a result.', source: 'exit' as const, at: deps.now() };
+        const base =
+            reported.status === 'cancelled'
+                ? {
+                      text: `The task was stopped on the other machine${reported.result === null ? '' : `: ${reported.result.text}`}.`,
+                      source: 'exit' as const,
+                      at: reported.result?.at ?? deps.now()
+                  }
+                : (reported.result ?? { text: 'The other machine ended this task without a result.', source: 'exit' as const, at: deps.now() });
         const brought =
             reported.bundle === null
                 ? null

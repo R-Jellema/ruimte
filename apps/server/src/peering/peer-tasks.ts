@@ -77,6 +77,8 @@ export class PeerTasks {
     private readonly starts = new KeyedQueue();
     // The bundles offered for a result and the machine each was made for, in memory like the files themselves.
     private readonly offered = new Map<string, { machineId: string; nodeId: string }>();
+    // Tasks that machine stopped itself, which it needs no word of.
+    private readonly stoppedByPeer = new Set<string>();
     // The projects held for the tasks of each machine, by the channel that asked.
     private readonly holding = new Map<string, { clientId: string; machineId: string; projectId: string }>();
 
@@ -289,8 +291,13 @@ export class PeerTasks {
         if (this.deps.lineage.peerOf(nodeId)?.machineId !== machineId) {
             return;
         }
-        await this.deps.stopNode(nodeId, 'the machine that gave this task stopped it');
-        await this.settleDelivery(nodeId);
+        this.stoppedByPeer.add(nodeId);
+        try {
+            await this.deps.stopNode(nodeId, 'the machine that gave this task stopped it');
+            await this.settleDelivery(nodeId);
+        } finally {
+            this.stoppedByPeer.delete(nodeId);
+        }
     }
 
     /* Where the task of a node stands, with its result and work once it settled. */
@@ -402,11 +409,30 @@ export class PeerTasks {
         }
     }
 
+    /* The nodes of the tasks that machine still has open in a project. */
+    openNodesOf(machineId: string, projectId: string): string[] {
+        return this.deps.tasks
+            .all()
+            .filter((task) => task.status === 'open' && task.projectId === projectId && this.peerOfTask(task) === machineId)
+            .map((task) => task.childId);
+    }
+
+    /* Tells a machine that tasks of it ended without a result of their own, such as when its link goes. */
+    tellEnded(machineId: string, nodeIds: readonly string[]): void {
+        for (const nodeId of nodeIds) {
+            this.deps.notify(machineId, nodeId);
+        }
+    }
+
     /* Owes the machine its result once a task of it settled; a task it cancelled itself owes nothing. */
     changed(task: Task): void {
         const machineId = this.peerOfTask(task);
         if (machineId !== null && task.status !== 'open' && this.openCount(machineId) === 0) {
             this.releaseHolds(machineId);
+        }
+        if (machineId !== null && task.status === 'cancelled' && !this.stoppedByPeer.has(task.childId)) {
+            // Stopped or removed here by a person: nobody owes a result, but the machine that gave the task is told how it ended.
+            this.deps.notify(machineId, task.childId);
         }
         if (machineId === null || (task.status !== 'done' && task.status !== 'failed') || task.wake !== 'pending') {
             return;

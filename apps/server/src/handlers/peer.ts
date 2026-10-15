@@ -10,6 +10,8 @@ import type { ProjectStore } from '../projects/project-store.ts';
 /* What the requests of another machine's links reach of this one. */
 export interface PeerHost {
     links: PeerLinks;
+    /* The tasks of a machine that its link ends with: they are told to it when the link goes. */
+    tasks?: { openNodesOf(machineId: string, projectId: string): string[]; tellEnded(machineId: string, nodeIds: readonly string[]): void };
     /* Which nodes are a task's: a window that draws a machine's nodes never rewrites those. */
     lineage: Pick<AgentLineageStore, 'peerOf'>;
     projects: Pick<ProjectStore, 'known' | 'read' | 'mutate' | 'hold'> & { index: Pick<ProjectStore['index'], 'folderOf'> };
@@ -26,7 +28,7 @@ export interface PeerHost {
  * person on any client of the account is a person on this machine as far as its projects go. An agent
  * has no socket, so it never reaches these.
  */
-export function registerPeerHandlers(dispatcher: Dispatcher, { links, lineage, projects, endSession, worktreePaths, attestedUntil }: PeerHost): void {
+export function registerPeerHandlers(dispatcher: Dispatcher, { links, lineage, tasks, projects, endSession, worktreePaths, attestedUntil }: PeerHost): void {
     const namesOf = async (): Promise<Map<string, string>> => new Map((await projects.known()).map((project) => [project.projectId, project.name]));
 
     const withName = (link: Omit<PeerLink, 'projectName'>, names: ReadonlyMap<string, string>): PeerLink => ({
@@ -69,6 +71,7 @@ export function registerPeerHandlers(dispatcher: Dispatcher, { links, lineage, p
             throw new RequestError('peer-not-linked', 'That machine has no link to this project');
         }
         const canvasId = peerCanvasId(payload.machineId);
+        const open = tasks?.openNodesOf(payload.machineId, payload.projectId) ?? [];
         const content = await projects.read(payload.projectId).catch(() => null);
         const canvas = content?.views.find((view) => view.id === canvasId);
         if (canvas !== undefined) {
@@ -81,6 +84,8 @@ export function registerPeerHandlers(dispatcher: Dispatcher, { links, lineage, p
             }));
         }
         await links.unbind(payload.machineId, payload.projectId);
+        // The tasks went with the link; the machine that gave them hears that and asks what became of them.
+        tasks?.tellEnded(payload.machineId, open);
         return {};
     });
 
