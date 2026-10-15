@@ -1,5 +1,5 @@
 import { spyOn } from 'bun:test';
-import { REQUEST_SCHEMAS, type EventMap, type EventType, type RequestMap, type RequestType } from '@ruimte/contracts';
+import { EVENT_SCHEMAS, REQUEST_SCHEMAS, type EventMap, type EventType, type RequestMap, type RequestType } from '@ruimte/contracts';
 import { LOCAL_ENDPOINT_ID, endpointById, type Endpoint } from '@/state/endpoints';
 import { pool } from '@/transport';
 import type { PooledTransport } from '@/transport/pool';
@@ -114,7 +114,9 @@ export class FakeMachine implements PooledTransport {
         return this.sent.filter((request) => request.type === type).map((request) => request.payload as RequestMap[T]['payload']);
     }
 
+    /* Checked against the event's schema, as a client checks what a machine sends, so a test cannot hand a view a shape no machine sends. */
     emit<E extends EventType>(event: E, payload: EventMap[E]): void {
+        EVENT_SCHEMAS[event].parse(payload);
         for (const handler of this.handlers.get(event) ?? []) {
             (handler as (payload: EventMap[E]) => void)(payload);
         }

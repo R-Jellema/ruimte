@@ -3,6 +3,7 @@ import { act } from 'react';
 import { EditorView } from '@codemirror/view';
 import type { ChatInfo, ProviderInfo } from '@ruimte/contracts';
 import { useDocument } from '@/state/document';
+import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { isApplePlatform } from '@/desktop/bridge';
@@ -35,25 +36,6 @@ const CLAUDE = {
     },
     resumeCommand: 'claude --resume {id}'
 } as unknown as ProviderInfo;
-
-function infoOf(chatId: string, patch: Partial<ChatInfo> = {}): ChatInfo {
-    return {
-        chatId,
-        provider: 'claude',
-        cwd: '/work/atlas',
-        agentSessionId: null,
-        model: null,
-        selection: { model: 'model', options: {} },
-        runtimeMode: 'supervised',
-        status: 'idle',
-        running: false,
-        activeTurnId: null,
-        slashCommands: [],
-        usage: { turns: 0, contextTokens: 0, contextWindow: 200_000, costUsd: 0 },
-        background: [],
-        ...patch
-    } as unknown as ChatInfo;
-}
 
 // Three chat views per test, named apart from the last test's, so no draft or row of one test is in the next.
 let views = 0;
@@ -97,7 +79,7 @@ async function showView(viewId: string): Promise<void> {
 /* What the machine says about a chat as it changes, the way its stream does. */
 function tell(chatId: string, patch: Partial<ChatInfo>): void {
     seq += 1;
-    act(() => machine.emit('chat.event', { chatId, event: { type: 'info', info: infoOf(chatId, patch) }, seq }));
+    act(() => machine.emit('chat.event', { chatId, event: { type: 'info', info: chatInfoOf(chatId, patch) }, seq }));
 }
 
 beforeEach(async () => {
@@ -107,7 +89,7 @@ beforeEach(async () => {
     third = `chat-${views}`;
     machine = new FakeMachine();
     machine.answer('provider.list', () => ({ providers: [CLAUDE] }));
-    machine.answer('chat.attach', ({ chatId }) => ({ info: infoOf(chatId), items: [], seq }) as never);
+    machine.answer('chat.attach', ({ chatId }) => ({ info: chatInfoOf(chatId), items: [], seq }) as never);
     machine.answer('chat.send', () => ({ queued: false, turnId: 'turn-1' }));
     const chats = [
         { kind: 'chat', id: first, name: 'First', node: { provider: 'claude' } },

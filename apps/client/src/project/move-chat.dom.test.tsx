@@ -6,6 +6,7 @@ import { useDocument } from '@/state/document';
 import { useProject } from '@/state/project';
 import { useUi } from '@/state/ui';
 import type { DesktopBridge } from '@/desktop/bridge';
+import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
@@ -155,7 +156,7 @@ describe('making a project of a chat, or moving it into one', () => {
         expect(footerButtons()).toEqual(['Close']);
 
         working = false;
-        await act(async () => machine.emit('chat.status', { chatId: CHAT.id, info: { status: 'idle' } } as never));
+        await act(async () => machine.emit('chat.status', { chatId: CHAT.id, info: chatInfoOf(CHAT.id) }));
         await until(() => !dialog()!.textContent!.includes('This chat is still working'));
         expect(nameField().disabled).toBe(false);
         expect(footerButtons()).toEqual(['Cancel', 'Make project']);
@@ -167,7 +168,7 @@ describe('making a project of a chat, or moving it into one', () => {
         await ask('make');
         await until(() => dialog()!.textContent!.includes('/work/vinyl-shelf'));
         const asked = machine.requests('chat.moveInfo').length;
-        await act(async () => machine.emit('chat.status', { chatId: 'another', info: { status: 'idle' } } as never));
+        await act(async () => machine.emit('chat.status', { chatId: 'another', info: chatInfoOf('another') }));
         expect(machine.requests('chat.moveInfo')).toHaveLength(asked);
     });
 

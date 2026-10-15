@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { ChatInfo, ProjectCanvasView, ProjectNode, ProviderInfo } from '@ruimte/contracts';
+import type { ProjectCanvasView, ProjectNode, ProviderInfo } from '@ruimte/contracts';
 import { windowWorkspace } from '@/state/window';
+import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { clickOn, mount, openSubmenu, until, type Mounted } from '../../testing/dom';
@@ -23,24 +24,6 @@ const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', node
 let machine: FakeMachine;
 let workspace: FakeWorkspace;
 let page: Mounted;
-
-function infoOf(chatId: string): ChatInfo {
-    return {
-        chatId,
-        provider: 'claude',
-        cwd: '/work/atlas',
-        agentSessionId: null,
-        model: null,
-        selection: { model: 'model', options: {} },
-        runtimeMode: 'supervised',
-        status: 'idle',
-        running: false,
-        activeTurnId: null,
-        slashCommands: [],
-        usage: { turns: 0, contextTokens: 0, contextWindow: 200_000, costUsd: 0 },
-        background: []
-    } as unknown as ChatInfo;
-}
 
 async function openNodeMenu(id: string): Promise<void> {
     const frame = page.host.querySelector(`[data-node-id="${id}"]`)!;
@@ -66,7 +49,7 @@ beforeEach(async () => {
     machine = new FakeMachine();
     machine.answer('project.save', ({ baseRev }) => ({ rev: baseRev + 1 }) as never);
     machine.answer('provider.list', () => ({ providers: [CLAUDE] }));
-    machine.answer('chat.attach', ({ chatId }) => ({ info: infoOf(chatId), items: [], seq: 0 }) as never);
+    machine.answer('chat.attach', ({ chatId }) => ({ info: chatInfoOf(chatId), items: [], seq: 0 }) as never);
     workspace = await openFakeWorkspace(machine, { views: [MAIN] }, { activeViewId: MAIN.id, views: {} });
     page = mount();
     await page.renderApp();
