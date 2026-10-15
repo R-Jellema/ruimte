@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { FakeRecorder } from './device-test-helpers.ts';
 import type { DeviceSource } from './manager.ts';
 import { AndroidBackend, parseAdbDevices, shellQuote, type AndroidBackendOptions, type AvdInfo, type EmulatorProcess } from './android.ts';
 
@@ -260,7 +261,8 @@ describe('AndroidBackend', () => {
             increaseContrast: true,
             colorFilter: 'green-red',
             showBorders: true,
-            voiceOver: true
+            voiceOver: true,
+            recording: false
         });
     });
 
@@ -325,5 +327,48 @@ describe('AndroidBackend', () => {
             message: expect.stringContaining('could not get idle state')
         });
         await expect(backend.tree('Tablet_API_34')).rejects.toMatchObject({ code: 'device-not-booted' });
+    });
+
+    test('records through the device recorder, interrupts it on the device, then pulls the video and removes it there', async () => {
+        const adb = new FakeAdb();
+        const recorder = new FakeRecorder();
+        const answer = adb.run;
+        const interrupt = '-s emulator-5554 shell pkill -INT screenrecord';
+        const backend = backendWith(adb, {
+            recordings: recorder.recordings(),
+            run: async (command, arguments_) => {
+                if (arguments_.join(' ') === interrupt) {
+                    recorder.finish(0);
+                }
+                return answer(command, arguments_);
+            }
+        });
+
+        await backend.startRecording('Pixel_9_Pro_API_35', '/captures/Pixel-1.mp4');
+        expect(recorder.commands).toEqual([[SDK.adb, '-s', 'emulator-5554', 'shell', 'screenrecord', '--time-limit', '180', '/data/local/tmp/ruimte-rec.mp4']]);
+        expect((await backend.detail('Pixel_9_Pro_API_35')).recording).toBe(true);
+        await expect(backend.startRecording('Pixel_9_Pro_API_35', '/captures/again.mp4')).rejects.toMatchObject({ code: 'device-recording' });
+
+        expect(await backend.stopRecording('Pixel_9_Pro_API_35')).toBe('/captures/Pixel-1.mp4');
+        const tail = adb.calls.slice(-3).map((call) => call.join(' '));
+        expect(tail).toEqual([
+            interrupt,
+            '-s emulator-5554 pull /data/local/tmp/ruimte-rec.mp4 /captures/Pixel-1.mp4',
+            '-s emulator-5554 shell rm -f /data/local/tmp/ruimte-rec.mp4'
+        ]);
+        expect(recorder.signals).toEqual([]);
+    });
+
+    test("pulls a recording that reached Android's own limit without interrupting anything", async () => {
+        const adb = new FakeAdb();
+        const recorder = new FakeRecorder();
+        const backend = backendWith(adb, { recordings: recorder.recordings() });
+        await backend.startRecording('Pixel_9_Pro_API_35', '/captures/Pixel-1.mp4');
+
+        recorder.finish(0);
+        await Promise.resolve();
+
+        expect(await backend.stopRecording('Pixel_9_Pro_API_35')).toBe('/captures/Pixel-1.mp4');
+        expect(adb.calls.some((call) => call.includes('pkill -INT screenrecord'))).toBe(false);
     });
 });

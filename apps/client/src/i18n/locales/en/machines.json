@@ -115,6 +115,21 @@
                 "title": "Push notification",
                 "alertText": "Alert text",
                 "send": "Send"
+            },
+            "capture": {
+                "title": "Capture",
+                "screenshot": "Screenshot",
+                "copy": "Copy screenshot",
+                "save": "Save screenshot",
+                "place": "Place screenshot on canvas",
+                "noCanvas": "Open a canvas to place the screenshot on.",
+                "failed": "The screenshot could not be taken",
+                "record": "Screen recording",
+                "start": "Record",
+                "stop": "Stop recording",
+                "recording": "Recording, {{time}}",
+                "recordFailed": "The recording could not be made",
+                "androidLimit": "Android stops a recording by itself after 3 minutes."
             }
         },
         "operated": {

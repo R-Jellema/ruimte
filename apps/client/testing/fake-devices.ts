@@ -73,15 +73,18 @@ export interface FakeDevices {
     /* What the device clipboard holds, which a write replaces. */
     clipboard: string;
     recording: boolean;
+    /* The machine files the page read, by path. */
+    read: string[];
     restore(): void;
 }
 
 /*
  * Answers every `device.*` request on a fake machine as one machine with these devices would. The
  * screen itself never streams: the page's fetch of it is held, so a test sees what goes over the wire.
+ * A file the page reads from the machine answers four bytes of a png.
  */
 export function answerDevices(machine: FakeMachine, devices: readonly DeviceInfo[] = [FAKE_SIMULATOR, FAKE_EMULATOR]): FakeDevices {
-    const state: FakeDevices = { settings: {}, clipboard: '', recording: false, restore: () => undefined };
+    const state: FakeDevices = { settings: {}, clipboard: '', recording: false, read: [], restore: () => undefined };
     const find = (deviceId: string): DeviceInfo => {
         const device = devices.find((candidate) => candidate.deviceId === deviceId);
         if (device === undefined) {
@@ -115,6 +118,11 @@ export function answerDevices(machine: FakeMachine, devices: readonly DeviceInfo
     const original = globalThis.fetch;
     const held = spyOn(globalThis, 'fetch').mockImplementation(((input: RequestInfo | URL, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes('/fs/file?')) {
+            const path = new URL(url).searchParams.get('path') ?? '';
+            state.read.push(path);
+            return Promise.resolve(new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), { headers: { 'content-type': 'application/octet-stream' } }));
+        }
         if (!url.includes('/live-stream/')) {
             return original(input, init);
         }

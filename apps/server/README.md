@@ -171,6 +171,7 @@ $RUIMTE_HOME/
     agent.sock, screenshots/       the helper's own (apps/computer-use/README.md)
   browser/                         the profile of the pages the daemon runs for clients without a browser
   screenshots/                     pngs `browser shot` and `device shot` wrote, swept after a day
+  device-captures/                 a person's screenshots and recordings of a device, read by the client over `bytes.read`, swept after a week
   language-servers/
     choices.json                   which PHP server this machine uses
     custom.json                    a person's own language servers
@@ -285,6 +286,8 @@ A device node shows a simulator, an emulator or a phone that runs on this machin
 | Start and stop | `simctl boot` and `shutdown` | `emulator -avd <name> -no-window` on a free console port, its output in `$TMPDIR/ruimte-emulator-<avd>.log`, so a start that fails says why; `adb emu kill` |
 | Screen and touch | the native helper the daemon starts as `device-helper`, JPEG or HEVC | the pinned scrcpy server (`src/devices/scrcpy-server.ts`), H.264, pushed to `/data/local/tmp` for each session and gone after it |
 | Shot | `simctl io screenshot` | `adb exec-out screencap -p` |
+| Capture | the shot, written to `device-captures/` for the client to copy, save or place on a canvas | the same |
+| Record | `simctl io recordVideo --codec=h264`, ended with SIGINT so it writes the end of the file, and by itself after 10 minutes | `screenrecord --time-limit 180` on the device, ended with `pkill -INT screenrecord` there, then pulled and removed |
 | Elements | the device bridge (`apps/ios-device-bridge`) | `uiautomator dump`, which needs nothing installed |
 | Typing | each run pasted through the simulator pasteboard and Cmd+V | each run pasted through the device clipboard over the scrcpy control socket, which presses paste |
 | Settings | `simctl ui` and the accessibility helper of `serve-sim` | `settings`, `cmd uimode`, `setprop` and `pm` in the device shell |
@@ -301,6 +304,7 @@ What an Android emulator cannot do that a simulator can, and stays out of scope:
 - Rotate to a chosen side: the screen server turns between portrait and landscape whichever direction is asked.
 - Show borders on a screen already drawn: Android draws them from the next screen on.
 - Read elements on a screen that never stands still, such as one with an endless animation: `uiautomator` gives up, the agent gets `tree none`, and a shot still works.
+- Record for longer than 3 minutes: Android's own recorder stops there, and the node says so.
 
 TalkBack shows up as a tool only on an image that has it, and typing needs Android 7 or later, the first with a paste key. A development checkout downloads the scrcpy server on first use into `.native`, checked against its pinned checksum; a build carries it in `native/`, and without it a device is listed with its shots, elements and tools but without a screen, touch or typing.
 

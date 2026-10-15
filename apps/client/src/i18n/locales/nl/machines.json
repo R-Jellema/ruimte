@@ -115,6 +115,21 @@
                 "title": "Pushmelding",
                 "alertText": "Meldingstekst",
                 "send": "Versturen"
+            },
+            "capture": {
+                "title": "Vastleggen",
+                "screenshot": "Screenshot",
+                "copy": "Screenshot kopiëren",
+                "save": "Screenshot bewaren",
+                "place": "Screenshot op het canvas zetten",
+                "noCanvas": "Open een canvas om de screenshot op te zetten.",
+                "failed": "De screenshot kon niet worden gemaakt",
+                "record": "Schermopname",
+                "start": "Opnemen",
+                "stop": "Opname stoppen",
+                "recording": "Opname loopt, {{time}}",
+                "recordFailed": "De opname kon niet worden gemaakt",
+                "androidLimit": "Android stopt een opname zelf na 3 minuten."
             }
         },
         "operated": {

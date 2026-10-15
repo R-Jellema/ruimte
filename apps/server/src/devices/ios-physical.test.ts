@@ -38,7 +38,7 @@ describe('IosPhysicalBackend', () => {
                 name: 'Test iPhone',
                 runtime: 'iOS 27.2',
                 state: 'booted',
-                capabilities: { boot: false, shutdown: false, stream: true, input: false, screenshot: true }
+                capabilities: { boot: false, shutdown: false, stream: true, input: false, screenshot: true, tools: ['capture'] }
             }
         ]);
         expect(calls[0]).toContain("properties.hardware.platform = 'iOS' AND properties.hardware.reality = 'physical'");

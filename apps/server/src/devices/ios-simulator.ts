@@ -17,6 +17,7 @@ import {
 import { simulatorTree, type DeviceTree } from './device-tree.ts';
 import { DeviceHelperSource, type DeviceHelperLauncher } from './helper-source.ts';
 import { DeviceError, KEY_LEFT_COMMAND, KEY_V, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard } from './manager.ts';
+import { DeviceRecordings } from './recordings.ts';
 import type { SimulatorTreeReader } from './simulator-tree.ts';
 
 interface CommandResult {
@@ -81,8 +82,13 @@ const IOS_SIMULATOR_TOOLS: DeviceTool[] = [
     'location',
     'clearLocation',
     'permissions',
-    'push'
+    'push',
+    'capture',
+    'record'
 ];
+
+/* A recording a person forgot keeps going no longer than this, so it cannot fill the disk. */
+const RECORDING_LIMIT_MS = 10 * 60 * 1000;
 
 const IOS_TEXT_SIZES: Record<DeviceTextSize, string> = {
     small: 'small',
@@ -148,17 +154,20 @@ export class IosSimulatorBackend implements DeviceBackend {
     private readonly sleep: (ms: number) => Promise<void>;
     private readonly treeReader: ((udid: string) => SimulatorTreeReader) | null;
     private readonly readers = new Map<string, SimulatorTreeReader>();
+    private readonly recordings: DeviceRecordings;
 
     constructor(
         run: SimctlRunner = defaultRunner,
         launch: DeviceHelperLauncher | null = null,
         sleep: (ms: number) => Promise<void> = (ms) => Bun.sleep(ms),
-        treeReader: ((udid: string) => SimulatorTreeReader) | null = null
+        treeReader: ((udid: string) => SimulatorTreeReader) | null = null,
+        recordings: DeviceRecordings = new DeviceRecordings()
     ) {
         this.run = run;
         this.launch = launch;
         this.sleep = sleep;
         this.treeReader = treeReader;
+        this.recordings = recordings;
     }
 
     async list(): Promise<DeviceInfo[]> {
@@ -212,6 +221,7 @@ export class IosSimulatorBackend implements DeviceBackend {
         if (current.state === 'shutdown') {
             return current;
         }
+        this.recordings.drop(deviceId);
         await this.command(['shutdown', deviceId]);
         return this.find(deviceId);
     }
@@ -256,7 +266,8 @@ export class IosSimulatorBackend implements DeviceBackend {
             ...(showBorders === undefined ? {} : { showBorders }),
             ...(voiceOver === undefined ? {} : { voiceOver }),
             ...(ax['liquid-glass'] === 'clear' || ax['liquid-glass'] === 'tinted' ? { liquidGlass: ax['liquid-glass'] } : {}),
-            ...(colorFilter === undefined ? {} : { colorFilter })
+            ...(colorFilter === undefined ? {} : { colorFilter }),
+            recording: this.recordings.isRecording(deviceId)
         };
     }
 
@@ -328,6 +339,15 @@ export class IosSimulatorBackend implements DeviceBackend {
         } finally {
             await rm(directory, { recursive: true, force: true });
         }
+    }
+
+    async startRecording(deviceId: string, file: string): Promise<void> {
+        this.recordings.start(deviceId, file, ['xcrun', 'simctl', 'io', deviceId, 'recordVideo', '--codec=h264', '--force', file], RECORDING_LIMIT_MS);
+    }
+
+    /* simctl writes the end of the video only on an interrupt, so a kill would leave an empty file. */
+    stopRecording(deviceId: string): Promise<string> {
+        return this.recordings.stop(deviceId, (process) => process.interrupt());
     }
 
     /* Read through the device bridge, which stays running for this simulator until `closeTree`. */

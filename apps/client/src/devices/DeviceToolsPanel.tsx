@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LoaderCircle } from 'lucide-react';
+import { Copy, Download, Frame, LoaderCircle, Square, Video } from 'lucide-react';
 import {
     devicePermissions,
     deviceTools,
@@ -13,9 +13,27 @@ import {
     type DeviceToggleSetting,
     type DeviceTool
 } from '@ruimte/contracts';
+import { copyScreenshot, placeScreenshotOnCanvas, saveScreenshot, startRecording, stopRecording } from '@/devices/device-capture';
+import { recordingKey, useDevices, useRecordingSince } from '@/devices/state';
 import { useEndpointId } from '@/state/keys';
 import { deviceClientFor } from '@/transport/connections';
-import { Segmented, Switch, Button, CloseButton, FormError, Icon, Input, PanelHeader, SectionLabel, Select } from '@adecore/ui';
+import { useMachineAnswers } from '@/transport/features';
+import { formatClockDuration } from '@adecore/ui/format';
+import {
+    Segmented,
+    Switch,
+    Button,
+    ButtonGroup,
+    CloseButton,
+    FormError,
+    Icon,
+    IconButton,
+    Input,
+    PanelHeader,
+    SectionLabel,
+    Select,
+    useNow
+} from '@adecore/ui';
 
 type ActionBody = DeviceAction extends infer Action ? (Action extends DeviceAction ? Omit<Action, 'backendId' | 'platform' | 'deviceId'> : never) : never;
 
@@ -44,6 +62,8 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
     const [settings, setSettings] = useState<DeviceSettings | null>(null);
     const [pending, setPending] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const answersCapture = useMachineAnswers(endpointId, 'device.capture');
+    const answersRecord = useMachineAnswers(endpointId, 'device.record');
 
     useEffect(() => {
         let active = true;
@@ -52,6 +72,7 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
             .then((detail) => {
                 if (active) {
                     setSettings(detail.settings);
+                    noteRecording(endpointId, device, detail.settings.recording);
                 }
             })
             .catch((cause: unknown) => {
@@ -83,6 +104,9 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
 
     const tools = deviceTools(device);
     const has = (tool: DeviceTool): boolean => tools.includes(tool);
+    /* A tool a person reaches through a request of its own, which the machine has to name too. */
+    const canCapture = has('capture') && answersCapture;
+    const canRecord = has('record') && answersRecord;
     const appTools = APP_TOOLS.filter(has);
     const displayTools = DISPLAY_TOOLS.filter(has);
     const permissions = devicePermissions(device);
@@ -101,6 +125,7 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
                         <Icon icon={LoaderCircle} size={14} className="animate-spin" /> {t('device.tools.loading')}
                     </div>
                 )}
+                {(canCapture || canRecord) && <CaptureTools device={device} canCapture={canCapture} canRecord={canRecord} onError={setError} />}
                 {appTools.length > 0 && (
                     <ToolSection title={t('device.tools.app.title')}>
                         {has('openUrl') && (
@@ -210,6 +235,112 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
                 )}
             </div>
         </aside>
+    );
+}
+
+/* A recording another client began, or one from before a reload, still shows; one that ended elsewhere goes. */
+function noteRecording(endpointId: string, device: DeviceInfo, recording: boolean | undefined): void {
+    const key = recordingKey(endpointId, device);
+    const known = useDevices.getState().recordings[key] !== undefined;
+    if (recording === true && !known) {
+        useDevices.getState().markRecording(key, Date.now());
+    } else if (recording === false && known) {
+        useDevices.getState().markRecording(key, null);
+    }
+}
+
+function CaptureTools({
+    device,
+    canCapture,
+    canRecord,
+    onError
+}: {
+    device: DeviceInfo;
+    canCapture: boolean;
+    canRecord: boolean;
+    onError: (message: string | null) => void;
+}) {
+    const { t } = useTranslation('machines');
+    const endpointId = useEndpointId();
+    const [busy, setBusy] = useState<'copy' | 'save' | 'place' | 'record' | null>(null);
+    const since = useRecordingSince(endpointId, device);
+    const now = useNow(1_000, since !== null);
+    const run = (step: Exclude<typeof busy, null>, work: () => Promise<unknown>, failure: string): void => {
+        setBusy(step);
+        onError(null);
+        void work()
+            .catch((cause: unknown) => onError(cause instanceof Error ? cause.message : failure))
+            .finally(() => setBusy(null));
+    };
+    const place = async (): Promise<void> => {
+        if (!(await placeScreenshotOnCanvas(endpointId, device))) {
+            onError(t('device.tools.capture.noCanvas'));
+        }
+    };
+    return (
+        <ToolSection title={t('device.tools.capture.title')}>
+            {canCapture && (
+                <ToolRow label={t('device.tools.capture.screenshot')}>
+                    <ButtonGroup>
+                        <IconButton
+                            icon={Copy}
+                            size="sm"
+                            busy={busy === 'copy'}
+                            disabled={busy !== null}
+                            label={t('device.tools.capture.copy')}
+                            onClick={() => run('copy', () => copyScreenshot(endpointId, device), t('device.tools.capture.failed'))}
+                        />
+                        <IconButton
+                            icon={Download}
+                            size="sm"
+                            busy={busy === 'save'}
+                            disabled={busy !== null}
+                            label={t('device.tools.capture.save')}
+                            onClick={() => run('save', () => saveScreenshot(endpointId, device), t('device.tools.capture.failed'))}
+                        />
+                        <IconButton
+                            icon={Frame}
+                            size="sm"
+                            busy={busy === 'place'}
+                            disabled={busy !== null}
+                            label={t('device.tools.capture.place')}
+                            onClick={() => run('place', place, t('device.tools.capture.failed'))}
+                        />
+                    </ButtonGroup>
+                </ToolRow>
+            )}
+            {canRecord && (
+                <>
+                    <ToolRow label={t('device.tools.capture.record')}>
+                        <div className="flex items-center gap-2">
+                            {since !== null && (
+                                <span className="font-mono text-xs text-text-muted tabular-nums">{formatClockDuration(Math.max(0, now - since))}</span>
+                            )}
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={busy !== null}
+                                onClick={() =>
+                                    run(
+                                        'record',
+                                        () => (since === null ? startRecording(endpointId, device) : stopRecording(endpointId, device)),
+                                        t('device.tools.capture.recordFailed')
+                                    )
+                                }
+                            >
+                                {busy === 'record' ? (
+                                    <Icon icon={LoaderCircle} size={12} className="animate-spin" />
+                                ) : (
+                                    <Icon icon={since === null ? Video : Square} size={12} />
+                                )}{' '}
+                                {since === null ? t('device.tools.capture.start') : t('device.tools.capture.stop')}
+                            </Button>
+                        </div>
+                    </ToolRow>
+                    {device.platform === 'android' && <p className="text-xs text-text-muted">{t('device.tools.capture.androidLimit')}</p>}
+                </>
+            )}
+        </ToolSection>
     );
 }
 

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { DeviceInfo } from '@ruimte/contracts';
+import type { DeviceInfo, DeviceSettings } from '@ruimte/contracts';
 import { DeviceError, type DeviceBackend, type DeviceSource } from './manager.ts';
 import {
     capturePhysicalFrame,
@@ -122,7 +122,8 @@ export class IosPhysicalBackend implements DeviceBackend {
                     shutdown: false,
                     stream: paired && developerMode,
                     input: paired && developerMode && this.createLiveSource !== null,
-                    screenshot: paired && developerMode
+                    screenshot: paired && developerMode,
+                    tools: paired && developerMode ? ['capture'] : []
                 }
             };
         });
@@ -138,6 +139,11 @@ export class IosPhysicalBackend implements DeviceBackend {
 
     screenshot(deviceId: string): Promise<Uint8Array> {
         return this.photograph(deviceId);
+    }
+
+    /* A phone has no settings Ruimte reads; its tools only act. */
+    detail(): Promise<DeviceSettings> {
+        return Promise.resolve({});
     }
 
     private async command(arguments_: string[]): Promise<CommandResult> {

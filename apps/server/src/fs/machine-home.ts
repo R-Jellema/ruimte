@@ -2,16 +2,17 @@ import { realpath } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 import { CodedError } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
+import { DEVICE_CAPTURES_FOLDER } from '../shots.ts';
 
 export class MachineHomeError extends CodedError<'machine-state'> {}
 
 /*
  * What under `$RUIMTE_HOME` a person's own work or a picture made for them sits in: the Chats project,
- * the agents' worktrees, the shots agents take, the files people attach and the visuals of a chat. The
+ * the agents' worktrees, the shots agents take, a person's captures of a device, the files people attach and the visuals of a chat. The
  * rest is the machine's: its key pair, the local secret, the approvals, the secrets of launches, the
  * accounts of the CLIs, the browser profile and the threads of the chats beside their visuals.
  */
-const OPEN_FOLDERS = ['scratch', 'worktrees', 'screenshots', join('computer-use', 'screenshots'), 'attachments'];
+const OPEN_FOLDERS = ['scratch', 'worktrees', 'screenshots', join('computer-use', 'screenshots'), 'attachments', DEVICE_CAPTURES_FOLDER];
 
 function isChatVisuals(home: string, path: string): boolean {
     const chats = join(home, 'chats');

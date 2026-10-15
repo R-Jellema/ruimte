@@ -1,5 +1,15 @@
 import i18next from 'i18next';
-import type { DeviceAction, DeviceDetail, DeviceInfo, DeviceInput, DeviceVideoFormat, LiveFrameHeader, LiveStreamFrame } from '@ruimte/contracts';
+import type {
+    DeviceAction,
+    DeviceCaptureResult,
+    DeviceDetail,
+    DeviceInfo,
+    DeviceInput,
+    DeviceRecordResult,
+    DeviceVideoFormat,
+    LiveFrameHeader,
+    LiveStreamFrame
+} from '@ruimte/contracts';
 import { useDevices } from '@/devices/state';
 import { HandlerTable } from '@/transport/handler-table';
 import { decodeBase64 } from '@/transport/piece';
@@ -96,6 +106,24 @@ export class DeviceClient {
 
     async action(action: DeviceAction): Promise<DeviceDetail> {
         return this.transport.request('device.action', action);
+    }
+
+    async capture(device: DeviceTarget): Promise<DeviceCaptureResult> {
+        return this.transport.request('device.capture', targetOf(device));
+    }
+
+    async record(device: DeviceTarget, mode: 'start' | 'stop'): Promise<DeviceRecordResult> {
+        return this.transport.request('device.record', { ...targetOf(device), mode });
+    }
+
+    /* Reads the device clipboard without `text`, and writes it with; answers what it holds after. */
+    async clipboard(device: DeviceTarget, text?: string, paste = false): Promise<string> {
+        const result = await this.transport.request('device.clipboard', {
+            ...targetOf(device),
+            ...(text === undefined ? {} : { text }),
+            ...(paste ? { paste } : {})
+        });
+        return result.text;
     }
 
     async open(device: DeviceTarget, stream: 'http' | 'events' = 'http'): Promise<string> {

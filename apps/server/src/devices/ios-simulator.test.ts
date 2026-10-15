@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { writeFile } from 'node:fs/promises';
-import { pngOf } from './device-test-helpers.ts';
+import { FakeRecorder, pngOf } from './device-test-helpers.ts';
 import { IosSimulatorBackend, type SimctlRunner } from './ios-simulator.ts';
 import type { SimulatorTreeReader } from './simulator-tree.ts';
 
@@ -97,7 +97,8 @@ describe('IosSimulatorBackend', () => {
             showBorders: true,
             voiceOver: false,
             liquidGlass: 'tinted',
-            colorFilter: 'grayscale'
+            colorFilter: 'grayscale',
+            recording: false
         });
     });
 
@@ -214,5 +215,37 @@ describe('IosSimulatorBackend', () => {
     test('says a tree needs the device bridge where it is not installed', async () => {
         const backend = new IosSimulatorBackend(async () => ({ exitCode: 0, stdout: listOutput, stderr: '' }));
         await expect(backend.tree('phone-1')).rejects.toMatchObject({ code: 'device-tree-unavailable' });
+    });
+
+    test('records with simctl and ends it with an interrupt, which is what makes simctl finish the file', async () => {
+        const recorder = new FakeRecorder();
+        const backend = new IosSimulatorBackend(async () => ({ exitCode: 0, stdout: '', stderr: '' }), null, undefined, null, recorder.recordings());
+
+        await backend.startRecording('phone-1', '/captures/phone-1.mp4');
+
+        expect(recorder.commands).toEqual([['xcrun', 'simctl', 'io', 'phone-1', 'recordVideo', '--codec=h264', '--force', '/captures/phone-1.mp4']]);
+        expect((await backend.detail('phone-1')).recording).toBe(true);
+        expect(await backend.stopRecording('phone-1')).toBe('/captures/phone-1.mp4');
+        expect(recorder.signals).toEqual(['SIGINT']);
+        expect((await backend.detail('phone-1')).recording).toBe(false);
+    });
+
+    test('ends a recording a person forgot after ten minutes and keeps its file', async () => {
+        const recorder = new FakeRecorder();
+        const backend = new IosSimulatorBackend(async () => ({ exitCode: 0, stdout: '', stderr: '' }), null, undefined, null, recorder.recordings());
+        await backend.startRecording('phone-1', '/captures/phone-1.mp4');
+
+        recorder.pass(10 * 60 * 1000);
+        await Promise.resolve();
+
+        expect(recorder.signals).toEqual(['SIGINT']);
+        expect(await backend.stopRecording('phone-1')).toBe('/captures/phone-1.mp4');
+    });
+
+    test('announces capture and recording among its tools', async () => {
+        const backend = new IosSimulatorBackend(async () => ({ exitCode: 0, stdout: listOutput, stderr: '' }));
+        const [phone] = await backend.list();
+
+        expect(phone!.capabilities.tools).toEqual(expect.arrayContaining(['capture', 'record']));
     });
 });

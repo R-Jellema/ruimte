@@ -17,6 +17,7 @@ import { locateAndroidSdk, type AndroidSdk } from './android-sdk.ts';
 import { androidTree, parseWmSize } from './android-tree.ts';
 import type { DeviceTree } from './device-tree.ts';
 import { DeviceError, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard, type DeviceSource } from './manager.ts';
+import { DeviceRecordings } from './recordings.ts';
 import type { CommandResult } from './scrcpy-source.ts';
 
 export type AndroidRunner = (command: string, arguments_: string[]) => Promise<CommandResult>;
@@ -46,6 +47,7 @@ export interface AndroidBackendOptions {
     /* Null when this machine has no screen server to push, which leaves a device listed but not viewable. */
     createSource?: ((adb: string, serial: string) => DeviceSource) | null;
     sleep?: (ms: number) => Promise<void>;
+    recordings?: DeviceRecordings;
 }
 
 interface AdbEntry {
@@ -77,8 +79,14 @@ const BASE_TOOLS: DeviceTool[] = [
     'reduceMotion',
     'increaseContrast',
     'showBorders',
-    'permissions'
+    'permissions',
+    'capture',
+    'record'
 ];
+
+/* Where a device records before the video is pulled; Android's own recorder stops itself after 180 seconds. */
+const RECORDING_ON_DEVICE = '/data/local/tmp/ruimte-rec.mp4';
+const RECORDING_LIMIT_SECONDS = 180;
 
 const TALKBACK_PACKAGE = 'com.google.android.marvin.talkback';
 const TALKBACK_SERVICE = `${TALKBACK_PACKAGE}/${TALKBACK_PACKAGE}.TalkBackService`;
@@ -266,8 +274,10 @@ export class AndroidBackend implements DeviceBackend {
     private readonly probes = new Map<string, Probe>();
     private readonly booting = new Map<string, Booting>();
     private readonly serials = new Map<string, string>();
+    private readonly recordings: DeviceRecordings;
 
     constructor(options: AndroidBackendOptions = {}) {
+        this.recordings = options.recordings ?? new DeviceRecordings();
         this.locate = options.locate ?? (() => locateAndroidSdk());
         this.run = options.run ?? defaultRunner;
         this.runBytes = options.runBytes ?? defaultBytesRunner;
@@ -361,6 +371,7 @@ export class AndroidBackend implements DeviceBackend {
             return current;
         }
         const sdk = this.sdk();
+        this.recordings.drop(deviceId);
         await this.adb(sdk, ['-s', serial, 'emu', 'kill']);
         this.booting.delete(deviceId);
         for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -413,8 +424,35 @@ export class AndroidBackend implements DeviceBackend {
             increaseContrast: contrast === '1',
             colorFilter: colorFilterOf(filterOn, filter),
             showBorders: layout === 'true',
-            ...(probe.talkBack ? { voiceOver: services.split(':').includes(TALKBACK_SERVICE) } : {})
+            ...(probe.talkBack ? { voiceOver: services.split(':').includes(TALKBACK_SERVICE) } : {}),
+            recording: this.recordings.isRecording(deviceId)
         };
+    }
+
+    async startRecording(deviceId: string, file: string): Promise<void> {
+        const { serial } = await this.booted(deviceId);
+        this.recordings.start(
+            deviceId,
+            file,
+            [this.sdk().adb, '-s', serial, 'shell', 'screenrecord', '--time-limit', String(RECORDING_LIMIT_SECONDS), RECORDING_ON_DEVICE],
+            null
+        );
+    }
+
+    /* The recorder finishes its file on an interrupt sent on the device itself, which a signal to the local adb does not reach. */
+    async stopRecording(deviceId: string): Promise<string> {
+        const { serial } = await this.booted(deviceId);
+        const sdk = this.sdk();
+        return this.recordings.stop(
+            deviceId,
+            async () => {
+                await this.shell(serial, 'pkill -INT screenrecord').catch(() => undefined);
+            },
+            async (file) => {
+                await this.adb(sdk, ['-s', serial, 'pull', RECORDING_ON_DEVICE, file]);
+                await this.shell(serial, `rm -f ${RECORDING_ON_DEVICE}`).catch(() => undefined);
+            }
+        );
     }
 
     async action(deviceId: string, action: DeviceAction): Promise<DeviceSettings> {

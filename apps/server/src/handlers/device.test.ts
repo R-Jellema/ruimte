@@ -1,4 +1,7 @@
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { ServerFrame } from '@ruimte/contracts';
 import { DeviceError, type DeviceManager } from '../devices/manager.ts';
 import { Dispatcher, type ClientConnection } from '../dispatcher.ts';
@@ -10,9 +13,15 @@ function request(type: string, payload: unknown = {}): string {
     return JSON.stringify({ id: type, type, payload });
 }
 
+const home = mkdtempSync(join(tmpdir(), 'ruimte-device-handlers-'));
+
+afterAll(() => {
+    rmSync(home, { recursive: true, force: true });
+});
+
 function setup(devices: DeviceManager, allowed: () => boolean) {
     const dispatcher = new Dispatcher();
-    registerDeviceHandlers(dispatcher, devices, allowed);
+    registerDeviceHandlers(dispatcher, devices, allowed, home);
     const frames: ServerFrame[] = [];
     const client: ClientConnection = { id: 'client-1', send: (frame) => frames.push(frame) };
     return { dispatcher, frames, client };
@@ -131,6 +140,40 @@ describe('device handlers', () => {
             ['action', { ...target, action: 'setAppearance', value: 'light' }]
         ]);
         expect(frames.at(-1)).toMatchObject({ ok: true, result: { ...target, settings: { appearance: 'light' } } });
+    });
+
+    test("writes a person's capture under the machine's captures and answers its path and size", async () => {
+        const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 4, 0xb6, 0, 0, 0x0a, 0x3e]);
+        const devices = { capture: () => Promise.resolve(png) } as unknown as DeviceManager;
+        const { dispatcher, frames, client } = setup(devices, () => true);
+
+        await dispatcher.handle(client, request('device.capture', { backendId: 'simctl', platform: 'ios', deviceId: 'phone-1' }));
+
+        const reply = frames.at(-1) as { ok: true; result: { path: string; width: number; height: number } };
+        expect(reply.result).toMatchObject({ width: 1206, height: 2622 });
+        expect(reply.result.path.startsWith(join(home, 'device-captures', 'phone-1-'))).toBe(true);
+        expect(new Uint8Array(readFileSync(reply.result.path))).toEqual(png);
+    });
+
+    test('starts a recording into a new file under the captures and answers that file when it stops', async () => {
+        const files: string[] = [];
+        const devices = {
+            startRecording: (_backendId: string, _platform: string, _deviceId: string, file: string) => {
+                files.push(file);
+                return Promise.resolve();
+            },
+            stopRecording: () => Promise.resolve(files[0]!)
+        } as unknown as DeviceManager;
+        const { dispatcher, frames, client } = setup(devices, () => true);
+        const target = { backendId: 'android', platform: 'android', deviceId: 'Pixel_9' };
+
+        await dispatcher.handle(client, request('device.record', { ...target, mode: 'start' }));
+        expect(frames.at(-1)).toMatchObject({ ok: true, result: { recording: true } });
+        await dispatcher.handle(client, request('device.record', { ...target, mode: 'stop' }));
+
+        expect(files[0]!.startsWith(join(home, 'device-captures', 'Pixel_9-'))).toBe(true);
+        expect(files[0]!.endsWith('.mp4')).toBe(true);
+        expect(frames.at(-1)).toMatchObject({ ok: true, result: { recording: false, path: files[0] } });
     });
 
     test('lets a person pause an agent and read who operates what, whatever the streaming policy', async () => {
