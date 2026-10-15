@@ -141,6 +141,14 @@ export function hasWork(work: WorktreeWork): boolean {
     return work.changed + work.untracked + work.ahead > 0 || work.operation !== undefined;
 }
 
+/* What the worktrees need to know of work that came from another machine, which a folder cut from it carries along. */
+export interface ForeignWork {
+    /* The local branches whose work another machine sent. */
+    branches(): readonly string[];
+    /* Writes down a folder, and the branch it is on, as one this machine never vouched for. */
+    untrust(path: string, branch: string): Promise<void>;
+}
+
 /*
  * Worktrees of a repository, kept outside it so the repository itself stays clean:
  * `<worktree folder>/<repo name>-<hash of its path>/<branch>`, with `worktrees.json` in `$RUIMTE_HOME/worktrees`.
@@ -153,6 +161,7 @@ export class Worktrees {
     private readonly checkpointsRoot: string;
     private readonly checkoutRoot: () => string | null;
     private readonly agents: WorktreeAgents;
+    private readonly foreign: ForeignWork | undefined;
     // A test seam: runs between the last count of a removal and the removal itself.
     beforeRemoveCheckout: (() => Promise<void>) | null = null;
     private readonly now: () => number;
@@ -166,9 +175,11 @@ export class Worktrees {
         agents: WorktreeAgents,
         now: () => number = Date.now,
         // Where new checkouts go, read for each one; null keeps them beside the register.
-        checkoutRoot: () => string | null = () => null
+        checkoutRoot: () => string | null = () => null,
+        foreign?: ForeignWork
     ) {
         this.agents = agents;
+        this.foreign = foreign;
         this.checkoutRoot = checkoutRoot;
         this.root = join(home, 'worktrees');
         this.checkpointsRoot = join(home, 'checkpoints');
@@ -283,7 +294,11 @@ export class Worktrees {
         const head = based?.commit ?? (await git(['rev-parse', 'HEAD'], repo))?.trim();
         const fork = branchExists && head ? (await git(['merge-base', `refs/heads/${branch}`, head], repo))?.trim() : head;
         const hooks = options.hooksOff === true ? ['-c', 'core.hooksPath=/dev/null'] : [];
-        await options.beforeAdd?.(path);
+        // Before the folder exists: a branch cut from work another machine sent holds those files.
+        if (await this.startsFromForeignWork(main, branchExists ? branch : null, based?.commit ?? null)) {
+            await this.foreign!.untrust(path, branch);
+        }
+        await options.beforeAdd?.(path, branch);
         await run(
             [...hooks, ...(branchExists ? ['worktree', 'add', path, branch] : ['worktree', 'add', '-b', branch, path, ...(based ? [based.commit] : [])])],
             main
@@ -304,6 +319,28 @@ export class Worktrees {
         }
         this.announce(main);
         return { path, branch, ...(record ? recordFields(record) : {}) };
+    }
+
+    /*
+     * Whether the branch about to be checked out, or the commit a new one starts at, is the tip of a branch
+     * that another machine's work arrived on: a recorded one, or any remote ref this machine keeps for a result.
+     */
+    private async startsFromForeignWork(main: string, existing: string | null, commit: string | null): Promise<boolean> {
+        if (this.foreign === undefined || (existing === null && commit === null)) {
+            return false;
+        }
+        const refs = (await git(['for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads', 'refs/remotes'], main)) ?? '';
+        const recorded = new Set(this.foreign.branches().map((name) => `refs/heads/${name}`));
+        const tips = new Map<string, string>();
+        for (const line of refs.split('\n')) {
+            const [ref, sha] = line.split(' ');
+            if (ref !== undefined && sha !== undefined) {
+                tips.set(ref, sha);
+            }
+        }
+        const foreignTips = new Set([...tips].filter(([ref]) => ref.startsWith('refs/remotes/ruimte-') || recorded.has(ref)).map(([, sha]) => sha));
+        const started = [commit, existing === null ? null : (tips.get(`refs/heads/${existing}`) ?? null)];
+        return started.some((sha) => sha !== null && foreignTips.has(sha));
     }
 
     /* The commit a new branch starts at, found before anything is made; the local branch name it was given by, when it was one. */
@@ -592,7 +629,7 @@ export interface MakeOptions {
     /* Runs no hook of the repository while the checkout is made, for a tree that came from elsewhere. */
     hooksOff?: boolean;
     /* Called with the folder before git makes it, so a caller can write it down before anything of it exists. */
-    beforeAdd?: (path: string) => Promise<void>;
+    beforeAdd?: (path: string, branch: string) => Promise<void>;
 }
 
 function recordFields(record: WorktreeRecord): Pick<Worktree, 'from' | 'projectId' | 'nodeId' | 'madeAt'> {

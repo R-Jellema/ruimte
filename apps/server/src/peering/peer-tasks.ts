@@ -205,7 +205,7 @@ export class PeerTasks {
                     into: 'worktree',
                     machine: link.label
                 },
-                (path) => deps.links.untrustFolder(path)
+                (path, branch) => deps.links.untrustFolder(path, branch)
             );
             cwd = made.path ?? folder;
             branch = made.branch;

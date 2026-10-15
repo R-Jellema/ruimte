@@ -40,3 +40,14 @@ test('a task recorded after its link went still leaves its worktree untrusted', 
     expect(links.taskRecord('machine-a', 'node')).toBeNull();
     expect(links.worktreeFolders()).toEqual(['/worktrees/task']);
 });
+
+test('the branch of an untrusted folder is kept across a restart and when the folder is written again without one', async () => {
+    const links = new PeerLinks(home);
+    await links.untrustFolder('/worktrees/task', 'ruimte/fix-it');
+    await links.recordTask('machine-a', 'node', { projectId: 'p', cwd: '/worktrees/task', worktree: true });
+    expect(links.peerBranches()).toEqual(['ruimte/fix-it']);
+
+    const reloaded = new PeerLinks(home);
+    await reloaded.load();
+    expect(reloaded.peerBranches()).toEqual(['ruimte/fix-it']);
+});

@@ -9,6 +9,7 @@ import { worktreeAgents } from '../git/worktree-agents.ts';
 import { checkoutHost } from '../git/worktree-host.ts';
 import { WorktreeMerge } from '../git/worktree-merge.ts';
 import { Worktrees } from '../git/worktrees.ts';
+import type { PeerLinks } from '../peering/links.ts';
 import type { AgentsBundle } from './agents.ts';
 import type { AgentWorkBundle } from './agent-work.ts';
 
@@ -26,7 +27,7 @@ export interface GitBundle {
     checkpoints: Checkpoints;
 }
 
-export function wireGit(home: string, identity: EndpointIdentity, agents: AgentsBundle, work: AgentWorkBundle): GitBundle {
+export function wireGit(home: string, identity: EndpointIdentity, agents: AgentsBundle, work: AgentWorkBundle, peers: PeerLinks): GitBundle {
     const watches = new SharedWatch();
     const folders = new FolderWatcher(process.platform, watches);
     const statuses = new GitStatusWatcher(process.platform, watches);
@@ -35,7 +36,10 @@ export function wireGit(home: string, identity: EndpointIdentity, agents: Agents
         sessions: () => agents.sessions.list(),
         stopNode: (nodeId, reason) => work.endChildren.stopNode(nodeId, reason)
     });
-    const worktrees = new Worktrees(home, agentsInWorktrees, Date.now, () => identity.worktreeRoot);
+    const worktrees = new Worktrees(home, agentsInWorktrees, Date.now, () => identity.worktreeRoot, {
+        branches: () => peers.peerBranches(),
+        untrust: (path, branch) => peers.untrustFolder(path, branch)
+    });
     const merges = new WorktreeMerge(worktrees, agentsInWorktrees);
     const bundles = new BundleStore(home);
     // Nothing is in flight at start, so what an earlier run left is of no one.

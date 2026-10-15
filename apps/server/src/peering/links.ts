@@ -35,7 +35,7 @@ const PeerFileSchema = z.looseObject({
 
 type PeerFile = z.infer<typeof PeerFileSchema>;
 
-const WorktreeSchema = z.looseObject({ cwd: z.string().min(1) });
+const WorktreeSchema = z.looseObject({ cwd: z.string().min(1), branch: z.string().min(1).optional() });
 
 /* The record of a folder is keyed on a hash, since a path of any length is no file name. */
 function folderKey(cwd: string): string {
@@ -151,9 +151,18 @@ export class PeerLinks {
         return Object.entries(this.files.get(machineId)?.tasks ?? {});
     }
 
-    /* Makes a folder one this machine never vouched for, whoever asked for it and whether or not a link is left. */
-    async untrustFolder(cwd: string): Promise<void> {
-        await this.worktrees.write({ cwd });
+    /* The local branches whose work came from another machine, so a branch cut from one is untrusted too. */
+    peerBranches(): string[] {
+        return this.worktrees.all().flatMap((record) => (record.branch === undefined ? [] : [record.branch]));
+    }
+
+    /*
+     * Makes a folder one this machine never vouched for, whoever asked for it and whether or not a link is left.
+     * A branch written down once stays when the folder is written again without one.
+     */
+    async untrustFolder(cwd: string, branch?: string): Promise<void> {
+        const kept = branch ?? this.worktrees.get(folderKey(cwd))?.branch;
+        await this.worktrees.write({ cwd, ...(kept === undefined ? {} : { branch: kept }) });
     }
 
     async recordTask(machineId: string, nodeId: string, record: PeerTaskRecord): Promise<void> {

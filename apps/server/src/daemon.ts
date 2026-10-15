@@ -94,7 +94,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     const launches = wireLaunches({ home, stores, agents, work, projects: projects.store, later: { git: () => git } });
     // Before the socket answers, so an agent whose project nobody opened since the restart still reads its links.
     await projects.store.warmIndex();
-    const git = wireGit(home, identity, agents, work);
+    const git = wireGit(home, identity, agents, work, projects.store.peers);
     const devices = wireDevices(runtime, computer);
     const usage = wireUsage(config, providers, agents, projects.store);
     const processes = await wireProcesses({

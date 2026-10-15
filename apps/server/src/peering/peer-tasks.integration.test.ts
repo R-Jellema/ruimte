@@ -33,6 +33,7 @@ let bundlesB: BundleStore;
 let enqueued: OutboxWork[];
 let untrustedAt: Array<{ cwd: string; existed: boolean }>;
 let links: PeerLinks;
+let worktreesB: Worktrees;
 
 beforeEach(async () => {
     root = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-peer-tasks-git-')));
@@ -54,8 +55,12 @@ beforeEach(async () => {
     await Promise.all([lineage.load(), tasks.load()]);
     bundlesB = new BundleStore(homeB);
     const stores = new Map<string, BundleStore>();
-    const worktrees = new Worktrees(homeB, NO_WORKTREE_AGENTS);
     links = new PeerLinks(homeB);
+    worktreesB = new Worktrees(homeB, NO_WORKTREE_AGENTS, Date.now, () => null, {
+        branches: () => links.peerBranches(),
+        untrust: (path, branch) => links.untrustFolder(path, branch)
+    });
+    const worktrees = worktreesB;
     await links.bind(A, 'Studio', PROJECT);
     peerTasks = new PeerTasks({
         links: {
@@ -68,9 +73,9 @@ beforeEach(async () => {
             taskRecordsOf: (machineId) => links.taskRecordsOf(machineId),
             recordTask: (machineId, nodeId, record) => links.recordTask(machineId, nodeId, record),
             forgetTask: (machineId, nodeId) => links.forgetTask(machineId, nodeId),
-            untrustFolder: async (cwd) => {
+            untrustFolder: async (cwd, branch) => {
                 untrustedAt.push({ cwd, existed: (await stat(cwd).catch(() => null)) !== null });
-                await links.untrustFolder(cwd);
+                await links.untrustFolder(cwd, branch);
             }
         },
         projects: {
@@ -184,6 +189,35 @@ test('the folder is untrusted before git makes it', async () => {
     });
     expect(untrustedAt).toContainEqual({ cwd: started.cwd!, existed: false });
     expect(links.worktreeFolders()).toContain(started.cwd!);
+});
+
+test('a worktree cut from the branch of another machine is untrusted too, and one cut from the project is not', async () => {
+    const bundle = await sendFromA();
+    const started = await peerTasks.start(A, 'client-1', {
+        projectId: PROJECT,
+        nodeId: 'chat-one',
+        parentId: 'chat-parent',
+        title: 'Fix it',
+        prompt: 'Fix it',
+        provider: 'claude',
+        ceiling: 'full-access',
+        depth: 1,
+        bundle,
+        branch: 'fix-it'
+    });
+    const fromBranch = await worktreesB.addFresh(repoB, 'second', { madeBy: 'verb' }, { base: started.branch! });
+    const tip = (await gitIn(repoB, ['rev-parse', started.branch!])).trim();
+    const fromCommit = await worktreesB.addFresh(repoB, 'third', { madeBy: 'verb' }, { base: tip });
+    const existing = await worktreesB.add(repoB, started.branch!, { madeBy: 'verb' });
+    const plain = await worktreesB.addFresh(repoB, 'plain', { madeBy: 'verb' }, { base: 'HEAD' });
+    const folders = links.worktreeFolders();
+    expect(folders).toContain(fromBranch.path);
+    expect(folders).toContain(fromCommit.path);
+    expect(folders).not.toContain(plain.path);
+    expect(existing.created).toBe(false);
+    // A branch cut from that one is cut from foreign work as well.
+    const chained = await worktreesB.addFresh(repoB, 'fourth', { madeBy: 'verb' }, { base: 'second' });
+    expect(links.worktreeFolders()).toContain(chained.path);
 });
 
 test('a branch name of any length the path allows still leaves a record of the folder', async () => {

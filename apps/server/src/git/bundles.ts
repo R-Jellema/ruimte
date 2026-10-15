@@ -362,7 +362,7 @@ export async function fetchBundle(
     worktrees: Worktrees,
     folder: string,
     payload: GitFetchBundlePayload,
-    beforeWorktree?: (path: string) => Promise<void>
+    beforeWorktree?: (path: string, branch: string) => Promise<void>
 ): Promise<GitFetchBundleResult> {
     try {
         return await takeIn(store, worktrees, folder, payload, beforeWorktree);
@@ -377,7 +377,7 @@ async function takeIn(
     worktrees: Worktrees,
     folder: string,
     payload: GitFetchBundlePayload,
-    beforeWorktree?: (path: string) => Promise<void>
+    beforeWorktree?: (path: string, branch: string) => Promise<void>
 ): Promise<GitFetchBundleResult> {
     const file = store.incomingPathOf(payload.bundleId);
     if (!(await stat(file).catch(() => null))?.isFile()) {
