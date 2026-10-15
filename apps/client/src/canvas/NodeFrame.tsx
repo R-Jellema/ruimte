@@ -40,6 +40,12 @@ import { useUnseen } from '@/state/attention';
 import { deleteSelectionAsking } from '@/canvas/delete-selection';
 import { useWorkspace } from '@/transport/connections';
 import { NodeMachineScope } from '@/transport/node-machine';
+import { MachineGlyph } from '@/endpoint/MachineGlyph';
+import { RemoteNodeOffline } from '@/canvas/RemoteNodeOffline';
+import { useRemoteNodeState } from '@/canvas/remote-node-state';
+import { useMachineEntry } from '@/shell/use-machine-entry';
+import { useMachineIcon } from '@/shell/settings/machine-icon';
+import { nameOf } from '@/shell/settings/machine-list';
 import { isNodeActive, maximizedNodeOf, useCanvas, useCanvasStore, type AgentStatus } from '@/state/canvas';
 import type { AgentWork } from '@/state/agent-work';
 import { useNodeStatus, useNodeWork } from '@/state/chats';
@@ -168,6 +174,27 @@ function WorktreePill({ worktree }: { worktree: { path: string; branch: string }
         <Tooltip label={worktree.path}>
             <Pill mono icon={<Icon icon={GitBranch} size={12} />}>
                 {worktree.branch}
+            </Pill>
+        </Tooltip>
+    );
+}
+
+/* Under this wide a header keeps the glyph of the machine and leaves its name to the tooltip. */
+const MACHINE_PILL_MIN_WIDTH = 380;
+
+/*
+ * Which machine a node runs on, for a node that is not on the workspace's own. A canvas of one
+ * machine draws none, so it looks as it always did.
+ */
+function MachinePill({ machine, narrow }: { machine: string; narrow: boolean }) {
+    const { t } = useTranslation('canvas');
+    const entry = useMachineEntry(machine);
+    const icon = useMachineIcon(entry);
+    const name = nameOf(entry);
+    return (
+        <Tooltip label={t('remote.pill', { machine: name })}>
+            <Pill icon={<MachineGlyph icon={icon} size={12} />} className="max-w-40" aria-label={t('remote.pill', { machine: name })}>
+                {narrow ? null : name}
             </Pill>
         </Tooltip>
     );
@@ -335,6 +362,9 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
     const status = useNodeStatus(node);
     const work = useNodeWork(node);
     const endpointId = useEndpointId();
+    const workspaceId = useWorkspace()?.connection.endpointId;
+    // A node of another machine draws a card for that machine in place of its body while the machine is away.
+    const remote = useRemoteNodeState(node?.machine, workspaceId);
     const unseen = useUnseen(id);
     const processAlerts = useNodeAlerts(id);
     const task = useChildTask(id);
@@ -457,6 +487,9 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     )}
                     {node.kind === 'terminal' && !renaming && <SessionPorts id={id} />}
                     {(node.kind === 'chat' || node.kind === 'terminal') && !renaming && <ComputerIndicator nodeId={id} />}
+                    {node.machine !== undefined && node.machine !== workspaceId && !renaming && (
+                        <MachinePill machine={node.machine} narrow={node.w < MACHINE_PILL_MIN_WIDTH} />
+                    )}
                     {nodeWorktree && !renaming && <WorktreePill worktree={nodeWorktree} />}
                     {node.issue && !renaming && <IssuePill issue={node.issue} />}
                     {isGroup && !node.worktree && groupWorktrees.length > 0 && (
@@ -514,22 +547,39 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     >
                         {/* Around the body only, so the header, the menu, a drag and a resize keep working. */}
                         <NodeBodyBoundary kind={node.kind}>
-                            {node.kind === 'terminal' && (live ? <TerminalBody id={id} focused={takesKeyboard} /> : <TerminalPlate id={id} />)}
-                            {node.kind === 'chat' && <ChatBody id={id} focused={takesKeyboard} onCanvas />}
-                            {node.kind === 'browser' && <BrowserBody id={id} focused={active} />}
-                            {node.kind === 'device' && (live && readable ? <DeviceBody id={id} /> : <DevicePlate id={id} />)}
-                            {node.kind === 'note' && <NoteNode id={id} focused={active} />}
-                            {node.kind === 'drawing' && <DrawingNode id={id} />}
-                            {node.kind === 'diagram' && (live && readable ? <DiagramNode id={id} /> : <DiagramPlate id={id} />)}
-                            {isUnknown && <UnknownNodePlate id={id} />}
-                            {node.kind === 'file' &&
-                                (live && readable ? (
-                                    <FileToolbarSlotProvider value={toolbarSlot}>
-                                        <FileNode id={id} focused={takesKeyboard} />
-                                    </FileToolbarSlotProvider>
-                                ) : (
-                                    <FilePlate id={id} />
-                                ))}
+                            {remote !== 'ready' && node.machine !== undefined ? (
+                                <RemoteNodeOffline
+                                    machine={node.machine}
+                                    state={remote}
+                                    onLinkAgain={() =>
+                                        useUi.getState().setRemoteNodeDialog({
+                                            machineId: node.machine!,
+                                            kind: node.kind === 'terminal' || node.kind === 'device' ? node.kind : 'chat',
+                                            at: null,
+                                            relink: true
+                                        })
+                                    }
+                                />
+                            ) : (
+                                <>
+                                    {node.kind === 'terminal' && (live ? <TerminalBody id={id} focused={takesKeyboard} /> : <TerminalPlate id={id} />)}
+                                    {node.kind === 'chat' && <ChatBody id={id} focused={takesKeyboard} onCanvas />}
+                                    {node.kind === 'browser' && <BrowserBody id={id} focused={active} />}
+                                    {node.kind === 'device' && (live && readable ? <DeviceBody id={id} /> : <DevicePlate id={id} />)}
+                                    {node.kind === 'note' && <NoteNode id={id} focused={active} />}
+                                    {node.kind === 'drawing' && <DrawingNode id={id} />}
+                                    {node.kind === 'diagram' && (live && readable ? <DiagramNode id={id} /> : <DiagramPlate id={id} />)}
+                                    {isUnknown && <UnknownNodePlate id={id} />}
+                                    {node.kind === 'file' &&
+                                        (live && readable ? (
+                                            <FileToolbarSlotProvider value={toolbarSlot}>
+                                                <FileNode id={id} focused={takesKeyboard} />
+                                            </FileToolbarSlotProvider>
+                                        ) : (
+                                            <FilePlate id={id} />
+                                        ))}
+                                </>
+                            )}
                         </NodeBodyBoundary>
                     </div>
                 )}

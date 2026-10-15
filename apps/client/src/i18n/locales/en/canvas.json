@@ -298,5 +298,13 @@
         "savedDescription": "On {{machine}}, the nodes agents add there included. Change or reset it in Settings, under Views.",
         "failed": "The default size of {{kind}} nodes did not change",
         "resetFailed": "The size of {{kind}} nodes did not reset"
+    },
+    "remote": {
+        "offline": "{{machine}} is not answering. It may be asleep.",
+        "retrying": "Trying to reach {{machine}} again…",
+        "unlinked": "{{machine}} no longer links this project.",
+        "linkAgain": "Link again",
+        "tooOld": "{{machine}} runs an older Ruimte. Update it to use this node.",
+        "pill": "This node runs on {{machine}}"
     }
 }

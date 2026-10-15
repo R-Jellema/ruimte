@@ -11,6 +11,8 @@ import { useSnoozes } from '@/state/snooze';
 import { windowWorkspace } from '@/state/window';
 import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
+import { useUi } from '@/state/ui';
+import { TransportError } from '@/transport/transport';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const REMOTE = 'machine-b';
@@ -177,5 +179,66 @@ describe('a node that runs on another machine', () => {
 
         await act(async () => windowWorkspace()!.connection.projects.closeProject());
         expect(there.requests('project.close')).toEqual([{ projectId: 'remote-project' }]);
+    });
+});
+
+function frame(id: string): Element {
+    return page.host.querySelector(`[data-node-id="${id}"]`)!;
+}
+
+function cardOf(id: string): string | null {
+    return frame(id).querySelector('[role="status"]')?.textContent ?? null;
+}
+
+describe('the machine of a node', () => {
+    test('is named in the header of a node that runs elsewhere, and in none of the nodes that run here', async () => {
+        expect(frame(REMOTE_SHELL.id).querySelector('header')?.textContent).toContain('MacBook Pro');
+        expect(frame(REMOTE_CHAT.id).querySelector('header')?.textContent).toContain('MacBook Pro');
+        expect(frame(LOCAL_SHELL.id).querySelector('header')?.textContent).not.toContain('MacBook Pro');
+    });
+
+    test('going away puts only the nodes that run there offline, while a terminal here keeps its shell', async () => {
+        await act(async () => there.lose());
+        await until(() => cardOf(REMOTE_SHELL.id) !== null && cardOf(REMOTE_CHAT.id) !== null);
+        expect(cardOf(REMOTE_SHELL.id)).toContain('MacBook Pro is not answering. It may be asleep.');
+        expect(frame(REMOTE_SHELL.id).querySelector('textarea')).toBeNull();
+        expect(frame(LOCAL_SHELL.id).querySelector('textarea')).not.toBeNull();
+        expect(cardOf(LOCAL_SHELL.id)).toBeNull();
+    });
+
+    test('Retry asks for the link again, and the card goes when the machine answers', async () => {
+        await act(async () => there.lose());
+        await until(() => cardOf(REMOTE_SHELL.id) !== null);
+        const retry = [...frame(REMOTE_SHELL.id).querySelectorAll('button')].find((button) => button.textContent === 'Try again') ?? null;
+        await clickOn(retry);
+        expect(there.reconnects).toBe(1);
+
+        await act(async () => there.reopen());
+        await until(() => cardOf(REMOTE_SHELL.id) === null);
+    });
+
+    test('older than the nodes need says so and offers nothing to press', async () => {
+        await act(async () => there.answersOnly(['session.attach', 'chat.attach']));
+        await until(() => cardOf(REMOTE_SHELL.id) !== null);
+        expect(cardOf(REMOTE_SHELL.id)).toContain('MacBook Pro runs an older Ruimte. Update it to use this node.');
+        expect(frame(REMOTE_SHELL.id).querySelectorAll('[role="status"] button')).toHaveLength(0);
+    });
+
+    test('a machine that no longer links the project says so, and Link again opens the dialog for it', async () => {
+        there.answer('peer.placeNodes', () => {
+            throw new TransportError('peer-not-linked', 'That machine has no link to this project');
+        });
+        // The machine forgot who holds the project with the link that did, so the window places its nodes again, and is refused.
+        await act(async () => {
+            there.drop();
+            there.reopen();
+        });
+        await until(() => cardOf(REMOTE_SHELL.id) !== null);
+        expect(cardOf(REMOTE_SHELL.id)).toContain('MacBook Pro no longer links this project.');
+
+        const again = [...frame(REMOTE_SHELL.id).querySelectorAll('button')].find((button) => button.textContent === 'Link again') ?? null;
+        await clickOn(again);
+        expect(useUi.getState().remoteNodeDialog).toMatchObject({ machineId: REMOTE, relink: true });
+        await act(async () => useUi.getState().setRemoteNodeDialog(null));
     });
 });

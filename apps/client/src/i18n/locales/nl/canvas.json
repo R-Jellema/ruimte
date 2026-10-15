@@ -298,5 +298,13 @@
         "savedDescription": "Op {{machine}}, ook voor de nodes die agents daar toevoegen. Wijzig of herstel het in Instellingen, onder Weergaven.",
         "failed": "De standaardgrootte van {{kind}}-nodes is niet veranderd",
         "resetFailed": "De grootte van {{kind}}-nodes is niet teruggezet"
+    },
+    "remote": {
+        "offline": "{{machine}} antwoordt niet. Misschien slaapt hij.",
+        "retrying": "{{machine}} wordt opnieuw geprobeerd…",
+        "unlinked": "{{machine}} koppelt dit project niet meer.",
+        "linkAgain": "Opnieuw koppelen",
+        "tooOld": "Op {{machine}} draait een oudere Ruimte. Werk hem bij om deze node te gebruiken.",
+        "pill": "Deze node draait op {{machine}}"
     }
 }

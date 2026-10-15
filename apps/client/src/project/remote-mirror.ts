@@ -2,7 +2,8 @@ import type { PeerNode, ProjectEdge, ProjectView, RemoteLink } from '@ruimte/con
 import { isCanvasView } from '@ruimte/contracts';
 import type { NodesOfView } from '@/project/view-nodes';
 import type { CanvasNode } from '@/state/canvas';
-import type { Transport } from '@/transport/transport';
+import { markUnlinked } from '@/project/remote-refusals';
+import { TransportError, type Transport } from '@/transport/transport';
 
 /* What one machine is to draw of this project: the nodes that run there and the lines between them. */
 export interface MachineMirror {
@@ -221,8 +222,10 @@ export class RemoteMirror {
                     edges: mirror.edges
                 });
                 this.sent.set(machine, signature);
-            } catch {
+                markUnlinked(machine, false);
+            } catch (e) {
                 // Not marked as sent, so the next change or the link coming back sends it again.
+                markUnlinked(machine, e instanceof TransportError && e.code === 'peer-not-linked');
             }
         }
     }

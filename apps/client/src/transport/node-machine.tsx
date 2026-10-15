@@ -9,15 +9,7 @@ import { useOptionalConnection } from './context';
  * prompts are the ones of the machine it runs on. The document stays the workspace's: the project,
  * the drawings and the diagrams are still the ones on the machine the project lives on.
  */
-export function NodeMachineScope({
-    machine,
-    fallback = null,
-    children
-}: {
-    machine: string | undefined;
-    fallback?: ReactNode;
-    children: ReactNode;
-}): ReactElement {
+export function NodeMachineScope({ machine, children }: { machine: string | undefined; children: ReactNode }): ReactElement {
     const workspace = useOptionalConnection();
     const own = machine === undefined || workspace === null || machine === workspace.endpointId;
     const remote = own ? null : machineFor(machine);
@@ -38,9 +30,6 @@ export function NodeMachineScope({
                   },
         [remote, workspace]
     );
-    if (own) {
-        return <>{children}</>;
-    }
-    // A machine this client does not know has nothing to draw the node from; starting it here instead would be the wrong machine's work.
-    return connection === null ? <>{fallback}</> : <ConnectionProvider connection={connection}>{children}</ConnectionProvider>;
+    // A machine this client does not know has nothing to draw the node from. The frame says so in place of the body (`RemoteNodeOffline`), so nothing under it starts work on the wrong machine.
+    return connection === null ? <>{children}</> : <ConnectionProvider connection={connection}>{children}</ConnectionProvider>;
 }

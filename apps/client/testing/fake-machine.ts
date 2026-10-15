@@ -86,8 +86,18 @@ export class FakeMachine implements PooledTransport {
     }
 
     reopen(): void {
+        this.connection = { ...this.connection, attempts: 0 };
         this.setStatus('open');
     }
+
+    /* The link gone and a try to bring it back failed, which is what makes a machine lost and not just still loading. */
+    lose(failure?: string): void {
+        this.connection = { ...this.connection, attempts: 1, ...(failure === undefined ? {} : { failure }) };
+        this.setStatus('closed');
+    }
+
+    /* How often the pool was asked to bring the link up again. */
+    reconnects = 0;
 
     /* A machine that names only these requests, the way an older release does; every other request stays answerable but `machineAnswers` says no. */
     answersOnly(types: readonly RequestType[]): void {
@@ -153,7 +163,9 @@ export class FakeMachine implements PooledTransport {
 
     retarget(): void {}
 
-    reconnect(): void {}
+    reconnect(): void {
+        this.reconnects += 1;
+    }
 
     dispose(): void {}
 }

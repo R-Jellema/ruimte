@@ -152,6 +152,18 @@ export interface MoveChatRequest {
     projectId: string | null;
 }
 
+/*
+ * A node being made on another machine, from the new-node menu, or a machine that stopped linking the
+ * project being linked again (`relink`), which asks for its checkout once more.
+ */
+export interface RemoteNodeRequest {
+    machineId: string;
+    kind: 'chat' | 'terminal' | 'device';
+    /* Where on the canvas it goes, in world units; null lets the canvas place it. */
+    at: { x: number; y: number } | null;
+    relink: boolean;
+}
+
 export type PaletteMode = 'default' | 'grep' | 'chats' | 'file';
 
 /* What a picked file becomes. A node carries where it lands, in world units, because the menu that
@@ -228,6 +240,8 @@ interface UiStore {
     issueStartOpen: boolean;
     /* The checkout whose pull request is shown, while that dialog is up. */
     pullRequestDialog: { cwd: string } | null;
+    /* A node on another machine being made, or made over for a machine that no longer links the project. */
+    remoteNodeDialog: RemoteNodeRequest | null;
     /* What a view is being asked about, from the sidebar, the breadcrumb or the palette alike. */
     viewDialog: ViewDialog;
     /* The sidebar row the caret is in, which is how a new heading opens. */
@@ -253,6 +267,7 @@ interface UiStore {
     setNewWorktreeChatOpen(open: boolean): void;
     setIssueStartOpen(open: boolean): void;
     setPullRequestDialog(request: { cwd: string } | null): void;
+    setRemoteNodeDialog(request: RemoteNodeRequest | null): void;
     setViewDialog(dialog: ViewDialog): void;
     setRenamingViewId(viewId: string | null): void;
     setSidebarOpen(open: boolean): void;
@@ -317,6 +332,7 @@ export const useUi = create<UiStore>((set, get) => ({
     newWorktreeChatOpen: false,
     issueStartOpen: false,
     pullRequestDialog: null,
+    remoteNodeDialog: null,
     viewDialog: null,
     renamingViewId: null,
     projectSettingsAsked: false,
@@ -373,6 +389,9 @@ export const useUi = create<UiStore>((set, get) => ({
     },
     setPullRequestDialog(request) {
         set({ pullRequestDialog: request });
+    },
+    setRemoteNodeDialog(request) {
+        set({ remoteNodeDialog: request });
     },
     setViewDialog(dialog) {
         set({ viewDialog: dialog });
