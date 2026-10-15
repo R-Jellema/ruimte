@@ -21,6 +21,8 @@ let enqueued: Array<{ target: string; work: OutboxWork }>;
 let prompts: Map<string, string>;
 let ceiling: 'supervised' | 'auto-accept-edits' | 'auto' | 'full-access';
 let linked: boolean;
+let existing: Set<string>;
+let failEnqueue: boolean;
 let peerLinks: PeerLinks;
 let held: Array<{ clientId: string; startsLaunches: boolean | undefined }>;
 
@@ -56,11 +58,22 @@ function deps(): PeerTasksDeps {
         tasks,
         outbox: { list: () => [] as readonly OutboxEntry[], remove: async () => undefined },
         enqueue: async (_projectId, target, work) => {
+            if (failEnqueue) {
+                throw new Error('the outbox is full');
+            }
             enqueued.push({ target, work });
         },
-        prompts: { put: async (_projectId: string, nodeId: string, prompt: string) => void prompts.set(nodeId, prompt) },
+        prompts: {
+            put: async (_projectId: string, nodeId: string, prompt: string) => void prompts.set(nodeId, prompt),
+            take: async (nodeId: string) => {
+                const held = prompts.get(nodeId) ?? null;
+                prompts.delete(nodeId);
+                return held;
+            }
+        },
         stopNode: async () => undefined,
         installed: async () => ['claude', 'codex'],
+        exists: (nodeId) => existing.has(nodeId),
         git: () => {
             throw new Error('no git in this test');
         },
@@ -98,6 +111,8 @@ beforeEach(async () => {
     prompts = new Map();
     ceiling = 'supervised';
     linked = true;
+    existing = new Set();
+    failEnqueue = false;
     held = [];
 });
 
@@ -172,6 +187,41 @@ describe('starting a task for another machine', () => {
         expect(again).toEqual({ cwd: home, branch: null });
         expect(tasks.all()).toHaveLength(1);
         expect(enqueued.filter((item) => item.work.kind === 'start-agent')).toHaveLength(1);
+    });
+
+    test('a start that fails after its task opened leaves no open task, and a retry hears that nothing ran', async () => {
+        const peerTasks = new PeerTasks(deps());
+        failEnqueue = true;
+        await expect(peerTasks.start(MACHINE, 'client-1', start())).rejects.toThrow('the outbox is full');
+        expect(peerTasks.openCount(MACHINE)).toBe(0);
+        expect(prompts.has('chat-one')).toBe(false);
+        expect(held).toEqual([]);
+        failEnqueue = false;
+        await peerTasks.start(MACHINE, 'client-1', start());
+        expect(await peerTasks.result(MACHINE, 'client-1', { nodeId: 'chat-one' })).toMatchObject({
+            status: 'failed',
+            result: { text: expect.stringContaining('could not be started on this machine') }
+        });
+        expect(enqueued.filter((item) => item.work.kind === 'start-agent')).toHaveLength(0);
+    });
+
+    test('a failed start frees its place in the limit of open tasks', async () => {
+        const peerTasks = new PeerTasks(deps());
+        for (const id of ['n1', 'n2', 'n3']) {
+            await peerTasks.start(MACHINE, 'client-1', start({ nodeId: id }));
+        }
+        failEnqueue = true;
+        await expect(peerTasks.start(MACHINE, 'client-1', start({ nodeId: 'n4' }))).rejects.toThrow();
+        failEnqueue = false;
+        await peerTasks.start(MACHINE, 'client-1', start({ nodeId: 'n5' }));
+        expect(peerTasks.openCount(MACHINE)).toBe(4);
+    });
+
+    test('a chat or terminal somebody started with that id before the task came is not taken over', async () => {
+        existing.add('chat-one');
+        await expect(new PeerTasks(deps()).start(MACHINE, 'client-1', start())).rejects.toMatchObject({ code: 'peer-node-taken' });
+        expect(tasks.all()).toHaveLength(0);
+        expect(lineage.peerOf('chat-one')).toBeNull();
     });
 
     test('a machine without a link for the project gets nothing started', async () => {

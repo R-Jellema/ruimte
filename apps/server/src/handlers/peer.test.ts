@@ -295,9 +295,10 @@ describe('the nodes of a machine and the tasks it gave share one canvas', () => 
             tasks,
             outbox: { list: () => [], remove: async () => undefined },
             enqueue: async () => undefined,
-            prompts: { put: async () => undefined },
+            prompts: { put: async () => undefined, take: async () => null },
             stopNode: async () => undefined,
             installed: async () => ['claude'],
+            exists: () => false,
             git: () => {
                 throw new Error('no git in this test');
             },

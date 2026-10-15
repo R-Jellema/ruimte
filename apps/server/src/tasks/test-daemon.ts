@@ -390,6 +390,7 @@ export async function bootTestDaemon({
             prompts,
             stopNode: (nodeId, reason) => endChildren.stopNode(nodeId, reason),
             installed: async () => installed,
+            exists: (nodeId) => chats.get(nodeId) !== undefined || sessions.get(nodeId) !== undefined,
             git: peer.git,
             peerBundles: (machineId) => {
                 const held = peerStores.get(machineId) ?? new BundleStore(home, machineId);

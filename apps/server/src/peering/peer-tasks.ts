@@ -42,13 +42,15 @@ export interface PeerTasksDeps {
     links: Pick<PeerLinks, 'linkOf' | 'touch' | 'canvasIdsOf' | 'placedOf' | 'setPlaced' | 'taskRecord' | 'recordTask' | 'forgetTask'>;
     projects: Pick<ProjectStore, 'read' | 'mutate' | 'hold' | 'letGo'> & { index: Pick<ProjectStore['index'], 'folderOf'> };
     lineage: Pick<AgentLineageStore, 'put' | 'peerOf' | 'openedCount'>;
-    tasks: Pick<TaskStore, 'open' | 'all' | 'get' | 'markWoken'>;
+    tasks: Pick<TaskStore, 'open' | 'all' | 'get' | 'markWoken' | 'settle'>;
     outbox: { list(): readonly OutboxEntry[]; remove(id: string): Promise<void> };
     enqueue(projectId: string, target: string, work: OutboxWork): Promise<void>;
-    prompts: Pick<PendingPromptStore, 'put'>;
+    prompts: Pick<PendingPromptStore, 'put' | 'take'>;
     /* Ends the agent and cancels its task, so nobody is woken by a stopped one. */
     stopNode(nodeId: string, reason: string): Promise<void>;
     installed(): Promise<AgentKind[]>;
+    /* Whether a chat or a terminal with this id exists here already. */
+    exists(nodeId: string): boolean;
     /* The git of this machine, asked for when a task needs it: it is wired after the outbox that owes these tasks. */
     git(): { bundles: BundleStore; checkpoints: Pick<CheckpointService, 'take' | 'head'>; worktrees: Worktrees };
     /* The bundles one machine sent, apart from every other machine's. */
@@ -108,6 +110,10 @@ export class PeerTasks {
         if (held !== null && this.taskOf(machineId, nodeId) !== undefined) {
             // A start the other machine asks again because it never heard the answer.
             return await this.startedAs(machineId, nodeId, folder);
+        }
+        if (held === null && deps.exists(nodeId)) {
+            // Started by someone else before the task came; its prompt and folder could not reach it any more.
+            throw new RequestError('peer-node-taken', 'A chat or terminal with that id already runs on this machine');
         }
         if (this.openCount(machineId) >= PEER_MAX_OPEN_TASKS) {
             throw new RequestError('peer-busy', `This machine already runs ${PEER_MAX_OPEN_TASKS} tasks for that machine. Try again when one is done`);
@@ -187,22 +193,38 @@ export class PeerTasks {
                 .worktrees.claim(folder, cwd, nodeId)
                 .catch(() => undefined);
         }
-        await deps.tasks.open({ projectId, parentId: peerCanvasId(machineId), childId: nodeId, title: payload.title, prompt: payload.prompt }, Date.now());
-        await deps.prompts.put(projectId, nodeId, `${payload.prompt}${taskBrief(chat)}`);
-        await deps.enqueue(projectId, nodeId, {
-            kind: 'start-agent',
-            payload: {
-                node: chat ? 'chat' : 'terminal',
-                provider: payload.provider,
-                cwd,
-                ...(runtimeMode === undefined ? {} : { runtimeMode }),
-                ceiling
-            }
-        });
-        await deps.links.touch(machineId, projectId);
+        const task = await deps.tasks.open(
+            { projectId, parentId: peerCanvasId(machineId), childId: nodeId, title: payload.title, prompt: payload.prompt },
+            Date.now()
+        );
+        try {
+            await deps.prompts.put(projectId, nodeId, `${payload.prompt}${taskBrief(chat)}`);
+            await deps.enqueue(projectId, nodeId, {
+                kind: 'start-agent',
+                payload: {
+                    node: chat ? 'chat' : 'terminal',
+                    provider: payload.provider,
+                    cwd,
+                    ...(runtimeMode === undefined ? {} : { runtimeMode }),
+                    ceiling
+                }
+            });
+            await deps.links.touch(machineId, projectId);
+        } catch (e) {
+            await this.abandon(task, e);
+            throw e;
+        }
         // Holding keeps the project loaded for the agent; only a person opening it starts its autostart launches.
         deps.projects.hold(clientId, projectId, { startsLaunches: false });
         return { cwd, branch };
+    }
+
+    /* A start that failed after its task opened: the task fails with the reason, so it holds no place and a retry hears what became of it. */
+    private async abandon(task: Task, error: unknown): Promise<void> {
+        const text = `The task could not be started on this machine: ${error instanceof Error ? error.message : String(error)}`;
+        await this.deps.prompts.take(task.childId).catch(() => null);
+        await this.deps.tasks.settle(task.id, 'failed', { text, source: 'exit', at: Date.now() }, Date.now());
+        await this.deps.tasks.markWoken([task.id]);
     }
 
     /*

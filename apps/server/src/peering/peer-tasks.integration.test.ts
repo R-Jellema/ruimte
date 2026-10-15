@@ -80,9 +80,10 @@ beforeEach(async () => {
         tasks,
         outbox: { list: () => [], remove: async () => undefined },
         enqueue: async (_projectId, _target, work) => void enqueued.push(work),
-        prompts: { put: async () => undefined },
+        prompts: { put: async () => undefined, take: async () => null },
         stopNode: async () => undefined,
         installed: async () => ['claude'],
+        exists: () => false,
         git: () => ({ bundles: bundlesB, checkpoints: new Checkpoints(homeB), worktrees }),
         peerBundles: (machineId) => {
             const held = stores.get(machineId) ?? new BundleStore(homeB, machineId);
