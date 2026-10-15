@@ -24,6 +24,7 @@ import { wireMachine } from './wiring/machine.ts';
 import { wireNetwork } from './wiring/network.ts';
 import { wirePower } from './wiring/power.ts';
 import { wireProjects } from './wiring/projects.ts';
+import { wireRemote } from './wiring/remote.ts';
 import { wireProviders } from './wiring/providers.ts';
 import { wirePush } from './wiring/push.ts';
 import type { DaemonRuntime } from './wiring/runtime.ts';
@@ -80,7 +81,8 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         later: { launches: () => launches, work: () => work, databases: () => databases, language: () => language }
     });
     const databases = await wireDatabases(home, machine.machineHome, projects.store, { language: () => language });
-    const work = wireAgentWork({ home, identity, stores, agents, projects: projects.store, later: { push: () => push, launches: () => launches } });
+    const remote = await wireRemote({ home, identity, machine, outbox: stores.outbox, later: { brokerUrl: () => network.brokerSwitch.describe().brokerUrl } });
+    const work = wireAgentWork({ home, identity, stores, agents, projects: projects.store, remote, later: { push: () => push, launches: () => launches } });
     const launches = wireLaunches({ home, stores, agents, work, projects: projects.store, later: { git: () => git } });
     // Before the socket answers, so an agent whose project nobody opened since the restart still reads its links.
     await projects.store.warmIndex();
@@ -143,6 +145,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         power,
         push,
         canvasHost,
+        remote,
         later: { network: () => network, clients: () => clients }
     });
     const language = await wireLanguage({
@@ -165,6 +168,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         snoozes: work.snoozes,
         prWatches: work.prWatches,
         peers: projects.store.peers,
+        remote: remote.status,
         sessions,
         chats,
         browsers: devices.browsers,

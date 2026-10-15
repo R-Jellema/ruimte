@@ -1,0 +1,150 @@
+import type { OutboxEntry, OutboxWork, ConnectPeerEntry } from '../outbox/outbox.ts';
+import type { RemoteConnections } from './remote-connections.ts';
+
+// The wait after the first failed attempt, like the first poll of a PR-watch; each failure after it doubles the wait up to the cap.
+export const RECONNECT_START_MS = 60_000;
+export const RECONNECT_MAX_MS = 600_000;
+// A link that cannot be made in this long is given up on.
+export const RECONNECT_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
+
+/* The project an entry for a machine is filed under: a reconnect belongs to no project, and no project has this id. */
+export const PEERS_PROJECT = 'peers';
+
+/* The lane of a machine in the outbox, which the entries owed to it share. */
+export function peerTarget(machineId: string): string {
+    return `peer:${machineId}`;
+}
+
+// What an entry that is owed to another machine is called; the kinds that carry a task over the link are written in a later step.
+const OWED_KINDS: ReadonlySet<string> = new Set(['start-remote-agent', 'deliver-remote-result', 'stop-remote-agent']);
+
+/* The machine a piece of work for another machine is owed to, or null for any other entry. */
+export function machineOwed(entry: { kind: string; payload?: unknown }): string | null {
+    if (!OWED_KINDS.has(entry.kind)) {
+        return null;
+    }
+    const machineId = (entry.payload as { machineId?: unknown } | undefined)?.machineId;
+    return typeof machineId === 'string' ? machineId : null;
+}
+
+export interface ConnectPeerDeps {
+    outbox: { list(): readonly OutboxEntry[] };
+    /* The targets of the work owed to a machine: a task given to it, its result, a stop. */
+    owedTargets(machineId: string): string[];
+    enqueue(projectId: string, target: string, work: OutboxWork, notBefore?: number): Promise<void>;
+    /* Looks again at whatever waited on this target. */
+    wake(target: string): void;
+    connections: Pick<RemoteConnections, 'connect' | 'isOpen' | 'knows' | 'idle' | 'waiting'>;
+    now(): number;
+    random(): number;
+}
+
+/*
+ * The reconnect of the link to another machine, as an outbox entry. It is owed only while work for that
+ * machine waits (a task given to it, its result, a stop), and each failure doubles the wait from a
+ * minute to ten, so a machine that sleeps is not woken by a daemon that keeps knocking. It ends when
+ * nothing is owed to the machine any more, when the machine is unlinked, or after 7 days.
+ */
+export class ConnectPeer {
+    private readonly deps: ConnectPeerDeps;
+    // Machines whose attempt is running, and those whose link was lost meanwhile and so need a new entry once it ends.
+    private readonly running = new Set<string>();
+    private readonly lostMeanwhile = new Set<string>();
+
+    constructor(deps: ConnectPeerDeps) {
+        this.deps = deps;
+    }
+
+    /* Owes a reconnect to this machine unless the link is open or one is owed already. */
+    async owe(machineId: string): Promise<void> {
+        if (this.deps.connections.isOpen(machineId) || !this.deps.connections.knows(machineId)) {
+            return;
+        }
+        if (this.running.has(machineId)) {
+            this.lostMeanwhile.add(machineId);
+            return;
+        }
+        if (this.entriesOf(machineId).length > 0) {
+            return;
+        }
+        await this.write(machineId, this.deps.now(), RECONNECT_START_MS, this.deps.now());
+    }
+
+    /* Ends the reconnects owed to a machine, as unlinking it does. */
+    async lapse(machineId: string, remove: (id: string) => Promise<void>): Promise<void> {
+        for (const entry of this.entriesOf(machineId)) {
+            await remove(entry.id);
+        }
+    }
+
+    readonly handler = async (entry: ConnectPeerEntry): Promise<void> => {
+        const { machineId, since, interval } = entry.payload;
+        const { connections } = this.deps;
+        if (this.deps.now() - since >= RECONNECT_LIFETIME_MS || !connections.knows(machineId) || this.owedTo(machineId) === 0) {
+            connections.idle(machineId);
+            return;
+        }
+        this.running.add(machineId);
+        try {
+            await connections.connect(machineId);
+            this.wakeOwed(machineId);
+        } catch {
+            await this.retry(entry, machineId, since, interval);
+        } finally {
+            this.running.delete(machineId);
+        }
+        // This entry is still in the outbox until the worker removes it, so `owe` would take it for the reconnect that is owed.
+        if (this.lostMeanwhile.delete(machineId) && !connections.isOpen(machineId) && this.entriesOf(machineId).every((other) => other.id === entry.id)) {
+            await this.write(machineId, this.deps.now(), RECONNECT_START_MS, this.deps.now());
+        }
+    };
+
+    private async retry(entry: ConnectPeerEntry, machineId: string, since: number, interval: number): Promise<void> {
+        if (this.owedTo(machineId) === 0) {
+            this.deps.connections.idle(machineId);
+            return;
+        }
+        const now = this.deps.now();
+        const at = now + Math.round(interval * (0.9 + 0.2 * this.deps.random()));
+        await this.write(machineId, since, Math.min(interval * 2, RECONNECT_MAX_MS), at, entry.projectId);
+        this.deps.connections.waiting(machineId, at);
+    }
+
+    private write(machineId: string, since: number, interval: number, notBefore: number, projectId = PEERS_PROJECT): Promise<void> {
+        return this.deps.enqueue(projectId, peerTarget(machineId), { kind: 'connect-peer', payload: { machineId, since, interval } }, notBefore);
+    }
+
+    private entriesOf(machineId: string): ConnectPeerEntry[] {
+        return this.deps.outbox.list().filter((entry): entry is ConnectPeerEntry => entry.kind === 'connect-peer' && entry.payload.machineId === machineId);
+    }
+
+    private owedTo(machineId: string): number {
+        return this.deps.owedTargets(machineId).length;
+    }
+
+    private wakeOwed(machineId: string): void {
+        for (const target of new Set(this.deps.owedTargets(machineId))) {
+            this.deps.wake(target);
+        }
+    }
+}
+
+/* The outbox as `ConnectPeerDeps` wants to count what waits on a machine. */
+export function owedTargetsIn(outbox: { list(): readonly { kind: string; target: string; payload?: unknown }[] }): (machineId: string) => string[] {
+    return (machineId) => outbox.list().flatMap((entry) => (machineOwed(entry) === machineId ? [entry.target] : []));
+}
+
+/*
+ * Every reconnect still owed when the daemon starts was waiting out a delay an earlier run set, and the
+ * machine may well be back: each is due now. Call after the outbox loaded and before its worker starts.
+ */
+export async function restartConnectPeers(
+    outbox: { list(): readonly OutboxEntry[]; update(entry: ConnectPeerEntry): Promise<void> },
+    now: number
+): Promise<void> {
+    for (const entry of outbox.list()) {
+        if (entry.kind === 'connect-peer') {
+            await outbox.update({ ...entry, notBefore: now, attempts: 0 });
+        }
+    }
+}

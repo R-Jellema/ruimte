@@ -353,6 +353,7 @@
     "push.attention",
     "snooze.changed",
     "peer.changed",
+    "remote.status",
     "push.notification",
     "session.output",
     "session.resync",

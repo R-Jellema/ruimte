@@ -1,4 +1,4 @@
-import { PeerStatementSchema } from '@ruimte/pulsar';
+import { BrokerUrlSchema, PeerStatementSchema } from '@ruimte/pulsar';
 import { z } from 'zod';
 
 /*
@@ -36,6 +36,22 @@ export type RemoteUnlinkPayload = z.infer<typeof RemoteUnlinkPayloadSchema>;
  */
 export const RemoteConnectPayloadSchema = z.object({
     machineId: z.string().min(1).max(256),
-    statement: PeerStatementSchema
+    statement: PeerStatementSchema,
+    // The broker that machine announces itself to, as the address book lists it; absent is the broker this machine uses itself.
+    brokerUrl: BrokerUrlSchema.nullable().optional()
 });
 export type RemoteConnectPayload = z.infer<typeof RemoteConnectPayloadSchema>;
+
+/*
+ * Where the link to another machine stands, to every client, on each change and once for every machine
+ * a client has not heard of yet. `waiting` is a link that failed while work for that machine is owed,
+ * which tries again at `nextAttemptAt`; a link nothing is owed for just closes (`closed`).
+ */
+export const RemoteStatusEventSchema = z.object({
+    machineId: z.string().min(1).max(256),
+    state: z.enum(['open', 'connecting', 'waiting', 'closed']),
+    // How many pieces of work for that machine wait on the link.
+    owed: z.number().int().min(0),
+    nextAttemptAt: z.number().int().min(0).optional()
+});
+export type RemoteStatusEvent = z.infer<typeof RemoteStatusEventSchema>;

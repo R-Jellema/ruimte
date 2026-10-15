@@ -172,6 +172,7 @@ exports[`every reply and event field keeps its vocabulary 1`] = `
   "event project.summary #/properties/views/items/properties/self/anyOf/0/properties/status = ["error", "exited", "idle", "needs-you", "running"]",
   "event project.summary #/properties/views/items/properties/self/anyOf/0/properties/titleSource = ["auto", "user"]",
   "event project.summary #/properties/views/items/properties/titleSource = ["auto", "user"]",
+  "event remote.status #/properties/state = ["closed", "connecting", "open", "waiting"]",
   "event session.status #/properties/agent/anyOf/0/properties/kind = ["apple", "claude", "codex", "copilot", "gemini"]",
   "event session.status #/properties/agent/anyOf/0/properties/requests/items/properties/kind = ["approval", "question"]",
   "event session.status #/properties/agent/anyOf/0/properties/status = ["error", "exited", "idle", "needs-you", "running"]",

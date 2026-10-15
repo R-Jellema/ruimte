@@ -1,0 +1,274 @@
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { OutboxWorker, type OutboxHandlers } from '@adecore/agents/coordination';
+import { ManualClock } from '@adecore/agents/testing';
+import { OutboxStore, type ConnectPeerEntry, type OutboxWork } from '../outbox/outbox.ts';
+import {
+    ConnectPeer,
+    PEERS_PROJECT,
+    RECONNECT_LIFETIME_MS,
+    RECONNECT_MAX_MS,
+    RECONNECT_START_MS,
+    machineOwed,
+    peerTarget,
+    restartConnectPeers
+} from './connect-peer.ts';
+
+const MACHINE = 'machine-b';
+
+/* The link to a machine as the reconnect sees it: it is down until a test brings it up. */
+class FakeConnections {
+    up = false;
+    known = true;
+    open = false;
+    attempts = 0;
+    readonly standing: string[] = [];
+
+    async connect(): Promise<never> {
+        this.attempts += 1;
+        if (!this.up) {
+            throw new Error('The machine did not answer');
+        }
+        this.open = true;
+        return undefined as never;
+    }
+
+    isOpen(): boolean {
+        return this.open;
+    }
+
+    knows(): boolean {
+        return this.known;
+    }
+
+    idle(machineId: string): void {
+        this.standing.push(`idle:${machineId}`);
+    }
+
+    waiting(machineId: string, nextAttemptAt: number): void {
+        this.standing.push(`waiting:${machineId}:${nextAttemptAt}`);
+    }
+}
+
+let home: string;
+let clock: ManualClock;
+let outbox: OutboxStore;
+let worker: OutboxWorker<OutboxWork>;
+let connections: FakeConnections;
+let reconnect: ConnectPeer;
+let owed: string[];
+let woken: string[];
+let random: number;
+
+function handlersWith(connectPeer: (entry: ConnectPeerEntry) => Promise<void>): OutboxHandlers<OutboxWork> {
+    const unexpected = () => Promise.reject(new Error('nothing but the reconnect runs in these tests'));
+    return {
+        'start-agent': unexpected,
+        'resume-run': unexpected,
+        'resume-limit': unexpected,
+        'background-limit': unexpected,
+        'wake-parent': unexpected,
+        'give-task': unexpected,
+        'deliver-message': unexpected,
+        'end-children': unexpected,
+        'deliver-summary': unexpected,
+        'deliver-waiting': unexpected,
+        'deliver-pr-watch': unexpected,
+        'run-after-settle': unexpected,
+        'connect-peer': connectPeer
+    };
+}
+
+beforeEach(async () => {
+    home = await mkdtemp(join(tmpdir(), 'ruimte-connect-peer-'));
+    clock = new ManualClock();
+    outbox = new OutboxStore(home);
+    await outbox.load();
+    connections = new FakeConnections();
+    owed = ['chat-1'];
+    woken = [];
+    random = 0.5;
+    reconnect = new ConnectPeer({
+        outbox,
+        owedTargets: () => owed,
+        enqueue: (projectId, target, work, notBefore) => worker.enqueue(projectId, target, work, notBefore),
+        wake: (target) => woken.push(target),
+        connections,
+        now: () => clock.now(),
+        random: () => random
+    });
+    worker = new OutboxWorker({ store: outbox, clock, handlers: handlersWith(reconnect.handler) });
+    worker.start();
+});
+
+afterEach(async () => {
+    worker.stop();
+    await rm(home, { recursive: true, force: true });
+});
+
+function connectEntries(): ConnectPeerEntry[] {
+    return outbox.list().filter((entry): entry is ConnectPeerEntry => entry.kind === 'connect-peer');
+}
+
+async function advance(ms: number): Promise<void> {
+    clock.advance(ms);
+    await worker.settled();
+}
+
+describe('the reconnect of a link to another machine', () => {
+    test('is owed once, under the machine, and tried at once', async () => {
+        await reconnect.owe(MACHINE);
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        expect(connections.attempts).toBe(1);
+        const [entry, ...rest] = connectEntries();
+        expect(rest).toEqual([]);
+        expect(entry).toMatchObject({
+            projectId: PEERS_PROJECT,
+            target: peerTarget(MACHINE),
+            payload: { machineId: MACHINE, interval: RECONNECT_START_MS * 2 }
+        });
+    });
+
+    test('waits a minute after the first failure and doubles that up to ten minutes', async () => {
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        const waits: number[] = [];
+        for (let attempt = 0; attempt < 7; attempt += 1) {
+            const entry = connectEntries()[0]!;
+            waits.push(entry.notBefore - clock.now());
+            await advance(entry.notBefore - clock.now());
+        }
+        expect(waits).toEqual([60_000, 120_000, 240_000, 480_000, 600_000, 600_000, 600_000]);
+        expect(connections.attempts).toBe(8);
+        expect(RECONNECT_MAX_MS).toBe(600_000);
+    });
+
+    test('spreads each wait by a tenth either way, and says when the next try is', async () => {
+        random = 0;
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        const first = connectEntries()[0]!;
+        expect(first.notBefore - clock.now()).toBe(54_000);
+        expect(connections.standing.at(-1)).toBe(`waiting:${MACHINE}:${first.notBefore}`);
+        random = 1;
+        await advance(54_000);
+        expect(connectEntries()[0]!.notBefore - clock.now()).toBe(132_000);
+    });
+
+    test('ends and wakes the work for that machine once the link opens', async () => {
+        owed = ['chat-1', 'chat-1', 'chat-2'];
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        connections.up = true;
+        await advance(60_000);
+        expect(connectEntries()).toEqual([]);
+        expect(woken.toSorted()).toEqual(['chat-1', 'chat-2']);
+    });
+
+    test('ends when nothing is owed to the machine any more, without trying again', async () => {
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        owed = [];
+        await advance(60_000);
+        expect(connectEntries()).toEqual([]);
+        expect(connections.attempts).toBe(1);
+        expect(connections.standing.at(-1)).toBe(`idle:${MACHINE}`);
+    });
+
+    test('ends when a person unlinks the machine or stops the work', async () => {
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        await reconnect.lapse(MACHINE, (id) => outbox.remove(id));
+        expect(connectEntries()).toEqual([]);
+        await advance(RECONNECT_MAX_MS);
+        expect(connections.attempts).toBe(1);
+
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        connections.known = false;
+        await advance(60_000);
+        expect(connectEntries()).toEqual([]);
+    });
+
+    test('gives up after 7 days, counted from when the link was first owed', async () => {
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        const since = clock.now();
+        while (connectEntries().length > 0 && clock.now() - since < RECONNECT_LIFETIME_MS + RECONNECT_MAX_MS) {
+            await advance(connectEntries()[0]!.notBefore - clock.now());
+        }
+        expect(connectEntries()).toEqual([]);
+        expect(clock.now() - since).toBeGreaterThanOrEqual(RECONNECT_LIFETIME_MS);
+        expect(clock.now() - since).toBeLessThan(RECONNECT_LIFETIME_MS + RECONNECT_MAX_MS + 1);
+        expect(connections.standing.at(-1)).toBe(`idle:${MACHINE}`);
+    });
+
+    test('owes nothing for a link that is open, and owes again when the link was lost during an attempt', async () => {
+        connections.open = true;
+        await reconnect.owe(MACHINE);
+        expect(connectEntries()).toEqual([]);
+
+        connections.open = false;
+        connections.up = true;
+        let release: () => void = () => undefined;
+        const gate = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        const opens = connections.connect.bind(connections);
+        connections.connect = async () => {
+            await gate;
+            const link = await opens();
+            // The link is lost the moment it opened, before the attempt has ended.
+            connections.open = false;
+            return link;
+        };
+        await reconnect.owe(MACHINE);
+        await Promise.resolve();
+        await reconnect.owe(MACHINE);
+        release();
+        await worker.settled();
+        expect(connections.attempts).toBe(2);
+        expect(connectEntries()).toEqual([]);
+    });
+
+    test('is due at once after a restart, whatever delay an earlier run set', async () => {
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        worker.stop();
+        const entry = connectEntries()[0]!;
+        expect(entry.notBefore).toBeGreaterThan(clock.now());
+
+        const fresh = new OutboxStore(home);
+        await fresh.load();
+        await restartConnectPeers(fresh, clock.now());
+        expect(fresh.list()[0]).toMatchObject({ id: entry.id, notBefore: clock.now(), attempts: 0 });
+        const attempts = connections.attempts;
+        const restarted = new OutboxWorker({ store: fresh, clock, handlers: handlersWith(reconnect.handler) });
+        restarted.start();
+        await restarted.settled();
+        restarted.stop();
+        expect(connections.attempts).toBe(attempts + 1);
+    });
+
+    test('survives a prune of the project ids and keeps its own lane beside the work it waits for', async () => {
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        await outbox.prune('project-1', new Set());
+        await outbox.prune(PEERS_PROJECT, new Set());
+        expect(connectEntries()).toHaveLength(1);
+        expect(outbox.lanesOf(connectEntries()[0]!)).toEqual([peerTarget(MACHINE)]);
+    });
+});
+
+describe('the work owed to another machine', () => {
+    test('is told by its kind and the machine in its payload', () => {
+        expect(machineOwed({ kind: 'start-remote-agent', payload: { machineId: MACHINE } })).toBe(MACHINE);
+        expect(machineOwed({ kind: 'deliver-remote-result', payload: { machineId: MACHINE } })).toBe(MACHINE);
+        expect(machineOwed({ kind: 'stop-remote-agent', payload: { machineId: MACHINE } })).toBe(MACHINE);
+        expect(machineOwed({ kind: 'start-agent', payload: { machineId: MACHINE } })).toBeNull();
+        expect(machineOwed({ kind: 'start-remote-agent', payload: {} })).toBeNull();
+    });
+});

@@ -12,7 +12,7 @@ import {
     DirectVerdictFrameSchema,
     type DirectProofFrame
 } from '@ruimte/contracts';
-import type { SignalEnvelope, SignalOfferAccess } from '@ruimte/pulsar';
+import type { IceServer, SignalEnvelope, SignalOfferAccess } from '@ruimte/pulsar';
 import { randomBytes } from 'node:crypto';
 import { RTCPeerConnection, type RTCDataChannel } from 'werift';
 import { verifySignature } from '@ruimte/pulsar/verify-node';
@@ -25,12 +25,16 @@ const CLOSE_GRACE_MS = 2_000;
 
 export type DirectCredential =
     | { kind: 'key'; publicKey: string; privateKey: string; daemonId: string; daemonPublicKey: string }
+    // A key this process only signs with and never holds, such as the peer key behind `PeerKey`.
+    | { kind: 'signer'; publicKey: string; sign(message: string): string | Promise<string>; daemonId: string; daemonPublicKey: string }
     | { kind: 'secret'; secret: string; daemonId: string }
     // No proof at all: answers the challenge with a request, which is what a client that skips the handshake does.
     | { kind: 'none' };
 
 export interface DirectClientOptions {
     stunServers: string[];
+    /* ICE servers with their credentials, such as the broker's TURN; used in place of `stunServers` when given. */
+    iceServers?: IceServer[];
     /* Sends a signal towards the daemon; whatever it answers goes into `receiveSignal`. */
     signal(envelope: SignalEnvelope): void;
     credential: DirectCredential;
@@ -47,9 +51,9 @@ interface Pending {
 }
 
 /*
- * The client side of a direct connection outside a browser, on werift: for the Docker bench, the
- * probe and the tests. The app uses the browser's own `RTCPeerConnection` (`WebRtcLink` in the
- * client), which speaks the same frames.
+ * The client side of a direct connection outside a browser, on werift: the link of one daemon to
+ * another (`remote/peer-connection.ts`), the Docker bench, the probe and the tests. The app uses the
+ * browser's own `RTCPeerConnection` (`WebRtcLink` in the client), which speaks the same frames.
  */
 export class DirectClient {
     readonly connectionId = randomBytes(12).toString('base64url');
@@ -72,7 +76,7 @@ export class DirectClient {
 
     constructor(options: DirectClientOptions) {
         this.options = options;
-        this.peer = new RTCPeerConnection({ iceServers: options.stunServers.map((urls) => ({ urls })) });
+        this.peer = new RTCPeerConnection({ iceServers: options.iceServers ?? options.stunServers.map((urls) => ({ urls })) });
     }
 
     receiveSignal(envelope: SignalEnvelope): void {
@@ -217,7 +221,7 @@ export class DirectClient {
                         channel.send(JSON.stringify({ id: 'unproven', type: 'endpoint.info', payload: {} }));
                         return;
                     }
-                    if (credential.kind === 'key') {
+                    if (credential.kind === 'key' || credential.kind === 'signer') {
                         const signedBy = daemon.publicKey === credential.daemonPublicKey && daemon.id === credential.daemonId;
                         if (
                             !signedBy ||
@@ -228,7 +232,12 @@ export class DirectClient {
                             return;
                         }
                     }
-                    channel.send(JSON.stringify(proofFor(credential, challenge.data.challenge, binding)));
+                    void proofFor(credential, challenge.data.challenge, binding).then(
+                        (proof) => {
+                            channel.send(JSON.stringify(proof));
+                        },
+                        (e: unknown) => reject(e instanceof Error ? e : new Error(String(e)))
+                    );
                     return;
                 }
                 const verdict = DirectVerdictFrameSchema.safeParse(json);
@@ -267,14 +276,15 @@ export class DirectClient {
     }
 }
 
-function proofFor(credential: Exclude<DirectCredential, { kind: 'none' }>, challenge: string, binding: string): DirectProofFrame {
-    if (credential.kind === 'key') {
+async function proofFor(credential: Exclude<DirectCredential, { kind: 'none' }>, challenge: string, binding: string): Promise<DirectProofFrame> {
+    if (credential.kind === 'key' || credential.kind === 'signer') {
+        const message = clientChannelMessage(credential.daemonId, challenge, credential.publicKey, binding);
         return {
             type: 'direct.key',
             protocol: PROTOCOL_VERSION,
             challenge,
             publicKey: credential.publicKey,
-            signature: signMessage(credential.privateKey, clientChannelMessage(credential.daemonId, challenge, credential.publicKey, binding))
+            signature: credential.kind === 'key' ? signMessage(credential.privateKey, message) : await credential.sign(message)
         };
     }
     return {

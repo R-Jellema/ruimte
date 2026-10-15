@@ -58,6 +58,12 @@ const RunAfterSettleSchema = z.object({
     payload: z.object({ turnId: z.string().min(1), launchId: z.string().min(1), worktree: z.string().min(1) })
 });
 
+const ConnectPeerSchema = z.object({
+    kind: z.literal('connect-peer'),
+    // The target is `peer:<machineId>`, the machine whose link is owed. `since` is when it was first owed, which the 7 days count from; `interval` is the wait after the next failure.
+    payload: z.object({ machineId: z.string().min(1), since: z.number(), interval: z.number().positive() })
+});
+
 // The kinds of tasks, ending children and delivering a message are @adecore/agents' own, each at the place it always had.
 const OutboxWorkSchema = z.discriminatedUnion('kind', [
     StartAgentSchema,
@@ -71,7 +77,8 @@ const OutboxWorkSchema = z.discriminatedUnion('kind', [
     DeliverSummarySchema,
     DeliverWaitingWorkSchema,
     DeliverPrWatchSchema,
-    RunAfterSettleSchema
+    RunAfterSettleSchema,
+    ConnectPeerSchema
 ]);
 
 export type OutboxWork = z.infer<typeof OutboxWorkSchema>;
@@ -88,11 +95,12 @@ export type DeliverSummaryEntry = Extract<OutboxEntry, { kind: 'deliver-summary'
 export type DeliverWaitingEntry = Extract<OutboxEntry, { kind: 'deliver-waiting' }>;
 export type DeliverPrWatchEntry = Extract<OutboxEntry, { kind: 'deliver-pr-watch' }>;
 export type RunAfterSettleEntry = Extract<OutboxEntry, { kind: 'run-after-settle' }>;
+export type ConnectPeerEntry = Extract<OutboxEntry, { kind: 'connect-peer' }>;
 
 /*
  * Work the daemon still owes, under `$RUIMTE_HOME/outbox`. Only a verb or a restart puts something
  * here, never a clock; the exceptions are a `resume-limit`, only where a person turned it on, a
- * `background-limit` and the grace of a `deliver-waiting`, each due at a time. A `deliver-pr-watch`
+ * `background-limit`, the grace of a `deliver-waiting` and a `connect-peer`, each due at a time. A `deliver-pr-watch`
  * is due at once: the poll that wrote it is the PR-watch's own clock, not the outbox's. A
  * `run-after-settle` is due at once too, owed when a chat in a worktree settles.
  */
@@ -103,8 +111,8 @@ export class OutboxStore extends BaseOutboxStore<OutboxWork> {
             work: OutboxWorkSchema,
             // Ending children holds their lanes too, so no start or resume of one runs beside it.
             lanesOf: (entry) => (entry.kind === 'end-children' ? [entry.target, ...entry.payload.nodeIds] : [entry.target]),
-            // Ending the children of a deleted node is owed exactly because it is gone.
-            outlivesTarget: (entry) => entry.kind === 'end-children'
+            // Ending the children of a deleted node is owed exactly because it is gone, and a reconnect is owed to a machine, which no node stands for.
+            outlivesTarget: (entry) => entry.kind === 'end-children' || entry.kind === 'connect-peer'
         });
     }
 }

@@ -4,10 +4,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FakeWatch } from '@adecore/agents/testing';
 import type { ServerFrame } from '@ruimte/contracts';
+import { peerStatementMessage } from '@ruimte/pulsar';
+import { generateKeyPair, signMessage } from '../auth/keys.ts';
 import { Dispatcher } from '../dispatcher.ts';
 import { projectLinks } from '../projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../projects/project-store.ts';
+import { PeerMachines } from '../remote/peer-machines.ts';
 import { PendingAdmissions } from '../remote/pending-admissions.ts';
+import type { PeerLink } from '../remote/peer-connection.ts';
 import { registerRemoteHandlers } from './remote.ts';
 
 let root: string;
@@ -15,23 +19,58 @@ let store: ProjectStore;
 let dispatcher: Dispatcher;
 let projectId: string;
 let pending: PendingAdmissions;
+let machines: PeerMachines;
+let attempts: string[];
+let connectFails: boolean;
+let closed: string[];
+let lapsed: string[];
+let binding: { id: string; since: number } | null | undefined;
 
 const PEER_KEY = 'P'.repeat(43);
+const MACHINE_KEY = 'A'.repeat(43);
+const addressBook = generateKeyPair();
 
-function statementFor(patch: Record<string, unknown> = {}): Record<string, unknown> {
+// What the address book signs for machine a to work in machine b, with the fields a test wants changed.
+function statementFor(patch: Record<string, unknown> = {}, signer = addressBook): Record<string, unknown> {
     const issuedAt = Date.now();
-    return {
+    const fields = {
         machineId: 'machine-b',
         machinePublicKey: 'B'.repeat(43),
         accountId: 'account-1',
         peerPublicKey: PEER_KEY,
         peerMachineId: 'machine-a',
-        peerMachinePublicKey: 'A'.repeat(43),
+        peerMachinePublicKey: MACHINE_KEY,
         nonce: 'n'.repeat(22),
         issuedAt,
         expiresAt: issuedAt + 600_000,
-        signature: 's'.repeat(86),
         ...patch
+    } as {
+        machineId: string;
+        machinePublicKey: string;
+        accountId: string;
+        peerPublicKey: string;
+        peerMachineId: string;
+        peerMachinePublicKey: string;
+        nonce: string;
+        issuedAt: number;
+        expiresAt: number;
+    };
+    return {
+        ...fields,
+        signature: signMessage(
+            signer.privateKey,
+            peerStatementMessage(
+                fields.machineId,
+                fields.machinePublicKey,
+                fields.accountId,
+                fields.peerPublicKey,
+                fields.peerMachineId,
+                fields.peerMachinePublicKey,
+                fields.nonce,
+                fields.issuedAt,
+                fields.expiresAt
+            )
+        )
     };
 }
 
@@ -44,7 +83,35 @@ beforeEach(async () => {
     store = new ProjectStore(join(root, 'home'), projectLinks(), new FakeWatch());
     dispatcher = new Dispatcher();
     pending = new PendingAdmissions();
-    registerRemoteHandlers(dispatcher, store.remote, store, { machineId: 'machine-a', peerPublicKey: async () => PEER_KEY, pending });
+    machines = new PeerMachines(join(root, 'home'));
+    attempts = [];
+    closed = [];
+    lapsed = [];
+    connectFails = false;
+    binding = undefined;
+    registerRemoteHandlers(dispatcher, store.remote, store, {
+        machineId: 'machine-a',
+        machinePublicKey: MACHINE_KEY,
+        peerPublicKey: async () => PEER_KEY,
+        pending,
+        machines,
+        connections: {
+            connect: async (machineId) => {
+                attempts.push(machineId);
+                if (connectFails) {
+                    throw new Error('That machine is not online');
+                }
+                return {} as PeerLink;
+            },
+            close: (machineId) => closed.push(machineId)
+        },
+        trustedKeys: [addressBook.publicKey],
+        accountBinding: async () => binding,
+        lapse: async (machineId) => {
+            lapsed.push(machineId);
+        },
+        now: () => Date.now()
+    });
     projectId = (await store.openProject({ folder })).summary.projectId;
 });
 
@@ -100,17 +167,69 @@ describe('the checkout a project is linked to on another machine', () => {
 });
 
 describe('a peer statement handed over for another machine', () => {
-    test('is held until that machine lets this one in', async () => {
-        expect(await ask('remote.connect', { machineId: 'machine-b', statement: statementFor() })).toMatchObject({ ok: true });
+    test('is held, the machine is remembered under the key the address book signed, and the link opens', async () => {
+        const reply = await ask('remote.connect', { machineId: 'machine-b', statement: statementFor(), brokerUrl: 'wss://broker.example.com' });
+        expect(reply).toMatchObject({ ok: true });
         expect(pending.peek('machine-b')).toMatchObject({ machineId: 'machine-b', peerMachineId: 'machine-a' });
+        expect(machines.get('machine-b')).toMatchObject({ publicKey: 'B'.repeat(43), brokerUrl: 'wss://broker.example.com' });
+        expect(attempts).toEqual(['machine-b']);
     });
 
-    test('is refused when it names another machine, another peer key, or has run out', async () => {
-        const cases = [{ machineId: 'machine-c' }, { peerMachineId: 'machine-z' }, { peerPublicKey: 'Q'.repeat(43) }, { issuedAt: 1, expiresAt: 2 }];
+    test('says why the machine could not be reached, and keeps the statement for another try', async () => {
+        connectFails = true;
+        expect(await ask('remote.connect', { machineId: 'machine-b', statement: statementFor() })).toMatchObject({
+            ok: false,
+            error: { code: 'peer-unreachable', message: 'That machine is not online' }
+        });
+        expect(pending.peek('machine-b')).not.toBeNull();
+    });
+
+    test('is refused when it names another machine, another peer key, another machine key of this one, or has run out', async () => {
+        const cases = [
+            { machineId: 'machine-c' },
+            { peerMachineId: 'machine-z' },
+            { peerPublicKey: 'Q'.repeat(43) },
+            { peerMachinePublicKey: 'Z'.repeat(43) },
+            { issuedAt: 1, expiresAt: 2 }
+        ];
         for (const patch of cases) {
-            const machineId = 'machine-b';
-            expect(await ask('remote.connect', { machineId, statement: statementFor(patch) })).toMatchObject({ ok: false, error: { code: 'bad-statement' } });
+            expect(await ask('remote.connect', { machineId: 'machine-b', statement: statementFor(patch) })).toMatchObject({
+                ok: false,
+                error: { code: 'bad-statement' }
+            });
         }
+        expect(pending.peek('machine-b')).toBeNull();
+        expect(machines.get('machine-b')).toBeNull();
+        expect(attempts).toEqual([]);
+    });
+
+    test('is refused when the address book did not sign it, so no machine key is pinned on a client`s word', async () => {
+        const forged = statementFor({ machinePublicKey: 'F'.repeat(43) }, generateKeyPair());
+        expect(await ask('remote.connect', { machineId: 'machine-b', statement: forged })).toMatchObject({ ok: false, error: { code: 'bad-statement' } });
+        const altered = { ...statementFor(), machinePublicKey: 'F'.repeat(43) };
+        expect(await ask('remote.connect', { machineId: 'machine-b', statement: altered })).toMatchObject({ ok: false, error: { code: 'bad-statement' } });
+        expect(machines.get('machine-b')).toBeNull();
+    });
+
+    test('is refused for another account than the one this machine is on', async () => {
+        binding = { id: 'account-2', since: 1 };
+        expect(await ask('remote.connect', { machineId: 'machine-b', statement: statementFor() })).toMatchObject({
+            ok: false,
+            error: { code: 'bad-statement' }
+        });
+        binding = { id: 'account-1', since: 1 };
+        expect(await ask('remote.connect', { machineId: 'machine-b', statement: statementFor() })).toMatchObject({ ok: true });
+    });
+});
+
+describe('unlinking the last project that links to a machine', () => {
+    test('closes the link, ends the reconnect and forgets the machine', async () => {
+        await ask('remote.connect', { machineId: 'machine-b', statement: statementFor() });
+        await ask('remote.link', { projectId, ...LINK });
+        expect(await ask('remote.unlink', { projectId, machineId: 'machine-b' })).toMatchObject({ ok: true });
+        expect(closed).toEqual(['machine-b']);
+        expect(lapsed).toEqual(['machine-b']);
+        expect(machines.get('machine-b')).toBeNull();
         expect(pending.peek('machine-b')).toBeNull();
     });
 });

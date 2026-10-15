@@ -6,6 +6,7 @@ import { PendingPromptStore } from '../agents/pending-prompts.ts';
 import { startCwdGuard } from '../canvas/project-paths.ts';
 import { ChatManager } from '../chat/chat-manager.ts';
 import { ruimteUiSources } from '../chat/ui-sources.ts';
+import { restartConnectPeers } from '../remote/connect-peer.ts';
 import type { AuthStore } from '../auth/auth-store.ts';
 import { Geocoder } from '../maps/geocoder.ts';
 import type { ComputerUse } from '../computer/computer-use.ts';
@@ -81,7 +82,10 @@ export async function loadAgentStores(home: string): Promise<AgentStores> {
         prompts.load(),
         lineage.load(),
         notices.load(),
-        outbox.load().then(() => restartBackgroundLimits(outbox, Date.now())),
+        outbox.load().then(async () => {
+            await restartBackgroundLimits(outbox, Date.now());
+            await restartConnectPeers(outbox, Date.now());
+        }),
         tasks.load(),
         commandApprovals.load(),
         modeApprovals.load(),

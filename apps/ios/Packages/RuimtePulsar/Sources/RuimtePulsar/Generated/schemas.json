@@ -7686,6 +7686,18 @@
           "expiresAt",
           "signature"
         ]
+      },
+      "brokerUrl": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 512,
+            "pattern": "^wss?:\\/\\/[^\\s]+$"
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
     "required": [
@@ -57371,6 +57383,41 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {}
+  },
+  "event.remote.status": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "machineId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "state": {
+        "type": "string",
+        "enum": [
+          "open",
+          "connecting",
+          "waiting",
+          "closed"
+        ]
+      },
+      "owed": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "nextAttemptAt": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "machineId",
+      "state",
+      "owed"
+    ]
   },
   "event.push.notification": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",

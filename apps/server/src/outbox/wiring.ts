@@ -11,7 +11,7 @@ import type { SessionManager } from '../sessions/manager.ts';
 import { wireTasks, type TaskWiring } from '../tasks/wiring.ts';
 import { errorText } from '../error-text.ts';
 import { wireEndChildren, type EndChildrenWiring } from './end-children.ts';
-import type { OutboxStore, OutboxWork, RunAfterSettleEntry } from './outbox.ts';
+import type { ConnectPeerEntry, OutboxStore, OutboxWork, RunAfterSettleEntry } from './outbox.ts';
 import { oweResume, resumeRunHandler, resumeRunParked } from './resume-run.ts';
 import { startAgentHandler } from './start-agent.ts';
 import { placesOf } from '../projects/project-index.ts';
@@ -117,6 +117,8 @@ export interface OutboxWiringDeps {
     onFailed?: (what: string, error: unknown) => void;
     /* Starts the task a chat's project runs after it settled in a worktree; absent on a host that runs no launches, where the entry lapses. */
     runAfterSettle?: (entry: RunAfterSettleEntry) => Promise<void>;
+    /* The reconnect of the link to another machine (`remote/connect-peer.ts`); absent on a host that links to none, where the entry lapses. */
+    connectPeer?: (entry: ConnectPeerEntry) => Promise<void>;
 }
 
 export interface OutboxWiring {
@@ -236,7 +238,8 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
                 }
                 return chat.wake({ text: entry.payload.text, label: entry.payload.label, taskIds: [] }) ? undefined : 'wait';
             },
-            'run-after-settle': (entry) => deps.runAfterSettle?.(entry) ?? Promise.resolve()
+            'run-after-settle': (entry) => deps.runAfterSettle?.(entry) ?? Promise.resolve(),
+            'connect-peer': (entry) => deps.connectPeer?.(entry) ?? Promise.resolve()
         },
         onParked: (entry, error) => {
             resumeRunParked(chats)(entry, error);

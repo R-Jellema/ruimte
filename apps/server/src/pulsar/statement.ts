@@ -108,6 +108,11 @@ export function checkPeerStatement(statement: PeerStatement, expected: Statement
     if (expected.now - STATEMENT_CLOCK_SKEW_MS > statement.expiresAt) {
         return 'expired';
     }
+    return peerStatementSigned(statement, expected.trustedKeys) ? null : 'bad-signature';
+}
+
+/* Whether the address book signed exactly these fields, for the machine that was asked to work here and the one that works. */
+export function peerStatementSigned(statement: PeerStatement, trustedKeys: readonly string[]): boolean {
     const message = peerStatementMessage(
         statement.machineId,
         statement.machinePublicKey,
@@ -119,7 +124,7 @@ export function checkPeerStatement(statement: PeerStatement, expected: Statement
         statement.issuedAt,
         statement.expiresAt
     );
-    return signedByTrustedKey(expected.trustedKeys, message, statement.signature) ? null : 'bad-signature';
+    return signedByTrustedKey(trustedKeys, message, statement.signature);
 }
 
 /* The pinned keys, or the bench's own key in their place when this daemon runs from source and was handed one. */

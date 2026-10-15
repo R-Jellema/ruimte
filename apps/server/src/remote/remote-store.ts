@@ -115,6 +115,11 @@ export class RemoteStore {
         return Object.values(this.nodesOf(projectId)).includes(machineId);
     }
 
+    /* Whether any project links to that machine or has a node running on it. */
+    isLinked(machineId: string): boolean {
+        return this.files.all().some((file) => file.links.some((link) => isLinkTo(link, machineId)) || Object.values(file.nodes).includes(machineId));
+    }
+
     /* The project is gone, and its bindings with it. */
     forget(projectId: string): Promise<void> {
         return this.files.remove(projectId);

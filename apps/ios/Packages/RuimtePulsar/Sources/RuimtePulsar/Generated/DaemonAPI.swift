@@ -265,6 +265,7 @@ public enum WireEvent: String, CaseIterable, Sendable {
     case `pushAttention` = "push.attention"
     case `snoozeChanged` = "snooze.changed"
     case `peerChanged` = "peer.changed"
+    case `remoteStatus` = "remote.status"
     case `pushNotification` = "push.notification"
     case `sessionOutput` = "session.output"
     case `sessionResync` = "session.resync"

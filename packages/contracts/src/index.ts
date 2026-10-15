@@ -73,6 +73,7 @@ import {
     RemoteLinkSchema,
     RemoteListPayloadSchema,
     RemoteListResultSchema,
+    RemoteStatusEventSchema,
     RemoteUnlinkPayloadSchema
 } from './remote.ts';
 import { SnoozeClearPayloadSchema, SnoozeListSchema, SnoozeSetPayloadSchema } from './snooze.ts';
@@ -711,6 +712,8 @@ export const EVENT_SCHEMAS = {
     'snooze.changed': SnoozeListSchema,
     // The links of other machines to projects here changed, so the list in settings reloads.
     'peer.changed': EmptySchema,
+    // The link to another machine opened, was lost or is waiting to be tried again.
+    'remote.status': RemoteStatusEventSchema,
     'push.notification': z.object({
         projectId: z.string().min(1),
         viewId: z.string().min(1),
