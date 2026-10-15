@@ -52,6 +52,17 @@
         }
       }
     },
+    "%@ of %@ characters" : {
+      "comment" : "Used and allowed characters of a text field",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ van %2$@ tekens"
+          }
+        }
+      }
+    },
     "After" : {
       "localizations" : {
         "nl" : {

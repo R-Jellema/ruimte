@@ -246,6 +246,27 @@ final class IntelligentUIPresentationTests: XCTestCase {
         XCTAssertEqual(text("after lunch"), "after lunch")
     }
 
+    func testATextFieldIsCutAtItsLimitInTheUnitsTheInterpreterCounts() {
+        XCTAssertEqual(UiTextLimit.clamp("Grace", to: 5), "Grace")
+        XCTAssertEqual(UiTextLimit.clamp("Grace H", to: 5), "Grace")
+        XCTAssertEqual(UiTextLimit.clamp("", to: 5), "")
+        // An emoji is two units and a flag four; none is cut in half.
+        XCTAssertEqual(UiTextLimit.clamp("ab😀c", to: 3), "ab")
+        XCTAssertEqual(UiTextLimit.clamp("ab😀c", to: 4), "ab😀")
+        XCTAssertEqual(UiTextLimit.clamp("🇳🇱🇳🇱", to: 6), "🇳🇱")
+    }
+
+    func testASelectNamesItselfByTheTextBesideItsOptions() throws {
+        let select = try node(
+            #"""
+            {"id":"s","type":"Select","props":{"value":"a"},"children":[
+            {"id":"s1","type":"Option","props":{"value":"a"},"children":[{"id":"t1","type":"$text","props":{"text":"Alpha"}}]},
+            {"id":"t2","type":"$text","props":{"text":"  Pick a    mode "}}]}
+            """#)
+        XCTAssertEqual(select.ownLabel, "Pick a mode")
+        XCTAssertEqual(select.label, "Alpha Pick a mode")
+    }
+
     /// Every component the shared interpreter evaluates in the fixtures is one this version draws; a component the
     /// catalog gained and the renderer lacks would read as unknown here.
     func testEveryEvaluatedComponentOfTheFixturesIsOneTheAppDraws() throws {

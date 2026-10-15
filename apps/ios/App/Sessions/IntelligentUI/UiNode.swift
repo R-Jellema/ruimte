@@ -50,6 +50,13 @@ struct UiNode: Identifiable, Equatable {
             .trimmingCharacters(in: .whitespaces)
     }
 
+    /// The text written beside the children of a control, such as the label of a Select next to its Options.
+    var ownLabel: String {
+        children.filter(\.isText).map(\.text).joined()
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+    }
+
     /// Whether this node or anything below it could not be evaluated.
     var hasError: Bool { error != nil || children.contains { $0.hasError } }
 
@@ -88,13 +95,15 @@ enum UiCatalog {
         "Summary", "Callout", "Tag", "Progress", "Steps", "Step", "Stats", "Stat", "EntityList", "Entry", "Table",
         "Column", "Chart", "Tabs", "Tab", "Sections", "Section", "CodeBlock", "Image", "Sources", "Source", "File",
         "Diff", "Commit", "Node", "Checklist", "Item", "Switch", "Slider", "Segmented", "Option", "Show", "Each",
-        "Button", "Choices", "Choice", "Timeline", "Event", "Gallery", "Compare",
+        "Button", "Choices", "Choice", "Timeline", "Event", "Gallery", "Compare", "TextField", "Select",
     ]
     static let links: Set<String> = ["File", "Diff", "Commit", "Node"]
     /// Parents whose text is read as written: code, a short tag and the labels of controls, whose accessible name
     /// and sent text are that same string.
     static let literalParents: Set<String> = [
         "CodeBlock", "Tag", "Choice", "Item", "Switch", "Slider", "Segmented", "Option", "Column", "Button",
+        "TextField",
+        "Select",
     ]
 
     /// Which `$text` nodes of a block the agent wrote out; the value of an expression is data and stays as it is.

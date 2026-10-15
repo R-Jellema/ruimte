@@ -82,6 +82,11 @@ const cases: ParityCase[] = [
     },
     { name: 'gallery', source: '<Gallery><Image attachment="shot-1">Login</Image><Image attachment="shot-2" alt="Settings"/></Gallery>' },
     { name: 'compare', source: '<Compare before="shot-1" after="shot-2" beforeLabel="Old">Header spacing</Compare>' },
+    { name: 'text field', source: '$name = "Ada"\n<TextField value={$name} maxLength={5} placeholder="Name">Your name</TextField><Summary>Hello {$name}</Summary>' },
+    {
+        name: 'select input',
+        source: '$mode = "a"\n<Select value={$mode}><Option value="a">Alpha</Option><Option value="b">Beta</Option>Mode</Select><Summary>Mode {$mode}</Summary>'
+    },
     { name: 'segmented input', source: '$mode = "a"\n<Segmented value={$mode}><Option value="a">A</Option><Option value="b">B</Option></Segmented>' }
 ];
 

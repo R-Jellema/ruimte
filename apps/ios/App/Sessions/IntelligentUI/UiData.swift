@@ -30,6 +30,23 @@ enum UiFormat {
     }
 }
 
+enum UiTextLimit {
+    /// The longest start of `text` within `limit` UTF-16 units, which is how the interpreter counts a TextField's
+    /// characters, without cutting a character in two.
+    static func clamp(_ text: String, to limit: Int) -> String {
+        guard text.utf16.count > limit else { return text }
+        var kept = ""
+        var used = 0
+        for character in text {
+            let units = String(character).utf16.count
+            if used + units > limit { break }
+            kept.append(character)
+            used += units
+        }
+        return kept
+    }
+}
+
 /// The moment an Event's `at` names, read as `parseUiEventTime` in `@adecore/intelligent-ui` does.
 struct UiEventTime: Equatable {
     enum Kind: Equatable { case time, date, dateTime }

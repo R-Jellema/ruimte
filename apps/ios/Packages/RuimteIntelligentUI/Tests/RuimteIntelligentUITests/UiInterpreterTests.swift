@@ -69,6 +69,43 @@ struct UiInterpreterTests {
         }
     }
 
+    @Test func aTextFieldTakesTextUpToItsLimitAndKeepsItsValueOtherwise() async throws {
+        let interpreter = UiInterpreter()
+        let block = try block("text field")
+        let initial = try await interpreter.evaluate(block: block)
+        let nodeID = try #require(initial["nodes"]?.arrayValue?.first?["id"])
+        let changed = try await interpreter.evaluate(block: block, change: .object([
+            "nodeId": nodeID, "prop": .string("value"), "value": .string("Grace"),
+        ]))
+        #expect(changed["values"]?["$name"] == .string("Grace"))
+        let summary = try #require(changed["nodes"]?.arrayValue?.last?["children"]?.arrayValue)
+        #expect(summary.contains { $0["props"]?["text"] == .string("Grace") })
+        for refused in [JSONValue.string("Grace H"), .number(7)] {
+            let kept = try await interpreter.evaluate(block: block, change: .object([
+                "nodeId": nodeID, "prop": .string("value"), "value": refused,
+            ]))
+            #expect(kept["values"]?["$name"] == .string("Ada"))
+        }
+        let again = try await interpreter.evaluate(block: block)
+        #expect(again["values"]?["$name"] == .string("Ada"))
+    }
+
+    @Test func aSelectTakesOnlyTheValueOfAnOption() async throws {
+        let interpreter = UiInterpreter()
+        let block = try block("select input")
+        let initial = try await interpreter.evaluate(block: block)
+        let nodeID = try #require(initial["nodes"]?.arrayValue?.first?["id"])
+        let changed = try await interpreter.evaluate(block: block, change: .object([
+            "nodeId": nodeID, "prop": .string("value"), "value": .string("b"),
+        ]))
+        #expect(changed["values"]?["$mode"] == .string("b"))
+        await #expect(throws: UiInterpreterError.self) {
+            try await interpreter.evaluate(block: block, change: .object([
+                "nodeId": nodeID, "prop": .string("value"), "value": .string("not-an-option"),
+            ]))
+        }
+    }
+
     @Test func agentTextStaysDataAndOversizedInputIsRefused() async throws {
         let interpreter = UiInterpreter()
         let block = try block("local input")

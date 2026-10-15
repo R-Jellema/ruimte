@@ -239,6 +239,8 @@ struct UiNodeView: View {
         case "Switch": UiSwitchView(node: node, context: context)
         case "Slider": UiSliderView(node: node, context: context)
         case "Segmented": UiSegmentedView(node: node, context: context)
+        case "TextField": UiTextFieldView(node: node, context: context)
+        case "Select": UiSelectView(node: node, context: context)
         case "Button": UiButtonView(node: node, context: context)
         case "Choices": UiChoicesView(node: node, context: context)
         case "Choice": UiChoiceView(node: node, context: context)

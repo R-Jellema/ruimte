@@ -197,6 +197,97 @@ struct UiSegmentedView: View {
     }
 }
 
+/// A line of text with its label above, which stops taking characters at its limit. Nothing here submits: the text
+/// reaches the agent only through a Choice. What is typed shows at once and the block evaluates it right behind.
+struct UiTextFieldView: View {
+    let node: UiNode
+    let context: UiRenderContext
+    @State private var draft: String?
+    @FocusState private var focused: Bool
+
+    private static let defaultLimit = 256
+    /// The count under the field appears once the field is this full, and never nags before.
+    private static let countFrom = 0.8
+
+    var body: some View {
+        let limit = node.number("maxLength").map { Int($0) } ?? Self.defaultLimit
+        let bound = (node.boundValue ?? node.props["value"])?.stringValue ?? ""
+        let text = draft ?? bound
+        let used = text.utf16.count
+        VStack(alignment: .leading, spacing: 4) {
+            UiNodesView(nodes: node.children, parent: node.type, context: context)
+                .font(.subheadline).foregroundStyle(MobileStyle.muted)
+                .accessibilityHidden(true)
+            TextField(
+                node.label, text: Binding(get: { text }, set: { draft = $0 }),
+                prompt: node.string("placeholder").map { Text(verbatim: $0) }
+            )
+            .font(.subheadline).foregroundStyle(MobileStyle.text)
+            .focused($focused).submitLabel(.done).onSubmit { focused = false }
+            .disabled(!context.editable(node))
+            .padding(.horizontal, 10).frame(minHeight: 36)
+            .background(MobileStyle.hover, in: RoundedRectangle(cornerRadius: 10))
+            .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(MobileStyle.border) }
+            .frame(maxWidth: 384, alignment: .leading)
+            .accessibilityLabel(node.label)
+            if Double(used) >= Double(limit) * Self.countFrom {
+                Text("\(UiFormat.number(Double(used))) of \(UiFormat.number(Double(limit))) characters")
+                    .font(.caption).foregroundStyle(MobileStyle.faint).monospacedDigit()
+            }
+        }
+        .padding(.horizontal, 8)
+        .modifier(UiPending(complete: node.complete))
+        .onChange(of: draft) { _, typed in
+            guard let typed else { return }
+            let kept = UiTextLimit.clamp(typed, to: limit)
+            guard kept == typed else {
+                draft = kept
+                return
+            }
+            Task {
+                await context.apply(node, .string(kept))
+                if draft == kept { draft = nil }
+            }
+        }
+    }
+}
+
+/// A menu of the options of a Select, picked by their place since a value may be any scalar, with the text beside
+/// them as its label above.
+struct UiSelectView: View {
+    let node: UiNode
+    let context: UiRenderContext
+
+    var body: some View {
+        let current = node.boundValue ?? node.props["value"] ?? .null
+        let options = node.children(of: "Option")
+        let picked = options.firstIndex { $0.props["value"] == current } ?? -1
+        let label = node.ownLabel
+        let selection = Binding(
+            get: { picked },
+            set: { index in
+                if options.indices.contains(index) { context.change(node, to: options[index].props["value"] ?? .null) }
+            })
+        VStack(alignment: .leading, spacing: 4) {
+            if !label.isEmpty {
+                Text(label).font(.subheadline).foregroundStyle(MobileStyle.muted).accessibilityHidden(true)
+            }
+            Picker(label.isEmpty ? String(localized: "Options") : label, selection: selection) {
+                ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
+                    Text(option.label).tag(index)
+                }
+            }
+            .pickerStyle(.menu).tint(MobileStyle.text).labelsHidden()
+            .disabled(options.isEmpty || !context.editable(node))
+            .accessibilityLabel(label.isEmpty ? String(localized: "Options") : label)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 8)
+        .modifier(UiPending(complete: node.complete))
+        .sensoryFeedback(.selection, trigger: picked)
+    }
+}
+
 /// A local action as a bordered button with its children as the label. It sets local values only; like an input it
 /// closes once the block is answered.
 struct UiButtonView: View {
