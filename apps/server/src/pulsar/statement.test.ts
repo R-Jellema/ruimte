@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PushSubscribePayloadSchema } from '@ruimte/contracts';
+import { z } from 'zod';
 import {
     ACCESS_STATEMENT_LIFETIME_MS,
     PULSAR_STATEMENT_PUBLIC_KEYS,
@@ -483,7 +485,7 @@ describe('StatementGate and a peer', () => {
         expect(await store.sessionForPublicKey(peer.publicKey)).toBeNull();
     });
 
-    test('a daemon from before peers drops a peer record instead of keeping it as a client, and so does one that lost the machine', async () => {
+    test('a peer record that lost its machine is dropped as the file loads, and one that has it is read', async () => {
         const peer = generateKeyPair();
         const kept = generateKeyPair();
         await writeFile(
@@ -507,5 +509,44 @@ describe('StatementGate and a peer', () => {
         store = new AuthStore(home, () => now);
         expect(await store.peerOf('a')).toMatchObject({ machineId: 'machine-a' });
         expect(await store.sessionForPublicKey(kept.publicKey)).toBeNull();
+    });
+    test('a daemon from before peers reads the file this one writes and drops the peer, keeping the client beside it', async () => {
+        // The record schema and reader of `auth-store.ts` as 0.18 shipped them, copied and frozen.
+        const OldStoredRecordSchema = z.object({
+            id: z.string().min(1),
+            label: z.string(),
+            publicKey: z.string().min(1).optional(),
+            origin: z.enum(['link', 'statement']).optional().catch(undefined),
+            account: z.string().min(1).optional().catch(undefined),
+            createdAt: z.number(),
+            lastSeenAt: z.number(),
+            push: PushSubscribePayloadSchema.optional()
+        });
+        const OldFileSchema = z.object({ sessions: z.array(OldStoredRecordSchema) });
+        const oldReader = (record: z.infer<typeof OldStoredRecordSchema>) =>
+            record.origin === 'statement' && record.publicKey !== undefined ? { ...record, publicKey: record.publicKey, origin: 'statement' } : null;
+
+        const client = generateKeyPair();
+        const peer = generateKeyPair();
+        expect(await gate().admit(client.publicKey, { statement: statementV2For(client.publicKey, 'owner'), label: 'Phone' })).toBe('admitted');
+        expect(await gate().admit(peer.publicKey, offer(peerStatementFor(peer.publicKey, 'owner')))).toBe('admitted');
+
+        const written = JSON.parse(await readFile(join(home, 'auth.json'), 'utf8')) as unknown;
+        const read = OldFileSchema.parse(written).sessions.flatMap((record) => oldReader(record) ?? []);
+        expect(read.map((record) => record.publicKey)).toEqual([client.publicKey]);
+    });
+
+    test('joining another account takes the peers the first account attested, as it takes its clients', async () => {
+        const peer = generateKeyPair();
+        const client = generateKeyPair();
+        expect(await gate().admit(peer.publicKey, offer(peerStatementFor(peer.publicKey, 'colleague')))).toBe('admitted');
+        expect(await gate().admit(client.publicKey, { statement: statementV2For(client.publicKey, 'colleague'), label: 'Phone' })).toBe('admitted');
+        const owner = generateKeyPair();
+        expect(await gate().admit(owner.publicKey, offer(peerStatementFor(owner.publicKey, 'owner', { peerMachineId: 'machine-o' })))).toBe('admitted');
+        const sessions = await Promise.all([peer, client, owner].map((key) => store.sessionForPublicKey(key.publicKey)));
+
+        expect(await store.bindAccount('owner')).toEqual({ bound: true, revoked: [sessions[0]!, sessions[1]!] });
+        expect(await store.sessionForPublicKey(peer.publicKey)).toBeNull();
+        expect(await store.sessionForPublicKey(owner.publicKey)).not.toBeNull();
     });
 });
