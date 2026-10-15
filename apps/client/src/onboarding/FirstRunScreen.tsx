@@ -69,10 +69,10 @@ export function FirstRunScreen() {
     };
 
     return (
-        <div className="flex h-full w-full flex-col bg-bg">
-            <div className="app-drag h-12 shrink-0" style={{ paddingLeft: inset ?? STRIP_PADDING_PX }} />
-            <div className="relative flex min-h-0 grow flex-col items-center overflow-auto">
-                <Eclipse center={168} glows={[380, 200]} rings={[150, 190]} orbits={WELCOME_ORBITS} stars={{ count: 46, seed: 202 }} className="h-full" />
+        <div className="relative flex h-full w-full flex-col bg-bg">
+            <div className="app-drag absolute inset-x-0 top-0 z-10 h-12" style={{ paddingLeft: inset ?? STRIP_PADDING_PX }} />
+            <div className="relative flex min-h-0 grow flex-col items-center overflow-auto pt-12">
+                <Eclipse center={216} glows={[380, 200]} rings={[150, 190]} orbits={WELCOME_ORBITS} stars={{ count: 46, seed: 202 }} className="h-full" />
                 <div className="relative mt-30 flex w-full max-w-md flex-col items-center gap-4 px-8 pb-12 text-center">
                     <BrandSymbol size={96} className="rounded-[22px] shadow-float" />
                     <h1 className="text-4xl font-semibold tracking-tight text-text">{t('welcome.title')}</h1>
