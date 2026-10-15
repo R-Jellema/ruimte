@@ -1066,6 +1066,16 @@
             "opening": "Bezig met openen…",
             "failed": "{{machine}} kon die map niet openen.",
             "back": "Terug naar de checkouts"
-        }
+        },
+        "start": {
+            "files_one": "Je bestanden hier ({{branch}}, {{count}} gewijzigd)",
+            "files_other": "Je bestanden hier ({{branch}}, {{count}} gewijzigd)",
+            "head": "HEAD hier ({{branch}})",
+            "origin": "Een branch op origin",
+            "filesHint": "Met wat je nog niet hebt gecommit. Je checkout verandert niet.",
+            "headHint": "De laatste commit van {{branch}}, zonder je wijzigingen.",
+            "originHint": "Pusht {{branch}} vanaf hier naar origin en haalt hem daarna op bij {{machine}}."
+        },
+        "sending": "{{size}} versturen…"
     }
 }

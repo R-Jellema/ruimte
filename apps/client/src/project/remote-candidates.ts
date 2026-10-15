@@ -8,6 +8,10 @@ export interface RemoteCandidate {
     /* It holds the same repository: one of its first commits is one of ours. */
     same: boolean;
     branch: string | null;
+    /* The tips of HEAD and the local branches there, which is what a bundle sent to it can leave out. */
+    heads: string[];
+    /* Whether it has an `origin`; a branch can travel through it only when both sides do. */
+    remoteUrl: string | null;
 }
 
 export interface RemoteProject {
@@ -36,7 +40,9 @@ export function rankCandidates(
             {
                 ...project,
                 same: identity.rootCommits.some((commit) => ours.has(commit)),
-                branch: identity.branch ?? null
+                branch: identity.branch ?? null,
+                heads: identity.heads,
+                remoteUrl: identity.remoteUrl ?? null
             }
         ];
     });

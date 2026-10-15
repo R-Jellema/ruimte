@@ -313,5 +313,13 @@
         "needsUpdate": "Heeft een update nodig",
         "needsUpdateTip": "Op {{machine}} draait een oudere Ruimte",
         "shared": "Een node op een andere machine komt op een canvas dat niet gedeeld wordt"
+    },
+    "bringBack": {
+        "item": "Terughalen naar deze machine",
+        "working": "{{what}} terughalen van {{machine}}…",
+        "done": "{{branch}} van {{machine}} is hier",
+        "merge": "Mergen…",
+        "failed": "Kon {{what}} niet terughalen",
+        "failedDescription": "{{machine}} stuurde zijn werk niet."
     }
 }

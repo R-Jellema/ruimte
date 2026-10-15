@@ -162,6 +162,81 @@ describe('a new node on another machine', () => {
         await until(() => dialog() === null);
     });
 
+    test('Create with your files here bundles them here, sends them, and makes the worktree before the node is saved', async () => {
+        here.answer(
+            'git.status',
+            () => ({ repo: true, branch: 'main', detached: false, upstream: null, files: [{ path: 'a.txt' }, { path: 'b.txt' }] }) as never
+        );
+        here.answer('git.bundle', () => {
+            order.push('git.bundle');
+            return { bundleId: 'bundle-one', size: 5, sha256: 'a'.repeat(64), commit: 'c1', base: null };
+        });
+        here.answer('bytes.read', ({ offset }) => ({ mime: 'application/x-git-bundle', size: 5, version: 'v1', offset, data: btoa('hello') }));
+        there.answer('git.bundlePut', ({ offset }) => {
+            order.push('git.bundlePut');
+            return { received: offset + 5 };
+        });
+        there.answer('git.fetchBundle', () => {
+            order.push('git.fetchBundle');
+            return { path: '/Users/b/worktrees/ruimte/main', branch: 'ruimte/main', commit: 'c1' };
+        });
+        await openDialog();
+        await until(() => dialog()?.textContent?.includes('Your files here (main, 2 changed)') === true);
+        await until(() => button('Create')?.hasAttribute('disabled') === false);
+        await clickOn(button('Create'));
+
+        await until(() => order.includes('peer.placeNodes'));
+        expect(order).toEqual(['peer.bind', 'remote.link', 'git.bundle', 'git.bundlePut', 'git.fetchBundle', 'project.save', 'peer.placeNodes']);
+        expect(here.requests('git.bundle')[0]).toMatchObject({ path: '/work/atlas', from: 'files' });
+        expect(there.requests('git.fetchBundle')[0]).toMatchObject({ projectId: 'ruimte', bundleId: 'bundle-one', sha256: 'a'.repeat(64), into: 'worktree' });
+        expect(there.requests('peer.placeNodes')[0]).toMatchObject({ nodes: [{ cwd: '/Users/b/worktrees/ruimte/main' }] });
+    });
+
+    test('offers the branch on origin only when both checkouts have one', async () => {
+        here.answer('git.status', () => ({ repo: true, branch: 'main', detached: false, upstream: null, files: [] }) as never);
+        here.answer('git.identity', () => ({ identities: [{ ...identity('/work/atlas', ['root-a']), remoteUrl: 'git@host:atlas.git' }] }));
+        await openDialog();
+        await until(() => dialog()?.textContent?.includes('/Users/b/ruimte') === true);
+        await until(() => dialog()?.textContent?.includes('As it is on MacBook Pro') === true);
+        await clickOn(dialog()?.querySelector('[aria-label="Start from"]') ?? null);
+        await until(() => document.querySelector('[role="option"]') !== null);
+        const labels = [...document.querySelectorAll('[role="option"]')].map((option) => option.textContent);
+        expect(labels).toContain('HEAD here (main)');
+        expect(labels).not.toContain('A branch on origin');
+        expect(labels.some((label) => label?.startsWith('Your files here'))).toBe(false);
+    });
+
+    test('a branch on origin is pushed here, fetched there, and the worktree starts on it', async () => {
+        here.answer('git.status', () => ({ repo: true, branch: 'main', detached: false, upstream: 'origin/main', files: [] }) as never);
+        here.answer('git.identity', () => ({ identities: [{ ...identity('/work/atlas', ['root-a']), remoteUrl: 'git@host:atlas.git' }] }));
+        there.answer('git.identity', ({ paths }) => ({
+            identities: paths.map((path) => ({ ...identity(path, [path.endsWith('ruimte') ? 'root-a' : 'root-z']), remoteUrl: 'git@host:atlas.git' }))
+        }));
+        here.answer('git.action', ({ kind }) => {
+            order.push(`here ${kind}`);
+            return { actionId: 'a', summary: '', output: '' };
+        });
+        there.answer('git.action', ({ kind }) => {
+            order.push(`there ${kind}`);
+            return { actionId: 'a', summary: '', output: '' };
+        });
+        there.answer('git.worktree-add', () => {
+            order.push('git.worktree-add');
+            return { worktree: { path: '/Users/b/worktrees/ruimte/main', branch: 'ruimte/main' }, created: true } as never;
+        });
+        await openDialog();
+        await until(() => dialog()?.textContent?.includes('As it is on MacBook Pro') === true);
+        await clickOn(dialog()?.querySelector('[aria-label="Start from"]') ?? null);
+        await until(() => document.querySelector('[role="option"]') !== null);
+        await clickOn([...document.querySelectorAll('[role="option"]')].find((option) => option.textContent === 'A branch on origin') ?? null);
+        await until(() => dialog()?.textContent?.includes('Pushes main to origin from here') === true);
+        await clickOn(button('Create'));
+
+        await until(() => order.includes('peer.placeNodes'));
+        expect(order).toEqual(['peer.bind', 'remote.link', 'here push', 'there fetch', 'git.worktree-add', 'project.save', 'peer.placeNodes']);
+        expect(there.requests('git.worktree-add')[0]).toMatchObject({ repo: '/Users/b/ruimte', branch: 'ruimte/main', base: 'origin/main' });
+    });
+
     test('a link that is refused leaves the canvas as it was', async () => {
         there.answer('peer.bind', () => {
             throw new Error('That project is not on this machine');

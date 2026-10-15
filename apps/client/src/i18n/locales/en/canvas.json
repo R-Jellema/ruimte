@@ -313,5 +313,13 @@
         "needsUpdate": "Needs an update",
         "needsUpdateTip": "{{machine}} runs an older Ruimte",
         "shared": "A node on another machine goes on a private canvas"
+    },
+    "bringBack": {
+        "item": "Bring back to this machine",
+        "working": "Bringing {{what}} back from {{machine}}…",
+        "done": "{{branch}} from {{machine}} is here",
+        "merge": "Merge…",
+        "failed": "Could not bring {{what}} back",
+        "failedDescription": "{{machine}} did not send its work."
     }
 }

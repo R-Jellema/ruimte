@@ -1066,6 +1066,16 @@
             "opening": "Opening…",
             "failed": "{{machine}} could not open that folder.",
             "back": "Back to the checkouts"
-        }
+        },
+        "start": {
+            "files_one": "Your files here ({{branch}}, {{count}} changed)",
+            "files_other": "Your files here ({{branch}}, {{count}} changed)",
+            "head": "HEAD here ({{branch}})",
+            "origin": "A branch on origin",
+            "filesHint": "Includes what you have not committed. Nothing in your checkout changes.",
+            "headHint": "The last commit of {{branch}}, without your changes.",
+            "originHint": "Pushes {{branch}} to origin from here, then fetches it on {{machine}}."
+        },
+        "sending": "Sending {{size}}…"
     }
 }

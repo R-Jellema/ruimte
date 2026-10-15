@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Server } from 'lucide-react';
 import type { DeviceInfo, ProjectNode } from '@ruimte/contracts';
 import { rememberChatSelection } from '@adecore/agents-react/chat';
 import { deleteNodesAction } from '@/actions/client-actions';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
+import { handOff } from '@/project/bundle-transfer';
 import { createRemoteNode } from '@/project/remote-node';
 import type { RemoteCandidate } from '@/project/remote-candidates';
 import { describeLastSeen } from '@/shell/connection-info';
 import { RemoteFolderPicker } from '@/shell/RemoteFolderPicker';
-import { useRemoteCheckouts, useRemoteDevices } from '@/shell/use-remote-checkouts';
+import { useCheckoutState, useRemoteCheckouts, type CheckoutState, useRemoteDevices } from '@/shell/use-remote-checkouts';
 import { useWorktreeStart } from '@/shell/use-worktree-start';
 import { WorktreeStartFields } from '@/shell/WorktreeStartFields';
 import { useMachineEntry } from '@/shell/use-machine-entry';
@@ -22,10 +24,15 @@ import { useUi, type RemoteNodeRequest } from '@/state/ui';
 import { remoteMirror, useWorkspace } from '@/transport/connections';
 import { NodeMachineScope } from '@/transport/node-machine';
 import { transportFor } from '@/transport';
+import { useMachineAnswers } from '@/transport/features';
 import { useLastSeenAt } from '@/transport/status';
+import { formatBytes } from '@adecore/ui/format';
 import { Button, Dialog, ErrorBoundary, FieldHint, FormError, Icon, Select, Skeleton, Switch, messageOf, useNow } from '@adecore/ui';
 
 type Kind = RemoteNodeRequest['kind'];
+
+/* Where the node starts: the files of this checkout, its HEAD, the other machine's checkout as it is, or a branch both reach through origin. */
+type StartFrom = 'files' | 'head' | 'machine' | 'origin';
 
 const KINDS: readonly Kind[] = ['chat', 'terminal', 'device'];
 const MINUTE_MS = 60_000;
@@ -106,6 +113,8 @@ function RemoteNodeForm({
     const [opening, setOpening] = useState(false);
     const [inWorktree, setInWorktree] = useState(false);
     const [deviceKey, setDeviceKey] = useState<string | null>(null);
+    const [startChoice, setStartChoice] = useState<StartFrom | null>(null);
+    const [sending, setSending] = useState<number | null>(null);
     const [busy, setBusy] = useState(false);
     const [failure, setFailure] = useState<string | null>(null);
     const { devices, failed: devicesFailed } = useRemoteDevices(request.machineId, kind === 'device' && !request.relink);
@@ -116,11 +125,22 @@ function RemoteNodeForm({
             : [];
     const candidate = candidates.find((entry) => entry.projectId === picked) ?? candidates[0] ?? null;
     const scoped = useMemo(() => endpointById(machineEndpointId) !== null, [machineEndpointId]);
-    const start = useWorktreeStart(inWorktree && scoped && candidate !== null ? candidate.folder : null);
+    const bundlesHere = useMachineAnswers(workspace?.connection.endpointId ?? '', 'git.bundle');
+    const bundlesThere = useMachineAnswers(machineEndpointId, 'git.fetchBundle');
+    const checkout = useCheckoutState(here, project?.folder ?? null, !request.relink && kind !== 'device' && bundlesHere && bundlesThere);
+    const options = startOptions(
+        checkout,
+        bundlesHere && bundlesThere && kind !== 'device',
+        checkouts.state === 'ready' ? checkouts.here?.remoteUrl !== undefined : false,
+        candidate?.remoteUrl != null
+    );
+    const startFrom: StartFrom = startChoice !== null && options.includes(startChoice) ? startChoice : options.includes('files') ? 'files' : 'machine';
+    const ownWorktree = startFrom === 'machine' && inWorktree;
+    const start = useWorktreeStart(ownWorktree && scoped && candidate !== null ? candidate.folder : null);
     const device =
         devices?.find((entry) => `${entry.backendId}:${entry.deviceId}` === (deviceKey ?? `${devices[0]?.backendId}:${devices[0]?.deviceId}`)) ?? null;
     const needsDevice = kind === 'device' && !request.relink;
-    const ready = candidate !== null && !busy && (!inWorktree || (start !== null && start.ready)) && (!needsDevice || device !== null);
+    const ready = candidate !== null && !busy && (!ownWorktree || (start !== null && start.ready)) && (!needsDevice || device !== null);
 
     const open = async (folder: string): Promise<void> => {
         setOpening(true);
@@ -131,12 +151,20 @@ function RemoteNodeForm({
             void transportFor(machineEndpointId)!
                 .request('project.release', { projectId: opened.summary.projectId })
                 .catch(() => undefined);
+            const { identities } = await transportFor(machineEndpointId)!
+                .request('git.identity', { paths: [opened.summary.folder] })
+                .catch(() => ({ identities: [] }));
+            const identity = identities[0];
+            const known = identity === undefined || 'error' in identity ? null : identity;
+            const ours = new Set(checkouts.state === 'ready' ? (checkouts.here?.rootCommits ?? []) : []);
             const next: RemoteCandidate = {
                 projectId: opened.summary.projectId,
                 name: opened.summary.name,
                 folder: opened.summary.folder,
-                same: false,
-                branch: null
+                same: known?.rootCommits.some((commit) => ours.has(commit)) ?? false,
+                branch: known?.branch ?? null,
+                heads: known?.heads ?? [],
+                remoteUrl: known?.remoteUrl ?? null
             };
             setChosen((before) => [...before.filter((entry) => entry.folder !== next.folder), next]);
             setPicked(next.projectId);
@@ -182,7 +210,41 @@ function RemoteNodeForm({
                     await workspace.connection.transport.request('remote.link', link);
                 },
                 makeWorktree: async () => {
-                    if (!inWorktree || start === null) {
+                    const branch = checkout?.branch ?? null;
+                    if (startFrom === 'files' || startFrom === 'head') {
+                        const sent = await handOff({
+                            from: workspace.connection.transport,
+                            to: there,
+                            bundle: {
+                                path: project.folder,
+                                from: startFrom,
+                                haves: candidate.heads,
+                                name: `Handoff of ${branch ?? 'HEAD'} from ${self?.label ?? selfId}`
+                            },
+                            projectId: candidate.projectId,
+                            branch: branch ?? 'handoff',
+                            into: 'worktree',
+                            machine: self?.label ?? selfId,
+                            onSize: setSending
+                        });
+                        return sent.path ?? null;
+                    }
+                    if (startFrom === 'origin' && branch !== null) {
+                        await workspace.connection.transport.request('git.action', {
+                            cwd: project.folder,
+                            actionId: crypto.randomUUID(),
+                            kind: checkout?.upstream === true ? 'push' : 'publish'
+                        });
+                        await there.request('git.action', { cwd: candidate.folder, actionId: crypto.randomUUID(), kind: 'fetch' });
+                        const { worktree } = await there.request('git.worktree-add', {
+                            repo: candidate.folder,
+                            branch: `ruimte/${branch}`,
+                            projectId: candidate.projectId,
+                            base: `origin/${branch}`
+                        });
+                        return worktree.path;
+                    }
+                    if (!ownWorktree || start === null) {
                         return null;
                     }
                     const { worktree } = await there.request('git.worktree-add', {
@@ -220,6 +282,7 @@ function RemoteNodeForm({
             setFailure(messageOf(e, t('remoteNode.failed')));
         } finally {
             setBusy(false);
+            setSending(null);
         }
     };
 
@@ -263,15 +326,18 @@ function RemoteNodeForm({
                     {kind === 'device' && <DeviceField machine={machine} devices={devices} failed={devicesFailed} value={device} onPick={setDeviceKey} />}
                     <div className="mt-3 flex items-center justify-between gap-3">
                         <span className="text-xs text-text-muted">{t('remoteNode.startFrom')}</span>
-                        <Select<'machine'>
+                        <Select<StartFrom>
                             label={t('remoteNode.startFrom')}
                             variant="outlined"
-                            value="machine"
-                            onValueChange={() => undefined}
-                            items={[{ value: 'machine', label: t('remoteNode.asItIs', { machine }) }]}
+                            value={startFrom}
+                            onValueChange={setStartChoice}
+                            items={options.map((value) => ({ value, label: startLabel(t, value, machine, checkout) }))}
                         />
                     </div>
-                    {kind !== 'device' && (
+                    {(startFrom === 'files' || startFrom === 'head' || startFrom === 'origin') && (
+                        <FieldHint className="mt-1">{t(`remoteNode.start.${startFrom}Hint`, { machine, branch: checkout?.branch ?? '' })}</FieldHint>
+                    )}
+                    {kind !== 'device' && startFrom === 'machine' && (
                         <>
                             <div className="mt-3 flex items-center justify-between gap-3">
                                 <span className="text-sm text-text">{t('remoteNode.worktree', { machine })}</span>
@@ -286,11 +352,46 @@ function RemoteNodeForm({
             <Dialog.Footer>
                 <Button onClick={onDone}>{t('common:action.cancel')}</Button>
                 <Button variant="primary" disabled={!ready || browsing} onClick={() => void submit()}>
-                    {request.relink ? (busy ? t('remoteNode.linking') : t('remoteNode.link')) : busy ? t('remoteNode.creating') : t('remoteNode.create')}
+                    {request.relink
+                        ? busy
+                            ? t('remoteNode.linking')
+                            : t('remoteNode.link')
+                        : busy
+                          ? sending === null
+                              ? t('remoteNode.creating')
+                              : t('remoteNode.sending', { size: formatBytes(sending) })
+                          : t('remoteNode.create')}
                 </Button>
             </Dialog.Footer>
         </>
     );
+}
+
+/* The choices in the order the dialog lists them; the checkout's own files only when there are some. */
+function startOptions(checkout: CheckoutState | null, bundles: boolean, remoteHere: boolean, remoteThere: boolean): StartFrom[] {
+    if (!bundles || checkout === null) {
+        return ['machine'];
+    }
+    return [
+        ...(checkout.changed > 0 ? (['files'] as const) : []),
+        ...(checkout.branch !== null ? (['head'] as const) : []),
+        'machine',
+        ...(checkout.branch !== null && remoteHere && remoteThere ? (['origin'] as const) : [])
+    ];
+}
+
+function startLabel(t: TFunction<['shell', 'common']>, value: StartFrom, machine: string, checkout: CheckoutState | null): string {
+    const branch = checkout?.branch ?? 'HEAD';
+    switch (value) {
+        case 'files':
+            return t('remoteNode.start.files', { branch, count: checkout?.changed ?? 0 });
+        case 'head':
+            return t('remoteNode.start.head', { branch });
+        case 'origin':
+            return t('remoteNode.start.origin');
+        default:
+            return t('remoteNode.asItIs', { machine });
+    }
 }
 
 function deviceReference(device: DeviceInfo): NonNullable<ProjectNode['device']> {

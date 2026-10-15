@@ -34,6 +34,7 @@ import {
     linkNodesAction,
     perform
 } from '@/actions/client-actions';
+import { BringBackItem } from '@/canvas/BringBackItem';
 import { ChatAgentSubmenu } from '@/agents/AgentMenus';
 import { askBeforeClearingChat } from '@/agents/end-children';
 import { FlagSubmenu } from '@/project/FlagSubmenu';
@@ -262,6 +263,7 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
                     <ContextMenu.Separator />
                 </>
             )}
+            {(node.kind === 'terminal' || node.kind === 'chat') && <BringBackItem node={node} />}
             {node.kind === 'terminal' && canOpenInChat && (
                 <ContextMenu.Item onClick={openInChat}>
                     <Icon icon={MessageSquare} size={14} /> {t('menu.openInChat')}

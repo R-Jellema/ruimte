@@ -12,10 +12,10 @@ import { messageOf } from '@adecore/ui';
 export type Checkouts =
     | { state: 'loading' }
     | { state: 'error'; message: string }
-    | { state: 'ready'; candidates: RemoteCandidate[]; links: RemoteLink[]; here: Pick<GitIdentity, 'rootCommits'> | null };
+    | { state: 'ready'; candidates: RemoteCandidate[]; links: RemoteLink[]; here: GitIdentity | null };
 
 /* What this project is, as far as the other machine can tell whether it holds the same repository. */
-async function identityHere(transport: Transport, folder: string | null): Promise<Pick<GitIdentity, 'rootCommits'> | null> {
+async function identityHere(transport: Transport, folder: string | null): Promise<GitIdentity | null> {
     if (folder === null || !machineAnswers(transport.connection, 'git.identity')) {
         return null;
     }
@@ -110,4 +110,32 @@ export function useRemoteDevices(machineId: string, enabled: boolean): { devices
         };
     }, [machineId, enabled]);
     return { devices, failed };
+}
+
+/* What this project's checkout holds, for the "Start from" choices: the branch, how many files changed and whether the branch has an upstream. */
+export interface CheckoutState {
+    branch: string | null;
+    changed: number;
+    upstream: boolean;
+}
+
+export function useCheckoutState(here: Transport | null, folder: string | null, enabled: boolean): CheckoutState | null {
+    const [state, setState] = useState<CheckoutState | null>(null);
+    useEffect(() => {
+        if (!enabled || here === null || folder === null) {
+            return;
+        }
+        let current = true;
+        here.request('git.status', { cwd: folder })
+            .then((status) => {
+                if (current) {
+                    setState(status.repo ? { branch: status.branch, changed: status.files.length, upstream: status.upstream !== null } : null);
+                }
+            })
+            .catch(() => undefined);
+        return () => {
+            current = false;
+        };
+    }, [here, folder, enabled]);
+    return state;
 }
