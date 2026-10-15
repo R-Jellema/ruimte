@@ -113,12 +113,122 @@
         }
       }
     },
+    "Apps" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apps"
+          }
+        }
+      }
+    },
+    "Battery" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Batterij"
+          }
+        }
+      }
+    },
     "Before" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Voor"
+          }
+        }
+      }
+    },
+    "Biometrics" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biometrie"
+          }
+        }
+      }
+    },
+    "Blue/yellow" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blauw/geel"
+          }
+        }
+      }
+    },
+    "Bundle ID" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bundle-ID"
+          }
+        }
+      }
+    },
+    "Calendar" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agenda"
+          }
+        }
+      }
+    },
+    "Charging" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laadt op"
+          }
+        }
+      }
+    },
+    "Clean" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schoon"
+          }
+        }
+      }
+    },
+    "Clear" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Helder"
+          }
+        }
+      }
+    },
+    "Clear location" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Locatie wissen"
+          }
+        }
+      }
+    },
+    "Color filter" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kleurfilter"
           }
         }
       }
@@ -134,6 +244,26 @@
         }
       }
     },
+    "Contacts" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contacten"
+          }
+        }
+      }
+    },
+    "Copy the device's clipboard" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klembord van het apparaat kopiëren"
+          }
+        }
+      }
+    },
     "Danger" : {
       "localizations" : {
         "nl" : {
@@ -144,12 +274,192 @@
         }
       }
     },
+    "Default" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standaard"
+          }
+        }
+      }
+    },
+    "Device tools" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apparaattools"
+          }
+        }
+      }
+    },
+    "Display" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scherm"
+          }
+        }
+      }
+    },
+    "Enrolled" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ingesteld"
+          }
+        }
+      }
+    },
     "Enter a file name without a slash" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vul een bestandsnaam zonder schuine streep in"
+          }
+        }
+      }
+    },
+    "Erase" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wissen"
+          }
+        }
+      }
+    },
+    "Erase %@?" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ wissen?"
+          }
+        }
+      }
+    },
+    "Erase…" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wissen…"
+          }
+        }
+      }
+    },
+    "Every app, setting and file on it goes, as on a new device. This cannot be undone." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle apps, instellingen en bestanden erop verdwijnen, zoals op een nieuw apparaat. Dit kan niet ongedaan worden gemaakt."
+          }
+        }
+      }
+    },
+    "Extra large" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Extra groot"
+          }
+        }
+      }
+    },
+    "Fingerprint" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vingerafdruk"
+          }
+        }
+      }
+    },
+    "Grant" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toestaan"
+          }
+        }
+      }
+    },
+    "Grayscale" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grijstinten"
+          }
+        }
+      }
+    },
+    "Green/red" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Groen/rood"
+          }
+        }
+      }
+    },
+    "Hello from Ruimte" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hallo vanuit Ruimte"
+          }
+        }
+      }
+    },
+    "Increase contrast" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meer contrast"
+          }
+        }
+      }
+    },
+    "Large" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Groot"
+          }
+        }
+      }
+    },
+    "Liquid Glass" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liquid Glass"
+          }
+        }
+      }
+    },
+    "Location" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Locatie"
           }
         }
       }
@@ -234,6 +544,56 @@
         }
       }
     },
+    "Match" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Herkend"
+          }
+        }
+      }
+    },
+    "Media library" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mediabibliotheek"
+          }
+        }
+      }
+    },
+    "Microphone" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Microfoon"
+          }
+        }
+      }
+    },
+    "Motion" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beweging"
+          }
+        }
+      }
+    },
+    "No match" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niet herkend"
+          }
+        }
+      }
+    },
     "Not every folder is shown" : {
       "localizations" : {
         "nl" : {
@@ -254,6 +614,16 @@
         }
       }
     },
+    "Notification text" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tekst van de melding"
+          }
+        }
+      }
+    },
     "One image is not available" : {
       "localizations" : {
         "nl" : {
@@ -264,12 +634,92 @@
         }
       }
     },
+    "Open link" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link openen"
+          }
+        }
+      }
+    },
+    "Package name" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pakketnaam"
+          }
+        }
+      }
+    },
+    "Permission" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toestemming"
+          }
+        }
+      }
+    },
+    "Red/green" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rood/groen"
+          }
+        }
+      }
+    },
+    "Reduce motion" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minder beweging"
+          }
+        }
+      }
+    },
+    "Reduce transparency" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minder transparantie"
+          }
+        }
+      }
+    },
+    "Reminders" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Herinneringen"
+          }
+        }
+      }
+    },
     "Replace" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vervangen"
+          }
+        }
+      }
+    },
+    "Reset" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Herstellen"
           }
         }
       }
@@ -310,6 +760,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bestanden zoeken mislukt"
+          }
+        }
+      }
+    },
+    "Screen and clipboard" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scherm en klembord"
           }
         }
       }
@@ -594,6 +1054,66 @@
         }
       }
     },
+    "Send my clipboard" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mijn klembord sturen"
+          }
+        }
+      }
+    },
+    "Send push" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push sturen"
+          }
+        }
+      }
+    },
+    "Set battery" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Batterij instellen"
+          }
+        }
+      }
+    },
+    "Shake" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schudden"
+          }
+        }
+      }
+    },
+    "Share screenshot" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screenshot delen"
+          }
+        }
+      }
+    },
+    "Show borders" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Randen tonen"
+          }
+        }
+      }
+    },
     "Sign in to reach your machines." : {
       "localizations" : {
         "nl" : {
@@ -604,12 +1124,42 @@
         }
       }
     },
+    "Small" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klein"
+          }
+        }
+      }
+    },
+    "Status bar" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Statusbalk"
+          }
+        }
+      }
+    },
     "Success" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Gelukt"
+          }
+        }
+      }
+    },
+    "Text size" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tekstgrootte"
           }
         }
       }
@@ -630,6 +1180,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dit is de client die je gebruikt. Hij verliest toegang tot deze machine en vergeet die hier."
+          }
+        }
+      }
+    },
+    "Tinted" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Getint"
           }
         }
       }

@@ -89,6 +89,10 @@ and, where an item says so, a phone. Start with `bun run test:devices` and note 
 - [ ] An agent with a line to a device sets the status bar, reads the clipboard, records 10 seconds and installs an
   app from the project folder; a path outside it is refused, and Erase, Fold and Camera are not offered to it.
 - [ ] A Flutter launch: "Show device" opens the simulator `flutter run -d` names, and the web run opens in a browser.
+- [ ] The iPhone app on a device: the tools sheet of a simulator shows only what it announces; share a screenshot,
+  send and copy the clipboard, set the appearance, a clean status bar, the battery, Face ID match and a location;
+  Erase asks in an alert and the simulator comes back empty. On an iPad with a keyboard: typing, arrows and ⌘V reach
+  the simulator while ⌘K still opens Search.
 
 ## Accounts and networks
 

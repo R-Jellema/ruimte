@@ -95,6 +95,14 @@ its session shows a spinner over itself instead of in its place.
 - A device view polls `device.list` every two seconds while it waits and every five while it shows. A booted
   simulator streams `device.frame` events in JPEG, which is what simulators send. A phone or Android emulator
   streams video, so the machine refuses the format and the page says it shows on the computer only.
+- A device's tools sheet has the sections of the desktop's tools panel, each only when the device announces its tool
+  (`DeviceTools`): a screenshot handed to the share sheet, the clipboard both ways through `UIPasteboard`, display,
+  status bar and battery, biometrics, location, and apps with their permissions and a push. Capture and clipboard
+  also wait until the machine names `device.capture` and `device.clipboard`. Erase asks first in an alert and stops
+  and starts a simulator around it, as the desktop does; a phone is never erased.
+- With a hardware keyboard, a device that announces `keyboard` takes the keys while its screen shows
+  (`DeviceKeyView`): `UIKey.keyCode` is already a HID usage. ⌘V pastes this phone's clipboard through the device's,
+  and every other ⌘ chord stays the app's.
 
 ## First run
 

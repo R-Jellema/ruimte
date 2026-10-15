@@ -147,6 +147,11 @@ final class DeviceViewModel {
     var title: String {
         reference.map { "\($0.text("name")) · \($0.text("runtime"))" } ?? String(localized: "Device")
     }
+    var tools: [String] { device.map(DeviceTools.tools) ?? [] }
+    /// A hardware keyboard types on the device while its screen shows, as the desktop's does with the focus there.
+    var takesKeys: Bool { takesInput && tools.contains("keyboard") }
+    var canErase: Bool { device.map(DeviceTools.canErase) ?? false }
+    private(set) var erasing = false
 
     func start() {
         guard reference != nil, subscriptions.isEmpty else { return }
@@ -207,6 +212,51 @@ final class DeviceViewModel {
     }
 
     func press(_ button: String) { send(.object(["kind": .string("button"), "button": .string(button)])) }
+
+    func key(_ phase: String, usage: Int) {
+        guard takesKeys else { return }
+        send(.object(["kind": .string("key"), "phase": .string(phase), "usage": .number(Double(usage))]))
+    }
+
+    /// ⌘V pastes this phone's clipboard through the device's, so accents and emoji arrive as they are.
+    func paste() {
+        guard let device, takesKeys, tools.contains("clipboard"),
+            (client as? MachineClient)?.answers(.deviceClipboard) == true, let text = UIPasteboard.general.string
+        else { return }
+        var payload = DeviceView.target(device)
+        payload["text"] = .string(text)
+        payload["paste"] = .bool(true)
+        Task { _ = try? await client.request("device.clipboard", payload: .object(payload)) }
+    }
+
+    func act(_ name: String) {
+        guard let device else { return }
+        Task { _ = try? await client.request("device.action", payload: DeviceTools.action(device, name)) }
+    }
+
+    /// Erases a simulator or an emulator as the desktop does: a running one stops first, and a simulator starts
+    /// again after, since an emulator starts again by itself.
+    func erase() async {
+        guard let device, canErase, !erasing else { return }
+        erasing = true
+        defer { erasing = false }
+        let running = device.text("state") == "booted"
+        do {
+            if running && device["capabilities"]?["shutdown"]?.boolValue == true {
+                detach()
+                frame = nil
+                _ = try await client.request("device.shutdown", payload: .object(DeviceView.target(device)))
+            }
+            _ = try await client.request("device.action", payload: DeviceTools.action(device, "erase"))
+            if running && device.text("platform") == "ios" && device["capabilities"]?["boot"]?.boolValue == true {
+                _ = try await client.request("device.boot", payload: .object(DeviceView.target(device)))
+            }
+            phase = .finding
+            await refresh()
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
+    }
     func rotate(left: Bool) {
         send(.object(["kind": .string("rotate"), "direction": .string(left ? "left" : "right")]))
     }
@@ -342,6 +392,8 @@ final class DeviceViewModel {
 
 struct DeviceViewPage: View {
     @State private var model: DeviceViewModel
+    @State private var showsTools = false
+    @State private var confirmsErase = false
 
     init(client: any MachineRequesting, reference: JSONValue?) {
         _model = State(initialValue: DeviceViewModel(client: client, reference: reference))
@@ -386,8 +438,22 @@ struct DeviceViewPage: View {
                             Button(String(localized: "Rotate right"), lucideIcon: "rotate-cw") {
                                 model.rotate(left: false)
                             }
+                            if model.tools.contains("shake") {
+                                Button(String(localized: "Shake"), lucideIcon: "vibrate") { model.act("shake") }
+                            }
+                        }
+                        if model.device != nil && !model.tools.isEmpty {
+                            Button(String(localized: "Device tools"), lucideIcon: "sliders-horizontal") {
+                                showsTools = true
+                            }
                         }
                         Button(String(localized: "Reload"), lucideIcon: "refresh-cw") { model.retry() }
+                    }
+                    if model.canErase {
+                        Button(String(localized: "Erase…"), lucideIcon: "eraser", role: .destructive) {
+                            confirmsErase = true
+                        }
+                        .disabled(model.erasing)
                     }
                     if model.canStop {
                         Button(String(localized: "Stop device"), lucideIcon: "power", role: .destructive) {
@@ -399,6 +465,15 @@ struct DeviceViewPage: View {
                 }
                 .accessibilityLabel("Device actions")
             }
+        }
+        .sheet(isPresented: $showsTools) {
+            if let device = model.device { DeviceToolsSheet(client: model.client, device: device) }
+        }
+        .alert(Text("Erase \(model.reference?.text("name") ?? "")?"), isPresented: $confirmsErase) {
+            Button(String(localized: "Erase"), role: .destructive) { Task { await model.erase() } }
+            Button(String(localized: "Cancel"), role: .cancel) {}
+        } message: {
+            Text("Every app, setting and file on it goes, as on a new device. This cannot be undone.")
         }
         .onAppear { model.start() }
         .onDisappear { model.stop() }
@@ -551,6 +626,9 @@ private struct DeviceScreen: View {
                     including: model.takesInput ? .all : .none
                 )
                 .accessibilityLabel("Screen of the device")
+            if model.takesKeys {
+                DeviceKeyCatcher(model: model).frame(width: 1, height: 1).accessibilityHidden(true)
+            }
         }
     }
 }
