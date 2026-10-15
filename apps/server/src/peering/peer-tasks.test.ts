@@ -305,6 +305,25 @@ describe('starting a task for another machine', () => {
         });
     });
 
+    test('a CLI that cannot be kept from loading the configuration of the folder, and a terminal, are refused before anything is made', async () => {
+        const peerTasks = new PeerTasks(deps());
+        await expect(peerTasks.start(MACHINE, 'client-1', start({ provider: 'codex' }))).rejects.toMatchObject({
+            code: 'peer-provider-unsupported',
+            message: expect.stringContaining('Codex cannot run a task from another machine here')
+        });
+        await expect(peerTasks.start(MACHINE, 'client-1', start({ terminal: true }))).rejects.toMatchObject({ code: 'peer-terminal-unsupported' });
+        // Refused with a bundle on its way too, before the folder for it is made (this test has no git to make one with).
+        const withBundles = new PeerTasks({ ...deps(), peerBundles: () => new BundleStore(home, MACHINE) });
+        await expect(
+            withBundles.start(MACHINE, 'client-1', start({ provider: 'codex', bundle: { bundleId: 'a-bundle-id', sha256: 'f'.repeat(64) }, branch: 'x' }))
+        ).rejects.toMatchObject({
+            code: 'peer-provider-unsupported'
+        });
+        expect(tasks.all()).toHaveLength(0);
+        expect(enqueued).toEqual([]);
+        expect(peerLinks.taskRecordsOf(MACHINE)).toEqual([]);
+    });
+
     test('a machine without a link for the project gets nothing started', async () => {
         linked = false;
         await expect(new PeerTasks(deps()).start(MACHINE, 'client-1', start())).rejects.toMatchObject({ code: 'peer-not-linked' });

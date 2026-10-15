@@ -254,6 +254,7 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
             return folder !== undefined && hasDatabaseConnections(folder);
         },
         modeCeiling: (chatId) => lineage.ceilingOf(chatId),
+        peerChat: (chatId) => lineage.peerOf(chatId) !== null,
         checkCwd: startCwd,
         holdsProject: async (chatId, clientId) => {
             const place = index().locate(chatId);

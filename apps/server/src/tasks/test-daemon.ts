@@ -67,6 +67,8 @@ export interface TestDaemon {
     codex: InProcessCli;
     /* The environment of every chat CLI started, oldest first. */
     chatEnvs: Array<Record<string, string>>;
+    /* The command line of every chat CLI started, oldest first. */
+    chatCommands: string[][];
     wiring: TaskWiring;
     endChildren: EndChildrenWiring;
     /* The tasks other machines gave, when the daemon takes any. */
@@ -184,6 +186,7 @@ export async function bootTestDaemon({
     const plans = new PlanStore(home, { now: () => clock.now() });
     const visuals = new VisualStore(home, attachments);
     const chatEnvs: Array<Record<string, string>> = [];
+    const chatCommands: string[][] = [];
     const chats = new ChatManager({
         providers,
         store: new ChatStore(home, { attachments, isSidecar: isPlanFileName }),
@@ -191,6 +194,7 @@ export async function bootTestDaemon({
         ...(checkpoints ? { checkpoints } : {}),
         spawn: (options) => {
             chatEnvs.push(options.env);
+            chatCommands.push([...options.command]);
             return options.command[0]?.endsWith('codex') ? codex.spawn(options) : claude.spawn(options);
         },
         env,
@@ -204,6 +208,7 @@ export async function bootTestDaemon({
         dropWakes: (chatId) => tasks.dropWake(chatId),
         endChildren: (chatId) => endChildren.stopNode(chatId, 'a person cleared this chat'),
         endedAt: (chatId) => lineage.endedAt(chatId),
+        peerChat: (chatId) => lineage.peerOf(chatId) !== null,
         plans,
         visuals,
         visualReplies: () => machine.visualReplies !== false,
@@ -443,6 +448,7 @@ export async function bootTestDaemon({
         claude,
         codex,
         chatEnvs,
+        chatCommands,
         wiring,
         endChildren,
         peerTasks,

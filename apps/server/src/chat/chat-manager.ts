@@ -92,6 +92,8 @@ interface ChatManagerOptions extends ChatCoreOptions {
     plans?: ChatPlans;
     // The widest mode this chat may run in, whatever its record or its node says; null for no limit.
     modeCeiling?: (chatId: string) => RuntimeMode | null;
+    // Whether another machine gave this chat its task, which then never runs on the configuration the files it sent carry.
+    peerChat?: (chatId: string) => boolean;
     // Refuses a directory this chat may not start in, asked every time a chat is loaded.
     checkCwd?: (chatId: string, cwd: string) => Promise<void>;
     // Whether the client holds the project the chat is in; a UI block reads and links only for one that does.
@@ -215,6 +217,7 @@ export class ChatManager extends ChatCore {
     private readonly firstPrompt: (chatId: string) => Promise<string | null>;
     private readonly inlineChat: (chatId: string) => boolean;
     private readonly modeCeiling: (chatId: string) => RuntimeMode | null;
+    private readonly peerChat: (chatId: string) => boolean;
     private readonly checkCwd: (chatId: string, cwd: string) => Promise<void>;
     private readonly holdsProject: (chatId: string, clientId: string) => Promise<boolean>;
     private readonly ended: (chatId: string) => number | null;
@@ -239,6 +242,7 @@ export class ChatManager extends ChatCore {
                 instructionsFor: (chatId) => this.instructionsFor(chatId),
                 resumeNoteFor: (chatId) => this.resumeNoteFor(chatId),
                 foldersFor: (chatId) => this.foldersFor(chatId),
+                projectConfigFor: (chatId) => !this.peerChat(chatId),
                 promptNotesFor: (chatId) => this.promptNotesFor(chatId),
                 hiddenFor: (chatId) => this.inlineChat(chatId),
                 referencesFor: (chatId) => this.referencesFor(chatId),
@@ -274,6 +278,7 @@ export class ChatManager extends ChatCore {
         this.firstPrompt = options.firstPrompt ?? (() => Promise.resolve(null));
         this.inlineChat = options.inlineChat ?? (() => false);
         this.modeCeiling = options.modeCeiling ?? (() => null);
+        this.peerChat = options.peerChat ?? (() => false);
         this.checkCwd = options.checkCwd ?? (() => Promise.resolve());
         this.holdsProject = options.holdsProject ?? (() => Promise.resolve(true));
         this.ended = options.endedAt ?? (() => null);

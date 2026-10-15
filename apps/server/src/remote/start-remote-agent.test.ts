@@ -287,6 +287,18 @@ describe('agent --machine', () => {
         expect(requests.at(-1)).toEqual({ type: 'peer.taskStop', payload: { nodeId: startedNode } });
     });
 
+    test('a CLI the machine will not run for another machine fails the task for good, with the words of the machine', async () => {
+        open = fakeLink();
+        answer = () => {
+            throw new Error('peer-provider-unsupported: Codex cannot run a task from another machine here');
+        };
+        const [line] = await give();
+        const taskId = line!.split('\t')[5]!;
+        await daemon.worker.settled();
+        expect(daemon.tasks.get(taskId)).toMatchObject({ status: 'failed', result: { text: expect.stringContaining('Codex cannot run a task') } });
+        expect(daemon.outbox.list().filter((entry) => entry.kind === 'start-remote-agent')).toEqual([]);
+    });
+
     test('a task stopped before it started is dropped without asking the machine', async () => {
         const [line] = await give();
         const nodeId = line!.split('\t')[0]!;

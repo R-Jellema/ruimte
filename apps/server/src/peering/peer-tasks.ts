@@ -131,6 +131,19 @@ export class PeerTasks {
             // A start the other machine asks again because it never heard the answer.
             return await this.startedAs(machineId, nodeId, folder);
         }
+        const provider = providerFor(payload.provider);
+        if (provider.ignoresProjectConfig !== true) {
+            throw new RequestError(
+                'peer-provider-unsupported',
+                `${provider.name} cannot run a task from another machine here: it cannot be kept from loading the settings, hooks and tools of the files that machine sent. Give the task to a Claude agent instead`
+            );
+        }
+        if (payload.terminal === true) {
+            throw new RequestError(
+                'peer-terminal-unsupported',
+                'A terminal agent cannot run a task from another machine here: it cannot be kept from loading the settings, hooks and tools of the files that machine sent. Give the task to a chat agent instead'
+            );
+        }
         if (held === null && deps.exists(nodeId)) {
             // Started by someone else before the task came; its prompt and folder could not reach it any more.
             throw new RequestError('peer-node-taken', 'A chat or terminal with that id already runs on this machine');
@@ -149,7 +162,7 @@ export class PeerTasks {
         if (!(await deps.installed()).includes(payload.provider)) {
             throw new RequestError('cli-not-installed', `${providerFor(payload.provider).name} is not installed on this machine`);
         }
-        const chat = payload.terminal !== true && providerFor(payload.provider).capabilities.chat;
+        const chat = providerFor(payload.provider).capabilities.chat;
         // The narrowest of what it asks, what its own parent allows it and what the link here allows.
         const ceiling = narrowerMode(payload.ceiling, link.ceiling);
         const asked = payload.mode === undefined ? undefined : narrowerMode(payload.mode, ceiling);
