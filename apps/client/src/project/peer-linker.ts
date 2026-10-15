@@ -9,9 +9,18 @@ const throughAccount: PeerLinker = async (machineId, self) => (await import('@/p
 
 let linker = throughAccount;
 
+// One attempt per machine at a time: a second caller (the mirror's renewal, a pill clicked meanwhile) joins it, so one failure costs one round trip to the address book.
+const running = new Map<string, Promise<void>>();
+
 /* Lets this machine work in `machineId`, with the account of this window vouching for it. */
 export function linkToPeer(machineId: string, self: Requester): Promise<void> {
-    return linker(machineId, self);
+    const joined = running.get(machineId);
+    if (joined !== undefined) {
+        return joined;
+    }
+    const attempt = linker(machineId, self).finally(() => running.delete(machineId));
+    running.set(machineId, attempt);
+    return attempt;
 }
 
 /*
@@ -34,5 +43,6 @@ export function swapPeerLinker(next: PeerLinker): () => void {
     linker = next;
     return () => {
         linker = throughAccount;
+        running.clear();
     };
 }

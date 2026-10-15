@@ -54,6 +54,15 @@ let order: string[];
 let links: RemoteLink[];
 let restoreLinker: () => void;
 let statementRefused: boolean;
+// Holds the address book's answer, so a test can look at the window while the machines are still being linked.
+let addressBookGate: Promise<void> | null;
+
+const LINK_STEPS = ['endpoint.signPeerAccess', 'address book', 'remote.connect'];
+
+/* What was asked of the machines, without the link between them, which goes on after the dialog is gone. */
+function withoutLink(asked: string[]): string[] {
+    return asked.filter((step) => !LINK_STEPS.includes(step));
+}
 
 async function openDialog(kind: 'chat' | 'terminal' | 'device' = 'chat'): Promise<void> {
     await act(async () => useUi.getState().setRemoteNodeDialog({ machineId: REMOTE, kind, viewId: 'main', at: { x: 400, y: 400 }, relink: false }));
@@ -71,6 +80,7 @@ beforeEach(async () => {
     order = [];
     links = [];
     statementRefused = false;
+    addressBookGate = null;
     // The address book is the one part the page cannot reach here; the two requests to this machine are real.
     restoreLinker = swapPeerLinker((machineId, self) =>
         linkPeer({
@@ -79,6 +89,7 @@ beforeEach(async () => {
             brokerUrl: null,
             request: async (payload) => {
                 order.push('address book');
+                await addressBookGate;
                 if (statementRefused) {
                     throw new Error('Sign in first');
                 }
@@ -194,8 +205,10 @@ describe('a new node on another machine', () => {
         await until(() => button('Create')?.hasAttribute('disabled') === false);
         await clickOn(button('Create'));
 
-        await until(() => order.includes('peer.placeNodes'));
-        expect(order).toEqual(['peer.bind', 'remote.link', 'endpoint.signPeerAccess', 'address book', 'remote.connect', 'project.save', 'peer.placeNodes']);
+        await until(() => order.includes('peer.placeNodes') && order.includes('remote.connect'));
+        expect(withoutLink(order)).toEqual(['peer.bind', 'remote.link', 'project.save', 'peer.placeNodes']);
+        // The two machines are linked to each other only once the node exists.
+        expect(order.indexOf('endpoint.signPeerAccess')).toBeGreaterThan(order.indexOf('project.save'));
         expect(there.requests('peer.bind')[0]).toMatchObject({ projectId: 'ruimte' });
         expect(here.requests('remote.link')[0]).toMatchObject({ machineId: REMOTE, remoteProjectId: 'ruimte', rootCommit: 'root-a' });
         const saved = here.requests('project.save').at(-1)!.content.views[0] as ProjectCanvasView;
@@ -205,11 +218,47 @@ describe('a new node on another machine', () => {
         await until(() => dialog() === null);
     });
 
+    test('closes once the node exists, however long the account takes to vouch for the link between the machines', async () => {
+        let release: () => void = () => undefined;
+        addressBookGate = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        await openDialog();
+        await until(() => button('Create')?.hasAttribute('disabled') === false);
+        await clickOn(button('Create'));
+        await until(() => dialog() === null);
+        await until(() => order.includes('address book'));
+        // The node is saved and the dialog gone, while the link still waits on the address book.
+        expect(order).toContain('project.save');
+        expect(order).not.toContain('remote.connect');
+
+        await act(async () => release());
+        await until(() => order.includes('remote.connect'));
+        expect(usePeerLapse.getState().lapsed[REMOTE]).toBeUndefined();
+    });
+
+    test('marks the machine when the link fails after the dialog closed, and asks the address book once', async () => {
+        let release: () => void = () => undefined;
+        addressBookGate = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        statementRefused = true;
+        await openDialog();
+        await until(() => button('Create')?.hasAttribute('disabled') === false);
+        await clickOn(button('Create'));
+        await until(() => dialog() === null);
+        await until(() => order.includes('address book'));
+        await act(async () => release());
+        await until(() => usePeerLapse.getState().lapsed[REMOTE] === true);
+        expect(order.filter((step) => step === 'address book')).toHaveLength(1);
+        expect(here.requests('endpoint.signPeerAccess')).toHaveLength(1);
+    });
+
     test('links the two machines to each other after the link of the project, and hands the statement and the broker of the account to this machine', async () => {
         await openDialog();
         await until(() => button('Create')?.hasAttribute('disabled') === false);
         await clickOn(button('Create'));
-        await until(() => order.includes('peer.placeNodes'));
+        await until(() => order.includes('peer.placeNodes') && order.includes('remote.connect'));
         expect(here.requests('endpoint.signPeerAccess')[0]).toMatchObject({ machineId: REMOTE });
         expect(here.requests('remote.connect')[0]).toMatchObject({ machineId: REMOTE, statement: { machineId: REMOTE } });
         expect(usePeerLapse.getState().lapsed[REMOTE]).toBeUndefined();
@@ -220,10 +269,9 @@ describe('a new node on another machine', () => {
         await openDialog();
         await until(() => button('Create')?.hasAttribute('disabled') === false);
         await clickOn(button('Create'));
-        await until(() => order.includes('peer.placeNodes'));
+        await until(() => order.includes('peer.placeNodes') && usePeerLapse.getState().lapsed[REMOTE] === true);
         expect(here.requests('remote.connect')).toEqual([]);
         expect(here.requests('project.save').length).toBeGreaterThan(0);
-        expect(usePeerLapse.getState().lapsed[REMOTE]).toBe(true);
     });
 
     test('leaves the machines unlinked when this machine runs a Ruimte that cannot link them', async () => {
@@ -260,18 +308,7 @@ describe('a new node on another machine', () => {
         await clickOn(button('Create'));
 
         await until(() => order.includes('peer.placeNodes'));
-        expect(order).toEqual([
-            'peer.bind',
-            'remote.link',
-            'endpoint.signPeerAccess',
-            'address book',
-            'remote.connect',
-            'git.bundle',
-            'git.bundlePut',
-            'git.fetchBundle',
-            'project.save',
-            'peer.placeNodes'
-        ]);
+        expect(withoutLink(order)).toEqual(['peer.bind', 'remote.link', 'git.bundle', 'git.bundlePut', 'git.fetchBundle', 'project.save', 'peer.placeNodes']);
         expect(here.requests('git.bundle')[0]).toMatchObject({ path: '/work/atlas', from: 'files' });
         expect(there.requests('git.fetchBundle')[0]).toMatchObject({ projectId: 'ruimte', bundleId: 'bundle-one', sha256: 'a'.repeat(64), into: 'worktree' });
         expect(there.requests('peer.placeNodes')[0]).toMatchObject({ nodes: [{ cwd: '/Users/b/worktrees/ruimte/main' }] });
@@ -318,18 +355,7 @@ describe('a new node on another machine', () => {
         await clickOn(button('Create'));
 
         await until(() => order.includes('peer.placeNodes'));
-        expect(order).toEqual([
-            'peer.bind',
-            'remote.link',
-            'endpoint.signPeerAccess',
-            'address book',
-            'remote.connect',
-            'here push',
-            'there fetch',
-            'git.worktree-add',
-            'project.save',
-            'peer.placeNodes'
-        ]);
+        expect(withoutLink(order)).toEqual(['peer.bind', 'remote.link', 'here push', 'there fetch', 'git.worktree-add', 'project.save', 'peer.placeNodes']);
         expect(there.requests('git.worktree-add')[0]).toMatchObject({ repo: '/Users/b/ruimte', branch: 'ruimte/main', base: 'origin/main' });
     });
 

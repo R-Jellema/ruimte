@@ -253,18 +253,14 @@ function RemoteNodeForm({
                 });
                 return worktree.path;
             };
+            const linked = checkouts.links.some((known) => known.machineId === request.machineId && known.remoteProjectId === candidate.projectId);
             await createRemoteNode({
-                linked: checkouts.links.some((known) => known.machineId === request.machineId && known.remoteProjectId === candidate.projectId),
+                linked,
                 bindThere: async () => {
                     await there.request('peer.bind', { machineId: selfId, label: self?.label ?? selfId, projectId: candidate.projectId });
                 },
                 linkHere: async () => {
                     await workspace.connection.transport.request('remote.link', link);
-                },
-                connectPeer: async () => {
-                    if (canLink) {
-                        await linkToPeerOrMark(request.machineId, workspace.connection.transport);
-                    }
                 },
                 makeWorktree: async () => {
                     const path = await placeCheckout();
@@ -307,6 +303,10 @@ function RemoteNodeForm({
                 holdMirror: () => remoteMirror()?.hold() ?? ((): void => undefined)
             });
             onDone();
+            // Once the node exists the dialog is done. The node works without the link between the machines, which only lets agents give tasks there, so it goes on after the dialog and marks the machine when the account cannot vouch for it.
+            if (!linked && canLink) {
+                void linkToPeerOrMark(request.machineId, workspace.connection.transport);
+            }
         } catch (e) {
             setFailure(messageOf(e, t('remoteNode.failed')));
         } finally {
