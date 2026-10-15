@@ -84,6 +84,7 @@ beforeAll(async () => {
     const dispatcher = new Dispatcher();
     dispatcher.register('server.ping', () => ({ time: Date.now() }), { peer: true });
     dispatcher.register('fs.read', () => ({}) as never);
+    dispatcher.register('peer.result', () => ({ status: 'done', result: 'not a result', bundle: null }) as never, { peer: true });
     const services = {
         dispatcher,
         sessions: { ...noSource, get: () => undefined },
@@ -198,6 +199,8 @@ describe('the link of one machine to another, over a real broker', () => {
         expect(opened.at(-1)?.access.peer).toEqual({ machineId: 'machine-a' });
         await expect(link.request('server.ping', {})).resolves.toMatchObject({ time: expect.any(Number) });
         await expect(link.request('fs.read', { path: '/etc/passwd' })).rejects.toThrow(/forbidden/);
+        // A machine that lies about what it answers is not believed.
+        await expect(link.request('peer.result', { nodeId: 'chat-one' })).rejects.toThrow(/not an answer to it/);
     }, 60_000);
 
     test('opens again on the peer key alone once the machine let it in', async () => {

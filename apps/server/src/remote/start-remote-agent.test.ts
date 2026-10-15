@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ProjectContent } from '@ruimte/contracts';
 import { ManualClock } from '@adecore/agents/testing';
+import { MAX_RESULT_LENGTH } from '../canvas/tasks.ts';
 import { projectLinks } from '../projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { bootTestDaemon, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
@@ -385,6 +386,26 @@ describe('agent --machine', () => {
         daemon.worker.wake(nodeId!);
         await daemon.worker.settled();
         expect(daemon.tasks.get(taskId!)).toMatchObject({ status: 'failed', result: { text: expect.stringContaining('no longer links this project') } });
+    });
+
+    test('keeps a result only as long as every task result may be, and a refusal as short as a sentence', async () => {
+        open = fakeLink();
+        const [line] = await give();
+        const [nodeId, , , , , taskId] = line!.split('\t');
+        await daemon.worker.settled();
+        answer = (type) => (type === 'peer.result' ? { status: 'done', result: { text: 'x'.repeat(500_000), source: 'turn', at: 5 }, bundle: null } : {});
+        daemon.worker.wake(nodeId!);
+        await daemon.worker.settled();
+        const text = daemon.tasks.get(taskId!)!.result!.text;
+        expect(text.length).toBeLessThanOrEqual(MAX_RESULT_LENGTH);
+        expect(text).toEndWith('[The rest of the result was left out.]');
+
+        answer = () => {
+            throw new Error(`depth-limit: ${'y'.repeat(100_000)}`);
+        };
+        const [second] = await give();
+        await daemon.worker.settled();
+        expect(daemon.tasks.get(second!.split('\t')[5]!)!.result!.text.length).toBeLessThan(1000);
     });
 
     test('a task that ended with the machine unreachable is acknowledged when the link is back, and a task that machine never knew fails', async () => {

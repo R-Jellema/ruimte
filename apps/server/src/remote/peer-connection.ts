@@ -4,6 +4,7 @@ import { verifySignature } from '@ruimte/pulsar/verify-node';
 import { weriftIceServers } from '../pulsar/broker-relay.ts';
 import { DirectClient } from '../pulsar/direct-client.ts';
 import type { PeerMachine } from './peer-machines.ts';
+import { checkedReply } from './peer-reply.ts';
 
 /* The key this machine is let in under, which it signs with and never hands out. */
 export interface PeerSigner {
@@ -173,7 +174,7 @@ export async function openPeerLink(options: PeerLinkOptions): Promise<PeerLink> 
     // The channel carries everything from here, so the line has nothing left to do.
     line.close();
     return {
-        request: (type, payload) => client.request(type, payload),
+        request: async <T>(type: string, payload: unknown): Promise<T> => checkedReply<T>(type, await client.request(type, payload)),
         onFrame: (listener) => client.onFrame(listener),
         onLost: (listener) => {
             client.onLost(listener);

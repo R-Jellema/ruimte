@@ -1,6 +1,7 @@
 import { BYTES_CHUNK_MAX, type PeerResultResult, type PeerTaskStartPayload, type PeerTaskStartResult } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
 import type { TaskCoordinator, TaskStore } from '@adecore/agents/coordination';
+import { MAX_RESULT_LENGTH } from '../canvas/tasks.ts';
 import { BundleStore, bundleIdFor, fetchBundle, makeBundle } from '../git/bundles.ts';
 import type { CheckpointService } from '../git/checkpoints.ts';
 import type { Worktrees } from '../git/worktrees.ts';
@@ -8,6 +9,12 @@ import { errorText } from '../error-text.ts';
 import type { OutboxEntry, OutboxWork, StartRemoteAgentEntry, StopRemoteAgentEntry, TakeRemoteResultEntry } from '../outbox/outbox.ts';
 import { RECONNECT_LIFETIME_MS, peerTarget } from './connect-peer.ts';
 import type { RemoteConnections } from './remote-connections.ts';
+
+// The words of a refusal that are kept, since the machine that refused chose them.
+const MAX_REFUSAL_LENGTH = 500;
+
+// Said where a result is cut to the length every task result has.
+const CLIPPED = '\n[The rest of the result was left out.]';
 
 // A refusal that is a place not free yet: the entry waits for the machine to say a task settled, or for the link to open again.
 const WAITS: ReadonlySet<string> = new Set(['peer-busy', 'peer-bundle-limit']);
@@ -45,10 +52,10 @@ export interface RemoteTasksDeps {
 function refusal(error: unknown): { code: string; message: string } | null {
     // The checkout could not be written as a bundle here (a repository that is not one, a bundle too large): that is an answer too.
     if (error instanceof CodedError) {
-        return { code: error.code, message: error.message };
+        return { code: error.code, message: error.message.slice(0, MAX_REFUSAL_LENGTH) };
     }
     const match = /^([a-z][a-z0-9-]*): (.*)$/s.exec(error instanceof Error ? error.message : '');
-    return match === null || match[1] === 'internal' ? null : { code: match[1]!, message: match[2]! };
+    return match === null || match[1] === 'internal' ? null : { code: match[1]!, message: match[2]!.slice(0, MAX_REFUSAL_LENGTH) };
 }
 
 function base64(bytes: Uint8Array): string {
@@ -291,7 +298,10 @@ export class RemoteTasks {
             reported.bundle === null
                 ? null
                 : await this.bringBack(link, entry, projectId, reported.bundle).catch((e: unknown) => `The work could not be brought back: ${errorText(e)}`);
-        const text = brought === null ? base.text : `${base.text}\n\n${brought}`;
+        // What the machine reported is its own word and as long as it likes; what is kept and woken with is bounded.
+        const room = MAX_RESULT_LENGTH - (brought === null ? 0 : brought.length + 2);
+        const shown = base.text.length > room ? `${base.text.slice(0, Math.max(0, room - CLIPPED.length))}${CLIPPED}` : base.text;
+        const text = brought === null ? shown : `${shown}\n\n${brought}`;
         const status = reported.status === 'done' ? 'done' : 'failed';
         await deps.coordinator.settleFromElsewhere(entry.payload.taskId, { ...base, text }, status);
         return text;
