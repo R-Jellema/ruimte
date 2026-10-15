@@ -111,6 +111,25 @@ describe('the links to other machines', () => {
         expect(heard).toEqual(['connecting:0', 'closed:0']);
     });
 
+    test('tells a refusal by the machine from a machine that does not answer, and does not call it waiting', async () => {
+        owed = 1;
+        for (const message of [
+            'The machine closed the attempt: not-paired',
+            'This machine does not know this device. Sign in to the account it is on to be let in again.'
+        ]) {
+            next = async () => {
+                throw new Error(message);
+            };
+            await expect(connections.connect('machine-b')).rejects.toMatchObject({ code: 'refused' });
+        }
+        expect(heard).not.toContain('waiting:1');
+        next = async () => {
+            throw new Error('The machine did not answer the offer');
+        };
+        await expect(connections.connect('machine-b')).rejects.toThrow('did not answer');
+        expect(heard.at(-1)).toBe('waiting:1');
+    });
+
     test('says the link is waiting when it failed while work for the machine is owed', async () => {
         owed = 2;
         next = async () => {

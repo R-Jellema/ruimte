@@ -6,7 +6,16 @@ import type { PeerMachine, PeerMachines } from './peer-machines.ts';
 import type { PendingAdmissions } from './pending-admissions.ts';
 import type { RemoteStatus } from './remote-status.ts';
 
-export class RemoteLinkError extends CodedError<'unknown-machine' | 'no-broker' | 'unreachable'> {}
+export class RemoteLinkError extends CodedError<'unknown-machine' | 'no-broker' | 'unreachable' | 'refused'> {}
+
+/*
+ * What the other machine says when it will not have this one: it does not know the key (never let in, run
+ * out or revoked), refuses the statement, or runs another protocol. Trying again changes none of that.
+ */
+export function refusedByMachine(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : '';
+    return /closed the attempt: (not-paired|statements-refused)|does not know this device|different versions of Ruimte/.test(message);
+}
 
 /* Opens a link to one machine; rejects with the reason it could not. */
 export interface PeerDialer {
@@ -138,8 +147,9 @@ export class RemoteConnections {
         try {
             link = await this.options.dialer.dial(machine, statement);
         } catch (e) {
-            this.publish(machineId, this.options.owed(machineId) > 0 ? 'waiting' : null);
-            throw e;
+            const refused = refusedByMachine(e);
+            this.publish(machineId, this.options.owed(machineId) > 0 && !refused ? 'waiting' : null);
+            throw refused ? new RemoteLinkError('refused', e instanceof Error ? e.message : 'That machine will not have this one') : e;
         }
         // The machine let this key in, so the statement has done what it was for.
         this.options.pending.release(machineId);

@@ -1,5 +1,5 @@
 import type { OutboxEntry, OutboxWork, ConnectPeerEntry } from '../outbox/outbox.ts';
-import type { RemoteConnections } from './remote-connections.ts';
+import { RemoteLinkError, type RemoteConnections } from './remote-connections.ts';
 
 // The wait after the first failed attempt, like the first poll of a PR-watch; each failure after it doubles the wait up to the cap.
 export const RECONNECT_START_MS = 60_000;
@@ -49,6 +49,8 @@ export class ConnectPeer {
     private readonly deps: ConnectPeerDeps;
     // Machines whose attempt is running, and those whose link was lost meanwhile and so need a new entry once it ends.
     private readonly running = new Set<string>();
+    // When work for a machine was first owed, which the 7 days count from however often the link was lost and made again in between.
+    private readonly firstOwed = new Map<string, number>();
     private readonly lostMeanwhile = new Set<string>();
 
     constructor(deps: ConnectPeerDeps) {
@@ -57,7 +59,11 @@ export class ConnectPeer {
 
     /* Owes a reconnect to this machine, if work waits on it, unless the link is open or one is owed already. */
     async owe(machineId: string): Promise<void> {
-        if (this.deps.connections.isOpen(machineId) || !this.deps.connections.knows(machineId) || this.owedTo(machineId) === 0) {
+        if (this.owedTo(machineId) === 0 || !this.deps.connections.knows(machineId)) {
+            this.firstOwed.delete(machineId);
+            return;
+        }
+        if (this.deps.connections.isOpen(machineId)) {
             return;
         }
         if (this.running.has(machineId)) {
@@ -67,11 +73,12 @@ export class ConnectPeer {
         if (this.entriesOf(machineId).length > 0) {
             return;
         }
-        await this.write(machineId, this.deps.now(), RECONNECT_START_MS, this.deps.now());
+        await this.write(machineId, this.sinceOf(machineId), RECONNECT_START_MS, this.deps.now());
     }
 
     /* Ends the reconnects owed to a machine, as unlinking it does. */
     async lapse(machineId: string, remove: (id: string) => Promise<void>): Promise<void> {
+        this.firstOwed.delete(machineId);
         for (const entry of this.entriesOf(machineId)) {
             await remove(entry.id);
         }
@@ -80,24 +87,42 @@ export class ConnectPeer {
     readonly handler = async (entry: ConnectPeerEntry): Promise<void> => {
         const { machineId, since, interval } = entry.payload;
         const { connections } = this.deps;
-        if (this.deps.now() - since >= RECONNECT_LIFETIME_MS || !connections.knows(machineId) || this.owedTo(machineId) === 0) {
+        if (!connections.knows(machineId) || this.owedTo(machineId) === 0) {
+            this.firstOwed.delete(machineId);
             connections.idle(machineId);
             return;
         }
+        // Given up on: the first owing stays on record, so asking again later does not start the 7 days over.
+        if (this.deps.now() - since >= RECONNECT_LIFETIME_MS) {
+            connections.idle(machineId);
+            return;
+        }
+        this.firstOwed.set(machineId, since);
         this.running.add(machineId);
         try {
             await connections.connect(machineId);
             this.wakeOwed(machineId);
-        } catch {
-            await this.retry(entry, machineId, since, interval);
+        } catch (e) {
+            // A machine that will not have this one says so again however often it is asked.
+            if (e instanceof RemoteLinkError && e.code === 'refused') {
+                connections.idle(machineId);
+            } else {
+                await this.retry(entry, machineId, since, interval);
+            }
         } finally {
             this.running.delete(machineId);
         }
         // This entry is still in the outbox until the worker removes it, so `owe` would take it for the reconnect that is owed.
         if (this.lostMeanwhile.delete(machineId) && !connections.isOpen(machineId) && this.entriesOf(machineId).every((other) => other.id === entry.id)) {
-            await this.write(machineId, this.deps.now(), RECONNECT_START_MS, this.deps.now());
+            await this.write(machineId, this.sinceOf(machineId), RECONNECT_START_MS, this.deps.now());
         }
     };
+
+    private sinceOf(machineId: string): number {
+        const kept = this.firstOwed.get(machineId) ?? this.entriesOf(machineId)[0]?.payload.since ?? this.deps.now();
+        this.firstOwed.set(machineId, kept);
+        return kept;
+    }
 
     private async retry(entry: ConnectPeerEntry, machineId: string, since: number, interval: number): Promise<void> {
         if (this.owedTo(machineId) === 0) {

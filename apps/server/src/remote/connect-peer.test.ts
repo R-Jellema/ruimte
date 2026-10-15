@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { OutboxWorker, type OutboxHandlers } from '@adecore/agents/coordination';
 import { ManualClock } from '@adecore/agents/testing';
 import { OutboxStore, type ConnectPeerEntry, type OutboxWork } from '../outbox/outbox.ts';
+import { RemoteLinkError } from './remote-connections.ts';
 import {
     ConnectPeer,
     PEERS_PROJECT,
@@ -21,6 +22,7 @@ const MACHINE = 'machine-b';
 /* The link to a machine as the reconnect sees it: it is down until a test brings it up. */
 class FakeConnections {
     up = false;
+    refuse = false;
     known = true;
     open = false;
     attempts = 0;
@@ -28,6 +30,9 @@ class FakeConnections {
 
     async connect(): Promise<never> {
         this.attempts += 1;
+        if (this.refuse) {
+            throw new RemoteLinkError('refused', 'The machine closed the attempt: not-paired');
+        }
         if (!this.up) {
             throw new Error('The machine did not answer');
         }
@@ -240,6 +245,42 @@ describe('the reconnect of a link to another machine', () => {
         await worker.settled();
         expect(connections.attempts).toBe(2);
         expect(connectEntries()).toEqual([]);
+    });
+
+    test('keeps the first owing across losses, so the 7 days are 7 days in total', async () => {
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        const since = connectEntries()[0]!.payload.since;
+        connections.up = true;
+        await advance(60_000);
+        expect(connectEntries()).toEqual([]);
+        // The link opened for a day, was lost, and the work is still owed.
+        connections.open = false;
+        await advance(24 * 60 * 60 * 1000);
+        connections.up = false;
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        expect(connectEntries()[0]!.payload.since).toBe(since);
+
+        // Nothing owed any more ends it, and the next owing counts afresh.
+        owed = [];
+        await advance(RECONNECT_MAX_MS);
+        expect(connectEntries()).toEqual([]);
+        owed = ['chat-1'];
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        expect(connectEntries()[0]!.payload.since).toBeGreaterThan(since);
+    });
+
+    test('stops at a refusal that asking again will not change', async () => {
+        connections.refuse = true;
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        expect(connectEntries()).toEqual([]);
+        expect(connections.attempts).toBe(1);
+        expect(connections.standing.at(-1)).toBe(`idle:${MACHINE}`);
+        await advance(RECONNECT_MAX_MS);
+        expect(connections.attempts).toBe(1);
     });
 
     test('is due at once after a restart, whatever delay an earlier run set', async () => {
