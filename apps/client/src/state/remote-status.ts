@@ -30,6 +30,15 @@ export function isWaiting(status: RemoteStatusEvent | undefined): boolean {
 }
 
 /*
+ * Whether the task of this node has not been asked of its machine yet, because the link is not open.
+ * An open link is about to ask, so it counts as started; the standing says which nodes the machine
+ * still waits on, and a task the machine took is no longer among them.
+ */
+export function isUnstarted(status: RemoteStatusEvent | undefined, nodeId: string): boolean {
+    return status !== undefined && status.state !== 'open' && status.unstartedNodeIds?.includes(nodeId) === true;
+}
+
+/*
  * The standing answer comes again with every fresh socket, so what a lost socket held is dropped
  * rather than shown as it was.
  */

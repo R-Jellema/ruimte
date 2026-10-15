@@ -304,6 +304,8 @@
         "offline": "{{machine}} is not answering. It may be asleep.",
         "retrying": "Trying to reach {{machine}} again…",
         "unlinked": "This project is no longer linked on {{machine}}.",
+        "unstarted": "{{machine}} has not taken this task yet. It starts there by itself when {{machine}} answers.",
+        "taskNotStarted": "Task: {{title}} · not started",
         "linkAgain": "Link again",
         "tooOld": "{{machine}} runs an older Ruimte. Update it to use this node.",
         "pill": "This node runs on {{machine}}",

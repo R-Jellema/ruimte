@@ -36,8 +36,19 @@ let workspace: FakeWorkspace;
 let page: Mounted;
 let stopWatching: () => void;
 
-function status(state: RemoteStatusEvent['state']): RemoteStatusEvent {
-    return { machineId: REMOTE, state, owed: 1, ...(state === 'waiting' ? { nextAttemptAt: 60_000 } : {}) };
+/* `unstarted` is the nodes whose task the machine has not been asked to start yet; a task it took leaves that out and only its result is owed. */
+function status(state: RemoteStatusEvent['state'], unstarted: string[] = state === 'waiting' ? [CHILD.id] : []): RemoteStatusEvent {
+    return {
+        machineId: REMOTE,
+        state,
+        owed: 1,
+        ...(state === 'waiting' ? { nextAttemptAt: 60_000 } : {}),
+        ...(unstarted.length === 0 ? {} : { unstartedNodeIds: unstarted })
+    };
+}
+
+function bodyOf(nodeId: string): string {
+    return page.host.querySelector(`[data-node-id="${nodeId}"]`)?.textContent ?? '';
 }
 
 function pillOf(nodeId: string): string {
@@ -84,6 +95,16 @@ describe('a task that waits for another machine', () => {
 
         await act(async () => here.emit('remote.status', status('open')));
         await until(() => !pillOf(PARENT.id).includes('Waiting for'));
+    });
+
+    test('says on the node that its task has not started, and takes that away when the machine took the task', async () => {
+        await act(async () => here.emit('remote.status', status('waiting')));
+        await until(() => bodyOf(CHILD.id).includes('Task: Run the tests · not started'));
+
+        // The machine took the task; the link may still be down, but only its result is owed now.
+        await act(async () => here.emit('remote.status', status('waiting', [])));
+        await until(() => !bodyOf(CHILD.id).includes('not started'));
+        expect(pillOf(PARENT.id)).not.toContain('Waiting for');
     });
 
     test('shows no pill once the task has settled, and counts nothing as needing a person', async () => {

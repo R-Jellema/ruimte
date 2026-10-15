@@ -47,7 +47,7 @@ import { EMPTY_DRAFT, writeDraft } from '@adecore/agents-react/chat';
 import { BookmarkSubmenu } from '@adecore/agents-react/chat/ui';
 import { ForkMenuItem } from '@/chat/ForkMenuItem';
 import { stopPrWatch } from '@/shell/pr-watch-actions';
-import { useWaitingTask } from '@/canvas/remote-wait';
+import { useUnstartedTask } from '@/canvas/remote-wait';
 import { useEndpointId } from '@/state/keys';
 import { useChatPrWatch } from '@/state/pr-watches';
 import { FileActionItems } from '@/shell/panels/FileActionItems';
@@ -90,7 +90,7 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
     const node = useCanvas((s) => s.nodes[id]);
     const endpointId = useEndpointId();
     const prWatch = useChatPrWatch(id);
-    const waitingTask = useWaitingTask(id, node?.machine);
+    const waitingTask = useUnstartedTask(id, node?.machine);
     const maximized = useCanvas((s) => maximizedNodeOf(s) === id);
     const moveLocked = useCanvas((s) => s.locks.move);
     const agent = useSessionRow(id, (row) => row?.agent);

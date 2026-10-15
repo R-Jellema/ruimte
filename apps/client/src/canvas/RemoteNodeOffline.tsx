@@ -17,7 +17,19 @@ const MINUTE_MS = 60_000;
  * can be done. It is the card the whole window shows when its own machine is lost, for one node
  * (`shell/MachineLostScreen.tsx`); the other nodes of the canvas keep working.
  */
-export function RemoteNodeOffline({ machine, state, onLinkAgain }: { machine: string; state: Exclude<RemoteNodeState, 'ready'>; onLinkAgain(): void }) {
+export function RemoteNodeOffline({
+    machine,
+    state,
+    task,
+    onLinkAgain
+}: {
+    machine: string;
+    /* `unstarted` is a machine that answers this window while the daemon that gave the task cannot reach it yet. */
+    state: Exclude<RemoteNodeState, 'ready'> | 'unstarted';
+    /* The title of the task of this node that its machine has not taken yet. */
+    task?: string | undefined;
+    onLinkAgain(): void;
+}) {
     const { t } = useTranslation(['canvas', 'common']);
     const entry = useMachineEntry(machine);
     const icon = useMachineIcon(entry);
@@ -33,8 +45,9 @@ export function RemoteNodeOffline({ machine, state, onLinkAgain }: { machine: st
                 title={name}
                 meta={seen && <span className="text-xs text-text-muted">{seen}</span>}
                 line={t(`remote.${state === 'too-old' ? 'tooOld' : state === 'connecting' ? 'retrying' : state}`, { machine: name })}
-                failed={!connecting}
+                failed={!connecting && state !== 'unstarted'}
             >
+                {task !== undefined && <span className="text-sm text-text-muted">{t('remote.taskNotStarted', { title: task })}</span>}
                 {(state === 'connecting' || state === 'offline') && (
                     <Button size="sm" variant="primary" disabled={connecting} onClick={() => pool.reconnect(machine)}>
                         {t('common:action.retry')}

@@ -304,6 +304,8 @@
         "offline": "{{machine}} antwoordt niet. Misschien slaapt hij.",
         "retrying": "Opnieuw verbinding maken met {{machine}}…",
         "unlinked": "Dit project is niet meer gekoppeld op {{machine}}.",
+        "unstarted": "{{machine}} heeft deze taak nog niet opgepakt. Hij begint daar vanzelf zodra {{machine}} antwoordt.",
+        "taskNotStarted": "Taak: {{title}} · niet gestart",
         "linkAgain": "Opnieuw koppelen",
         "tooOld": "Op {{machine}} draait een oudere Ruimte. Werk hem bij om deze node te gebruiken.",
         "pill": "Deze node draait op {{machine}}",

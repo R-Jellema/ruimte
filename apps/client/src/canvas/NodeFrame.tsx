@@ -41,7 +41,7 @@ import { deleteSelectionAsking } from '@/canvas/delete-selection';
 import { useWorkspace } from '@/transport/connections';
 import { markPeerLapsed, usePeerLapse } from '@/project/peer-lapse';
 import { linkToPeer } from '@/project/peer-linker';
-import { useWaitingMachines } from '@/canvas/remote-wait';
+import { useUnstartedTask, useWaitingMachines } from '@/canvas/remote-wait';
 import { endpointIdOfMachine } from '@/state/endpoints';
 import { useToasts } from '@/state/toasts';
 import { NodeMachineScope } from '@/transport/node-machine';
@@ -408,6 +408,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
     const processAlerts = useNodeAlerts(id);
     const task = useChildTask(id);
     const waitingFor = useWaitingMachines(id);
+    const unstarted = useUnstartedTask(id, node?.machine);
     const hasContext = useHasContextLinks(id);
     const nodeWorktree = useWorktreeOf(node?.kind === 'terminal' || node?.kind === 'chat' ? node.cwd : undefined);
     const groupWorktrees = useGroupWorktrees(node?.kind === 'group' && !node.worktree ? id : null);
@@ -588,10 +589,11 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     >
                         {/* Around the body only, so the header, the menu, a drag and a resize keep working. */}
                         <NodeBodyBoundary kind={node.kind}>
-                            {remote !== 'ready' && node.machine !== undefined ? (
+                            {(remote !== 'ready' || unstarted !== null) && node.machine !== undefined ? (
                                 <RemoteNodeOffline
                                     machine={endpointOfNode(node, '')}
-                                    state={remote}
+                                    state={remote === 'ready' ? 'unstarted' : remote}
+                                    task={unstarted?.title}
                                     onLinkAgain={() =>
                                         useUi.getState().setRemoteNodeDialog({
                                             machineId: node.machine!,

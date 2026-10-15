@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { RemoteStatusEvent, Task } from '@ruimte/contracts';
 import { useCanvas } from '@/state/canvas';
-import { isWaiting, useRemoteStatus } from '@/state/remote-status';
+import { isUnstarted, useRemoteStatus } from '@/state/remote-status';
 import { useTasks } from '@/state/tasks';
 import { useWorkspace } from '@/transport/connections';
 
@@ -19,7 +19,7 @@ export function openTaskOf(tasks: TasksById | undefined, childId: string): Task 
     return found;
 }
 
-/* The machines a node waits for: those its open tasks were given to, while the link to them waits. */
+/* The machines a node waits for: those its open tasks were given to and that have not taken them yet. */
 export function waitingMachinesOf(
     tasks: TasksById | undefined,
     parentId: string,
@@ -29,7 +29,7 @@ export function waitingMachinesOf(
     const machines = new Set<string>();
     for (const task of Object.values(tasks ?? {})) {
         const machine = task.parentId === parentId && task.status === 'open' ? machineOf(task.childId) : undefined;
-        if (machine !== undefined && isWaiting(status?.[machine])) {
+        if (machine !== undefined && isUnstarted(status?.[machine], task.childId)) {
             machines.add(machine);
         }
     }
@@ -56,10 +56,10 @@ export function useWaitingMachines(parentId: string): string[] {
     }, [tasks, parentId, status, childIds, machines]);
 }
 
-/* The task a node is stopped by while it waits for its machine, or null when nothing waits. */
-export function useWaitingTask(childId: string, machine: string | undefined): Task | null {
+/* The task of a node that its machine has not taken yet, or null once it did or when nothing was given to it. */
+export function useUnstartedTask(childId: string, machine: string | undefined): Task | null {
     const workspaceId = useWorkspace()?.connection.endpointId ?? '';
     const tasks = useTasks((state) => state.byEndpoint[workspaceId]);
-    const waiting = useRemoteStatus((state) => machine !== undefined && isWaiting(state.byEndpoint[workspaceId]?.[machine]));
-    return useMemo(() => (waiting ? openTaskOf(tasks, childId) : null), [waiting, tasks, childId]);
+    const unstarted = useRemoteStatus((state) => machine !== undefined && isUnstarted(state.byEndpoint[workspaceId]?.[machine], childId));
+    return useMemo(() => (unstarted ? openTaskOf(tasks, childId) : null), [unstarted, tasks, childId]);
 }
