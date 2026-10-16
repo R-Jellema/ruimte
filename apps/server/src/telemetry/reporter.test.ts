@@ -6,10 +6,13 @@ import {
     daemonBeforeSend,
     dedupeStorePath,
     fileDedupeStore,
+    helperExitReportable,
     markInApp,
+    sendFatal,
     StderrTail,
     telemetryBuild,
     telemetrySettings,
+    type FatalTimer,
     type TelemetrySettings
 } from './reporter.ts';
 
@@ -65,5 +68,60 @@ describe('StderrTail', () => {
         const tail = new StderrTail(2);
         tail.push('one\n\ntwo\r\nthree');
         expect(tail.get()).toEqual(['two', 'three']);
+    });
+});
+
+describe('sendFatal', () => {
+    /* A clock that moves only when the fatal path waits. */
+    function fakeTimer(): FatalTimer & { at: number } {
+        const timer = {
+            at: 0,
+            now: () => timer.at,
+            wait: async (ms: number) => {
+                timer.at += ms;
+            }
+        };
+        return timer;
+    }
+
+    test('does not wait on a registry that never answers, and gives the flush what is left of two seconds', async () => {
+        const timer = fakeTimer();
+        const steps: string[] = [];
+        await sendFatal(
+            () => new Promise<void>(() => undefined),
+            () => steps.push('capture'),
+            async (ms) => {
+                steps.push(`flush ${ms}`);
+            },
+            timer
+        );
+        expect(steps).toEqual(['capture', 'flush 1500']);
+    });
+
+    test('captures after a registry that answers, with the redactions it read', async () => {
+        const timer = fakeTimer();
+        const steps: string[] = [];
+        await sendFatal(
+            async () => {
+                steps.push('refresh');
+            },
+            () => steps.push('capture'),
+            async (ms) => {
+                steps.push(`flush ${ms <= 2000}`);
+            },
+            timer
+        );
+        expect(steps).toEqual(['refresh', 'capture', 'flush true']);
+    });
+});
+
+describe('helperExitReportable', () => {
+    test('reports a crash, but not a stop a person or a service manager sent, nor anything while the daemon stops', () => {
+        expect(helperExitReportable({ helper: 'database', code: 1 }, false)).toBe(true);
+        expect(helperExitReportable({ helper: 'language-server', code: null, signal: 'SIGSEGV' }, false)).toBe(true);
+        for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) {
+            expect(helperExitReportable({ helper: 'language-server', code: null, signal }, false)).toBe(false);
+        }
+        expect(helperExitReportable({ helper: 'database', code: 1 }, true)).toBe(false);
     });
 });

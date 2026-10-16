@@ -53,9 +53,9 @@ Other environment variables:
 
 A release build reports its crashes and errors, always, and nothing else (`src/telemetry`). `scripts/compile.ts` stamps `RUIMTE_TELEMETRY=1` into a binary only when CI compiles a release, so `bun dev`, the tests and a local compile send nothing. A report goes out for:
 
-- an exception or rejection nothing caught, before the process exits as it did before (two seconds at most)
-- a helper that ends while the daemon still needs it: the database helper, the Apple Foundation Models helper of a chat or of the editor's help, and a language server Ruimte ships, with its exit code or signal and its last stderr lines
-- an event loop that has not answered for five seconds, seen from a worker that keeps running while the main thread is stuck. It also writes a line to the log, with a release build or without, and another when the loop answers again. It has no stack: Bun cannot take one of another thread.
+- an exception or rejection nothing caught, before the process exits as it did before (two seconds at most, reading the project names included; a registry that does not answer in time leaves the names of the last read)
+- a helper that ends while the daemon still needs it: the database helper, the Apple Foundation Models helper of a chat or of the editor's help, and a language server Ruimte ships, with its exit code or signal and its last stderr lines. Not one stopped by SIGTERM, SIGINT or SIGHUP (a person's Ctrl-C, a service manager stopping the group), and nothing once the daemon began to shut down
+- an event loop that has not answered for five seconds, seen from a worker that keeps running while the main thread is stuck. A worker that missed its own ticks was suspended with the rest of the process, by a sleep of the machine for one, and starts counting again instead of reporting. It also writes a line to the log, with a release build or without, and another when the loop answers again. It has no stack: Bun cannot take one of another thread.
 
 Each report carries the version, the platform, the architecture and how the daemon runs (`service`, `desktop` or `standalone`). The binary carries its source map, so Bun maps a stack trace back to the source before it leaves. The same error goes out once a day at most (`telemetry/sent.json`).
 

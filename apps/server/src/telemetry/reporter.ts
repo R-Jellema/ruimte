@@ -25,12 +25,17 @@ interface ProjectSource {
 }
 
 const FLUSH_MS = 2000;
+// The part of a fatal report's two seconds the registry may take; past it the names of the last read stand.
+const FATAL_REDACTIONS_MS = 500;
 const STDERR_LINES = 5;
+// A helper ended by one of these was stopped on purpose, by a person's Ctrl-C or a service manager stopping the daemon's group.
+const STOP_SIGNALS: ReadonlySet<string> = new Set(['SIGTERM', 'SIGINT', 'SIGHUP']);
 
 let sentry: Sentry | null = null;
 let settings: TelemetrySettings | null = null;
 let projects: ProjectSource | null = null;
 let projectRedactions: readonly string[] = [];
+let stopping = false;
 const secrets = new Set<string>();
 
 /*
@@ -163,6 +168,33 @@ async function refreshRedactions(): Promise<void> {
     }
 }
 
+export interface FatalTimer {
+    now(): number;
+    /* Resolves after `ms`; the fatal path never waits longer than its budget for anything. */
+    wait(ms: number): Promise<void>;
+}
+
+const SYSTEM_TIMER: FatalTimer = {
+    now: () => Date.now(),
+    wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+};
+
+/*
+ * Refreshes the redactions and sends within one budget of `FLUSH_MS`: a registry that does not answer
+ * in time leaves the redactions already known, and the flush gets what is left.
+ */
+export async function sendFatal(
+    refresh: () => Promise<void>,
+    capture: () => void,
+    flush: (ms: number) => Promise<unknown>,
+    timer: FatalTimer = SYSTEM_TIMER
+): Promise<void> {
+    const started = timer.now();
+    await Promise.race([refresh(), timer.wait(FATAL_REDACTIONS_MS)]);
+    capture();
+    await flush(Math.max(0, FLUSH_MS - (timer.now() - started)));
+}
+
 /* An error nothing caught, on the way to ending the process; resolves once it is sent or the wait is over. */
 export async function reportFatal(error: unknown): Promise<void> {
     const active = sentry;
@@ -170,12 +202,15 @@ export async function reportFatal(error: unknown): Promise<void> {
         return;
     }
     try {
-        await refreshRedactions();
-        active.withScope((scope) => {
-            scope.setLevel('fatal');
-            active.captureException(error, { mechanism: { type: 'auto.node.onuncaughtexception', handled: false } });
-        });
-        await active.flush(FLUSH_MS);
+        await sendFatal(
+            refreshRedactions,
+            () =>
+                active.withScope((scope) => {
+                    scope.setLevel('fatal');
+                    active.captureException(error, { mechanism: { type: 'auto.node.onuncaughtexception', handled: false } });
+                }),
+            (ms) => active.flush(ms)
+        );
     } catch {
         // Reporting a crash never stands in the way of the exit.
     }
@@ -191,13 +226,27 @@ export interface HelperExit {
     readonly stderr?: readonly string[];
 }
 
+/* From here on a helper that ends goes down with the daemon, and none is reported. */
+export function noteShutdown(): void {
+    stopping = true;
+}
+
+/* Whether a helper's end is worth a report: not one stopped by a signal a person or a service manager sends, and none while the daemon stops. */
+export function helperExitReportable(exit: HelperExit, daemonStopping: boolean): boolean {
+    return !daemonStopping && !(exit.signal != null && STOP_SIGNALS.has(exit.signal));
+}
+
 /* A helper process that ended while the daemon still needed it. */
 export function reportHelperExit(exit: HelperExit): void {
     const active = sentry;
-    if (active === null) {
+    if (active === null || !helperExitReportable(exit, stopping)) {
         return;
     }
     void refreshRedactions().then(() => {
+        // Asked again: the signal that stops the daemon may reach it only after its helper's exit.
+        if (!helperExitReportable(exit, stopping)) {
+            return;
+        }
         active.captureEvent({
             message: `The ${exit.helper} helper exited unexpectedly`,
             level: 'error',

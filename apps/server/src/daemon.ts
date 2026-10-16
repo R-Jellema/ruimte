@@ -7,7 +7,7 @@ import { errorText } from './error-text.ts';
 import { HOOKS_PATH } from './agents/hook-receiver.ts';
 import { dropEmptyMark } from './projects/scratch-project.ts';
 import { probeCodexNoDaemon } from './providers/launch.ts';
-import { rememberSecret, stopTelemetry, watchProjects, type Launcher } from './telemetry/reporter.ts';
+import { noteShutdown, rememberSecret, stopTelemetry, watchProjects, type Launcher } from './telemetry/reporter.ts';
 import { COMPILED as compiled, VERSION } from './version.ts';
 import { loadAgentStores, wireAgents } from './wiring/agents.ts';
 import { wireAgentWork } from './wiring/agent-work.ts';
@@ -257,6 +257,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
             return;
         }
         shuttingDown = true;
+        noteShutdown();
         console.log(`ruimte server stopping for ${reason}, writing snapshots`);
         processes.selfUpdate.stop();
         power.keepAwake.stop();
