@@ -4,7 +4,7 @@ import { REPOSITORY_URL } from '@/lib/release.ts';
 
 export const metadata: Metadata = {
     title: 'Privacy: Ruimte',
-    description: 'What Ruimte sends when it crashes, and what it never sends.'
+    description: 'What Ruimte sends when it crashes, what it counts, and what it never sends.'
 };
 
 export default function Privacy() {
@@ -15,8 +15,9 @@ export default function Privacy() {
             </a>
             <h1 className="font-display text-4xl font-semibold text-text">Privacy</h1>
             <p>
-                Ruimte sends one thing: a report when it crashes or runs into an error. It goes to Sentry, on servers in the EU, and it helps me fix what broke.
-                This page lists what a report holds and what Ruimte keeps out of it.
+                Ruimte sends two things. When it crashes or runs into an error, it sends a report to Sentry, on servers in the EU, so I can fix what broke. And
+                once a day, the machine sends a handful of totals about how you used Ruimte to Ruimte&apos;s own server on Cloudflare. This page lists what each
+                one holds and what Ruimte keeps out of both.
             </p>
 
             <Section title="What a report holds">
@@ -43,7 +44,7 @@ export default function Privacy() {
                 <p>There are no breadcrumbs of what you clicked, no session recordings, no performance tracing and no log forwarding.</p>
             </Section>
 
-            <Section title="Always on">
+            <Section title="Crash reports are always on">
                 <p>
                     Crash reports are on in every release of the desktop app, of the machine it runs your terminals and agents on, and of the web app at
                     station.ruimte.app. There is no switch. A build from the source code on your own computer sends nothing.
@@ -51,7 +52,31 @@ export default function Privacy() {
             </Section>
 
             <Section title="Usage statistics">
-                <p>Anonymous usage statistics will follow later, separately from crash reports. This page will describe them before any release sends them.</p>
+                <p>
+                    The machine that runs your terminals and agents counts how often you used a few features each day. Once a day is over, it sends that
+                    day&apos;s totals, once. They tell me which parts of Ruimte people actually use, which is where my time should go. A day holds:
+                </p>
+                <ul className="flex list-disc flex-col gap-2 pl-5">
+                    <li>
+                        The date, the Ruimte version, the operating system, the processor type, and whether the machine runs as a background service, beside the
+                        desktop app or on its own.
+                    </li>
+                    <li>Whether the machine is on an account, whether the day is its first of the week or the month, and the week it first ran Ruimte.</li>
+                    <li>
+                        How many projects you opened and which kinds of views, how many terminals, chats and agent turns started per AI provider, and how many
+                        launches, worktree merges and connections from other apps there were.
+                    </li>
+                    <li>How often agents used each group of Ruimte&apos;s commands, and how long the desktop app took to start.</li>
+                </ul>
+                <p>
+                    A day carries no identifier. There is no account, no install id and no key of the machine in it, and no names, paths, prompts, file contents
+                    or anything you typed. Ruimte&apos;s server does not log the address a day comes from.
+                </p>
+                <p>
+                    Usage statistics are on by default. To turn them off, open Settings in the desktop app on the computer that runs the machine, go to Account,
+                    pick the machine and switch off Usage statistics. Ruimte then deletes the days it has not sent yet. A build from the source code on your own
+                    computer sends nothing.
+                </p>
             </Section>
 
             <p>
