@@ -32,7 +32,7 @@ export function ProjectGlyph({ projectId, endpointId, icon, color, size = 16, cl
     const [blackImage, setBlackImage] = useState<string | null>(null);
     const imageKey = icon.kind === 'image' ? JSON.stringify([endpointId ?? activeEndpointId, projectId, icon.version, theme]) : null;
     useEffect(() => {
-        if (scratch || theme !== 'light' || imageKey === null || icon.kind !== 'image') {
+        if (scratch || theme !== 'dark' || imageKey === null || icon.kind !== 'image') {
             return;
         }
         const transport = transportFor(endpointId ?? activeEndpointId);
@@ -77,7 +77,7 @@ export function ProjectGlyph({ projectId, endpointId, icon, color, size = 16, cl
                 width={size}
                 height={size}
                 className={clsx('shrink-0 object-contain', className)}
-                style={{ ...box, ...(theme === 'light' && blackImage === imageKey ? { filter: 'brightness(0) invert(1)' } : {}) }}
+                style={{ ...box, ...(theme === 'dark' && blackImage === imageKey ? { filter: 'brightness(0) invert(1)' } : {}) }}
             />
         );
     }

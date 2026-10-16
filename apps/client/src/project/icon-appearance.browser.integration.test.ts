@@ -4,7 +4,7 @@ import { withBrowserFixture } from '../../testing/browser-fixture';
 
 const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))';
 
-test('image project colors persist and only black SVG artwork turns white in light mode', async () => {
+test('image project colors persist and black SVG artwork is white in dark mode and black in light mode', async () => {
     await withBrowserFixture(
         `
         import { projectIconAppearance } from ${JSON.stringify(join(import.meta.dir, 'icon-appearance.ts'))};
@@ -55,10 +55,15 @@ test('image project colors persist and only black SVG artwork turns white in lig
                 { color: '#009689', black: false }
             ]);
             await view.evaluate(frame);
-            expect(await view.evaluate<string>('document.querySelector("#black img").style.filter')).toBe('brightness(0) invert(1)');
+            expect(await view.evaluate<string>('document.querySelector("#black img").style.filter')).toBe('');
             expect(await view.evaluate<string>('document.querySelector("#red img").style.filter')).toBe('');
             expect(await view.evaluate<string>('document.querySelector("#raster img").style.filter')).toBe('');
             await view.evaluate('window.theme("dark")');
+            await view.evaluate(frame);
+            expect(await view.evaluate<string>('document.querySelector("#black img").style.filter')).toBe('brightness(0) invert(1)');
+            expect(await view.evaluate<string>('document.querySelector("#red img").style.filter')).toBe('');
+            expect(await view.evaluate<string>('document.querySelector("#raster img").style.filter')).toBe('');
+            await view.evaluate('window.theme("light")');
             await view.evaluate(frame);
             expect(await view.evaluate<string>('document.querySelector("#black img").style.filter')).toBe('');
             expect(await view.evaluate<{ summary: { color: string } }>('window.upload()')).toMatchObject({ summary: { color: '#e7000b' } });
