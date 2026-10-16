@@ -58,7 +58,7 @@ export class AccessKeys {
 /* The keys Access signs with for one team. */
 export function accessCertsFetcher(teamDomain: string, request: typeof fetch = fetch): () => Promise<AccessJwk[]> {
     return async () => {
-        const response = await request(`https://${teamDomain}/cdn-cgi/access/certs`, { redirect: 'error' });
+        const response = await request(`https://${teamDomain}/cdn-cgi/access/certs`, { redirect: 'manual' });
         if (!response.ok) {
             throw new Error(`Access certs answered ${response.status}`);
         }
