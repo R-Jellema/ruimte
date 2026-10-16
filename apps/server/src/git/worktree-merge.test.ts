@@ -1,8 +1,10 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { WorktreeMergePayload } from '@ruimte/contracts';
 import { documentPathInFolder } from '../projects/project-files.ts';
+import { UsageCounter } from '../stats/usage-counter.ts';
+import { installUsageCounter } from '../stats/usage-stats.ts';
 import { forgetBase } from './status.ts';
 import { gitIn, initRepo, repoTemplate, type RepoTemplate, NO_WORKTREE_AGENTS } from './test-repo.ts';
 import { WorktreeMerge, type WorktreeAgent, type WorktreeAgents } from './worktree-merge.ts';
@@ -336,5 +338,54 @@ describe('WorktreeMerge', () => {
         await writeFile(join(repo, 'README.md'), 'staged\n');
         await gitIn(repo, ['add', 'README.md']);
         await expect(run(path)).rejects.toMatchObject({ code: 'target-busy' });
+    });
+
+    describe('usage', () => {
+        let clock: number;
+        let counter: UsageCounter;
+
+        function mergesCounted(): number {
+            clock += 86_400_000;
+            return counter.finished()[0]?.counts.worktreeMerges ?? 0;
+        }
+
+        beforeEach(() => {
+            clock = Date.parse('2026-10-14T10:00:00Z');
+            counter = new UsageCounter({
+                store: { read: async () => null, write: async () => undefined },
+                describe: () => ({ version: '1.2.3', launcher: 'desktop' }),
+                now: () => clock,
+                schedule: () => () => undefined
+            });
+            installUsageCounter(counter);
+        });
+
+        afterEach(() => {
+            installUsageCounter(null);
+        });
+
+        test('a merge that landed counts once', async () => {
+            await run(await lexer());
+            expect(mergesCounted()).toBe(1);
+        });
+
+        test('a merge a hook stopped waits in the target and does not count', async () => {
+            const path = await lexer();
+            const hook = join(repo, '.git', 'hooks', 'pre-merge-commit');
+            await writeFile(hook, '#!/bin/sh\nexit 1\n');
+            await chmod(hook, 0o755);
+
+            const result = await run(path);
+
+            expect(result.conflicts).toEqual([]);
+            expect(await exists(join(repo, '.git', 'MERGE_HEAD'))).toBe(true);
+            expect(mergesCounted()).toBe(0);
+        });
+
+        test('a branch the target already has merges nothing and does not count', async () => {
+            const { worktree } = await worktrees.add(repo, 'empty', { madeBy: 'verb', nodeId: 'chat-empty' });
+            await run(worktree.path);
+            expect(mergesCounted()).toBe(0);
+        });
     });
 });

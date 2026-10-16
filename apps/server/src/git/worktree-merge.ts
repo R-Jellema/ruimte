@@ -95,11 +95,7 @@ export class WorktreeMerge {
         const job = new Job();
         this.running.set(payload.actionId, job);
         try {
-            const result = await this.worktrees.exclusive(payload.repo, (main) => this.perform(main, payload, sink, job, limits));
-            if ((result.conflicts?.length ?? 0) === 0) {
-                countUsage('worktreeMerges');
-            }
-            return result;
+            return await this.worktrees.exclusive(payload.repo, (main) => this.perform(main, payload, sink, job, limits));
         } catch (e) {
             sink('failed', errorText(e));
             throw e;
@@ -226,6 +222,7 @@ export class WorktreeMerge {
                 );
             }
             await must('merge', ['merge', '--ff-only', `refs/heads/${branch}`], target.path);
+            countUsage('worktreeMerges');
             summary = `Rebased ${branch} onto ${into} and fast-forwarded.`;
         } else {
             const squash = payload.strategy === 'squash';
@@ -275,6 +272,7 @@ export class WorktreeMerge {
                 if (staged) {
                     const subject = payload.subject?.trim() || `Merge ${branch}`;
                     await must('commit', ['commit', '--message', subject, ...messageBody(payload.body)], target.path);
+                    countUsage('worktreeMerges');
                 } else {
                     // Git prepares the message even for a squash of nothing.
                     await dropSquashMessage(target.path);
@@ -282,6 +280,7 @@ export class WorktreeMerge {
                 squashed = true;
                 summary = staged ? `Squashed ${branch} into ${into}.` : `${into} already has everything in ${branch}.`;
             } else {
+                countUsage('worktreeMerges');
                 summary = `Merged ${branch} into ${into}.`;
             }
         }
