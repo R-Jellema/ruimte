@@ -527,10 +527,9 @@ describe('agent --machine', () => {
         const ids = lines.slice(1, 3).map((line) => line.split('\t')[0]!);
         await daemon.worker.settled();
         expect(ids.map((id) => store.remote.machineOf(projectId, id))).toEqual([MACHINE, MACHINE]);
-        expect(requests.filter((request) => request.type === 'peer.taskStart').map((request) => (request.payload as { title: string }).title)).toEqual([
-            'Lexer',
-            'Parser'
-        ]);
+        // The roles start side by side, so the requests leave in whichever order they were ready.
+        const started = requests.filter((request) => request.type === 'peer.taskStart').map((request) => (request.payload as { title: string }).title);
+        expect(started.toSorted()).toEqual(['Lexer', 'Parser']);
         const tasks = daemon.tasks.ofParent('chat-lead');
         expect(tasks.map((task) => [task.machine, task.batchId !== undefined])).toEqual([
             [MACHINE, true],
