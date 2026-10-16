@@ -25,12 +25,11 @@ const LINKS = [
     { id: 'report', href: 'https://github.com/basmilius/ruimte/issues/new' }
 ];
 
-/* The welcome's sky, wider: two more orbits, the outer one turning back with a warm moon on it. */
 const ABOUT_ORBITS: readonly EclipseOrbit[] = [
     { size: 230, alpha: 0.1 },
-    { size: 350, alpha: 0.07, spin: 140, moon: { tone: 'cool', left: 88, top: 24 } },
+    { size: 350, alpha: 0.07, spin: 140 },
     { size: 520, alpha: 0.05 },
-    { size: 720, alpha: 0.04, spin: -200, moon: { tone: 'warm', left: 10, top: 70 } },
+    { size: 720, alpha: 0.04, spin: -200 },
     { size: 980, alpha: 0.03 }
 ];
 
@@ -104,14 +103,14 @@ export function AboutHero() {
     const { t } = useTranslation('settings');
     const version = useShownVersion();
     return (
-        <header className="relative">
+        <header className="relative z-0">
             <Eclipse
                 sky="fade"
                 center={132}
                 glows={[360, 170]}
                 rings={[112, 144]}
                 orbits={ABOUT_ORBITS}
-                stars={{ count: 58, seed: 132 }}
+                stars={{ density: 1, seed: 132 }}
                 className="h-[400px]"
             />
             {/* The icon sits on the eclipse, whose point is 132px down. */}
@@ -159,7 +158,7 @@ export function AboutPane() {
     };
 
     return (
-        <>
+        <div className="relative z-0 flex flex-col gap-7">
             {updates.supported && (
                 <SettingsSection title={t('about.updates.title')}>
                     <UpdateStatusRow releases={releases} notesVersion={notesLink?.version ?? null} />
@@ -220,7 +219,7 @@ export function AboutPane() {
             )}
             {import.meta.env.DEV && <UpdatePreviewBar />}
             <p className="text-center text-xs text-text-faint">FSL-1.1-MIT · Copyright 2026 Bas Milius</p>
-        </>
+        </div>
     );
 }
 

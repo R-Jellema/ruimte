@@ -42,27 +42,24 @@
     --code-line-height: var(--text-code--line-height);
 }
 
-/* The sky behind the welcome and About (`ui/Eclipse.tsx`): a night sky in the dark theme and a pale
-   morning one in the light theme, so the words on it follow the theme like any other. */
+/* The sky follows the dialog surface so it blends into either theme. */
 :root,
 [data-theme='light'] {
-    --eclipse-core: #ffffff;
-    --eclipse-deep: #e8edfb;
+    --eclipse-core: color-mix(in srgb, var(--surface-raised) 92%, #000);
+    --eclipse-deep: color-mix(in srgb, var(--surface-raised) 94%, #000);
     /* The sky behind a pane, which runs out into the pane's surface. */
-    --eclipse-fade-core: #e8edfb;
-    --eclipse-fade-deep: #f4f6fd;
-    /* A star's channels; each star brings its own alpha. On a light sky every tone is the same ink. */
-    --eclipse-star-white: 40 60 130;
-    --eclipse-star-cool: 40 60 130;
-    --eclipse-star-warm: 40 60 130;
-    --eclipse-glint: rgb(47 125 246 / 0.75);
+    --eclipse-fade-core: color-mix(in srgb, var(--surface-raised) 92%, #000);
+    --eclipse-fade-deep: color-mix(in srgb, var(--surface-raised) 97%, #000);
+    /* The fallback follows the theme's Galaxy palette. */
+    --eclipse-star-white: 255 255 255;
+    --eclipse-star-cool: 255 217 163;
+    --eclipse-star-warm: 168 200 255;
+    --eclipse-glint: rgb(255 217 163 / 0.75);
     --eclipse-glow-warm: rgb(255 184 100 / 0.22);
     --eclipse-glow-white: rgb(255 176 80 / 0.18);
     --eclipse-ring-warm: rgb(232 140 30 / 0.95);
     --eclipse-ring-cool: rgb(21 93 252 / 0.8);
     --eclipse-orbit: 0 0 0;
-    --eclipse-moon-cool: #2f7df6;
-    --eclipse-moon-warm: #d98200;
     /* The faint rings at the top of the sidebar (`shell/Sidebar.tsx`); the orbit is channels, each ring brings its alpha. */
     --sidebar-glow-wash: rgb(21 93 252 / 0.08);
     --sidebar-glow: rgb(21 93 252 / 0.07);
@@ -70,21 +67,19 @@
 }
 
 [data-theme='dark'] {
-    --eclipse-core: #14182c;
-    --eclipse-deep: #07080d;
-    --eclipse-fade-core: #161b32;
-    --eclipse-fade-deep: #0b0c14;
+    --eclipse-core: color-mix(in srgb, var(--surface-raised) 80%, #000);
+    --eclipse-deep: color-mix(in srgb, var(--surface-raised) 35%, #000);
+    --eclipse-fade-core: color-mix(in srgb, var(--surface-raised) 80%, #000);
+    --eclipse-fade-deep: color-mix(in srgb, var(--surface-raised) 45%, #000);
     --eclipse-star-white: 255 255 255;
-    --eclipse-star-cool: 190 215 255;
-    --eclipse-star-warm: 255 230 200;
+    --eclipse-star-cool: 191 227 255;
+    --eclipse-star-warm: 143 184 255;
     --eclipse-glint: rgb(200 220 255 / 0.75);
     --eclipse-glow-warm: rgb(255 214 150 / 0.22);
     --eclipse-glow-white: rgb(255 255 255 / 0.18);
     --eclipse-ring-warm: rgb(255 236 205 / 0.95);
     --eclipse-ring-cool: rgb(121 184 255 / 0.8);
     --eclipse-orbit: 255 255 255;
-    --eclipse-moon-cool: #79b8ff;
-    --eclipse-moon-warm: #ff9f0a;
     --sidebar-glow-wash: rgb(26 33 68 / 0.35);
     --sidebar-glow: rgb(121 184 255 / 0.09);
     --sidebar-glow-orbit: 255 255 255;
@@ -680,6 +675,21 @@
         left: 50%;
         border-radius: 999px;
     }
+    .eclipse-stars {
+        position: absolute;
+        inset: 0;
+    }
+    .galaxy-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+    }
+    .galaxy-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
     .eclipse-star {
         position: absolute;
         border-radius: 999px;
@@ -725,21 +735,6 @@
     }
     .eclipse-orbit[data-spin='reverse'] {
         animation-direction: reverse;
-    }
-    .eclipse-moon {
-        position: absolute;
-        width: 6px;
-        height: 6px;
-        margin: -3px 0 0 -3px;
-        border-radius: 999px;
-    }
-    .eclipse-moon-cool {
-        background: var(--eclipse-moon-cool);
-        box-shadow: 0 0 14px var(--eclipse-moon-cool);
-    }
-    .eclipse-moon-warm {
-        background: var(--eclipse-moon-warm);
-        box-shadow: 0 0 12px var(--eclipse-moon-warm);
     }
     /* The eclipse's orbits at the top edge of the sidebar, still and without arcs, behind the rows. */
     .sidebar-glow {

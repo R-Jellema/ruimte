@@ -93,7 +93,12 @@ export async function withBrowserFixture(entryCode: string, styles: string, run:
                 );
             }
         });
-        view = new Bun.WebView({ backend: { type: 'chrome', url: false }, headless: true, dataStore: { directory: join(directory, 'profile') } });
+        // SwiftShader makes WebGL fixtures work on headless runners without a GPU.
+        view = new Bun.WebView({
+            backend: { type: 'chrome', url: false, argv: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
+            headless: true,
+            dataStore: { directory: join(directory, 'profile') }
+        });
         await view.navigate(`http://127.0.0.1:${server.port}`);
         await view.resize(800, 600);
         await view.evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
