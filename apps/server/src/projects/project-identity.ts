@@ -276,6 +276,8 @@ export async function deriveIdentity(folder: string): Promise<DerivedIdentity> {
 /* Keeps a folder's answer for a few minutes; a folder that could not be read is asked again. */
 export class IdentityCache {
     private readonly entries = new Map<string, { at: number; identity: DerivedIdentity }>();
+    // Bumped by `invalidate`, so an answer derived before the folder changed is not kept after it.
+    private readonly generations = new Map<string, number>();
     private readonly ttlMs: number;
     private readonly now: () => number;
 
@@ -290,15 +292,18 @@ export class IdentityCache {
         if (cached && this.now() - cached.at < this.ttlMs) {
             return cached.identity;
         }
+        const generation = this.generations.get(key) ?? 0;
         const identity = await deriveIdentity(folder);
-        if (!identity.unresolved) {
+        if (!identity.unresolved && (this.generations.get(key) ?? 0) === generation) {
             this.entries.set(key, { at: this.now(), identity });
         }
         return identity;
     }
 
     invalidate(folder: string): void {
-        this.entries.delete(normalizeKey(folder));
+        const key = normalizeKey(folder);
+        this.entries.delete(key);
+        this.generations.set(key, (this.generations.get(key) ?? 0) + 1);
     }
 }
 

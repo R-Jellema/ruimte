@@ -170,6 +170,15 @@ describe('IdentityCache', () => {
         expect((await cache.resolve(folder)).icon?.from).toBe('.ruimte/icon.svg');
     });
 
+    test('an answer derived before an invalidate is not kept after it', async () => {
+        const cache = new IdentityCache();
+        const before = cache.resolve(folder);
+        cache.invalidate(folder);
+        expect((await before).icon).toBeNull();
+        await put('.ruimte/icon.png', PNG);
+        expect((await cache.resolve(folder)).icon?.from).toBe('.ruimte/icon.png');
+    });
+
     test('a folder it could not look into is asked again', async () => {
         const gone = join(root, 'gone');
         const cache = new IdentityCache();
