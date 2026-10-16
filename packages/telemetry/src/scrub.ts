@@ -83,9 +83,9 @@ export function createScrubber(context: ScrubContext = {}): Scrubber {
         return values.sort((first, second) => second.length - first.length);
     };
 
-    const removePerson = (text: string): string => {
+    const removePerson = (text: string, withLiterals = true): string => {
         let result = text;
-        for (const literal of literals()) {
+        for (const literal of withLiterals ? literals() : []) {
             result = result.split(literal).join('<redacted>');
         }
         const home = context.home;
@@ -148,15 +148,19 @@ export function createScrubber(context: ScrubContext = {}): Scrubber {
 
     const scrubPath = (path: string): string => removePerson(path.replace(/[?#].*$/, ''));
 
+    // The app's own source names no project, and a project named like one of its folders would break symbolication and grouping.
+    const scrubAppPath = (path: string): string => removePerson(path.replace(/[?#].*$/, ''), false);
+
     const scrubFrame = (frame: unknown): Record<string, unknown> | null => {
         if (!isRecord(frame)) {
             return null;
         }
         const result: Record<string, unknown> = {};
+        const scrub = frame.in_app === true ? scrubAppPath : scrubPath;
         for (const key of FRAME_STRINGS) {
             const value = frame[key];
             if (typeof value === 'string') {
-                result[key] = scrubPath(value);
+                result[key] = scrub(value);
             }
         }
         copyFields(frame, result, FRAME_KEEP);

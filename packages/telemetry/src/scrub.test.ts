@@ -206,6 +206,33 @@ describe('scrubEvent', () => {
     });
 });
 
+describe('scrubEvent with a project named like a folder of the app', () => {
+    const own = createScrubber({ home: '/Users/jane', username: 'jane', redactions: () => ['server', '/Users/jane/work/server'] });
+    const frames = (input: Array<Record<string, unknown>>): unknown[] => {
+        const event = own.scrubEvent({ exception: { values: [{ type: 'Error', value: 'server failed', stacktrace: { frames: input } }] } }) as {
+            exception: { values: Array<{ value: string; stacktrace: { frames: unknown[] } }> };
+        };
+        expect(event.exception.values[0]!.value).toBe('<redacted> failed');
+        return event.exception.values[0]!.stacktrace.frames;
+    };
+
+    test('keeps the frames of the app whole, and redacts the project in every other frame', () => {
+        expect(
+            frames([
+                { filename: 'apps/server/src/daemon.ts', in_app: true },
+                { filename: '/Users/jane/.ruimte/bin/apps/server/src/main.ts', in_app: true },
+                { filename: '/Users/jane/work/server/node_modules/zod/index.js', in_app: false },
+                { filename: 'server/lib.js' }
+            ])
+        ).toEqual([
+            { filename: 'apps/server/src/daemon.ts', in_app: true },
+            { filename: '~/.ruimte/bin/apps/server/src/main.ts', in_app: true },
+            { filename: '<redacted>/node_modules/zod/index.js', in_app: false },
+            { filename: '<redacted>/lib.js' }
+        ]);
+    });
+});
+
 describe('scrubBreadcrumb', () => {
     test('drops a category outside the allow-list', () => {
         expect(scrubber.scrubBreadcrumb({ category: 'console', message: 'hello' })).toBeNull();
