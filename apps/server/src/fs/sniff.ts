@@ -130,6 +130,18 @@ export function sniffMime(bytes: Uint8Array): string | null {
     if (isUsdz(bytes)) {
         return 'model/vnd.usdz+zip';
     }
+    // Every other zip, and an empty one, which is its end record alone.
+    if (startsWith(bytes, [0x50, 0x4b, 0x03, 0x04]) || startsWith(bytes, [0x50, 0x4b, 0x05, 0x06])) {
+        return 'application/zip';
+    }
+    // Deflate is the only method gzip defines, so the third byte holds the other two up.
+    if (startsWith(bytes, [0x1f, 0x8b, 0x08])) {
+        return 'application/gzip';
+    }
+    // A ustar header names its format a block in; an old tar without it reads as the binary it is.
+    if (startsWith(bytes.subarray(257), ascii('ustar'))) {
+        return 'application/x-tar';
+    }
     if (isIcon(bytes)) {
         return 'image/x-icon';
     }

@@ -188,6 +188,8 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `fsWatch` = "fs.watch"
     case `fsUnwatch` = "fs.unwatch"
     case `bytesRead` = "bytes.read"
+    case `archiveList` = "archive.list"
+    case `archiveExtract` = "archive.extract"
     case `gitWorktreeAdd` = "git.worktree-add"
     case `gitWorktreeList` = "git.worktree-list"
     case `gitWorktreeRemove` = "git.worktree-remove"

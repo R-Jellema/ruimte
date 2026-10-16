@@ -48281,6 +48281,11 @@
               "path": {
                 "type": "string",
                 "minLength": 1
+              },
+              "entry": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
               }
             },
             "required": [
@@ -48352,6 +48357,9 @@
       },
       "data": {
         "type": "string"
+      },
+      "language": {
+        "type": "string"
       }
     },
     "required": [
@@ -48360,6 +48368,175 @@
       "version",
       "offset",
       "data"
+    ]
+  },
+  "request.archive.list.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "path"
+    ]
+  },
+  "request.archive.list.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "format": {
+        "type": "string",
+        "enum": [
+          "zip",
+          "tar",
+          "tar-gzip",
+          "gzip"
+        ]
+      },
+      "entries": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "file",
+                "directory",
+                "symlink"
+              ]
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "compressedSize": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "mtime": {
+              "type": "number"
+            },
+            "readable": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "path",
+            "kind",
+            "size",
+            "readable"
+          ]
+        }
+      },
+      "truncated": {
+        "type": "boolean"
+      },
+      "unsafe": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "format",
+      "entries",
+      "truncated",
+      "unsafe"
+    ]
+  },
+  "request.archive.extract.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "minLength": 1
+      },
+      "entries": {
+        "maxItems": 10000,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "to": {
+        "type": "string",
+        "minLength": 1
+      },
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "path",
+      "to"
+    ]
+  },
+  "request.archive.extract.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "to": {
+        "type": "string"
+      },
+      "files": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "directories": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "bytes": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "skipped": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "reason"
+          ]
+        }
+      },
+      "skippedTotal": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "to",
+      "files",
+      "directories",
+      "bytes",
+      "skipped",
+      "skippedTotal"
     ]
   },
   "request.git.worktree-add.payload": {

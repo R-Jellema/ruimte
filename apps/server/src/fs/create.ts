@@ -14,7 +14,7 @@ export class CreateError extends CodedError<CreateErrorCode> {}
  * The real path of the deepest folder that exists along `path`, and the names below it that do not.
  * A link along the way is followed, since that is where the new entry would really land.
  */
-async function deepestExisting(path: string): Promise<{ base: string; missing: string[] }> {
+export async function deepestExisting(path: string): Promise<{ base: string; missing: string[] }> {
     const missing: string[] = [];
     let current = path;
     for (;;) {

@@ -45,7 +45,7 @@ export function holdsMachineHome(policy: MachineHomePolicy, folder: string): boo
 }
 
 /*
- * The line a client's file requests stop at. A client the machine let in is not its owner, so
+ * The line a client's file requests stop at, the archive requests among them. A client the machine let in is not its owner, so
  * nothing it asks for by path may hand it what only the local secret grants. A path is judged by its
  * name and by where it really leads, so neither a symlink nor another spelling on a case-insensitive
  * volume walks around it.

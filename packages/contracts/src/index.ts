@@ -108,6 +108,7 @@ import {
     EndpointUpdateChangedEventSchema,
     MachineUpdateReportSchema
 } from './machine-update.ts';
+import { ArchiveExtractPayloadSchema, ArchiveExtractResultSchema, ArchiveListPayloadSchema, ArchiveListResultSchema } from './archive.ts';
 import { BytesReadPayloadSchema, BytesReadResultSchema } from './bytes.ts';
 import {
     DatabaseSnapshotRefreshPayloadSchema,
@@ -383,6 +384,7 @@ import { SecretAnswerResultSchema, SecretDeclinePayloadSchema, SecretRequestsSch
 
 export * from './agent.ts';
 export * from './agent-integrations.ts';
+export * from './archive.ts';
 export * from './auth.ts';
 export * from './browser.ts';
 export * from './bytes.ts';
@@ -655,6 +657,9 @@ export const REQUEST_SCHEMAS = {
     'fs.watch': { payload: FsWatchPayloadSchema, result: EmptySchema },
     'fs.unwatch': { payload: FsWatchPayloadSchema, result: EmptySchema },
     'bytes.read': { payload: BytesReadPayloadSchema, result: BytesReadResultSchema },
+    'archive.list': { payload: ArchiveListPayloadSchema, result: ArchiveListResultSchema },
+    // Unpacks into a project; never overwrites and never makes a link.
+    'archive.extract': { payload: ArchiveExtractPayloadSchema, result: ArchiveExtractResultSchema },
     'git.worktree-add': { payload: WorktreeAddPayloadSchema, result: WorktreeAddResultSchema },
     'git.worktree-list': { payload: WorktreeListPayloadSchema, result: WorktreeListResultSchema },
     'git.worktree-remove': { payload: WorktreeRemovePayloadSchema, result: WorktreeRemoveResultSchema },

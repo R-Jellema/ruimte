@@ -130,6 +130,24 @@ describe('readBytes', () => {
         expect(read).toEqual(['bundle-one']);
     });
 
+    test('an archive entry comes in pieces of the entry, with the version of the archive', async () => {
+        const entry = new Uint8Array(BYTES_CHUNK_MAX + 10).fill(7);
+        const withEntries: ByteSources = {
+            ...sources,
+            archiveEntry: async (path, name) => {
+                expect([path, name]).toEqual([join(folder, 'site.zip'), 'big.bin']);
+                return { bytes: entry, mime: 'application/octet-stream', version: '5-100' };
+            }
+        };
+        const resource = { kind: 'file', path: join(folder, 'site.zip'), entry: 'big.bin' } as const;
+        const first = await readBytes(withEntries, { resource, offset: 0, length: BYTES_CHUNK_MAX });
+        expect(first).toMatchObject({ size: entry.length, version: '5-100', mime: 'application/octet-stream' });
+        expect(first.bytes).toHaveLength(BYTES_CHUNK_MAX);
+        expect((await readBytes(withEntries, { resource, offset: BYTES_CHUNK_MAX, length: BYTES_CHUNK_MAX })).bytes).toHaveLength(10);
+        await expect(readBytes(withEntries, { resource, offset: entry.length + 1, length: 1 })).rejects.toMatchObject({ code: 'bad-offset' });
+        await expect(readBytes(sources, { resource, offset: 0, length: 1 })).rejects.toMatchObject({ code: 'not-found' });
+    });
+
     test('an offset past the end is refused', async () => {
         await expect(
             readBytes(sources, { resource: { kind: 'file', path: join(folder, 'picture.gif') }, offset: picture.length + 1, length: 10 })

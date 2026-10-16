@@ -331,3 +331,10 @@ export const FS_MODEL_MIMES = ['model/gltf-binary', 'model/vnd.usdz+zip'] as con
 export function isModelMime(mime: string): boolean {
     return (FS_MODEL_MIMES as readonly string[]).includes(mime);
 }
+
+// Containers `archive.list` opens. A gzip holds a tar or a single file, which only its contents tell apart.
+export const FS_ARCHIVE_MIMES = ['application/zip', 'application/x-tar', 'application/gzip'] as const;
+
+export function isArchiveMime(mime: string): boolean {
+    return (FS_ARCHIVE_MIMES as readonly string[]).includes(mime);
+}

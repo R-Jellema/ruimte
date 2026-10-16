@@ -125,9 +125,19 @@ describe('the binary sniff', () => {
         expect(sniffMime(new Uint8Array(zipEntry('Scene.USDA')))).toBe('model/vnd.usdz+zip');
         expect(sniffMime(new Uint8Array(zipEntry('scene.usd')))).toBe('model/vnd.usdz+zip');
         // Any other zip stays a zip, including one that holds a layer further in.
-        expect(sniffMime(new Uint8Array(zipEntry('README.md')))).toBeNull();
-        expect(sniffMime(new Uint8Array(zipEntry('teapot.usdc.png')))).toBeNull();
-        expect(sniffMime(new Uint8Array(zipEntry('teapot.usdc').subarray(0, 36)))).toBeNull();
+        expect(sniffMime(new Uint8Array(zipEntry('README.md')))).toBe('application/zip');
+        expect(sniffMime(new Uint8Array(zipEntry('teapot.usdc.png')))).toBe('application/zip');
+        expect(sniffMime(new Uint8Array(zipEntry('teapot.usdc').subarray(0, 36)))).toBe('application/zip');
+    });
+
+    test('names a zip, an empty zip, a gzip and a ustar tar', () => {
+        expect(sniffMime(latin1('PK\x05\x06' + '\x00'.repeat(18)))).toBe('application/zip');
+        expect(sniffMime(new Uint8Array([0x1f, 0x8b, 0x08, 0x00]))).toBe('application/gzip');
+        // A gzip names no other method than deflate, so a different third byte is no gzip.
+        expect(sniffMime(new Uint8Array([0x1f, 0x8b, 0x07, 0x00]))).toBeNull();
+        const tar = Buffer.alloc(512);
+        tar.write('ustar\u000000', 257, 'latin1');
+        expect(sniffMime(new Uint8Array(tar))).toBe('application/x-tar');
     });
 
     test('names the pictures with a signature of their own', () => {
@@ -235,6 +245,7 @@ describe('fs.read', () => {
             'model/vnd.usdz+zip'
         ]);
         expect(await readServedFile(await write('archive.zip', zipEntry('README.md')))).toBeNull();
+        expect(await readFile(await write('bundle.zip', zipEntry('README.md')))).toMatchObject({ kind: 'binary', mime: 'application/zip' });
         expect(await readServedFile(await write('a.out', Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0x00, 0x01])))).toBeNull();
         expect(await readServedFile(await write('notes.md', '# hello'))).toMatchObject({ mime: 'text/plain; charset=utf-8', size: 7 });
     });

@@ -280,6 +280,8 @@
     "fs.watch",
     "fs.unwatch",
     "bytes.read",
+    "archive.list",
+    "archive.extract",
     "git.worktree-add",
     "git.worktree-list",
     "git.worktree-remove",

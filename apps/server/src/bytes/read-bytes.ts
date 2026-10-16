@@ -15,6 +15,8 @@ export interface ByteSources {
     attachment(chatId: string, attachmentId: string): Promise<ChatAttachment | null>;
     projectIcon(projectId: string, theme: 'light' | 'dark'): Promise<{ path: string; mime: string } | null>;
     file(path: string): Promise<{ mime: string } | null>;
+    /* One entry of an archive whole, with what its own bytes claim to be. */
+    archiveEntry?(path: string, entry: string): Promise<{ bytes: Uint8Array; mime: string; version: string; language?: string }>;
     /* The file of a bundle this machine wrote. */
     bundle?(bundleId: string): Promise<string | null>;
     /* A bundle was read to its last byte, so nobody needs the file again. */
@@ -48,6 +50,10 @@ export interface BytesPieceRead extends BytesReadHeader {
  * only its own slice, and a video player asks for the ranges it needs.
  */
 export async function readBytes(sources: ByteSources, payload: BytesReadPayload): Promise<BytesPieceRead> {
+    const { resource } = payload;
+    if (resource.kind === 'file' && resource.entry !== undefined) {
+        return readEntryPiece(sources, resource.path, resource.entry, payload);
+    }
     const found = await locate(sources, payload.resource);
     const info = found ? await stat(found.path).catch(() => null) : null;
     if (!found || !info?.isFile()) {
@@ -70,5 +76,24 @@ export async function readBytes(sources: ByteSources, payload: BytesReadPayload)
         version: `${Math.trunc(info.mtimeMs)}-${info.size}`,
         offset: payload.offset,
         bytes: piece
+    };
+}
+
+/* A piece of an archive entry, cut from the entry the source unpacked whole; the source keeps it for the pieces after. */
+async function readEntryPiece(sources: ByteSources, path: string, entry: string, payload: BytesReadPayload): Promise<BytesPieceRead> {
+    if (sources.archiveEntry === undefined) {
+        throw new BytesError('not-found', 'Not a file this machine serves');
+    }
+    const read = await sources.archiveEntry(path, entry);
+    if (payload.offset > read.bytes.length) {
+        throw new BytesError('bad-offset', `Offset ${payload.offset} is past the end of an entry of ${read.bytes.length} bytes`);
+    }
+    return {
+        mime: read.mime,
+        size: read.bytes.length,
+        version: read.version,
+        offset: payload.offset,
+        bytes: read.bytes.subarray(payload.offset, Math.min(payload.offset + payload.length, read.bytes.length)),
+        ...(read.language === undefined ? {} : { language: read.language })
     };
 }

@@ -6,10 +6,14 @@ import { z } from 'zod';
  * and stays the one used; over a direct connection there is no HTTP, so the same bytes travel as
  * `bytes.read` in pieces the client asks for one after the other.
  */
+// Longer than any path a file system stores, so an archive entry named past it is not one to read or extract.
+export const ARCHIVE_ENTRY_PATH_MAX = 4096;
+
 export const ByteResourceSchema = z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('attachment'), chatId: z.string().min(1), attachmentId: z.string().min(1) }),
     z.object({ kind: z.literal('projectIcon'), projectId: z.string().min(1), theme: z.enum(['light', 'dark']) }),
-    z.object({ kind: z.literal('file'), path: z.string().min(1) }),
+    // With an `entry`, that entry of the archive at `path`, whole up to `BYTES_READ_MAX_BYTES`, with the mime its own bytes claim.
+    z.object({ kind: z.literal('file'), path: z.string().min(1), entry: z.string().min(1).max(ARCHIVE_ENTRY_PATH_MAX).optional() }),
     // A git bundle this machine wrote for a handoff, named by the id `git.bundle` answered.
     z.object({ kind: z.literal('bundle'), bundleId: z.string().min(1).max(64) })
 ]);
@@ -43,7 +47,9 @@ export const BytesReadResultSchema = z.object({
     // The file's mtime and size as the daemon read them; a piece with another version belongs to a file that changed in between.
     version: z.string().min(1),
     offset: z.number().int().nonnegative(),
-    data: z.string()
+    data: z.string(),
+    // A highlighter id for an archive entry that is text, guessed from its name.
+    language: z.string().optional()
 });
 export type BytesReadResult = z.infer<typeof BytesReadResultSchema>;
 

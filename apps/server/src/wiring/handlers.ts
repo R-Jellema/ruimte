@@ -9,8 +9,11 @@ import { chatsLocatedIn, chatsOfViews, ProjectChatSearch } from '../chat/project
 import type { Dispatcher } from '../dispatcher.ts';
 import { errorText } from '../error-text.ts';
 import { readServedFile } from '../fs/read.ts';
+import type { WriteBoundary } from '../fs/write.ts';
+import { readArchiveEntry } from '../archive/archive.ts';
 import { registerAuthHandlers } from '../handlers/auth.ts';
 import { registerBrowserHandlers } from '../handlers/browser.ts';
+import { registerArchiveHandlers } from '../handlers/archive.ts';
 import { registerBytesHandlers } from '../handlers/bytes.ts';
 import { registerChatHandlers } from '../handlers/chat.ts';
 import { registerChatImageHandlers } from '../handlers/chat-image.ts';
@@ -332,24 +335,21 @@ export function registerEditorHandlers(dispatcher: Dispatcher, input: EditorHand
     registerOnDeviceHandlers(dispatcher, language.onDevice);
     registerProvenanceHandlers(dispatcher, language.provenance, machine.machineHome);
     registerDatabaseHandlers(dispatcher, databases.service, databases.connections, databases.agents, databases.sqlAnalysis);
-    registerFsHandlers(
-        dispatcher,
-        git.folders,
-        async (clientId) => ({
-            folders: await store.heldFolders(clientId),
-            worktreesOf: git.checkouts.paths,
-            worktreesRoot: git.worktrees.root,
-            registeredWorktrees: (folder) => git.worktrees.registeredPaths(folder)
-        }),
-        machine.machineHome,
-        language.host
-    );
+    const boundaryOf = async (clientId: string): Promise<WriteBoundary> => ({
+        folders: await store.heldFolders(clientId),
+        worktreesOf: git.checkouts.paths,
+        worktreesRoot: git.worktrees.root,
+        registeredWorktrees: (folder) => git.worktrees.registeredPaths(folder)
+    });
+    registerFsHandlers(dispatcher, git.folders, boundaryOf, machine.machineHome, language.host);
+    registerArchiveHandlers(dispatcher, boundaryOf, machine.machineHome, language.host);
     registerBytesHandlers(
         dispatcher,
         {
             attachment: (chatId, id) => agents.chats.findAttachment(chatId, id),
             projectIcon: (projectId, theme) => store.iconFile(projectId, theme),
             file: readServedFile,
+            archiveEntry: readArchiveEntry,
             bundle: (id) => git.bundles.made(id),
             bundleRead: (id) => git.bundles.discard(id)
         },
