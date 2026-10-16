@@ -146,7 +146,10 @@ function database(on: Miniflare): Database {
 }
 
 // The Worker under test comes first, so every request outside the SQL path reaches it.
-function miniflare(databaseId: string, options: Partial<Pick<WorkerOptions, 'bindings' | 'outboundService'>>): Miniflare {
+function miniflare(
+    databaseId: string,
+    options: Partial<Pick<WorkerOptions, 'bindings' | 'outboundService' | 'analyticsEngineDatasets' | 'ratelimits'>>
+): Miniflare {
     const shared = { modules: true, compatibilityDate: '2026-08-01', d1Databases: { DB: databaseId } };
     return new Miniflare({
         workers: [
@@ -538,6 +541,8 @@ beforeAll(async () => {
             ...APPLE_BINDINGS,
             STATEMENT_PRIVATE_KEY: statementSecret
         },
+        analyticsEngineDatasets: { USAGE: { dataset: 'ruimte_usage' } },
+        ratelimits: { USAGE_LIMIT: { namespace_id: '2001', simple: { limit: 100, period: 60 } } },
         outboundService: outbound
     });
     await migrate(mf);
@@ -1977,6 +1982,31 @@ describe('cors', () => {
 
         const other = await dispatch('/v1/machines', { method: 'OPTIONS', headers: { origin: 'https://evil.example.com' } });
         expect(other.headers.get('access-control-allow-origin')).toBeNull();
+    });
+});
+
+describe('usage', () => {
+    test('a batch of finished days is taken in workerd, and nothing but a post is', async () => {
+        const date = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+        const days = [
+            {
+                date,
+                version: '0.19.0',
+                platform: 'darwin',
+                arch: 'arm64',
+                launcher: 'desktop',
+                signedIn: true,
+                firstThisWeek: true,
+                firstThisMonth: true,
+                cohortWeek: '2026-W01',
+                startupMs: 900,
+                counts: { projectsOpened: 2, viewsCanvas: 3, verbsAgent: 1 }
+            }
+        ];
+        const accepted = await dispatch('/v1/usage', { method: 'POST', body: { days } });
+        expect(accepted.status).toBe(204);
+        const read = await dispatch('/v1/usage');
+        expect(read.status).toBe(404);
     });
 });
 

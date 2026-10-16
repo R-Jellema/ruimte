@@ -1,4 +1,4 @@
-import { PEER_STATEMENTS_PATH, ProviderIdSchema } from '@ruimte/pulsar';
+import { PEER_STATEMENTS_PATH, ProviderIdSchema, USAGE_PATH } from '@ruimte/pulsar';
 import { readBenchmarks, refreshBenchmarks } from './benchmarks.ts';
 import { refreshDeployedBenchmarks } from './deploy-benchmarks.ts';
 import { readCatalogs } from './catalog.ts';
@@ -16,6 +16,7 @@ import { PROVIDERS } from './providers.ts';
 import { issuePeerStatement } from './peer-statements.ts';
 import { issueStatement } from './statements.ts';
 import { completeNativeApple, startNativeApple } from './native-apple.ts';
+import { acceptUsage, rateLimitCleanup } from './usage.ts';
 
 // Rows past use for this long are dropped by the daily cleanup; the statement log is kept.
 const REVOKED_SESSION_RETENTION_MS = 30 * 24 * 60 * 60_000;
@@ -40,6 +41,7 @@ const ROUTES: Readonly<Record<string, Readonly<Record<string, Handler>>>> = {
     '/v1/statements': { POST: issueStatement },
     [PEER_STATEMENTS_PATH]: { POST: issuePeerStatement },
     '/v1/maps/ticket': { POST: issueMapsTicket },
+    [USAGE_PATH]: { POST: (request, env) => acceptUsage(request, { db: env.DB, dataset: env.USAGE, burst: env.USAGE_LIMIT, now: Date.now }) },
     '/v1/session': { POST: exchangeLoginCode, DELETE: endSession },
     '/v1/session/refresh': { POST: refreshSession }
 };
@@ -161,7 +163,7 @@ export default {
             env.DB.prepare('DELETE FROM identity_link_request WHERE expires_at <= ?1').bind(now),
             env.DB.prepare('DELETE FROM identity_link_code WHERE expires_at <= ?1').bind(now),
             env.DB.prepare('DELETE FROM device_link WHERE expires_at <= ?1').bind(now),
-            env.DB.prepare('DELETE FROM rate_limit WHERE window_start < ?1').bind(now - 60 * 60_000),
+            ...rateLimitCleanup(env.DB, now),
             env.DB.prepare('DELETE FROM session WHERE expires_at <= ?1 OR revoked_at <= ?2').bind(now, now - REVOKED_SESSION_RETENTION_MS)
         ]);
     }

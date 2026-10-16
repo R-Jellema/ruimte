@@ -1,5 +1,10 @@
+import type { UsageDeps } from './usage.ts';
+
 export interface Env {
     DB: D1Database;
+    // The Analytics Engine dataset of anonymous usage, and the per-minute limit per address in front of it.
+    USAGE?: UsageDeps['dataset'];
+    USAGE_LIMIT?: UsageDeps['burst'];
     APNS_SANDBOX_KEY?: string;
     APNS_SANDBOX_KEY_ID?: string;
     APNS_PRODUCTION_KEY?: string;

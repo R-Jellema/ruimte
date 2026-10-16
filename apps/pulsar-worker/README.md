@@ -44,6 +44,7 @@ in `packages/pulsar/src/statement-key.ts`. The wire shapes live in `packages/pul
 | `PUT /v1/push/devices/<handle>/activities` | Its Live Activity update tokens |
 | `PUT /v1/push/devices/<handle>/start-activity` | Its Live Activity push-to-start token |
 | `POST /v1/push` | A signed, encrypted push from a machine, relayed to APNs (`APNS.md`) |
+| `POST /v1/usage` | Finished days of anonymous usage counts from a machine, without a token (see below) |
 | `POST /internal/benchmarks/refresh` | The benchmark refresh after a deploy, with a one-time bearer |
 
 ## The account
@@ -86,6 +87,76 @@ over `accessStatementV2Message`, which adds the key the account lists the machin
 over `peerAccessRequestMessage`, by the peer key and by the key the account lists for the machine that works; a
 machine of another account answers `not-found`. The log marks it `kind = 'peer'`. What a machine accepts is in
 [`apps/server/README.md`](../server/README.md#one-account-per-machine).
+
+## Usage statistics
+
+`POST /v1/usage` takes `{ days: UsageDay[] }` (`UsageBatchSchema` in `packages/pulsar/src/usage.ts`) and answers 204
+with no body. Nothing in it names a person, a machine or a project: no account, no machine key, no install id, no
+names or paths. A day carries its UTC date, the version, the platform and arch, how the daemon runs (`service`,
+`desktop`, `standalone`), whether the machine is on an account, `firstThisWeek` and `firstThisMonth` (the machine's
+first active day of this ISO week or UTC calendar month, so a sum of either is the active machines in it), the ISO week
+of the machine's first day (`cohortWeek`), the median desktop start until the first connection (`startupMs`, optional)
+and `counts`, a fixed set of counters that are each optional and default to zero.
+
+What the address book refuses with `bad-request` (400), always the whole batch:
+
+- any key the schema does not name, at every level
+- a count that is not a whole number from 0 to 100,000, or a `startupMs` outside 1 to 600,000
+- no days, more than seven, or one date twice
+- a date after today (UTC) or before the eighth day before it, and a cohort week after the day's week
+- a body over 32 KB
+
+A batch that is refused is wrong, so a machine drops those days rather than send them again. A `rate-limited` (429)
+or any other failure keeps them for the next try. Each address may send three batches a minute (the
+`USAGE_LIMIT` rate limiting binding) and twenty a day (a bucket in `rate_limit` named by a SHA-256 digest of the
+day and the address, which the daily cleanup drops once the day is over). The address and the body are never logged.
+A batch that was taken but whose answer got lost is counted twice when it is sent again; there is no id to tell.
+
+### Storage
+
+The days go to the Workers Analytics Engine dataset `ruimte_usage` (binding `USAGE`). Each day is one data point per
+row of `USAGE_POINTS`: `day` always, `work` and `verbs` only when one of their counts is above zero, so a day costs
+one to three writes. The index is the date. The table in `packages/pulsar/src/usage.ts` is the only map from a field to
+its column: the writer (`usageDataPoints`) and the dashboard (`usageColumn`, `usageBlob`) both read it. Only append to
+it; a field that moves changes what every stored point means.
+
+| Blob | Field |
+| --- | --- |
+| `blob1` | the point: `day`, `work` or `verbs` |
+| `blob2` | `date`, `YYYY-MM-DD` |
+| `blob3` | `version`; a test batch uses `0.0.0-test`, and every query leaves out `0.0.0*` |
+| `blob4` | `platform` |
+| `blob5` | `arch` |
+| `blob6` | `launcher` |
+| `blob7` | `signedIn`, `1` or `0` |
+| `blob8` | `cohortWeek`, `YYYY-Www` |
+
+| Double | `day` | `work` | `verbs` |
+| --- | --- | --- | --- |
+| `double1` | `active` (always 1) | `viewsCanvas` | `verbsRead` |
+| `double2` | `firstThisWeek` (0 or 1) | `viewsChat` | `verbsTask` |
+| `double3` | `firstThisMonth` (0 or 1) | `viewsTerminal` | `verbsMessage` |
+| `double4` | `startupMs` (0 when none) | `viewsBrowser` | `verbsAgent` |
+| `double5` | `projectsOpened` | `viewsDevice` | `verbsCanvas` |
+| `double6` | `terminalsStarted` | `viewsDrawing` | `verbsBrowser` |
+| `double7` | `agentsDelegated` | `viewsDiagram` | `verbsDevice` |
+| `double8` | `teamsDelegated` | `viewsFile` | `verbsDatabase` |
+| `double9` | `launchesRun` | `viewsDatabase` | `verbsComputer` |
+| `double10` | `worktreeMerges` | `chatsClaude` | `verbsWorktree` |
+| `double11` | `clientsDesktop` | `chatsCodex` | `verbsLaunches` |
+| `double12` | `clientsIos` | `chatsGemini` | `verbsSecret` |
+| `double13` | `clientsStation` | `chatsCopilot` | `verbsLanguage` |
+| `double14` | `clientsPeer` | `chatsApple` | |
+| `double15` | `browserActions` | `turnsClaude` | |
+| `double16` | `deviceActions` | `turnsCodex` | |
+| `double17` | `databaseActions` | `turnsGemini` | |
+| `double18` | `computerActions` | `turnsCopilot` | |
+| `double19` | | `turnsApple` | |
+
+Which view kind, chat provider and `ruimte-context` verb feeds which counter is `USAGE_VIEW_COUNTERS`,
+`USAGE_CHAT_COUNTERS` and `USAGE_VERB_COUNTERS`; a test in `packages/contracts` fails when a view kind or verb has none.
+Analytics Engine keeps three months. The stats worker (`apps/stats-worker`) rolls the days up into `usage_daily` in this
+D1 database every night, and reads both.
 
 ## Local dev
 
