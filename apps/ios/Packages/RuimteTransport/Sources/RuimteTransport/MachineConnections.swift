@@ -266,6 +266,8 @@ public enum LinkRoute: Equatable, Sendable {
             },
             closed: { [weak self, weak entry] error in
                 guard valid(), let self, let entry else { return }
+                // A link this pool let go of is no longer valid here, so whatever closes an open one closed on its own.
+                if entry.connected { LinkProblems.report(.dropped) }
                 entry.generation += 1
                 entry.link = nil
                 entry.connected = false

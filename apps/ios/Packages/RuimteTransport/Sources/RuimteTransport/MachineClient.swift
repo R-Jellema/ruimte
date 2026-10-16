@@ -312,6 +312,7 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
         let cancel = scheduler.after(milliseconds: timeoutMilliseconds) { [weak self] in
             guard let self, let request = pending[id] else { return }
             if request.heardAt == heardCount {
+                LinkProblems.report(.timeout(request: type))
                 finish(id, result: .failure(MachineClientError.timeout(type)))
             } else {
                 armTimeout(id, type: type)

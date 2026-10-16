@@ -56,6 +56,7 @@ public enum DirectIdentity {
         let challenge = try WireSchema.validate("DirectChallengeFrameSchema", raw)
         guard challenge["protocol"]?.numberValue == Double(WireConstants.protocolVersion) else {
             let olderMachine = (challenge["protocol"]?.numberValue ?? -1) < Double(WireConstants.protocolVersion)
+            LinkProblems.report(.refused(mismatch: olderMachine ? .daemonOlder : .daemonNewer))
             throw TransportFailure.invalid(olderMachine
                 ? ProtocolGate.olderMachine
                 : String(localized: "This machine runs a newer Ruimte than this app. Update this app.", bundle: .module))

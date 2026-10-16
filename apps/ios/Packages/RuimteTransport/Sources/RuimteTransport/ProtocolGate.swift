@@ -51,6 +51,7 @@ import RuimtePulsar
         let features = answered ? frame["result"]?["features"]?.arrayValue : []
         guard let features else {
             held.removeAll()
+            LinkProblems.report(.refused(mismatch: .daemonOlder))
             refuse(TransportFailure.invalid(Self.olderMachine))
             return
         }
