@@ -122,6 +122,7 @@ export async function startTelemetry(current: TelemetrySettings): Promise<void> 
         dataCollection: TELEMETRY_DATA_COLLECTION,
         attachStacktrace: false,
         maxBreadcrumbs: 0,
+        sendClientReports: false,
         integrations: [
             loaded.functionToStringIntegration(),
             loaded.linkedErrorsIntegration(),
