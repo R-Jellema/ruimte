@@ -2,6 +2,7 @@ import {
     AnimationMixer,
     Box3,
     LoadingManager,
+    MOUSE,
     NeutralToneMapping,
     PerspectiveCamera,
     PMREMGenerator,
@@ -20,6 +21,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { USDLoader } from 'three/examples/jsm/loaders/USDLoader.js';
+import { isSpaceDown, subscribeSpacePan } from '@/canvas/space-pan';
 import { countGeometry, firstZipEntry, fitCamera, isEmbeddedUrl, type ModelBounds, type ModelCounts } from '@/shell/panels/model-view';
 
 const FIELD_OF_VIEW = 45;
@@ -118,6 +120,7 @@ export class ModelViewer {
     private readonly controls: OrbitControls;
     private readonly environment: WebGLRenderTarget;
     private readonly observer: ResizeObserver;
+    private readonly unsubscribeSpace: () => void;
     private model: Object3D | null = null;
     private bounds: ModelBounds | null = null;
     private mixer: AnimationMixer | null = null;
@@ -148,9 +151,12 @@ export class ModelViewer {
 
         this.controls = new OrbitControls(this.camera, canvas);
         this.controls.enableDamping = true;
-        // A right-click is the file's menu, as on every other preview; panning stays on Shift and drag.
+        // A right-click is the file's menu, as on every other preview; panning is Shift or Space and drag.
         this.controls.mouseButtons.RIGHT = null;
         this.controls.addEventListener('change', () => this.requestRender());
+        // Space and drag pans here as it does on the canvas; inside a canvas node the canvas takes that press first.
+        this.unsubscribeSpace = subscribeSpacePan(() => this.followSpace());
+        this.followSpace();
 
         this.observer = new ResizeObserver(([entry]) => this.resize(entry.contentRect.width, entry.contentRect.height));
         this.observer.observe(host);
@@ -223,6 +229,7 @@ export class ModelViewer {
             this.frame = null;
         }
         this.observer.disconnect();
+        this.unsubscribeSpace();
         this.controls.dispose();
         if (this.model !== null) {
             this.mixer?.stopAllAction();
@@ -235,6 +242,12 @@ export class ModelViewer {
         // The page keeps only a handful of live contexts, and the terminals hold most of them.
         this.renderer.forceContextLoss();
         this.renderer.domElement.remove();
+    }
+
+    private followSpace(): void {
+        const down = isSpaceDown();
+        this.controls.mouseButtons.LEFT = down ? MOUSE.PAN : MOUSE.ROTATE;
+        this.renderer.domElement.style.cursor = down ? 'grab' : '';
     }
 
     private resize(width: number, height: number): void {
