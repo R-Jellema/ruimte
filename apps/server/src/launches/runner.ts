@@ -5,6 +5,7 @@ import { ClientSinks } from '../client-sinks.ts';
 import { errorText } from '../error-text.ts';
 import type { SessionSink } from '../sessions/manager.ts';
 import { LaunchError, type LaunchStore, type ResolvedLaunch } from './store.ts';
+import { countUsage } from '../stats/usage-stats.ts';
 
 // How long a stop waits after the interrupt before it sends SIGTERM.
 export const STOP_GRACE_MS = 5_000;
@@ -379,6 +380,7 @@ export class LaunchRunner {
             markExited();
             throw e;
         }
+        countUsage('launchesRun');
         this.emit(run);
         if (run.state === 'starting') {
             void this.probeRun(run);

@@ -35,6 +35,7 @@ import { AgentImages } from './agent-images.ts';
 import { ChatError } from './errors.ts';
 import { RUIMTE_UI_FENCE } from './ui-fence.ts';
 import { InlineEditNotes } from './inline-edit.ts';
+import { countChatStarted, countTurn } from '../stats/usage-stats.ts';
 
 export type { InterruptedRun } from '@adecore/agents/chat';
 
@@ -229,6 +230,8 @@ export class ChatManager extends ChatCore {
     private readonly tokens = new Map<string, string>();
     // The tasks whose rows a clear hid, per chat.
     private readonly clearedTasks = new Map<string, Set<string>>();
+    // The turn each chat last opened, so a turn counts once however often its item changes.
+    private readonly countedTurns = new Map<string, string>();
     // Clients following the conversation of a node a task opened, per row of the chat that gave it.
     private readonly childHolds = new Map<string, { parentId: string; toolUseId: string; childId: string; clients: Set<string> }>();
 
@@ -566,6 +569,9 @@ export class ChatManager extends ChatCore {
 
     private async opened(session: ChatSession, stored: ChatRecord | null): Promise<void> {
         const chatId = session.id;
+        if (stored === null) {
+            countChatStarted(session.info.provider);
+        }
         this.clearedTasks.set(chatId, new Set(clearedTaskIdsOf(stored?.extras ?? {})));
         for (const task of this.taskRows(chatId)) {
             this.upsertTaskRow(session, task);
@@ -613,6 +619,7 @@ export class ChatManager extends ChatCore {
             }
         }
         this.clearedTasks.delete(chatId);
+        this.countedTurns.delete(chatId);
     }
 
     private async removed(chatId: string, chat: { info: ChatInfo; items: ChatItem[] }): Promise<void> {
@@ -623,6 +630,13 @@ export class ChatManager extends ChatCore {
     private broadcasted(chatId: string, event: ChatEvent): void {
         if (event.type === 'delta') {
             return;
+        }
+        if (event.type === 'item' && event.item.kind === 'turn' && event.item.state === 'running' && this.countedTurns.get(chatId) !== event.item.id) {
+            this.countedTurns.set(chatId, event.item.id);
+            const provider = this.get(chatId)?.info.provider;
+            if (provider !== undefined) {
+                countTurn(provider);
+            }
         }
         for (const hold of this.childHolds.values()) {
             if (hold.childId === chatId) {

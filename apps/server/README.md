@@ -63,6 +63,30 @@ What goes out is built from an allow-list in `@ruimte/telemetry`: the stack fram
 
 Every line the serving daemon writes to a log file starts with an ISO timestamp; in a terminal the lines stay as they are.
 
+## Usage statistics
+
+A release build also counts how this machine is used and sends the totals once a day (`src/stats`), apart from the crash reports and never through them. The same stamp decides: `bun dev`, the tests and a local compile count nothing and send nothing. A person turns it off with the machine setting `usageStats` (below); off, nothing is counted and the days not sent yet are deleted.
+
+`UsageCounter` adds one to a counter in memory per UTC day and writes `usage/stats.json` at most once a minute and on shutdown. It keeps today and the seven days before it, the first day it counted (for the cohort week) and the last week and month it was active in (for `firstThisWeek` and `firstThisMonth`). Every count is one call at its site (`countUsage` and the helpers in `src/stats/usage-stats.ts`):
+
+| Counter | Where it counts |
+| --- | --- |
+| `projectsOpened` | an answered `project.open` |
+| `views*` | a view becoming the active view of a client's local state (`project.save-local`), by kind; not on a save while it stays |
+| `terminalsStarted` | a session the session manager starts without `exec`, so not a launch |
+| `chats*` | a chat that opens with no stored record, by provider |
+| `turns*` | the first `running` item of each new turn in a chat, by provider |
+| `verbs*` | a `ruimte-context` verb that ran, by its group in `USAGE_VERB_COUNTERS`, `list` and `read` included |
+| `agentsDelegated`, `teamsDelegated` | an `agent` or `team` verb that ran |
+| `browserActions`, `deviceActions`, `databaseActions`, `computerActions` | the `browser`, `device`, `database` and `computer` verbs, and a person's `browser.navigate`, `browser.command`, `device.boot`, `device.shutdown`, `device.action`, `device.capture`, `device.record`, `device.clipboard`, `database.request` and `computer.control` |
+| `launchesRun` | a launch the runner started, by a person, an agent, its project or a worktree task |
+| `worktreeMerges` | a worktree merge that ended without a conflict |
+| `clientsDesktop`, `clientsIos`, `clientsStation` | a client that is not the local secret, once per connection, by the `client` it names in `endpoint.info` |
+| `clientsPeer` | another machine working here as a peer, once per connection |
+| `startupMs` | the median of the day's `usage.startup` (local secret only): the desktop app's time from its start to its page's first connection, handed out once per start by the shell |
+
+The finished days go to the address book (`POST /v1/usage`, `apps/pulsar-worker/README.md`) when the daemon starts and whenever a client lists the providers, the moments the model catalogs are fetched too, so nothing runs on a clock of its own. A day goes once: after a 204 or a 400 it is dropped, after any other failure it waits for the next try, at most every ten minutes, until it is more than seven days old. A day carries the version, platform, arch, launcher (as the crash reports tag it), whether the machine was on an account at any moment of it, and the counts; no id, key, name, path or content. `--no-model-fetch` stops only the catalogs: usage has its own switch, so a person who wants neither turns off both.
+
 ## The `ruimte` CLI
 
 A machine without the desktop app runs the same binary from npm (`packages/npm`), with Node or Bun:
@@ -107,6 +131,7 @@ What a person sets for the machine lives in `endpoint.json`, next to the id and 
 | `broker` | The broker this machine announces itself to, or off. |
 | `lanDoor` | Whether the door on the local network is open. |
 | `worktreeRoot` | The folder new worktrees are made in; absent is `worktrees` in the data folder. Only the local secret sets it. |
+| `usageStats` | Sends the anonymous daily usage counts of a release build (see "Usage statistics"). On by default; written only as `false`. Only the local secret sets it. |
 | `nodeSizes` | The size a new node of a kind starts at, by kind, for a person's nodes and an agent's (`node new`, `agent`, `team`, a fork) alike. Only the kinds a person changed are written; a missing kind takes its built-in size (`NODE_SIZE` in `packages/contracts`). Set and reset one kind at a time through `endpoint.setNodeSize`; no verb changes it. |
 
 Keep awake is the daemon's own (`src/power/keep-awake.ts`), so it holds with no window open and when a phone set it. On macOS it is a `caffeinate -w <daemon pid>` child, so a daemon that dies never leaves the Mac awake. Elsewhere `keepAwakeAvailable` is false and nothing is held.
@@ -193,6 +218,7 @@ $RUIMTE_HOME/
     <kind>/                        one folder per installed kind (see "Language servers")
   usage/                           0700
     index.json                     every transcript the scanner read, with where it stopped
+    stats.json                     0600, the usage counts of today and the seven days before it, with the first day and the last week and month (see "Usage statistics")
     prices.json                    the last LiteLLM price table
     exchange-rate.json             the last euro rate for a dollar
   models/catalogs.json             0700, the last model catalogs from the address book

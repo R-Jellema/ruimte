@@ -7,7 +7,7 @@ import { errorText } from './error-text.ts';
 import { HOOKS_PATH } from './agents/hook-receiver.ts';
 import { dropEmptyMark } from './projects/scratch-project.ts';
 import { probeCodexNoDaemon } from './providers/launch.ts';
-import { rememberSecret, stopTelemetry, watchProjects } from './telemetry/reporter.ts';
+import { rememberSecret, stopTelemetry, watchProjects, type Launcher } from './telemetry/reporter.ts';
 import { COMPILED as compiled, VERSION } from './version.ts';
 import { loadAgentStores, wireAgents } from './wiring/agents.ts';
 import { wireAgentWork } from './wiring/agent-work.ts';
@@ -31,13 +31,14 @@ import { wirePush } from './wiring/push.ts';
 import type { DaemonRuntime } from './wiring/runtime.ts';
 import { wireProcesses } from './wiring/processes.ts';
 import { wireUsage } from './wiring/usage.ts';
+import { wireUsageStats } from './wiring/usage-stats.ts';
 
 /*
  * Runs the daemon until a signal ends the process. The wiring modules are called in boot order; a
  * module that needs one wired after it reaches it through `later`, which only runs once the daemon
  * is up, and a call before then throws instead of answering for a service that is not there.
  */
-export async function startDaemon(config: ServerConfig): Promise<void> {
+export async function startDaemon(config: ServerConfig, launcher: Launcher = 'standalone'): Promise<void> {
     const runtime: DaemonRuntime = {
         config,
         compiled,
@@ -55,7 +56,8 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     rememberSecret(machine.access.localSecret);
     const stores = await loadAgentStores(home);
     const computer = createComputer(runtime, stores.computerStore, { agents: () => agents, projects: () => projects });
-    const providers = await wireProviders(config, identity, () => computer.start());
+    const stats = await wireUsageStats(home, identity, machine.auth, launcher);
+    const providers = await wireProviders(config, identity, () => computer.start(), stats.flush);
     const agents = await wireAgents({
         runtime,
         identity,
@@ -159,6 +161,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         push,
         canvasHost,
         remote,
+        stats,
         later: { network: () => network, clients: () => clients }
     });
     const language = await wireLanguage({
@@ -301,6 +304,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         await step('Stopping the database helper', () => databases.service.dispose());
         await step('Stopping language servers', () => language.host.close());
         await step('Stopping the on-device helper', () => language.onDevice.dispose());
+        await step('Writing the usage counts', () => stats.stop());
         await step('Sending error reports', () => stopTelemetry());
         network.peers.closeAll();
         network.lanDoor.stop();

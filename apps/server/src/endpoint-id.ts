@@ -70,7 +70,10 @@ const FileSchema = z.object({
     worktreeRoot: z.string().min(1).optional().catch(undefined),
     /* The size new nodes of a kind take here, by kind; only the kinds a person changed. Read one kind at
        a time (`knownNodeSizes`), so a size that will not read costs that kind and not the others. */
-    nodeSizes: z.unknown().optional()
+    nodeSizes: z.unknown().optional(),
+    /* Whether a release build sends its anonymous daily usage counts. Absent is on, and only the owner
+       of the machine turns it off. */
+    usageStats: z.boolean().optional().catch(undefined)
 });
 
 interface IdentityOptions {
@@ -92,6 +95,7 @@ interface IdentityOptions {
     lanDoor: boolean;
     worktreeRoot: string | null;
     nodeSizes: NodeSizes;
+    usageStats: boolean;
 }
 
 export interface KeepAwakeSetting {
@@ -140,6 +144,7 @@ export interface IdentityFlags {
     lanDoor?: boolean;
     // An empty string puts it back to the data folder.
     worktreeRoot?: string;
+    usageStats?: boolean;
 }
 
 /*
@@ -167,6 +172,7 @@ export class EndpointIdentity {
     private lanDoorOpen: boolean;
     private checkoutRoot: string | null;
     private sizes: NodeSizes;
+    private stats: boolean;
     private readonly door = new Binding<IdentityLanDoor>('The door on the local network of the machine identity');
     private readonly closedLid = new Binding<IdentityClosedLid>('The closed-lid rule of the machine identity');
     private readonly integrations = new Binding<IdentityAgentIntegrations>('The agent integrations of the machine identity');
@@ -189,6 +195,7 @@ export class EndpointIdentity {
         this.lanDoorOpen = options.lanDoor;
         this.checkoutRoot = options.worktreeRoot;
         this.sizes = options.nodeSizes;
+        this.stats = options.usageStats;
     }
 
     /* What clients call this machine: the name a person gave it, or the one it started with. */
@@ -273,6 +280,11 @@ export class EndpointIdentity {
         return this.checkoutRoot;
     }
 
+    /* Whether a release build sends its anonymous daily usage counts; on until the owner turns it off. */
+    get usageStats(): boolean {
+        return this.stats;
+    }
+
     /* Only the kinds a person changed; `nodeSize` answers for every kind. */
     get nodeSizes(): NodeSizes {
         return this.sizes;
@@ -326,6 +338,7 @@ export class EndpointIdentity {
         };
         this.brokerSetting = flags.broker ?? this.brokerSetting;
         this.lanDoorOpen = flags.lanDoor ?? this.lanDoorOpen;
+        this.stats = flags.usageStats ?? this.stats;
         if (flags.worktreeRoot !== undefined) {
             this.checkoutRoot = flags.worktreeRoot === '' ? null : flags.worktreeRoot;
         }
@@ -365,7 +378,8 @@ export class EndpointIdentity {
                 ...this.brokerSwitch.get().describe(),
                 lanDoor: this.lanDoorOpen,
                 ...this.door.get().describe(),
-                nodeSizes: this.sizes
+                nodeSizes: this.sizes,
+                usageStats: this.stats
             }
         };
         this.sinks.emit(event);
@@ -392,7 +406,8 @@ export class EndpointIdentity {
             ...(this.brokerSetting.mode === 'default' ? {} : { broker: this.brokerSetting }),
             ...(this.lanDoorOpen ? {} : { lanDoor: false }),
             ...(this.checkoutRoot === null ? {} : { worktreeRoot: this.checkoutRoot }),
-            ...(Object.keys(this.sizes).length === 0 ? {} : { nodeSizes: this.sizes })
+            ...(Object.keys(this.sizes).length === 0 ? {} : { nodeSizes: this.sizes }),
+            ...(this.stats ? {} : { usageStats: false })
         };
         await mkdir(dirname(this.path), { recursive: true, mode: 0o700 });
         // Durable: a power cut right after a change must not leave an empty file where the key pair was.
@@ -459,7 +474,8 @@ export async function readOrCreateEndpointIdentity(home: string, defaultName: st
         broker: file?.broker ?? { mode: 'default' },
         lanDoor: file?.lanDoor ?? true,
         worktreeRoot: file?.worktreeRoot ?? null,
-        nodeSizes: knownNodeSizes(file?.nodeSizes)
+        nodeSizes: knownNodeSizes(file?.nodeSizes),
+        usageStats: file?.usageStats ?? true
     });
     if (!keys) {
         await identity.persist();

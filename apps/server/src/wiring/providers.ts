@@ -17,9 +17,23 @@ export interface ProvidersBundle {
     nameOfCli(kind: AgentKind): string;
 }
 
-/* `alongside` loads beside the providers' own files, so neither waits on the other. */
-export async function wireProviders(config: ServerConfig, identity: EndpointIdentity, alongside: () => Promise<void>): Promise<ProvidersBundle> {
-    const providers = new ProviderRegistry({ appleEnabled: () => identity.appleFoundationEnabled, onList: () => void modelCatalogs.refresh() });
+/*
+ * `alongside` loads beside the providers' own files, so neither waits on the other. `fetched` runs
+ * wherever the model catalogs may be fetched, for the usage counts that go out at the same moments.
+ */
+export async function wireProviders(
+    config: ServerConfig,
+    identity: EndpointIdentity,
+    alongside: () => Promise<void>,
+    fetched: () => void = () => undefined
+): Promise<ProvidersBundle> {
+    const providers = new ProviderRegistry({
+        appleEnabled: () => identity.appleFoundationEnabled,
+        onList: () => {
+            void modelCatalogs.refresh();
+            fetched();
+        }
+    });
     const modelCatalogs = new ModelCatalogFeed({
         home: config.home,
         allowFetch: config.modelFetch,
@@ -36,6 +50,7 @@ export async function wireProviders(config: ServerConfig, identity: EndpointIden
     });
     await Promise.all([integrations.load(), modelCatalogs.load(), alongside()]);
     void modelCatalogs.refresh();
+    fetched();
     identity.attachAgentIntegrations({ describe: () => ({ agentIntegrations: integrations.summary() }) });
     integrations.onChanged(() => identity.announce());
     // Before the managers, which start every CLI under the account its node or chat names.

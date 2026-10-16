@@ -366,7 +366,8 @@ describe('auth handlers', () => {
                     ...LENT_NOTHING,
                     broker: { mode: 'default' },
                     lanDoor: true,
-                    nodeSizes: {}
+                    nodeSizes: {},
+                    usageStats: true
                 }
             }
         ]);
@@ -398,6 +399,23 @@ describe('auth handlers', () => {
         expect(off).toMatchObject({ ok: true, result: { visualReplies: false } });
         expect(identity.visualReplies).toBe(false);
         expect(await ask({ reachability: 'loopback', sessionId: null }, 'endpoint.info')).toMatchObject({ ok: true, result: { visualReplies: false } });
+    });
+
+    test('usage statistics start on, and only a person on this machine turns them off', async () => {
+        expect(await ask({ reachability: 'lan', sessionId: 's1' }, 'endpoint.info')).toMatchObject({ ok: true, result: { usageStats: true } });
+
+        const refused = await ask({ reachability: 'lan', sessionId: 's1' }, 'endpoint.settings', { usageStats: false });
+        expect(refused).toMatchObject({ ok: false, error: { code: 'owner-only' } });
+        expect(identity.usageStats).toBe(true);
+
+        const off = await ask({ reachability: 'loopback', sessionId: null }, 'endpoint.settings', { usageStats: false });
+        expect(off).toMatchObject({ ok: true, result: { usageStats: false } });
+        expect(identity.usageStats).toBe(false);
+    });
+
+    test('only the app on this machine says how long it took to start', async () => {
+        expect(await ask({ reachability: 'lan', sessionId: 's1' }, 'usage.startup', { ms: 1200 })).toMatchObject({ ok: false, error: { code: 'forbidden' } });
+        expect(await ask({ reachability: 'loopback', sessionId: null }, 'usage.startup', { ms: 1200 })).toEqual(expect.objectContaining({ ok: true }));
     });
 
     test('any client the machine let in sets the size of new nodes of a kind, and every client hears it', async () => {

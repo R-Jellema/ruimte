@@ -31,6 +31,7 @@ import { registerPlanHandlers } from '../handlers/plan.ts';
 import { registerRemoteHandlers } from '../handlers/remote.ts';
 import { trustedStatementKeys } from '../pulsar/statement.ts';
 import type { RemoteBundle } from './remote.ts';
+import type { UsageStatsBundle } from './usage-stats.ts';
 import { registerProcessHandlers } from '../handlers/processes.ts';
 import { registerProjectHandlers } from '../handlers/project.ts';
 import { registerProvenanceHandlers } from '../handlers/provenance.ts';
@@ -84,6 +85,7 @@ export interface HandlersInput {
     push: PushService;
     canvasHost: CanvasHost;
     remote: RemoteBundle;
+    stats: UsageStatsBundle;
     later: {
         network(): NetworkBundle;
         clients(): ClientsBundle;
@@ -92,7 +94,8 @@ export interface HandlersInput {
 
 /* What a client asks of sessions, chats, projects and the machine itself. */
 export async function registerHandlers(dispatcher: Dispatcher, input: HandlersInput): Promise<void> {
-    const { runtime, machine, stores, providers, agents, projects, work, launches, git, devices, processes, power, push, canvasHost, remote, later } = input;
+    const { runtime, machine, stores, providers, agents, projects, work, launches, git, devices, processes, power, push, canvasHost, remote, stats, later } =
+        input;
     const { config } = runtime;
     const { identity } = machine;
     const { sessions, chats } = agents;
@@ -265,6 +268,7 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
                 devices.devices.closeAll();
             }
         },
+        usageStatsChanged: (on) => stats.changed(on),
         appleFoundationChanged: async (on) => {
             providers.providers.invalidate('apple');
             if (!on) {

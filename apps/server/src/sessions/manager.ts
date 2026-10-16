@@ -16,6 +16,7 @@ import type { SessionSnapshot, SnapshotStore } from './snapshot-store.ts';
 import { errorText } from '../error-text.ts';
 import { CodedError } from '@adecore/agents';
 import { ClientSinks } from '../client-sinks.ts';
+import { countUsage } from '../stats/usage-stats.ts';
 
 type SessionErrorCode =
     | 'session-exists'
@@ -315,6 +316,10 @@ export class SessionManager {
         });
         session.heldCommand = held;
         this.sessions.set(session.id, session);
+        // A launch runs its command through `exec` and counts as a launch, not as a terminal.
+        if (options.exec === undefined) {
+            countUsage('terminalsStarted');
+        }
         this.announce(session, 'created');
         this.tokens.set(session.hookToken, session.id);
         if (options.forClient) {

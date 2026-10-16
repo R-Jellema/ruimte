@@ -20,6 +20,7 @@ import type { BrokerDescription } from '../pulsar/broker-switch.ts';
 import type { InstallVerdict } from '../power/machine-update.ts';
 import { IntegrationsFixed, isIntegrationKind } from '../agents/integrations.ts';
 import { DEFAULT_ADMIN_PROMPT } from '../power/closed-lid.ts';
+import { countClient, recordStartup } from '../stats/usage-stats.ts';
 
 interface EndpointHost {
     identity: EndpointIdentity;
@@ -39,6 +40,8 @@ interface EndpointHost {
     // Chats take up a limited turn on a clock only while this is on; turning it off drops what was owed.
     resumeChanged?(on: boolean): void;
     appleFoundationChanged?(on: boolean): Promise<void>;
+    // Off drops the days not sent yet, so nothing counted before goes out later.
+    usageStatsChanged?(on: boolean): Promise<void>;
     // Whether this machine can hold a block on sleep, and the call that follows a changed setting.
     keepAwake?: { available: boolean; changed(): void };
     // The closed-lid mode of a Mac: whether it is offered, whether its rule is installed, and installing or removing that.
@@ -95,6 +98,7 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
         lanDoor: identity.lanDoor,
         ...host.lanDoor(),
         nodeSizes: identity.nodeSizes,
+        usageStats: identity.usageStats,
         // Only the app on this machine is told which account it is on; it is the one that can take it off.
         ...(isOwner(access) ? { accountId: (await store.accountBinding())?.id ?? null, worktreeRoot: identity.worktreeRoot } : {})
     });
@@ -105,7 +109,8 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
      */
     dispatcher.register(
         'endpoint.info',
-        async (_payload, client) => {
+        async (payload, client) => {
+            countClient(client, client.access, payload.client);
             if (client.access?.peer !== undefined) {
                 return {
                     id: identity.id,
@@ -159,8 +164,13 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
                 worktreeRoot = checked.root;
             }
         }
+        // Whether this machine sends anything is the decision of the person who runs it.
+        if (settings.usageStats !== undefined && !isOwner(access)) {
+            throw new RequestError('owner-only', 'Only a person on this machine can turn its usage statistics on or off');
+        }
         await write({
             worktreeRoot,
+            usageStats: settings.usageStats,
             agentsDeleteAnyView: settings.agentsDeleteAnyView,
             streamingAllowed: settings.streamingAllowed,
             resumeAtReset: settings.resumeAtReset,
@@ -189,6 +199,9 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
         }
         if (settings.appleFoundationEnabled !== undefined) {
             await host.appleFoundationChanged?.(identity.appleFoundationEnabled);
+        }
+        if (settings.usageStats !== undefined) {
+            await host.usageStatsChanged?.(identity.usageStats);
         }
     };
 
@@ -263,6 +276,16 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
                 throw e;
             });
             return { summary: current.summary(), report };
+        },
+        { owner: true }
+    );
+
+    /* Only the app on this machine knows when it started, and it asks once per start. */
+    dispatcher.register(
+        'usage.startup',
+        (payload) => {
+            recordStartup(payload.ms);
+            return {};
         },
         { owner: true }
     );

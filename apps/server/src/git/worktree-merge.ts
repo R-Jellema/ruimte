@@ -6,6 +6,7 @@ import { GitError, git, readGit, runGit, streamGit } from './run.ts';
 import type { Worktrees } from './worktrees.ts';
 import { PROJECT_DIR } from '../projects/project-files.ts';
 import { errorText } from '../error-text.ts';
+import { countUsage } from '../stats/usage-stats.ts';
 
 /* One agent whose folder is inside a worktree. */
 export interface WorktreeAgent {
@@ -94,7 +95,11 @@ export class WorktreeMerge {
         const job = new Job();
         this.running.set(payload.actionId, job);
         try {
-            return await this.worktrees.exclusive(payload.repo, (main) => this.perform(main, payload, sink, job, limits));
+            const result = await this.worktrees.exclusive(payload.repo, (main) => this.perform(main, payload, sink, job, limits));
+            if ((result.conflicts?.length ?? 0) === 0) {
+                countUsage('worktreeMerges');
+            }
+            return result;
         } catch (e) {
             sink('failed', errorText(e));
             throw e;

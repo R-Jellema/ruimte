@@ -1,5 +1,6 @@
 import type { Dispatcher } from '../dispatcher.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
+import { countViewShown } from '../stats/usage-stats.ts';
 import { newInlineChat, removeInlineChat, showInlineChat, type InlineChatHost } from '../projects/inline-chat.ts';
 import { newScratchChat, type ChatWritten } from '../projects/scratch-project.ts';
 
@@ -20,8 +21,14 @@ export function registerProjectHandlers(dispatcher: Dispatcher, store: ProjectSt
         rev: await store.save(payload.projectId, payload.baseRev, payload.content, payload.shared, client.id)
     }));
 
-    dispatcher.register('project.save-local', async (payload) => {
+    dispatcher.register('project.save-local', async (payload, client) => {
         await store.saveLocal(payload.projectId, payload.local);
+        countViewShown(
+            client,
+            payload.projectId,
+            payload.local.activeViewId,
+            (viewId) => store.index.viewsOf(payload.projectId)?.find((view) => view.id === viewId)?.kind ?? null
+        );
         return {};
     });
 

@@ -1,5 +1,6 @@
 import { isOwner } from './auth/access.ts';
 import { errorText } from './error-text.ts';
+import { countRequest } from './stats/usage-stats.ts';
 import {
     REQUEST_SCHEMAS,
     isRequestType,
@@ -147,6 +148,7 @@ export class Dispatcher {
 
         try {
             const result = await handler(payloadParse.data, client);
+            countRequest(type);
             if (result instanceof BinaryReply && client.sendBinary) {
                 client.sendBinary(result.encode(id));
                 return;

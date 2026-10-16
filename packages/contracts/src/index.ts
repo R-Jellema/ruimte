@@ -209,6 +209,7 @@ import {
     AuthSessionsResultSchema,
     EndpointChangedEventSchema,
     EndpointClosedLidRulePayloadSchema,
+    EndpointInfoPayloadSchema,
     EndpointInfoSchema,
     EndpointLeaveAccountResultSchema,
     EndpointSetIdentityPayloadSchema,
@@ -217,7 +218,8 @@ import {
     EndpointSignPeerAccessPayloadSchema,
     EndpointSignPeerAccessResultSchema,
     EndpointSignRegistrationPayloadSchema,
-    EndpointSignRegistrationResultSchema
+    EndpointSignRegistrationResultSchema,
+    UsageStartupPayloadSchema
 } from './auth.ts';
 import { DirectSignalPayloadSchema } from './direct.ts';
 import {
@@ -692,6 +694,7 @@ export const REQUEST_SCHEMAS = {
     'usage.unsubscribe': AGENT_REQUEST_SCHEMAS['usage.unsubscribe'],
     'usage.limits': AGENT_REQUEST_SCHEMAS['usage.limits'],
     'usage.refreshLimits': AGENT_REQUEST_SCHEMAS['usage.refreshLimits'],
+    'usage.startup': { payload: UsageStartupPayloadSchema, result: EmptySchema },
     'processes.subscribe': { payload: ProcessesSubscribePayloadSchema, result: ProcessesSubscribeResultSchema },
     'processes.unsubscribe': { payload: EmptySchema, result: EmptySchema },
     'processes.signal': { payload: ProcessesSignalPayloadSchema, result: EmptySchema },
@@ -711,7 +714,7 @@ export const REQUEST_SCHEMAS = {
     'secret.requests': { payload: EmptySchema, result: SecretRequestsSchema },
     'secret.save': { payload: SecretSavePayloadSchema, result: SecretAnswerResultSchema },
     'secret.decline': { payload: SecretDeclinePayloadSchema, result: SecretAnswerResultSchema },
-    'endpoint.info': { payload: EmptySchema, result: EndpointInfoSchema },
+    'endpoint.info': { payload: EndpointInfoPayloadSchema, result: EndpointInfoSchema },
     'endpoint.setIdentity': { payload: EndpointSetIdentityPayloadSchema, result: EndpointInfoSchema },
     'endpoint.settings': { payload: EndpointSettingsSchema, result: EndpointInfoSchema },
     'endpoint.setNodeSize': { payload: EndpointSetNodeSizePayloadSchema, result: EndpointInfoSchema },

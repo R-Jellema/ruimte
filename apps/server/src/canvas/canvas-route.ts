@@ -3,6 +3,7 @@ import { ProjectError } from '../projects/project-error.ts';
 import { VerbRefusal, type CanvasHost } from './verb.ts';
 import { verbNamed, verbSummaryLines } from './verbs.ts';
 import { errorText } from '../error-text.ts';
+import { countVerb } from '../stats/usage-stats.ts';
 import { refusalBody } from '@adecore/agents/context';
 
 export const CANVAS_PATH = '/canvas';
@@ -85,7 +86,9 @@ export async function handleCanvasRequest(request: Request, pathname: string, de
         return refusal('bad-request', 'The body must be { "argv": string[] }');
     }
     try {
-        return text(await verb.run(body.data.argv, { caller, host: deps.host }));
+        const lines = await verb.run(body.data.argv, { caller, host: deps.host });
+        countVerb(name);
+        return text(lines);
     } catch (e) {
         if (e instanceof VerbRefusal) {
             return refusal(e.code, e.message, e.lines);

@@ -1,4 +1,12 @@
-import { BrokerSettingSchema, MachineIdSchema, NonceSchema, PublicKeySchema, RegisterMachinePayloadSchema, SignatureSchema } from '@ruimte/pulsar';
+import {
+    BrokerSettingSchema,
+    MachineIdSchema,
+    NonceSchema,
+    PublicKeySchema,
+    RegisterMachinePayloadSchema,
+    SignatureSchema,
+    USAGE_MAX_STARTUP_MS
+} from '@ruimte/pulsar';
 import { z } from 'zod';
 import { MachineUpdateSchema } from './machine-update.ts';
 import { NodeKindSchema, ProjectIconChoiceSchema } from './project.ts';
@@ -93,11 +101,27 @@ export const EndpointInfoSchema = z.object({
     worktreeRoot: z.string().nullable().optional(),
     // Kept in `endpoint.json`; empty while nobody set one.
     nodeSizes: EndpointNodeSizesSchema.optional(),
+    // Anonymous daily usage counts sent from a release build. Absent reads as on, from a machine that has the switch.
+    usageStats: z.boolean().optional(),
     // Every request this machine answers, so a client checks a request newer than 0.18.0 before it sends one
     // instead of catching `unknown-request`. Only `endpoint.info` carries it; a machine without it is refused as older.
     features: z.array(z.string()).optional()
 });
 export type EndpointInfo = z.infer<typeof EndpointInfoSchema>;
+
+/*
+ * `endpoint.info`. `client` names the app that asks, which a machine counts in its anonymous usage. A
+ * string rather than a list, so a machine that does not know a newer kind counts nothing instead of refusing.
+ */
+export const EndpointInfoPayloadSchema = z.object({ client: z.string().max(32).optional() });
+export type EndpointInfoPayload = z.infer<typeof EndpointInfoPayloadSchema>;
+
+export const USAGE_CLIENT_KINDS = ['desktop', 'ios', 'station'] as const;
+export type UsageClientKind = (typeof USAGE_CLIENT_KINDS)[number];
+
+// `usage.startup`: how long the desktop app took from its start to its first connection, once per start.
+export const UsageStartupPayloadSchema = z.object({ ms: z.number().int().min(1).max(USAGE_MAX_STARTUP_MS) });
+export type UsageStartupPayload = z.infer<typeof UsageStartupPayloadSchema>;
 
 // `POST /auth/pair`: a one-time pairing token from the daemon's printed URL, for a long-lived session token.
 export const PairPayloadSchema = z.object({
@@ -134,7 +158,9 @@ export const EndpointSettingsSchema = z.object({
     broker: BrokerSettingSchema.optional(),
     lanDoor: z.boolean().optional(),
     // Only the owner of the machine may set it: the folder new worktrees are made in. An empty string puts it back.
-    worktreeRoot: z.string().max(4096).optional()
+    worktreeRoot: z.string().max(4096).optional(),
+    // Only the owner of the machine may set it.
+    usageStats: z.boolean().optional()
 });
 export type EndpointSettings = z.infer<typeof EndpointSettingsSchema>;
 
@@ -171,7 +197,8 @@ export const EndpointChangedEventSchema = z.object({
     lanDoor: z.boolean().optional(),
     lanDoorFixed: z.boolean().optional(),
     agentIntegrations: AgentIntegrationsSummarySchema.optional(),
-    nodeSizes: EndpointNodeSizesSchema.optional()
+    nodeSizes: EndpointNodeSizesSchema.optional(),
+    usageStats: z.boolean().optional()
 });
 export type EndpointChangedEvent = z.infer<typeof EndpointChangedEventSchema>;
 

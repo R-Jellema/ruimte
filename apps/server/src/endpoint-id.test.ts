@@ -152,7 +152,8 @@ describe('readOrCreateEndpointIdentity', () => {
                     ...LENT_NOTHING,
                     broker: { mode: 'default' },
                     lanDoor: true,
-                    nodeSizes: {}
+                    nodeSizes: {},
+                    usageStats: true
                 }
             }
         ]);
@@ -267,6 +268,20 @@ describe('readOrCreateEndpointIdentity', () => {
         await identity.setIdentity('Studio', null, { visualReplies: true });
         written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
         expect(written.visualReplies).toBeUndefined();
+    });
+
+    test('usage statistics are on by default and only turning them off is stored', async () => {
+        const identity = await readOrCreateEndpointIdentity(home, 'the-hostname');
+        expect(identity.usageStats).toBe(true);
+
+        await identity.setSwitches({ usageStats: false });
+        expect((await readOrCreateEndpointIdentity(home, 'the-hostname')).usageStats).toBe(false);
+        let written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        expect(written.usageStats).toBe(false);
+
+        await identity.setSwitches({ usageStats: true });
+        written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        expect(written.usageStats).toBeUndefined();
     });
 
     test('keep awake is off by default, each part set on its own survives a restart, and off writes nothing', async () => {

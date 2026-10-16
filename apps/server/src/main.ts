@@ -127,13 +127,14 @@ try {
             if (!process.stdout.isTTY) {
                 stampConsole();
             }
-            const telemetry = telemetrySettings(config.underService ? 'service' : launchedByDesktop ? 'desktop' : 'standalone', config.home);
+            const launcher = config.underService ? 'service' : launchedByDesktop ? 'desktop' : 'standalone';
+            const telemetry = telemetrySettings(launcher, config.home);
             if (telemetry !== null) {
                 await startTelemetry(telemetry);
             }
             startWatchdog(telemetry);
             const { startDaemon } = await import('./daemon.ts');
-            await startDaemon(config);
+            await startDaemon(config, launcher);
         },
         err: (line) => console.error(line)
     });

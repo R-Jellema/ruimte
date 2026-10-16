@@ -6441,6 +6441,9 @@
               ]
             }
           },
+          "usageStats": {
+            "type": "boolean"
+          },
           "features": {
             "type": "array",
             "items": {
@@ -51759,6 +51762,25 @@
       "providers"
     ]
   },
+  "request.usage.startup.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "ms": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 600000
+      }
+    },
+    "required": [
+      "ms"
+    ]
+  },
+  "request.usage.startup.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
   "request.processes.subscribe.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -53283,7 +53305,12 @@
   "request.endpoint.info.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
-    "properties": {}
+    "properties": {
+      "client": {
+        "type": "string",
+        "maxLength": 32
+      }
+    }
   },
   "request.endpoint.info.result": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -53784,6 +53811,9 @@
           ]
         }
       },
+      "usageStats": {
+        "type": "boolean"
+      },
       "features": {
         "type": "array",
         "items": {
@@ -54095,6 +54125,9 @@
       "worktreeRoot": {
         "type": "string",
         "maxLength": 4096
+      },
+      "usageStats": {
+        "type": "boolean"
       }
     },
     "required": [
@@ -54601,6 +54634,9 @@
           ]
         }
       },
+      "usageStats": {
+        "type": "boolean"
+      },
       "features": {
         "type": "array",
         "items": {
@@ -54703,6 +54739,9 @@
       "worktreeRoot": {
         "type": "string",
         "maxLength": 4096
+      },
+      "usageStats": {
+        "type": "boolean"
       }
     }
   },
@@ -55204,6 +55243,9 @@
             "h"
           ]
         }
+      },
+      "usageStats": {
+        "type": "boolean"
       },
       "features": {
         "type": "array",
@@ -55769,6 +55811,9 @@
             "h"
           ]
         }
+      },
+      "usageStats": {
+        "type": "boolean"
       },
       "features": {
         "type": "array",
@@ -56522,6 +56567,9 @@
             "h"
           ]
         }
+      },
+      "usageStats": {
+        "type": "boolean"
       },
       "features": {
         "type": "array",
@@ -65780,6 +65828,9 @@
             "h"
           ]
         }
+      },
+      "usageStats": {
+        "type": "boolean"
       }
     },
     "required": [

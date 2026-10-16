@@ -6,6 +6,7 @@ import { bearerCaller } from '../canvas/canvas-route.ts';
 import type { CanvasHost } from '../canvas/verb.ts';
 import { refusalRows } from '@adecore/agents/context';
 import { CONTEXT_PATH } from './context-store.ts';
+import { countVerb } from '../stats/usage-stats.ts';
 
 /* The refusals of a read that the CLI prints as its own, with what `list` would have said under them;
    the last four are a chat view's, which reads a node by naming its canvas. */
@@ -53,6 +54,9 @@ export async function handleContextRequest(request: Request, pathname: string, d
     const rest = pathname.slice(CONTEXT_PATH.length).replace(/^\//, '');
     if (rest === '') {
         const listed = await serverActions.execute('context.list', {}, call);
+        if (listed.status === 'completed') {
+            countVerb('list');
+        }
         return listed.status === 'completed' ? Response.json({ sources: listed.output.sources }) : failed(listed);
     }
     const query = new URL(request.url).searchParams;
@@ -72,5 +76,9 @@ export async function handleContextRequest(request: Request, pathname: string, d
         { sourceId, tail, subagent: query.get('subagent') || null, viewId: query.get('view') || null },
         call
     );
-    return read.status === 'completed' ? new Response(read.output.text, { headers: TEXT }) : failed(read);
+    if (read.status !== 'completed') {
+        return failed(read);
+    }
+    countVerb('read');
+    return new Response(read.output.text, { headers: TEXT });
 }
