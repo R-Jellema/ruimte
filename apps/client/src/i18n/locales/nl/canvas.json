@@ -333,5 +333,13 @@
         "merge": "Mergen…",
         "failed": "Kon {{what}} niet terughalen",
         "failedDescription": "{{machine}} stuurde zijn werk niet."
+    },
+    "lines": {
+        "format": "Lijnstijl",
+        "arrowStart": "Pijlpunt aan het begin",
+        "arrowEnd": "Pijlpunt aan het einde",
+        "reverse": "Richting omdraaien",
+        "drawHint": "Sleep om te tekenen. Houd Shift ingedrukt voor rechte of diagonale lijnen. Escape annuleert.",
+        "defaultColor": "Standaardlijnkleur"
     }
 }

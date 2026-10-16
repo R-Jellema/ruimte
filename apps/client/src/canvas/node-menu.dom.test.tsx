@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import type { ProjectCanvasView, ProjectNode, ProviderInfo } from '@ruimte/contracts';
 import { windowWorkspace } from '@/state/window';
+import { useUi } from '@/state/ui';
+import { useDocument } from '@/state/document';
 import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
-import { clickOn, mount, openSubmenu, until, type Mounted } from '../../testing/dom';
+import { clickOn, mount, openSubmenu, pressKey, until, type Mounted } from '../../testing/dom';
 
 const CLAUDE = {
     kind: 'claude',
@@ -20,6 +22,7 @@ const CLAUDE = {
 
 const CHAT: ProjectNode = { id: 'fresh-chat', kind: 'chat', provider: 'claude', x: 0, y: 0, w: 480, h: 520 } as ProjectNode;
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [CHAT], texts: [], edges: [], layouts: [] };
+const OTHER: ProjectCanvasView = { ...MAIN, id: 'other', name: 'Other', nodes: [{ ...CHAT, id: 'other-chat', title: 'Other chat' }] };
 
 let machine: FakeMachine;
 let workspace: FakeWorkspace;
@@ -50,7 +53,8 @@ beforeEach(async () => {
     machine.answer('project.save', ({ baseRev }) => ({ rev: baseRev + 1 }) as never);
     machine.answer('provider.list', () => ({ providers: [CLAUDE] }));
     machine.answer('chat.attach', ({ chatId }) => ({ info: chatInfoOf(chatId), items: [], seq: 0 }) as never);
-    workspace = await openFakeWorkspace(machine, { views: [MAIN] }, { activeViewId: MAIN.id, views: {} });
+    workspace = await openFakeWorkspace(machine, { views: [MAIN, OTHER] }, { activeViewId: MAIN.id, views: {} });
+    useUi.getState().setSidebarExpanded([OTHER.id]);
     page = mount();
     await page.renderApp();
     await until(() => page.host.querySelector(`[data-node-id="${CHAT.id}"]`) !== null);
@@ -62,6 +66,41 @@ afterEach(async () => {
 });
 
 describe('the menu of a chat node', () => {
+    test('renaming from an inactive canvas sidebar row keeps the active canvas', async () => {
+        const row = page.host.querySelector('[data-sidebar-row$="node:other:other-chat"]')!;
+        await act(async () => {
+            row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40, button: 2 }));
+        });
+        await until(() => menuItem('Rename') !== null);
+        await clickOn(menuItem('Rename'));
+        await until(() => document.activeElement instanceof HTMLInputElement);
+        const input = document.activeElement as HTMLInputElement;
+        input.value = 'Renamed without switching';
+        await pressKey(input, 'Enter');
+        expect(useDocument.getState().activeViewId).toBe(MAIN.id);
+        const other = useDocument.getState().views.find((view) => view.id === OTHER.id);
+        expect(other?.kind === 'canvas' && other.nodes.find((node) => node.id === 'other-chat')?.title).toBe('Renamed without switching');
+    });
+
+    test('a sidebar row on another canvas offers the node menu and saves to that canvas', async () => {
+        const row = page.host.querySelector('[data-sidebar-row$="node:other:other-chat"]');
+        expect(row).not.toBeNull();
+        await act(async () => {
+            row!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40, button: 2 }));
+        });
+        await until(() => menuItem('Rename') !== null);
+        expect(useDocument.getState().activeViewId).toBe(MAIN.id);
+        await openSubmenu('Color');
+        expect(useDocument.getState().activeViewId).toBe(MAIN.id);
+        await clickOn(menuItem('Teal'));
+        expect(useDocument.getState().activeViewId).toBe(OTHER.id);
+        await act(async () => windowWorkspace()!.connection.projects.flush());
+        const saved = machine.requests('project.save').at(-1)?.content.views;
+        const other = saved?.find((view) => view.id === OTHER.id);
+        expect(other?.kind === 'canvas' && other.nodes?.find((node) => node.id === 'other-chat')?.accent).toBe('teal');
+        expect(savedChat()?.accent).toBeUndefined();
+    });
+
     test('a chat that has not run a turn offers no Conversation submenu', async () => {
         await openNodeMenu(CHAT.id);
 

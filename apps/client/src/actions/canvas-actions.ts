@@ -217,7 +217,7 @@ export function canvasActions(document: StoreApi<DocumentState>, reach: CanvasRe
         },
         'canvas.select': ({ viewId, nodeIds }) => {
             const { view, canvas } = canvasOnScreen(document, viewId);
-            const names = nodeIds.map((id) => canvas.nodes[id]?.title ?? canvas.texts[id]?.text);
+            const names = nodeIds.map((id) => canvas.nodes[id]?.title ?? canvas.texts[id]?.text ?? (canvas.lines[id] ? 'Line' : undefined));
             const missing = nodeIds.find((_id, index) => names[index] === undefined);
             if (missing) {
                 throw new ActionRefusal('unknown-node', `No node or text with id “${missing}” exists on “${view.name}”.`);

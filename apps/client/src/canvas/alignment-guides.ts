@@ -1,4 +1,4 @@
-import { unionOf, type Rect } from '@/canvas/math';
+import { overlapSpan, unionOf, type Rect } from '@/canvas/math';
 
 const EPSILON = 0.001;
 
@@ -64,9 +64,8 @@ function nearestGap(rect: Rect, others: readonly Rect[], axis: 'x' | 'y', direct
         if (other === rect) {
             continue;
         }
-        const low = Math.max(rect[cross], other[cross]);
-        const high = Math.min(rect[cross] + rect[crossSize], other[cross] + other[crossSize]);
-        if (high - low < EPSILON) {
+        const overlap = overlapSpan(rect[cross], rect[crossSize], other[cross], other[crossSize]);
+        if (!overlap) {
             continue;
         }
         const start = direction > 0 ? rect[axis] + rect[size] : other[axis] + other[size];
@@ -74,7 +73,7 @@ function nearestGap(rect: Rect, others: readonly Rect[], axis: 'x' | 'y', direct
         if (end - start < -EPSILON || (best && end - start >= best.end - best.start)) {
             continue;
         }
-        best = { axis, start, end, position: (low + high) / 2 };
+        best = { axis, start, end, position: (overlap.low + overlap.high) / 2 };
     }
     return best && measure(best) > 0 ? best : null;
 }

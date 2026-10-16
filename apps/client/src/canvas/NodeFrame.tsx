@@ -425,6 +425,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
     const inSubagents = node.kind === 'chat' && subagentTrail.length > 0;
     const isGroup = node.kind === 'group';
     const isNote = node.kind === 'note';
+    const frameAccent = !isGroup && !isNote ? accent : undefined;
     // A newer Ruimte's node: it moves, resizes and goes away like any other, and nothing else about it is this version's to change.
     const isUnknown = node.kind === 'unknown';
     const collapsed = isGroup && node.collapsed === true;
@@ -459,6 +460,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     height: node.h,
                     ...maximizedPlace,
                     zIndex: z,
+                    ...(frameAccent ? { borderColor: `color-mix(in srgb, ${frameAccent} 45%, var(--border))` } : {}),
                     ...(isGroup && accent ? { '--group-accent': accent } : {})
                 }}
                 tabIndex={0}
@@ -485,6 +487,14 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                                 'border-b border-[color-mix(in_srgb,var(--text)_12%,transparent)] bg-transparent'
                               : 'border-b border-border bg-surface-raised'
                     )}
+                    style={
+                        frameAccent
+                            ? {
+                                  backgroundColor: `color-mix(in srgb, ${frameAccent} 20%, var(--surface-raised))`,
+                                  borderColor: `color-mix(in srgb, ${frameAccent} 35%, var(--border))`
+                              }
+                            : undefined
+                    }
                 >
                     {isGroup && (
                         <IconButton
@@ -494,7 +504,6 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                             onClick={() => canvasStore.getState().toggleGroupCollapse(id)}
                         />
                     )}
-                    {accent && <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: accent }} />}
                     <span className="flex shrink-0 items-center text-text-muted">
                         {node.provider ? (
                             <AgentIcon kind={node.provider} />

@@ -15,7 +15,7 @@ export function GapHandles({
     onStart(gap: EditableGap, event: PointerEvent): void;
 }) {
     const camera = useCanvas((s) => s.camera);
-    const { t } = useTranslation('canvas');
+    const { t } = useTranslation(['canvas', 'drawing']);
     return (
         <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden" data-gap-handles>
             {gaps.map((gap) => {
@@ -52,7 +52,11 @@ export function GapHandles({
                         <button
                             type="button"
                             data-gap-id={gap.id}
-                            aria-label={t(gap.shared ? 'gaps.shared' : 'gaps.adjust', { from: from.title ?? '', to: to.title ?? '', value })}
+                            aria-label={t(gap.shared ? 'gaps.shared' : 'gaps.adjust', {
+                                from: from.kind === 'line' ? t('drawing:tools.line') : (from.title ?? ''),
+                                to: to.kind === 'line' ? t('drawing:tools.line') : (to.title ?? ''),
+                                value
+                            })}
                             className={clsx(
                                 'pointer-events-auto absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-md focus-visible:outline-2 focus-visible:outline-accent',
                                 horizontal ? 'cursor-ew-resize' : 'cursor-ns-resize'

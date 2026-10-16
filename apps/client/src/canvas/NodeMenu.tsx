@@ -27,7 +27,7 @@ import {
     Terminal,
     Trash
 } from 'lucide-react';
-import type { ProviderInfo, Task } from '@ruimte/contracts';
+import { isCanvasView, type NoteColor, type ProviderInfo, type Task } from '@ruimte/contracts';
 import {
     arrangeGroupAction,
     clearTerminalAction,
@@ -43,7 +43,7 @@ import { BringBackItem } from '@/canvas/BringBackItem';
 import { ChatAgentSubmenu } from '@/agents/AgentMenus';
 import { askBeforeClearingChat, askBeforeStoppingTask } from '@/agents/end-children';
 import { FlagSubmenu } from '@/project/FlagSubmenu';
-import { askOpenAsView, canOpenAsView } from '@/project/views';
+import { askOpenAsView, canOpenAsView, showView } from '@/project/views';
 import { accentLabel, NODE_ACCENTS } from '@/canvas/accents';
 import { DEFAULT_NOTE_COLOR, NOTE_COLORS } from '@/canvas/note-colors';
 import { EMPTY_DRAFT, writeDraft } from '@adecore/agents-react/chat';
@@ -58,7 +58,8 @@ import { FileActionItems } from '@/shell/panels/FileActionItems';
 import { resolveStoredPath } from '@/shell/panels/files-tree';
 import { worktreeDiffTab } from '@/shell/panels/worktree-rows';
 import { deleteSelectionAsking } from '@/canvas/delete-selection';
-import { maximizedNodeOf, useCanvas, useCanvasStore } from '@/state/canvas';
+import { canvasOfNode, maximizedNodeOf, useCanvas, useCanvasStore, type CanvasNode } from '@/state/canvas';
+import { useDocument } from '@/state/document';
 import { useChatRow, useProviders } from '@adecore/agents-react/state';
 import { useFiles } from '@/state/files';
 import { isScratchProject, useProject } from '@/state/project';
@@ -75,23 +76,31 @@ import { DisabledReason, Icon, Kbd, ContextMenu } from '@adecore/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { formatNodeSize, makeDefaultSize } from '@/canvas/default-size';
 
-/*
- * The context menu of one node, the same from its frame and from its row in the sidebar. `snooze`
- * leads it, and is all a row offers for a node that is not on the canvas this menu acts on.
- */
-export function NodeMenuPopup(props: { id: string; onRename(): void; snooze?: ReactNode }) {
-    const machine = useCanvas((s) => s.nodes[props.id]?.machine);
+interface NodeMenuProps {
+    id: string;
+    viewId?: string;
+    onRename(): void;
+    snooze?: ReactNode;
+}
+
+/* A closed canvas is read from the document; only an action that needs its editor opens it. */
+export function NodeMenuPopup(props: NodeMenuProps) {
+    const live = useCanvas((s) => s.nodes[props.id]);
+    const stored = useDocument((s) => {
+        const view = s.views.find((view) => view.id === props.viewId);
+        return view && isCanvasView(view) ? view.nodes.find((node) => node.id === props.id) : undefined;
+    });
+    const node = live ?? stored;
     return (
-        <NodeMachineScope machine={machine}>
-            <NodeMenuContent {...props} />
+        <NodeMachineScope machine={node?.machine}>
+            <NodeMenuContent {...props} node={node} />
         </NodeMachineScope>
     );
 }
 
-function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): void; snooze?: ReactNode }) {
+function NodeMenuContent({ id, viewId: targetViewId, node, onRename, snooze }: NodeMenuProps & { node: CanvasNode | undefined }) {
     const { t } = useTranslation('canvas');
     const canvasStore = useCanvasStore();
-    const node = useCanvas((s) => s.nodes[id]);
     const endpointId = useEndpointId();
     const prWatch = useChatPrWatch(id);
     const waitingTask = useUnstartedTask(id, node?.machine);
@@ -120,21 +129,30 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
         return snooze ? <ContextMenu.Popup>{snooze}</ContextMenu.Popup> : null;
     }
 
+    const viewId = targetViewId ?? canvasStore.getState().viewId;
+    const canvas = () => {
+        if (viewId !== null) {
+            showView(viewId);
+        }
+        return canvasOfNode(id) ?? canvasStore;
+    };
+    const zoomTo = (): void => focusNodeAction(canvas().getState().viewId, id);
     const remove = (): void => {
-        canvasStore.getState().select([id]);
-        void deleteSelectionAsking(canvasStore, workspaceTransport);
+        const store = canvas();
+        store.getState().select([id]);
+        void deleteSelectionAsking(store, workspaceTransport);
     };
     if (node.kind === 'unknown') {
-        return <UnknownNodeMenuPopup id={id} onDelete={remove} />;
+        return <UnknownNodeMenuPopup onZoom={zoomTo} onDelete={remove} />;
     }
     const kind = node.kind;
     // The same CLI session can continue in the other kind of node, next to this one.
     const beside = { x: node.x + node.w + 40 + 260, y: node.y + node.h / 2 };
     // Any CLI the daemon has a chat backend for can go on in a chat node.
     const canOpenInChat = agent ? providers.some((entry) => entry.kind === agent.kind && entry.capabilities.chat) : false;
-    const viewId = canvasStore.getState().viewId;
     const openInChat = (): void => {
         if (agent) {
+            canvas();
             // The account travels with the session, since another account's folder does not hold its conversation.
             const account = agent.kind === node.provider ? (sessionAccount ?? node.account) : undefined;
             void createNodeAction('chat', {
@@ -169,6 +187,7 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
     const openInTerminal = (): void => {
         // The daemon owns the resume line: the node only says which CLI and which session.
         if (chatSession && chatProvider) {
+            canvas();
             void createNodeAction('terminal', {
                 viewId,
                 title: node.title,
@@ -186,6 +205,7 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
      * through `ruimte-context`, so a note edited later still reaches it.
      */
     const startAgentFromNote = async (provider: ProviderInfo): Promise<void> => {
+        canvas();
         const chatId = await createNodeAction('chat', { viewId, provider: provider.kind, at: beside });
         if (chatId === null || viewId === null) {
             return;
@@ -219,10 +239,10 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
             <ContextMenu.Item onClick={onRename}>
                 <Icon icon={Pencil} size={14} /> {t('common:action.rename')} <ContextMenu.Hint>{t('menu.doubleClick')}</ContextMenu.Hint>
             </ContextMenu.Item>
-            <ContextMenu.Item onClick={() => duplicateNodeAction(canvasStore.getState().viewId, id)}>
+            <ContextMenu.Item onClick={() => duplicateNodeAction(canvas().getState().viewId, id)}>
                 <Icon icon={Copy} size={14} /> {t('menu.duplicate')}
             </ContextMenu.Item>
-            <ContextMenu.Item onClick={() => canvasStore.getState().startLink(id)}>
+            <ContextMenu.Item onClick={() => canvas().getState().startLink(id)}>
                 <Icon icon={Link2} size={14} /> {t('menu.connect')}
                 <ContextMenu.Hint>{t('menu.connectHint')}</ContextMenu.Hint>
             </ContextMenu.Item>
@@ -271,22 +291,27 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
                         <Icon icon={Group} size={14} /> {t('kinds.group')}
                     </ContextMenu.SubmenuTrigger>
                     <ContextMenu.Popup>
-                        <ContextMenu.Item onClick={() => canvasStore.getState().toggleGroupCollapse(id)}>
+                        <ContextMenu.Item onClick={() => canvas().getState().toggleGroupCollapse(id)}>
                             {node.collapsed ? <Icon icon={ChevronsUpDown} size={14} /> : <Icon icon={ChevronsDownUp} size={14} />}{' '}
                             {node.collapsed ? t('group.expand') : t('group.collapse')}
                         </ContextMenu.Item>
                         <DisabledReason reason={node.collapsed ? t('group.arrangeCollapsed') : moveLocked ? t('group.arrangeLocked') : null}>
-                            <ContextMenu.Item disabled={node.collapsed || moveLocked} onClick={() => arrangeGroupAction(canvasStore.getState().viewId, id)}>
+                            <ContextMenu.Item disabled={node.collapsed || moveLocked} onClick={() => arrangeGroupAction(canvas().getState().viewId, id)}>
                                 <Icon icon={LayoutGrid} size={14} /> {t('group.arrange')}
                             </ContextMenu.Item>
                         </DisabledReason>
                         {node.worktree ? (
-                            <ContextMenu.Item onClick={() => canvasStore.getState().setGroupWorktree(id, null)}>
+                            <ContextMenu.Item onClick={() => canvas().getState().setGroupWorktree(id, null)}>
                                 <Icon icon={GitBranch} size={14} /> {t('menu.unbindWorktree')}
                                 <ContextMenu.Hint>{t('menu.unbindWorktreeHint')}</ContextMenu.Hint>
                             </ContextMenu.Item>
                         ) : (
-                            <ContextMenu.Item onClick={() => useUi.getState().setWorktreeDialogFor(id)}>
+                            <ContextMenu.Item
+                                onClick={() => {
+                                    canvas();
+                                    useUi.getState().setWorktreeDialogFor(id);
+                                }}
+                            >
                                 <Icon icon={GitBranch} size={14} /> {t('menu.bindWorktree')}
                             </ContextMenu.Item>
                         )}
@@ -303,7 +328,7 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
                             <ContextMenu.Item
                                 onClick={() => {
                                     // Selecting the node is what points the git panel at the worktree it works in.
-                                    canvasStore.getState().select([id]);
+                                    canvas().getState().select([id]);
                                     useUi.getState().setPanel({ open: true, kind: 'git' });
                                     const tab = worktreeDiffTab(worktreeOf);
                                     useFiles.getState().open(tab.path, useSettings.getState().filesTabLimit, tab.view);
@@ -322,11 +347,11 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
                     <Icon icon={Move} size={14} /> {t('menu.sizeAndPosition')}
                 </ContextMenu.SubmenuTrigger>
                 <ContextMenu.Popup>
-                    <ContextMenu.Item onClick={() => focusNodeAction(canvasStore.getState().viewId, id)}>
+                    <ContextMenu.Item onClick={zoomTo}>
                         <Icon icon={Maximize2} size={14} /> {t('node.zoomTo')}
                     </ContextMenu.Item>
                     {node.kind !== 'group' && (
-                        <ContextMenu.Item onClick={() => canvasStore.getState().toggleMaximizedNode(id)}>
+                        <ContextMenu.Item onClick={() => canvas().getState().toggleMaximizedNode(id)}>
                             <Icon icon={maximized ? Shrink : Expand} size={14} /> {t(maximized ? 'node.restore' : 'node.maximize')}{' '}
                             <Kbd shortcut={CANVAS_SHORTCUTS.maximizeCell} />
                         </ContextMenu.Item>
@@ -354,11 +379,18 @@ function NodeMenuContent({ id, onRename, snooze }: { id: string; onRename(): voi
             )}
             <ContextMenu.Separator />
             <FlagSubmenu id={id} />
-            <AccentSubmenu id={id} picked={node.accent} />
-            {node.kind === 'note' && <NoteColorSubmenu viewId={viewId} id={id} picked={node.color ?? DEFAULT_NOTE_COLOR} />}
+            <AccentSubmenu picked={node.accent} onPick={(accent) => canvas().getState().setNodeAccent(id, accent)} />
+            {node.kind === 'note' && (
+                <NoteColorSubmenu picked={node.color ?? DEFAULT_NOTE_COLOR} onPick={(color) => colorNoteAction(canvas().getState().viewId, id, color)} />
+            )}
             {place && <ContextMenu.Separator />}
             {canOpenAsView(node.kind) && (
-                <ContextMenu.Item onClick={() => askOpenAsView(id)}>
+                <ContextMenu.Item
+                    onClick={() => {
+                        canvas();
+                        askOpenAsView(id);
+                    }}
+                >
                     <Icon icon={Frame} size={14} /> {t('menu.openAsView')}
                     <ContextMenu.Hint>{t('menu.openAsViewHint')}</ContextMenu.Hint>
                 </ContextMenu.Item>
@@ -396,7 +428,7 @@ function WorktreeItems({ folder, paths }: { folder: string; paths: string[] }) {
     );
 }
 
-function NoteColorSubmenu({ viewId, id, picked }: { viewId: string | null; id: string; picked: string }) {
+function NoteColorSubmenu({ picked, onPick }: { picked: string; onPick(color: NoteColor): void }) {
     const { t } = useTranslation('canvas');
     return (
         <ContextMenu.SubmenuRoot>
@@ -405,7 +437,7 @@ function NoteColorSubmenu({ viewId, id, picked }: { viewId: string | null; id: s
             </ContextMenu.SubmenuTrigger>
             <ContextMenu.Popup className="min-w-40">
                 {NOTE_COLORS.map((color) => (
-                    <ContextMenu.Item key={color.id} onClick={() => colorNoteAction(viewId, id, color.id)}>
+                    <ContextMenu.Item key={color.id} onClick={() => onPick(color.id)}>
                         <ContextMenu.Check kind="radio" checked={picked === color.id} />
                         <span className={`h-3 w-3 rounded-full border border-border-strong ${color.className}`} /> {t(`noteColors.${color.id}`)}
                     </ContextMenu.Item>
@@ -415,9 +447,8 @@ function NoteColorSubmenu({ viewId, id, picked }: { viewId: string | null; id: s
     );
 }
 
-function AccentSubmenu({ id, picked }: { id: string; picked: string | undefined }) {
+function AccentSubmenu({ picked, onPick }: { picked: string | undefined; onPick(accent: string | null): void }) {
     const { t } = useTranslation('canvas');
-    const canvasStore = useCanvasStore();
     return (
         <ContextMenu.SubmenuRoot>
             <ContextMenu.SubmenuTrigger>
@@ -427,7 +458,7 @@ function AccentSubmenu({ id, picked }: { id: string; picked: string | undefined 
             <ContextMenu.Popup className="flex min-w-44 flex-col overflow-hidden">
                 <div className="min-h-0 overflow-y-auto overscroll-contain">
                     {NODE_ACCENTS.map((accent) => (
-                        <ContextMenu.Item key={accent.id} onClick={() => canvasStore.getState().setNodeAccent(id, accent.id)}>
+                        <ContextMenu.Item key={accent.id} onClick={() => onPick(accent.id)}>
                             <ContextMenu.Check kind="radio" checked={picked === accent.id} />
                             <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: accent.color }} aria-hidden />
                             <span className="grow">{accentLabel(accent.id)}</span>
@@ -435,7 +466,7 @@ function AccentSubmenu({ id, picked }: { id: string; picked: string | undefined 
                     ))}
                 </div>
                 <ContextMenu.Separator />
-                <ContextMenu.Item onClick={() => canvasStore.getState().setNodeAccent(id, null)}>
+                <ContextMenu.Item onClick={() => onPick(null)}>
                     <ContextMenu.Check kind="radio" checked={!picked} /> {t('menu.noAccent')}
                 </ContextMenu.Item>
             </ContextMenu.Popup>
@@ -444,12 +475,11 @@ function AccentSubmenu({ id, picked }: { id: string; picked: string | undefined 
 }
 
 /* A node of a kind a newer Ruimte made: this version can find it and remove it, and nothing more. */
-function UnknownNodeMenuPopup({ id, onDelete }: { id: string; onDelete(): void }) {
+function UnknownNodeMenuPopup({ onZoom, onDelete }: { onZoom(): void; onDelete(): void }) {
     const { t } = useTranslation('canvas');
-    const canvasStore = useCanvasStore();
     return (
         <ContextMenu.Popup>
-            <ContextMenu.Item onClick={() => focusNodeAction(canvasStore.getState().viewId, id)}>
+            <ContextMenu.Item onClick={onZoom}>
                 <Icon icon={Maximize2} size={14} /> {t('node.zoomTo')}
             </ContextMenu.Item>
             <ContextMenu.Separator />

@@ -333,5 +333,13 @@
         "merge": "Merge…",
         "failed": "Could not bring {{what}} back",
         "failedDescription": "{{machine}} did not send its work."
+    },
+    "lines": {
+        "format": "Line style",
+        "arrowStart": "Arrow at start",
+        "arrowEnd": "Arrow at end",
+        "reverse": "Reverse direction",
+        "drawHint": "Drag to draw. Hold Shift for straight or diagonal lines. Escape cancels.",
+        "defaultColor": "Default line color"
     }
 }

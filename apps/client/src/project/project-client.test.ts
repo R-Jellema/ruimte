@@ -220,6 +220,26 @@ beforeEach(() => {
     jest.useFakeTimers();
 });
 
+test('a decorative line is saved automatically and deleting the last one persists an empty list', async () => {
+    const { dispose, transport } = setup();
+    try {
+        await tick();
+        const id = focusedCanvas()
+            .getState()
+            .addLine({ x: 10, y: 20, endX: 100, endY: 120, stroke: 'red', strokeWidth: 2, strokeStyle: 'dotted', arrowEnd: true })!;
+        await tick();
+        const written = transport.calls.filter((call) => call.type === 'project.save').at(-1)?.payload as { content: ProjectContent };
+        const view = written.content.views[0] as ProjectCanvasView;
+        expect(view.lines?.[0]).toMatchObject({ id, strokeStyle: 'dotted', arrowEnd: true });
+        focusedCanvas().getState().deleteSelected();
+        await tick();
+        const deleted = transport.calls.filter((call) => call.type === 'project.save').at(-1)?.payload as { content: ProjectContent };
+        expect((deleted.content.views[0] as ProjectCanvasView).lines).toEqual([]);
+    } finally {
+        dispose();
+    }
+});
+
 afterEach(() => {
     jest.useRealTimers();
 });

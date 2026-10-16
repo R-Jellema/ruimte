@@ -1,10 +1,14 @@
 import clsx from 'clsx';
+import { useEffect, useState } from 'react';
 import type { ProjectIcon } from '@ruimte/contracts';
 import { MessagesSquare } from 'lucide-react';
 import { projectIconGlyphOf } from '@/project/project-icons';
+import { projectIconAppearance } from '@/project/icon-appearance';
+import { useEndpoints } from '@/state/endpoints';
 import { useTheme } from '@/state/theme';
 import { useMachineUrl } from '@/transport/machine-url';
 import { Icon } from '@adecore/ui';
+import { transportFor } from '@/transport';
 
 interface ProjectGlyphProps {
     projectId: string;
@@ -16,16 +20,35 @@ interface ProjectGlyphProps {
     className?: string;
     /* The machine's Chats project, which is no folder and wears a mark of its own whatever its icon says. */
     scratch?: boolean;
-    /* A picked symbol in the project's color too, where the project is told apart by it: its tab and its heading in the sidebar. */
-    tinted?: boolean;
 }
 
 /* A project's icon at one size: what was picked, what the folder declares, or its initial. */
-export function ProjectGlyph({ projectId, endpointId, icon, color, size = 16, className, scratch = false, tinted = false }: ProjectGlyphProps) {
+export function ProjectGlyph({ projectId, endpointId, icon, color, size = 16, className, scratch = false }: ProjectGlyphProps) {
     const theme = useTheme((s) => s.resolved);
     const box = { width: size, height: size };
     const image = useMachineUrl(icon.kind === 'image' && !scratch ? { kind: 'projectIcon', projectId, theme, version: icon.version } : null, endpointId);
     const picked = icon.kind === 'lucide' ? projectIconGlyphOf(icon.value) : null;
+    const activeEndpointId = useEndpoints((s) => s.activeId);
+    const [blackImage, setBlackImage] = useState<string | null>(null);
+    const imageKey = icon.kind === 'image' ? JSON.stringify([endpointId ?? activeEndpointId, projectId, icon.version, theme]) : null;
+    useEffect(() => {
+        if (scratch || theme !== 'light' || imageKey === null || icon.kind !== 'image') {
+            return;
+        }
+        const transport = transportFor(endpointId ?? activeEndpointId);
+        if (!transport) {
+            return;
+        }
+        let cancelled = false;
+        void projectIconAppearance(transport, { projectId, icon }, theme).then((appearance) => {
+            if (!cancelled) {
+                setBlackImage(appearance.black ? imageKey : null);
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [scratch, theme, imageKey, endpointId, activeEndpointId, projectId, icon]);
 
     if (scratch) {
         return (
@@ -37,7 +60,7 @@ export function ProjectGlyph({ projectId, endpointId, icon, color, size = 16, cl
 
     if (picked) {
         return (
-            <span className={clsx('flex shrink-0', className)} style={tinted ? { color } : undefined}>
+            <span className={clsx('flex shrink-0', className)} style={{ color }}>
                 <Icon icon={picked} size={size} />
             </span>
         );
@@ -47,7 +70,16 @@ export function ProjectGlyph({ projectId, endpointId, icon, color, size = 16, cl
         if (image.url === null) {
             return <span aria-hidden className={clsx('shrink-0', className)} style={box} />;
         }
-        return <img src={image.url} alt="" width={size} height={size} className={clsx('shrink-0 object-contain', className)} style={box} />;
+        return (
+            <img
+                src={image.url}
+                alt=""
+                width={size}
+                height={size}
+                className={clsx('shrink-0 object-contain', className)}
+                style={{ ...box, ...(theme === 'light' && blackImage === imageKey ? { filter: 'brightness(0) invert(1)' } : {}) }}
+            />
+        );
     }
     // The letter takes the project's own color on a tint of it, so nothing has to guess what reads
     // on an arbitrary hex. Never under 12 pixels, which a 16 pixel box still holds.

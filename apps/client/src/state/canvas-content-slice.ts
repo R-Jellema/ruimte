@@ -15,6 +15,9 @@ export function createCanvasContentSlice(set: CanvasSet, get: CanvasGet): Pick<C
                 nodes,
                 order: view ? view.nodes.map((node) => node.id) : [],
                 texts,
+                lines: Object.fromEntries((view?.lines ?? []).map((line) => [line.id, line])),
+                linesPresent: view?.lines !== undefined,
+                lineTool: null,
                 edges: view?.edges ?? [],
                 layouts: view?.layouts ?? [],
                 linkDraft: null,
@@ -51,12 +54,20 @@ export function createCanvasContentSlice(set: CanvasSet, get: CanvasGet): Pick<C
                     ...patch,
                     nodes: patch.nodes.filter((node) => s.nodes[node.id] === undefined),
                     texts: patch.texts.filter((text) => s.texts[text.id] === undefined),
+                    lines: patch.lines?.filter((line) => s.lines[line.id] === undefined),
                     edges: patch.edges.filter((edge) => !s.edges.some((held) => held.id === edge.id))
                 };
                 const reshapes =
-                    arrived.nodes.length + arrived.texts.length + arrived.edges.length > 0 ||
-                    patch.removed.nodes.length + patch.removed.texts.length + patch.removed.edges.length > 0;
-                const gone = new Set([...patch.removed.nodes, ...patch.removed.texts, ...patch.removed.edges]);
+                    arrived.nodes.length + arrived.texts.length + arrived.edges.length + (arrived.lines?.length ?? 0) > 0 ||
+                    patch.removed.nodes.length + patch.removed.texts.length + patch.removed.edges.length + (patch.removed.lines?.length ?? 0) > 0;
+                const gone = new Set([...patch.removed.nodes, ...patch.removed.texts, ...patch.removed.edges, ...(patch.removed.lines ?? [])]);
+                const lines = { ...s.lines };
+                for (const id of patch.removed.lines ?? []) {
+                    delete lines[id];
+                }
+                for (const line of patch.lines ?? []) {
+                    lines[line.id] = { ...lines[line.id], ...line };
+                }
                 const nodes: Record<string, CanvasNode> = { ...s.nodes };
                 for (const id of patch.removed.nodes) {
                     delete nodes[id];
@@ -87,6 +98,8 @@ export function createCanvasContentSlice(set: CanvasSet, get: CanvasGet): Pick<C
                     nodes,
                     order: patch.order.filter((id) => nodes[id] !== undefined),
                     texts,
+                    lines,
+                    linesPresent: s.linesPresent || (patch.lines?.length ?? 0) > 0,
                     edges,
                     layouts: patch.layouts ?? s.layouts,
                     hidden,
@@ -111,11 +124,12 @@ export function createCanvasContentSlice(set: CanvasSet, get: CanvasGet): Pick<C
             set({ merging: false });
         },
         exportContent() {
-            const { nodes, order, texts, edges, layouts } = get();
+            const { nodes, order, texts, edges, layouts, lines } = get();
             return {
                 nodes: order.map((id) => nodes[id]!).map(({ status: _status, ...node }) => node),
                 texts: Object.values(texts),
                 edges,
+                ...(get().linesPresent || Object.keys(lines).length > 0 ? { lines: Object.values(lines) } : {}),
                 layouts
             };
         },
@@ -130,6 +144,7 @@ export function createCanvasContentSlice(set: CanvasSet, get: CanvasGet): Pick<C
             }
             set({
                 ...previous,
+                lines: previous.lines ?? {},
                 hidden: hiddenIn(previous.nodes),
                 past: s.past.slice(0, -1),
                 future: [snapshotOf(s), ...s.future],
@@ -148,6 +163,7 @@ export function createCanvasContentSlice(set: CanvasSet, get: CanvasGet): Pick<C
             }
             set({
                 ...next,
+                lines: next.lines ?? {},
                 hidden: hiddenIn(next.nodes),
                 past: [...s.past, snapshotOf(s)],
                 future: s.future.slice(1),

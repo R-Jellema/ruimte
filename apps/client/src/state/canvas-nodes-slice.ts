@@ -146,7 +146,7 @@ export function createCanvasNodesSlice(
             return { moved };
         },
         deleteSelected() {
-            const { nodes, texts, order, edges, selection } = get();
+            const { nodes, texts, lines, order, edges, selection } = get();
             if (selection.length === 0) {
                 return;
             }
@@ -162,13 +162,16 @@ export function createCanvasNodesSlice(
             }
             const nextNodes = { ...nodes };
             const nextTexts = { ...texts };
+            const nextLines = { ...lines };
             for (const id of gone) {
                 delete nextNodes[id];
                 delete nextTexts[id];
+                delete nextLines[id];
             }
             set({
                 nodes: nextNodes,
                 texts: nextTexts,
+                lines: nextLines,
                 hidden: hiddenIn(nextNodes),
                 order: order.filter((id) => !gone.has(id)),
                 edges: edges.filter((e) => !gone.has(e.id) && !gone.has(e.from) && !gone.has(e.to)),
@@ -185,7 +188,7 @@ export function createCanvasNodesSlice(
             }
             const next: CanvasNode = group.collapsed
                 ? { ...group, collapsed: false, memberIds: undefined, h: group.expandedHeight ?? group.h, expandedHeight: undefined }
-                : { ...group, collapsed: true, memberIds: membersOf(group, s.nodes, s.texts), expandedHeight: group.h, h: GROUP_HEADER_PX };
+                : { ...group, collapsed: true, memberIds: membersOf(group, s.nodes, s.texts, s.lines), expandedHeight: group.h, h: GROUP_HEADER_PX };
             const nodes = { ...s.nodes, [id]: next };
             const hidden = hiddenIn(nodes);
             set({ nodes, hidden, selection: s.selection.filter((selected) => !hidden.has(selected)), ...remember(s) });

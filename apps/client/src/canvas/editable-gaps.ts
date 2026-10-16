@@ -1,4 +1,5 @@
-import { snapToGrid, type Point, type Rect } from '@/canvas/math';
+import { overlapSpan, snapToGrid, type Point, type Rect } from '@/canvas/math';
+import { LINE_GRID } from '@/canvas/line-geometry';
 
 export interface GapNode extends Rect {
     id: string;
@@ -19,6 +20,7 @@ export interface EditableGap {
     minimum: number;
     moves: { id: string; factor: number }[];
     fixed: string[];
+    gridOnly?: boolean;
 }
 
 function containsCenter(group: GapNode, node: GapNode): boolean {
@@ -42,14 +44,13 @@ function gapBetween(first: GapNode, second: GapNode, axis: 'x' | 'y'): Omit<Edit
     const size = axis === 'x' ? 'w' : 'h';
     const cross = axis === 'x' ? 'y' : 'x';
     const crossSize = axis === 'x' ? 'h' : 'w';
-    const low = Math.max(first[cross], second[cross]);
-    const high = Math.min(first[cross] + first[crossSize], second[cross] + second[crossSize]);
+    const overlap = overlapSpan(first[cross], first[crossSize], second[cross], second[crossSize]);
     const start = first[axis] + first[size];
     const end = second[axis];
-    if (high <= low || end < start) {
+    if (!overlap || end < start) {
         return null;
     }
-    return { id: `${axis}:${first.id}:${second.id}`, from: first.id, to: second.id, axis, start, end, position: (low + high) / 2 };
+    return { id: `${axis}:${first.id}:${second.id}`, from: first.id, to: second.id, axis, start, end, position: (overlap.low + overlap.high) / 2 };
 }
 
 function shareEqualGaps(gaps: EditableGap[], nodes: readonly GapNode[]): void {
@@ -82,13 +83,12 @@ function shareEqualGaps(gaps: EditableGap[], nodes: readonly GapNode[]): void {
                     break;
                 }
                 const node = byId.get(next.to)!;
-                const nextLow = Math.max(low, node[cross]);
-                const nextHigh = Math.min(high, node[cross] + node[crossSize]);
-                if (nextHigh <= nextLow) {
+                const overlap = overlapSpan(low, high - low, node[cross], node[crossSize]);
+                if (!overlap) {
                     break;
                 }
-                low = nextLow;
-                high = nextHigh;
+                low = overlap.low;
+                high = overlap.high;
                 row.push(next);
                 visited.add(next.id);
                 last = next;
@@ -143,8 +143,7 @@ function unselectedGaps(nodes: readonly GapNode[]): EditableGap[] {
                             node.id !== second.id &&
                             node[axis] < gap.end &&
                             node[axis] + node[size] > gap.start &&
-                            node[cross] < high &&
-                            node[cross] + node[crossSize] > low
+                            overlapSpan(node[cross], node[crossSize], low, high - low) !== null
                     )
                 ) {
                     continue;
@@ -164,8 +163,13 @@ function unselectedGaps(nodes: readonly GapNode[]): EditableGap[] {
 }
 
 export function editableGaps(nodes: readonly GapNode[], selection: readonly string[]): EditableGap[] {
+    const lines = new Set(nodes.filter((node) => node.kind === 'line').map((node) => node.id));
+    const withGrid = (gaps: EditableGap[]): EditableGap[] =>
+        gaps.map((gap) =>
+            [gap.from, gap.to, ...gap.fixed, ...gap.moves.map((move) => move.id)].some((id) => lines.has(id)) ? { ...gap, gridOnly: true } : gap
+        );
     if (selection.length === 0) {
-        return unselectedGaps(nodes);
+        return withGrid(unselectedGaps(nodes));
     }
     const picked = nodes.filter((node) => selection.includes(node.id));
     if (picked.length === 0 || picked.length !== selection.length) {
@@ -205,7 +209,9 @@ export function editableGaps(nodes: readonly GapNode[], selection: readonly stri
         }
         const cross = axis === 'x' ? 'y' : 'x';
         const crossSize = axis === 'x' ? 'h' : 'w';
-        if (Math.min(...picked.map((node) => node[cross] + node[crossSize])) <= Math.max(...picked.map((node) => node[cross]))) {
+        const crossLow = Math.max(...picked.map((node) => node[cross]));
+        const crossHigh = Math.min(...picked.map((node) => node[cross] + node[crossSize]));
+        if (crossHigh < crossLow || (crossHigh === crossLow && !picked.some((node) => node[crossSize] === 0))) {
             continue;
         }
         const ordered = [...picked].sort((first, second) => first[axis] - second[axis] || first.id.localeCompare(second.id));
@@ -214,15 +220,12 @@ export function editableGaps(nodes: readonly GapNode[], selection: readonly stri
             continue;
         }
         const measured = gaps.map((gap) => gap!.end - gap!.start);
-        const crossLow = Math.max(...picked.map((node) => node[cross]));
-        const crossHigh = Math.min(...picked.map((node) => node[cross] + node[crossSize]));
         const size = axis === 'x' ? 'w' : 'h';
         if (
             siblings.some(
                 (node) =>
                     !selection.includes(node.id) &&
-                    node[cross] < crossHigh &&
-                    node[cross] + node[crossSize] > crossLow &&
+                    overlapSpan(node[cross], node[crossSize], crossLow, crossHigh - crossLow) !== null &&
                     gaps.some((gap) => node[axis] < gap!.end && node[axis] + node[size] > gap!.start)
             )
         ) {
@@ -244,14 +247,14 @@ export function editableGaps(nodes: readonly GapNode[], selection: readonly stri
             });
         }
     }
-    return result;
+    return withGrid(result);
 }
 
 export function gapOffsets(gap: EditableGap, pointerDelta: number, precise: boolean): Record<string, Point> {
     const sign = gap.moves[0]?.factor === -1 ? -1 : 1;
     const original = gap.end - gap.start;
     const wanted = original + pointerDelta * sign;
-    const target = precise ? Math.round(wanted) : snapToGrid(wanted);
+    const target = gap.gridOnly ? snapToGrid(wanted, LINE_GRID) : precise ? Math.round(wanted) : snapToGrid(wanted);
     const delta = Math.max(-gap.minimum, target - original);
     return Object.fromEntries(gap.moves.map(({ id, factor }) => [id, { x: gap.axis === 'x' ? delta * factor : 0, y: gap.axis === 'y' ? delta * factor : 0 }]));
 }

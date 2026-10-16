@@ -13,7 +13,7 @@ export function AlignmentGuides({ guides, gaps }: { guides: readonly AlignmentGu
     }
     const toScreen = (value: number, axis: 'x' | 'y'): number => value * camera.zoom + (axis === 'x' ? camera.x : camera.y);
     return (
-        <div aria-hidden className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
+        <div aria-hidden className="pointer-events-none absolute inset-0 z-10 overflow-hidden" data-alignment-guides>
             <svg className="absolute inset-0 h-full w-full">
                 {guides.map((guide) => {
                     const vertical = guide.axis === 'x';

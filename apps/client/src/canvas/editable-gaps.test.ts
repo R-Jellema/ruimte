@@ -1,12 +1,41 @@
 import { describe, expect, test } from 'bun:test';
 import { createCanvasStore, type CanvasNode } from '@/state/canvas';
 import { editableGaps, gapOffsets } from './editable-gaps';
+import { lineBounds } from '@/canvas/line-geometry';
 
 function node(id: string, x: number, y = 0, kind: CanvasNode['kind'] = 'note'): CanvasNode {
     return { id, kind, title: id, x, y, w: 100, h: 100 };
 }
 
 describe('editable gaps', () => {
+    test('a horizontal line shares gaps with nodes and keeps four-pixel spacing during precise edits', () => {
+        const line = { ...lineBounds({ x: 232, y: 50, endX: 132, endY: 50 }), id: 'line', kind: 'line' };
+        const frames = [node('a', 0), line, node('c', 264)];
+        const gaps = editableGaps(frames, []);
+        expect(gaps.map((gap) => gap.id)).toEqual(['x:a:line', 'x:line:c']);
+        for (const gap of gaps) {
+            expect(gap.shared).toBe(true);
+            expect(gap.gridOnly).toBe(true);
+            expect(gapOffsets(gap, 5, true)).toEqual({ line: { x: 4, y: 0 }, c: { x: 8, y: 0 } });
+        }
+        const selected = editableGaps(frames, ['line']);
+        expect(selected).toHaveLength(2);
+        expect(
+            gapOffsets(
+                selected.find((gap) => gap.from === 'a')!,
+                5,
+                true
+            )
+        ).toEqual({ line: { x: 4, y: 0 } });
+    });
+
+    test('zero-width lines expose horizontal gaps without inflating their geometry', () => {
+        const frames = [0, 40, 80].map((x, index) => ({ ...lineBounds({ x, y: 0, endX: x, endY: 100 }), id: String(index), kind: 'line' }));
+        const gaps = editableGaps(frames, []);
+        expect(gaps).toHaveLength(2);
+        expect(gaps.every((gap) => gap.shared && gap.gridOnly && gap.end - gap.start === 40)).toBe(true);
+    });
+
     test('without a selection, equal adjacent gaps change together from either handle', () => {
         const nodes = [node('c', 264), node('a', 0), node('b', 132)];
         const gaps = editableGaps(nodes, []);

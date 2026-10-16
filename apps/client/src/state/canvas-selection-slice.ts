@@ -1,4 +1,5 @@
 import { intersects } from '@/canvas/math';
+import { lineBounds } from '@/canvas/line-geometry';
 import { mergeSelection } from '@/state/selection';
 import type { CanvasState } from '@/state/canvas';
 import { maximizedNodeOf, type CanvasGet, type CanvasSet } from '@/state/canvas-model';
@@ -23,7 +24,7 @@ export function createCanvasSelectionSlice(
             set({ selection: [], navigationId: null });
         },
         selectInRect(rect, additive = false) {
-            const { nodes, texts, selection, hidden } = get();
+            const { nodes, texts, lines, selection, hidden } = get();
             // A node inside a collapsed group is not drawn, so a box drawn over it cannot take it along.
             const hits = [
                 ...Object.values(nodes)
@@ -31,7 +32,10 @@ export function createCanvasSelectionSlice(
                     .map((node) => node.id),
                 ...Object.values(texts)
                     .filter((text) => !hidden.has(text.id) && intersects({ x: text.x, y: text.y, w: text.size * 8, h: text.size * 1.4 }, rect))
-                    .map((text) => text.id)
+                    .map((text) => text.id),
+                ...Object.values(lines)
+                    .filter((line) => !hidden.has(line.id) && intersects(lineBounds(line), rect))
+                    .map((line) => line.id)
             ];
             set({ selection: mergeSelection(selection, hits, additive ? 'add' : 'replace') });
         },

@@ -253,13 +253,7 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
                                         onPointerCancel={onPointerEnd}
                                         onLostPointerCapture={onLostCapture}
                                     >
-                                        <ProjectGlyph
-                                            projectId={summary.projectId}
-                                            endpointId={row.endpointId}
-                                            icon={summary.icon}
-                                            color={summary.color}
-                                            tinted
-                                        />
+                                        <ProjectGlyph projectId={summary.projectId} endpointId={row.endpointId} icon={summary.icon} color={summary.color} />
                                         <span className="max-w-40 truncate">{summary.name}</span>
                                         {machine && (
                                             <Tooltip label={machine.label}>

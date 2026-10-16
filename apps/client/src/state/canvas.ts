@@ -1,5 +1,5 @@
 import { createStore, type StoreApi } from 'zustand';
-import type { ProjectCanvasView, ProjectLayout, ProjectViewLocal, NodeKind, NodeTitleSource } from '@ruimte/contracts';
+import type { ProjectCanvasLine, ProjectCanvasView, ProjectLayout, ProjectViewLocal, NodeKind, NodeTitleSource } from '@ruimte/contracts';
 import { DEFAULT_TITLES, NODE_SIZE, isAgentKind } from '@ruimte/contracts';
 import { textRect } from '@/canvas/edge-lines';
 import { unionOf, type Point, type Rect } from '@/canvas/math';
@@ -30,6 +30,8 @@ import { createCanvasNavigationSlice } from '@/state/canvas-navigation-slice';
 import { createCanvasNodesSlice } from '@/state/canvas-nodes-slice';
 import { createCanvasSelectionSlice } from '@/state/canvas-selection-slice';
 import { createCanvasTextsSlice } from '@/state/canvas-texts-slice';
+import { createCanvasLinesSlice } from '@/state/canvas-lines-slice';
+import { lineBounds } from '@/canvas/line-geometry';
 
 export type { AgentStatus, NodeKind } from '@ruimte/contracts';
 export type { CameraRequest, Viewport } from '@/canvas/camera-slice';
@@ -60,6 +62,13 @@ export interface CanvasState extends CameraSlice {
     nodes: Record<string, CanvasNode>;
     order: string[];
     texts: Record<string, TextElement>;
+    lines: Record<string, ProjectCanvasLine>;
+    linesPresent: boolean;
+    lineTool: 'line' | null;
+    setLineTool(tool: 'line' | null): void;
+    addLine(line: Omit<ProjectCanvasLine, 'id'>): string | null;
+    updateLine(id: string, patch: Partial<Omit<ProjectCanvasLine, 'id'>>, undoable?: boolean): void;
+    duplicateLine(id: string): void;
     edges: Edge[];
     layouts: ProjectLayout[];
     linkDraft: LinkDraft | null;
@@ -177,7 +186,7 @@ export interface CanvasState extends CameraSlice {
     applyExternal(patch: CanvasPatch): void;
     /* The nodes a gesture is moving or resizing right now, which a merge leaves where the person has them. */
     heldNodeIds(): string[];
-    exportContent(): Pick<ProjectCanvasView, 'nodes' | 'texts' | 'edges' | 'layouts'>;
+    exportContent(): Pick<ProjectCanvasView, 'nodes' | 'texts' | 'edges' | 'layouts' | 'lines'>;
     undo(): void;
     redo(): void;
 }
@@ -188,9 +197,20 @@ export { DEFAULT_TITLES, NODE_SIZE, isAgentKind };
 export function createCanvasStore(): StoreApi<CanvasState> {
     return createStore<CanvasState>((set, get) => {
         const slice = createCameraSlice<CanvasState>(set, get, {
-            boundsOfAll: (state) => unionOf([...Object.values(state.nodes), ...Object.values(state.texts).map(textRect)]),
+            boundsOfAll: (state) =>
+                unionOf([...Object.values(state.nodes), ...Object.values(state.texts).map(textRect), ...Object.values(state.lines).map(lineBounds)]),
             boundsOfSelection: (state) =>
-                unionOf(state.selection.flatMap((id) => (state.nodes[id] ? [state.nodes[id]] : state.texts[id] ? [textRect(state.texts[id])] : []))),
+                unionOf(
+                    state.selection.flatMap((id) =>
+                        state.nodes[id]
+                            ? [state.nodes[id]]
+                            : state.texts[id]
+                              ? [textRect(state.texts[id])]
+                              : state.lines[id]
+                                ? [lineBounds(state.lines[id])]
+                                : []
+                    )
+                ),
             resume: (state, request) => {
                 if (request.kind === 'node') {
                     state.goToNode(request.id);
@@ -205,6 +225,9 @@ export function createCanvasStore(): StoreApi<CanvasState> {
             nodes: {},
             order: [],
             texts: {},
+            lines: {},
+            linesPresent: false,
+            lineTool: null,
             edges: [],
             layouts: [],
             linkDraft: null,
@@ -229,6 +252,7 @@ export function createCanvasStore(): StoreApi<CanvasState> {
             ...createCanvasGestureSlice(set, get),
             ...createCanvasNodesSlice(set, get),
             ...createCanvasTextsSlice(set),
+            ...createCanvasLinesSlice(set, get),
             ...createCanvasEdgesSlice(set, get),
             ...createCanvasLayoutsSlice(set, get),
             ...createCanvasContentSlice(set, get)

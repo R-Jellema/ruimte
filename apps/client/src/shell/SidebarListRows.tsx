@@ -8,6 +8,7 @@ import { renameNodeAction, renameViewAction } from '@/actions/client-actions';
 import type { AgentWork } from '@/state/agent-work';
 import { askViewSettings, revealNode, showView } from '@/project/views';
 import { useCanvas } from '@/state/canvas';
+import { CellViewContext } from '@/state/workspace-stores';
 import { ViewMenuItems } from '@/shell/ViewMenuItems';
 import { useUi } from '@/state/ui';
 import { useEndpointId } from '@/state/keys';
@@ -211,15 +212,18 @@ export function NodeRow({ row, tabbable, onFocus, onArrow, snoozable }: RowProps
                     <RowStatus status={node.status} work={node.work} />
                 </span>
             </ContextMenu.Trigger>
-            <NodeMenuPopup
-                id={node.id}
-                onRename={() => setRenaming(true)}
-                snooze={
-                    node.status === 'needs-you' || node.snoozedUntil ? (
-                        <SnoozeMenuItems endpointId={endpointId} nodeId={node.id} needsYou={node.status === 'needs-you'} />
-                    ) : undefined
-                }
-            />
+            <CellViewContext.Provider value={row.viewId}>
+                <NodeMenuPopup
+                    id={node.id}
+                    viewId={row.viewId}
+                    onRename={() => setRenaming(true)}
+                    snooze={
+                        node.status === 'needs-you' || node.snoozedUntil ? (
+                            <SnoozeMenuItems endpointId={endpointId} nodeId={node.id} needsYou={node.status === 'needs-you'} />
+                        ) : undefined
+                    }
+                />
+            </CellViewContext.Provider>
         </ContextMenu.Root>
     );
     return snoozable ? (
@@ -566,7 +570,6 @@ export function ProjectHeading({
                             size={14}
                             scratch={group.summary.scratch === true}
                             color={group.summary.color}
-                            tinted
                             className="col-start-1 row-start-1 group-hover:hidden group-focus-visible:hidden"
                         />
                         <Icon

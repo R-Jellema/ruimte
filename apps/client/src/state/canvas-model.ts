@@ -5,6 +5,7 @@ import type {
     DeviceReference,
     NodeSide,
     ProjectEdge,
+    ProjectCanvasLine,
     ProjectLayout,
     ProjectNode,
     ProjectText,
@@ -14,6 +15,7 @@ import type {
 import type { Point, Rect } from '@/canvas/math';
 import type { CanvasPatch } from '@/project/merge';
 import type { CanvasState } from '@/state/canvas';
+import { lineBounds } from '@/canvas/line-geometry';
 
 export type CanvasSet = StoreApi<CanvasState>['setState'];
 export type CanvasGet = () => CanvasState;
@@ -92,6 +94,7 @@ export interface Snapshot {
     nodes: Record<string, CanvasNode>;
     order: string[];
     texts: Record<string, TextElement>;
+    lines?: Record<string, ProjectCanvasLine>;
     edges: Edge[];
     layouts: ProjectLayout[];
 }
@@ -115,7 +118,12 @@ export function contains(rect: Rect, point: Point): boolean {
 }
 
 /* What one group holds: its remembered members when collapsed, else whatever has its center inside the frame. */
-export function membersOf(group: CanvasNode, nodes: Record<string, CanvasNode>, texts: Record<string, TextElement>): string[] {
+export function membersOf(
+    group: CanvasNode,
+    nodes: Record<string, CanvasNode>,
+    texts: Record<string, TextElement>,
+    lines: Record<string, ProjectCanvasLine> = {}
+): string[] {
     if (group.collapsed) {
         return group.memberIds ?? [];
     }
@@ -130,18 +138,28 @@ export function membersOf(group: CanvasNode, nodes: Record<string, CanvasNode>, 
             members.push(text.id);
         }
     }
+    for (const line of Object.values(lines)) {
+        if (contains(group, center(lineBounds(line)))) {
+            members.push(line.id);
+        }
+    }
     return members;
 }
 
 /* A group carries what sits inside it, and a group inside it carries its own members in turn. */
-export function carriedByGroups(nodes: Record<string, CanvasNode>, texts: Record<string, TextElement>, selection: string[]): Set<string> {
+export function carriedByGroups(
+    nodes: Record<string, CanvasNode>,
+    texts: Record<string, TextElement>,
+    selection: string[],
+    lines: Record<string, ProjectCanvasLine> = {}
+): Set<string> {
     const carried = new Set<string>();
     const visit = (groupId: string): void => {
         const group = nodes[groupId];
         if (!group || group.kind !== 'group') {
             return;
         }
-        for (const id of membersOf(group, nodes, texts)) {
+        for (const id of membersOf(group, nodes, texts, lines)) {
             if (selection.includes(id) || carried.has(id)) {
                 continue;
             }
@@ -172,11 +190,12 @@ export function nextId(prefix: string): string {
     return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export function snapshotOf(s: Pick<CanvasState, 'nodes' | 'order' | 'texts' | 'edges' | 'layouts'>): Snapshot {
+export function snapshotOf(s: Pick<CanvasState, 'nodes' | 'order' | 'texts' | 'edges' | 'layouts' | 'lines'>): Snapshot {
     return {
         nodes: s.nodes,
         order: s.order,
         texts: s.texts,
+        lines: s.lines,
         edges: s.edges,
         layouts: s.layouts
     };
@@ -189,6 +208,13 @@ export function snapshotOf(s: Pick<CanvasState, 'nodes' | 'order' | 'texts' | 'e
  * to this editor, since a node that is merely changed there may be one the step is from before.
  */
 export function patchSnapshot(snapshot: Snapshot, patch: CanvasPatch): Snapshot {
+    const lines = { ...snapshot.lines };
+    for (const id of patch.removed.lines ?? []) {
+        delete lines[id];
+    }
+    for (const line of patch.lines ?? []) {
+        lines[line.id] ??= line;
+    }
     const nodes = { ...snapshot.nodes };
     for (const id of patch.removed.nodes) {
         delete nodes[id];
@@ -212,7 +238,7 @@ export function patchSnapshot(snapshot: Snapshot, patch: CanvasPatch): Snapshot 
     const edges = snapshot.edges.filter((edge) => !removedEdges.has(edge.id));
     const present = new Set(edges.map((edge) => edge.id));
     edges.push(...patch.edges.filter((edge) => !present.has(edge.id)));
-    return { ...snapshot, nodes, order, texts, edges: edges.filter((edge) => holds(edge.from) && holds(edge.to)) };
+    return { ...snapshot, nodes, order, texts, lines, edges: edges.filter((edge) => holds(edge.from) && holds(edge.to)) };
 }
 
 /* Remembers the placement before a change; called by every action that changes it. */

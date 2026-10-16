@@ -4,7 +4,8 @@ import { GitDiffScopeSchema } from './git.ts';
 import { RuntimeModeSchema } from './model.ts';
 import { ProviderAccountIdSchema } from './provider-accounts.ts';
 import { DeviceReferenceSchema } from './device.ts';
-import { DrawingFontSchema } from '@adecore/drawing/protocol';
+import { DrawingFontSchema, DrawingStrokeStyleSchema, DrawingStrokeWidthSchema } from '@adecore/drawing/protocol';
+import { NODE_ACCENT_NAMES } from './node-accents.ts';
 
 export const ProjectIdSchema = z.string().min(1);
 export type ProjectId = z.infer<typeof ProjectIdSchema>;
@@ -212,6 +213,23 @@ export const ProjectTextSchema = keepingUnknown(
     })
 );
 export type ProjectText = z.infer<typeof ProjectTextSchema>;
+
+/* Decorative lines never grant an agent context, unlike edges between nodes. */
+export const ProjectCanvasLineSchema = keepingUnknown(
+    z.object({
+        id: z.string().min(1),
+        x: z.number().finite(),
+        y: z.number().finite(),
+        endX: z.number().finite(),
+        endY: z.number().finite(),
+        stroke: z.enum(['ink', 'muted', 'accent', ...NODE_ACCENT_NAMES]),
+        strokeWidth: DrawingStrokeWidthSchema,
+        strokeStyle: DrawingStrokeStyleSchema,
+        arrowStart: z.boolean().optional(),
+        arrowEnd: z.boolean().optional()
+    })
+);
+export type ProjectCanvasLine = z.infer<typeof ProjectCanvasLineSchema>;
 
 export const NodeSideSchema = z.enum(['top', 'right', 'bottom', 'left']);
 export type NodeSide = z.infer<typeof NodeSideSchema>;
@@ -519,6 +537,7 @@ export const ProjectCanvasViewSchema = ViewBaseSchema.extend({
     texts: z.array(ProjectTextSchema),
     edges: z.array(ProjectEdgeSchema),
     layouts: z.array(ProjectLayoutSchema).default([]),
+    lines: z.array(ProjectCanvasLineSchema).optional(),
     // A canvas a machine keeps for the nodes another machine runs here: no list or tab shows it. The daemon lays it over the document and never writes it to a project file.
     hidden: z.boolean().optional()
 });

@@ -286,7 +286,7 @@ const DEFAULT_SETTINGS: Settings = {
     projectNavigation: 'switcher',
     needsYouAllProjects: true,
     accent: 'blue',
-    projectGlow: false,
+    projectGlow: true,
     interfaceFont: 'system',
     font: 'system',
     fontSize: 13,
@@ -395,7 +395,7 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         smartKeys: smartKeysFrom(stored.smartKeys),
         // A client that stored null for the theme's own accent, or an id that has since gone, lands on the brand's.
         accent: NODE_ACCENTS.find((entry) => entry.id === stored.accent)?.id ?? DEFAULT_SETTINGS.accent,
-        projectGlow: stored.projectGlow === true,
+        projectGlow: stored.projectGlow !== false,
         // Nothing moves a person's eyes unless that person said so, so only a stored `true` turns it on.
         agentsShowViews: stored.agentsShowViews === true,
         // On unless a person turned it off, so a client that stored nothing yet draws maps.

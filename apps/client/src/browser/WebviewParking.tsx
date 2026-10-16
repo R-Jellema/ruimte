@@ -16,6 +16,7 @@ import { useDocument } from '@/state/document';
 
 // The browser toolbar sits under the frame's header, both above the page.
 const TOOLBAR_PX = 37;
+const NODE_BORDER_PX = 1;
 
 /*
  * The open view a page belongs to, and whether it stands on its canvas. The live canvases are asked
@@ -196,6 +197,7 @@ function DesktopWebviewParking() {
                 }
                 // Maximized, the node fills the canvas at actual size and nothing stands on it.
                 if (maximized === nodeId) {
+                    host.dataset.square = '';
                     host.style.width = `${rect.width}px`;
                     host.style.height = `${Math.max(1, rect.height - GROUP_HEADER_PX - TOOLBAR_PX)}px`;
                     host.style.transform = `translate(0px, ${GROUP_HEADER_PX + TOOLBAR_PX}px)`;
@@ -203,11 +205,13 @@ function DesktopWebviewParking() {
                     continue;
                 }
                 const { camera } = canvas!;
-                const left = camera.x + node!.x * camera.zoom;
-                const pageTop = node!.y + GROUP_HEADER_PX + TOOLBAR_PX;
+                // The parked page sits above the frame, so it must leave its border uncovered.
+                const pageLeft = node!.x + NODE_BORDER_PX;
+                const left = camera.x + pageLeft * camera.zoom;
+                const pageTop = node!.y + NODE_BORDER_PX + GROUP_HEADER_PX + TOOLBAR_PX;
                 const top = camera.y + pageTop * camera.zoom;
-                const width = node!.w;
-                const height = Math.max(1, node!.h - GROUP_HEADER_PX - TOOLBAR_PX);
+                const width = Math.max(1, node!.w - NODE_BORDER_PX * 2);
+                const height = Math.max(1, node!.h - NODE_BORDER_PX * 2 - GROUP_HEADER_PX - TOOLBAR_PX);
                 host.style.width = `${width}px`;
                 host.style.height = `${height}px`;
                 host.style.transform = `translate(${left}px, ${top}px) scale(${camera.zoom})`;
@@ -215,7 +219,7 @@ function DesktopWebviewParking() {
                    the canvas under the layer shows through. The hole is in the page's own pixels,
                    which the camera's scale is applied to afterwards. */
                 const covering = coveringIn(view.viewId, canvas!)[nodeId] ?? [];
-                const holes = covering.map((hole) => ({ ...hole, x: hole.x - node!.x, y: hole.y - pageTop }));
+                const holes = covering.map((hole) => ({ ...hole, x: hole.x - pageLeft, y: hole.y - pageTop }));
                 host.style.clipPath = pageClipPath(width, height, holes) ?? '';
             }
         };

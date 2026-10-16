@@ -619,7 +619,7 @@ export function placeFilesAction(paths: readonly string[], cellViewId: string, z
  */
 export function selectAllAction(store: StoreApi<CanvasState>): void {
     const canvas = store.getState();
-    const ids = [...canvas.order, ...Object.keys(canvas.texts)];
+    const ids = [...canvas.order, ...Object.keys(canvas.texts), ...Object.keys(canvas.lines)];
     if (canvas.viewId !== null && defaultCanvases.peek(canvas.viewId) === store && ids.length > 0) {
         void perform('canvas.select', { viewId: canvas.viewId, nodeIds: ids }).catch(ignoreRefusal);
         return;

@@ -22,8 +22,19 @@ export function clampZoom(zoom: number): number {
     return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
 }
 
-export function snapToGrid(value: number): number {
-    return Math.round(value / GRID) * GRID;
+export function snapToGrid(value: number, grid = GRID): number {
+    return Math.round(value / grid) * grid;
+}
+
+export function snapPoint(point: Point, grid = GRID): Point {
+    return { x: snapToGrid(point.x, grid), y: snapToGrid(point.y, grid) };
+}
+
+/* A line can overlap a span at one coordinate; two positive spans must share some length. */
+export function overlapSpan(first: number, firstSize: number, second: number, secondSize: number): { low: number; high: number } | null {
+    const low = Math.max(first, second);
+    const high = Math.min(first + firstSize, second + secondSize);
+    return high > low || (high === low && (firstSize === 0 || secondSize === 0)) ? { low, high } : null;
 }
 
 /* Whole percent, so + and - after a pinch return to where they started. */

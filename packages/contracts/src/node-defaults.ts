@@ -1,4 +1,5 @@
 import { NodeKindSchema, type NodeKind } from './project.ts';
+export { NODE_ACCENT_NAMES, type NodeAccent } from './node-accents.ts';
 
 export interface NodeSize {
     w: number;
@@ -200,32 +201,6 @@ export function arrangeRects(rects: readonly NodeRect[], layout: ArrangeLayout, 
         h: rect.h
     }));
 }
-
-/*
- * In the picker's hue order. Shared because the daemon refuses a `--color` outside the set; the hex per
- * name stays in the client (`canvas/accents.ts`), the only side that paints.
- */
-export const NODE_ACCENT_NAMES = [
-    'red',
-    'orange',
-    'amber',
-    'yellow',
-    'lime',
-    'green',
-    'emerald',
-    'teal',
-    'cyan',
-    'sky',
-    'blue',
-    'indigo',
-    'violet',
-    'purple',
-    'fuchsia',
-    'pink',
-    'rose'
-] as const;
-
-export type NodeAccent = (typeof NODE_ACCENT_NAMES)[number];
 
 /*
  * The paper a note can take, its default first. Shared for the same reason as the accents: the

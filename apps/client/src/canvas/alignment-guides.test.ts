@@ -1,7 +1,15 @@
 import { expect, test } from 'bun:test';
 import { alignmentGuides, gapGuides } from './alignment-guides';
+import { lineBounds } from './line-geometry';
 
 const rect = { x: 80, y: 160, w: 480, h: 320 };
+
+test('zero-width and zero-height lines measure gaps to neighboring canvas items', () => {
+    const vertical = lineBounds({ x: 600, y: 160, endX: 600, endY: 480 });
+    expect(gapGuides([vertical], [rect])).toEqual([{ axis: 'x', start: 560, end: 600, position: 320, equal: false }]);
+    const horizontal = lineBounds({ x: 600, y: 320, endX: 800, endY: 320 });
+    expect(gapGuides([horizontal], [rect])).toEqual([{ axis: 'x', start: 560, end: 600, position: 320, equal: false }]);
+});
 
 test('matching sides and centers share one line spanning the nodes', () => {
     expect(alignmentGuides([rect], [{ ...rect, y: 800 }])).toEqual([

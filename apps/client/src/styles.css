@@ -449,7 +449,7 @@
     /* A page fills the bottom of the node it belongs to, so it takes that node's corners. A browser
        view is a whole cell and has none. */
     .browser-host {
-        border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+        border-radius: 0 0 calc(var(--radius-xl) - 1px) calc(var(--radius-xl) - 1px);
     }
     .browser-host[data-square] {
         border-radius: 0;

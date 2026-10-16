@@ -179,7 +179,9 @@ function escapeCanvas(e: KeyboardEvent, s: CanvasState): void {
         leaveStandaloneView(e);
         return;
     }
-    if (s.linkDraft?.aiming) {
+    if (s.lineTool !== null) {
+        s.setLineTool(null);
+    } else if (s.linkDraft?.aiming) {
         s.setLinkDraft(null);
     } else if (s.editingTextId) {
         s.setEditingText(null);

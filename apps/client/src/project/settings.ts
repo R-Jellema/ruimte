@@ -3,6 +3,7 @@ import type { ProjectIconChoice, ProjectSummary } from '@ruimte/contracts';
 import { ensureMachine } from '@/endpoint/reach';
 import { useProjectList } from '@/state/project-list';
 import { transportFor, type Transport } from '@/transport';
+import { projectIconAppearance } from './icon-appearance';
 
 export interface ProjectSettingsResult {
     endpointId: string;
@@ -39,6 +40,12 @@ async function setIconImage(endpointId: string, projectId: string, image: { mime
     const cleared = await connected.transport.request('project.setIdentity', { projectId, icon: null });
     remember(connected.endpointId, cleared.summary);
     const { summary } = await connected.transport.request('project.setIcon', { projectId, image });
+    remember(connected.endpointId, summary);
+    const { color } = await projectIconAppearance(connected.transport, summary);
+    if (color !== null && color !== summary.color) {
+        const updated = await connected.transport.request('project.setIdentity', { projectId, color });
+        return remember(connected.endpointId, updated.summary);
+    }
     return remember(connected.endpointId, summary);
 }
 

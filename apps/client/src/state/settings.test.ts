@@ -3,6 +3,12 @@ import { DEFAULT_STUN_SERVER } from '@ruimte/pulsar';
 import { DEFAULT_CODE_FOLDING } from './code-folding';
 import { codeLineHeight, codeThemesOf, iceServersFrom, settingsFrom, useSettings, type KeepAwakeMode, type Settings } from './settings';
 
+test('project glow defaults to on while preserving an explicit opt-out', () => {
+    expect(settingsFrom({}).projectGlow).toBe(true);
+    expect(settingsFrom({ projectGlow: false }).projectGlow).toBe(false);
+    expect(settingsFrom({ projectGlow: true }).projectGlow).toBe(true);
+});
+
 describe('project navigation', () => {
     test('starts on the switcher and accepts only tabs besides it', () => {
         expect(settingsFrom({}).projectNavigation).toBe('switcher');

@@ -1,6 +1,7 @@
 import {
     isCanvasView,
     type ProjectCanvasView,
+    type ProjectCanvasLine,
     type ProjectContent,
     type ProjectEdge,
     type ProjectFlags,
@@ -18,9 +19,10 @@ export interface CanvasPatch {
     /* Whole entries to put in by id: the ones that arrived, and the ones that took a field from the other side. */
     nodes: ProjectNode[];
     texts: ProjectText[];
+    lines?: ProjectCanvasLine[];
     edges: ProjectEdge[];
     /* Ids the other side deleted while this client left them as they were. */
-    removed: { nodes: string[]; texts: string[]; edges: string[] };
+    removed: { nodes: string[]; texts: string[]; edges: string[]; lines?: string[] };
     /* The stacking order of the merged canvas, which is this client's unless only the other side moved it. */
     order: string[];
     /* The arrangements, when only the other side changed them; null keeps this client's. */
@@ -228,6 +230,17 @@ function mergeCanvas(base: ProjectCanvasView, mine: ProjectCanvasView, theirs: P
     if (!edges.ok) {
         return edges;
     }
+    const lines = mergeElements(
+        'line',
+        base.lines ?? [],
+        mine.lines ?? [],
+        theirs.lines ?? [],
+        { geometry: ['x', 'y', 'endX', 'endY'] },
+        (id, field) => field === 'geometry' && held.has(id)
+    );
+    if (!lines.ok) {
+        return lines;
+    }
 
     const stacked = stackingOf(base.nodes, mine.nodes, theirs.nodes, nodes.elements);
     const view: ProjectCanvasView = {
@@ -235,6 +248,7 @@ function mergeCanvas(base: ProjectCanvasView, mine: ProjectCanvasView, theirs: P
         nodes: stacked,
         texts: texts.elements,
         edges: edges.elements,
+        ...(lines.elements.length > 0 || mine.lines !== undefined ? { lines: lines.elements } : {}),
         layouts: layouts ?? mine.layouts
     };
     /*
@@ -254,12 +268,13 @@ function mergeCanvas(base: ProjectCanvasView, mine: ProjectCanvasView, theirs: P
         order,
         mine.nodes.map((node) => node.id)
     );
-    const changed = moved || layouts !== null || [nodes, texts, edges].some((merge) => merge.put.length > 0 || merge.removed.length > 0);
+    const changed = moved || layouts !== null || [nodes, texts, edges, lines].some((merge) => merge.put.length > 0 || merge.removed.length > 0);
     const patch: CanvasPatch = {
         nodes: nodes.put,
         texts: texts.put,
         edges: edges.put,
-        removed: { nodes: nodes.removed, texts: texts.removed, edges: edges.removed },
+        ...(lines.put.length > 0 ? { lines: lines.put } : {}),
+        removed: { nodes: nodes.removed, texts: texts.removed, edges: edges.removed, ...(lines.removed.length > 0 ? { lines: lines.removed } : {}) },
         order,
         layouts
     };

@@ -10,6 +10,7 @@ import {
     type RefObject
 } from 'react';
 import { useShallow } from 'zustand/react/shallow';
+import type { ProjectCanvasLine } from '@ruimte/contracts';
 import { carriesFiles, carriesPaths, dropEffectFor, dropPoints, droppedPaths } from '@/canvas/drop';
 import { gridTakesPath } from '@/shell/view-drag';
 import { finderPaths } from '@/canvas/finder-drop';
@@ -21,6 +22,8 @@ import { alignmentGuides, gapGuides, type AlignmentGuide, type GapGuide } from '
 import { AlignmentGuides } from '@/canvas/AlignmentGuides';
 import { editableGaps, gapOffsets, type EditableGap } from '@/canvas/editable-gaps';
 import { GapHandles } from '@/canvas/GapHandles';
+import { gapFrames } from '@/canvas/element-frames';
+import { lineBounds } from '@/canvas/line-geometry';
 import { isGapModifierDown, subscribeGapModifier } from '@/canvas/gap-modifier';
 import { registerGestureCancellation } from '@/canvas/gesture-cancel';
 import { resizedRect } from '@/canvas/resize';
@@ -42,6 +45,7 @@ import { PortHints } from '@/canvas/PortHints';
 import { NodeFrame } from '@/canvas/NodeFrame';
 import { TextElementView } from '@/canvas/TextElementView';
 import { TextToolbar } from '@/canvas/TextToolbar';
+import { CanvasLineLayer, CanvasLineTool, CanvasLineToolbar } from '@/canvas/CanvasLines';
 import { CellOverlay } from '@/shell/CellOverlay';
 import { isInFloatingLayer, ContextMenu } from '@adecore/ui';
 
@@ -135,6 +139,7 @@ export function Canvas() {
     const [gapEdit, setGapEdit] = useState<EditableGap[] | null>(null);
     const [guides, setGuides] = useState<AlignmentGuide[]>([]);
     const [gaps, setGaps] = useState<GapGuide[]>([]);
+    const [lineDraft, setLineDraft] = useState<ProjectCanvasLine | null>(null);
     const [box, setBox] = useState<Rect | null>(null);
     const [activeGesture, setActiveGesture] = useState<Gesture['kind'] | null>(null);
     /* A drag carrying files is hanging over the canvas, which the border says so nobody has to
@@ -153,19 +158,16 @@ export function Canvas() {
         }))
     );
     const textIds = useMemo(() => Object.keys(texts), [texts]);
+    const lineTool = useCanvas((s) => s.lineTool);
+    const lines = useCanvas((s) => s.lines);
     const nodes = useCanvas((s) => s.nodes);
     const selection = useCanvas((s) => s.selection);
     const hidden = useCanvas((s) => s.hidden);
+    const gesturing = useCanvas((s) => s.gesturing);
+    const frames = useMemo(() => gapFrames({ nodes, lines, hidden }), [nodes, lines, hidden]);
     const editable = useMemo(
-        () =>
-            gapEdit ??
-            (!altDown || activeGesture !== null
-                ? []
-                : editableGaps(
-                      Object.values(nodes).filter((node) => !hidden.has(node.id)),
-                      selection
-                  )),
-        [nodes, hidden, selection, gapEdit, altDown, activeGesture]
+        () => gapEdit ?? (!altDown || activeGesture !== null || gesturing ? [] : editableGaps(Object.values(frames), selection)),
+        [frames, selection, gapEdit, altDown, activeGesture, gesturing]
     );
     /* The nodes are drawn in a fixed order and stacked with a z-index instead of being reordered in
        the DOM: moving an element takes it out of the document for a moment, and a body that had the
@@ -177,17 +179,18 @@ export function Canvas() {
 
     useLayoutEffect(() => {
         const gesture = gestureRef.current;
-        if (!gesture || (gesture.kind !== 'move' && gesture.kind !== 'resize' && gesture.kind !== 'text-resize')) {
-            return;
-        }
-        if (gesture.kind === 'move' && !gesture.moved) {
-            return;
-        }
-        const movingGroups = gesture.kind === 'move';
-        const ids = gesture.kind === 'move' ? canvasStore.getState().selection : [gesture.kind === 'resize' ? gesture.nodeId : gesture.textId];
         const state = canvasStore.getState();
+        const native = gesture && ((gesture.kind === 'move' && gesture.moved) || gesture.kind === 'resize' || gesture.kind === 'text-resize');
+        const lineMove = !gesture && gesturing && selection.some((id) => state.lines[id] !== undefined);
+        if (!native && !lineMove && lineDraft === null) {
+            setGuides([]);
+            setGaps([]);
+            return;
+        }
+        const movingGroups = gesture?.kind === 'move' || lineMove;
+        const ids = gesture?.kind === 'resize' ? [gesture.nodeId] : gesture?.kind === 'text-resize' ? [gesture.textId] : selection;
         const active = new Set(ids);
-        const excluded = new Set([...ids, ...(movingGroups ? carriedByGroups(state.nodes, state.texts, ids) : [])]);
+        const excluded = new Set([...ids, ...(movingGroups ? carriedByGroups(state.nodes, state.texts, ids, state.lines) : [])]);
         const moving: Rect[] = [];
         const stationary: Rect[] = [];
         for (const node of Object.values(state.nodes)) {
@@ -199,6 +202,19 @@ export function Canvas() {
             } else if (!excluded.has(node.id)) {
                 stationary.push(node);
             }
+        }
+        for (const line of Object.values(state.lines)) {
+            if (state.hidden.has(line.id)) {
+                continue;
+            }
+            if (active.has(line.id)) {
+                moving.push(lineBounds(line));
+            } else if (!excluded.has(line.id)) {
+                stationary.push(lineBounds(line));
+            }
+        }
+        if (lineDraft !== null) {
+            moving.push(lineBounds(lineDraft));
         }
         const root = rootRef.current!;
         const bounds = root.getBoundingClientRect();
@@ -218,7 +234,7 @@ export function Canvas() {
         }
         setGuides(alignmentGuides(moving, stationary));
         setGaps(gapGuides(moving, stationary));
-    }, [activeGesture, nodes, texts, canvasStore]);
+    }, [activeGesture, nodes, texts, lines, gesturing, selection, lineDraft, canvasStore]);
 
     // The pages park outside this transform and may not swallow the pointer mid-gesture.
     useEffect(() => {
@@ -719,7 +735,13 @@ export function Canvas() {
 
     const onDoubleClick = (e: React.MouseEvent): void => {
         const target = e.target as HTMLElement;
-        if (target.closest('[data-node-id]') || target.closest('[data-text-id]') || isInFloatingLayer(target)) {
+        if (
+            target.closest('[data-node-id]') ||
+            target.closest('[data-text-id]') ||
+            target.closest('[data-canvas-line]') ||
+            lineTool !== null ||
+            isInFloatingLayer(target)
+        ) {
             return;
         }
         createTextAction(toWorld(canvasStore.getState().camera, screenPoint(e)));
@@ -758,6 +780,7 @@ export function Canvas() {
             >
                 <div ref={worldRef} className="absolute left-0 top-0 origin-top-left">
                     {maximizedId === null && <EdgeLayer />}
+                    {maximizedId === null && <CanvasLineLayer />}
                     {textIds.map((id) => (
                         <TextElementView key={id} id={id} />
                     ))}
@@ -767,14 +790,16 @@ export function Canvas() {
                     {/* Over the nodes, so a port beside one is never covered by the node standing next to it. */}
                     {maximizedId === null && <PortHints rootRef={rootRef} />}
                 </div>
-                {drawIds.length === 0 && textIds.length === 0 && <EmptyCanvas />}
+                {drawIds.length === 0 && textIds.length === 0 && Object.keys(lines).length === 0 && <EmptyCanvas />}
+                {lineTool !== null && maximizedId === null && <CanvasLineTool key={lineTool} onDraftChange={setLineDraft} />}
                 {/* Over the pages, which the canvas itself cannot draw over. */}
                 <CellOverlay slot="view">
                     <AlignmentGuides guides={guides} gaps={gaps} />
                     {maximizedId === null && !locks.move && (activeGesture === 'gap' || (!spaceDown && altDown && activeGesture === null)) && (
-                        <GapHandles gaps={editable} nodes={nodes} onStart={startGap} />
+                        <GapHandles gaps={editable} nodes={frames} onStart={startGap} />
                     )}
                     <TextToolbar />
+                    {maximizedId === null && <CanvasLineToolbar />}
                     {dropping && <div className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-accent ring-inset" aria-hidden />}
                     {box && (
                         <div

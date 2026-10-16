@@ -22,6 +22,7 @@ import { rememberProject, type LastProjectStorage } from './last-project';
 import { mergeProject, type CanvasPatch } from './merge';
 import type { PanelsPort } from './panels-port';
 import { dropProjectDraft, readProjectDraft, writeProjectDraft } from './project-draft';
+import { projectIconAppearance } from './icon-appearance';
 
 type SaveOutcome = 'saved' | 'offline' | 'failed';
 
@@ -29,6 +30,7 @@ type SaveOutcome = 'saved' | 'offline' | 'failed';
 interface CanvasSlice {
     nodes: Record<string, unknown>;
     texts: Record<string, unknown>;
+    lines?: Record<string, unknown>;
     edges: unknown[];
     order: string[];
     camera: { x: number; y: number; zoom: number };
@@ -424,6 +426,11 @@ export class ProjectClient {
         await this.setChosenIcon(null);
         const { summary } = await this.transport.request('project.setIcon', { projectId: current.projectId, image });
         this.applySummary(summary);
+        const { color } = await projectIconAppearance(this.transport, summary);
+        if (color !== null && this.sink.getState().current?.projectId === current.projectId) {
+            await this.setColor(color);
+            await this.flush();
+        }
     }
 
     /* What the daemon's file holds at `document.rev`, which the next merge measures against. */
@@ -483,7 +490,11 @@ export class ProjectClient {
         // What a merge brings in is on disk already.
         if (
             !state.merging &&
-            (state.nodes !== previous.nodes || state.texts !== previous.texts || state.edges !== previous.edges || state.order !== previous.order)
+            (state.nodes !== previous.nodes ||
+                state.texts !== previous.texts ||
+                state.lines !== previous.lines ||
+                state.edges !== previous.edges ||
+                state.order !== previous.order)
         ) {
             this.sink.setDirty(true);
             this.scheduleSave();
