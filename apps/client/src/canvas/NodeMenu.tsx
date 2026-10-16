@@ -27,7 +27,7 @@ import {
     Terminal,
     Trash
 } from 'lucide-react';
-import { isCanvasView, type NoteColor, type ProviderInfo, type Task } from '@ruimte/contracts';
+import type { NoteColor, ProviderInfo, Task } from '@ruimte/contracts';
 import {
     arrangeGroupAction,
     clearTerminalAction,
@@ -59,7 +59,7 @@ import { resolveStoredPath } from '@/shell/panels/files-tree';
 import { worktreeDiffTab } from '@/shell/panels/worktree-rows';
 import { deleteSelectionAsking } from '@/canvas/delete-selection';
 import { canvasOfNode, maximizedNodeOf, useCanvas, useCanvasStore, type CanvasNode } from '@/state/canvas';
-import { useDocument } from '@/state/document';
+import { useViewNodes } from '@/project/view-nodes';
 import { useChatRow, useProviders } from '@adecore/agents-react/state';
 import { useFiles } from '@/state/files';
 import { isScratchProject, useProject } from '@/state/project';
@@ -86,9 +86,9 @@ interface NodeMenuProps {
 /* A closed canvas is read from the document; only an action that needs its editor opens it. */
 export function NodeMenuPopup(props: NodeMenuProps) {
     const live = useCanvas((s) => s.nodes[props.id]);
-    const stored = useDocument((s) => {
-        const view = s.views.find((view) => view.id === props.viewId);
-        return view && isCanvasView(view) ? view.nodes.find((node) => node.id === props.id) : undefined;
+    const stored = useViewNodes((views, nodesOf) => {
+        const view = views.find((view) => view.id === props.viewId);
+        return view ? nodesOf(view).find((node) => node.id === props.id) : undefined;
     });
     const node = live ?? stored;
     return (

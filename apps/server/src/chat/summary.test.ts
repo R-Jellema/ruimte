@@ -158,7 +158,7 @@ describe('a fork summarizing for its original', () => {
     test('a restart between the fork settling and the delivery loses nothing and delivers nothing twice', async () => {
         const forkId = await forked();
         const turn = await summarize(forkId);
-        await daemon.until(() => daemon.outbox.list().some((entry) => entry.kind === 'deliver-summary'));
+        await daemon.until(() => daemon.enqueued.some((work) => work.kind === 'deliver-summary'));
         expect(summaryNotes(items('chat-lead'))).toHaveLength(0);
         const [owed] = daemon.outbox.list();
 
