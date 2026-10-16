@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { VISUAL_HOST_CSP, VISUAL_HOST_PATH } from '@ruimte/csp';
+import { TELEMETRY_INGEST, VISUAL_HOST_CSP, VISUAL_HOST_PATH } from '@ruimte/csp';
 import { CONTENT_SECURITY_POLICY, notFoundForMissingAsset, withSecurityHeaders } from './headers';
 
 function directive(name: string): string[] {
@@ -22,6 +22,7 @@ describe('the station headers', () => {
     test('connect to the address book and secure sockets only, never plain ones', () => {
         const connect = directive('connect-src');
         expect(connect).toContain('https://pulsar.ruimte.app');
+        expect(connect).toContain(TELEMETRY_INGEST);
         expect(connect).toContain('wss:');
         expect(connect).not.toContain('ws:');
         expect(connect).not.toContain('http:');

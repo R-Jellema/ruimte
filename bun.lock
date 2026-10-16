@@ -251,6 +251,7 @@
       "name": "@ruimte/csp",
       "version": "0.0.0",
       "devDependencies": {
+        "@ruimte/telemetry": "workspace:*",
         "@types/bun": "^1.4.2",
         "typescript": "^7.0.2",
       },

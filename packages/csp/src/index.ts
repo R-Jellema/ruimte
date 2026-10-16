@@ -6,6 +6,9 @@
 
 export type CspDirectives = Readonly<Record<string, readonly string[]>>;
 
+/* Where the client sends its crash reports (`TELEMETRY_DSN` in `@ruimte/telemetry`), named apart from `https:` so it stays allowed if that ever narrows. */
+export const TELEMETRY_INGEST = 'https://o4512264930983936.ingest.de.sentry.io';
+
 /*
  * `connect-src`, `img-src` and `media-src` are wide because a machine's LAN door and broker are whatever
  * address it reports or a person picks. Shiki needs WebAssembly and the UI libraries inject styles. A
@@ -21,7 +24,7 @@ export const CLIENT_CSP_DIRECTIVES = {
     'img-src': ["'self'", 'data:', 'blob:', 'http:', 'https:'],
     'media-src': ["'self'", 'data:', 'blob:', 'http:', 'https:'],
     'font-src': ["'self'", 'data:'],
-    'connect-src': ["'self'", 'ws:', 'wss:', 'http:', 'https:'],
+    'connect-src': ["'self'", 'ws:', 'wss:', 'http:', 'https:', TELEMETRY_INGEST],
     'worker-src': ["'self'", 'blob:']
 } satisfies CspDirectives;
 

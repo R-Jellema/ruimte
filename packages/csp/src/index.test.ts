@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { cspString, VISUAL_HOST_CSP, VISUAL_HOST_CSP_DIRECTIVES, VISUAL_HOST_HEADERS, VISUAL_HOST_PATH } from './index.ts';
+import { TELEMETRY_DSN } from '@ruimte/telemetry';
+import { cspString, TELEMETRY_INGEST, VISUAL_HOST_CSP, VISUAL_HOST_CSP_DIRECTIVES, VISUAL_HOST_HEADERS, VISUAL_HOST_PATH } from './index.ts';
 
 const INDEX_HTML = join(import.meta.dir, '..', '..', '..', 'apps', 'client', 'index.html');
 
@@ -45,6 +46,14 @@ describe('the client policy and a chat map', () => {
         expect(directiveOf(policy, 'img-src')).toEqual(expect.arrayContaining(['blob:', 'data:', 'https:']));
         expect(directiveOf(policy, 'script-src')).not.toContain("'unsafe-eval'");
         expect(directiveOf(policy, 'style-src')).toContain("'unsafe-inline'");
+    });
+});
+
+describe('the client policy and crash reports', () => {
+    test('lets the page reach the ingest its crash reports go to', () => {
+        expect(directiveOf(cspString(), 'connect-src')).toContain(TELEMETRY_INGEST);
+        expect(new URL(TELEMETRY_DSN.desktop).origin).toBe(TELEMETRY_INGEST);
+        expect(new URL(TELEMETRY_DSN.station).origin).toBe(TELEMETRY_INGEST);
     });
 });
 

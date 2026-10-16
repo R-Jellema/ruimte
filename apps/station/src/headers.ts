@@ -1,4 +1,4 @@
-import { cspString, VISUAL_HOST_HEADERS, VISUAL_HOST_PATH } from '@ruimte/csp';
+import { cspString, TELEMETRY_INGEST, VISUAL_HOST_HEADERS, VISUAL_HOST_PATH } from '@ruimte/csp';
 
 /*
  * The client's policy, tightened for a page on the public web. A daemon serves a paired host that
@@ -11,7 +11,7 @@ export const CONTENT_SECURITY_POLICY = cspString({
     'form-action': ["'none'"],
     'img-src': ["'self'", 'data:', 'blob:', 'https:'],
     'media-src': ["'self'", 'data:', 'blob:', 'https:'],
-    'connect-src': ["'self'", 'https://pulsar.ruimte.app', 'wss:', 'https:'],
+    'connect-src': ["'self'", 'https://pulsar.ruimte.app', 'wss:', 'https:', TELEMETRY_INGEST],
     'manifest-src': ["'self'"]
 });
 
