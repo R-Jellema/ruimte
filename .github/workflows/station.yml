@@ -33,7 +33,20 @@ jobs:
       - run: bun test
       - run: bun test src/station.test.ts src/pulsar src/transport/wake.test.ts
         working-directory: apps/client
-      - run: bun run build
+      # A deploy is the station's release: it reports its errors under the commit it ships.
+      - name: Build
+        env:
+          RUIMTE_TELEMETRY: '1'
+        run: |
+          export RUIMTE_VERSION="station-${GITHUB_SHA::12}"
+          echo "RUIMTE_VERSION=$RUIMTE_VERSION" >> "$GITHUB_ENV"
+          bun run build
+      - uses: ./.github/actions/client-source-maps
+        with:
+          dist: apps/station/dist
+          project: station
+          release: ruimte@${{ env.RUIMTE_VERSION }}
+          auth-token: ${{ secrets.SENTRY_AUTH_TOKEN }}
       - uses: ./.github/actions/wait-for-ci
       - run: bunx wrangler deploy
         env:

@@ -12,6 +12,8 @@ files:
 extraResources:
   - from: ../client/dist
     to: client
+    # A release build writes source maps for the crash reports; CI uploads them and they never ship.
+    filter: ['**/*', '!**/*.map']
   - from: ../server/dist/${os}-${arch}
     to: bin
     filter: ['**/*', '!Helpers{,/**/*}']

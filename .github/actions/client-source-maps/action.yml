@@ -1,0 +1,43 @@
+name: Client source maps
+description: Give a release build of the client debug ids, upload its source maps for the crash reports, and take them out so none ships
+
+inputs:
+  dist:
+    description: The folder the client was built into
+    required: true
+  project:
+    description: The project its reports go to, `desktop` or `station`
+    required: true
+  release:
+    description: The release they report under, `ruimte@<version>`
+    required: true
+  auth-token:
+    description: SENTRY_AUTH_TOKEN; without it the maps are only removed
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    # A tracker that is down or a token that is missing never holds up a release: its stack traces only stay minified.
+    - name: Debug ids and the upload
+      shell: bash
+      continue-on-error: true
+      env:
+        SENTRY_AUTH_TOKEN: ${{ inputs.auth-token }}
+        SENTRY_ORG: ruimte
+        DIST: ${{ inputs.dist }}
+        PROJECT: ${{ inputs.project }}
+        RELEASE: ${{ inputs.release }}
+      run: |
+        npx --yes @sentry/cli@3.8.0 sourcemaps inject "$DIST"
+        if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+          echo "::warning::SENTRY_AUTH_TOKEN is empty; the source maps of $RELEASE were not uploaded"
+          exit 0
+        fi
+        npx --yes @sentry/cli@3.8.0 sourcemaps upload --project "$PROJECT" --release "$RELEASE" "$DIST"
+    - name: No source map ships
+      shell: bash
+      env:
+        DIST: ${{ inputs.dist }}
+      run: find "$DIST" -name '*.map' -delete
