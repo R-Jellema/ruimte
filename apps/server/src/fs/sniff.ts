@@ -101,12 +101,34 @@ function frameSync(bytes: Uint8Array): 'aac' | 'mpeg' | null {
     return known ? 'mpeg' : null;
 }
 
+// The extensions a USD layer can carry; the first one in a package is its root layer.
+const USD_LAYER = /\.usd[ac]?$/;
+
+/*
+ * A USDZ package is a plain zip, so it is told from every other zip by the name of its first entry,
+ * which the format requires to be the root layer.
+ */
+function isUsdz(bytes: Uint8Array): boolean {
+    if (bytes.length < 30 || !startsWith(bytes, [0x50, 0x4b, 0x03, 0x04])) {
+        return false;
+    }
+    const nameLength = bytes[26] | (bytes[27] << 8);
+    return nameLength > 0 && bytes.length >= 30 + nameLength && USD_LAYER.test(latin1(bytes.subarray(30, 30 + nameLength)).toLowerCase());
+}
+
 /* The mime a file's first bytes claim, or null when nothing recognizes them. */
 export function sniffMime(bytes: Uint8Array): string | null {
     for (const { mime, signature } of MAGIC) {
         if (startsWith(bytes, signature)) {
             return mime;
         }
+    }
+    // A binary glTF names its container version right after the magic; version 1 was a different format.
+    if (bytes.length >= 8 && startsWith(bytes, ascii('glTF')) && uint32(bytes, 4, true) === 2) {
+        return 'model/gltf-binary';
+    }
+    if (isUsdz(bytes)) {
+        return 'model/vnd.usdz+zip';
     }
     if (isIcon(bytes)) {
         return 'image/x-icon';

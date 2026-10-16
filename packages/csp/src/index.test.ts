@@ -49,6 +49,13 @@ describe('the client policy and a chat map', () => {
     });
 });
 
+describe('the client policy and a model preview', () => {
+    test('fetches the blob URLs the page made for the textures in a model, and no data URL', () => {
+        expect(directiveOf(cspString(), 'connect-src')).toContain('blob:');
+        expect(directiveOf(cspString(), 'connect-src')).not.toContain('data:');
+    });
+});
+
 describe('the client policy and crash reports', () => {
     test('lets the page reach the ingest its crash reports go to', () => {
         expect(directiveOf(cspString(), 'connect-src')).toContain(TELEMETRY_INGEST);

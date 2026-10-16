@@ -11,7 +11,7 @@ export const CONTENT_SECURITY_POLICY = cspString({
     'form-action': ["'none'"],
     'img-src': ["'self'", 'data:', 'blob:', 'https:'],
     'media-src': ["'self'", 'data:', 'blob:', 'https:'],
-    'connect-src': ["'self'", 'https://pulsar.ruimte.app', 'wss:', 'https:', TELEMETRY_INGEST],
+    'connect-src': ["'self'", 'blob:', 'https://pulsar.ruimte.app', 'wss:', 'https:', TELEMETRY_INGEST],
     'manifest-src': ["'self'"]
 });
 

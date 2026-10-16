@@ -129,6 +129,20 @@
             "unstage": "Unstage this file",
             "closeToRight": "Close tabs to the right"
         },
+        "model": {
+            "crashed": "The 3D viewer failed",
+            "failed": "Could not show {{name}}. {{reason}}",
+            "nestedRoot": "Its root layer sits in a folder inside the package, which this app does not open.",
+            "noWebgl": "{{name}} is a 3D model, and this window cannot draw 3D. WebGL is not available here.",
+            "pause": "Pause animation",
+            "play": "Play animation",
+            "resetCamera": "Reset camera",
+            "triangles_one": "{{value}} triangle",
+            "triangles_other": "{{value}} triangles",
+            "vertices_one": "{{value}} vertex",
+            "vertices_other": "{{value}} vertices",
+            "wireframe": "Wireframe"
+        },
         "pdf": {
             "crashed": "The PDF viewer failed",
             "failed": "Could not open {{name}}. {{reason}}",

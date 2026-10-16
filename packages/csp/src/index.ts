@@ -12,7 +12,8 @@ export const TELEMETRY_INGEST = 'https://o4512264930983936.ingest.de.sentry.io';
 /*
  * `connect-src`, `img-src` and `media-src` are wide because a machine's LAN door and broker are whatever
  * address it reports or a person picks. Shiki needs WebAssembly and the UI libraries inject styles. A
- * frame only ever shows a visual's sandbox host page, on the page's own origin.
+ * frame only ever shows a visual's sandbox host page, on the page's own origin. The model preview
+ * fetches the textures it unpacks from a file through `blob:` URLs the page made itself.
  */
 export const CLIENT_CSP_DIRECTIVES = {
     'default-src': ["'self'"],
@@ -24,7 +25,7 @@ export const CLIENT_CSP_DIRECTIVES = {
     'img-src': ["'self'", 'data:', 'blob:', 'http:', 'https:'],
     'media-src': ["'self'", 'data:', 'blob:', 'http:', 'https:'],
     'font-src': ["'self'", 'data:'],
-    'connect-src': ["'self'", 'ws:', 'wss:', 'http:', 'https:', TELEMETRY_INGEST],
+    'connect-src': ["'self'", 'blob:', 'ws:', 'wss:', 'http:', 'https:', TELEMETRY_INGEST],
     'worker-src': ["'self'", 'blob:']
 } satisfies CspDirectives;
 

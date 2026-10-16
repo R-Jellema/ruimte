@@ -1,6 +1,6 @@
 import { lstat } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
-import { FS_READ_MAX_TEXT_BYTES, isAudioMime, isImageMime, isPdfMime, isVideoMime, type FsReadResult } from '@ruimte/contracts';
+import { FS_READ_MAX_TEXT_BYTES, isAudioMime, isImageMime, isModelMime, isPdfMime, isVideoMime, type FsReadResult } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
 import { looksLikeSvg, sniffMime } from './sniff.ts';
 
@@ -228,13 +228,13 @@ export async function readFile(path: string): Promise<FsReadResult> {
 // Whatever its name says, so an HTML file the route serves never runs in the origin of the page that asked.
 export const SERVED_TEXT_MIME = 'text/plain; charset=utf-8';
 
-/* The same file as bytes, for the file route and `bytes.read`: an image, video, sound, a PDF or text. Null for any other binary. */
+/* The same file as bytes, for the file route and `bytes.read`: an image, video, sound, a PDF, a model or text. Null for any other binary. */
 export async function readServedFile(path: string): Promise<{ mime: string; size: number; bytes: Blob } | null> {
     const { file, mime } = await inspect(path);
     if (mime === null) {
         return { mime: SERVED_TEXT_MIME, size: file.size, bytes: Bun.file(file.path) };
     }
-    if (!(isImageMime(mime) || isVideoMime(mime) || isAudioMime(mime) || isPdfMime(mime))) {
+    if (!(isImageMime(mime) || isVideoMime(mime) || isAudioMime(mime) || isPdfMime(mime) || isModelMime(mime))) {
         return null;
     }
     return { mime, size: file.size, bytes: Bun.file(file.path) };

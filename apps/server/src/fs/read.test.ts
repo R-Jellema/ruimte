@@ -24,6 +24,23 @@ function ftyp(major: string, ...compatible: string[]): Buffer {
 const ICO = Buffer.from([0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x10, 0x10, 0x00, 0x00, 0x01, 0x00, 0x20, 0x00, ...new Array(8).fill(0)]);
 const BMP = Buffer.concat([Buffer.from('BM'), Buffer.from([0x46, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0x36, 0, 0, 0, 0x28, 0, 0, 0]), Buffer.alloc(8)]);
 
+/* The header of a binary glTF: the magic, a container version and the total length. */
+function glb(version: number): Buffer {
+    const header = Buffer.alloc(12);
+    header.write('glTF', 0, 'latin1');
+    header.writeUInt32LE(version, 4);
+    header.writeUInt32LE(12, 8);
+    return header;
+}
+
+/* The local file header of a zip's first entry, stored, with the name the sniff reads. */
+function zipEntry(name: string): Buffer {
+    const header = Buffer.alloc(30);
+    header.write('PK\x03\x04', 0, 'latin1');
+    header.writeUInt16LE(Buffer.byteLength(name), 26);
+    return Buffer.concat([header, Buffer.from(name), Buffer.from('PXR-USDC')]);
+}
+
 function latin1(text: string): Uint8Array {
     return new Uint8Array(Buffer.from(text, 'latin1'));
 }
@@ -99,6 +116,18 @@ describe('the binary sniff', () => {
         expect(sniffMime(new Uint8Array(ftyp('avif', 'mif1', 'avif', 'miaf')))).toBe('image/avif');
         expect(sniffMime(new Uint8Array(ftyp('avis', 'msf1', 'avis')))).toBe('image/avif');
         expect(sniffMime(new Uint8Array(ftyp('isom', 'isom', 'avc1', 'mp41')))).toBe('video/mp4');
+    });
+
+    test('names a binary glTF by its version and a USDZ by the root layer that opens it', () => {
+        expect(sniffMime(new Uint8Array(glb(2)))).toBe('model/gltf-binary');
+        expect(sniffMime(new Uint8Array(glb(1)))).toBeNull();
+        expect(sniffMime(new Uint8Array(zipEntry('teapot.usdc')))).toBe('model/vnd.usdz+zip');
+        expect(sniffMime(new Uint8Array(zipEntry('Scene.USDA')))).toBe('model/vnd.usdz+zip');
+        expect(sniffMime(new Uint8Array(zipEntry('scene.usd')))).toBe('model/vnd.usdz+zip');
+        // Any other zip stays a zip, including one that holds a layer further in.
+        expect(sniffMime(new Uint8Array(zipEntry('README.md')))).toBeNull();
+        expect(sniffMime(new Uint8Array(zipEntry('teapot.usdc.png')))).toBeNull();
+        expect(sniffMime(new Uint8Array(zipEntry('teapot.usdc').subarray(0, 36)))).toBeNull();
     });
 
     test('names the pictures with a signature of their own', () => {
@@ -181,7 +210,7 @@ describe('fs.read', () => {
         expect(await readFile(path)).toMatchObject({ kind: 'binary', mime: 'image/heic' });
     });
 
-    test('hands the file route every picture, sound and PDF, and no other binary', async () => {
+    test('hands the file route every picture, sound, PDF and model, and no other binary', async () => {
         const served = {
             'photo.heic': ftyp('heic', 'mif1', 'heic'),
             'photo.heif': ftyp('mif1', 'mif1', 'miaf'),
@@ -189,10 +218,23 @@ describe('fs.read', () => {
             'favicon.ico': ICO,
             'picture.bmp': BMP,
             'scan.tiff': Buffer.from('II*\x00\x08\x00\x00\x00', 'latin1'),
-            'paper.pdf': Buffer.from('%PDF-1.7\n')
+            'paper.pdf': Buffer.from('%PDF-1.7\n'),
+            'duck.glb': glb(2),
+            'teapot.usdz': zipEntry('teapot.usdc')
         };
         const mimes = await Promise.all(Object.entries(served).map(async ([name, bytes]) => (await readServedFile(await write(name, bytes)))?.mime));
-        expect(mimes).toEqual(['image/heic', 'image/heif', 'image/avif', 'image/x-icon', 'image/bmp', 'image/tiff', 'application/pdf']);
+        expect(mimes).toEqual([
+            'image/heic',
+            'image/heif',
+            'image/avif',
+            'image/x-icon',
+            'image/bmp',
+            'image/tiff',
+            'application/pdf',
+            'model/gltf-binary',
+            'model/vnd.usdz+zip'
+        ]);
+        expect(await readServedFile(await write('archive.zip', zipEntry('README.md')))).toBeNull();
         expect(await readServedFile(await write('a.out', Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0x00, 0x01])))).toBeNull();
         expect(await readServedFile(await write('notes.md', '# hello'))).toMatchObject({ mime: 'text/plain; charset=utf-8', size: 7 });
     });

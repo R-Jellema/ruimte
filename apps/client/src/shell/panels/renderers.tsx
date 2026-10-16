@@ -1,10 +1,11 @@
-import { isAudioMime, isImageMime, isPdfMime, isVideoMime, type FsReadResult, type FsReadText } from '@ruimte/contracts';
+import { isAudioMime, isImageMime, isModelMime, isPdfMime, isVideoMime, type FsReadResult, type FsReadText } from '@ruimte/contracts';
 import { AudioFile } from '@/shell/panels/AudioFile';
 import { CodeFile } from '@/shell/panels/CodeFile';
 import { isHtmlName, isMarkdownName, isPatchName } from '@/shell/panels/file-kind';
 import { HtmlFile } from '@/shell/panels/HtmlFile';
 import { ImageFile } from '@/shell/panels/ImageFile';
 import { MarkdownFile } from '@/shell/panels/MarkdownFile';
+import { ModelPreview } from '@/shell/panels/ModelPreview';
 import { UnsupportedFile } from '@/shell/panels/UnsupportedFile';
 import { PatchFileSlot } from '@/shell/panels/patch-file-lazy';
 import { PdfPreview } from '@/shell/panels/PdfPreview';
@@ -63,6 +64,9 @@ export function renderFile({ path, name, read }: FileRendererProps): React.JSX.E
     }
     if (read.kind === 'binary' && isPdfMime(read.mime)) {
         return <PdfPreview path={path} name={name} read={read} />;
+    }
+    if (read.kind === 'binary' && isModelMime(read.mime)) {
+        return <ModelPreview path={path} name={name} read={read} />;
     }
     return <UnsupportedFile path={path} name={name} read={read} />;
 }

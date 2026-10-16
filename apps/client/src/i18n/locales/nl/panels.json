@@ -129,6 +129,20 @@
             "unstage": "Dit bestand unstagen",
             "closeToRight": "Tabs rechts ervan sluiten"
         },
+        "model": {
+            "crashed": "De 3D-weergave liep vast",
+            "failed": "Kon {{name}} niet tonen. {{reason}}",
+            "nestedRoot": "De root layer staat in een map binnen het pakket, en dat opent deze app niet.",
+            "noWebgl": "{{name}} is een 3D-model, en dit venster kan geen 3D tekenen. WebGL is hier niet beschikbaar.",
+            "pause": "Animatie pauzeren",
+            "play": "Animatie afspelen",
+            "resetCamera": "Camera herstellen",
+            "triangles_one": "{{value}} driehoek",
+            "triangles_other": "{{value}} driehoeken",
+            "vertices_one": "{{value}} vertex",
+            "vertices_other": "{{value}} vertices",
+            "wireframe": "Wireframe"
+        },
         "pdf": {
             "crashed": "De PDF-weergave liep vast",
             "failed": "Kon {{name}} niet openen. {{reason}}",
