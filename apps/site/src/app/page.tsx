@@ -207,6 +207,9 @@ export default function Home() {
                         <a href={`${REPOSITORY_URL}/releases`} className="hover:text-text">
                             Releases
                         </a>
+                        <a href="/privacy" className="hover:text-text">
+                            Privacy
+                        </a>
                     </span>
                 </div>
             </footer>
