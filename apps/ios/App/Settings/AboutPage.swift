@@ -5,6 +5,7 @@ import SwiftUI
 struct AboutPage: View {
     @State private var releaseNotes: ReleaseNotes?
     @State private var eclipseAnchor: CGFloat?
+    @State private var eclipseInteraction = EclipseInteraction()
 
     var body: some View {
         Form {
@@ -54,10 +55,11 @@ struct AboutPage: View {
             // Behind the form rather than in its first row, so the sky runs under the bar to the top of the screen.
             ZStack {
                 MobileStyle.canvas
-                Eclipse(scene: .about, anchor: eclipseAnchor)
+                Eclipse(scene: .about, anchor: eclipseAnchor, interaction: eclipseInteraction)
             }
             .ignoresSafeArea()
         }
+        .eclipseTouch(eclipseInteraction)
         .foregroundStyle(MobileStyle.text)
         .navigationTitle("About")
         .navigationBarTitleDisplayMode(.inline)
@@ -75,6 +77,7 @@ struct AboutPage: View {
 struct LicensesPage: View {
     private static let files = [
         ("Lucide-LICENSE", String(localized: "Lucide icons")),
+        ("react-bits-license", "React Bits Galaxy"),
         ("package-licenses", String(localized: "Packages")),
         ("document-renderer-licenses", String(localized: "Drawing and diagram renderer")),
     ]

@@ -11,6 +11,7 @@ struct WelcomePage: View {
     @State private var retrying = false
     @State private var chosen: ProviderId?
     @State private var eclipseAnchor: CGFloat?
+    @State private var eclipseInteraction = EclipseInteraction()
 
     private var busy: Bool { runtime.loading || runtime.signingIn || runtime.signingOut || retrying }
 
@@ -35,10 +36,11 @@ struct WelcomePage: View {
         .background {
             ZStack {
                 MobileStyle.canvas
-                Eclipse(scene: .welcome, anchor: eclipseAnchor)
+                Eclipse(scene: .welcome, anchor: eclipseAnchor, interaction: eclipseInteraction)
             }
             .ignoresSafeArea()
         }
+        .eclipseTouch(eclipseInteraction)
         .alert(
             "Sign-in failed",
             isPresented: Binding(
