@@ -378,8 +378,8 @@ function NodeMenuContent({ id, viewId: targetViewId, node, onRename, snooze }: N
                 />
             )}
             <ContextMenu.Separator />
-            <FlagSubmenu id={id} />
             <AccentSubmenu picked={node.accent} onPick={(accent) => canvas().getState().setNodeAccent(id, accent)} />
+            <FlagSubmenu id={id} />
             {node.kind === 'note' && (
                 <NoteColorSubmenu picked={node.color ?? DEFAULT_NOTE_COLOR} onPick={(color) => colorNoteAction(canvas().getState().viewId, id, color)} />
             )}
