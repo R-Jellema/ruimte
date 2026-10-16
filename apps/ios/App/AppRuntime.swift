@@ -8,8 +8,12 @@ import WidgetKit
 @MainActor @Observable
 final class AppRuntime {
     var providers: [ProviderId] = []
-    var account: Account?
-    var machines: [Machine] = []
+    var account: Account? {
+        didSet { CrashRedactions.remember([account?.login, account?.displayName.present].compactMap { $0 }) }
+    }
+    var machines: [Machine] = [] {
+        didSet { CrashRedactions.remember(machines.map(\.name)) }
+    }
     var problem: String?
     var signingIn = false
     var signingOut = false

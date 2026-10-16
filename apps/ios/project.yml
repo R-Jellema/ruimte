@@ -16,6 +16,9 @@ packages:
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm.git
     exactVersion: 1.15.0
+  Sentry:
+    url: https://github.com/getsentry/sentry-cocoa.git
+    exactVersion: 9.30.2
   RuimtePulsar:
     path: Packages/RuimtePulsar
   RuimteTransport:
@@ -52,6 +55,8 @@ targets:
       - package: RuimteIntelligentUI
       - package: SwiftTerm
       - package: Highlightr
+      - package: Sentry
+        product: Sentry
       - target: RuimteNotificationService
         embed: true
       - target: RuimteActivityWidget

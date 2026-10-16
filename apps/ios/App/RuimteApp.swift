@@ -6,6 +6,10 @@ struct RuimteApp: App {
     @UIApplicationDelegateAdaptor(NotificationAppDelegate.self) private var appDelegate
     @State private var runtime = NotificationAppDelegate.runtime
 
+    init() {
+        CrashReports.start()
+    }
+
     var body: some Scene {
         WindowGroup {
             AppHome(runtime: runtime)

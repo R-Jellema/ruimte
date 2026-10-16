@@ -243,6 +243,7 @@ final class UnifiedProjects {
             return []
         }
         defaults.set(machine.publicKey, forKey: key + ".publicKey")
+        CrashRedactions.remember(array.flatMap { [$0.text("name"), $0.text("folder")] })
         return unique(
             array.compactMap { summary in
                 try? WireEvent.projectSummary.validatePayload(.object(["summary": summary]))[
@@ -251,6 +252,7 @@ final class UnifiedProjects {
     }
 
     private func writeCache(_ entry: UnifiedProjectMachine) {
+        CrashRedactions.remember(entry.summaries.flatMap { [$0.text("name"), $0.text("folder")] })
         let kept = entry.summaries.sorted { $0.number("lastOpenedAt") > $1.number("lastOpenedAt") }
             .prefix(50)
         if let data = try? JSONValue.array(Array(kept)).encoded() {
