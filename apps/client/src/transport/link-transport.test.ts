@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import { PROTOCOL_VERSION, REQUEST_SCHEMAS, encodeBytesReply, encodeLiveFrame } from '@ruimte/contracts';
 import i18next from 'i18next';
+import type { LinkProblem } from '@/telemetry/events';
 import { LinkTransport, type Link, type LinkEvents } from './link-transport';
 import type { SignalRoute, TransportStatus } from './transport';
 
@@ -506,6 +507,66 @@ describe('LinkTransport', () => {
             await tick();
             transport.dispose();
             expect(jest.getTimerCount()).toBe(0);
+        });
+    });
+    describe('reports', () => {
+        function reported(options: { requestTimeoutMs?: number } = {}) {
+            const links: FakeLink[] = [];
+            const problems: LinkProblem[] = [];
+            const transport = new LinkTransport(
+                'ws://machine/ws',
+                (_url, events) => {
+                    const link = new FakeLink(events);
+                    links.push(link);
+                    return link;
+                },
+                { ...options, report: (problem) => problems.push(problem), log: { info: () => undefined, warn: () => undefined } }
+            );
+            return { transport, links, problems };
+        }
+
+        test('a link that drops while open, with its close code, and not one this transport closed itself', async () => {
+            const { transport, links, problems } = reported();
+            await tick();
+            open(links[0]!);
+            links[0]!.events.close(null, 1006);
+            expect(problems).toEqual([{ kind: 'dropped', code: 1006 }]);
+            await tick(600);
+            open(links[1]!);
+            transport.reconnect();
+            await tick();
+            open(links[2]!);
+            transport.dispose();
+            await tick();
+            expect(problems).toEqual([{ kind: 'dropped', code: 1006 }]);
+        });
+
+        test('an attempt that fails before it opened is no drop', async () => {
+            const { transport, links, problems } = reported();
+            await tick();
+            links[0]!.events.close(null, 1006);
+            expect(problems).toEqual([]);
+            transport.dispose();
+        });
+
+        test('a request without an answer in time, by its type only', async () => {
+            const { transport, links, problems } = reported({ requestTimeoutMs: 50 });
+            await tick();
+            open(links[0]!);
+            const reply = transport.request('session.list', {});
+            reply.catch(() => undefined);
+            await tick(50);
+            expect(problems).toEqual([{ kind: 'timeout', request: 'session.list' }]);
+            transport.dispose();
+        });
+
+        test('a machine refused at the protocol check, with the reason', async () => {
+            const { transport, links, problems } = reported();
+            await tick();
+            links[0]!.events.open();
+            links[0]!.events.message(JSON.stringify({ id: 'protocol', ok: true, result: { protocol: PROTOCOL_VERSION } }));
+            expect(problems).toEqual([{ kind: 'refused', mismatch: 'daemon-older' }]);
+            transport.dispose();
         });
     });
 });

@@ -44,6 +44,8 @@
         "@ruimte/csp": "workspace:*",
         "@ruimte/desktop-bridge": "workspace:*",
         "@ruimte/pulsar": "workspace:*",
+        "@ruimte/telemetry": "workspace:*",
+        "@sentry/browser": "11.7.0",
         "@tanstack/react-virtual": "^3.14.13",
         "@xterm/addon-fit": "^0.11.0",
         "@xterm/addon-search": "^0.16.0",

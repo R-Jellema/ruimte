@@ -29,7 +29,7 @@ export interface ProtocolGateEvents {
     /* `features` is what the machine answered; absent when it refused `endpoint.info`, which this check cannot judge. */
     open(features?: readonly string[]): void;
     message(data: string | Uint8Array): void;
-    refuse(failure: string): void;
+    refuse(failure: string, mismatch: ProtocolMismatch): void;
 }
 
 /*
@@ -62,7 +62,7 @@ export function protocolGate(events: ProtocolGateEvents, client: number = PROTOC
                     ? null
                     : (protocolMismatch(frame.result?.protocol, client) ?? (Array.isArray(frame.result?.features) ? null : 'daemon-older'));
             if (mismatch !== null) {
-                events.refuse(protocolRefusal(mismatch));
+                events.refuse(protocolRefusal(mismatch), mismatch);
                 return;
             }
             events.open(frame.ok === true ? frame.result?.features : undefined);

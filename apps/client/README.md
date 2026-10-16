@@ -140,3 +140,15 @@ in ADE CORE's package documentation.
 ## Icons
 
 Icons are Lucide, drawn by the `Icon` component of `@adecore/ui`, which is where the pixel box and the stroke weight are decided. Brand marks for the agent CLIs come from simple-icons (`src/agents/AgentIcon.tsx`).
+
+## Crash reports
+
+A release build of the desktop app and the station report the page's errors, always, and nothing else (`src/telemetry`). `vite.config.ts` stamps the version into the build only when CI builds a release or deploys the station (`RUIMTE_TELEMETRY=1`), so Vite, the tests and a local build send nothing. A release build in any page other than the desktop app and the station stays silent as well. A report goes out for:
+
+- an error or rejection nothing caught
+- an error an `ErrorBoundary` caught (React's `onCaughtError`); the fallbacks inside a chat keep React's log and are not reported
+- a link to a machine that drops while open, with its close code, whether the machine is this one or another and whether it is a socket or a direct connection
+- a request that gets no answer within 60 seconds, by its type
+- a machine refused at the protocol check, with the way the versions differ
+
+The SDK is a chunk of its own that only the first report loads. Every report goes through the scrubber of `@ruimte/telemetry`, which also takes out the names and folders of the projects the client lists, and the same error goes out once a day for the whole app (`ruimte.telemetry.sent` in local storage). No breadcrumbs, no tracing, no sessions, no replays, and never the page's address.

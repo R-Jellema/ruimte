@@ -14,7 +14,7 @@ export function socketLink(url: string, events: LinkEvents): Link {
     socket.onclose = (event) => {
         const daemon = event.code === PROTOCOL_REFUSED_CLOSE_CODE ? protocolOfRefusal(event.reason) : null;
         const mismatch = daemon === null ? null : protocolMismatch(daemon);
-        events.close(mismatch === null ? null : protocolRefusal(mismatch));
+        events.close(mismatch === null ? null : protocolRefusal(mismatch), event.code);
     };
     // The browser fires close right after error, so close owns the state change.
     socket.onerror = () => {};

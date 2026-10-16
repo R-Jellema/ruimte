@@ -1,0 +1,64 @@
+import type { DedupeStore } from '@ruimte/telemetry';
+
+/* This client's own machine, or one of the account. */
+export type MachineKind = 'local' | 'remote';
+
+/* A WebSocket, or a DataChannel whose signals went another way. */
+export type LinkKind = 'socket' | 'direct';
+
+/* What a link to a machine went through, as the transport sees it. Never a payload, an address or a machine's name. */
+export type LinkProblem = { kind: 'dropped'; code: number | null } | { kind: 'timeout'; request: string } | { kind: 'refused'; mismatch: string };
+
+export type ConnectionProblem = LinkProblem & { machine: MachineKind; link: LinkKind };
+
+export interface ConnectionEvent {
+    message: string;
+    level: 'error';
+    fingerprint: string[];
+    tags: Record<string, string>;
+}
+
+/* The tags a report of the client may carry; the scrubber drops every other one. */
+export const CLIENT_TAGS: readonly string[] = ['surface', 'process', 'platform', 'problem', 'machine', 'link', 'close_code', 'request', 'mismatch'];
+
+export function connectionEvent(problem: ConnectionProblem): ConnectionEvent {
+    const where = { machine: problem.machine, link: problem.link };
+    switch (problem.kind) {
+        case 'dropped': {
+            const code = problem.code === null ? 'none' : String(problem.code);
+            return {
+                message: `The ${problem.link} link to a ${problem.machine} machine dropped (${code})`,
+                level: 'error',
+                fingerprint: ['connection-dropped', problem.machine, problem.link, code],
+                tags: { problem: 'connection-dropped', ...where, close_code: code }
+            };
+        }
+        case 'timeout':
+            return {
+                message: `${problem.request} got no answer in time`,
+                level: 'error',
+                fingerprint: ['request-timeout', problem.request],
+                tags: { problem: 'request-timeout', ...where, request: problem.request }
+            };
+        case 'refused':
+            return {
+                message: `A machine was refused at the protocol check (${problem.mismatch})`,
+                level: 'error',
+                fingerprint: ['protocol-refused', problem.mismatch],
+                tags: { problem: 'protocol-refused', ...where, mismatch: problem.mismatch }
+            };
+    }
+}
+
+const SENT_KEY = 'ruimte.telemetry.sent';
+
+/* Every window of the app shares it, so one error goes out once a day for the whole app, not once per window. */
+export function storageDedupeStore(storage: () => Pick<Storage, 'getItem' | 'setItem'>): DedupeStore {
+    return {
+        read: () => {
+            const parsed: unknown = JSON.parse(storage().getItem(SENT_KEY) ?? '{}');
+            return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? (parsed as Record<string, number>) : {};
+        },
+        write: (entries) => storage().setItem(SENT_KEY, JSON.stringify(entries))
+    };
+}

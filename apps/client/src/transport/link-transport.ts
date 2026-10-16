@@ -13,6 +13,7 @@ import {
     type RequestMap,
     type RequestType
 } from '@ruimte/contracts';
+import type { LinkProblem } from '@/telemetry/events';
 import type { BytesPiece } from './piece';
 import { protocolGate } from './protocol';
 import { messageOf } from './signaling';
@@ -65,8 +66,8 @@ export interface LinkEvents {
     message(data: string | Uint8Array): void;
     /* The path of an open link changed: through a TURN relay or not. Only a direct connection says. */
     route?(relayed: boolean): void;
-    /* The link is gone. `failure` says why when that is worth showing a person; null for an ordinary close. */
-    close(failure: string | null): void;
+    /* The link is gone. `failure` says why when that is worth showing a person; null for an ordinary close. `code` is a socket's close code. */
+    close(failure: string | null, code?: number): void;
 }
 
 /* Opens a link on an address the transport resolved for this attempt. The transport runs the protocol check on whatever it returns. */
@@ -80,6 +81,8 @@ export interface LinkTransportOptions {
     random?: () => number;
     now?: () => number;
     log?: Pick<Console, 'info' | 'warn'>;
+    /* A link that dropped while open, a request without an answer in time, a machine refused at the check: for a crash report. */
+    report?: (problem: LinkProblem) => void;
 }
 
 interface Pending {
@@ -111,6 +114,7 @@ export class LinkTransport implements PooledTransport {
     private readonly gateTimeoutMs: number;
     private readonly requestTimeoutMs: number;
     private readonly log: Pick<Console, 'info' | 'warn'>;
+    private readonly report: (problem: LinkProblem) => void;
     private nextId = 1;
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     private disposed = false;
@@ -127,6 +131,7 @@ export class LinkTransport implements PooledTransport {
         this.gateTimeoutMs = options.gateTimeoutMs ?? GATE_TIMEOUT_MS;
         this.requestTimeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
         this.log = options.log ?? console;
+        this.report = options.report ?? (() => undefined);
         this.random = options.random ?? Math.random;
         this.now = options.now ?? Date.now;
         this.connect();
@@ -303,7 +308,8 @@ export class LinkTransport implements PooledTransport {
                     this.receive(data);
                 }
             },
-            refuse: (failure) => {
+            refuse: (failure, mismatch) => {
+                this.report({ kind: 'refused', mismatch });
                 events.close(failure);
                 link?.close();
             }
@@ -329,10 +335,14 @@ export class LinkTransport implements PooledTransport {
                 }
             },
             message: (data) => gate.received(data),
-            close: (failure) => {
+            close: (failure, code) => {
                 stopGateTimer();
                 if (this.linkToken !== token) {
                     return;
+                }
+                // A link this transport let go of reports no more, so whatever closes here closed on its own.
+                if (this.currentConnection.status === 'open' && !this.disposed) {
+                    this.report({ kind: 'dropped', code: code ?? null });
                 }
                 this.linkToken = null;
                 this.link = null;
@@ -396,6 +406,7 @@ export class LinkTransport implements PooledTransport {
             if (!UNBOUNDED_REQUESTS.has(type)) {
                 entry.timer = setTimeout(() => {
                     this.pending.delete(id);
+                    this.report({ kind: 'timeout', request: type });
                     reject(
                         new TransportError('timeout', i18next.t('machines:connection.timedOut', { type, seconds: Math.round(this.requestTimeoutMs / 1000) }))
                     );

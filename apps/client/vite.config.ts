@@ -14,6 +14,9 @@ import { visualHostPage } from './visual-host.ts';
 // The dev daemon sits on 4211 so an installed Ruimte can keep 4210.
 const daemon = process.env.RUIMTE_DAEMON ?? 'ws://localhost:4211';
 
+// Only a release reports its errors (`src/telemetry/report.ts`): CI sets both, and with them come the source maps it uploads and never ships.
+const telemetryVersion = process.env.RUIMTE_TELEMETRY === '1' ? (process.env.RUIMTE_VERSION ?? '') : '';
+
 // Beside the daemons instead of Vite's 5173, which other projects on the same computer claim first.
 const port = 4212;
 
@@ -149,6 +152,12 @@ export default defineConfig(({ mode }) => ({
         scriptFilesGuard(),
         ...(mode === 'station' ? [stationHead()] : [])
     ],
+    define: {
+        'import.meta.env.RUIMTE_TELEMETRY_VERSION': JSON.stringify(telemetryVersion)
+    },
+    build: {
+        sourcemap: telemetryVersion === '' ? false : 'hidden'
+    },
     resolve: {
         alias: {
             '@': fileURLToPath(new URL('./src', import.meta.url))

@@ -7,6 +7,8 @@ import { hasLocalMachine } from '@/state/local-machine';
 import { LOCAL_ENDPOINT_ID, brokerRouteOf, endpointById, useEndpoints, type Endpoint } from '@/state/endpoints';
 import { iceServersFrom, useSettings } from '@/state/settings';
 import { IS_STATION } from '@/station';
+import type { LinkKind, MachineKind } from '@/telemetry/events';
+import { reportConnectionProblem } from '@/telemetry/report';
 import { ActiveTransport } from './active-transport';
 import { brokerSignaling } from './broker-signaling';
 import { directProof } from './direct-auth';
@@ -88,6 +90,13 @@ function linkFor(endpointId: () => string): LinkOpener {
     };
 }
 
+/* What a crash report says of the link to a machine: never its name or address. */
+function linkKindOf(endpointId: string): { machine: MachineKind; link: LinkKind } {
+    const endpoint = endpointById(endpointId);
+    const local = endpointId === LOCAL_ENDPOINT_ID;
+    return { machine: local ? 'local' : 'remote', link: !endpoint || (local && endpoint.direct !== true) ? 'socket' : 'direct' };
+}
+
 /*
  * Where a machine's next connection opens. The row of this machine opens on its own address, with a
  * ticket signed for over HTTP. Every other machine is reached through a route, which asks nothing of
@@ -106,7 +115,9 @@ export const pool = new TransportPool({
     open: (endpoint: Endpoint, currentId: () => string) =>
         !hasLocalMachine() && endpoint.id === LOCAL_ENDPOINT_ID
             ? new DormantTransport()
-            : new LinkTransport(() => connectionAddressFor(currentId()), linkFor(currentId))
+            : new LinkTransport(() => connectionAddressFor(currentId()), linkFor(currentId), {
+                  report: (problem) => reportConnectionProblem({ ...problem, ...linkKindOf(currentId()) })
+              })
 });
 
 /* The machine the person is working on, as one transport. Everything cwd-shaped and node-shaped talks through it. */

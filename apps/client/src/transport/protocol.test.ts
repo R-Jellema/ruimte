@@ -53,6 +53,16 @@ describe('protocolGate', () => {
         expect(newer.log).toEqual([`refuse ${NEWER}`]);
     });
 
+    test('says which way the versions differ beside the message', () => {
+        const mismatches: string[] = [];
+        const gate = protocolGate(
+            { send: () => undefined, open: () => undefined, message: () => undefined, refuse: (_failure, mismatch) => mismatches.push(mismatch) },
+            2
+        );
+        gate.received(answer({ protocol: 3, features: [] }));
+        expect(mismatches).toEqual(['daemon-newer']);
+    });
+
     test('a daemon from before versions answers without one and is the older case', () => {
         const { gate, log } = gateWith(1);
         gate.received(answer({ id: 'daemon', label: 'Mac', version: '0.1.0' }));
