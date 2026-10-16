@@ -42,8 +42,9 @@ function rateLimited(): Response {
 }
 
 /*
- * `POST /v1/usage`: finished days of anonymous counts. Neither the address nor the body is logged, and
- * a batch is taken whole or refused whole, so a machine knows exactly which days it may forget.
+ * `POST /v1/usage`: finished days of anonymous counts. Neither the address nor the body is logged. A
+ * body the schema refuses is refused whole; otherwise every day in the window is written and the
+ * others skipped, so after either answer a machine forgets every day it sent.
  */
 export async function acceptUsage(request: Request, deps: UsageDeps): Promise<Response> {
     if (!deps.dataset) {
@@ -61,13 +62,8 @@ export async function acceptUsage(request: Request, deps: UsageDeps): Promise<Re
     if ('response' in body) {
         return body.response;
     }
-    for (const [index, day] of body.value.days.entries()) {
-        const problem = usageDateProblem(day.date, now);
-        if (problem !== null) {
-            return failure('bad-request', `days.${index}.date: ${problem}`);
-        }
-    }
-    for (const day of body.value.days) {
+    // A day outside the window is a clock that is off, not a wrong batch: it is left out, and the rest still counts.
+    for (const day of body.value.days.filter((candidate) => usageDateProblem(candidate.date, now) === null)) {
         for (const point of usageDataPoints(day)) {
             deps.dataset.writeDataPoint(point);
         }

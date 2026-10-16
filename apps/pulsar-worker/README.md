@@ -98,15 +98,17 @@ first active day of this ISO week or UTC calendar month, so a sum of either is t
 of the machine's first day (`cohortWeek`), the median desktop start until the first connection (`startupMs`, optional)
 and `counts`, a fixed set of counters that are each optional and default to zero.
 
-What the address book refuses with `bad-request` (400), always the whole batch:
+What the address book refuses with `bad-request` (400), always the whole batch, since the body itself is wrong:
 
 - any key the schema does not name, at every level
 - a count that is not a whole number from 0 to 100,000, or a `startupMs` outside 1 to 600,000
 - no days, more than seven, or one date twice
-- a date after today (UTC) or before the eighth day before it, and a cohort week after the day's week
+- a cohort week after the day's week
 - a body over 32 KB
 
-A batch that is refused is wrong, so a machine drops those days rather than send them again. A `rate-limited` (429)
+A day dated after today (UTC) or before the eighth day before it is skipped, not refused: the other days are still
+written and the answer is 204, so one day from a clock that was off never costs the rest of the batch. A batch that is
+refused is wrong, so a machine drops those days rather than send them again. A `rate-limited` (429)
 or any other failure keeps them for the next try. Each address may send three batches a minute (the
 `USAGE_LIMIT` rate limiting binding) and twenty a day (a bucket in `rate_limit` named by a SHA-256 digest of the
 day and the address, which the daily cleanup drops once the day is over). The address and the body are never logged.

@@ -138,6 +138,7 @@ export class UsageReporter {
             this.failedAt = null;
             counter.forget(dates);
         } catch (e) {
+            // A 400 is a body the schema refuses, which sending again cannot fix; a day out of range is skipped with a 204 instead.
             if (e instanceof AddressBookRequestError && e.status === 400) {
                 console.warn('The address book refused the usage counts; they are dropped:', errorText(e));
                 counter.forget(dates);

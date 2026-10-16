@@ -55,18 +55,20 @@ describe('a usage batch', () => {
         expect(written.map((point) => `${point.blobs[1]} ${point.blobs[0]}`)).toEqual(['2026-10-15 day', '2026-10-15 work', '2026-10-14 day']);
     });
 
-    test('is refused whole when one day is too old or still to come', async () => {
-        const old = await acceptUsage(post({ days: [day(), day({ date: '2026-10-07' })] }), deps);
-        expect(old.status).toBe(400);
-        expect((await errorOf(old)).message).toStartWith('days.1.date');
+    test('skips a day too old or still to come, writes the others and is answered without a body', async () => {
+        const mixed = await acceptUsage(post({ days: [day(), day({ date: '2026-10-07' }), day({ date: '2026-10-17' })] }), deps);
+        expect(mixed.status).toBe(204);
+        expect(written.map((point) => point.blobs[1])).toEqual(['2026-10-15', '2026-10-15']);
+        written = [];
         const future = await acceptUsage(post({ days: [day({ date: '2026-10-17' })] }), deps);
-        expect(future.status).toBe(400);
+        expect(future.status).toBe(204);
         expect(written).toEqual([]);
     });
 
     test('is refused when it carries anything the schema does not name', async () => {
         const response = await acceptUsage(post({ days: [day()], machineId: 'abc' }), deps);
         expect(response.status).toBe(400);
+        expect((await errorOf(response)).code).toBe('bad-request');
         expect(written).toEqual([]);
     });
 
