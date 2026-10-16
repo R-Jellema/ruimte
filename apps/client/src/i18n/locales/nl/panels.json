@@ -159,6 +159,8 @@
         "view": {
             "preview": "Voorbeeld",
             "source": "Broncode",
+            "table": "Tabel",
+            "tableAfterSave": "De tabel verschijnt zodra de wijzigingen zijn opgeslagen",
             "previewAfterSave": "Het voorbeeld verschijnt zodra de wijzigingen zijn opgeslagen"
         },
         "patch": {
@@ -260,6 +262,24 @@
         "choice": {
             "title": "Welke {{path}}?",
             "description": "Meer dan één map van het project heeft dit bestand. Kies het bestand dat de agent bedoelde."
+        },
+        "table": {
+            "crashed": "De tabelweergave liep vast",
+            "empty": "{{name}} is leeg.",
+            "noRows": "{{name}} heeft een koprij en geen rijen.",
+            "malformed": "Dit bestand is mogelijk beschadigd. Een waarde tussen aanhalingstekens eindigt niet waar dat zou moeten, dus de rijen erna kunnen verschoven zijn.",
+            "header": "Eerste rij is koprij",
+            "column": "Kolom {{position}}",
+            "delimiter": "Scheidingsteken",
+            "delimiters": {
+                "comma": "Komma",
+                "semicolon": "Puntkomma",
+                "tab": "Tab"
+            },
+            "rows_one": "{{value}} rij",
+            "rows_other": "{{value}} rijen",
+            "columns_one": "{{value}} kolom",
+            "columns_other": "{{value}} kolommen"
         },
         "archive": {
             "crashed": "De archiefweergave is vastgelopen",

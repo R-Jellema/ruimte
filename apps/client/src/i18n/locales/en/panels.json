@@ -159,6 +159,8 @@
         "view": {
             "preview": "Preview",
             "source": "Source",
+            "table": "Table",
+            "tableAfterSave": "The table shows once the changes are saved",
             "previewAfterSave": "Preview shows once the changes are saved"
         },
         "patch": {
@@ -260,6 +262,24 @@
         "choice": {
             "title": "Which {{path}}?",
             "description": "More than one folder of the project holds this file. Pick the one the agent meant."
+        },
+        "table": {
+            "crashed": "The table view failed",
+            "empty": "{{name}} is empty.",
+            "noRows": "{{name}} has a header and no rows.",
+            "malformed": "This file may be malformed. A quoted value does not end where it should, so the rows after it may be off.",
+            "header": "First row is header",
+            "column": "Column {{position}}",
+            "delimiter": "Delimiter",
+            "delimiters": {
+                "comma": "Comma",
+                "semicolon": "Semicolon",
+                "tab": "Tab"
+            },
+            "rows_one": "{{value}} row",
+            "rows_other": "{{value}} rows",
+            "columns_one": "{{value}} column",
+            "columns_other": "{{value}} columns"
         },
         "archive": {
             "crashed": "The archive viewer failed",

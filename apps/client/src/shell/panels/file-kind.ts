@@ -10,6 +10,7 @@ const MARKDOWN_EXTENSIONS = new Set(['md', 'mdx', 'markdown']);
 const HTML_EXTENSIONS = new Set(['html', 'htm']);
 
 const PATCH_EXTENSIONS = new Set(['patch', 'diff']);
+const DELIMITED_EXTENSIONS = new Set(['csv', 'tsv']);
 
 export function isPatchName(name: string): boolean {
     return PATCH_EXTENSIONS.has(extensionOf(name));
@@ -21,6 +22,10 @@ export function isMarkdownName(name: string): boolean {
 
 export function isHtmlName(name: string): boolean {
     return HTML_EXTENSIONS.has(extensionOf(name));
+}
+
+export function isDelimitedName(name: string): boolean {
+    return DELIMITED_EXTENSIONS.has(extensionOf(name));
 }
 
 // The daemon serves these for a client whose platform decodes them; Chromium decodes none of the three.

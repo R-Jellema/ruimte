@@ -2,7 +2,7 @@ import { isArchiveMime, isAudioMime, isImageMime, isModelMime, isPdfMime, isVide
 import { ArchivePreview } from '@/shell/panels/ArchivePreview';
 import { AudioFile } from '@/shell/panels/AudioFile';
 import { CodeFile } from '@/shell/panels/CodeFile';
-import { isHtmlName, isMarkdownName, isPatchName } from '@/shell/panels/file-kind';
+import { isDelimitedName, isHtmlName, isMarkdownName, isPatchName } from '@/shell/panels/file-kind';
 import { fileSource } from '@/shell/panels/file-source';
 import { HtmlFile } from '@/shell/panels/HtmlFile';
 import { ImageFile } from '@/shell/panels/ImageFile';
@@ -11,6 +11,7 @@ import { ModelPreview } from '@/shell/panels/ModelPreview';
 import { UnsupportedFile } from '@/shell/panels/UnsupportedFile';
 import { PatchFileSlot } from '@/shell/panels/patch-file-lazy';
 import { PdfPreview } from '@/shell/panels/PdfPreview';
+import { TableFile } from '@/shell/panels/TableFile';
 import { VideoFile } from '@/shell/panels/VideoFile';
 
 export interface FileRendererProps {
@@ -46,6 +47,11 @@ export const TEXT_RENDERERS: readonly TextFileRenderer[] = [
         id: 'patch',
         match: (name) => isPatchName(name),
         render: (props) => <PatchFileSlot path={props.path} read={props.read} />
+    },
+    {
+        id: 'delimited',
+        match: (name) => isDelimitedName(name),
+        render: (props) => <TableFile path={props.path} name={props.name} read={props.read} />
     }
 ];
 
