@@ -9,6 +9,7 @@ import { useTransport } from '@/transport/context';
 import { useMachineUrl } from '@/transport/machine-url';
 import { drawsImageMime, imageFormatName } from '@/shell/panels/file-kind';
 import { FileContextMenu, FileToolbar, FileToolbarToggle } from '@/shell/panels/FileToolbar';
+import { machineResourceOf, revealablePath, type FileSource } from '@/shell/panels/file-source';
 import { Button, ButtonGroup, EmptyState, Icon } from '@adecore/ui';
 import { formatBytes } from '@adecore/ui/format';
 
@@ -16,7 +17,7 @@ type Zoom = 'fit' | 'full';
 
 /* An image from the daemon's own route, on a plain surface: a checkerboard would fight every icon
    drawn for a light background. */
-export function ImageFile({ path, name, read }: { path: string; name: string; read: FsReadBinary }) {
+export function ImageFile({ source, name, read }: { source: FileSource; name: string; read: FsReadBinary }) {
     const { t } = useTranslation('panels');
     const platform = useServer((s) => s.platform);
     const [zoom, setZoom] = useState<Zoom>('fit');
@@ -25,10 +26,13 @@ export function ImageFile({ path, name, read }: { path: string; name: string; re
     const transport = useTransport();
     const endpointId = useEndpointId();
     const drawable = drawsImageMime(read.mime);
-    const bytes = useMachineUrl(drawable ? { kind: 'file', path, mtime: read.mtime, size: read.size } : null, endpointId);
+    const bytes = useMachineUrl(drawable ? machineResourceOf(source, read) : null, endpointId);
+    const path = revealablePath(source);
 
     const reveal = (): void => {
-        revealFile(transport, path);
+        if (path !== null) {
+            revealFile(transport, path);
+        }
     };
 
     return (
@@ -49,9 +53,11 @@ export function ImageFile({ path, name, read }: { path: string; name: string; re
                         className="select-text"
                         icon={ImageOff}
                         action={
-                            <Button variant="secondary" size="sm" onClick={reveal}>
-                                <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
-                            </Button>
+                            path === null ? undefined : (
+                                <Button variant="secondary" size="sm" onClick={reveal}>
+                                    <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
+                                </Button>
+                            )
                         }
                     >
                         {t('file.image.notShown', { name, format: imageFormatName(read.mime) })}

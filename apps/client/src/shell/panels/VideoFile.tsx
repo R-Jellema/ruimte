@@ -5,6 +5,7 @@ import { CornerUpRight, FileVideo } from 'lucide-react';
 import type { FsReadBinary } from '@ruimte/contracts';
 import { useEndpointId } from '@/state/keys';
 import { FileContextMenu, FileToolbar } from '@/shell/panels/FileToolbar';
+import { machineResourceOf, revealablePath, type FileSource } from '@/shell/panels/file-source';
 import { fileManagerName, useServer } from '@/state/server';
 import { useTransport } from '@/transport/context';
 import { useMachineUrl } from '@/transport/machine-url';
@@ -17,17 +18,20 @@ function canPlay(mime: string): boolean {
 }
 
 /* A video in ranges, so the scrubber works: from the daemon's own route, or over a direct connection through the bytes worker. */
-export function VideoFile({ path, name, read }: { path: string; name: string; read: FsReadBinary }) {
+export function VideoFile({ source, name, read }: { source: FileSource; name: string; read: FsReadBinary }) {
     const { t } = useTranslation('panels');
     const platform = useServer((s) => s.platform);
     const [size, setSize] = useState<{ width: number; height: number } | null>(null);
     const [failed, setFailed] = useState(!canPlay(read.mime));
     const transport = useTransport();
     const endpointId = useEndpointId();
-    const bytes = useMachineUrl({ kind: 'media', path, mtime: read.mtime, size: read.size }, endpointId);
+    const bytes = useMachineUrl(machineResourceOf(source, read, true), endpointId);
+    const path = revealablePath(source);
 
     const reveal = (): void => {
-        revealFile(transport, path);
+        if (path !== null) {
+            revealFile(transport, path);
+        }
     };
 
     return (
@@ -39,9 +43,11 @@ export function VideoFile({ path, name, read }: { path: string; name: string; re
                         className="select-text"
                         icon={FileVideo}
                         action={
-                            <Button variant="secondary" size="sm" onClick={reveal}>
-                                <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
-                            </Button>
+                            path === null ? undefined : (
+                                <Button variant="secondary" size="sm" onClick={reveal}>
+                                    <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
+                                </Button>
+                            )
                         }
                     >
                         {t('file.video.cannotPlay', { name, mime: read.mime, size: formatBytes(read.size) })}

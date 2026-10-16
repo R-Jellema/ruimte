@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { CornerUpRight, FileText, Maximize, Scan } from 'lucide-react';
 import { getDocument, GlobalWorkerOptions, TextLayer, version, type PDFDocumentProxy, type PDFPageProxy } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import type { FsReadBinary } from '@ruimte/contracts';
+import type { ByteResource, FsReadBinary } from '@ruimte/contracts';
 import { useEndpoints } from '@/state/endpoints';
 import { useEndpointId } from '@/state/keys';
 import { fileManagerName, useServer } from '@/state/server';
@@ -14,6 +14,7 @@ import { useTransport } from '@/transport/context';
 import { useMachineUrl } from '@/transport/machine-url';
 import { readPiece } from '@/transport/piece';
 import { FileTextMenu, FileToolbar, FileToolbarToggle } from '@/shell/panels/FileToolbar';
+import { machineResourceOf, revealablePath, sourceKey, type FileSource } from '@/shell/panels/file-source';
 import { PDF_PAGE_GAP, pdfPageBox, pdfPageScale, pdfPageTops, pdfReadingPage, type PdfPageSize, type PdfZoom } from '@/shell/panels/pdf-layout';
 import { Button, ButtonGroup, EmptyState, Icon } from '@adecore/ui';
 import { formatBytes, formatNumber } from '@adecore/ui/format';
@@ -38,28 +39,30 @@ function messageOf(e: unknown): string {
 /*
  * Where pdf.js reads the file. `connect-src` never lets it fetch a blob URL, so the ranges come from the
  * daemon's route over a socket, or from the bytes worker over a direct connection. A machine on another
- * origin (the route sends no CORS headers) and a direct connection the worker does not serve yet read
- * the file whole instead.
+ * origin (the route sends no CORS headers), a direct connection the worker does not serve yet and an
+ * entry of an archive, which has no ranges, read the file whole instead.
  */
-function usePdfSource(path: string, read: FsReadBinary): Source | null {
+function usePdfSource(origin: FileSource, read: FsReadBinary): Source | null {
     const transport = useTransport();
     const endpointId = useEndpointId();
     const direct = useEndpoints((s) => s.endpoints.find((entry) => entry.id === endpointId)?.direct === true);
     // Once per mount, the way `useMachineUrl` decides it, so the two never disagree.
     const [streamed] = useState(bytesWorkerReady);
-    const blobOnly = direct && !streamed;
-    const machine = useMachineUrl(blobOnly ? null : { kind: 'media', path, mtime: read.mtime, size: read.size }, endpointId);
+    const blobOnly = (direct && !streamed) || origin.kind === 'archive-entry';
+    const machine = useMachineUrl(blobOnly ? null : machineResourceOf(origin, read, true), endpointId);
     const url = machine.url !== null && new URL(machine.url, location.href).origin === location.origin ? machine.url : null;
     const whole = blobOnly || (machine.url !== null && url === null);
     const [held, setHeld] = useState<{ key: string; source: Source } | null>(null);
-    const key = `${endpointId}\n${path}\n${read.mtime}\n${read.size}`;
+    const key = `${endpointId}\n${sourceKey(origin, read)}`;
+    // As a string, so the effect does not run again for every new object that says the same.
+    const wire = JSON.stringify(origin.kind === 'file' ? { kind: 'file', path: origin.path } : { kind: 'file', path: origin.path, entry: origin.entry });
 
     useEffect(() => {
         if (!whole) {
             return;
         }
         let cancelled = false;
-        readResource((piece) => readPiece(transport, piece), { kind: 'file', path })
+        readResource((piece) => readPiece(transport, piece), JSON.parse(wire) as ByteResource)
             .then((blob) => blob.arrayBuffer())
             .then(
                 (data) => !cancelled && setHeld({ key, source: { kind: 'data', data } }),
@@ -68,7 +71,7 @@ function usePdfSource(path: string, read: FsReadBinary): Source | null {
         return () => {
             cancelled = true;
         };
-    }, [whole, transport, path, key]);
+    }, [whole, transport, wire, key]);
 
     // One object per source, since opening the document hangs on its identity.
     return useMemo((): Source | null => {
@@ -87,11 +90,12 @@ function usePdfSource(path: string, read: FsReadBinary): Source | null {
  * layer of its text so it can be selected and copied. pdf.js reads the file in ranges, so a long
  * document opens at its first page without the rest.
  */
-export function PdfFile({ path, name, read }: { path: string; name: string; read: FsReadBinary }) {
+export function PdfFile({ source: origin, name, read }: { source: FileSource; name: string; read: FsReadBinary }) {
     const { t } = useTranslation('panels');
     const platform = useServer((s) => s.platform);
     const transport = useTransport();
-    const source = usePdfSource(path, read);
+    const source = usePdfSource(origin, read);
+    const path = revealablePath(origin);
     const [zoom, setZoom] = useState<PdfZoom>('fit');
     const [opened, setOpened] = useState<{ source: Source; doc: PDFDocumentProxy; first: PdfPageSize } | null>(null);
     const [failure, setFailure] = useState<{ source: Source; reason: string } | null>(null);
@@ -178,7 +182,9 @@ export function PdfFile({ path, name, read }: { path: string; name: string; read
     }, []);
 
     const reveal = (): void => {
-        revealFile(transport, path);
+        if (path !== null) {
+            revealFile(transport, path);
+        }
     };
 
     // The page that was being read stays at the top when the zoom changes under it.
@@ -205,9 +211,11 @@ export function PdfFile({ path, name, read }: { path: string; name: string; read
                     className="m-auto select-text"
                     icon={FileText}
                     action={
-                        <Button variant="secondary" size="sm" onClick={reveal}>
-                            <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
-                        </Button>
+                        path === null ? undefined : (
+                            <Button variant="secondary" size="sm" onClick={reveal}>
+                                <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
+                            </Button>
+                        )
                     }
                 >
                     {t('file.pdf.failed', { name, reason: failed })}

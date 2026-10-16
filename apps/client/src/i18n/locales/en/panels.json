@@ -260,6 +260,49 @@
         "choice": {
             "title": "Which {{path}}?",
             "description": "More than one folder of the project holds this file. Pick the one the agent meant."
+        },
+        "archive": {
+            "crashed": "The archive viewer failed",
+            "listing": "Reading the contents of {{name}}…",
+            "failed": "Could not open {{name}}. {{reason}}",
+            "empty": "{{name}} is empty.",
+            "truncated": "Only the first {{value}} entries are listed.",
+            "unsafe_one": "{{count}} entry is left out, since its name would land outside the folder it is extracted into.",
+            "unsafe_other": "{{count}} entries are left out, since their names would land outside the folder they are extracted into.",
+            "pick": "Pick a file to preview it.",
+            "tree": "Contents of {{name}}",
+            "extractAll": "Extract all",
+            "files_one": "{{value}} file",
+            "files_other": "{{value}} files",
+            "unpacked": "{{size}} unpacked",
+            "packed": "{{size}} packed",
+            "entry": {
+                "reading": "Reading {{name}}…",
+                "notReadable": "{{name}} is encrypted or packed in a way this machine does not unpack.",
+                "link": "{{name}} is a link. Links in an archive are never followed.",
+                "tooLarge": "{{name}} is {{size}}. Entries over {{limit}} are not previewed. Extract it to open it.",
+                "nested": "{{name}} is an archive inside this one. Extract it to open it.",
+                "cannotShow": "{{name}} ({{mime}}, {{size}}) cannot be shown here.",
+                "failed": "Could not read {{name}}. {{reason}}"
+            },
+            "menu": {
+                "saveAs": "Save as…",
+                "extract": "Extract…",
+                "extractFolder": "Extract folder…"
+            },
+            "saveFailed": "Could not save {{name}}",
+            "extract": {
+                "title": "Extract {{name}}",
+                "description": "Into a new folder in {{folder}}.",
+                "folderName": "Folder name",
+                "confirm": "Extract",
+                "busy": "Extracting…",
+                "badName": "Enter one folder name, without slashes.",
+                "done_one": "Extracted {{count}} file into {{folder}}",
+                "done_other": "Extracted {{count}} files into {{folder}}",
+                "skipped_one": "{{count}} entry was left out. Links are never made, and names that escape the folder or land in .git are skipped.",
+                "skipped_other": "{{count}} entries were left out. Links are never made, and names that escape the folder or land in .git are skipped."
+            }
         }
     },
     "files": {

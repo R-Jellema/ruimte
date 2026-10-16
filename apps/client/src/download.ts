@@ -1,3 +1,5 @@
+import { desktop } from '@/desktop/bridge';
+
 // Safari reads the object URL after click() returns, so revoking it at once cancels the download.
 const REVOKE_AFTER_MS = 60_000;
 
@@ -9,4 +11,14 @@ export function downloadBlob(blob: Blob, name: string): void {
     anchor.download = name;
     anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), REVOKE_AFTER_MS);
+}
+
+/* Saves a blob to this computer: the desktop app asks where it goes, a browser tab downloads it. */
+export async function saveBlob(blob: Blob, name: string, mime: string): Promise<void> {
+    const bridge = desktop();
+    if (bridge?.saveFile) {
+        await bridge.saveFile(name, new Uint8Array(await blob.arrayBuffer()), mime);
+        return;
+    }
+    downloadBlob(blob, name);
 }

@@ -1,7 +1,9 @@
-import { isAudioMime, isImageMime, isModelMime, isPdfMime, isVideoMime, type FsReadResult, type FsReadText } from '@ruimte/contracts';
+import { isArchiveMime, isAudioMime, isImageMime, isModelMime, isPdfMime, isVideoMime, type FsReadResult, type FsReadText } from '@ruimte/contracts';
+import { ArchivePreview } from '@/shell/panels/ArchivePreview';
 import { AudioFile } from '@/shell/panels/AudioFile';
 import { CodeFile } from '@/shell/panels/CodeFile';
 import { isHtmlName, isMarkdownName, isPatchName } from '@/shell/panels/file-kind';
+import { fileSource } from '@/shell/panels/file-source';
 import { HtmlFile } from '@/shell/panels/HtmlFile';
 import { ImageFile } from '@/shell/panels/ImageFile';
 import { MarkdownFile } from '@/shell/panels/MarkdownFile';
@@ -54,19 +56,22 @@ export function renderFile({ path, name, read }: FileRendererProps): React.JSX.E
         return renderer ? renderer.render({ path, name, read }) : <CodeFile path={path} read={read} />;
     }
     if (read.kind === 'binary' && isImageMime(read.mime)) {
-        return <ImageFile path={path} name={name} read={read} />;
+        return <ImageFile source={fileSource(path)} name={name} read={read} />;
     }
     if (read.kind === 'binary' && isVideoMime(read.mime)) {
-        return <VideoFile path={path} name={name} read={read} />;
+        return <VideoFile source={fileSource(path)} name={name} read={read} />;
     }
     if (read.kind === 'binary' && isAudioMime(read.mime)) {
-        return <AudioFile path={path} name={name} read={read} />;
+        return <AudioFile source={fileSource(path)} name={name} read={read} />;
     }
     if (read.kind === 'binary' && isPdfMime(read.mime)) {
-        return <PdfPreview path={path} name={name} read={read} />;
+        return <PdfPreview source={fileSource(path)} name={name} read={read} />;
     }
     if (read.kind === 'binary' && isModelMime(read.mime)) {
-        return <ModelPreview path={path} name={name} read={read} />;
+        return <ModelPreview source={fileSource(path)} name={name} read={read} />;
+    }
+    if (read.kind === 'binary' && isArchiveMime(read.mime)) {
+        return <ArchivePreview path={path} name={name} read={read} />;
     }
     return <UnsupportedFile path={path} name={name} read={read} />;
 }

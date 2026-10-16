@@ -1,8 +1,7 @@
 import type { StoreApi } from 'zustand';
 import type { DrawingElement } from '@ruimte/contracts';
 import { DEFAULT_SVG_MARGIN, approximateMeasure, boundsOfElements, toSvg } from '@adecore/drawing';
-import { desktop } from '@/desktop/bridge';
-import { downloadBlob } from '@/download';
+import { saveBlob } from '@/download';
 import { measureLineIn } from '@/drawing/measure';
 import { paintElements, paintOptions } from '@/drawing/paint';
 import { readCanvasBackground } from '@/drawing/palette';
@@ -65,14 +64,8 @@ export async function drawingPng(store: DrawingSource, elements: readonly Drawin
     return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/png'));
 }
 
-export async function download(blob: Blob, name: string, mime: string): Promise<void> {
-    const bridge = desktop();
-    if (bridge?.saveFile) {
-        // The desktop app asks where the file goes; a browser tab has no such dialog to offer.
-        await bridge.saveFile(name, new Uint8Array(await blob.arrayBuffer()), mime);
-        return;
-    }
-    downloadBlob(blob, name);
+export function download(blob: Blob, name: string, mime: string): Promise<void> {
+    return saveBlob(blob, name, mime);
 }
 
 /* Where an export lands unless the person names it otherwise: what it is and the day it was made. */

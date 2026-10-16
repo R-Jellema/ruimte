@@ -21,7 +21,9 @@ export type MachineResource =
     | { kind: 'attachment'; chatId: string; attachmentId: string }
     | { kind: 'projectIcon'; projectId: string; theme: 'light' | 'dark'; version: string }
     | { kind: 'file'; path: string; mtime: number; size: number }
-    | { kind: 'media'; path: string; mtime: number; size: number };
+    | { kind: 'media'; path: string; mtime: number; size: number }
+    // An entry of the archive at `path`, pinned by the archive's own mtime and size.
+    | { kind: 'archive-entry'; path: string; entry: string; mtime: number; size: number };
 
 export type MachineUrl = BlobState;
 
@@ -39,7 +41,8 @@ const NOTHING: MachineUrl = { url: null, failure: null };
  */
 export function httpUrlFor(endpointId: string, resource: MachineResource): string | null {
     const endpoint = endpointById(endpointId);
-    if (!endpoint) {
+    // An entry is unpacked by the machine whole, so it has no route of its own and always comes as pieces.
+    if (!endpoint || resource.kind === 'archive-entry') {
         return null;
     }
     const credential = credentialFor(endpoint);
@@ -67,17 +70,25 @@ function wireResourceOf(resource: MachineResource): ByteResource {
     if (resource.kind === 'projectIcon') {
         return { kind: 'projectIcon', projectId: resource.projectId, theme: resource.theme };
     }
+    if (resource.kind === 'archive-entry') {
+        return { kind: 'file', path: resource.path, entry: resource.entry };
+    }
     return { kind: 'file', path: resource.path };
 }
 
 /* A file's bytes whole, for something that reads them rather than draws them, over the same way `useMachineUrl` picks. */
-export async function readMachineFile(endpointId: string, file: { path: string; mtime: number; size: number }, maxBytes: number): Promise<ArrayBuffer> {
-    if (endpointById(endpointId)?.direct === true) {
+export async function readMachineFile(
+    endpointId: string,
+    file: { path: string; mtime: number; size: number; entry?: string },
+    maxBytes: number
+): Promise<ArrayBuffer> {
+    if (endpointById(endpointId)?.direct === true || file.entry !== undefined) {
         const transport = transportFor(endpointId);
         if (!transport) {
             throw new Error(i18next.t('machines:connection.unknownMachine'));
         }
-        const blob = await readResource((piece) => readPiece(transport, piece), { kind: 'file', path: file.path }, { maxBytes });
+        const resource: ByteResource = file.entry === undefined ? { kind: 'file', path: file.path } : { kind: 'file', path: file.path, entry: file.entry };
+        const blob = await readResource((piece) => readPiece(transport, piece), resource, { maxBytes });
         return blob.arrayBuffer();
     }
     const url = httpUrlFor(endpointId, { kind: 'file', ...file });
@@ -98,6 +109,9 @@ export function machineResourceKey(endpointId: string, resource: MachineResource
     if (resource.kind === 'projectIcon') {
         return JSON.stringify([endpointId, resource.kind, resource.projectId, resource.theme, resource.version]);
     }
+    if (resource.kind === 'archive-entry') {
+        return JSON.stringify([endpointId, resource.kind, resource.path, resource.entry, resource.mtime, resource.size]);
+    }
     return JSON.stringify([endpointId, resource.kind, resource.path, resource.mtime, resource.size]);
 }
 
@@ -111,6 +125,8 @@ export function useMachineUrl(resource: MachineResource | null, endpointId?: str
     const activeId = useEndpoints((s) => s.activeId);
     const machineId = endpointId ?? activeId;
     const direct = useEndpoints((s) => s.endpoints.find((entry) => entry.id === machineId)?.direct === true);
+    // One way per kind: an archive entry comes in pieces over any link, everything else over HTTP unless the link is direct.
+    const pieced = direct || resource?.kind === 'archive-entry';
     const open = useEndpointConnection(machineId).status === 'open';
     const key = resource === null ? null : machineResourceKey(machineId, resource);
     // What the request asks for, as a string, so the dependency is stable where `resource` is a new object on every render.
@@ -121,7 +137,7 @@ export function useMachineUrl(resource: MachineResource | null, endpointId?: str
     const streamed = direct && workerReady && resource?.kind === 'media';
 
     useEffect(() => {
-        if (!direct || streamed || key === null || wire === null) {
+        if (!pieced || streamed || key === null || wire === null) {
             return;
         }
         const payload = JSON.parse(wire) as ByteResource;
@@ -140,7 +156,7 @@ export function useMachineUrl(resource: MachineResource | null, endpointId?: str
             lease.release();
             setHeld((current) => (current?.lease === lease ? null : current));
         };
-    }, [direct, streamed, key, wire, machineId]);
+    }, [pieced, streamed, key, wire, machineId]);
 
     const lease = held !== null && held.key === key ? held.lease : null;
     useEffect(() => {
@@ -152,7 +168,7 @@ export function useMachineUrl(resource: MachineResource | null, endpointId?: str
     if (resource === null) {
         return NOTHING;
     }
-    if (!direct) {
+    if (!pieced) {
         const url = httpUrlFor(machineId, resource);
         return url === null ? { url: null, failure: i18next.t('machines:connection.unknownMachine') } : { url, failure: null };
     }

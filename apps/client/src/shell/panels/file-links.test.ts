@@ -17,6 +17,9 @@ describe('parseFileRef', () => {
     test('takes a bare name only when its extension is one a project writes', () => {
         expect(parseFileRef('README.md')).toEqual({ path: 'README.md', directory: false });
         expect(parseFileRef('report.pdf')).toEqual({ path: 'report.pdf', directory: false });
+        for (const archive of ['build.zip', 'release.tar', 'site.tar.gz', 'site.tgz', 'library.jar']) {
+            expect(parseFileRef(archive)).toEqual({ path: archive, directory: false });
+        }
         expect(parseFileRef('useFiles.getState')).toBeNull();
         expect(parseFileRef('v1.2')).toBeNull();
     });

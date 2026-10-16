@@ -38,6 +38,7 @@ const FILE_EXTENSIONS = new Set([
     'glb',
     'gltf',
     'go',
+    'gz',
     'gql',
     'graphql',
     'h',
@@ -47,6 +48,7 @@ const FILE_EXTENSIONS = new Set([
     'ico',
     'ini',
     'java',
+    'jar',
     'jpeg',
     'jpg',
     'js',
@@ -81,6 +83,8 @@ const FILE_EXTENSIONS = new Set([
     'svelte',
     'svg',
     'swift',
+    'tar',
+    'tgz',
     'toml',
     'ts',
     'tsv',
@@ -93,6 +97,7 @@ const FILE_EXTENSIONS = new Set([
     'xml',
     'yaml',
     'yml',
+    'zip',
     'zsh'
 ]);
 

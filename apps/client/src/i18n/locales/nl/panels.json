@@ -260,6 +260,49 @@
         "choice": {
             "title": "Welke {{path}}?",
             "description": "Meer dan één map van het project heeft dit bestand. Kies het bestand dat de agent bedoelde."
+        },
+        "archive": {
+            "crashed": "De archiefweergave is vastgelopen",
+            "listing": "De inhoud van {{name}} lezen…",
+            "failed": "{{name}} kon niet worden geopend. {{reason}}",
+            "empty": "{{name}} is leeg.",
+            "truncated": "Alleen de eerste {{value}} items staan in de lijst.",
+            "unsafe_one": "{{count}} item is weggelaten, omdat de naam buiten de map zou uitkomen waarin het wordt uitgepakt.",
+            "unsafe_other": "{{count}} items zijn weggelaten, omdat de namen buiten de map zouden uitkomen waarin ze worden uitgepakt.",
+            "pick": "Kies een bestand om het te bekijken.",
+            "tree": "Inhoud van {{name}}",
+            "extractAll": "Alles uitpakken",
+            "files_one": "{{value}} bestand",
+            "files_other": "{{value}} bestanden",
+            "unpacked": "{{size}} uitgepakt",
+            "packed": "{{size}} ingepakt",
+            "entry": {
+                "reading": "{{name}} lezen…",
+                "notReadable": "{{name}} is versleuteld of ingepakt op een manier die deze machine niet uitpakt.",
+                "link": "{{name}} is een link. Links in een archief worden nooit gevolgd.",
+                "tooLarge": "{{name}} is {{size}}. Items boven {{limit}} worden niet getoond. Pak het uit om het te openen.",
+                "nested": "{{name}} is een archief in dit archief. Pak het uit om het te openen.",
+                "cannotShow": "{{name}} ({{mime}}, {{size}}) kan hier niet worden getoond.",
+                "failed": "{{name}} kon niet worden gelezen. {{reason}}"
+            },
+            "menu": {
+                "saveAs": "Opslaan als…",
+                "extract": "Uitpakken…",
+                "extractFolder": "Map uitpakken…"
+            },
+            "saveFailed": "{{name}} kon niet worden opgeslagen",
+            "extract": {
+                "title": "{{name}} uitpakken",
+                "description": "In een nieuwe map in {{folder}}.",
+                "folderName": "Mapnaam",
+                "confirm": "Uitpakken",
+                "busy": "Uitpakken…",
+                "badName": "Vul één mapnaam in, zonder schuine strepen.",
+                "done_one": "{{count}} bestand uitgepakt in {{folder}}",
+                "done_other": "{{count}} bestanden uitgepakt in {{folder}}",
+                "skipped_one": "{{count}} item is weggelaten. Links worden nooit gemaakt, en namen die buiten de map uitkomen of in .git belanden worden overgeslagen.",
+                "skipped_other": "{{count}} items zijn weggelaten. Links worden nooit gemaakt, en namen die buiten de map uitkomen of in .git belanden worden overgeslagen."
+            }
         }
     },
     "files": {

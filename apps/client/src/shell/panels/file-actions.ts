@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import type { FileSurfaceKind } from '@/shell/panels/FileActionItems';
 
 export interface FileActions {
@@ -19,6 +19,9 @@ export interface FileActions {
 
 /* What the toolbar's menu can do to the file under it; a context, so no renderer has to pass `FileBody`'s read along. */
 export const FileActionsContext = createContext<FileActions | null>(null);
+
+/* The rows a toolbar's menu offers instead of the file's own, for something that is no file on disk, such as an entry of an archive. */
+export const FileMenuRowsContext = createContext<ReactNode>(null);
 
 /* Null where a toolbar has no file under it to act on. */
 export function useFileActions(): FileActions | null {

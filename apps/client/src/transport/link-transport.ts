@@ -32,8 +32,9 @@ const GATE_TIMEOUT_MS = 20_000;
 // A request with no answer by then fails, so a handler that hangs is an error and not a spinner forever.
 const REQUEST_TIMEOUT_MS = 60_000;
 
-// Requests whose answer waits on a network, a model or a person's database, and that a caller ends itself when it has to.
+// Requests whose answer waits on a network, a model, a person's database or a disk writing as much as an archive holds, and that a caller ends itself when it has to.
 const UNBOUNDED_REQUESTS: ReadonlySet<RequestType> = new Set<RequestType>([
+    'archive.extract',
     'chat.continueOn',
     'chat.summarize',
     'database.request',

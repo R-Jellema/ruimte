@@ -167,6 +167,46 @@ function CodeChunk({ code, lines, start, index, highlight, reveal, revealNonce }
     );
 }
 
+/* Text split into the chunks the viewer draws one at a time. A text that ends in a newline has no last line, only a last line break. */
+function chunksOf(text: string): { chunks: { start: number; code: string; lines: number }[]; lineCount: number } {
+    const lines = text.replace(/\n$/, '').split('\n');
+    const chunks: { start: number; code: string; lines: number }[] = [];
+    for (let i = 0; i < lines.length; i += CHUNK_LINES) {
+        const block = lines.slice(i, i + CHUNK_LINES);
+        chunks.push({ start: i + 1, code: block.join('\n'), lines: block.length });
+    }
+    return { chunks, lineCount: lines.length };
+}
+
+/*
+ * Text that is no file on disk, such as an entry of an archive: highlighted and read only, with none of
+ * the editor, the language servers or the drafts a file of the project has.
+ */
+export function CodeText({ text, language }: { text: string; language: string | undefined }) {
+    const theme = useCodeTheme();
+    const wrap = useSettings((s) => s.codeWrap);
+    const { chunks, lineCount } = useMemo(() => chunksOf(text), [text]);
+    const plain = text.length > FS_READ_MAX_TEXT_BYTES || lineCount > HIGHLIGHT_MAX_LINES;
+    const highlight = useMemo(
+        () =>
+            plain
+                ? null
+                : highlightDocumentChunks(
+                      chunks.map((chunk) => chunk.code),
+                      language ?? 'text',
+                      theme
+                  ),
+        [chunks, language, plain, theme]
+    );
+    return (
+        <FileScroll className="file-code" data-wrap={wrap}>
+            {chunks.map((chunk, index) => (
+                <CodeChunk key={chunk.start} code={chunk.code} lines={chunk.lines} start={chunk.start} index={index} highlight={highlight} />
+            ))}
+        </FileScroll>
+    );
+}
+
 /* Why a file is read only, for the tooltip on the toolbar's pill and for typing into the editor anyway. */
 const BLOCK_LABELS: Record<EditBlock, string> = {
     'outside-project': 'file.edit.outsideProject',
@@ -209,16 +249,7 @@ export function CodeFile({ path, read, toolbarExtra, onEditor, frame }: CodeFile
     const sqlTab = tabKey !== null && isSqlPath(path) ? tabKey : null;
     const binding = useFiles((s) => (sqlTab === null ? undefined : fileTabOf(s, sqlTab)?.console));
 
-    const { chunks, lineCount } = useMemo(() => {
-        // A file that ends in a newline has no last line, only a last line break.
-        const lines = read.text.replace(/\n$/, '').split('\n');
-        const blocks: { start: number; code: string; lines: number }[] = [];
-        for (let i = 0; i < lines.length; i += CHUNK_LINES) {
-            const block = lines.slice(i, i + CHUNK_LINES);
-            blocks.push({ start: i + 1, code: block.join('\n'), lines: block.length });
-        }
-        return { chunks: blocks, lineCount: lines.length };
-    }, [read.text]);
+    const { chunks, lineCount } = useMemo(() => chunksOf(read.text), [read.text]);
     // Text past what `fs.read` carries came as bytes, and a save of it would not fit `fs.write`.
     const large = read.size > FS_READ_MAX_TEXT_BYTES;
     const plain = large || lineCount > HIGHLIGHT_MAX_LINES;

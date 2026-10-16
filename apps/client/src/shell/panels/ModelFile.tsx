@@ -9,6 +9,7 @@ import { fileManagerName, useServer } from '@/state/server';
 import { useTransport } from '@/transport/context';
 import { readMachineFile } from '@/transport/machine-url';
 import { FileContextMenu, FileToolbar, FileToolbarToggle } from '@/shell/panels/FileToolbar';
+import { revealablePath, type FileSource } from '@/shell/panels/file-source';
 import { canDrawWebgl, ModelViewer, type LoadedModel } from '@/shell/panels/model-viewer';
 import { Button, ButtonGroup, EmptyState, Icon, IconButton } from '@adecore/ui';
 import { formatBytes, formatNumber } from '@adecore/ui/format';
@@ -23,14 +24,21 @@ function messageOf(e: unknown): string {
 }
 
 /* A binary glTF or a USDZ package, drawn in 3D on the same plain surface as an image. */
-export function ModelFile({ path, name, read }: { path: string; name: string; read: FsReadBinary }) {
+export function ModelFile({ source, name, read }: { source: FileSource; name: string; read: FsReadBinary }) {
     const { t } = useTranslation('panels');
     const platform = useServer((s) => s.platform);
     const transport = useTransport();
     const endpointId = useEndpointId();
     const hostRef = useRef<HTMLDivElement>(null);
     const viewerRef = useRef<ModelViewer | null>(null);
-    const key = JSON.stringify([endpointId, path, read.mtime, read.size]);
+    // As a string, so the read does not start again for every new object that says the same.
+    const locator = JSON.stringify(
+        source.kind === 'file'
+            ? { path: source.path, mtime: read.mtime, size: read.size }
+            : { path: source.path, mtime: source.archiveMtime, size: source.archiveSize, entry: source.entry }
+    );
+    const key = JSON.stringify([endpointId, locator]);
+    const path = revealablePath(source);
     const [held, setHeld] = useState<{ key: string; phase: Phase } | null>(null);
     const [wireframe, setWireframe] = useState(false);
     const [playing, setPlaying] = useState(false);
@@ -45,7 +53,7 @@ export function ModelFile({ path, name, read }: { path: string; name: string; re
         let cancelled = false;
         // Made once the bytes are in, so a slow machine does not hold a context for a canvas nobody sees yet.
         let viewer: ModelViewer | null = null;
-        readMachineFile(endpointId, { path, mtime: read.mtime, size: read.size }, BYTES_READ_MAX_BYTES)
+        readMachineFile(endpointId, JSON.parse(locator) as Parameters<typeof readMachineFile>[1], BYTES_READ_MAX_BYTES)
             .then((bytes) => {
                 if (cancelled) {
                     return null;
@@ -75,7 +83,7 @@ export function ModelFile({ path, name, read }: { path: string; name: string; re
                 viewerRef.current = null;
             }
         };
-    }, [key, endpointId, path, read.mtime, read.size, read.mime, t]);
+    }, [key, endpointId, locator, read.mime, t]);
 
     useEffect(() => {
         if (ready) {
@@ -90,14 +98,17 @@ export function ModelFile({ path, name, read }: { path: string; name: string; re
     }, [ready, playing]);
 
     const reveal = (): void => {
-        revealFile(transport, path);
+        if (path !== null) {
+            revealFile(transport, path);
+        }
     };
 
-    const revealAction = (
-        <Button variant="secondary" size="sm" onClick={reveal}>
-            <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
-        </Button>
-    );
+    const revealAction =
+        path === null ? undefined : (
+            <Button variant="secondary" size="sm" onClick={reveal}>
+                <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
+            </Button>
+        );
 
     const overlay = (): React.ReactNode => {
         if (phase.kind === 'loading') {
