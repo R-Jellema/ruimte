@@ -9,12 +9,17 @@ export type LoopVerdict = { state: 'blocked'; sinceMs: number } | { state: 'reco
  */
 export class LoopWatch {
     private lastBeat: number;
+    private lastCheck: number;
     private blocked = false;
     private readonly thresholdMs: number;
+    private readonly tickMs: number;
 
-    constructor(now: number, thresholdMs = HANG_THRESHOLD_MS) {
+    /* `tickMs` is how often the worker checks; a check that comes far later says the worker was suspended too. */
+    constructor(now: number, thresholdMs = HANG_THRESHOLD_MS, tickMs = HEARTBEAT_MS) {
         this.lastBeat = now;
+        this.lastCheck = now;
         this.thresholdMs = thresholdMs;
+        this.tickMs = tickMs;
     }
 
     beat(now: number): LoopVerdict {
@@ -28,6 +33,13 @@ export class LoopWatch {
     }
 
     check(now: number): LoopVerdict {
+        const sinceCheck = now - this.lastCheck;
+        this.lastCheck = now;
+        // The machine slept, or the whole process was stopped: the main thread missed nothing the worker saw.
+        if (sinceCheck > 2 * this.tickMs) {
+            this.lastBeat = now;
+            return null;
+        }
         const silentMs = now - this.lastBeat;
         if (this.blocked || silentMs < this.thresholdMs) {
             return null;
