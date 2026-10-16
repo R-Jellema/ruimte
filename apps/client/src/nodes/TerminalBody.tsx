@@ -169,7 +169,13 @@ export function TerminalBody({ id, focused }: { id: string; focused: boolean }) 
                 }
             }}
         >
-            <ContextMenu.Trigger className="absolute inset-0 bg-term-bg" onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
+            <ContextMenu.Trigger
+                className="absolute inset-0 bg-term-bg"
+                data-takes-drop="files"
+                onDragOver={onDragOver}
+                onDragLeave={onDragLeave}
+                onDrop={onDrop}
+            >
                 <div ref={dictationRoot} className="absolute inset-0 flex min-h-0 flex-col">
                     <div ref={surfaceRef} className="relative min-h-0 flex-1">
                         <TerminalSession

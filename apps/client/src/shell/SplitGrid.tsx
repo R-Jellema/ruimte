@@ -1,7 +1,8 @@
 import { useEffect, useState, type DragEvent as ReactDragEvent, type ReactElement } from 'react';
 import { isCanvasView } from '@ruimte/contracts';
 import { PromptStack } from '@/canvas/PromptStack';
-import { carriesPaths, dropEffectFor, droppedPaths } from '@/canvas/drop';
+import { carriesFiles, carriesPaths, dropEffectFor, droppedPaths } from '@/canvas/drop';
+import { finderPaths } from '@/canvas/finder-drop';
 import { carriesDiff, droppedDiff } from '@/shell/diff-drag';
 import { carriesDatabase, droppedDatabase } from '@/database/drag';
 import { dropDatabaseTab } from '@/database/open';
@@ -10,6 +11,7 @@ import { useCellView } from '@/shell/use-cell-view';
 import { placeFilesAction, placeViewAction } from '@/actions/client-actions';
 import { canStandInCell, useDocument } from '@/state/document';
 import { tabKey, useFiles } from '@/state/files';
+import { currentEndpointId } from '@/state/keys';
 import { useSettings } from '@/state/settings';
 import { CellViewContext } from '@/state/workspace-stores';
 import { canDropAsTab, canMoveCell, canSplit, cellAt, cellViewIds, locateView, MIN_SHARE, type CellAt, type SplitZone } from '@/shell/split';
@@ -40,10 +42,23 @@ import { CellOverlay } from '@/shell/CellOverlay';
  * What a surface inside a cell says about the paths dropped on it, so the grid does not carry a list
  * of which view kinds handle a drop. `all` keeps the grid out entirely (a chat's composer, which
  * mentions the file); `middle` leaves the grid the strip along the edge and takes the rest (the
- * canvas, which makes a node of it). Other surfaces let the grid split or replace the view.
+ * canvas, which makes a node of it); `files` is `middle` for a drag out of the file manager only and
+ * leaves a path dragged inside the window to the surface around it (a terminal, which types the path).
+ * Other surfaces let the grid split or replace the view.
  */
-function takesDrop(target: EventTarget | null): string | null {
-    return (target as HTMLElement | null)?.closest?.('[data-takes-drop]')?.getAttribute('data-takes-drop') ?? null;
+function takesDrop(target: EventTarget | null, fromFileManager: boolean): string | null {
+    let surface = (target as HTMLElement | null)?.closest?.('[data-takes-drop]') ?? null;
+    while (surface !== null) {
+        const takes = surface.getAttribute('data-takes-drop');
+        if (takes !== 'files') {
+            return takes;
+        }
+        if (fromFileManager) {
+            return 'middle';
+        }
+        surface = surface.parentElement?.closest('[data-takes-drop]') ?? null;
+    }
+    return null;
 }
 
 /* The box of an element in the grid's coordinates, which the drop preview is drawn in. */
@@ -121,14 +136,22 @@ function Cell({
     const tabs = useDocument((s) => (s.layout === null ? undefined : cellAt(s.layout, at)?.tabs));
 
     /* A drag that is about a view of this window, which a file tab is as well as a path: over a surface that has
-       a use for the path itself (the canvas, a composer) the path is what counts, anywhere else the view. */
+       a use for the path itself (the canvas, a composer) the path is what counts, anywhere else the view. A drag
+       out of the file manager is about files alone. */
     const usesPaths = (event: ReactDragEvent<HTMLElement>): boolean => {
         const transfer = event.dataTransfer;
-        return carriesPaths(transfer.types) && !(carriesView(transfer) && dragging() !== null && takesDrop(event.target) === null);
+        if (carriesFiles(transfer.types)) {
+            return true;
+        }
+        return carriesPaths(transfer.types) && !(carriesView(transfer) && dragging() !== null && takesDrop(event.target, false) === null);
     };
 
+    // Only inside the drop event: the shell names a file manager's files from items that are emptied right after.
+    const pathsOf = (event: ReactDragEvent<HTMLElement>): string[] =>
+        carriesPaths(event.dataTransfer.types) ? droppedPaths(event.dataTransfer) : finderPaths(event.dataTransfer, currentEndpointId());
+
     const overBar = (event: ReactDragEvent<HTMLElement>): boolean =>
-        (carriesView(event.dataTransfer) || carriesPaths(event.dataTransfer.types)) &&
+        (carriesView(event.dataTransfer) || carriesPaths(event.dataTransfer.types) || carriesFiles(event.dataTransfer.types)) &&
         ((event.target as HTMLElement | null)?.closest?.('[data-cell-bar]') ?? null) !== null;
 
     /* Where the pointer would put a tab, or null when the bar cannot take this drag. A whole cell
@@ -202,7 +225,7 @@ function Cell({
     const pathZoneFor = (event: ReactDragEvent<HTMLElement>): SplitZone | null => {
         const box = event.currentTarget.getBoundingClientRect();
         const spot = { x: event.clientX - box.left, y: event.clientY - box.top };
-        const here = pathZoneAt(box, spot, takesDrop(event.target));
+        const here = pathZoneAt(box, spot, takesDrop(event.target, carriesFiles(event.dataTransfer.types)));
         const layout = useDocument.getState().layout;
         return here !== null && layout !== null && canSplit(layout, at, here) ? here : null;
     };
@@ -236,7 +259,7 @@ function Cell({
             return;
         }
         if (usesPaths(event)) {
-            placeFilesAction(droppedPaths(event.dataTransfer), viewId, 'center', tabs === undefined ? null : tab.gap);
+            placeFilesAction(pathsOf(event), viewId, 'center', tabs === undefined ? null : tab.gap);
             return;
         }
         const diff = droppedDiff(event.dataTransfer);
@@ -252,7 +275,7 @@ function Cell({
     };
 
     const dropInZone = (event: ReactDragEvent<HTMLElement>): void => {
-        const paths = usesPaths(event) ? droppedPaths(event.dataTransfer) : [];
+        const paths = usesPaths(event) ? pathsOf(event) : [];
         const here = paths.length > 0 ? pathZoneFor(event) : zoneFor(event);
         hideDropPreview();
         setGridTakesPath(false);
