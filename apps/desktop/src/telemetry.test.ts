@@ -1,0 +1,77 @@
+import { describe, expect, test } from 'bun:test';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { memoryDedupeStore } from '@ruimte/telemetry';
+import { fileDedupeStore, isCrash, problemEvent, processTag, shellBeforeSend } from './telemetry';
+
+const IDENTITY = { home: '/Users/jane', username: 'jane', hostname: 'janes-mac' };
+
+describe('isCrash', () => {
+    test('is a crash or running out of memory, never an exit that was asked for', () => {
+        expect(['crashed', 'oom'].filter(isCrash)).toEqual(['crashed', 'oom']);
+        expect(['clean-exit', 'killed', 'abnormal-exit', 'launch-failed'].filter(isCrash)).toEqual([]);
+    });
+});
+
+describe('problemEvent', () => {
+    test('names a gone process by its kind and reason, and groups by them', () => {
+        expect(problemEvent({ kind: 'process-gone', process: processTag('Sandbox helper'), reason: 'oom', exitCode: 9 })).toEqual({
+            message: 'The sandbox-helper process is gone (oom)',
+            level: 'fatal',
+            fingerprint: ['process-gone', 'sandbox-helper', 'oom'],
+            tags: { problem: 'process-gone', process: 'sandbox-helper', exit_reason: 'oom' },
+            extra: { exit_code: 9 }
+        });
+    });
+
+    test('says which step of the service failed', () => {
+        const event = problemEvent({ kind: 'service-fallback', step: 'install', reason: 'Bootstrap failed: 5' });
+        expect(event.tags).toEqual({ problem: 'service-fallback', step: 'install' });
+        expect(event.fingerprint).toEqual(['service-fallback', 'install']);
+    });
+});
+
+describe('shellBeforeSend', () => {
+    test('scrubs the reason of its paths and person, and drops tags it does not know', () => {
+        const beforeSend = shellBeforeSend(IDENTITY, memoryDedupeStore());
+        const event = problemEvent({ kind: 'daemon-start-failed', reason: 'The background service is missing in /Users/jane/Apps/Ruimte.app/bin' });
+        const sent = beforeSend({ ...event, tags: { ...event.tags, user: 'jane' } });
+        expect(sent).toMatchObject({
+            message: 'The machine did not start',
+            tags: { problem: 'daemon-start-failed' },
+            extra: { reason: 'The background service is missing in <path>' }
+        });
+        expect(JSON.stringify(sent)).not.toContain('jane');
+    });
+
+    test('lets the same problem out once a day', () => {
+        let now = 0;
+        const beforeSend = shellBeforeSend(IDENTITY, memoryDedupeStore(), () => now);
+        const event = () => problemEvent({ kind: 'daemon-gave-up', ends: 6 });
+        expect(beforeSend(event())).not.toBeNull();
+        expect(beforeSend(event())).toBeNull();
+        now = 25 * 60 * 60 * 1000;
+        expect(beforeSend(event())).not.toBeNull();
+    });
+
+    test('names the process of a native crash and lets one per process a day out', () => {
+        const beforeSend = shellBeforeSend(IDENTITY, memoryDedupeStore());
+        const native = (process: string) => ({ level: 'fatal', platform: 'native', tags: { 'event.process': process, process: 'main' } });
+        expect(beforeSend(native('GPU'))).toMatchObject({ tags: { process: 'gpu' } });
+        expect(beforeSend(native('GPU'))).toBeNull();
+        expect(beforeSend(native('renderer'))).toMatchObject({ tags: { process: 'renderer' } });
+    });
+
+    test('remembers what went out in a file of its own', () => {
+        const folder = mkdtempSync(join(tmpdir(), 'ruimte-shell-telemetry-'));
+        try {
+            const path = join(folder, 'telemetry', 'sent.json');
+            const beforeSend = shellBeforeSend(IDENTITY, fileDedupeStore(path));
+            beforeSend(problemEvent({ kind: 'daemon-spawn-failed', code: 'ENOENT' }));
+            expect(Object.keys(JSON.parse(readFileSync(path, 'utf8')))).toHaveLength(1);
+        } finally {
+            rmSync(folder, { recursive: true, force: true });
+        }
+    });
+});

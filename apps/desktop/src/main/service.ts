@@ -16,6 +16,7 @@ import { keepRunningSetting, serviceSupport } from '../service/settings';
 import { createSecretGate } from '../startup';
 import { electron } from './electron';
 import type { AppIpc } from './ipc';
+import { reportShellProblem } from './telemetry';
 
 const { app, dialog } = electron;
 
@@ -124,7 +125,8 @@ export function createMachine(options: MachineOptions): Machine {
             stdio = ['ignore', log, log];
         }
         daemon = spawn(target.command, target.args, { stdio, env });
-        daemon.on('error', (e) => {
+        daemon.on('error', (e: NodeJS.ErrnoException) => {
+            reportShellProblem({ kind: 'daemon-spawn-failed', code: e.code ?? 'unknown' });
             dialog.showErrorBox('Ruimte', `The background service could not start: ${e.message}`);
             app.quit();
         });
@@ -225,7 +227,8 @@ export function createMachine(options: MachineOptions): Machine {
         killDaemon: () => daemon?.kill('SIGTERM'),
         now: () => Date.now(),
         after: (ms, run) => void setTimeout(run, ms),
-        publish: (state) => void publish(state)
+        publish: (state) => void publish(state),
+        report: reportShellProblem
     });
 
     /*

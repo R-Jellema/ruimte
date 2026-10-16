@@ -26,6 +26,7 @@ import { installMenu } from './main/menu';
 import { installSecrets } from './main/secrets';
 import { createMachine } from './main/service';
 import { installSpeech } from './main/speech';
+import { reportShellProblem, startTelemetry } from './main/telemetry';
 import { quitQuestion } from './quit-question';
 import { createReleaseNotes } from './release-notes';
 import { runSmoke } from './smoke';
@@ -43,6 +44,8 @@ if (!app.isPackaged) {
     app.setName('Ruimte Dev');
     app.setPath('userData', join(app.getPath('appData'), 'Ruimte Dev'));
 }
+// Before the app is ready, so the crash handler watches every process from the first one on.
+startTelemetry();
 // The bundler inlines __dirname as the source path; the app path is where the built files are.
 const here = join(app.getAppPath(), 'dist');
 const repoRoot = resolve(app.getAppPath(), '..', '..');
@@ -823,7 +826,10 @@ if (!app.requestSingleInstanceLock()) {
             restoreWindows: () => windows.restore(),
             startUpdater: () => updater.start(),
             machineReady: () => machine.ready(),
-            fail: (message) => dialog.showErrorBox('Ruimte', message),
+            fail: (message) => {
+                reportShellProblem({ kind: 'daemon-start-failed', reason: message });
+                dialog.showErrorBox('Ruimte', message);
+            },
             quit: () => {
                 quitConfirmed = true;
                 app.quit();

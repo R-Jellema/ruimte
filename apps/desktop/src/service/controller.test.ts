@@ -8,6 +8,7 @@ import { launchAgentPlist, type ServiceManager } from '@adecore/service';
 import { daemonServiceSpec } from '@ruimte/service/host';
 import type { ServiceSupport, ShellServiceState } from '@ruimte/desktop-bridge';
 import { keepRunningSetting, serviceSupport, type KeepRunningSetting } from './settings';
+import type { ShellProblem } from '../telemetry';
 
 const EXPECTED: BuildIdentity = { version: '0.1.0', build: 'new' };
 
@@ -110,6 +111,7 @@ function setup(options: {
     const machine = { work: options.work === undefined ? { terminals: 0, agents: 0 } : options.work };
     const clock = { now: 0, timers: [] as { at: number; run: () => void }[] };
     const published: ShellServiceState[] = [];
+    const reports: ShellProblem[] = [];
     const behindPort = (): BuildIdentity | null => fake.service.running ?? child ?? options.answering ?? null;
     const deps: ServiceControllerDeps = {
         support: options.support ?? 'supported',
@@ -150,7 +152,8 @@ function setup(options: {
         },
         now: () => clock.now,
         after: (ms, run) => void clock.timers.push({ at: clock.now + ms, run }),
-        publish: (state) => void published.push(state)
+        publish: (state) => void published.push(state),
+        report: (problem) => void reports.push(problem)
     };
     /* The app's own daemon ends by itself, as a crash does. */
     const crash = (): void => {
@@ -167,7 +170,7 @@ function setup(options: {
         }
         await Promise.resolve();
     };
-    return { controller: createServiceController(deps), fake, events, deps, machine, clock, published, crash, advance };
+    return { controller: createServiceController(deps), fake, events, deps, machine, clock, published, reports, crash, advance };
 }
 
 describe('start', () => {
@@ -258,6 +261,23 @@ describe('start', () => {
         await controller.start();
         expect(events).toEqual(['spawn']);
         expect(controller.state()).toMatchObject({ owner: 'app', failure: 'Bootstrap failed: 5', keepRunning: true });
+    });
+
+    test('a service that refuses to start is reported once, and a service that starts is not', async () => {
+        const refused = setup({ fake: fakeManager({ refuseStart: 'Bootstrap failed: 5' }) });
+        await refused.controller.start();
+        expect(refused.reports).toEqual([{ kind: 'service-fallback', step: 'start', reason: 'Bootstrap failed: 5' }]);
+        const started = setup({});
+        await started.controller.start();
+        expect(started.reports).toEqual([]);
+    });
+
+    test('a foreign service that is not running leaves the app on its own daemon without a report', async () => {
+        const commandLine = definitionOf({ program: COMMAND_LINE_PROGRAM, args: ['--host', '0.0.0.0'] });
+        const { controller, reports } = setup({ fake: fakeManager({ onDisk: commandLine }) });
+        await controller.start();
+        expect(controller.state().owner).toBe('app');
+        expect(reports).toEqual([]);
     });
 
     test('with background use off the service runs until the app quits, without staying installed', async () => {
@@ -496,6 +516,18 @@ describe("the app's own daemon", () => {
         expect(clock.timers).toEqual([]);
         expect(events.filter((event) => event === 'spawn')).toHaveLength(6);
         expect(controller.state().crash).toEqual({ total: 6, restarting: false });
+    });
+
+    test('is reported once it is given up on, and not for the ends before', async () => {
+        const { controller, clock, crash, advance, reports } = setup({ support: 'dev' });
+        await controller.start();
+        for (let i = 0; i < 5; i++) {
+            crash();
+            await advance(clock.timers[0]!.at - clock.now);
+        }
+        expect(reports).toEqual([]);
+        crash();
+        expect(reports).toEqual([{ kind: 'daemon-gave-up', ends: 6 }]);
     });
 
     test('that a quit ends is not started again', async () => {

@@ -4,6 +4,7 @@ import { decideRestart, decideStart, sameBuild } from './decide';
 import { definitionRunsProgram, type ServiceManager } from '@adecore/service';
 import { serviceOwnership } from './ownership';
 import type { KeepRunningSetting } from './settings';
+import type { ShellProblem } from '../telemetry';
 
 export interface ServiceControllerDeps {
     support: ServiceSupport;
@@ -36,6 +37,8 @@ export interface ServiceControllerDeps {
     after(ms: number, run: () => void): void;
     /* Every window hears what changed without being asked, such as the app's own daemon ending. */
     publish(state: ShellServiceState): void;
+    /* A crash report for what should not happen: the service failing this installation, or its own daemon given up on. */
+    report?(problem: ShellProblem): void;
 }
 
 export interface ServiceController {
@@ -150,6 +153,9 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
         const restarting = endsInARow <= RESPAWNS;
         crash = { total: (crash?.total ?? 0) + 1, restarting };
         deps.publish(state());
+        if (!restarting) {
+            deps.report?.({ kind: 'daemon-gave-up', ends: endsInARow });
+        }
         if (restarting) {
             deps.after(FIRST_PAUSE_MS * 2 ** (endsInARow - 1), () => {
                 if (!quitting) {
@@ -160,8 +166,9 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
     };
 
     /* The service did not come up: it is stopped so it cannot fight the app for the port, and the app runs its own daemon as before. */
-    const fallBack = async (service: ServiceManager, e: unknown): Promise<void> => {
+    const fallBack = async (service: ServiceManager, step: 'start' | 'restart', e: unknown): Promise<void> => {
         failure = messageOf(e);
+        deps.report?.({ kind: 'service-fallback', step, reason: failure });
         try {
             service.stop();
         } catch {
@@ -174,7 +181,7 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
         await spawn();
     };
 
-    const runService = async (service: ServiceManager, step: () => void | Promise<void>): Promise<void> => {
+    const runService = async (service: ServiceManager, what: 'start' | 'restart', step: () => void | Promise<void>): Promise<void> => {
         if (foreign()) {
             return;
         }
@@ -186,7 +193,7 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
             await deps.waitForHealth((health) => sameBuild(health, deps.expected));
             owner = 'service';
         } catch (e) {
-            await fallBack(service, e);
+            await fallBack(service, what, e);
         } finally {
             uninstallWhenOff();
         }
@@ -196,7 +203,7 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
     const applyDefinition = async (service: ServiceManager): Promise<void> => {
         staleDefinition = decideRestart(await deps.work()) === 'ask';
         if (!staleDefinition) {
-            await runService(service, () => service.restart());
+            await runService(service, 'restart', () => service.restart());
         }
     };
 
@@ -218,6 +225,7 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
                     }
                 } catch (e) {
                     failure = messageOf(e);
+                    deps.report?.({ kind: 'service-fallback', step: 'install', reason: failure });
                 }
             }
             const decision = decideStart(await deps.probe(), deps.expected, managedService && failure === null);
@@ -237,11 +245,11 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
                         uninstallWhenOff();
                         return false;
                     }
-                    await runService(manager, () => manager.restart());
+                    await runService(manager, 'restart', () => manager.restart());
                 } else {
                     const work = await deps.work();
                     if (decideRestart(work) === 'restart') {
-                        await runService(manager, () => manager.restart());
+                        await runService(manager, 'restart', () => manager.restart());
                     } else {
                         // The old daemon keeps the port for now: a restart would end what runs on it without a word.
                         owner = 'service';
@@ -249,7 +257,7 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
                     }
                 }
             } else {
-                await runService(manager, () => manager.start());
+                await runService(manager, 'start', () => manager.start());
             }
             uninstallWhenOff();
             if (!(await deps.verify())) {
@@ -328,7 +336,7 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
             }
             pendingRestart = null;
             failure = null;
-            await runService(manager, () => manager.restart());
+            await runService(manager, 'restart', () => manager.restart());
             return state();
         },
         restartWhenIdle() {
