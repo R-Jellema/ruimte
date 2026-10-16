@@ -80,6 +80,9 @@ jobs:
         run: echo "RUIMTE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
       - run: bun run --cwd apps/client build
       - name: Compile the daemon
+        # Only a release build reports crashes; every other compile stays silent.
+        env:
+          RUIMTE_TELEMETRY: '1'
         run: bun run --cwd apps/server compile -- --os mac --arch arm64
       # npm.yml publishes this daemon as it is, so a release compiles each one once.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -139,6 +142,8 @@ jobs:
         run: echo "RUIMTE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
       - run: bun run --cwd apps/client build
       - name: Compile the daemon
+        env:
+          RUIMTE_TELEMETRY: '1'
         run: bun run --cwd apps/server compile -- --os linux --arch ${{ matrix.arch }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -156,6 +161,28 @@ jobs:
           bun run build:main
           bun x electron-builder --linux --${{ matrix.arch }} --publish always \
             -c.extraMetadata.version="$RUIMTE_VERSION"
+
+  # The release the daemon reports under, `ruimte@<version>`. Bun maps a stack trace back to the
+  # source inside the binary, so there are no source maps to upload. Reports arrive without it as
+  # well, so an error tracker that is down never holds up a release.
+  error-tracking:
+    needs: draft
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 5
+    steps:
+      - name: Create the release
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ruimte
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "::warning::SENTRY_AUTH_TOKEN is empty; no release created"
+            exit 0
+          fi
+          release="ruimte@${GITHUB_REF_NAME#v}"
+          npx --yes @sentry/cli@3.8.0 releases new "$release" --project daemon
+          npx --yes @sentry/cli@3.8.0 releases finalize "$release"
 
   publish:
     needs: [verify, build, linux]

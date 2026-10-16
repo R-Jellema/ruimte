@@ -194,3 +194,8 @@ Electron-builder before 26.16.1 unlocked its own keychain with the wrong passwor
 (electron-builder#10172), and the manifest pins `^26.16.1`. A release that fails with
 `SecKeychainUnlock: The user name or passphrase you entered is not correct` has an older
 electron-builder again.
+
+`SENTRY_AUTH_TOKEN` (scope `org:ci`) lets the `error-tracking` job create the release `ruimte@<version>`
+the daemon reports its crashes under. That job may fail without holding up the release, and the
+compile steps set `RUIMTE_TELEMETRY=1`, which is what turns crash reports on in the binary (see
+"Crash reports" in `apps/server/README.md`).
