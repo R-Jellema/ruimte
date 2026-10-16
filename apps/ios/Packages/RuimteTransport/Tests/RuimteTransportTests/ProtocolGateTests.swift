@@ -34,6 +34,7 @@ private func event(_ name: String) -> String {
         let frame = try JSONValue.decode(Data(try #require(probe.sent.first).utf8))
         #expect(frame["id"]?.stringValue == "protocol")
         #expect(frame["type"]?.stringValue == "endpoint.info")
+        #expect(frame["payload"]?["client"]?.stringValue == "ios")
     }
 
     @Test func aMachineWithoutFeaturesIsRefusedAsOlder() throws {

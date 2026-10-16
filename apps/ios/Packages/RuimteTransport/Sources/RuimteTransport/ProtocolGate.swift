@@ -30,9 +30,10 @@ import RuimtePulsar
         self.refuse = refuse
     }
 
-    /// Asks the machine; call it once the link can carry requests.
+    /// Asks the machine; call it once the link can carry requests. `client` names this app for the machine's
+    /// anonymous usage counts; a machine from before it ignores the field.
     public func start() {
-        let frame = JSONValue.object(["id": .string(Self.requestID), "type": .string("endpoint.info"), "payload": .object([:])])
+        let frame = JSONValue.object(["id": .string(Self.requestID), "type": .string("endpoint.info"), "payload": .object(["client": .string("ios")])])
         do { try send(String(decoding: try frame.encoded(), as: UTF8.self)) } catch { refuse(error) }
     }
 
