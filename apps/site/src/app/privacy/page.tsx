@@ -27,10 +27,6 @@ export default function Privacy() {
                         For a connection problem, whether it was this computer or another one, how they were connected, and the type of request. Never what the
                         request carried.
                     </li>
-                    <li>
-                        For a crash of the desktop app itself, a minidump, which is a snapshot of the threads of the process that crashed. It can contain
-                        fragments of what that process held in memory at that moment. I use it only to find where the crash happened.
-                    </li>
                 </ul>
                 <p>
                     Before a report leaves your computer, Ruimte strips paths, names, addresses and anything that looks like a secret from every line of text in
@@ -38,11 +34,11 @@ export default function Privacy() {
                 </p>
             </Section>
 
-            <Section title="What Ruimte never puts in a report">
+            <Section title="What Ruimte never collects">
                 <p>
-                    Your prompts and chats, the contents of your files, terminal output, database queries, passwords, tokens and keys, the names and folders of
-                    your projects, your home folder, your username, the name of your computer, and IP addresses. Ruimte also tells Sentry not to derive an IP
-                    address from the connection a report arrives on.
+                    Ruimte does not collect your prompts and chats, the contents of your files, terminal output, database queries, passwords, tokens and keys,
+                    the names and folders of your projects, your home folder, your username, the name of your computer, or IP addresses. Ruimte also tells
+                    Sentry not to derive an IP address from the connection a report arrives on.
                 </p>
                 <p>There are no breadcrumbs of what you clicked, no session recordings, no performance tracing and no log forwarding.</p>
             </Section>
