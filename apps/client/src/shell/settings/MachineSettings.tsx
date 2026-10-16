@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 import i18next from 'i18next';
 import { Trash } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { brokerHostOf, brokerUrlProblem, type BrokerSetting } from '@ruimte/pulsar';
 import type { AuthSession, LanDoor, PeerLink, RuntimeMode } from '@ruimte/contracts';
 import { RUNTIME_MODES, runtimeModeLabel } from '@adecore/agents-react/chat';
@@ -49,7 +49,7 @@ function settingFailure(e: unknown): string {
 
 async function saveMachineSetting(
     endpoint: Endpoint,
-    patch: { broker?: BrokerSetting; lanDoor?: boolean; streamingAllowed?: boolean; resumeAtReset?: boolean; worktreeRoot?: string },
+    patch: { broker?: BrokerSetting; lanDoor?: boolean; streamingAllowed?: boolean; resumeAtReset?: boolean; worktreeRoot?: string; usageStats?: boolean },
     /* A refused folder is the person's to fix in the field, so it is told there and not in a toast. */
     onRefused?: (message: string) => void
 ): Promise<boolean> {
@@ -290,6 +290,61 @@ export function StreamingRow({ endpoint, reason }: { endpoint: Endpoint; reason:
                         checked={allowed}
                         onCheckedChange={(checked) => void set(checked)}
                         label={t('machine.streaming.toggle', { machine: endpoint.label })}
+                        disabled={busy || reason !== null}
+                    />
+                </WithReason>
+            }
+        />
+    );
+}
+
+const PRIVACY_URL = 'https://ruimte.app/privacy';
+
+function openPrivacy(): void {
+    const bridge = desktop();
+    if (bridge) {
+        void bridge.openExternal(PRIVACY_URL);
+    } else {
+        window.open(PRIVACY_URL, '_blank', 'noopener,noreferrer');
+    }
+}
+
+/*
+ * Whether the machine sends its anonymous daily usage counts. Only the app on the machine may change it,
+ * so the row is not drawn for another machine, nor for one from before the switch.
+ */
+export function UsageStatsRow({ endpoint, reason }: { endpoint: Endpoint; reason: string | null }) {
+    const { t } = useTranslation('settings');
+    const on = useServers((s) => s.byEndpoint[endpoint.id]?.usageStats ?? true);
+    const [busy, setBusy] = useState(false);
+
+    const set = async (checked: boolean): Promise<void> => {
+        setBusy(true);
+        await saveMachineSetting(endpoint, { usageStats: checked });
+        setBusy(false);
+    };
+
+    return (
+        <SettingsRow
+            searchId="machines.machine.usageStats"
+            label={t('machine.usageStats.label')}
+            description={
+                reason !== null ? (
+                    t('machine.notAnswering')
+                ) : (
+                    <Trans
+                        t={t}
+                        i18nKey="machine.usageStats.description"
+                        components={{ privacy: <button type="button" className="text-accent hover:underline" onClick={openPrivacy} /> }}
+                    />
+                )
+            }
+            control={
+                <WithReason reason={reason}>
+                    <Switch
+                        checked={on}
+                        onCheckedChange={(checked) => void set(checked)}
+                        label={t('machine.usageStats.toggle', { machine: endpoint.label })}
                         disabled={busy || reason !== null}
                     />
                 </WithReason>

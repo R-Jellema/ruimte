@@ -38,6 +38,13 @@ describe('protocolGate', () => {
         expect(log.at(-1)).toBe('open session.attach,chat.list');
     });
 
+    test('names the app that asks, for the machine to count', () => {
+        const log: string[] = [];
+        const gate = protocolGate({ send: (data) => log.push(data), open: () => undefined, message: () => undefined, refuse: () => undefined }, 2, 'station');
+        gate.opened();
+        expect(log).toEqual(['{"id":"protocol","type":"endpoint.info","payload":{"client":"station"}}']);
+    });
+
     test('refuses a machine on this version that names no features as older', () => {
         const { gate, log } = gateWith();
         gate.received(answer({ protocol: 2 }));

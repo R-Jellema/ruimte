@@ -457,6 +457,13 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         available: hasOpenedMachine
     },
     {
+        id: 'machines.machine.usageStats',
+        section: 'machines',
+        label: 'settings:machine.usageStats.label',
+        description: 'settings:machine.usageStats.search',
+        available: hasLocalMachine
+    },
+    {
         id: 'machines.machine.worktreeFolder',
         section: 'machines',
         label: 'settings:machine.worktreeFolder.label',

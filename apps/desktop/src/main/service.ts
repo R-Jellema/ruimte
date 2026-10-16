@@ -259,6 +259,15 @@ export function createMachine(options: MachineOptions): Machine {
 
     ipc.handle('daemon:local-secret', () => secretFor(options.mode, () => localSecret.read()));
     if (options.mode === 'local') {
+        // Once per start, so a second window or a reload does not count as another start.
+        let startupTaken = false;
+        ipc.handle('usage:startup', () => {
+            if (startupTaken) {
+                return null;
+            }
+            startupTaken = true;
+            return Math.round(process.uptime() * 1000);
+        });
         ipc.handle('service:state', () => controller.state());
         ipc.handle('service:set-keep-running', (_event, keepRunning: boolean) => publish(controller.setKeepRunning(keepRunning === true)));
         ipc.handle('service:enable-linger', () => publish(controller.enableLinger()));

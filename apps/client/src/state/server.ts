@@ -60,6 +60,8 @@ export interface ServerInfo {
     worktreeRoot: string | null | undefined;
     /* The sizes a person gave new nodes of a kind on the machine, only the kinds they changed. */
     nodeSizes: NodeSizes;
+    /* Whether the machine sends its anonymous usage counts; undefined from a machine without the switch. */
+    usageStats: boolean | undefined;
 }
 
 /* One object for a machine that has not said hello yet, so a selector gets a stable snapshot. Its settings are the daemon's own defaults. */
@@ -93,7 +95,8 @@ const UNKNOWN: ServerInfo = {
     publicKey: null,
     accountId: undefined,
     worktreeRoot: undefined,
-    nodeSizes: {}
+    nodeSizes: {},
+    usageStats: undefined
 };
 
 interface ServersStore {
@@ -129,6 +132,7 @@ interface ServersStore {
             | 'accountId'
             | 'worktreeRoot'
             | 'nodeSizes'
+            | 'usageStats'
         >
     ): void;
     /* What a person allowed in the CLIs' settings, after this client changed it. */
@@ -158,6 +162,7 @@ interface ServersStore {
                     | 'agentIntegrations'
                     | 'worktreeRoot'
                     | 'nodeSizes'
+                    | 'usageStats'
                 >
             >
     ): void;

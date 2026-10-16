@@ -1,5 +1,6 @@
 import i18next from 'i18next';
-import { PROTOCOL_VERSION, protocolMismatch, type EndpointInfo, type ProtocolMismatch } from '@ruimte/contracts';
+import { PROTOCOL_VERSION, protocolMismatch, type EndpointInfo, type ProtocolMismatch, type UsageClientKind } from '@ruimte/contracts';
+import { usageClientKind } from './client-kind';
 
 /* What a row and a failed connection say about a machine on another wire version. */
 export function protocolRefusal(mismatch: ProtocolMismatch): string {
@@ -38,12 +39,12 @@ export interface ProtocolGateEvents {
  * a client talks to. Frames that arrive before the answer (an event sent to every socket) are held
  * and delivered once the link is open.
  */
-export function protocolGate(events: ProtocolGateEvents, client: number = PROTOCOL_VERSION) {
+export function protocolGate(events: ProtocolGateEvents, client: number = PROTOCOL_VERSION, kind: UsageClientKind | null = usageClientKind()) {
     let checked = false;
     const held: Array<string | Uint8Array> = [];
     return {
         opened(): void {
-            events.send(JSON.stringify({ id: CHECK_ID, type: 'endpoint.info', payload: {} }));
+            events.send(JSON.stringify({ id: CHECK_ID, type: 'endpoint.info', payload: kind === null ? {} : { client: kind } }));
         },
         received(data: string | Uint8Array): void {
             if (checked) {

@@ -1115,6 +1115,12 @@
             "description": "Sta deze machine toe browserpagina's en schermen van apparaten te streamen naar clients zonder eigen native weergave.",
             "toggle": "Streamen van browser en apparaten toestaan vanaf {{machine}}"
         },
+        "usageStats": {
+            "label": "Gebruiksstatistieken",
+            "description": "Stuurt één keer per dag dagtotalen van de functies die deze machine gebruikte, zonder namen, paden of iets dat jou herkenbaar maakt. <privacy>Wat er verstuurd wordt</privacy>",
+            "search": "Anonieme dagtotalen van gebruikte functies, één keer per dag verstuurd",
+            "toggle": "Gebruiksstatistieken versturen vanaf {{machine}}"
+        },
         "access": {
             "title": "Apps met toegang",
             "description": "Browsers en apps die via een account binnenkwamen.",
@@ -1182,6 +1188,7 @@
         },
         "connection": "Verbinding",
         "worktrees": "Worktrees",
+        "privacy": "Privacy",
         "streaming": "Streaming",
         "account": {
             "title": "Account",

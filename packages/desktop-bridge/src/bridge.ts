@@ -213,6 +213,9 @@ export interface DesktopBridge {
        since a loopback address proves nothing. Null while the daemon has not written it. A window
        opens while the machine still comes up, and this answers only once it proved itself. */
     localSecret?(): Promise<string | null>;
+    /* How long this app took from its start to now, in milliseconds, for the machine's usage counts.
+       Only the first caller after a start gets it; every later one, another window too, gets null. */
+    takeStartupMs?(): Promise<number | null>;
     /* macOS owns the application-level microphone grant; the shell asks while the renderer only
        receives the result. Other platforms let Chromium handle the same request. */
     requestMicrophoneAccess?(): Promise<boolean>;

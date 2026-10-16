@@ -39,6 +39,7 @@ const machineMode = modeFromArgv(process.argv);
 /* The local secret and the service switch belong to a machine this app runs; without one they are not even offered. */
 const localMachineBridge = {
     localSecret: (): Promise<string | null> => ipcRenderer.invoke('daemon:local-secret'),
+    takeStartupMs: (): Promise<number | null> => ipcRenderer.invoke('usage:startup'),
     backgroundService: {
         state: (): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:state'),
         onState: (listener: (state: BackgroundServiceState) => void): (() => void) => {
@@ -52,7 +53,7 @@ const localMachineBridge = {
         restartWhenIdle: (): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:restart-when-idle'),
         stopMachine: (): void => ipcRenderer.send('service:stop-machine')
     }
-} satisfies Pick<DesktopBridge, 'localSecret' | 'backgroundService'>;
+} satisfies Pick<DesktopBridge, 'localSecret' | 'takeStartupMs' | 'backgroundService'>;
 
 /* What the client may ask the shell for, checked against the type the client reads it through. */
 const bridge = {

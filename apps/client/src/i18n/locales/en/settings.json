@@ -1115,6 +1115,12 @@
             "description": "Allow this machine to stream browser pages and device screens to clients without a native view of their own.",
             "toggle": "Allow browser and device streaming from {{machine}}"
         },
+        "usageStats": {
+            "label": "Usage statistics",
+            "description": "Sends daily totals of the features this machine used, once a day, without names, paths or anything that identifies you. <privacy>What is sent</privacy>",
+            "search": "Anonymous daily totals of feature use, sent once a day",
+            "toggle": "Send usage statistics from {{machine}}"
+        },
         "access": {
             "title": "Apps with access",
             "description": "Browsers and apps that came in through an account.",
@@ -1182,6 +1188,7 @@
         },
         "connection": "Connection",
         "worktrees": "Worktrees",
+        "privacy": "Privacy",
         "streaming": "Streaming",
         "account": {
             "title": "Account",
