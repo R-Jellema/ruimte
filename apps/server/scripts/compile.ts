@@ -1,4 +1,4 @@
-import { chmod, copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -48,10 +48,14 @@ const args = [
     '--conditions=source',
     '--compile',
     `--target=bun-${bunOs[values.os]}-${values.arch}`,
-    '--minify',
+    // Names stay, and the source map goes into the binary, so Bun maps every stack trace back to the source: in the log and in a crash report.
+    '--minify-whitespace',
+    '--minify-syntax',
+    '--sourcemap',
     join(root, 'src', 'main.ts'),
     // A worker is a module of its own in the binary; `src/fs/grep.ts` finds it at `./fs/grep-worker.ts`.
     join(root, 'src', 'fs', 'grep-worker.ts'),
+    join(root, 'src', 'telemetry', 'watchdog-worker.ts'),
     '--outfile',
     binary
 ];
@@ -60,6 +64,8 @@ args.push('--define', 'process.env.RUIMTE_PULSAR_TEST_STATEMENT_KEY=""');
 if (process.env.RUIMTE_VERSION) {
     args.push('--define', `process.env.RUIMTE_VERSION=${JSON.stringify(process.env.RUIMTE_VERSION)}`);
 }
+// Only a release reports crashes (`src/telemetry/reporter.ts`); any other compile is stamped silent, whatever runs it later.
+args.push('--define', `process.env.RUIMTE_TELEMETRY=${JSON.stringify(process.env.RUIMTE_TELEMETRY === '1' ? '1' : '')}`);
 // The same id goes into the binary and into `ruimte.build` beside it, which is how the desktop app
 // tells the daemon in its bundle from an older one still running as the background service.
 const buildId = `${process.env.RUIMTE_VERSION ?? 'dev'}-${crypto.randomUUID()}`;
@@ -77,7 +83,16 @@ const rustTarget = `${values.arch === 'arm64' ? 'aarch64' : 'x86_64'}-apple-darw
 // The daemon and every native helper write to places of their own, so they build side by side.
 const builds: Array<Promise<number>> = [
     run(['bun', ...args], root).then(async (exitCode) => {
-        if (exitCode !== 0 || values.os !== 'mac') {
+        if (exitCode !== 0) {
+            return exitCode;
+        }
+        // The binary carries its source map; the copies Bun writes beside it would only ship along.
+        for (const map of await readdir(outDir)) {
+            if (map.endsWith('.map')) {
+                await rm(join(outDir, map));
+            }
+        }
+        if (values.os !== 'mac') {
             return exitCode;
         }
         // Bun 1.4 writes the bundle after signing, which leaves a signature the kernel refuses (SIGKILL on launch); an ad-hoc re-sign fixes it and a release signs again with the real identity anyway.

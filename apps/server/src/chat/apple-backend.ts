@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { AppleFoundationEventSchema, clipText, type AppleFoundationEvent, type AppleFoundationRequest } from '@ruimte/contracts';
+import { reportHelperExit } from '../telemetry/reporter.ts';
 import { closeAppleNetworkTools } from './apple-network-tools.ts';
 import { APPLE_TOOL_NAMES, appleToolInput, executeAppleTool, type AppleToolCall, type AppleToolContext, type AppleToolResult } from './apple-tools.ts';
 import type { ApprovalDecision, BackendHost, BackendLaunch, ChatBackend, TurnInput } from '@adecore/agents/chat';
@@ -19,6 +20,8 @@ const CANCELLED = 'Cancelled.';
 
 export class AppleBackend implements ChatBackend {
     private child: ChatChild | null = null;
+    // A helper that ends after `stop` was asked to.
+    private stopping = false;
     private ready: Promise<void> | null = null;
     private resolveReady: (() => void) | null = null;
     private rejectReady: ((error: Error) => void) | null = null;
@@ -81,6 +84,9 @@ export class AppleBackend implements ChatBackend {
                 env: this.launch.env,
                 ...(this.launch.spawn ? { spawn: this.launch.spawn } : {}),
                 onExit: (exitCode, stderr) => {
+                    if (!this.closed && !this.stopping && exitCode !== 0) {
+                        reportHelperExit({ helper: 'apple-foundation', code: exitCode, stderr: stderr ? stderr.split(/\r?\n/) : [] });
+                    }
                     this.closed = true;
                     void closeAppleNetworkTools(this.toolContext);
                     this.clearTimer();
@@ -259,6 +265,7 @@ export class AppleBackend implements ChatBackend {
     }
 
     stop(): void {
+        this.stopping = true;
         void closeAppleNetworkTools(this.toolContext);
         this.interrupt();
         this.clearTimer();

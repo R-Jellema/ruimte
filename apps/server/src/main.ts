@@ -4,17 +4,26 @@ import { askRunningMachine } from './cli/fatal.ts';
 import { portTaken, startMachine } from './cli/start.ts';
 import { forgetInheritedSession, parseServerArgs } from './config.ts';
 import { errorText } from './error-text.ts';
+import { stampConsole } from './telemetry/log-time.ts';
+import { reportFatal, startTelemetry, telemetrySettings } from './telemetry/reporter.ts';
+import { startWatchdog } from './telemetry/watchdog.ts';
 
 /*
- * Without a listener Bun prints an uncaught error with a code frame, which in the compiled binary is
- * minified bundle source. A throw at the top level of this module lands here as well.
+ * Without a listener Bun prints an uncaught error with a code frame of the bundle; this prints the
+ * error the way every other daemon line does. A throw at the top level of this module lands here as well.
  */
 function fail(error: unknown): never {
     console.error(errorText(error));
     process.exit(1);
 }
-process.on('uncaughtException', fail);
-process.on('unhandledRejection', fail);
+
+/* `fail` for what nothing caught: a release build reports it first, which never takes longer than two seconds. */
+function crash(error: unknown): void {
+    console.error(errorText(error));
+    void reportFatal(error).finally(() => process.exit(1));
+}
+process.on('uncaughtException', crash);
+process.on('unhandledRejection', crash);
 
 /* One binary, several jobs. The daemon is imported only when it serves, so the CLI commands do not pay for loading the terminal emulator. */
 const arguments_ = process.argv.slice(2);
@@ -102,15 +111,27 @@ if (config.command === 'context') {
 forgetInheritedSession(process.env);
 // Read into the config already; a shell must not pass it on to a daemon started by hand inside a session.
 delete process.env.RUIMTE_SERVICE;
+// The desktop app sets it on the daemon it starts as its child, for the reports only.
+const launchedByDesktop = process.env.RUIMTE_LAUNCHED_BY === 'desktop';
+delete process.env.RUIMTE_LAUNCHED_BY;
 
 // The daemon installs listeners of its own that let a lost TURN server pass, which these would end the process on.
-process.off('uncaughtException', fail);
-process.off('unhandledRejection', fail);
+process.off('uncaughtException', crash);
+process.off('unhandledRejection', crash);
 try {
     const refused = await startMachine(config, {
         portTaken,
         askRunningMachine,
         start: async () => {
+            // A terminal shows the greeting as it is; a log file needs the time of every line.
+            if (!process.stdout.isTTY) {
+                stampConsole();
+            }
+            const telemetry = telemetrySettings(config.underService ? 'service' : launchedByDesktop ? 'desktop' : 'standalone', config.home);
+            if (telemetry !== null) {
+                await startTelemetry(telemetry);
+            }
+            startWatchdog(telemetry);
             const { startDaemon } = await import('./daemon.ts');
             await startDaemon(config);
         },
@@ -120,5 +141,5 @@ try {
         process.exit(refused);
     }
 } catch (e) {
-    fail(e);
+    crash(e);
 }

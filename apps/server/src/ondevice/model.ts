@@ -3,6 +3,7 @@ import { AppleFoundationEventSchema } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
 import { ChatChild, type SpawnChatProcess } from '@adecore/agents/chat';
 import { appleSiliconMac, helperCommand, probeAppleHelper } from '../providers/apple-helper.ts';
+import { reportHelperExit } from '../telemetry/reporter.ts';
 import { PURPOSES } from './instructions.ts';
 
 export interface OnDeviceModelOptions {
@@ -150,8 +151,11 @@ export class OnDeviceModel {
                 cwd: '/',
                 env: Object.fromEntries(Object.entries(this.environment()).filter((entry): entry is [string, string] => entry[1] !== undefined)),
                 ...(this.options.spawn ? { spawn: this.options.spawn } : {}),
-                onExit: () => {
+                onExit: (exitCode, stderr) => {
                     if (this.child === child) {
+                        if (!this.disposed) {
+                            reportHelperExit({ helper: 'on-device', code: exitCode, stderr: stderr ? stderr.split(/\r?\n/) : [] });
+                        }
                         this.lose(new CodedError('failed', 'The on-device helper stopped.'));
                     }
                 }

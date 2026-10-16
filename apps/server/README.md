@@ -49,6 +49,20 @@ Other environment variables:
 
 `bun run compile` (`scripts/compile.ts`) builds one executable with `bun build --compile` into `dist/<os>-<arch>/ruimte`, with `ruimte-context` and `ruimte.build` next to it. It builds for this machine, or for another with `--os mac|linux --arch arm64|x64`. `--target darwin-arm64` names the target the way the npm packages do, and `--outdir` picks the folder. A macOS binary only compiles on macOS, since `codesign` has to repair the signature Bun leaves. `RUIMTE_VERSION` stamps a version in. The desktop app packages that folder as its `bin` resource.
 
+## Crash reports
+
+A release build reports its crashes and errors, always, and nothing else (`src/telemetry`). `scripts/compile.ts` stamps `RUIMTE_TELEMETRY=1` into a binary only when CI compiles a release, so `bun dev`, the tests and a local compile send nothing. A report goes out for:
+
+- an exception or rejection nothing caught, before the process exits as it did before (two seconds at most)
+- a helper that ends while the daemon still needs it: the database helper, the Apple Foundation Models helper of a chat or of the editor's help, and a language server Ruimte ships, with its exit code or signal and its last stderr lines
+- an event loop that has not answered for five seconds, seen from a worker that keeps running while the main thread is stuck. It also writes a line to the log, with a release build or without, and another when the loop answers again. It has no stack: Bun cannot take one of another thread.
+
+Each report carries the version, the platform, the architecture and how the daemon runs (`service`, `desktop` or `standalone`). The binary carries its source map, so Bun maps a stack trace back to the source before it leaves. The same error goes out once a day at most (`telemetry/sent.json`).
+
+What goes out is built from an allow-list in `@ruimte/telemetry`: the stack frames without source lines or variables, the error's type and the first line of its message, and a fixed set of tags and contexts. Every string in it loses the home directory (`~`), the user and host names, the names and folders of the machine's projects, the local secret, anything that looks like a token, password, key or environment value, e-mail and IP addresses, URL paths and queries, SQL, other paths and quoted text. Never sent: requests or replies on the wire, prompts and chats, file contents, terminal output, environment variables, cookies, breadcrumbs, the machine's name or address. There is no tracing, no session tracking, no profiling and no log forwarding.
+
+Every line the serving daemon writes to a log file starts with an ISO timestamp; in a terminal the lines stay as they are.
+
 ## The `ruimte` CLI
 
 A machine without the desktop app runs the same binary from npm (`packages/npm`), with Node or Bun:
@@ -126,6 +140,7 @@ $RUIMTE_HOME/
   launch-after-settle.json         per project, the task a person chose to run after a worktree chat settles, and the last turn each chat ran it for
   push-attention.json              the alerts pushed in the last 30 days, which clients mark nodes from
   apple-mcp.json                   optional, written by a person: the MCP servers the Apple chat provider may use
+  telemetry/sent.json              0600, hashes of the errors a release build reported in the last day (see "Crash reports")
   bin/                             the copy of the binaries `ruimte service install` runs
   projects/<projectId>.local.json  camera, focus, grid and panels, where a client that never saw the project starts
   scratch/                         the Chats project (see "Projects")

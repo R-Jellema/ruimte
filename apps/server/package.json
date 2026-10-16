@@ -32,6 +32,8 @@
         "@ruimte/contracts": "workspace:*",
         "@ruimte/pulsar": "workspace:*",
         "@ruimte/service": "workspace:*",
+        "@ruimte/telemetry": "workspace:*",
+        "@sentry/bun": "11.8.0",
         "@xterm/addon-serialize": "^0.14.0",
         "@xterm/addon-unicode11": "^0.9.0",
         "@xterm/headless": "^6.0.0",

@@ -37,6 +37,7 @@ import { mergeCodeActions, mergeProviders } from './merge.ts';
 import {
     CARGO_DEPTH,
     componentServes,
+    KIND_PROFILES,
     lspLanguageId,
     resolveNativeTypescript,
     resolveTypescriptLib,
@@ -46,6 +47,9 @@ import {
     type ProjectSqlSettings
 } from './profiles.ts';
 import type { LanguageChild, LanguageExit, LanguageRuntime, SpawnLanguageProcess } from './runtime.ts';
+import { reportHelperExit } from '../telemetry/reporter.ts';
+
+const SHIPPED_COMPONENTS = new Set(Object.values(KIND_PROFILES).flatMap((kind) => kind.components.map((component) => component.name)));
 
 // How long a stopped process may take to go before it is killed.
 export const STOP_GRACE_MS = 3_000;
@@ -1024,6 +1028,14 @@ export class LanguageServer {
               : `exited with code ${exit.code ?? 'unknown'}`;
         const said = this.log.last('server');
         const message = `The ${titleOf(component.profile)} language server ${reason}${said ? `: ${said}` : ''}`;
+        // A person's own server, or a command that is not there, is no fault of Ruimte's to report.
+        if (exit.error === undefined && SHIPPED_COMPONENTS.has(component.profile.name)) {
+            const stderr = this.log
+                .tail()
+                .filter((line) => line.stream === 'server')
+                .map((line) => line.text);
+            reportHelperExit({ helper: 'language-server', kind: component.profile.name, code: exit.code, signal: exit.signal, stderr });
+        }
         if (component.profile.sidecar === true) {
             this.dropSidecar(component, message);
         } else if (this.phase === 'ready' && this.readyAt !== null && this.now() - this.readyAt >= STABLE_AFTER_MS) {

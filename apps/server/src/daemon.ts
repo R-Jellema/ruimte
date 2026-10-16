@@ -7,6 +7,7 @@ import { errorText } from './error-text.ts';
 import { HOOKS_PATH } from './agents/hook-receiver.ts';
 import { dropEmptyMark } from './projects/scratch-project.ts';
 import { probeCodexNoDaemon } from './providers/launch.ts';
+import { rememberSecret, stopTelemetry, watchProjects } from './telemetry/reporter.ts';
 import { COMPILED as compiled, VERSION } from './version.ts';
 import { loadAgentStores, wireAgents } from './wiring/agents.ts';
 import { wireAgentWork } from './wiring/agent-work.ts';
@@ -51,6 +52,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
     const codexProbe = probeCodexNoDaemon();
     const machine = await wireMachine(config);
     const { identity } = machine;
+    rememberSecret(machine.access.localSecret);
     const stores = await loadAgentStores(home);
     const computer = createComputer(runtime, stores.computerStore, { agents: () => agents, projects: () => projects });
     const providers = await wireProviders(config, identity, () => computer.start());
@@ -79,6 +81,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         computer,
         later: { launches: () => launches, work: () => work, databases: () => databases, language: () => language }
     });
+    watchProjects(projects.store);
     const databases = await wireDatabases(home, machine.machineHome, projects.store, { language: () => language });
     const remote = await wireRemote({ home, identity, machine, outbox: stores.outbox, later: { brokerUrl: () => network.brokerSwitch.describe().brokerUrl } });
     const work = wireAgentWork({
@@ -298,6 +301,7 @@ export async function startDaemon(config: ServerConfig): Promise<void> {
         await step('Stopping the database helper', () => databases.service.dispose());
         await step('Stopping language servers', () => language.host.close());
         await step('Stopping the on-device helper', () => language.onDevice.dispose());
+        await step('Sending error reports', () => stopTelemetry());
         network.peers.closeAll();
         network.lanDoor.stop();
         await network.brokerSwitch.stop();

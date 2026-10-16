@@ -33,7 +33,7 @@ export function isWeriftTransactionFailure(error: unknown): boolean {
 export function guardWeriftTurn(
     target: ProcessEvents,
     log: Pick<Console, 'warn' | 'error'> = console,
-    exit: (code: number) => void = (code) => process.exit(code)
+    exit: (code: number, error: unknown) => void = (code) => process.exit(code)
 ): void {
     const handle = (error: unknown): void => {
         if (isWeriftTransactionFailure(error)) {
@@ -41,7 +41,7 @@ export function guardWeriftTurn(
             return;
         }
         log.error(errorText(error));
-        exit(1);
+        exit(1, error);
     };
     target.on('uncaughtException', handle);
     target.on('unhandledRejection', handle);

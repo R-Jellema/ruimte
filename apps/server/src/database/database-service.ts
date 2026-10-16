@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { createDatabaseHost, helperPath, spawnHelper, type DatabaseHost, type HelperProcess } from '@adecore/database/host';
 import type { ConnectionConfig, DatabaseResponse } from '@adecore/database/protocol';
 import type { MachineHome } from '../fs/machine-home.ts';
+import { reportHelperExit, StderrTail } from '../telemetry/reporter.ts';
 
 const HELPER_FILE = process.platform === 'win32' ? 'adecore-database.exe' : 'adecore-database';
 
@@ -24,7 +25,29 @@ function startHelper(): HelperProcess {
     if (path === null) {
         throw new Error('This machine has no database helper');
     }
-    return spawnHelper(path, { env: { PATH: process.env.PATH ?? '' }, onLog: (line) => console.error(`[database] ${line}`) });
+    const stderr = new StderrTail();
+    const helper = spawnHelper(path, {
+        env: { PATH: process.env.PATH ?? '' },
+        onLog: (line) => {
+            stderr.push(line);
+            console.error(`[database] ${line}`);
+        }
+    });
+    let stopped = false;
+    helper.onExit((code) => {
+        if (!stopped && code !== 0) {
+            reportHelperExit({ helper: 'database', code, stderr: stderr.get() });
+        }
+    });
+    return {
+        write: (line) => helper.write(line),
+        onLine: (listener) => helper.onLine(listener),
+        onExit: (listener) => helper.onExit(listener),
+        kill: () => {
+            stopped = true;
+            helper.kill();
+        }
+    };
 }
 
 export interface DatabaseServiceOptions {

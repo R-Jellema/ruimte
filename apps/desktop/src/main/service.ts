@@ -113,6 +113,8 @@ export function createMachine(options: MachineOptions): Machine {
             process.env.PATH = loginPath;
         }
         env.RUIMTE_HOME = ruimteHome;
+        // Tells the daemon's crash reports it runs as this app's child rather than as the service.
+        env.RUIMTE_LAUNCHED_BY = 'desktop';
         // A packaged app has no terminal; the daemon's output goes to the app's log directory instead.
         let stdio: 'inherit' | ['ignore', number, number] = 'inherit';
         if (app.isPackaged) {
