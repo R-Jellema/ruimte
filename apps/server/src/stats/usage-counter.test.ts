@@ -163,6 +163,32 @@ describe('the usage counter', () => {
         expect(JSON.parse(written!).days).toEqual([]);
     });
 
+    test('a day after the counts were turned off and on again is the first of its week and month', async () => {
+        const counter = counterOf();
+        counter.touch();
+        await counter.discard();
+        clock += DAY;
+        counter.touch();
+        clock += DAY;
+        expect(counter.finished()[0]).toMatchObject({ date: '2026-10-15', firstThisWeek: true, firstThisMonth: true });
+    });
+
+    test('counts a key once a day, and again on the next day or after the counts were turned off', async () => {
+        const counter = counterOf();
+        counter.countOnce('projectsOpened', 'p1');
+        counter.countOnce('projectsOpened', 'p1');
+        counter.countOnce('viewsCanvas', 'p1');
+        clock += DAY;
+        expect(counter.finished()[0]!.counts).toEqual({ projectsOpened: 1, viewsCanvas: 1 });
+        counter.countOnce('projectsOpened', 'p1');
+        await counter.discard();
+        counter.countOnce('projectsOpened', 'p1');
+        clock += DAY;
+        expect(counter.finished()[0]!.counts).toEqual({ projectsOpened: 1 });
+        await counter.persist();
+        expect(written).not.toContain('p1');
+    });
+
     test('keeps its counts where no client file request reaches', () => {
         expect(isMachineStatePath({ homes: ['/home/someone/.ruimte'] }, usageStatePath('/home/someone/.ruimte'))).toBe(true);
     });

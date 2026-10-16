@@ -94,6 +94,9 @@ export class UsageCounter {
     private state: UsageState = { version: 1, firstDate: null, lastWeek: null, lastMonth: null, days: [] };
     private current: UsageDayRecord | null = null;
     private currentStart = 0;
+    // What `countOnce` already counted on the day of `current`; never written, so a restart may count a key again.
+    private seen = new Set<string>();
+    private seenDate: string | null = null;
     private pending: (() => void) | null = null;
 
     constructor(options: UsageCounterOptions) {
@@ -137,6 +140,21 @@ export class UsageCounter {
         this.dirty();
     }
 
+    /* Counts `key` once per UTC day under `counter`; the key stays on this machine and goes with the day. */
+    countOnce(counter: UsageCounterName, key: string): void {
+        const day = this.today();
+        if (this.seenDate !== day.date) {
+            this.seen.clear();
+            this.seenDate = day.date;
+        }
+        const mark = `${counter}\n${key}`;
+        if (this.seen.has(mark)) {
+            return;
+        }
+        this.seen.add(mark);
+        this.count(counter);
+    }
+
     /* Marks today as a day the machine ran, without counting anything in it. */
     touch(): void {
         this.today();
@@ -176,10 +194,17 @@ export class UsageCounter {
         this.dirty();
     }
 
-    /* Every day kept, today's too, for when a person turns the counts off. The cohort stays. */
+    /*
+     * Every day kept, today's too, for when a person turns the counts off. The cohort stays; the last
+     * week and month go with the days, so the day the counts come back on is a first of both again.
+     */
     async discard(): Promise<void> {
         this.state.days = [];
+        this.state.lastWeek = null;
+        this.state.lastMonth = null;
         this.current = null;
+        this.seen.clear();
+        this.seenDate = null;
         await this.persist();
     }
 

@@ -110,7 +110,7 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
     dispatcher.register(
         'endpoint.info',
         async (payload, client) => {
-            countClient(client, client.access, payload.client);
+            countClient(client.access, payload.client);
             if (client.access?.peer !== undefined) {
                 return {
                     id: identity.id,

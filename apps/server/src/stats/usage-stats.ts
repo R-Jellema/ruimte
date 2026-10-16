@@ -23,6 +23,12 @@ export function countUsage(counter: UsageCounterName): void {
     }
 }
 
+function countUsageOnce(counter: UsageCounterName, key: string): void {
+    if (installed !== null && enabled()) {
+        installed.countOnce(counter, key);
+    }
+}
+
 export function recordStartup(ms: number): void {
     if (installed !== null && enabled()) {
         installed.startup(ms);
@@ -31,7 +37,6 @@ export function recordStartup(ms: number): void {
 
 // What a person asks over the wire that counts as an action, beside what agents do through their verbs.
 const REQUEST_COUNTERS: Readonly<Record<string, UsageCounterName>> = {
-    'project.open': 'projectsOpened',
     'browser.navigate': 'browserActions',
     'browser.command': 'browserActions',
     'device.boot': 'deviceActions',
@@ -92,50 +97,40 @@ function isClientKind(kind: string): kind is UsageClientKind {
     return (USAGE_CLIENT_KINDS as readonly string[]).includes(kind);
 }
 
-const countedClients = new WeakSet<object>();
-
 /*
- * A client that came in from elsewhere, once per connection: a machine working here as a peer, or an
- * app that named itself. The app on this machine, on the local secret, is not a remote client.
+ * A client that came in from elsewhere, once per UTC day by the session its key proved, so a reconnect
+ * does not count again: a machine working here as a peer, or an app that named itself. The app on this
+ * machine, on the local secret, is not a remote client.
  */
-export function countClient(connection: object, access: ClientAccess | undefined, kind: string | undefined): void {
-    if (countedClients.has(connection)) {
+export function countClient(access: ClientAccess | undefined, kind: string | undefined): void {
+    if (access === undefined || isOwner(access)) {
         return;
     }
-    if (access?.peer !== undefined) {
-        countedClients.add(connection);
-        countUsage('clientsPeer');
+    if (access.peer !== undefined) {
+        countUsageOnce('clientsPeer', access.peer.machineId);
         return;
     }
-    if (isOwner(access) || kind === undefined || !isClientKind(kind)) {
-        return;
+    if (kind !== undefined && isClientKind(kind) && access.sessionId !== null) {
+        countUsageOnce(CLIENT_COUNTERS[kind], access.sessionId);
     }
-    countedClients.add(connection);
-    countUsage(CLIENT_COUNTERS[kind]);
 }
 
-const shownViews = new WeakMap<object, Map<string, string | null>>();
+/* A project a client opened, once per UTC day, so the open a client repeats after a reconnect does not count again. */
+export function countProjectOpened(projectId: string): void {
+    countUsageOnce('projectsOpened', projectId);
+}
 
 /*
- * A view a client put on screen, told by the active view of its local state: a view counts when it
- * becomes the one a client looks at, not on every save of the camera while it stays.
+ * A view a client put on screen, told by the active view of its local state: each view of a project
+ * counts once per UTC day, however often a client comes back to it or saves its camera.
  */
-export function countViewShown(connection: object, projectId: string, viewId: string | null, kindOf: (viewId: string) => string | null): void {
-    let shown = shownViews.get(connection);
-    if (shown === undefined) {
-        shown = new Map();
-        shownViews.set(connection, shown);
-    }
-    if (shown.get(projectId) === viewId) {
-        return;
-    }
-    shown.set(projectId, viewId);
+export function countViewShown(projectId: string, viewId: string | null, kindOf: (viewId: string) => string | null): void {
     if (viewId === null) {
         return;
     }
     const kind = kindOf(viewId);
     const counter = kind === null ? undefined : (USAGE_VIEW_COUNTERS as Readonly<Record<string, UsageCounterName>>)[kind];
     if (counter !== undefined) {
-        countUsage(counter);
+        countUsageOnce(counter, `${projectId}\n${viewId}`);
     }
 }
