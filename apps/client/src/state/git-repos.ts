@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import i18next from 'i18next';
 import type { GitRepo, GitRepoKind, GitStatus } from '@ruimte/contracts';
+import { basenameOf } from '@/shell/panels/files-tree';
 import { GIT_PANEL_PACE_MS, paced, type Pace } from '@/shell/panels/pace';
 import { watchGit } from '@/state/git-watch';
 import { endpointKey, useEndpointId } from '@/state/keys';
@@ -80,16 +81,22 @@ export function withoutNestedRepos(status: GitStatus | null, root: string, other
     return files.length === status.files.length ? status : { ...status, files };
 }
 
+/* The project folder as the only repository. */
+export function soleRepo(folder: string): GitRepo[] {
+    return [{ path: folder, label: basenameOf(folder), kind: 'root' }];
+}
+
 /*
  * Asks which repositories a folder holds. A real answer, an empty one included, goes to `answered`.
- * A link that dropped or an ask that timed out answers nothing: the list on screen stays and `again`
- * fires once the link is open. Any other failure is an answer of no repository. Returns the cancel.
+ * A link that dropped answers nothing: the list on screen stays and `again` fires once the link is
+ * open. An ask that timed out on a link that stays open goes to `timedOut`, since no status change
+ * would ever ask again. Any other failure is an answer of no repository. Returns the cancel.
  */
 export function readProjectRepos(
     transport: Pick<Transport, 'request' | 'subscribeStatus'>,
     folder: string,
     fresh: boolean,
-    on: { answered(answer: { repos: readonly GitRepo[]; truncated: boolean }): void; again(): void }
+    on: { answered(answer: { repos: readonly GitRepo[]; truncated: boolean }): void; again(): void; timedOut(): void }
 ): () => void {
     let cancelled = false;
     let stopWaiting: (() => void) | null = null;
@@ -104,7 +111,11 @@ export function readProjectRepos(
             if (cancelled) {
                 return;
             }
-            if (isConnectionError(error) || (error instanceof TransportError && error.code === 'timeout')) {
+            if (error instanceof TransportError && error.code === 'timeout') {
+                on.timedOut();
+                return;
+            }
+            if (isConnectionError(error)) {
                 stopWaiting = transport.subscribeStatus((status) => {
                     if (status === 'open') {
                         stopWaiting?.();
@@ -151,7 +162,9 @@ export function useProjectRepos(folder: string | null): ProjectRepos {
         freshRef.current = false;
         return readProjectRepos(transport, folder, fresh, {
             answered: (answer) => setList({ key, repos: answer.repos, truncated: answer.truncated }),
-            again: () => setNonce((count) => count + 1)
+            again: () => setNonce((count) => count + 1),
+            // The folder itself stands in until a refresh answers, as it did before the machine listed repositories.
+            timedOut: () => setList((previous) => (previous?.key === key ? previous : { key, repos: soleRepo(folder), truncated: false }))
         });
     }, [transport, folder, key, nonce]);
 

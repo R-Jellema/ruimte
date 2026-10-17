@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { GitRepo } from '@ruimte/contracts';
 import type { GitFile, GitStatus } from '@ruimte/contracts';
 import { TransportError, type TransportStatus } from '@/transport/transport';
-import { headMoved, readProjectRepos, visibleRepos, withoutNestedRepos } from './git-repos.ts';
+import { headMoved, readProjectRepos, soleRepo, visibleRepos, withoutNestedRepos } from './git-repos.ts';
 
 function file(path: string, state: GitFile['state']): GitFile {
     return {
@@ -114,7 +114,7 @@ describe('reading the repositories of a folder', () => {
             link(async () => ({ repos: [], truncated: false })),
             '/work',
             false,
-            { answered: (a) => answers.push(a), again: () => {} }
+            { answered: (a) => answers.push(a), again: () => {}, timedOut: () => {} }
         );
         await settle();
         expect(answers).toEqual([{ repos: [], truncated: false }]);
@@ -125,19 +125,19 @@ describe('reading the repositories of a folder', () => {
         const failing = link(async () => {
             throw new TransportError('git-failed', 'No');
         });
-        readProjectRepos(failing, '/work', false, { answered: (a) => answers.push(a), again: () => {} });
+        readProjectRepos(failing, '/work', false, { answered: (a) => answers.push(a), again: () => {}, timedOut: () => {} });
         await settle();
         expect(answers).toEqual([{ repos: [], truncated: false }]);
     });
 
-    test('a dropped link or a timeout keeps the list and asks again once the link is open', async () => {
-        for (const code of ['disconnected', 'not-connected', 'timeout']) {
+    test('a dropped link keeps the list and asks again once the link is open', async () => {
+        for (const code of ['disconnected', 'not-connected']) {
             const answers: unknown[] = [];
             let again = 0;
             const dropped = link(async () => {
                 throw new TransportError(code, 'Gone');
             });
-            readProjectRepos(dropped, '/work', false, { answered: (a) => answers.push(a), again: () => again++ });
+            readProjectRepos(dropped, '/work', false, { answered: (a) => answers.push(a), again: () => again++, timedOut: () => {} });
             await settle();
             expect(answers).toEqual([]);
             expect(again).toBe(0);
@@ -148,12 +148,29 @@ describe('reading the repositories of a folder', () => {
         }
     });
 
+    test('a timeout on a link that stays open says so at once and waits on nothing', async () => {
+        const answers: unknown[] = [];
+        let timedOut = 0;
+        const slow = link(async () => {
+            throw new TransportError('timeout', 'Slow');
+        });
+        readProjectRepos(slow, '/work', false, { answered: (a) => answers.push(a), again: () => {}, timedOut: () => timedOut++ });
+        await settle();
+        expect(answers).toEqual([]);
+        expect(timedOut).toBe(1);
+        expect(slow.listeners.size).toBe(0);
+    });
+
+    test('the sole repository is the folder itself', () => {
+        expect(soleRepo('/work/shop')).toEqual([{ path: '/work/shop', label: 'shop', kind: 'root' }]);
+    });
+
     test('cancelling stops the wait for the link', async () => {
         let again = 0;
         const dropped = link(async () => {
             throw new TransportError('disconnected', 'Gone');
         });
-        const cancel = readProjectRepos(dropped, '/work', false, { answered: () => {}, again: () => again++ });
+        const cancel = readProjectRepos(dropped, '/work', false, { answered: () => {}, again: () => again++, timedOut: () => {} });
         await settle();
         cancel();
         dropped.open();
