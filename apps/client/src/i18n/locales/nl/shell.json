@@ -139,6 +139,13 @@
         "workingCount_other": "{{count}} agents aan het werk",
         "nextFinished": "Ga naar de volgende agent die klaar was terwijl je weg was"
     },
+    "measure": {
+        "built": "Meetscène staat klaar",
+        "recording": "Meet tot de volgende kopie",
+        "copied": "Metingen als JSON gekopieerd",
+        "failed": "Kon de meetscène niet bouwen",
+        "noMachine": "Dit venster heeft geen machine om hem op te bouwen"
+    },
     "toasts": {
         "deletedView": "Weergave “{{name}}” verwijderd",
         "copied": "Gekopieerd",
@@ -729,6 +736,12 @@
             "maximizeNode": "Node maximaliseren",
             "usage": "Verbruik",
             "compareModels": "Modellen vergelijken",
+            "measureScene": "Meten: scène met 30 nodes bouwen",
+            "measureGrid": "Meten: raster van negen cellen bouwen",
+            "measureFiles": "Meten: tien grote bestandsnodes bouwen",
+            "measureChats": "Meten: 100 stille chats bouwen",
+            "measureTerminals": "Meten: 16 terminals bouwen",
+            "measureCopy": "Meten: resultaten als JSON kopiëren",
             "settings": "Instellingen",
             "launchesEdit": "Launches bewerken…",
             "launchesAfterSettleOff": "Als een worktree-chat klaar is: niets uitvoeren"

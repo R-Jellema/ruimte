@@ -63,6 +63,46 @@ with the next push to main, which starts Xcode Cloud.
   CLI-03, and the iOS fixtures in UnifiedProjectsTests, WorkspaceVisualTests, SessionVisualTests,
   AttentionStoreTests and PhaseZeroTests.
 
+## Measurements
+
+The hardware half of NEXT.md §3; the baseline that needed no person is in
+[the report of October 17](reports/2026-10-17-measurements.html). In the Electron dev app (`bun dev`), on power,
+with DevTools closed while sampling and no other heavy app running. Write down `sysctl -n machdep.cpu.brand_string`,
+the memory, the display and the commit, and add every result to that report with its unit.
+
+The palette (Mod+K) of a dev build has six "Measure:" rows. Each "build" row writes its scene into
+`~/.cache/ruimte-measure/<variant>` as a throwaway project, opens it in the window and starts recording; running it
+again puts the same scene back. "Measure: copy results as JSON" copies everything since the scene opened or the last
+copy (frames, input to next frame, Event Timing entries of 16 ms and more, long animation frames, heap in MiB,
+mounted terminals, chats and files, WebGL contexts, DOM size) and starts a fresh window. Copy once right after a
+build and throw that one away: it holds the opening. In DevTools `__ruimteMeasure.snapshot()` reads the same without
+starting afresh. Remove the folders and close the projects afterwards.
+
+- [ ] 30-node scene (10 terminals, 10 chats, 10 files of 400 lines): 30 s idle, copy; 20 s panning and zooming with
+  the trackpad over all nodes, copy; 20 s holding a key in a terminal, copy; 20 s typing in a chat composer, copy.
+- [ ] Nine grid cells (three terminal, three chat and three file views, three by three): the same four takes, with
+  the typing in the middle cell; also note whether every cell drew its body (`mounts`).
+- [ ] Ten large file nodes (20,000 lines, 640 KB each, 6.1 MiB together): idle, copy; 20 s scrolling one file at the
+  top of the canvas, copy; 20 s panning over all ten, copy. Note how long the first copy after the build took to
+  show all ten files.
+- [ ] WebGL budget, "Measure: build 16 terminals": the first copy has `webgl.terminalsHolding` 10 and `webgl.live`
+  at most 10. Focus each terminal in turn and copy: the count stays at 10 and every focused one holds a context. Run
+  `yes` in twelve terminals for 20 s and copy (frames and input with more writers than slots). Context loss: in
+  DevTools `__ruimteMeasure.loseWebglContexts(3)`, wait 5 s and copy: `lostInWindow` is 3, the three terminals keep
+  drawing with the DOM renderer and take a context again when focused. Repeat on the oldest supported Intel Mac or
+  an integrated GPU, and on Linux. Change the budget only when one of these shows a reason.
+- [ ] 100 idle chats, "Measure: build 100 idle chats" (empty chat nodes on one canvas): copy after 10 s, then after
+  5 minutes untouched, then after zooming out to all of them and back. Note `heap.usedMb` and, in Activity Monitor,
+  the memory of the renderer process of the window. The chats have no thread; repeat with a project whose chats do
+  before touching cache or GC policy.
+- [ ] Workspace startup: quit the app, start it with a project window, then copy at once. `page` has
+  `domContentLoadedMs`, `firstContentfulPaintMs` and `scripts.lastEndMs` (when the last chunk, the workspace's
+  among them, had arrived). Five starts, keep the median. Split CodeMirror only when its 87 KiB gzip chunk shows
+  in that time (Performance panel, one start with DevTools open: the parse and compile of the chunk).
+- [ ] Latency over a direct connection with Chromium on the client side: a project on this machine opened from
+  another machine of the account, `yes` in one terminal and a held key in a second; note whether the second one's
+  echo stalls the way the daemon script's does (p95 5008 ms) or only slows.
+
 ## Devices
 
 On a Mac with Xcode 27.1, an iOS 27.1 simulator, an iPhone Duo simulator, an Android emulator (one AVD with a hinge)

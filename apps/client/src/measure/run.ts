@@ -1,0 +1,106 @@
+import i18next from 'i18next';
+import { copyText, messageOf } from '@adecore/ui';
+import { measureScene, sceneFacts, type MeasureVariant } from '@/measure/scene';
+import { startRecording, take } from '@/measure/recorder';
+import { openFolderOn } from '@/project/open';
+import { useDocument } from '@/state/document';
+import { currentEndpointId } from '@/state/keys';
+import { useProject } from '@/state/project';
+import { serverInfoOf } from '@/state/server';
+import { useToasts } from '@/state/toasts';
+import { transportFor } from '@/transport';
+
+/* Beside the person's own work and outside `$RUIMTE_HOME`, which a file request may not write. */
+function folderFor(home: string, platform: string | null, variant: MeasureVariant): string {
+    const separator = platform === 'win32' ? '\\' : '/';
+    return [home.replace(/[\\/]+$/, ''), '.cache', 'ruimte-measure', variant].join(separator);
+}
+
+function failed(error: unknown): void {
+    useToasts.getState().show({ kind: 'error', title: i18next.t('shell:measure.failed'), description: messageOf(error) });
+}
+
+/* Lays the nine views out three by three once the document has them; a scene opened over a stored layout starts from one cell. */
+function arrangeOnceThere(grid: string[][]): void {
+    const wanted = grid.flat();
+    const arrange = (): boolean => {
+        const state = useDocument.getState();
+        if (!wanted.every((id) => state.views.some((view) => view.id === id))) {
+            return false;
+        }
+        state.setActiveView(grid[0]![0]!);
+        const focus = useDocument.getState().layout?.focus;
+        if (focus) {
+            useDocument.getState().closeOtherCells(focus);
+        }
+        const document = useDocument.getState();
+        document.dropViewAt(grid[1]![0]!, { column: 0, cell: 0 }, 'right');
+        document.dropViewAt(grid[2]![0]!, { column: 1, cell: 0 }, 'right');
+        grid.forEach((column, index) => {
+            document.dropViewAt(column[1]!, { column: index, cell: 0 }, 'down');
+            document.dropViewAt(column[2]!, { column: index, cell: 1 }, 'down');
+        });
+        return true;
+    };
+    if (arrange()) {
+        return;
+    }
+    const stop = useDocument.subscribe(() => {
+        if (arrange()) {
+            stop();
+        }
+    });
+}
+
+/*
+ * Writes the scene into its own folder on the machine of this window, as a project of its own, and
+ * opens it here. Running it again puts the same scene back over whatever a person changed in it.
+ */
+export async function buildMeasureScene(variant: MeasureVariant): Promise<void> {
+    const endpointId = currentEndpointId();
+    const transport = transportFor(endpointId);
+    const { home, platform } = serverInfoOf(endpointId);
+    if (transport === null || home === null) {
+        failed(new Error(i18next.t('shell:measure.noMachine')));
+        return;
+    }
+    const scene = measureScene(variant);
+    const folder = folderFor(home, platform, variant);
+    const separator = platform === 'win32' ? '\\' : '/';
+    try {
+        const opened = await transport.request('project.open', { folder, createFolder: true, name: scene.content.name });
+        const { projectId } = opened.summary;
+        for (const file of scene.files) {
+            await transport.request('fs.create', {
+                path: [folder, ...file.path.split('/')].join(separator),
+                kind: 'file',
+                text: file.text,
+                projectId,
+                overwrite: true
+            });
+        }
+        await transport.request('project.save', { projectId, baseRev: opened.document.rev, content: scene.content });
+        if (useProject.getState().current?.projectId !== projectId) {
+            await transport.request('project.release', { projectId });
+        }
+        const outcome = await openFolderOn(endpointId, folder);
+        if (outcome !== 'done') {
+            return;
+        }
+        if (scene.grid !== null) {
+            arrangeOnceThere(scene.grid);
+        }
+        startRecording({ ...sceneFacts(scene), folder });
+        useToasts.getState().show({ kind: 'success', title: i18next.t('shell:measure.built'), description: i18next.t('shell:measure.recording') });
+    } catch (error: unknown) {
+        failed(error);
+    }
+}
+
+/* Copies what was measured since the scene opened or the last copy, and starts counting afresh. */
+export function copyMeasurements(): void {
+    const json = JSON.stringify(take(), null, 2);
+    console.info(json);
+    copyText(json);
+    useToasts.getState().show({ kind: 'success', title: i18next.t('shell:measure.copied') });
+}

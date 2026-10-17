@@ -33,6 +33,7 @@ import { sessionClientFor } from '@/transport/connections';
 import { useTransportStatus } from '@/transport/status';
 import { isApplePlatform } from '@/desktop/bridge';
 import { NodeNotice } from '@/nodes/NodeNotice';
+import { useMountCount } from '@/measure/mounts';
 import { closeHost, readNodeHost, useSuggestedTitle } from '@/nodes/node-host';
 import { Button, copyText, readClipboardText, Icon, ContextMenu, ErrorBoundary, Kbd, prefetcher, EDIT_SHORTCUTS } from '@adecore/ui';
 
@@ -41,6 +42,7 @@ prefetcher.register(() => import('@xterm/addon-webgl'));
 
 /* What the placeholder for an offscreen terminal shows: the text of its last screen. */
 export function TerminalPlate({ id }: { id: string }) {
+    useMountCount('terminal-plate');
     const ref = useRef<HTMLDivElement>(null);
     const endpointId = useEndpointId();
     // Filled from a passive effect, not during render: the live node captures its screen in its own
@@ -61,6 +63,7 @@ export function TerminalPlate({ id }: { id: string }) {
 
 /* The body of a terminal, the same on a canvas inside a frame and filling a view of its own. */
 export function TerminalBody({ id, focused }: { id: string; focused: boolean }) {
+    useMountCount('terminal');
     const { t } = useTranslation(['canvas', 'common']);
     const viewRef = useRef<TerminalViewHandle>(null);
     const dictationRoot = useRef<HTMLDivElement>(null);

@@ -74,6 +74,7 @@ import { sendFromComposer } from '@adecore/agents-react/chat';
 import { focusedChatId } from '@/chat/focused-chat';
 import { restartChatSession } from '@/chat/restart-session';
 import { COMMANDS, type PaletteCommandId } from '@/shell/command-table';
+import type { MeasureVariant } from '@/measure/scene';
 
 export interface Command {
     id: string;
@@ -265,6 +266,20 @@ function tabCommands(layout: SplitLayout | null): Command[] {
 export const OPENING_COMMAND_IDS: readonly string[] = ['add-chat', 'add-terminal', 'view-new', 'find-in-files', 'open-folder', 'usage', 'settings'];
 
 /* Everything the palette can do besides jumping to a node. One list, so the dock and the keys agree. */
+/* Dev only. The module loads on first use, so the recorder never ships and only watches a page someone measures. */
+function measureCommands(): Command[] {
+    const measure = () => import('@/measure/run');
+    const scene = (variant: MeasureVariant) => () => void measure().then((module) => module.buildMeasureScene(variant));
+    return [
+        row('measure-scene', scene('scene')),
+        row('measure-scene-grid', scene('grid')),
+        row('measure-scene-files', scene('files')),
+        row('measure-scene-chats', scene('chats')),
+        row('measure-scene-terminals', scene('terminals')),
+        row('measure-copy', () => void measure().then((module) => module.copyMeasurements()))
+    ];
+}
+
 export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Command[] {
     const canvas = focusedCanvas().getState();
     const anyLocked = Object.values(canvas.locks).some(Boolean);
@@ -527,6 +542,7 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
             : []),
         row('usage', () => useUi.getState().setUsageOpen(true), { hint: i18next.t('shell:palette.hints.usage') }),
         row('models', () => useUi.getState().setModelsOpen(true)),
+        ...(import.meta.env.DEV ? measureCommands() : []),
         ...(inWorkspace
             ? [
                   row('sidebar', () => useUi.getState().toggleSidebar()),

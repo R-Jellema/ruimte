@@ -6,6 +6,7 @@ import { FileActionsContext } from '@/shell/panels/file-actions';
 import { FileTextMenu, FileToolbar } from '@/shell/panels/FileToolbar';
 import { renderFile } from '@/shell/panels/renderers';
 import { useFileRead } from '@/shell/panels/use-file-read';
+import { useMountCount } from '@/measure/mounts';
 import { Button, EmptyState } from '@adecore/ui';
 
 /* The two states no renderer draws still carry the bar, so a file that will not read can be
@@ -25,6 +26,7 @@ function WithoutRenderer({ children }: { children: ReactNode }) {
  * one error state, and a renderer only ever sees a file that is there.
  */
 export function FileBody({ path, name, on, tabKey, nodeId }: { path: string; name: string; on: FileSurfaceKind; tabKey?: string; nodeId?: string }) {
+    useMountCount('file');
     const { t } = useTranslation('panels');
     const { state, retry } = useFileRead(path);
     const actions = useMemo(() => ({ path, name, on, tabKey, nodeId, refresh: retry }), [path, name, on, tabKey, nodeId, retry]);

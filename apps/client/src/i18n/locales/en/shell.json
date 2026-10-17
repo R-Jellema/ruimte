@@ -139,6 +139,13 @@
         "workingCount_other": "{{count}} agents working",
         "nextFinished": "Go to the next agent that finished while you were away"
     },
+    "measure": {
+        "built": "Measurement scene ready",
+        "recording": "Recording until the next copy",
+        "copied": "Measurements copied as JSON",
+        "failed": "Could not build the measurement scene",
+        "noMachine": "This window has no machine to build it on"
+    },
     "toasts": {
         "deletedView": "Deleted view “{{name}}”",
         "copied": "Copied",
@@ -729,6 +736,12 @@
             "maximizeNode": "Maximize node",
             "usage": "Usage",
             "compareModels": "Compare Models",
+            "measureScene": "Measure: build the 30-node scene",
+            "measureGrid": "Measure: build the nine-cell grid",
+            "measureFiles": "Measure: build ten large file nodes",
+            "measureChats": "Measure: build 100 idle chats",
+            "measureTerminals": "Measure: build 16 terminals",
+            "measureCopy": "Measure: copy results as JSON",
             "settings": "Settings",
             "launchesEdit": "Edit launches…",
             "launchesAfterSettleOff": "After a worktree chat settles: run nothing"
