@@ -102,6 +102,13 @@ if (config.command === 'logout') {
     process.exit(await runLogout({ port: config.port, home: config.home }));
 }
 
+if (config.command === 'notify') {
+    const { runNotify } = await import('./cli/notify.ts');
+    process.exit(
+        await runNotify({ port: config.port, home: config.home, ...(config.node === undefined ? {} : { node: config.node }), text: config.args.join(' ') })
+    );
+}
+
 if (config.command === 'context') {
     const { runContext } = await import('./cli/context.ts');
     process.exit(await runContext(config.args));

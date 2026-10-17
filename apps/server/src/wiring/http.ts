@@ -1,6 +1,7 @@
 import type { Server } from 'bun';
 import {
     MACHINE_HEALTH_PATH,
+    MACHINE_NOTIFY_PATH,
     MACHINE_PROOF_PATH,
     MACHINE_STATUS_PATH,
     MACHINE_WORK_PATH,
@@ -30,6 +31,7 @@ import { FS_FILE_PATH, handleFsFileRequest } from '../fs/file-route.ts';
 import { PAIRING_REMOVED } from '../handlers/auth.ts';
 import { answerRoute, type Route } from '../http-routes.ts';
 import { handleProjectRequest, PROJECTS_PATH } from '../projects/icon-route.ts';
+import { handleMachineNotify } from '../push/notify-route.ts';
 import { takesNoteOnLine } from '../providers/launch.ts';
 import { handleLiveStreamRequest, LIVE_STREAM_PATH } from '../streams/http-stream.ts';
 import { BUILD, VERSION } from '../version.ts';
@@ -120,6 +122,7 @@ function daemonRoutes(input: HttpInput): Route<SocketData>[] {
                 return Response.json({ revoked: revoked.length });
             }
         },
+        { exact: [MACHINE_NOTIFY_PATH], handle: ({ request, remote }) => handleMachineNotify(request, remote, access, canvasHost.messages) },
         {
             exact: [MACHINE_STATUS_PATH],
             // `ruimte status` on the local secret; a client sees the same through `endpoint.info`.
