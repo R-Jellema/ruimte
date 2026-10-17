@@ -9,7 +9,10 @@ interface Fake {
     killed: number;
     sent: Array<Record<string, string>>;
     simctl: Array<{ arguments_: string[]; env: Record<string, string> }>;
-    answer: { send: boolean; listening: boolean };
+    /* `hang` takes the command and never answers, as a stuck helper does. */
+    answer: { send: boolean | 'hang'; listening: boolean };
+    /* The timers set, which a test runs itself. */
+    timers: Array<() => void>;
 }
 
 function fakeCamera(files: CameraHost['files'] = FILES): Fake {
@@ -19,7 +22,8 @@ function fakeCamera(files: CameraHost['files'] = FILES): Fake {
         killed: 0,
         sent: [],
         simctl: [],
-        answer: { send: true, listening: true }
+        answer: { send: true, listening: true },
+        timers: []
     };
     const host: CameraHost = {
         files,
@@ -28,15 +32,26 @@ function fakeCamera(files: CameraHost['files'] = FILES): Fake {
             return { kill: () => (fake.killed += 1) };
         },
         listening: async () => fake.answer.listening,
-        send: async (_socket, command) => {
+        send: (_socket, command) => {
             fake.sent.push(command);
-            return fake.answer.send;
+            const answer = fake.answer.send;
+            return answer === 'hang' ? new Promise<boolean>(() => undefined) : Promise.resolve(answer);
         }
     };
-    fake.camera = new SimulatorCamera('/Users/bas/.ruimte', host, async (arguments_, env) => {
-        fake.simctl.push({ arguments_, env });
-        return { exitCode: 0, stderr: '' };
-    });
+    fake.camera = new SimulatorCamera(
+        '/Users/bas/.ruimte',
+        host,
+        async (arguments_, env) => {
+            fake.simctl.push({ arguments_, env });
+            return { exitCode: 0, stderr: '' };
+        },
+        (_ms, run) => {
+            fake.timers.push(run);
+            return () => {
+                fake.timers = fake.timers.filter((candidate) => candidate !== run);
+            };
+        }
+    );
     return fake;
 }
 
@@ -97,6 +112,21 @@ describe('the camera of a simulator', () => {
         expect(fake.killed).toBe(1);
         expect(fake.spawned).toHaveLength(2);
         expect(fake.simctl.map((call) => call.arguments_[0])).toEqual(['privacy', 'terminate', 'launch']);
+    });
+
+    test('starts the helper again when it takes the switch and never answers', async () => {
+        const fake = fakeCamera();
+        await fake.camera.set('C0FFEE', 'com.example.scan', 'placeholder');
+        fake.answer.send = 'hang';
+
+        const switching = fake.camera.set('C0FFEE', 'com.example.scan', 'placeholder');
+        await Promise.resolve();
+        expect(fake.timers).toHaveLength(1);
+        fake.timers[0]!();
+        await switching;
+
+        expect(fake.killed).toBe(1);
+        expect(fake.spawned).toHaveLength(2);
     });
 
     test('off stops the helper and launches the app without the library', async () => {

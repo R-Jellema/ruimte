@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { LiveStreamFrame } from '@ruimte/contracts';
 import { DEVICE_HELPER_MAGIC, DeviceHelperDecoder, encodeDeviceHelperMessage, type DeviceHelperMessage } from './helper-protocol.ts';
-import { DeviceHelperFailure, DeviceHelperSource, type DeviceHelperProcess } from './helper-source.ts';
+import { DeviceHelperFailure, DeviceHelperSource, HELPER_CALL_TIMEOUT_MS, type DeviceHelperProcess } from './helper-source.ts';
 
 function join(...chunks: Uint8Array[]): Uint8Array {
     const result = new Uint8Array(chunks.reduce((size, chunk) => size + chunk.byteLength, 0));
@@ -167,6 +167,35 @@ describe('DeviceHelperSource', () => {
         process.exit(0);
         await stopping;
         await expect(waiting).rejects.toMatchObject({ code: 'device-not-streaming' });
+    });
+
+    test('gives up on a call the helper never answers, and forgets it', async () => {
+        const process = new FakeHelperProcess();
+        const timers: Array<{ ms: number; run: () => void }> = [];
+        const source = new DeviceHelperSource(
+            'phone-1',
+            () => process,
+            500,
+            'jpeg',
+            (ms, run) => {
+                const entry = { ms, run };
+                timers.push(entry);
+                return () => timers.splice(timers.indexOf(entry), 1);
+            }
+        );
+        const started = source.start(() => undefined);
+        process.emit({ type: 'ready', width: 1179, height: 2556 });
+        await started;
+
+        const answered = source.call({ method: 'isFoldable' });
+        const hanging = source.call({ method: 'memoryWarning' });
+        const [first] = new DeviceHelperDecoder().push(join(...process.writes)) as Array<Extract<DeviceHelperMessage, { type: 'call' }>>;
+        process.emitAfterPreamble({ type: 'reply', id: first!.id, ok: true, value: true });
+        expect(await answered).toBe(true);
+        expect(timers.map((entry) => entry.ms)).toEqual([HELPER_CALL_TIMEOUT_MS]);
+
+        timers[0]!.run();
+        await expect(hanging).rejects.toMatchObject({ code: 'device-helper-timeout' });
     });
 
     test('kills a helper that ignores stop', async () => {

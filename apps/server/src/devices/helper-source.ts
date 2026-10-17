@@ -48,11 +48,23 @@ export function createDeviceHelperLauncher(command: string[]): DeviceHelperLaunc
     };
 }
 
+/* Runs `run` after `ms` and answers how to call it off, so a test decides when a call gives up. */
+export type HelperCallTimer = (ms: number, run: () => void) => () => void;
+
+const realCallTimer: HelperCallTimer = (ms, run) => {
+    const timer = setTimeout(run, ms);
+    return () => clearTimeout(timer);
+};
+
+/* Every call answers within moments; a helper that takes this long will not answer at all. */
+export const HELPER_CALL_TIMEOUT_MS = 30_000;
+
 export class DeviceHelperSource implements LiveFrameSource {
     readonly format: 'jpeg' | 'hevc';
     private readonly deviceId: string;
     private readonly launch: DeviceHelperLauncher;
     private readonly stopGraceMs: number;
+    private readonly timer: HelperCallTimer;
     private process: DeviceHelperProcess | null = null;
     private outputTask: Promise<void> | null = null;
     private abandonStart: ((error: unknown) => void) | null = null;
@@ -60,13 +72,14 @@ export class DeviceHelperSource implements LiveFrameSource {
     private stderr = '';
     private nextCall = 0;
     /* The calls waiting for their reply, by id; the helper answers each in the order it was sent. */
-    private readonly calls = new Map<number, { resolve: (value: boolean | undefined) => void; reject: (error: unknown) => void }>();
+    private readonly calls = new Map<number, { resolve: (value: boolean | undefined) => void; reject: (error: unknown) => void; cancel: () => void }>();
 
-    constructor(deviceId: string, launch: DeviceHelperLauncher, stopGraceMs = 500, format: 'jpeg' | 'hevc' = 'jpeg') {
+    constructor(deviceId: string, launch: DeviceHelperLauncher, stopGraceMs = 500, format: 'jpeg' | 'hevc' = 'jpeg', timer: HelperCallTimer = realCallTimer) {
         this.deviceId = deviceId;
         this.launch = launch;
         this.stopGraceMs = stopGraceMs;
         this.format = format;
+        this.timer = timer;
     }
 
     async start(publish: (frame: LiveStreamFrame) => void): Promise<void> {
@@ -183,7 +196,11 @@ export class DeviceHelperSource implements LiveFrameSource {
         this.nextCall = (this.nextCall + 1) >>> 0;
         const id = this.nextCall;
         const answered = new Promise<boolean | undefined>((resolve, reject) => {
-            this.calls.set(id, { resolve, reject });
+            const cancel = this.timer(HELPER_CALL_TIMEOUT_MS, () => {
+                this.calls.delete(id);
+                reject(new DeviceHelperFailure('device-helper-timeout', 'The device helper did not answer the tool in time'));
+            });
+            this.calls.set(id, { resolve, reject, cancel });
         });
         this.process.stdin.write(encodeDeviceHelperMessage({ type: 'call', id, call }));
         this.process.stdin.flush();
@@ -230,6 +247,7 @@ export class DeviceHelperSource implements LiveFrameSource {
                 } else if (message.type === 'reply') {
                     const waiting = this.calls.get(message.id);
                     this.calls.delete(message.id);
+                    waiting?.cancel();
                     if (message.ok) {
                         waiting?.resolve(message.value);
                     } else {
@@ -246,6 +264,7 @@ export class DeviceHelperSource implements LiveFrameSource {
 
     private failCalls(error: DeviceHelperFailure): void {
         for (const waiting of this.calls.values()) {
+            waiting.cancel();
             waiting.reject(error);
         }
         this.calls.clear();

@@ -25,6 +25,17 @@ export type SimctlEnvRunner = (arguments_: string[], env: Record<string, string>
 
 export type CameraSource = 'placeholder' | 'file' | 'off';
 
+/* Runs `run` after `ms` and answers how to call it off, so a test decides when a helper took too long. */
+export type CameraTimer = (ms: number, run: () => void) => () => void;
+
+const realCameraTimer: CameraTimer = (ms, run) => {
+    const timer = setTimeout(run, ms);
+    return () => clearTimeout(timer);
+};
+
+/* A helper answers a command at once; one that has not by now is taken for gone and started again. */
+export const CAMERA_SEND_TIMEOUT_MS = 5_000;
+
 interface Feed {
     process: CameraHelperProcess;
     socket: string;
@@ -58,12 +69,14 @@ export class SimulatorCamera {
     private readonly home: string;
     private readonly host: CameraHost;
     private readonly simctl: SimctlEnvRunner;
+    private readonly timer: CameraTimer;
     private readonly feeds = new Map<string, Feed>();
 
-    constructor(home: string, host: CameraHost, simctl: SimctlEnvRunner) {
+    constructor(home: string, host: CameraHost, simctl: SimctlEnvRunner, timer: CameraTimer = realCameraTimer) {
         this.home = home;
         this.host = host;
         this.simctl = simctl;
+        this.timer = timer;
     }
 
     get available(): boolean {
@@ -86,7 +99,7 @@ export class SimulatorCamera {
         const command = this.sourceCommand(source, path);
         let feed = this.feeds.get(deviceId);
         // A helper that went away since is started again, and its apps with it.
-        if (feed !== undefined && !(await this.host.send(feed.socket, { action: 'switch', ...command }).catch(() => false))) {
+        if (feed !== undefined && !(await this.sendWithin(feed.socket, { action: 'switch', ...command }))) {
             this.stop(deviceId);
             feed = undefined;
         }
@@ -109,6 +122,22 @@ export class SimulatorCamera {
         for (const deviceId of [...this.feeds.keys()]) {
             this.stop(deviceId);
         }
+    }
+
+    private sendWithin(socket: string, command: Record<string, string>): Promise<boolean> {
+        return new Promise((resolve) => {
+            const cancel = this.timer(CAMERA_SEND_TIMEOUT_MS, () => resolve(false));
+            this.host.send(socket, command).then(
+                (accepted) => {
+                    cancel();
+                    resolve(accepted);
+                },
+                () => {
+                    cancel();
+                    resolve(false);
+                }
+            );
+        });
     }
 
     private sourceCommand(source: 'placeholder' | 'file', path: string | undefined): { source: string; arg?: string } {
