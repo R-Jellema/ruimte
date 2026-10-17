@@ -190,7 +190,9 @@ export class DirectPeers {
             clearTimeout(attempt.timer);
             attempt.timer = null;
         }
-        this.log.log(`Direct connection ${tagOf(connectionId)} opened (${access.reachability}, ${this.attempts.size} alive)`);
+        this.log.log(
+            `Direct connection ${tagOf(connectionId)} opened (${access.reachability}${channel.deflating ? ', deflate' : ''}, ${this.attempts.size} alive)`
+        );
         this.options.open(channel, access);
     }
 

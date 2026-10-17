@@ -63,6 +63,7 @@ export interface DirectChannel extends ClientChannel {
     receiveWith(listener: (frame: string) => void, maxChars: number): void;
     /* From the next frame on, a text frame that deflate shrinks goes deflated; only once the peer chose it. */
     deflate(): void;
+    readonly deflating: boolean;
 }
 
 /*
@@ -181,6 +182,9 @@ export function directChannel(raw: RawDataChannel, backpressureLimit: number = S
         },
         get isOpen() {
             return !closed && raw.readyState === 'open';
+        },
+        get deflating() {
+            return deflating;
         },
         receiveWith(listener, limit) {
             reader = listener;

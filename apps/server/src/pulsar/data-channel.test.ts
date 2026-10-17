@@ -302,7 +302,9 @@ describe('directChannel', () => {
     test('once deflating, a large text frame goes deflated and inflates back to the frame', () => {
         const raw = new FakeRawChannel();
         const channel = directChannel(raw);
+        expect(channel.deflating).toBe(false);
         channel.deflate();
+        expect(channel.deflating).toBe(true);
         const frame = JSON.stringify({ type: 'event', event: 'chat.items', payload: { text: 'the same words again '.repeat(5_000) } });
         expect(channel.send(frame)).toBe(Buffer.byteLength(frame));
         expect(raw.sent.every((piece) => typeof piece !== 'string')).toBe(true);

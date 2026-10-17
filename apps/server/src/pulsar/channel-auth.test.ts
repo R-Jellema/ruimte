@@ -15,6 +15,9 @@ function fakeChannel(): { channel: DirectChannel; sent: string[]; deflating: () 
     const channel: DirectChannel = {
         label: 'ruimte',
         isOpen: true,
+        get deflating() {
+            return deflating;
+        },
         send: (data) => {
             sent.push(String(data));
             return 1;
