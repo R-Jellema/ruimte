@@ -7,7 +7,7 @@ import { readsFlag, readsLines } from './link-verb.ts';
 import { modeFlag } from '@adecore/agents/providers';
 import { MODE_LINES } from './mode.ts';
 import { MACHINE_LINES } from './remote-agent.ts';
-import { modelFlag, modelLines } from './model.ts';
+import { effortFlag, modelFlag, modelLines } from './model.ts';
 import { MAX_CANVAS_NODES, idList } from './nodes.ts';
 import { TASK_LINES, nextLine } from './task-verbs.ts';
 import { MAX_TASK_PROMPT_LENGTH } from './tasks.ts';
@@ -55,7 +55,7 @@ const AGENT_DETAIL: readonly string[] = [
 export const agentVerb = defineStandaloneActionVerb({
     name: 'agent',
     action: 'agent.start',
-    usage: `<${AGENT_KINDS.join('|')}> [--terminal] [--prompt T | --prompt-file F] [--cwd P] [--reads A,B] [--view V] [--beside N] [--group G] [--title T] [--task T] [--model M] [--mode M] [--worktree [--branch B] [--base R]] [--machine M] [--request-id R] [--dry-run]`,
+    usage: `<${AGENT_KINDS.join('|')}> [--terminal] [--prompt T | --prompt-file F] [--cwd P] [--reads A,B] [--view V] [--beside N] [--group G] [--title T] [--task T] [--model M] [--effort E] [--mode M] [--worktree [--branch B] [--base R]] [--machine M] [--request-id R] [--dry-run]`,
     params: [
         { syntax: '<cli>', need: 'required', field: 'provider', text: AGENT_KINDS.join(', ') },
         {
@@ -98,6 +98,12 @@ export const agentVerb = defineStandaloneActionVerb({
             need: 'optional',
             field: 'model',
             more: 'omitted uses the composer preference. Refused for terminals and unknown models'
+        },
+        {
+            syntax: '--effort E',
+            need: 'optional',
+            field: 'effort',
+            more: "one the model offers, as the model lines list them; omitted keeps the person's last pick when the model offers it, else the model's default. Refused for terminals"
         },
         { syntax: '--mode M', need: 'optional', field: 'mode' },
         { syntax: '--worktree', need: 'no value', field: 'worktree', more: 'not together with --cwd' },
@@ -149,6 +155,7 @@ export const agentVerb = defineStandaloneActionVerb({
         task: titleField('--task', '--task needs the title of the task').optional(),
         mode: modeFlag,
         model: modelFlag,
+        effort: effortFlag,
         branch: z.string().min(1, '--branch needs the name of a branch').optional(),
         'request-id': z
             .string()
@@ -179,7 +186,8 @@ export const agentVerb = defineStandaloneActionVerb({
                 branch: flags.branch ?? null,
                 requestId: flags['request-id'] ?? null,
                 base: flags.base ?? null,
-                machine: flags.machine ?? null
+                machine: flags.machine ?? null,
+                effort: flags.effort ?? null
             },
             dryRun
         );

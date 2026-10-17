@@ -196,7 +196,7 @@ test('a chat view skips linked-context discovery and opens hidden agents with th
         const note = chatPrompt({ sources: [device], depth, standalone: true });
         expect(note).toContain('a shell command for working with project views and resources');
         expect(note).toContain("your CLI's own subagents");
-        expect(note).toContain('Keep any model the person asked for');
+        expect(note).toContain('Keep any model and reasoning effort the person asked for');
         expect(note).toContain('You are working in a chat view. Skip linked-context discovery');
         expect(note).not.toContain('You are working in a node on a canvas');
         expect(note).not.toContain('context linked to this chat');

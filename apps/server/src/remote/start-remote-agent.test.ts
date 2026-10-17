@@ -156,7 +156,8 @@ describe('agent --machine', () => {
         const cases: Array<[string[], string]> = [
             [['--cwd', folder], 'machine-and-cwd'],
             [['--reads', 'chat-lead'], 'machine-and-reads'],
-            [['--model', 'x'], 'machine-and-model']
+            [['--model', 'x'], 'machine-and-model'],
+            [['--effort', 'high'], 'machine-and-effort']
         ];
         for (const [flags, code] of cases) {
             const [first] = await give(...flags);

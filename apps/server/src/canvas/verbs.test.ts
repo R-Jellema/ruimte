@@ -30,6 +30,7 @@ import {
     type ProjectEdge,
     type ProjectNode,
     type ProjectView,
+    type ModelSelection,
     type RuntimeMode,
     type Worktree
 } from '@ruimte/contracts';
@@ -99,6 +100,7 @@ let breakWrites: boolean;
 let tasks: TaskStore;
 let modes: Record<string, RuntimeMode>;
 let terminalPreference: RuntimeMode | undefined;
+let preferredSelections: Partial<Record<AgentKind, ModelSelection>>;
 let branches: string[] | null;
 let driven: Array<{ browserId: string; action: BrowserDriveAction }>;
 /* Whether any client on this machine has the page open, which is what a driver answers null without. */
@@ -168,6 +170,7 @@ beforeEach(async () => {
     startClaims = new StartClaims(join(root, 'home'));
     modes = {};
     terminalPreference = undefined;
+    preferredSelections = {};
     branches = null;
     driven = [];
     pageOpen = true;
@@ -270,6 +273,7 @@ function host(): CanvasHost {
         starts: {
             modeOf: (nodeId) => modes[nodeId] ?? 'full-access',
             terminalModePreference: () => terminalPreference,
+            preferredSelection: (kind) => preferredSelections[kind],
             installedAgents: async () => installed,
             holdPrompt: async (projectId, nodeId, prompt) => {
                 held.push({ projectId, nodeId, prompt });
@@ -1397,6 +1401,69 @@ describe('agent model selection', () => {
         expect(started).toEqual([]);
         expect((await post('team', ['--label', 'Team', '--roles', JSON.stringify(roles)])).status).toBe(200);
         expect(started.map((start) => start.selection?.model)).toEqual(['gpt-6.1-sol', 'gpt-6-astra']);
+    });
+
+    test('--effort with --model starts that model at that effort', async () => {
+        const result = await post('agent', ['codex', '--model', 'astra', '--effort', 'high', '--prompt', 'research']);
+        expect(result.status).toBe(200);
+        expect(started[0]?.selection).toEqual({ model: 'gpt-6-astra', options: { effort: 'high', serviceTier: false } });
+    });
+
+    test("--effort without --model keeps the person's model and its other options", async () => {
+        preferredSelections = { codex: { model: 'gpt-6.1-sol', options: { effort: 'low', serviceTier: true } } };
+        expect((await post('agent', ['codex', '--effort', 'xhigh'])).status).toBe(200);
+        expect(started[0]?.selection).toEqual({ model: 'gpt-6.1-sol', options: { effort: 'xhigh', serviceTier: true } });
+    });
+
+    test("--effort without --model or a preference applies to the provider's default model", async () => {
+        expect((await post('agent', ['codex', '--effort', 'ultra'])).status).toBe(200);
+        expect(started[0]?.selection).toEqual({ model: 'gpt-6-astra', options: { effort: 'ultra', serviceTier: false } });
+    });
+
+    test("--model without --effort carries the person's last effort when the new model offers it, and nothing else", async () => {
+        preferredSelections = { codex: { model: 'gpt-6-astra', options: { effort: 'high', serviceTier: true } } };
+        await post('agent', ['codex', '--model', 'sol']);
+        preferredSelections = { codex: { model: 'gpt-6-astra', options: { effort: 'ultra', serviceTier: false } } };
+        await post('agent', ['codex', '--model', 'sol']);
+        expect(started.map((start) => start.selection)).toEqual([
+            { model: 'gpt-6.1-sol', options: { effort: 'high', serviceTier: false } },
+            { model: 'gpt-6.1-sol', options: { effort: 'medium', serviceTier: false } }
+        ]);
+    });
+
+    test('an effort the model lacks, a model without effort and a terminal refuse before creating nodes', async () => {
+        const before = await onDisk();
+        for (const tail of [[], ['--dry-run']]) {
+            const unknown = await post('agent', ['codex', '--model', 'sol', '--effort', 'ultra', ...tail]);
+            expect(unknown.lines[0]).toBe('refused\tunknown-choice\tultra is no reasoning effort of gpt-6.1-sol; it takes low, medium, high, xhigh, max');
+            expect(unknown.lines).toContain('model\tcodex\tgpt-6.1-sol\tGPT-6.1 Sol\teffort low, medium, high, xhigh, max, default medium');
+            const none = await post('agent', ['claude', '--model', 'claude-haiku-4-5', '--effort', 'high', ...tail]);
+            expect(none.lines[0]).toStartWith('refused\tno-effort\t');
+            const terminal = await post('agent', ['codex', '--terminal', '--effort', 'high', ...tail]);
+            expect(terminal.lines[0]).toStartWith('refused\teffort-needs-chat\t');
+        }
+        expect((await onDisk()).rev).toBe(before.rev);
+        expect(started).toEqual([]);
+    });
+
+    test('each team role can choose its own effort, and a wrong one names the role', async () => {
+        const roles = [
+            { title: 'Research', prompt: 'research', provider: 'codex', model: 'astra', effort: 'high' },
+            { title: 'Build', prompt: 'build', provider: 'codex', model: 'sol', effort: 'medium' }
+        ];
+        const invalid = await post('team', ['--label', 'Team', '--roles', JSON.stringify([...roles, { ...roles[1], effort: 'ultra' }])]);
+        expect(invalid.lines[0]).toStartWith('refused\tunknown-choice\trole 2 (effort):');
+        expect(started).toEqual([]);
+        expect((await post('team', ['--label', 'Team', '--roles', JSON.stringify(roles)])).status).toBe(200);
+        expect(started.map((start) => start.selection?.options.effort)).toEqual(['high', 'medium']);
+    });
+
+    test('help lists --effort and the efforts each model offers', async () => {
+        const agent = await post('help', ['agent']);
+        expect(agent.lines.some((line) => line.includes('--effort E'))).toBe(true);
+        expect(agent.lines).toContain('model\tcodex\tgpt-6-astra\tGPT-6 Astra\teffort low, medium, high, xhigh, max, ultra, default medium');
+        const team = await post('help', ['team']);
+        expect(team.lines.some((line) => line.startsWith('roles\teffort\toptional\t'))).toBe(true);
     });
 });
 

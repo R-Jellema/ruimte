@@ -7,7 +7,7 @@ import { readsFlag, readsLines } from './link-verb.ts';
 import { modeFlag } from '@adecore/agents/providers';
 import { MODE_LINES } from './mode.ts';
 import { MACHINE_LINES } from './remote-agent.ts';
-import { modelFlag, modelLines } from './model.ts';
+import { effortFlag, modelFlag, modelLines } from './model.ts';
 import { MAX_CANVAS_NODES, idList } from './nodes.ts';
 import { TEAM_COLUMNS } from './placement.ts';
 import { TASK_LINES, nextLine } from './task-verbs.ts';
@@ -31,7 +31,8 @@ const RoleSchema = z.strictObject({
         }),
     provider: z.enum(AGENT_KINDS, { error: `provider needs a CLI: ${AGENT_KINDS.join(', ')}` }),
     model: modelFlag,
-    terminal: z.boolean({ error: 'terminal is true or false' }).optional()
+    terminal: z.boolean({ error: 'terminal is true or false' }).optional(),
+    effort: effortFlag
 });
 
 type Role = z.infer<typeof RoleSchema>;
@@ -51,6 +52,7 @@ const ROLES_LINES: readonly string[] = [
     `roles\tprovider\trequired\t${AGENT_KINDS.join(', ')}`,
     `roles\tterminal\toptional\ttrue opens a terminal node instead of a chat node; a CLI without a chat backend is a terminal anyway (only ${chatKinds().join(', ')} have one)`,
     "roles\tmodel\toptional\tThe model id for a chat role, with that model's default options; omitted uses the composer preference. Refused for terminals and unknown models",
+    "roles\teffort\toptional\tThe reasoning effort for a chat role, one its model offers; omitted keeps the person's last pick when the model offers it, else the model's default. Refused for terminals",
     ...chatKinds().flatMap(modelLines),
     `roles\tcount\tbetween 1 and ${MAX_ROLES}`
 ];
@@ -178,7 +180,8 @@ export const teamVerb = defineStandaloneActionVerb({
                     prompt: role.prompt,
                     provider: role.provider,
                     model: role.model ?? null,
-                    terminal: role.terminal === true
+                    terminal: role.terminal === true,
+                    effort: role.effort ?? null
                 })),
                 cwd: flags.cwd ?? null,
                 reads: flags.reads === undefined ? null : idList(flags.reads, '--reads'),

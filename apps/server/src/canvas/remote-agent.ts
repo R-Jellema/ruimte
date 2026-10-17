@@ -44,6 +44,7 @@ export interface RemoteStartInput {
     cwd: string | null;
     task: boolean;
     model: boolean;
+    effort: boolean;
     base: boolean;
     reads: number;
     hidden: boolean;
@@ -62,6 +63,9 @@ export function refuseRemoteStart(input: RemoteStartInput): void {
     }
     if (input.model) {
         throw new VerbRefusal('machine-and-model', '--machine takes no --model; the other machine picks the model it runs');
+    }
+    if (input.effort) {
+        throw new VerbRefusal('machine-and-effort', '--machine takes no --effort; the other machine picks the effort it runs at');
     }
     if (input.base) {
         throw new VerbRefusal('machine-and-base', '--machine takes no --base; a worktree there is made from your checkout');
@@ -94,5 +98,5 @@ export const MACHINE_LINES: readonly string[] = [
     'machine\tThe node stands on your canvas as a node of that machine and is drawn from there; no line reaches it, so it reads nothing of yours and you read it only through its task result',
     'machine\tThe task is owed until that machine takes it: while it is away the node says the task has not started, and it starts by itself once the machine answers; ruimte-context task list shows where it stands',
     'machine\tThat machine bounds the agent itself: its mode is the narrowest of yours, the one the link there allows and the one you ask, it runs at most 4 tasks of yours at a time, the rest wait and start as places free up, and a launch in it waits for a person there',
-    'machine\t--worktree makes the worktree there from your checkout, with your uncommitted files; the work comes back as a branch you can merge when the task settles. Not with --cwd, --reads, --model or --base'
+    'machine\t--worktree makes the worktree there from your checkout, with your uncommitted files; the work comes back as a branch you can merge when the task settles. Not with --cwd, --reads, --model, --effort or --base'
 ];

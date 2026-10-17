@@ -102,6 +102,7 @@ export function agentStartHost(deps: AgentStartHostDeps): AgentStartHost {
         modeOf: nodeMode(modes),
         accountOf: nodeAccount({ chat: (id) => deps.chats.get(id)?.info, session: (id) => deps.sessions.get(id) }),
         terminalModePreference: () => deps.chats.composerPreferences.terminalMode(),
+        preferredSelection: (kind) => deps.chats.composerPreferences.for(kind).selection,
         openedCount: (callerId) => deps.openedCount(callerId)
     };
 }

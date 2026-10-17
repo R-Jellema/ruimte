@@ -152,7 +152,7 @@ export function verbsNote({
             PRODUCT_NOTE,
             COMMANDS_NOTE,
             CHAT_VIEW_NOTE,
-            "Delegate routine work with your CLI's own subagents. Keep any model the person asked for.",
+            "Delegate routine work with your CLI's own subagents. Keep any model and reasoning effort the person asked for, and say so when one cannot be set; choose the costliest efforts only when the person names them.",
             ...(depth < MAX_AGENT_DEPTH
                 ? [
                       `For an agent or model the person names, use \`ruimte-context agent <cli> --task <title> --prompt <assignment>\`, with <cli> one of ${CLI_NAMES}${depth < MAX_TEAM_DEPTH ? '; `team --task` starts several agents' : ''}. These agents stay hidden and their results return to this chat; end your turn after delegating instead of polling.`,

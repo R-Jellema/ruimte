@@ -160,6 +160,8 @@ export interface AgentStartHost {
     accountOf?(nodeId: string): NodeAccount | null;
     /* The mode a person picked for terminal agents, from the clients connected now; undefined with none. */
     terminalModePreference(): RuntimeMode | undefined;
+    /* The model and options a person picked for new chats of this CLI, from the clients connected now; undefined with none. */
+    preferredSelection(kind: AgentKind): ModelSelection | undefined;
     /* The agent nodes this caller has opened and not lost, which is what caps one caller in a loop. */
     openedCount(callerId: string): number;
 }

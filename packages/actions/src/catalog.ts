@@ -2712,7 +2712,13 @@ export const ACTION_DEFINITIONS = {
                 .nullish()
                 .describe(
                     'Runs the agent on another machine this project is linked to, named by its name or id; needs a task, and a worktree there is made from your checkout'
-                )
+                ),
+            effort: z
+                .string()
+                .trim()
+                .min(1)
+                .nullish()
+                .describe("The reasoning effort for a chat agent, one the model offers; null keeps the person's last pick when the model offers it")
         }),
         output: z.object({
             nodeId,
@@ -2741,7 +2747,13 @@ export const ACTION_DEFINITIONS = {
                         prompt: z.string().trim().min(1).max(MAX_PROMPT_LENGTH).describe('What that agent starts working on'),
                         provider: AgentKindSchema,
                         model: z.string().trim().min(1).nullable().describe("The model id for a chat role, with that model's default options"),
-                        terminal: z.boolean().describe('Opens a terminal node instead of a chat node')
+                        terminal: z.boolean().describe('Opens a terminal node instead of a chat node'),
+                        effort: z
+                            .string()
+                            .trim()
+                            .min(1)
+                            .nullish()
+                            .describe("The reasoning effort for a chat role, one the model offers; null keeps the person's last pick when the model offers it")
                     })
                 )
                 .min(1)

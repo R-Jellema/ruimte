@@ -4,7 +4,7 @@ import { type AgentKind, type ModelSelection, type ProjectEdge, type ProjectNode
 import { agentNode, groupLines, grownGroup, inheritedAccount, readsOf, requireInstalled, startPrompt, terminalMode } from '../canvas/agents.ts';
 import { depthForOpening } from '../canvas/depth.ts';
 import { modeForOpening } from '../canvas/mode.ts';
-import { selectionForOpening } from '../canvas/model.ts';
+import { EFFORT_REFUSALS, selectionForOpening } from '../canvas/model.ts';
 import { MAX_CANVAS_NODES, canvasFull, newId, nodeLines, nodesNamed } from '../canvas/nodes.ts';
 import { refuseMissingNodes } from '../canvas/own-view.ts';
 import { refuseRemoteStart, resolveMachine, sourceCheckout } from '../canvas/remote-agent.ts';
@@ -64,6 +64,7 @@ const startAgent: StartHandler = async (input, call) => {
             cwd: input.cwd,
             task: input.task !== null,
             model: input.model != null,
+            effort: input.effort != null,
             base: input.base != null,
             reads: readIds.length,
             hidden
@@ -72,7 +73,7 @@ const startAgent: StartHandler = async (input, call) => {
     const depth = depthForOpening(caller, 'agent', 1);
     const ceiling = modeForOpening(caller, input.mode ?? undefined);
     const chat = !input.terminal && providerFor(kind).capabilities.chat;
-    const selection = selectionForOpening(kind, chat, input.model ?? undefined);
+    const selection = selectionForOpening(kind, chat, input.model ?? undefined, input.effort ?? undefined, host.starts.preferredSelection(kind));
     if (input.branch !== null && !input.worktree) {
         throw new VerbRefusal('branch-needs-worktree', '--branch names the branch of a worktree; add --worktree');
     }
@@ -322,10 +323,16 @@ export const startActions: ActionHandlers<ServerActionContext> = {
         const { roles } = input;
         const selections = roles.map((role, index): ModelSelection | undefined => {
             try {
-                return selectionForOpening(role.provider, kindOf(role) === 'chat', role.model ?? undefined);
+                return selectionForOpening(
+                    role.provider,
+                    kindOf(role) === 'chat',
+                    role.model ?? undefined,
+                    role.effort ?? undefined,
+                    host.starts.preferredSelection(role.provider)
+                );
             } catch (e) {
                 if (e instanceof VerbRefusal) {
-                    throw new VerbRefusal(e.code, `role ${index} (model): ${e.message}`, e.lines);
+                    throw new VerbRefusal(e.code, `role ${index} (${EFFORT_REFUSALS.has(e.code) ? 'effort' : 'model'}): ${e.message}`, e.lines);
                 }
                 throw e;
             }
@@ -356,6 +363,7 @@ export const startActions: ActionHandlers<ServerActionContext> = {
                 cwd: input.cwd,
                 task: input.task,
                 model: roles.some((role) => role.model != null),
+                effort: roles.some((role) => role.effort != null),
                 base: false,
                 reads: readIds.length,
                 hidden

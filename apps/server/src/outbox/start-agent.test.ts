@@ -221,6 +221,7 @@ async function boot(): Promise<Daemon> {
             startAgent: (start: AgentStart) => worker.enqueue(start.projectId, start.nodeId, startAgentWork(start, modes)),
             modeOf: nodeMode(modes),
             terminalModePreference: () => chats.composerPreferences.terminalMode(),
+            preferredSelection: (kind) => chats.composerPreferences.for(kind).selection,
             openedCount: (callerId) => lineage.openedCount(callerId)
         },
         lineage,
