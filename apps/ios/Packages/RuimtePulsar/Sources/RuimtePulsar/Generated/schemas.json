@@ -23659,6 +23659,171 @@
             "size"
           ]
         }
+      },
+      "subagents": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "createdAt": {
+              "type": "number"
+            },
+            "turnId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "const": "subagent"
+            },
+            "toolUseId": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "subagentType": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "model": {
+              "type": "string"
+            },
+            "prompt": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "background": {
+              "type": "boolean"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "running",
+                "done",
+                "failed"
+              ]
+            },
+            "startedAt": {
+              "type": "number"
+            },
+            "finishedAt": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "summary": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "result": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "usage": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "totalTokens": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "toolUses": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "durationMs": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "totalTokens",
+                    "toolUses",
+                    "durationMs"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "lastTool": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "outputFile": {
+              "type": "string"
+            },
+            "itemsTruncated": {
+              "type": "boolean"
+            },
+            "native": {
+              "type": "object",
+              "properties": {
+                "agentId": {
+                  "type": "string"
+                },
+                "threadId": {
+                  "type": "string"
+                }
+              }
+            },
+            "origin": {
+              "type": "string",
+              "enum": [
+                "native",
+                "ruimte"
+              ]
+            },
+            "childId": {
+              "type": "string"
+            },
+            "parentToolUseId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "createdAt",
+            "turnId",
+            "kind",
+            "toolUseId",
+            "description",
+            "subagentType",
+            "prompt",
+            "background",
+            "status",
+            "startedAt",
+            "finishedAt",
+            "summary",
+            "result",
+            "usage",
+            "lastTool",
+            "itemsTruncated"
+          ]
+        }
       }
     },
     "required": [
