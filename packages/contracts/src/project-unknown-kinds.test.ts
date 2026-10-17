@@ -234,3 +234,41 @@ describe('a database view', () => {
         expect(migratedFile(fileWith(broken))).toBeNull();
     });
 });
+
+describe('a line with a style this version does not know', () => {
+    const line = { id: 'l1', x: 0, y: 0, endX: 100, endY: 40, stroke: 'gold', strokeWidth: 8, strokeStyle: 'wavy', arrowEnd: true, glow: 3 };
+
+    function fileWith(...lines: unknown[]) {
+        const file = structuredClone(NEWER_FILE) as { views: Record<string, unknown>[] };
+        file.views[0]!.lines = lines;
+        return file;
+    }
+
+    test('reads as the default style instead of failing the project', () => {
+        const lines = canvasOf(parsedFrom(fileWith(line)).views).lines!;
+        expect(lines).toHaveLength(1);
+        expect(lines[0]).toMatchObject({ id: 'l1', stroke: 'ink', strokeWidth: 2, strokeStyle: 'solid', arrowEnd: true, glow: 3 });
+    });
+
+    test('is written back as it was read, over the wire too', () => {
+        const document = parsedFrom(fileWith(line));
+        expect(canvasOf(storedViewsOf(document.views)).lines).toEqual([line] as never);
+        const again = ProjectDocumentSchema.parse(JSON.parse(JSON.stringify({ ...document, rev: 0 })));
+        expect(canvasOf(again.views).lines![0]).toMatchObject({ stroke: 'ink' });
+        expect(JSON.stringify(canvasOf(storedViewsOf(again.views)).lines)).toBe(JSON.stringify([line]));
+    });
+
+    test('takes what a person changed and keeps the style they did not touch', () => {
+        const document = parsedFrom(fileWith(line));
+        const canvas = canvasOf(document.views);
+        const moved = { ...canvas, lines: canvas.lines!.map((read) => ({ ...read, x: 10, strokeStyle: 'dotted' as const, arrowEnd: undefined })) };
+        expect(canvasOf(storedViewsOf([moved])).lines).toEqual([{ ...line, x: 10, strokeStyle: 'dotted', arrowEnd: undefined }] as never);
+    });
+
+    test('a line this version reads whole carries nothing extra', () => {
+        const known = { ...line, stroke: 'muted', strokeWidth: 4, strokeStyle: 'dashed' };
+        const lines = canvasOf(parsedFrom(fileWith(known)).views).lines!;
+        expect(lines[0]!.raw).toBeUndefined();
+        expect(canvasOf(storedViewsOf(parsedFrom(fileWith(known)).views)).lines).toEqual([known] as never);
+    });
+});

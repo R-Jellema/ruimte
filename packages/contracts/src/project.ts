@@ -214,22 +214,80 @@ export const ProjectTextSchema = keepingUnknown(
 );
 export type ProjectText = z.infer<typeof ProjectTextSchema>;
 
-/* Decorative lines never grant an agent context, unlike edges between nodes. */
-export const ProjectCanvasLineSchema = keepingUnknown(
+const LINE_STYLE_SCHEMAS = {
+    stroke: z.enum(['ink', 'muted', 'accent', ...NODE_ACCENT_NAMES]),
+    strokeWidth: DrawingStrokeWidthSchema,
+    strokeStyle: DrawingStrokeStyleSchema
+};
+
+const LINE_STYLE_DEFAULTS = { stroke: 'ink', strokeWidth: 2, strokeStyle: 'solid' } as const;
+
+type LineStyleKey = keyof typeof LINE_STYLE_SCHEMAS;
+
+const LINE_STYLE_KEYS = Object.keys(LINE_STYLE_SCHEMAS) as LineStyleKey[];
+
+function isReadableLineStyle(key: LineStyleKey, value: unknown): boolean {
+    return LINE_STYLE_SCHEMAS[key].safeParse(value).success;
+}
+
+const ProjectCanvasLineObjectSchema = keepingUnknown(
     z.object({
         id: z.string().min(1),
         x: z.number().finite(),
         y: z.number().finite(),
         endX: z.number().finite(),
         endY: z.number().finite(),
-        stroke: z.enum(['ink', 'muted', 'accent', ...NODE_ACCENT_NAMES]),
-        strokeWidth: DrawingStrokeWidthSchema,
-        strokeStyle: DrawingStrokeStyleSchema,
+        ...LINE_STYLE_SCHEMAS,
         arrowStart: z.boolean().optional(),
-        arrowEnd: z.boolean().optional()
+        arrowEnd: z.boolean().optional(),
+        // Only on a line with a style a newer Ruimte wrote: the line exactly as it was read, which reads that style as the default.
+        raw: RawEntrySchema.optional()
     })
 );
-export type ProjectCanvasLine = z.infer<typeof ProjectCanvasLineSchema>;
+
+/*
+ * A line is written as it was read: a style this version does not know goes back unchanged unless a
+ * person picked another one over the default it read as.
+ */
+export function storedLineOf(line: ProjectCanvasLine): unknown {
+    const { raw, ...read } = line;
+    if (!raw) {
+        return line;
+    }
+    const stored: Record<string, unknown> = { ...raw };
+    for (const key of Object.keys(stored)) {
+        if (!(key in read)) {
+            delete stored[key];
+        }
+    }
+    for (const [key, value] of Object.entries(read)) {
+        const kept =
+            LINE_STYLE_KEYS.includes(key as LineStyleKey) &&
+            !isReadableLineStyle(key as LineStyleKey, raw[key]) &&
+            value === LINE_STYLE_DEFAULTS[key as LineStyleKey];
+        stored[key] = kept ? raw[key] : value;
+    }
+    return stored;
+}
+
+function readLine(value: unknown): unknown {
+    if (!isRecord(value)) {
+        return value;
+    }
+    const entry = isRecord(value.raw) ? storedLineOf(value as ProjectCanvasLine) : value;
+    if (!isRecord(entry)) {
+        return entry;
+    }
+    const unreadable = LINE_STYLE_KEYS.filter((key) => !isReadableLineStyle(key, entry[key]));
+    if (unreadable.length === 0) {
+        return entry;
+    }
+    return { ...entry, ...Object.fromEntries(unreadable.map((key) => [key, LINE_STYLE_DEFAULTS[key]])), raw: entry };
+}
+
+/* Decorative lines never grant an agent context, unlike edges between nodes. */
+export const ProjectCanvasLineSchema = z.preprocess(readLine, ProjectCanvasLineObjectSchema);
+export type ProjectCanvasLine = z.infer<typeof ProjectCanvasLineObjectSchema>;
 
 export const NodeSideSchema = z.enum(['top', 'right', 'bottom', 'left']);
 export type NodeSide = z.infer<typeof NodeSideSchema>;
@@ -736,7 +794,10 @@ export function storedViewOf(view: ProjectView): unknown {
     if (view.kind === UNKNOWN_KIND) {
         return view.raw;
     }
-    return view.kind === 'canvas' ? { ...view, nodes: view.nodes.map(storedNodeOf) } : view;
+    if (view.kind !== 'canvas') {
+        return view;
+    }
+    return { ...view, nodes: view.nodes.map(storedNodeOf), ...(view.lines ? { lines: view.lines.map(storedLineOf) } : {}) };
 }
 
 /*

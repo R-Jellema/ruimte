@@ -33755,6 +33755,13 @@
                           },
                           "arrowEnd": {
                             "type": "boolean"
+                          },
+                          "raw": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
                           }
                         },
                         "required": [
@@ -37371,6 +37378,13 @@
                           },
                           "arrowEnd": {
                             "type": "boolean"
+                          },
+                          "raw": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
                           }
                         },
                         "required": [
@@ -67298,6 +67312,13 @@
                           },
                           "arrowEnd": {
                             "type": "boolean"
+                          },
+                          "raw": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
                           }
                         },
                         "required": [
