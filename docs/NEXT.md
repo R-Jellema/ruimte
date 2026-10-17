@@ -10,7 +10,7 @@ Reviewed on October 17, 2026.
 
 | Package                         | Priority                                    | Depends on                                    |
 | ------------------------------- | ------------------------------------------- | --------------------------------------------- |
-| 3. Measurements                 | Hardware runs; 3.7 next                     | Baseline done (October 17)                    |
+| 3. Measurements                 | Hardware runs; 3.7 open (reply latency)     | Baseline done (October 17)                    |
 | 4. Keyboard and settings        | Next                                        | Nothing                                       |
 | 5. File entry points            | Next; 5.1 from 0.20                         | Nothing                                       |
 | 6. Terminal                     | Next                                        | 4 for new bindings                            |
@@ -34,14 +34,13 @@ are built (the "Measure:" rows of a dev build's palette); what needs the Electro
 "Measurements" in [ACCEPTANCE.md](ACCEPTANCE.md): the 30-node scene, nine cells and ten large files, the WebGL
 budget under context loss, 100 idle chats, and workspace startup, which decides whether CodeMirror is split.
 
-7. Fair per-session output limits on the direct channel. Under load its quiet-session echo p95 is 5008 ms against
-   18.8 ms idle, and its reply p95 19.5 ms against 0.7 ms; the socket's echo stays at 18.9 ms. First repeat it
-   with Chromium on the client side (ACCEPTANCE.md); werift may be part of the stall. Then give each session a
-   share of the channel so a busy terminal cannot hold back another, with dropped output repairing through
-   `session.resync`. Done when three runs of `measure:latency --channel both --seconds 60` on power answer all 240
-   echo probes on both channels and keep the echo and reply p95 under load within 100 ms and 3x idle. The socket's
-   reply p95 (1.7 ms against 0.2 ms idle) trips the 3x clause below 2 ms; leave the socket alone unless its echo
-   moves.
+7. Reply latency on a loaded direct channel. Fair per-session output is built (`DIRECT_OUTPUT_SHARE`, commit
+   `2bef1217e`): every echo probe comes back, the quiet-session echo p95 under load is 52.1 ms and the reply p95
+   3.8 ms (see [the report](reports/2026-10-17-measurements.html#eerlijk)). The reply p95 is still above 3x a quiet
+   idle (0.7 ms) because the daemon runs one full core in werift's SCTP and UDP sends at 26 MB/s, which delays
+   every timer by about 20 ms. Repeat with Chromium on the client side and with deflate on (ACCEPTANCE.md) before
+   changing anything in the daemon; done when three runs of `measure:latency --channel both --seconds 60` on power
+   keep the direct reply p95 under load within 3x idle.
 
 ## 4. Keyboard and settings
 

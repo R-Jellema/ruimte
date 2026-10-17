@@ -185,23 +185,23 @@ input[type="range"] { width: 100%; min-height: 44px; accent-color: var(--accent)
 <header>
 <p class="eyebrow">Ruimte / Metingen / 17 oktober 2026</p>
 <h1>Nulmeting voor pakket 3</h1>
-<p class="intro">De directe verbinding laat een stille terminal tot vijf seconden wachten zodra een andere terminal op volle snelheid schrijft. Daarmee is de regel van NEXT.md §3.5 overschreden en staat er een begrensde vervolgstap. De socket blijft onder de grens. De composer-chunk en CodeMirror laden mee met elke werkruimte; of een split tijd wint, moet de Electron-meting nog laten zien.</p>
+<p class="intro">De directe verbinding liet een stille terminal tot vijf seconden wachten zodra een andere terminal op volle snelheid schrijft. Sinds commit <code>2bef1217e</code> krijgt elke terminal een eerlijk deel van het kanaal: de echo komt altijd terug, met een p95 van 52,1 ms onder last. Alleen de reply-regel van 3x idle haalt de directe verbinding nog niet; de daemon zit daar op één volle kern in werift. De socket blijft onder de grens. De composer-chunk en CodeMirror laden mee met elke werkruimte; of een split tijd wint, moet de Electron-meting nog laten zien.</p>
 <p class="status">Meetrapport · daemon-latency, clientbuild · scènes en procedures voor de rest</p>
 <p class="caption">Basis-commit <code>1f6f003bf</code> (main, 17 oktober 2026) met de meetcode van dit pakket ernaast ongecommit; de daemoncode zelf is niet gewijzigd.<br>Gemeten zonder persoon, zonder dev server en zonder Electron-app.</p>
-<nav aria-label="Inhoud"><a href="#uitkomst">Uitkomst</a><a href="#hardware">Hardware</a><a href="#latency">Latency</a><a href="#build">Build</a><a href="#scenes">Scènes</a><a href="#wacht">Wacht op hardware</a></nav>
+<nav aria-label="Inhoud"><a href="#uitkomst">Uitkomst</a><a href="#hardware">Hardware</a><a href="#latency">Latency</a><a href="#eerlijk">Na de fix</a><a href="#build">Build</a><a href="#scenes">Scènes</a><a href="#wacht">Wacht op hardware</a></nav>
 </header>
 <main>
 <section id="uitkomst" class="recommendation">
 <h2>Uitkomst</h2>
 <div class="stats">
-<div><strong>5008 ms</strong><span>p95 echo stille terminal, direct, onder last (idle 18,8 ms)</span></div>
+<div><strong>5008 → 52,1 ms</strong><span>p95 echo stille terminal, direct, onder last, voor en na de fix</span></div>
 <div><strong>18,9 ms</strong><span>p95 echo stille terminal, socket, onder last (idle 18,2 ms)</span></div>
 <div><strong>158 KiB</strong><span>gzip composer-chunk, statisch in de werkruimte</span></div>
 </div>
 <ul>
 <li><span class="badge danger">Overschreden</span> Direct: de echo van de stille terminal heeft onder last een p95 van 5008 ms, de time-out van de probe. Van de 240 toetsen kwamen er per run maar 86 tot 105 terug. De reply-tijd stijgt van 0,7 naar 19,5 ms, ook boven 3x idle.</li>
 <li><span class="badge warning">Randgeval</span> Socket: de echo blijft gelijk, maar de reply-p95 gaat van 0,2 naar 1,7 ms. Dat is meer dan 3x idle, in absolute zin minder dan 2 ms.</li>
-<li><span class="badge info">Vervolg</span> Eerlijke limieten per sessie staan als begrensde stap in NEXT.md §3; niet gebouwd.</li>
+<li><span class="badge confirmed">Gebouwd</span> Eerlijke limieten per sessie op de directe verbinding (NEXT.md §3.7). Elke echo komt terug en de reply-p95 onder last daalt van 19,5 naar 3,8 ms; zie <a href="#eerlijk">Na de fix</a>.</li>
 <li><span class="badge info">Build</span> Splitsen van alleen de composer wint niets aan bytes: CodeMirror zit in een gedeelde chunk die de werkruimte zelf al statisch importeert.</li>
 </ul>
 </section>
@@ -246,6 +246,33 @@ input[type="range"] { width: 100%; min-height: 44px; accent-color: var(--accent)
 </details>
 </section>
 
+<section id="eerlijk">
+<h2>Na de fix: een eerlijk deel per sessie</h2>
+<p>De oorzaak, met een trace in de output gate: een tick van de drukke terminal is één frame van ongeveer 1 MB. Dat ene frame tilt de wachtrij van de client boven de high-water mark, en de gate pauzeert dan de output van <em>elke</em> sessie. De echo van de stille terminal valt in die pauze weg en komt pas terug in een <code>session.resync</code>-scherm, dat de probe niet als echo telt: vandaar de time-outs van 5 s. Replies en chat-events werden nooit weggegooid, maar stonden achter dat frame in dezelfde rij. De socket zit op loopback zelden boven 1 MB en kent het probleem daarom niet.</p>
+<p>Op een directe verbinding wacht terminaloutput nu per sessie in de gate zodra het kanaal 128 KiB vasthoudt, en gaat round-robin in plakken van één stuk (16.000 tekens). Replies en andere events gaan meteen; een event over een sessie volgt de output die die sessie nog heeft staan, en een scherm voor een sessie (attach, clear, resync) laat de output vallen die erin zit. Meer dan 4 M tekens wachtende output van één sessie valt weg en herstelt via <code>session.resync</code>. De socket houdt de oude weg.</p>
+<div class="table" role="region" aria-label="p95 na de fix" tabindex="0"><table class="wide"><caption>Commit <code>2bef1217e</code>, dezelfde opdracht en opzet, drie runs op netstroom (begin en einde van elke run “AC Power”). p95 in milliseconden; mediaan van voor de fix ernaast.</caption><thead><tr><th scope="col">Kanaal</th><th scope="col">Meting</th><th scope="col">Fase</th><th scope="col">Run 1</th><th scope="col">Run 2</th><th scope="col">Run 3</th><th scope="col">Mediaan</th><th scope="col">Voor</th></tr></thead><tbody>
+<tr><th scope="row">socket</th><td>Reply</td><td>idle</td><td>1,1</td><td>0,7</td><td>0,3</td><td>0,7</td><td>0,2</td></tr>
+<tr><th scope="row">socket</th><td>Reply</td><td>onder last</td><td>1,5</td><td>1,5</td><td>2,1</td><td>1,5</td><td>1,7</td></tr>
+<tr><th scope="row">socket</th><td>Echo stille terminal</td><td>idle</td><td>21,6</td><td>20,3</td><td>18,0</td><td>20,3</td><td>18,2</td></tr>
+<tr><th scope="row">socket</th><td>Echo stille terminal</td><td>onder last</td><td>19,1</td><td>18,5</td><td>19,3</td><td>19,1</td><td>18,9</td></tr>
+<tr><th scope="row">direct</th><td>Reply</td><td>idle</td><td>3,1</td><td>2,4</td><td>0,7</td><td>2,4</td><td>0,7</td></tr>
+<tr><th scope="row">direct</th><td>Reply</td><td>onder last</td><td>3,8</td><td>3,8</td><td>3,8</td><td>3,8</td><td>19,5</td></tr>
+<tr><th scope="row">direct</th><td>Echo stille terminal</td><td>idle</td><td>21,9</td><td>20,6</td><td>18,0</td><td>20,6</td><td>18,8</td></tr>
+<tr><th scope="row">direct</th><td>Echo stille terminal</td><td>onder last</td><td>47,2</td><td>52,1</td><td>55,2</td><td>52,1</td><td>5008</td></tr>
+<tr><th scope="row">direct</th><td>Eerste chat-event</td><td>idle / last</td><td>10,3 / 10,6</td><td>9,4 / 4,1</td><td>2,2 / 11,4</td><td>9,4 / 10,6</td><td>2,0 / 15,6</td></tr>
+<tr><th scope="row">direct</th><td>Event-loop-lag daemon</td><td>onder last</td><td>23,4</td><td>23,1</td><td>23,3</td><td>23,3</td><td>21,1</td></tr>
+</tbody></table></div>
+<p>Direct onder last kwamen alle probes terug: 237, 237 en 236 echo's, geen enkele time-out, maximaal 70,8 ms. Dat zijn er minder dan 240 omdat de probe-lus met de event-loop-lag van de client meeloopt. De drukke terminal haalt direct 26,5 MB/s (mediaan) met 0 resyncs, de socket 63,0 MB/s. De idle-cijfers van direct in run 1 en 2 liggen hoger dan in run 3 en dan voor de fix; de idle-fase gebruikt de nieuwe weg niet, dus dat is ruis van de machine.</p>
+<h3>De regel van §3.5, na de fix</h3>
+<div class="table" role="region" aria-label="Toets na de fix" tabindex="0"><table><thead><tr><th scope="col">Meting onder last</th><th scope="col">p95 (mediaan)</th><th scope="col">Grens (100 ms of 3x idle)</th><th scope="col">Oordeel</th></tr></thead><tbody>
+<tr><th scope="row">direct, echo</th><td>52,1 ms</td><td>61,8 ms (56,4 ms met de idle van voor de fix)</td><td><span class="badge confirmed">onder</span>, run 3 net over zijn eigen 54,0 ms</td></tr>
+<tr><th scope="row">direct, reply</th><td>3,8 ms</td><td>7,2 ms; met een rustige idle van 0,7 ms is het 2,1 ms</td><td><span class="badge warning">onder 100 ms, niet onder 3x een rustige idle</span></td></tr>
+<tr><th scope="row">socket, echo</th><td>19,1 ms</td><td>60,9 ms</td><td><span class="badge confirmed">onder</span></td></tr>
+<tr><th scope="row">socket, reply</th><td>1,5 ms</td><td>2,1 ms</td><td><span class="badge confirmed">onder</span></td></tr>
+</tbody></table></div>
+<p class="note">Wat overblijft is rekentijd, geen wachtrij. Onder last draait de daemon op 105% CPU en de meetclient op 60%; de event-loop-lag is aan beide kanten p95 ongeveer 20 ms. Een CPU-profiel van de daemon toont een kwart van de tijd in UDP-sends van werift (een syscall per SCTP-pakket van zo'n 1200 bytes) naast de parser van xterm. De echo van de stille terminal wacht daardoor op een te late tick van 16 ms (tick tot flush p50 33,5 ms onder last, 17,0 ms idle), terwijl de gate hem zonder wachten doorgeeft. De meetclient vraagt geen deflate; de desktop-app doet dat wel, en drukke terminaloutput krimpt dan sterk. De herhaling met Chromium aan de clientkant is niet gedaan: daarvoor moet de client in een browser draaien, en er is geen headless harnas dat dat zonder dev server of Electron-app meet.</p>
+</section>
+
 <section id="build">
 <h2>Clientbuild: werkruimte en composer</h2>
 <p><code>bun run build</code> in <code>apps/client</code> (Vite 8 met rolldown, productie). Grootte op schijf in KiB en gzip niveau 9 per bestand, opgeteld over de statische importketen. Dynamische imports tellen niet mee.</p>
@@ -282,7 +309,7 @@ input[type="range"] { width: 100%; min-height: 44px; accent-color: var(--accent)
 <li>Het WebGL-budget van tien contexten, ook bij verlies van contexten, op deze Mac en op zwakkere GPU's.</li>
 <li>Heap, frames en latency met 100 stille chats.</li>
 <li>Opstarttijd van de werkruimte in Electron, en daarmee of een CodeMirror-split tijd wint.</li>
-<li>De latency van de directe verbinding met Chromiums WebRTC in plaats van werift.</li>
+<li>De latency van de directe verbinding met Chromiums WebRTC in plaats van werift, nu met het eerlijke deel per sessie.</li>
 </ul>
 </section>
 </main>
