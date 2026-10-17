@@ -434,6 +434,14 @@ enum ChatToolPresentation {
         return keys.compactMap { input[$0]?.stringValue }.first ?? ""
     }
 
+    /// Whether the summary of a call is the path of a file, which a row cuts in the middle so the name stays.
+    static func summaryIsPath(_ tool: ChatToolItem) -> Bool {
+        guard ["Read", "Edit", "Write", "MultiEdit", "NotebookEdit"].contains(tool.name) else { return false }
+        let summary = summary(tool)
+        return !summary.isEmpty
+            && [tool.input["file_path"]?.stringValue, tool.input["notebook_path"]?.stringValue].contains(summary)
+    }
+
     /// The mark of a call, as `toolIcon` in the desktop's chat draws it; a tool nobody named gets the wrench.
     static func icon(_ name: String) -> String {
         switch name {

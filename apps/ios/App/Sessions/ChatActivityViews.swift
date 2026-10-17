@@ -129,49 +129,19 @@ struct ChatToolRow: View {
     private var failed: Bool { item.state == .error }
 
     var body: some View {
+        let opens = ChatToolBody.opens(item)
         VStack(alignment: .leading, spacing: 6) {
-            ChatExpansionButton(expanding: !expanded) {
-                expanded.toggle()
-            } label: {
-                VStack(alignment: .leading, spacing: 4) {
-                    let run = RuimteCommandLook.run(of: item)
-                    HStack(spacing: 8) {
-                        ChatToolMarkView(mark: failed ? .lucide("circle-alert") : ChatToolPresentation.mark(item))
-                        ChatLiveLabel(
-                            attributed: run.map(RuimteCommandLook.title) ?? AttributedString(item.name), active: running
-                        )
-                        .lineLimit(1)
-                        if let run {
-                            ForEach(RuimteCommandLook.tags(run), id: \.self) { tag in
-                                Text(tag).font(.caption2).lineLimit(1).foregroundStyle(MobileStyle.faint)
-                                    .padding(.horizontal, 6).padding(.vertical, 1)
-                                    .background(MobileStyle.hover, in: RoundedRectangle(cornerRadius: 4))
-                            }
-                        }
-                        Spacer(minLength: 4)
-                        if running {
-                            ChatElapsed(
-                                startedAt: item.progress?.startedAt ?? item.createdAt)
-                        } else if failed {
-                            Text("Failed").foregroundStyle(.red)
-                        }
-                        Image(lucide: expanded ? "chevron-down" : "chevron-right", size: 12)
-                    }
-                    if let run {
-                        if !run.detail.isEmpty {
-                            ChatCommandDetail(run: run).lineLimit(2).padding(.leading, 22)
-                        }
-                    } else {
-                        let summary = ChatToolPresentation.summary(item)
-                        if !summary.isEmpty {
-                            Text(summary).font(.system(.caption, design: .monospaced)).lineLimit(2)
-                                .padding(.leading, 22)
-                        }
-                    }
-                }.frame(minHeight: 44).contentShape(Rectangle())
+            if opens {
+                ChatExpansionButton(expanding: !expanded) {
+                    expanded.toggle()
+                } label: {
+                    ChatToolLine(item: item, expanded: expanded, opens: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityValue(expanded ? "Expanded" : running ? "Running, collapsed" : "Collapsed")
+            } else {
+                ChatToolLine(item: item, expanded: false, opens: false).accessibilityElement(children: .combine)
             }
-            .buttonStyle(.plain).font(.footnote).foregroundStyle(failed ? Color.red : MobileStyle.muted)
-            .accessibilityValue(expanded ? "Expanded" : running ? "Running, collapsed" : "Collapsed")
             if item.state == .done, ["Read", "NotebookRead"].contains(item.name),
                 let path = item.input["file_path"]?.stringValue,
                 ["png", "jpg", "jpeg", "gif", "webp"].contains((path as NSString).pathExtension.lowercased())
@@ -180,18 +150,8 @@ struct ChatToolRow: View {
                     resource: .object(["kind": .string("file"), "path": .string(path)]),
                     name: (path as NSString).lastPathComponent)
             }
-            if expanded {
-                let changes = ChatFileChanges.grouped(ChatFileChanges.fromTool(item))
-                if changes.isEmpty {
-                    if let data = try? item.input.encoded(),
-                        let text = String(data: data, encoding: .utf8)
-                    {
-                        ChatToolOutput(text: text, language: "json")
-                    }
-                } else {
-                    ForEach(changes) { change in ChatFileChangeView(change: change) }
-                }
-                ChatToolOutput(text: item.output ?? item.progress?.output ?? "")
+            if expanded && opens {
+                ChatToolBodyView(item: item)
             } else if running {
                 let tail = ChatToolPresentation.tail(item)
                 if !tail.isEmpty {
@@ -205,6 +165,58 @@ struct ChatToolRow: View {
                 }
             }
         }
+    }
+}
+
+/// The one line of a call: what did it, then what it worked on, cut where the line ends and never wrapped.
+private struct ChatToolLine: View {
+    let item: ChatToolItem
+    let expanded: Bool
+    let opens: Bool
+    private var running: Bool { item.state == .running }
+    private var failed: Bool { item.state == .error }
+
+    var body: some View {
+        let run = RuimteCommandLook.run(of: item)
+        HStack(spacing: 8) {
+            ChatToolMarkView(mark: failed ? .lucide("circle-alert") : ChatToolPresentation.mark(item))
+            ChatLiveLabel(attributed: run.map(RuimteCommandLook.title) ?? AttributedString(item.name), active: running)
+                .lineLimit(1).layoutPriority(2)
+            Group {
+                if let run {
+                    if !run.detail.isEmpty {
+                        ChatCommandDetail(run: run).foregroundStyle(MobileStyle.faint)
+                    }
+                    ForEach(RuimteCommandLook.tags(run), id: \.self) { tag in
+                        Text(tag).font(.caption2).foregroundStyle(MobileStyle.faint)
+                            .padding(.horizontal, 6).padding(.vertical, 1)
+                            .background(MobileStyle.hover, in: RoundedRectangle(cornerRadius: 4))
+                            .layoutPriority(1)
+                    }
+                } else {
+                    let summary = ChatToolPresentation.summary(item)
+                    if !summary.isEmpty {
+                        Text(summary).font(.system(.caption, design: .monospaced)).foregroundStyle(MobileStyle.faint)
+                            .truncationMode(ChatToolPresentation.summaryIsPath(item) ? .middle : .tail)
+                    }
+                }
+            }
+            .lineLimit(1)
+            Spacer(minLength: 0)
+            Group {
+                if running {
+                    ChatElapsed(startedAt: item.progress?.startedAt ?? item.createdAt)
+                } else if failed {
+                    Text("Failed").foregroundStyle(.red)
+                }
+                if opens {
+                    Image(lucide: expanded ? "chevron-down" : "chevron-right", size: 12)
+                }
+            }
+            .fixedSize().layoutPriority(3)
+        }
+        .font(.footnote).foregroundStyle(failed ? Color.red : MobileStyle.muted)
+        .frame(minHeight: 44).contentShape(Rectangle())
     }
 }
 
@@ -289,23 +301,5 @@ private struct ChatNamePillRenderer: TextRenderer {
         let shape = RoundedRectangle(cornerRadius: 4).path(in: rect.insetBy(dx: -3, dy: -1))
         context.fill(shape, with: .color(MobileStyle.hover))
         context.stroke(shape, with: .color(MobileStyle.border), lineWidth: 1)
-    }
-}
-
-private struct ChatToolOutput: View {
-    let text: String
-    var language = ""
-    @State private var expanded = false
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            CodeMessage(text: expanded ? text : String(text.prefix(4000)), language: language)
-            if !expanded && text.count > 4000 {
-                ChatExpansionButton(expanding: true) {
-                    expanded = true
-                } label: {
-                    Text("Show all output")
-                }.font(.caption).frame(minHeight: 44)
-            }
-        }
     }
 }

@@ -1155,7 +1155,7 @@ struct ChatEntryView: View {
                     } label: {
                         let tools = entry.items.compactMap(\.item.toolItem)
                         Label {
-                            Text(ChatToolPresentation.groupLabel(tools).attributed)
+                            Text(ChatToolPresentation.groupLabel(tools).attributed).lineLimit(1)
                         } icon: {
                             ChatToolMarkView(mark: tools.first.map(ChatToolPresentation.mark) ?? .lucide("wrench"))
                         }

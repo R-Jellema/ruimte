@@ -28,6 +28,13 @@ enum ChatFileChanges {
         return fromInput(name: approval.toolName, input: approval.input)
     }
 
+    /// The heads a turn started and ended on, cut short, when the branch moved under it: its diff then also holds what
+    /// came in with the move.
+    static func baseMoved(_ turn: ChatTurnItem) -> (from: String, to: String)? {
+        guard let from = turn.checkpointHead, let to = turn.checkpointHeadAfter, from != to else { return nil }
+        return (String(from.prefix(7)), String(to.prefix(7)))
+    }
+
     static func fromFile(_ file: ChatTurnItemCheckpointDiffFilesItem) -> ChatFileChange {
         ChatFileChange(
             path: file.path, diff: file.diff, added: Int(file.added), deleted: Int(file.deleted),
@@ -130,28 +137,54 @@ struct ChatDiffView: View {
     }
 }
 
+/// A file of a changes card on one line, which opens its diff under it.
 struct ChatFileChangeView: View {
     let change: ChatFileChange
+    /// Whether a line separates the file from what is above it in the card.
+    var ruled = true
     @State private var expanded = false
+
     var body: some View {
-        DisclosureGroup(isExpanded: $expanded) {
-            if let omitted = change.omitted {
-                Text(omitted == "binary" ? "Binary file, no diff" : "Too large to show")
-                    .font(.caption).foregroundStyle(MobileStyle.muted).padding(12)
-            } else {
-                ChatDiffView(diff: change.diff)
+        VStack(alignment: .leading, spacing: 0) {
+            if ruled { ChatCardRule() }
+            ChatExpansionButton(expanding: !expanded) {
+                expanded.toggle()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(lucide: expanded ? "chevron-down" : "chevron-right", size: 12)
+                        .foregroundStyle(MobileStyle.faint)
+                    Text(change.path).font(.system(.caption, design: .monospaced)).foregroundStyle(MobileStyle.text)
+                        .lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: 0)
+                    Group {
+                        Text("+\(change.added)").foregroundStyle(.green)
+                        Text("-\(change.deleted)").foregroundStyle(.red)
+                    }
+                    .fixedSize()
+                }
+                .font(.caption).monospacedDigit().foregroundStyle(MobileStyle.muted)
+                .padding(.horizontal, 12).frame(minHeight: 44).contentShape(Rectangle())
             }
-        } label: {
-            HStack(spacing: 8) {
-                Text(change.path).font(.system(.caption, design: .monospaced)).lineLimit(2).truncationMode(.middle)
-                Spacer(minLength: 0)
-                Text("+\(change.added)").foregroundStyle(.green)
-                Text("-\(change.deleted)").foregroundStyle(.red)
-            }.font(.caption).monospacedDigit()
+            .buttonStyle(.plain)
+            .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+            if expanded {
+                ChatCardRule()
+                if let omitted = change.omitted {
+                    Text(omitted == "binary" ? "Binary file, no diff" : "Too large to show")
+                        .font(.caption).foregroundStyle(MobileStyle.faint).padding(12)
+                } else {
+                    ChatDiffView(diff: change.diff)
+                }
+            }
         }
     }
 }
 
+struct ChatCardRule: View {
+    var body: some View { Rectangle().fill(MobileStyle.border).frame(height: 1) }
+}
+
+/// The files a settled turn changed, as a card that opens to a line per file.
 struct ChatChangedFilesRow: View {
     let turn: ChatItemState
     let tools: [ChatItemState]
@@ -160,6 +193,7 @@ struct ChatChangedFilesRow: View {
     @State private var work = RemotePageState()
     @State private var fetched: ChatTurnItemCheckpointDiff?
     @State private var fetchedOnce = false
+    @State private var expanded = false
     private var item: ChatTurnItem? { turn.item.turnItem }
     private var stored: ChatTurnItemCheckpointDiff? { item?.checkpointDiff }
     private var files: [ChatFileChange] {
@@ -168,34 +202,70 @@ struct ChatChangedFilesRow: View {
         }
         return ChatFileChanges.grouped(tools.compactMap(\.item.toolItem).flatMap(ChatFileChanges.fromTool))
     }
+
     var body: some View {
+        let files = files
+        let moved = item.flatMap(ChatFileChanges.baseMoved)
         VStack(alignment: .leading, spacing: 0) {
             if !files.isEmpty || work.loading || work.problem != nil {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label(
-                        String(localized: "\(files.count) changed files"), lucideIcon: "file-diff",
-                        iconSize: 14
-                    )
-                    .font(.footnote.weight(.medium))
-                    if (stored ?? fetched)?.truncated == true {
-                        Text("More changes were omitted from this snapshot.").font(.caption).foregroundStyle(
-                            MobileStyle.muted)
+                VStack(alignment: .leading, spacing: 0) {
+                    if !files.isEmpty {
+                        header(files, moved: moved)
+                        if let moved {
+                            Text(
+                                "The branch moved during this turn (\(moved.from) to \(moved.to)), so this includes what came in with it."
+                            )
+                            .font(.caption).foregroundStyle(MobileStyle.faint)
+                            .padding(.leading, 34).padding(.trailing, 12).padding(.bottom, 10)
+                        }
+                        if expanded {
+                            ForEach(files) { change in ChatFileChangeView(change: change) }
+                        }
                     }
-                    ForEach(files) { change in
-                        Divider()
-                        ChatFileChangeView(change: change)
-                    }
-                    if work.loading { ProgressView("Loading changes...").font(.caption) }
+                    if work.loading { ProgressView("Loading changes...").font(.caption).padding(12) }
                     if let problem = work.problem {
-                        Text(problem).font(.caption).foregroundStyle(MobileStyle.muted)
-                        Button("Retry") { Task { await load() } }.frame(minHeight: 44)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(problem).font(.caption).foregroundStyle(MobileStyle.muted)
+                            Button("Retry") { Task { await load() } }.frame(minHeight: 44)
+                        }.padding(.horizontal, 12).padding(.top, 8)
                     }
                 }
-                .padding(12)
                 .background(MobileStyle.panel, in: RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(MobileStyle.border) }
             }
         }.task(id: turn.id) { await load() }
+    }
+
+    private func header(_ files: [ChatFileChange], moved: (from: String, to: String)?) -> some View {
+        ChatExpansionButton(expanding: !expanded) {
+            expanded.toggle()
+        } label: {
+            HStack(spacing: 8) {
+                Image(lucide: "file-diff", size: 14)
+                Text(
+                    moved == nil
+                        ? String(localized: "\(files.count) changed files")
+                        : String(localized: "\(files.count) changes in the folder this turn")
+                )
+                .font(.footnote.weight(.medium)).foregroundStyle(MobileStyle.text).lineLimit(1).layoutPriority(1)
+                if (stored ?? fetched)?.truncated == true {
+                    Text("and more, truncated").foregroundStyle(MobileStyle.faint).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Group {
+                    Text("+\(files.reduce(0) { $0 + $1.added })").foregroundStyle(.green)
+                    Text("-\(files.reduce(0) { $0 + $1.deleted })").foregroundStyle(.red)
+                    Image(lucide: expanded ? "chevron-down" : "chevron-right", size: 12)
+                        .foregroundStyle(MobileStyle.faint)
+                }
+                .fixedSize()
+            }
+            .font(.footnote).monospacedDigit().foregroundStyle(MobileStyle.muted)
+            .padding(.horizontal, 12).frame(minHeight: 44).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(expanded ? "Expanded" : "Collapsed")
     }
 
     private func load() async {

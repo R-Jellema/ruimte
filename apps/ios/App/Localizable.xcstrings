@@ -1164,6 +1164,16 @@
         }
       }
     },
+    "The branch moved during this turn (%@ to %@), so this includes what came in with it." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De branch is tijdens deze beurt verplaatst (%@ naar %@), dus dit omvat ook wat daarmee binnenkwam."
+          }
+        }
+      }
+    },
     "The local network setting could not be changed. %@" : {
       "localizations" : {
         "nl" : {
@@ -2324,6 +2334,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld gewijzigd"
+          }
+        }
+      }
+    },
+    "%lld changes in the folder this turn" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld change in the folder this turn"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld changes in the folder this turn"
+                }
+              }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld wijziging in de map tijdens deze beurt"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld wijzigingen in de map tijdens deze beurt"
+                }
+              }
+            }
           }
         }
       }
@@ -9625,6 +9675,16 @@
         }
       }
     },
+    "Exit code %lld" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afsluitcode %lld"
+          }
+        }
+      }
+    },
     "Exited" : {
       "localizations" : {
         "nl" : {
@@ -12683,16 +12743,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Meer antwoorden"
-          }
-        }
-      }
-    },
-    "More changes were omitted from this snapshot." : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Meer wijzigingen zijn weggelaten uit deze momentopname."
           }
         }
       }
@@ -22933,6 +22983,56 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "[%lld more characters]" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "[%lld more character]"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "[%lld more characters]"
+                }
+              }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "[nog %lld teken]"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "[nog %lld tekens]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "and more, truncated" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "en meer, afgekapt"
           }
         }
       }

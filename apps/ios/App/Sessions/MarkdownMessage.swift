@@ -212,13 +212,8 @@ struct CodeMessage: View {
             .onDisappear { colors.cancel() }
         }
     }
-    private var displayedCode: AttributedString {
-        guard let highlighted = colors.highlighted, text.hasPrefix(colors.source) else { return AttributedString(text) }
-        return highlighted + AttributedString(String(text.dropFirst(colors.source.count)))
-    }
-
     private var codeText: some View {
-        Text(displayedCode).font(.system(.footnote, design: .monospaced))
+        Text(colors.displayed(text)).font(.system(.footnote, design: .monospaced))
             .textSelection(.enabled).lineSpacing(3)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 14).padding(.vertical, 12)
@@ -228,12 +223,18 @@ struct CodeMessage: View {
 }
 
 @MainActor @Observable
-private final class CodeHighlightState {
+final class CodeHighlightState {
     private(set) var highlighted: AttributedString?
     private(set) var source = ""
     @ObservationIgnored private var pending: (text: String, language: String, dark: Bool)?
     @ObservationIgnored private var worker: Task<Void, Never>?
     @ObservationIgnored private var generation = 0
+
+    /// `text` in the colors of the last highlight that still fits it, so a streaming text keeps its colors.
+    func displayed(_ text: String) -> AttributedString {
+        guard let highlighted, text.hasPrefix(source) else { return AttributedString(text) }
+        return highlighted + AttributedString(String(text.dropFirst(source.count)))
+    }
 
     func update(_ text: String, language: String, dark: Bool) {
         pending = (text, language, dark)
