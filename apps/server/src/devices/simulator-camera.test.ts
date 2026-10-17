@@ -151,4 +151,14 @@ describe('the camera of a simulator', () => {
         expect(second.spawned[0]?.[2]).not.toBe(first.spawned[0]?.[2]);
         expect(second.spawned[0]?.[4]).not.toBe(first.spawned[0]?.[4]);
     });
+
+    test('stops every helper at once, for a daemon that stops', async () => {
+        const fake = fakeCamera();
+        await fake.camera.set('C0FFEE', 'com.example.scan', 'placeholder');
+        await fake.camera.set('BEEF', 'com.example.scan', 'placeholder');
+
+        fake.camera.stopAll();
+
+        expect(fake.killed).toBe(2);
+    });
 });

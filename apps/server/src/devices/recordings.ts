@@ -119,6 +119,13 @@ export class DeviceRecordings {
         return recording.file;
     }
 
+    /* Ends every recording of every device, for a daemon that stops. */
+    dropAll(): void {
+        for (const deviceId of [...this.running.keys()]) {
+            this.drop(deviceId);
+        }
+    }
+
     /* Ends every recording without keeping its file, for a device that shut down. */
     drop(deviceId: string): void {
         const recording = this.running.get(deviceId);

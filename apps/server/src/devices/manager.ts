@@ -97,6 +97,8 @@ export interface DeviceBackend {
     tree?(deviceId: string): Promise<DeviceTree>;
     /* Ends whatever `tree` keeps running for this device. */
     closeTree?(deviceId: string): void;
+    /* Ends what runs beside the sessions (recordings, camera helpers, tree readers), for a daemon that stops. */
+    closeAll?(): void;
 }
 
 interface DeviceSession {
@@ -514,6 +516,9 @@ export class DeviceManager {
     closeAll(): void {
         for (const key of [...this.sessions.keys()]) {
             this.destroy(key);
+        }
+        for (const backend of this.backends.values()) {
+            backend.closeAll?.();
         }
     }
 

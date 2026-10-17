@@ -579,6 +579,14 @@ export class IosSimulatorBackend implements DeviceBackend {
         this.readers.delete(deviceId);
     }
 
+    closeAll(): void {
+        this.recordings.dropAll();
+        this.camera?.stopAll();
+        for (const deviceId of [...this.readers.keys()]) {
+            this.closeTree(deviceId);
+        }
+    }
+
     /* Pastes the text in through the simulator's pasteboard, which it replaces. */
     async type(deviceId: string, text: string, keyboard: () => Promise<DeviceKeyboard>): Promise<void> {
         const session = await keyboard();

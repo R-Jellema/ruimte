@@ -58,4 +58,18 @@ describe('DeviceRecordings', () => {
         await expect(stopping).rejects.toMatchObject({ code: 'device-capture-failed' });
         expect(recorder.signals).toEqual(['SIGINT', 'SIGKILL']);
     });
+
+    test('drops every recording at once, for a daemon that stops', () => {
+        const recorder = new FakeRecorder();
+        const recordings = recorder.recordings();
+        recordings.start('phone-1', '/captures/phone-1.mp4', ['record', 'phone-1'], 600_000);
+        recordings.start('phone-2', '/captures/phone-2.mp4', ['record', 'phone-2'], null);
+
+        recordings.dropAll();
+
+        expect(recorder.signals).toEqual(['SIGINT', 'SIGINT']);
+        expect(recordings.stateOf('phone-1')).toBeNull();
+        expect(recordings.stateOf('phone-2')).toBeNull();
+        expect(recorder.timers[0]?.cancelled).toBe(true);
+    });
 });

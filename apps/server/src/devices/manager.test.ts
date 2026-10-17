@@ -67,6 +67,16 @@ class FakeSource implements DeviceSource {
 }
 
 describe('DeviceManager', () => {
+    test('closing all also ends what each backend runs beside its sessions', () => {
+        const backend = new FakeBackend();
+        let closed = 0;
+        Object.assign(backend, { closeAll: () => (closed += 1) });
+
+        new DeviceManager([backend]).closeAll();
+
+        expect(closed).toBe(1);
+    });
+
     test('lists and controls devices through their platform backend', async () => {
         const manager = new DeviceManager([new FakeBackend()]);
 

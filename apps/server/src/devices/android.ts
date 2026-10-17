@@ -503,6 +503,10 @@ export class AndroidBackend implements DeviceBackend {
         );
     }
 
+    closeAll(): void {
+        this.recordings.dropAll();
+    }
+
     async action(deviceId: string, action: DeviceAction, session: DeviceSource | null = null): Promise<DeviceSettings> {
         if (action.action === 'erase') {
             await this.erase(deviceId);

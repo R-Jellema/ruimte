@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { isVideo, MEDIA_IMAGES, MEDIA_VIDEOS, requireExtension } from './device-paths.ts';
 import { DeviceError } from './manager.ts';
@@ -103,6 +104,13 @@ export class SimulatorCamera {
         this.feeds.delete(deviceId);
     }
 
+    /* Ends every feed, for a daemon that stops. */
+    stopAll(): void {
+        for (const deviceId of [...this.feeds.keys()]) {
+            this.stop(deviceId);
+        }
+    }
+
     private sourceCommand(source: 'placeholder' | 'file', path: string | undefined): { source: string; arg?: string } {
         if (source === 'placeholder') {
             return { source: 'placeholder' };
@@ -120,6 +128,8 @@ export class SimulatorCamera {
         const socket = `/tmp/ruimte-cam-${key.slice(0, 12)}.sock`;
         const shm = `/ruimte-cam-${key.slice(0, 8)}`;
         const arguments_ = ['--shm', shm, '--socket', socket, '--source', command.source, ...(command.arg === undefined ? [] : ['--arg', command.arg])];
+        // What a helper of an earlier daemon left there would answer for this one, or keep it from listening.
+        await rm(socket, { force: true });
         const process = this.host.spawn(helper, arguments_);
         if (!(await this.host.listening(socket))) {
             process.kill();
@@ -152,6 +162,21 @@ const LISTEN_INTERVAL_MS = 100;
 
 let foundFiles: CameraHost['files'] | undefined;
 
+function answersOn(socket: string): Promise<boolean> {
+    return Bun.connect({
+        unix: socket,
+        socket: {
+            open: (connection) => {
+                connection.end();
+            },
+            data: () => undefined
+        }
+    }).then(
+        () => true,
+        () => false
+    );
+}
+
 /* The machine's own helper: a process of its own, spoken to over its unix socket. */
 export const realCameraHost: CameraHost = {
     get files() {
@@ -162,9 +187,10 @@ export const realCameraHost: CameraHost = {
         const child = Bun.spawn([helper, ...arguments_], { stdin: 'ignore', stdout: 'ignore', stderr: 'ignore' });
         return { kill: () => child.kill() };
     },
+    // A helper killed with the daemon leaves its socket behind, so only a connection says one listens.
     async listening(socket) {
         for (let attempt = 0; attempt < LISTEN_TRIES; attempt += 1) {
-            if (existsSync(socket)) {
+            if (existsSync(socket) && (await answersOn(socket))) {
                 return true;
             }
             await Bun.sleep(LISTEN_INTERVAL_MS);
