@@ -2,11 +2,20 @@ import RuimtePulsar
 import SwiftUI
 
 struct ChatLiveLabel: View {
-    let text: String
+    let text: AttributedString
     var active = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var visible = false
+
+    init(text: String, active: Bool = true) {
+        self.init(attributed: AttributedString(text), active: active)
+    }
+
+    init(attributed: AttributedString, active: Bool = true) {
+        self.text = attributed
+        self.active = active
+    }
 
     var body: some View {
         Text(text)
@@ -125,9 +134,20 @@ struct ChatToolRow: View {
                 expanded.toggle()
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
+                    let run = RuimteCommandLook.run(of: item)
                     HStack(spacing: 8) {
-                        Image(lucide: failed ? "circle-alert" : ChatToolPresentation.icon(item.name), size: 14)
-                        ChatLiveLabel(text: item.name, active: running)
+                        ChatToolMarkView(mark: failed ? .lucide("circle-alert") : ChatToolPresentation.mark(item))
+                        ChatLiveLabel(
+                            attributed: run.map(RuimteCommandLook.title) ?? AttributedString(item.name), active: running
+                        )
+                        .lineLimit(1)
+                        if let run {
+                            ForEach(RuimteCommandLook.tags(run), id: \.self) { tag in
+                                Text(tag).font(.caption2).lineLimit(1).foregroundStyle(MobileStyle.faint)
+                                    .padding(.horizontal, 6).padding(.vertical, 1)
+                                    .background(MobileStyle.hover, in: RoundedRectangle(cornerRadius: 4))
+                            }
+                        }
                         Spacer(minLength: 4)
                         if running {
                             ChatElapsed(
@@ -137,10 +157,16 @@ struct ChatToolRow: View {
                         }
                         Image(lucide: expanded ? "chevron-down" : "chevron-right", size: 12)
                     }
-                    let summary = ChatToolPresentation.summary(item)
-                    if !summary.isEmpty {
-                        Text(summary).font(.system(.caption, design: .monospaced)).lineLimit(2)
-                            .padding(.leading, 22)
+                    if let run {
+                        if !run.detail.isEmpty {
+                            ChatCommandDetail(run: run).lineLimit(2).padding(.leading, 22)
+                        }
+                    } else {
+                        let summary = ChatToolPresentation.summary(item)
+                        if !summary.isEmpty {
+                            Text(summary).font(.system(.caption, design: .monospaced)).lineLimit(2)
+                                .padding(.leading, 22)
+                        }
                     }
                 }.frame(minHeight: 44).contentShape(Rectangle())
             }
@@ -179,6 +205,90 @@ struct ChatToolRow: View {
                 }
             }
         }
+    }
+}
+
+struct ChatToolMarkView: View {
+    let mark: ChatToolMark
+    var size: CGFloat = 14
+
+    var body: some View {
+        switch mark {
+        case .lucide(let name): Image(lucide: name, size: size)
+        case .ruimte:
+            Image("RuimteMark").resizable().frame(width: size, height: size).accessibilityHidden(true)
+        }
+    }
+}
+
+/// A `ruimte-context` call from the word that says what it does, with the ids of views and nodes of the chat's
+/// project drawn as their titles.
+struct ChatCommandDetail: View {
+    let run: RuimteCommandRun
+    @Environment(\.chatContent) private var context
+
+    var body: some View {
+        let parts = RuimteCommandLook.detailParts(run, names: names)
+        Self.text(parts)
+            .font(.system(.caption, design: .monospaced))
+            .textRenderer(ChatNamePillRenderer())
+            .accessibilityLabel(Text(verbatim: Self.spoken(parts)))
+    }
+
+    private var names: [String: ChatCommandName] {
+        guard let context, let workspace = context.workspace else { return [:] }
+        let names = RuimteCommandLook.projectNames(workspace.views)
+        // A chat of another project keeps its ids, since the ids it names are not in this one.
+        return names[context.chatID] == nil ? [:] : names
+    }
+
+    private static func text(_ parts: [ChatCommandDetailPart]) -> Text {
+        parts.reduce(Text(verbatim: "")) { output, part in
+            switch part {
+            case .text(let text):
+                return Text("\(output)\(Text(verbatim: text))")
+            case .name(let name, _):
+                let pill = Text("\(Text(Image(lucide: name.icon, size: 11)))\(Text(verbatim: " \(name.name)"))")
+                    .font(.caption).foregroundStyle(MobileStyle.text).customAttribute(ChatNamePill())
+                return Text("\(output)\(pill)")
+            }
+        }
+    }
+
+    private static func spoken(_ parts: [ChatCommandDetailPart]) -> String {
+        parts.map { part in
+            switch part {
+            case .text(let text): text
+            case .name(let name, _): name.name
+            }
+        }.joined()
+    }
+}
+
+private struct ChatNamePill: TextAttribute {}
+
+/// Draws a frame behind each name, so a title reads as a reference and not as part of the command.
+private struct ChatNamePillRenderer: TextRenderer {
+    func draw(layout: Text.Layout, in context: inout GraphicsContext) {
+        for line in layout {
+            var frame: CGRect?
+            for run in line {
+                if run[ChatNamePill.self] != nil {
+                    frame = frame?.union(run.typographicBounds.rect) ?? run.typographicBounds.rect
+                } else if let pill = frame {
+                    fill(pill, in: &context)
+                    frame = nil
+                }
+            }
+            if let frame { fill(frame, in: &context) }
+            for run in line { context.draw(run) }
+        }
+    }
+
+    private func fill(_ rect: CGRect, in context: inout GraphicsContext) {
+        let shape = RoundedRectangle(cornerRadius: 4).path(in: rect.insetBy(dx: -3, dy: -1))
+        context.fill(shape, with: .color(MobileStyle.hover))
+        context.stroke(shape, with: .color(MobileStyle.border), lineWidth: 1)
     }
 }
 

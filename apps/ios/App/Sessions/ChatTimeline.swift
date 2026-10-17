@@ -1098,8 +1098,7 @@ struct ChatEntryView: View {
                                     .layoutPriority(1)
                                 let work = ChatToolPresentation.turnSummary(entry.items.compactMap(\.item.toolItem))
                                 if !work.isEmpty {
-                                    Text(work.map { "· \($0)" }.joined(separator: " "))
-                                        .foregroundStyle(MobileStyle.faint)
+                                    Text(ChatToolPresentation.turnLine(work)).foregroundStyle(MobileStyle.faint)
                                 }
                             }
                             .font(.footnote).lineLimit(1).foregroundStyle(
@@ -1154,11 +1153,12 @@ struct ChatEntryView: View {
                             ChatObservedRow(record: item, client: client, chatID: chatID, presentation: presentation)
                         }
                     } label: {
-                        Label(
-                            ChatToolPresentation.groupLabel(entry.items.compactMap(\.item.toolItem)),
-                            lucideIcon: "terminal",
-                            iconSize: 14
-                        )
+                        let tools = entry.items.compactMap(\.item.toolItem)
+                        Label {
+                            Text(ChatToolPresentation.groupLabel(tools).attributed)
+                        } icon: {
+                            ChatToolMarkView(mark: tools.first.map(ChatToolPresentation.mark) ?? .lucide("wrench"))
+                        }
                         .font(.footnote).foregroundStyle(MobileStyle.muted)
                     }
                 }

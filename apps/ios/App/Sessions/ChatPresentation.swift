@@ -434,16 +434,26 @@ enum ChatToolPresentation {
         return keys.compactMap { input[$0]?.stringValue }.first ?? ""
     }
 
+    /// The mark of a call, as `toolIcon` in the desktop's chat draws it; a tool nobody named gets the wrench.
     static func icon(_ name: String) -> String {
         switch name {
-        case "Read": "file-text"
-        case "Edit", "Write", "MultiEdit", "ApplyPatch": "file-pen"
-        case "Grep", "Glob": "search"
+        case "Read", "NotebookRead": "eye"
+        case "Edit", "MultiEdit", "Write", "NotebookEdit", "ApplyPatch": "square-pen"
+        case "Bash": "terminal"
+        case "Grep": "search"
+        case "Glob": "folder-search"
         case "WebFetch", "WebSearch": "globe"
         case "Task", "Agent": "bot"
-        case "Skill": "sparkles"
-        default: "terminal"
+        case "Skill": "zap"
+        case "TodoWrite": "list-todo"
+        case "Workflow": "workflow"
+        case "ImageGeneration": "image"
+        default: name.hasPrefix("mcp__") ? "hammer" : "wrench"
         }
+    }
+
+    static func mark(_ tool: ChatToolItem) -> ChatToolMark {
+        RuimteCommandLook.run(of: tool) == nil ? .lucide(icon(tool.name)) : .ruimte
     }
 
     static func elapsed(_ milliseconds: Double) -> String { Format.elapsedShort(milliseconds: milliseconds) }
@@ -456,7 +466,7 @@ enum ChatToolPresentation {
 
     /// What a folded turn did, a sentence per kind of call in the order it first came, as `summarizeTurn` in
     /// `chat/logic/timeline.ts` writes it: every file change is one sentence, calls without one are counted last.
-    static func turnSummary(_ tools: [ChatToolItem]) -> [String] {
+    static func turnSummary(_ tools: [ChatToolItem]) -> [ChatToolSentence] {
         var order: [String] = []
         var counts: [String: Int] = [:]
         var edited = Set<String>()
@@ -464,7 +474,9 @@ enum ChatToolPresentation {
         for tool in tools {
             let name = tool.name
             let key: String
-            if fileChanges.contains(name) {
+            if let group = RuimteCommandLook.run(of: tool)?.groupKey {
+                key = "look:\(group)"
+            } else if fileChanges.contains(name) {
                 edited.insert(tool.input["file_path"]?.stringValue ?? tool.id)
                 key = "edited"
             } else if sentenceNames.contains(name) {
@@ -477,14 +489,26 @@ enum ChatToolPresentation {
             counts[key, default: 0] += 1
         }
         var parts = order.map { key in
-            key == "edited" ? String(localized: "Edited \(edited.count) files") : sentence(key, count: counts[key] ?? 0)
+            let count = counts[key] ?? 0
+            if key.hasPrefix("look:") { return usedRuimte(String(key.dropFirst(5)), count: count) }
+            return ChatToolSentence(
+                text: key == "edited" ? String(localized: "Edited \(edited.count) files") : sentence(key, count: count))
         }
         if other > 0 {
             parts.append(
-                parts.isEmpty
-                    ? String(localized: "\(other) tool calls") : String(localized: "\(other) other tool calls"))
+                ChatToolSentence(
+                    text: parts.isEmpty
+                        ? String(localized: "\(other) tool calls") : String(localized: "\(other) other tool calls")))
         }
         return parts
+    }
+
+    /// The work of a folded turn after its time: "· Read 2 files · Ran 3 commands".
+    static func turnLine(_ parts: [ChatToolSentence]) -> AttributedString {
+        parts.reduce(into: AttributedString()) { line, part in
+            line += AttributedString(line.characters.isEmpty ? "· " : " · ")
+            line += part.attributed
+        }
     }
 
     private static let fileChanges: Set<String> = ["Edit", "Write", "MultiEdit", "ApplyPatch"]
@@ -497,6 +521,7 @@ enum ChatToolPresentation {
     private static func sentence(_ name: String, count: Int) -> String {
         switch name {
         case "Read": String(localized: "Read \(count) files")
+        case "Write": String(localized: "Wrote \(count) files")
         case "NotebookEdit": String(localized: "Edited \(count) notebooks")
         case "Bash": String(localized: "Ran \(count) commands")
         case "Grep": String(localized: "Searched \(count) patterns")
@@ -510,18 +535,56 @@ enum ChatToolPresentation {
         }
     }
 
-    static func groupLabel(_ tools: [ChatToolItem]) -> String {
-        let names = Set(tools.map(\.name))
+    /// The line of a run of calls, as `summarizeGroup` in `chat/logic/timeline.ts` writes it: a run of
+    /// `ruimte-context` calls as using Ruimte, and edits by the files they touched rather than the calls.
+    static func groupLabel(_ tools: [ChatToolItem]) -> ChatToolSentence {
         let count = tools.count
-        guard names.count == 1, let name = names.first else { return String(localized: "\(count) tool calls") }
-        switch name {
-        case "Read": return String(localized: "Read \(count) files")
-        case "Edit", "MultiEdit", "ApplyPatch": return String(localized: "Edited \(count) files")
-        case "Write": return String(localized: "Wrote \(count) files")
-        case "Bash": return String(localized: "Ran \(count) commands")
-        case "Grep": return String(localized: "Searched \(count) patterns")
-        case "Glob": return String(localized: "Listed \(count) patterns")
-        default: return String(localized: "\(name) \(count) calls", comment: "%@ is the name of a tool")
+        if let looked = lookLabel(tools) { return looked }
+        let names = Set(tools.map(\.name))
+        let only = names.count == 1 ? names.first : nil
+        if let only, sentenceNames.contains(only) || only == "Write" {
+            return ChatToolSentence(text: sentence(only, count: count))
         }
+        if tools.allSatisfy({ fileChanges.contains($0.name) }) {
+            let paths = Set(tools.map { $0.input["file_path"]?.stringValue ?? $0.id })
+            return ChatToolSentence(text: String(localized: "Edited \(paths.count) files"))
+        }
+        if let only {
+            return ChatToolSentence(
+                text: String(localized: "\(only) \(count) calls", comment: "%@ is the name of a tool"))
+        }
+        return ChatToolSentence(text: String(localized: "\(count) tool calls"))
+    }
+
+    /// A run whose calls are all `ruimte-context`: named after the part they share, else after Ruimte alone.
+    private static func lookLabel(_ tools: [ChatToolItem]) -> ChatToolSentence? {
+        let runs = tools.map(RuimteCommandLook.run(of:))
+        guard let first = runs.first, let first, runs.allSatisfy({ $0 != nil }) else { return nil }
+        if let key = first.groupKey, runs.allSatisfy({ $0?.groupKey == key }) {
+            return usedRuimte(key, count: tools.count)
+        }
+        return ChatToolSentence(text: String(localized: "Used Ruimte \(tools.count) times"), branded: true)
+    }
+
+    private static func usedRuimte(_ name: String, count: Int) -> ChatToolSentence {
+        ChatToolSentence(
+            text: String(
+                localized: "Used Ruimte \(name) \(count) times", comment: "%@ is the name of a part of Ruimte"),
+            branded: true)
+    }
+}
+
+enum ChatToolMark: Equatable {
+    case lucide(String)
+    case ruimte
+}
+
+/// A sentence about calls; one that names Ruimte draws its name in bold, as the desktop does.
+struct ChatToolSentence: Equatable {
+    let text: String
+    var branded = false
+
+    var attributed: AttributedString {
+        branded ? RuimteCommandLook.emphasizingBrand(text) : AttributedString(text)
     }
 }

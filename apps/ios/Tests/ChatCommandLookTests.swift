@@ -1,0 +1,202 @@
+import RuimtePulsar
+import XCTest
+
+@testable import Ruimte
+
+final class ChatCommandLookTests: XCTestCase {
+    func testACallReadsAsThePartItsVerbWorksOnFromTheWordThatSaysWhatItDoes() {
+        XCTAssertEqual(
+            line(#"ruimte-context computer menu "Ruimte Dev" "File > New View" --wait 5"#),
+            Line("Computer Use", #"menu "Ruimte Dev" "File > New View" --wait 5"#))
+        XCTAssertEqual(
+            line(
+                #"ruimte-context node new note --view main --title "Open punten" && ruimte-context link new a b --view main"#
+            ),
+            Line("Canvas", #"node new note --view main --title "Open punten""#, more: 1))
+        XCTAssertEqual(
+            line("ruimte-context done --result-file /tmp/result.md"), Line("Task", "done --result-file /tmp/result.md"))
+        XCTAssertEqual(
+            line(#"ruimte-context alert --text "De build is groen""#),
+            Line("Notification", #"--text "De build is groen""#))
+        XCTAssertEqual(line("ruimte-context help computer click"), Line("Help", "computer click"))
+        XCTAssertEqual(
+            line("NO_COLOR=1 ~/.ruimte/bin/ruimte-context launches read api --tail 80"),
+            Line("Launches", "read api --tail 80"))
+        XCTAssertEqual(
+            line(#"sleep 3; ruimte-context computer state "Ruimte Dev" 2>&1 | grep -E x"#),
+            Line("Computer Use", #"state "Ruimte Dev""#, others: ["sleep", "grep"]))
+    }
+
+    func testAVerbThisAppDoesNotKnowReadsAsRuimteAloneAndNoVerbAsContext() {
+        XCTAssertEqual(line("ruimte-context teleport --to mars"), Line("", "teleport --to mars"))
+        XCTAssertNil(RuimteCommandLook.match("ruimte-context teleport")?.groupKey)
+        XCTAssertEqual(line("ruimte-context"), Line("Context", ""))
+    }
+
+    func testALongValueIsCutSoTheOptionsAfterItStay() {
+        let prompt = "The tokenizer drops a trailing heredoc marker when the line ends in a comment"
+        XCTAssertEqual(
+            RuimteCommandLook.match(
+                #"ruimte-context agent codex --task "Fix the lexer" --prompt "\#(prompt)" --view Werk"#)?.detail,
+            #"codex --task "Fix the lexer" --prompt "\#(prompt.prefix(40))…" --view Werk"#)
+        XCTAssertEqual(
+            RuimteCommandLook.match("ruimte-context done --result \(String(repeating: "x", count: 50))")?.detail,
+            "done --result \(String(repeating: "x", count: 40))…")
+        XCTAssertEqual(
+            RuimteCommandLook.match(#"ruimte-context task new --title "\#(prompt)""#)?.detail,
+            #"new --title "\#(prompt)""#)
+    }
+
+    func testOnlyTheProgramItselfIsRuimteNeverAMentionOfIt() {
+        XCTAssertNil(RuimteCommandLook.match(#"grep -rn "ruimte-context" apps/server/src/canvas"#))
+        XCTAssertNil(RuimteCommandLook.match("which ruimte-context"))
+        XCTAssertNil(RuimteCommandLook.match("bun src/main.ts status --port 4211"))
+        XCTAssertNil(RuimteCommandLook.run(of: tool("Read", ["file_path": .string("ruimte-context")])))
+    }
+
+    func testWhatElseTheLineRanReadsAsTags() {
+        let fed = RuimteCommandLook.match("ruimte-context visual new <<'EOF'\n<div></div>\nEOF\nls")
+        XCTAssertEqual(fed.map(RuimteCommandLook.tags), ["+ ls, heredoc"])
+        XCTAssertEqual(
+            RuimteCommandLook.match("ruimte-context node list && ruimte-context link list").map(RuimteCommandLook.tags),
+            ["+1"])
+        XCTAssertEqual(RuimteCommandLook.match("ruimte-context node list").map(RuimteCommandLook.tags), [])
+    }
+
+    func testTheTitleBoldsTheBrand() {
+        let title = RuimteCommandLook.title(RuimteCommandLook.match("ruimte-context node list")!)
+        XCTAssertEqual(String(title.characters), "Ruimte Canvas")
+        let brand = title.range(of: "Ruimte")!
+        XCTAssertEqual(title[brand].inlinePresentationIntent, .stronglyEmphasized)
+        XCTAssertEqual(
+            String(RuimteCommandLook.title(RuimteCommandLook.match("ruimte-context x")!).characters), "Ruimte")
+    }
+
+    func testIdsReadAsTheTitlesTheyHaveNow() {
+        let views: [JSONValue] = [
+            .object([
+                "id": .string("main"), "kind": .string("canvas"), "name": .string("Werk"),
+                "nodes": .array([
+                    .object(["id": .string("chat-ab12"), "kind": .string("chat"), "title": .string("Lexer")]),
+                    .object(["id": .string("note-x9"), "kind": .string("note"), "title": .string("")]),
+                ]),
+            ])
+        ]
+        let names = RuimteCommandLook.projectNames(views)
+        XCTAssertEqual(names["chat-ab12"], ChatCommandName(name: "Lexer", icon: "message-square", view: false))
+        XCTAssertEqual(names["main"], ChatCommandName(name: "Werk", icon: "frame", view: true))
+        let run = RuimteCommandLook.match("ruimte-context read chat-ab12 --view main note-x9 term-zz main")!
+        let lexer = ChatCommandName(name: "Lexer", icon: "message-square", view: false)
+        let werk = ChatCommandName(name: "Werk", icon: "frame", view: true)
+        XCTAssertEqual(
+            RuimteCommandLook.detailParts(run, names: names),
+            [
+                .text("read "), .name(lexer, word: "chat-ab12"), .text(" --view "), .name(werk, word: "main"),
+                .text(" note-x9 term-zz main"),
+            ])
+        XCTAssertEqual(RuimteCommandLook.detailParts(run, names: [:]), [.text(run.detail)])
+    }
+
+    func testARunOfOnePartReadsAsUsingItAndOfSeveralAsUsingRuimte() {
+        let clicks = [bash("ruimte-context computer click a"), bash("ruimte-context computer state a")]
+        XCTAssertEqual(
+            ChatToolPresentation.groupLabel(clicks),
+            ChatToolSentence(text: "Used Ruimte Computer Use 2 times", branded: true))
+        XCTAssertEqual(
+            ChatToolPresentation.groupLabel([bash("ruimte-context computer click a"), bash("ruimte-context node list")]
+            ),
+            ChatToolSentence(text: "Used Ruimte 2 times", branded: true))
+        XCTAssertEqual(
+            ChatToolPresentation.groupLabel([bash("ruimte-context computer click a"), bash("ls")]).text,
+            "Ran 2 commands")
+        let label = ChatToolPresentation.groupLabel(clicks).attributed
+        XCTAssertEqual(label[label.range(of: "Ruimte")!].inlinePresentationIntent, .stronglyEmphasized)
+    }
+
+    func testAGroupReadsAsTheDesktopWritesIt() {
+        let edit = { (path: String) in self.tool("Edit", ["file_path": .string(path)]) }
+        XCTAssertEqual(ChatToolPresentation.groupLabel([edit("a"), edit("a"), edit("b")]).text, "Edited 2 files")
+        XCTAssertEqual(
+            ChatToolPresentation.groupLabel([tool("Write", [:]), tool("Write", [:])]).text, "Wrote 2 files")
+        XCTAssertEqual(
+            ChatToolPresentation.groupLabel([edit("a"), tool("Write", ["file_path": .string("b")])]).text,
+            "Edited 2 files")
+        XCTAssertEqual(ChatToolPresentation.groupLabel([tool("Skill", [:]), tool("Skill", [:])]).text, "Used 2 skills")
+        XCTAssertEqual(
+            ChatToolPresentation.groupLabel([tool("TodoWrite", [:]), tool("TodoWrite", [:])]).text, "Updated 2 plans")
+        XCTAssertEqual(
+            ChatToolPresentation.groupLabel([tool("mcp__x", [:]), tool("mcp__x", [:])]).text, "mcp__x 2 calls")
+        XCTAssertEqual(ChatToolPresentation.groupLabel([tool("Read", [:]), tool("Grep", [:])]).text, "2 tool calls")
+    }
+
+    func testAFoldedTurnCountsRuimteCallsByThePartTheyWorkOn() {
+        let summary = ChatToolPresentation.turnSummary([
+            tool("Read", [:]), bash("ruimte-context node list"), bash("ruimte-context link new a b"),
+            bash("ruimte-context teleport"), bash("ls"), tool("Unknown", [:]),
+        ])
+        XCTAssertEqual(
+            summary,
+            [
+                ChatToolSentence(text: "Read 1 file"),
+                ChatToolSentence(text: "Used Ruimte Canvas 2 times", branded: true),
+                ChatToolSentence(text: "Ran 2 commands"), ChatToolSentence(text: "1 other tool call"),
+            ])
+        XCTAssertEqual(
+            String(ChatToolPresentation.turnLine(summary).characters),
+            "· Read 1 file · Used Ruimte Canvas 2 times · Ran 2 commands · 1 other tool call")
+    }
+
+    @MainActor func testEveryToolHasTheMarkTheDesktopGivesIt() {
+        let icons = [
+            "Read": "eye", "NotebookRead": "eye", "Edit": "square-pen", "MultiEdit": "square-pen",
+            "Write": "square-pen", "NotebookEdit": "square-pen", "ApplyPatch": "square-pen", "Bash": "terminal",
+            "Grep": "search", "Glob": "folder-search", "WebFetch": "globe", "WebSearch": "globe", "Task": "bot",
+            "Agent": "bot", "Skill": "zap", "TodoWrite": "list-todo", "Workflow": "workflow",
+            "ImageGeneration": "image", "mcp__github__issue": "hammer", "Unknown": "wrench",
+        ]
+        for (name, icon) in icons {
+            XCTAssertEqual(ChatToolPresentation.icon(name), icon, name)
+            XCTAssertNotNil(LucideIcon.icon(named: icon), icon)
+        }
+        XCTAssertEqual(ChatToolPresentation.mark(bash("ruimte-context node list")), .ruimte)
+        XCTAssertEqual(ChatToolPresentation.mark(bash("ls")), .lucide("terminal"))
+    }
+
+    func testTheShellSplitsALineAsAShellWould() {
+        let commands = ChatShell.commands("FOO=1 sudo -E env bun test 2>/dev/null | tee 'out file' && echo \"a\\\"b\"")
+        XCTAssertEqual(commands.map(\.programName), ["bun", "tee", "echo"])
+        XCTAssertEqual(commands[1].words.map(\.text), ["tee", "out file"])
+        XCTAssertEqual(commands[2].words.last?.text, "a\"b")
+        XCTAssertEqual(ChatShell.commands("uv run pytest # ruimte-context").map(\.programName), ["pytest"])
+        XCTAssertEqual(ChatShell.commands("echo $(ruimte-context node list)").map(\.programName), ["echo"])
+    }
+
+    private struct Line: Equatable {
+        let label: String
+        let detail: String
+        var others: [String] = []
+        var more = 0
+
+        init(_ label: String, _ detail: String, others: [String] = [], more: Int = 0) {
+            self.label = label
+            self.detail = detail
+            self.others = others
+            self.more = more
+        }
+    }
+
+    private func line(_ command: String) -> Line? {
+        RuimteCommandLook.match(command).map { Line($0.label, $0.detail, others: $0.others, more: $0.more) }
+    }
+
+    private func bash(_ command: String) -> ChatToolItem {
+        tool("Bash", ["command": .string(command)])
+    }
+
+    private func tool(_ name: String, _ input: [String: JSONValue]) -> ChatToolItem {
+        ChatWire.item([
+            "id": .string(UUID().uuidString), "kind": .string("tool"), "name": .string(name),
+            "input": .object(input),
+        ]).chatTool
+    }
+}

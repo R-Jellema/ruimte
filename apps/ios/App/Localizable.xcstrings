@@ -22835,6 +22835,118 @@
           }
         }
       }
+    },
+    "Used Ruimte %@ %lld times" : {
+      "comment" : "%@ is the name of a part of Ruimte",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Used Ruimte %1$@ %#@times@"
+          },
+          "substitutions" : {
+            "times" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "once"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg times"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@times@ Ruimte %1$@ gebruikt"
+          },
+          "substitutions" : {
+            "times" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg keer"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg keer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Used Ruimte %lld times" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Used Ruimte once"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Used Ruimte %lld times"
+                }
+              }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "1 keer Ruimte gebruikt"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld keer Ruimte gebruikt"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "heredoc" : {
+      "comment" : "A shell heredoc",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "heredoc"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
