@@ -72,23 +72,8 @@ private struct MarkdownBlockView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         case .table:
-            ScrollView(.horizontal) {
-                Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
-                    ForEach(Array(block.rows.enumerated()), id: \.offset) { rowIndex, row in
-                        GridRow {
-                            ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
-                                ChatInlineText(text: cell, streaming: streaming).font(.subheadline)
-                                    .fontWeight(rowIndex == 0 ? .semibold : .regular)
-                                    .frame(maxWidth: 260, alignment: .leading).padding(.horizontal, 14).padding(
-                                        .vertical, 10)
-                            }
-                        }
-                        if rowIndex < block.rows.count - 1 { Divider().opacity(0.45).gridCellUnsizedAxes(.horizontal) }
-                    }
-                }.fixedSize(horizontal: false, vertical: true)
-                    .background(MobileStyle.panel, in: RoundedRectangle(cornerRadius: 12))
-                    .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(MobileStyle.border) }
-            }.fixedSize(horizontal: false, vertical: true).scrollIndicators(.hidden)
+            ScrollView(.horizontal) { MarkdownTable(rows: block.rows, streaming: streaming) }
+                .fixedSize(horizontal: false, vertical: true).scrollIndicators(.hidden)
         case .rule: Divider()
         case .paragraph:
             if let media = imageReference {
@@ -123,6 +108,48 @@ private struct MarkdownBlockView: View {
             String(text[text.index(text.startIndex, offsetBy: 2)..<middle.lowerBound]),
             String(text[middle.upperBound..<text.index(before: text.endIndex)])
         )
+    }
+}
+
+struct MarkdownTable: View {
+    let rows: [[String]]
+    var streaming = false
+
+    var body: some View {
+        Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { rowIndex, row in
+                GridRow {
+                    ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
+                        MarkdownTableCell {
+                            ChatInlineText(text: cell, streaming: streaming).font(.subheadline)
+                                .fontWeight(rowIndex == 0 ? .semibold : .regular)
+                        }
+                        .padding(.horizontal, 14).padding(.vertical, 10)
+                    }
+                }
+                if rowIndex < rows.count - 1 { Divider().opacity(0.45).gridCellUnsizedAxes(.horizontal) }
+            }
+        }.fixedSize(horizontal: false, vertical: true)
+            .background(MobileStyle.panel, in: RoundedRectangle(cornerRadius: 12))
+            .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(MobileStyle.border) }
+    }
+}
+
+/// A horizontal scroll view proposes no width, so `frame(maxWidth:)` alone measures the text on one line while it
+/// wraps when drawn, and the rows overlap. This measures and places the text at the same capped width.
+private struct MarkdownTableCell: Layout {
+    static let maxWidth: CGFloat = 260
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let text = subviews.first else { return .zero }
+        let width = min(text.sizeThatFits(.unspecified).width, Self.maxWidth)
+        return CGSize(width: width, height: text.sizeThatFits(ProposedViewSize(width: width, height: nil)).height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard let text = subviews.first else { return }
+        let width = min(text.sizeThatFits(.unspecified).width, Self.maxWidth)
+        text.place(at: bounds.origin, anchor: .topLeading, proposal: ProposedViewSize(width: width, height: nil))
     }
 }
 
