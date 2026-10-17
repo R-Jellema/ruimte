@@ -45,13 +45,13 @@ export interface ConnectPeerDeps {
  * The reconnect of the link to another machine, as an outbox entry. It is owed only while work for that
  * machine waits (a task given to it, its result, a stop), and each failure doubles the wait from a
  * minute to ten, so a machine that sleeps is not woken by a daemon that keeps knocking. It ends when
- * nothing is owed to the machine any more, when the machine is unlinked, or after 7 days.
+ * nothing is owed to the machine any more, when the machine is unlinked, or after 7 days in which no link opened.
  */
 export class ConnectPeer {
     private readonly deps: ConnectPeerDeps;
     // Machines whose attempt is running, and those whose link was lost meanwhile and so need a new entry once it ends.
     private readonly running = new Set<string>();
-    // When work for a machine was first owed, which the 7 days count from however often the link was lost and made again in between.
+    // When the machine stopped answering while work was owed, which the 7 days count from; a link that opens starts the count over.
     private readonly firstOwed = new Map<string, number>();
     private readonly lostMeanwhile = new Set<string>();
 
@@ -113,8 +113,11 @@ export class ConnectPeer {
         }
         this.firstOwed.set(machineId, since);
         this.running.add(machineId);
+        let opened = false;
         try {
             await connections.connect(machineId);
+            opened = true;
+            this.firstOwed.delete(machineId);
             this.wakeOwed(machineId);
         } catch (e) {
             // A machine that will not have this one says so again however often it is asked; a link closed on purpose is not tried again either.
@@ -128,7 +131,7 @@ export class ConnectPeer {
         }
         // This entry is still in the outbox until the worker removes it, so `owe` would take it for the reconnect that is owed.
         if (this.lostMeanwhile.delete(machineId) && !connections.isOpen(machineId) && this.entriesOf(machineId).every((other) => other.id === entry.id)) {
-            await this.write(machineId, this.sinceOf(machineId), RECONNECT_START_MS, this.deps.now());
+            await this.write(machineId, opened ? this.deps.now() : this.sinceOf(machineId), RECONNECT_START_MS, this.deps.now());
         }
     };
 

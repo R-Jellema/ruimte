@@ -280,22 +280,28 @@ describe('the reconnect of a link to another machine', () => {
         expect(connectEntries()).toEqual([]);
     });
 
-    test('keeps the first owing across losses, so the 7 days are 7 days in total', async () => {
+    test('starts the 7 days over once a link opened, however long ago the work was first owed', async () => {
         await reconnect.owe(MACHINE);
         await worker.settled();
         const since = connectEntries()[0]!.payload.since;
         connections.up = true;
         await advance(60_000);
         expect(connectEntries()).toEqual([]);
-        // The link opened for a day, was lost, and the work is still owed.
+        // The link stays open for longer than the window, then is lost while the work is still owed.
+        await advance(RECONNECT_LIFETIME_MS + 24 * 60 * 60 * 1000);
         connections.open = false;
-        await advance(24 * 60 * 60 * 1000);
         connections.up = false;
         await reconnect.owe(MACHINE);
         await worker.settled();
-        expect(connectEntries()[0]!.payload.since).toBe(since);
+        expect(gaveUp).toEqual([]);
+        expect(connectEntries()[0]!.payload.since).toBe(clock.now());
+        expect(connectEntries()[0]!.payload.since).toBeGreaterThan(since);
+    });
 
-        // Nothing owed any more ends it, and the next owing counts afresh.
+    test('counts afresh once nothing is owed any more', async () => {
+        await reconnect.owe(MACHINE);
+        await worker.settled();
+        const since = connectEntries()[0]!.payload.since;
         owed = [];
         await advance(RECONNECT_MAX_MS);
         expect(connectEntries()).toEqual([]);
