@@ -130,6 +130,13 @@ describe('duplicating', () => {
         expect(copy.edges[0]).toMatchObject({ from: copy.nodes[0]!.id, to: copy.texts[0]!.id });
     });
 
+    test('a copy of a canvas keeps its lines under ids of their own', () => {
+        const line = { id: 'l1', x: 0, y: 0, endX: 100, endY: 40, stroke: 'ink', strokeWidth: 2, strokeStyle: 'dashed', arrowEnd: true } as const;
+        const copy = withDuplicatedView([{ ...canvas('a'), lines: [line] }], 'a', ids())!.views[1] as ProjectCanvasView;
+        expect(copy.lines).toHaveLength(1);
+        expect(copy.lines![0]).toEqual({ ...line, id: expect.not.stringMatching(/^l1$/) });
+    });
+
     test('a copy carries the fields this version does not know', () => {
         const source = {
             ...canvas('a', [{ ...node('n1'), resume: 'session-1', location: { line: 3 } } as ProjectCanvasView['nodes'][number]]),

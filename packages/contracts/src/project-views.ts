@@ -152,7 +152,8 @@ function copyOfCanvas(view: ProjectCanvasView, name: string, nextId: (prefix: st
         nodes: view.nodes.map((node) => ({ ...node, id: idOf(node.id), resume: undefined, memberIds: node.memberIds?.map(idOf) })),
         texts: view.texts.map((text) => ({ ...text, id: idOf(text.id) })),
         edges: view.edges.map((edge) => ({ ...edge, id: nextId('edge'), from: idOf(edge.from), to: idOf(edge.to) })),
-        layouts: view.layouts.map((layout) => ({ ...layout, nodes: remap(layout.nodes), texts: remap(layout.texts) }))
+        layouts: view.layouts.map((layout) => ({ ...layout, nodes: remap(layout.nodes), texts: remap(layout.texts) })),
+        ...(view.lines ? { lines: view.lines.map((line) => ({ ...line, id: nextId('line') })) } : {})
     };
 }
 
