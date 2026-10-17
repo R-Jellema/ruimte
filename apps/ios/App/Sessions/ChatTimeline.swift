@@ -352,6 +352,7 @@ final class ChatTimelineController: UIViewController, UICollectionViewDelegate, 
     private var collection: ChatTimelineCollection!
     private var source: UICollectionViewDiffableDataSource<Int, String>!
     private var items: [String: ChatTimelineEntry] = [:]
+    private var paddings: [String: ChatRowPadding] = [:]
     private var lastRevision = -1
     private var pendingUpdate: ([ChatTimelineEntry], Int)?
     private var displayLink: CADisplayLink?
@@ -452,7 +453,9 @@ final class ChatTimelineController: UIViewController, UICollectionViewDelegate, 
                     transaction.animation = nil
                     transaction.disablesAnimations = true
                 }
-                .padding(.horizontal, ChatTimeline.rowInset).padding(.vertical, item.isWorkLine ? 2 : 10)
+                .padding(.horizontal, ChatTimeline.rowInset)
+                .padding(.top, self.paddings[id]?.top ?? ChatRowPadding.prose)
+                .padding(.bottom, self.paddings[id]?.bottom ?? ChatRowPadding.prose)
                 .coordinateSpace(name: "chat.row")
             }
             cell.backgroundConfiguration = .clear()
@@ -785,8 +788,12 @@ final class ChatTimelineController: UIViewController, UICollectionViewDelegate, 
         collection.prepareForContentChange()
         let interactionRevision = collection.viewport.interactionRevision
         let previous = items
+        let previousPaddings = paddings
         let entries = values
         items = Dictionary(entries.map { ($0.id, $0) }, uniquingKeysWith: { _, newest in newest })
+        paddings = Dictionary(
+            zip(entries.map(\.id), ChatRowPadding.rows(work: entries.map(\.isWorkLine))),
+            uniquingKeysWith: { _, newest in newest })
         let ids = entries.map(\.id)
         let existingIDs = source.snapshot().itemIdentifiers
         var snapshot = source.snapshot()
@@ -799,7 +806,9 @@ final class ChatTimelineController: UIViewController, UICollectionViewDelegate, 
             snapshot.appendItems(ids)
         }
         let existing = Set(existingIDs)
-        let changed = ids.filter { existing.contains($0) && previous[$0] != items[$0] }
+        let changed = ids.filter {
+            existing.contains($0) && (previous[$0] != items[$0] || previousPaddings[$0] != paddings[$0])
+        }
         snapshot.reconfigureItems(changed)
         lastRevision = revision
         applyingSnapshot = true
@@ -1121,7 +1130,7 @@ struct ChatEntryView: View {
                         presentation.openSubagent(toolUseID: task)
                     } label: {
                         Label(ChatPresentation.agentTurnLabel(turn), lucideIcon: "bot", iconSize: 14)
-                            .font(.footnote).foregroundStyle(MobileStyle.muted).frame(minHeight: 28)
+                            .lineLimit(1).font(.footnote).foregroundStyle(MobileStyle.muted).frame(minHeight: 28)
                     }.buttonStyle(.plain).disabled(task.isEmpty)
                 }
             case .changedFiles:

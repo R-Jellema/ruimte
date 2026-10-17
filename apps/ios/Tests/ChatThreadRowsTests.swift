@@ -103,6 +103,13 @@ final class ChatThoughtTests: XCTestCase {
         XCTAssertEqual(presentation.entries.map(\.isWorkLine), [false, true, true, false])
     }
 
+    func testAWorkLineGetsABlockGapOnlyWhereItMeetsProse() {
+        let rows = ChatRowPadding.rows(work: [false, true, true, false, true])
+        XCTAssertEqual(rows.map(\.top), [10, 10, 2, 10, 10])
+        XCTAssertEqual(rows.map(\.bottom), [10, 2, 10, 10, 2])
+        XCTAssertEqual(zip(rows, rows.dropFirst()).map { $0.bottom + $1.top }, [20, 4, 20, 20])
+    }
+
     private func item(_ id: String, _ kind: String) -> JSONValue {
         ChatWire.item(["id": .string(id), "kind": .string(kind)])
     }

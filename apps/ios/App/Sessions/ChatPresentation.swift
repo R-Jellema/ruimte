@@ -72,6 +72,25 @@ extension ChatTimelineEntry {
     }
 }
 
+/// The space above and below a row. Work lines sit tight against each other; where a run of them meets prose, either
+/// way, the seam gets the gap two blocks of prose have, the desktop's seam at the phone's larger text.
+struct ChatRowPadding: Equatable {
+    static let prose: CGFloat = 10
+    static let work: CGFloat = 2
+
+    let top: CGFloat
+    let bottom: CGFloat
+
+    static func rows(work: [Bool]) -> [ChatRowPadding] {
+        work.indices.map { index in
+            guard work[index] else { return ChatRowPadding(top: prose, bottom: prose) }
+            let above = index > 0 && !work[index - 1]
+            let below = index + 1 < work.count && !work[index + 1]
+            return ChatRowPadding(top: above ? prose : Self.work, bottom: below ? prose : Self.work)
+        }
+    }
+}
+
 @MainActor @Observable
 final class ChatPresentation {
     private(set) var entries: [ChatTimelineEntry] = []
