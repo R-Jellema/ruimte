@@ -1,6 +1,7 @@
 import type { ActionHandlers } from '@ruimte/actions';
 import { isAgentKind, type ChatApprovalItem, type ChatQuestionItem } from '@ruimte/contracts';
 import { refuseMissingNodes } from '../canvas/own-view.ts';
+import { refuseOtherMachine } from '../canvas/remote-node.ts';
 import { VerbRefusal, canvasFor, field, orNote, type ChatRequestHost } from '../canvas/verb.ts';
 import type { ServerActionContext } from './context.ts';
 
@@ -117,6 +118,7 @@ export const agentActions: ActionHandlers<ServerActionContext> = {
         if (!target) {
             throw refuseMissingNodes(content, [nodeId], canvas.id, 'no line can run from you into it, and that is what a message travels along', lines());
         }
+        refuseOtherMachine(host, nodeId);
         if (!isAgentKind(target.kind)) {
             throw new VerbRefusal(
                 'not-an-agent',

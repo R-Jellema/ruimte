@@ -108,6 +108,7 @@ let madeWorktrees: Worktree[];
 let removedWorktrees: string[];
 let databases: AgentDatabases;
 let snoozed: Record<string, number>;
+let elsewhere: Set<string>;
 let devices: DeviceDriver;
 
 /* A change the store's own check refuses after the verb had its say: `note-1` a second time, on the board. */
@@ -152,6 +153,7 @@ function content(): ProjectContent {
 beforeEach(async () => {
     alerts = [];
     snoozed = {};
+    elsewhere = new Set();
     root = await mkdtemp(join(tmpdir(), 'ruimte-verbs-'));
     devices = new DeviceDriver({ home: root, manager: new DeviceManager([new RecordingBackend()]), timers: new ManualTimers(), sleep: async () => undefined });
     folder = join(root, 'repo');
@@ -248,7 +250,7 @@ function host(): CanvasHost {
                     expectedRev
                 ),
             showView: (projectId, viewId, by) => store.showView(projectId, viewId, by),
-            machineOfNode: (nodeId) => store.machineOfNode(nodeId)
+            machineOfNode: (nodeId) => (elsewhere.has(nodeId) ? 'machine-b' : store.machineOfNode(nodeId))
         },
         checkouts: {
             paths: async () => worktrees,
@@ -2004,6 +2006,15 @@ describe('the depth limit', () => {
 });
 
 describe('link new', () => {
+    test('draws no line to or from a node that runs on another machine, and writes nothing', async () => {
+        elsewhere.add('note-1');
+        const rev = await store.revision(projectId);
+        const { status, lines } = await post('link', ['new', '--to', 'note-1']);
+        expect(status).toBe(422);
+        expect(lines[0]).toStartWith('refused\tnode-on-other-machine\t');
+        expect(await store.revision(projectId)).toBe(rev);
+    });
+
     test('draws a line from the caller into a node and prints what it made', async () => {
         const { status, lines } = await post('link', ['new', '--to', 'note-1']);
         expect(status).toBe(200);
@@ -3106,6 +3117,15 @@ describe('node rename', () => {
 });
 
 describe('notify', () => {
+    test('refuses a node that runs on another machine, where nothing would ever deliver it', async () => {
+        const target = (await post('node', ['new', 'terminal'])).lines[0]!.split('\t')[0]!;
+        elsewhere.add(target);
+        const { status, lines } = await post('notify', [target, '--text', 'hi']);
+        expect(status).toBe(422);
+        expect(lines[0]).toStartWith('refused\tnode-on-other-machine\t');
+        expect(notified).toEqual([]);
+    });
+
     test('a message travels along a line from the caller and nowhere else', async () => {
         const [target, , , drawn] = (await post('node', ['new', 'terminal', '--title', 'builder'])).lines[0]!.split('\t') as [string, string, string, string];
         // node new drew the line this travels along, so it goes again: without one there is nothing to notify along.

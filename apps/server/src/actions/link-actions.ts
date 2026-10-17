@@ -3,6 +3,7 @@ import { EDGE_ROLES, isAgentKind, type EdgeRole, type ProjectEdge, type ProjectN
 import { MAX_LINKS, ROLE_LINES, edgeLines, ownEnd } from '../canvas/links.ts';
 import { newId, nodeLines } from '../canvas/nodes.ts';
 import { refuseMissingNodes } from '../canvas/own-view.ts';
+import { refuseOtherMachine } from '../canvas/remote-node.ts';
 import { VerbRefusal, canvasNamed } from '../canvas/verb.ts';
 import { verbCallOf, type ServerActionContext } from './context.ts';
 
@@ -69,6 +70,9 @@ export const linkActions: ActionHandlers<ServerActionContext> = {
             }
             if (targets.includes(from)) {
                 throw new VerbRefusal('self-link', `${from} is both ends of the line; a node reads itself without one`);
+            }
+            for (const end of [from, ...targets]) {
+                refuseOtherMachine(host, end);
             }
 
             const made: ProjectEdge[] = [];
