@@ -309,6 +309,12 @@ struct ChatScreen: View {
         guard !holdingChat else { return }
         holdingChat = true
         if let machineSession { model = machineSession.retainChat(model) } else { model.start() }
+        let chat = model
+        model.presentation.agentSources = ChatAgentSources(
+            tasks: machineSession?.tasks, attention: machineSession?.attention
+        ) { [weak chat] provider in
+            chat?.providers.first { $0.text("kind") == provider }?["models"]?.arrayValue ?? []
+        }
         if let workspace {
             let items = workspace.views.flatMap { view in [view] + view.list("nodes") }
             model.projectChats = items.filter { $0.text("kind") == "chat" }.map {

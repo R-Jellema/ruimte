@@ -413,6 +413,7 @@ struct SubagentConversationPage: View {
         .onAppear {
             let cwd = model.info?.cwd ?? ""
             presentation.setCwd(cwd)
+            presentation.agentSources = parent.agentSources
             conversation.onChange = { [presentation] change in
                 switch change {
                 case .replaced(let items): presentation.replace(items, info: nil)

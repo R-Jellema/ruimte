@@ -66,6 +66,8 @@ enum ChatVisuals {
         case .activity: return .infinity
         case .turnFold, .turnStart, .subagent, .tools: return entry.items.first?.item.createdAt
         case .changedFiles, .forks, .visual: return nil
+        // It stands for the call it is repeated over, which it carries after the thought.
+        case .liveThought: return entry.items.last?.item.createdAt
         case .message:
             guard let item = entry.items.first?.item else { return nil }
             switch item {

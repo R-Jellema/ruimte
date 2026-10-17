@@ -163,7 +163,7 @@ struct ChatFileChangeView: View {
                     .fixedSize()
                 }
                 .font(.caption).monospacedDigit().foregroundStyle(MobileStyle.muted)
-                .padding(.horizontal, 12).frame(minHeight: 44).contentShape(Rectangle())
+                .padding(.horizontal, 12).frame(minHeight: 32).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityValue(expanded ? "Expanded" : "Collapsed")
@@ -262,7 +262,7 @@ struct ChatChangedFilesRow: View {
                 .fixedSize()
             }
             .font(.footnote).monospacedDigit().foregroundStyle(MobileStyle.muted)
-            .padding(.horizontal, 12).frame(minHeight: 44).contentShape(Rectangle())
+            .padding(.horizontal, 12).frame(minHeight: 32).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityValue(expanded ? "Expanded" : "Collapsed")

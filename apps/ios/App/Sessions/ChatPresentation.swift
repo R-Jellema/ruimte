@@ -31,8 +31,18 @@ final class ChatItemState: Identifiable {
     }
 }
 
+/// Where a task's row reads what the thread does not carry: the task's own record, the chat of the agent working on
+/// it, and the models of a CLI by its kind.
+struct ChatAgentSources {
+    var tasks: TaskStore?
+    var attention: AttentionStore?
+    var models: (String) -> [JSONValue] = { _ in [] }
+}
+
 struct ChatTimelineEntry: Identifiable, Equatable {
-    enum Kind: Equatable { case message, tools, activity, turnFold, turnStart, changedFiles, subagent, forks, visual }
+    enum Kind: Equatable {
+        case message, tools, activity, turnFold, turnStart, changedFiles, subagent, forks, visual, liveThought
+    }
     let id: String
     let kind: Kind
     var items: [ChatItemState] = []
@@ -41,6 +51,24 @@ struct ChatTimelineEntry: Identifiable, Equatable {
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.id == rhs.id && lhs.kind == rhs.kind
             && lhs.items.map(ObjectIdentifier.init) == rhs.items.map(ObjectIdentifier.init) && lhs.visual == rhs.visual
+    }
+}
+
+extension ChatTimelineEntry {
+    /// A line of work (a call, a thought, an agent) sits tight against the lines around it, as the desktop's list
+    /// rhythm has them; prose and cards keep a block's gap, so a run of work lines stands apart where it meets them.
+    @MainActor var isWorkLine: Bool {
+        switch kind {
+        case .tools, .turnFold, .turnStart, .subagent, .liveThought, .activity: return true
+        case .changedFiles, .forks, .visual: return false
+        case .message:
+            switch items.first?.item {
+            case .thinking?, .approval?: return true
+            case .tool(let tool)?:
+                return ChatSubagents.handbackReport(.tool(tool)) == nil && !UiGeneratedImage.isGeneration(tool)
+            default: return false
+            }
+        }
     }
 }
 
@@ -71,6 +99,7 @@ final class ChatPresentation {
     /// The forks this device knows of per turn, for the line under the turn.
     private(set) var forks: [String: [String]] = [:]
     var places: ChatPlaces?
+    @ObservationIgnored var agentSources: ChatAgentSources?
     /// The messages a person marked, by item id, as the machine last said.
     private(set) var bookmarks: [String: ChatBookmark] = [:]
     /// A row asked to place, name or take away a bookmark; the screen carries it out.
@@ -287,7 +316,8 @@ final class ChatPresentation {
         for (turnID, items) in chunks {
             guard let turnID, let turn = items.first(where: { Self.turn($0) != nil }), let turnItem = Self.turn(turn)
             else {
-                rows += rowsFor(items, children: children)
+                let live = rowsFor(items, children: children)
+                rows += turnID != nil && turnID == activeID ? Self.withLiveThought(live, items: items) : live
                 continue
             }
             if turnItem.origin == .agent {
@@ -301,20 +331,22 @@ final class ChatPresentation {
                 }
             }
             if turnID == activeID || turnItem.state == .running {
-                rows += rowsFor(work, children: children)
+                rows += Self.withLiveThought(rowsFor(work, children: children), items: work)
                 continue
             }
             let final = work.last {
                 if case .assistant = $0.item { $0.item.parentToolUseID == nil } else { false }
             }
             let notices = work.filter { if case .note = $0.item { true } else { false } }
-            let images = work.filter {
-                $0.item.toolItem.map(UiGeneratedImage.isGeneration) == true && $0.item.parentToolUseID == nil
+            // Images stay a turn's visible result, and a workflow may still run after its turn ended.
+            let standing = work.filter {
+                guard let tool = $0.item.toolItem, $0.item.parentToolUseID == nil else { return false }
+                return UiGeneratedImage.isGeneration(tool) || tool.workflow != nil && tool.state == .running
             }
-            let imageIDs = Set(images.map(\.id))
+            let standingIDs = Set(standing.map(\.id))
             let folded = work.filter {
                 if case .note = $0.item { return false }
-                return $0 !== final && !imageIDs.contains($0.id)
+                return $0 !== final && !standingIDs.contains($0.id)
             }
             if !rowsFor(folded, children: children).isEmpty {
                 let tools = work.filter {
@@ -333,7 +365,7 @@ final class ChatPresentation {
             if changed {
                 rows.append(ChatTimelineEntry(id: "files-\(turnID)", kind: .changedFiles, items: [turn] + edits))
             }
-            rows += rowsFor(images, children: children)
+            rows += rowsFor(standing, children: children)
             if let final { rows.append(ChatTimelineEntry(id: final.id, kind: .message, items: [final])) }
             rows += rowsFor(notices, children: children)
             if forks[turnID]?.isEmpty == false {
@@ -348,6 +380,30 @@ final class ChatPresentation {
         revision += 1
     }
 
+    /// The rows of a running turn with its latest thought repeated over the call it led to. Nothing when that call
+    /// follows the thought directly, where the thought's own row shows it, or when a newer thought came after the call.
+    static func withLiveThought(_ rows: [ChatTimelineEntry], items: [ChatItemState]) -> [ChatTimelineEntry] {
+        guard
+            let at = items.lastIndex(where: {
+                if case .thinking = $0.item { $0.item.parentToolUseID == nil } else { false }
+            }),
+            case .thinking(let thought) = items[at].item, !ChatThought.line(thought.text).isEmpty
+        else { return rows }
+        let after = Set(items[(at + 1)...].map(\.id))
+        let call = rows.firstIndex {
+            guard $0.kind == .message, let record = $0.items.first, let tool = record.item.toolItem else {
+                return false
+            }
+            return after.contains(record.id) && tool.state == .running && tool.workflow == nil
+        }
+        guard let call, call == 0 || rows[call - 1].id != items[at].id else { return rows }
+        var next = rows
+        let entry = ChatTimelineEntry(
+            id: "live-thought-\(items[at].id)", kind: .liveThought, items: [items[at]] + rows[call].items.prefix(1))
+        next.insert(entry, at: call)
+        return next
+    }
+
     private static func turn(_ record: ChatItemState) -> ChatTurnItem? {
         if case .turn(let turn) = record.item { turn } else { nil }
     }
@@ -357,6 +413,8 @@ final class ChatPresentation {
         for item in items where item.item.parentToolUseID == nil && !item.item.isPending {
             switch item.item {
             case .turn: continue
+            case .tool(let tool) where tool.workflow != nil:
+                rows.append(ChatTimelineEntry(id: item.id, kind: .message, items: [item]))
             // A subagent's `SubagentHandback` call reads as the report it carries rather than as a tool call.
             case .tool(let tool)
             where tool.state != .running && ChatSubagents.handbackReport(item.item) == nil

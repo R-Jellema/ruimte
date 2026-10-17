@@ -452,7 +452,7 @@ final class ChatTimelineController: UIViewController, UICollectionViewDelegate, 
                     transaction.animation = nil
                     transaction.disablesAnimations = true
                 }
-                .padding(.horizontal, ChatTimeline.rowInset).padding(.vertical, 10)
+                .padding(.horizontal, ChatTimeline.rowInset).padding(.vertical, item.isWorkLine ? 2 : 10)
                 .coordinateSpace(name: "chat.row")
             }
             cell.backgroundConfiguration = .clear()
@@ -1048,7 +1048,7 @@ struct ChatExpansionButton<Label: View>: View {
 private struct ChatDisclosureStyle: DisclosureGroupStyle {
 
     func makeBody(configuration: Configuration) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             ChatExpansionButton(expanding: !configuration.isExpanded) {
                 configuration.isExpanded.toggle()
             } label: {
@@ -1058,7 +1058,7 @@ private struct ChatDisclosureStyle: DisclosureGroupStyle {
                     Image(lucide: configuration.isExpanded ? "chevron-down" : "chevron-right", size: 12)
                         .foregroundStyle(MobileStyle.muted)
                 }
-                .frame(minHeight: 44).contentShape(Rectangle())
+                .frame(minHeight: 28).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityValue(configuration.isExpanded ? "Expanded" : "Collapsed")
@@ -1104,7 +1104,7 @@ struct ChatEntryView: View {
                             .font(.footnote).lineLimit(1).foregroundStyle(
                                 turn.state == .error ? Color.red : MobileStyle.muted
                             )
-                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
+                            .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading).contentShape(Rectangle())
                         }.buttonStyle(.plain)
                             .accessibilityValue(presentation.expandedTurns.contains(turnID) ? "Expanded" : "Collapsed")
                             .modifier(ChatForkMenu(presentation: presentation, turnID: record.id))
@@ -1121,7 +1121,7 @@ struct ChatEntryView: View {
                         presentation.openSubagent(toolUseID: task)
                     } label: {
                         Label(ChatPresentation.agentTurnLabel(turn), lucideIcon: "bot", iconSize: 14)
-                            .font(.footnote).foregroundStyle(MobileStyle.muted).frame(minHeight: 44)
+                            .font(.footnote).foregroundStyle(MobileStyle.muted).frame(minHeight: 28)
                     }.buttonStyle(.plain).disabled(task.isEmpty)
                 }
             case .changedFiles:
@@ -1139,6 +1139,10 @@ struct ChatEntryView: View {
             case .message:
                 if let item = entry.items.first {
                     ChatObservedRow(record: item, client: client, chatID: chatID, presentation: presentation)
+                }
+            case .liveThought:
+                if let record = entry.items.first, case .thinking(let thought) = record.item {
+                    ChatLiveThoughtRow(item: thought)
                 }
             case .visual:
                 if let visual = entry.visual {
@@ -1266,6 +1270,8 @@ private struct ChatTimelineRow: View {
                     MarkdownMessage(text: report)
                 } else if UiGeneratedImage.isGeneration(tool) {
                     GeneratedImageRow(item: tool, saveToProject: imageSave)
+                } else if let workflow = tool.workflow {
+                    ChatWorkflowRow(item: tool, workflow: workflow, presentation: presentation)
                 } else {
                     ChatToolRow(item: tool)
                 }

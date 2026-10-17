@@ -46,6 +46,7 @@ struct ChatLiveLabel: View {
 struct ChatElapsed: View {
     let startedAt: Double
     var clock = false
+    var runningFor = false
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var visible = false
@@ -53,11 +54,17 @@ struct ChatElapsed: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: 1, paused: !visible || scenePhase != .active)) { context in
             let elapsed = max(0, context.date.timeIntervalSince1970 * 1000 - startedAt)
-            Text(clock ? Format.clockDuration(milliseconds: elapsed) : ChatToolPresentation.elapsed(elapsed))
-                .monospacedDigit()
+            let value = clock ? Format.clockDuration(milliseconds: elapsed) : ChatToolPresentation.elapsed(elapsed)
+            Text(Self.label(value, runningFor: runningFor)).monospacedDigit()
         }
         .onAppear { visible = true }
         .onDisappear { visible = false }
+    }
+
+    private static func label(_ value: String, runningFor: Bool) -> String {
+        guard runningFor else { return value }
+        return String(
+            localized: "running for \(value)", comment: "How long a sub-agent or a workflow's agent has run so far")
     }
 }
 
@@ -100,14 +107,22 @@ struct ChatThinkingRow: View {
                 HStack(spacing: 8) {
                     Image(lucide: "brain", size: 14)
                     if streaming {
-                        ChatLiveLabel(text: String(localized: "Thinking..."))
+                        // Whole, the thought stays behind its placeholder until it is done.
+                        let live = streamingMode == .whole ? "" : ChatThought.line(item.text)
+                        ChatLiveLabel(text: live.isEmpty ? String(localized: "Thinking...") : live).lineLimit(1)
                     } else {
-                        Text(
-                            "Thought for \(ChatToolPresentation.elapsed((item.endedAt ?? item.createdAt) - item.createdAt))"
-                        )
+                        let duration = ChatToolPresentation.elapsed((item.endedAt ?? item.createdAt) - item.createdAt)
+                        let preview = ChatThought.preview(item.text)
+                        if preview.isEmpty {
+                            Text("Thought for \(duration)").lineLimit(1)
+                        } else {
+                            Text(expanded ? String(localized: "Thought") : preview).lineLimit(1)
+                            Spacer(minLength: 0)
+                            Text(duration).monospacedDigit().foregroundStyle(MobileStyle.faint).fixedSize()
+                        }
                         Image(lucide: expanded ? "chevron-down" : "chevron-right", size: 12)
                     }
-                }.frame(minHeight: 44).contentShape(Rectangle())
+                }.frame(minHeight: 28).contentShape(Rectangle())
             }
             .buttonStyle(.plain).disabled(streaming)
             .font(.footnote).foregroundStyle(MobileStyle.muted)
@@ -122,8 +137,29 @@ struct ChatThinkingRow: View {
     }
 }
 
+/// The latest thought of a running turn over the call it led to, so what the model found stays in sight while the
+/// call checks it.
+struct ChatLiveThoughtRow: View {
+    let item: ChatThinkingItem
+
+    var body: some View {
+        let line = ChatThought.line(item.text)
+        if !line.isEmpty {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(lucide: "brain", size: 14)
+                Text(line).lineLimit(2).textSelection(.enabled)
+            }
+            .font(.footnote).foregroundStyle(MobileStyle.muted)
+            .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+            .accessibilityElement(children: .combine)
+        }
+    }
+}
+
 struct ChatToolRow: View {
     let item: ChatToolItem
+    /// Said instead of what the call was called with, as a workflow's name.
+    var detail: String?
     @State private var expanded = false
     private var running: Bool { item.state == .running }
     private var failed: Bool { item.state == .error }
@@ -135,12 +171,13 @@ struct ChatToolRow: View {
                 ChatExpansionButton(expanding: !expanded) {
                     expanded.toggle()
                 } label: {
-                    ChatToolLine(item: item, expanded: expanded, opens: true)
+                    ChatToolLine(item: item, expanded: expanded, opens: true, detail: detail)
                 }
                 .buttonStyle(.plain)
                 .accessibilityValue(expanded ? "Expanded" : running ? "Running, collapsed" : "Collapsed")
             } else {
-                ChatToolLine(item: item, expanded: false, opens: false).accessibilityElement(children: .combine)
+                ChatToolLine(item: item, expanded: false, opens: false, detail: detail)
+                    .accessibilityElement(children: .combine)
             }
             if item.state == .done, ["Read", "NotebookRead"].contains(item.name),
                 let path = item.input["file_path"]?.stringValue,
@@ -173,6 +210,7 @@ private struct ChatToolLine: View {
     let item: ChatToolItem
     let expanded: Bool
     let opens: Bool
+    var detail: String?
     private var running: Bool { item.state == .running }
     private var failed: Bool { item.state == .error }
 
@@ -194,10 +232,10 @@ private struct ChatToolLine: View {
                             .layoutPriority(1)
                     }
                 } else {
-                    let summary = ChatToolPresentation.summary(item)
+                    let summary = detail ?? ChatToolPresentation.summary(item)
                     if !summary.isEmpty {
                         Text(summary).font(.system(.caption, design: .monospaced)).foregroundStyle(MobileStyle.faint)
-                            .truncationMode(ChatToolPresentation.summaryIsPath(item) ? .middle : .tail)
+                            .truncationMode(detail == nil && ChatToolPresentation.summaryIsPath(item) ? .middle : .tail)
                     }
                 }
             }
@@ -216,7 +254,7 @@ private struct ChatToolLine: View {
             .fixedSize().layoutPriority(3)
         }
         .font(.footnote).foregroundStyle(failed ? Color.red : MobileStyle.muted)
-        .frame(minHeight: 44).contentShape(Rectangle())
+        .frame(minHeight: 28).contentShape(Rectangle())
     }
 }
 

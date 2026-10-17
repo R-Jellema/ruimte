@@ -37,6 +37,12 @@ extension AgentStatus {
     static func of(_ record: JSONValue?) -> AgentStatus { AgentStatus(rawValue: record?.text("status") ?? "") ?? .idle }
 }
 
+/// The CLI a chat runs and the model it runs on, as its info last said.
+struct ChatAgentIdentity: Equatable {
+    let provider: String
+    let model: String
+}
+
 /// The requests a chat waits on, with the CLI it runs, which decides whether a denial can carry a message.
 struct ChatWait: Equatable {
     let provider: String
@@ -51,6 +57,8 @@ final class AttentionStore {
     private(set) var waits: [String: ChatWait] = [:]
     /// Chats between turns whose CLI still runs sub-agents or a workflow in the background (`ChatInfo.delegating`).
     private(set) var delegating = Set<String>()
+    /// What each chat runs, by chat id, so a task's row can name the agent working on it.
+    private(set) var agents: [String: ChatAgentIdentity] = [:]
     private var pushEntries: [String: JSONValue] = [:]
     private var readings: [String: SessionReading] = [:]
     /// When the machine began keeping entries a client may mark nodes from; nil for a machine that never says, whose
@@ -144,6 +152,13 @@ final class AttentionStore {
         if delegates != delegating.contains(id) {
             if delegates { delegating.insert(id) } else { delegating.remove(id) }
         }
+        let provider = info.text("provider")
+        if !provider.isEmpty {
+            let model = info.text("model")
+            let identity = ChatAgentIdentity(
+                provider: provider, model: model.isEmpty ? info["selection"]?.text("model") ?? "" : model)
+            if agents[id] != identity { agents[id] = identity }
+        }
     }
 
     func markSeen(_ id: String) {
@@ -221,6 +236,7 @@ final class AttentionStore {
             statuses = statuses.filter { ids.contains($0.key) }
             waits = waits.filter { ids.contains($0.key) }
             delegating.formIntersection(ids)
+            agents = agents.filter { ids.contains($0.key) }
             readings = readings.filter { ids.contains($0.key) }
             unseen.formIntersection(ids.union(unreadPushIDs))
         } catch {}

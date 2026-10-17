@@ -6285,16 +6285,6 @@
         }
       }
     },
-    "Background" : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Achtergrond"
-          }
-        }
-      }
-    },
     "Base" : {
       "localizations" : {
         "nl" : {
@@ -10954,17 +10944,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Importeren…"
-          }
-        }
-      }
-    },
-    "in %@" : {
-      "comment" : "How long a finished sub-agent took, after Done or Failed",
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "in %@"
           }
         }
       }
@@ -23044,6 +23023,111 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "heredoc"
+          }
+        }
+      }
+    },
+    "running for %@" : {
+      "comment" : "How long a sub-agent or a workflow's agent has run so far",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "loopt al %@"
+          }
+        }
+      }
+    },
+    "Paused" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gepauzeerd"
+          }
+        }
+      }
+    },
+    "Paused until %@" : {
+      "comment" : "%@ is a time, or a day and a time",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gepauzeerd tot %@"
+          }
+        }
+      }
+    },
+    "done in %@" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "klaar in %@"
+          }
+        }
+      }
+    },
+    "failed in %@" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mislukt na %@"
+          }
+        }
+      }
+    },
+    "Thought" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gedachte"
+          }
+        }
+      }
+    },
+    "waiting" : {
+      "comment" : "A workflow's agent that has not started yet",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "wacht"
+          }
+        }
+      }
+    },
+    "stopped" : {
+      "comment" : "A workflow's agent that ended with its workflow",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gestopt"
+          }
+        }
+      }
+    },
+    "not started" : {
+      "comment" : "A workflow's phase none of whose agents started",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "nog niet begonnen"
+          }
+        }
+      }
+    },
+    "No progress reported for five minutes. The workflow is still running; you can stop it." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vijf minuten geen voortgang gemeld. De workflow loopt nog; je kunt hem stoppen."
           }
         }
       }

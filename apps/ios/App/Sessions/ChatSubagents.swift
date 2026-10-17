@@ -59,6 +59,23 @@ enum SubagentStatusWord: String, CaseIterable {
     }
 }
 
+/// What a task's row says its agent is doing: the task's own state, or that the agent waits on a person while the
+/// task runs.
+enum TaskRowState: Equatable {
+    case running, waiting, paused, done, failed, cancelled
+
+    var settled: Bool { self == .done || self == .failed || self == .cancelled }
+
+    var look: AgentWorkLook {
+        switch self {
+        case .running, .waiting: .running
+        case .done: .done
+        case .failed: .failed
+        case .paused, .cancelled: .stopped
+        }
+    }
+}
+
 /// The latest thing a sub-agent did, as its entry says it: a tool call, or text it wrote.
 enum SubagentPreview: Equatable {
     case tool(name: String, detail: String)
@@ -122,6 +139,69 @@ enum ChatSubagents {
     static func statusWord(_ agent: ChatSubagentItem, task: JSONValue?) -> SubagentStatusWord {
         if agent.status == .failed, TaskStatus(rawValue: task?.text("status") ?? "") == .cancelled { return .cancelled }
         return SubagentStatusWord(agent.status)
+    }
+
+    /// A paused task is still a running row on the wire, and only the task itself says it waits on a limit.
+    static func taskRowState(_ agent: ChatSubagentItem, task: JSONValue?, childWaiting: Bool) -> TaskRowState {
+        if agent.status == .running, TaskStatus(rawValue: task?.text("status") ?? "") == .open,
+            let paused = task?["paused"], paused != .null
+        {
+            return .paused
+        }
+        switch statusWord(agent, task: task) {
+        case .running: return childWaiting ? .waiting : .running
+        case .done: return .done
+        case .failed: return .failed
+        case .cancelled: return .cancelled
+        }
+    }
+
+    static func taskStateText(_ state: TaskRowState, task: JSONValue?, now: Date, locale: FormatLocale = .current)
+        -> String
+    {
+        switch state {
+        case .running: return String(localized: "Running")
+        case .waiting: return String(localized: "Waiting for you")
+        case .paused:
+            guard let until = task?["paused"]?["until"]?.numberValue else { return String(localized: "Paused") }
+            let time = Format.moment(Date(timeIntervalSince1970: until / 1000), now: now, in: locale)
+            return String(localized: "Paused until \(time)", comment: "%@ is a time, or a day and a time")
+        case .done: return String(localized: "Done")
+        case .failed: return String(localized: "Failed")
+        case .cancelled: return String(localized: "Cancelled")
+        }
+    }
+
+    /// What the task is about, after the model of the agent working on it when that is known.
+    static func taskTitle(_ agent: ChatSubagentItem, model: String?) -> String {
+        let title = agent.description.isEmpty ? String(localized: "Task") : agent.description
+        guard let model, !model.isEmpty else { return title }
+        return String(localized: "\(model): \(title)")
+    }
+
+    /// When a task was given and settled. Its own record says so first; the row copies those, but may lag behind it.
+    static func taskSpan(_ agent: ChatSubagentItem, task: JSONValue?) -> (startedAt: Double, finishedAt: Double?) {
+        let startedAt = task?["createdAt"]?.numberValue ?? agent.startedAt
+        let finishedAt = task == nil ? agent.finishedAt : (task?["settledAt"]?.numberValue ?? agent.finishedAt)
+        return (startedAt, finishedAt)
+    }
+
+    /// How long a settled task took; nil while it runs and for one that knows no start or end.
+    static func taskDuration(_ agent: ChatSubagentItem, task: JSONValue?, state: TaskRowState) -> String? {
+        let span = taskSpan(agent, task: task)
+        guard state.settled, span.startedAt > 0, let finishedAt = span.finishedAt, finishedAt >= span.startedAt
+        else { return nil }
+        return Format.elapsedShort(milliseconds: finishedAt - span.startedAt)
+    }
+
+    /// What a settled sub-agent's line says on its right: how it ended, and how long it took when that is known.
+    static func outcome(_ agent: ChatSubagentItem) -> String? {
+        guard agent.status != .running else { return nil }
+        let duration = agent.finishedAt.map { Format.elapsedShort(milliseconds: $0 - agent.startedAt) }
+        if agent.status == .failed {
+            return duration.map { String(localized: "failed in \($0)") } ?? String(localized: "Failed")
+        }
+        return duration.map { String(localized: "done in \($0)") } ?? String(localized: "Done")
     }
 
     /// What of every sub-agent's own work the parent's thread kept, by the call that opened it, in thread order.
