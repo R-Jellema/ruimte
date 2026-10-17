@@ -231,6 +231,38 @@ describe('agent --machine', () => {
         expect(daemon.tasks.ofParent('chat-lead').filter((task) => task.status === 'done')).toHaveLength(2);
     });
 
+    test('a result taken in whose acknowledgment was lost, and whose node then went, is acknowledged when the machine tells of it again', async () => {
+        open = fakeLink();
+        const [line] = await give();
+        const nodeId = line!.split('\t')[0]!;
+        const taskId = line!.split('\t')[5]!;
+        await daemon.worker.settled();
+        answer = (type, payload) => {
+            if (type !== 'peer.result') {
+                return { cwd: '/studio/work', branch: null };
+            }
+            if ((payload as { ack?: boolean }).ack === true) {
+                open = null;
+                throw new Error('The channel closed');
+            }
+            return { status: 'done', result: { text: 'Fixed', source: 'turn', at: 5 }, bundle: null };
+        };
+        daemon.worker.wake(nodeId);
+        await daemon.worker.settled();
+        expect(daemon.tasks.get(taskId)).toMatchObject({ status: 'done' });
+        // The node goes while the link is down, and the entry with it.
+        for (const entry of daemon.outbox.list().filter((candidate) => candidate.target === nodeId)) {
+            await daemon.outbox.remove(entry.id);
+        }
+
+        open = fakeLink();
+        requests = [];
+        answer = () => ({});
+        daemon.remoteTasks!.peerSettled(MACHINE, nodeId);
+        await Promise.resolve();
+        expect(requests).toEqual([{ type: 'peer.result', payload: { nodeId, ack: true } }]);
+    });
+
     test('a task a machine had no place for starts when the link opens again, with nothing on a clock', async () => {
         open = fakeLink();
         let busy = true;

@@ -165,13 +165,29 @@ export class RemoteTasks {
         return undefined;
     };
 
-    /* A machine said a task of this one settled: its result is asked for, and the tasks that waited for a place try again. */
+    /*
+     * A machine said a task of this one settled: its result is asked for, and the tasks that waited for a place
+     * try again. A result nothing here waits for any more (settled before its node went, or never known) is
+     * acknowledged, or that machine would keep it and tell of it at every link.
+     */
     peerSettled(machineId: string, nodeId: string): void {
-        // The machine names the node, so a node it was never given a task for is none of its business.
-        if (!this.deps.tasks.all().some((task) => task.machine === machineId && task.childId === nodeId)) {
+        const { deps } = this;
+        const owed = deps.outbox
+            .list()
+            .some((entry) => entry.target === nodeId && (entry.kind === 'start-remote-agent' || entry.kind === 'take-remote-result'));
+        const open = deps.tasks.all().some((task) => task.machine === machineId && task.childId === nodeId && task.status === 'open');
+        if (!owed && !open) {
+            deps.connections
+                .link(machineId)
+                ?.request('peer.result', { nodeId, ack: true })
+                .catch((e: unknown) => deps.log?.(`The other machine did not take the acknowledgment for ${nodeId}: ${errorText(e)}`));
             return;
         }
-        this.deps.wake(nodeId);
+        // The machine names the node, so a node it was never given a task for is none of its business.
+        if (!deps.tasks.all().some((task) => task.machine === machineId && task.childId === nodeId)) {
+            return;
+        }
+        deps.wake(nodeId);
         this.wakeStarts(machineId, nodeId);
     }
 
