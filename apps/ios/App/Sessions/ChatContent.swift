@@ -189,16 +189,18 @@ struct ChatInlineText: View {
     @Environment(\.chatMentions) private var mentions
     @Environment(\.chatSkills) private var skills
     @Environment(\.markdownReferences) private var references
+    @Environment(\.font) private var font
 
     var body: some View { ChatFadingText(text: attributed, streaming: streaming) }
 
     private var attributed: AttributedString {
         var value = MarkdownInline.parse(text, references: references)
+        let codeFont = (font ?? .body).monospaced()
         let runs = value.runs.map {
             (range: $0.range, code: $0.inlinePresentationIntent?.contains(.code) == true, link: $0.link)
         }
         for run in runs where run.code {
-            value[run.range].swiftUI.font = .system(.body, design: .monospaced)
+            value[run.range].swiftUI.font = codeFont
             value[run.range].swiftUI.backgroundColor = MobileStyle.inset
             let token = String(value[run.range].characters)
             if let context, ChatFileReference.parse(token, cwd: context.cwd) != nil {
@@ -208,7 +210,7 @@ struct ChatInlineText: View {
         for token in mentions.map({ "@" + $0 }) + skills.map({ "$" + $0 }) {
             var start = value.startIndex
             while start < value.endIndex, let range = value[start...].range(of: token) {
-                value[range].swiftUI.font = .system(.body, design: .monospaced)
+                value[range].swiftUI.font = codeFont
                 value[range].swiftUI.backgroundColor = MobileStyle.inset
                 value[range].swiftUI.foregroundColor = MobileStyle.accent
                 start = range.upperBound
