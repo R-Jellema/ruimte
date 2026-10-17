@@ -72,6 +72,16 @@ describe('ProjectIndex', () => {
         expect(index.has('p1')).toBe(false);
     });
 
+    test('shows a node on a canvas and a view of its own, never a hidden chat or an id no project places', () => {
+        const index = new ProjectIndex();
+        index.set('p1', '/repo', { views: [...views('x'), { kind: 'chat', id: 'inline-chat', name: 'Inline edit', node: {}, hidden: true }] });
+
+        expect(index.shows('agent')).toBe(true);
+        expect(index.shows('solo-chat')).toBe(true);
+        expect(index.shows('inline-chat')).toBe(false);
+        expect(index.shows('removed')).toBe(false);
+    });
+
     test('locates a node on its canvas and a session view as a place of its own', () => {
         const index = new ProjectIndex();
         index.set('p1', '/repo', { views: views('x') });

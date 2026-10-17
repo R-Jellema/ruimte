@@ -37,6 +37,8 @@ interface PushServiceOptions {
     activityNodes?: () => { nodeId: string; target: PushAlertContent['target']; title: string; status: AgentStatus }[];
     titleFor?: (nodeId: string) => string | null;
     projectOf?: (nodeId: string) => string | null;
+    /* Whether a person can open the node. A mark on any other, a hidden agent or a node since removed, would stay unread on a badge forever. */
+    shows?: (nodeId: string) => boolean;
     targetOf?: (nodeId: string) => PushAlertContent['target'];
     send?: (push: PushEnvelope) => Promise<number>;
     onError?: (error: unknown) => void;
@@ -108,6 +110,11 @@ export class PushService {
         options.snoozes?.observe((change) => this.snoozeChanged(change));
     }
 
+    /* The ledger as clients mark nodes from it: only the nodes a person can open. */
+    marks(): PushAttentionEntry[] {
+        return this.attention.snapshot().filter((entry) => this.shows(entry.nodeId));
+    }
+
     observeAttention(listener: (entry: PushAttentionEntry) => void): () => void {
         this.listeners.add(listener);
         return () => {
@@ -141,9 +148,7 @@ export class PushService {
         if (!entry) {
             return;
         }
-        for (const listener of this.listeners) {
-            listener(entry);
-        }
+        this.tell(entry);
         // Keep a read behind any alert already in flight to APNs.
         this.queueAlert(async () => {
             for (const { sessionId, subscription } of await this.options.auth.pushSubscriptions()) {
@@ -275,6 +280,19 @@ export class PushService {
             const phase = status === 'running' ? 'running' : status === 'needs-you' && !this.snoozed(nodeId) ? 'needs-you' : 'done';
             this.track(this.deliverActivity(nodeId, { title: clipText(title, TITLE_MAX), phase, startedAt }));
         }
+    }
+
+    private tell(entry: PushAttentionEntry): void {
+        if (!this.shows(entry.nodeId)) {
+            return;
+        }
+        for (const listener of this.listeners) {
+            listener(entry);
+        }
+    }
+
+    private shows(nodeId: string): boolean {
+        return this.options.shows?.(nodeId) ?? true;
     }
 
     private titleOf(nodeId: string, fallback: string): string {
@@ -425,9 +443,7 @@ export class PushService {
 
     private enqueue(content: PushAlertContent): void {
         const entry = this.attention.notify(content.nodeId);
-        for (const listener of this.listeners) {
-            listener(entry);
-        }
+        this.tell(entry);
         this.queueAlert(() => this.deliverAlert(content, entry.issuedAt, 'needs-you', true));
     }
 

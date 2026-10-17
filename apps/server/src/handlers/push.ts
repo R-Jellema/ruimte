@@ -12,7 +12,7 @@ function provenSession(client: ClientConnection): string {
 }
 
 export function registerPushHandlers(dispatcher: Dispatcher, auth: AuthStore, changed: () => void = () => undefined, push?: PushService): void {
-    dispatcher.register('push.attention', () => ({ entries: push?.attention.snapshot() ?? [], ...(push ? { marksFrom: push.attention.marksFrom } : {}) }));
+    dispatcher.register('push.attention', () => ({ entries: push?.marks() ?? [], ...(push ? { marksFrom: push.attention.marksFrom } : {}) }));
     dispatcher.register('push.read', ({ nodeId, issuedAt }) => {
         push?.read(nodeId, issuedAt);
         return {};

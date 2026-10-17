@@ -444,6 +444,25 @@ test('a read sends a signed encrypted background push only once, after the alert
     expect(JSON.stringify(clear)).not.toContain('node');
 });
 
+test('marks only the nodes a person can open, in the ledger a client asks for and in what it hears', async () => {
+    const shown = new PushService({
+        auth,
+        identity: { id: 'machine', sign: (text) => signMessage(machine.privateKey, text) },
+        now: () => NOW,
+        shows: (nodeId) => nodeId === 'node',
+        send: async () => 204
+    });
+    const heard: string[] = [];
+    shown.observeAttention((entry) => heard.push(entry.nodeId));
+    status('needs-you', 'node', shown);
+    status('needs-you', 'hidden-agent', shown);
+    await shown.settled();
+
+    expect(shown.attention.snapshot().map((entry) => entry.nodeId)).toEqual(['node', 'hidden-agent']);
+    expect(shown.marks().map((entry) => entry.nodeId)).toEqual(['node']);
+    expect(heard).toEqual(['node']);
+});
+
 test('an attention request seen before delivery does not leave an obsolete alert', async () => {
     await auth.setPush(sessionId, { ...subscription, readSync: true });
     status('running');

@@ -23,6 +23,7 @@ export function wirePush(
         identity,
         titleFor: (nodeId) => projects.index.titleFor(nodeId),
         projectOf: (nodeId) => projects.index.locate(nodeId)?.projectId ?? null,
+        shows: (nodeId) => projects.index.shows(nodeId),
         targetOf: (nodeId) => (chats.get(nodeId) ? 'chat' : 'terminal'),
         machineName: () => identity.label,
         activityNodes: () => [
