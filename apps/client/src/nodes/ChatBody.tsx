@@ -21,6 +21,7 @@ import { endpointKey, useEndpointId } from '@/state/keys';
 import { chatClientFor } from '@/transport/connections';
 import { useTransportStatus } from '@/transport/status';
 import { NodeNotice } from '@/nodes/NodeNotice';
+import { useMountCount } from '@/measure/mounts';
 import { readNodeHost, renameHost, useNodeHost, useSuggestedTitle } from '@/nodes/node-host';
 import { ErrorBoundary, LazyBoundary } from '@adecore/ui';
 import { bringPromptToFront } from '@/canvas/prompt-stack';
@@ -32,6 +33,7 @@ function messageOf(error: unknown, fallback: string): string {
 
 /* The body of a chat, the same on a canvas inside a frame and filling a view of its own. */
 export function ChatBody({ id, focused, onCanvas = false }: { id: string; focused: boolean; onCanvas?: boolean }) {
+    useMountCount('chat');
     const { t } = useTranslation('canvas');
     const info = useChatRow(id, (row) => row?.info);
     const providerFixed = useNodeHost(id)?.providerFixed === true;
