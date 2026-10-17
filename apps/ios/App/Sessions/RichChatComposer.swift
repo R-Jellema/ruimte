@@ -142,6 +142,12 @@ final class ComposerTextView: UITextView {
     var importItems: (([NSItemProvider]) -> Void)?
     var pasteLongText: ((String) -> Void)?
 
+    // A text view only offers Paste for text it can insert itself, so an image on the pasteboard needs a yes here.
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        if action == #selector(paste(_:)), importItems != nil, UIPasteboard.general.hasImages { return true }
+        return super.canPerformAction(action, withSender: sender)
+    }
+
     override func paste(_ sender: Any?) {
         let providers = UIPasteboard.general.itemProviders
         if let importItems, providers.contains(where: { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) })
