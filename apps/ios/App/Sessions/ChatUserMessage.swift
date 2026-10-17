@@ -23,6 +23,13 @@ struct ChatUserMessage: View {
                     client: client, chatID: chatID, id: attachment.id, name: attachment.name, mime: attachment.mime,
                     size: attachment.size)
             }
+            if let chats = item.chats, !chats.isEmpty {
+                UiFlowLayout(spacing: 6) {
+                    ForEach(chats, id: \.self) { id in
+                        ChatReferencePill(title: ChatReferencePill.title(id, places: presentation?.places))
+                    }
+                }
+            }
             if let origin = item.uiChoice {
                 UiChoiceLine(origin: origin, reveal: choiceReveal(origin))
             }
@@ -63,6 +70,31 @@ struct ChatUserMessage: View {
         .frame(maxWidth: 620, alignment: .trailing)
         .frame(maxWidth: .infinity, alignment: .trailing)
         .accessibilityElement(children: .contain).accessibilityLabel("You")
+    }
+}
+
+/// A chat attached to a message, under the title it has now rather than the one it had when it was attached.
+struct ChatReferencePill: View {
+    let title: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(lucide: "message-square", size: 12)
+            Text(title).lineLimit(1)
+        }
+        .font(.footnote.weight(.medium)).foregroundStyle(MobileStyle.accent)
+        .padding(.horizontal, 6).frame(minHeight: 22)
+        .background(MobileStyle.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+        .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(MobileStyle.accent.opacity(0.25)) }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            String(localized: "Chat \(title)", comment: "A chat attached to a message; %@ is its title"))
+    }
+
+    /// Without the project around it the thread cannot tell a chat that left it from one it does not know.
+    static func title(_ id: String, places: ChatPlaces?) -> String {
+        guard let places else { return String(localized: "Chat") }
+        return places.title(id) ?? String(localized: "Chat not in this project")
     }
 }
 

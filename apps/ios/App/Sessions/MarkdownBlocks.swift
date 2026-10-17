@@ -14,6 +14,22 @@ struct MarkdownBlock: Sendable, Equatable {
     var marker = ""
     var checked: Bool?
 
+    /// The gap between the items of a list, which stand closer than the blocks of a message do.
+    static let itemSpacing: CGFloat = 6
+
+    /// `blocks` with each run of list items in one group, so a list keeps its items together.
+    static func grouped(_ blocks: [MarkdownBlock]) -> [[MarkdownBlock]] {
+        var groups: [[MarkdownBlock]] = []
+        for block in blocks {
+            if block.kind == .list, let last = groups.last?.last, last.kind == .list {
+                groups[groups.count - 1].append(block)
+            } else {
+                groups.append([block])
+            }
+        }
+        return groups
+    }
+
     static func parse(_ markdown: String) -> [MarkdownBlock] {
         let lines = markdown.components(separatedBy: "\n")
         var result: [MarkdownBlock] = []

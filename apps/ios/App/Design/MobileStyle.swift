@@ -34,6 +34,7 @@ enum MobileStyle {
     static let statusError = Color(uiColor: statusErrorColor)
     static let statusNeedsYou = Color(uiColor: statusNeedsYouColor)
     static let statusIdle = Color(uiColor: statusIdleColor)
+    static let skill = Color(uiColor: adaptive(RuimteColors.skill))
     static let chartClaude = Color(uiColor: adaptive(RuimteColors.chartClaude))
     static let chartCodex = Color(uiColor: adaptive(RuimteColors.chartCodex))
     static let chartContextTools = Color(uiColor: adaptive(RuimteColors.chartContextTools))

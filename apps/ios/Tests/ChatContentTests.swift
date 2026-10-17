@@ -86,4 +86,54 @@ final class ChatContentTests: XCTestCase {
         XCTAssertEqual(String(text.characters), "See guide.")
         XCTAssertEqual(text.runs.compactMap(\.link), [URL(string: "https://example.com")!])
     }
+
+    func testHeadingsFollowTheFlatScaleOfTheDesktop() {
+        XCTAssertEqual(MarkdownHeading.font(1), .title3.weight(.semibold))
+        XCTAssertEqual(MarkdownHeading.font(2), .headline)
+        XCTAssertEqual(MarkdownHeading.font(4), .headline)
+        XCTAssertEqual(MarkdownHeading.style(1), .title3)
+        XCTAssertEqual(MarkdownHeading.style(3), .body)
+    }
+
+    func testInlineCodeAndPillsStandASizeBelowTheTextAroundThem() {
+        XCTAssertEqual(ChatInlineFonts.style(of: nil), .body)
+        XCTAssertEqual(ChatInlineFonts.style(of: .headline), .body)
+        XCTAssertEqual(ChatInlineFonts.style(of: MarkdownHeading.font(1)), .title3)
+        XCTAssertNil(ChatInlineFonts.style(of: .system(size: 14)))
+        XCTAssertEqual(ChatInlineFonts.code(around: nil), .system(.subheadline, design: .monospaced))
+        XCTAssertEqual(ChatInlineFonts.code(around: .footnote), .system(.caption2, design: .monospaced))
+        XCTAssertEqual(ChatInlineFonts.code(around: MarkdownHeading.font(1)), .system(.body, design: .monospaced))
+        XCTAssertEqual(ChatInlineFonts.chip(around: .body), .system(.footnote, weight: .medium))
+        XCTAssertEqual(ChatInlineFonts.chip(around: .subheadline), .system(.caption, weight: .medium))
+    }
+
+    func testPicksAndInlineCodeBecomePaddedPillsButCodeAndAddressesStayAsTheyAre() {
+        let source = MarkdownInline.parse("Read @a.ts with $review, not `@a.ts` or me@a.ts.", references: "")
+        let marked = ChatInlineMarks.marked(source, font: nil, mentions: ["a.ts"], skills: ["review"], cwd: nil)
+        let pills = marked.runs[ChatPillAttribute.self].compactMap { pill, range in
+            pill.map { ($0.kind, String(marked[range].characters)) }
+        }
+        let pad = String(ChatInlineMarks.padding)
+        XCTAssertEqual(pills.map(\.0), [.file("a.ts"), .skill, .code])
+        XCTAssertEqual(pills.map(\.1), [pad + "@a.ts" + pad, pad + "$review" + pad, pad + "@a.ts" + pad])
+        XCTAssertEqual(
+            String(marked.characters),
+            "Read \(pad)@a.ts\(pad) with \(pad)$review\(pad), not \(pad)@a.ts\(pad) or me@a.ts.")
+        XCTAssertEqual(ChatPill(kind: .skill, id: 0).icon, "zap")
+        XCTAssertEqual(ChatPill(kind: .file("src/"), id: 0).icon, "folder")
+        XCTAssertNil(ChatPill(kind: .code, id: 0).icon)
+    }
+
+    func testListItemsStayTogetherAsOneGroup() {
+        let groups = MarkdownBlock.grouped(MarkdownBlock.parse("Intro\n\n- One\n- Two\n\n1. Three\n\nOutro"))
+        XCTAssertEqual(groups.map(\.count), [1, 3, 1])
+    }
+
+    @MainActor func testAnAttachedChatReadsItsCurrentTitle() {
+        let places = ChatPlaces(
+            title: { $0 == "chat-1" ? "Release plan" : nil }, shape: { _ in nil }, arrival: { _ in false })
+        XCTAssertEqual(ChatReferencePill.title("chat-1", places: places), "Release plan")
+        XCTAssertEqual(ChatReferencePill.title("chat-2", places: places), "Chat not in this project")
+        XCTAssertEqual(ChatReferencePill.title("chat-1", places: nil), "Chat")
+    }
 }

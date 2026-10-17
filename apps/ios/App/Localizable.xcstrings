@@ -193,6 +193,27 @@
         }
       }
     },
+    "Chat %@" : {
+      "comment" : "A chat attached to a message; %@ is its title",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat %@"
+          }
+        }
+      }
+    },
+    "Chat not in this project" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat niet in dit project"
+          }
+        }
+      }
+    },
     "Clean" : {
       "localizations" : {
         "nl" : {

@@ -33,10 +33,26 @@ private struct MarkdownBlocksView: View {
     let blocks: [MarkdownBlock]
     let streaming: Bool
     var body: some View {
-        ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
-            MarkdownBlockView(block: block, streaming: streaming)
+        ForEach(Array(MarkdownBlock.grouped(blocks).enumerated()), id: \.offset) { _, group in
+            if group.count == 1, let block = group.first {
+                MarkdownBlockView(block: block, streaming: streaming)
+            } else {
+                VStack(alignment: .leading, spacing: MarkdownBlock.itemSpacing) {
+                    ForEach(Array(group.enumerated()), id: \.offset) { _, block in
+                        MarkdownBlockView(block: block, streaming: streaming)
+                    }
+                }
+            }
         }
     }
+}
+
+/// A heading on the desktop's flat scale, against the text of a message: the first level a step larger, the rest
+/// the size of the text and only heavier.
+enum MarkdownHeading {
+    static func font(_ level: Int) -> Font { level == 1 ? .title3.weight(.semibold) : .headline }
+
+    static func style(_ level: Int) -> Font.TextStyle { level == 1 ? .title3 : .body }
 }
 
 private struct MarkdownBlockView: View {
@@ -51,7 +67,7 @@ private struct MarkdownBlockView: View {
         case .code(let language): CodeMessage(text: block.text, language: language)
         case .heading(let level):
             ChatInlineText(text: block.text, streaming: streaming)
-                .font(level == 1 ? .title2.bold() : level == 2 ? .title3.bold() : .headline)
+                .font(MarkdownHeading.font(level)).lineSpacing(2)
                 .accessibilityAddTraits(.isHeader)
         case .quote:
             VStack(alignment: .leading, spacing: 8) { MarkdownBlocksView(blocks: block.children, streaming: streaming) }
@@ -66,9 +82,10 @@ private struct MarkdownBlockView: View {
                             .accessibilityLabel(checked ? "Completed" : "Not completed")
                     } else {
                         Text(["-", "*", "+"].contains(block.marker) ? "•" : block.marker).monospacedDigit()
+                            .foregroundStyle(MobileStyle.faint)
                     }
                 }.frame(minWidth: 20, alignment: .trailing)
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: MarkdownBlock.itemSpacing) {
                     MarkdownBlocksView(blocks: block.children, streaming: streaming)
                 }
                 .environment(\.markdownTableBleed, 0)
@@ -126,10 +143,10 @@ struct MarkdownTable: View {
                 GridRow {
                     ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
                         MarkdownTableCell {
-                            ChatInlineText(text: cell, streaming: streaming).font(.subheadline)
+                            ChatInlineText(text: cell, streaming: streaming).font(.footnote)
                                 .fontWeight(rowIndex == 0 ? .semibold : .regular)
                         }
-                        .padding(.horizontal, 14).padding(.vertical, 10)
+                        .padding(.horizontal, 10).padding(.vertical, 6)
                     }
                 }
                 if rowIndex < rows.count - 1 { Divider().opacity(0.45).gridCellUnsizedAxes(.horizontal) }

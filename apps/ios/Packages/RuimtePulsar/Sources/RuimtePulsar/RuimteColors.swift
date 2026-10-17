@@ -49,6 +49,8 @@ public enum RuimteColors {
     public static let chartContextTools = RuimteColorToken(light: 0x4d7ce6, dark: 0x8aa7f5)
     public static let chartContextFiles = RuimteColorToken(light: 0x9a63e0, dark: 0xb98af3)
     public static let chartContextConversation = RuimteColorToken(light: 0x2f9e5a, dark: 0x6dd08b)
+    /// A skill a person picked, as `--skill` in `@adecore/agents-react/theme.css`.
+    public static let skill = RuimteColorToken(light: 0x9333ea, dark: 0xc084fc)
     /// The series of a chart after the first, which is the accent, as `--chart-2` to `--chart-6` order them.
     public static let chart2 = RuimteColorToken(light: 0xeb6834, dark: 0xd95926)
     public static let chart3 = RuimteColorToken(light: 0x1baf7a, dark: 0x199e70)

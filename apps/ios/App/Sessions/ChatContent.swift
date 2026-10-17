@@ -196,29 +196,141 @@ struct ChatInlineText: View {
     var body: some View { ChatFadingText(text: attributed, streaming: streaming) }
 
     private var attributed: AttributedString {
-        var value = MarkdownInline.parse(text, references: references)
-        let codeFont = (font ?? .body).monospaced()
-        let runs = value.runs.map {
-            (range: $0.range, code: $0.inlinePresentationIntent?.contains(.code) == true, link: $0.link)
+        ChatInlineMarks.marked(
+            MarkdownInline.parse(text, references: references), font: font, mentions: mentions, skills: skills,
+            cwd: context?.cwd)
+    }
+}
+
+/// A span of a message drawn on a rounded ground of its own: inline code, or a file or skill a person picked.
+struct ChatPill: Hashable, Sendable {
+    enum Kind: Hashable, Sendable {
+        case code
+        case file(String)
+        case skill
+    }
+
+    let kind: Kind
+    /// Tells two pills apart that touch, so each gets a ground of its own.
+    let id: Int
+
+    /// The mark drawn in place of the `@` or `$` the text still carries.
+    var icon: String? {
+        switch kind {
+        case .code: nil
+        case .file(let path): FileKinds.icon(name: path, kind: path.hasSuffix("/") ? "directory" : "file")
+        case .skill: "zap"
         }
-        for run in runs where run.code {
-            value[run.range].swiftUI.font = codeFont
-            value[run.range].swiftUI.backgroundColor = MobileStyle.inset
-            let token = String(value[run.range].characters)
-            if let context, ChatFileReference.parse(token, cwd: context.cwd) != nil {
-                value[run.range].link = ChatFileReference.url(token)
-            }
+    }
+
+    var tint: Color {
+        switch kind {
+        case .code: MobileStyle.text
+        case .file: MobileStyle.accent
+        case .skill: MobileStyle.skill
         }
-        for token in mentions.map({ "@" + $0 }) + skills.map({ "$" + $0 }) {
-            var start = value.startIndex
-            while start < value.endIndex, let range = value[start...].range(of: token) {
-                value[range].swiftUI.font = codeFont
-                value[range].swiftUI.backgroundColor = MobileStyle.inset
-                value[range].swiftUI.foregroundColor = MobileStyle.accent
-                start = range.upperBound
+    }
+}
+
+enum ChatPillAttribute: AttributedStringKey {
+    typealias Value = ChatPill
+    static let name = "ruimte.chatPill"
+}
+
+enum ChatInlineMarks {
+    /// Pads a pill on both sides. It never breaks, so the padding stays on the line of the text it pads.
+    static let padding: Character = "\u{202F}"
+
+    /// `source` with its inline code and the picked files and skills marked as pills, each padded on both sides.
+    /// Inline code overrules a pick: `@a.ts` between backticks is code.
+    static func marked(
+        _ source: AttributedString, font: Font?, mentions: [String], skills: [String], cwd: String?
+    ) -> AttributedString {
+        var value = source
+        var pills: [(range: Range<Int>, kind: ChatPill.Kind, font: Font)] = []
+        let codeFont = ChatInlineFonts.code(around: font)
+        let codeRuns = value.runs[\.inlinePresentationIntent].filter { $0.0?.contains(.code) == true }.map(\.1)
+        for range in codeRuns {
+            value[range].swiftUI.font = codeFont
+            let token = String(value[range].characters)
+            if let cwd, ChatFileReference.parse(token, cwd: cwd) != nil {
+                value[range].link = ChatFileReference.url(token)
             }
+            pills.append((offsets(range, in: value), .code, codeFont))
+        }
+        let plain = String(value.characters)
+        let code = pills.map(\.range)
+        let chipFont = ChatInlineFonts.chip(around: font)
+        for token in ChatDraftSyntax.tokens(in: plain, mentions: mentions, skills: skills) {
+            guard let range = Range(token.range, in: plain) else { continue }
+            let lower = plain.distance(from: plain.startIndex, to: range.lowerBound)
+            let span = lower..<(lower + plain[range].count)
+            guard !code.contains(where: { $0.overlaps(span) }) else { continue }
+            pills.append((span, token.kind == "$" ? .skill : .file(token.value), chipFont))
+        }
+        for (id, pill) in pills.sorted(by: { $0.range.lowerBound < $1.range.lowerBound }).enumerated().reversed() {
+            let mark = ChatPill(kind: pill.kind, id: id)
+            let range = index(pill.range.lowerBound, in: value)..<index(pill.range.upperBound, in: value)
+            value[range][ChatPillAttribute.self] = mark
+            if mark.kind != .code {
+                value[range].swiftUI.font = pill.font
+                value[range].swiftUI.foregroundColor = mark.tint
+            }
+            // In the proportional font, since a monospaced space is as wide as a letter.
+            var pad = AttributedString(String(padding))
+            pad.swiftUI.font = chipFont
+            pad.swiftUI.kern = mark.kind == .code ? 2.5 : 3
+            pad[ChatPillAttribute.self] = mark
+            value.insert(pad, at: index(pill.range.upperBound, in: value))
+            value.insert(pad, at: index(pill.range.lowerBound, in: value))
         }
         return value
+    }
+
+    private static func offsets(_ range: Range<AttributedString.Index>, in value: AttributedString) -> Range<Int> {
+        let lower = value.characters.distance(from: value.startIndex, to: range.lowerBound)
+        return lower..<(lower + value.characters.distance(from: range.lowerBound, to: range.upperBound))
+    }
+
+    private static func index(_ offset: Int, in value: AttributedString) -> AttributedString.Index {
+        value.characters.index(value.startIndex, offsetBy: offset)
+    }
+}
+
+/// The smaller text the desktop sets inline code and pills in, as the nearest Dynamic Type style: code at 13 against
+/// text of 15, a pill at 12.
+enum ChatInlineFonts {
+    private static let sizes: [(style: Font.TextStyle, size: CGFloat)] = [
+        (.caption2, 11), (.caption, 12), (.footnote, 13), (.subheadline, 15), (.callout, 16), (.body, 17),
+        (.title3, 20), (.title2, 22), (.title, 28), (.largeTitle, 34),
+    ]
+
+    private static let known: [(font: Font, style: Font.TextStyle)] =
+        [
+            (.caption2, .caption2), (.caption, .caption), (.footnote, .footnote), (.subheadline, .subheadline),
+            (.callout, .callout), (.body, .body), (.headline, .body), (.title3, .title3), (.title2, .title2),
+            (.title, .title), (.largeTitle, .largeTitle),
+        ] + (1...6).map { (MarkdownHeading.font($0), MarkdownHeading.style($0)) }
+
+    /// The text style `font` is set in, or nil for a font of a fixed size.
+    static func style(of font: Font?) -> Font.TextStyle? {
+        guard let font else { return .body }
+        return known.first { $0.font == font }?.style
+    }
+
+    static func smaller(_ style: Font.TextStyle, ratio: CGFloat) -> Font.TextStyle {
+        let size = (sizes.first { $0.style == style }?.size ?? 17) * ratio
+        return sizes.min { abs($0.size - size) < abs($1.size - size) }?.style ?? style
+    }
+
+    static func code(around font: Font?) -> Font {
+        guard let style = style(of: font) else { return (font ?? .body).monospaced() }
+        return .system(smaller(style, ratio: 13 / 15), design: .monospaced)
+    }
+
+    static func chip(around font: Font?) -> Font {
+        guard let style = style(of: font) else { return (font ?? .body).weight(.medium) }
+        return .system(smaller(style, ratio: 12 / 15), weight: .medium)
     }
 }
 

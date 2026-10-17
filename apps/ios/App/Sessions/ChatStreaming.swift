@@ -140,19 +140,53 @@ private struct ChatWordArrival: TextAttribute {
     let time: TimeInterval
 }
 
+private struct ChatPillMark: TextAttribute {
+    let pill: ChatPill
+}
+
+/// Fades each arriving word in, and draws the ground of each pill behind its text.
 private struct ChatWordRenderer: TextRenderer {
     var time: TimeInterval
 
     func draw(layout: Text.Layout, in context: inout GraphicsContext) {
         for line in layout {
+            var pill: (pill: ChatPill, rect: CGRect, opacity: Double)?
+            for run in line {
+                let mark = run[ChatPillMark.self]?.pill
+                if let current = pill, current.pill != mark {
+                    fill(current.pill, current.rect, opacity: current.opacity, in: context)
+                    pill = nil
+                }
+                if let mark {
+                    let rect = run.typographicBounds.rect
+                    pill = (mark, pill?.rect.union(rect) ?? rect, min(pill?.opacity ?? 1, opacity(run)))
+                }
+            }
+            if let pill { fill(pill.pill, pill.rect, opacity: pill.opacity, in: context) }
             for run in line {
                 var context = context
-                if let arrival = run[ChatWordArrival.self] {
-                    let progress = min(1, max(0, (time - arrival.time) / 0.3))
-                    context.opacity = progress * progress * (3 - 2 * progress)
-                }
+                context.opacity = opacity(run)
                 context.draw(run)
             }
+        }
+    }
+
+    private func opacity(_ run: Text.Layout.Run) -> Double {
+        guard let arrival = run[ChatWordArrival.self] else { return 1 }
+        let progress = min(1, max(0, (time - arrival.time) / 0.3))
+        return progress * progress * (3 - 2 * progress)
+    }
+
+    private func fill(_ pill: ChatPill, _ rect: CGRect, opacity: Double, in context: GraphicsContext) {
+        var context = context
+        context.opacity = opacity
+        if pill.kind == .code {
+            let shape = RoundedRectangle(cornerRadius: 4).path(in: rect.insetBy(dx: 0, dy: -1))
+            context.fill(shape, with: .color(MobileStyle.inset))
+        } else {
+            let shape = RoundedRectangle(cornerRadius: 6).path(in: rect.insetBy(dx: 0, dy: -2))
+            context.fill(shape, with: .color(pill.tint.opacity(0.12)))
+            context.stroke(shape, with: .color(pill.tint.opacity(0.25)), lineWidth: 1)
         }
     }
 }
@@ -175,21 +209,53 @@ struct ChatFadingText: View {
     }
 
     private var rendered: Text {
-        guard !arrivals.isEmpty, !reduceMotion else { return Text(text) }
-        var output = Text("")
-        var start = text.startIndex
+        let fades = !arrivals.isEmpty && !reduceMotion
+        let runs = text.runs[ChatPillAttribute.self]
+        guard fades || runs.contains(where: { $0.0 != nil }) else { return Text(text) }
+        var output = Text(verbatim: "")
         var word = 0
-        for index in text.characters.indices {
-            let next = text.characters.index(after: index)
-            if text.characters[index].isWhitespace || next == text.endIndex {
-                var part = Text(AttributedString(text[start..<next]))
-                if let time = arrivals[word] { part = part.customAttribute(ChatWordArrival(time: time)) }
-                output = Text("\(output)\(part)")
-                start = next
-                word += 1
+        for (pill, range) in runs {
+            let sigil = pill?.icon == nil ? nil : text.characters.index(after: range.lowerBound)
+            guard fades else {
+                output = Text("\(output)\(piece(range, pill: pill, sigil: sigil, arrival: nil))")
+                continue
+            }
+            var start = range.lowerBound
+            var index = start
+            while index < range.upperBound {
+                let next = text.characters.index(after: index)
+                let ends = text.characters[index].isWhitespace || next == text.endIndex
+                if ends || next == range.upperBound {
+                    output = Text("\(output)\(piece(start..<next, pill: pill, sigil: sigil, arrival: arrivals[word]))")
+                    start = next
+                }
+                if ends { word += 1 }
+                index = next
             }
         }
         return output
+    }
+
+    /// A part of the text, with the mark of a picked file or skill in place of its sigil.
+    private func piece(
+        _ range: Range<AttributedString.Index>, pill: ChatPill?, sigil: AttributedString.Index?,
+        arrival: TimeInterval?
+    ) -> Text {
+        var part: Text
+        if let pill, let icon = pill.icon, let sigil, range.contains(sigil) {
+            let after = text.characters.index(after: sigil)
+            let gap = AttributedString(
+                String(ChatInlineMarks.padding), attributes: text[sigil..<after].runs.first?.attributes ?? .init())
+            let before = Text(AttributedString(text[range.lowerBound..<sigil]))
+            let mark = Text(Image(lucide: icon, size: 12)).foregroundStyle(pill.tint).baselineOffset(-1.5)
+            let name = Text(AttributedString(text[after..<range.upperBound]))
+            part = Text("\(before)\(mark)\(Text(gap))\(name)")
+        } else {
+            part = Text(AttributedString(text[range]))
+        }
+        if let pill { part = part.customAttribute(ChatPillMark(pill: pill)) }
+        if let arrival { part = part.customAttribute(ChatWordArrival(time: arrival)) }
+        return part
     }
 
     var body: some View {
