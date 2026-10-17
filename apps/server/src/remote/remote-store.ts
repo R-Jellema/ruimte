@@ -57,6 +57,11 @@ export class RemoteStore {
         await this.keep(projectId, nodes);
     }
 
+    /* Puts the bindings back as they were before a save whose write failed. */
+    restore(projectId: string, nodes: Readonly<Record<string, string>>): Promise<void> {
+        return this.keep(projectId, { ...nodes });
+    }
+
     /* Drops every binding whose id is gone from the document. */
     async prune(projectId: string, alive: ReadonlySet<string>): Promise<void> {
         const file = this.files.get(projectId);

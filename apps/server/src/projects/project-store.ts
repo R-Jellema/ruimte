@@ -665,8 +665,14 @@ export class ProjectStore {
         const document: ProjectDocument = { version: PROJECT_VERSION, rev: state.rev + 1, ...portable, shared: ids };
         /* Bound first: a document that names a node before its binding exists would let a client start it here.
            A save that names no machine for a node leaves its binding as it was, so a client that never heard of the field cannot drop it. */
+        const boundBefore = { ...this.remote.nodesOf(projectId) };
         await this.remote.bind(projectId, machinesOf(content), idsOf(content));
-        const written = await this.writeFiles(this.documentPath(state.entry), portable, ids, document.rev, moved, state.overlayFields);
+        const written = await this.writeFiles(this.documentPath(state.entry), portable, ids, document.rev, moved, state.overlayFields).catch(
+            async (error: unknown) => {
+                await this.remote.restore(projectId, boundBefore);
+                throw error;
+            }
+        );
         remember(state, written, document.rev, ids, document.views);
         await this.remote.prune(projectId, idsOf(content));
         /* Not the sender: its screen is already ahead of this document, and taking it in would undo a

@@ -1625,6 +1625,20 @@ describe('the machine of a node', () => {
         expect(canvas((await store.openProject({ projectId })).document).nodes[0]).toMatchObject({ machine: 'machine-b' });
     });
 
+    test('is not bound by a save whose write failed', async () => {
+        const opened = await store.openProject({ folder });
+        const projectId = opened.summary.projectId;
+        const failing = store as unknown as { writeFiles: () => Promise<never> };
+        const writeFiles = failing.writeFiles;
+        failing.writeFiles = () => Promise.reject(new Error('disk full'));
+        try {
+            await expect(store.save(projectId, opened.document.rev, bound('machine-b'))).rejects.toThrow('disk full');
+        } finally {
+            failing.writeFiles = writeFiles;
+        }
+        expect(store.remote.machineOf(projectId, 'n1')).toBeNull();
+    });
+
     test('goes with its node', async () => {
         const projectId = await openBound();
         await store.save(projectId, 1, { ...content(), views: [{ ...canvas(content()), nodes: [] }] });
