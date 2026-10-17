@@ -83,7 +83,7 @@ export function wireAgentWork({ home, identity, stores, agents, projects, remote
         owedTargets: owedTargetsIn(outbox),
         enqueue: (projectId, target, work, notBefore) => outboxLink.enqueue(projectId, target, work, notBefore),
         wake: (target) => worker?.wake(target),
-        giveUp: (machineId) => remoteTasksNow().giveUp(machineId),
+        giveUp: (machineId, refusal) => remoteTasksNow().giveUp(machineId, refusal),
         connections: remote.connections,
         now: () => Date.now(),
         random: () => Math.random()

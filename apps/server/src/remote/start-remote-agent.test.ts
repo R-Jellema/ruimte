@@ -337,6 +337,29 @@ describe('agent --machine', () => {
         expect(owed).toEqual([]);
     });
 
+    test('a machine that refuses this one fails what was owed to it at once, with the reason in each line', async () => {
+        open = fakeLink();
+        const [started] = await give();
+        const startedTask = started!.split('\t')[5]!;
+        await daemon.worker.settled();
+        open = null;
+        const [waiting] = await give();
+        const waitingTask = waiting!.split('\t')[5]!;
+        await daemon.worker.settled();
+
+        await daemon.remoteTasks!.giveUp(MACHINE, 'it takes no statement from this machine');
+        await daemon.worker.settled();
+        expect(daemon.tasks.get(waitingTask)).toMatchObject({
+            status: 'failed',
+            result: { text: 'The other machine refused this one (it takes no statement from this machine), so this task was never started there.' }
+        });
+        expect(daemon.tasks.get(startedTask)).toMatchObject({
+            status: 'failed',
+            result: { text: expect.stringContaining('The other machine refused this one (it takes no statement from this machine), so what became') }
+        });
+        expect(daemon.outbox.list()).toEqual([]);
+    });
+
     test('the stops a machine out of reach for good leaves are asked over a link that happens to be open, for an agent that started and for a start that may have', async () => {
         open = fakeLink();
         let busy = false;

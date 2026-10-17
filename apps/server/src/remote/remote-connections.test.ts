@@ -139,6 +139,15 @@ describe('the links to other machines', () => {
         expect(heard.at(-1)).toBe('waiting:1');
     });
 
+    test('takes another version of Ruimte for a machine to wait for, since an update ends it', async () => {
+        owed = 1;
+        next = async () => {
+            throw new Error('This machine and this client run different versions of Ruimte');
+        };
+        await expect(connections.connect('machine-b')).rejects.not.toMatchObject({ code: 'refused' });
+        expect(heard.at(-1)).toBe('waiting:1');
+    });
+
     test('says the link is waiting when it failed while work for the machine is owed', async () => {
         owed = 2;
         next = async () => {

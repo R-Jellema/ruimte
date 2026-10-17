@@ -442,13 +442,15 @@ export class RemoteTasks {
     }
 
     /*
-     * The machine stayed out of reach for as long as the reconnect tries. Each task given to it fails with a line
-     * that says so, which wakes its parent once, and an agent that may already run there is owed a stop, asked
-     * once over a link that is open: the 7 days are over, and a stop never starts a window of its own.
+     * The machine stayed out of reach for as long as the reconnect tries, or refused this one (`refusal` says
+     * why). Each task given to it fails with a line that says so, which wakes its parent once, and an agent
+     * that may already run there is owed a stop, asked once over a link that is open: a stop never starts a
+     * window of its own.
      */
-    async giveUp(machineId: string): Promise<void> {
+    async giveUp(machineId: string, refusal?: string): Promise<void> {
         const { deps } = this;
         const days = Math.round(RECONNECT_LIFETIME_MS / (24 * 60 * 60 * 1000));
+        const why = refusal === undefined ? `could not be reached for ${days} days` : `refused this one (${refusal})`;
         const owed = deps.outbox
             .list()
             .filter(
@@ -459,8 +461,8 @@ export class RemoteTasks {
             await deps.outbox.remove(entry.id);
             const text =
                 entry.kind === 'start-remote-agent'
-                    ? `The other machine could not be reached for ${days} days, so this task was never started there.`
-                    : `The other machine could not be reached for ${days} days, so what became of this task is not known. The agent there may still run until a person stops it on that machine.`;
+                    ? `The other machine ${why}, so this task was never started there.`
+                    : `The other machine ${why}, so what became of this task is not known. The agent there may still run until a person stops it on that machine.`;
             await deps.coordinator.settleFromElsewhere(entry.payload.taskId, { text, source: 'exit', at: deps.now() }, 'failed');
             const stopOwed = deps.outbox.list().some((other) => other.kind === 'stop-remote-agent' && other.payload.nodeId === entry.target);
             // A start may have reached the machine without its answer reaching this one, so it too may have an agent to stop.

@@ -10,11 +10,23 @@ export class RemoteLinkError extends CodedError<'unknown-machine' | 'no-broker' 
 
 /*
  * What the other machine says when it will not have this one: it does not know the key (never let in, run
- * out or revoked), refuses the statement, or runs another protocol. Trying again changes none of that.
+ * out or revoked) or refuses the statement. Trying again changes neither. Another protocol is no refusal:
+ * an update of either machine ends it, so the reconnect keeps trying.
  */
 export function refusedByMachine(error: unknown): boolean {
     const message = error instanceof Error ? error.message : '';
-    return /closed the attempt: (not-paired|statements-refused)|does not know this device|different versions of Ruimte/.test(message);
+    return /closed the attempt: (not-paired|statements-refused)|does not know this device/.test(message);
+}
+
+/* Why the other machine would not have this one, in words for the line of a task that fails on it. */
+export function refusalWords(message: string): string {
+    if (message.includes('not-paired') || message.includes('does not know this device')) {
+        return 'it does not know this machine, or no longer vouches for it';
+    }
+    if (message.includes('statements-refused')) {
+        return 'it takes no statement from this machine';
+    }
+    return message.slice(0, 200);
 }
 
 /* Opens a link to one machine; rejects with the reason it could not. */

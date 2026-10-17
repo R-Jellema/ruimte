@@ -1,5 +1,5 @@
 import type { OutboxEntry, OutboxWork, ConnectPeerEntry } from '../outbox/outbox.ts';
-import { RemoteLinkError, type RemoteConnections } from './remote-connections.ts';
+import { RemoteLinkError, refusalWords, type RemoteConnections } from './remote-connections.ts';
 
 // The wait after the first failed attempt, like the first poll of a PR-watch; each failure after it doubles the wait up to the cap.
 export const RECONNECT_START_MS = 60_000;
@@ -34,8 +34,8 @@ export interface ConnectPeerDeps {
     enqueue(projectId: string, target: string, work: OutboxWork, notBefore?: number): Promise<void>;
     /* Looks again at whatever waited on this target. */
     wake(target: string): void;
-    /* Fails the work still owed to a machine that stayed out of reach for the whole window. */
-    giveUp(machineId: string): Promise<void>;
+    /* Fails the work still owed to a machine that stayed out of reach for the whole window, or that refused this one (`refusal` says why). */
+    giveUp(machineId: string, refusal?: string): Promise<void>;
     connections: Pick<RemoteConnections, 'connect' | 'isOpen' | 'knows' | 'idle' | 'waiting'>;
     now(): number;
     random(): number;
@@ -45,7 +45,8 @@ export interface ConnectPeerDeps {
  * The reconnect of the link to another machine, as an outbox entry. It is owed only while work for that
  * machine waits (a task given to it, its result, a stop), and each failure doubles the wait from a
  * minute to ten, so a machine that sleeps is not woken by a daemon that keeps knocking. It ends when
- * nothing is owed to the machine any more, when the machine is unlinked, or after 7 days in which no link opened.
+ * nothing is owed to the machine any more, when the machine is unlinked, when it refuses this one, or
+ * after 7 days in which no link opened.
  */
 export class ConnectPeer {
     private readonly deps: ConnectPeerDeps;
@@ -120,8 +121,12 @@ export class ConnectPeer {
             this.firstOwed.delete(machineId);
             this.wakeOwed(machineId);
         } catch (e) {
-            // A machine that will not have this one says so again however often it is asked; a link closed on purpose is not tried again either.
-            if (e instanceof RemoteLinkError && (e.code === 'refused' || e.code === 'closed')) {
+            // A machine that will not have this one says so again however often it is asked, so what waits on it fails now.
+            if (e instanceof RemoteLinkError && e.code === 'refused') {
+                this.firstOwed.delete(machineId);
+                await this.deps.giveUp(machineId, refusalWords(e.message));
+                connections.idle(machineId);
+            } else if (e instanceof RemoteLinkError && e.code === 'closed') {
                 connections.idle(machineId);
             } else {
                 await this.retry(entry, machineId, since, interval);

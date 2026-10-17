@@ -106,7 +106,7 @@ beforeEach(async () => {
         owedTargets: () => owed,
         enqueue: (projectId, target, work, notBefore) => worker.enqueue(projectId, target, work, notBefore),
         wake: (target) => woken.push(target),
-        giveUp: async (machineId) => void gaveUp.push(machineId),
+        giveUp: async (machineId, refusal) => void gaveUp.push(refusal === undefined ? machineId : `${machineId}: ${refusal}`),
         connections,
         now: () => clock.now(),
         random: () => random
@@ -311,12 +311,13 @@ describe('the reconnect of a link to another machine', () => {
         expect(connectEntries()[0]!.payload.since).toBeGreaterThan(since);
     });
 
-    test('stops at a refusal that asking again will not change', async () => {
+    test('fails what is owed at a refusal that asking again will not change, and says why', async () => {
         connections.refuse = true;
         await reconnect.owe(MACHINE);
         await worker.settled();
         expect(connectEntries()).toEqual([]);
         expect(connections.attempts).toBe(1);
+        expect(gaveUp).toEqual([`${MACHINE}: it does not know this machine, or no longer vouches for it`]);
         expect(connections.standing.at(-1)).toBe(`idle:${MACHINE}`);
         await advance(RECONNECT_MAX_MS);
         expect(connections.attempts).toBe(1);
