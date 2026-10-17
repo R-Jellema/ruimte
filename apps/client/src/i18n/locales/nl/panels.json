@@ -93,6 +93,7 @@
         },
         "image": {
             "actual": "Werkelijke grootte (1:1)",
+            "grid": "Raster",
             "failed": "Kon {{name}} niet tonen. {{reason}}",
             "fit": "Passend",
             "maybeChanged": "Het bestand is misschien veranderd tijdens het laden.",
@@ -137,6 +138,7 @@
             "pause": "Animatie pauzeren",
             "play": "Animatie afspelen",
             "resetCamera": "Camera herstellen",
+            "studioLight": "Studiolicht",
             "triangles_one": "{{value}} driehoek",
             "triangles_other": "{{value}} driehoeken",
             "vertices_one": "{{value}} vertex",

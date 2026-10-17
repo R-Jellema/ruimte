@@ -87,3 +87,14 @@ export function firstZipEntry(bytes: Uint8Array): string | null {
     }
     return new TextDecoder().decode(bytes.subarray(30, 30 + nameLength));
 }
+
+/*
+ * The spacing of the grid under a model with bounds `bounds`: a power of ten, about a fifth of the
+ * model's half diagonal or less, so a model shows a few cells across in any unit it was made in.
+ */
+export function gridCellSize(bounds: ModelBounds | null): number {
+    const { min, max } = bounds ?? { min: [0, 0, 0], max: [0, 0, 0] };
+    const halfDiagonal = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / 2;
+    const radius = halfDiagonal > 0 && Number.isFinite(halfDiagonal) ? halfDiagonal : 1;
+    return 10 ** Math.floor(Math.log10(radius / 5));
+}

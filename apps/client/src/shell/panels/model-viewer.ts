@@ -1,6 +1,9 @@
 import {
     AnimationMixer,
     Box3,
+    DirectionalLight,
+    Group,
+    HemisphereLight,
     LoadingManager,
     MOUSE,
     NeutralToneMapping,
@@ -22,7 +25,8 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { USDLoader } from 'three/examples/jsm/loaders/USDLoader.js';
 import { isSpaceDown, subscribeSpacePan } from '@/canvas/space-pan';
-import { countGeometry, firstZipEntry, fitCamera, isEmbeddedUrl, type ModelBounds, type ModelCounts } from '@/shell/panels/model-view';
+import { ModelGrid } from '@/shell/panels/model-grid';
+import { countGeometry, firstZipEntry, fitCamera, gridCellSize, isEmbeddedUrl, type ModelBounds, type ModelCounts } from '@/shell/panels/model-view';
 
 const FIELD_OF_VIEW = 45;
 
@@ -31,6 +35,9 @@ const REFUSED_URL = 'about:invalid';
 
 // A frame after a long pause (a hidden window) would jump the animation ahead by the whole pause.
 const MAX_FRAME_SECONDS = 0.1;
+
+// Under studio light the room only fills the shadows and the reflections; the three lights shape the model.
+const STUDIO_ENVIRONMENT_INTENSITY = 0.35;
 
 export interface LoadedModel extends ModelCounts {
     animated: boolean;
@@ -110,6 +117,24 @@ function disposeModel(root: Object3D): void {
 }
 
 /*
+ * A key light from the front right and above, a softer fill from the left and a rim from behind that
+ * edges the outline. A directional light shines from its position toward its target at the origin, so
+ * only the directions count and the rig fits a model of any size.
+ */
+function studioLights(): Group {
+    const rig = new Group();
+    const key = new DirectionalLight(0xfff4e8, 2.6);
+    key.position.set(1, 1.5, 1.2);
+    const fill = new DirectionalLight(0xe8f0ff, 0.8);
+    fill.position.set(-1.4, 0.4, 0.8);
+    const rim = new DirectionalLight(0xffffff, 2);
+    rim.position.set(-0.3, 1, -1.5);
+    rig.add(new HemisphereLight(0xffffff, 0x8a8d93, 0.6), key, fill, rim);
+    rig.visible = false;
+    return rig;
+}
+
+/*
  * One model on one canvas, drawn only when something changed: the camera moved, a setting flipped,
  * or an animation plays. Everything it made on the GPU goes with `dispose`, the context included.
  */
@@ -119,6 +144,8 @@ export class ModelViewer {
     private readonly camera = new PerspectiveCamera(FIELD_OF_VIEW, 1, 0.01, 1000);
     private readonly controls: OrbitControls;
     private readonly environment: WebGLRenderTarget;
+    private readonly grid = new ModelGrid();
+    private readonly studio = studioLights();
     private readonly observer: ResizeObserver;
     private readonly unsubscribeSpace: () => void;
     private model: Object3D | null = null;
@@ -148,6 +175,7 @@ export class ModelViewer {
         room.dispose();
         generator.dispose();
         this.scene.environment = this.environment.texture;
+        this.scene.add(this.grid, this.studio);
 
         this.controls = new OrbitControls(this.camera, canvas);
         this.controls.enableDamping = true;
@@ -176,6 +204,7 @@ export class ModelViewer {
         this.scene.add(root);
         const box = new Box3().setFromObject(root);
         this.bounds = box.isEmpty() ? null : { min: box.min.toArray(), max: box.max.toArray() };
+        this.grid.fit(this.bounds?.min[1] ?? 0, gridCellSize(this.bounds));
         if (animations.length > 0) {
             // The first clip only: a file that carries several usually means them as alternatives, a walk and a run.
             this.mixer = new AnimationMixer(root);
@@ -213,6 +242,22 @@ export class ModelViewer {
         this.requestRender();
     }
 
+    setGrid(visible: boolean): void {
+        this.grid.visible = visible;
+        this.requestRender();
+    }
+
+    setDark(dark: boolean): void {
+        this.grid.setDark(dark);
+        this.requestRender();
+    }
+
+    setStudioLight(studio: boolean): void {
+        this.studio.visible = studio;
+        this.scene.environmentIntensity = studio ? STUDIO_ENVIRONMENT_INTENSITY : 1;
+        this.requestRender();
+    }
+
     setPlaying(playing: boolean): void {
         this.playing = playing && this.mixer !== null;
         this.lastTime = null;
@@ -237,6 +282,7 @@ export class ModelViewer {
             disposeModel(this.model);
             this.model = null;
         }
+        this.grid.dispose();
         this.environment.dispose();
         this.renderer.dispose();
         // The page keeps only a handful of live contexts, and the terminals hold most of them.
@@ -274,6 +320,7 @@ export class ModelViewer {
         }
         // While the camera still glides after a drag, this changes it again and asks for the next frame.
         this.controls.update();
+        this.grid.follow(this.camera, this.camera.position.distanceTo(this.controls.target));
         this.renderer.render(this.scene, this.camera);
         if (this.playing) {
             this.requestRender();

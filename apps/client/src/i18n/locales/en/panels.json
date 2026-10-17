@@ -93,6 +93,7 @@
         },
         "image": {
             "actual": "Actual size (1:1)",
+            "grid": "Grid",
             "failed": "Could not show {{name}}. {{reason}}",
             "fit": "Fit",
             "maybeChanged": "It may have changed while loading.",
@@ -137,6 +138,7 @@
             "pause": "Pause animation",
             "play": "Play animation",
             "resetCamera": "Reset camera",
+            "studioLight": "Studio light",
             "triangles_one": "{{value}} triangle",
             "triangles_other": "{{value}} triangles",
             "vertices_one": "{{value}} vertex",

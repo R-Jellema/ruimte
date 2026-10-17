@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { BoxGeometry, BufferAttribute, BufferGeometry, Group, InstancedMesh, Mesh, MeshBasicMaterial, Points } from 'three';
-import { countGeometry, firstZipEntry, fitCamera, isEmbeddedUrl, type CameraFit } from './model-view';
+import { countGeometry, firstZipEntry, fitCamera, gridCellSize, isEmbeddedUrl, type CameraFit } from './model-view';
 
 function distanceOf(fit: CameraFit): number {
     return Math.hypot(fit.position[0] - fit.target[0], fit.position[1] - fit.target[1], fit.position[2] - fit.target[2]);
@@ -84,5 +84,18 @@ describe('what a model loader may open', () => {
         expect(firstZipEntry(zipEntry('scenes/teapot.usdc'))).toBe('scenes/teapot.usdc');
         expect(firstZipEntry(zipEntry('teapot.usdc').subarray(0, 32))).toBeNull();
         expect(firstZipEntry(new TextEncoder().encode('#usda 1.0\n'.repeat(4)))).toBeNull();
+    });
+});
+
+describe('the grid under a model', () => {
+    test('spaces its cells a power of ten apart, a few across the model', () => {
+        expect(gridCellSize({ min: [-1, 0, -1], max: [1, 2, 1] })).toBeCloseTo(0.1);
+        expect(gridCellSize({ min: [0, 0, 0], max: [70, 70, 70] })).toBe(10);
+        expect(gridCellSize({ min: [0, 0, 0], max: [0.07, 0.07, 0.07] })).toBeCloseTo(0.01);
+    });
+
+    test('falls back to the unit sphere for bounds without size', () => {
+        expect(gridCellSize(null)).toBeCloseTo(0.1);
+        expect(gridCellSize({ min: [1, 1, 1], max: [1, 1, 1] })).toBeCloseTo(0.1);
     });
 });

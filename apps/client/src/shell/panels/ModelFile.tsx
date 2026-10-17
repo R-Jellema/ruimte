@@ -2,9 +2,10 @@ import { revealFile } from './reveal-file';
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Box, CornerUpRight, Grid3x3, Pause, Play, RotateCcw } from 'lucide-react';
+import { Box, CornerUpRight, Cuboid, Grid3x3, Pause, Play, RotateCcw, Spotlight } from 'lucide-react';
 import { BYTES_READ_MAX_BYTES, type FsReadBinary } from '@ruimte/contracts';
 import { useEndpointId } from '@/state/keys';
+import { useTheme } from '@/state/theme';
 import { fileManagerName, useServer } from '@/state/server';
 import { useTransport } from '@/transport/context';
 import { readMachineFile } from '@/transport/machine-url';
@@ -40,6 +41,9 @@ export function ModelFile({ source, name, read }: { source: FileSource; name: st
     const key = JSON.stringify([endpointId, locator]);
     const path = revealablePath(source);
     const [held, setHeld] = useState<{ key: string; phase: Phase } | null>(null);
+    const dark = useTheme((s) => s.resolved === 'dark');
+    const [grid, setGrid] = useState(true);
+    const [studioLight, setStudioLight] = useState(false);
     const [wireframe, setWireframe] = useState(false);
     const [playing, setPlaying] = useState(false);
     const phase = !canDrawWebgl() ? NO_WEBGL : held !== null && held.key === key ? held.phase : LOADING;
@@ -93,6 +97,24 @@ export function ModelFile({ source, name, read }: { source: FileSource; name: st
 
     useEffect(() => {
         if (ready) {
+            viewerRef.current?.setGrid(grid);
+        }
+    }, [ready, grid]);
+
+    useEffect(() => {
+        if (ready) {
+            viewerRef.current?.setDark(dark);
+        }
+    }, [ready, dark]);
+
+    useEffect(() => {
+        if (ready) {
+            viewerRef.current?.setStudioLight(studioLight);
+        }
+    }, [ready, studioLight]);
+
+    useEffect(() => {
+        if (ready) {
             viewerRef.current?.setPlaying(playing);
         }
     }, [ready, playing]);
@@ -137,7 +159,14 @@ export function ModelFile({ source, name, read }: { source: FileSource; name: st
                 <FileToolbar>
                     <ButtonGroup>
                         <IconButton icon={RotateCcw} size="sm" label={t('file.model.resetCamera')} onClick={() => viewerRef.current?.resetCamera()} />
-                        <FileToolbarToggle icon={Grid3x3} label={t('file.model.wireframe')} active={wireframe} onClick={() => setWireframe(!wireframe)} />
+                        <FileToolbarToggle icon={Grid3x3} label={t('file.model.grid')} active={grid} onClick={() => setGrid(!grid)} />
+                        <FileToolbarToggle
+                            icon={Spotlight}
+                            label={t('file.model.studioLight')}
+                            active={studioLight}
+                            onClick={() => setStudioLight(!studioLight)}
+                        />
+                        <FileToolbarToggle icon={Cuboid} label={t('file.model.wireframe')} active={wireframe} onClick={() => setWireframe(!wireframe)} />
                         {phase.model.animated && (
                             <IconButton
                                 icon={playing ? Pause : Play}
