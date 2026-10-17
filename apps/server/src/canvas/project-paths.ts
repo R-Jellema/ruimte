@@ -1,5 +1,5 @@
-import { realpath, stat } from 'node:fs/promises';
-import { relative, resolve } from 'node:path';
+import { lstat, readdir, realpath, stat } from 'node:fs/promises';
+import { join, relative, resolve } from 'node:path';
 import { climbsOut } from '../projects/project-files.ts';
 import { VerbRefusal } from './verb.ts';
 
@@ -108,9 +108,23 @@ export async function checkInsideFile(folder: string, path: string, worktreePath
     return resolved;
 }
 
-/* A file or an app bundle an agent hands a device, under the folder rule a cwd follows; a bundle is a folder. */
+/*
+ * A file or an app bundle an agent hands a device, under the folder rule a cwd follows, as its real path so
+ * a link swapped in after the check leads nowhere new. A bundle is a folder, and the device copies the links
+ * in it along, so a link in it must stay inside too.
+ */
 export async function checkDevicePath(folder: string, path: string, worktreePaths: (folder: string) => Promise<string[]>): Promise<string> {
-    return (await checkInsideProject(folder, DEVICE_PATH_RULE, path, worktreePaths)).resolved;
+    const { real } = await checkInsideProject(folder, DEVICE_PATH_RULE, path, worktreePaths);
+    if (!(await stat(real)).isDirectory()) {
+        return real;
+    }
+    for (const name of await readdir(real, { recursive: true })) {
+        const inner = join(real, name);
+        if ((await lstat(inner)).isSymbolicLink()) {
+            await checkInsideProject(folder, DEVICE_PATH_RULE, inner, worktreePaths);
+        }
+    }
+    return real;
 }
 
 /* The prompt a caller put in a file, under the same folder rule a cwd follows. */

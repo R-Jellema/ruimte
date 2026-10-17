@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { DeviceInfo, ProjectContent, ProjectEdge, ProjectNode } from '@ruimte/contracts';
@@ -431,9 +431,10 @@ describe('ruimte-context device tools', () => {
     test('installs an app and adds media from the project folder, and refuses a path outside it', async () => {
         await run(['install', 'phone-1', '--path', 'build/Atlas.app']);
         await run(['media', 'phone-1', '--path', 'shot.png', join(project, 'clip.mov')]);
+        const real = await realpath(project);
         expect(backend.actions).toEqual([
-            { ...target, action: 'installApp', path: join(project, 'build', 'Atlas.app') },
-            { ...target, action: 'addMedia', paths: [join(project, 'shot.png'), join(project, 'clip.mov')] }
+            { ...target, action: 'installApp', path: join(real, 'build', 'Atlas.app') },
+            { ...target, action: 'addMedia', paths: [join(real, 'shot.png'), join(real, 'clip.mov')] }
         ]);
 
         const outside = await mkdtemp(join(tmpdir(), 'ruimte-device-outside-'));
