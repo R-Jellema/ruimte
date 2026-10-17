@@ -10,7 +10,6 @@ Reviewed on October 17, 2026.
 
 | Package                         | Priority                                    | Depends on                                    |
 | ------------------------------- | ------------------------------------------- | --------------------------------------------- |
-| 2. Status routing and cleanup   | Next                                        | Nothing                                       |
 | 3. Measurements                 | Early                                       | Nothing for a baseline                        |
 | 4. Keyboard and settings        | Next                                        | Nothing                                       |
 | 5. File entry points            | Next; 5.1 from 0.20                         | Nothing                                       |
@@ -27,17 +26,6 @@ Reviewed on October 17, 2026.
 | 17. Linux and Windows           | Windows per its plan                        | Platform spikes and CI                        |
 
 Measurements come before changing the WebGL budget, splitting the composer chunk or choosing media buffer sizes.
-
-## 2. Status routing and cleanup
-
-9. Reproduce the status-routing problem when someone types `codex` by hand in a shell, against
-   `apps/server/src/providers/launch.ts`. Do not replace shell configuration or infer status from terminal output.
-11. Prune hidden agent chats when the daemon starts, never on a clock: a chat goes when its task settled more than
-    30 days ago, it sits in no view and it has no living child.
-12. Add `ruimte notify`, so a local script raises a notification through the local secret.
-
-Done when handwritten launches have a verified route or a stated limit, a test covers each pruning condition and
-that it runs at start only, and `ruimte notify` refuses without the local secret.
 
 ## 3. Measurements
 

@@ -61,6 +61,10 @@ export class HiddenAgentStore {
         return this.records.get(id);
     }
 
+    all(): HiddenAgent[] {
+        return this.records.all();
+    }
+
     inProject(projectId: string): HiddenAgent[] {
         return this.records.all().filter((agent) => agent.projectId === projectId);
     }
@@ -68,6 +72,15 @@ export class HiddenAgentStore {
     async put(agent: HiddenAgent): Promise<void> {
         await this.records.write(agent);
         this.onChange?.(agent.projectId);
+    }
+
+    /* Forgets these agents, and tells each project they were in that it places them no more. */
+    async remove(ids: ReadonlySet<string>): Promise<void> {
+        const projectIds = new Set(this.records.all().flatMap((agent) => (ids.has(agent.node.id) ? [agent.projectId] : [])));
+        await this.records.prune((agent) => ids.has(agent.node.id));
+        for (const projectId of projectIds) {
+            this.onChange?.(projectId);
+        }
     }
 
     async pruneOrphans(projectId: string, placed: ReadonlySet<string>): Promise<void> {

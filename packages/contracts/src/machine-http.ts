@@ -104,6 +104,17 @@ export const MachineStatusSchema = z.object({
 export type MachineStatus = z.infer<typeof MachineStatusSchema>;
 
 /*
+ * Where `ruimte notify` has the daemon raise a notification on the local secret, the way an agent's
+ * `alert` does from its own node: the push opens that node, so a notification always names one.
+ */
+export const MACHINE_NOTIFY_PATH = '/machine/notify';
+
+export const MachineNotifyRequestSchema = z.object({ nodeId: z.string().min(1), text: z.string().trim().min(1).max(500) });
+
+/* What a refused notification answers beside its status: `node-not-found` for a node no project holds. */
+export const MachineNotifyRefusalSchema = z.object({ code: z.string(), message: z.string() });
+
+/*
  * Where a daemon proves it holds the local secret of its home without showing it. The desktop shell
  * asks before it sends that secret anywhere or loads a page from the port, since whatever got the
  * port first answers `/health` as readily as the daemon does.

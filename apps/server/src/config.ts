@@ -34,10 +34,12 @@ export interface ServerConfig {
     underService: boolean;
     // `login` puts it on an account with a code; `status` says how the running daemon is reached; `context` is the agent-side CLI (`ruimte-context`);
     // `service` installs, removes or reports the background service; `closed-lid` installs or removes the sudoers rule behind keep awake
-    // with the lid closed; `version` prints the version.
-    command: 'serve' | 'login' | 'logout' | 'status' | 'context' | 'service' | 'closed-lid' | 'version';
-    // What follows the command: the words of `context`, and the action of `service` followed by the daemon flags its service runs with.
+    // with the lid closed; `notify` raises a notification; `version` prints the version.
+    command: 'serve' | 'login' | 'logout' | 'status' | 'context' | 'service' | 'closed-lid' | 'notify' | 'version';
+    // What follows the command: the words of `context` and `notify`, and the action of `service` followed by the daemon flags its service runs with.
     args: string[];
+    // `notify --node`: the node the notification opens.
+    node?: string;
 }
 
 /*
@@ -122,6 +124,7 @@ export function parseServerArgs(argv: string[], env: Record<string, string | und
             'broker-advertise': { type: 'string' },
             'lan-port': { type: 'string' },
             'no-lan': { type: 'boolean', default: false },
+            node: { type: 'string' },
             version: { type: 'boolean', short: 'v', default: false }
         },
         strict: true,
@@ -136,6 +139,7 @@ export function parseServerArgs(argv: string[], env: Record<string, string | und
         command !== 'context' &&
         command !== 'service' &&
         command !== 'closed-lid' &&
+        command !== 'notify' &&
         command !== 'version'
     ) {
         throw new Error(`Unknown command: ${command}`);
@@ -144,6 +148,10 @@ export function parseServerArgs(argv: string[], env: Record<string, string | und
     const service = command === 'service';
     if (service && (argv[0] !== 'service' || positionals.length !== 2)) {
         throw new Error('Usage: ruimte service install|uninstall|status [daemon flags]');
+    }
+
+    if (values.node !== undefined && command !== 'notify') {
+        throw new Error('--node only goes with notify');
     }
 
     if (command === 'closed-lid' && positionals.length !== 2) {
@@ -176,6 +184,7 @@ export function parseServerArgs(argv: string[], env: Record<string, string | und
         lanDoorOff: values['no-lan'],
         underService: env.RUIMTE_SERVICE === '1',
         command,
-        args: cli || service ? argv.slice(1) : positionals.slice(1)
+        args: cli || service ? argv.slice(1) : positionals.slice(1),
+        ...(values.node === undefined ? {} : { node: values.node })
     };
 }

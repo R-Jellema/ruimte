@@ -217,6 +217,11 @@ export class ProjectIndex {
         return [...this.projects].filter(([projectId, project]) => project.places.has(id) || hidden?.projectId === projectId).map(([projectId]) => projectId);
     }
 
+    /* Whether a view of any project holds this id, as a node on a canvas or as a view of its own. */
+    placed(id: string): boolean {
+        return [...this.projects.values()].some((project) => project.places.has(id));
+    }
+
     /* Whether a person finds this id in a project, as a node on a canvas or a view of its own. A task's hidden agent is not. */
     shows(id: string): boolean {
         return [...this.projects.values()].some((project) => project.places.has(id)) && !this.isHiddenChat(id);
