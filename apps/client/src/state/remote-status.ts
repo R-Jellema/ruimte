@@ -41,8 +41,8 @@ export function isUnstarted(status: RemoteStatusEvent | undefined, nodeId: strin
 /*
  * Whether the machine has not taken the task of this node yet, whatever state the link is in. An open
  * link may be asking right now, or the machine may have no place for the task yet, and either way a
- * window that mounted the node would start the chat there ahead of the task. Without a standing yet,
- * an open task of the node is the only word there is, and it says the machine was not asked.
+ * window that mounted the node would start the chat there ahead of the task. The daemon holds a standing
+ * while any work for the machine is owed, so a missing one is a task too new for its start to be told of.
  */
 export function isUntaken(status: RemoteStatusEvent | undefined, nodeId: string, taskOpen = false): boolean {
     return status === undefined ? taskOpen : status.unstartedNodeIds?.includes(nodeId) === true;

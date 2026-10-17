@@ -265,6 +265,18 @@ describe('the standing of the links', () => {
 });
 
 describe('the tasks that have not started', () => {
+    test('a machine owed work that no standing told of yet, as after a restart, gets one that names only what was not asked', () => {
+        connections.refresh('machine-b');
+        expect(status.get('machine-b')).toBeNull();
+        owed = 1;
+        connections.refresh('machine-b');
+        expect(status.get('machine-b')).toEqual({ machineId: 'machine-b', state: 'waiting', owed: 1 });
+        unstarted = ['chat-a'];
+        owed = 2;
+        connections.refresh('machine-b');
+        expect(status.get('machine-b')).toMatchObject({ state: 'waiting', owed: 2, unstartedNodeIds: ['chat-a'] });
+    });
+
     test('are named in the standing of a link that is down, and left out once they started', async () => {
         const events: Array<string[] | undefined> = [];
         status.subscribe('client-2', (event: SessionEvent) => {

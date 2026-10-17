@@ -180,10 +180,16 @@ export class RemoteConnections {
         this.options.status.set({ ...this.standing(machineId, 'waiting'), nextAttemptAt });
     }
 
-    /* Says again how many tasks wait, as the standing of a link that is already told of. `except` is an entry that is done. */
+    /*
+     * Says again how many tasks wait. `except` is an entry that is done. Work owed with no standing told of, as
+     * after a restart, gets one, so a client never takes a missing standing for a task the machine was not asked.
+     */
     refresh(machineId: string, except?: string): void {
         const held = this.options.status.get(machineId);
         if (held === null || held.state === 'closed') {
+            if (this.knows(machineId) && this.options.owed(machineId) > 0) {
+                this.options.status.set(this.standing(machineId, this.links.has(machineId) ? 'open' : 'waiting', except));
+            }
             return;
         }
         this.options.status.set(this.standing(machineId, held.state, except, held.nextAttemptAt));
