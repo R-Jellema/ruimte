@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { INITIALIZE_TIMEOUT_MS, LanguageServer, STABLE_AFTER_MS, type LanguageServerHooks, type SharedDocument } from './server.ts';
+import { INITIALIZE_TIMEOUT_MS, LanguageServer, STABLE_AFTER_MS, type LanguageServerHooks, type LanguageServerOptions, type SharedDocument } from './server.ts';
 import { KIND_PROFILES, type ProjectSqlSettings } from './profiles.ts';
 import { fakeSpawner, ManualClock, settle, type FakeSpawner } from './test-fakes.ts';
 import type { LanguageServerKind } from '@ruimte/contracts';
@@ -32,7 +32,7 @@ interface Rig {
     time: { now: number };
 }
 
-function rig(kind: LanguageServerKind, spawner = fakeSpawner()): Rig {
+function rig(kind: LanguageServerKind, spawner = fakeSpawner(), overrides: Partial<LanguageServerOptions> = {}): Rig {
     const clock = new ManualClock();
     const states: string[] = [];
     const diagnostics: Rig['diagnostics'] = [];
@@ -60,7 +60,8 @@ function rig(kind: LanguageServerKind, spawner = fakeSpawner()): Rig {
         exists: async () => false,
         readText: async () => null,
         realPath: async (path) => path,
-        hooks
+        hooks,
+        ...overrides
     });
     return { server, spawner, clock, states, diagnostics, providers, install, time };
 }
@@ -120,6 +121,25 @@ describe('a language server of one kind in one project', () => {
         expect(process.spec.env.BUN_BE_BUN).toBeUndefined();
         expect(process.name).toBe('typescript');
         expect(process.server.documents.get('file:///work/src/a.ts')).toEqual({ languageId: 'typescript', text: 'let a = 1;', version: 1 });
+    });
+
+    it("runs the project's own TypeScript, but never that of a folder another machine sent", async () => {
+        const own = `/work/node_modules/@typescript/typescript-${globalThis.process.platform}-${globalThis.process.arch}/lib/${globalThis.process.platform === 'win32' ? 'tsc.exe' : 'tsc'}`;
+        const files: Partial<LanguageServerOptions> = {
+            exists: async (path) => path === own,
+            readText: async (path) => (path === '/work/node_modules/typescript/package.json' ? JSON.stringify({ version: '7.0.2' }) : null)
+        };
+        const trusted = rig('typescript', fakeSpawner(), files);
+        trusted.server.attach(document('/work/src/a.ts', 'typescript', 'let a = 1;'));
+        await settle();
+        expect(trusted.spawner.processes[0]!.spec.command).toBe(own);
+        await trusted.server.stop();
+
+        const sent = rig('typescript', fakeSpawner(), { ...files, ownTypescript: false });
+        sent.server.attach(document('/work/src/a.ts', 'typescript', 'let a = 1;'));
+        await settle();
+        expect(sent.spawner.processes[0]!.spec.command).toStartWith('/home/language-servers/typescript/node_modules/');
+        await sent.server.stop();
     });
 
     it('starts nothing while the kind is not installed, and starts once it is', async () => {

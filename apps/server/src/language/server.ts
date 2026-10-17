@@ -39,6 +39,8 @@ import {
     componentServes,
     KIND_PROFILES,
     lspLanguageId,
+    pinnedNativeTypescript,
+    pinnedTypescriptLib,
     resolveNativeTypescript,
     resolveTypescriptLib,
     type ComponentProfile,
@@ -134,6 +136,8 @@ export interface LanguageServerOptions {
     /* The text of a file, or null when it cannot be read. */
     readText?: (path: string) => Promise<string | null>;
     realPath?: (path: string) => Promise<string>;
+    /* False for a project folder made from another machine's work, whose own TypeScript is never run; the pinned one is. */
+    ownTypescript?: boolean;
     hooks: LanguageServerHooks;
 }
 
@@ -729,10 +733,11 @@ export class LanguageServer {
     private async launchContext(): Promise<LaunchContext> {
         const { folder, exists } = this.options;
         const installDirectory = this.options.installDirectory();
+        const ownTypescript = this.options.ownTypescript !== false;
         return {
             installDirectory,
             projectFolder: folder,
-            typescriptLib: await resolveTypescriptLib(folder, installDirectory, exists),
+            typescriptLib: ownTypescript ? await resolveTypescriptLib(folder, installDirectory, exists) : pinnedTypescriptLib(installDirectory),
             native: this.options.native?.() ?? null,
             sql: this.readsSettings()
                 ? await (this.options.sqlSettings?.() ?? Promise.resolve(null)).catch((error: unknown) => {
@@ -740,13 +745,15 @@ export class LanguageServer {
                       return null;
                   })
                 : null,
-            typescriptExecutable: this.options.profile.components.some((component) => component.native)
-                ? await resolveNativeTypescript(folder, installDirectory, {
-                      exists,
-                      readText: this.options.readText ?? ((path) => readFile(path, 'utf8').catch(() => null)),
-                      realPath: this.options.realPath ?? realpath
-                  })
-                : '',
+            typescriptExecutable: !this.options.profile.components.some((component) => component.native)
+                ? ''
+                : ownTypescript
+                  ? await resolveNativeTypescript(folder, installDirectory, {
+                        exists,
+                        readText: this.options.readText ?? ((path) => readFile(path, 'utf8').catch(() => null)),
+                        realPath: this.options.realPath ?? realpath
+                    })
+                  : pinnedNativeTypescript(installDirectory),
             ...(this.options.profile.components.some((component) => component.cargoManifests)
                 ? { cargoManifests: topmostManifests(await findManifests(folder, 'Cargo.toml', CARGO_DEPTH)) }
                 : {})

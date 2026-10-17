@@ -36,7 +36,8 @@ export async function wireLanguage({ home, compiled, machineHome, watches, proje
         machineHome,
         // A compiled daemon ignores local sources and installs the pinned native releases.
         native: new NativePolicy({ checkouts: { 'php-native': phpLanguageServerCheckout(compiled), 'sql-native': sqlLanguageServerCheckout(compiled) } }),
-        sqlSettings: (projectId) => sqlAnalysis.settingsOf(projectId)
+        sqlSettings: (projectId) => sqlAnalysis.settingsOf(projectId),
+        untrusted: (path) => agents.untrusted.inFolder(path)
     });
     await host.load();
     const onDevice = new OnDeviceModel();

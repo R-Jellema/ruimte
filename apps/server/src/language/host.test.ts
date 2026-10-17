@@ -61,6 +61,8 @@ function rig(
         /* The revision of the checkout the PHP server builds from; none to read by default. */
         revision?: () => string | null;
         sqlSettings?: (projectId: string) => Promise<ProjectSqlSettings | null>;
+        /* The folders made from another machine's work. */
+        untrusted?: string[];
     } = {}
 ): Rig {
     const spawner = options.spawner ?? fakeSpawner();
@@ -122,7 +124,8 @@ function rig(
         exists: async (path) => (options.files ?? []).includes(path) || (options.folders ?? []).includes(path),
         isFolder: async (path) => (options.folders ?? []).includes(path),
         readText: async (path) => (path === '/work/package.json' ? (options.packageJson ?? null) : (options.texts?.[path] ?? null)),
-        ...(options.sqlSettings === undefined ? {} : { sqlSettings: options.sqlSettings })
+        ...(options.sqlSettings === undefined ? {} : { sqlSettings: options.sqlSettings }),
+        untrusted: (path) => (options.untrusted ?? []).some((folder) => path === folder || path.startsWith(`${folder}/`))
     });
     const events: Record<string, SessionEvent[]> = { 'client-1': [], 'client-2': [] };
     const heard = new Set<(event: SessionEvent) => void>();
@@ -150,6 +153,7 @@ async function installed(
         texts?: Record<string, string>;
         folders?: string[];
         sqlSettings?: (projectId: string) => Promise<ProjectSqlSettings | null>;
+        untrusted?: string[];
     } = {}
 ): Promise<Rig> {
     // PHP goes to the server of Ruimte unless the machine picked Intelephense, which these tests stand in with.
@@ -486,6 +490,15 @@ describe('several servers on one document', () => {
         ).resolves.toMatchObject({
             servers: ['typescript']
         });
+    });
+
+    it('adds no server that runs project code to work another machine sent, in a folder of it or a project made of it', async () => {
+        const inside = await installed(['typescript', 'eslint'], { files: [...eslintFiles, '/work/peer/eslint.config.js'], untrusted: ['/work/peer'] });
+        expect((await open(inside.host)).servers).toEqual(['typescript', 'eslint']);
+        expect((await open(inside.host, 'peer/src/a.ts')).servers).toEqual(['typescript']);
+
+        const whole = await installed(['typescript', 'eslint'], { files: eslintFiles, untrusted: ['/work'] });
+        expect((await open(whole.host)).servers).toEqual(['typescript']);
     });
 
     it('adds Tailwind where the package.json names it, to a stylesheet and to markup', async () => {

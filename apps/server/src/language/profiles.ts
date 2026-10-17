@@ -90,6 +90,8 @@ export interface KindProfile {
     choice?: string;
     /* Set for a kind that serves beside the kind of the language, in the projects that call for it, rather than instead of it. */
     activation?: Activation;
+    /* Set for a kind that runs code of the project it reads (a config it loads, a build script, a macro), which never runs on work another machine sent. */
+    runsProjectCode?: true;
 }
 
 /* Where the TypeScript 6 SDK of the `typescript` kind sits beside its TypeScript 7 package, under an alias of the same npm package. */
@@ -443,6 +445,7 @@ export const KIND_PROFILES: Record<LanguageServerKind, KindProfile> = {
     },
     eslint: {
         kind: 'eslint',
+        runsProjectCode: true,
         activation: {
             files: [
                 ...['js', 'mjs', 'cjs', 'ts', 'mts', 'cts'].map((extension) => `eslint.config.${extension}`),
@@ -469,6 +472,7 @@ export const KIND_PROFILES: Record<LanguageServerKind, KindProfile> = {
      */
     rust: {
         kind: 'rust',
+        runsProjectCode: true,
         activation: { files: ['Cargo.toml'], deeper: { file: 'Cargo.toml', depth: CARGO_DEPTH } },
         components: [
             {
@@ -488,6 +492,7 @@ export const KIND_PROFILES: Record<LanguageServerKind, KindProfile> = {
     },
     tailwind: {
         kind: 'tailwind',
+        runsProjectCode: true,
         activation: {
             files: ['js', 'cjs', 'mjs', 'ts', 'cts', 'mts'].map((extension) => `tailwind.config.${extension}`),
             dependency: /^(tailwindcss|@tailwindcss\/.+)$/
@@ -675,6 +680,10 @@ export async function resolveTypescriptLib(
     if (await exists(join(own, 'tsserver.js'))) {
         return own;
     }
+    return pinnedTypescriptLib(installDirectory, sdkPackage);
+}
+
+export function pinnedTypescriptLib(installDirectory: string, sdkPackage = 'typescript'): string {
     return join(installDirectory, 'node_modules', sdkPackage, 'lib');
 }
 
@@ -723,7 +732,7 @@ export async function resolveNativeTypescript(projectFolder: string, installDire
     }
 }
 
-function pinnedNativeTypescript(installDirectory: string): string {
+export function pinnedNativeTypescript(installDirectory: string): string {
     return join(installDirectory, 'node_modules', NATIVE_ENTRY);
 }
 

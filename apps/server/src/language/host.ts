@@ -137,6 +137,8 @@ export interface LanguageHostOptions {
     custom?: CustomLanguageServers;
     /* Which server the machine uses where two serve one language; by default the file beside the installs. */
     choices?: LanguageChoices;
+    /* Whether a path lies in a folder made from another machine's work, where no server runs the code it holds; none by default. */
+    untrusted?: (path: string) => boolean;
     /* Native servers use a selected standalone checkout or the pinned release. */
     native?: NativePolicy;
     /* How an install downloads a release or the stubs. */
@@ -787,6 +789,11 @@ export class LanguageHost {
             ...alongsideKindsForPath(storedPath).filter(([kind]) => kind !== primary)
         ];
         const kinds: LanguageServerId[] = primary === null ? [] : [primary];
+        const untrusted = this.untrusted(project.folder) || this.untrusted(resolve(project.folder, storedPath));
+        if (untrusted) {
+            // A server of a person's own may run anything of the folder too, so it stays off there with the catalog's that do.
+            return primary === null || KIND_PROFILES[primary].runsProjectCode === true ? [] : [primary];
+        }
         if (candidates.length > 0) {
             const facts: ProjectFacts = {
                 folder: project.folder,
@@ -798,6 +805,10 @@ export class LanguageHost {
             kinds.push(...candidates.filter((_, index) => active[index]).map(([kind]) => kind));
         }
         return [...kinds, ...this.customKindsFor(project, languageId, storedPath)];
+    }
+
+    private untrusted(path: string): boolean {
+        return this.options.untrusted?.(path) === true;
     }
 
     /* The servers of a person's own that run for the project and serve the document; one that is held never does. */
@@ -902,6 +913,7 @@ export class LanguageHost {
                 now: this.options.now,
                 exists: this.exists,
                 readText: this.options.readText,
+                ownTypescript: !this.untrusted(project.folder),
                 ...(this.options.sqlSettings === undefined ? {} : { sqlSettings: () => this.options.sqlSettings!(project.projectId) }),
                 hooks: this.hooks
             });

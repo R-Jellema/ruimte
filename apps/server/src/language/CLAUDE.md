@@ -11,6 +11,7 @@ The invariants of this folder. The repository root's `CLAUDE.md` has the map, th
 - File watching starts only once a server registered for `workspace/didChangeWatchedFiles` (`file-watch.ts`) and ends with the last such server. Events settle in the watch seam's timer and go to each server filtered by its own patterns; nothing runs on a clock of its own.
 - Each server runs one client command at a time because LSP does not tie `workspace/applyEdit` to its originating command. The edit goes to that command's client (`language.edit`), never applied by the daemon, and is refused when no command of that client runs or it stays silent 30 seconds. Rename edits from `workspace/willRenameFiles` follow `fs.create` and `fs.write` rules.
 - An agent uses the servers through `AgentLanguage` (`agent-language.ts`) as a client of its own for one call. It never installs a server, and a file read against a connection agents may not use is refused whole (`database-access-off`).
+- Work another machine sent (`UntrustedFolders.inFolder`, a project folder in it or a document in it) gets no kind that runs project code (`runsProjectCode`: rust-analyzer, ESLint, Tailwind) and no server of a person's own, and a project folder in it runs the pinned TypeScript, never its own.
 - A native server never fetches anything itself: Install downloads PHP's stubs, and the server starts with `storagePath` and `stubsPath`. Checkout discovery reads files and never runs a git command that changes anything.
 
 ## Product rules
