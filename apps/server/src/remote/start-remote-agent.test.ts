@@ -104,6 +104,46 @@ describe('agent --machine', () => {
         expect(daemon.tasks.all()).toHaveLength(0);
     });
 
+    test("needs no CLI here for an agent on another machine, and fails the task with that machine's word when it has none", async () => {
+        await daemon.stop();
+        daemon = await bootTestDaemon({
+            home,
+            store,
+            clock,
+            installed: [],
+            remote: {
+                machines: () => [{ machineId: MACHINE, label: 'Studio', remoteProjectId: 'remote-project', ready: true }],
+                connections: { link: () => open },
+                reconnect: { owe: async (machineId) => void owed.push(machineId) }
+            }
+        });
+        daemon.worker.start();
+        open = fakeLink();
+        answer = (type) => {
+            if (type === 'peer.taskStart') {
+                throw new Error('cli-not-installed: Claude Code is not installed on this machine');
+            }
+            return { status: 'open', result: null, bundle: null };
+        };
+        const [line] = await give();
+        expect(line).not.toStartWith('refused');
+        const [team] = await runVerb(daemon, 'chat-lead', 'team', [
+            '--label',
+            'Crew',
+            '--task',
+            '--machine',
+            'Studio',
+            '--roles',
+            JSON.stringify([{ title: 'Role', prompt: 'Do it', provider: 'claude' }])
+        ]);
+        expect(team).not.toStartWith('refused');
+        await daemon.worker.settled();
+        expect(daemon.tasks.get(line!.split('\t')[5]!)).toMatchObject({
+            status: 'failed',
+            result: { text: 'The task could not be started on the other machine: Claude Code is not installed on this machine' }
+        });
+    });
+
     test('a task is not given to an agent that runs on another machine', async () => {
         const [line] = await give();
         const nodeId = line!.split('\t')[0]!;

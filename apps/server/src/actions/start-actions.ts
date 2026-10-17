@@ -91,7 +91,10 @@ const startAgent: StartHandler = async (input, call) => {
     if (hidden && host.hiddenAgents === undefined) {
         throw new VerbRefusal('view-required', OPENING_OFF_CANVAS);
     }
-    requireInstalled(await host.starts.installedAgents(), kind);
+    // An agent on another machine runs that machine's CLI, which it checks itself when the task starts.
+    if (remote === null) {
+        requireInstalled(await host.starts.installedAgents(), kind);
+    }
 
     // Everything that touches the disk or git runs before the lock, so a slow repository holds up no save.
     const prompt = await startPrompt(input.prompt, input.promptFile, host, place.folder);
@@ -359,8 +362,10 @@ export const startActions: ActionHandlers<ServerActionContext> = {
             });
         }
 
-        const installed = await host.starts.installedAgents();
-        roles.forEach((role, index) => requireInstalled(installed, role.provider, `role ${index} (${role.provider})`));
+        if (remote === null) {
+            const installed = await host.starts.installedAgents();
+            roles.forEach((role, index) => requireInstalled(installed, role.provider, `role ${index} (${role.provider})`));
+        }
 
         // Everything that touches the disk or git runs before the lock, so a slow repository holds up no save.
         const cwd = input.cwd === null ? undefined : await checkCwd(place.folder, input.cwd, (folder) => host.checkouts.paths(folder));
