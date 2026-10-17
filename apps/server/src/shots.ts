@@ -10,6 +10,8 @@ const CAPTURE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 /* Under `$RUIMTE_HOME`, and one of the folders a client may read from there. */
 export const DEVICE_CAPTURES_FOLDER = 'device-captures';
 
+const PLACED_CAPTURES_FOLDER = 'placed';
+
 /* An id comes from the project file, so it never becomes a path of its own. */
 function fileSafe(id: string): string {
     return id.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || 'shot';
@@ -48,6 +50,15 @@ export async function captureFile(home: string, id: string, extension: 'png' | '
 
 export async function writeCapture(home: string, id: string, image: Uint8Array, now = Date.now()): Promise<string> {
     const path = await captureFile(home, id, 'png', now);
+    await writeFile(path, image);
+    return path;
+}
+
+/* A capture a person placed on a canvas, which a file view reads for as long as it stays, so no sweep reaches it. */
+export async function keepCapture(home: string, id: string, image: Uint8Array, now = Date.now()): Promise<string> {
+    const folder = join(home, DEVICE_CAPTURES_FOLDER, PLACED_CAPTURES_FOLDER);
+    await mkdir(folder, { recursive: true });
+    const path = join(folder, `${fileSafe(id)}-${now}.png`);
     await writeFile(path, image);
     return path;
 }

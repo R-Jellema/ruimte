@@ -74,16 +74,19 @@ export async function placeScreenshotOnCanvas(endpointId: string, device: Device
 }
 
 /*
- * The path of the capture on the machine of the open project, which is where a file view reads. A device
- * of another machine took it there, so its bytes are written here first.
+ * The path of the capture kept on the machine of the open project, which is where a file view reads, and
+ * where no sweep of passing captures reaches it. A device of another machine took it there.
  */
 async function onWorkspaceMachine(endpointId: string, device: Device, capture: DeviceCaptureResult): Promise<string> {
     const workspace = windowWorkspace();
-    if (workspace === null || workspace.connection.endpointId === endpointId) {
+    if (workspace === null) {
         return capture.path;
     }
     const { transport } = workspace.connection;
     if (!machineAnswers(transport.connection, 'device.importCapture')) {
+        if (workspace.connection.endpointId === endpointId) {
+            return capture.path;
+        }
         throw new Error(i18next.t('machines:device.tools.capture.placeUnsupported'));
     }
     const bytes = new Uint8Array(await readMachineFile(endpointId, { path: capture.path, mtime: 0, size: 0 }, IMPORT_MAX_BYTES));

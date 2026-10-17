@@ -212,6 +212,7 @@ $RUIMTE_HOME/
   browser/                         the profile of the pages the daemon runs for clients without a browser
   screenshots/                     pngs `browser shot` and `device shot` wrote, swept after a day
   device-captures/                 a person's screenshots and recordings of a device, read by the client over `bytes.read`, swept after a week
+    placed/                        the screenshots a person placed on a canvas (`device.importCapture`), never swept
   language-servers/
     choices.json                   which PHP server this machine uses
     custom.json                    a person's own language servers

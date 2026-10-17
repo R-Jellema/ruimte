@@ -162,7 +162,7 @@ describe('device handlers', () => {
         await dispatcher.handle(client, request('device.importCapture', { deviceId: 'phone-1', data: Buffer.from(png).toString('base64') }));
         const reply = frames.at(-1) as { ok: true; result: { path: string; width: number; height: number } };
         expect(reply.result).toMatchObject({ width: 1206, height: 2622 });
-        expect(reply.result.path.startsWith(join(home, 'device-captures', 'phone-1-'))).toBe(true);
+        expect(reply.result.path.startsWith(join(home, 'device-captures', 'placed', 'phone-1-'))).toBe(true);
         expect(new Uint8Array(readFileSync(reply.result.path))).toEqual(png);
 
         await dispatcher.handle(client, request('device.importCapture', { deviceId: 'phone-1', data: Buffer.from('<svg/>').toString('base64') }));

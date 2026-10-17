@@ -1,7 +1,7 @@
 import type { DeviceControl } from '../devices/control.ts';
 import { DeviceError, type DeviceManager } from '../devices/manager.ts';
 import type { Dispatcher } from '../dispatcher.ts';
-import { captureFile, pngSize, writeCapture } from '../shots.ts';
+import { captureFile, keepCapture, pngSize, writeCapture } from '../shots.ts';
 import { streamingGate } from './streaming.ts';
 
 export function registerDeviceHandlers(dispatcher: Dispatcher, devices: DeviceManager, streamingAllowed: () => boolean, home: string): void {
@@ -62,7 +62,7 @@ export function registerDeviceHandlers(dispatcher: Dispatcher, devices: DeviceMa
         if (size === null) {
             throw new DeviceError('device-capture-failed', 'The capture to keep is not a png');
         }
-        return { path: await writeCapture(home, payload.deviceId, image), ...size };
+        return { path: await keepCapture(home, payload.deviceId, image), ...size };
     });
     dispatcher.register('device.clipboard', async (payload, client) => {
         requireStreaming();
