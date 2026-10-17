@@ -7,6 +7,7 @@ import {
     dedupeStorePath,
     fileDedupeStore,
     helperExitReportable,
+    helperStderrOf,
     markInApp,
     sendFatal,
     StderrTail,
@@ -60,6 +61,15 @@ describe('daemonBeforeSend', () => {
 
     test('leaves a missing store to the dedupe, which reads it as empty', () => {
         expect(() => fileDedupeStore('/nonexistent/sent.json').read()).toThrow();
+    });
+});
+
+describe('helperStderrOf', () => {
+    test('keeps the last lines and blanks what a helper quoted', () => {
+        const lines = [...Array.from({ length: 30 }, (_value, i) => `line ${i}`), "panicked at 'unexpected token `customerName`'"];
+        const stderr = helperStderrOf(lines);
+        expect(stderr.at(-1)).toBe("panicked at '<text>'");
+        expect(stderr.length).toBeLessThan(lines.length);
     });
 });
 

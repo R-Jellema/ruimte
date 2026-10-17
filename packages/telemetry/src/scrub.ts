@@ -60,6 +60,16 @@ const SQL =
     /\b(?:SELECT\b[\s\S]*?\bFROM|INSERT\s+INTO|UPDATE\s+\S+\s+SET|DELETE\s+FROM|CREATE\s+(?:TABLE|INDEX|VIEW|DATABASE|SCHEMA)|ALTER\s+TABLE|DROP\s+(?:TABLE|DATABASE|INDEX|VIEW|SCHEMA))\b[\s\S]*/gi;
 const PATH = /(^|[\s'"`(=[,])((?:~|[A-Za-z]:)?(?:[\\/][^\s'"`()[\]{},;:\\/]+)+[\\/]?)/g;
 const QUOTED = /(['"`])([^'"`\n]{3,})\1/g;
+// A single quote inside a word is an apostrophe, not the start or the end of a quote.
+const ANY_QUOTED = /(?<!\w)'[^'\n]+'(?!\w)|"[^"\n]+"|`[^`\n]+`/g;
+
+/*
+ * Every quoted span blanked, however short. For lines of a helper's stderr, where a quote is often
+ * an excerpt of the file it read, such as a token a parser stopped at.
+ */
+export function blankQuoted(text: string): string {
+    return text.replace(ANY_QUOTED, (match) => `${match[0]}<text>${match[0]}`);
+}
 
 export interface Scrubber {
     /* A string with paths, secrets, addresses, people and SQL taken out. */

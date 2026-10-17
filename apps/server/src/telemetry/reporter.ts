@@ -1,7 +1,15 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir, hostname, userInfo } from 'node:os';
 import { dirname, join } from 'node:path';
-import { createDailyDedupe, createScrubber, TELEMETRY_DATA_COLLECTION, TELEMETRY_DSN, telemetryRelease, type DedupeStore } from '@ruimte/telemetry';
+import {
+    blankQuoted,
+    createDailyDedupe,
+    createScrubber,
+    TELEMETRY_DATA_COLLECTION,
+    TELEMETRY_DSN,
+    telemetryRelease,
+    type DedupeStore
+} from '@ruimte/telemetry';
 import { COMPILED, VERSION } from '../version.ts';
 
 type Sentry = typeof import('@sentry/bun');
@@ -255,10 +263,15 @@ export function reportHelperExit(exit: HelperExit): void {
             extra: {
                 exit_code: exit.code ?? -1,
                 ...(exit.signal ? { signal: exit.signal } : {}),
-                stderr: (exit.stderr ?? []).slice(-STDERR_LINES)
+                stderr: helperStderrOf(exit.stderr ?? [])
             }
         });
     });
+}
+
+/* The last lines a helper wrote, without what it quoted. */
+export function helperStderrOf(lines: readonly string[]): string[] {
+    return lines.slice(-STDERR_LINES).map(blankQuoted);
 }
 
 /* Sends what is still queued before a clean exit. */

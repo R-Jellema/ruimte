@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { createScrubber } from './scrub.ts';
+import { blankQuoted, createScrubber } from './scrub.ts';
 import { telemetryRelease } from './dsn.ts';
 
 const LOCAL_SECRET = 'q7Zr2Lw9Xk4Pv8Nm3Bt6Hs1Jd5Fg0Ac_YeUoTiR-xQ';
@@ -83,6 +83,18 @@ describe('scrubText', () => {
     test('drops quoted text that reads like content', () => {
         expect(scrubText("Project 'my secret plans' was not found")).toBe("Project '<text>' was not found");
         expect(scrubText("Cannot find module '@adecore/agents'")).toBe("Cannot find module '@adecore/agents'");
+    });
+});
+
+describe('blankQuoted', () => {
+    test('blanks a quoted span of any length in any of the three quotes', () => {
+        expect(blankQuoted('unexpected token `customerName` at 3:14')).toBe('unexpected token `<text>` at 3:14');
+        expect(blankQuoted(`expected 'x' or "id", found \`;\``)).toBe(`expected '<text>' or "<text>", found \`<text>\``);
+    });
+
+    test('leaves an apostrophe and text outside quotes alone', () => {
+        expect(blankQuoted("can't parse 'total' here, it isn't valid")).toBe("can't parse '<text>' here, it isn't valid");
+        expect(blankQuoted('thread main panicked at src/parser.rs:42:7')).toBe('thread main panicked at src/parser.rs:42:7');
     });
 });
 
