@@ -345,3 +345,142 @@ describe('OutputGate', () => {
         expect(socket.of('session.resync')).toEqual([{ sessionId: 'a', screen: 'screen-a' }]);
     });
 });
+
+describe('OutputGate with a share', () => {
+    // The fake counts frames rather than bytes: the channel holds two before output waits.
+    const share = { budget: 2, backlogChars: 50, sliceChars: 10 };
+
+    // Every frame sent stays buffered until the test drains it, the way a slow channel holds it.
+    function shared(screens: Record<string, string> = { busy: 'screen-busy', quiet: 'screen-quiet' }) {
+        const socket = new FakeSocket();
+        const send = socket.send.bind(socket);
+        socket.send = (data) => {
+            socket.buffered += 1;
+            return send(data);
+        };
+        const gate = new OutputGate({
+            socket,
+            screenOf: (sessionId, deliver) => {
+                queueMicrotask(() => {
+                    gate.screenTaken(sessionId);
+                    deliver(screens[sessionId]!);
+                });
+                return true;
+            },
+            share
+        });
+        const drain = (): void => {
+            do {
+                socket.buffered = 0;
+                gate.onDrain();
+            } while (gate.waitingSessions().length > 0);
+        };
+        const outputs = (): string[] => socket.of('session.output').map((payload) => `${payload.sessionId}:${payload.data}`);
+        return { socket, gate, drain, outputs };
+    }
+
+    test('output goes at once while the channel holds less than the budget', () => {
+        const { gate, outputs } = shared();
+        gate.send(output('quiet', 'echo'));
+        expect(outputs()).toEqual(['quiet:echo']);
+        expect(gate.waitingSessions()).toEqual([]);
+    });
+
+    test('a quiet session waits behind one slice of a busy one, not behind its backlog', () => {
+        const { socket, gate, drain, outputs } = shared();
+        socket.buffered = share.budget;
+        gate.send(output('busy', 'b'.repeat(40)));
+        gate.send(output('quiet', 'echo'));
+        expect(outputs()).toEqual([]);
+        expect(gate.waitingSessions()).toEqual(['busy', 'quiet']);
+
+        socket.buffered = share.budget - 1;
+        gate.onDrain();
+        expect(outputs()).toEqual(['busy:bbbbbbbbbb']);
+        socket.buffered = share.budget - 1;
+        gate.onDrain();
+        expect(outputs()).toEqual(['busy:bbbbbbbbbb', 'quiet:echo']);
+
+        drain();
+        expect(outputs().slice(2)).toEqual(['busy:bbbbbbbbbb', 'busy:bbbbbbbbbb', 'busy:bbbbbbbbbb']);
+        expect(gate.waitingSessions()).toEqual([]);
+    });
+
+    test('waiting output joins the last slice while it has room and never splits a surrogate pair', () => {
+        const { socket, gate, drain, outputs } = shared();
+        socket.buffered = share.budget;
+        gate.send(output('busy', 'abc'));
+        gate.send(output('busy', 'defgh'));
+        gate.send(output('busy', 'ijk\u{1F600}lmn'));
+        drain();
+        expect(outputs()).toEqual(['busy:abcdefghij', 'busy:k\u{1F600}lmn']);
+    });
+
+    test('a session past its backlog loses its output, repaints from a screen and streams on, while another keeps its own', async () => {
+        const { socket, gate, drain, outputs } = shared();
+        socket.buffered = share.budget;
+        gate.send(output('quiet', 'echo'));
+        gate.send(output('busy', 'b'.repeat(30)));
+        gate.send(output('busy', 'b'.repeat(30)));
+        expect(gate.staleSessions()).toEqual(['busy']);
+        gate.send(output('busy', 'dropped while stale'));
+        expect(gate.waitingSessions()).toEqual(['quiet']);
+
+        drain();
+        await flush();
+        expect(outputs()).toEqual(['quiet:echo']);
+        expect(socket.of('session.resync')).toEqual([{ sessionId: 'busy', screen: 'screen-busy' }]);
+        expect(gate.staleSessions()).toEqual([]);
+
+        drain();
+        gate.send(output('busy', 'after'));
+        expect(outputs()).toEqual(['quiet:echo', 'busy:after']);
+    });
+
+    test('replies and events about no waiting session go at once, ahead of waiting output', () => {
+        const { socket, gate } = shared();
+        socket.buffered = share.budget;
+        gate.send(output('busy', 'waiting'));
+        gate.send({ id: 'r1', ok: true, result: {} });
+        gate.send({ type: 'event', event: 'chat.status', payload: { chatId: 'chat-1' } });
+        gate.send({ type: 'event', event: 'session.exit', payload: { sessionId: 'quiet', exitCode: 0 } });
+        gate.send({ id: 'r2', ok: true, result: {} });
+        expect(socket.frames.map((frame) => ('event' in frame ? frame.event : frame.id))).toEqual(['r1', 'chat.status', 'session.exit', 'r2']);
+    });
+
+    test('an event about a session follows the output it has waiting', () => {
+        const { socket, gate, drain } = shared();
+        socket.buffered = share.budget;
+        gate.send(output('busy', 'last words'));
+        gate.send({ type: 'event', event: 'session.exit', payload: { sessionId: 'busy', exitCode: 0 } });
+        expect(socket.events).toEqual([]);
+        drain();
+        expect(socket.events).toEqual(['session.output', 'session.exit']);
+    });
+
+    test('a screen taken for a session drops the output it has waiting and keeps its events', () => {
+        const { socket, gate, drain } = shared();
+        socket.buffered = share.budget;
+        gate.send(output('busy', 'in the screen'));
+        gate.send({ type: 'event', event: 'session.exit', payload: { sessionId: 'busy', exitCode: 0 } });
+        gate.send(output('quiet', 'echo'));
+        gate.screenTaken('busy');
+        drain();
+        expect(socket.frames.map((frame) => ('event' in frame ? `${frame.event}:${(frame.payload as { sessionId: string }).sessionId}` : 'reply'))).toEqual([
+            'session.exit:busy',
+            'session.output:quiet'
+        ]);
+    });
+
+    test('above the high-water mark output is dropped and repaired as without a share', async () => {
+        const { socket, gate, drain, outputs } = shared();
+        socket.buffered = HIGH_WATER_MARK + 1;
+        gate.send({ id: 'r1', ok: true, result: { big: true } });
+        gate.send(output('quiet', 'lost'));
+        expect(gate.staleSessions()).toEqual(['quiet']);
+        drain();
+        await flush();
+        expect(outputs()).toEqual([]);
+        expect(socket.of('session.resync')).toEqual([{ sessionId: 'quiet', screen: 'screen-quiet' }]);
+    });
+});

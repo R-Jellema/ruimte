@@ -160,6 +160,7 @@ export class SessionManager {
     private readonly lifecycleListeners = new Set<(session: Session, phase: 'created' | 'closed') => void>();
     private readonly creating = new Map<string, Promise<SessionInfo>>();
     private readonly sinks = new ClientSinks();
+    private readonly screenWatchers = new Map<string, Set<(sessionId: string) => void>>();
     private readonly observers = new Set<SessionSink>();
     private readonly exitListeners = new Set<(sessionId: string, exitCode: number) => void>();
     private readonly tokens = new Map<string, string>();
@@ -249,6 +250,22 @@ export class SessionManager {
 
     subscribe(clientId: string, sink: SessionSink): () => void {
         return this.sinks.subscribe(clientId, sink);
+    }
+
+    /* Hears every screen taken for this client, by whatever asked for it (`Session.snapshotFor`). */
+    observeScreens(clientId: string, listener: (sessionId: string) => void): () => void {
+        let watchers = this.screenWatchers.get(clientId);
+        if (watchers === undefined) {
+            watchers = new Set();
+            this.screenWatchers.set(clientId, watchers);
+        }
+        watchers.add(listener);
+        return () => {
+            watchers.delete(listener);
+            if (watchers.size === 0 && this.screenWatchers.get(clientId) === watchers) {
+                this.screenWatchers.delete(clientId);
+            }
+        };
     }
 
     /*
@@ -763,6 +780,11 @@ export class SessionManager {
                 motd: motdOf(contextHint(this.contextFor(options.id)), this.firstNotices(options.id)),
                 adapter: this.adapter,
                 deliver: (clientId, data) => this.emit(clientId, { event: 'session.output', payload: { sessionId: options.id, data } }),
+                screenTaken: (clientId) => {
+                    for (const watcher of this.screenWatchers.get(clientId) ?? []) {
+                        watcher(options.id);
+                    }
+                },
                 onExit: (exitCode) => this.handleExit(options.id, exitCode)
             });
         } catch (e) {

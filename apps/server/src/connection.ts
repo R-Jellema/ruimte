@@ -1,6 +1,6 @@
 import type { EventMap, PushAttentionEntry, ServerFrame } from '@ruimte/contracts';
 import type { ServerWebSocket } from 'bun';
-import { OutputGate } from './backpressure.ts';
+import { OutputGate, type OutputShare } from './backpressure.ts';
 import { sendEvent, type ClientAccess, type ClientConnection, type Dispatcher } from './dispatcher.ts';
 import { isLiveFrame, type LiveSink } from './client-sinks.ts';
 import type { SessionSink } from './sessions/manager.ts';
@@ -16,6 +16,8 @@ export interface ClientChannel {
     onClose(listener: () => void): void;
     // Called when the buffered amount fell back, so the output the gate dropped can be repaired.
     onDrain(listener: () => void): void;
+    /* For a channel slower than a terminal can print; without it every frame goes in the order it was sent. */
+    readonly outputShare?: OutputShare;
 }
 
 interface Subscribable {
@@ -44,7 +46,10 @@ export interface ConnectionServices {
         observeNotification?(listener: (alert: EventMap['push.notification']) => void): () => void;
         observeAttention?(listener: (entry: PushAttentionEntry) => void): () => void;
     };
-    sessions: Attachable & { get(sessionId: string): ScreenSource | undefined };
+    sessions: Attachable & {
+        get(sessionId: string): ScreenSource | undefined;
+        observeScreens?(clientId: string, listener: (sessionId: string) => void): () => void;
+    };
     chats: Attachable;
     browsers?: LiveAttachable;
     /* The pages the clients hold themselves, which the daemon only knows of while they say so. */
@@ -119,7 +124,8 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
                 session.snapshotFor(clientId, deliver);
                 return true;
             },
-            requestKeyFrame: ({ backendId, deviceId }) => services.devices?.requestKeyFrame(backendId, deviceId)
+            requestKeyFrame: ({ backendId, deviceId }) => services.devices?.requestKeyFrame(backendId, deviceId),
+            share: channel.outputShare
         });
         let closed = false;
         const client: ClientConnection = {
@@ -151,6 +157,7 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
                       services.presence?.observeAttention?.((entry) => sendEvent(client, 'push.attention', entry)) ?? (() => undefined),
                       services.presence?.observeNotification?.((alert) => sendEvent(client, 'push.notification', alert)) ?? (() => undefined),
                       services.sessions.subscribe(clientId, sink),
+                      services.sessions.observeScreens?.(clientId, (sessionId) => gate.screenTaken(sessionId)) ?? (() => undefined),
                       services.chats.subscribe(clientId, sink),
                       services.browsers?.subscribe(clientId, sink) ?? (() => undefined),
                       services.browserPages?.subscribe(clientId, sink) ?? (() => undefined),

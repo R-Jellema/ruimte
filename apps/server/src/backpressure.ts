@@ -20,6 +20,25 @@ export interface BackpressuredSocket {
 
 export type DeviceStream = Pick<DeviceFrame, 'backendId' | 'deviceId'>;
 
+/*
+ * How a channel that carries less than a terminal prints shares itself between sessions: once it holds
+ * `budget` bytes, output waits in the gate per session and goes round-robin, one slice per turn.
+ */
+export interface OutputShare {
+    budget: number;
+    /* Waiting output of one session past this many characters is dropped and repaired with a screen. */
+    backlogChars: number;
+    /* The most characters of one session in one frame, so no session waits behind a whole tick of another. */
+    sliceChars: number;
+}
+
+type Waiting = { kind: 'output'; data: string } | { kind: 'event'; frame: string };
+
+interface SessionQueue {
+    entries: Waiting[];
+    outputChars: number;
+}
+
 export interface OutputGateOptions {
     socket: BackpressuredSocket;
     /*
@@ -31,6 +50,8 @@ export interface OutputGateOptions {
     requestKeyFrame?(stream: DeviceStream): void;
     highWaterMark?: number;
     lowWaterMark?: number;
+    /* Without one, every frame goes to the socket in the order it was sent. */
+    share?: OutputShare;
 }
 
 /* The session a frame streams output for, or null for every other frame; only output is gated. */
@@ -53,10 +74,34 @@ function deviceStreamKey(stream: DeviceStream): string {
     return JSON.stringify([stream.backendId, stream.deviceId]);
 }
 
+/* The session an event other than output is about, so it never overtakes that session's waiting output. */
+function eventSessionId(frame: ServerFrame): string | null {
+    if (!('event' in frame)) {
+        return null;
+    }
+    const sessionId = (frame.payload as { sessionId?: unknown } | null)?.sessionId;
+    return typeof sessionId === 'string' ? sessionId : null;
+}
+
+/* Never between the halves of a surrogate pair, so every slice is text of its own. */
+function sliceEnd(data: string, start: number, sliceChars: number): number {
+    const end = Math.min(start + sliceChars, data.length);
+    const code = data.charCodeAt(end - 1);
+    return end < data.length && end - start > 1 && code >= 0xd800 && code <= 0xdbff ? end - 1 : end;
+}
+
+function outputFrame(sessionId: string, data: string): string {
+    return JSON.stringify({ type: 'event', event: 'session.output', payload: { sessionId, data } });
+}
+
 /*
  * Drops terminal output and live frames above the socket's high-water mark to bound memory. Once
  * drained, each affected session receives a fresh screen before streaming resumes, and each video
  * stream that lost a frame asks for a key frame.
+ *
+ * With a share, a busy terminal cannot hold back another: its output waits here, in a queue of its
+ * own, while replies and every other frame still go at once. An event about a session waits behind
+ * that session's output, and a screen taken for a session (`screenTaken`) drops the output it holds.
  */
 export class OutputGate {
     private readonly socket: BackpressuredSocket;
@@ -70,6 +115,9 @@ export class OutputGate {
     private readonly stale = new Set<string>();
     // Video streams that lost a frame; nothing but a key frame gets through until one does.
     private readonly awaitingKeyFrame = new Map<string, DeviceStream>();
+    private readonly share: OutputShare | null;
+    // In the order they get their next turn.
+    private readonly queues = new Map<string, SessionQueue>();
 
     constructor(options: OutputGateOptions) {
         this.socket = options.socket;
@@ -77,11 +125,17 @@ export class OutputGate {
         this.requestKeyFrame = options.requestKeyFrame ?? null;
         this.highWaterMark = options.highWaterMark ?? HIGH_WATER_MARK;
         this.lowWaterMark = options.lowWaterMark ?? LOW_WATER_MARK;
+        this.share = options.share ?? null;
     }
 
     /* The sessions still waiting for a screen; for tests and diagnostics. */
     staleSessions(): string[] {
         return [...this.stale];
+    }
+
+    /* The sessions whose output waits for its share, in the order of their turns; for tests and diagnostics. */
+    waitingSessions(): string[] {
+        return [...this.queues.keys()];
     }
 
     send(frame: ServerFrame): void {
@@ -96,10 +150,26 @@ export class OutputGate {
         }
         const sessionId = outputSessionId(frame);
         if (sessionId !== null && (this.paused || this.stale.has(sessionId))) {
-            this.stale.add(sessionId);
+            this.markStale(sessionId);
+            return;
+        }
+        if (this.share !== null && sessionId !== null) {
+            this.enqueueOutput(sessionId, ((frame as { payload: unknown }).payload as SessionOutputEvent).data, this.share);
+            this.pump();
+            return;
+        }
+        const about = this.share === null ? null : eventSessionId(frame);
+        const queue = about === null ? undefined : this.queues.get(about);
+        if (queue !== undefined) {
+            queue.entries.push({ kind: 'event', frame: JSON.stringify(frame) });
             return;
         }
         this.write(frame, sessionId);
+    }
+
+    /* A screen was taken for this session; the output still waiting for it is in that screen. */
+    screenTaken(sessionId: string): void {
+        this.dropOutput(sessionId);
     }
 
     /* A live frame in binary goes or is dropped exactly as the same frame in JSON would. */
@@ -122,14 +192,19 @@ export class OutputGate {
 
     /* Bun's `drain`: the socket has room again, so the sessions that lost output get their screen. */
     onDrain(): void {
-        if (!this.paused || this.socket.getBufferedAmount() > this.lowWaterMark) {
-            return;
+        if (this.paused) {
+            if (this.socket.getBufferedAmount() > this.lowWaterMark) {
+                return;
+            }
+            this.paused = false;
+            for (const stream of this.awaitingKeyFrame.values()) {
+                this.requestKeyFrame?.(stream);
+            }
         }
-        this.paused = false;
-        for (const stream of this.awaitingKeyFrame.values()) {
-            this.requestKeyFrame?.(stream);
+        this.pump();
+        if (this.stale.size > 0) {
+            void this.resync();
         }
-        void this.resync();
     }
 
     private behind(): boolean {
@@ -185,15 +260,80 @@ export class OutputGate {
         }
     }
 
+    private markStale(sessionId: string): void {
+        this.stale.add(sessionId);
+        this.dropOutput(sessionId);
+    }
+
+    /* Appends to the last slice while it has room, so the frames stay few while output waits. */
+    private enqueueOutput(sessionId: string, data: string, share: OutputShare): void {
+        let queue = this.queues.get(sessionId);
+        if (queue === undefined) {
+            queue = { entries: [], outputChars: 0 };
+            this.queues.set(sessionId, queue);
+        }
+        if (queue.outputChars + data.length > share.backlogChars) {
+            this.markStale(sessionId);
+            return;
+        }
+        queue.outputChars += data.length;
+        let start = 0;
+        const last = queue.entries.at(-1);
+        if (last?.kind === 'output' && last.data.length < share.sliceChars) {
+            start = sliceEnd(data, 0, share.sliceChars - last.data.length);
+            last.data += data.slice(0, start);
+        }
+        while (start < data.length) {
+            const end = sliceEnd(data, start, share.sliceChars);
+            queue.entries.push({ kind: 'output', data: data.slice(start, end) });
+            start = end;
+        }
+    }
+
+    // Events about the session stay: they never drop, and they still follow whatever went before them.
+    private dropOutput(sessionId: string): void {
+        const queue = this.queues.get(sessionId);
+        if (queue === undefined) {
+            return;
+        }
+        queue.entries = queue.entries.filter((entry) => entry.kind !== 'output');
+        queue.outputChars = 0;
+        if (queue.entries.length === 0) {
+            this.queues.delete(sessionId);
+        }
+    }
+
+    /* One entry per session per turn, while the socket holds less than the budget. */
+    private pump(): void {
+        const share = this.share;
+        if (share === null) {
+            return;
+        }
+        while (!this.paused && this.queues.size > 0 && this.socket.getBufferedAmount() < share.budget) {
+            const [sessionId, queue] = this.queues.entries().next().value!;
+            const entry = queue.entries.shift()!;
+            this.queues.delete(sessionId);
+            if (queue.entries.length > 0) {
+                this.queues.set(sessionId, queue);
+            }
+            if (entry.kind === 'event') {
+                this.write(entry.frame, null);
+                continue;
+            }
+            queue.outputChars -= entry.data.length;
+            this.write(outputFrame(sessionId, entry.data), sessionId);
+        }
+    }
+
     private firstStale(): string | undefined {
         return this.stale.values().next().value;
     }
 
-    private write(frame: ServerFrame | Uint8Array, sessionId: string | null): number {
-        const status = this.socket.send(frame instanceof Uint8Array ? frame : JSON.stringify(frame));
+    private write(frame: ServerFrame | Uint8Array | string, sessionId: string | null): number {
+        const status = this.socket.send(frame instanceof Uint8Array || typeof frame === 'string' ? frame : JSON.stringify(frame));
         if (status === 0 && sessionId !== null) {
             // Dropped rather than queued, so this session has a hole again whatever the queue does next.
-            this.stale.add(sessionId);
+            this.markStale(sessionId);
         }
         if (status <= 0 || this.socket.getBufferedAmount() > this.highWaterMark) {
             this.paused = true;

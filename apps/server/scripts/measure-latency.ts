@@ -112,7 +112,8 @@ async function serve(): Promise<void> {
         bufferedAmount: () => channel.bufferedAmount(),
         close: (code, reason) => channel.close(code, reason),
         onClose: (listener) => channel.onClose(listener),
-        onDrain: (listener) => channel.onDrain(listener)
+        onDrain: (listener) => channel.onDrain(listener),
+        outputShare: channel.outputShare
     });
 
     const authStore = new AuthStore(home);

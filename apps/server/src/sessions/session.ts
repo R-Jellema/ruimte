@@ -61,6 +61,8 @@ interface SessionOptions {
     motd?: string;
     hookToken: string;
     deliver(clientId: string, data: string): void;
+    /* A screen was taken for this client, so whatever it still holds back of this session's output is in it. */
+    screenTaken?(clientId: string): void;
     onExit(exitCode: number): void;
 }
 
@@ -106,6 +108,7 @@ export class Session {
     private readonly outputCwd: TerminalCwd;
     private readonly pty: PtyProcess;
     private readonly deliver: (clientId: string, data: string) => void;
+    private readonly screenTaken: (clientId: string) => void;
     private readonly onExit: (exitCode: number) => void;
     private readonly clients = new Map<string, ClientStream>();
     // The grid each client last fitted its node to; the PTY takes the one of the client active last.
@@ -137,6 +140,7 @@ export class Session {
         this.rows = options.rows;
         this.createdAt = Date.now();
         this.deliver = options.deliver;
+        this.screenTaken = options.screenTaken ?? (() => undefined);
         this.onExit = options.onExit;
         this.hookToken = options.hookToken;
         this.launch = options.launch ?? null;
@@ -282,6 +286,7 @@ export class Session {
             }
             const screen = asked.take();
             owner.snapshot = null;
+            this.screenTaken(clientId);
             for (const waiter of snapshot.waiters) {
                 waiter(screen);
             }

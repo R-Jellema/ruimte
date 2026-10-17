@@ -1,7 +1,15 @@
 import { deflateRawSync } from 'node:zlib';
-import { DIRECT_BINARY_PIECE_BYTES, DIRECT_DEFLATE_MIN_BYTES, FrameAssembler, splitBinaryFrame, splitDeflatedFrame, splitFrame } from '@ruimte/contracts';
+import {
+    DIRECT_BINARY_PIECE_BYTES,
+    DIRECT_DEFLATE_MIN_BYTES,
+    DIRECT_PIECE_CHARS,
+    FrameAssembler,
+    splitBinaryFrame,
+    splitDeflatedFrame,
+    splitFrame
+} from '@ruimte/contracts';
 import type { RTCDataChannel } from 'werift';
-import { LOW_WATER_MARK, SOCKET_BACKPRESSURE_LIMIT } from '../backpressure.ts';
+import { LOW_WATER_MARK, SOCKET_BACKPRESSURE_LIMIT, type OutputShare } from '../backpressure.ts';
 import type { ClientChannel } from '../connection.ts';
 import { errorText } from '../error-text.ts';
 
@@ -78,6 +86,17 @@ export const BINARY_LANE_BYTES = DIRECT_BINARY_PIECE_BYTES;
  * down: 8 MB took 4 s handed over at once and under 0.5 s in portions (`scripts/measure-wire.ts`).
  */
 export const TEXT_LANE_BYTES = 256 * 1024;
+
+/*
+ * A direct channel carries less than a terminal prints (`scripts/measure-latency.ts`), so terminal output
+ * waits in the output gate per session and a quiet terminal's echo waits behind one slice of a busy one,
+ * not behind its backlog. The budget is above the threshold the drain rides on, so the drain still comes.
+ */
+export const DIRECT_OUTPUT_SHARE: OutputShare = {
+    budget: 2 * BINARY_LANE_BYTES,
+    backlogChars: 4 * 1_048_576,
+    sliceChars: DIRECT_PIECE_CHARS
+};
 
 /*
  * A frame is split into pieces below the peer's max-message-size and joined again on arrival (see
@@ -202,6 +221,7 @@ export function directChannel(raw: RawDataChannel, backpressureLimit: number = S
         get deflating() {
             return deflating;
         },
+        outputShare: DIRECT_OUTPUT_SHARE,
         receiveWith(listener, limit) {
             reader = listener;
             maxChars = limit;

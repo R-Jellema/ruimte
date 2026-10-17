@@ -134,6 +134,52 @@ describe('Session.snapshotFor', () => {
         expect(await replay(steps)).toEqual(lines);
     });
 
+    test('output waiting for its share when the same client attaches again is in the new screen and not the stream', async () => {
+        const frames: ServerFrame[] = [];
+        const socket: BackpressuredSocket & { buffered: number } = {
+            buffered: 0,
+            send(data) {
+                frames.push(JSON.parse(String(data)) as ServerFrame);
+                return 1;
+            },
+            getBufferedAmount() {
+                return this.buffered;
+            }
+        };
+        const share = { budget: 1_000, backlogChars: 1_000_000, sliceChars: 100 };
+        const gate = new OutputGate({ socket, screenOf: () => false, share });
+        harness.manager.subscribe('c1', ({ event, payload }) => gate.send({ type: 'event', event, payload } as ServerFrame));
+        harness.manager.observeScreens('c1', (sessionId) => gate.screenTaken(sessionId));
+        await create('s1');
+        const session = harness.manager.get('s1')!;
+        const attach = async (id: string): Promise<void> => {
+            const result = await harness.manager.attach('s1', 'c1', 80, 24);
+            gate.send({ id, ok: true, result });
+        };
+        await attach('first');
+
+        socket.buffered = share.budget;
+        const lines = emitLines('s1', 0, 10);
+        session.flush();
+        expect(gate.waitingSessions()).toEqual(['s1']);
+        await attach('second');
+        expect(gate.waitingSessions()).toEqual([]);
+        lines.push(...emitLines('s1', 10, 20));
+        session.flush();
+        socket.buffered = 0;
+        gate.onDrain();
+
+        const steps: Step[] = [];
+        for (const frame of frames) {
+            if ('ok' in frame && frame.ok) {
+                steps.push({ screen: (frame.result as { screen: string }).screen });
+            } else if ('event' in frame && frame.event === 'session.output') {
+                steps.push({ output: (frame.payload as { data: string }).data });
+            }
+        }
+        expect(await replay(steps)).toEqual(lines);
+    });
+
     test('a second attach of the same client drops what the first one had buffered', async () => {
         const recorder = new Recorder();
         harness.manager.subscribe('c1', recorder.sink());
