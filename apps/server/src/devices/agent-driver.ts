@@ -348,10 +348,16 @@ export class DeviceDriver {
         }
     }
 
-    /* Reads the device clipboard, or writes it with `text`; an Android device reaches its clipboard only through a session, which this holds. */
+    /* Reads the device clipboard (never an iOS simulator's), or writes it with `text`; an Android device reaches its clipboard only through a session, which this holds. */
     async clipboard(caller: string, device: DeviceInfo, text: string | null): Promise<string> {
         if (!deviceTools(device).includes('clipboard')) {
             throw new CodedError('device-action-unavailable', `Ruimte cannot reach the clipboard of ${device.name}`);
+        }
+        // Simulator.app keeps the simulator's pasteboard in step with the Mac's, so reading it would read what the person copied.
+        if (text === null && device.platform === 'ios') {
+            throw new CodedError('device-action-unavailable', `An agent cannot read the clipboard of ${device.name}, which follows the clipboard of this Mac`, [
+                'note\tPutting text there with --text still works'
+            ]);
         }
         this.pass(caller, device, { kind: 'clipboard' });
         const holder = `agent:${caller}`;

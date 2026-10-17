@@ -510,6 +510,7 @@ const clipboardAction = defineActionVerb('device', {
     detail: [
         'prints\tclipboard\ttext\twhat the clipboard holds after the call, cut like a state line',
         'note\tPutting text there does not paste it; device type types into the field that has the focus',
+        'note\tThe clipboard of an iOS simulator follows the clipboard of the Mac, so it is only written, never read',
         ...TOOL_DETAIL,
         ...COMMON_DETAIL
     ],

@@ -86,7 +86,7 @@ and, where an item says so, a phone. Start with `bun run test:devices` and note 
   by its limit, and on an emulator past 3 minutes.
 - [ ] Erase a simulator and an emulator after the dialog: both start again empty; a phone offers no Erase.
 - [ ] Install an `.app` on a simulator, an `.apk` on an emulator and an `.ipa` on an iPhone, picked and dropped.
-- [ ] An agent with a line to a device sets the status bar, reads the clipboard, records 10 seconds and installs an
+- [ ] An agent with a line to a device sets the status bar, writes the clipboard (reading a simulator's is refused), records 10 seconds and installs an
   app from the project folder; a path outside it is refused, and Erase, Fold and Camera are not offered to it.
 - [ ] A Flutter launch: "Show device" opens the simulator `flutter run -d` names, and the web run opens in a browser.
 - [ ] The iPhone app on a device: the tools sheet of a simulator shows only what it announces; share a screenshot,

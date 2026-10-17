@@ -203,16 +203,22 @@ describe('DeviceDriver', () => {
         expect(admitted).toHaveLength(1);
     });
 
-    test('records for the seconds asked into the machine captures, and reads the clipboard through a session it holds', async () => {
+    test('records for the seconds asked into the machine captures, and writes the clipboard through a session it holds', async () => {
         const path = await driver.record('chat-1', SIMULATOR, 90, 'phone-node');
 
         expect(slept).toEqual([60_000]);
         expect(path.startsWith(join(home, 'device-captures', 'phone-node-'))).toBe(true);
         expect(backend.recordings).toEqual([{ file: path, stopped: true }]);
-        backend.clipboard = 'copied';
-        expect(await driver.clipboard('chat-1', SIMULATOR, null)).toBe('copied');
+        expect(await driver.clipboard('chat-1', SIMULATOR, 'pasted')).toBe('pasted');
+        expect(backend.clipboard).toBe('pasted');
         expect(backend.source.starts).toBe(1);
         expect(admitted.map((entry) => entry.step.kind)).toEqual(['record', 'clipboard']);
+    });
+
+    test('never reads the clipboard of a simulator, which follows the Mac', async () => {
+        backend.clipboard = 'copied on the Mac';
+        await expect(driver.clipboard('chat-1', SIMULATOR, null)).rejects.toMatchObject({ code: 'device-action-unavailable' });
+        expect(admitted).toHaveLength(0);
     });
 
     test('opens an app through the device tools', async () => {

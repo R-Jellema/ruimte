@@ -416,9 +416,9 @@ describe('ruimte-context device tools', () => {
         expect(backend.actions).toEqual([]);
     });
 
-    test('reads and writes the clipboard, and records for the seconds asked into the captures of the machine', async () => {
-        backend.clipboard = 'from the device';
-        expect(await run(['clipboard', 'phone-1'])).toEqual(['clipboard\t"from the device"']);
+    test('writes the clipboard but never reads a simulator one, and records for the seconds asked into the captures of the machine', async () => {
+        backend.clipboard = 'from the Mac';
+        expect((await run(['clipboard', 'phone-1']))[0]).toStartWith('refused\tdevice-action-unavailable\t');
         expect(await run(['clipboard', 'phone-1', '--text', 'mine'])).toEqual(['clipboard\t"mine"']);
         expect(backend.clipboard).toBe('mine');
 
@@ -467,7 +467,7 @@ describe('ruimte-context device tools', () => {
         control.control(SIMULATOR, 'pause');
 
         expect((await run(['set', 'phone-1', '--appearance', 'dark']))[0]).toStartWith('refused\tpaused\t');
-        expect((await run(['clipboard', 'phone-1']))[0]).toStartWith('refused\tpaused\t');
+        expect((await run(['clipboard', 'phone-1', '--text', 'mine']))[0]).toStartWith('refused\tpaused\t');
         expect(backend.actions).toHaveLength(1);
     });
 });
