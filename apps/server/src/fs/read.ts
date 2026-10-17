@@ -1,4 +1,4 @@
-import { lstat } from 'node:fs/promises';
+import { lstat, stat } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { FS_READ_MAX_TEXT_BYTES, isAudioMime, isImageMime, isModelMime, isPdfMime, isVideoMime, type FsReadResult } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
@@ -142,21 +142,19 @@ export interface FileStat {
 }
 
 /*
- * The path a read may touch. Absolute the way `fs.list` answers one, and never a symlink: a listing
- * is never walked into one either, so a link inside a folder cannot hand the viewer a file that
- * folder does not hold.
+ * The path a read may touch, absolute the way `fs.list` answers one. A link to a file reads as that
+ * file under the link's own name; where it leads is judged by `MachineHome`, which every file request
+ * passes first. A write never goes through a link.
  */
 async function statFile(path: string): Promise<FileStat> {
     if (path.includes('\0') || !isAbsolute(path)) {
         throw new ReadError('bad-path', 'A file is read by its absolute path');
     }
     const resolved = resolve(path);
-    const stats = await lstat(resolved).catch(() => null);
+    const entry = await lstat(resolved).catch(() => null);
+    const stats = entry?.isSymbolicLink() === true ? await stat(resolved).catch(() => null) : entry;
     if (!stats) {
-        throw new ReadError('not-found', 'That file is not there');
-    }
-    if (stats.isSymbolicLink()) {
-        throw new ReadError('not-a-file', 'That path is a symbolic link. Ruimte does not follow links.');
+        throw new ReadError('not-found', entry ? 'That link leads to nothing' : 'That file is not there');
     }
     if (!stats.isFile()) {
         throw new ReadError('not-a-file', 'That path is not a file');

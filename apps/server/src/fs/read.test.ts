@@ -280,11 +280,18 @@ describe('fs.read', () => {
         expect(await readFile(path)).toMatchObject({ kind: 'binary', mime: 'image/png' });
     });
 
-    test('refuses a link, a folder, a missing file and a path that is not absolute', async () => {
+    test('reads a link to a file as that file, and refuses a link to a folder or to nothing', async () => {
         await write('real.txt', 'kept');
         await symlink(join(root, 'real.txt'), join(root, 'link.txt'));
-        // A link is the one way a listed folder could hand the viewer a file it does not hold.
-        await expect(readFile(join(root, 'link.txt'))).rejects.toThrow(ReadError);
+        await symlink(root, join(root, 'folder-link'));
+        await symlink(join(root, 'gone.txt'), join(root, 'dangling.txt'));
+        expect(await readFile(join(root, 'link.txt'))).toMatchObject({ kind: 'text', text: 'kept' });
+        await expect(readFile(join(root, 'folder-link'))).rejects.toThrow(ReadError);
+        await expect(readFile(join(root, 'dangling.txt'))).rejects.toThrow(ReadError);
+    });
+
+    test('refuses a folder, a missing file and a path that is not absolute', async () => {
+        await write('real.txt', 'kept');
         await expect(readFile(root)).rejects.toThrow(ReadError);
         await expect(readFile(join(root, 'nothing.txt'))).rejects.toThrow(ReadError);
         await expect(readFile('relative.txt')).rejects.toThrow(ReadError);

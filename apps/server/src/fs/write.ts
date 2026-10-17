@@ -75,7 +75,7 @@ function openError(e: unknown, path: string): unknown {
         return new ReadError('not-found', 'That file is not there');
     }
     if (code === 'ELOOP') {
-        return new ReadError('not-a-file', 'That path is a symbolic link. Ruimte does not follow links.');
+        return new ReadError('not-a-file', 'That path is a symbolic link. Ruimte does not write through links.');
     }
     if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS') {
         return new WriteError('not-writable', `${path} cannot be written`);
