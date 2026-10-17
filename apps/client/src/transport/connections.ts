@@ -31,6 +31,7 @@ import { RemoteMirror } from '@/project/remote-mirror';
 import { nodesOfView, subscribeViewNodes } from '@/project/view-nodes';
 import { machineTransport, pool } from '@/transport';
 import { useOptionalConnection } from '@/transport/context';
+import { machineAnswers } from '@/transport/features';
 import type { Transport } from '@/transport/transport';
 import { LinkHold } from '@/transport/workspace-hold';
 
@@ -230,7 +231,8 @@ function connect(endpoint: Endpoint, onLoad: (connection: Connection, summary: P
                 offProject();
             };
         },
-        links: async (projectId) => (await connection.transport.request('remote.list', { projectId })).links,
+        links: async (projectId) =>
+            machineAnswers(connection.transport.connection, 'remote.list') ? (await connection.transport.request('remote.list', { projectId })).links : [],
         transportOf: (machineId) => machineTransport(endpointIdOfMachine(machineId)),
         renewPeer: (machineId) => peerRenewal.ensure(machineId)
     });

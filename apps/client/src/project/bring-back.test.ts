@@ -17,8 +17,9 @@ function there(files: number, branch: string | null, log: Array<{ type: string; 
     };
 }
 
-function here(log: Array<{ type: string; payload: unknown }>) {
+function here(log: Array<{ type: string; payload: unknown }>, features: RequestType[] = ['git.identity']) {
     return {
+        connection: { features } as never,
         async request<T extends RequestType>(type: T, payload: RequestMap[T]['payload']): Promise<RequestMap[T]['result']> {
             log.push({ type, payload });
             if (type === 'git.identity') {
@@ -60,5 +61,13 @@ describe('bringBack', () => {
         const result = await bringBack({ ...REQUEST, there: there(0, null, thereLog), here: here([]) });
         expect(thereLog.find((entry) => entry.type === 'git.bundle')?.payload).toMatchObject({ from: 'head' });
         expect(result.name).toBe('Agent');
+    });
+
+    test('a machine that names no git.identity is not asked for it and gets the whole history', async () => {
+        const thereLog: Array<{ type: string; payload: unknown }> = [];
+        const hereLog: Array<{ type: string; payload: unknown }> = [];
+        await bringBack({ ...REQUEST, there: there(2, 'atlas', thereLog), here: here(hereLog, []) });
+        expect(hereLog.some((entry) => entry.type === 'git.identity')).toBe(false);
+        expect(thereLog.find((entry) => entry.type === 'git.bundle')?.payload).toMatchObject({ haves: [] });
     });
 });

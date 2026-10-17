@@ -29,7 +29,7 @@ import { useUi, type RemoteNodeRequest } from '@/state/ui';
 import { remoteMirror, useWorkspace } from '@/transport/connections';
 import { NodeMachineScope } from '@/transport/node-machine';
 import { transportFor } from '@/transport';
-import { useMachineAnswers } from '@/transport/features';
+import { machineAnswers, useMachineAnswers } from '@/transport/features';
 import { useLastSeenAt } from '@/transport/status';
 import { formatBytes } from '@adecore/ui/format';
 import { Button, Dialog, ErrorBoundary, FieldHint, FormError, Icon, Select, Skeleton, Switch, messageOf, useNow } from '@adecore/ui';
@@ -160,14 +160,13 @@ function RemoteNodeForm({
         setOpening(true);
         setFailure(null);
         try {
-            const opened = await transportFor(machineEndpointId)!.request('project.open', { folder });
+            const there = transportFor(machineEndpointId)!;
+            const opened = await there.request('project.open', { folder });
             // Looking at a folder does not keep its project open there.
-            void transportFor(machineEndpointId)!
-                .request('project.release', { projectId: opened.summary.projectId })
-                .catch(() => undefined);
-            const { identities } = await transportFor(machineEndpointId)!
-                .request('git.identity', { paths: [opened.summary.folder] })
-                .catch(() => ({ identities: [] }));
+            void there.request('project.release', { projectId: opened.summary.projectId }).catch(() => undefined);
+            const { identities } = machineAnswers(there.connection, 'git.identity')
+                ? await there.request('git.identity', { paths: [opened.summary.folder] }).catch(() => ({ identities: [] }))
+                : { identities: [] };
             const identity = identities[0];
             const known = identity === undefined || 'error' in identity ? null : identity;
             const ours = new Set(checkouts.state === 'ready' ? (checkouts.here?.rootCommits ?? []) : []);

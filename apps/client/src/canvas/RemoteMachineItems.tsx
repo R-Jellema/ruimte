@@ -25,7 +25,7 @@ function useLinks(): RemoteLink[] {
     const projectId = useProject((s) => s.current?.projectId ?? null);
     const [links, setLinks] = useState<RemoteLink[]>([]);
     useEffect(() => {
-        if (workspace === null || projectId === null) {
+        if (workspace === null || projectId === null || !machineAnswers(workspace.connection.transport.connection, 'remote.list')) {
             return;
         }
         let current = true;

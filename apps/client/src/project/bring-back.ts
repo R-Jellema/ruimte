@@ -1,12 +1,13 @@
 import type { GitFetchBundleResult } from '@ruimte/contracts';
 import { handOff, type BundleSource, type BundleTarget } from '@/project/bundle-transfer';
+import { machineAnswers } from '@/transport/features';
 import type { Transport } from '@/transport/transport';
 
 export interface BringBackRequest {
     /* The machine the node works on. */
     there: BundleSource & Pick<Transport, 'request'>;
     /* The machine the project lives on. */
-    here: BundleTarget;
+    here: BundleTarget & Pick<Transport, 'connection'>;
     /* The folder the node works in, on `there`. */
     cwd: string;
     /* The project's folder and id, on `here`. */
@@ -29,7 +30,9 @@ export async function bringBack(request: BringBackRequest): Promise<GitFetchBund
     }
     const dirty = status.files.length > 0;
     const from = dirty ? 'files' : status.branch === null ? 'head' : 'branch';
-    const identity = (await request.here.request('git.identity', { paths: [request.folder] }).catch(() => ({ identities: [] }))).identities[0];
+    const identity = machineAnswers(request.here.connection, 'git.identity')
+        ? (await request.here.request('git.identity', { paths: [request.folder] }).catch(() => ({ identities: [] }))).identities[0]
+        : undefined;
     const name = status.branch ?? (request.title.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'work');
     const result = await handOff({
         from: request.there,

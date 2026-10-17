@@ -60,11 +60,15 @@ export function useRemoteCheckouts(
                 const [mine, listed, links] = await Promise.all([
                     identityHere(here, folder),
                     there.request('project.list', {}),
-                    projectId === null ? Promise.resolve({ links: [] }) : here.request('remote.list', { projectId }).catch(() => ({ links: [] }))
+                    projectId === null || !machineAnswers(here.connection, 'remote.list')
+                        ? Promise.resolve({ links: [] })
+                        : here.request('remote.list', { projectId }).catch(() => ({ links: [] }))
                 ]);
                 const projects = listed.projects.filter((project) => project.available).slice(0, 50);
                 const { identities } =
-                    projects.length === 0 ? { identities: [] } : await there.request('git.identity', { paths: projects.map((project) => project.folder) });
+                    projects.length === 0 || !machineAnswers(there.connection, 'git.identity')
+                        ? { identities: [] }
+                        : await there.request('git.identity', { paths: projects.map((project) => project.folder) });
                 // The folder there of the project this one is linked to already, which linking again keeps the nodes in.
                 const linked = links.links.find((link) => link.machineId === machineId);
                 const linkedFolder = listed.projects.find((project) => project.projectId === linked?.remoteProjectId)?.folder ?? null;
