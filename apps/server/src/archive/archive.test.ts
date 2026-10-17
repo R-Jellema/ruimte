@@ -163,6 +163,17 @@ describe('reading one entry', () => {
         await expect(readArchiveEntry(path, 'zeros.bin')).rejects.toMatchObject({ code: 'entry-too-large' });
     });
 
+    test('reads a tar entry that lies past the first preview cap of the stream', async () => {
+        const path = await put(
+            'late.tar',
+            buildTar([
+                { name: 'first.bin', data: new Uint8Array(BYTES_READ_MAX_BYTES + 512) },
+                { name: 'late.txt', data: 'late' }
+            ])
+        );
+        expect(new TextDecoder().decode((await readArchiveEntry(path, 'late.txt')).bytes)).toBe('late');
+    });
+
     test('stops a zip bomb while it inflates, whatever the header claims', async () => {
         const path = await put('bomb.zip', buildZip([{ name: 'zeros.bin', data: new Uint8Array(20 * 1024 * 1024) }]));
         await expect(readArchiveEntry(path, 'zeros.bin')).rejects.toMatchObject({ code: 'too-compressed' });

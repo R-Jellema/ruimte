@@ -269,7 +269,9 @@ function entryTooLarge(entry: string): ArchiveError {
 
 async function readEntry(archive: ArchiveFile, entry: string): Promise<Uint8Array> {
     const found: { bytes: Uint8Array | null } = { bytes: null };
-    await walkArchive(archive, { maxBytes: BYTES_READ_MAX_BYTES, tooLarge: () => entryTooLarge(entry) }, async (walked) => {
+    // A tar meters its whole stream, so the walk gets the scan's budget and `collect` bounds the entry itself.
+    const tooLarge = (): Error => new ArchiveError('too-large', `${entry} lies further into this archive than this machine unpacks`);
+    await walkArchive(archive, { maxBytes: ARCHIVE_SCAN_MAX_BYTES, tooLarge }, async (walked) => {
         if (walked.path !== entry) {
             return false;
         }
