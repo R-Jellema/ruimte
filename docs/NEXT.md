@@ -11,7 +11,7 @@ Reviewed on October 15, 2026.
 | Package                         | Priority                                    | Depends on                                    |
 | ------------------------------- | ------------------------------------------- | --------------------------------------------- |
 | 2. Status routing and cleanup   | Next                                        | Nothing                                       |
-| 3. Measurements                 | Early                                       | Nothing for a baseline                        |
+| 3. Measurements                 | Hardware runs; 3.7 next                     | Baseline done (October 17)                    |
 | 4. Keyboard and settings        | Next                                        | Nothing                                       |
 | 5. File entry points            | Next; 5.1 from 0.20                         | Nothing                                       |
 | 6. Terminal                     | Next                                        | 4 for new bindings                            |
@@ -41,17 +41,19 @@ that it runs at start only, and `ruimte notify` refuses without the local secret
 
 ## 3. Measurements
 
-2. Add a dev-only palette command that builds a reproducible 30-node scene; measure input latency, frame time, heap
-   and mount counts for terminals, chats and files, then nine grid cells and ten large file nodes.
-3. Measure the ten-context WebGL budget on representative hardware and under context loss before changing it.
-4. Measure Electron heap, frames and latency for a 100-idle-chat fixture before touching cache or GC policy.
-5. Run `bun run --cwd apps/server measure:latency --channel both --seconds 60` three times on power and keep the
-   median. Add fair per-session limits only when p95 of the reply or quiet-session time under load is above
-   100 ms or 3x the idle p95; dropped terminal output then repairs through `session.resync`.
-6. Measure workspace startup and the composer chunk; split CodeMirror only when that shows a gain.
+The baseline of October 17 is in [its report](reports/2026-10-17-measurements.html). The scenes and the recorder
+are built (the "Measure:" rows of a dev build's palette); what needs the Electron app and real hardware is under
+"Measurements" in [ACCEPTANCE.md](ACCEPTANCE.md): the 30-node scene, nine cells and ten large files, the WebGL
+budget under context loss, 100 idle chats, and workspace startup, which decides whether CodeMirror is split.
 
-Done when baseline, hardware, build, fixture sizes and results are recorded with units, and a measured regression
-has a bounded follow-up.
+7. Fair per-session output limits on the direct channel. Under load its quiet-session echo p95 is 5008 ms against
+   18.8 ms idle, and its reply p95 19.5 ms against 0.7 ms; the socket's echo stays at 18.9 ms. First repeat it
+   with Chromium on the client side (ACCEPTANCE.md); werift may be part of the stall. Then give each session a
+   share of the channel so a busy terminal cannot hold back another, with dropped output repairing through
+   `session.resync`. Done when three runs of `measure:latency --channel both --seconds 60` on power answer all 240
+   echo probes on both channels and keep the echo and reply p95 under load within 100 ms and 3x idle. The socket's
+   reply p95 (1.7 ms against 0.2 ms idle) trips the 3x clause below 2 ms; leave the socket alone unless its echo
+   moves.
 
 ## 4. Keyboard and settings
 
