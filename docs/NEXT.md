@@ -4,7 +4,7 @@ Open implementation and decisions only, in a recommended order. Each numbered pa
 split a larger one into issues when work starts. Manual checks, device runs and deployment checks live in
 [ACCEPTANCE.md](ACCEPTANCE.md); history and evidence live in reports. Remove a step once it is built and verified.
 
-Reviewed on October 15, 2026.
+Reviewed on October 17, 2026.
 
 ## Order
 
@@ -85,8 +85,8 @@ Done when a location opens the right line from every entry point and an older cl
    query.
 4. Save pasted images under `<folder>/.ruimte/images` (or `$RUIMTE_HOME/images/<project>`) as file nodes; a failed
    write shows a toast and makes no node; "Clean up unused images" is the only removal.
-5. Color and arrowheads on plain lines, keeping the meaning of context, target and origin edges. A note's first
-   heading follows its title while it still equals the old title.
+5. Color and arrowheads on edges between nodes, as free canvas lines already have them, keeping the meaning of
+   context, target and origin edges. A note's first heading follows its title while it still equals the old title.
 
 Done when geometry changes undo cleanly and image, line and note data survive save and reload.
 
@@ -111,8 +111,6 @@ Gemini and Copilot only have their default account.
 
 ## 10. Remote access and media
 
-1. Find why the iPhone's direct connection drops during the 56 Mbit/s video (ICE, channel, broker and media
-   events) and fix the cause before adding buffering.
 2. Desktop spool or read-ahead for audio and video, only if the measurement in ACCEPTANCE.md shows a gain.
 4. Move the broker to its production server with health checks and rollback, then remove the test droplet.
 
@@ -142,8 +140,9 @@ Source: [the provider research](reports/2026-09-25-provider-research.html).
 
 ## 15. Language servers
 
-4. Further native servers (Rust, Go, Swift, TOML, Lua, Zig, Markdown) only after their install and execution rules
-   are set, especially for project code, build scripts and proc macros in agent worktrees.
+4. Further native servers (Go, Swift, TOML, Lua, Zig, Markdown) only after their install and execution rules are
+   set. Work from another machine already gets no server that runs project code (`runsProjectCode`); still open is
+   what such a server may run in a person's own agent worktrees, such as build scripts and proc macros.
 5. Remaining limits, each in its own package or host: a file view keeps its old path after a move; project-wide
    diagnostics; column-precise navigation; peek highlighting and more than thirty files; review rows hiding
    unchanged ranges; on-device help for non-function symbols, Explain in the context menu, suggestions while typing.
@@ -165,7 +164,7 @@ panels, no executable code.
 
 ## Decisions
 
-- 15.4: the execution rules for further language servers.
+- 15.4: the execution rules for further language servers in a person's own agent worktrees.
 - After switching to no machine of its own, a window on another machine comes back alone, without a start screen
   beside it; changing that needs `@adecore/shell`.
 
