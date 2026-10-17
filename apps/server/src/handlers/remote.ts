@@ -15,7 +15,7 @@ export interface PeerLinkHost {
     peerPublicKey(): Promise<string>;
     pending: PendingAdmissions;
     machines: Pick<PeerMachines, 'put' | 'remove'>;
-    connections: Pick<RemoteConnections, 'connect' | 'close'>;
+    connections: Pick<RemoteConnections, 'connectWithStatement' | 'close'>;
     /* The keys the address book signs with. */
     trustedKeys: readonly string[];
     accountBinding(): Promise<AccountBinding | null | undefined>;
@@ -118,7 +118,7 @@ export function registerRemoteHandlers(dispatcher: Dispatcher, remote: RemoteSto
         await peers.machines.put({ machineId, publicKey: statement.machinePublicKey, ...(brokerUrl ? { brokerUrl } : {}) }, peers.now());
         peers.pending.hold(statement);
         try {
-            await peers.connections.connect(machineId);
+            await peers.connections.connectWithStatement(machineId);
         } catch (e) {
             throw new RequestError('peer-unreachable', e instanceof Error ? e.message : 'That machine did not answer');
         }

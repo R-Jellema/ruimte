@@ -10,6 +10,7 @@ import {
     accessStatementMessage,
     accessStatementV2Message,
     peerStatementMessage,
+    signalMessage,
     type AccessStatement,
     type PeerStatement,
     type SignalAccess,
@@ -19,6 +20,7 @@ import { AuthStore, PEER_ATTESTATION_TTL_MS } from '../auth/auth-store.ts';
 import { Handshake } from '../auth/handshake.ts';
 import { PeerLinks } from '../peering/links.ts';
 import { generateKeyPair, signMessage } from '../auth/keys.ts';
+import { SignalGate } from './signal-gate.ts';
 import { STATEMENT_CLOCK_SKEW_MS, StatementGate, TEST_STATEMENT_KEY_VARIABLE, checkPeerStatement, checkStatement, trustedStatementKeys } from './statement.ts';
 
 const MACHINE_ID = 'machine-under-test';
@@ -578,6 +580,39 @@ describe('StatementGate and a peer', () => {
         expect(await store.list(null)).toHaveLength(1);
         // The links a person made here belong to the machine, not to its attestation.
         expect(links.linkOf('machine-a', 'project-1')).toMatchObject({ ceiling: 'auto-accept-edits' });
+    });
+
+    test('a peer that is still let in renews its thirty days with the statement its next offer carries', async () => {
+        const peer = generateKeyPair();
+        expect(await gate().admit(peer.publicKey, offer(peerStatementFor(peer.publicKey, 'owner')))).toBe('admitted');
+        const passed: string[] = [];
+        const signals = new SignalGate({
+            publicKey: machine.publicKey,
+            isPaired: async (publicKey) => (await store.sessionForPublicKey(publicKey)) !== null,
+            admitStatement: (publicKey, statementAccess) => gate().admit(publicKey, statementAccess),
+            receive: (envelope) => passed.push(envelope.connectionId),
+            now: () => now
+        });
+        const send = (connectionId: string, access?: SignalOfferAccess) => {
+            const envelope = { connectionId, signal: { kind: 'offer' as const, sdp: 'v=0', ...(access === undefined ? {} : { access }) } };
+            return signals.accept(
+                peer.publicKey,
+                envelope,
+                signMessage(peer.privateKey, signalMessage(peer.publicKey, machine.publicKey, envelope)),
+                () => undefined
+            );
+        };
+
+        now += PEER_ATTESTATION_TTL_MS - 5 * 24 * 60 * 60 * 1000;
+        const renewed = peerStatementFor(peer.publicKey, 'owner', { issuedAt: now, expiresAt: now + 600_000 });
+        expect(await send('renewal-0001', offer(renewed))).toBe('passed');
+        expect(await store.attestedUntil('machine-a')).toBe(now + PEER_ATTESTATION_TTL_MS);
+
+        // A statement that does not hold up, here one already spent, leaves a key that is let in as it was.
+        now += 1_000;
+        expect(await send('renewal-0002', offer(renewed))).toBe('passed');
+        expect(await store.attestedUntil('machine-a')).toBe(now - 1_000 + PEER_ATTESTATION_TTL_MS);
+        expect(passed).toEqual(['renewal-0001', 'renewal-0002']);
     });
 
     test('an expired peer cannot prove its key on a channel until it is renewed', async () => {

@@ -11,7 +11,6 @@ import { projectLinks } from '../projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { PeerMachines } from '../remote/peer-machines.ts';
 import { PendingAdmissions } from '../remote/pending-admissions.ts';
-import type { PeerLink } from '../remote/peer-connection.ts';
 import { registerRemoteHandlers } from './remote.ts';
 
 let root: string;
@@ -96,12 +95,11 @@ beforeEach(async () => {
         pending,
         machines,
         connections: {
-            connect: async (machineId) => {
+            connectWithStatement: async (machineId) => {
                 attempts.push(machineId);
                 if (connectFails) {
                     throw new Error('That machine is not online');
                 }
-                return {} as PeerLink;
             },
             close: (machineId) => closed.push(machineId)
         },

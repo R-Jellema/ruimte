@@ -37,14 +37,20 @@ export class SignalGate {
     /*
      * An invalid signature is dropped without an answer, so nobody gets this machine to sign a reply of
      * their choosing. A valid offer from a key the machine does not know is answered `not-paired`,
-     * unless the statement it carries lets that key in first.
+     * unless the statement it carries lets that key in first. A peer statement from a key it knows renews
+     * the 30 days that machine is vouched for, and one that does not hold up leaves the key as paired as it was.
      */
     async accept(from: string, envelope: SignalEnvelope, signature: string, reply: (envelope: SignalEnvelope) => void): Promise<GateOutcome> {
         if (!verifySignature(from, signalMessage(from, this.options.publicKey, envelope), signature)) {
             (this.options.log ?? console).warn('Dropped a signal whose signature does not verify');
             return 'dropped';
         }
-        if (!(await this.options.isPaired(from))) {
+        if (await this.options.isPaired(from)) {
+            const { signal } = envelope;
+            if (signal.kind === 'offer' && signal.access !== undefined && 'peer' in signal.access && this.options.admitStatement) {
+                await this.options.admitStatement(from, signal.access);
+            }
+        } else {
             const { signal } = envelope;
             if (signal.kind !== 'offer') {
                 return 'refused';

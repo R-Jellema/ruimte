@@ -134,6 +134,23 @@ export class RemoteConnections {
         return attempt;
     }
 
+    /*
+     * Opens the link with the statement a person's window just handed over, so the machine vouches for this
+     * one anew. A link that was open already, or was being made without that statement, stays as it is:
+     * the statement goes over a link of its own, which closes once the machine took it.
+     */
+    async connectWithStatement(machineId: string): Promise<void> {
+        await this.connect(machineId);
+        const statement = this.options.pending.peek(machineId);
+        const machine = this.options.machines.get(machineId);
+        if (statement === null || machine === null) {
+            return;
+        }
+        const renewal = await this.options.dialer.dial(machine, statement);
+        renewal.close();
+        this.options.pending.release(machineId, statement);
+    }
+
     /* Closes the link on purpose, such as when the machine is unlinked; nobody is told it was lost, and an attempt still running keeps nothing. */
     close(machineId: string): void {
         this.generations.set(machineId, this.generationOf(machineId) + 1);
@@ -210,7 +227,9 @@ export class RemoteConnections {
             throw new RemoteLinkError('closed', 'The link was closed while it was being made');
         }
         // The machine let this key in, so the statement has done what it was for.
-        this.options.pending.release(machineId);
+        if (statement !== null) {
+            this.options.pending.release(machineId, statement);
+        }
         this.links.set(machineId, link);
         link.onLost(() => this.lost(machineId, link));
         link.onFrame((raw) => {

@@ -102,6 +102,28 @@ describe('the links to other machines', () => {
         expect(heard).toEqual(['connecting:0', 'open:0']);
     });
 
+    test('hands a statement to a machine whose link is open over a link of its own, and keeps the open one', async () => {
+        const open = new FakeLink();
+        next = async () => open;
+        await connections.connect('machine-b');
+        const renewal = new FakeLink();
+        next = async () => renewal;
+        pending.hold(statement());
+        await connections.connectWithStatement('machine-b');
+        expect(dials).toEqual([null, statement()]);
+        expect(renewal.closed).toBe(true);
+        expect(open.closed).toBe(false);
+        expect(connections.link('machine-b')).toBe(open);
+        expect(pending.peek('machine-b')).toBeNull();
+    });
+
+    test('opens a closed link with the statement and dials no second time', async () => {
+        pending.hold(statement());
+        await connections.connectWithStatement('machine-b');
+        expect(dials).toEqual([statement()]);
+        expect(connections.isOpen('machine-b')).toBe(true);
+    });
+
     test('hands the open link out without dialing again, and shares one attempt between callers', async () => {
         const [one, two] = await Promise.all([connections.connect('machine-b'), connections.connect('machine-b')]);
         expect(one).toBe(two);

@@ -35,7 +35,10 @@ export class PendingAdmissions {
         this.statements.clear();
     }
 
-    release(machineId: string): void {
-        this.statements.delete(machineId);
+    /* With `statement`, only while that one is still the one held, so a newer statement handed over meanwhile stays. */
+    release(machineId: string, statement?: PeerStatement): void {
+        if (statement === undefined || this.statements.get(machineId) === statement) {
+            this.statements.delete(machineId);
+        }
     }
 }
