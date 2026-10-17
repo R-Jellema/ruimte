@@ -27,6 +27,7 @@ const VERB_LOOKS: Record<ContextVerb, VerbLook> = {
     answer: { name: 'Message', from: 0 },
     agent: { name: 'Agent', from: 1 },
     team: { name: 'Team', from: 1 },
+    fork: { name: 'Agent', from: 0 },
     flag: { name: 'Flag', from: 1 },
     node: { name: 'Canvas', from: 0 },
     link: { name: 'Canvas', from: 0 },

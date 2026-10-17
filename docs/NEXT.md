@@ -16,7 +16,7 @@ Reviewed on October 17, 2026.
 | 5. File entry points            | Next; 5.1 from 0.20                         | Nothing                                       |
 | 6. Terminal                     | Next                                        | 4 for new bindings                            |
 | 7. Canvas ergonomics            | Next                                        | 4 for bindings; baseline from 3               |
-| 8. Chat depth                   | First for 8.6                               | Nothing                                       |
+| 8. Chat depth                   | Next                                        | Nothing                                       |
 | 9. Accounts                     | Next                                        | Nothing                                       |
 | 10. Remote access and media     | Next                                        | Measurements from 3                           |
 | 11. iOS devices                 | Next                                        | Nothing                                       |
@@ -93,8 +93,6 @@ Done when geometry changes undo cleanly and image, line and note data survive sa
 ## 8. Chat depth
 
 2. A settled question stays outside its turn fold, and workflow members show in the activity list.
-6. Fork for agents through the action registry and the context CLI: only a chat the agent opened, within its
-   ceiling, counting toward depth.
 7. Restore files to this turn: only the files the turn changed; a file changed since is a conflict, restored only
    when ticked in the diff.
 

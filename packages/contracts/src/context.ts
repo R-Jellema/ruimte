@@ -35,6 +35,7 @@ export const CONTEXT_VERBS = [
     'answer',
     'agent',
     'team',
+    'fork',
     'flag',
     'node',
     'link',

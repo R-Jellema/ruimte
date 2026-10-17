@@ -7,7 +7,7 @@ import type { CanvasHost, VisualHost } from '../canvas/verb.ts';
 import { AttachmentStore, ChatStore, VisualStore } from '@adecore/agents/chat';
 import { ChatManager } from '../chat/chat-manager.ts';
 import { continueOn } from '../chat/continue-on.ts';
-import { chatForkDeps, forkChat, readForkInfo, readHandoff } from '../chat/fork.ts';
+import { chatForkDeps, forkChat, forkForAgent, readForkInfo, readHandoff } from '../chat/fork.ts';
 import { fakeClaude, fakeCodex, inProcess, type FakeCli, type InProcessCli } from '@adecore/agents/testing';
 import { agentMessages } from '../context/agent-messages.ts';
 import { MESSAGE_WORDS } from '../context/notices.ts';
@@ -425,9 +425,11 @@ export async function bootTestDaemon({
         host,
         titleFor: (id) => store.index.titleFor(id),
         lineage,
+        hiddenAgents: store.hiddenAgents,
         ...(worktrees ? { worktrees } : {}),
         ...(checkpoints instanceof Checkpoints ? { checkpoints } : {})
     });
+    host.forks = { fork: (input, opener) => forkForAgent(forkDeps, input, opener) };
     registerChatHandlers(
         dispatcher,
         chats,

@@ -492,6 +492,7 @@ describe('the tree', () => {
             'answer',
             'agent',
             'team',
+            'fork',
             'flag'
         ]);
         for (const { noun, action } of allActions()) {

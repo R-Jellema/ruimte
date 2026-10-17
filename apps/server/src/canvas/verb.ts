@@ -6,6 +6,7 @@ import {
     type AgentStatus,
     type BrowserDriveAction,
     type ChatAttachment,
+    type ChatForkResult,
     type ChatVisual,
     type GitDiffResult,
     type LaunchConfigKind,
@@ -36,6 +37,7 @@ import type { NoticeDelivery } from '../context/notices.ts';
 import type { PlanStore } from '../plans/plan-store.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
 import type { HiddenAgentStore } from '../agents/hidden-agents.ts';
+import type { AgentForkInput, ForkOpener } from '../chat/fork.ts';
 import type { StartClaims } from '../actions/start-claims.ts';
 import type { VisualPreview } from '../visuals/renderer.ts';
 import type { StartRemoteAgentPayload } from '../outbox/outbox.ts';
@@ -105,6 +107,8 @@ export interface CanvasHost {
     agents?: AgentStateHost;
     /* What the chats of agent nodes ask and wait on, which `answer` reaches. */
     requests?: ChatRequestHost;
+    /* Forks a chat an agent opened into a child of that agent; absent on a host that forks none. */
+    forks?: AgentForkHost;
     /* Operating the apps of this machine through its helper; absent on a host without one. */
     computer?: ComputerHost;
     /* Seeing and operating the device under a device node; absent on a host without devices. */
@@ -283,6 +287,10 @@ export interface AgentStateHost {
 }
 
 export type ChatRequestHost = ChatRequests;
+
+export interface AgentForkHost {
+    fork(input: AgentForkInput, opener: ForkOpener): Promise<ChatForkResult & { title: string }>;
+}
 
 /*
  * What a verb reaches a page through. One door for both kinds of page: one this machine runs itself

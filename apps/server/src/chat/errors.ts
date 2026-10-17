@@ -11,6 +11,9 @@ type RuimteChatErrorCode =
     | 'branch-exists'
     | 'worktree-failed'
     | 'checkpoint-missing'
+    // What only an agent's fork is refused with.
+    | 'not-a-chat'
+    | 'no-turn'
     // What a summary is refused with.
     | 'not-a-fork'
     | 'original-gone'

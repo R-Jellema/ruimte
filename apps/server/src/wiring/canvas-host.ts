@@ -2,6 +2,7 @@ import { chatRequests } from '@adecore/agents/coordination';
 import { agentStates } from '../agents/agent-state.ts';
 import { openedAgentCount } from '../agents/hidden-agents.ts';
 import type { CanvasHost } from '../canvas/verb.ts';
+import { chatForkDeps, forkForAgent } from '../chat/fork.ts';
 import { agentMessages } from '../context/agent-messages.ts';
 import type { EndpointIdentity } from '../endpoint-id.ts';
 import { worktreeHost } from '../git/worktree-host.ts';
@@ -46,7 +47,7 @@ export function wireCanvasHost(input: CanvasHostInput): CanvasHost {
     const { sessions, chats } = agents;
     const { store: projects } = input.projects;
     const enqueue = work.worker.enqueue.bind(work.worker);
-    return {
+    const host: CanvasHost = {
         projects,
         hiddenAgents: projects.hiddenAgents,
         startClaims: input.projects.startClaims,
@@ -100,4 +101,15 @@ export function wireCanvasHost(input: CanvasHostInput): CanvasHost {
         proposals: { inChats: (chatId) => chatIsInChats(projects, chatId), propose: (ask) => Promise.resolve(agents.proposals.ask(ask)) },
         snoozes: work.snoozes
     };
+    const forkDeps = chatForkDeps({
+        chats,
+        host,
+        titleFor: (id) => projects.index.titleFor(id),
+        lineage,
+        hiddenAgents: projects.hiddenAgents,
+        worktrees: git.worktrees,
+        checkpoints: agents.checkpoints
+    });
+    host.forks = { fork: (input, opener) => forkForAgent(forkDeps, input, opener) };
+    return host;
 }

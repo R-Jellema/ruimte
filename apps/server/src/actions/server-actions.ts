@@ -10,6 +10,7 @@ import { databaseActions } from './database-actions.ts';
 import { deviceActions } from './device-actions.ts';
 import { diagramActions } from './diagram-actions.ts';
 import { flagActions } from './flag-actions.ts';
+import { forkActions } from './fork-actions.ts';
 import { languageActions } from './language-actions.ts';
 import { launchActions } from './launch-actions.ts';
 import { linkActions } from './link-actions.ts';
@@ -36,6 +37,7 @@ export const serverActions = new ActionRegistry<ServerActionContext>(
         ...nodeActions,
         ...linkActions,
         ...agentActions,
+        ...forkActions,
         ...startActions,
         ...operationActions,
         ...taskActions,

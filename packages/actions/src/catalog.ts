@@ -1400,9 +1400,12 @@ export const ACTION_DEFINITIONS = {
         title: 'Fork AI Chat',
         description:
             'Starts a new AI Chat beside this one that goes on after one of its turns, with the history up to it. Without a turn it goes on after the last finished one; with a branch it works in a new worktree on that branch, after confirmation.',
+        agentDescription:
+            'Forks an AI Chat you opened yourself after one of its turns into a new chat of yours, with the history up to it, in your mode or narrower; give it work with task new.',
         effect: 'shared',
         domain: 'sessions',
-        actors: PERSON_AND_VOICE,
+        // An agent's fork is a child of that agent, so it holds to the depth, the count and the mode ceiling of one.
+        actors: PERSON_VOICE_AND_AGENT,
         input: z.object({
             chatId: chatTarget,
             turnId: z.string().min(1).nullable().describe('The turn it goes on after, by id'),

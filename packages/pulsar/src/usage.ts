@@ -162,6 +162,7 @@ export const USAGE_VERB_COUNTERS = {
     chat: 'verbsMessage',
     agent: 'verbsAgent',
     team: 'verbsAgent',
+    fork: 'verbsAgent',
     node: 'verbsCanvas',
     link: 'verbsCanvas',
     view: 'verbsCanvas',

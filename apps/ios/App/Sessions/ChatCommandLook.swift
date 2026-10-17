@@ -325,6 +325,7 @@ enum RuimteCommandLook {
         "answer": VerbLook(name: "Message", from: 0),
         "agent": VerbLook(name: "Agent", from: 1),
         "team": VerbLook(name: "Team", from: 1),
+        "fork": VerbLook(name: "Agent", from: 0),
         "flag": VerbLook(name: "Flag", from: 1),
         "node": VerbLook(name: "Canvas", from: 0),
         "link": VerbLook(name: "Canvas", from: 0),

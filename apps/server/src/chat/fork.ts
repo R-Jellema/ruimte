@@ -36,6 +36,7 @@ import type { CanvasHost, MachineHost, ProjectHost } from '../canvas/verb.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
 import type { ProjectMutation } from '../projects/project-store.ts';
 import type { AgentLineageStore } from '@adecore/agents/coordination';
+import type { HiddenAgent, HiddenAgentStore } from '../agents/hidden-agents.ts';
 import type { ChatManager } from './chat-manager.ts';
 import { forkClaudeTranscript, type TranscriptCutPoint } from './claude-fork.ts';
 import { forkThreadOnce, ChatError as AgentChatError } from '@adecore/agents/chat';
@@ -60,7 +61,10 @@ export interface ChatForkDeps {
     mutate: ProjectHost['mutate'];
     depthOf(nodeId: string): number;
     nodeSize: MachineHost['nodeSize'];
-    recordFork(record: { projectId: string; nodeId: string; openedBy: string; depth: number }): Promise<void>;
+    /* With a ceiling the fork is a child the agent `openedBy` opened; without one a sibling a person made beside the original `openedBy`. */
+    recordFork(record: { projectId: string; nodeId: string; openedBy: string; depth: number; ceiling?: RuntimeMode }): Promise<void>;
+    /* Keeps the fork of a hidden agent hidden as well, belonging to the agent that forked it. */
+    hideFork?(agent: HiddenAgent): Promise<void>;
     /* Writes the cut transcript under the new session id and answers how to take it back. */
     forkClaude(input: { source: ChatInfo; at: TranscriptCutPoint; newSessionId: string; cwd: string }): Promise<{ undo(): Promise<void> }>;
     /* Forks the thread in Codex into the fork's folder and answers the new thread's id. */
@@ -100,6 +104,27 @@ export interface ChatForkDeps {
 }
 
 const MAX_TITLE = 120;
+
+/*
+ * The agent that forks a chat it opened itself. The fork becomes its child: one deeper than the agent,
+ * no wider than its mode, and counted against it. `recount` runs under the lock of the write, since
+ * a start at the same moment read the same count.
+ */
+export interface ForkOpener {
+    id: string;
+    depth: number;
+    ceiling: RuntimeMode;
+    recount(): void;
+}
+
+/* What an agent may ask of a fork: the person's choices of CLI, account, model, view and files stay theirs. */
+export interface AgentForkInput {
+    chatId: string;
+    /* Null forks after the last turn that finished. */
+    turnId: string | null;
+    title?: string;
+    branch?: string;
+}
 
 /* The items up to and including a turn (its own and those of every turn before it), plus what belonged to no turn before its end. */
 export function itemsThrough(items: readonly ChatItem[], turnId: string): ChatItem[] {
@@ -340,7 +365,7 @@ async function copyConversation(deps: ChatForkDeps, info: ChatInfo, cut: Cut, na
  * Snapshot the CLI conversation before creating its node or view, so mounting always finds a stable
  * thread. Failed setup rolls back everything except Codex threads, which its API cannot delete.
  */
-export async function forkChat(deps: ChatForkDeps, payload: ChatForkPayload): Promise<ChatForkResult> {
+export async function forkChat(deps: ChatForkDeps, payload: ChatForkPayload, opener?: ForkOpener): Promise<ChatForkResult> {
     if (deps.relocating?.(payload.chatId) === true) {
         throw new ChatError('chat-busy', 'The chat is being moved to a project; fork it once that is done');
     }
@@ -415,7 +440,7 @@ export async function forkChat(deps: ChatForkDeps, payload: ChatForkPayload): Pr
         cwd,
         agentSessionId,
         switching,
-        start: forkStart(deps, info, provider, switching, payload.selection),
+        start: forkStart(deps, info, provider, switching, payload.selection, opener?.ceiling),
         cut,
         now
     });
@@ -430,15 +455,50 @@ export async function forkChat(deps: ChatForkDeps, payload: ChatForkPayload): Pr
     });
     return undo.guard(() =>
         deps.mutate(place.projectId, (content) =>
-            landFork(content, { deps, payload, place, forkId, forkInfo, title, provider, account, cwd, worktree: folder.worktree })
+            landFork(content, { deps, payload, place, forkId, forkInfo, title, provider, account, cwd, worktree: folder.worktree, opener })
         )
     );
 }
 
+/* An agent's fork of a chat it opened, after the turn it names or the last one that finished. */
+export async function forkForAgent(deps: ChatForkDeps, input: AgentForkInput, opener: ForkOpener): Promise<ChatForkResult & { title: string }> {
+    const source = await deps.source(input.chatId);
+    if (source === null) {
+        throw new ChatError('not-a-chat', `${input.chatId} runs no chat on this machine, so there is no conversation to fork`);
+    }
+    const turnId = input.turnId ?? source.items.findLast((item) => item.kind === 'turn' && item.state !== 'running')?.id;
+    if (turnId === undefined) {
+        throw new ChatError('no-turn', `${input.chatId} has no finished turn to fork after yet`);
+    }
+    const result = await forkChat(
+        deps,
+        {
+            chatId: input.chatId,
+            turnId,
+            ...(input.title === undefined ? {} : { title: input.title }),
+            ...(input.branch === undefined ? {} : { worktree: { branch: input.branch } })
+        },
+        opener
+    );
+    return { ...result, title: deps.titleFor(result.nodeId) ?? result.nodeId };
+}
+
 type ForkStart = { selection: ModelSelection; runtimeMode: RuntimeMode; contextWindow: number | null };
 
-/* The model and mode the fork starts with: the original's, or the new CLI's starting point no wider than the original. */
-function forkStart(deps: ChatForkDeps, info: ChatInfo, provider: AgentKind, switching: boolean, selection: ModelSelection | undefined): ForkStart {
+/* The model and mode the fork starts with: the original's, or the new CLI's starting point no wider than the original, and never wider than the agent that forks it. */
+function forkStart(
+    deps: ChatForkDeps,
+    info: ChatInfo,
+    provider: AgentKind,
+    switching: boolean,
+    selection: ModelSelection | undefined,
+    ceiling: RuntimeMode | undefined
+): ForkStart {
+    const start = forkStartOf(deps, info, provider, switching, selection);
+    return ceiling === undefined ? start : { ...start, runtimeMode: narrowerMode(start.runtimeMode, ceiling) };
+}
+
+function forkStartOf(deps: ChatForkDeps, info: ChatInfo, provider: AgentKind, switching: boolean, selection: ModelSelection | undefined): ForkStart {
     if (switching) {
         const point = deps.startingPoint(provider, selection);
         // Going on with another CLI is no way to be allowed more than the original was.
@@ -497,7 +557,7 @@ function forkInfoOf(
 }
 
 /* The project as it is with the fork in it: a chat view after its origin, or a node beside the original on its canvas. */
-function landFork(
+async function landFork(
     content: ProjectContent,
     fork: {
         deps: ChatForkDeps;
@@ -510,15 +570,29 @@ function landFork(
         account: string | undefined;
         cwd: string;
         worktree: Worktree | undefined;
+        opener: ForkOpener | undefined;
     }
-): ProjectMutation<ChatForkResult> {
-    const { deps, payload, place, forkId, forkInfo, title, provider, account } = fork;
+): Promise<ProjectMutation<ChatForkResult>> {
+    const { deps, payload, place, forkId, forkInfo, title, provider, account, opener } = fork;
     if (content.views.some((view) => view.id === forkId || (isCanvasView(view) && view.nodes.some((node) => node.id === forkId)))) {
         throw new ChatError('fork-failed', `The id ${forkId} was taken while the fork was made; try again`);
     }
+    opener?.recount();
     const nodeCwd = fork.cwd === place.folder ? undefined : fork.cwd;
     const answer = fork.worktree === undefined ? {} : { worktree: fork.worktree };
-    const landed = () => deps.recordFork({ projectId: place.projectId, nodeId: forkId, openedBy: payload.chatId, depth: deps.depthOf(payload.chatId) });
+    const landed = () =>
+        deps.recordFork(
+            opener === undefined
+                ? { projectId: place.projectId, nodeId: forkId, openedBy: payload.chatId, depth: deps.depthOf(payload.chatId) }
+                : { projectId: place.projectId, nodeId: forkId, openedBy: opener.id, depth: opener.depth, ceiling: opener.ceiling }
+        );
+    // A hidden agent stands in no view, so its fork stands in none either and is the forking agent's, as hidden.
+    if (opener !== undefined && deps.hideFork !== undefined && place.canvasId === null && !content.views.some((view) => view.id === payload.chatId)) {
+        const node = agentNode({ id: forkId, chat: true, kind: provider, title, rect: { x: 0, y: 0, ...deps.nodeSize('chat') }, cwd: nodeCwd, account });
+        await deps.hideFork({ projectId: place.projectId, openedBy: opener.id, node: { ...node, kind: 'chat' } });
+        await landed();
+        return { content: null, result: { info: forkInfo, nodeId: forkId, viewId: forkId, edgeId: null, ...answer } };
+    }
     // A view forks into a view unless a canvas is named; a node forks into a node unless a view is asked for.
     if (payload.asView === true || (place.canvasId === null && payload.viewId === undefined)) {
         const view: ProjectChatView = {
@@ -617,9 +691,11 @@ export function chatForkDeps(wiring: {
     };
     titleFor(id: string): string | null;
     lineage: Pick<AgentLineageStore, 'depthOf' | 'put'>;
+    hiddenAgents?: Pick<HiddenAgentStore, 'put'>;
     worktrees?: Pick<Worktrees, 'add' | 'addFresh' | 'remove' | 'branches'>;
     checkpoints?: Pick<Checkpoints, 'take' | 'exists' | 'restore'>;
 }): ChatForkDeps {
+    const { hiddenAgents } = wiring;
     return {
         source: (chatId) => wiring.chats.forkSource(chatId),
         installed: () => wiring.host.starts.installedAgents(),
@@ -631,7 +707,8 @@ export function chatForkDeps(wiring: {
         mutate: (projectId, apply) => wiring.host.projects.mutate(projectId, apply),
         depthOf: (nodeId) => wiring.lineage.depthOf(nodeId),
         nodeSize: (kind) => wiring.host.machine.nodeSize(kind),
-        recordFork: (record) => wiring.lineage.put({ ...record, agent: true, relation: 'fork' }),
+        recordFork: (record) => wiring.lineage.put(record.ceiling === undefined ? { ...record, agent: true, relation: 'fork' } : { ...record, agent: true }),
+        ...(hiddenAgents ? { hideFork: (agent: HiddenAgent) => hiddenAgents.put(agent) } : {}),
         forkClaude: ({ source, at, newSessionId, cwd }) =>
             forkClaudeTranscript({
                 projectsDir: wiring.chats.claudeProjectsDirOf(source),

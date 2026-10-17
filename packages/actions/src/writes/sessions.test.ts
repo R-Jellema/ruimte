@@ -67,7 +67,7 @@ describeWrites('sessions', {
         }
     },
     'chat.fork': {
-        actors: ['person', 'voice'],
+        actors: ['person', 'voice', 'agent'],
         input: fork,
         refused: {
             'a title past the title limit': { ...fork, title: 'x'.repeat(MAX_TITLE_LENGTH + 1) },

@@ -14,6 +14,7 @@ import { DATABASE_ACTIONS, DATABASE_DETAIL, DATABASE_SUMMARY } from './database-
 import { DEVICE_ACTIONS, DEVICE_DETAIL, DEVICE_SUMMARY } from './device-verb.ts';
 import { diagramAction } from './diagram-verb.ts';
 import { flagVerb } from './flag-verb.ts';
+import { forkVerb } from './fork-verb.ts';
 import { nodeEditAction } from './edit-verb.ts';
 import { groupAction } from './group-verb.ts';
 import { LANGUAGE_ACTIONS, LANGUAGE_DETAIL, LANGUAGE_SUMMARY } from './language-verb.ts';
@@ -224,6 +225,7 @@ export const VERBS: readonly VerbEntry[] = [
     answerVerb,
     agentVerb,
     teamVerb,
+    forkVerb,
     flagVerb,
     nodeNoun,
     linkNoun,
