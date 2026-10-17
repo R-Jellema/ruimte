@@ -73,15 +73,23 @@ export interface DirectChannel extends ClientChannel {
 export const BINARY_LANE_BYTES = DIRECT_BINARY_PIECE_BYTES;
 
 /*
+ * How much the DataChannel may hold before a text piece waits here instead. werift wakes every send
+ * that waits on its queue at each acknowledgement, so a queue of hundreds of frames slows every byte
+ * down: 8 MB took 4 s handed over at once and under 0.5 s in portions (`scripts/measure-wire.ts`).
+ */
+export const TEXT_LANE_BYTES = 256 * 1024;
+
+/*
  * A frame is split into pieces below the peer's max-message-size and joined again on arrival (see
- * `splitFrame` and `splitBinaryFrame`). Text pieces go to the DataChannel at once; binary pieces (a
- * live frame, a `bytes.read` reply) wait in a lane of their own and go only while the DataChannel holds
- * no more than `BINARY_LANE_BYTES`, so a keyframe never sits in front of a reply or terminal output.
- * Every peer joins text and binary pieces with an assembler each, so they may interleave.
+ * `splitFrame` and `splitBinaryFrame`). Text pieces, deflated ones among them, wait in a lane in the
+ * order they were sent and go while the DataChannel holds no more than `TEXT_LANE_BYTES`; binary
+ * pieces (a live frame, a `bytes.read` reply) wait in a lane of their own and go only while no text
+ * waits and the DataChannel holds no more than `BINARY_LANE_BYTES`, so a keyframe never sits in front
+ * of a reply or terminal output. Every peer joins each kind with an assembler of its own, so they may interleave.
  *
  * The rest is shaped after Bun's socket, because the output gate reads it that way: `send` answers
  * the bytes of the whole frame once every piece is queued and 0 when the frame did not go out,
- * `bufferedAmount` counts the DataChannel and the lane, and a drain comes once both are under the
+ * `bufferedAmount` counts the DataChannel and the lanes, and a drain comes once both are under the
  * gate's low-water mark. A frame that would take that past the socket's backpressure limit closes
  * the channel, as Bun closes a socket there.
  */
@@ -94,7 +102,9 @@ export function directChannel(raw: RawDataChannel, backpressureLimit: number = S
     let maxChars = UNAUTHENTICATED_FRAME_CHARS;
     let closed = false;
     let deflating = false;
+    const textLane: Array<{ piece: string | Uint8Array; bytes: number }> = [];
     const lane: Uint8Array[] = [];
+    // Both lanes together.
     let laneBytes = 0;
 
     raw.bufferedAmountLowThreshold = BINARY_LANE_BYTES;
@@ -111,6 +121,7 @@ export function directChannel(raw: RawDataChannel, backpressureLimit: number = S
     };
 
     const close = (): void => {
+        textLane.length = 0;
         lane.length = 0;
         laneBytes = 0;
         if (raw.readyState !== 'closed') {
@@ -127,7 +138,12 @@ export function directChannel(raw: RawDataChannel, backpressureLimit: number = S
 
     const pump = (): void => {
         try {
-            while (!closed && lane.length > 0 && raw.bufferedAmount <= BINARY_LANE_BYTES) {
+            while (!closed && textLane.length > 0 && raw.bufferedAmount <= TEXT_LANE_BYTES) {
+                const { piece, bytes } = textLane.shift()!;
+                laneBytes -= bytes;
+                raw.send(piece);
+            }
+            while (!closed && textLane.length === 0 && lane.length > 0 && raw.bufferedAmount <= BINARY_LANE_BYTES) {
                 const piece = lane.shift()!;
                 laneBytes -= piece.byteLength;
                 raw.send(piece);
@@ -215,19 +231,23 @@ export function directChannel(raw: RawDataChannel, backpressureLimit: number = S
                 pump();
                 return closed ? 0 : bytes;
             }
-            // Deflated pieces go straight out like text, so a reply never lands after the events that follow it.
+            // Deflated pieces share the text lane, so a reply never lands after the events that follow it.
             const deflated = deflating && bytes >= DIRECT_DEFLATE_MIN_BYTES ? deflateRawSync(data) : null;
-            const pieces = deflated !== null && deflated.byteLength < bytes ? splitDeflatedFrame(deflated) : splitFrame(data);
-            try {
-                for (const piece of pieces) {
-                    raw.send(piece);
+            if (deflated !== null && deflated.byteLength < bytes) {
+                for (const piece of splitDeflatedFrame(deflated)) {
+                    textLane.push({ piece, bytes: piece.byteLength });
+                    laneBytes += piece.byteLength;
                 }
-            } catch (e) {
-                // Half a frame may be out, and the stream after it would not parse, so the channel goes rather than pretending the frame was merely dropped.
-                refused(e);
-                return 0;
+            } else {
+                for (const piece of splitFrame(data)) {
+                    const pieceBytes = Buffer.byteLength(piece);
+                    textLane.push({ piece, bytes: pieceBytes });
+                    laneBytes += pieceBytes;
+                }
             }
-            return bytes;
+            // A throw here means half a frame may be out and the stream after it would not parse, so the channel goes.
+            pump();
+            return closed ? 0 : bytes;
         },
         deflate() {
             deflating = true;

@@ -10,7 +10,7 @@ import {
     splitFrame
 } from '@ruimte/contracts';
 import { LOW_WATER_MARK, SOCKET_BACKPRESSURE_LIMIT } from '../backpressure.ts';
-import { AUTHENTICATED_FRAME_CHARS, BINARY_LANE_BYTES, directChannel, type RawDataChannel } from './data-channel.ts';
+import { AUTHENTICATED_FRAME_CHARS, BINARY_LANE_BYTES, directChannel, TEXT_LANE_BYTES, type RawDataChannel } from './data-channel.ts';
 
 class FakeRawChannel implements RawDataChannel {
     readonly label = 'ruimte';
@@ -339,5 +339,47 @@ describe('directChannel', () => {
             'deflated:4',
             '={"id":"3"}'
         ]);
+    });
+
+    test('text past what the DataChannel may hold waits in its lane, counts toward bufferedAmount and goes on in order', () => {
+        const raw = new FakeRawChannel();
+        const channel = directChannel(raw);
+        const frames = Array.from({ length: 40 }, (_, index) => `{"id":"${index}","text":"${'t'.repeat(DIRECT_PIECE_CHARS)}"}`);
+        for (const frame of frames) {
+            expect(channel.send(frame)).toBe(Buffer.byteLength(frame));
+        }
+        expect(raw.bufferedAmount).toBeLessThanOrEqual(TEXT_LANE_BYTES + DIRECT_PIECE_CHARS * 2);
+        expect(channel.bufferedAmount()).toBeGreaterThan(frames.join('').length);
+
+        while (raw.sent.length < frames.length * 2) {
+            raw.drainTo(0);
+        }
+        const assembler = new FrameAssembler();
+        const joined = raw.sent.flatMap((piece) => {
+            const result = assembler.push(piece as string, Number.MAX_SAFE_INTEGER);
+            return result.kind === 'frame' ? [result.frame] : [];
+        });
+        expect(joined).toEqual(frames);
+        raw.drainTo(0);
+        expect(channel.bufferedAmount()).toBe(0);
+    });
+
+    test('a binary piece waits while text waits, and goes once the text is out', () => {
+        const raw = new FakeRawChannel();
+        const channel = directChannel(raw);
+        channel.send('x'.repeat(TEXT_LANE_BYTES * 2));
+        channel.send(new Uint8Array(10));
+        expect(raw.sent.every((piece) => typeof piece === 'string')).toBe(true);
+        while (raw.sent.every((piece) => typeof piece === 'string')) {
+            raw.drainTo(0);
+        }
+        expect(raw.sent.at(-1)).toBeInstanceOf(Uint8Array);
+        expect(
+            raw.sent
+                .slice(0, -1)
+                .map((piece) => piece as string)
+                .join('')
+                .replace(/[+=]/g, '')
+        ).toBe('x'.repeat(TEXT_LANE_BYTES * 2));
     });
 });
