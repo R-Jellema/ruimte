@@ -450,6 +450,19 @@ describe('LinkTransport', () => {
             transport.dispose();
             await expect(reply).rejects.toThrow(/closed before the machine answered/);
         });
+
+        test('bundling and fetching a whole history wait past the timeout', async () => {
+            const { transport } = await opened();
+            const replies = [transport.request('git.bundle', {} as never), transport.request('git.fetchBundle', {} as never)];
+            let settled = 0;
+            for (const reply of replies) {
+                reply.catch(() => undefined).finally(() => settled++);
+            }
+            await tick(60);
+            expect(settled).toBe(0);
+            transport.dispose();
+            await Promise.allSettled(replies);
+        });
     });
 
     test('pending requests fail when the link goes, and a disposed transport stays down', async () => {
