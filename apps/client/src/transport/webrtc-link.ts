@@ -4,6 +4,8 @@ import {
     BYTES_REPLY_MAX_BYTES,
     ChannelLiveness,
     channelBinding,
+    DeflatedFrameAssembler,
+    DIRECT_COMPRESSION,
     DIRECT_PING_TICK_MS,
     directPingFrame,
     DIRECT_CHANNEL_LABEL,
@@ -11,6 +13,7 @@ import {
     DirectVerdictFrameSchema,
     FrameAssembler,
     isBinaryPiece,
+    isDeflatedPiece,
     LIVE_FRAME_MAX_BYTES,
     protocolMismatch,
     splitFrame,
@@ -34,6 +37,9 @@ const HANDSHAKE_FRAME_CHARS = 4_096;
 
 // A binary frame is a `bytes.read` reply or a live frame, and only ever one this client asked for.
 const BINARY_FRAME_BYTES = Math.max(BYTES_REPLY_MAX_BYTES, LIVE_FRAME_MAX_BYTES);
+
+// A deflated frame inflates to at most a frame's characters at four bytes each; anything larger is not one of ours.
+const INFLATED_FRAME_BYTES = FRAME_CHARS * 4;
 
 // How long a close waits for the channel to report closed before the peer goes anyway.
 const CLOSE_GRACE_MS = 2_000;
@@ -63,6 +69,26 @@ function closeReason(reason: string): string {
     return i18next.t(`machines:direct.closed.${reason}`, { defaultValue: i18next.t('machines:direct.closed.other') });
 }
 
+/* Inflates a frame the daemon deflated, refusing one that grows past what a frame may be. */
+export async function inflateFrame(deflated: Uint8Array<ArrayBuffer>, maxBytes: number = INFLATED_FRAME_BYTES): Promise<string> {
+    const reader = new Blob([deflated]).stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader();
+    const chunks: Uint8Array[] = [];
+    let length = 0;
+    for (let read = await reader.read(); !read.done; read = await reader.read()) {
+        length += read.value.byteLength;
+        if (length > maxBytes) {
+            await reader.cancel();
+            throw new Error('A deflated frame grew past the frame limit');
+        }
+        chunks.push(read.value);
+    }
+    const frame = await new Blob(chunks as Uint8Array<ArrayBuffer>[]).text();
+    if (frame.length > FRAME_CHARS) {
+        throw new Error('A deflated frame grew past the frame limit');
+    }
+    return frame;
+}
+
 function connectionIdOf(): string {
     const bytes = crypto.getRandomValues(new Uint8Array(16));
     return btoa(String.fromCharCode(...bytes))
@@ -80,8 +106,13 @@ export function webRtcLink(options: WebRtcLinkOptions): LinkOpener {
         const connectionId = connectionIdOf();
         const assembler = new FrameAssembler();
         const binaryAssembler = new BinaryFrameAssembler();
+        const deflatedAssembler = new DeflatedFrameAssembler();
         let ended = false;
         let authenticated = false;
+        let deflating = false;
+        // Frames that wait for a deflated one before them to inflate, so every frame arrives in the order it was sent.
+        let backlog = 0;
+        let delivered: Promise<void> = Promise.resolve();
         let offerSdp: string | null = null;
         let binding: string | null = null;
         let peer: RTCPeerConnection | null = null;
@@ -186,7 +217,9 @@ export function webRtcLink(options: WebRtcLinkOptions): LinkOpener {
                     end(protocolRefusal(mismatch));
                     return;
                 }
-                sendFrame(JSON.stringify(await options.prove(challenge.data, binding)));
+                const proof = await options.prove(challenge.data, binding);
+                deflating = challenge.data.compression?.includes(DIRECT_COMPRESSION) === true && typeof DecompressionStream === 'function';
+                sendFrame(JSON.stringify(deflating ? { ...proof, compression: DIRECT_COMPRESSION } : proof));
                 return;
             }
             const verdict = DirectVerdictFrameSchema.safeParse(json);
@@ -240,6 +273,26 @@ export function webRtcLink(options: WebRtcLinkOptions): LinkOpener {
             events.open();
         };
 
+        const deliver = (frame: string | Uint8Array | Promise<string>): void => {
+            if (backlog === 0 && !(frame instanceof Promise)) {
+                events.message(frame);
+                return;
+            }
+            backlog += 1;
+            delivered = delivered.then(async () => {
+                try {
+                    const ready = await frame;
+                    if (!ended) {
+                        events.message(ready);
+                    }
+                } catch {
+                    end(i18next.t('machines:direct.badFrame'));
+                } finally {
+                    backlog -= 1;
+                }
+            });
+        };
+
         // Only what a request asked for in binary comes this way, so nothing reads one before the handshake.
         const onBinaryPiece = (piece: Uint8Array): void => {
             const result = authenticated ? binaryAssembler.push(piece, BINARY_FRAME_BYTES) : ({ kind: 'invalid' } as const);
@@ -248,7 +301,19 @@ export function webRtcLink(options: WebRtcLinkOptions): LinkOpener {
                 return;
             }
             if (result.kind === 'frame') {
-                events.message(result.frame);
+                deliver(result.frame);
+            }
+        };
+
+        // Only a machine this client chose deflate with sends these, and only once it let the client in.
+        const onDeflatedPiece = (piece: Uint8Array): void => {
+            const result = authenticated && deflating ? deflatedAssembler.push(piece, INFLATED_FRAME_BYTES) : ({ kind: 'invalid' } as const);
+            if (result.kind === 'invalid') {
+                end(i18next.t('machines:direct.badFrame'));
+                return;
+            }
+            if (result.kind === 'frame') {
+                deliver(inflateFrame(result.frame));
             }
         };
 
@@ -262,6 +327,10 @@ export function webRtcLink(options: WebRtcLinkOptions): LinkOpener {
                 onBinaryPiece(new Uint8Array(data));
                 return;
             }
+            if (data instanceof ArrayBuffer && isDeflatedPiece(new Uint8Array(data))) {
+                onDeflatedPiece(new Uint8Array(data));
+                return;
+            }
             const piece = typeof data === 'string' ? data : new TextDecoder().decode(data as ArrayBuffer);
             const result = assembler.push(piece, authenticated ? FRAME_CHARS : HANDSHAKE_FRAME_CHARS);
             if (result.kind === 'invalid') {
@@ -272,7 +341,7 @@ export function webRtcLink(options: WebRtcLinkOptions): LinkOpener {
                 return;
             }
             if (authenticated) {
-                events.message(result.frame);
+                deliver(result.frame);
                 return;
             }
             void onHandshakeFrame(result.frame).catch((e) => end(messageOf(e)));

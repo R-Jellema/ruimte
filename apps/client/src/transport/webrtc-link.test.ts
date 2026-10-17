@@ -1,8 +1,17 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
-import { channelBinding, encodeBytesReply, PROTOCOL_VERSION, splitBinaryFrame, splitFrame, type DirectChallengeFrame } from '@ruimte/contracts';
+import {
+    channelBinding,
+    DIRECT_COMPRESSION,
+    encodeBytesReply,
+    PROTOCOL_VERSION,
+    splitBinaryFrame,
+    splitDeflatedFrame,
+    splitFrame,
+    type DirectChallengeFrame
+} from '@ruimte/contracts';
 import type { LinkEvents } from './link-transport';
 import type { SignalingEvents } from './signaling';
-import { webRtcLink, type WebRtcLinkOptions } from './webrtc-link';
+import { inflateFrame, webRtcLink, type WebRtcLinkOptions } from './webrtc-link';
 
 const OFFER = 'v=0\r\na=fingerprint:sha-256 AA:AA\r\n';
 const ANSWER = 'v=0\r\na=fingerprint:sha-256 BB:BB\r\n';
@@ -59,6 +68,12 @@ class FakeChannel {
 
     deliverBinary(frame: Uint8Array): void {
         for (const piece of splitBinaryFrame(frame)) {
+            this.onmessage?.({ data: piece.buffer });
+        }
+    }
+
+    deliverDeflated(frame: string): void {
+        for (const piece of splitDeflatedFrame(Bun.deflateSync(frame))) {
             this.onmessage?.({ data: piece.buffer });
         }
     }
@@ -478,5 +493,56 @@ describe('webRtcLink', () => {
             }
         });
         expect(failed.log.closes).toEqual(['The broker at broker.example.com could not be reached']);
+    });
+});
+
+describe('webRtcLink and deflate', () => {
+    // Inflating runs on the stream's own schedule, which the fake timers do not drive.
+    const settled = async (): Promise<void> => {
+        for (let i = 0; i < 20; i++) {
+            await new Promise((resolve) => queueMicrotask(() => resolve(undefined)));
+            await tick();
+        }
+    };
+
+    test('a machine that offers deflate gets it chosen, and its deflated frames arrive whole and in order', async () => {
+        const { peer, log } = await negotiated();
+        peer.channel.deliver({ ...CHALLENGE, compression: ['zstd', DIRECT_COMPRESSION] });
+        await tick();
+        expect(JSON.parse(peer.channel.sent.join('').slice(1))).toEqual({
+            type: 'direct.secret',
+            challenge: 'nonce',
+            proof: 'proof',
+            compression: DIRECT_COMPRESSION
+        });
+        peer.channel.deliver({ type: 'direct.accepted', ticket: null, expiresIn: 1000 });
+        await tick();
+
+        const large = JSON.stringify({ id: '1', ok: true, result: { items: 'the same words again '.repeat(4_000) } });
+        peer.channel.deliverDeflated(large);
+        peer.channel.deliver('{"type":"event","event":"chat.status","payload":{}}');
+        // The event waits for the reply before it, which is still inflating.
+        expect(log.messages).toEqual([]);
+        await settled();
+        expect(log.messages).toEqual([large, '{"type":"event","event":"chat.status","payload":{}}']);
+        peer.channel.deliver('{"type":"event","event":"session.list-changed","payload":{}}');
+        expect(log.messages.at(-1)).toBe('{"type":"event","event":"session.list-changed","payload":{}}');
+    });
+
+    test('a deflated frame from a machine this client did not choose deflate with ends the link', async () => {
+        const { peer, log } = await negotiated();
+        peer.channel.deliver(CHALLENGE);
+        await tick();
+        expect(JSON.parse(peer.channel.sent.join('').slice(1)).compression).toBeUndefined();
+        peer.channel.deliver({ type: 'direct.accepted', ticket: null, expiresIn: 1000 });
+        await tick();
+        peer.channel.deliverDeflated('{"type":"event","event":"chat.status","payload":{}}');
+        expect(log.closes).toHaveLength(1);
+    });
+
+    test('a frame that inflates past the limit is refused', async () => {
+        const deflated = new Uint8Array(Bun.deflateSync('x'.repeat(10_000)));
+        expect(await inflateFrame(deflated)).toBe('x'.repeat(10_000));
+        await expect(inflateFrame(deflated, 1_000)).rejects.toThrow('grew past the frame limit');
     });
 });
