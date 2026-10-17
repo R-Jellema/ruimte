@@ -1,4 +1,5 @@
-import { DIRECT_BINARY_PIECE_BYTES, FrameAssembler, splitBinaryFrame, splitFrame } from '@ruimte/contracts';
+import { deflateRawSync } from 'node:zlib';
+import { DIRECT_BINARY_PIECE_BYTES, DIRECT_DEFLATE_MIN_BYTES, FrameAssembler, splitBinaryFrame, splitDeflatedFrame, splitFrame } from '@ruimte/contracts';
 import type { RTCDataChannel } from 'werift';
 import { LOW_WATER_MARK, SOCKET_BACKPRESSURE_LIMIT } from '../backpressure.ts';
 import type { ClientChannel } from '../connection.ts';
@@ -60,6 +61,8 @@ export interface DirectChannel extends ClientChannel {
     readonly isOpen: boolean;
     /* Replaces whoever read frames before, with the largest frame the new reader accepts. */
     receiveWith(listener: (frame: string) => void, maxChars: number): void;
+    /* From the next frame on, a text frame that deflate shrinks goes deflated; only once the peer chose it. */
+    deflate(): void;
 }
 
 /*
@@ -89,6 +92,7 @@ export function directChannel(raw: RawDataChannel, backpressureLimit: number = S
     const waiting: string[] = [];
     let maxChars = UNAUTHENTICATED_FRAME_CHARS;
     let closed = false;
+    let deflating = false;
     const lane: Uint8Array[] = [];
     let laneBytes = 0;
 
@@ -207,8 +211,11 @@ export function directChannel(raw: RawDataChannel, backpressureLimit: number = S
                 pump();
                 return closed ? 0 : bytes;
             }
+            // Deflated pieces go straight out like text, so a reply never lands after the events that follow it.
+            const deflated = deflating && bytes >= DIRECT_DEFLATE_MIN_BYTES ? deflateRawSync(data) : null;
+            const pieces = deflated !== null && deflated.byteLength < bytes ? splitDeflatedFrame(deflated) : splitFrame(data);
             try {
-                for (const piece of splitFrame(data)) {
+                for (const piece of pieces) {
                     raw.send(piece);
                 }
             } catch (e) {
@@ -217,6 +224,9 @@ export function directChannel(raw: RawDataChannel, backpressureLimit: number = S
                 return 0;
             }
             return bytes;
+        },
+        deflate() {
+            deflating = true;
         },
         bufferedAmount: () => raw.bufferedAmount + laneBytes,
         // A DataChannel has no close code or reason on the wire; the peer only sees the channel end.

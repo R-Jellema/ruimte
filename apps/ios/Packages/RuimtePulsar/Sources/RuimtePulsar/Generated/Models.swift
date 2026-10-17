@@ -13,6 +13,7 @@ public enum WireConstants {
     public static let directChannelLabel: String = "ruimte"
     public static let directPieceChars: Int = 16000
     public static let directBinaryPieceBytes: Int = 65536
+    public static let directCompression: String = "deflate-raw"
     public static let directPingIdleMs: Double = 2000
     public static let directPingTimeoutMs: Double = 10000
     public static let directPingTickMs: Double = 1000
@@ -2291,12 +2292,14 @@ public struct DirectChallengeFrame: Codable, Sendable, Equatable {
     public let `protocol`: Int64?
     public let `challenge`: String
     public let `daemon`: DirectChallengeFrameDaemon
+    public let `compression`: [String]?
 
-    public init(`type`: String = "direct.challenge", `protocol`: Int64? = nil, `challenge`: String, `daemon`: DirectChallengeFrameDaemon) {
+    public init(`type`: String = "direct.challenge", `protocol`: Int64? = nil, `challenge`: String, `daemon`: DirectChallengeFrameDaemon, `compression`: [String]? = nil) {
         self.`type` = `type`
         self.`protocol` = `protocol`
         self.`challenge` = `challenge`
         self.`daemon` = `daemon`
+        self.`compression` = `compression`
     }
 
     public init(from decoder: Decoder) throws {
@@ -2306,6 +2309,7 @@ public struct DirectChallengeFrame: Codable, Sendable, Equatable {
         `protocol` = try container.decodeIfPresent(Int64.self, forKey: .`protocol`)
         `challenge` = try container.decode(String.self, forKey: .`challenge`)
         `daemon` = try container.decode(DirectChallengeFrameDaemon.self, forKey: .`daemon`)
+        `compression` = try container.decodeIfPresent([String].self, forKey: .`compression`)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -2314,6 +2318,7 @@ public struct DirectChallengeFrame: Codable, Sendable, Equatable {
         try container.encodeIfPresent(`protocol`, forKey: .`protocol`)
         try container.encode(`challenge`, forKey: .`challenge`)
         try container.encode(`daemon`, forKey: .`daemon`)
+        try container.encodeIfPresent(`compression`, forKey: .`compression`)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -2321,6 +2326,7 @@ public struct DirectChallengeFrame: Codable, Sendable, Equatable {
         case `protocol` = "protocol"
         case `challenge` = "challenge"
         case `daemon` = "daemon"
+        case `compression` = "compression"
     }
 }
 
@@ -2362,13 +2368,15 @@ public struct DirectKeyProofFrame: Codable, Sendable, Equatable {
     public let `challenge`: String
     public let `publicKey`: String
     public let `signature`: String
+    public let `compression`: String?
 
-    public init(`type`: String = "direct.key", `protocol`: Int64? = nil, `challenge`: String, `publicKey`: String, `signature`: String) {
+    public init(`type`: String = "direct.key", `protocol`: Int64? = nil, `challenge`: String, `publicKey`: String, `signature`: String, `compression`: String? = nil) {
         self.`type` = `type`
         self.`protocol` = `protocol`
         self.`challenge` = `challenge`
         self.`publicKey` = `publicKey`
         self.`signature` = `signature`
+        self.`compression` = `compression`
     }
 
     public init(from decoder: Decoder) throws {
@@ -2379,6 +2387,7 @@ public struct DirectKeyProofFrame: Codable, Sendable, Equatable {
         `challenge` = try container.decode(String.self, forKey: .`challenge`)
         `publicKey` = try container.decode(String.self, forKey: .`publicKey`)
         `signature` = try container.decode(String.self, forKey: .`signature`)
+        `compression` = try container.decodeIfPresent(String.self, forKey: .`compression`)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -2388,6 +2397,7 @@ public struct DirectKeyProofFrame: Codable, Sendable, Equatable {
         try container.encode(`challenge`, forKey: .`challenge`)
         try container.encode(`publicKey`, forKey: .`publicKey`)
         try container.encode(`signature`, forKey: .`signature`)
+        try container.encodeIfPresent(`compression`, forKey: .`compression`)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -2396,6 +2406,7 @@ public struct DirectKeyProofFrame: Codable, Sendable, Equatable {
         case `challenge` = "challenge"
         case `publicKey` = "publicKey"
         case `signature` = "signature"
+        case `compression` = "compression"
     }
 }
 
@@ -2427,12 +2438,14 @@ public struct DirectSecretProofFrame: Codable, Sendable, Equatable {
     public let `protocol`: Int64?
     public let `challenge`: String
     public let `proof`: String
+    public let `compression`: String?
 
-    public init(`type`: String = "direct.secret", `protocol`: Int64? = nil, `challenge`: String, `proof`: String) {
+    public init(`type`: String = "direct.secret", `protocol`: Int64? = nil, `challenge`: String, `proof`: String, `compression`: String? = nil) {
         self.`type` = `type`
         self.`protocol` = `protocol`
         self.`challenge` = `challenge`
         self.`proof` = `proof`
+        self.`compression` = `compression`
     }
 
     public init(from decoder: Decoder) throws {
@@ -2442,6 +2455,7 @@ public struct DirectSecretProofFrame: Codable, Sendable, Equatable {
         `protocol` = try container.decodeIfPresent(Int64.self, forKey: .`protocol`)
         `challenge` = try container.decode(String.self, forKey: .`challenge`)
         `proof` = try container.decode(String.self, forKey: .`proof`)
+        `compression` = try container.decodeIfPresent(String.self, forKey: .`compression`)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -2450,6 +2464,7 @@ public struct DirectSecretProofFrame: Codable, Sendable, Equatable {
         try container.encodeIfPresent(`protocol`, forKey: .`protocol`)
         try container.encode(`challenge`, forKey: .`challenge`)
         try container.encode(`proof`, forKey: .`proof`)
+        try container.encodeIfPresent(`compression`, forKey: .`compression`)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -2457,6 +2472,7 @@ public struct DirectSecretProofFrame: Codable, Sendable, Equatable {
         case `protocol` = "protocol"
         case `challenge` = "challenge"
         case `proof` = "proof"
+        case `compression` = "compression"
     }
 }
 

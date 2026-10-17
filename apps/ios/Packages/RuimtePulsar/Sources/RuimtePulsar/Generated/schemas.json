@@ -4425,6 +4425,14 @@
           "publicKey",
           "signature"
         ]
+      },
+      "compression": {
+        "maxItems": 16,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maxLength": 64
+        }
       }
     },
     "required": [
@@ -4460,6 +4468,10 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 512
+      },
+      "compression": {
+        "type": "string",
+        "maxLength": 64
       }
     },
     "required": [
@@ -4498,6 +4510,10 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 512
+          },
+          "compression": {
+            "type": "string",
+            "maxLength": 64
           }
         },
         "required": [
@@ -4528,6 +4544,10 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 256
+          },
+          "compression": {
+            "type": "string",
+            "maxLength": 64
           }
         },
         "required": [
@@ -4583,6 +4603,10 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 256
+      },
+      "compression": {
+        "type": "string",
+        "maxLength": 64
       }
     },
     "required": [

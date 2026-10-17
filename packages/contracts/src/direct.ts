@@ -28,7 +28,9 @@ export const DirectChallengeFrameSchema = z.object({
         id: z.string().min(1).max(256),
         publicKey: z.string().min(1).max(256),
         signature: z.string().min(1).max(512)
-    })
+    }),
+    // What the daemon can deflate frames with. Absent from a daemon from before compression.
+    compression: z.array(z.string().max(64)).max(16).optional()
 });
 export type DirectChallengeFrame = z.infer<typeof DirectChallengeFrameSchema>;
 
@@ -38,7 +40,9 @@ export const DirectKeyProofFrameSchema = z.object({
     protocol: ProtocolVersionSchema.optional(),
     challenge: z.string().min(1).max(256),
     publicKey: z.string().min(1).max(256),
-    signature: z.string().min(1).max(512)
+    signature: z.string().min(1).max(512),
+    // The one of the challenge's `compression` the client reads; absent, every frame comes as it is.
+    compression: z.string().max(64).optional()
 });
 
 // The app on the daemon's own machine holds the local secret instead of a paired key; it proves it without sending it.
@@ -46,7 +50,8 @@ export const DirectSecretProofFrameSchema = z.object({
     type: z.literal('direct.secret'),
     protocol: ProtocolVersionSchema.optional(),
     challenge: z.string().min(1).max(256),
-    proof: z.string().min(1).max(256)
+    proof: z.string().min(1).max(256),
+    compression: z.string().max(64).optional()
 });
 
 export const DirectProofFrameSchema = z.discriminatedUnion('type', [DirectKeyProofFrameSchema, DirectSecretProofFrameSchema]);
@@ -174,19 +179,43 @@ export const DIRECT_BINARY_PIECE_BYTES = 64 * 1024;
 
 const BINARY_MORE = 0x01;
 const BINARY_LAST = 0x02;
+const DEFLATED_MORE = 0x03;
+const DEFLATED_LAST = 0x04;
 
 export function isBinaryPiece(piece: Uint8Array): boolean {
     return piece[0] === BINARY_MORE || piece[0] === BINARY_LAST;
 }
 
 export function splitBinaryFrame(data: Uint8Array, pieceBytes: number = DIRECT_BINARY_PIECE_BYTES): Uint8Array<ArrayBuffer>[] {
+    return splitMarked(data, pieceBytes, BINARY_MORE, BINARY_LAST);
+}
+
+/*
+ * A text frame the daemon deflated (raw DEFLATE, RFC 1951) goes in binary pieces with marks of its own,
+ * so it never joins a binary frame; inflated, it is read as the text frame it was. The daemon deflates
+ * only on a channel whose proof chose `DIRECT_COMPRESSION`, and only from the frame after its verdict.
+ */
+export const DIRECT_COMPRESSION = 'deflate-raw';
+
+// Below this a frame goes as text: deflate barely shrinks it and the pieces cost more than they save.
+export const DIRECT_DEFLATE_MIN_BYTES = 1024;
+
+export function isDeflatedPiece(piece: Uint8Array): boolean {
+    return piece[0] === DEFLATED_MORE || piece[0] === DEFLATED_LAST;
+}
+
+export function splitDeflatedFrame(data: Uint8Array, pieceBytes: number = DIRECT_BINARY_PIECE_BYTES): Uint8Array<ArrayBuffer>[] {
+    return splitMarked(data, pieceBytes, DEFLATED_MORE, DEFLATED_LAST);
+}
+
+function splitMarked(data: Uint8Array, pieceBytes: number, more: number, last: number): Uint8Array<ArrayBuffer>[] {
     const bodyBytes = pieceBytes - 1;
     const pieces: Uint8Array<ArrayBuffer>[] = [];
     let start = 0;
     do {
         const end = Math.min(start + bodyBytes, data.byteLength);
         const piece = new Uint8Array(1 + end - start);
-        piece[0] = end === data.byteLength ? BINARY_LAST : BINARY_MORE;
+        piece[0] = end === data.byteLength ? last : more;
         piece.set(data.subarray(start, end), 1);
         pieces.push(piece);
         start = end;
@@ -196,13 +225,20 @@ export function splitBinaryFrame(data: Uint8Array, pieceBytes: number = DIRECT_B
 
 export type AssembledBinaryPiece = { kind: 'frame'; frame: Uint8Array<ArrayBuffer> } | { kind: 'partial' } | { kind: 'invalid' };
 
-/* Joins the pieces of one binary frame again; a frame past `maxBytes` or a piece without its mark is invalid. */
-export class BinaryFrameAssembler {
+/* Joins the pieces of one marked frame again; a frame past `maxBytes` or a piece without its mark is invalid. */
+class MarkedFrameAssembler {
     private parts: Uint8Array[] = [];
     private length = 0;
+    private readonly more: number;
+    private readonly last: number;
+
+    constructor(more: number, last: number) {
+        this.more = more;
+        this.last = last;
+    }
 
     push(piece: Uint8Array, maxBytes: number): AssembledBinaryPiece {
-        if (!isBinaryPiece(piece)) {
+        if (piece[0] !== this.more && piece[0] !== this.last) {
             return { kind: 'invalid' };
         }
         const body = piece.subarray(1);
@@ -213,7 +249,7 @@ export class BinaryFrameAssembler {
             return { kind: 'invalid' };
         }
         this.parts.push(body);
-        if (piece[0] === BINARY_MORE) {
+        if (piece[0] === this.more) {
             return { kind: 'partial' };
         }
         const frame = new Uint8Array(this.length);
@@ -225,5 +261,18 @@ export class BinaryFrameAssembler {
         this.parts = [];
         this.length = 0;
         return { kind: 'frame', frame };
+    }
+}
+
+export class BinaryFrameAssembler extends MarkedFrameAssembler {
+    constructor() {
+        super(BINARY_MORE, BINARY_LAST);
+    }
+}
+
+/* Joins a deflated frame's pieces; the frame it hands back is still deflated. */
+export class DeflatedFrameAssembler extends MarkedFrameAssembler {
+    constructor() {
+        super(DEFLATED_MORE, DEFLATED_LAST);
     }
 }

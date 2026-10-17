@@ -1,5 +1,14 @@
 import { describe, expect, test } from 'bun:test';
-import { BinaryFrameAssembler, DIRECT_BINARY_PIECE_BYTES, DIRECT_PIECE_CHARS, FrameAssembler, splitFrame } from '@ruimte/contracts';
+import { inflateRawSync } from 'node:zlib';
+import {
+    BinaryFrameAssembler,
+    DeflatedFrameAssembler,
+    DIRECT_BINARY_PIECE_BYTES,
+    DIRECT_DEFLATE_MIN_BYTES,
+    DIRECT_PIECE_CHARS,
+    FrameAssembler,
+    splitFrame
+} from '@ruimte/contracts';
 import { LOW_WATER_MARK, SOCKET_BACKPRESSURE_LIMIT } from '../backpressure.ts';
 import { AUTHENTICATED_FRAME_CHARS, BINARY_LANE_BYTES, directChannel, type RawDataChannel } from './data-channel.ts';
 
@@ -288,5 +297,45 @@ describe('directChannel', () => {
         channel.receiveWith(() => undefined, 16);
         raw.deliver(`=${'x'.repeat(17)}`);
         expect(raw.readyState).toBe('closed');
+    });
+
+    test('once deflating, a large text frame goes deflated and inflates back to the frame', () => {
+        const raw = new FakeRawChannel();
+        const channel = directChannel(raw);
+        channel.deflate();
+        const frame = JSON.stringify({ type: 'event', event: 'chat.items', payload: { text: 'the same words again '.repeat(5_000) } });
+        expect(channel.send(frame)).toBe(Buffer.byteLength(frame));
+        expect(raw.sent.every((piece) => typeof piece !== 'string')).toBe(true);
+        const assembler = new DeflatedFrameAssembler();
+        const joined = raw.sent.map((piece) => assembler.push(piece as Uint8Array, Number.MAX_SAFE_INTEGER)).at(-1);
+        expect(joined?.kind).toBe('frame');
+        expect(inflateRawSync((joined as { frame: Uint8Array }).frame).toString()).toBe(frame);
+    });
+
+    test('a frame below the threshold, or any frame before deflating, goes as text', () => {
+        const raw = new FakeRawChannel();
+        const channel = directChannel(raw);
+        const large = `{"text":"${'x'.repeat(DIRECT_DEFLATE_MIN_BYTES * 2)}"}`;
+        channel.send(large);
+        channel.deflate();
+        const small = `{"text":"${'x'.repeat(DIRECT_DEFLATE_MIN_BYTES - 20)}"}`;
+        channel.send(small);
+        expect(raw.sent).toEqual([`=${large}`, `=${small}`]);
+    });
+
+    test('a deflated frame keeps its place between text frames, ahead of binary pieces that wait', () => {
+        const raw = new FakeRawChannel();
+        const channel = directChannel(raw);
+        channel.deflate();
+        channel.send(Uint8Array.from({ length: DIRECT_BINARY_PIECE_BYTES * 3 }, (_, index) => index % 7));
+        channel.send('{"id":"1"}');
+        channel.send(`{"id":"2","text":"${'y'.repeat(DIRECT_DEFLATE_MIN_BYTES * 4)}"}`);
+        channel.send('{"id":"3"}');
+        // Two binary pieces were out before the frames; the third waits in the lane behind all three.
+        expect(raw.sent.slice(2).map((piece) => (typeof piece === 'string' ? piece : `deflated:${piece[0]}`))).toEqual([
+            '={"id":"1"}',
+            'deflated:4',
+            '={"id":"3"}'
+        ]);
     });
 });

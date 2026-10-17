@@ -235,6 +235,7 @@ const constants = {
     directChannelLabel: direct.DIRECT_CHANNEL_LABEL,
     directPieceChars: direct.DIRECT_PIECE_CHARS,
     directBinaryPieceBytes: direct.DIRECT_BINARY_PIECE_BYTES,
+    directCompression: direct.DIRECT_COMPRESSION,
     directPingIdleMs: liveness.DIRECT_PING_IDLE_MS,
     directPingTimeoutMs: liveness.DIRECT_PING_TIMEOUT_MS,
     directPingTickMs: liveness.DIRECT_PING_TICK_MS,

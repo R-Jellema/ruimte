@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 import {
+    DIRECT_COMPRESSION,
     DirectProofFrameSchema,
     localSecretChannelMessage,
     PROTOCOL_VERSION,
@@ -103,7 +104,11 @@ export function authenticateChannel(options: ChannelAuthOptions): Promise<Client
                     refuse('This machine does not know this device. Sign in to the account it is on to be let in again.');
                     return;
                 }
-                accept({ reachability: options.reachability, sessionId: grant.sessionId, ...(grant.peer === null ? {} : { peer: grant.peer }) }, grant.ticket);
+                accept(
+                    { reachability: options.reachability, sessionId: grant.sessionId, ...(grant.peer === null ? {} : { peer: grant.peer }) },
+                    grant.ticket,
+                    proof.compression
+                );
                 return;
             }
             const expected = localSecretProof(options.localSecret, options.daemonId, proof.challenge, binding);
@@ -111,14 +116,18 @@ export function authenticateChannel(options: ChannelAuthOptions): Promise<Client
                 refuse('That is not the secret of this machine');
                 return;
             }
-            accept({ reachability: options.reachability, sessionId: null }, null);
+            accept({ reachability: options.reachability, sessionId: null }, null, proof.compression);
         };
 
-        const accept = (access: ClientAccess, ticket: AuthTicketResult | null): void => {
+        const accept = (access: ClientAccess, ticket: AuthTicketResult | null, compression: string | undefined): void => {
             if (settled) {
                 return;
             }
             channel.send(JSON.stringify({ type: 'direct.accepted', ticket: ticket?.ticket ?? null, expiresIn: ticket?.expiresIn ?? null }));
+            // The verdict itself goes as text, so a client reads it whatever it chose.
+            if (compression === DIRECT_COMPRESSION) {
+                channel.deflate();
+            }
             channel.receiveWith(() => undefined, AUTHENTICATED_FRAME_CHARS);
             settle(access);
         };
@@ -131,6 +140,14 @@ export function authenticateChannel(options: ChannelAuthOptions): Promise<Client
                 refuse('The machine could not check the proof');
             });
         }, UNAUTHENTICATED_FRAME_CHARS);
-        channel.send(JSON.stringify({ type: 'direct.challenge', protocol: PROTOCOL_VERSION, challenge: issued.challenge, daemon: issued.daemon }));
+        channel.send(
+            JSON.stringify({
+                type: 'direct.challenge',
+                protocol: PROTOCOL_VERSION,
+                challenge: issued.challenge,
+                daemon: issued.daemon,
+                compression: [DIRECT_COMPRESSION]
+            })
+        );
     });
 }

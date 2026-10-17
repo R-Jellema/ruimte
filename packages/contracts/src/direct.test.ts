@@ -2,12 +2,15 @@ import { describe, expect, test } from 'bun:test';
 import {
     BinaryFrameAssembler,
     channelBinding,
+    DeflatedFrameAssembler,
     DIRECT_PIECE_CHARS,
     DirectProofFrameSchema,
     FrameAssembler,
     isBinaryPiece,
+    isDeflatedPiece,
     sdpFingerprints,
     splitBinaryFrame,
+    splitDeflatedFrame,
     splitFrame
 } from './direct.ts';
 
@@ -114,5 +117,30 @@ describe('binary pieces', () => {
         const [first] = splitBinaryFrame(new Uint8Array(20), 64);
         expect(assembler.push(first!, 10).kind).toBe('invalid');
         expect(assembler.push(splitBinaryFrame(new Uint8Array(5))[0]!, 10).kind).toBe('frame');
+    });
+});
+
+describe('deflated pieces', () => {
+    test('a frame comes back whole, and no piece is longer than the limit', () => {
+        const data = Uint8Array.from({ length: 100 }, (_, index) => index);
+        const pieces = splitDeflatedFrame(data, 16);
+        expect(pieces.every((piece) => piece.byteLength <= 16)).toBe(true);
+        const assembler = new DeflatedFrameAssembler();
+        expect(pieces.map((piece) => assembler.push(piece, Number.MAX_SAFE_INTEGER)).at(-1)).toEqual({ kind: 'frame', frame: data });
+    });
+
+    test('a deflated piece is never read as a binary or a text piece, and neither is one of those as deflated', () => {
+        const [deflated] = splitDeflatedFrame(new Uint8Array([0x2b]));
+        expect(isDeflatedPiece(deflated!)).toBe(true);
+        expect(isBinaryPiece(deflated!)).toBe(false);
+        expect(new BinaryFrameAssembler().push(deflated!, 10).kind).toBe('invalid');
+        expect(new DeflatedFrameAssembler().push(splitBinaryFrame(new Uint8Array([1]))[0]!, 10).kind).toBe('invalid');
+        expect(isDeflatedPiece(new TextEncoder().encode(splitFrame('{}')[0]!))).toBe(false);
+    });
+
+    test('a proof may name the compression it reads, and one without still parses', () => {
+        const proof = { type: 'direct.secret', challenge: 'c', proof: 'p' };
+        expect(DirectProofFrameSchema.parse({ ...proof, compression: 'deflate-raw' }).compression).toBe('deflate-raw');
+        expect(DirectProofFrameSchema.parse(proof).compression).toBeUndefined();
     });
 });
