@@ -107,5 +107,6 @@ export class ModelGrid extends Mesh<PlaneGeometry, ShaderMaterial> {
     override dispose(): void {
         this.geometry.dispose();
         this.material.dispose();
+        super.dispose();
     }
 }

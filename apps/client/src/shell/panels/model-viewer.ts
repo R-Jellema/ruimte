@@ -1,9 +1,6 @@
 import {
     AnimationMixer,
     Box3,
-    DirectionalLight,
-    Group,
-    HemisphereLight,
     LoadingManager,
     MOUSE,
     NeutralToneMapping,
@@ -26,6 +23,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { USDLoader } from 'three/examples/jsm/loaders/USDLoader.js';
 import { isSpaceDown, subscribeSpacePan } from '@/canvas/space-pan';
 import { ModelGrid } from '@/shell/panels/model-grid';
+import { ModelStudio } from '@/shell/panels/model-studio';
 import { countGeometry, firstZipEntry, fitCamera, gridCellSize, isEmbeddedUrl, type ModelBounds, type ModelCounts } from '@/shell/panels/model-view';
 
 const FIELD_OF_VIEW = 45;
@@ -36,7 +34,7 @@ const REFUSED_URL = 'about:invalid';
 // A frame after a long pause (a hidden window) would jump the animation ahead by the whole pause.
 const MAX_FRAME_SECONDS = 0.1;
 
-// Under studio light the room only fills the shadows and the reflections; the three lights shape the model.
+// Under studio light the room only lifts the shadows and gives the reflections; the studio's lights shape the model.
 const STUDIO_ENVIRONMENT_INTENSITY = 0.35;
 
 export interface LoadedModel extends ModelCounts {
@@ -117,24 +115,6 @@ function disposeModel(root: Object3D): void {
 }
 
 /*
- * A key light from the front right and above, a softer fill from the left and a rim from behind that
- * edges the outline. A directional light shines from its position toward its target at the origin, so
- * only the directions count and the rig fits a model of any size.
- */
-function studioLights(): Group {
-    const rig = new Group();
-    const key = new DirectionalLight(0xfff4e8, 2.6);
-    key.position.set(1, 1.5, 1.2);
-    const fill = new DirectionalLight(0xe8f0ff, 0.8);
-    fill.position.set(-1.4, 0.4, 0.8);
-    const rim = new DirectionalLight(0xffffff, 2);
-    rim.position.set(-0.3, 1, -1.5);
-    rig.add(new HemisphereLight(0xffffff, 0x8a8d93, 0.6), key, fill, rim);
-    rig.visible = false;
-    return rig;
-}
-
-/*
  * One model on one canvas, drawn only when something changed: the camera moved, a setting flipped,
  * or an animation plays. Everything it made on the GPU goes with `dispose`, the context included.
  */
@@ -145,7 +125,7 @@ export class ModelViewer {
     private readonly controls: OrbitControls;
     private readonly environment: WebGLRenderTarget;
     private readonly grid = new ModelGrid();
-    private readonly studio = studioLights();
+    private readonly studio = new ModelStudio();
     private readonly observer: ResizeObserver;
     private readonly unsubscribeSpace: () => void;
     private model: Object3D | null = null;
@@ -161,6 +141,7 @@ export class ModelViewer {
         this.renderer = new WebGLRenderer({ antialias: true, alpha: true });
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.toneMapping = NeutralToneMapping;
+        this.renderer.shadowMap.enabled = true;
         const canvas = this.renderer.domElement;
         canvas.style.display = 'block';
         canvas.style.width = '100%';
@@ -205,6 +186,10 @@ export class ModelViewer {
         const box = new Box3().setFromObject(root);
         this.bounds = box.isEmpty() ? null : { min: box.min.toArray(), max: box.max.toArray() };
         this.grid.fit(this.bounds?.min[1] ?? 0, gridCellSize(this.bounds));
+        this.studio.fit(this.bounds);
+        root.traverse((object) => {
+            object.castShadow = true;
+        });
         if (animations.length > 0) {
             // The first clip only: a file that carries several usually means them as alternatives, a walk and a run.
             this.mixer = new AnimationMixer(root);
@@ -283,6 +268,7 @@ export class ModelViewer {
             this.model = null;
         }
         this.grid.dispose();
+        this.studio.dispose();
         this.environment.dispose();
         this.renderer.dispose();
         // The page keeps only a handful of live contexts, and the terminals hold most of them.
