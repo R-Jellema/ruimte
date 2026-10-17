@@ -56,6 +56,7 @@ async function startReporting(settings: TelemetrySettings): Promise<void> {
         dataCollection: TELEMETRY_DATA_COLLECTION,
         attachStacktrace: false,
         maxBreadcrumbs: 0,
+        sendClientReports: false,
         integrations: [loaded.nodeContextIntegration({ app: false, cloudResource: false, culture: false, device: { cpu: false, memory: false } })],
         initialScope: { tags: { ...settings.tags } },
         beforeSend: (event) => beforeSend(event),
