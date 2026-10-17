@@ -108,9 +108,12 @@ export function useSidebarGroups(enabled: boolean, active: SidebarProject, expan
         return { groups, incomplete, order: nextOrder };
     }, [enabled, machines, endpoints, current, currentEndpointId, selected, collapsed, expandedViews, expandedIds, active, order, snoozes]);
     useEffect(() => {
+        if (!enabled) {
+            return;
+        }
         if (result.order.length !== order.length || result.order.some((key, at) => key !== order[at])) {
             useSidebarProjects.getState().setOrder(result.order);
         }
-    }, [result.order, order]);
+    }, [enabled, result.order, order]);
     return result;
 }

@@ -20,6 +20,7 @@ const BOREALIS: ProjectSummary = {
 };
 
 const previousScope = useSettings.getState().sidebarScope;
+const previousEverywhere = useSettings.getState().needsYouAllProjects;
 
 let machine: FakeMachine;
 let workspace: FakeWorkspace;
@@ -54,7 +55,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
     await page.unmount();
-    useSettings.setState({ sidebarScope: previousScope });
+    useSettings.setState({ sidebarScope: previousScope, needsYouAllProjects: previousEverywhere });
     workspace.close();
     localStorage.removeItem(SIDEBAR_ORDER_STORAGE_KEY);
 });
@@ -74,5 +75,16 @@ describe('the order of all open projects', () => {
         expect(stored.map((key) => (JSON.parse(key) as string[])[1])).toEqual(
             [second, first].map((name) => (name === 'Borealis' ? 'project-borealis' : 'project-atlas'))
         );
+    });
+
+    test('showing only the current project leaves the order this client keeps alone', async () => {
+        await until(() => useSidebarProjects.getState().order.length === 2);
+        const kept = localStorage.getItem(SIDEBAR_ORDER_STORAGE_KEY);
+        await act(async () => {
+            useSettings.setState({ sidebarScope: 'current', needsYouAllProjects: false });
+        });
+        await until(() => headings().length < 2);
+        expect(useSidebarProjects.getState().order).toHaveLength(2);
+        expect(localStorage.getItem(SIDEBAR_ORDER_STORAGE_KEY)).toBe(kept);
     });
 });
