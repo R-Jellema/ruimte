@@ -106,6 +106,21 @@ struct PushCryptoTests {
         #expect(try ledger.clearAttention() == 0)
     }
 
+    @Test func aConnectedMachineKeepsOnlyTheMarksItStillHoldsUnread() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let ledger = PushReplayLedger(directory: folder)
+        let unread = try PushReplayLedger.nodeKey(machineID: "one", nodeID: "unread")
+        let stale = try PushReplayLedger.nodeKey(machineID: "one", nodeID: "stale")
+        let elsewhere = try PushReplayLedger.nodeKey(machineID: "two", nodeID: "stale")
+        _ = try ledger.claim(id: "1", expiresAt: 100, now: 1, unseenNode: unread)
+        _ = try ledger.claim(id: "2", expiresAt: 100, now: 2, unseenNode: stale)
+        _ = try ledger.claim(id: "3", expiresAt: 100, now: 3, unseenNode: elsewhere)
+        #expect(try ledger.retainAttention(machineID: "one", nodeIDs: ["unread"]) == 2)
+        #expect(try ledger.attentionKeys() == [unread, elsewhere])
+    }
+
     @Test func corruptedReceiptsFailClosed() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

@@ -583,6 +583,10 @@ struct NotificationDestination: Identifiable, Hashable {
         try? await NotificationReadSync.apply(machineID: machineID, nodeID: nodeID, through: through)
         await updateBadge()
     }
+    func retainUnread(machineID: String, nodeIDs: Set<String>) async {
+        _ = try? SharedPushStore().retainAttention(machineID: machineID, nodeIDs: nodeIDs)
+        await updateBadge()
+    }
     func markSeen(machineID: String, nodeID: String) async {
         guard let key = try? PushReplayLedger.nodeKey(machineID: machineID, nodeID: nodeID) else { return }
         _ = try? SharedPushStore().clearAttention(node: key)

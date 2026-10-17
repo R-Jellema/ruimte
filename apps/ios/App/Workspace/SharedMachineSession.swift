@@ -99,6 +99,10 @@ final class SharedMachineSession {
             guard let self else { return }
             await self.runtime?.notifications.applyRead(machineID: self.machine.id, nodeID: nodeID, through: through)
         }
+        attention.onUnread = { [weak self] nodeIDs in
+            guard let self else { return }
+            await self.runtime?.notifications.retainUnread(machineID: self.machine.id, nodeIDs: nodeIDs)
+        }
         attention.start()
         snoozes.start()
         tasks.start()

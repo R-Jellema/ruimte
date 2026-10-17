@@ -58,6 +58,8 @@ final class AttentionStore {
     private var marksFrom: Double?
     private var pendingReads = Set<String>()
     var onRead: ((String, Double) async -> Void)?
+    /// Told the nodes the machine holds unread each time a fresh link asked for them.
+    var onUnread: ((Set<String>) async -> Void)?
     private var focused: [String: Int] = [:]
     private var subscriptions: [() -> Void] = []
     private var refreshTask: Task<Void, Never>?
@@ -195,6 +197,9 @@ final class AttentionStore {
             guard !Task.isCancelled else { return }
             marksFrom = snapshot["marksFrom"]?.numberValue
             for entry in snapshot.list("entries") { receivePush(entry) }
+            let unread = pushEntries.values.filter { $0.number("readThrough") < $0.number("issuedAt") }
+                .map { $0.text("nodeId") }
+            await onUnread?(Set(unread))
         }
         do {
             let sessions = try await client.request("session.list", payload: .object([:]))

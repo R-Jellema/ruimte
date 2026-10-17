@@ -74,6 +74,9 @@ public struct SharedPushStore: Sendable {
     @discardableResult public func markRead(node: String, through: Double) throws -> Int {
         try ledger().markRead(node: node, through: through)
     }
+    @discardableResult public func retainAttention(machineID: String, nodeIDs: Set<String>) throws -> Int {
+        try ledger().retainAttention(machineID: machineID, nodeIDs: nodeIDs)
+    }
     public func readThrough(node: String) throws -> Double { try ledger().readThrough(node: node) }
     public func attentionKeys() throws -> Set<String> { try ledger().attentionKeys() }
     private func ledger() throws -> PushReplayLedger {
@@ -125,6 +128,20 @@ public struct PushReplayLedger: Sendable {
             var nodes = try read("push-attention")
             if let timestamp = nodes[node], timestamp <= through { nodes.removeValue(forKey: node) }
             try write(reads, name: "push-read")
+            try write(nodes, name: "push-attention")
+            return nodes.count
+        }
+    }
+    /// Keeps of one machine's marks only the nodes it still holds unread: a connected machine knows its own nodes better
+    /// than the pushes this phone happened to get, which miss a read while the app was connected or quit.
+    @discardableResult public func retainAttention(machineID: String, nodeIDs: Set<String>) throws -> Int {
+        try locked {
+            let kept = Set(try nodeIDs.map { try Self.nodeKey(machineID: machineID, nodeID: $0) })
+            let nodes = try read("push-attention").filter { key, _ in
+                guard case .array(let parts) = try? JSONValue.decode(Data(key.utf8)), parts.first == .string(machineID)
+                else { return true }
+                return kept.contains(key)
+            }
             try write(nodes, name: "push-attention")
             return nodes.count
         }
