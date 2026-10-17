@@ -1,4 +1,4 @@
-import { isCanvasView, sessionNodesOfView, type PeerLink, type ProjectCanvasView } from '@ruimte/contracts';
+import { isCanvasView, sessionNodesOfView, type PeerLink, type ProjectCanvasView, type ProjectEdge } from '@ruimte/contracts';
 import type { AgentLineageStore } from '@adecore/agents/coordination';
 import { VerbRefusal } from '../canvas/verb.ts';
 import { checkCwd } from '../canvas/project-paths.ts';
@@ -139,14 +139,15 @@ export function registerPeerHandlers(dispatcher: Dispatcher, { links, lineage, t
             const keptIds = new Set(kept.map((node) => node.id));
             const mirrored = nodes.filter((node) => !keptIds.has(node.id));
             const mirrorIds = new Set(mirrored.map((node) => node.id));
+            const devices = new Set([...kept, ...mirrored].filter((node) => node.kind === 'device').map((node) => node.id));
+            // A line the other machine draws never reaches a task it gave here or a device, so no agent here gets a device to drive from it.
+            const mirrors = (edge: ProjectEdge): boolean =>
+                !(keptIds.has(edge.from) && keptIds.has(edge.to)) && ![edge.from, edge.to].some((end) => tasks.has(end) || devices.has(end));
             const canvas: ProjectCanvasView = {
                 ...(held === undefined ? { kind: 'canvas', id: canvasId, texts: [], layouts: [] } : stripHidden(held)),
                 name: link.label,
                 nodes: [...kept, ...mirrored.map(nodeOf)],
-                edges: [
-                    ...(held?.edges ?? []).filter((edge) => !placedBefore.has(edge.from) && !placedBefore.has(edge.to)),
-                    ...edges.filter((edge) => !(keptIds.has(edge.from) && keptIds.has(edge.to)))
-                ]
+                edges: [...(held?.edges ?? []).filter((edge) => !placedBefore.has(edge.from) && !placedBefore.has(edge.to)), ...edges.filter(mirrors)]
             };
             await links.setPlaced(machineId, projectId, mirrorIds);
             const leaving = before.filter((node) => placedBefore.has(node.id) && !mirrorIds.has(node.id) && !tasks.has(node.id));

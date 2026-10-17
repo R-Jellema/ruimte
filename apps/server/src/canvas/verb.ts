@@ -128,7 +128,7 @@ export interface CanvasHost {
     /* The machines this machine can give tasks to; absent on a host that links to none. */
     remote?: RemoteAgentHost;
     /* What came from another machine and so never runs on the configuration of its files; absent on a host that works with none. */
-    untrusted?: Pick<UntrustedFolders, 'node' | 'inFolder'>;
+    untrusted?: Pick<UntrustedFolders, 'node' | 'inFolder' | 'fromPeer'>;
     /* When a person's snooze on a node ends, in epoch milliseconds; absent on a host without snoozes. */
     snoozes?: Pick<SnoozeStore, 'until'>;
 }

@@ -58,6 +58,11 @@ function lineLines(id: string, callerCanvas: string | null, deviceCanvas: string
  */
 async function referenceOf({ host, place }: ServerActionContext, caller: string, id: string, viewId: string | null | undefined): Promise<DeviceReference> {
     const content = await host.projects.read(place.projectId);
+    // A peer drives no device: a hidden canvas holds the nodes of another machine, whatever lines it mirrored.
+    const callerCanvas = content.views.filter(isCanvasView).find((view) => view.nodes.some((candidate) => candidate.id === caller));
+    if (callerCanvas?.hidden === true || host.untrusted?.fromPeer(caller) === true) {
+        throw new VerbRefusal('peer-no-device', 'Work another machine gave this one drives no device here');
+    }
     const chatView = isChatView(content, caller);
     const arranged = arrangedCanvas(content, caller, viewId);
     const sources = arranged === null ? (deriveProjectContextSources(content.views, null).get(caller) ?? []) : canvasContextSources(arranged);

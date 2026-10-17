@@ -279,6 +279,20 @@ describe('the nodes another machine draws here', () => {
         expect(launched).toEqual([projectId]);
     });
 
+    test('keeps no line it draws to a device, so nothing here drives one over it', async () => {
+        await linked();
+        const PHONE = { id: 'remote-phone', kind: 'device' as const, title: 'Phone' };
+        await place(
+            [TERM, CHAT, PHONE],
+            [
+                { id: 'e1', from: 'remote-chat', to: 'remote-term' },
+                { id: 'e2', from: 'remote-phone', to: 'remote-chat' }
+            ]
+        );
+        const canvas = (await store.read(projectId)).views.find((view) => view.id === peerCanvasId('machine-a'));
+        expect(canvas).toMatchObject({ edges: [{ id: 'e1' }] });
+    });
+
     test('refuses a line with an end that is not among the nodes', async () => {
         await linked();
         expect(await place([TERM], [{ id: 'e1', from: 'remote-term', to: 'on-the-other-machine' }])).toMatchObject({
@@ -352,6 +366,18 @@ describe('the nodes of a machine and the tasks it gave share one canvas', () => 
         expect(nodes.find((node) => node.id === 'task-chat')).toMatchObject({ providerFixed: true, cwd: join(root, 'repo') });
         await place([TERM]);
         expect(await canvasNodes()).toHaveLength(2);
+    });
+
+    test('a window draws no line to a task the machine gave', async () => {
+        await give('task-chat');
+        await ask('peer.placeNodes', {
+            machineId: 'machine-a',
+            projectId,
+            nodes: [TERM, TASK],
+            edges: [{ id: 'e1', from: 'remote-term', to: 'task-chat' }]
+        });
+        const canvas = (await store.read(projectId)).views.find((view) => view.id === peerCanvasId('machine-a'));
+        expect(canvas).toMatchObject({ edges: [] });
     });
 
     test('a window that closes with nothing to draw ends its own nodes and leaves the task running', async () => {

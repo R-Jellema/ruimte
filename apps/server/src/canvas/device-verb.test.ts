@@ -145,6 +145,20 @@ describe('ruimte-context device', () => {
         expect(backend.actions).toEqual([]);
     });
 
+    test('refuses work another machine gave, over a line on its hidden canvas or from a task it gave, and touches nothing', async () => {
+        const hidden = content();
+        const main = hidden.views[0]!;
+        host = {
+            ...host,
+            projects: { ...host.projects, read: async () => ({ ...hidden, views: [{ ...main, hidden: true }, ...hidden.views.slice(1)] }) }
+        } as CanvasHost;
+        expect((await run(['shot', 'phone-1']))[0]).toStartWith('refused\tpeer-no-device\t');
+
+        host = { ...hostWith([backend]), untrusted: { node: () => true, inFolder: () => false, fromPeer: (id: string) => id === 'chat-1' } } as CanvasHost;
+        expect((await run(['state', 'phone-1']))[0]).toStartWith('refused\tpeer-no-device\t');
+        expect(backend.actions).toEqual([]);
+    });
+
     test('says a device this machine does not have is missing, and touches nothing', async () => {
         backend.info = { ...SIMULATOR, name: 'iPhone 12' };
         expect((await run(['state', 'phone-1'])).slice(0, 3)).toEqual([
