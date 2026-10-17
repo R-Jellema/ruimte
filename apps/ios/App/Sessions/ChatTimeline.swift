@@ -11,6 +11,8 @@ import os
 let chatPresentationLog = Logger(subsystem: "app.ruimte.mobile", category: "chat-presentation")
 
 struct ChatTimeline: UIViewControllerRepresentable {
+    static let rowInset: CGFloat = 20
+
     let presentation: ChatPresentation
     let client: any MachineRequesting
     let chatID: String
@@ -450,7 +452,7 @@ final class ChatTimelineController: UIViewController, UICollectionViewDelegate, 
                     transaction.animation = nil
                     transaction.disablesAnimations = true
                 }
-                .padding(.horizontal, 20).padding(.vertical, 10)
+                .padding(.horizontal, ChatTimeline.rowInset).padding(.vertical, 10)
                 .coordinateSpace(name: "chat.row")
             }
             cell.backgroundConfiguration = .clear()
@@ -1253,6 +1255,7 @@ private struct ChatTimelineRow: View {
                         ChatStreamingMessage(text: reply.text, streaming: reply.streaming)
                     }
                 }
+                .environment(\.markdownTableBleed, ChatTimeline.rowInset)
                 .accessibilityElement(children: .contain).accessibilityLabel("Agent")
             case .thinking(let thought):
                 ChatThinkingRow(item: thought)

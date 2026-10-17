@@ -44,6 +44,8 @@ extension EnvironmentValues {
     @Entry var chatMentions: [String] = []
     @Entry var chatSkills: [String] = []
     @Entry var markdownReferences = ""
+    /// How far a table may scroll past the text column: the inset to the screen edge, where nothing clips it sooner.
+    @Entry var markdownTableBleed: CGFloat = 0
 }
 
 struct ChatFileReference: Identifiable, Equatable {

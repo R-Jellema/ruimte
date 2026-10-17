@@ -44,6 +44,7 @@ private struct MarkdownBlockView: View {
     let streaming: Bool
     @Environment(\.chatContent) private var context
     @Environment(\.openURL) private var openURL
+    @Environment(\.markdownTableBleed) private var tableBleed
 
     @ViewBuilder var body: some View {
         switch block.kind {
@@ -54,6 +55,7 @@ private struct MarkdownBlockView: View {
                 .accessibilityAddTraits(.isHeader)
         case .quote:
             VStack(alignment: .leading, spacing: 8) { MarkdownBlocksView(blocks: block.children, streaming: streaming) }
+                .environment(\.markdownTableBleed, 0)
                 .foregroundStyle(MobileStyle.muted).padding(.leading, 14)
                 .overlay(alignment: .leading) { Rectangle().fill(MobileStyle.border).frame(width: 3) }
         case .list:
@@ -69,11 +71,14 @@ private struct MarkdownBlockView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     MarkdownBlocksView(blocks: block.children, streaming: streaming)
                 }
+                .environment(\.markdownTableBleed, 0)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         case .table:
             ScrollView(.horizontal) { MarkdownTable(rows: block.rows, streaming: streaming) }
+                .contentMargins(.horizontal, tableBleed, for: .scrollContent)
                 .fixedSize(horizontal: false, vertical: true).scrollIndicators(.hidden)
+                .padding(.horizontal, -tableBleed)
         case .rule: Divider()
         case .paragraph:
             if let media = imageReference {

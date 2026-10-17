@@ -31,7 +31,9 @@ struct UiReplyView: View {
                         frozen: trees.frozen[id],
                         answered: trees.answered[id],
                         source: UiReplyParts.source(text: text, block: block),
-                        localKey: "\(chat?.scopeID ?? "")\n\(chat?.chatID ?? "")\n\(item.id)\n\(id)")
+                        localKey: "\(chat?.scopeID ?? "")\n\(chat?.chatID ?? "")\n\(item.id)\n\(id)"
+                    )
+                    .environment(\.markdownTableBleed, 0)
                 }
             }
         }
