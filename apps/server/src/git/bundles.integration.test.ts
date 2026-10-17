@@ -236,13 +236,13 @@ test('a client holds only a few bundles that nobody read, and the machine keeps 
         const made = await makeBundle(first.bundles, first.checkpoints, { path: first.repo, from: 'head', haves: [], name: `Handoff ${i}` });
         await first.bundles.keep(made.bundleId, 'window');
     }
-    expect(() => first.bundles.admit('window')).toThrow(expect.objectContaining({ code: 'bundle-limit' }));
-    expect(() => first.bundles.admit('other-window')).not.toThrow();
+    expect(() => first.bundles.admit('window', 'refused-one')).toThrow(expect.objectContaining({ code: 'bundle-limit' }));
+    expect(() => first.bundles.admit('other-window', 'other-one')).not.toThrow();
 
     const lastRead = (await readdir(first.bundles.root)).find((name) => name.endsWith('.bundle'))!;
     await first.bundles.discard(lastRead.slice(0, -'.bundle'.length));
     expect(await Bun.file(join(first.bundles.root, lastRead)).exists()).toBe(false);
-    expect(() => first.bundles.admit('window')).not.toThrow();
+    expect(() => first.bundles.admit('window', 'admitted-one')).not.toThrow();
 
     const ids: string[] = [];
     for (let i = 0; i < 18; i++) {

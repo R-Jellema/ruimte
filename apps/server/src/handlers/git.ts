@@ -138,8 +138,12 @@ export function registerGitHandlers(
         // A person's handoff is theirs to vouch for, except for work this machine never vouched for itself: that stays so where it goes.
         dispatcher.register('git.bundle', async (payload, client) => {
             await machineHome?.refuse(payload.path);
-            bundles.admit(client.id);
-            const made = await makeBundle(bundles, checkpoints, payload);
+            const id = crypto.randomUUID();
+            bundles.admit(client.id, id);
+            const made = await makeBundle(bundles, checkpoints, payload, id).catch(async (error: unknown) => {
+                await bundles.discard(id);
+                throw error;
+            });
             await bundles.keep(made.bundleId, client.id);
             return untrusted?.(payload.path) === true ? { ...made, untrusted: true } : made;
         });

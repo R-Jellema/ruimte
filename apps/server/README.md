@@ -172,7 +172,7 @@ $RUIMTE_HOME/
   worktrees/
     <repo>-<hash>/<branch>/        a worktree the daemon made, unless `worktreeRoot` in `endpoint.json` sends new ones elsewhere; nothing removes it on its own
     worktrees.json                 what git cannot say about them: branch, from, project, node, who made it (stays here either way)
-  bundles/<id>.bundle              0700, a git bundle written for another machine to read with `bytes.read`; cleared at daemon start, and each file goes once its last piece was read (a client holds at most 4, the machine 16)
+  bundles/<id>.bundle              0700, a git bundle written for another machine to read with `bytes.read`; cleared at daemon start, and each file goes once its last piece was read (a client holds at most 4, the machine 16 that nobody began to read)
     incoming/<id>.bundle           0700, a bundle another machine is sending with `git.bundlePut`; removed after `git.fetchBundle`, taken in or refused
     peers/<hash>/                  0700, the same two folders for a machine that works here as a peer, one per machine so no machine reaches another's bundles; cleared at daemon start
   hidden-agents/<id>.json          agents a chat view started outside the canvas, with their placement

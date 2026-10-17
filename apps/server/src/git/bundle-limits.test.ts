@@ -16,6 +16,11 @@ afterEach(async () => {
 
 const piece = (size: number): Uint8Array => new Uint8Array(size);
 
+/* Whether the file is there, without `made`, which counts as beginning to read it. */
+function written(store: BundleStore, id: string): Promise<boolean> {
+    return Bun.file(store.pathOf(id)).exists();
+}
+
 describe('the bundles one machine sends', () => {
     test('a finished transfer that nobody fetched still counts, so a third one is refused', async () => {
         const store = new BundleStore(home, 'machine-a', { bundles: 2, bytes: 1000 });
@@ -34,11 +39,37 @@ describe('the bundles one machine sends', () => {
             await store.keep(id, 'client-1');
         }
         await store.receive('second-one', 0, piece(10), 10);
-        expect(await Promise.all(['result-one', 'result-two', 'result-three'].map((id) => store.made(id)))).not.toContain(null);
+        expect(await Promise.all(['result-one', 'result-two', 'result-three'].map((id) => written(store, id)))).not.toContain(false);
         await Bun.write(store.pathOf('result-four'), new Uint8Array(10));
         await store.keep('result-four', 'client-1');
-        expect(await store.made('result-one')).toBeNull();
-        expect(await store.made('result-four')).not.toBeNull();
+        expect(await written(store, 'result-one')).toBe(false);
+        expect(await written(store, 'result-four')).toBe(true);
+    });
+
+    test('evicts only bundles nobody began to read, so a reader of another client keeps its bundle', async () => {
+        const store = new BundleStore(home, 'machine-a', { bundles: 2, bytes: 1000, results: 2 });
+        for (const id of ['read-by-one', 'unread-of-two']) {
+            await Bun.write(store.pathOf(id), new Uint8Array(10));
+        }
+        await store.keep('read-by-one', 'client-1');
+        await store.keep('unread-of-two', 'client-2');
+        expect(await store.made('read-by-one')).not.toBeNull();
+
+        store.admit('client-3', 'being-made');
+        await Bun.write(store.pathOf('newest'), new Uint8Array(10));
+        await store.keep('newest', 'client-3');
+
+        expect(await written(store, 'read-by-one')).toBe(true);
+        expect(await written(store, 'unread-of-two')).toBe(false);
+        expect(await written(store, 'newest')).toBe(true);
+    });
+
+    test('a place is held from the admit on, so two bundles made at once for one client cannot pass its share', () => {
+        const store = new BundleStore(home);
+        for (const id of ['first-one', 'second-one', 'third-one', 'fourth-one']) {
+            store.admit('client-1', id);
+        }
+        expect(() => store.admit('client-1', 'fifth-one')).toThrow(expect.objectContaining({ code: 'bundle-limit' }));
     });
 
     test('sending the same bundle again replaces it instead of adding another', async () => {

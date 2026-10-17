@@ -432,8 +432,14 @@ export class PeerTasks {
         await this.discardOffered(machineId, task.childId);
         const bundles = deps.peerBundles(machineId);
         const { checkpoints } = deps.git();
-        bundles.admit(clientId);
-        const made = await makeBundle(bundles, checkpoints, { path: cwd, from: 'files', haves, name: task.title.slice(0, 120) });
+        const id = crypto.randomUUID();
+        bundles.admit(clientId, id);
+        const made = await makeBundle(bundles, checkpoints, { path: cwd, from: 'files', haves, name: task.title.slice(0, 120) }, id).catch(
+            async (error: unknown) => {
+                await bundles.discard(id);
+                throw error;
+            }
+        );
         await bundles.keep(made.bundleId, clientId);
         this.offered.set(made.bundleId, { machineId, nodeId: task.childId });
         return { ...made, branch };

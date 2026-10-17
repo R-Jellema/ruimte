@@ -62,8 +62,8 @@ export class BundleStore {
     private readonly admitting = new KeyedQueue();
     // What each incoming bundle is meant to weigh, as the sender said; a file that reached it waits for its fetch and is no open upload.
     private readonly expected = new Map<string, number>();
-    // The client each bundle written here was for, oldest first.
-    private readonly madeFor = new Map<string, string>();
+    // The client each bundle written here was for, oldest first, and how far it got: a bundle being made or read is never evicted.
+    private readonly madeFor = new Map<string, { clientId: string; state: 'making' | 'made' | 'reading' }>();
     // Only the bundles of a machine that works here are capped; a person's own are bounded per client.
     private readonly limits: BundleLimits | null;
 
@@ -91,26 +91,35 @@ export class BundleStore {
             return null;
         }
         const path = this.pathOf(id);
-        return (await stat(path).catch(() => null))?.isFile() ? path : null;
+        if (!(await stat(path).catch(() => null))?.isFile()) {
+            return null;
+        }
+        const held = this.madeFor.get(id);
+        if (held !== undefined) {
+            held.state = 'reading';
+        }
+        return path;
     }
 
     /* How many bundles a client holds that nobody read to the end yet. */
     heldBy(clientId: string): number {
-        return [...this.madeFor.values()].filter((owner) => owner === clientId).length;
+        return [...this.madeFor.values()].filter((held) => held.clientId === clientId).length;
     }
 
-    /* Refuses a client that holds its share already. */
-    admit(clientId: string): void {
+    /* Refuses a client that holds its share already, and otherwise holds a place for the bundle `id` until it is kept or discarded. */
+    admit(clientId: string, id: string): void {
         if (this.heldBy(clientId) >= MAX_MADE_PER_CLIENT) {
             throw new GitError('bundle-limit', `${MAX_MADE_PER_CLIENT} transfers are already waiting on this machine. Try again once they are done.`);
         }
+        this.madeFor.set(id, { clientId, state: 'making' });
     }
 
-    /* Notes a bundle written for a client, and drops the oldest ones of all clients beyond the machine's share. */
+    /* Notes a bundle written for a client, and drops the oldest ones nobody began to read beyond the machine's share. */
     async keep(id: string, clientId: string): Promise<void> {
-        this.madeFor.set(id, clientId);
+        this.madeFor.set(id, { clientId, state: 'made' });
         const share = this.limits === null ? MAX_MADE : (this.limits.results ?? PEER_MAX_RESULT_BUNDLES);
-        for (const oldest of [...this.madeFor.keys()].slice(0, Math.max(0, this.madeFor.size - share))) {
+        const unread = [...this.madeFor].filter(([other, held]) => other !== id && held.state === 'made').map(([other]) => other);
+        for (const oldest of unread.slice(0, Math.max(0, this.madeFor.size - share))) {
             await this.discard(oldest);
         }
     }
