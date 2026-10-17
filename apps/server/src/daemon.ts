@@ -5,6 +5,7 @@ import { CONTEXT_PATH } from './context/context-store.ts';
 import { Dispatcher } from './dispatcher.ts';
 import { errorText } from './error-text.ts';
 import { HOOKS_PATH } from './agents/hook-receiver.ts';
+import { pruneHiddenChats } from './agents/prune-hidden-chats.ts';
 import { dropEmptyMark } from './projects/scratch-project.ts';
 import { probeCodexNoDaemon } from './providers/launch.ts';
 import { noteShutdown, rememberSecret, stopTelemetry, watchProjects, type Launcher } from './telemetry/reporter.ts';
@@ -231,6 +232,15 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         journal: stores.chatMoves,
         snoozes: work.snoozes
     }).catch((e) => console.error('Finishing interrupted chat moves failed:', errorText(e)));
+    // Once per start, before the outbox runs and never on a clock.
+    await pruneHiddenChats({
+        hiddenAgents: projects.store.hiddenAgents,
+        index: projects.store.index,
+        tasks: stores.tasks,
+        lineage: stores.lineage,
+        chats,
+        now: Date.now
+    }).catch((e) => console.error('Removing old hidden agent chats failed:', errorText(e)));
     const server = serveDaemon({ runtime, machine, stores, agents, projects, devices, processes, power, network, clients, canvasHost });
 
     // The first read runs now, so a page opened straight after a start already has the plan on it.

@@ -434,6 +434,20 @@ export class ChatManager extends ChatCore {
     }
 
     /*
+     * Removes a chat nobody loaded and what is kept for it, the way a deleted node takes an unspoken
+     * fork along: false, with nothing removed, for a loaded chat. A worktree is never removed.
+     */
+    async dropStored(chatId: string): Promise<boolean> {
+        await this.loaded(chatId);
+        if (this.get(chatId)) {
+            return false;
+        }
+        const stored = await this.readChat(chatId);
+        const [deleted] = await Promise.all([this.deleteRecord(chatId), stored === null ? undefined : this.dropForkCopy(stored)]);
+        return deleted;
+    }
+
+    /*
      * The turn to go on after under another account: the chat's last one, which stopped on a limit.
      * `inPlace` says whether that account reads the chat's conversation, which is when the chat itself
      * can go on under it. Refuses an account it cannot start, and a chat with nothing to go on after.
