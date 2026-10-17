@@ -22,6 +22,8 @@ import RuimtePulsar
     private var channel: RTCDataChannel?
     private var assembler = FrameAssembler()
     private var binaryAssembler = BinaryFrameAssembler()
+    private var deflatedAssembler = DeflatedFrameAssembler()
+    private var deflating = false
     private var liveness: ChannelLiveness?
     private var gate: ProtocolGate?
     private var receivedBytes: Double?
@@ -287,12 +289,42 @@ import RuimtePulsar
         }
     }
 
+    // Only a machine this app chose deflate with sends these, and only once it let the app in.
+    private func receiveDeflatedPiece(_ piece: Data) {
+        guard !ended else { return }
+        liveness?.heard(now: now)
+        guard authenticated, deflating else {
+            end(TransportFailure.invalid(String(localized: "The machine sent an invalid message fragment.", bundle: .module)))
+            return
+        }
+        events.progress()
+        // A UTF-16 unit takes at most three bytes in UTF-8, so this holds every frame the text path would take.
+        let maxBytes = DirectFraming.authenticatedFrameChars * 3
+        switch deflatedAssembler.push(piece, maxBytes: maxBytes) {
+        case .invalid:
+            trace("invalid deflated piece")
+            end(TransportFailure.invalid(String(localized: "The machine sent an invalid message fragment.", bundle: .module)))
+        case .partial: break
+        case .frame(let deflated):
+            do {
+                let frame = try DirectFraming.inflate(deflated, maxBytes: maxBytes)
+                if frame.utf16.count > 1_024 * 1_024 { trace("received large deflated frame: \(frame.utf16.count) UTF-16 units") }
+                gate?.receive(frame)
+            } catch .tooLarge {
+                end(TransportFailure.invalid(String(localized: "The machine response is too large to load on this device.", bundle: .module)))
+            } catch {
+                end(TransportFailure.invalid(String(localized: "The machine sent an invalid message fragment.", bundle: .module)))
+            }
+        }
+    }
+
     private func handshake(_ frame: JSONValue) throws {
         trace("handshake frame")
         if !proofSent {
             guard let binding else { throw TransportFailure.invalid(String(localized: "The channel opened before its answer was applied.", bundle: .module)) }
             let proof = try DirectIdentity.proof(challenge: frame, binding: binding, machineID: machineID, machineKey: machineKey, signer: signer)
             proofSent = true
+            deflating = proof["compression"] != nil
             try sendFrame(wireText(proof))
             return
         }
@@ -454,6 +486,10 @@ extension NativeWebRTCLink: RTCPeerConnectionDelegate, RTCDataChannelDelegate {
         Task { @MainActor [weak self] in
             if buffer.isBinary, BinaryFrameAssembler.isBinaryPiece(buffer.data) {
                 self?.receiveBinaryPiece(buffer.data)
+                return
+            }
+            if buffer.isBinary, DeflatedFrameAssembler.isDeflatedPiece(buffer.data) {
+                self?.receiveDeflatedPiece(buffer.data)
                 return
             }
             guard let text = String(data: buffer.data, encoding: .utf8) else {

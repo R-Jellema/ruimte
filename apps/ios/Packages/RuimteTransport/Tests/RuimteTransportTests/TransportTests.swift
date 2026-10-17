@@ -81,6 +81,12 @@ final class TransportTests: XCTestCase {
         let proof = try DirectIdentity.proof(
             challenge: challenge, binding: binding, machineID: "machine", machineKey: machine.publicKey, signer: client)
         XCTAssertEqual(proof["publicKey"]?.stringValue, client.publicKey)
+        XCTAssertNil(proof["compression"])
+        var offering = challenge.objectValue!
+        offering["compression"] = .array([.string("zstd"), .string(WireConstants.directCompression)])
+        let chosen = try DirectIdentity.proof(
+            challenge: .object(offering), binding: binding, machineID: "machine", machineKey: machine.publicKey, signer: client)
+        XCTAssertEqual(chosen["compression"]?.stringValue, WireConstants.directCompression)
         XCTAssertTrue(
             DirectIdentity.verify(
                 publicKey: client.publicKey,

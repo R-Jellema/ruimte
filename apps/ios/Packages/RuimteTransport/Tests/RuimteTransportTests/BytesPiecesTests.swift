@@ -82,6 +82,32 @@ import Testing
         #expect(!BinaryFrameAssembler.isBinaryPiece(Data("+{".utf8)))
     }
 
+    // `Bun.deflateSync(JSON.stringify({ type: 'event', event: 'chat.status', payload: { text: 'héllo '.repeat(20) } }))`.
+    private static let contractDeflated = Data(
+        base64Encoded: "q1YqqSxIVbJSSi1LzStR0oHSVkrJGYklesUliSWlxUo6SgWJlTn5iSlKVtVKJakVIPmMwytzcvIVBgWlVFsLAA=="
+    )!
+
+    @Test func deflatedPiecesJoinApartFromBinaryAndTextPieces() {
+        var assembler = DeflatedFrameAssembler()
+        #expect(assembler.push(Data([0x03, 1, 2]), maxBytes: 10) == .partial)
+        #expect(assembler.push(Data([0x04, 3]), maxBytes: 10) == .frame(Data([1, 2, 3])))
+        #expect(assembler.push(Data([0x04, 1, 2, 3]), maxBytes: 2) == .invalid)
+        #expect(assembler.push(Data([0x02, 1]), maxBytes: 10) == .invalid)
+        #expect(!DeflatedFrameAssembler.isDeflatedPiece(Data([0x01, 1])))
+        #expect(!DeflatedFrameAssembler.isDeflatedPiece(Data("={}".utf8)))
+        #expect(!BinaryFrameAssembler.isBinaryPiece(Data([0x03, 1])))
+    }
+
+    @Test func aFrameTheContractsDeflatedInflatesBack() throws {
+        let text = String(repeating: "héllo ", count: 20)
+        #expect(try DirectFraming.inflate(Self.contractDeflated, maxBytes: 1_024) == #"{"type":"event","event":"chat.status","payload":{"text":"\#(text)"}}"#)
+    }
+
+    @Test func inflatingPastTheLimitOrGarbageIsRefused() {
+        #expect(throws: InflateFailure.tooLarge) { try DirectFraming.inflate(Self.contractDeflated, maxBytes: 40) }
+        #expect(throws: InflateFailure.invalid) { try DirectFraming.inflate(Data([0xFF, 0xFF, 0xFF, 0xFF]), maxBytes: 1_024) }
+    }
+
     @Test func readBytesAsksForABinaryReplyAndTakesItsBytes() async throws {
         var sent: [String] = []
         let client = MachineClient(send: { sent.append($0) }, connected: true)

@@ -70,10 +70,14 @@ public enum DirectIdentity {
             throw TransportFailure.invalid(String(localized: "The machine did not prove its identity over this connection.", bundle: .module))
         }
         let signature = try signer.sign("ruimte-client-channel-v1\n\(machineID)\n\(nonce)\n\(signer.publicKey)\n\(binding)")
-        return try WireSchema.validate("DirectProofFrameSchema", .object([
+        var fields: [String: JSONValue] = [
             "type": .string("direct.key"), "protocol": .number(Double(WireConstants.protocolVersion)),
             "challenge": .string(nonce), "publicKey": .string(signer.publicKey), "signature": .string(signature)
-        ]))
+        ]
+        if challenge["compression"]?.arrayValue?.contains(.string(WireConstants.directCompression)) == true {
+            fields["compression"] = .string(WireConstants.directCompression)
+        }
+        return try WireSchema.validate("DirectProofFrameSchema", .object(fields))
     }
 
     public static func signalMessage(from: String, to: String, envelope raw: JSONValue) throws -> String {

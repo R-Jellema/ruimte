@@ -1,3 +1,4 @@
+import Compression
 import Foundation
 import RuimtePulsar
 
@@ -103,6 +104,71 @@ public struct BinaryFrameAssembler {
         let frame = parts
         parts = Data()
         return .frame(frame)
+    }
+}
+
+/// Joins the pieces of a text frame the machine deflated (`splitDeflatedFrame` in the contracts); the frame stays deflated.
+/// Its marks are neither a text piece's nor a binary frame's, so the three never join one another.
+public struct DeflatedFrameAssembler {
+    private static let more: UInt8 = 0x03
+    private static let last: UInt8 = 0x04
+    private var parts = Data()
+
+    public init() {}
+
+    public static func isDeflatedPiece(_ piece: Data) -> Bool { piece.first == more || piece.first == last }
+
+    public mutating func push(_ piece: Data, maxBytes: Int) -> BinaryFramePiece {
+        guard Self.isDeflatedPiece(piece), parts.count + piece.count - 1 <= maxBytes else {
+            parts = Data()
+            return .invalid
+        }
+        parts.append(piece.dropFirst())
+        if piece.first == Self.more { return .partial }
+        let frame = parts
+        parts = Data()
+        return .frame(frame)
+    }
+}
+
+public enum InflateFailure: Error, Equatable {
+    case tooLarge
+    case invalid
+}
+
+extension DirectFraming {
+    /// Inflates raw DEFLATE, which is what `COMPRESSION_ZLIB` reads, and stops once the text would pass `maxBytes`.
+    public static func inflate(_ deflated: Data, maxBytes: Int) throws(InflateFailure) -> String {
+        let bufferSize = 64 * 1_024
+        let stream = UnsafeMutablePointer<compression_stream>.allocate(capacity: 1)
+        defer { stream.deallocate() }
+        guard compression_stream_init(stream, COMPRESSION_STREAM_DECODE, COMPRESSION_ZLIB) == COMPRESSION_STATUS_OK else {
+            throw .invalid
+        }
+        defer { compression_stream_destroy(stream) }
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate() }
+        var output = Data()
+        let failure: InflateFailure? = deflated.withUnsafeBytes { source in
+            guard let base = source.bindMemory(to: UInt8.self).baseAddress else { return .invalid }
+            stream.pointee.src_ptr = base
+            stream.pointee.src_size = source.count
+            while true {
+                stream.pointee.dst_ptr = buffer
+                stream.pointee.dst_size = bufferSize
+                let status = compression_stream_process(stream, Int32(COMPRESSION_STREAM_FINALIZE.rawValue))
+                output.append(buffer, count: bufferSize - stream.pointee.dst_size)
+                if output.count > maxBytes { return .tooLarge }
+                switch status {
+                case COMPRESSION_STATUS_OK: continue
+                case COMPRESSION_STATUS_END: return nil
+                default: return .invalid
+                }
+            }
+        }
+        if let failure { throw failure }
+        guard let frame = String(data: output, encoding: .utf8) else { throw .invalid }
+        return frame
     }
 }
 
