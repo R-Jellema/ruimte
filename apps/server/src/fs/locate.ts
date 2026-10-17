@@ -1,4 +1,4 @@
-import { stat } from 'node:fs/promises';
+import { realpath, stat } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { FS_LOCATE_MAX_MATCHES, type FsLocatePayload, type FsLocateResult, type GitReposResult } from '@ruimte/contracts';
 import { cachedRepos } from '../git/repo-cache.ts';
@@ -19,9 +19,17 @@ async function reposOf(deps: LocateDeps, folder: string): Promise<string[]> {
     }
 }
 
-async function isKind(path: string, directory: boolean): Promise<boolean> {
+/* Judged on the path and on where it really leads, so a link to the machine's own state does not even say that state is there. */
+async function isOpenKind(policy: MachineHomePolicy, path: string, directory: boolean): Promise<boolean> {
+    if (isMachineStatePath(policy, path)) {
+        return false;
+    }
     try {
-        const found = await stat(path);
+        const real = await realpath(path);
+        if (isMachineStatePath(policy, real)) {
+            return false;
+        }
+        const found = await stat(real);
         return directory ? found.isDirectory() : found.isFile();
     } catch {
         return false;
@@ -35,7 +43,7 @@ async function isKind(path: string, directory: boolean): Promise<boolean> {
  */
 export async function locateFile(payload: FsLocatePayload, deps: LocateDeps = REAL_DEPS): Promise<FsLocateResult> {
     const directory = payload.directory === true;
-    const open = async (path: string): Promise<boolean> => !isMachineStatePath(deps.policy, path) && (await isKind(path, directory));
+    const open = (path: string): Promise<boolean> => isOpenKind(deps.policy, path, directory);
     if (isAbsolute(payload.path)) {
         const path = resolve(payload.path);
         return { matches: (await open(path)) ? [path] : [] };

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { GitReposResult } from '@ruimte/contracts';
@@ -70,6 +70,14 @@ describe('locateFile', () => {
         const deps = depsWith({}, [join(root, 'project')]);
         expect((await locateFile({ path: join(root, 'worktree/README.md'), cwd: root }, deps)).matches).toEqual([join(root, 'worktree/README.md')]);
         expect((await locateFile({ path: join(root, 'project/src/own.ts'), cwd: root }, deps)).matches).toEqual([]);
+    });
+
+    test("a link to the machine's own state does not say that state is there", async () => {
+        await file('home/local.key');
+        await symlink(join(root, 'home/local.key'), join(root, 'worktree/key-link'));
+        const deps = depsWith({}, [join(root, 'home')]);
+        expect((await locateFile({ path: 'key-link', cwd: join(root, 'worktree') }, deps)).matches).toEqual([]);
+        expect((await locateFile({ path: join(root, 'worktree/key-link'), cwd: root }, deps)).matches).toEqual([]);
     });
 
     test('dots in the path name the same file once', async () => {
