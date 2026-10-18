@@ -30,6 +30,7 @@ import { reportShellProblem, startTelemetry } from './main/telemetry';
 import { quitQuestion } from './quit-question';
 import { createReleaseNotes } from './release-notes';
 import { runSmoke } from './smoke';
+import { installSocketTypeOfServiceGuard } from './socket-tos-guard';
 import { startApp } from './startup';
 import { appSubframeNavigation, BROWSER_PARTITION, createGestureGate, isExternalLink, PREVIEW_PARTITION } from './web-guards';
 
@@ -46,6 +47,7 @@ if (!app.isPackaged) {
 }
 // Before the app is ready, so the crash handler watches every process from the first one on.
 startTelemetry();
+installSocketTypeOfServiceGuard();
 // The bundler inlines __dirname as the source path; the app path is where the built files are.
 const here = join(app.getAppPath(), 'dist');
 const repoRoot = resolve(app.getAppPath(), '..', '..');
