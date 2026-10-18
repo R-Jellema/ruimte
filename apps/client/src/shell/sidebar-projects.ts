@@ -41,6 +41,8 @@ export interface SidebarSeparator {
     id: string;
     /* Empty for a bare line. */
     label: string;
+    /* A heading that hides the projects under it, up to the next separator. */
+    folded: boolean;
 }
 
 /* Its place is a key in the order beside the projects', which no project key (a JSON array) can be. */
@@ -53,8 +55,8 @@ const storedSeparators = storedJson(
     SIDEBAR_SEPARATORS_STORAGE_KEY,
     z.array(z.unknown()).transform((items) =>
         items.flatMap((item) => {
-            const parsed = z.object({ id: z.string(), label: z.string() }).safeParse(item);
-            return parsed.success ? [parsed.data] : [];
+            const parsed = z.object({ id: z.string(), label: z.string(), folded: z.boolean().optional() }).safeParse(item);
+            return parsed.success ? [{ ...parsed.data, folded: parsed.data.folded ?? false }] : [];
         })
     )
 );
@@ -115,6 +117,21 @@ export function movableKeys(projects: readonly string[], places: SeparatorPlaces
     ];
 }
 
+/* The projects a folded heading hides, from the keys in the order they show. */
+export function foldedProjects(movable: readonly string[], separators: readonly SidebarSeparator[]): Set<string> {
+    const folded = new Set(separators.filter((separator) => separator.folded && separator.label !== '').map((separator) => separatorKey(separator.id)));
+    const hidden = new Set<string>();
+    let hiding = false;
+    for (const key of movable) {
+        if (key.startsWith('separator:')) {
+            hiding = folded.has(key);
+        } else if (hiding) {
+            hidden.add(key);
+        }
+    }
+    return hidden;
+}
+
 export const useSidebarProjects = create<{
     order: string[];
     collapsed: string[];
@@ -131,7 +148,7 @@ export const useSidebarProjects = create<{
     move(visible: readonly string[], key: string, index: number): void;
     /* A new separator at `index` among the ones on screen, with its label field open. */
     addSeparator(visible: readonly string[], index: number): void;
-    collapseAll(keys: readonly string[], collapsed: boolean): void;
+    foldSeparator(id: string, folded: boolean): void;
     renameSeparator(id: string, label: string): void;
     removeSeparator(id: string): void;
     setRenamingSeparator(id: string | null): void;
@@ -166,18 +183,16 @@ export const useSidebarProjects = create<{
         get().setOrder(moveInOrder(get().order, visible, key, index));
     },
     addSeparator(visible, index) {
-        const separator = { id: crypto.randomUUID(), label: '' };
+        const separator = { id: crypto.randomUUID(), label: '', folded: false };
         const separators = [...get().separators, separator];
         storedSeparators.write(separators);
         set({ separators, renamingSeparatorId: separator.id });
         get().setOrder(moveInOrder(get().order, visible, separatorKey(separator.id), index));
     },
-    collapseAll(keys, collapsed) {
-        set((state) => {
-            const next = collapsed ? [...new Set([...state.collapsed, ...keys])] : state.collapsed.filter((key) => !keys.includes(key));
-            storedCollapsed.write(next);
-            return { collapsed: next };
-        });
+    foldSeparator(id, folded) {
+        const separators = get().separators.map((separator) => (separator.id === id ? { ...separator, folded } : separator));
+        storedSeparators.write(separators);
+        set({ separators });
     },
     renameSeparator(id, label) {
         const separators = get().separators.map((separator) => (separator.id === id ? { ...separator, label } : separator));

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { moveInOrder, movableKeys, placeSeparators, separatorKey } from './sidebar-projects';
+import { foldedProjects, moveInOrder, movableKeys, placeSeparators, separatorKey } from './sidebar-projects';
 
 describe('moveInOrder', () => {
     test('moves a project among the ones on screen', () => {
@@ -21,8 +21,8 @@ describe('moveInOrder', () => {
 });
 
 describe('placeSeparators', () => {
-    const line = { id: 'line', label: '' };
-    const work = { id: 'work', label: 'Work' };
+    const line = { id: 'line', label: '', folded: false };
+    const work = { id: 'work', label: 'Work', folded: false };
 
     test('puts a separator before the next project on screen', () => {
         const places = placeSeparators(['a', separatorKey('work'), 'b'], ['a', 'b'], [work]);
@@ -44,5 +44,20 @@ describe('placeSeparators', () => {
     test('moves among projects like a project does', () => {
         const visible = ['a', separatorKey('line'), 'b'];
         expect(moveInOrder(visible, visible, separatorKey('line'), 0)).toEqual([separatorKey('line'), 'a', 'b']);
+    });
+});
+
+describe('foldedProjects', () => {
+    test('a folded heading hides the projects up to the next separator', () => {
+        const separators = [
+            { id: 'work', label: 'Work', folded: true },
+            { id: 'line', label: '', folded: false }
+        ];
+        const movable = ['a', separatorKey('work'), 'b', 'c', separatorKey('line'), 'd'];
+        expect([...foldedProjects(movable, separators)]).toEqual(['b', 'c']);
+    });
+
+    test('a bare line hides nothing, whatever it says it is', () => {
+        expect(foldedProjects([separatorKey('line'), 'a'], [{ id: 'line', label: '', folded: true }]).size).toBe(0);
     });
 });

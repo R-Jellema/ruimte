@@ -604,11 +604,10 @@ export function ProjectHeading({
 
 /*
  * A line between projects that a person put there, with its label as a heading on the line. A heading
- * folds the projects under it, all shut unless every one is, and drags and moves the way a project heading does.
+ * folds away the projects under it, and drags and moves the way a project heading does.
  */
 export function ProjectSeparatorRow({
     separator,
-    projects,
     tabbable,
     onFocus,
     onArrow,
@@ -616,8 +615,6 @@ export function ProjectSeparatorRow({
     onDrag
 }: RowProps & {
     separator: SidebarSeparator;
-    /* The projects under it, up to the next separator. */
-    projects: readonly SidebarGroup[];
     moveItems: ReactNode;
     /* A transfer as a drag starts, null as it ends. */
     onDrag(transfer: DataTransfer | null): void;
@@ -625,13 +622,9 @@ export function ProjectSeparatorRow({
     const { t } = useTranslation(['shell', 'common']);
     const renaming = useSidebarProjects((state) => state.renamingSeparatorId === separator.id);
     const rename = (on: boolean): void => useSidebarProjects.getState().setRenamingSeparator(on ? separator.id : null);
-    const folds = separator.label !== '' && projects.length > 0;
-    const open = projects.some((group) => !group.collapsed);
-    const fold = (collapsed: boolean): void =>
-        useSidebarProjects.getState().collapseAll(
-            projects.map((group) => group.key),
-            collapsed
-        );
+    const folds = separator.label !== '';
+    const open = !separator.folded;
+    const fold = (folded: boolean): void => useSidebarProjects.getState().foldSeparator(separator.id, folded);
     if (renaming) {
         return (
             <div className="mt-3 mb-1 flex h-8 w-full items-center px-2">
@@ -684,6 +677,7 @@ export function ProjectSeparatorRow({
                         <SectionLabel render={<span />} className="min-w-0 shrink truncate">
                             {separator.label}
                         </SectionLabel>
+                        <span className="h-px grow bg-border-soft" />
                         {folds && (
                             <Icon
                                 icon={ChevronRight}
@@ -692,7 +686,6 @@ export function ProjectSeparatorRow({
                                 className={clsx('shrink-0 text-text-faint', open && 'invisible rotate-90 group-hover:visible group-focus-visible:visible')}
                             />
                         )}
-                        <span className="h-px grow bg-border-soft" />
                     </>
                 ) : (
                     <span className="-mx-2 h-px grow bg-border-soft" />

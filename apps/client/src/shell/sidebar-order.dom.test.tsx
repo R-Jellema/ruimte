@@ -108,7 +108,7 @@ describe('the order of all open projects', () => {
         expect(localStorage.getItem(SIDEBAR_ORDER_STORAGE_KEY)).toBe(kept);
     });
 
-    test('a separator comes from the footer, takes a label, moves, folds what it heads and goes again', async () => {
+    test('a separator comes from the footer, takes a label, moves, hides what it heads and goes again', async () => {
         const [first, second] = headings();
         const footerButton = [...page.host.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === 'Separator');
         await clickOn(footerButton!);
@@ -132,11 +132,12 @@ describe('the order of all open projects', () => {
 
         expect(separator().getAttribute('aria-expanded')).toBe('true');
         await clickOn(separator());
-        await until(() => heading(second!)!.getAttribute('aria-expanded') === 'false');
-        expect(heading(first!)!.getAttribute('aria-expanded')).toBe('true');
+        await until(() => heading(second!) === null);
+        expect(order()).toEqual([first, 'Clients']);
         expect(separator().getAttribute('aria-expanded')).toBe('false');
         await clickOn(separator());
-        await until(() => heading(second!)!.getAttribute('aria-expanded') === 'true');
+        await until(() => heading(second!) !== null);
+        expect(order()).toEqual([first, 'Clients', second]);
 
         await openContextMenu(separator());
         await until(() => menuItem('Delete') !== null);
