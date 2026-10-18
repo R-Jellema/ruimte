@@ -23,7 +23,7 @@ export function CanvasMenuPopup({ at }: { at: () => Point }) {
     return (
         <ContextMenu.Popup>
             <ContextMenu.Group>
-                <AgentSubmenus onPick={(target, provider) => void createNodeAction(target, { provider: provider.kind, at: at() })} />
+                <AgentSubmenus onPick={(target, provider, account) => void createNodeAction(target, { provider: provider.kind, account, at: at() })} />
                 <ContextMenu.Item onClick={() => add('terminal')}>
                     <Icon icon={Terminal} size={14} /> {t('kinds.terminal')} <Kbd shortcut={ADD_NODE_SHORTCUTS.terminal} />
                 </ContextMenu.Item>

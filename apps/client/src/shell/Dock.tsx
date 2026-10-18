@@ -73,7 +73,7 @@ export function Dock({ onHiddenChange }: { onHiddenChange?: (hidden: boolean) =>
                     <Menu.Item onClick={() => void createNodeAction('chat')}>
                         <Icon icon={MessageSquare} size={14} /> {t('nodeKinds.chat')} <Kbd shortcut={ADD_NODE_SHORTCUTS.chat} />
                     </Menu.Item>
-                    <AgentSubmenus onPick={(target, provider) => void createNodeAction(target, { provider: provider.kind })} />
+                    <AgentSubmenus onPick={(target, provider, account) => void createNodeAction(target, { provider: provider.kind, account })} />
                     <Menu.Item onClick={() => void createNodeAction('browser')}>
                         <Icon icon={Globe} size={14} /> {t('nodeKinds.browser')} <Kbd shortcut={ADD_NODE_SHORTCUTS.browser} />
                     </Menu.Item>

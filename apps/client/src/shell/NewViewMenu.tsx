@@ -73,7 +73,8 @@ export function NewViewItems() {
     const { t } = useTranslation('shell');
     /* A file comes out of the open folder, so a project without one has nothing to pick from. */
     const hasFolder = useProject((s) => shownFolderOf(s.current) !== null);
-    const pickAgent = (target: AgentTarget, provider: ProviderInfo): void => void createViewAction(target, { provider: provider.kind });
+    const pickAgent = (target: AgentTarget, provider: ProviderInfo, account?: string): void =>
+        void createViewAction(target, { provider: provider.kind, account });
     return (
         <>
             {inOrder([

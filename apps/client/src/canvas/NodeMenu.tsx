@@ -204,9 +204,9 @@ function NodeMenuContent({ id, viewId: targetViewId, node, onRename, snooze }: N
      * the person reads it once more and presses Enter. The edge keeps the note readable to the agent
      * through `ruimte-context`, so a note edited later still reaches it.
      */
-    const startAgentFromNote = async (provider: ProviderInfo): Promise<void> => {
+    const startAgentFromNote = async (provider: ProviderInfo, account?: string): Promise<void> => {
         canvas();
-        const chatId = await createNodeAction('chat', { viewId, provider: provider.kind, at: beside });
+        const chatId = await createNodeAction('chat', { viewId, provider: provider.kind, account, at: beside });
         if (chatId === null || viewId === null) {
             return;
         }
@@ -374,7 +374,7 @@ function NodeMenuContent({ id, viewId: targetViewId, node, onRename, snooze }: N
                 <ChatAgentSubmenu
                     label={t('menu.startAgentFromNote')}
                     icon={<Icon icon={Sparkles} size={14} />}
-                    onPick={(provider) => void startAgentFromNote(provider)}
+                    onPick={(provider, account) => void startAgentFromNote(provider, account)}
                 />
             )}
             <ContextMenu.Separator />
