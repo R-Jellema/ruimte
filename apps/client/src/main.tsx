@@ -39,6 +39,7 @@ import { startLastSeen } from '@/state/last-seen-watch';
 import { startSharedStorage } from '@/state/shared-storage';
 import { refuseStrayDrops } from '@/canvas/drop';
 import { useTheme } from '@/state/theme';
+import { usePalette } from '@/state/palette';
 import { exposeTerminalTestHooks } from '@/terminal/registry';
 import { reloadOnStaleChunk } from '@/stale-chunks';
 import { reportCaught, startTelemetry } from '@/telemetry/report';
@@ -117,6 +118,13 @@ function reportTheme(): void {
 reportTheme();
 useTheme.subscribe((state, previous) => {
     if (state.resolved !== previous.resolved || state.theme !== previous.theme) {
+        reportTheme();
+    }
+});
+// A palette that changes the ground changes it behind the page too, once it is picked: a preview stays in
+// this page, since the shell would give its ground to every window.
+usePalette.subscribe((state, previous) => {
+    if (state.revision !== previous.revision && !state.previewing) {
         reportTheme();
     }
 });

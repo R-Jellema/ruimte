@@ -21,6 +21,8 @@ import {
 import { type CodeFolding, codeFoldingFrom, DEFAULT_CODE_FOLDING } from '@/state/code-folding';
 import { CODE_THEMES } from '@/shell/panels/code-themes';
 import { storedJson } from '@/state/stored-json';
+import { applyPalette } from '@/state/palette';
+import { palettePresetFrom, presetTokens, type PalettePreset } from '@/state/palette-presets';
 
 export const SETTINGS_STORAGE_KEY = 'ruimte.settings';
 
@@ -143,6 +145,8 @@ export interface Settings {
     needsYouAllProjects: boolean;
     /* One of the node accents. Blue is the brand's own and the one a fresh client starts on. */
     accent: AccentId;
+    /* The tint of the grounds, surfaces and text on both sides; the default keeps the theme's own grays. */
+    palette: PalettePreset;
     /* The glow at the top of the sidebar, and of the toolbar while the sidebar is closed, in the color of the project. */
     projectGlow: boolean;
     interfaceFont: InterfaceFontId;
@@ -286,6 +290,7 @@ const DEFAULT_SETTINGS: Settings = {
     projectNavigation: 'switcher',
     needsYouAllProjects: true,
     accent: 'blue',
+    palette: 'default',
     projectGlow: true,
     interfaceFont: 'system',
     font: 'system',
@@ -395,6 +400,7 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         smartKeys: smartKeysFrom(stored.smartKeys),
         // A client that stored null for the theme's own accent, or an id that has since gone, lands on the brand's.
         accent: NODE_ACCENTS.find((entry) => entry.id === stored.accent)?.id ?? DEFAULT_SETTINGS.accent,
+        palette: palettePresetFrom(stored.palette),
         projectGlow: stored.projectGlow !== false,
         // Nothing moves a person's eyes unless that person said so, so only a stored `true` turns it on.
         agentsShowViews: stored.agentsShowViews === true,
@@ -446,14 +452,29 @@ function read(): Settings {
     }
 }
 
-/* The accent as channels. A token that needs it with an alpha writes `rgb(var(--accent-rgb) / a)`,
-   which still computes to a literal color for the reader that wants one, the terminal above all. */
-function channelsOf(hex: string): string {
-    const value = Number.parseInt(hex.slice(1), 16);
-    return `${(value >> 16) & 255} ${(value >> 8) & 255} ${value & 255}`;
+function applyColors(palette: PalettePreset, accentId: AccentId, preview = false): void {
+    const accent = accentColor(accentId);
+    applyPalette(
+        {
+            light: { ...presetTokens(palette, 'light'), accent },
+            dark: { ...presetTokens(palette, 'dark'), accent }
+        },
+        { preview }
+    );
 }
 
-/* The few tokens a person may change are set on the root, over the theme's own values. */
+/* Shows the app in a palette or an accent a person is looking at before picking it, or with none back in
+   the ones they picked. Nothing is stored, so another window and a reload still have the picked ones. */
+export function previewColors(preview: { palette?: PalettePreset; accent?: AccentId } | null): void {
+    if (typeof document === 'undefined') {
+        return;
+    }
+    const settings = useSettings.getState();
+    applyColors(preview?.palette ?? settings.palette, preview?.accent ?? settings.accent, preview !== null);
+}
+
+/* The few tokens a person may change are set over the theme's own values: the type on the root, the
+   colors in the palette's stylesheet, which knows the two sides apart. */
 function apply(settings: Settings): void {
     // The tokens are written on the document, and a test that reads this module for its defaults has none.
     if (typeof document === 'undefined') {
@@ -464,13 +485,7 @@ function apply(settings: Settings): void {
     root.setProperty('font-size', `${settings.interfaceFontSize}px`);
     root.setProperty('--code-font-size', `${settings.codeFontSize}px`);
     root.setProperty('--code-line-height', `${codeLineHeight(settings.codeFontSize, settings.codeLineHeight)}px`);
-    const accent = accentColor(settings.accent);
-    if (accent) {
-        root.setProperty('--accent', accent);
-        root.setProperty('--accent-rgb', channelsOf(accent));
-        root.setProperty('--accent-soft', `color-mix(in srgb, ${accent} 16%, var(--surface))`);
-        root.setProperty('--term-cursor', accent);
-    }
+    applyColors(settings.palette, settings.accent);
     const interfaceFont = INTERFACE_FONTS.find((entry) => entry.id === settings.interfaceFont);
     if (interfaceFont && interfaceFont.id !== 'system') {
         root.setProperty('--font-sans', interfaceFont.stack);
@@ -503,6 +518,7 @@ export const useSettings = create<SettingsStore>((set, get) => {
                 projectNavigation,
                 needsYouAllProjects,
                 accent,
+                palette,
                 projectGlow,
                 interfaceFont,
                 font,
@@ -565,6 +581,7 @@ export const useSettings = create<SettingsStore>((set, get) => {
                 projectNavigation,
                 needsYouAllProjects,
                 accent,
+                palette,
                 projectGlow,
                 interfaceFont,
                 font,

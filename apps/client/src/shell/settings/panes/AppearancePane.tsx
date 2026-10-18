@@ -1,14 +1,14 @@
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
-import { FEATURED_ACCENTS, NODE_ACCENTS, accentColor, accentLabel } from '@/canvas/accents';
 import { formatDayClock, useFormatLocale, formatMoney, FORMAT_LANGUAGE, FORMAT_REGION_CHOICES, FORMAT_SYSTEM, regionName } from '@adecore/ui/format';
-import { AccentSwatches, Switch, Select } from '@adecore/ui';
+import { Switch, Select } from '@adecore/ui';
 import { SettingsRow } from '@adecore/ui/settings';
 import { chooseLanguage, chooseRegion } from '@/i18n';
 import { APP_LANGUAGES, LANGUAGE_LABELS, LANGUAGE_SYSTEM } from '@/i18n/languages';
 import { FontSection } from '@/shell/settings/panes/FontSection';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { useSettings } from '@/state/settings';
+import { AccentRow, PaletteRow } from '@/shell/settings/panes/ColorRows';
 import { useTheme, type Theme } from '@/state/theme';
 
 /* A date with a weekday, a month and a clock, so every part a region writes differently is in it. */
@@ -18,27 +18,26 @@ const THEMES: readonly Theme[] = ['system', 'light', 'dark'];
 
 /*
  * A light or a dark window in miniature, drawn in the tokens of that side whatever the app is in now.
- * The accent is the person's own: the light side's tokens would put the brand blue back.
+ * The palette's stylesheet reaches every element that sets a side, so the accent is the person's own.
  */
-function ThemeSample({ side, half, accent }: { side: 'light' | 'dark'; half: boolean; accent: string | undefined }) {
+function ThemeSample({ side, half }: { side: 'light' | 'dark'; half: boolean }) {
     return (
         <span data-theme={side} className="flex min-w-0 grow flex-col gap-1.5 bg-surface-raised p-2.5">
             <span className={clsx('h-1.5 rounded-full bg-surface-active', half ? 'w-2/3' : 'w-3/5')} />
             <span className={clsx('h-1.5 rounded-full bg-surface-hover', half ? 'w-1/2' : 'w-2/5')} />
-            {!half && <AccentMark accent={accent} className="mt-auto self-end" />}
+            {!half && <AccentMark className="mt-auto self-end" />}
         </span>
     );
 }
 
-function AccentMark({ accent, className }: { accent: string | undefined; className: string }) {
-    return <span className={clsx('h-3 w-7 rounded-full bg-accent', className)} style={accent ? { background: accent } : undefined} />;
+function AccentMark({ className }: { className: string }) {
+    return <span className={clsx('h-3 w-7 rounded-full bg-accent', className)} />;
 }
 
 function ThemePicker() {
     const { t } = useTranslation('settings');
     const theme = useTheme((state) => state.theme);
     const setTheme = useTheme((state) => state.setTheme);
-    const accent = accentColor(useSettings((s) => s.accent));
     return (
         <div className="flex flex-wrap gap-3.5" role="radiogroup" aria-label={t('appearance.theme.label')}>
             {THEMES.map((id) => (
@@ -58,36 +57,19 @@ function ThemePicker() {
                     >
                         {id === 'system' ? (
                             <>
-                                <ThemeSample side="light" half accent={accent} />
-                                <ThemeSample side="dark" half accent={accent} />
+                                <ThemeSample side="light" half />
+                                <ThemeSample side="dark" half />
                                 {/* Across the split, since the accent is the same on either side. */}
-                                <AccentMark accent={accent} className="absolute bottom-2.5 left-1/2 -translate-x-1/2" />
+                                <AccentMark className="absolute bottom-2.5 left-1/2 -translate-x-1/2" />
                             </>
                         ) : (
-                            <ThemeSample side={id} half={false} accent={accent} />
+                            <ThemeSample side={id} half={false} />
                         )}
                     </span>
                     <span className={clsx('text-xs', theme === id ? 'text-text' : 'text-text-muted')}>{t(`appearance.theme.options.${id}`)}</span>
                 </button>
             ))}
         </div>
-    );
-}
-
-/* The accent of the whole app, from the same swatches an agent account picks its color from. */
-function AccentRow() {
-    const { t } = useTranslation('settings');
-    const accent = useSettings((s) => s.accent);
-    const update = useSettings((s) => s.update);
-    return (
-        <AccentSwatches
-            value={accent}
-            label={t('appearance.accent.label')}
-            accents={NODE_ACCENTS}
-            featured={FEATURED_ACCENTS}
-            labelOf={accentLabel}
-            onValueChange={(id) => update({ accent: id })}
-        />
     );
 }
 
@@ -174,6 +156,12 @@ export function AppearancePane() {
                 <SettingsRow searchId="appearance.theme" label={t('appearance.theme.label')} description={t('appearance.theme.description')}>
                     <ThemePicker />
                 </SettingsRow>
+                <SettingsRow
+                    searchId="appearance.palette"
+                    label={t('appearance.palette.label')}
+                    description={t('appearance.palette.description')}
+                    control={<PaletteRow />}
+                />
                 <SettingsRow
                     searchId="appearance.accent"
                     label={t('appearance.accent.label')}

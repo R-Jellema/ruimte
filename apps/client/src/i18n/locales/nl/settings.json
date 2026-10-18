@@ -10,6 +10,38 @@
                 "dark": "Donker"
             }
         },
+        "palette": {
+            "label": "Palet",
+            "description": "De tint van de achtergronden, panelen en tekst, in licht en donker. De neutrale tinten en kleuren zijn die van Tailwind.",
+            "options": {
+                "default": "Standaard",
+                "slate": "Leisteen",
+                "gray": "Grijs",
+                "neutral": "Neutraal",
+                "stone": "Steen",
+                "mauve": "Mauve",
+                "olive": "Olijf",
+                "mist": "Mist",
+                "taupe": "Taupe",
+                "red": "Rood",
+                "orange": "Oranje",
+                "amber": "Amber",
+                "yellow": "Geel",
+                "lime": "Limoen",
+                "green": "Groen",
+                "emerald": "Smaragd",
+                "teal": "Blauwgroen",
+                "cyan": "Cyaan",
+                "sky": "Hemelsblauw",
+                "blue": "Blauw",
+                "indigo": "Indigo",
+                "violet": "Violet",
+                "purple": "Paars",
+                "fuchsia": "Fuchsia",
+                "pink": "Roze",
+                "rose": "Rozerood"
+            }
+        },
         "accent": {
             "label": "Accentkleur",
             "description": "Selectieranden, focus en de cursor in een terminal."
