@@ -129,8 +129,9 @@ export const useSidebarProjects = create<{
     setOrder(order: string[]): void;
     /* Moves a project or separator to `index` among the ones on screen, which `visible` names in their order. */
     move(visible: readonly string[], key: string, index: number): void;
-    /* A new separator right under `after`, with its label field open. */
-    addSeparator(visible: readonly string[], after: string): void;
+    /* A new separator at `index` among the ones on screen, with its label field open. */
+    addSeparator(visible: readonly string[], index: number): void;
+    collapseAll(keys: readonly string[], collapsed: boolean): void;
     renameSeparator(id: string, label: string): void;
     removeSeparator(id: string): void;
     setRenamingSeparator(id: string | null): void;
@@ -164,12 +165,19 @@ export const useSidebarProjects = create<{
     move(visible, key, index) {
         get().setOrder(moveInOrder(get().order, visible, key, index));
     },
-    addSeparator(visible, after) {
+    addSeparator(visible, index) {
         const separator = { id: crypto.randomUUID(), label: '' };
         const separators = [...get().separators, separator];
         storedSeparators.write(separators);
         set({ separators, renamingSeparatorId: separator.id });
-        get().setOrder(moveInOrder(get().order, visible, separatorKey(separator.id), visible.indexOf(after) + 1));
+        get().setOrder(moveInOrder(get().order, visible, separatorKey(separator.id), index));
+    },
+    collapseAll(keys, collapsed) {
+        set((state) => {
+            const next = collapsed ? [...new Set([...state.collapsed, ...keys])] : state.collapsed.filter((key) => !keys.includes(key));
+            storedCollapsed.write(next);
+            return { collapsed: next };
+        });
     },
     renameSeparator(id, label) {
         const separators = get().separators.map((separator) => (separator.id === id ? { ...separator, label } : separator));

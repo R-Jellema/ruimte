@@ -603,11 +603,12 @@ export function ProjectHeading({
 }
 
 /*
- * A line between projects that a person put there, with its label as a heading on the line. It never
- * opens, but drags and moves the way a project heading does.
+ * A line between projects that a person put there, with its label as a heading on the line. A heading
+ * folds the projects under it, all shut unless every one is, and drags and moves the way a project heading does.
  */
 export function ProjectSeparatorRow({
     separator,
+    projects,
     tabbable,
     onFocus,
     onArrow,
@@ -615,6 +616,8 @@ export function ProjectSeparatorRow({
     onDrag
 }: RowProps & {
     separator: SidebarSeparator;
+    /* The projects under it, up to the next separator. */
+    projects: readonly SidebarGroup[];
     moveItems: ReactNode;
     /* A transfer as a drag starts, null as it ends. */
     onDrag(transfer: DataTransfer | null): void;
@@ -622,6 +625,13 @@ export function ProjectSeparatorRow({
     const { t } = useTranslation(['shell', 'common']);
     const renaming = useSidebarProjects((state) => state.renamingSeparatorId === separator.id);
     const rename = (on: boolean): void => useSidebarProjects.getState().setRenamingSeparator(on ? separator.id : null);
+    const folds = separator.label !== '' && projects.length > 0;
+    const open = projects.some((group) => !group.collapsed);
+    const fold = (collapsed: boolean): void =>
+        useSidebarProjects.getState().collapseAll(
+            projects.map((group) => group.key),
+            collapsed
+        );
     if (renaming) {
         return (
             <div className="mt-3 mb-1 flex h-8 w-full items-center px-2">
@@ -645,9 +655,12 @@ export function ProjectSeparatorRow({
                 aria-label={separator.label || t('sidebar.separator')}
                 data-sidebar-row={separatorKey(separator.id)}
                 tabIndex={tabbable ? 0 : -1}
-                className={clsx('focus-ring flex w-full cursor-default items-center', separator.label ? 'mt-3 mb-1 h-8 gap-2 px-2' : 'my-1 h-6')}
+                aria-expanded={folds ? open : undefined}
+                className={clsx('group focus-ring flex w-full cursor-default items-center', separator.label ? 'mt-3 mb-1 h-8 gap-2 px-2' : 'my-1 h-6')}
                 onFocus={onFocus}
-                onDoubleClick={() => rename(true)}
+                // A click on a heading folds, so only a bare line still opens its field on a double click.
+                onClick={folds ? () => fold(open) : undefined}
+                onDoubleClick={separator.label === '' ? () => rename(true) : undefined}
                 onDragStart={(event) => onDrag(event.dataTransfer)}
                 onDragEnd={() => onDrag(null)}
                 onKeyDown={(e) => {
@@ -656,6 +669,14 @@ export function ProjectSeparatorRow({
                         e.preventDefault();
                         rename(true);
                     }
+                    if (folds && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        fold(open);
+                    }
+                    if (folds && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+                        e.preventDefault();
+                        fold(e.key === 'ArrowLeft');
+                    }
                 }}
             >
                 {separator.label ? (
@@ -663,6 +684,14 @@ export function ProjectSeparatorRow({
                         <SectionLabel render={<span />} className="min-w-0 shrink truncate">
                             {separator.label}
                         </SectionLabel>
+                        {folds && (
+                            <Icon
+                                icon={ChevronRight}
+                                size={14}
+                                // Folded it always shows, so a heading with nothing under it on screen says why.
+                                className={clsx('shrink-0 text-text-faint', open && 'invisible rotate-90 group-hover:visible group-focus-visible:visible')}
+                            />
+                        )}
                         <span className="h-px grow bg-border-soft" />
                     </>
                 ) : (
@@ -671,7 +700,8 @@ export function ProjectSeparatorRow({
             </ContextMenu.Trigger>
             <ContextMenu.Popup>
                 <ContextMenu.Item onClick={() => rename(true)}>
-                    <Icon icon={Pencil} size={14} /> {t('common:action.rename')} <ContextMenu.Hint>{t('sidebar.doubleClick')}</ContextMenu.Hint>
+                    <Icon icon={Pencil} size={14} /> {t('common:action.rename')}{' '}
+                    <ContextMenu.Hint>{separator.label === '' ? t('sidebar.doubleClick') : 'F2'}</ContextMenu.Hint>
                 </ContextMenu.Item>
                 {moveItems}
                 <ContextMenu.Separator />

@@ -62,7 +62,7 @@ function order(): string[] {
 beforeEach(async () => {
     localStorage.removeItem(SIDEBAR_ORDER_STORAGE_KEY);
     localStorage.removeItem(SIDEBAR_SEPARATORS_STORAGE_KEY);
-    useSidebarProjects.setState({ order: [], separators: [], renamingSeparatorId: null, newViewFor: null });
+    useSidebarProjects.setState({ order: [], collapsed: [], separators: [], renamingSeparatorId: null, newViewFor: null });
     machine = new FakeMachine();
     workspace = await openFakeWorkspace(machine, { views: [] } as never, { activeViewId: null, views: {} } as never);
     machine.emit('project.summary', { summary: BOREALIS } as never);
@@ -108,11 +108,10 @@ describe('the order of all open projects', () => {
         expect(localStorage.getItem(SIDEBAR_ORDER_STORAGE_KEY)).toBe(kept);
     });
 
-    test('a separator goes under a project, takes a label and goes again', async () => {
+    test('a separator comes from the footer, takes a label, moves, folds what it heads and goes again', async () => {
         const [first, second] = headings();
-        await openContextMenu(heading(first!)!);
-        await until(() => menuItem('Add separator below') !== null);
-        await clickOn(menuItem('Add separator below'));
+        const footerButton = [...page.host.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === 'Separator');
+        await clickOn(footerButton!);
         const labelField = (): HTMLInputElement | null => page.host.querySelector<HTMLInputElement>('input[placeholder="Label (optional)"]');
         await until(() => labelField() !== null);
         const field = labelField()!;
@@ -121,16 +120,25 @@ describe('the order of all open projects', () => {
             field.blur();
         });
         await until(() => separators().length === 1 && separators()[0] === 'Clients');
-        expect(order()).toEqual([first, 'Clients', second]);
+        expect(order()).toEqual([first, second, 'Clients']);
         expect(JSON.parse(localStorage.getItem(SIDEBAR_SEPARATORS_STORAGE_KEY) ?? '[]')).toEqual([expect.objectContaining({ label: 'Clients' })]);
 
-        await openContextMenu(page.host.querySelector<HTMLElement>('[data-sidebar-row^="separator:"]')!);
+        const separator = (): HTMLElement => page.host.querySelector<HTMLElement>('[data-sidebar-row^="separator:"]')!;
+        await openContextMenu(separator());
         await until(() => menuItem('Move up') !== null);
         await clickOn(menuItem('Move up'));
-        await until(() => order()[0] === 'Clients');
-        expect(order()).toEqual(['Clients', first, second]);
+        await until(() => order()[1] === 'Clients');
+        expect(order()).toEqual([first, 'Clients', second]);
 
-        await openContextMenu(page.host.querySelector<HTMLElement>('[data-sidebar-row^="separator:"]')!);
+        expect(separator().getAttribute('aria-expanded')).toBe('true');
+        await clickOn(separator());
+        await until(() => heading(second!)!.getAttribute('aria-expanded') === 'false');
+        expect(heading(first!)!.getAttribute('aria-expanded')).toBe('true');
+        expect(separator().getAttribute('aria-expanded')).toBe('false');
+        await clickOn(separator());
+        await until(() => heading(second!)!.getAttribute('aria-expanded') === 'true');
+
+        await openContextMenu(separator());
         await until(() => menuItem('Delete') !== null);
         await clickOn(menuItem('Delete'));
         await until(() => separators().length === 0);

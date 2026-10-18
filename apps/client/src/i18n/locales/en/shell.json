@@ -34,7 +34,6 @@
         "moveUp": "Move up",
         "moveDown": "Move down",
         "newView": "New view",
-        "addSeparator": "Add separator below",
         "separator": "Separator",
         "separatorLabel": "Label (optional)"
     },

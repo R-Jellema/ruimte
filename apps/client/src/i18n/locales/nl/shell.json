@@ -34,7 +34,6 @@
         "moveUp": "Omhoog",
         "moveDown": "Omlaag",
         "newView": "Nieuwe view",
-        "addSeparator": "Scheiding eronder toevoegen",
         "separator": "Scheiding",
         "separatorLabel": "Label (optioneel)"
     },

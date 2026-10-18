@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowDown, ArrowUp, ChartNoAxesColumn, Minus, Settings } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChartNoAxesColumn, Plus, Settings } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { usePanelGap } from '@/shell/panel-layout';
@@ -57,6 +57,9 @@ import { movableKeys, separatorKey, useSidebarProjects, type SeparatorPlaces, ty
 import { SIDEBAR_WIDTH_PX, SidebarGlow } from '@/shell/SidebarGlow';
 
 const NO_SEPARATORS: SeparatorPlaces = { before: {}, trailing: [] };
+
+const FOOTER_BUTTON =
+    'flex h-8 grow items-center gap-2 rounded-md px-2 text-sm text-text-muted hover:bg-surface-hover hover:text-text focus-visible:outline-2 focus-visible:outline-accent';
 
 /* Where a dragged row would land. It sits in the gap, so the rows around it do not move while
    the pointer travels. */
@@ -284,15 +287,10 @@ export function Sidebar() {
     };
 
     /* Move up and Move down in a project's menu, the way a drag moves it, for whoever works without a mouse. */
-    const moveItems = (key: string, separable: boolean): ReactNode => {
+    const moveItems = (key: string): ReactNode => {
         const index = movable.indexOf(key);
         return (
             <>
-                {separable && (
-                    <Menu.Item onClick={() => useSidebarProjects.getState().addSeparator(movable, key)}>
-                        <Icon icon={Minus} size={14} /> {t('sidebar.addSeparator')}
-                    </Menu.Item>
-                )}
                 <Menu.Item disabled={index < 1} onClick={() => useSidebarProjects.getState().move(movable, key, index - 1)}>
                     <Icon icon={ArrowUp} size={14} /> {t('sidebar.moveUp')}
                 </Menu.Item>
@@ -301,6 +299,14 @@ export function Sidebar() {
                 </Menu.Item>
             </>
         );
+    };
+
+    /* The projects a separator heads: the ones after it, up to the next separator. */
+    const projectsUnder = (key: string): SidebarGroup[] => {
+        const after = movable.slice(movable.indexOf(key) + 1);
+        const end = after.findIndex((one) => one.startsWith('separator:'));
+        const keys = end === -1 ? after : after.slice(0, end);
+        return groups.filter((group) => keys.includes(group.key));
     };
 
     const separatorRow = (separator: SidebarSeparator): ReactNode => {
@@ -329,7 +335,8 @@ export function Sidebar() {
                 {projectInsert?.key === key && !projectInsert.after && <div className={INSERT_LINE} />}
                 <ProjectSeparatorRow
                     separator={separator}
-                    moveItems={moveItems(key, false)}
+                    moveItems={moveItems(key)}
+                    projects={projectsUnder(key)}
                     onDrag={(transfer) => onProjectDrag(transfer === null ? null : key, transfer ?? undefined)}
                     tabbable={roving === key}
                     onFocus={() => setRovingId(key)}
@@ -516,9 +523,7 @@ export function Sidebar() {
                                         {section.group && (
                                             <ProjectHeading
                                                 group={section.group}
-                                                menu={(row) =>
-                                                    projectMenu.actionsOf(row, movableGroup === null ? undefined : moveItems(movableGroup.key, true))
-                                                }
+                                                menu={(row) => projectMenu.actionsOf(row, movableGroup === null ? undefined : moveItems(movableGroup.key))}
                                                 onDrag={
                                                     movableGroup === null
                                                         ? undefined
@@ -626,6 +631,11 @@ export function Sidebar() {
                 </div>
 
                 <div className="flex shrink-0 items-center justify-end gap-1 border-t border-border p-2">
+                    {combined && (
+                        <button type="button" className={FOOTER_BUTTON} onClick={() => useSidebarProjects.getState().addSeparator(movable, movable.length)}>
+                            <Icon icon={Plus} size={14} /> {t('sidebar.separator')}
+                        </button>
+                    )}
                     <ConnectionDot />
                     <UsageLimitsCard>
                         <IconButton icon={ChartNoAxesColumn} label={t('sidebar.usage')} tooltip={false} onClick={() => useUi.getState().setUsageOpen(true)} />
