@@ -1,9 +1,8 @@
 import SwiftUI
 
 /// The desktop's About: the light app icon in its eclipse, the version, the links of the desktop's about section, the
-/// licenses of what the app is built with and the notes of this version.
+/// licenses of what the app is built with.
 struct AboutPage: View {
-    @State private var releaseNotes: ReleaseNotes?
     @State private var eclipseAnchor: CGFloat?
     @State private var eclipseInteraction = EclipseInteraction()
 
@@ -36,15 +35,6 @@ struct AboutPage: View {
                 } label: {
                     Label(String(localized: "Licenses"), lucideIcon: "file-text")
                 }
-                if let notes = ReleaseNotes.bundled() {
-                    Button {
-                        releaseNotes = notes
-                    } label: {
-                        Label(String(localized: "What's new in \(notes.version)"), lucideIcon: "sparkles")
-                    }
-                    .foregroundStyle(MobileStyle.text)
-                    .accessibilityIdentifier("about.releaseNotes")
-                }
             } footer: {
                 Text("Projects and sessions stay on your machines. This app connects to them remotely.")
             }
@@ -63,7 +53,6 @@ struct AboutPage: View {
         .foregroundStyle(MobileStyle.text)
         .navigationTitle("About")
         .navigationBarTitleDisplayMode(.inline)
-        .mobileSheet(item: $releaseNotes) { ReleaseNotesSheet(notes: $0) }
     }
 
     private func link(_ title: String, icon: String, url: String) -> some View {

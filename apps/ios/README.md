@@ -117,9 +117,6 @@ answered, so a phone set up before the step existed is never asked.
 - The machine switches under Agents go through `endpoint.setIdentity`, which sends a name nobody chose as null so it
   stays unchosen. Computer Use shows only its state: turning it on, letting an agent into an app, installing a CLI
   and adding an account happen on the machine.
-- Release notes come from `App/Resources/release-notes.json` in the bundle, never the network. They show once at the
-  first launch after an update from a version older than the notes (`ReleaseNotesGate`). A fresh install shows
-  nothing, and a Debug build has version 0.1.0, which is older than any notes, so there they only open from About.
 - Delete account follows App Store guideline 5.1.1(v). The person types the account's name as `GET /v1/account`
   holds it (`DELETE` without one), compared as `confirmsAccountDeletion` in `packages/pulsar` does. An account with
   an Apple identity gets a fresh Sign in with Apple authorization right before `DELETE /v1/account`, and its code

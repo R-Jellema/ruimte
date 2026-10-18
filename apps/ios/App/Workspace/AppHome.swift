@@ -7,7 +7,6 @@ struct AppHome: View {
     @State private var projects = UnifiedProjects()
     @State private var window: UIWindow?
     @State private var settings = false
-    @State private var releaseNotes: ReleaseNotes?
     @State private var addingMachine = false
     @State private var now = NowModel()
     @State private var onboarding = Onboarding()
@@ -57,12 +56,9 @@ struct AppHome: View {
         .environment(\.openMobileWorkspace, OpenMobileWorkspaceAction(id: sceneID, action: openWorkspace))
         .mobileSheet(isPresented: $addingMachine) { AddMachineSheet(runtime: runtime) }
         .mobileSheet(isPresented: $settings) { MobileSettings(runtime: runtime, projects: projects) }
-        .mobileSheet(item: $releaseNotes) { ReleaseNotesSheet(notes: $0) }
         .id(runtime.account?.id ?? "signed-out")
         .background(PresentationWindow { window = $0 }.frame(width: 0, height: 0))
         .task {
-            let notes = ReleaseNotes.bundled()
-            if ReleaseNotesGate.check(notes: notes, app: AppVersion.marketing) { releaseNotes = notes }
             await runtime.start()
             await runtime.notifications.restore()
         }
@@ -86,7 +82,6 @@ struct AppHome: View {
         .onChange(of: runtime.notifications.destination) { _, destination in
             guard let destination else { return }
             settings = false
-            releaseNotes = nil
             addingMachine = false
             if isPad {
                 padRouter.open(destination)

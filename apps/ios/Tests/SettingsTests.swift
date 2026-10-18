@@ -99,49 +99,6 @@ final class NotificationPreferencesTests: XCTestCase {
     }
 }
 
-final class ReleaseNotesTests: XCTestCase {
-    private func defaults() -> UserDefaults {
-        let name = "ReleaseNotesTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: name)!
-        defaults.removePersistentDomain(forName: name)
-        return defaults
-    }
-
-    private let notes = ReleaseNotes(version: "0.14.0", items: [])
-
-    func testAFreshInstallShowsNothing() {
-        XCTAssertFalse(ReleaseNotesGate.check(notes: notes, app: "0.14.0", defaults: defaults()))
-    }
-
-    func testAnUpdateShowsTheNotesOnce() {
-        let store = defaults()
-        XCTAssertFalse(ReleaseNotesGate.check(notes: notes, app: "0.13.0", defaults: store))
-        XCTAssertTrue(ReleaseNotesGate.check(notes: notes, app: "0.14.0", defaults: store))
-        XCTAssertFalse(ReleaseNotesGate.check(notes: notes, app: "0.14.0", defaults: store))
-    }
-
-    func testAPatchWithoutNotesOfItsOwnShowsTheLastOnesOnlyToWhoMissedThem() {
-        XCTAssertTrue(ReleaseNotesGate.shouldShow(notes: "0.14.0", app: "0.14.1", lastLaunched: "0.13.2"))
-        XCTAssertFalse(ReleaseNotesGate.shouldShow(notes: "0.14.0", app: "0.14.1", lastLaunched: "0.14.0"))
-    }
-
-    func testABuildOlderThanItsNotesNeverShowsThem() {
-        XCTAssertFalse(ReleaseNotesGate.shouldShow(notes: "0.14.0", app: "0.1.0", lastLaunched: "0.0.9"))
-    }
-
-    func testVersionsCompareNumberByNumber() {
-        XCTAssertEqual(ReleaseNotesGate.compare("0.9.0", "0.10.0"), .orderedAscending)
-        XCTAssertEqual(ReleaseNotesGate.compare("1.0", "1.0.0"), .orderedSame)
-        XCTAssertEqual(ReleaseNotesGate.compare("1.2.0-beta", "1.1.9"), .orderedDescending)
-    }
-
-    func testTheBundledNotesReadAndNameAVersion() throws {
-        let notes = try XCTUnwrap(ReleaseNotes.bundled(Bundle(for: AppRuntime.self)))
-        XCTAssertFalse(notes.items.isEmpty)
-        XCTAssertEqual(ReleaseNotesGate.compare(notes.version, "0.0.0"), .orderedDescending)
-    }
-}
-
 private actor FakeAccountAPI: AccountAPI {
     var result: AccountResult?
     var refusal: AddressBookRequestError?

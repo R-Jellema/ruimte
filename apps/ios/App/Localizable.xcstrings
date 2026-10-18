@@ -16241,16 +16241,6 @@
         }
       }
     },
-    "Ruimte was updated" : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ruimte is bijgewerkt"
-          }
-        }
-      }
-    },
     "Run" : {
       "localizations" : {
         "nl" : {
@@ -21056,16 +21046,6 @@
         }
       }
     },
-    "Version %@" : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Versie %@"
-          }
-        }
-      }
-    },
     "via relay" : {
       "localizations" : {
         "nl" : {
@@ -21304,16 +21284,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Wat deze agent doet, verschijnt hier."
-          }
-        }
-      }
-    },
-    "What's new in %@" : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wat is er nieuw in %@"
           }
         }
       }
