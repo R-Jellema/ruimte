@@ -8,7 +8,7 @@ import { prepareCodeBlockAction } from '@/chat/prepare-code-block';
 import { useProjectChats } from '@/chat/project-chats';
 import { openUiLink, openUiUrl } from '@/chat/ui-links';
 import { openNewChatAfterSend } from '@/chat/new-chat-after-send';
-import { ReadImage } from '@/chat/ReadImage';
+import { MarkdownImage, ReadImage } from '@/chat/ReadImage';
 import { useTimelineFind } from '@/chat/use-chat-find';
 import { useChatPlace } from '@/chat/use-chat-place';
 import { useContextSources } from '@/context/sources';
@@ -38,6 +38,7 @@ export const WORKSPACE_CHAT_HOST: Partial<ChatHost> = {
     ...(intelligentUi ? { intelligentUi: { ...intelligentUi, openLink: openUiLink, openUrl: openUiUrl } } : {}),
     isAppShortcut: (event) => isShellShortcut(event, isApplePlatform()),
     ReadImage,
+    MarkdownImage,
     renderShellCodeBlock: prepareCodeBlockAction,
     fileLinks: {
         target: (text, cwd, scopeId) => {
