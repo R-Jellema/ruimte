@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowDown, ArrowUp, ChartNoAxesColumn, Plus, Settings } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChartNoAxesColumn, Minus, Settings } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { usePanelGap } from '@/shell/panel-layout';
@@ -29,7 +29,6 @@ import { Icon, IconButton, Menu, SectionLabel } from '@adecore/ui';
 import { SidebarToggle } from '@/shell/SidebarToggle';
 import { StationMenu } from '@/shell/menu/StationMenu';
 import { IS_STATION } from '@/station';
-import { NewViewItems } from '@/shell/NewViewMenu';
 import { draggedViewId, dragging as draggedView, draggingWholeCell, PROJECT_DRAG_TYPE, setDragging as setDraggedView, VIEW_DRAG_TYPE } from '@/shell/view-drag';
 import { useInstantWidth } from '@/shell/useInstantWidth';
 import { UsageLimitsCard } from '@adecore/agents-react/usage';
@@ -38,18 +37,26 @@ import { STRIP_PADDING_PX, useTrafficLightInset } from '@/desktop/useFullscreen'
 import { APP_SHORTCUTS } from '@/shell/shortcuts';
 import { useSettings } from '@/state/settings';
 import { isScratchProject, useProject } from '@/state/project';
-import { newChat } from '@/project/new-chat';
 import { useSidebarGroups } from './sidebar-groups';
 import { openSidebarTarget } from './sidebar-navigation';
-import { buildCombinedSidebar, buildSidebarEverywhere, type SidebarGroup, type SidebarRow } from './sidebar-rows';
+import { buildCombinedSidebar, buildSidebarEverywhere, type SidebarGroup, type SidebarRow, type SidebarSection } from './sidebar-rows';
 import { NeedsYouCard } from './NeedsYouCard';
-import { BackgroundRow, MaybeTooltip, NodeRow, ProjectHeading, SeparatorRow, SubheaderRow, UnknownViewRow, ViewRow } from '@/shell/SidebarListRows';
+import {
+    BackgroundRow,
+    NewViewRow,
+    NodeRow,
+    ProjectHeading,
+    ProjectSeparatorRow,
+    SeparatorRow,
+    SubheaderRow,
+    UnknownViewRow,
+    ViewRow
+} from '@/shell/SidebarListRows';
 import { useProjectMenu } from '@/shell/project-menu-model';
-import { useSidebarProjects } from '@/shell/sidebar-projects';
+import { movableKeys, separatorKey, useSidebarProjects, type SeparatorPlaces, type SidebarSeparator } from '@/shell/sidebar-projects';
 import { SIDEBAR_WIDTH_PX, SidebarGlow } from '@/shell/SidebarGlow';
 
-const NEW_VIEW_BUTTON =
-    'flex h-8 grow items-center gap-2 rounded-md px-2 text-sm text-text-muted hover:bg-surface-hover hover:text-text disabled:opacity-50 disabled:hover:bg-transparent data-[popup-open]:bg-surface-active';
+const NO_SEPARATORS: SeparatorPlaces = { before: {}, trailing: [] };
 
 /* Where a dragged row would land. It sits in the gap, so the rows around it do not move while
    the pointer travels. */
@@ -61,6 +68,26 @@ function insertionIndex(list: HTMLElement, clientY: number, viewCount: number): 
         return { index: Number(row.dataset.viewIndex), middle: rect.top + rect.height / 2 };
     });
     return gapIndex(rows, clientY, viewCount);
+}
+
+/* The plus under a list of views: one per open project, and one under the list of the project on screen. */
+function newViewIn(section: SidebarSection): boolean {
+    return section.kind === 'views' && (section.group ? !section.group.collapsed && section.group.state === 'ready' : true);
+}
+
+/* Every row the arrows walk, the separators and the plus rows among them. */
+function sidebarRowOrder(sections: readonly SidebarSection[], separators: SeparatorPlaces, empty: boolean): string[] {
+    if (empty) {
+        return ['new-view:empty'];
+    }
+    return [
+        ...sections.flatMap((section) => [
+            ...(section.group ? (separators.before[section.group.key] ?? []).map((separator) => separatorKey(separator.id)) : []),
+            ...rowOrder([section]),
+            ...(newViewIn(section) ? [`new-view:${section.id}`] : [])
+        ]),
+        ...separators.trailing.map((separator) => separatorKey(separator.id))
+    ];
 }
 
 export function Sidebar() {
@@ -152,15 +179,16 @@ export function Sidebar() {
             useUi.getState().setSidebarExpanded([activeViewId]);
         }
     }, [expanded, activeViewId]);
-    const { groups, incomplete } = useSidebarGroups(combined || everywhere, project, expandedIds);
+    const { groups, incomplete, separators: placed } = useSidebarGroups(combined || everywhere, project, expandedIds);
+    const separators = combined ? placed : NO_SEPARATORS;
     const sections = combined
         ? buildCombinedSidebar(groups)
         : everywhere
           ? buildSidebarEverywhere({ project, expandedIds }, groups)
           : buildSidebar({ project, expandedIds });
-    const rows = rowOrder(sections);
-    const roving = rovingId !== null && rows.includes(rovingId) ? rovingId : (rows[0] ?? null);
     const empty = !combined && project.views.every((view) => view.hidden);
+    const rows = sidebarRowOrder(sections, separators, empty);
+    const roving = rovingId !== null && rows.includes(rovingId) ? rovingId : (rows[0] ?? null);
     useEffect(() => {
         if (rovingId !== null && !rows.includes(rovingId) && roving !== null && listHadFocus.current && document.activeElement === document.body) {
             listRef.current?.querySelector<HTMLElement>(`[data-sidebar-row="${CSS.escape(roving)}"]`)?.focus();
@@ -220,8 +248,11 @@ export function Sidebar() {
         void newFileViewsAfter(paths, after);
     };
 
-    /* The projects a person can move, in the order they show; the Chats project leads and stays. */
-    const movable = groups.filter((group) => group.summary.scratch !== true).map((group) => group.key);
+    /* The projects and separators a person can move, in the order they show; the Chats project leads and stays. */
+    const movable = movableKeys(
+        groups.filter((group) => group.summary.scratch !== true).map((group) => group.key),
+        separators
+    );
 
     const onProjectDrag = (key: string | null, transfer?: DataTransfer): void => {
         setProjectDrag(key);
@@ -253,10 +284,15 @@ export function Sidebar() {
     };
 
     /* Move up and Move down in a project's menu, the way a drag moves it, for whoever works without a mouse. */
-    const moveItems = (key: string): ReactNode => {
+    const moveItems = (key: string, separable: boolean): ReactNode => {
         const index = movable.indexOf(key);
         return (
             <>
+                {separable && (
+                    <Menu.Item onClick={() => useSidebarProjects.getState().addSeparator(movable, key)}>
+                        <Icon icon={Minus} size={14} /> {t('sidebar.addSeparator')}
+                    </Menu.Item>
+                )}
                 <Menu.Item disabled={index < 1} onClick={() => useSidebarProjects.getState().move(movable, key, index - 1)}>
                     <Icon icon={ArrowUp} size={14} /> {t('sidebar.moveUp')}
                 </Menu.Item>
@@ -266,6 +302,47 @@ export function Sidebar() {
             </>
         );
     };
+
+    const separatorRow = (separator: SidebarSeparator): ReactNode => {
+        const key = separatorKey(separator.id);
+        return (
+            <div
+                key={key}
+                className="flex flex-col"
+                onDragOver={(e) => {
+                    if (e.dataTransfer.types.includes(PROJECT_DRAG_TYPE) && projectDrag !== null) {
+                        projectOver(e, key);
+                    }
+                }}
+                onDragLeave={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                        setProjectInsert((was) => (was?.key === key ? null : was));
+                    }
+                }}
+                onDrop={(e) => {
+                    if (e.dataTransfer.types.includes(PROJECT_DRAG_TYPE)) {
+                        e.preventDefault();
+                        projectDrop(key);
+                    }
+                }}
+            >
+                {projectInsert?.key === key && !projectInsert.after && <div className={INSERT_LINE} />}
+                <ProjectSeparatorRow
+                    separator={separator}
+                    moveItems={moveItems(key, false)}
+                    onDrag={(transfer) => onProjectDrag(transfer === null ? null : key, transfer ?? undefined)}
+                    tabbable={roving === key}
+                    onFocus={() => setRovingId(key)}
+                    onArrow={moveFocus}
+                />
+                {projectInsert?.key === key && projectInsert.after && <div className={INSERT_LINE} />}
+            </div>
+        );
+    };
+
+    const newViewRow = (group: SidebarGroup | null, rowId: string): ReactNode => (
+        <NewViewRow group={group} rowId={rowId} tabbable={roving === rowId} onFocus={() => setRovingId(rowId)} onArrow={moveFocus} />
+    );
 
     /* The group of another project a row stands for, which then draws as a background row. */
     const ownerOf = (row: SidebarRow): SidebarGroup | undefined => {
@@ -343,9 +420,12 @@ export function Sidebar() {
                         </div>
                     )}
                     {empty ? (
-                        <p className="px-2 py-4 text-center text-xs text-text-muted">
-                            {t(isScratchProject(currentProject) ? 'sidebar.noChats' : 'sidebar.noViews')}
-                        </p>
+                        <>
+                            <p className="px-2 py-4 text-center text-xs text-text-muted">
+                                {t(isScratchProject(currentProject) ? 'sidebar.noChats' : 'sidebar.noViews')}
+                            </p>
+                            {newViewRow(null, 'new-view:empty')}
+                        </>
                     ) : (
                         sections.map((section, sectionIndex) => {
                             /* A file out of the files panel or off a preview tab lands here as a view
@@ -395,164 +475,157 @@ export function Sidebar() {
                                       e.preventDefault();
                                       e.stopPropagation();
                                   };
+                            const separatorsBefore = section.group ? (separators.before[section.group.key] ?? []) : [];
                             return (
-                                <div
-                                    key={section.id}
-                                    className={clsx('flex flex-col gap-px', section.group ? 'mb-px' : 'mb-3')}
-                                    onDragOver={(e) => {
-                                        if (e.dataTransfer.types.includes(PROJECT_DRAG_TYPE)) {
-                                            if (movableGroup !== null && projectDrag !== null) {
-                                                projectOver(e, movableGroup.key);
+                                <Fragment key={section.id}>
+                                    {separatorsBefore.map(separatorRow)}
+                                    <div
+                                        className={clsx('flex flex-col gap-px', section.group ? 'mb-px' : 'mb-3')}
+                                        onDragOver={(e) => {
+                                            if (e.dataTransfer.types.includes(PROJECT_DRAG_TYPE)) {
+                                                if (movableGroup !== null && projectDrag !== null) {
+                                                    projectOver(e, movableGroup.key);
+                                                }
+                                                return;
                                             }
-                                            return;
-                                        }
-                                        viewDragOver?.(e);
-                                    }}
-                                    onDragLeave={(e) => {
-                                        if (movableGroup !== null && !e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                                            setProjectInsert((was) => (was?.key === movableGroup.key ? null : was));
-                                        }
-                                        viewDragLeave?.(e);
-                                    }}
-                                    onDrop={(e) => {
-                                        if (e.dataTransfer.types.includes(PROJECT_DRAG_TYPE)) {
-                                            e.preventDefault();
-                                            if (movableGroup !== null) {
-                                                projectDrop(movableGroup.key);
+                                            viewDragOver?.(e);
+                                        }}
+                                        onDragLeave={(e) => {
+                                            if (movableGroup !== null && !e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                                                setProjectInsert((was) => (was?.key === movableGroup.key ? null : was));
                                             }
-                                            return;
-                                        }
-                                        viewDrop(e);
-                                    }}
-                                >
-                                    {section.group && sections[sectionIndex - 1]?.group && (
-                                        <div role="separator" className="my-1 h-px shrink-0 bg-border-soft" />
-                                    )}
-                                    {movableGroup !== null && projectInsert?.key === movableGroup.key && !projectInsert.after && (
-                                        <div className={INSERT_LINE} />
-                                    )}
-                                    {section.group && (
-                                        <ProjectHeading
-                                            group={section.group}
-                                            menu={(row) => projectMenu.actionsOf(row, movableGroup === null ? undefined : moveItems(movableGroup.key))}
-                                            onDrag={
-                                                movableGroup === null
-                                                    ? undefined
-                                                    : (transfer) => onProjectDrag(transfer === null ? null : movableGroup.key, transfer ?? undefined)
+                                            viewDragLeave?.(e);
+                                        }}
+                                        onDrop={(e) => {
+                                            if (e.dataTransfer.types.includes(PROJECT_DRAG_TYPE)) {
+                                                e.preventDefault();
+                                                if (movableGroup !== null) {
+                                                    projectDrop(movableGroup.key);
+                                                }
+                                                return;
                                             }
-                                            tabbable={roving === `project:${section.id}`}
-                                            onFocus={() => setRovingId(`project:${section.id}`)}
-                                            onArrow={moveFocus}
-                                        />
-                                    )}
-                                    {section.group && !section.group.collapsed && (section.group.state !== 'ready' || section.rows.length === 0) && (
-                                        <p className="px-2 py-1 text-xs text-text-faint">
-                                            {section.group.state === 'ready' ? t('sidebar.noViews') : t(`sidebar.source.${section.group.state}`)}
-                                        </p>
-                                    )}
-                                    {section.label !== null && (
-                                        <SectionLabel render={<div />} className="flex items-center gap-1.5 px-2 py-1">
-                                            {section.kind === 'needs-you' && <StatusDot status="needs-you" plain />}
-                                            {section.label}
-                                            <span className="ml-auto tabular-nums">{section.rows.length}</span>
-                                        </SectionLabel>
-                                    )}
-                                    {section.waiting
-                                        ? section.waiting.map((part) => (
-                                              <Fragment key={part.key}>
-                                                  {part.label !== null && <div className="truncate px-2 pt-2 pb-0.5 text-xs text-text-muted">{part.label}</div>}
-                                                  {part.rows.map(waitingRow)}
-                                              </Fragment>
-                                          ))
-                                        : section.rows.map((row) => {
-                                              const owner = ownerOf(row);
-                                              if (owner && !owner.active) {
-                                                  return (
-                                                      <BackgroundRow
-                                                          key={row.rowId}
-                                                          row={row}
-                                                          group={owner}
-                                                          snoozable={false}
-                                                          tabbable={row.rowId === roving}
-                                                          onFocus={() => setRovingId(row.rowId)}
-                                                          onArrow={moveFocus}
-                                                      />
-                                                  );
-                                              }
-                                              if (row.type === 'node') {
-                                                  return (
-                                                      <NodeRow
-                                                          key={row.rowId}
-                                                          row={row}
-                                                          snoozable={false}
-                                                          tabbable={row.rowId === roving}
-                                                          onFocus={() => setRovingId(row.rowId)}
-                                                          onArrow={moveFocus}
-                                                      />
-                                                  );
-                                              }
-                                              const shared = {
-                                                  row,
-                                                  tabbable: row.rowId === roving,
-                                                  onFocus: () => setRovingId(row.rowId),
-                                                  onArrow: moveFocus,
-                                                  onDelete: () => askDeleteView(row.view.id),
-                                                  onDrag: (viewId: string | null, transfer?: DataTransfer) =>
-                                                      onDrag(viewId === null ? null : { sectionId: section.id, viewId }, transfer)
-                                              };
-                                              return (
-                                                  <Fragment key={row.rowId}>
-                                                      {takesDrop && insertAt === row.index && <div className={INSERT_LINE} />}
-                                                      {row.view.kind === 'separator' ? (
-                                                          <SeparatorRow {...shared} />
-                                                      ) : row.view.kind === 'subheader' ? (
-                                                          <SubheaderRow {...shared} />
-                                                      ) : row.view.kind === 'unknown' ? (
-                                                          <UnknownViewRow {...shared} />
-                                                      ) : (
-                                                          <ViewRow
-                                                              {...shared}
-                                                              onToggle={() => {
-                                                                  const next = new Set(expandedIds);
-                                                                  if (row.expanded) {
-                                                                      next.delete(row.view.id);
-                                                                  } else {
-                                                                      next.add(row.view.id);
-                                                                  }
-                                                                  useUi.getState().setSidebarExpanded([...next]);
-                                                              }}
-                                                          />
+                                            viewDrop(e);
+                                        }}
+                                    >
+                                        {section.group && separatorsBefore.length === 0 && sections[sectionIndex - 1]?.group && (
+                                            <div role="separator" className="my-1 h-px shrink-0 bg-border-soft" />
+                                        )}
+                                        {movableGroup !== null && projectInsert?.key === movableGroup.key && !projectInsert.after && (
+                                            <div className={INSERT_LINE} />
+                                        )}
+                                        {section.group && (
+                                            <ProjectHeading
+                                                group={section.group}
+                                                menu={(row) =>
+                                                    projectMenu.actionsOf(row, movableGroup === null ? undefined : moveItems(movableGroup.key, true))
+                                                }
+                                                onDrag={
+                                                    movableGroup === null
+                                                        ? undefined
+                                                        : (transfer) => onProjectDrag(transfer === null ? null : movableGroup.key, transfer ?? undefined)
+                                                }
+                                                tabbable={roving === `project:${section.id}`}
+                                                onFocus={() => setRovingId(`project:${section.id}`)}
+                                                onArrow={moveFocus}
+                                            />
+                                        )}
+                                        {section.group && !section.group.collapsed && (section.group.state !== 'ready' || section.rows.length === 0) && (
+                                            <p className="px-2 py-1 text-xs text-text-faint">
+                                                {section.group.state === 'ready' ? t('sidebar.noViews') : t(`sidebar.source.${section.group.state}`)}
+                                            </p>
+                                        )}
+                                        {section.label !== null && (
+                                            <SectionLabel render={<div />} className="flex items-center gap-1.5 px-2 py-1">
+                                                {section.kind === 'needs-you' && <StatusDot status="needs-you" plain />}
+                                                {section.label}
+                                                <span className="ml-auto tabular-nums">{section.rows.length}</span>
+                                            </SectionLabel>
+                                        )}
+                                        {section.waiting
+                                            ? section.waiting.map((part) => (
+                                                  <Fragment key={part.key}>
+                                                      {part.label !== null && (
+                                                          <div className="truncate px-2 pt-2 pb-0.5 text-xs text-text-muted">{part.label}</div>
                                                       )}
+                                                      {part.rows.map(waitingRow)}
                                                   </Fragment>
-                                              );
-                                          })}
-                                    {takesDrop && insertAt === section.viewCount && <div className={INSERT_LINE} />}
-                                    {movableGroup !== null && projectInsert?.key === movableGroup.key && projectInsert.after && <div className={INSERT_LINE} />}
-                                </div>
+                                              ))
+                                            : section.rows.map((row) => {
+                                                  const owner = ownerOf(row);
+                                                  if (owner && !owner.active) {
+                                                      return (
+                                                          <BackgroundRow
+                                                              key={row.rowId}
+                                                              row={row}
+                                                              group={owner}
+                                                              snoozable={false}
+                                                              tabbable={row.rowId === roving}
+                                                              onFocus={() => setRovingId(row.rowId)}
+                                                              onArrow={moveFocus}
+                                                          />
+                                                      );
+                                                  }
+                                                  if (row.type === 'node') {
+                                                      return (
+                                                          <NodeRow
+                                                              key={row.rowId}
+                                                              row={row}
+                                                              snoozable={false}
+                                                              tabbable={row.rowId === roving}
+                                                              onFocus={() => setRovingId(row.rowId)}
+                                                              onArrow={moveFocus}
+                                                          />
+                                                      );
+                                                  }
+                                                  const shared = {
+                                                      row,
+                                                      tabbable: row.rowId === roving,
+                                                      onFocus: () => setRovingId(row.rowId),
+                                                      onArrow: moveFocus,
+                                                      onDelete: () => askDeleteView(row.view.id),
+                                                      onDrag: (viewId: string | null, transfer?: DataTransfer) =>
+                                                          onDrag(viewId === null ? null : { sectionId: section.id, viewId }, transfer)
+                                                  };
+                                                  return (
+                                                      <Fragment key={row.rowId}>
+                                                          {takesDrop && insertAt === row.index && <div className={INSERT_LINE} />}
+                                                          {row.view.kind === 'separator' ? (
+                                                              <SeparatorRow {...shared} />
+                                                          ) : row.view.kind === 'subheader' ? (
+                                                              <SubheaderRow {...shared} />
+                                                          ) : row.view.kind === 'unknown' ? (
+                                                              <UnknownViewRow {...shared} />
+                                                          ) : (
+                                                              <ViewRow
+                                                                  {...shared}
+                                                                  onToggle={() => {
+                                                                      const next = new Set(expandedIds);
+                                                                      if (row.expanded) {
+                                                                          next.delete(row.view.id);
+                                                                      } else {
+                                                                          next.add(row.view.id);
+                                                                      }
+                                                                      useUi.getState().setSidebarExpanded([...next]);
+                                                                  }}
+                                                              />
+                                                          )}
+                                                      </Fragment>
+                                                  );
+                                              })}
+                                        {takesDrop && insertAt === section.viewCount && <div className={INSERT_LINE} />}
+                                        {newViewIn(section) && newViewRow(section.group ?? null, `new-view:${section.id}`)}
+                                        {movableGroup !== null && projectInsert?.key === movableGroup.key && projectInsert.after && (
+                                            <div className={INSERT_LINE} />
+                                        )}
+                                    </div>
+                                </Fragment>
                             );
                         })
                     )}
+                    {!empty && separators.trailing.map(separatorRow)}
                 </div>
 
-                <div className="flex shrink-0 items-center gap-1 border-t border-border p-2">
-                    {/* The views of the Chats project are its chats, so its plus makes one; a canvas or a terminal
-                        there still comes from the File menu and the palette. */}
-                    {isScratchProject(currentProject) ? (
-                        <button type="button" className={NEW_VIEW_BUTTON} onClick={newChat}>
-                            <Icon icon={Plus} size={14} /> {t('chats.newChat')}
-                        </button>
-                    ) : (
-                        <Menu.Root>
-                            <MaybeTooltip label={combined ? t('sidebar.newViewIn', { project: currentProject?.name }) : null}>
-                                <Menu.Trigger className={NEW_VIEW_BUTTON}>
-                                    <Icon icon={Plus} size={14} /> {t('viewMenu.newView')}
-                                </Menu.Trigger>
-                            </MaybeTooltip>
-                            <Menu.Popup side="top" className="min-w-52">
-                                <NewViewItems />
-                            </Menu.Popup>
-                        </Menu.Root>
-                    )}
+                <div className="flex shrink-0 items-center justify-end gap-1 border-t border-border p-2">
                     <ConnectionDot />
                     <UsageLimitsCard>
                         <IconButton icon={ChartNoAxesColumn} label={t('sidebar.usage')} tooltip={false} onClick={() => useUi.getState().setUsageOpen(true)} />

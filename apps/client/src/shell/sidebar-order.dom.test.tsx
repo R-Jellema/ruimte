@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import type { ProjectSummary } from '@ruimte/contracts';
-import { SIDEBAR_ORDER_STORAGE_KEY, useSidebarProjects } from '@/shell/sidebar-projects';
+import { SIDEBAR_ORDER_STORAGE_KEY, SIDEBAR_SEPARATORS_STORAGE_KEY, useSidebarProjects } from '@/shell/sidebar-projects';
 import { useSettings } from '@/state/settings';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
@@ -41,9 +41,28 @@ function menuItem(text: string): HTMLElement | null {
     return ([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.trim().startsWith(text)) ?? null;
 }
 
+function openContextMenu(target: HTMLElement): Promise<void> {
+    return act(async () => {
+        target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10, button: 2 }));
+    });
+}
+
+/* The separators a person put between the projects, top to bottom, by what they read. */
+function separators(): string[] {
+    return [...page.host.querySelectorAll<HTMLElement>('[data-sidebar-row^="separator:"]')].map((row) => row.getAttribute('aria-label') ?? '');
+}
+
+/* The sidebar rows top to bottom: project headings by name, separators by label. */
+function order(): string[] {
+    return [...page.host.querySelectorAll<HTMLElement>('[data-sidebar-row^="project:"], [data-sidebar-row^="separator:"]')].map(
+        (row) => row.getAttribute('aria-label')?.split(' · ')[0] ?? ''
+    );
+}
+
 beforeEach(async () => {
     localStorage.removeItem(SIDEBAR_ORDER_STORAGE_KEY);
-    useSidebarProjects.setState({ order: [] });
+    localStorage.removeItem(SIDEBAR_SEPARATORS_STORAGE_KEY);
+    useSidebarProjects.setState({ order: [], separators: [], renamingSeparatorId: null, newViewFor: null });
     machine = new FakeMachine();
     workspace = await openFakeWorkspace(machine, { views: [] } as never, { activeViewId: null, views: {} } as never);
     machine.emit('project.summary', { summary: BOREALIS } as never);
@@ -58,6 +77,7 @@ afterEach(async () => {
     useSettings.setState({ sidebarScope: previousScope, needsYouAllProjects: previousEverywhere });
     workspace.close();
     localStorage.removeItem(SIDEBAR_ORDER_STORAGE_KEY);
+    localStorage.removeItem(SIDEBAR_SEPARATORS_STORAGE_KEY);
 });
 
 describe('the order of all open projects', () => {
@@ -86,5 +106,42 @@ describe('the order of all open projects', () => {
         await until(() => headings().length < 2);
         expect(useSidebarProjects.getState().order).toHaveLength(2);
         expect(localStorage.getItem(SIDEBAR_ORDER_STORAGE_KEY)).toBe(kept);
+    });
+
+    test('a separator goes under a project, takes a label and goes again', async () => {
+        const [first, second] = headings();
+        await openContextMenu(heading(first!)!);
+        await until(() => menuItem('Add separator below') !== null);
+        await clickOn(menuItem('Add separator below'));
+        const labelField = (): HTMLInputElement | null => page.host.querySelector<HTMLInputElement>('input[placeholder="Label (optional)"]');
+        await until(() => labelField() !== null);
+        const field = labelField()!;
+        await act(async () => {
+            field.value = 'Clients';
+            field.blur();
+        });
+        await until(() => separators().length === 1 && separators()[0] === 'Clients');
+        expect(order()).toEqual([first, 'Clients', second]);
+        expect(JSON.parse(localStorage.getItem(SIDEBAR_SEPARATORS_STORAGE_KEY) ?? '[]')).toEqual([expect.objectContaining({ label: 'Clients' })]);
+
+        await openContextMenu(page.host.querySelector<HTMLElement>('[data-sidebar-row^="separator:"]')!);
+        await until(() => menuItem('Move up') !== null);
+        await clickOn(menuItem('Move up'));
+        await until(() => order()[0] === 'Clients');
+        expect(order()).toEqual(['Clients', first, second]);
+
+        await openContextMenu(page.host.querySelector<HTMLElement>('[data-sidebar-row^="separator:"]')!);
+        await until(() => menuItem('Delete') !== null);
+        await clickOn(menuItem('Delete'));
+        await until(() => separators().length === 0);
+        expect(useSidebarProjects.getState().order.some((key) => key.startsWith('separator:'))).toBe(false);
+    });
+
+    test('the project on screen has its New view row under its own list', async () => {
+        const active = headings().find((name) => name !== 'Borealis')!;
+        await until(() => page.host.querySelectorAll('[data-sidebar-row^="new-view:"]').length === 1);
+        const rows = [...page.host.querySelectorAll<HTMLElement>('[data-sidebar-row^="project:"], [data-sidebar-row^="new-view:"]')];
+        const at = rows.indexOf(heading(active)!);
+        expect(rows[at + 1]?.textContent).toBe('New view');
     });
 });

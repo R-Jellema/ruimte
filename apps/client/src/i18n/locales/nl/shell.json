@@ -20,7 +20,6 @@
         "doubleClick": "dubbelklik",
         "activeProject": "Actief",
         "waitingCount": "{{count}} wachtend",
-        "newViewIn": "Nieuwe view in {{project}}",
         "promptLoading": "Lezen wat het vraagt…",
         "promptFailed": "Kon niet lezen wat het vraagt. Open het om te antwoorden.",
         "incomplete": "Needs attention is onvolledig.",
@@ -33,7 +32,11 @@
         },
         "unsavedFile": "Niet-opgeslagen wijzigingen",
         "moveUp": "Omhoog",
-        "moveDown": "Omlaag"
+        "moveDown": "Omlaag",
+        "newView": "Nieuwe view",
+        "addSeparator": "Scheiding eronder toevoegen",
+        "separator": "Scheiding",
+        "separatorLabel": "Label (optioneel)"
     },
     "snooze": {
         "action": "Snoozen",

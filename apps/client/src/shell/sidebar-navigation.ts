@@ -11,9 +11,26 @@ import { sidebarProjectKey, useSidebarProjects } from './sidebar-projects';
 import { sidebarNavigator } from './sidebar-target';
 export type { SidebarTarget } from './sidebar-target';
 
+async function openProject(endpointId: string, projectId: string): Promise<'done' | 'failed'> {
+    return (await perform('project.switch', { endpointId, projectId }).catch(ignoreRefusal)) === null ? 'failed' : 'done';
+}
+
+function currentProject(): { endpointId: string | null; projectId: string | null } {
+    return { endpointId: useProject.getState().currentEndpointId, projectId: useProject.getState().current?.projectId ?? null };
+}
+
+/* True once this window shows the project, which it may not when the project went to another window. */
+export async function showSidebarProject(endpointId: string, projectId: string): Promise<boolean> {
+    if ((await openProject(endpointId, projectId)) !== 'done') {
+        return false;
+    }
+    const current = currentProject();
+    return current.endpointId === endpointId && current.projectId === projectId;
+}
+
 export const openSidebarTarget = sidebarNavigator({
-    open: async (endpointId, projectId) => ((await perform('project.switch', { endpointId, projectId }).catch(ignoreRefusal)) === null ? 'failed' : 'done'),
-    current: () => ({ endpointId: useProject.getState().currentEndpointId, projectId: useProject.getState().current?.projectId ?? null }),
+    open: openProject,
+    current: currentProject,
     reveal(target) {
         const view = useDocument.getState().views.find((view) => view.id === target.viewId);
         const found = view && (!target.nodeId || target.nodeId === view.id || nodesOfView(view).some((node) => node.id === target.nodeId));

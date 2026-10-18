@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent as ReactKeyboardEvent, type ReactElement, type ReactNode } from 'react';
-import { ChevronRight, Globe, PanelTop, Pencil, Trash, TriangleAlert, Users } from 'lucide-react';
+import { ChevronRight, Globe, PanelTop, Pencil, Plus, Trash, TriangleAlert, Users } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { MAX_TITLE_LENGTH } from '@ruimte/actions';
@@ -25,15 +25,18 @@ import { StatusDot } from '@/canvas/NodeFrame';
 import { NodeMenuPopup } from '@/canvas/NodeMenu';
 import { FlagMark } from '@/project/FlagMark';
 import { ViewGlyph } from '@/project/ViewGlyph';
-import { Tooltip, Icon, Input, ListRow, ContextMenu, SectionLabel } from '@adecore/ui';
+import { Tooltip, Icon, Input, ListRow, ContextMenu, Menu, SectionLabel } from '@adecore/ui';
 import { wantsNewTab } from '@/shell/tab-drop';
 import { isApplePlatform } from '@/desktop/bridge';
 import type { ProjectMenuRow } from '@/project/list';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import { useServers } from '@/state/server';
-import { useSidebarProjects } from '@/shell/sidebar-projects';
-import { openSidebarTarget } from '@/shell/sidebar-navigation';
+import { separatorKey, useSidebarProjects, type SidebarSeparator } from '@/shell/sidebar-projects';
+import { openSidebarTarget, showSidebarProject } from '@/shell/sidebar-navigation';
+import { NewViewItems } from '@/shell/NewViewMenu';
+import { isScratchProject, useProject } from '@/state/project';
+import { newChat, newChatOn } from '@/project/new-chat';
 import { useUnsavedStoredPath } from '@/shell/panels/use-unsaved';
 import { NODE_KIND_ICONS } from '@/canvas/node-icons';
 
@@ -80,11 +83,12 @@ export function MaybeTooltip({ label, children }: { label: string | null | undef
     );
 }
 
-function RenameField({ value, onDone }: { value: string; onDone(next: string | null): void }) {
+function RenameField({ value, placeholder, onDone }: { value: string; placeholder?: string; onDone(next: string | null): void }) {
     return (
         <Input
             autoFocus
             defaultValue={value}
+            placeholder={placeholder}
             maxLength={MAX_TITLE_LENGTH}
             size="sm"
             className="min-w-0 grow text-sm"
@@ -595,6 +599,155 @@ export function ProjectHeading({
                 {menu({ endpointId: group.endpointId, machineLabel: group.machineLabel, connected: group.state !== 'offline', summary: group.summary })}
             </ContextMenu.Popup>
         </ContextMenu.Root>
+    );
+}
+
+/*
+ * A line between projects that a person put there, with its label as a heading on the line. It never
+ * opens, but drags and moves the way a project heading does.
+ */
+export function ProjectSeparatorRow({
+    separator,
+    tabbable,
+    onFocus,
+    onArrow,
+    moveItems,
+    onDrag
+}: RowProps & {
+    separator: SidebarSeparator;
+    moveItems: ReactNode;
+    /* A transfer as a drag starts, null as it ends. */
+    onDrag(transfer: DataTransfer | null): void;
+}) {
+    const { t } = useTranslation(['shell', 'common']);
+    const renaming = useSidebarProjects((state) => state.renamingSeparatorId === separator.id);
+    const rename = (on: boolean): void => useSidebarProjects.getState().setRenamingSeparator(on ? separator.id : null);
+    if (renaming) {
+        return (
+            <div className="mt-3 mb-1 flex h-8 w-full items-center px-2">
+                <RenameField
+                    value={separator.label}
+                    placeholder={t('sidebar.separatorLabel')}
+                    onDone={(next) => {
+                        useSidebarProjects.getState().renameSeparator(separator.id, next ?? '');
+                        rename(false);
+                    }}
+                />
+            </div>
+        );
+    }
+    return (
+        <ContextMenu.Root>
+            <ContextMenu.Trigger
+                render={<div />}
+                draggable
+                role="separator"
+                aria-label={separator.label || t('sidebar.separator')}
+                data-sidebar-row={separatorKey(separator.id)}
+                tabIndex={tabbable ? 0 : -1}
+                className={clsx('focus-ring flex w-full cursor-default items-center', separator.label ? 'mt-3 mb-1 h-8 gap-2 px-2' : 'my-1 h-6')}
+                onFocus={onFocus}
+                onDoubleClick={() => rename(true)}
+                onDragStart={(event) => onDrag(event.dataTransfer)}
+                onDragEnd={() => onDrag(null)}
+                onKeyDown={(e) => {
+                    arrowStep(e, onArrow);
+                    if (e.key === 'F2') {
+                        e.preventDefault();
+                        rename(true);
+                    }
+                }}
+            >
+                {separator.label ? (
+                    <>
+                        <SectionLabel render={<span />} className="min-w-0 shrink truncate">
+                            {separator.label}
+                        </SectionLabel>
+                        <span className="h-px grow bg-border-soft" />
+                    </>
+                ) : (
+                    <span className="-mx-2 h-px grow bg-border-soft" />
+                )}
+            </ContextMenu.Trigger>
+            <ContextMenu.Popup>
+                <ContextMenu.Item onClick={() => rename(true)}>
+                    <Icon icon={Pencil} size={14} /> {t('common:action.rename')} <ContextMenu.Hint>{t('sidebar.doubleClick')}</ContextMenu.Hint>
+                </ContextMenu.Item>
+                {moveItems}
+                <ContextMenu.Separator />
+                <ContextMenu.Item className="text-status-error" onClick={() => useSidebarProjects.getState().removeSeparator(separator.id)}>
+                    <Icon icon={Trash} size={14} /> {t('common:action.delete')}
+                </ContextMenu.Item>
+            </ContextMenu.Popup>
+        </ContextMenu.Root>
+    );
+}
+
+/*
+ * The plus under a project's views, so it is plain which project a new view lands in. Another project
+ * is switched to first, and its menu opens once it is on screen, since every row of it acts on the
+ * project the window shows. Without a group it is the plus of the one project on screen.
+ */
+export function NewViewRow({ group, rowId, tabbable, onFocus, onArrow }: RowProps & { group: SidebarGroup | null; rowId: string }) {
+    const { t } = useTranslation('shell');
+    const scratchOnScreen = useProject((state) => isScratchProject(state.current));
+    const asked = useSidebarProjects((state) => group !== null && state.newViewFor === group.key);
+    const [open, setOpen] = useState(false);
+    const background = group !== null && !group.active;
+    const common = {
+        variant: 'inset' as const,
+        'data-sidebar-row': rowId,
+        tabIndex: tabbable ? 0 : -1,
+        onFocus,
+        onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => arrowStep(event, onArrow),
+        className: clsx(ROW, ROW_PLAIN, 'focus-visible:outline-2 focus-visible:outline-accent')
+    };
+    const label = (text: string): ReactNode => (
+        <>
+            <span className={ICON_SLOT}>
+                <Icon icon={Plus} size={14} />
+            </span>
+            <span className="min-w-0 truncate">{text}</span>
+        </>
+    );
+    // The views of a Chats project are its chats, so its plus makes one; a canvas or a terminal there still comes from the File menu and the palette.
+    if (group === null ? scratchOnScreen : group.summary.scratch === true) {
+        return (
+            <ListRow {...common} render={<button type="button" />} onClick={() => (group === null ? newChat() : void newChatOn(group.endpointId))}>
+                {label(t('chats.newChat'))}
+            </ListRow>
+        );
+    }
+    if (background) {
+        return (
+            <ListRow
+                {...common}
+                render={<button type="button" />}
+                onClick={async () => {
+                    if (await showSidebarProject(group.endpointId, group.summary.projectId)) {
+                        useSidebarProjects.getState().askNewView(group.key);
+                    }
+                }}
+            >
+                {label(t('sidebar.newView'))}
+            </ListRow>
+        );
+    }
+    return (
+        <Menu.Root
+            open={open || asked}
+            onOpenChange={(next) => {
+                if (asked) {
+                    useSidebarProjects.getState().askNewView(null);
+                }
+                setOpen(next);
+            }}
+        >
+            <Menu.Trigger render={<ListRow {...common} render={<button type="button" />} />}>{label(t('sidebar.newView'))}</Menu.Trigger>
+            <Menu.Popup side="bottom" align="start" className="min-w-52">
+                <NewViewItems />
+            </Menu.Popup>
+        </Menu.Root>
     );
 }
 

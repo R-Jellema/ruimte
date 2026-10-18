@@ -20,7 +20,6 @@
         "doubleClick": "dbl-click",
         "activeProject": "Active",
         "waitingCount": "{{count}} waiting",
-        "newViewIn": "New view in {{project}}",
         "promptLoading": "Reading what it asks…",
         "promptFailed": "Could not read what it asks. Open it to answer.",
         "incomplete": "Needs attention is incomplete.",
@@ -33,7 +32,11 @@
         },
         "unsavedFile": "Unsaved changes",
         "moveUp": "Move up",
-        "moveDown": "Move down"
+        "moveDown": "Move down",
+        "newView": "New view",
+        "addSeparator": "Add separator below",
+        "separator": "Separator",
+        "separatorLabel": "Label (optional)"
     },
     "snooze": {
         "action": "Snooze",

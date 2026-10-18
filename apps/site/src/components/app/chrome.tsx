@@ -136,12 +136,12 @@ export function Sidebar({ waiting, rows }: { readonly waiting: readonly SidebarR
                             )
                         )}
                     </AnimatePresence>
+                    <span className="flex h-8 items-center gap-2 rounded-md px-2 text-[14px] text-text-muted">
+                        <Plus size={14} strokeWidth={1.75} /> New view
+                    </span>
                 </motion.div>
             </div>
-            <div className="flex items-center gap-1 border-t border-border p-2">
-                <span className="flex h-8 grow items-center gap-2 rounded-md px-2 text-[14px] text-text-muted">
-                    <Plus size={14} strokeWidth={1.75} /> View
-                </span>
+            <div className="flex items-center justify-end gap-1 border-t border-border p-2">
                 <span className="flex h-8 w-5 items-center justify-center">
                     <span className="size-2 rounded-full bg-status-idle" />
                 </span>

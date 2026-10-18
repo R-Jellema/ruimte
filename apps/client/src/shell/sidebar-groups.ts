@@ -6,7 +6,7 @@ import { useProjectList } from '@/state/project-list';
 import { listedEndpoints } from '@/state/local-machine';
 import { sidebarSelection } from './sidebar-selection';
 import { machineTransport } from '@/transport';
-import { sidebarProjectKey, useSidebarMachines, useSidebarProjects } from './sidebar-projects';
+import { placeSeparators, sidebarProjectKey, useSidebarMachines, useSidebarProjects, type SeparatorPlaces } from './sidebar-projects';
 import type { SidebarGroup, SidebarNode, SidebarProject } from './sidebar-rows';
 
 export function useSidebarGroups(enabled: boolean, active: SidebarProject, expandedIds: ReadonlySet<string>) {
@@ -22,10 +22,11 @@ export function useSidebarGroups(enabled: boolean, active: SidebarProject, expan
     const collapsed = useSidebarProjects((state) => state.collapsed);
     const expandedViews = useSidebarProjects((state) => state.expandedViews);
     const order = useSidebarProjects((state) => state.order);
+    const separators = useSidebarProjects((state) => state.separators);
     const snoozes = useSnoozes((state) => state.byKey);
     const result = useMemo(() => {
         if (!enabled) {
-            return { groups: [], incomplete: [], order: [] };
+            return { groups: [], incomplete: [], order: [], separators: { before: {}, trailing: [] } as SeparatorPlaces };
         }
         const groups: SidebarGroup[] = [];
         const incomplete: { label: string; state: SidebarGroup['state'] }[] = [];
@@ -105,8 +106,13 @@ export function useSidebarGroups(enabled: boolean, active: SidebarProject, expan
         // The Chats project leads, wherever the order has it.
         const rank = (group: SidebarGroup): number => (group.summary.scratch === true ? -1 : nextOrder.indexOf(group.key));
         groups.sort((a, b) => rank(a) - rank(b));
-        return { groups, incomplete, order: nextOrder };
-    }, [enabled, machines, endpoints, current, currentEndpointId, selected, collapsed, expandedViews, expandedIds, active, order, snoozes]);
+        const places = placeSeparators(
+            nextOrder,
+            groups.filter((group) => group.summary.scratch !== true).map((group) => group.key),
+            separators
+        );
+        return { groups, incomplete, order: nextOrder, separators: places };
+    }, [enabled, machines, endpoints, current, currentEndpointId, selected, collapsed, expandedViews, expandedIds, active, order, separators, snoozes]);
     useEffect(() => {
         if (!enabled) {
             return;

@@ -36,6 +36,33 @@ function readOrder(): string[] {
     return storedOrder.read() ?? [];
 }
 
+/* A line between the projects of "All open projects", with a heading on it once it has a label. */
+export interface SidebarSeparator {
+    id: string;
+    /* Empty for a bare line. */
+    label: string;
+}
+
+/* Its place is a key in the order beside the projects', which no project key (a JSON array) can be. */
+export function separatorKey(id: string): string {
+    return `separator:${id}`;
+}
+
+export const SIDEBAR_SEPARATORS_STORAGE_KEY = 'ruimte.sidebar.separators';
+const storedSeparators = storedJson(
+    SIDEBAR_SEPARATORS_STORAGE_KEY,
+    z.array(z.unknown()).transform((items) =>
+        items.flatMap((item) => {
+            const parsed = z.object({ id: z.string(), label: z.string() }).safeParse(item);
+            return parsed.success ? [parsed.data] : [];
+        })
+    )
+);
+
+function readSeparators(): SidebarSeparator[] {
+    return storedSeparators.read() ?? [];
+}
+
 /*
  * `stored` with `key` moved to `index` among the keys on screen (`visible`, in the order they show). The
  * keys of projects not on screen keep their place among the rest, so each comes back where it was.
@@ -55,21 +82,68 @@ export function moveInOrder(stored: readonly string[], visible: readonly string[
     return after === -1 ? [...rest, key] : [...rest.slice(0, after + 1), key, ...rest.slice(after + 1)];
 }
 
+/* Where the separators show: each before the first project on screen that follows it in `order`, the rest after the last one. */
+export interface SeparatorPlaces {
+    before: Record<string, SidebarSeparator[]>;
+    trailing: SidebarSeparator[];
+}
+
+export function placeSeparators(order: readonly string[], onScreen: readonly string[], separators: readonly SidebarSeparator[]): SeparatorPlaces {
+    const byKey = new Map(separators.map((separator) => [separatorKey(separator.id), separator]));
+    const shown = new Set(onScreen);
+    const before: Record<string, SidebarSeparator[]> = {};
+    let pending: SidebarSeparator[] = [];
+    for (const key of order) {
+        const separator = byKey.get(key);
+        if (separator) {
+            pending.push(separator);
+        } else if (shown.has(key)) {
+            if (pending.length > 0) {
+                before[key] = pending;
+            }
+            pending = [];
+        }
+    }
+    return { before, trailing: pending };
+}
+
+/* Projects and separators in the order they show, which is what a move counts places in. */
+export function movableKeys(projects: readonly string[], places: SeparatorPlaces): string[] {
+    return [
+        ...projects.flatMap((key) => [...(places.before[key] ?? []).map((separator) => separatorKey(separator.id)), key]),
+        ...places.trailing.map((separator) => separatorKey(separator.id))
+    ];
+}
+
 export const useSidebarProjects = create<{
     order: string[];
     collapsed: string[];
     expandedViews: Record<string, string[]>;
     collapse(key: string, collapsed: boolean): void;
     expandView(key: string, viewId: string, expanded: boolean): void;
+    separators: SidebarSeparator[];
+    /* The separator whose label is being typed, which only the window that added or renamed it shows. */
+    renamingSeparatorId: string | null;
+    /* The project whose New view menu opens once the window switched to it. */
+    newViewFor: string | null;
     setOrder(order: string[]): void;
-    /* Moves a project to `index` among the projects on screen, which `visible` names in their order. */
+    /* Moves a project or separator to `index` among the ones on screen, which `visible` names in their order. */
     move(visible: readonly string[], key: string, index: number): void;
+    /* A new separator right under `after`, with its label field open. */
+    addSeparator(visible: readonly string[], after: string): void;
+    renameSeparator(id: string, label: string): void;
+    removeSeparator(id: string): void;
+    setRenamingSeparator(id: string | null): void;
+    askNewView(key: string | null): void;
     /* Folds and orders the projects the way another window left them. */
     reload(): void;
 }>((set, get) => ({
     order: readOrder(),
     collapsed: readCollapsed(),
     expandedViews: {},
+    separators: readSeparators(),
+    renamingSeparatorId: null,
+    newViewFor: null,
     collapse(key, collapsed) {
         set((state) => {
             const next = collapsed ? [...new Set([...state.collapsed, key])] : state.collapsed.filter((id) => id !== key);
@@ -90,14 +164,39 @@ export const useSidebarProjects = create<{
     move(visible, key, index) {
         get().setOrder(moveInOrder(get().order, visible, key, index));
     },
+    addSeparator(visible, after) {
+        const separator = { id: crypto.randomUUID(), label: '' };
+        const separators = [...get().separators, separator];
+        storedSeparators.write(separators);
+        set({ separators, renamingSeparatorId: separator.id });
+        get().setOrder(moveInOrder(get().order, visible, separatorKey(separator.id), visible.indexOf(after) + 1));
+    },
+    renameSeparator(id, label) {
+        const separators = get().separators.map((separator) => (separator.id === id ? { ...separator, label } : separator));
+        storedSeparators.write(separators);
+        set({ separators });
+    },
+    removeSeparator(id) {
+        const separators = get().separators.filter((separator) => separator.id !== id);
+        storedSeparators.write(separators);
+        set({ separators });
+        get().setOrder(get().order.filter((key) => key !== separatorKey(id)));
+    },
+    setRenamingSeparator(id) {
+        set({ renamingSeparatorId: id });
+    },
+    askNewView(key) {
+        set({ newViewFor: key });
+    },
     reload() {
-        set({ collapsed: readCollapsed(), order: readOrder() });
+        set({ collapsed: readCollapsed(), order: readOrder(), separators: readSeparators() });
     }
 }));
 
 // Loaded with the sidebar, which only a workspace draws, so the start screen does not listen for it.
 followOtherWindows(SIDEBAR_PROJECTS_STORAGE_KEY, () => useSidebarProjects.getState().reload());
 followOtherWindows(SIDEBAR_ORDER_STORAGE_KEY, () => useSidebarProjects.getState().reload());
+followOtherWindows(SIDEBAR_SEPARATORS_STORAGE_KEY, () => useSidebarProjects.getState().reload());
 
 export function useSidebarMachines(enabled: boolean, endpointIds: readonly string[]): Record<string, SidebarMachineSnapshot> {
     const ids = [...endpointIds].sort().join('\0');
