@@ -423,20 +423,6 @@
         "goBack": "Go back",
         "dormant": "Opens when you switch to this window"
     },
-    "releaseNotes": {
-        "title": "Release notes",
-        "close": "Close release notes",
-        "failed": "The release notes failed to render",
-        "new": "New",
-        "compare": "Compare",
-        "noNotes": "No notes for this version.",
-        "viewOnGitHub": "View the release on GitHub",
-        "loadFailed": "The release notes could not be loaded: {{reason}}",
-        "openOnGitHub": "Open them on GitHub",
-        "loading": "Loading release notes",
-        "allReleases": "All releases on GitHub",
-        "dialogDescription": "What changed in each version of Ruimte."
-    },
     "removeWorktree": {
         "title": "Remove this worktree?",
         "counting": "Counting what is in it…",
@@ -554,8 +540,7 @@
         "projectIsAFolder": "A project is a folder with a .ruimte/project.json in it, which Ruimte writes the first time the folder opens.",
         "connectMachine": "Connect machine",
         "throughAccount": "Through your account",
-        "commandPalette": "Command palette",
-        "whatsNew": "What's new"
+        "commandPalette": "Command palette"
     },
     "palette": {
         "newAgent": {
@@ -947,7 +932,6 @@
         "editorSettings": "Editor Settings…",
         "computerUse": "Computer Use…",
         "front": "Bring All to Front",
-        "releaseNotes": "Release Notes",
         "keyboardShortcuts": "Keyboard Shortcuts",
         "projectSettings": "Project Settings…",
         "databaseConnections": "Database Connections…",

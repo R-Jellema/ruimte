@@ -20,7 +20,6 @@ import { AFTER_SETTLE_PREFIX, CHAT_MOVE_PREFIX, GO_VIEW_PREFIX, isPaletteId, LAU
 import type { SplitDirection } from '@/shell/split';
 import { useDocument } from '@/state/document';
 import { currentEndpointId } from '@/state/keys';
-import { openReleaseNotes } from '@/state/release-notes';
 import { useUi } from '@/state/ui';
 import { transportFor } from '@/transport';
 
@@ -74,7 +73,6 @@ const MENU_ACTIONS: Record<MenuOnlyCommandId, () => void> & Partial<Record<Comma
     'focus-up': focusTowards('up'),
     'focus-down': focusTowards('down'),
     prompts: () => void focusPromptStack(),
-    'release-notes': () => openReleaseNotes(null),
     'view-fork': withActiveView(({ view, forkTurn }) => {
         if (forkTurn !== null) {
             openForkDialog(view.id, forkTurn);

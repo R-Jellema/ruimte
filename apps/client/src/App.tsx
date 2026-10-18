@@ -13,7 +13,6 @@ import { useNativeMenu } from '@/shell/menu/native-menu';
 import { Toasts } from '@/shell/Toasts';
 import { watchDrags } from '@/shell/view-drag';
 import { useProject } from '@/state/project';
-import { useReleaseNotes } from '@/state/release-notes';
 import { useSettings } from '@/state/settings';
 import { useUi, type SettingsSectionId } from '@/state/ui';
 import { startUpdates } from '@/state/updates';
@@ -65,12 +64,6 @@ const AgentIntegrationsDialog = lazyDialog(
     'AgentIntegrationsDialog',
     useUi,
     (s) => s.agentIntegrations
-);
-const ReleaseNotesDialog = lazyDialog(
-    () => import('@/shell/ReleaseNotesDialog'),
-    'ReleaseNotesDialog',
-    useReleaseNotes,
-    (s) => s.open
 );
 
 /* The start screen, or the blank frame before it while a cold start is still trying the last project. */
@@ -162,7 +155,6 @@ export function App() {
                     <ErrorBoundary label={failed('toasts')} compact className={FLOATING_FAILURE}>
                         <Toasts />
                     </ErrorBoundary>
-                    <ReleaseNotesDialog />
                     <ErrorBoundary label={failed('machineUpdate')} compact className={FLOATING_FAILURE}>
                         <MachineUpdateDialog />
                     </ErrorBoundary>

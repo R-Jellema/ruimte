@@ -15,15 +15,8 @@
         "theUpdate": "de update",
         "noAnswer": "De shell antwoordde niet.",
         "updated": {
-            "title": "Bijgewerkt naar versie {{version}}",
-            "whatsNew": "Wat is er nieuw"
+            "title": "Bijgewerkt naar versie {{version}}"
         }
-    },
-    "badge": {
-        "installed": "Geïnstalleerd",
-        "available": "Beschikbaar",
-        "downloading": "Downloaden",
-        "ready": "Klaar om te installeren"
     },
     "taskEdge": {
         "open": "taak",

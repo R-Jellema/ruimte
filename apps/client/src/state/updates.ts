@@ -5,7 +5,6 @@ import { desktop, type UpdateState } from '@/desktop/bridge';
 import { compareVersions, isVersion } from '@ruimte/desktop-bridge';
 import { startMachineUpdate } from '@/state/machine-update';
 import { browserStorage } from '@/state/stored-json';
-import { openReleaseNotes, setPreviousSeenVersion } from '@/state/release-notes';
 import { useToasts } from '@/state/toasts';
 
 interface UpdatesStore extends UpdateState {
@@ -103,22 +102,11 @@ export function noteVersionChange(current: string, storage: Pick<Storage, 'getIt
         return change;
     }
     if (change === 'updated') {
-        setPreviousSeenVersion(seen);
-        const withNotes = typeof desktop()?.releaseNotes === 'function';
-        const id = useToasts.getState().show({
+        useToasts.getState().show({
             id: 'updated-version',
             title: i18next.t('state:update.updated.title', { version: current }),
             kind: 'success',
-            persist: true,
-            action: withNotes
-                ? {
-                      label: i18next.t('state:update.updated.whatsNew'),
-                      run: () => {
-                          useToasts.getState().dismiss(id);
-                          openReleaseNotes(current);
-                      }
-                  }
-                : undefined
+            persist: true
         });
     }
     return change;

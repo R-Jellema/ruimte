@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { useReleaseNotes } from '@/state/release-notes';
 import { useToasts } from '@/state/toasts';
 import { describeUpdate, hasUpdate, noteVersionChange, seenVersionChange } from '@/state/updates';
 import type { UpdateState } from '@/desktop/bridge';
@@ -34,7 +33,6 @@ describe('noteVersionChange', () => {
         for (const toast of useToasts.getState().toasts) {
             useToasts.getState().dismiss(toast.id);
         }
-        useReleaseNotes.setState({ previousSeen: null });
     });
 
     test('shows one toast after an update, and none on the next start', () => {
@@ -42,7 +40,6 @@ describe('noteVersionChange', () => {
         expect(noteVersionChange('0.0.9', storage)).toBe('updated');
         expect(map.get('ruimte.seenVersion')).toBe('0.0.9');
         expect(useToasts.getState().toasts.map((toast) => [toast.title, toast.persist])).toEqual([['Updated to version 0.0.9', true]]);
-        expect(useReleaseNotes.getState().previousSeen).toBe('0.0.7');
         expect(noteVersionChange('0.0.9', storage)).toBe('same');
         expect(useToasts.getState().toasts).toHaveLength(1);
     });

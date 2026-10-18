@@ -15,15 +15,8 @@
         "theUpdate": "the update",
         "noAnswer": "The shell did not answer.",
         "updated": {
-            "title": "Updated to version {{version}}",
-            "whatsNew": "What's new"
+            "title": "Updated to version {{version}}"
         }
-    },
-    "badge": {
-        "installed": "Installed",
-        "available": "Available",
-        "downloading": "Downloading",
-        "ready": "Ready to install"
     },
     "taskEdge": {
         "open": "task",
