@@ -83,6 +83,23 @@ final class ChatPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.entries.map(\.id), ["fold-turn", "tools-tool", "reply", "warning"])
     }
 
+    @MainActor func testASteeringMessageKeepsItsPlaceInTheTurn() {
+        let presentation = ChatPresentation()
+        let turn = item("turn", "turn").setting("turnId", .string("turn")).setting("state", .string("running"))
+        let first = item("first", "user").setting("turnId", .string("turn"))
+        let early = item("early", "assistant").setting("turnId", .string("turn"))
+        let steer = item("steer", "user").setting("turnId", .string("turn"))
+        let tool = item("tool", "tool").setting("turnId", .string("turn")).setting("state", .string("done"))
+        let reply = item("reply", "assistant").setting("turnId", .string("turn"))
+        presentation.replace(
+            [turn, first, early, steer, tool, reply].map(\.chatItem),
+            info: ChatWire.info(["activeTurnId": .string("turn")]).chatInfo)
+        XCTAssertEqual(presentation.entries.map(\.id), ["first", "early", "steer", "tools-tool", "reply", "working-turn"])
+        presentation.replace(
+            [turn.setting("state", .string("done")), first, early, steer, tool, reply].map(\.chatItem), info: nil)
+        XCTAssertEqual(presentation.entries.map(\.id), ["first", "early", "steer", "fold-turn", "reply"])
+    }
+
     @MainActor func testGeneratedImageStaysOutsideTheTurnFoldAndNeverDuplicatesOnExpand() {
         let presentation = ChatPresentation()
         let turn = item("turn", "turn").setting("turnId", .string("turn")).setting("state", .string("done"))

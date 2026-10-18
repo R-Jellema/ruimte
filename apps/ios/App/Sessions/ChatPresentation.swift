@@ -342,17 +342,15 @@ final class ChatPresentation {
             if turnItem.origin == .agent {
                 rows.append(ChatTimelineEntry(id: "start-\(turnID)", kind: .turnStart, items: [turn]))
             }
-            rows += rowsFor(items.filter { if case .user = $0.item { true } else { false } }, children: children)
-            let work = items.filter {
-                switch $0.item {
-                case .user, .turn: false
-                default: true
-                }
-            }
+            let conversation = items.filter { Self.turn($0) == nil }
             if turnID == activeID || turnItem.state == .running {
-                rows += Self.withLiveThought(rowsFor(work, children: children), items: work)
+                rows += Self.withLiveThought(rowsFor(conversation, children: children), items: conversation)
                 continue
             }
+            // Steering splits the conversation inside a turn. Earlier responses keep their place above it.
+            let split = (conversation.lastIndex { if case .user = $0.item { true } else { false } } ?? -1) + 1
+            rows += rowsFor(Array(conversation[..<split]), children: children)
+            let work = Array(conversation[split...])
             let final = work.last {
                 if case .assistant = $0.item { $0.item.parentToolUseID == nil } else { false }
             }
