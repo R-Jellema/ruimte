@@ -678,14 +678,7 @@ export function ProjectSeparatorRow({
                             {separator.label}
                         </SectionLabel>
                         <span className="h-px grow bg-border-soft" />
-                        {folds && (
-                            <Icon
-                                icon={ChevronRight}
-                                size={14}
-                                // Folded it always shows, so a heading with nothing under it on screen says why.
-                                className={clsx('shrink-0 text-text-faint', open && 'invisible rotate-90 group-hover:visible group-focus-visible:visible')}
-                            />
-                        )}
+                        {folds && <Icon icon={ChevronRight} size={14} className={clsx('shrink-0 text-text-faint', open && 'rotate-90')} />}
                     </>
                 ) : (
                     <span className="-mx-2 h-px grow bg-border-soft" />
