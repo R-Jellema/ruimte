@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { completionPrompt, type VoiceChatFollowUp } from '@/voice/chat-follow-up';
-import { VoiceCompletionDelivery } from '@/voice/completion-delivery';
+import { VoiceCompletionDelivery, type VoiceDeliveryTimer } from '@/voice/completion-delivery';
 import type { LiveEvent } from '@/voice/live-session';
 
 const followUp: VoiceChatFollowUp = { key: 'remote:chat', chat: 'Research', project: 'Atlas', turnId: 'turn-1' };
@@ -51,6 +51,103 @@ describe('AI Chat completion delivery to GPT-Live', () => {
             .join('');
         expect(context).toBe(completionPrompt(followUp, result));
         expect(sent.filter((event) => event.type === 'session.commentary.append')).toHaveLength(1);
+    });
+
+    test('a status report speaks its own commentary after its context, once per id', () => {
+        const { delivery, sent, drain } = setup();
+        delivery.report('local:agent:waits:1', 'local:agent', 'The terminal agent waits.', 'Tell the user it waits.');
+        delivery.report('local:agent:waits:1', 'local:agent', 'The terminal agent waits.', 'Tell the user it waits.');
+        drain();
+        expect(sent.map((event) => [event.type, event.content])).toEqual([
+            ['session.thinking.append', 'The terminal agent waits.'],
+            ['session.commentary.append', 'Tell the user it waits.']
+        ]);
+    });
+
+    test('the commentary names the language the conversation is spoken in', () => {
+        const sent: LiveEvent[] = [];
+        const delivery = new VoiceCompletionDelivery(
+            (event) => {
+                sent.push(event);
+                return true;
+            },
+            { language: 'nl' }
+        );
+        delivery.report('local:agent:waits:1', 'local:agent', 'The terminal agent waits.', 'Tell the user it waits.');
+        delivery.handle(ack(sent[0]!));
+        expect(sent[1]!.content).toBe('Tell the user it waits. Say it in natural Dutch, as a native Dutch speaker would.');
+    });
+
+    test('an append that is never answered stops holding the queue once its time runs out', () => {
+        const sent: LiveEvent[] = [];
+        const timeouts: { run: () => void; cancelled: boolean }[] = [];
+        const timer: VoiceDeliveryTimer = (run) => {
+            const entry = { run, cancelled: false };
+            timeouts.push(entry);
+            return () => {
+                entry.cancelled = true;
+            };
+        };
+        const delivery = new VoiceCompletionDelivery(
+            (event) => {
+                sent.push(event);
+                return true;
+            },
+            { timer }
+        );
+        delivery.report('first', 'local:a', 'First context.', 'Tell the first.');
+        delivery.report('second', 'local:b', 'Second context.', 'Tell the second.');
+        timeouts.at(-1)!.run();
+        delivery.handle(ack(sent[1]!));
+        expect(timeouts.map((entry) => entry.cancelled)).toEqual([true, true, false]);
+        expect(sent.map((event) => event.content)).toEqual(['First context.', 'Tell the first.', 'Second context.']);
+    });
+
+    test('the observer hears what became of each report', () => {
+        const sent: LiveEvent[] = [];
+        const heard: string[] = [];
+        let timeOut = (): void => undefined;
+        const delivery = new VoiceCompletionDelivery(
+            (event) => {
+                sent.push(event);
+                return true;
+            },
+            {
+                timer: (run) => {
+                    timeOut = run;
+                    return () => undefined;
+                },
+                observer: {
+                    reportSpoken: () => heard.push('spoken'),
+                    appendTimedOut: () => heard.push('timed out'),
+                    reportDropped: (code) => heard.push(`dropped ${String(code)}`)
+                }
+            }
+        );
+        delivery.report('first', 'local:a', 'First context.', 'Tell the first.');
+        timeOut();
+        delivery.handle(ack(sent[1]!));
+        delivery.report('second', 'local:b', 'Second context.', 'Tell the second.');
+        delivery.handle({ type: 'error', error: { code: 'invalid_request_error', client_event_id: sent[2]!.event_id } });
+        expect(heard).toEqual(['timed out', 'spoken', 'dropped invalid_request_error']);
+    });
+
+    test('a refused append drops the rest of its report and the next one goes', () => {
+        const { delivery, sent, drain } = setup();
+        delivery.report('first', 'local:a', 'First context.', 'Tell the first.');
+        delivery.report('second', 'local:b', 'Second context.', 'Tell the second.');
+        delivery.handle({ type: 'error', error: { code: 'invalid_request_error', client_event_id: sent[0]!.event_id } });
+        drain();
+        expect(sent.map((event) => event.content)).toEqual(['First context.', 'Second context.', 'Tell the second.']);
+    });
+
+    test('an error about another event changes nothing', () => {
+        const { delivery, sent } = setup();
+        delivery.report('first', 'local:a', 'First context.', 'Tell the first.');
+        delivery.handle({ type: 'error', error: { client_event_id: 'something-else' } });
+        expect(sent).toHaveLength(1);
+        delivery.handle(ack(sent[0]!));
+        expect(sent.at(-1)!.content).toBe('Tell the first.');
     });
 
     test('unrelated acknowledgments cannot announce a partially delivered result', () => {
