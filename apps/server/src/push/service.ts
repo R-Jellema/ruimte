@@ -43,6 +43,7 @@ interface PushServiceOptions {
     send?: (push: PushEnvelope) => Promise<number>;
     onError?: (error: unknown) => void;
     snoozes?: Snoozes;
+    schedule?: (delayMs: number, run: () => void) => () => void;
 }
 
 /* What the push side reads of `SnoozeStore`. */
@@ -50,6 +51,14 @@ interface Snoozes {
     isSnoozed(nodeId: string): boolean;
     noteStatus(nodeId: string, needsYou: boolean): void;
     observe(listener: (change: SnoozeChange) => void): () => void;
+}
+
+interface HeldAlert {
+    content: PushAlertContent;
+    issuedAt: number;
+    preference: PushNotifyKind;
+    ledger: boolean;
+    dueAt: number;
 }
 
 interface NodeState {
@@ -63,6 +72,11 @@ const APPROVAL_MAX_AGE_MS = 110_000;
 const TITLE_MAX = 160;
 const NEEDS_YOU_BODY = 'The agent needs your attention.';
 const BODY_MAX = 500;
+/* How long a client's report of a person at it holds; the client renews it well within that. */
+const PRESENCE_LEASE_MS = 60_000;
+const HOLD_MS = 60_000;
+// Short, since an approval card on the phone expires after `APPROVAL_MAX_AGE_MS`.
+const APPROVAL_HOLD_MS = 10_000;
 
 /* What a subscription hears of for a node: the list its project has, else its own, else what every device heard before it could choose. */
 export function notifyKinds(subscription: PushSubscribePayload, projectId: string | null): readonly PushNotifyKind[] {
@@ -71,6 +85,12 @@ export function notifyKinds(subscription: PushSubscribePayload, projectId: strin
         subscription.notify ??
         PUSH_NOTIFY_DEFAULT
     );
+}
+
+function scheduleTimeout(delayMs: number, run: () => void): () => void {
+    const timer = setTimeout(run, delayMs);
+    timer.unref?.();
+    return () => clearTimeout(timer);
 }
 
 async function sendToAddressBook(push: PushEnvelope): Promise<number> {
@@ -101,6 +121,10 @@ export class PushService {
     private machineStartedAt = 0;
     private readonly machineActivityStates = new Map<string, string>();
     private readonly pending = new Set<Promise<void>>();
+    /* The clients a person is at, by client id, with the end of each report's lease. */
+    private readonly presentClients = new Map<string, number>();
+    private held: HeldAlert[] = [];
+    private cancelRelease: (() => void) | null = null;
     private readonly now: () => number;
 
     constructor(options: PushServiceOptions) {
@@ -137,7 +161,8 @@ export class PushService {
         destination: Pick<EventMap['push.notification'], 'projectId' | 'viewId'>
     ): void {
         const alert = { ...destination, nodeId, title: clipText(title, TITLE_MAX), body: clipText(body, BODY_MAX) };
-        this.alert(target, nodeId, alert.title, alert.body);
+        // Someone asked for this one, so it reaches the phone even while a person is at a desktop.
+        this.enqueue(this.attentionContent(target, nodeId, alert.title, alert.body), true);
         for (const listener of this.notificationListeners) {
             listener(alert);
         }
@@ -178,6 +203,19 @@ export class PushService {
                 this.connectedSessions.set(sessionId, count);
             }
         };
+    }
+
+    /*
+     * A person at a desktop sees an alert there, so the phone gets it only once they leave or let it
+     * stand: see `releaseHeld`. A client that stops reporting, or goes, ends its part.
+     */
+    reportPresence(clientId: string, present: boolean): void {
+        if (present) {
+            this.presentClients.set(clientId, this.now() + PRESENCE_LEASE_MS);
+        } else if (!this.presentClients.delete(clientId)) {
+            return;
+        }
+        this.releaseHeld();
     }
 
     consume(event: SessionEvent): void {
@@ -342,14 +380,18 @@ export class PushService {
 
     /* Something a person has to step in on that no status says: a task that failed, a wake the daemon gave up on. */
     alert(target: PushAlertContent['target'], nodeId: string, title: string, body: string): void {
-        this.enqueue({
+        this.enqueue(this.attentionContent(target, nodeId, title, body));
+    }
+
+    private attentionContent(target: PushAlertContent['target'], nodeId: string, title: string, body: string): PushAlertContent {
+        return {
             kind: 'attention',
             target,
             nodeId,
             title: clipText(title, TITLE_MAX),
             body: clipText(body, BODY_MAX),
             expiresAt: this.now() + PUSH_MAX_AGE_MS
-        });
+        };
     }
 
     /* Pushes each warning about a node once while it stays raised; one that clears and comes back is new. */
@@ -441,10 +483,14 @@ export class PushService {
         }
     }
 
-    private enqueue(content: PushAlertContent): void {
+    private enqueue(content: PushAlertContent, immediate = false): void {
         const entry = this.attention.notify(content.nodeId);
         this.tell(entry);
-        this.queueAlert(() => this.deliverAlert(content, entry.issuedAt, 'needs-you', true));
+        if (immediate) {
+            this.queueAlert(() => this.deliverAlert(content, entry.issuedAt, 'needs-you', true));
+        } else {
+            this.dispatch({ content, issuedAt: entry.issuedAt, preference: 'needs-you', ledger: true });
+        }
     }
 
     /*
@@ -452,8 +498,60 @@ export class PushService {
      * turn or a process warning only reaches the devices that asked for it.
      */
     private broadcast(content: PushAlertContent, preference: PushNotifyKind): void {
-        const issuedAt = this.now();
-        this.queueAlert(() => this.deliverAlert(content, issuedAt, preference, false));
+        this.dispatch({ content, issuedAt: this.now(), preference, ledger: false });
+    }
+
+    private dispatch(alert: Omit<HeldAlert, 'dueAt'>): void {
+        if (!this.present()) {
+            this.queueAlert(() => this.deliverAlert(alert.content, alert.issuedAt, alert.preference, alert.ledger));
+            return;
+        }
+        const dueAt = this.now() + (alert.content.kind === 'approval' ? APPROVAL_HOLD_MS : HOLD_MS);
+        this.held.push({ ...alert, dueAt });
+        this.releaseHeld();
+    }
+
+    private present(): boolean {
+        const now = this.now();
+        for (const [clientId, until] of this.presentClients) {
+            if (until <= now) {
+                this.presentClients.delete(clientId);
+            }
+        }
+        return this.presentClients.size > 0;
+    }
+
+    /*
+     * Sends every held alert once the person left, and the ones that came due while they stay. Due at
+     * the desk, a wait still unread or an approval still open goes out; a finished turn or a process
+     * warning the desktop already showed goes nowhere.
+     */
+    private releaseHeld(): void {
+        this.cancelRelease?.();
+        this.cancelRelease = null;
+        const present = this.present();
+        const now = this.now();
+        const due = present ? this.held.filter((alert) => alert.dueAt <= now) : this.held;
+        this.held = present ? this.held.filter((alert) => alert.dueAt > now) : [];
+        for (const alert of due) {
+            const { content } = alert;
+            if (
+                (present && !alert.ledger) ||
+                this.snoozed(content.nodeId) ||
+                (content.kind === 'approval' && !this.approvals.get(content.nodeId)?.has(content.requestId ?? ''))
+            ) {
+                continue;
+            }
+            this.queueAlert(() => this.deliverAlert(content, alert.issuedAt, alert.preference, alert.ledger));
+        }
+        if (this.held.length === 0) {
+            return;
+        }
+        const next = Math.min(...this.held.map((alert) => alert.dueAt), ...this.presentClients.values());
+        this.cancelRelease = (this.options.schedule ?? scheduleTimeout)(Math.max(0, next - now), () => {
+            this.cancelRelease = null;
+            this.releaseHeld();
+        });
     }
 
     private queueAlert(work: () => Promise<void>): void {

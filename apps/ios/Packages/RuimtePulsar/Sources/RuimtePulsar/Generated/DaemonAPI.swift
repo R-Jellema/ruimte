@@ -8,6 +8,7 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `pushSubscribe` = "push.subscribe"
     case `pushUnsubscribe` = "push.unsubscribe"
     case `pushPreferences` = "push.preferences"
+    case `presenceReport` = "presence.report"
     case `peerList` = "peer.list"
     case `peerBind` = "peer.bind"
     case `peerSetCeiling` = "peer.setCeiling"

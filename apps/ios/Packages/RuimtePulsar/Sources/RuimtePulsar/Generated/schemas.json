@@ -7107,6 +7107,23 @@
       "projects"
     ]
   },
+  "request.presence.report.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "present": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "present"
+    ]
+  },
+  "request.presence.report.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
   "request.peer.list.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",

@@ -32,6 +32,7 @@ import { nodesOfView, subscribeViewNodes } from '@/project/view-nodes';
 import { machineTransport, pool } from '@/transport';
 import { useOptionalConnection } from '@/transport/context';
 import { machineAnswers } from '@/transport/features';
+import { reportPresence } from '@/transport/presence';
 import type { Transport } from '@/transport/transport';
 import { LinkHold } from '@/transport/workspace-hold';
 
@@ -113,6 +114,7 @@ function buildMachine(endpoint: Endpoint): Machine {
     const transport = machineTransport(endpoint.id);
     const stopNotifications = transport.on('push.notification', (alert) => notifyRequested(endpoint.id, alert));
     const stopPushAttention = watchPushAttention(endpoint.id, transport);
+    const stopPresence = reportPresence(transport, () => machineAnswers(pool.statusOf(endpoint.id), 'presence.report'));
     const stopSnoozes = watchSnoozes(endpoint.id, transport);
     const stopPrWatches = watchPrWatches(endpoint.id, transport);
     const stopAccounts = watchProviderAccounts(endpoint.id, transport);
@@ -137,6 +139,7 @@ function buildMachine(endpoint: Endpoint): Machine {
         dispose(): void {
             stopNotifications();
             stopPushAttention();
+            stopPresence();
             stopSnoozes();
             stopPrWatches();
             stopAccounts();

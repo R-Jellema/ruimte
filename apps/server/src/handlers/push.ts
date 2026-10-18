@@ -17,6 +17,10 @@ export function registerPushHandlers(dispatcher: Dispatcher, auth: AuthStore, ch
         push?.read(nodeId, issuedAt);
         return {};
     });
+    dispatcher.register('presence.report', ({ present }, client) => {
+        push?.reportPresence(client.id, present);
+        return {};
+    });
     dispatcher.register('push.subscribe', async (payload, client) => {
         if (!(await auth.setPush(provenSession(client), payload))) {
             throw new RequestError('unauthorized', 'Push needs a client that proved its key to this machine');

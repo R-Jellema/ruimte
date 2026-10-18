@@ -216,6 +216,10 @@ ipc.on('power:keep-awake-request', (event, request: unknown) => {
         setKeepAwake(window.id, keepAwakeRequestFrom(request));
     }
 });
+ipc.handle('power:idle-state', (_event, thresholdSeconds: unknown) => {
+    const threshold = typeof thresholdSeconds === 'number' && Number.isInteger(thresholdSeconds) && thresholdSeconds > 0 ? thresholdSeconds : 120;
+    return powerMonitor.getSystemIdleState(threshold);
+});
 
 // By window id. The shell counts nothing itself, so the badge and the quit dialog agree with the toolbar.
 const agentActivities = new Map<number, AgentActivity>();

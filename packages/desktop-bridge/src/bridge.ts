@@ -4,7 +4,7 @@ import type { DatabaseSecretsBridge, OpenPathRequest, SavePathRequest } from './
 import type { MachineModeBridge } from './machine.ts';
 import type { MenuSpec } from './menu.ts';
 import type { MicrophoneBridge } from './microphone.ts';
-import type { KeepAwakeRequest } from './power.ts';
+import type { KeepAwakeRequest, SystemIdleState } from './power.ts';
 import type { BackgroundServiceState } from './service.ts';
 import type { SpeechBridge } from './speech.ts';
 import type { AgentActivity, ReleaseNotesState, UpdateState } from './update.ts';
@@ -182,6 +182,8 @@ export interface DesktopBridge {
     /* What the client wants held, or null for nothing. The shell weighs it against the power source
        it sees, live, and ignores it off macOS. */
     requestKeepAwake?(request: KeepAwakeRequest | null): void;
+    /* Whether the person used this computer in the last `thresholdSeconds`, in any app, or locked it. */
+    idleState?(thresholdSeconds: number): Promise<SystemIdleState>;
     /* Counted by the client (`state/attention.ts`), since only it knows which node holds an agent. The
        shell badges the dock with `attention` and asks before quitting on `working`. */
     setAgentActivity?(activity: AgentActivity): void;

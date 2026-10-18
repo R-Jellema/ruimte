@@ -6,6 +6,7 @@ import type {
     BrowserRouteBlocked,
     DesktopBridge,
     KeepAwakeRequest,
+    SystemIdleState,
     MenuSpec,
     OpenAiBridge,
     OpenAiCredentialStatus,
@@ -144,6 +145,7 @@ const bridge = {
     setTabStrip: (rect: { x: number; y: number; width: number; height: number } | null): void => ipcRenderer.send('window:tab-strip', rect),
     setKeepAwake: (keep: boolean): void => ipcRenderer.send('power:keep-awake', keep),
     requestKeepAwake: (request: KeepAwakeRequest | null): void => ipcRenderer.send('power:keep-awake-request', request),
+    idleState: (thresholdSeconds: number): Promise<SystemIdleState> => ipcRenderer.invoke('power:idle-state', thresholdSeconds),
     setAgentActivity: (activity: { working: number; attention: number }): void => ipcRenderer.send('agents:activity', activity),
     saveFile: (suggestedName: string, bytes: Uint8Array, mime: string): Promise<string | null> =>
         ipcRenderer.invoke('dialog:save-file', suggestedName, bytes, mime),

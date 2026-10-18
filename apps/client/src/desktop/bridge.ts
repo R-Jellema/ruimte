@@ -29,6 +29,7 @@ export type {
     ReleaseNotesState,
     SavePathRequest,
     ServiceSupport,
+    SystemIdleState,
     UpdateState,
     WindowPoint
 } from '@ruimte/desktop-bridge';

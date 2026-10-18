@@ -9,3 +9,6 @@ export interface KeepAwakeRequest {
     /* Keep the display on too, rather than only the system. */
     display: boolean;
 }
+
+/* What the system says of its person, as Electron's `powerMonitor.getSystemIdleState` names it. */
+export type SystemIdleState = 'active' | 'idle' | 'locked' | 'unknown';

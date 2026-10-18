@@ -70,7 +70,8 @@ import {
     PushPreferencesResultSchema,
     PushAttentionResultSchema,
     PushReadPayloadSchema,
-    PushAttentionEntrySchema
+    PushAttentionEntrySchema,
+    PresenceReportPayloadSchema
 } from './push.ts';
 import { RenderSceneResultSchema } from './render.ts';
 import {
@@ -456,6 +457,7 @@ export const REQUEST_SCHEMAS = {
     'push.subscribe': { payload: PushSubscribePayloadSchema, result: EmptySchema },
     'push.unsubscribe': { payload: PushUnsubscribePayloadSchema, result: EmptySchema },
     'push.preferences': { payload: EmptySchema, result: PushPreferencesResultSchema },
+    'presence.report': { payload: PresenceReportPayloadSchema, result: EmptySchema },
     // Any client may link, change and unlink: only a person reaches these, an agent has no socket.
     'peer.list': { payload: EmptySchema, result: PeerListResultSchema },
     'peer.bind': { payload: PeerBindPayloadSchema, result: PeerLinkSchema },

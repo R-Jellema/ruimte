@@ -43,6 +43,7 @@ export interface ConnectionServices {
     dispatcher: Pick<Dispatcher, 'handle'>;
     presence?: {
         connected(sessionId: string | null): () => void;
+        reportPresence?(clientId: string, present: boolean): void;
         observeNotification?(listener: (alert: EventMap['push.notification']) => void): () => void;
         observeAttention?(listener: (entry: PushAttentionEntry) => void): () => void;
     };
@@ -154,6 +155,7 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
                 ? []
                 : [
                       services.presence?.connected(access.sessionId) ?? (() => undefined),
+                      () => services.presence?.reportPresence?.(clientId, false),
                       services.presence?.observeAttention?.((entry) => sendEvent(client, 'push.attention', entry)) ?? (() => undefined),
                       services.presence?.observeNotification?.((alert) => sendEvent(client, 'push.notification', alert)) ?? (() => undefined),
                       services.sessions.subscribe(clientId, sink),

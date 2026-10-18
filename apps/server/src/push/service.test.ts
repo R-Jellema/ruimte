@@ -893,3 +893,139 @@ describe('what a device chose to hear of', () => {
         expect(await ask(null)).toMatchObject({ ok: false, error: { code: 'unauthorized' } });
     });
 });
+
+describe('a person at a desktop', () => {
+    let now: number;
+    let timers: { at: number; run: () => void }[];
+    let held: PushService;
+
+    const advance = async (ms: number): Promise<void> => {
+        now += ms;
+        const due = timers.filter((timer) => timer.at <= now);
+        timers = timers.filter((timer) => timer.at > now);
+        due.forEach((timer) => timer.run());
+        await held.settled();
+    };
+
+    const approval = (decision: 'pending' | 'allow') => ({
+        event: 'chat.event' as const,
+        payload: {
+            chatId: 'node',
+            event: {
+                type: 'item' as const,
+                item: {
+                    id: 'request',
+                    createdAt: NOW,
+                    turnId: null,
+                    kind: 'approval' as const,
+                    requestId: 'request',
+                    toolUseId: null,
+                    toolName: 'Bash',
+                    input: {},
+                    description: 'Run test',
+                    canAllowAlways: false,
+                    decision
+                }
+            }
+        }
+    });
+
+    beforeEach(() => {
+        now = NOW;
+        timers = [];
+        held = new PushService({
+            auth,
+            identity: { id: 'machine', sign: (text) => signMessage(machine.privateKey, text) },
+            now: () => now,
+            send: async (push) => {
+                pushes.push(push);
+                return 204;
+            },
+            schedule: (delayMs, run) => {
+                const timer = { at: now + delayMs, run };
+                timers.push(timer);
+                return () => {
+                    timers = timers.filter((entry) => entry !== timer);
+                };
+            }
+        });
+        held.reportPresence('desktop', true);
+    });
+
+    afterEach(async () => {
+        await held.settled();
+    });
+
+    test('holds a wait, and sends it after a minute when it is still unread', async () => {
+        status('running', 'node', held);
+        status('needs-you', 'node', held);
+        await held.settled();
+        expect(pushes).toEqual([]);
+        await advance(30_000);
+        held.reportPresence('desktop', true);
+        await advance(30_000);
+        expect(pushes.length).toBe(1);
+    });
+
+    test('drops a held wait the desktop read', async () => {
+        status('running', 'node', held);
+        status('needs-you', 'node', held);
+        const entry = held.attention.snapshot().find((candidate) => candidate.nodeId === 'node')!;
+        held.read('node', entry.issuedAt);
+        await advance(60_000);
+        expect(pushes.filter((push) => push.pushType === 'alert')).toEqual([]);
+    });
+
+    test('drops a finished turn that came due while the person stayed', async () => {
+        await auth.setPush(sessionId, { ...subscription, notify: ['needs-you', 'turn'] });
+        status('running', 'node', held);
+        status('idle', 'node', held);
+        await advance(30_000);
+        held.reportPresence('desktop', true);
+        await advance(30_000);
+        expect(pushes).toEqual([]);
+    });
+
+    test('sends everything held at once when the person leaves', async () => {
+        await auth.setPush(sessionId, { ...subscription, notify: ['needs-you', 'turn'] });
+        status('running', 'node', held);
+        status('idle', 'node', held);
+        status('needs-you', 'node', held);
+        await held.settled();
+        expect(pushes).toEqual([]);
+        held.reportPresence('desktop', false);
+        await held.settled();
+        expect(pushes.length).toBe(2);
+    });
+
+    test('sends what it held once the presence lapses unrenewed', async () => {
+        await auth.setPush(sessionId, { ...subscription, notify: ['needs-you', 'turn'] });
+        status('running', 'node', held);
+        await advance(30_000);
+        status('idle', 'node', held);
+        await advance(29_000);
+        expect(pushes).toEqual([]);
+        await advance(1_000);
+        expect(pushes.length).toBe(1);
+    });
+
+    test('holds an approval for ten seconds and drops one answered in that time', async () => {
+        held.consume(approval('pending'));
+        await advance(9_000);
+        expect(pushes).toEqual([]);
+        await advance(1_000);
+        expect(decrypt(pushes[0]!)).toMatchObject({ kind: 'approval', requestId: 'request' });
+        pushes = [];
+        held.consume(approval('allow'));
+        held.consume({ ...approval('pending'), payload: { ...approval('pending').payload, chatId: 'other' } });
+        held.consume({ ...approval('allow'), payload: { ...approval('allow').payload, chatId: 'other' } });
+        await advance(10_000);
+        expect(pushes).toEqual([]);
+    });
+
+    test('an alert someone asked for goes out at once', async () => {
+        held.notify('chat', 'node', 'Agent', 'Look at this', { projectId: 'project', viewId: 'view' });
+        await held.settled();
+        expect(pushes.length).toBe(1);
+    });
+});

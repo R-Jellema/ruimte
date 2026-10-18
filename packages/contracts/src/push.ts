@@ -62,3 +62,5 @@ export const PushAttentionResultSchema = z.object({
     marksFrom: z.number().int().nonnegative().optional()
 });
 export const PushReadPayloadSchema = PushAttentionEntrySchema.pick({ nodeId: true, issuedAt: true });
+// Whether a person is at this client right now; a machine holds its pushes while one is.
+export const PresenceReportPayloadSchema = z.object({ present: z.boolean() });
