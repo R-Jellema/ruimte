@@ -573,6 +573,8 @@ const TABLE = {
         palette: true,
         menu: { menu: 'view', group: 'split', order: 40, when: hosted, enabled: (context) => context.tabs.index < context.tabs.count - 1 }
     },
+    'project-tab-move-left': { key: 'moveProjectTabLeft', icon: ArrowLeft, palette: true },
+    'project-tab-move-right': { key: 'moveProjectTabRight', icon: ArrowRight, palette: true },
     'tab-split-off': {
         key: 'moveTabToNewCell',
         icon: PanelRight,

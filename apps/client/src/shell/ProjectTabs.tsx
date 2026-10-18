@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pin, PinOff } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Pin, PinOff } from 'lucide-react';
 import { openProjectAction } from '@/actions/client-actions';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
 import { desktop } from '@/desktop/bridge';
-import { dragsWindow, pinnedOf, pinWindowTab, reorderWindowTab, setStripIndexAt, useWindowTabs } from '@/project/window-tabs';
+import {
+    dragsWindow,
+    landingOf,
+    pinnedOf,
+    pinWindowTab,
+    reorderWindowTab,
+    setStripIndexAt,
+    stepMove,
+    stepWindowTab,
+    useWindowTabs
+} from '@/project/window-tabs';
 import {
     canDragTabs,
     canOpenWindows,
@@ -32,6 +42,10 @@ const DRAG_THRESHOLD_PX = 4;
 /* How far above or below the strip a dragged tab goes before it tears off into a window of its own. */
 const TEAR_DISTANCE_PX = 24;
 
+/* The width of `.ade-tab-insertion`, and how far outside the first or last tab it stands. */
+const INSERTION_WIDTH_PX = 2;
+const INSERTION_INSET_PX = 2;
+
 /* A pressed tab: still a click, moving along the strip, out of the window, or moving the window itself. */
 interface Press {
     key: string;
@@ -39,6 +53,8 @@ interface Press {
     /* Where in the window the press began, which is where the pointer holds a window it tears off into. */
     grab: { x: number; y: number };
     mode: 'press' | 'reorder' | 'out' | 'window';
+    /* Where among the other tabs a reorder lets the tab go, or null while it would stay where it is. */
+    landing: number | null;
 }
 
 /* The tab under a right-click, read off the element the press landed in. */
@@ -56,6 +72,22 @@ function dropIndex(strip: Element, key: string, x: number): number {
     }).length;
 }
 
+/* Where in the strip the insertion line stands for a tab landing at `landing` among the others: halfway the gap it goes in. */
+function insertionLeft(strip: Element, others: readonly string[], landing: number): number {
+    const boxOf = (key: string | undefined) =>
+        key === undefined ? null : (strip.querySelector<HTMLElement>(`[data-tab-key="${CSS.escape(key)}"]`)?.getBoundingClientRect() ?? null);
+    const before = boxOf(others[landing - 1]);
+    const after = boxOf(others[landing]);
+    const origin = strip.getBoundingClientRect().left;
+    const x =
+        before !== null && after !== null
+            ? (before.right + after.left) / 2
+            : after !== null
+              ? after.left - INSERTION_INSET_PX
+              : (before?.right ?? origin) + INSERTION_INSET_PX;
+    return Math.max(0, Math.round(x - origin - INSERTION_WIDTH_PX / 2));
+}
+
 /*
  * The projects this window keeps, in place of the switcher, with the switcher itself behind the plus.
  * A tab whose row the list does not have yet waits for it, since a tab without a name says nothing.
@@ -70,6 +102,7 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
     const endpoints = useEndpoints((s) => s.endpoints);
     const servers = useServers((s) => s.byEndpoint);
     const [menuKey, setMenuKey] = useState<string | null>(null);
+    const [insertion, setInsertion] = useState<number | null>(null);
     const press = useRef<Press | null>(null);
     const strip = useRef<HTMLDivElement>(null);
     const windows = canOpenWindows();
@@ -124,7 +157,7 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
         }
         // Held, the pointer keeps reporting to this tab outside the window too, which is where a tab tears off.
         event.currentTarget.setPointerCapture(event.pointerId);
-        press.current = { key, pointerId: event.pointerId, grab: { x: event.clientX, y: event.clientY }, mode: 'press' };
+        press.current = { key, pointerId: event.pointerId, grab: { x: event.clientX, y: event.clientY }, mode: 'press', landing: null };
     };
 
     /*
@@ -170,6 +203,8 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
         const offStrip = box !== undefined && (event.clientY < box.top - TEAR_DISTANCE_PX || event.clientY > box.bottom + TEAR_DISTANCE_PX);
         if (follows && (offStrip || outsideViewport(event.clientX, event.clientY))) {
             held.mode = 'out';
+            held.landing = null;
+            setInsertion(null);
             awaitRelease(held);
             // Held by the middle of its tab, at the start of a strip like this one, until the new window says where its strip is.
             const tab = event.currentTarget.getBoundingClientRect();
@@ -178,12 +213,17 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
             return;
         }
         const row = event.currentTarget.parentElement;
-        if (row !== null) {
-            reorderWindowTab(held.key, dropIndex(row, held.key, event.clientX));
+        if (row === null || strip.current === null) {
+            return;
         }
+        // The strip stays put while the tab is held, so the line says where it lands and the drop moves it once.
+        const current = useWindowTabs.getState().tabs;
+        held.landing = landingOf(current, held.key, dropIndex(row, held.key, event.clientX));
+        const others = current.keys.filter((one) => one !== held.key);
+        setInsertion(held.landing === null ? null : insertionLeft(strip.current, others, held.landing));
     };
 
-    const onPointerEnd = (event: PointerEvent<HTMLElement>): void => {
+    const onPointerEnd = (event: PointerEvent<HTMLElement>, cancelled: boolean): void => {
         const held = press.current;
         if (held === null || held.pointerId !== event.pointerId) {
             return;
@@ -192,12 +232,20 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
             return;
         }
         press.current = null;
-        if (held.mode === 'reorder' && !follows && windows && outsideViewport(event.clientX, event.clientY)) {
+        setInsertion(null);
+        if (held.mode !== 'reorder' || cancelled) {
+            return;
+        }
+        if (!follows && windows && outsideViewport(event.clientX, event.clientY)) {
             void tearOffTab(held.key, { x: event.screenX - held.grab.x, y: event.screenY - held.grab.y });
+            return;
+        }
+        if (held.landing !== null) {
+            reorderWindowTab(held.key, held.landing);
         }
     };
 
-    // Moving a tab along the strip moves its element, which lets go of the capture; it is taken back.
+    // A held tab whose element moves, as when a tab from another window drops into the strip, lets go of the capture; it is taken back.
     const onLostCapture = (event: PointerEvent<HTMLElement>): void => {
         const held = press.current;
         if (held === null || held.pointerId !== event.pointerId) {
@@ -214,7 +262,7 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
 
     return (
         <>
-            <Tabs.Root ref={strip} value={tabs.active ?? ''} onValueChange={(value) => select(String(value))} className="flex min-w-0 grow">
+            <Tabs.Root ref={strip} value={tabs.active ?? ''} onValueChange={(value) => select(String(value))} className="relative flex min-w-0 grow">
                 <ContextMenu.Root>
                     <ContextMenu.Trigger
                         className="contents"
@@ -249,8 +297,8 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
                                         onClose={() => close(row)}
                                         onPointerDown={(event) => onPointerDown(event, key)}
                                         onPointerMove={onPointerMove}
-                                        onPointerUp={onPointerEnd}
-                                        onPointerCancel={onPointerEnd}
+                                        onPointerUp={(event) => onPointerEnd(event, false)}
+                                        onPointerCancel={(event) => onPointerEnd(event, true)}
                                         onLostPointerCapture={onLostCapture}
                                     >
                                         <ProjectGlyph projectId={summary.projectId} endpointId={row.endpointId} icon={summary.icon} color={summary.color} />
@@ -268,15 +316,24 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
                             })}
                         </Tabs.List>
                     </ContextMenu.Trigger>
+                    {insertion !== null && <span aria-hidden data-tab-insertion className="ade-tab-insertion" style={{ left: insertion }} />}
                     <ContextMenu.Popup className="min-w-52">
                         {menuRow &&
                             menuKey !== null &&
                             model.actionsOf(
                                 { ...menuRow, machineLabel: '', connected: true },
-                                <Menu.Item onClick={() => pinWindowTab(menuKey, !pins.includes(menuKey))}>
-                                    <Icon icon={pins.includes(menuKey) ? PinOff : Pin} size={14} />{' '}
-                                    {t(pins.includes(menuKey) ? 'projectMenu.unpinTab' : 'projectMenu.pinTab')}
-                                </Menu.Item>
+                                <>
+                                    <Menu.Item onClick={() => pinWindowTab(menuKey, !pins.includes(menuKey))}>
+                                        <Icon icon={pins.includes(menuKey) ? PinOff : Pin} size={14} />{' '}
+                                        {t(pins.includes(menuKey) ? 'projectMenu.unpinTab' : 'projectMenu.pinTab')}
+                                    </Menu.Item>
+                                    <Menu.Item disabled={stepMove(tabs, menuKey, -1) === tabs} onClick={() => stepWindowTab(menuKey, -1)}>
+                                        <Icon icon={ArrowLeft} size={14} /> {t('projectMenu.moveTabLeft')}
+                                    </Menu.Item>
+                                    <Menu.Item disabled={stepMove(tabs, menuKey, 1) === tabs} onClick={() => stepWindowTab(menuKey, 1)}>
+                                        <Icon icon={ArrowRight} size={14} /> {t('projectMenu.moveTabRight')}
+                                    </Menu.Item>
+                                </>
                             )}
                     </ContextMenu.Popup>
                 </ContextMenu.Root>

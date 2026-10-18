@@ -161,3 +161,67 @@ describe('pinning a project tab', () => {
         expect(tab(SHOWN)!.querySelector('button')).not.toBeNull();
     });
 });
+
+/* Lays the tabs out side by side, 100px wide with 4px between them, since happy-dom measures every box as empty. */
+function layOut(): void {
+    tabOrder().forEach((key, i) => {
+        const left = i * 104;
+        tab(key)!.getBoundingClientRect = () => ({ left, right: left + 100, top: 0, bottom: 30, width: 100, height: 30, x: left, y: 0 }) as DOMRect;
+    });
+}
+
+function insertion(): HTMLElement | null {
+    return page.host.querySelector<HTMLElement>('[data-tab-insertion]');
+}
+
+describe('reordering project tabs', () => {
+    test('a dragged tab shows where it lands and moves only when it is let go', async () => {
+        layOut();
+        const element = tab(BEHIND)!;
+        const at = (type: string, x: number) => new PointerEvent(type, { pointerId: 1, button: 0, clientX: x, clientY: 10, bubbles: true, cancelable: true });
+        await act(async () => {
+            element.dispatchEvent(at('pointerdown', 50));
+        });
+        await act(async () => {
+            element.dispatchEvent(at('pointermove', 60));
+        });
+        expect(insertion()).toBeNull();
+        await act(async () => {
+            element.dispatchEvent(at('pointermove', 180));
+        });
+        expect(insertion()!.style.left).toBe('205px');
+        expect(tabOrder()).toEqual([BEHIND, SHOWN]);
+        await act(async () => {
+            element.dispatchEvent(at('pointerup', 180));
+        });
+        expect(insertion()).toBeNull();
+        expect(tabOrder()).toEqual([SHOWN, BEHIND]);
+        expect(new URLSearchParams(location.search).get('state')).toBe(JSON.stringify([SHOWN, BEHIND]));
+    });
+
+    test('a cancelled drag leaves the order as it was', async () => {
+        layOut();
+        const element = tab(BEHIND)!;
+        const at = (type: string, x: number) => new PointerEvent(type, { pointerId: 1, button: 0, clientX: x, clientY: 10, bubbles: true, cancelable: true });
+        await act(async () => {
+            element.dispatchEvent(at('pointerdown', 50));
+        });
+        await act(async () => {
+            element.dispatchEvent(at('pointermove', 180));
+        });
+        expect(insertion()).not.toBeNull();
+        await act(async () => {
+            element.dispatchEvent(at('pointercancel', 180));
+        });
+        expect(insertion()).toBeNull();
+        expect(tabOrder()).toEqual([BEHIND, SHOWN]);
+    });
+
+    test('the tab menu moves a tab one place, and offers no move past the end', async () => {
+        await openTabMenu(BEHIND);
+        expect(menuItem('Move tab left')!.hasAttribute('data-disabled')).toBe(true);
+        await clickOn(menuItem('Move tab right'));
+        await until(() => tabOrder()[0] === SHOWN);
+        expect(tabOrder()).toEqual([SHOWN, BEHIND]);
+    });
+});

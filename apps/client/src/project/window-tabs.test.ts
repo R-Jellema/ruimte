@@ -9,6 +9,7 @@ import type { Workspace } from '@/transport/connections';
 import {
     dragsWindow,
     keptTabs,
+    landingOf,
     moveTab,
     neighborOf,
     NO_TABS,
@@ -19,6 +20,7 @@ import {
     showNoTab,
     showTab,
     startWindowTabs,
+    stepMove,
     stepTab,
     useWindowTabs,
     withoutClosed,
@@ -124,6 +126,22 @@ describe('pinned tabs', () => {
     test('a drag keeps a tab on its own side of the pinned ones', () => {
         expect(moveTab(pinned(['p', 'a', 'b'], 'a', ['p']), 'b', 0)).toEqual(pinned(['p', 'b', 'a'], 'a', ['p']));
         expect(moveTab(pinned(['p', 'q', 'a'], 'a', ['p', 'q']), 'p', 2)).toEqual(pinned(['q', 'p', 'a'], 'a', ['q', 'p']));
+    });
+
+    test('a drag lands on its own side of the pinned ones, and nowhere when the tab would stay put', () => {
+        const strip = pinned(['p', 'a', 'b'], 'a', ['p']);
+        expect(landingOf(strip, 'b', 0)).toBe(1);
+        expect(landingOf(strip, 'a', 2)).toBe(2);
+        expect(landingOf(strip, 'a', 1)).toBeNull();
+        expect(landingOf(strip, 'p', 2)).toBeNull();
+    });
+
+    test('a step moves one place and stops at the end of its side', () => {
+        const strip = pinned(['p', 'a', 'b'], 'a', ['p']);
+        expect(stepMove(strip, 'a', 1)).toEqual(pinned(['p', 'b', 'a'], 'a', ['p']));
+        expect(stepMove(strip, 'a', -1)).toBe(strip);
+        expect(stepMove(strip, 'b', 1)).toBe(strip);
+        expect(stepMove(strip, 'p', 1)).toBe(strip);
     });
 
     test('a closed pinned tab takes its pin along', () => {

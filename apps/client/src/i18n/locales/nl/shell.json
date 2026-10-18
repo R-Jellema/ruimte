@@ -383,7 +383,9 @@
         "moveToNewWindow": "Naar nieuw venster verplaatsen",
         "copyPath": "Pad kopiëren",
         "pinTab": "Tab vastzetten",
-        "unpinTab": "Tab losmaken"
+        "unpinTab": "Tab losmaken",
+        "moveTabLeft": "Tab naar links",
+        "moveTabRight": "Tab naar rechts"
     },
     "projectSettings": {
         "title": "Projectinstellingen",
@@ -720,6 +722,8 @@
             "previousTab": "Vorig tabblad",
             "moveTabLeft": "Tabblad naar links",
             "moveTabRight": "Tabblad naar rechts",
+            "moveProjectTabLeft": "Projecttab naar links",
+            "moveProjectTabRight": "Projecttab naar rechts",
             "moveTabToNewCell": "Tabblad naar nieuwe cel",
             "ungroup": "Tabbladen ontgroeperen",
             "maximizeCell": "Cel maximaliseren",

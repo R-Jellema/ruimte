@@ -383,7 +383,9 @@
         "moveToNewWindow": "Move to new window",
         "copyPath": "Copy path",
         "pinTab": "Pin tab",
-        "unpinTab": "Unpin tab"
+        "unpinTab": "Unpin tab",
+        "moveTabLeft": "Move tab left",
+        "moveTabRight": "Move tab right"
     },
     "projectSettings": {
         "title": "Project settings",
@@ -720,6 +722,8 @@
             "previousTab": "Previous Tab",
             "moveTabLeft": "Move tab left",
             "moveTabRight": "Move tab right",
+            "moveProjectTabLeft": "Move project tab left",
+            "moveProjectTabRight": "Move project tab right",
             "moveTabToNewCell": "Move tab to new cell",
             "ungroup": "Ungroup",
             "maximizeCell": "Maximize cell",

@@ -87,18 +87,33 @@ export function neighborOf(tabs: WindowTabs, key: string): string | null {
     return tabs.keys[index + 1] ?? tabs.keys[index - 1] ?? null;
 }
 
-/* The tabs with `key` moved to `index` among them, on its own side of the pinned ones. */
-export function moveTab(tabs: WindowTabs, key: string, index: number): WindowTabs {
+/*
+ * Where among the other tabs `key` lands when it is moved to `index`, on its own side of the pinned ones,
+ * or null when it would stay where it is.
+ */
+export function landingOf(tabs: WindowTabs, key: string, index: number): number | null {
     const from = tabs.keys.indexOf(key);
     const pins = pinnedOf(tabs);
     const pinned = pins.includes(key);
     const to = Math.max(pinned ? 0 : pins.length, Math.min(index, pinned ? pins.length - 1 : tabs.keys.length - 1));
-    if (from === -1 || from === to) {
+    return from === -1 || from === to ? null : to;
+}
+
+/* The tabs with `key` moved to `index` among them, on its own side of the pinned ones. */
+export function moveTab(tabs: WindowTabs, key: string, index: number): WindowTabs {
+    const to = landingOf(tabs, key, index);
+    if (to === null) {
         return tabs;
     }
+    const pins = pinnedOf(tabs);
     const keys = tabs.keys.filter((one) => one !== key);
     keys.splice(to, 0, key);
-    return { ...tabs, keys, ...(pinned ? { pinned: keys.slice(0, pins.length) } : {}) };
+    return { ...tabs, keys, ...(pins.includes(key) ? { pinned: keys.slice(0, pins.length) } : {}) };
+}
+
+/* The tabs with `key` one place to the left or right, or the same tabs when it is at the end of its side. */
+export function stepMove(tabs: WindowTabs, key: string, step: 1 | -1): WindowTabs {
+    return moveTab(tabs, key, tabs.keys.indexOf(key) + step);
 }
 
 /* The tabs that are left of the ones a window asked to keep, in their order. */
@@ -325,6 +340,11 @@ export function restoreWindowTabs(tabs: WindowTabs): void {
 /* Puts a tab at another place in the strip. */
 export function reorderWindowTab(key: string, index: number): void {
     commit(moveTab(useWindowTabs.getState().tabs, key, index));
+}
+
+/* Moves a tab of this window one place along its side of the strip. */
+export function stepWindowTab(key: string, step: 1 | -1): void {
+    commit(stepMove(useWindowTabs.getState().tabs, key, step));
 }
 
 /*

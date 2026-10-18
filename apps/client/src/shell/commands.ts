@@ -40,6 +40,8 @@ import { stepFocusedEditorFind } from '@/shell/panels/use-editor-find';
 import { keepAwakeAvailable, setKeepAwake } from '@/state/keep-awake';
 import { newChat, newChatMachine, offersNewChat, useNewChat } from '@/project/new-chat';
 import { canMoveToNewWindow, canOpenWindows, moveToNewWindow, openNewWindow } from '@/project/windows';
+import { stepMove, stepWindowTab, useWindowTabs } from '@/project/window-tabs';
+import { useSettings } from '@/state/settings';
 import { openFocusedFind } from '@/find/hosts';
 import { askDeleteView, askOpenAsView, askViewSettings, canOpenAsView, newSubheaderView } from '@/project/views';
 import { copyDiagram, exportDiagram, openDiagramJson } from '@/diagram/diagram-actions';
@@ -262,6 +264,19 @@ function tabCommands(layout: SplitLayout | null): Command[] {
     ];
 }
 
+/* Moving the project on screen along the strip of project tabs, while the window has that strip. */
+function projectTabCommands(): Command[] {
+    const { tabs } = useWindowTabs.getState();
+    const key = tabs.active;
+    if (useSettings.getState().projectNavigation !== 'tabs' || key === null) {
+        return [];
+    }
+    return [
+        ...(stepMove(tabs, key, -1) === tabs ? [] : [row('project-tab-move-left', () => stepWindowTab(key, -1))]),
+        ...(stepMove(tabs, key, 1) === tabs ? [] : [row('project-tab-move-right', () => stepWindowTab(key, 1))])
+    ];
+}
+
 /* The handful of rows an empty palette offers; a palette that opens on forty rows is a list to read rather than a place to type. */
 export const OPENING_COMMAND_IDS: readonly string[] = ['add-chat', 'add-terminal', 'view-new', 'find-in-files', 'open-folder', 'usage', 'settings'];
 
@@ -305,6 +320,7 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
     return [
         ...(canOpenWindows() ? [row('window-new', () => openNewWindow())] : []),
         ...(inWorkspace && canMoveToNewWindow() ? [row('window-move', () => void moveToNewWindow())] : []),
+        ...projectTabCommands(),
         row('open-folder', () => useUi.getState().openFolderBrowser()),
         ...(offersNewChat(newChatMachine(), useNewChat.getState().refused) ? [row('chat-new', newChat, { hint: i18next.t('shell:chats.name') })] : []),
         ...(folder && !scratch
