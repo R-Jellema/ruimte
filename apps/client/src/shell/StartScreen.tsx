@@ -26,6 +26,7 @@ import { stationBoot } from '@/station';
 import { useEndpoints } from '@/state/endpoints';
 import { hasLocalMachine, startScreenMachine } from '@/state/local-machine';
 import { useProjectList } from '@/state/project-list';
+import { canShowReleaseNotes, openReleaseNotes } from '@/state/release-notes';
 import { useServers } from '@/state/server';
 import { useUi } from '@/state/ui';
 import { useUpdates } from '@/state/updates';
@@ -187,6 +188,11 @@ function Footer() {
                 <Kbd shortcut={APP_SHORTCUTS.settings} variant="inline" /> {t('settingsDialog.title')}
             </button>
             {version && <span>{t('connection.version', { version })}</span>}
+            {version && canShowReleaseNotes() && (
+                <button className={FOOTER_BUTTON} onClick={() => openReleaseNotes(version)}>
+                    {t('start.whatsNew')}
+                </button>
+            )}
         </footer>
     );
 }

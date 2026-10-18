@@ -1,16 +1,28 @@
 import i18next from 'i18next';
+import { compareVersions, isVersion } from '@ruimte/desktop-bridge';
 import { create } from 'zustand';
-import { desktop, type ReleaseNotesState } from '@/desktop/bridge';
+import { desktop, type Release, type ReleaseNotesState, type UpdateState } from '@/desktop/bridge';
+import { hasUpdate } from '@/state/updates';
+
+export const RELEASES_PAGE = 'https://github.com/basmilius/ruimte/releases';
 
 interface ReleaseNotesStore {
     /* Null until the shell answered once. */
     notes: ReleaseNotesState | null;
     loading: boolean;
+    open: boolean;
+    /* The version the dialog was opened on, which it scrolls to. */
+    version: string | null;
+    /* The version this client ran before an update, for the "New" badges. Held for the session only. */
+    previousSeen: string | null;
 }
 
 export const useReleaseNotes = create<ReleaseNotesStore>(() => ({
     notes: null,
-    loading: false
+    loading: false,
+    open: false,
+    version: null,
+    previousSeen: null
 }));
 
 export function canShowReleaseNotes(): boolean {
@@ -54,11 +66,90 @@ export function loadReleaseNotes(refresh: boolean): Promise<void> {
     return current;
 }
 
-/* The list from the shell's copy, once a session, for the release date About shows. */
+/* The list from the shell's copy, once a session, for whether About has a link to show. */
 export function ensureReleaseNotes(): void {
     const state = useReleaseNotes.getState();
     if (state.notes !== null || state.loading) {
         return;
     }
     void loadReleaseNotes(false);
+}
+
+/* Opening asks GitHub again, so a version the cached list does not know yet gets its one refetch. */
+export function openReleaseNotes(version: string | null): void {
+    useReleaseNotes.setState({ open: true, version });
+    void loadReleaseNotes(true);
+}
+
+export function closeReleaseNotes(): void {
+    useReleaseNotes.setState({ open: false });
+}
+
+export function setPreviousSeenVersion(version: string | null): void {
+    useReleaseNotes.setState({ previousSeen: version });
+}
+
+export type NoteRole = 'upcoming' | 'installed' | 'older';
+
+export interface NoteEntry {
+    release: Release;
+    role: NoteRole;
+    /* What the version is to this machine. Where the update stands, or that it runs. */
+    badge: string | null;
+    /* Above the version this client ran before the update it just had. */
+    isNew: boolean;
+}
+
+export interface NotesView {
+    entries: NoteEntry[];
+    /* The link in About, with the version the dialog opens on. */
+    link: { label: string; version: string } | null;
+}
+
+/* Read when a view is built rather than when this module loads, or the words would be the ones the
+   app started in and never the ones a person switched to. */
+function updateBadge(status: UpdateState['status']): string | null {
+    switch (status) {
+        case 'available':
+        case 'downloading':
+        case 'ready':
+            return i18next.t(`state:badge.${status}`);
+        default:
+            return null;
+    }
+}
+
+export function notesView(releases: Release[], currentVersion: string, updateState: UpdateState, previousSeen: string | null): NotesView {
+    const update = hasUpdate(updateState) && updateState.version ? updateState.version : null;
+    const entries = releases.map((release): NoteEntry => {
+        const order = compareVersions(release.version, currentVersion);
+        const role: NoteRole = order > 0 ? 'upcoming' : order === 0 ? 'installed' : 'older';
+        let badge: string | null = null;
+        if (role === 'installed') {
+            badge = i18next.t('state:badge.installed');
+        } else if (role === 'upcoming' && update !== null && compareVersions(release.version, update) <= 0) {
+            badge = updateBadge(updateState.status);
+        }
+        const isNew = previousSeen !== null && isVersion(previousSeen) && compareVersions(release.version, previousSeen) > 0 && order <= 0;
+        return { release, role, badge, isNew };
+    });
+
+    let link: NotesView['link'] = null;
+    if (updateState.status !== 'unsupported') {
+        if (update !== null) {
+            // Always offered. A version the list does not know yet gets its refetch in the dialog.
+            link = { label: `What's new in version ${update}`, version: update };
+        } else if (releases.some((release) => release.version === currentVersion && release.body !== '')) {
+            link = { label: "What's new", version: currentVersion };
+        }
+    }
+    return { entries, link };
+}
+
+/* The line the dialog shows for a version it was opened on and cannot find, once asking again is over. */
+export function missingNotesNotice(releases: Release[], version: string | null, loading: boolean): { text: string; url: string } | null {
+    if (version === null || loading || releases.some((release) => release.version === version)) {
+        return null;
+    }
+    return { text: `Notes for version ${version} are not available yet`, url: `${RELEASES_PAGE}/tag/v${version}` };
 }

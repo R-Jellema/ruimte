@@ -914,7 +914,8 @@
             "checking": "Checking",
             "download": "Download",
             "install": "Restart to install",
-            "released": "Released {{date}}"
+            "released": "Released {{date}}",
+            "whatsNew": "What's new in {{version}}"
         },
         "links": {
             "title": "Links",

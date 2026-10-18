@@ -57,6 +57,7 @@ function context(patch: Partial<MenuContext> = {}): MenuContext {
         launches: [],
         chosenLaunch: null,
         afterSettle: { tasks: [], chosen: null },
+        releaseNotes: true,
         fullscreen: false,
         keepAwake: null,
         settingsOpen: false,
@@ -277,13 +278,14 @@ describe('the menus', () => {
         expect(find(menuModel(context()), 'settings-search')).toBeUndefined();
     });
 
-    test('the station has no shell, and no clipboard roles', () => {
-        const spec = menuModel(context({ host: 'station', apple: true }));
+    test('the station has no shell, no clipboard roles and no release notes', () => {
+        const spec = menuModel(context({ host: 'station', apple: true, releaseNotes: false }));
         expect(labels(spec)).toEqual(['File', 'Edit', 'Code', 'View', 'Canvas', 'Go', 'Run', 'Window', 'Help']);
         const nodes = spec.menus.flatMap((entry) => flatten(entry.items));
         expect(nodes.some((node) => node.kind === 'role' || node.kind === 'shell')).toBe(false);
         expect(commandIds(spec)).toContain('about');
         expect(commandIds(spec)).toContain('close-cell');
+        expect(commandIds(spec)).not.toContain('release-notes');
     });
 
     test('setting up Ruimte opens from Help in the desktop app, on the start screen too, and never on the station', () => {

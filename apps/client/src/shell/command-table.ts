@@ -70,6 +70,7 @@ import {
     Replace,
     RotateCw,
     Save,
+    ScrollText,
     Search,
     SendHorizontal,
     Server,
@@ -873,6 +874,12 @@ const TABLE = {
         icon: ListChecks,
         palette: true,
         menu: { menu: 'help', group: 'help', order: 10, when: (context) => desktop(context) && context.localMachine }
+    },
+    'release-notes': {
+        key: 'releaseNotes',
+        icon: ScrollText,
+        palette: false,
+        menu: { menu: 'help', group: 'help', order: 20, when: (context) => context.releaseNotes }
     },
     'settings-keyboard': { key: 'keyboardShortcuts', icon: Keyboard, palette: true, menu: { menu: 'help', group: 'help', order: 30 } },
     'add-terminal': {

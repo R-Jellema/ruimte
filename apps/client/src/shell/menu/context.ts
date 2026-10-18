@@ -3,7 +3,7 @@ import i18next from 'i18next';
 import { canShareView, chatIsWorking, isCanvasView, isEmptyChatView, isOpenableView, type ProjectView, type SplitLayout } from '@ruimte/contracts';
 import { databaseViewShareRefusal } from '@/database/view-sharing';
 import { forkRefusal, lastSettledTurn } from '@adecore/agents-react/chat';
-import { isApplePlatform } from '@/desktop/bridge';
+import { desktop, isApplePlatform } from '@/desktop/bridge';
 import { keepAwakeAvailable, keepAwakeChoice } from '@/state/keep-awake';
 import { hasLocalMachine } from '@/state/local-machine';
 import { newChatMachine, offersNewChat, useNewChat } from '@/project/new-chat';
@@ -202,6 +202,7 @@ export function menuContext(host: MenuHost): MenuContext {
         launches: menuLaunches(endpointId),
         chosenLaunch: chosenLaunchId(),
         afterSettle: menuAfterSettle(endpointId),
+        releaseNotes: typeof desktop()?.releaseNotes === 'function',
         fullscreen: typeof document !== 'undefined' && document.fullscreenElement !== null,
         keepAwake: host === 'desktop' && keepAwakeAvailable() ? keepAwakeChoice().keepAwake : null,
         settingsOpen: ui.settings.open,

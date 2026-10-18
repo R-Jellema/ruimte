@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import i18next from 'i18next';
-import { ArrowDown, ArrowUpRight, CircleAlert, CircleCheck, Copy, LoaderCircle, RefreshCw, type LucideIcon } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUpRight, CircleAlert, CircleCheck, Copy, LoaderCircle, RefreshCw, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { desktop, isDesktop, type Release, type UpdateState } from '@/desktop/bridge';
 import { formatDayWithYear, useFormatLocale } from '@adecore/ui/format';
@@ -11,7 +11,7 @@ import { openOnboarding } from '@/onboarding/open';
 import { hasLocalMachine } from '@/state/local-machine';
 import { useServers, type ServerInfo } from '@/state/server';
 import { useSettings } from '@/state/settings';
-import { canShowReleaseNotes, ensureReleaseNotes, useReleaseNotes } from '@/state/release-notes';
+import { canShowReleaseNotes, ensureReleaseNotes, notesView, openReleaseNotes, useReleaseNotes } from '@/state/release-notes';
 import { previewUpdate, type UpdatePreview } from '@/state/update-preview';
 import { describeUpdate, setAutoDownload, useUpdates } from '@/state/updates';
 import { useFocusedMachine } from '@/transport/connections';
@@ -137,7 +137,9 @@ export function AboutPane() {
     const details = detailsOf(server);
     const version = useShownVersion();
     const releases = useReleaseNotes((s) => s.notes?.releases);
+    const previousSeen = useReleaseNotes((s) => s.previousSeen);
     const withNotes = updates.supported && canShowReleaseNotes();
+    const notesLink = withNotes ? notesView(releases ?? [], updates.currentVersion, updates, previousSeen).link : null;
 
     useEffect(() => {
         if (withNotes) {
@@ -159,7 +161,7 @@ export function AboutPane() {
         <div className="relative z-0 flex flex-col gap-7">
             {updates.supported && (
                 <SettingsSection title={t('about.updates.title')}>
-                    <UpdateStatusRow releases={releases} />
+                    <UpdateStatusRow releases={releases} notesVersion={notesLink?.version ?? null} />
                     <SettingsRow
                         searchId="about.updates.auto"
                         label={t('about.updates.auto.label')}
@@ -223,10 +225,12 @@ export function AboutPane() {
 
 interface UpdateStatusRowProps {
     releases: readonly Release[] | undefined;
+    /* The version the notes open on, or null where there are none to open. They never show here. */
+    notesVersion: string | null;
 }
 
-/* The first row of Updates: where the update stands and what to do next. */
-function UpdateStatusRow({ releases }: UpdateStatusRowProps) {
+/* The first row of Updates: where the update stands, a link to what is new in it, and what to do next. */
+function UpdateStatusRow({ releases, notesVersion }: UpdateStatusRowProps) {
     const { t } = useTranslation('settings');
     const updates = useUpdates();
     useFormatLocale();
@@ -244,6 +248,16 @@ function UpdateStatusRow({ releases }: UpdateStatusRowProps) {
                     <div className="min-w-0 grow">
                         <div className="text-sm text-text">{headline}</div>
                         {line && <div className="mt-0.5 text-xs text-text-muted tabular-nums">{line}</div>}
+                        {notesVersion !== null && (
+                            <button
+                                type="button"
+                                className="mt-1.5 inline-flex items-center gap-1 text-xs text-accent hover:underline"
+                                onClick={() => openReleaseNotes(notesVersion)}
+                            >
+                                {t('about.updates.whatsNew', { version: notesVersion })}
+                                <Icon icon={ArrowRight} size={12} />
+                            </button>
+                        )}
                     </div>
                 </div>
                 <UpdateAction />

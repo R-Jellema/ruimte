@@ -423,6 +423,20 @@
         "goBack": "Terug",
         "dormant": "Opent zodra je naar dit venster overschakelt"
     },
+    "releaseNotes": {
+        "title": "Release notes",
+        "close": "Release notes sluiten",
+        "failed": "De release notes konden niet worden getekend",
+        "new": "Nieuw",
+        "compare": "Vergelijken",
+        "noNotes": "Geen notities bij deze versie.",
+        "viewOnGitHub": "De release op GitHub bekijken",
+        "loadFailed": "De release notes konden niet worden geladen: {{reason}}",
+        "openOnGitHub": "Ze op GitHub openen",
+        "loading": "Release notes laden",
+        "allReleases": "Alle releases op GitHub",
+        "dialogDescription": "Wat er in elke versie van Ruimte is veranderd."
+    },
     "removeWorktree": {
         "title": "Deze worktree verwijderen?",
         "counting": "Tellen wat erin zit…",
@@ -540,7 +554,8 @@
         "projectIsAFolder": "Een project is een map met een .ruimte/project.json erin, die Ruimte schrijft zodra de map voor het eerst opengaat.",
         "connectMachine": "Machine verbinden",
         "throughAccount": "Via je account",
-        "commandPalette": "Commandopalet"
+        "commandPalette": "Commandopalet",
+        "whatsNew": "Wat is er nieuw"
     },
     "palette": {
         "newAgent": {
@@ -932,6 +947,7 @@
         "editorSettings": "Editor-instellingen…",
         "computerUse": "Computer Use…",
         "front": "Alles naar voren",
+        "releaseNotes": "Release notes",
         "keyboardShortcuts": "Sneltoetsen",
         "projectSettings": "Projectinstellingen…",
         "databaseConnections": "Databaseverbindingen…",

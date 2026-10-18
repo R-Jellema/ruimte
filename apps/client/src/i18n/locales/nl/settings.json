@@ -914,7 +914,8 @@
             "checking": "Bezig met controleren",
             "download": "Downloaden",
             "install": "Herstarten om te installeren",
-            "released": "Verschenen op {{date}}"
+            "released": "Verschenen op {{date}}",
+            "whatsNew": "Wat is er nieuw in {{version}}"
         },
         "links": {
             "title": "Links",

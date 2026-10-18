@@ -826,6 +826,13 @@
     }
 }
 
+/* A release's own headings sit under its version, so none of them may outgrow it. */
+.release-notes .chat-markdown :is(h1, h2, h3, h4) {
+    font-size: var(--text-sm);
+    margin-top: round(1.25em, 1px);
+    margin-bottom: round(0.5em, 1px);
+}
+
 .file-markdown .chat-markdown img {
     display: inline-block;
     max-width: 100%;
