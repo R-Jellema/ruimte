@@ -37,6 +37,8 @@ import { STRIP_PADDING_PX, useTrafficLightInset } from '@/desktop/useFullscreen'
 import { APP_SHORTCUTS } from '@/shell/shortcuts';
 import { useSettings } from '@/state/settings';
 import { isScratchProject, useProject } from '@/state/project';
+import { newChat } from '@/project/new-chat';
+import { NewViewItems } from '@/shell/NewViewMenu';
 import { useSidebarGroups } from './sidebar-groups';
 import { openSidebarTarget } from './sidebar-navigation';
 import { buildCombinedSidebar, buildSidebarEverywhere, type SidebarGroup, type SidebarRow, type SidebarSection } from './sidebar-rows';
@@ -73,15 +75,15 @@ function insertionIndex(list: HTMLElement, clientY: number, viewCount: number): 
     return gapIndex(rows, clientY, viewCount);
 }
 
-/* The plus under a list of views: one per open project, and one under the list of the project on screen. */
+/* The plus under each open project of "All open projects"; with one project the footer has it. */
 function newViewIn(section: SidebarSection): boolean {
-    return section.kind === 'views' && (section.group ? !section.group.collapsed && section.group.state === 'ready' : true);
+    return section.kind === 'views' && section.group !== undefined && !section.group.collapsed && section.group.state === 'ready';
 }
 
 /* Every row the arrows walk, the separators and the plus rows among them. */
 function sidebarRowOrder(sections: readonly SidebarSection[], separators: SeparatorPlaces, hidden: ReadonlySet<string>, empty: boolean): string[] {
     if (empty) {
-        return ['new-view:empty'];
+        return [];
     }
     return [
         ...sections.flatMap((section) => [
@@ -337,7 +339,7 @@ export function Sidebar() {
         );
     };
 
-    const newViewRow = (group: SidebarGroup | null, rowId: string): ReactNode => (
+    const newViewRow = (group: SidebarGroup, rowId: string): ReactNode => (
         <NewViewRow group={group} rowId={rowId} tabbable={roving === rowId} onFocus={() => setRovingId(rowId)} onArrow={moveFocus} />
     );
 
@@ -417,12 +419,9 @@ export function Sidebar() {
                         </div>
                     )}
                     {empty ? (
-                        <>
-                            <p className="px-2 py-4 text-center text-xs text-text-muted">
-                                {t(isScratchProject(currentProject) ? 'sidebar.noChats' : 'sidebar.noViews')}
-                            </p>
-                            {newViewRow(null, 'new-view:empty')}
-                        </>
+                        <p className="px-2 py-4 text-center text-xs text-text-muted">
+                            {t(isScratchProject(currentProject) ? 'sidebar.noChats' : 'sidebar.noViews')}
+                        </p>
                     ) : (
                         sections.map((section, sectionIndex) => {
                             /* A file out of the files panel or off a preview tab lands here as a view
@@ -609,7 +608,12 @@ export function Sidebar() {
                                                       );
                                                   })}
                                             {takesDrop && insertAt === section.viewCount && <div className={INSERT_LINE} />}
-                                            {newViewIn(section) && newViewRow(section.group ?? null, `new-view:${section.id}`)}
+                                            {section.group && newViewIn(section) && (
+                                                <>
+                                                    {section.rows.length > 0 && <div role="separator" className="my-1 h-px shrink-0 bg-border-soft" />}
+                                                    {newViewRow(section.group, `new-view:${section.id}`)}
+                                                </>
+                                            )}
                                             {movableGroup !== null && projectInsert?.key === movableGroup.key && projectInsert.after && (
                                                 <div className={INSERT_LINE} />
                                             )}
@@ -623,10 +627,23 @@ export function Sidebar() {
                 </div>
 
                 <div className="flex shrink-0 items-center justify-end gap-1 border-t border-border p-2">
-                    {combined && (
+                    {combined ? (
                         <button type="button" className={FOOTER_BUTTON} onClick={() => useSidebarProjects.getState().addSeparator(movable, movable.length)}>
                             <Icon icon={Plus} size={14} /> {t('sidebar.separator')}
                         </button>
+                    ) : isScratchProject(currentProject) ? (
+                        <button type="button" className={FOOTER_BUTTON} onClick={newChat}>
+                            <Icon icon={Plus} size={14} /> {t('chats.newChat')}
+                        </button>
+                    ) : (
+                        <Menu.Root>
+                            <Menu.Trigger className={clsx(FOOTER_BUTTON, 'data-[popup-open]:bg-surface-active')}>
+                                <Icon icon={Plus} size={14} /> {t('sidebar.newView')}
+                            </Menu.Trigger>
+                            <Menu.Popup side="top" className="min-w-52">
+                                <NewViewItems />
+                            </Menu.Popup>
+                        </Menu.Root>
                     )}
                     <ConnectionDot />
                     <UsageLimitsCard>

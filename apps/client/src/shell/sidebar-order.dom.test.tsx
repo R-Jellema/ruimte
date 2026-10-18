@@ -153,4 +153,14 @@ describe('the order of all open projects', () => {
         const at = rows.indexOf(heading(active)!);
         expect(rows[at + 1]?.textContent).toBe('New view');
     });
+
+    test('with only the current project, New view sits in the footer and not under the list', async () => {
+        await act(async () => {
+            useSettings.setState({ sidebarScope: 'current', needsYouAllProjects: false });
+        });
+        await until(() => headings().length === 0);
+        expect(page.host.querySelectorAll('[data-sidebar-row^="new-view:"]')).toHaveLength(0);
+        const footer = [...page.host.querySelectorAll<HTMLElement>('aside button')].filter((button) => button.textContent?.trim() === 'New view');
+        expect(footer).toHaveLength(1);
+    });
 });

@@ -35,8 +35,7 @@ import { useServers } from '@/state/server';
 import { separatorKey, useSidebarProjects, type SidebarSeparator } from '@/shell/sidebar-projects';
 import { openSidebarTarget, showSidebarProject } from '@/shell/sidebar-navigation';
 import { NewViewItems } from '@/shell/NewViewMenu';
-import { isScratchProject, useProject } from '@/state/project';
-import { newChat, newChatOn } from '@/project/new-chat';
+import { newChatOn } from '@/project/new-chat';
 import { useUnsavedStoredPath } from '@/shell/panels/use-unsaved';
 import { NODE_KIND_ICONS } from '@/canvas/node-icons';
 
@@ -704,12 +703,10 @@ export function ProjectSeparatorRow({
  * is switched to first, and its menu opens once it is on screen, since every row of it acts on the
  * project the window shows. Without a group it is the plus of the one project on screen.
  */
-export function NewViewRow({ group, rowId, tabbable, onFocus, onArrow }: RowProps & { group: SidebarGroup | null; rowId: string }) {
+export function NewViewRow({ group, rowId, tabbable, onFocus, onArrow }: RowProps & { group: SidebarGroup; rowId: string }) {
     const { t } = useTranslation('shell');
-    const scratchOnScreen = useProject((state) => isScratchProject(state.current));
-    const asked = useSidebarProjects((state) => group !== null && state.newViewFor === group.key);
+    const asked = useSidebarProjects((state) => state.newViewFor === group.key);
     const [open, setOpen] = useState(false);
-    const background = group !== null && !group.active;
     const common = {
         variant: 'inset' as const,
         'data-sidebar-row': rowId,
@@ -727,14 +724,14 @@ export function NewViewRow({ group, rowId, tabbable, onFocus, onArrow }: RowProp
         </>
     );
     // The views of a Chats project are its chats, so its plus makes one; a canvas or a terminal there still comes from the File menu and the palette.
-    if (group === null ? scratchOnScreen : group.summary.scratch === true) {
+    if (group.summary.scratch === true) {
         return (
-            <ListRow {...common} render={<button type="button" />} onClick={() => (group === null ? newChat() : void newChatOn(group.endpointId))}>
+            <ListRow {...common} render={<button type="button" />} onClick={() => void newChatOn(group.endpointId)}>
                 {label(t('chats.newChat'))}
             </ListRow>
         );
     }
-    if (background) {
+    if (!group.active) {
         return (
             <ListRow
                 {...common}
