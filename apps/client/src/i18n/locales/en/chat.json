@@ -22,6 +22,9 @@
         "gone": "That file is no longer there",
         "notShown": "A {{format}} image, a format this app does not show"
     },
+    "modelView": {
+        "notModel": "Its bytes are not a binary glTF, USDZ or STL model."
+    },
     "generatedImage": {
         "saveTitle": "Save image to project",
         "saveIn": "The image is saved inside {{project}}.",

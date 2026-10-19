@@ -33,6 +33,7 @@ import { readResource } from '@/transport/byte-transfer';
 import { readPiece } from '@/transport/piece';
 import { useMachineUrl } from '@/transport/machine-url';
 import { prefetcher } from '@adecore/ui';
+import { CHAT_MODEL_MAX_BYTES } from '@ruimte/contracts';
 
 /* Every action goes through the registry as the person who clicked, the same door Voice uses. */
 const PERSON_CHAT_ACTIONS: ChatActions = {
@@ -147,7 +148,7 @@ export const CHAT_HOST: Partial<ChatHost> = {
         useUrl: (endpointId, chatId, attachmentId) => useMachineUrl({ kind: 'attachment', chatId, attachmentId }, endpointId),
         read: async (endpointId, chatId, attachmentId) => {
             const transport = requireTransport(endpointId);
-            return readResource((piece) => readPiece(transport, piece), { kind: 'attachment', chatId, attachmentId });
+            return readResource((piece) => readPiece(transport, piece), { kind: 'attachment', chatId, attachmentId }, { maxBytes: CHAT_MODEL_MAX_BYTES });
         },
         open: (endpointId, chatId, attachmentId, suggestedName) => {
             void (async () => {

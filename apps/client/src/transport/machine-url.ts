@@ -1,6 +1,6 @@
 import i18next from 'i18next';
 import { useEffect, useState } from 'react';
-import type { ByteResource } from '@ruimte/contracts';
+import { CHAT_MODEL_MAX_BYTES, type ByteResource } from '@ruimte/contracts';
 import { credentialFor } from '@/endpoint/credentials';
 import { endpointById, useEndpoints } from '@/state/endpoints';
 import { transportFor } from '@/transport';
@@ -146,7 +146,8 @@ export function useMachineUrl(resource: MachineResource | null, endpointId?: str
             if (!transport) {
                 return Promise.reject(new Error(i18next.t('machines:connection.unknownMachine')));
             }
-            return readResource((piece) => readPiece(transport, piece), payload);
+            // An attachment may be a model an agent attached, which is larger than any other blob read whole.
+            return readResource((piece) => readPiece(transport, piece), payload, payload.kind === 'attachment' ? { maxBytes: CHAT_MODEL_MAX_BYTES } : {});
         });
         const update = (): void => setHeld({ key, lease, state: lease.current() });
         update();

@@ -3,6 +3,7 @@ import { createElement, useMemo } from 'react';
 import type { ChatHost } from '@adecore/agents-react';
 import { answerComputerAsPerson } from '@/actions/client-actions';
 import { CHAT_HOST } from '@/chat/host';
+import { ChatModelView } from '@/chat/ChatModelView';
 import { ComposerDictation } from '@/chat/ComposerDictation';
 import { prepareCodeBlockAction } from '@/chat/prepare-code-block';
 import { useProjectChats } from '@/chat/project-chats';
@@ -29,8 +30,8 @@ import { isShellShortcut } from '@/terminal/keymap';
 /*
  * What the chat takes from Ruimte that only a workspace draws: the find over a thread, dictation, the
  * cards the machine raises beside a chat's own prompts, the ways to a file or another chat of the
- * project, and the new chat a send opens beside its own. The workspace hands it to the chat views under
- * it, over `CHAT_HOST`.
+ * project, the 3D view of a Model block, and the new chat a send opens beside its own. The workspace
+ * hands it to the chat views under it, over `CHAT_HOST`.
  */
 const intelligentUi = CHAT_HOST.intelligentUi;
 
@@ -39,6 +40,7 @@ export const WORKSPACE_CHAT_HOST: Partial<ChatHost> = {
     isAppShortcut: (event) => isShellShortcut(event, isApplePlatform()),
     ReadImage,
     MarkdownImage,
+    ModelView: ChatModelView,
     renderShellCodeBlock: prepareCodeBlockAction,
     fileLinks: {
         target: (text, cwd, scopeId) => {
