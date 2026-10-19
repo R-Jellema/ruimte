@@ -24,7 +24,7 @@ function messageOf(e: unknown): string {
     return e instanceof Error ? e.message : String(e);
 }
 
-/* A binary glTF or a USDZ package, drawn in 3D on the same plain surface as an image. */
+/* A binary glTF, a USDZ package or an STL, drawn in 3D on the same plain surface as an image. */
 export function ModelFile({ source, name, read }: { source: FileSource; name: string; read: FsReadBinary }) {
     const { t } = useTranslation('panels');
     const platform = useServer((s) => s.platform);

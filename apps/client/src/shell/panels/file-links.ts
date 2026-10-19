@@ -80,6 +80,7 @@ const FILE_EXTENSIONS = new Set([
     'scss',
     'sh',
     'sql',
+    'stl',
     'svelte',
     'svg',
     'swift',

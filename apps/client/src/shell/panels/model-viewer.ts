@@ -1,14 +1,12 @@
 import {
     AnimationMixer,
     Box3,
-    LoadingManager,
     MOUSE,
     NeutralToneMapping,
     PerspectiveCamera,
     PMREMGenerator,
     Scene,
     WebGLRenderer,
-    type AnimationClip,
     type BufferGeometry,
     type Material,
     type Mesh,
@@ -19,17 +17,13 @@ import {
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { USDLoader } from 'three/examples/jsm/loaders/USDLoader.js';
 import { isSpaceDown, subscribeSpacePan } from '@/canvas/space-pan';
 import { ModelGrid } from '@/shell/panels/model-grid';
+import { parseModel } from '@/shell/panels/model-parse';
 import { ModelStudio } from '@/shell/panels/model-studio';
-import { countGeometry, firstZipEntry, fitCamera, gridCellSize, isEmbeddedUrl, type ModelBounds, type ModelCounts } from '@/shell/panels/model-view';
+import { countGeometry, fitCamera, gridCellSize, type ModelBounds, type ModelCounts } from '@/shell/panels/model-view';
 
 const FIELD_OF_VIEW = 45;
-
-// Fails at once without a request, for every reference a file makes to something outside itself.
-const REFUSED_URL = 'about:invalid';
 
 // A frame after a long pause (a hidden window) would jump the animation ahead by the whole pause.
 const MAX_FRAME_SECONDS = 0.1;
@@ -51,39 +45,6 @@ export function canDrawWebgl(): boolean {
         context?.getExtension('WEBGL_lose_context')?.loseContext();
     }
     return webgl2;
-}
-
-interface ParsedModel {
-    root: Object3D;
-    animations: AnimationClip[];
-}
-
-function refusingManager(): LoadingManager {
-    const manager = new LoadingManager();
-    manager.setURLModifier((url) => (isEmbeddedUrl(url) ? url : REFUSED_URL));
-    return manager;
-}
-
-async function parseGlb(bytes: ArrayBuffer): Promise<ParsedModel> {
-    const gltf = await new GLTFLoader(refusingManager()).parseAsync(bytes, '');
-    return { root: gltf.scene, animations: gltf.animations };
-}
-
-/*
- * The USD loader looks a texture the package lacks up as a URL relative to the root layer's folder,
- * past the loading manager, so a package with its root in a folder could make the page fetch an address.
- */
-function parseUsdz(bytes: ArrayBuffer, nestedRoot: string): Promise<ParsedModel> {
-    if (firstZipEntry(new Uint8Array(bytes))?.includes('/') === true) {
-        return Promise.reject(new Error(nestedRoot));
-    }
-    return new Promise((resolve, reject) => {
-        try {
-            new USDLoader(refusingManager()).parse(bytes, '', (group) => resolve({ root: group, animations: group.animations }), reject);
-        } catch (e) {
-            reject(e);
-        }
-    });
 }
 
 function disposeMaterial(material: Material): void {
@@ -173,9 +134,9 @@ export class ModelViewer {
         this.resize(host.clientWidth, host.clientHeight);
     }
 
-    /* `nestedRoot` is the words for a USDZ this viewer refuses to open. */
+    /* Any bytes of a model mime, wherever they came from. `nestedRoot` is the words for a USDZ this viewer refuses to open. */
     async load(bytes: ArrayBuffer, mime: string, nestedRoot: string): Promise<LoadedModel> {
-        const { root, animations } = mime === 'model/vnd.usdz+zip' ? await parseUsdz(bytes, nestedRoot) : await parseGlb(bytes);
+        const { root, animations } = await parseModel(bytes, mime, nestedRoot);
         const loaded = { ...countGeometry(root), animated: animations.length > 0 };
         if (this.disposed) {
             disposeModel(root);
