@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import { rm } from 'node:fs/promises';
 import type { ChatCheckpointDiff } from '@ruimte/contracts';
 import { FakeCheckpoints } from './chat-test-helpers.ts';
@@ -37,24 +37,29 @@ test('a CLI that dies mid-turn leaves an error note and the chat can go on', asy
 });
 
 test('a turn the plan refused ends in an error that names the limit and its reset, and the chat can go on', async () => {
-    await manager.create({ chatId: 'chat-limit', cwd: home });
-    manager.attach('chat-limit', 'c1');
-    await manager.send('chat-limit', 'limit:1789000000');
-    await recorder.until(idle);
-    expect(recorder.ofKind('turn')[0]).toMatchObject({ state: 'error', limit: { kind: 'usage', resetsAt: 1_789_000_000_000 } });
-    expect(recorder.ofKind('note').map((note) => note.text)).toContain("You've hit your session limit · resets 3pm");
-    expect(recorder.info?.limit).toEqual({ kind: 'usage', resetsAt: 1_789_000_000_000 });
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1000);
+    try {
+        await manager.create({ chatId: 'chat-limit', cwd: home });
+        manager.attach('chat-limit', 'c1');
+        await manager.send('chat-limit', 'limit:1789000000');
+        await recorder.until(idle);
+        expect(recorder.ofKind('turn')[0]).toMatchObject({ state: 'error', limit: { kind: 'usage', resetsAt: 1_789_000_000_000 } });
+        expect(recorder.ofKind('note').map((note) => note.text)).toContain("You've hit your session limit · resets 3pm");
+        expect(recorder.info?.limit).toEqual({ kind: 'usage', resetsAt: 1_789_000_000_000 });
 
-    await manager.send('chat-limit', 'overloaded');
-    await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
-    expect(recorder.ofKind('turn')[1]).toMatchObject({ state: 'error', limit: { kind: 'overload' } });
-    expect(recorder.info?.limit).toEqual({ kind: 'overload' });
+        await manager.send('chat-limit', 'overloaded');
+        await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+        expect(recorder.ofKind('turn')[1]).toMatchObject({ state: 'error', limit: { kind: 'overload' } });
+        expect(recorder.info?.limit).toEqual({ kind: 'overload' });
 
-    // The next turn leaves the limit behind, as soon as it opens.
-    await manager.send('chat-limit', 'fine');
-    expect(recorder.info?.limit).toBeUndefined();
-    await recorder.until(() => recorder.info?.usage.turns === 3 && idle());
-    expect(recorder.info?.limit).toBeUndefined();
+        // The next turn leaves the limit behind, as soon as it opens.
+        await manager.send('chat-limit', 'fine');
+        expect(recorder.info?.limit).toBeUndefined();
+        await recorder.until(() => recorder.info?.usage.turns === 3 && idle());
+        expect(recorder.info?.limit).toBeUndefined();
+    } finally {
+        now.mockRestore();
+    }
 });
 
 test('a CLI that dies with something on stderr leaves the last lines of it in the note', async () => {
