@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { GitRepo } from '@ruimte/contracts';
 import type { GitFile, GitStatus } from '@ruimte/contracts';
 import { TransportError, type TransportStatus } from '@/transport/transport';
-import { headMoved, readProjectRepos, soleRepo, visibleRepos, withoutNestedRepos } from './git-repos.ts';
+import { assumeStaged, headMoved, readProjectRepos, soleRepo, visibleRepos, withoutNestedRepos } from './git-repos.ts';
 
 function file(path: string, state: GitFile['state']): GitFile {
     return {
@@ -175,5 +175,29 @@ describe('reading the repositories of a folder', () => {
         cancel();
         dropped.open();
         expect(again).toBe(0);
+    });
+});
+
+describe('assumeStaged', () => {
+    const file = (path: string, state: GitFile['state'], status: string): GitFile => ({ path, state, status, added: 1, deleted: 0, binary: false });
+
+    test('staging moves a change and a new file into the index', () => {
+        const next = assumeStaged(status([file('a', 'unstaged', 'M'), file('b', 'untracked', '?'), file('c', 'unstaged', 'M')]), ['a', 'b'], true);
+        expect(next.files.map((entry) => `${entry.path} ${entry.state} ${entry.status}`)).toEqual(['a staged M', 'b staged A', 'c unstaged M']);
+    });
+
+    test('staging a file that is in both groups leaves one staged entry', () => {
+        const next = assumeStaged(status([file('a', 'staged', 'M'), file('a', 'unstaged', 'M')]), ['a'], true);
+        expect(next.files.map((entry) => entry.state)).toEqual(['staged']);
+    });
+
+    test('unstaging an added file makes it untracked again', () => {
+        const next = assumeStaged(status([file('a', 'staged', 'A'), file('b', 'staged', 'M')]), ['a', 'b'], false);
+        expect(next.files.map((entry) => `${entry.path} ${entry.state} ${entry.status}`)).toEqual(['a untracked ?', 'b unstaged M']);
+    });
+
+    test('a conflict stays where it is', () => {
+        const next = assumeStaged(status([file('a', 'conflicted', 'UU')]), ['a'], true);
+        expect(next.files[0]?.state).toBe('conflicted');
     });
 });

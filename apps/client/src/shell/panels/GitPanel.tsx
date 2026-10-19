@@ -41,7 +41,7 @@ import { useCanvas } from '@/state/canvas';
 import { useDocument } from '@/state/document';
 import { fileTabOf, useFiles } from '@/state/files';
 import { useGit } from '@/state/git';
-import { useGitCheckouts, useProjectRepos, visibleRepos, withoutNestedRepos, type GitCheckoutRef } from '@/state/git-repos';
+import { assumeStaged, useGitCheckouts, useProjectRepos, visibleRepos, withoutNestedRepos, type GitCheckoutRef } from '@/state/git-repos';
 import { gitPlace, gitTarget, gitTargets, type GitPick, type GitTarget } from '@/state/git-target';
 import { endpointKey, useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
@@ -287,6 +287,7 @@ export function GitPanel() {
         if (paths.length === 0) {
             return;
         }
+        read.assume(path, (status) => assumeStaged(status, paths, staged));
         setBusy(true);
         void stageFiles(path, paths, staged).finally(() => {
             setBusy(false);

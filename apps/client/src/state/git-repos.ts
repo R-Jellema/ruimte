@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import i18next from 'i18next';
-import type { GitRepo, GitRepoKind, GitStatus } from '@ruimte/contracts';
+import type { GitFile, GitRepo, GitRepoKind, GitStatus } from '@ruimte/contracts';
 import { basenameOf } from '@/shell/panels/files-tree';
 import { GIT_PANEL_PACE_MS, paced, type Pace } from '@/shell/panels/pace';
 import { watchGit } from '@/state/git-watch';
@@ -30,6 +30,39 @@ interface Entry {
     status: GitStatus | null;
     failure: string | null;
     revision: number;
+}
+
+/*
+ * The status as staging or unstaging these paths will leave it, drawn while git works so the box
+ * moves under the click. It is a guess: the status that follows the action replaces it.
+ */
+export function assumeStaged(status: GitStatus, paths: readonly string[], staged: boolean): GitStatus {
+    const moved = new Set(paths);
+    const leaving = (file: GitFile): boolean =>
+        moved.has(file.path) && (staged ? file.state === 'unstaged' || file.state === 'untracked' : file.state === 'staged');
+    const landed = new Set(
+        status.files
+            .filter((file) => moved.has(file.path) && (staged ? file.state === 'staged' : file.state === 'unstaged' || file.state === 'untracked'))
+            .map((file) => file.path)
+    );
+    const files: GitFile[] = [];
+    for (const file of status.files) {
+        if (!leaving(file)) {
+            files.push(file);
+            continue;
+        }
+        if (landed.has(file.path)) {
+            continue;
+        }
+        landed.add(file.path);
+        if (staged) {
+            files.push({ ...file, state: 'staged', status: file.status === '?' ? 'A' : file.status });
+        } else {
+            const { oldPath: _oldPath, ...rest } = file;
+            files.push(file.status === 'A' ? { ...rest, state: 'untracked', status: '?' } : { ...rest, state: 'unstaged' });
+        }
+    }
+    return { ...status, files };
 }
 
 /*
@@ -187,6 +220,8 @@ export function useProjectRepos(folder: string | null): ProjectRepos {
 
 export interface GitCheckouts {
     checkouts: readonly GitCheckout[];
+    /* Draws a status the panel expects until the next real one lands. */
+    assume(cwd: string, next: (status: GitStatus) => GitStatus): void;
     /* Reads the status of one checkout, or of every one of them. */
     refresh(cwd?: string): Promise<void>;
 }
@@ -315,5 +350,19 @@ export function useGitCheckouts(refs: readonly GitCheckoutRef[]): GitCheckouts {
         [read, paths]
     );
 
-    return { checkouts, refresh };
+    const assume = useCallback(
+        (cwd: string, next: (status: GitStatus) => GitStatus): void => {
+            setHeld((previous) => {
+                const entries = previous.endpointId === endpointId ? previous.entries : {};
+                const entry = entries[cwd] ?? lastEntries.get(endpointKey(endpointId, cwd));
+                if (entry === undefined || entry.status === null) {
+                    return previous;
+                }
+                return { endpointId, entries: { ...entries, [cwd]: { ...entry, status: next(entry.status) } } };
+            });
+        },
+        [endpointId]
+    );
+
+    return { checkouts, refresh, assume };
 }
