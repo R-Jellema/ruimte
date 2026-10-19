@@ -2,7 +2,7 @@ node_modules
 dist
 *.local
 .DS_Store
-release/
+/apps/desktop/release/
 target/
 .idea/
 .claude/worktrees/
