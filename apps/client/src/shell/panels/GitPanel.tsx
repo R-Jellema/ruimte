@@ -12,6 +12,7 @@ import {
     GitBranch,
     GitMerge,
     GitPullRequest,
+    LocateFixed,
     MoreHorizontal,
     RefreshCw
 } from 'lucide-react';
@@ -41,7 +42,7 @@ import { useDocument } from '@/state/document';
 import { fileTabOf, useFiles } from '@/state/files';
 import { useGit } from '@/state/git';
 import { useGitCheckouts, useProjectRepos, visibleRepos, withoutNestedRepos, type GitCheckoutRef } from '@/state/git-repos';
-import { gitTarget, gitTargets, type GitTarget } from '@/state/git-target';
+import { gitPlace, gitTarget, gitTargets, type GitPick, type GitTarget } from '@/state/git-target';
 import { endpointKey, useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { useSettings } from '@/state/settings';
@@ -88,22 +89,22 @@ export function GitPanel() {
     const collapsedDirs = useGit((s) => s.collapsedDirs);
     const logHeight = useGit((s) => s.logHeight);
     const hiddenRepos = useGit((s) => s.hiddenRepos);
+    const worktreesOpen = useGit((s) => s.worktreesOpen);
     const tabLimit = useSettings((s) => s.filesTabLimit);
     const endpointId = useEndpointId();
     const transport = useTransport();
     const worktrees = useWorktrees(transport, endpointId, folder, true);
     const derived = useMemo(() => gitTarget(nodes, selection, folder, worktrees), [nodes, selection, folder, worktrees]);
-    /* A worktree picked by hand outranks the selection, until the selection points somewhere else of
-       its own: `from` is the target it was picked over, so a click on the canvas takes over again. A
-       repository is not picked here but remembered, since it travels with the project's local file. */
-    const [picked, setPicked] = useState<{ target: GitTarget; from: string | null } | null>(null);
+    /* A worktree picked by hand, or the project folder pinned, outranks the selection until the
+       selection points somewhere else of its own. A repository is not picked here but remembered,
+       since it travels with the project's local file. */
+    const [picked, setPicked] = useState<GitPick | null>(null);
     const projectNodes = useProjectNodes();
     const { repos, truncated: reposTruncated, reload: reloadRepos } = useProjectRepos(folder);
     const targets = useMemo(() => gitTargets(nodes, worktrees, folder, repos), [nodes, worktrees, folder, repos]);
-    // A worktree picked by hand that has since been removed hands the panel back to the selection.
-    const pickedStands = picked !== null && picked.from === derived.cwd && targets.some((entry) => entry.cwd === picked.target.cwd);
     /* The worktree the panel is in, if it is in one: that is the whole list then, the way it always was. */
-    const worktree = pickedStands ? picked.target : derived.kind === 'worktree' ? derived : null;
+    const { worktree, following } = gitPlace(derived, picked, targets);
+    const followedNode = following && derived.via !== undefined ? (nodes[derived.via] ?? null) : null;
 
     const refs = useMemo<readonly GitCheckoutRef[]>(
         () =>
@@ -378,9 +379,13 @@ export function GitPanel() {
     };
 
     /* A worktree takes the panel over whole and is remembered per session; picking anything else is
-       leaving it, which puts the folder's repositories back. */
+       leaving it, which pins the folder's repositories over a selection in a worktree. */
     const pickTarget = (next: GitTarget): void => {
-        setPicked(next.kind === 'worktree' ? { target: next, from: derived.cwd } : null);
+        setPicked({ target: next.kind === 'worktree' ? next : null, from: derived.cwd });
+    };
+
+    const leaveWorktree = (): void => {
+        setPicked({ target: null, from: derived.cwd });
     };
 
     /* Viewing a worktree points the panel at it, the way picking it from the chip does, and opens everything it holds in a tab. */
@@ -476,7 +481,7 @@ export function GitPanel() {
     };
 
     /* What acts on one repository: the whole actions menu of a folder with a single one, and the head
-       of every repository's own level while it holds more. */
+       of every repository's own level and the menu of its row while it holds more. */
     const repoActions = (path: string): ReactNode => (
         <RepoActionItems
             cwd={path}
@@ -532,6 +537,30 @@ export function GitPanel() {
                 <PushMenu button={push} active={cwd} entries={entries} busy={busy} onPush={(path, kind) => void actOn(path, kind)} onPushAll={pushAll} />
                 <Separator />
             </PanelHeaderSlot>
+            {followedNode !== null && (
+                <div className="flex h-7 shrink-0 items-center gap-2 border-b border-border px-3 text-xs">
+                    <Icon icon={LocateFixed} size={12} className="shrink-0 text-text-muted" />
+                    <span className="min-w-0 grow truncate text-text-muted">{t('git.follow.label', { node: followedNode.title || followedNode.kind })}</span>
+                    <button type="button" className="shrink-0 text-accent hover:underline" onClick={leaveWorktree}>
+                        {t('git.follow.back')}
+                    </button>
+                </div>
+            )}
+            <WorktreeSection
+                folder={folder}
+                worktrees={worktrees}
+                nodes={projectNodes}
+                current={worktree?.cwd ?? null}
+                repoCount={repos.length}
+                open={worktreesOpen}
+                busy={busy}
+                onToggle={(open) => useGit.getState().setWorktreesOpen(open)}
+                onLeave={leaveWorktree}
+                onView={viewWorktree}
+                onMerge={(entry) => useUi.getState().setWorktreeMerge({ folder, paths: [entry.path] })}
+                onRemove={(entry) => useUi.getState().setWorktreeRemoval({ folder, paths: [entry.path] })}
+                onReveal={revealNode}
+            />
             {/* A folder whose every repository is hidden keeps this row, since the menu on it is the way back. */}
             {(checkouts.length > 0 || hiddenRepos.length > 0) && (
                 <div className={FILE_TOOLBAR}>
@@ -578,7 +607,7 @@ export function GitPanel() {
                         onShowRepos={() => useGit.getState().setHiddenRepos([])}
                     >
                         {/* One repository keeps the menu it always had; over several, what acts on one
-                            of them sits in that repository's own level of the branch menu. */}
+                            of them sits on its row in the list and in its own level of the branch menu. */}
                         {!named && cwd !== null ? repoActions(cwd) : undefined}
                     </ActionsMenu>
                 </div>
@@ -623,22 +652,10 @@ export function GitPanel() {
                     onStage={stage}
                     onDiscard={(work) => setDialog({ kind: 'discard', work })}
                     onDelete={(work) => setDialog({ kind: 'delete-file', work })}
+                    {...(named ? { renderRepoActions: repoActions, onRepoMenu: loadRefs } : {})}
                 />
                 {checkouts.length > 0 && (
                     <CommitBox messageKey={messageKey} checkouts={checkouts} named={named} capabilities={capabilities} busy={busy} onCommit={commit} />
-                )}
-                {folder !== null && (
-                    <WorktreeSection
-                        folder={folder}
-                        worktrees={worktrees}
-                        nodes={projectNodes}
-                        current={cwd}
-                        busy={busy}
-                        onView={viewWorktree}
-                        onMerge={(entry) => useUi.getState().setWorktreeMerge({ folder, paths: [entry.path] })}
-                        onRemove={(entry) => useUi.getState().setWorktreeRemoval({ folder, paths: [entry.path] })}
-                        onReveal={revealNode}
-                    />
                 )}
                 {checkouts.length > 0 && (
                     <>
@@ -903,7 +920,7 @@ interface ActionsMenuProps {
 /*
  * Everything that is not the one button next to it. A folder with a single repository has the menu it
  * always had; over several, the three that make sense for the whole folder stay here and everything
- * that names one repository sits in that repository's own level of the branch menu.
+ * that names one repository sits on that repository's row and in its own level of the branch menu.
  */
 function ActionsMenu({ busy, hidden, onOpen, onAll, onShowRepos, children }: ActionsMenuProps) {
     const { t } = useTranslation('panels');

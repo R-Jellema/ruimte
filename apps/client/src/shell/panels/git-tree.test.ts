@@ -22,6 +22,7 @@ import {
     itemsOfNodes,
     nodeOf,
     repoKey,
+    repoParts,
     shownFile,
     statusColor,
     statusOf,
@@ -360,5 +361,30 @@ describe('activeDiff', () => {
         expect(activeDiff({ key: '/repo/a.ts', path: '/repo/a.ts', pinned: false })).toBeNull();
         expect(activeDiff(diff('/elsewhere/a.ts'))).toBeNull();
         expect(activeDiff(undefined)).toBeNull();
+    });
+});
+
+describe('repoParts', () => {
+    const clean = { branch: 'main', ahead: 0, behind: 0, files: [] };
+
+    test('a repository level with its upstream names only its branch', () => {
+        expect(repoParts(clean).map((part) => part.kind)).toEqual(['branch']);
+    });
+
+    test('ahead and behind are counted, a halfway merge and a conflict are marked', () => {
+        const parts = repoParts({ ...clean, ahead: 2, behind: 3, operation: 'merge' });
+        expect(parts.map((part) => [part.kind, part.text])).toEqual([
+            ['needs-you', ''],
+            ['ahead', '2'],
+            ['behind', '3'],
+            ['branch', 'main']
+        ]);
+        expect(parts[1]!.label).toBe('2 commits to push');
+        expect(repoParts({ ...clean, files: [file('a.ts', 'conflicted')] })[0]!.kind).toBe('needs-you');
+    });
+
+    test('a detached repository or one not read yet has no branch to show', () => {
+        expect(repoParts({ ...clean, branch: null })).toEqual([]);
+        expect(repoParts(null)).toEqual([]);
     });
 });

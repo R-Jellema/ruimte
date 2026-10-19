@@ -530,6 +530,8 @@
             "repositories": "Repositories",
             "search": "Branches zoeken",
             "tooltip": "De branch waar deze checkout op staat",
+            "chipRepos_one": "{{count}} repository",
+            "chipRepos_other": "{{count}} repositories",
             "tooltipRepos_one": "{{count}} repository en zijn branches",
             "tooltipRepos_other": "{{count}} repositories en hun branches",
             "tooltipWorktree": "{{branch}}, in de worktree {{worktree}}",
@@ -750,7 +752,16 @@
             "reason_one": "{{count}} commit naar {{upstream}} pushen",
             "reason_other": "{{count}} commits naar {{upstream}} pushen"
         },
+        "follow": {
+            "label": "Volgt de selectie: {{node}}",
+            "back": "Terug naar de projectmap"
+        },
         "repo": {
+            "ahead_one": "{{count}} commit om te pushen",
+            "ahead_other": "{{count}} commits om te pushen",
+            "behind_one": "{{count}} commit om te pullen",
+            "behind_other": "{{count}} commits om te pullen",
+            "needsYou": "Halverwege gestopt of heeft een conflict",
             "hide": "Verberg deze repository",
             "showAll_one": "Toon {{count}} verborgen repository",
             "showAll_other": "Toon {{count}} verborgen repositories"
@@ -1087,12 +1098,19 @@
         },
         "section": {
             "actions": "Worktree-acties",
+            "agents_one": "{{count}} agent",
+            "agents_other": "{{count}} agents",
             "folderMissing": "map ontbreekt",
             "locked": "Vergrendeld",
             "merge": "Worktree mergen…",
             "inspect": "Bekijken",
+            "needsYou_one": "{{count}} wacht op je",
+            "needsYou_other": "{{count}} wachten op je",
             "noNode": "geen node",
+            "projectFolder": "Projectmap",
             "remove": "Worktree verwijderen…",
+            "repositories_one": "{{count}} repository",
+            "repositories_other": "{{count}} repositories",
             "title": "Worktrees",
             "view": "Worktree bekijken"
         },

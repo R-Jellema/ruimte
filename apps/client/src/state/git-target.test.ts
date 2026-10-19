@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { CanvasNode } from './canvas.ts';
-import { gitTarget, gitTargets } from './git-target.ts';
+import { gitPlace, gitTarget, gitTargets, type GitTarget } from './git-target.ts';
 
 function node(id: string, over: Partial<CanvasNode> = {}): CanvasNode {
     return {
@@ -34,7 +34,13 @@ describe('gitTarget', () => {
     });
 
     test('a selected bound group points the panel at its worktree', () => {
-        expect(gitTarget(nodes(group, inside), ['g1'], '/repo')).toEqual({ cwd: '/wt/feature', label: 'feature/x', branch: 'feature/x', kind: 'worktree' });
+        expect(gitTarget(nodes(group, inside), ['g1'], '/repo')).toEqual({
+            cwd: '/wt/feature',
+            label: 'feature/x',
+            branch: 'feature/x',
+            kind: 'worktree',
+            via: 'g1'
+        });
     });
 
     test('so does a node that sits inside one', () => {
@@ -48,7 +54,8 @@ describe('gitTarget', () => {
             cwd: '/home/worktrees/repo-1/lexer',
             label: 'lexer',
             branch: 'lexer',
-            kind: 'worktree'
+            kind: 'worktree',
+            via: 't1'
         });
         expect(gitTarget(nodes(agent), ['t1'], '/repo', [{ ...worktrees[0]!, missing: true }]).cwd).toBe('/repo');
     });
@@ -111,5 +118,34 @@ describe('gitTargets', () => {
 
     test('without an open project only supplied worktrees are offered', () => {
         expect(gitTargets({}, [{ path: '/wt/feature', branch: 'feature/x' }], null).map((target) => target.cwd)).toEqual(['/wt/feature']);
+    });
+});
+
+describe('gitPlace', () => {
+    const folder: GitTarget = { cwd: '/repo', label: 'repo', branch: null, kind: 'project' };
+    const feature: GitTarget = { cwd: '/wt/feature', label: 'feature/x', branch: 'feature/x', kind: 'worktree', via: 'n1' };
+    const fix: GitTarget = { cwd: '/wt/fix', label: 'fix/y', branch: 'fix/y', kind: 'worktree' };
+    const targets = [folder, feature, fix];
+
+    test('without a pick the panel follows the selection into a worktree', () => {
+        expect(gitPlace(feature, null, targets)).toEqual({ worktree: feature, following: true });
+        expect(gitPlace(folder, null, targets)).toEqual({ worktree: null, following: false });
+    });
+
+    test('a worktree picked by hand is no following', () => {
+        expect(gitPlace(folder, { target: fix, from: '/repo' }, targets)).toEqual({ worktree: fix, following: false });
+    });
+
+    test('the project folder pinned over a selection in a worktree outranks it', () => {
+        expect(gitPlace(feature, { target: null, from: '/wt/feature' }, targets)).toEqual({ worktree: null, following: false });
+    });
+
+    test('a selection that moves elsewhere takes over again', () => {
+        expect(gitPlace(fix, { target: null, from: '/wt/feature' }, targets)).toEqual({ worktree: fix, following: true });
+        expect(gitPlace(feature, { target: fix, from: '/repo' }, targets)).toEqual({ worktree: feature, following: true });
+    });
+
+    test('a picked worktree that has gone hands the panel back to the selection', () => {
+        expect(gitPlace(folder, { target: fix, from: '/repo' }, [folder, feature])).toEqual({ worktree: null, following: false });
     });
 });

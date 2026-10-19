@@ -1,6 +1,8 @@
 import type { FileTreeRowDecoration } from '@pierre/trees';
 import { FileTree } from '@adecore/ui';
-import type { GitFile } from '@ruimte/contracts';
+import i18next from 'i18next';
+import type { GitFile, GitStatus } from '@ruimte/contracts';
+import { formatNumber } from '@adecore/ui/format';
 import { compareRows, treeGitStatus, type SortRow } from '@/shell/panels/files-tree';
 import type { FileTab } from '@/state/files';
 
@@ -106,12 +108,17 @@ export function statusColor(status: string): string {
 /* The tree draws inside a shadow root, which a custom property reaches and a utility class does not. */
 const ADDED_COLOR = 'var(--color-term-green)';
 const DELETED_COLOR = 'var(--color-term-red)';
+const MUTED_COLOR = 'var(--text-muted)';
+const NEEDS_YOU_COLOR = 'var(--status-needs-you)';
 
 /* A run of a row's decoration. */
 export interface DecorationPart {
     text: string;
     color?: string;
-    kind?: 'count' | 'branch';
+    /* `ahead`, `behind` and `needs-you` draw a mark before the text. */
+    kind?: 'count' | 'branch' | 'ahead' | 'behind' | 'needs-you';
+    /* What a mark without text is read out as. */
+    label?: string;
 }
 
 /* The checkbox a row starts with. Its color is the color of the mark, and the name of the property
@@ -131,6 +138,35 @@ export function changeParts(added: number, deleted: number, status: string | nul
     }
     if (status !== null) {
         parts.push({ text: status, color: statusColor(status) });
+    }
+    return parts;
+}
+
+/*
+ * A repository's row after its file count: a mark when it stopped halfway or holds a conflict, how far
+ * it is ahead of and behind its upstream, and its branch. What is zero is left out.
+ */
+export function repoParts(status: Pick<GitStatus, 'branch' | 'ahead' | 'behind' | 'operation' | 'files'> | null): DecorationPart[] {
+    if (status === null) {
+        return [];
+    }
+    const parts: DecorationPart[] = [];
+    if (status.operation !== undefined || status.files.some((file) => file.state === 'conflicted')) {
+        parts.push({ text: '', color: NEEDS_YOU_COLOR, kind: 'needs-you', label: i18next.t('panels:git.repo.needsYou') });
+    }
+    if (status.ahead > 0) {
+        parts.push({ text: formatNumber(status.ahead), color: MUTED_COLOR, kind: 'ahead', label: i18next.t('panels:git.repo.ahead', { count: status.ahead }) });
+    }
+    if (status.behind > 0) {
+        parts.push({
+            text: formatNumber(status.behind),
+            color: MUTED_COLOR,
+            kind: 'behind',
+            label: i18next.t('panels:git.repo.behind', { count: status.behind })
+        });
+    }
+    if (status.branch !== null) {
+        parts.push({ text: status.branch, color: MUTED_COLOR, kind: 'branch' });
     }
     return parts;
 }

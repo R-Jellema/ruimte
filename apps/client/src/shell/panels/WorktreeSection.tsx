@@ -4,10 +4,13 @@ import clsx from 'clsx';
 import {
     ArrowDown,
     ArrowUp,
+    ChevronDown,
+    ChevronRight,
     CircleAlert,
     Eye,
     FilePen,
     FilePlus,
+    Folder,
     FolderX,
     GitBranch,
     GitMerge,
@@ -29,6 +32,7 @@ import { useSessions } from '@/state/sessions';
 import { useTransport } from '@/transport/context';
 import { worktreeLists, type WorktreeNode } from '@/state/worktrees';
 import { Button, Dialog, Icon, IconButton, ListRow, SectionLabel, Spinner, Tooltip, Menu, ContextMenu } from '@adecore/ui';
+import { formatNumber } from '@adecore/ui/format';
 
 /* The mark per kind of work. The number beside it carries the amount; the tooltip carries the words. */
 const BADGE_MARKS: Record<WorkBadgeKind, LucideIcon> = {
@@ -45,9 +49,15 @@ interface WorktreeSectionProps {
     worktrees: readonly Worktree[];
     /* Every node of the project, on every canvas, so a row can name the node working in it. */
     nodes: readonly WorktreeNode[];
-    /* The checkout the panel is on, so its row reads as picked. */
+    /* The worktree the panel is in, so its row reads as picked; null marks the project folder instead. */
     current: string | null;
+    /* How many repositories the project folder holds, which its row says beside its name. */
+    repoCount: number;
+    open: boolean;
     busy: boolean;
+    onToggle(open: boolean): void;
+    /* Leaves the worktree for the repositories of the project folder. */
+    onLeave(): void;
     onView(worktree: Worktree): void;
     onMerge(worktree: Worktree): void;
     onRemove(worktree: Worktree): void;
@@ -59,7 +69,21 @@ interface WorktreeSectionProps {
  * holds. It is the one place a worktree whose node is gone still shows up, which is what an agent
  * team leaves behind once its canvas is cleaned up.
  */
-export function WorktreeSection({ folder, worktrees, nodes, current, busy, onView, onMerge, onRemove, onReveal }: WorktreeSectionProps) {
+export function WorktreeSection({
+    folder,
+    worktrees,
+    nodes,
+    current,
+    repoCount,
+    open,
+    busy,
+    onToggle,
+    onLeave,
+    onView,
+    onMerge,
+    onRemove,
+    onReveal
+}: WorktreeSectionProps) {
     const { t } = useTranslation('panels');
     const endpointId = useEndpointId();
     const transport = useTransport();
@@ -118,125 +142,168 @@ export function WorktreeSection({ folder, worktrees, nodes, current, busy, onVie
             });
     };
 
+    const agents = new Set(
+        worktrees.flatMap((worktree) =>
+            nodesInWorktree(nodes, worktree)
+                .filter((node) => nodeWorking(node, sessions, chats, endpointId))
+                .map((node) => node.id)
+        )
+    ).size;
+    const stopped = worktrees.filter((worktree) => worktree.work?.operation !== undefined).length;
+
     return (
-        <section ref={sectionRef} className="flex max-h-48 shrink-0 flex-col border-t border-border">
-            <div className="flex h-8 shrink-0 items-center gap-2 px-3">
+        <section ref={sectionRef} className="flex max-h-48 shrink-0 flex-col border-b border-border">
+            <button
+                type="button"
+                className="flex h-8 w-full shrink-0 items-center gap-2 pr-3 pl-2 text-left hover:bg-surface-hover"
+                aria-expanded={open}
+                onClick={() => onToggle(!open)}
+            >
+                <Icon icon={open ? ChevronDown : ChevronRight} size={14} className="shrink-0 text-text-faint" />
                 <SectionLabel>{t('worktree.section.title')}</SectionLabel>
-                <span className="text-xs text-text-faint tabular-nums">{worktrees.length}</span>
-            </div>
-            <ul className="min-h-0 overflow-y-auto pb-1">
-                {worktrees.map((worktree) => {
-                    const working = nodesInWorktree(nodes, worktree);
-                    const names = working.map((node) => node.title || node.kind).join(', ');
-                    const origin = originLabel(worktree);
-                    const nameLine =
-                        (worktree.missing ? t('worktree.section.folderMissing') : names === '' ? t('worktree.section.noNode') : names) +
-                        (origin === null ? '' : `, ${origin}`);
-                    const agentWorking = working.some((node) => nodeWorking(node, sessions, chats, endpointId));
-                    const work = worktree.work;
-                    const badges = work === undefined ? [] : workBadges(work);
-                    const badgeLabel = work === undefined ? '' : workBadgesLabel(worktree, work);
-                    const reveal = working[0]?.id ?? null;
-                    return (
-                        <ContextMenu.Root key={worktree.path}>
-                            <ContextMenu.Trigger
-                                render={<ListRow variant="flat" render={<li />} />}
-                                className="group gap-2 pr-1 pl-3 hover:bg-surface-hover"
-                                aria-current={worktree.path === current ? 'true' : undefined}
-                            >
-                                <Icon icon={worktree.missing ? FolderX : GitBranch} size={14} className="shrink-0 text-text-muted" />
-                                <Tooltip label={worktree.path}>
-                                    <button
-                                        className="min-w-0 shrink truncate text-left font-mono text-sm text-text hover:underline disabled:no-underline"
-                                        disabled={worktree.missing === true}
-                                        onClick={() => onView(worktree)}
-                                    >
-                                        {worktree.branch}
-                                    </button>
-                                </Tooltip>
-                                {worktree.locked === true && (
-                                    <Tooltip label={t('worktree.section.locked')}>
-                                        <span className="shrink-0">
-                                            <Icon icon={Lock} size={12} className="text-text-muted" />
-                                        </span>
-                                    </Tooltip>
-                                )}
-                                {agentWorking && <StatusDot status="running" />}
-                                {/* Gives way three times as fast as the branch: two worktrees are told
-                                    apart by their branch, and half a branch name tells them apart no more. */}
-                                <Tooltip
-                                    label={
-                                        <>
-                                            {nameLine}
-                                            {(work !== undefined || agentWorking) && (
-                                                <>
-                                                    <br />
-                                                    {removeVerdict(worktree, agentWorking).reason}
-                                                </>
-                                            )}
-                                        </>
-                                    }
+                <span className="text-xs text-text-faint tabular-nums">{formatNumber(worktrees.length)}</span>
+                <span className="grow" />
+                {/* Folded, the section still says what asks for a look inside it. */}
+                {!open && agents > 0 && (
+                    <span className="flex min-w-0 items-center gap-1.5 text-xs text-text-muted">
+                        <StatusDot status="running" />
+                        <span className="truncate">{t('worktree.section.agents', { count: agents })}</span>
+                    </span>
+                )}
+                {!open && stopped > 0 && (
+                    <span className="flex shrink-0 items-center gap-1 text-xs text-status-needs-you tabular-nums">
+                        <Icon icon={CircleAlert} size={12} />
+                        {t('worktree.section.needsYou', { count: stopped })}
+                    </span>
+                )}
+            </button>
+            {open && (
+                <ul className="min-h-0 overflow-y-auto pb-1">
+                    <ListRow
+                        variant="flat"
+                        render={<li />}
+                        className={clsx('gap-2 pr-1 pl-3 hover:bg-surface-hover', current === null && 'bg-surface-active')}
+                        aria-current={current === null ? 'true' : undefined}
+                    >
+                        <Icon icon={Folder} size={14} className="shrink-0 text-text-muted" />
+                        <button type="button" className="min-w-0 shrink truncate text-left text-sm text-text hover:underline" onClick={onLeave}>
+                            {t('worktree.section.projectFolder')}
+                        </button>
+                        <span className="min-w-0 shrink-[3] truncate text-xs text-text-faint">{t('worktree.section.repositories', { count: repoCount })}</span>
+                    </ListRow>
+                    {worktrees.map((worktree) => {
+                        const working = nodesInWorktree(nodes, worktree);
+                        const names = working.map((node) => node.title || node.kind).join(', ');
+                        const origin = originLabel(worktree);
+                        const nameLine =
+                            (worktree.missing ? t('worktree.section.folderMissing') : names === '' ? t('worktree.section.noNode') : names) +
+                            (origin === null ? '' : `, ${origin}`);
+                        const agentWorking = working.some((node) => nodeWorking(node, sessions, chats, endpointId));
+                        const work = worktree.work;
+                        const badges = work === undefined ? [] : workBadges(work);
+                        const badgeLabel = work === undefined ? '' : workBadgesLabel(worktree, work);
+                        const reveal = working[0]?.id ?? null;
+                        return (
+                            <ContextMenu.Root key={worktree.path}>
+                                <ContextMenu.Trigger
+                                    render={<ListRow variant="flat" render={<li />} />}
+                                    className={clsx('group gap-2 pr-1 pl-3 hover:bg-surface-hover', worktree.path === current && 'bg-surface-active')}
+                                    aria-current={worktree.path === current ? 'true' : undefined}
                                 >
-                                    <span className="min-w-0 shrink-[3] truncate text-xs text-text-faint">{nameLine}</span>
-                                </Tooltip>
-                                <span className="grow" />
-                                {badges.length > 0 && (
-                                    <Tooltip label={badgeLabel}>
-                                        {/* One picture with a text alternative: the marks and figures
-                                            are read out as the sentence the tooltip shows. */}
-                                        <span
-                                            role="img"
-                                            aria-label={badgeLabel}
-                                            className="flex shrink-0 items-center gap-2 text-xs text-text-muted tabular-nums"
+                                    <Icon icon={worktree.missing ? FolderX : GitBranch} size={14} className="shrink-0 text-text-muted" />
+                                    <Tooltip label={worktree.path}>
+                                        <button
+                                            className="min-w-0 shrink truncate text-left font-mono text-sm text-text hover:underline disabled:no-underline"
+                                            disabled={worktree.missing === true}
+                                            onClick={() => onView(worktree)}
                                         >
-                                            {badges.map((badge) => (
-                                                <span
-                                                    key={badge.kind}
-                                                    className={clsx('flex items-center gap-1', badge.kind === 'operation' && 'text-status-needs-you')}
-                                                >
-                                                    <Icon icon={BADGE_MARKS[badge.kind]} size={12} />
-                                                    {badge.text}
-                                                </span>
-                                            ))}
-                                        </span>
+                                            {worktree.branch}
+                                        </button>
                                     </Tooltip>
-                                )}
-                                <Menu.Root>
-                                    <IconButton
-                                        icon={MoreHorizontal}
-                                        size="sm"
-                                        label={t('worktree.section.actions')}
-                                        render={<Menu.Trigger />}
-                                        disabled={busy}
-                                    />
-                                    <Menu.Popup align="end">
-                                        <WorktreeMenuItems
-                                            worktree={worktree}
-                                            reveal={reveal}
-                                            onView={onView}
-                                            onMerge={onMerge}
-                                            onRemove={onRemove}
-                                            onReveal={onReveal}
-                                            onInspect={() => inspect(worktree, agentWorking)}
+                                    {worktree.locked === true && (
+                                        <Tooltip label={t('worktree.section.locked')}>
+                                            <span className="shrink-0">
+                                                <Icon icon={Lock} size={12} className="text-text-muted" />
+                                            </span>
+                                        </Tooltip>
+                                    )}
+                                    {agentWorking && <StatusDot status="running" />}
+                                    {/* Gives way three times as fast as the branch: two worktrees are told
+                                    apart by their branch, and half a branch name tells them apart no more. */}
+                                    <Tooltip
+                                        label={
+                                            <>
+                                                {nameLine}
+                                                {(work !== undefined || agentWorking) && (
+                                                    <>
+                                                        <br />
+                                                        {removeVerdict(worktree, agentWorking).reason}
+                                                    </>
+                                                )}
+                                            </>
+                                        }
+                                    >
+                                        <span className="min-w-0 shrink-[3] truncate text-xs text-text-faint">{nameLine}</span>
+                                    </Tooltip>
+                                    <span className="grow" />
+                                    {badges.length > 0 && (
+                                        <Tooltip label={badgeLabel}>
+                                            {/* One picture with a text alternative: the marks and figures
+                                            are read out as the sentence the tooltip shows. */}
+                                            <span
+                                                role="img"
+                                                aria-label={badgeLabel}
+                                                className="flex shrink-0 items-center gap-2 text-xs text-text-muted tabular-nums"
+                                            >
+                                                {badges.map((badge) => (
+                                                    <span
+                                                        key={badge.kind}
+                                                        className={clsx('flex items-center gap-1', badge.kind === 'operation' && 'text-status-needs-you')}
+                                                    >
+                                                        <Icon icon={BADGE_MARKS[badge.kind]} size={12} />
+                                                        {badge.text}
+                                                    </span>
+                                                ))}
+                                            </span>
+                                        </Tooltip>
+                                    )}
+                                    <Menu.Root>
+                                        <IconButton
+                                            icon={MoreHorizontal}
+                                            size="sm"
+                                            label={t('worktree.section.actions')}
+                                            render={<Menu.Trigger />}
+                                            disabled={busy}
                                         />
-                                    </Menu.Popup>
-                                </Menu.Root>
-                            </ContextMenu.Trigger>
-                            <ContextMenu.Popup>
-                                <WorktreeMenuItems
-                                    worktree={worktree}
-                                    reveal={reveal}
-                                    onView={onView}
-                                    onMerge={onMerge}
-                                    onRemove={onRemove}
-                                    onReveal={onReveal}
-                                    onInspect={() => inspect(worktree, agentWorking)}
-                                />
-                            </ContextMenu.Popup>
-                        </ContextMenu.Root>
-                    );
-                })}
-            </ul>
+                                        <Menu.Popup align="end">
+                                            <WorktreeMenuItems
+                                                worktree={worktree}
+                                                reveal={reveal}
+                                                onView={onView}
+                                                onMerge={onMerge}
+                                                onRemove={onRemove}
+                                                onReveal={onReveal}
+                                                onInspect={() => inspect(worktree, agentWorking)}
+                                            />
+                                        </Menu.Popup>
+                                    </Menu.Root>
+                                </ContextMenu.Trigger>
+                                <ContextMenu.Popup>
+                                    <WorktreeMenuItems
+                                        worktree={worktree}
+                                        reveal={reveal}
+                                        onView={onView}
+                                        onMerge={onMerge}
+                                        onRemove={onRemove}
+                                        onReveal={onReveal}
+                                        onInspect={() => inspect(worktree, agentWorking)}
+                                    />
+                                </ContextMenu.Popup>
+                            </ContextMenu.Root>
+                        );
+                    })}
+                </ul>
+            )}
             <Dialog.Root open={inspected !== null} onOpenChange={(open) => !open && closeInspection()}>
                 <Dialog.Popup size="sm">
                     <Dialog.Title className="font-mono break-all">{inspected?.worktree.branch}</Dialog.Title>

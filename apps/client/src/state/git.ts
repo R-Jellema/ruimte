@@ -1,5 +1,6 @@
 import type { GitDiffScope } from '@ruimte/contracts';
 import { create } from 'zustand';
+import { storedText } from '@/state/stored-json';
 
 export const DEFAULT_SCOPE: GitDiffScope = 'worktree';
 
@@ -8,6 +9,9 @@ export const DEFAULT_LOG_HEIGHT = 200;
 
 // The file tree of a commit tab, until a drag gives it a width of its own.
 export const DEFAULT_COMMIT_TREE_WIDTH = 240;
+
+// A client's own, like the patch view: no project carries it, so no older release meets it in a file.
+const storedWorktreesOpen = storedText('ruimte.git.worktrees-open');
 
 interface GitStore {
     /* What a diff opens in, remembered per project so a branch review stays a branch review. */
@@ -28,6 +32,8 @@ interface GitStore {
     messages: Record<string, string>;
     /* An edit followed by undo still retires an in-flight suggestion. */
     messageVersions: Record<string, number>;
+    /* Whether the worktrees section stands open; folded until a person opens it. */
+    worktreesOpen: boolean;
     setScope(scope: GitDiffScope): void;
     toggleRepo(label: string): void;
     setHiddenRepos(labels: string[]): void;
@@ -39,6 +45,7 @@ interface GitStore {
     setCommitTreeWidth(width: number): void;
     setCollapsedDirs(dirs: string[]): void;
     toggleDir(path: string): void;
+    setWorktreesOpen(open: boolean): void;
 }
 
 /*
@@ -55,6 +62,7 @@ export const useGit = create<GitStore>((set, get) => ({
     logHeight: DEFAULT_LOG_HEIGHT,
     messages: {},
     messageVersions: {},
+    worktreesOpen: storedWorktreesOpen.read() === 'true',
     setScope(scope) {
         set({ scope });
     },
@@ -97,5 +105,9 @@ export const useGit = create<GitStore>((set, get) => ({
     toggleDir(path) {
         const collapsed = get().collapsedDirs;
         set({ collapsedDirs: collapsed.includes(path) ? collapsed.filter((dir) => dir !== path) : [...collapsed, path] });
+    },
+    setWorktreesOpen(open) {
+        storedWorktreesOpen.write(String(open));
+        set({ worktreesOpen: open });
     }
 }));

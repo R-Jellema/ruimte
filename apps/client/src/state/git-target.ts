@@ -12,6 +12,8 @@ export interface GitTarget {
     kind: 'project' | 'repo' | 'worktree';
     /* The name of the group that binds this worktree, when one does. */
     group?: string;
+    /* The selected node that pointed the panel at this worktree, when the selection did. */
+    via?: string;
 }
 
 function boundGroupOf(nodes: Record<string, CanvasNode>, id: string): CanvasNode | null {
@@ -40,12 +42,12 @@ export function gitTarget(nodes: Record<string, CanvasNode>, selection: string[]
     for (const id of selection) {
         const worktree = boundGroupOf(nodes, id)?.worktree;
         if (worktree) {
-            return { cwd: worktree.path, label: worktree.branch, branch: worktree.branch, kind: 'worktree' };
+            return { cwd: worktree.path, label: worktree.branch, branch: worktree.branch, kind: 'worktree', via: id };
         }
         const node = nodes[id];
         const own = node?.kind === 'terminal' || node?.kind === 'chat' ? worktreeOfPath(worktrees, node.cwd) : null;
         if (own) {
-            return { cwd: own.path, label: own.branch, branch: own.branch, kind: 'worktree' };
+            return { cwd: own.path, label: own.branch, branch: own.branch, kind: 'worktree', via: id };
         }
     }
     return { cwd: folder, label: folder === null ? '' : basenameOf(folder), branch: null, kind: 'project' };
@@ -89,4 +91,31 @@ export function gitTargets(
         });
     }
     return targets;
+}
+
+/* A checkout picked by hand, or the project folder pinned when `target` is null. `from` is where the
+   selection pointed at the moment of the pick, so a selection that moves elsewhere takes over again. */
+export interface GitPick {
+    target: GitTarget | null;
+    from: string | null;
+}
+
+export interface GitPlace {
+    /* The worktree the panel is in, or null for the repositories of the project folder. */
+    worktree: GitTarget | null;
+    /* True while the selection put the panel in that worktree and no pick of a person outranks it. */
+    following: boolean;
+}
+
+/*
+ * Where the panel stands, given what the selection points at and what a person picked. A pick outranks
+ * the selection until the selection points somewhere else of its own, and a picked worktree that has
+ * since gone hands the panel back to the selection.
+ */
+export function gitPlace(derived: GitTarget, picked: GitPick | null, targets: readonly GitTarget[]): GitPlace {
+    const stands = picked !== null && picked.from === derived.cwd && (picked.target === null || targets.some((entry) => entry.cwd === picked.target?.cwd));
+    if (stands) {
+        return { worktree: picked.target, following: false };
+    }
+    return derived.kind === 'worktree' ? { worktree: derived, following: true } : { worktree: null, following: false };
 }

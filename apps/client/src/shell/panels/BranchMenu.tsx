@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Copy, GitBranch, Plus, Search } from 'lucide-react';
+import { ChevronDown, Copy, GitBranch, Layers, Plus, Search } from 'lucide-react';
 import type { GitRef } from '@ruimte/contracts';
 import { basenameOf } from '@/shell/panels/files-tree';
 import type { GitTarget } from '@/state/git-target';
@@ -114,10 +114,15 @@ export function BranchMenu({
                         name={nested}
                     >
                         <Menu.Trigger className="inline-flex h-6 min-w-0 shrink items-center gap-1 rounded-full bg-surface-hover px-2 text-xs text-text-muted hover:text-text">
-                            <Icon icon={GitBranch} size={12} className="shrink-0" />
                             {/* Over several repositories no single branch is the panel's, so the chip names none. */}
-                            {!nested && (
+                            {nested ? (
                                 <>
+                                    <Icon icon={Layers} size={12} className="shrink-0" />
+                                    <span className="truncate">{t('git.branchMenu.chipRepos', { count: repos.length })}</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Icon icon={GitBranch} size={12} className="shrink-0" />
                                     {prefix !== null && <span className="max-w-24 truncate text-text-faint">{prefix}</span>}
                                     <span className="truncate font-mono">{label}</span>
                                 </>

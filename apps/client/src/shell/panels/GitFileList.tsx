@@ -1,11 +1,11 @@
 import { revealFile } from './reveal-file';
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FileTreeVisibleRow } from '@pierre/trees';
 import { FileTree, useFileTree, type FoldKeyOf } from '@adecore/ui';
 import { GitTreeMarks } from './GitTreeMarks';
 import { ChevronsDownUp, ChevronsUpDown, CornerUpRight, EyeOff, FileDiff, FileText, FileX, Folder, GitBranch, Minus, Plus, Trash2 } from 'lucide-react';
-import type { GitFile } from '@ruimte/contracts';
+import type { GitFile, GitStatus } from '@ruimte/contracts';
 import { FileActionItems } from '@/shell/panels/FileActionItems';
 import { FileCopyRow } from '@/shell/panels/FileCopyRow';
 import { revealableInFiles } from '@/shell/panels/files-tree';
@@ -21,6 +21,7 @@ import {
     foldedBranches,
     itemsOfNodes,
     nodeOf,
+    repoParts,
     shownFile,
     toggleItems,
     type DecorationPart,
@@ -41,7 +42,6 @@ import { Icon, PanelEmpty, ContextMenu } from '@adecore/ui';
 const { applyExpansion, directoryHandle, focusRow, menuTargetsOf, mergeCollapsedPaths, rowPathOf, selectOnly, visibleRows } = FileTree;
 
 const COUNT_COLOR = 'var(--text-faint)';
-const BRANCH_COLOR = 'var(--text-muted)';
 
 const GIT_TREE_CSS = `
     [data-type="item"][aria-level="1"] [data-item-section="content"] { font-weight: 500; }
@@ -90,6 +90,10 @@ interface ListProps {
     onStage(cwd: string, paths: string[], staged: boolean): void;
     onDiscard(work: GitWork[]): void;
     onDelete(work: GitWork[]): void;
+    /* What acts on one repository, offered on its row while the folder holds more than one. */
+    renderRepoActions?(cwd: string): ReactNode;
+    /* A repository's row was right-clicked; its branches and stashes are read then. */
+    onRepoMenu?(cwd: string): void;
 }
 
 /*
@@ -106,7 +110,7 @@ export function GitFileList({ checkouts, reposTruncated, ...props }: ListProps) 
             ),
         [checkouts, t]
     );
-    const branches = useMemo(() => new Map(checkouts.map((checkout) => [checkout.path, checkout.status?.branch ?? null])), [checkouts]);
+    const statuses = useMemo(() => new Map(checkouts.map((checkout) => [checkout.path, checkout.status])), [checkouts]);
 
     const read = checkouts.filter((checkout) => checkout.status !== null);
     if (checkouts.length === 0 || (read.length > 0 && read.every((checkout) => checkout.status?.repo !== true))) {
@@ -121,7 +125,7 @@ export function GitFileList({ checkouts, reposTruncated, ...props }: ListProps) 
     const truncated = reposTruncated || read.some((checkout) => checkout.status?.truncated === true);
     return (
         <div className="flex min-h-0 grow flex-col">
-            <GitTree layout={layout} branches={branches} {...props} />
+            <GitTree layout={layout} statuses={statuses} {...props} />
             {truncated && <p className="px-3 py-2 text-xs text-text-faint">{t('diff.moreFiles')}</p>}
         </div>
     );
@@ -129,11 +133,25 @@ export function GitFileList({ checkouts, reposTruncated, ...props }: ListProps) 
 
 interface TreeProps extends Omit<ListProps, 'checkouts' | 'reposTruncated'> {
     layout: GitTreeLayout;
-    /* The branch each checkout is on, by its path. */
-    branches: ReadonlyMap<string, string | null>;
+    /* What each checkout reads, by its path. */
+    statuses: ReadonlyMap<string, GitStatus | null>;
 }
 
-function GitTree({ layout, branches, collapsed, reading, busy, onOpen, onOpenFile, onDrag, onStage, onDiscard, onDelete }: TreeProps) {
+function GitTree({
+    layout,
+    statuses,
+    collapsed,
+    reading,
+    busy,
+    onOpen,
+    onOpenFile,
+    onDrag,
+    onStage,
+    onDiscard,
+    onDelete,
+    renderRepoActions,
+    onRepoMenu
+}: TreeProps) {
     const { t } = useTranslation('panels');
     const platform = useServer((s) => s.platform);
     const folder = useProject((s) => s.current?.folder ?? null);
@@ -168,13 +186,12 @@ function GitTree({ layout, branches, collapsed, reading, busy, onOpen, onOpenFil
                 return <GitTreeMarks parts={[{ text: String(node.items.length), kind: 'count' }]} />;
             }
             const parts: DecorationPart[] = [{ text: t('git.list.files', { count: node.items.length }), color: COUNT_COLOR, kind: 'count' }];
-            const branch = node.kind === 'repo' ? (branches.get(node.cwd) ?? null) : null;
-            if (branch !== null) {
-                parts.push({ text: branch, color: BRANCH_COLOR, kind: 'branch' });
+            if (node.kind === 'repo') {
+                parts.push(...repoParts(statuses.get(node.cwd) ?? null));
             }
             return <GitTreeMarks parts={parts} />;
         },
-        [branches, layout, t]
+        [statuses, layout, t]
     );
 
     const { model } = useFileTree({
@@ -219,7 +236,7 @@ function GitTree({ layout, branches, collapsed, reading, busy, onOpen, onOpenFil
         if (next !== null) {
             focusRow(model, next);
         }
-    }, [branches, keyOf, layout, model, t]);
+    }, [keyOf, layout, model, t]);
 
     useEffect(() => {
         const before = foldedRef.current;
@@ -385,7 +402,12 @@ function GitTree({ layout, branches, collapsed, reading, busy, onOpen, onOpenFil
                 onKeyDownCapture={onKeyDownCapture}
                 onContextMenu={(event) => {
                     const row = rowPathOf(event);
-                    setMenuPaths(row === null ? [] : menuTargetsOf(row, model.getSelectedPaths()));
+                    const targets = row === null ? [] : menuTargetsOf(row, model.getSelectedPaths());
+                    setMenuPaths(targets);
+                    const repo = targets.length === 1 ? nodeOf(layout, targets[0]!) : undefined;
+                    if (repo?.kind === 'repo') {
+                        onRepoMenu?.(repo.cwd);
+                    }
                 }}
             >
                 <FileTree.Root
@@ -474,6 +496,12 @@ function GitTree({ layout, branches, collapsed, reading, busy, onOpen, onOpenFil
                     <>
                         {stageItems}
                         {boxed.length > 0 && <ContextMenu.Separator />}
+                        {renderRepoActions !== undefined && (
+                            <>
+                                {renderRepoActions(single.cwd)}
+                                <ContextMenu.Separator />
+                            </>
+                        )}
                         <ContextMenu.Item onClick={() => useGit.getState().toggleRepo(single.label)}>
                             <Icon icon={EyeOff} size={14} /> {t('git.repo.hide')}
                         </ContextMenu.Item>

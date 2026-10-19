@@ -530,6 +530,8 @@
             "repositories": "Repositories",
             "search": "Search branches",
             "tooltip": "The branch this checkout is on",
+            "chipRepos_one": "{{count}} repository",
+            "chipRepos_other": "{{count}} repositories",
             "tooltipRepos_one": "{{count}} repository and its branches",
             "tooltipRepos_other": "{{count}} repositories and their branches",
             "tooltipWorktree": "{{branch}}, in the worktree {{worktree}}",
@@ -750,7 +752,16 @@
             "reason_one": "Push {{count}} commit to {{upstream}}",
             "reason_other": "Push {{count}} commits to {{upstream}}"
         },
+        "follow": {
+            "label": "Follows the selection: {{node}}",
+            "back": "Back to the project folder"
+        },
         "repo": {
+            "ahead_one": "{{count}} commit to push",
+            "ahead_other": "{{count}} commits to push",
+            "behind_one": "{{count}} commit to pull",
+            "behind_other": "{{count}} commits to pull",
+            "needsYou": "Stopped halfway or holds a conflict",
             "hide": "Hide this repository",
             "showAll_one": "Show {{count}} hidden repository",
             "showAll_other": "Show {{count}} hidden repositories"
@@ -1087,12 +1098,19 @@
         },
         "section": {
             "actions": "Worktree actions",
+            "agents_one": "{{count}} agent",
+            "agents_other": "{{count}} agents",
             "folderMissing": "folder missing",
             "locked": "Locked",
             "merge": "Merge worktree…",
             "inspect": "Inspect",
+            "needsYou_one": "{{count}} needs you",
+            "needsYou_other": "{{count}} need you",
             "noNode": "no node",
+            "projectFolder": "Project folder",
             "remove": "Remove worktree…",
+            "repositories_one": "{{count}} repository",
+            "repositories_other": "{{count}} repositories",
             "title": "Worktrees",
             "view": "View worktree"
         },
