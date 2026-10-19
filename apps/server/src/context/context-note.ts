@@ -221,27 +221,27 @@ export function contextPrompt(sources: ContextSource[]): string | null {
     return `${hint} This is what the person means, so prefer it over anything your own tools or servers turn up.`;
 }
 
-/*
- * What an agent is told once at the start of a chat process, so it knows the CLI without being
- * nagged every turn. Claude Code takes it as a system prompt and Codex as a thread's developer instructions.
- */
-export function chatPrompt({
-    sources,
-    depth,
-    standalone,
-    computer,
-    visuals,
-    databases
-}: {
+export interface ChatPromptOptions {
     sources: ContextSource[];
     depth: number;
     standalone?: boolean;
     computer?: boolean;
     visuals?: boolean;
     databases?: boolean;
-}): string {
-    const note = verbsNote({ depth, standalone, computer, device: linksDevice(sources), visuals, databases });
-    const prompt = contextPrompt(sources);
+}
+
+/* The part of a chat's prompt that is about the CLI, without the names of what is linked. */
+export function chatNote({ sources, depth, standalone, computer, visuals, databases }: ChatPromptOptions): string {
+    return verbsNote({ depth, standalone, computer, device: linksDevice(sources), visuals, databases });
+}
+
+/*
+ * What an agent is told once at the start of a chat process, so it knows the CLI without being
+ * nagged every turn. Claude Code takes it as a system prompt and Codex as a thread's developer instructions.
+ */
+export function chatPrompt(options: ChatPromptOptions): string {
+    const note = chatNote(options);
+    const prompt = contextPrompt(options.sources);
     return prompt === null ? note : `${note} ${prompt}`;
 }
 

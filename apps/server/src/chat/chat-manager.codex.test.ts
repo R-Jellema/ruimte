@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generatedImageAttachment, type ChatInfo, type ChatItem, type ChatSubagentItem } from '@ruimte/contracts';
 import type { ContextSource } from '@ruimte/contracts';
-import { CONTEXT_LEAD, chatPrompt, contextPrompt, verbsNote } from '../context/context-note.ts';
+import { CONTEXT_LEAD, chatNote, chatPrompt, contextPrompt, verbsNote } from '../context/context-note.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
 import { AttachmentStore, ChatStore } from '@adecore/agents/chat';
 import { ChatManager } from './chat-manager.ts';
@@ -596,13 +596,14 @@ describe('ChatManager with Codex', () => {
         expect(turnInputs().map((input) => input[0]!.text)).toEqual(['note?']);
     });
 
-    test('a resumed thread keeps its instructions and hears about its links in front of the first prompt only', async () => {
+    test('a resumed thread whose note is unchanged keeps its instructions and hears about its links in front of the first prompt only', async () => {
         await open('chat-resumed-note');
         await manager.send('chat-resumed-note', 'first');
         await recorder.until(idle);
         await retire(manager);
 
-        manager = makeManager({ contextSources: () => LINKED });
+        const sources: ContextSource[] = [{ id: 'text-1', kind: 'text', title: 'Brief' }];
+        manager = makeManager({ contextSources: () => sources });
         const again = new ChatRecorder();
         manager.subscribe('c2', again.sink());
         await manager.create({ chatId: 'chat-resumed-note' });
@@ -611,9 +612,41 @@ describe('ChatManager with Codex', () => {
         await again.until(() => again.ofKind('assistant').length === 1 && again.info?.activeTurnId === null);
         await manager.send('chat-resumed-note', 'pasted?');
         await again.until(() => again.ofKind('assistant').length === 2 && again.info?.activeTurnId === null);
-        expect(again.ofKind('assistant').map((item) => item.text)).toEqual([chatPrompt({ sources: [], depth: 0 }), contextPrompt(LINKED)!]);
+        expect(again.ofKind('assistant').map((item) => item.text)).toEqual([chatPrompt({ sources: [], depth: 0 }), contextPrompt(sources)!]);
         expect(requests.filter((request) => request.method === 'thread/resume').map((request) => request.params.developerInstructions)).toEqual([undefined]);
+        expect(requests.some((request) => request.method === 'thread/inject_items')).toBe(false);
         expect(turnInputs().at(-1)![0]!.text).toBe('pasted?');
+    });
+
+    test('a resumed thread whose note changed takes the new one in as developer instructions, once', async () => {
+        await open('chat-changed-note');
+        await manager.send('chat-changed-note', 'first');
+        await recorder.until(idle);
+        await retire(manager);
+
+        // A linked device adds a line to the note, as a new release of Ruimte would change it.
+        for (const round of [1, 2]) {
+            manager = makeManager({ contextSources: () => LINKED });
+            const again = new ChatRecorder();
+            manager.subscribe('c2', again.sink());
+            await manager.create({ chatId: 'chat-changed-note' });
+            manager.attach('chat-changed-note', 'c2');
+            await manager.send('chat-changed-note', 'note?');
+            await again.until(() => again.ofKind('assistant').length === 1 && again.info?.activeTurnId === null);
+            expect(again.ofKind('assistant')[0]?.text).toBe(chatNote({ sources: LINKED, depth: 0 }));
+            expect(requests.filter((request) => request.method === 'thread/inject_items')).toHaveLength(1);
+            if (round === 1) {
+                await retire(manager);
+            }
+        }
+    });
+
+    test('a thread from before Ruimte kept a digest of its note hears the note once', async () => {
+        await open('chat-old-thread', { resume: 'thread-old' });
+        await manager.send('chat-old-thread', 'note?');
+        await recorder.until(idle);
+        expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual([chatNote({ sources: [], depth: 0 })]);
+        expect(requests.filter((request) => request.method === 'thread/inject_items').map((request) => request.params.threadId)).toEqual(['thread-old']);
     });
 
     test('a thread Codex no longer has starts fresh with a warning', async () => {

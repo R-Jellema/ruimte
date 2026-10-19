@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -27,7 +27,7 @@ import { ChatCore, type ChatCoreOptions, claudeProjectSlug, limitedTurn } from '
 import type { ChatReferences, ChatSession, PromptNotes, ResumeWords, ChatRecord, ChatRecordExtras } from '@adecore/agents/chat';
 import { storedAccount, narrowerMode } from '@adecore/agents/providers';
 import { chatReferenceNote, resolveChatReferences } from '../context/chat-references.ts';
-import { chatPrompt, contextChangeNote, contextPrompt, VISUAL_RESUME_NOTE } from '../context/context-note.ts';
+import { chatNote, chatPrompt, contextChangeNote, contextPrompt, type ChatPromptOptions, VISUAL_RESUME_NOTE } from '../context/context-note.ts';
 import { errorText } from '../error-text.ts';
 import { RUIMTE_CODEX_CLIENT } from '../providers/codex-provider.ts';
 import { continueOnWake, continuedInForkNote } from './continue-on.ts';
@@ -152,6 +152,10 @@ function clearedTaskIdsOf(extras: ChatRecordExtras): string[] {
     return Array.isArray(extras.clearedTaskIds) ? extras.clearedTaskIds.filter((id): id is string => typeof id === 'string') : [];
 }
 
+function noteDigest(note: string): string {
+    return createHash('sha256').update(note).digest('hex').slice(0, 16);
+}
+
 /*
  * The chat row of a task in the thread of the chat that gave it, written from the task alone so writing
  * it twice changes nothing. A new row joins the turn that is running, which is the turn that ran the
@@ -230,6 +234,8 @@ export class ChatManager extends ChatCore {
     private readonly tokens = new Map<string, string>();
     // The tasks whose rows a clear hid, per chat.
     private readonly clearedTasks = new Map<string, Set<string>>();
+    /* The digest of the note each chat's thread last took in, kept in its record as `instructions`. */
+    private readonly instructed = new Map<string, string>();
     // The turn each chat last opened, so a turn counts once however often its item changes.
     private readonly countedTurns = new Map<string, string>();
     // Clients following the conversation of a node a task opened, per row of the chat that gave it.
@@ -244,6 +250,7 @@ export class ChatManager extends ChatCore {
             hooks: {
                 instructionsFor: (chatId) => this.instructionsFor(chatId),
                 resumeNoteFor: (chatId) => this.resumeNoteFor(chatId),
+                resumeInstructionsFor: (chatId) => this.resumeInstructionsFor(chatId),
                 foldersFor: (chatId) => this.foldersFor(chatId),
                 projectConfigFor: (chatId) => !this.peerChat(chatId),
                 promptNotesFor: (chatId) => this.promptNotesFor(chatId),
@@ -254,7 +261,10 @@ export class ChatManager extends ChatCore {
                 openingSelection: (chatId, kind) => this.opening(chatId, kind),
                 runtimeModeFor: (chatId, mode) => this.runtimeModeFor(chatId, mode),
                 opened: (session, stored) => this.opened(session, stored),
-                recordExtras: (chatId) => clearedExtras(this.clearedTasks.get(chatId)),
+                recordExtras: (chatId) => {
+                    const digest = this.instructed.get(chatId);
+                    return { ...clearedExtras(this.clearedTasks.get(chatId)), ...(digest === undefined ? {} : { instructions: digest }) };
+                },
                 clearing: async (chatId) => {
                     await this.endChildren(chatId);
                 },
@@ -526,8 +536,8 @@ export class ChatManager extends ChatCore {
         session?.continuedElsewhere(continuedInForkNote(this.accountLabel(session.info.provider, account)));
     }
 
-    private instructionsFor(chatId: string): string {
-        return chatPrompt({
+    private promptOptions(chatId: string): ChatPromptOptions {
+        return {
             sources: this.contextSources(chatId),
             depth: this.depthOf(chatId),
             standalone: this.standalone(chatId),
@@ -535,7 +545,24 @@ export class ChatManager extends ChatCore {
             // An inline edit answers with one replacement block, which a page above it would only contradict.
             visuals: this.visualReplies() && !this.inlineChat(chatId),
             databases: !this.inlineChat(chatId) && this.databases(chatId)
-        });
+        };
+    }
+
+    private instructionsFor(chatId: string): string {
+        return chatPrompt(this.promptOptions(chatId));
+    }
+
+    /*
+     * Codex keeps the developer instructions its thread started with, so a thread that took in another note
+     * hears this one again, once. A thread without a digest began before Ruimte kept one, and hears it too.
+     */
+    private resumeInstructionsFor(chatId: string): string | null {
+        const note = chatNote(this.promptOptions(chatId));
+        const digest = noteDigest(note);
+        const known = this.instructed.get(chatId);
+        this.instructed.set(chatId, digest);
+        const resumes = (this.get(chatId)?.info.agentSessionId ?? null) !== null;
+        return resumes && known !== digest ? note : null;
     }
 
     private resumeNoteFor(chatId: string): string | null {
@@ -587,6 +614,10 @@ export class ChatManager extends ChatCore {
             countChatStarted(session.info.provider);
         }
         this.clearedTasks.set(chatId, new Set(clearedTaskIdsOf(stored?.extras ?? {})));
+        const digest = stored?.extras.instructions;
+        if (typeof digest === 'string') {
+            this.instructed.set(chatId, digest);
+        }
         for (const task of this.taskRows(chatId)) {
             this.upsertTaskRow(session, task);
         }
@@ -633,6 +664,7 @@ export class ChatManager extends ChatCore {
             }
         }
         this.clearedTasks.delete(chatId);
+        this.instructed.delete(chatId);
         this.countedTurns.delete(chatId);
     }
 
