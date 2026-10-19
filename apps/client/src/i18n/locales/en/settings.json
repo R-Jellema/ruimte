@@ -1380,13 +1380,6 @@
             "unavailable": "The local model is not available.",
             "saveFailed": "Could not change Apple Foundation Models",
             "requiresMac": "Requires a Mac with Apple silicon."
-        },
-        "account": {
-            "login": {
-                "needsCanvas": "Open a canvas to log in. The login runs in a terminal node on it.",
-                "failed": "Could not open the login",
-                "nodeTitle": "{{account}} login"
-            }
         }
     }
 }

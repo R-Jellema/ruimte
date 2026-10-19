@@ -37,9 +37,8 @@ function closeLogin(): void {
 }
 
 /*
- * The CLI's own login in a terminal of its own, for a machine no canvas on screen can hold a terminal
- * node of. Mounted once beside the other dialogs, so the onboarding and the settings both open it, and
- * `nested` puts it over whichever of them asked.
+ * The CLI's own login in a terminal of its own. Mounted once beside the other dialogs, so the onboarding
+ * and the settings both open it, and `nested` puts it over whichever of them asked.
  */
 export function LoginDialog() {
     const request = useUi((s) => s.login);

@@ -1380,13 +1380,6 @@
             "unavailable": "Het lokale model is niet beschikbaar.",
             "saveFailed": "Apple Foundation Models kon niet worden gewijzigd",
             "requiresMac": "Vereist een Mac met Apple silicon."
-        },
-        "account": {
-            "login": {
-                "needsCanvas": "Open een canvas om in te loggen. De login draait in een terminal-node daarop.",
-                "failed": "Kon de login niet openen",
-                "nodeTitle": "Login {{account}}"
-            }
         }
     }
 }
