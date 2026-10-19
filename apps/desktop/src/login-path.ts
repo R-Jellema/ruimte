@@ -2,25 +2,39 @@ import { spawn } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 
 const MARKER = '__RUIMTE_PATH__';
+const ANSWER = new RegExp(`${MARKER}(.*?)${MARKER}`, 's');
 
 /*
  * An app opened from the Dock inherits a bare PATH, not the one the person's rc files build, and the
  * daemon finds `claude` and friends through PATH. So the login shell is asked, which a slow profile
- * makes take seconds; null when it does not answer within five.
+ * makes take seconds; null when it does not answer in time.
  */
-export function askLoginShellPath(shell: string | undefined, platform: NodeJS.Platform): Promise<string | null> {
+export function askLoginShellPath(shell: string | undefined, platform: NodeJS.Platform, timeoutMs = 15_000): Promise<string | null> {
     if (platform === 'win32' || !shell) {
         return Promise.resolve(null);
     }
     return new Promise((resolve) => {
         let output = '';
-        const child = spawn(shell, ['-ilc', `printf '${MARKER}%s${MARKER}' "$PATH"`], { stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 });
+        const child = spawn(shell, ['-ilc', `printf '${MARKER}%s${MARKER}' "$PATH"`], { stdio: ['ignore', 'pipe', 'ignore'] });
+        // An interactive shell ignores SIGTERM, and an agent the profile starts in the background keeps the pipe
+        // open after the shell is gone, so the answer is taken as soon as it is complete rather than at close.
+        const settle = (path: string | null): void => {
+            clearTimeout(timer);
+            child.stdout.destroy();
+            child.kill('SIGKILL');
+            resolve(path);
+        };
+        const timer = setTimeout(() => settle(null), timeoutMs);
         child.stdout.setEncoding('utf8');
         child.stdout.on('data', (chunk: string) => {
             output += chunk;
+            const answer = ANSWER.exec(output);
+            if (answer) {
+                settle(answer[1] || null);
+            }
         });
-        child.on('error', () => resolve(null));
-        child.on('close', () => resolve(output.match(new RegExp(`${MARKER}(.*?)${MARKER}`, 's'))?.[1] || null));
+        child.on('error', () => settle(null));
+        child.on('close', () => settle(ANSWER.exec(output)?.[1] || null));
     });
 }
 
