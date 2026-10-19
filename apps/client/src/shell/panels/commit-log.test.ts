@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { groupCommits, type LogRow } from './commit-log';
+import { githubPicture, groupCommits, shownRefs, type LogRow } from './commit-log';
 
 function commitAt(local: string): LogRow {
     return { hash: local, shortHash: local, subject: local, author: 'a', at: new Date(local).getTime() / 1000, refs: [], cwd: '/repo', repo: '' };
@@ -36,5 +36,43 @@ describe('groupCommits', () => {
     test('the day after the clocks went back still has a Yesterday', () => {
         const sections = groupCommits([commitAt('2026-10-25T12:00:00')], seconds('2026-10-26T10:00:00'));
         expect(sections.map((section) => section.label)).toEqual(['Yesterday']);
+    });
+});
+
+describe('shownRefs', () => {
+    test('a branch and its remote twin on one commit are one name', () => {
+        expect(shownRefs({ refs: ['main', 'origin/main', 'origin/HEAD'], remoteRefs: ['origin/main', 'origin/HEAD'] })).toEqual([
+            { name: 'main', tracked: 'origin/main' }
+        ]);
+    });
+
+    test('a remote branch apart from its local one keeps its own name', () => {
+        expect(shownRefs({ refs: ['origin/main'], remoteRefs: ['origin/main'] })).toEqual([{ name: 'origin/main', tracked: null }]);
+    });
+
+    test('a local branch with a slash is not taken for a remote', () => {
+        expect(shownRefs({ refs: ['fix/a', 'a'], remoteRefs: [] })).toEqual([
+            { name: 'fix/a', tracked: null },
+            { name: 'a', tracked: null }
+        ]);
+    });
+
+    test('a daemon without remoteRefs shows every name', () => {
+        expect(shownRefs({ refs: ['main', 'origin/main'] }).map((ref) => ref.name)).toEqual(['main', 'origin/main']);
+    });
+});
+
+describe('githubPicture', () => {
+    test('a private address with an id points at that account', () => {
+        expect(githubPicture('123+bas@users.noreply.github.com')).toBe('https://avatars.githubusercontent.com/u/123?s=32');
+    });
+
+    test('an older private address points at the login', () => {
+        expect(githubPicture('bas@users.noreply.github.com')).toBe('https://github.com/bas.png?size=32');
+    });
+
+    test('any other address has no picture', () => {
+        expect(githubPicture('bas@example.com')).toBeNull();
+        expect(githubPicture(undefined)).toBeNull();
     });
 });

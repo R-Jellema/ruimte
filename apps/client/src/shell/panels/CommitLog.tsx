@@ -1,12 +1,12 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, GitCommitHorizontal } from 'lucide-react';
+import { Cloud, Copy, GitCommitHorizontal } from 'lucide-react';
 import { GIT_GROUP } from '@/shell/panels/classes';
 import { perform } from '@/actions/client-actions';
-import { groupCommits, mergeLogs, type LoadedLog, type LogRow } from '@/shell/panels/commit-log';
+import { githubPicture, groupCommits, mergeLogs, shownRefs, type LoadedLog, type LogRow } from '@/shell/panels/commit-log';
 import { useTransport } from '@/transport/context';
 import { Button, copyText, Icon, ListRow, Pill, PanelEmpty, SectionLabel, Tooltip, ContextMenu, useNow } from '@adecore/ui';
-import { formatAge } from '@adecore/ui/format';
+import { formatAge, formatClock, isSameDay } from '@adecore/ui/format';
 
 // One screen of rows at a time; the button at the end asks for the next.
 const PAGE = 30;
@@ -160,6 +160,7 @@ function sameRow(before: CommitRowProps, after: CommitRowProps): boolean {
         before.commit.hash === after.commit.hash &&
         before.commit.repo === after.commit.repo &&
         before.commit.refs.join('\u0000') === after.commit.refs.join('\u0000') &&
+        (before.commit.remoteRefs ?? []).join('\u0000') === (after.commit.remoteRefs ?? []).join('\u0000') &&
         before.selected === after.selected &&
         before.now === after.now &&
         before.onOpen === after.onOpen
@@ -168,6 +169,7 @@ function sameRow(before: CommitRowProps, after: CommitRowProps): boolean {
 
 const CommitRow = memo(function CommitRow({ commit, selected, now, onOpen }: CommitRowProps) {
     const { t } = useTranslation('panels');
+    const refs = shownRefs(commit);
     return (
         <ContextMenu.Root>
             <ContextMenu.Trigger
@@ -177,25 +179,34 @@ const CommitRow = memo(function CommitRow({ commit, selected, now, onOpen }: Com
                 data-selected={selected || undefined}
                 onClick={() => onOpen(commit.cwd, commit)}
             >
+                <AuthorAvatar name={commit.author} email={commit.authorEmail} />
                 {commit.repo !== '' && <span className="max-w-24 shrink-0 truncate text-text-faint">{commit.repo}</span>}
                 <span className="truncate text-text">{commit.subject}</span>
-                {commit.refs.slice(0, REFS_SHOWN).map((ref) => (
-                    <Tooltip key={ref} label={ref}>
+                {refs.slice(0, REFS_SHOWN).map((ref) => (
+                    <Tooltip key={ref.name} label={ref.tracked === null ? ref.name : t('git.log.tracked', { name: ref.name, remote: ref.tracked })}>
                         <Pill mono size="sm" className="max-w-32 shrink-0 py-0">
-                            <span className="min-w-0 truncate">{ref}</span>
+                            <span className="min-w-0 truncate">{ref.name}</span>
+                            {ref.tracked !== null && <Icon icon={Cloud} size={12} className="shrink-0 text-text-faint" />}
                         </Pill>
                     </Tooltip>
                 ))}
-                {commit.refs.length > REFS_SHOWN && (
-                    <Tooltip label={commit.refs.slice(REFS_SHOWN).join(', ')}>
+                {refs.length > REFS_SHOWN && (
+                    <Tooltip
+                        label={refs
+                            .slice(REFS_SHOWN)
+                            .map((ref) => ref.name)
+                            .join(', ')}
+                    >
                         <Pill size="sm" className="shrink-0 py-0 tabular-nums">
-                            {t('git.log.moreRefs', { count: commit.refs.length - REFS_SHOWN })}
+                            {t('git.log.moreRefs', { count: refs.length - REFS_SHOWN })}
                         </Pill>
                     </Tooltip>
                 )}
                 <span className="grow" />
-                <span className="truncate text-text-faint">{commit.author}</span>
-                <span className="shrink-0 text-text-faint">{formatAge(commit.at * 1000, now * 1000)}</span>
+                {/* Under a date the age says that date again; the time of day says what it does not. */}
+                <span className="shrink-0 text-text-faint tabular-nums">
+                    {isSameDay(commit.at * 1000, now * 1000) ? formatAge(commit.at * 1000, now * 1000) : formatClock(commit.at * 1000)}
+                </span>
             </ContextMenu.Trigger>
             <ContextMenu.Popup>
                 <ContextMenu.Item onClick={() => onOpen(commit.cwd, commit)}>
@@ -212,3 +223,25 @@ const CommitRow = memo(function CommitRow({ commit, selected, now, onOpen }: Com
         </ContextMenu.Root>
     );
 }, sameRow);
+
+/* The author as a mark at the start of the row: GitHub's picture where the address names an account, else the first letter. */
+function AuthorAvatar({ name, email }: { readonly name: string; readonly email: string | undefined }) {
+    const picture = githubPicture(email);
+    // Offline, or an account GitHub no longer knows: the letter stands in rather than a broken image.
+    const [failed, setFailed] = useState<string | null>(null);
+    return (
+        <Tooltip label={email === undefined || email === '' ? name : `${name} <${email}>`}>
+            {picture !== null && failed !== picture ? (
+                <img src={picture} alt={name} className="size-4 shrink-0 rounded-full bg-surface-hover" onError={() => setFailed(picture)} />
+            ) : (
+                <span
+                    role="img"
+                    aria-label={name}
+                    className="grid size-4 shrink-0 place-items-center rounded-full bg-surface-hover text-xs leading-none text-text-muted"
+                >
+                    {name.slice(0, 1).toUpperCase()}
+                </span>
+            )}
+        </Tooltip>
+    );
+}

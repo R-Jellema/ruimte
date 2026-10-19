@@ -203,7 +203,11 @@ export const GitCommitSchema = z.object({
     // before it leaves it out.
     committedAt: z.number().int().optional(),
     // Branch and tag names on this commit, without their `refs/` prefix.
-    refs: z.array(z.string())
+    refs: z.array(z.string()),
+    // A daemon from before these leaves them out.
+    authorEmail: z.string().optional(),
+    // The names in `refs` that are remote-tracking branches, such as `origin/main`.
+    remoteRefs: z.array(z.string()).optional()
 });
 export type GitCommit = z.infer<typeof GitCommitSchema>;
 

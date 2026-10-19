@@ -58,12 +58,23 @@ describe('the log', () => {
     });
 
     test('a subject with the field separator in it stays one subject', () => {
-        const record = ['abc', 'abc123', 'Ada', '1700000000', '1700000500', 'HEAD -> main, tag: v1', `fix: a${FIELD}b`].join(FIELD);
+        const record = [
+            'abc',
+            'abc123',
+            'Ada',
+            '1700000000',
+            '1700000500',
+            'ada@example.com',
+            'HEAD -> refs/heads/main, refs/remotes/origin/main, refs/heads/fix/a, tag: refs/tags/v1',
+            `fix: a${FIELD}b`
+        ].join(FIELD);
         const [commit] = parseLog(`${record}\0`);
         expect(commit?.subject).toBe(`fix: a${FIELD}b`);
-        expect(commit?.refs).toEqual(['main', 'v1']);
+        expect(commit?.refs).toEqual(['main', 'origin/main', 'fix/a', 'v1']);
+        expect(commit?.remoteRefs).toEqual(['origin/main']);
         expect(commit?.at).toBe(1700000000);
         expect(commit?.committedAt).toBe(1700000500);
+        expect(commit?.authorEmail).toBe('ada@example.com');
     });
 
     test('a commit carries the date it was committed beside the one it was written', async () => {

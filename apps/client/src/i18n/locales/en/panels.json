@@ -691,6 +691,7 @@
             "moreRefs": "+{{count}}",
             "open": "Open the commit",
             "today": "Today",
+            "tracked": "{{name}}, the same commit as {{remote}}",
             "yesterday": "Yesterday"
         },
         "many": {

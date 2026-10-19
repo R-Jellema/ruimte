@@ -49484,6 +49484,15 @@
             "items": {
               "type": "string"
             }
+          },
+          "authorEmail": {
+            "type": "string"
+          },
+          "remoteRefs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -50452,6 +50461,15 @@
               "maximum": 9007199254740991
             },
             "refs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "authorEmail": {
+              "type": "string"
+            },
+            "remoteRefs": {
               "type": "array",
               "items": {
                 "type": "string"

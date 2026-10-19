@@ -89,3 +89,39 @@ export function groupCommits(commits: readonly LogRow[], now: number): LogSectio
     }
     return sections;
 }
+
+/* A name on a commit row. */
+export interface ShownRef {
+    name: string;
+    /* The remote-tracking twin on the same commit, such as `origin/main`, or null. */
+    tracked: string | null;
+}
+
+/*
+ * The names a row shows: a local branch and its remote twin on one commit read as the branch with a
+ * mark, and a remote's `HEAD` says nothing a row needs. A daemon from before `remoteRefs` names every
+ * ref as it is.
+ */
+export function shownRefs(commit: Pick<GitCommit, 'refs' | 'remoteRefs'>): ShownRef[] {
+    const remotes = new Set(commit.remoteRefs ?? []);
+    const locals = new Set(commit.refs.filter((ref) => !remotes.has(ref)));
+    const twinOf = (remote: string): string => remote.slice(remote.indexOf('/') + 1);
+    const tracked = new Map([...remotes].filter((remote) => locals.has(twinOf(remote))).map((remote) => [twinOf(remote), remote]));
+    return commit.refs
+        .filter((ref) => !remotes.has(ref) || (twinOf(ref) !== 'HEAD' && !tracked.has(twinOf(ref))))
+        .map((ref) => ({ name: ref, tracked: tracked.get(ref) ?? null }));
+}
+
+/*
+ * GitHub's picture for a commit written from its private address, `<id>+<login>@` or, before 2017,
+ * `<login>@users.noreply.github.com`. Any other address has none: asking a picture service about it
+ * would hand that service every author of the repository.
+ */
+export function githubPicture(email: string | undefined): string | null {
+    const match = /^(?:(\d+)\+)?([a-z\d](?:[a-z\d-]*[a-z\d])?)@users\.noreply\.github\.com$/i.exec(email ?? '');
+    if (match === null) {
+        return null;
+    }
+    const [, id, login = ''] = match;
+    return id === undefined ? `https://github.com/${login}.png?size=32` : `https://avatars.githubusercontent.com/u/${id}?s=32`;
+}

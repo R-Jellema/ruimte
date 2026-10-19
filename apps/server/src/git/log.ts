@@ -3,12 +3,13 @@ import { FIELD, git, toplevel } from './run.ts';
 
 export const DEFAULT_LIMIT = 30;
 
-const LOG_FORMAT = ['%H', '%h', '%an', '%at', '%ct', '%D', '%s'].join(FIELD);
+const LOG_FORMAT = ['%H', '%h', '%an', '%at', '%ct', '%ae', '%D', '%s'].join(FIELD);
 
 /*
  * `log -z --format=...` writes one NUL terminated record per commit, the fields separated by the
  * one character a commit subject cannot hold. `%D` is the names pointing at the commit, comma
- * separated, with the arrow of `HEAD -> main` written out.
+ * separated, with the arrow of `HEAD -> main` written out and, under `--decorate=full`, the
+ * `refs/` prefix that tells a remote-tracking branch from a local one with a slash in its name.
  */
 export function parseLog(output: string): GitCommit[] {
     const commits: GitCommit[] = [];
@@ -16,14 +17,24 @@ export function parseLog(output: string): GitCommit[] {
         if (record === '') {
             continue;
         }
-        const [hash = '', shortHash = '', author = '', at = '', committedAt = '', decoration = '', ...rest] = record.split(FIELD);
+        const [hash = '', shortHash = '', author = '', at = '', committedAt = '', authorEmail = '', decoration = '', ...rest] = record.split(FIELD);
         if (hash === '') {
             continue;
         }
-        const refs = decoration
-            .split(', ')
-            .map((name) => name.replace('HEAD -> ', '').replace('tag: ', '').trim())
-            .filter((name) => name !== '');
+        const refs: string[] = [];
+        const remoteRefs: string[] = [];
+        for (const entry of decoration.split(', ')) {
+            const full = entry.replace('HEAD -> ', '').replace('tag: ', '').trim();
+            if (full === '') {
+                continue;
+            }
+            const remote = full.startsWith('refs/remotes/');
+            const name = full.replace(/^refs\/(heads|remotes|tags)\//, '');
+            refs.push(name);
+            if (remote) {
+                remoteRefs.push(name);
+            }
+        }
         commits.push({
             hash,
             shortHash,
@@ -31,7 +42,9 @@ export function parseLog(output: string): GitCommit[] {
             at: Number.parseInt(at, 10) || 0,
             committedAt: Number.parseInt(committedAt, 10) || 0,
             refs,
-            subject: rest.join(FIELD)
+            subject: rest.join(FIELD),
+            authorEmail,
+            remoteRefs
         });
     }
     return commits;
@@ -46,7 +59,7 @@ export async function readLog(cwd: string, limit: number = DEFAULT_LIMIT, cursor
     const top = await toplevel(cwd);
     const skip = Math.max(0, Number.parseInt(cursor ?? '0', 10) || 0);
     // One more than asked for, which is how the answer knows whether there is another page.
-    const output = await git(['log', '-z', `--format=${LOG_FORMAT}`, `--max-count=${limit + 1}`, `--skip=${skip}`, 'HEAD'], top);
+    const output = await git(['log', '-z', '--decorate=full', `--format=${LOG_FORMAT}`, `--max-count=${limit + 1}`, `--skip=${skip}`, 'HEAD'], top);
     if (output === null) {
         // A repository without a commit has no HEAD to walk, which is an empty log and not a failure.
         return { commits: [], cursor: null };
@@ -58,6 +71,6 @@ export async function readLog(cwd: string, limit: number = DEFAULT_LIMIT, cursor
 
 /* One commit as the log row that names it, for the tab a diff of that commit opens in. */
 export async function readCommit(top: string, hash: string): Promise<GitCommit | null> {
-    const output = await git(['log', '-z', `--format=${LOG_FORMAT}`, '--max-count=1', hash], top);
+    const output = await git(['log', '-z', '--decorate=full', `--format=${LOG_FORMAT}`, '--max-count=1', hash], top);
     return output === null ? null : (parseLog(output)[0] ?? null);
 }

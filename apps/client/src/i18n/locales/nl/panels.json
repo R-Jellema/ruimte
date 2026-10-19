@@ -691,6 +691,7 @@
             "moreRefs": "+{{count}}",
             "open": "De commit openen",
             "today": "Vandaag",
+            "tracked": "{{name}}, dezelfde commit als {{remote}}",
             "yesterday": "Gisteren"
         },
         "many": {
