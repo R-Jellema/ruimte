@@ -56,6 +56,11 @@ const BLANK: Entry = { status: null, failure: null, revision: 0 };
 // One object for "nothing read yet", so the lists below are not rebuilt on a render that changed nothing.
 const NOTHING: Record<string, Entry> = {};
 
+/* What the panel last read per machine and path. Switching panels takes the git panel down, so without
+   these every visit waits on the repositories, a watch and a status before it draws one row. */
+const lastRepos = new Map<string, { repos: readonly GitRepo[]; truncated: boolean }>();
+const lastEntries = new Map<string, Entry>();
+
 /* The repositories the panel draws: the ones a person hid are out, by the label they were hidden under. */
 export function visibleRepos(repos: readonly GitRepo[], hidden: readonly string[]): GitRepo[] {
     const away = new Set(hidden);
@@ -161,7 +166,10 @@ export function useProjectRepos(folder: string | null): ProjectRepos {
         const fresh = freshRef.current;
         freshRef.current = false;
         return readProjectRepos(transport, folder, fresh, {
-            answered: (answer) => setList({ key, repos: answer.repos, truncated: answer.truncated }),
+            answered: (answer) => {
+                lastRepos.set(key, { repos: answer.repos, truncated: answer.truncated });
+                setList({ key, repos: answer.repos, truncated: answer.truncated });
+            },
             again: () => setNonce((count) => count + 1),
             // The folder itself stands in until a refresh answers, as it did before the machine listed repositories.
             timedOut: () => setList((previous) => (previous?.key === key ? previous : { key, repos: soleRepo(folder), truncated: false }))
@@ -172,8 +180,9 @@ export function useProjectRepos(folder: string | null): ProjectRepos {
         freshRef.current = true;
         setNonce((count) => count + 1);
     }, []);
-    const repos = useMemo(() => (list?.key === key ? list.repos : []), [list, key]);
-    return { repos, truncated: list?.key === key && list.truncated, reload };
+    const shown = list?.key === key ? list : lastRepos.get(key);
+    const repos = useMemo(() => shown?.repos ?? [], [shown]);
+    return { repos, truncated: shown?.truncated === true, reload };
 }
 
 export interface GitCheckouts {
@@ -197,7 +206,7 @@ export function useGitCheckouts(refs: readonly GitCheckoutRef[]): GitCheckouts {
         (cwd: string, status: GitStatus): void => {
             setHeld((previous) => {
                 const entries = previous.endpointId === endpointId ? previous.entries : {};
-                const before = entries[cwd] ?? BLANK;
+                const before = entries[cwd] ?? lastEntries.get(endpointKey(endpointId, cwd)) ?? BLANK;
                 const revision = before.revision + (headMoved(before.status, status) ? 1 : 0);
                 return { endpointId, entries: { ...entries, [cwd]: { status, failure: null, revision } } };
             });
@@ -214,7 +223,10 @@ export function useGitCheckouts(refs: readonly GitCheckoutRef[]): GitCheckouts {
                 const message = error instanceof Error ? error.message : i18next.t('panels:git.panel.statusFailed');
                 setHeld((previous) => {
                     const entries = previous.endpointId === endpointId ? previous.entries : {};
-                    return { endpointId, entries: { ...entries, [cwd]: { ...(entries[cwd] ?? BLANK), failure: message } } };
+                    return {
+                        endpointId,
+                        entries: { ...entries, [cwd]: { ...(entries[cwd] ?? lastEntries.get(endpointKey(endpointId, cwd)) ?? BLANK), failure: message } }
+                    };
                 });
             }
         },
@@ -277,7 +289,16 @@ export function useGitCheckouts(refs: readonly GitCheckoutRef[]): GitCheckouts {
         return () => window.removeEventListener('focus', onFocus);
     }, [dead, read]);
 
-    const checkouts = useMemo(() => refs.map((ref) => ({ ...ref, ...(entries[ref.path] ?? BLANK) })), [refs, entries]);
+    useEffect(() => {
+        for (const [cwd, entry] of Object.entries(entries)) {
+            lastEntries.set(endpointKey(endpointId, cwd), entry);
+        }
+    }, [entries, endpointId]);
+
+    const checkouts = useMemo(
+        () => refs.map((ref) => ({ ...ref, ...(entries[ref.path] ?? lastEntries.get(endpointKey(endpointId, ref.path)) ?? BLANK) })),
+        [refs, entries, endpointId]
+    );
 
     const refresh = useCallback(
         async (cwd?: string): Promise<void> => {
