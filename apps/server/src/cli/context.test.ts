@@ -514,6 +514,30 @@ describe('chat attach', () => {
         expect(seen).toEqual([]);
     });
 
+    test('reads a model by its bytes and sends it, up to 50 MiB, and refuses a zip that is no USDZ', async () => {
+        const triangles = Math.floor((50 * 1024 * 1024 - 84) / 50);
+        const stl = Buffer.alloc(84 + 50 * triangles);
+        stl.writeUInt32LE(triangles, 80);
+        const part = await file('part.bin', stl);
+        expect(await runContext(['chat', 'attach', '--file', part], env)).toBe(0);
+        expect(seen.map((call) => call.argv)).toEqual([['attach', '--name', 'part.bin', `--data=${stl.toString('base64')}`]]);
+
+        const larger = Buffer.alloc(stl.length + 50);
+        larger.writeUInt32LE(triangles + 1, 80);
+        const zip = Buffer.alloc(64);
+        zip.write('PK\x03\x04', 0, 'latin1');
+        zip.writeUInt16LE(10, 26);
+        zip.write('readme.txt', 30);
+        const codes: string[] = [];
+        for (const path of [await file('larger.stl', larger), await file('scene.usdz', zip)]) {
+            stderr = '';
+            expect(await runContext(['chat', 'attach', '--file', path], env)).toBe(3);
+            codes.push(stderr.split('\t')[1]!);
+        }
+        expect(codes).toEqual(['attach-too-large', 'attach-not-image']);
+        expect(seen).toHaveLength(1);
+    });
+
     test('without --file it refuses with the usage, and a word it does not know goes to the daemon to be refused there', async () => {
         expect(await runContext(['chat', 'attach'], env)).toBe(3);
         expect(stderr).toContain('refused\tbad-arguments\tchat attach needs --file <path>');

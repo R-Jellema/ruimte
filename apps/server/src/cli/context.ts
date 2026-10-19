@@ -161,7 +161,7 @@ function attachRest(argv: readonly string[]): string[] {
 async function runChatAttach(canvasUrl: string, argv: string[], headers: Record<string, string>, env: Environment): Promise<number> {
     const file = flagValue(argv, 'file');
     if (file === null || file === '') {
-        return refuse('bad-arguments', 'chat attach needs --file <path>, an image file of your own', [
+        return refuse('bad-arguments', 'chat attach needs --file <path>, an image or model file of your own', [
             'usage\tchat attach\t--file <path> [--name N]',
             'detail\truimte-context help chat attach'
         ]);

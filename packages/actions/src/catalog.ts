@@ -2064,15 +2064,15 @@ export const ACTION_DEFINITIONS = {
     },
     /* The daemon checks the bytes and refuses under its own codes (attach-not-image, attach-too-large, attach-limit). */
     'chat.attach': {
-        title: 'Attach an image to this chat',
+        title: 'Attach an image or a model to this chat',
         description:
-            'Makes an image of your own an attachment of this chat and answers its id, which Image, Gallery and Compare take as attachment. The ruimte-context command reads the file in your own process.',
+            'Makes an image or a 3D model of your own an attachment of this chat and answers its id, which Image, Gallery and Compare take as attachment for an image and Model for a model. The ruimte-context command reads the file in your own process.',
         effect: 'shared',
         domain: 'communicate',
         actors: AGENT,
         input: z.object({
-            name: z.string().trim().min(1).max(200).describe('What the image is called, such as shot.png'),
-            data: z.string().min(1).describe('The image bytes in base64; the daemon reads the type off them')
+            name: z.string().trim().min(1).max(200).describe('What the file is called, such as shot.png or part.stl'),
+            data: z.string().min(1).describe('The file bytes in base64; the daemon reads the type off them')
         }),
         output: z.object({ attachment: z.object({ id: z.string(), name: z.string(), mime: z.string(), size: z.number() }) })
     },

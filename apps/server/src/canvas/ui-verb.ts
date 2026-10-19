@@ -43,7 +43,7 @@ function componentNames(group: UiGroupName): string[] {
 /* What only this host can say about a group, added to the catalog's own rules. */
 const HOST_RULES: Partial<Record<UiGroupName, string>> = {
     content:
-        'To show an image file of your own, attach it with ruimte-context chat attach --file <path>, which prints the id for attachment="<id>" on Image, Gallery and Compare',
+        'To show an image or model file of your own, attach it with ruimte-context chat attach --file <path>, which prints the id for attachment="<id>" on Image, Gallery and Compare, or on Model for a binary glTF, USDZ or STL',
     places: 'Ruimte does not look up addresses, so give lat and lon for every Place; an address may still be given as text, but a Place with only an address is not placed on the map'
 };
 

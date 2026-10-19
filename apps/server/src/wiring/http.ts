@@ -54,8 +54,10 @@ const MACHINE_LEAVE_ACCOUNT_PATH = '/machine/leave-account';
 const LEGACY_PAIRING_PATHS = ['/auth/pair', '/auth/pairing-token', '/auth/challenge', '/auth/ticket'];
 const RegistrationRequestSchema = z.object({ accountId: AccountSchema.shape.id });
 
-// Past anything a hook or a verb sends, a visual of 16 MiB with its JSON escaping included, and the ceiling on what an unauthenticated request can make the daemon buffer.
+// Past anything a hook or a verb sends, a visual of 16 MiB with its JSON escaping included, and what any other request may declare.
 const MAX_REQUEST_BODY_BYTES = 24 * 1024 * 1024;
+// A model an agent attaches, 50 MiB as base64 with its other words; the verb route checks the token before it reads the body. Also the server's ceiling.
+const MAX_VERB_BODY_BYTES = 72 * 1024 * 1024;
 
 export type SocketData = ClientAccess & { protocolRefused: boolean; ticket: string | null };
 
@@ -228,6 +230,7 @@ function daemonRoutes(input: HttpInput): Route<SocketData>[] {
         },
         {
             below: CANVAS_PATH,
+            bodyBytes: MAX_VERB_BODY_BYTES,
             handle: ({ request, url, server }) => {
                 server.timeout(request, CANVAS_REQUEST_TIMEOUT_S);
                 return handleCanvasRequest(request, url.pathname, { targetForToken: agents.targetForToken, host: canvasHost });
@@ -250,13 +253,13 @@ export function serveDaemon(input: HttpInput): Server<SocketData> {
     return Bun.serve<SocketData>({
         hostname: config.host,
         port: config.port,
-        maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
+        maxRequestBodySize: MAX_VERB_BODY_BYTES,
         async fetch(request, server) {
             const cors = crossOriginHeaders(request);
             if (cors !== null && request.method === 'OPTIONS') {
                 return new Response(null, { status: 204, headers: preflightHeaders(cors) });
             }
-            const response = await answerRoute(routes, request, server);
+            const response = await answerRoute(routes, request, server, MAX_REQUEST_BODY_BYTES);
             return cors === null || response === undefined ? response : withHeaders(response, cors);
         },
         websocket: {

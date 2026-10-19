@@ -5,24 +5,17 @@ import type { AttachmentStore } from '@adecore/agents/chat';
 import { CodedError } from '@adecore/agents';
 import { withoutControlCharacters } from '../bytes/byte-route.ts';
 import type { ChatAttachment } from '@ruimte/contracts';
+import { AGENT_ATTACHMENT_TYPES } from './attachment-type.ts';
 
-/* What an agent may put in its chat; the folder goes with a clear or a deletion of the chat, so nothing here keeps an index. */
-export const AGENT_IMAGE_LIMIT = 64;
-
-/* The formats every client draws; an SVG could run script when opened on its own, so it stays out. */
-export const AGENT_IMAGE_TYPES: Readonly<Record<string, string>> = {
-    'image/png': 'png',
-    'image/jpeg': 'jpg',
-    'image/gif': 'gif',
-    'image/webp': 'webp'
-};
+/* What an agent may put in its chat, images and models together; the folder goes with a clear or a deletion of the chat, so nothing here keeps an index. */
+export const AGENT_ATTACHMENT_LIMIT = 64;
 
 const ID = /^agent-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 
 // Room the name leaves in a file name: 255 bytes less the id, the separator and the extension.
 const NAME_ENCODED_MAX = 160;
 
-const MIME_OF: Readonly<Record<string, string>> = Object.fromEntries(Object.entries(AGENT_IMAGE_TYPES).map(([mime, extension]) => [extension, mime]));
+const MIME_OF: Readonly<Record<string, string>> = Object.fromEntries(Object.entries(AGENT_ATTACHMENT_TYPES).map(([mime, extension]) => [extension, mime]));
 
 /* The longest name that still fits a file name once encoded, cut at a whole character. */
 function fittingName(name: string): string {
@@ -30,10 +23,10 @@ function fittingName(name: string): string {
     while (fitting.length > 0 && encodeURIComponent(fitting.join('')).length > NAME_ENCODED_MAX) {
         fitting = fitting.slice(0, -1);
     }
-    return fitting.join('') || 'image';
+    return fitting.join('') || 'attachment';
 }
 
-/* The id, the name (absent when the file carries none) and the extension of a file of the folder, or null when it is no agent image. */
+/* The id, the name (absent when the file carries none) and the extension of a file of the folder, or null when it is no agent attachment. */
 function parsed(file: string): { id: string; name: string | null; extension: string } | null {
     const dot = file.lastIndexOf('.');
     const extension = file.slice(dot + 1);
@@ -51,7 +44,7 @@ function parsed(file: string): { id: string; name: string | null; extension: str
 }
 
 /*
- * The images an agent attached to its own chat, as `agent-<uuid>~<name>.<ext>` in the chat's attachment
+ * The images and models an agent attached to its own chat, as `agent-<uuid>~<name>.<ext>` in the chat's attachment
  * folder, the name URI-encoded after the id. The id is what a lookup reads, so an unrelated attachment is
  * never touched and there is no index to keep.
  */
@@ -64,7 +57,7 @@ export class AgentImages {
         this.attachments = attachments;
     }
 
-    /* Stores bytes whose type the caller already checked against `AGENT_IMAGE_TYPES`; refuses past the per-chat limit. */
+    /* Stores bytes whose type and size the caller already checked against `agentAttachmentType`; refuses past the per-chat limit. */
     save(chatId: string, upload: { name: string; mime: string; bytes: Uint8Array }): Promise<ChatAttachment> {
         const turn = (this.saves.get(chatId) ?? Promise.resolve()).then(() => this.store(chatId, upload));
         const settled = turn.catch(() => undefined);
@@ -78,13 +71,16 @@ export class AgentImages {
     }
 
     private async store(chatId: string, upload: { name: string; mime: string; bytes: Uint8Array }): Promise<ChatAttachment> {
-        const extension = AGENT_IMAGE_TYPES[upload.mime];
+        const extension = AGENT_ATTACHMENT_TYPES[upload.mime];
         if (extension === undefined) {
-            throw new CodedError('attach-not-image', `${upload.mime} is not an image type a chat can show`);
+            throw new CodedError('attach-not-image', `${upload.mime} is not an image or model type a chat can show`);
         }
         const folder = this.attachments.folderOf(chatId);
-        if ((await this.names(folder)).length >= AGENT_IMAGE_LIMIT) {
-            throw new CodedError('attach-limit', `This chat already holds ${AGENT_IMAGE_LIMIT} images you attached; show one of those again instead`);
+        if ((await this.names(folder)).length >= AGENT_ATTACHMENT_LIMIT) {
+            throw new CodedError(
+                'attach-limit',
+                `This chat already holds ${AGENT_ATTACHMENT_LIMIT} images and models you attached; show one of those again instead`
+            );
         }
         await mkdir(folder, { recursive: true, mode: 0o700 });
         const id = `agent-${randomUUID()}`;
@@ -94,7 +90,7 @@ export class AgentImages {
         return { id, name, mime: upload.mime, size: upload.bytes.byteLength, path };
     }
 
-    /* The image behind an id, or null when the id is no agent image of this chat. */
+    /* The file behind an id, or null when the id is no agent attachment of this chat. */
     async find(chatId: string, id: string): Promise<ChatAttachment | null> {
         if (!ID.test(id)) {
             return null;
@@ -115,7 +111,7 @@ export class AgentImages {
         return null;
     }
 
-    /* Gives a fork the same images under the same ids, so the blocks it copied still show them. */
+    /* Gives a fork the same files under the same ids, so the blocks it copied still show them. */
     async copy(fromChatId: string, toChatId: string): Promise<void> {
         const source = this.attachments.folderOf(fromChatId);
         const found = await this.names(source);

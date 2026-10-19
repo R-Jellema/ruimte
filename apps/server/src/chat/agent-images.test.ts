@@ -8,7 +8,7 @@ import { ManualClock } from '@adecore/agents/testing';
 import { ProjectStore } from '../projects/project-store.ts';
 import { projectLinks } from '../projects/project-file-test-helpers.ts';
 import { bootTestDaemon, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
-import { AGENT_IMAGE_LIMIT } from './agent-images.ts';
+import { AGENT_ATTACHMENT_LIMIT } from './agent-images.ts';
 
 function content(): ProjectContent {
     return {
@@ -35,6 +35,28 @@ const MIB = 1024 * 1024;
 
 /* Just enough of a PNG for its bytes to read as one. */
 const PNG = Buffer.concat([Buffer.from('\x89PNG\r\n\x1a\n', 'latin1'), Buffer.from([0, 0, 0, 13]), Buffer.from('IHDR'), Buffer.alloc(17)]);
+
+/* A binary STL of `triangles` empty triangles, whose size is what tells it from any other binary. */
+function binaryStl(triangles: number): Buffer {
+    const bytes = Buffer.alloc(84 + 50 * triangles);
+    bytes.writeUInt32LE(triangles, 80);
+    return bytes;
+}
+
+const ASCII_STL = Buffer.from(
+    'solid part\n facet normal 0 0 1\n  outer loop\n   vertex 0 0 0\n   vertex 1 0 0\n   vertex 0 1 0\n  endloop\n endfacet\nendsolid part\n'
+);
+
+/* A binary glTF header of version 2, the only one a viewer reads. */
+const GLB = Buffer.concat([Buffer.from('glTF'), Buffer.from([2, 0, 0, 0, 32, 0, 0, 0]), Buffer.alloc(20)]);
+
+/* The local header of a zip whose first entry is `name`, which is what makes a zip a USDZ package. */
+function zipNamed(name: string): Buffer {
+    const header = Buffer.alloc(30);
+    header.write('PK\x03\x04', 0, 'latin1');
+    header.writeUInt16LE(name.length, 26);
+    return Buffer.concat([header, Buffer.from(name), Buffer.alloc(16)]);
+}
 
 let root: string;
 let home: string;
@@ -112,20 +134,57 @@ describe('chat attach', () => {
         const daemon = await bootWithChat();
         const large = Buffer.concat([PNG, Buffer.alloc(10 * MIB)]);
         expect(refusalCode(await attach(daemon, 'chat-lead', large))).toBe('attach-too-large');
-        for (let i = 0; i < AGENT_IMAGE_LIMIT; i++) {
+        for (let i = 0; i < AGENT_ATTACHMENT_LIMIT; i++) {
             expect((await attach(daemon, 'chat-lead', PNG))[0]).toStartWith('attachment\t');
         }
         const lines = await attach(daemon, 'chat-lead', PNG);
         expect(refusalCode(lines)).toBe('attach-limit');
-        expect(lines[0]).toContain(`${AGENT_IMAGE_LIMIT} images`);
+        expect(lines[0]).toContain(`${AGENT_ATTACHMENT_LIMIT} images and models`);
     });
 
     test('attaches sent at once cannot pass the limit together', async () => {
         const daemon = await bootWithChat();
-        const results = await Promise.all(Array.from({ length: AGENT_IMAGE_LIMIT + 6 }, () => attach(daemon, 'chat-lead', PNG)));
-        expect(results.filter((lines) => lines[0]!.startsWith('attachment\t'))).toHaveLength(AGENT_IMAGE_LIMIT);
+        const results = await Promise.all(Array.from({ length: AGENT_ATTACHMENT_LIMIT + 6 }, () => attach(daemon, 'chat-lead', PNG)));
+        expect(results.filter((lines) => lines[0]!.startsWith('attachment\t'))).toHaveLength(AGENT_ATTACHMENT_LIMIT);
         expect(results.filter((lines) => refusalCode(lines) === 'attach-limit')).toHaveLength(6);
-        expect((await readdir(join(home, 'attachments', 'chat-lead'))).filter((name) => name.startsWith('agent-'))).toHaveLength(AGENT_IMAGE_LIMIT);
+        expect((await readdir(join(home, 'attachments', 'chat-lead'))).filter((name) => name.startsWith('agent-'))).toHaveLength(AGENT_ATTACHMENT_LIMIT);
+    });
+
+    test('stores a binary glTF, a USDZ and an STL by their bytes and points at a Model block', async () => {
+        const daemon = await bootWithChat();
+        const models: Array<[Buffer, string, string]> = [
+            [GLB, 'robot.bin', 'model/gltf-binary'],
+            [zipNamed('scene.usdc'), 'room.zip', 'model/vnd.usdz+zip'],
+            [binaryStl(2), 'part.dat', 'model/stl'],
+            [ASCII_STL, 'part.txt', 'model/stl']
+        ];
+        for (const [bytes, name, mime] of models) {
+            const lines = await attach(daemon, 'chat-lead', bytes, name);
+            const [kind, id, kept, type, size] = lines[0]!.split('\t');
+            expect([kind, kept, type, size]).toEqual(['attachment', name, mime, String(bytes.byteLength)]);
+            expect(lines[1]).toBe(`next\tShow it with <Model attachment="${id}">caption</Model> in a ruimte-ui block once the person asks to see it`);
+            const found = await daemon.chats.findAttachment('chat-lead', id!);
+            expect(found).toMatchObject({ id, name, mime, size: bytes.byteLength });
+            expect(new Uint8Array(await readFile(found!.path))).toEqual(new Uint8Array(bytes));
+        }
+    });
+
+    test('refuses a zip that is no USDZ and an STL whose size does not add up', async () => {
+        const daemon = await bootWithChat();
+        expect(refusalCode(await attach(daemon, 'chat-lead', zipNamed('readme.txt'), 'scene.usdz'))).toBe('attach-not-image');
+        expect(refusalCode(await attach(daemon, 'chat-lead', Buffer.concat([binaryStl(2), Buffer.alloc(1)]), 'part.stl'))).toBe('attach-not-image');
+        expect(await stat(join(home, 'attachments', 'chat-lead')).catch(() => null)).toBeNull();
+    });
+
+    test('a model may take 50 MiB where an image takes 10, and the two share the limit of a chat', async () => {
+        const daemon = await bootWithChat();
+        const largest = Math.floor((50 * MIB - 84) / 50);
+        expect((await attach(daemon, 'chat-lead', binaryStl(largest), 'large.stl'))[0]).toContain('\tmodel/stl\t');
+        expect(refusalCode(await attach(daemon, 'chat-lead', binaryStl(largest + 1), 'larger.stl'))).toBe('attach-too-large');
+        for (let i = 1; i < AGENT_ATTACHMENT_LIMIT; i++) {
+            expect((await attach(daemon, 'chat-lead', PNG))[0]).toStartWith('attachment\t');
+        }
+        expect(refusalCode(await attach(daemon, 'chat-lead', GLB, 'robot.glb'))).toBe('attach-limit');
     });
 
     test('a terminal is told an image attaches only to an AI chat, and nothing is stored', async () => {

@@ -119,7 +119,7 @@ export interface CanvasHost {
     launches?: LaunchHost;
     /* The pages the caller's own chat shows above its replies; absent on a host that keeps none. */
     visuals?: VisualHost;
-    /* The images the caller's own chat holds from its agent; absent on a host that keeps none. */
+    /* The images and models the caller's own chat holds from its agent; absent on a host that keeps none. */
     agentImages?: AgentImageHost;
     /* The databases of the caller's project as an agent may reach them; absent on a host without them. */
     databases?: DatabaseAgentHost;
@@ -231,7 +231,7 @@ export interface VisualHost {
     measure?(html: string): Promise<VisualHeight[] | undefined>;
 }
 
-/* Puts an image the caller's agent has of its own in the thread of its chat; the bytes arrive checked. */
+/* Puts an image or a model the caller's agent has of its own in the thread of its chat; the bytes arrive checked. */
 export interface AgentImageHost {
     attach(chatId: string, upload: { name: string; mime: string; bytes: Uint8Array }): Promise<ChatAttachment>;
 }

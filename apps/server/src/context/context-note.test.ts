@@ -73,6 +73,7 @@ describe('verbsNote', () => {
         expect(VISUAL_NOTE).toContain('`ruimte-context help ui <group>` gives props and rules');
         expect(VISUAL_NOTE).toContain('places: Map, Place');
         expect(VISUAL_NOTE).toContain('`ruimte-context chat attach --file <path>` and `Image attachment=<id>`');
+        expect(VISUAL_NOTE).toContain('a model file (STL, binary glTF, USDZ) with `Model attachment=<id>` only when the person asks to see it');
         expect(VISUAL_NOTE).toContain('Stat in Stats');
         expect(VISUAL_NOTE).toContain('@Query("database.query"');
         expect(VISUAL_NOTE).not.toContain('query --show');
@@ -87,7 +88,7 @@ describe('verbsNote', () => {
 
     test('the UI and visual notes together stay within their size budget, listing names and required props instead of every prop', () => {
         const added = verbsNote({ depth: 0, visuals: true }).length - verbsNote({ depth: 0 }).length;
-        expect(added).toBeLessThanOrEqual(4400);
+        expect(added).toBeLessThanOrEqual(4550);
         expect(VISUAL_NOTE).not.toContain('Props:');
     });
 

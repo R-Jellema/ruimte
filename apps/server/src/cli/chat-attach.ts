@@ -1,5 +1,6 @@
 import { basename } from 'node:path';
-import { imageType, readAtMost, VISUAL_IMAGE_BYTES } from './visual-images.ts';
+import { AGENT_IMAGE_BYTES, AGENT_MODEL_BYTES, agentAttachmentBytes, agentAttachmentType } from '../chat/attachment-type.ts';
+import { readAtMost } from './visual-images.ts';
 
 const HELP_LINE = 'detail\truimte-context help chat attach';
 
@@ -17,7 +18,7 @@ function refusal(code: string, message: string): PreparedAttachment {
  * passed on, so the daemon refuses an argument this side does not know.
  */
 export async function prepareAttachment(file: string, name: string | null, rest: readonly string[]): Promise<PreparedAttachment> {
-    const buffer = Buffer.alloc(VISUAL_IMAGE_BYTES + 1);
+    const buffer = Buffer.alloc(AGENT_MODEL_BYTES + 1);
     let length: number;
     try {
         length = await readAtMost(file, buffer);
@@ -26,11 +27,19 @@ export async function prepareAttachment(file: string, name: string | null, rest:
         const why = code === 'EACCES' || code === 'EPERM' ? 'this process may not read it' : 'there is no regular file there';
         return refusal('attach-unreadable', `${file} could not be attached: ${why}`);
     }
-    if (length > VISUAL_IMAGE_BYTES) {
-        return refusal('attach-too-large', `${file} is more than the ${VISUAL_IMAGE_BYTES / MIB} MiB an image may be`);
+    if (length > AGENT_MODEL_BYTES) {
+        return refusal(
+            'attach-too-large',
+            `${file} is more than the ${AGENT_MODEL_BYTES / MIB} MiB a model may be, and an image ${AGENT_IMAGE_BYTES / MIB} MiB`
+        );
     }
-    if (imageType(buffer.subarray(0, length)) === null) {
-        return refusal('attach-not-image', `${file} is no image: its bytes are not a PNG, JPEG, GIF or WebP`);
+    const bytes = buffer.subarray(0, length);
+    const type = agentAttachmentType(bytes);
+    if (type === null) {
+        return refusal('attach-not-image', `${file} is no image or model: its bytes are not a PNG, JPEG, GIF or WebP, nor a binary glTF, USDZ or STL`);
     }
-    return { argv: [...rest, '--name', name ?? basename(file), `--data=${buffer.toString('base64', 0, length)}`] };
+    if (length > agentAttachmentBytes(type.kind)) {
+        return refusal('attach-too-large', `${file} is more than the ${AGENT_IMAGE_BYTES / MIB} MiB an image may be`);
+    }
+    return { argv: [...rest, '--name', name ?? basename(file), `--data=${bytes.toString('base64')}`] };
 }

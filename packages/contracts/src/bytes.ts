@@ -31,6 +31,9 @@ export const BUNDLE_MAX_BYTES = 256 * 1024 * 1024;
 // What a client loads whole into memory as one blob. The daemon serves a file of any size, piece by piece.
 export const BYTES_READ_MAX_BYTES = 32 * 1024 * 1024;
 
+// The largest 3D model an agent attaches to its chat, which a client loads whole to draw it.
+export const CHAT_MODEL_MAX_BYTES = 50 * 1024 * 1024;
+
 export const BytesReadPayloadSchema = z.object({
     resource: ByteResourceSchema,
     offset: z.number().int().nonnegative(),
