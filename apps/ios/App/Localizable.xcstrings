@@ -103,6 +103,16 @@
         }
       }
     },
+    "3D model" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3D-model"
+          }
+        }
+      }
+    },
     "After" : {
       "localizations" : {
         "nl" : {
@@ -745,6 +755,16 @@
         }
       }
     },
+    "Reset camera" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camera herstellen"
+          }
+        }
+      }
+    },
     "Save image to project" : {
       "localizations" : {
         "nl" : {
@@ -1201,6 +1221,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "De instelling voor het lokale netwerk kon niet worden aangepast. %@"
+          }
+        }
+      }
+    },
+    "The model could not be opened" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Het model kon niet worden geopend"
+          }
+        }
+      }
+    },
+    "The model is not available" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Het model is niet beschikbaar"
           }
         }
       }

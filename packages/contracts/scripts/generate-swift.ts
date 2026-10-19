@@ -13,7 +13,7 @@ import { REQUEST_SCHEMAS, EVENT_SCHEMAS } from '../src/index.ts';
 import { RuntimeModeSchema } from '../src/model.ts';
 import { MachineUpdateStatusSchema } from '../src/machine-update.ts';
 import { PushNotifyKindSchema } from '../src/push.ts';
-import { BYTES_CHUNK_MAX, BYTES_READ_MAX_BYTES, BYTES_REPLY_KIND, BYTES_REPLY_MAX_BYTES } from '../src/bytes.ts';
+import { BYTES_CHUNK_MAX, BYTES_READ_MAX_BYTES, BYTES_REPLY_KIND, BYTES_REPLY_MAX_BYTES, CHAT_MODEL_MAX_BYTES } from '../src/bytes.ts';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { z } from 'zod';
@@ -222,7 +222,7 @@ for (const [name, schema] of Object.entries(schemas)) {
         declarations.set(clean, `public typealias ${clean} = ${type}`);
     }
 }
-const INT_CONSTANTS = new Set(['directPieceChars', 'directBinaryPieceBytes', 'bytesReplyKind', 'bytesReplyMaxBytes']);
+const INT_CONSTANTS = new Set(['directPieceChars', 'directBinaryPieceBytes', 'bytesReplyKind', 'bytesReplyMaxBytes', 'chatModelMaxBytes']);
 const constants = {
     protocolVersion: PROTOCOL_VERSION,
     bytesChunkMax: BYTES_CHUNK_MAX,
@@ -230,6 +230,7 @@ const constants = {
     pushMaxClockSkewMs: push.PUSH_MAX_CLOCK_SKEW_MS,
     pushHKDFSalt: push.PUSH_HKDF_SALT,
     bytesReadMaxBytes: BYTES_READ_MAX_BYTES,
+    chatModelMaxBytes: CHAT_MODEL_MAX_BYTES,
     bytesReplyKind: BYTES_REPLY_KIND,
     bytesReplyMaxBytes: BYTES_REPLY_MAX_BYTES,
     directChannelLabel: direct.DIRECT_CHANNEL_LABEL,

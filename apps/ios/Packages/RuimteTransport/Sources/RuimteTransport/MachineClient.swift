@@ -544,7 +544,8 @@ public struct MachineResource: Sendable, Equatable {
             throw MachineClientError.invalid("Invalid resource limits")
         }
         let length = min(chunkBytes, Int(WireConstants.bytesChunkMax))
-        let limit = min(maxBytes, Int(WireConstants.bytesReadMaxBytes))
+        // A model an agent attached to its chat is the largest resource a client reads whole.
+        let limit = min(maxBytes, max(Int(WireConstants.bytesReadMaxBytes), WireConstants.chatModelMaxBytes))
         for attempt in 0...min(restarts, 3) {
             var data = Data()
             var first: BytesPiece?

@@ -91,6 +91,7 @@ const cases: ParityCase[] = [
         name: 'map',
         source: '$picked = "dom"\n<Map value={$picked}><Place lat={52.0907} lon={5.1214} value="dom" detail="Cathedral tower">Domtoren</Place><Place lat={52.3676} lon={4.9041} value="ams">Amsterdam</Place><Place address="Oudegracht 1, Utrecht" value="gracht">Canal house</Place></Map>'
     },
+    { name: 'model', source: '<Model attachment="att-bracket" alt="Bracket">A printed bracket</Model>' },
     { name: 'segmented input', source: '$mode = "a"\n<Segmented value={$mode}><Option value="a">A</Option><Option value="b">B</Option></Segmented>' }
 ];
 

@@ -1,5 +1,6 @@
 import RuimteIntelligentUI
 import RuimtePulsar
+import SceneKit
 import XCTest
 
 @testable import Ruimte
@@ -326,6 +327,77 @@ final class IntelligentUIPresentationTests: XCTestCase {
         let offline = try XCTUnwrap(UiMapView.note(tiles: true, online: false))
         XCTAssertNotEqual(off, offline)
         XCTAssertEqual(UiMapView.note(tiles: false, online: false), off)
+    }
+
+    func testAModelReadsItsAttachmentAltAndCaption() throws {
+        let model = try node(
+            #"{"id":"m","type":"Model","props":{"attachment":"att-1","alt":"Bracket"},"complete":true,"children":[{"id":"t","type":"$text","props":{"text":"A printed bracket"}}]}"#)
+        XCTAssertNil(UiFallbackProblem.of(model, catalogVersion: 1))
+        XCTAssertEqual(model.string("attachment"), "att-1")
+        XCTAssertEqual(model.string("alt"), "Bracket")
+        XCTAssertEqual(model.label, "A printed bracket")
+    }
+
+    private func bytes(_ parts: [UInt8]...) -> Data { Data(parts.joined()) }
+
+    private func littleEndian(_ value: UInt32) -> [UInt8] { (0..<4).map { UInt8(truncatingIfNeeded: value >> ($0 * 8)) } }
+
+    private func zip(firstEntry name: String) -> Data {
+        var header = [UInt8](repeating: 0, count: 30)
+        header[0...3] = [0x50, 0x4b, 0x03, 0x04]
+        header[26] = UInt8(name.utf8.count)
+        return bytes(header, Array(name.utf8), [UInt8](repeating: 0, count: 16))
+    }
+
+    private func binaryStl(triangles: UInt32, header: String = "") -> Data {
+        let title = Array(header.utf8) + [UInt8](repeating: 0, count: 80 - header.utf8.count)
+        return bytes(title, littleEndian(triangles), [UInt8](repeating: 0, count: 50 * Int(triangles)))
+    }
+
+    private let triangle = "solid part\n facet normal 0 0 1\n  outer loop\n   vertex 0 0 0\n   vertex 10 0 0\n   vertex 0 10 0\n  endloop\n endfacet\nendsolid part\n"
+
+    func testAModelIsToldByItsBytesAndNotItsName() {
+        XCTAssertEqual(UiModelFormat.of(bytes(Array("glTF".utf8), littleEndian(2), littleEndian(12))), .gltfBinary)
+        XCTAssertNil(UiModelFormat.of(bytes(Array("glTF".utf8), littleEndian(1), littleEndian(12))))
+        XCTAssertEqual(UiModelFormat.of(zip(firstEntry: "Model.USDC")), .usdz)
+        XCTAssertEqual(UiModelFormat.of(zip(firstEntry: "scene.usda")), .usdz)
+        XCTAssertNil(UiModelFormat.of(zip(firstEntry: "readme.txt")))
+        XCTAssertEqual(UiModelFormat.of(binaryStl(triangles: 2)), .stl)
+        XCTAssertEqual(UiModelFormat.of(binaryStl(triangles: 1, header: "solid exported by a binary writer")), .stl)
+        XCTAssertNil(UiModelFormat.of(binaryStl(triangles: 2).dropLast()))
+        XCTAssertEqual(UiModelFormat.of(Data(("  \n" + triangle).utf8)), .stl)
+        XCTAssertEqual(UiModelFormat.of(Data("solid\nendsolid\n".utf8)), .stl)
+        XCTAssertNil(UiModelFormat.of(Data("solidity is a word\n".utf8)))
+        XCTAssertNil(UiModelFormat.of(Data("solid but nothing else".utf8)))
+        XCTAssertNil(UiModelFormat.of(Data()))
+    }
+
+    func testOnlyGltfStaysARow() {
+        XCTAssertFalse(UiModelFormat.gltfBinary.opens)
+        XCTAssertTrue(UiModelFormat.usdz.opens)
+        XCTAssertTrue(UiModelFormat.stl.opens)
+    }
+
+    func testAnStlOpensFramedAndTurnedYUp() throws {
+        let model = try XCTUnwrap(UiModelScene.open(Data(triangle.utf8), format: .stl))
+        let distance = simd_length(model.camera.simdPosition)
+        XCTAssertGreaterThan(distance, 0)
+        XCTAssertTrue(distance.isFinite)
+        let turned = try XCTUnwrap(
+            model.scene.rootNode.childNodes(passingTest: { node, _ in node.geometry != nil }).first)
+        let up = turned.convertVector(SCNVector3(0, 0, 1), to: nil)
+        XCTAssertEqual(up.y, 1, accuracy: 1e-5)
+        XCTAssertNil(UiModelScene.open(Data(triangle.utf8), format: .gltfBinary))
+    }
+
+    func testTheTemporaryFileGoesWithTheScene() throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "models", directoryHint: .isDirectory)
+        let before = Set((try? FileManager.default.contentsOfDirectory(atPath: folder.path())) ?? [])
+        var model = UiModelScene.open(Data(triangle.utf8), format: .stl)
+        XCTAssertNotNil(model)
+        model = nil
+        let after = Set((try? FileManager.default.contentsOfDirectory(atPath: folder.path())) ?? [])
+        XCTAssertEqual(after.subtracting(before), [])
     }
 
     /// Every component the shared interpreter evaluates in the fixtures is one this version draws; a component the

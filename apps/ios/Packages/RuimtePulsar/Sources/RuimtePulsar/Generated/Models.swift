@@ -8,6 +8,7 @@ public enum WireConstants {
     public static let pushMaxClockSkewMs: Double = 30000
     public static let pushHKDFSalt: String = "pulsar-push-encryption-v1"
     public static let bytesReadMaxBytes: Double = 33554432
+    public static let chatModelMaxBytes: Int = 52428800
     public static let bytesReplyKind: Int = 1
     public static let bytesReplyMaxBytes: Int = 278528
     public static let directChannelLabel: String = "ruimte"

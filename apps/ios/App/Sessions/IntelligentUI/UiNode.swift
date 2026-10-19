@@ -99,7 +99,7 @@ enum UiCatalog {
         "Column", "Chart", "Tabs", "Tab", "Sections", "Section", "CodeBlock", "Image", "Sources", "Source", "File",
         "Diff", "Commit", "Node", "Checklist", "Item", "Switch", "Slider", "Segmented", "Option", "Show", "Each",
         "Button", "Choices", "Choice", "Timeline", "Event", "Gallery", "Compare", "TextField", "Select",
-        "Map", "Place",
+        "Map", "Place", "Model",
     ]
     static let links: Set<String> = ["File", "Diff", "Commit", "Node"]
     /// Parents whose text is read as written: code, a short tag and the labels of controls, whose accessible name
