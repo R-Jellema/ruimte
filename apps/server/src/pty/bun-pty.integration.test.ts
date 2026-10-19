@@ -44,9 +44,13 @@ describe('BunPtyAdapter under a SessionManager', () => {
 
     test('a resize reaches the shell', async () => {
         await start('size');
+        // A loaded runner may still be starting the shell, so the grid changes once it prompts.
+        await waitFor(() => recorder.output.includes('$ '), 'the prompt');
         manager.resize('size', 100, 30);
         manager.write('size', 'stty size\n');
-        await waitFor(() => recorder.output.includes('30 100'), 'stty after resize');
+        await waitFor(() => recorder.output.includes('30 100'), 'stty after resize').catch((error: Error) => {
+            throw new Error(`${error.message}; the shell wrote ${JSON.stringify(recorder.output)}`);
+        });
     });
 
     test('the exit code of the shell comes through', async () => {
