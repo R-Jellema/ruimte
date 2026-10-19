@@ -26,7 +26,7 @@ describe('resizeHandle', () => {
 
     test('fades out beside the port as the pointer goes on to it', () => {
         const far = resizeHandle([node], { x: 260, y: -5 }, 1)!;
-        const near = resizeHandle([node], { x: 230, y: -5 }, 1)!;
+        const near = resizeHandle([node], { x: 220, y: -5 }, 1)!;
         expect(far.strength).toBe(1);
         expect(near.strength).toBeGreaterThan(0);
         expect(near.strength).toBeLessThan(1);

@@ -7,6 +7,8 @@ const PILL_MIN = 12;
 export const RESIZE_CORNER = 22;
 /* Half the span along an edge that belongs to the port in its middle. */
 const PORT_CLEAR = 14;
+/* Over how much past that the pill fades in. */
+const PORT_FADE = 12;
 /* How far out the pill sits, the middle of the band a press takes. */
 const OUT = HINT_HOT / 2;
 
@@ -182,7 +184,7 @@ function sideHandle(
     }
     const port = length / 2;
     // The middle of an edge is the port's: the pill stops beside it and fades out as the pointer goes on to it.
-    const fade = held ? 1 : Math.min(1, Math.max(0, (Math.abs(along - port) - PORT_CLEAR) / pill));
+    const fade = held ? 1 : Math.min(1, Math.max(0, (Math.abs(along - port) - PORT_CLEAR) / PORT_FADE));
     if (fade === 0) {
         return null;
     }
