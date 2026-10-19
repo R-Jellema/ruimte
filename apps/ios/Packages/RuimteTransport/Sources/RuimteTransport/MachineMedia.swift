@@ -110,11 +110,17 @@ public struct MachineMediaInfo: Sendable, Equatable {
         guard !cancelled, !stored.contains(index) else { return nil }
         let offset = index * chunkBytes
         let length = info.map { max(min(chunkBytes, $0.size - offset), 1) } ?? chunkBytes
-        // Weak, so reading ahead ends with the last player that holds the source.
+        // Weak, and the request itself holds only what it reads with, so reading ahead ends with the last player
+        // that holds the source. A call on `self` would keep it alive for as long as one piece is on its way.
+        let (client, path, chunkBytes, reconnectWaitMs) = (client, path, chunkBytes, reconnectWaitMs)
         let task = Task { [weak self] () async throws -> BytesPiece in
             do {
-                guard let piece = try await self?.request(at: offset, length: length) else { throw CancellationError() }
-                self?.settle(index, piece: piece)
+                guard self != nil else { throw CancellationError() }
+                let piece = try await Self.request(
+                    client: client, path: path, chunkBytes: chunkBytes, reconnectWaitMs: reconnectWaitMs,
+                    offset: offset, length: length)
+                guard let self else { throw CancellationError() }
+                self.settle(index, piece: piece)
                 return piece
             } catch {
                 self?.settle(index, piece: nil)
@@ -174,7 +180,9 @@ public struct MachineMediaInfo: Sendable, Equatable {
         return try await task.value
     }
 
-    private func request(at offset: Int, length: Int) async throws -> BytesPiece {
+    private static func request(
+        client: any MachineRequesting, path: String, chunkBytes: Int, reconnectWaitMs: Int, offset: Int, length: Int
+    ) async throws -> BytesPiece {
         var waited = 0
         while true {
             try Task.checkCancellation()
@@ -191,8 +199,8 @@ public struct MachineMediaInfo: Sendable, Equatable {
             } catch {
                 // A dropped connection fails every piece on its way; the next connection answers them, so a player
                 // waits out a reconnect instead of stalling on an error.
-                guard !(error is CancellationError), !connected(), waited < reconnectWaitMs else { throw error }
-                while !connected() {
+                guard !(error is CancellationError), !connected(client), waited < reconnectWaitMs else { throw error }
+                while !connected(client) {
                     guard waited < reconnectWaitMs else { throw error }
                     try await Task.sleep(for: .milliseconds(250))
                     waited += 250
@@ -201,7 +209,7 @@ public struct MachineMediaInfo: Sendable, Equatable {
         }
     }
 
-    private func connected() -> Bool {
+    private static func connected(_ client: any MachineRequesting) -> Bool {
         let state = ConnectionFlag()
         client.observeConnection { state.value = $0 }()
         return state.value
