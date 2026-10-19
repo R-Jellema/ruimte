@@ -1082,6 +1082,13 @@ describe('asking macOS for a grant', () => {
         expect(helper.requests.at(-1)).toMatchObject({ command: 'doctor', prompt: true, grant: 'screenRecording' });
     });
 
+    test('says macOS showed its own dialog only the first time, so the pane opens without one after', async () => {
+        const { computer, helper } = await computerSetup();
+        helper.screenRecording = false;
+        expect(await computer.requestGrant('screenRecording')).toMatchObject({ prompted: true });
+        expect(await computer.requestGrant('screenRecording')).toMatchObject({ prompted: false });
+    });
+
     test('asks nothing while computer use is off', async () => {
         const { computer, helper } = await computerSetup({ enabled: false });
         await computer.requestGrant('accessibility');

@@ -110,7 +110,9 @@ export const DoctorResultSchema = z.object({
     screenRecording: z.object({ granted: z.boolean() }),
     ready: z.boolean(),
     // Absent from a helper older than the session bar.
-    session: HelperSessionSchema.optional()
+    session: HelperSessionSchema.optional(),
+    // The grants macOS showed its own dialog for on this request.
+    asked: z.array(z.string()).optional()
 });
 export type DoctorResult = z.infer<typeof DoctorResultSchema>;
 

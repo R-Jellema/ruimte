@@ -7,6 +7,7 @@ import type {
     ComputerApprovalChoice,
     ComputerControlAction,
     ComputerGrant,
+    ComputerRequestGrantResult,
     ComputerRevokeKind,
     ComputerUseStatus
 } from '@ruimte/contracts';
@@ -432,13 +433,13 @@ export class ComputerUse {
     }
 
     /* macOS lists an app in a pane of Privacy & Security only once it asked for that grant, so the person finds it there to switch on. */
-    async requestGrant(grant: ComputerGrant): Promise<ComputerUseStatus> {
+    async requestGrant(grant: ComputerGrant): Promise<ComputerRequestGrantResult> {
         if (!this.store.enabled || !this.helper.present) {
             return this.refreshStatus();
         }
         const doctor = await this.helper.request({ command: 'doctor', prompt: true, grant }, DoctorResultSchema);
         this.noteSession(doctor.session ?? null);
-        return this.setStatus(runningStatus(doctor));
+        return { ...this.setStatus(runningStatus(doctor)), prompted: doctor.asked?.includes(grant) ?? false };
     }
 
     /* Screen Recording applies to a fresh launch of the helper only, so a person who just granted it gets one without a command. */

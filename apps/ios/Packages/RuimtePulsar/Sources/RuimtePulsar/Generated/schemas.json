@@ -53396,6 +53396,9 @@
         "items": {
           "type": "string"
         }
+      },
+      "prompted": {
+        "type": "boolean"
       }
     },
     "required": [

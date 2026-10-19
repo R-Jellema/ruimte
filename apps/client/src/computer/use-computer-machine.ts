@@ -93,8 +93,16 @@ export function useComputerMachine(endpointId: string): ComputerMachine {
         attempt(async (link) => useComputer.getState().setStatus(endpointId, await work(link)));
 
     const openGrant = async (grant: ComputerGrant): Promise<void> => {
-        await run((link) => link.request('computer.requestGrant', { grant }));
-        await bridge?.openSystemSettings?.(SYSTEM_SETTINGS_PANES[grant]);
+        let prompted = false;
+        await run(async (link) => {
+            const { prompted: shown, ...status } = await link.request('computer.requestGrant', { grant });
+            prompted = shown === true;
+            return status;
+        });
+        // The dialog of macOS has its own button to the pane, so opening it here as well puts the pane under that dialog.
+        if (!prompted) {
+            await bridge?.openSystemSettings?.(SYSTEM_SETTINGS_PANES[grant]);
+        }
     };
 
     return {

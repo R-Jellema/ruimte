@@ -375,6 +375,7 @@ import {
     ComputerApprovalsSchema,
     ComputerControlPayloadSchema,
     ComputerRequestGrantPayloadSchema,
+    ComputerRequestGrantResultSchema,
     ComputerRevokePayloadSchema,
     ComputerRevokeResultSchema,
     ComputerSetLanguagePayloadSchema,
@@ -714,7 +715,7 @@ export const REQUEST_SCHEMAS = {
     // Quits the helper and starts it again, which is when macOS applies a Screen Recording grant.
     'computer.restart': { payload: EmptySchema, result: ComputerUseStatusSchema },
     'computer.control': { payload: ComputerControlPayloadSchema, result: ComputerUseStatusSchema },
-    'computer.requestGrant': { payload: ComputerRequestGrantPayloadSchema, result: ComputerUseStatusSchema },
+    'computer.requestGrant': { payload: ComputerRequestGrantPayloadSchema, result: ComputerRequestGrantResultSchema },
     'computer.setLanguage': { payload: ComputerSetLanguagePayloadSchema, result: EmptySchema },
     'computer.grants': { payload: EmptySchema, result: ComputerAppGrantsSchema },
     'computer.revoke': { payload: ComputerRevokePayloadSchema, result: ComputerRevokeResultSchema },

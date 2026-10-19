@@ -16,6 +16,15 @@ enum Permissions {
         Bundle.main.bundleURL.deletingPathExtension().lastPathComponent
     }
 
+    /* macOS shows its own dialog for a grant once per app, so after that a request for it opens the pane instead. */
+    private static func askedBefore(_ grant: String) -> Bool {
+        UserDefaults.standard.bool(forKey: "askedGrant.\(grant)")
+    }
+
+    private static func noteAsked(_ grant: String) {
+        UserDefaults.standard.set(true, forKey: "askedGrant.\(grant)")
+    }
+
     static func requireAccessibility() throws {
         guard AXIsProcessTrusted() else {
             throw AgentError("Accessibility is not granted to \(appName). Run `cu doctor` and follow its steps.")
@@ -25,16 +34,19 @@ enum Permissions {
     static func doctor(prompt: Bool, only grant: String? = nil) -> [String: Any] {
         let accessibility = AXIsProcessTrusted()
         let screenRecording = CGPreflightScreenCaptureAccess()
-        let promptsAccessibility = prompt && (grant == nil || grant == "accessibility")
-        let promptsScreenRecording = prompt && (grant == nil || grant == "screenRecording")
+        let promptsAccessibility = prompt && (grant == nil || grant == "accessibility") && !askedBefore("accessibility")
+        let promptsScreenRecording = prompt && (grant == nil || grant == "screenRecording") && !askedBefore("screenRecording")
         var steps: [String] = []
         var prompted: [String] = []
+        var asked: [String] = []
 
         if !accessibility {
             steps.append("Open System Settings > Privacy & Security > Accessibility and turn on \"\(appName)\" (\(appPath)). If it is not in the list, click +, choose that app and turn it on.")
             if promptsAccessibility {
                 // The literal key: the imported kAXTrustedCheckOptionPrompt global is not concurrency-safe in Swift 6.
                 AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
+                noteAsked("accessibility")
+                asked.append("accessibility")
                 prompted.append("accessibility prompt")
             }
         }
@@ -43,10 +55,13 @@ enum Permissions {
             steps.append("After granting Screen Recording, run `cu quit`; macOS only applies it to a fresh launch, and the next cu command starts the agent again.")
             if promptsScreenRecording {
                 CGRequestScreenCaptureAccess()
+                noteAsked("screenRecording")
+                asked.append("screenRecording")
                 prompted.append("screen recording prompt")
             }
         }
-        if prompt, grant == nil, let pane = !accessibility ? accessibilityPane : (!screenRecording ? screenRecordingPane : nil), let url = URL(string: pane) {
+        // The dialog of macOS has its own button to the pane, so a second way there would open on top of it.
+        if prompt, grant == nil, asked.isEmpty, let pane = !accessibility ? accessibilityPane : (!screenRecording ? screenRecordingPane : nil), let url = URL(string: pane) {
             NSWorkspace.shared.open(url)
             prompted.append(!accessibility ? "opened the Accessibility pane" : "opened the Screen Recording pane")
         }
@@ -66,6 +81,9 @@ enum Permissions {
         }
         if !prompted.isEmpty {
             result["prompted"] = prompted
+        }
+        if !asked.isEmpty {
+            result["asked"] = asked
         }
         return result
     }

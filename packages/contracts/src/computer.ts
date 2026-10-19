@@ -55,6 +55,12 @@ export const ComputerRequestGrantPayloadSchema = z.object({
 });
 export type ComputerRequestGrantPayload = z.infer<typeof ComputerRequestGrantPayloadSchema>;
 
+export const ComputerRequestGrantResultSchema = ComputerUseStatusSchema.extend({
+    // macOS showed its own dialog, whose button opens the pane; absent from a machine that never says.
+    prompted: z.boolean().optional()
+});
+export type ComputerRequestGrantResult = z.infer<typeof ComputerRequestGrantResultSchema>;
+
 /* The buttons of the helper's session bar, pressed by a person on the node whose agent holds the Mac. */
 export const ComputerControlActionSchema = z.enum(['pause', 'resume', 'stop']);
 export type ComputerControlAction = z.infer<typeof ComputerControlActionSchema>;

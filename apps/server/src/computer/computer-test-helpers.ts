@@ -67,6 +67,8 @@ export class FakeHelper implements HelperTransport {
     apps: RunningApp[] = [TEXT_EDIT, SHELL_APP];
     accessibility = true;
     screenRecording = true;
+    // The grants macOS already showed its dialog for, which it shows once per app.
+    readonly askedBefore = new Set<string>();
     error: string | null = null;
     // The code the helper puts beside `error`, such as needs-front for a call only the front can do.
     errorCode: string | null = null;
@@ -117,13 +119,20 @@ export class FakeHelper implements HelperTransport {
             return { ok: true, result: { session: this.session } };
         }
         if (request.command === 'doctor') {
+            const grant = request.grant;
+            const granted = grant === 'accessibility' ? this.accessibility : this.screenRecording;
+            const asks = request.prompt === true && grant !== undefined && !granted && !this.askedBefore.has(grant);
+            if (asks) {
+                this.askedBefore.add(grant);
+            }
             return {
                 ok: true,
                 result: {
                     accessibility: { granted: this.accessibility },
                     screenRecording: { granted: this.screenRecording },
                     ready: this.accessibility && this.screenRecording,
-                    session: this.session
+                    session: this.session,
+                    ...(asks ? { asked: [grant] } : {})
                 }
             };
         }
