@@ -112,6 +112,21 @@ export function ModelAttachmentView({ url, label }: UiModelViewProps) {
         }
     }, [ready, dark]);
 
+    useEffect(() => {
+        const frame = frameRef.current;
+        if (frame === null) {
+            return;
+        }
+        // A plain wheel scrolls the thread past the model; a pinch (which arrives with ctrlKey) or Cmd zooms it.
+        const passWheel = (event: WheelEvent) => {
+            if (!event.ctrlKey && !event.metaKey) {
+                event.stopPropagation();
+            }
+        };
+        frame.addEventListener('wheel', passWheel, { capture: true });
+        return () => frame.removeEventListener('wheel', passWheel, { capture: true });
+    }, []);
+
     return (
         <div ref={frameRef} className="relative size-full">
             <div ref={hostRef} className={clsx('absolute inset-0', !ready && 'invisible')} />
