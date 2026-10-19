@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { handlePoints, heldHandle, resizeHandle, type ResizeCandidate } from '@/canvas/resize-handles';
+import { handlePath, heldHandle, resizeHandle, type ResizeCandidate } from '@/canvas/resize-handles';
 
 const node: ResizeCandidate = { id: 'a', x: 0, y: 0, w: 400, h: 200, group: false };
 
@@ -58,14 +58,24 @@ describe('heldHandle', () => {
     });
 });
 
-describe('handlePoints', () => {
-    test('runs clockwise for a pill and for the corner it slides into', () => {
+describe('handlePath', () => {
+    const ends = (path: string): number[][] => {
+        const numbers = path.match(/-?[\d.]+/g)!.map(Number);
+        return [numbers.slice(0, 2), numbers.slice(-2)];
+    };
+
+    test('a corner keeps the distance of the pill from the frame', () => {
         const pill = resizeHandle([node], { x: 340, y: -5 }, 1)!;
         const corner = resizeHandle([node], { x: 395, y: -5 }, 1)!;
-        const [pillStart, , pillEnd] = handlePoints(pill, 1);
-        const [cornerStart, tip, cornerEnd] = handlePoints(corner, 1);
-        expect(pillStart.x).toBeLessThan(pillEnd.x);
-        expect(cornerStart.x).toBeLessThan(tip.x);
-        expect(cornerEnd.y).toBeGreaterThan(tip.y);
+        const [[, pillY]] = ends(handlePath(pill, 1));
+        const [[, cornerY], [cornerX]] = ends(handlePath(corner, 1));
+        expect(cornerY).toBe(pillY);
+        expect(cornerX).toBe(400 - pillY);
+    });
+
+    test('draws every shape with the same commands, so one can glide into the other', () => {
+        const pill = handlePath(resizeHandle([node], { x: 340, y: -5 }, 1)!, 1);
+        const corner = handlePath(resizeHandle([node], { x: 395, y: -5 }, 1)!, 1);
+        expect(pill.replace(/[-\d. ]+/g, '')).toBe(corner.replace(/[-\d. ]+/g, ''));
     });
 });

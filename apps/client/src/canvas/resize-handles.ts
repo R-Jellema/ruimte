@@ -74,57 +74,49 @@ export function heldHandle(node: Rect & { id: string }, edge: ResizeEdge, point:
     return sideHandle(node, edge as ResizeSide, point, zoom, 1, true, true)!;
 }
 
+/* The frame's own rounding, `rounded-xl` in `NodeFrame.tsx`, in world units since the frame scales with the zoom. */
+const NODE_RADIUS = 12;
+/* The quarter circle as one cubic Bézier. */
+const ARC = 0.5523;
+
+const ALONG: Record<ResizeEdge, Point> = {
+    n: { x: 1, y: 0 },
+    e: { x: 0, y: 1 },
+    s: { x: -1, y: 0 },
+    w: { x: 0, y: -1 },
+    ne: { x: 1, y: 0 },
+    se: { x: 0, y: 1 },
+    sw: { x: -1, y: 0 },
+    nw: { x: 0, y: -1 }
+};
+
 /*
- * The three points a handle is drawn through, clockwise around its node whatever its shape, so a pill
- * that slides into a corner bends into it point for point instead of turning over.
+ * The path a handle is drawn as, the same `M L C L` for every shape and clockwise around its node, so
+ * a pill that slides into a corner bends into it point for point. A corner keeps the pill's distance
+ * from the frame and runs round with the frame's own rounding.
  */
-export function handlePoints(handle: ResizeHandle, zoom: number): [Point, Point, Point] {
-    const { x, y } = handle.at;
-    const half = handle.length / 2;
-    const arm = 12 / zoom;
-    const out = 4 / zoom;
-    switch (handle.edge) {
-        case 'n':
-            return [
-                { x: x - half, y },
-                { x, y },
-                { x: x + half, y }
-            ];
-        case 'e':
-            return [
-                { x, y: y - half },
-                { x, y },
-                { x, y: y + half }
-            ];
-        case 's':
-            return [
-                { x: x + half, y },
-                { x, y },
-                { x: x - half, y }
-            ];
-        case 'w':
-            return [
-                { x, y: y + half },
-                { x, y },
-                { x, y: y - half }
-            ];
-        case 'ne': {
-            const tip = { x: x + out, y: y - out };
-            return [{ x: tip.x - arm, y: tip.y }, tip, { x: tip.x, y: tip.y + arm }];
-        }
-        case 'se': {
-            const tip = { x: x + out, y: y + out };
-            return [{ x: tip.x, y: tip.y - arm }, tip, { x: tip.x - arm, y: tip.y }];
-        }
-        case 'sw': {
-            const tip = { x: x - out, y: y + out };
-            return [{ x: tip.x + arm, y: tip.y }, tip, { x: tip.x, y: tip.y - arm }];
-        }
-        case 'nw': {
-            const tip = { x: x - out, y: y - out };
-            return [{ x: tip.x, y: tip.y + arm }, tip, { x: tip.x + arm, y: tip.y }];
-        }
+export function handlePath(handle: ResizeHandle, zoom: number): string {
+    const out = OUT / zoom;
+    const first = ALONG[handle.edge];
+    const at = (from: Point, direction: Point, distance: number): Point => ({ x: from.x + direction.x * distance, y: from.y + direction.y * distance });
+    let points: Point[];
+    if (handle.edge.length === 1) {
+        const half = handle.length / 2;
+        points = [at(handle.at, first, -half), handle.at, handle.at, handle.at, handle.at, at(handle.at, first, half)];
+    } else {
+        const second = { x: -first.y, y: first.x };
+        const corner = {
+            x: handle.at.x + (handle.edge.includes('w') ? -out : out),
+            y: handle.at.y + (handle.edge.includes('n') ? -out : out)
+        };
+        const radius = NODE_RADIUS + out;
+        const start = at(corner, first, -radius);
+        const end = at(corner, second, radius);
+        const arm = 6 / zoom;
+        points = [at(start, first, -arm), start, at(start, first, ARC * radius), at(end, second, -ARC * radius), end, at(end, second, arm)];
     }
+    const [from, arcStart, control1, control2, arcEnd, to] = points.map(({ x, y }) => `${x} ${y}`);
+    return `M ${from} L ${arcStart} C ${control1} ${control2} ${arcEnd} L ${to}`;
 }
 
 function sideHandle(

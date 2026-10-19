@@ -1,8 +1,12 @@
-import { memo, useMemo, useState, type RefObject } from 'react';
+import clsx from 'clsx';
+import { memo, useEffect, useMemo, useState, type RefObject } from 'react';
 import { HINT_HOT } from '@/canvas/port-hints';
-import { handlePoints, heldHandle, RESIZE_CORNER, resizeHandle, type ResizeCandidate, type ResizeEdge, type ResizeHandle } from '@/canvas/resize-handles';
+import { handlePath, heldHandle, RESIZE_CORNER, resizeHandle, type ResizeCandidate, type ResizeEdge, type ResizeHandle } from '@/canvas/resize-handles';
 import { useWorldPointer } from '@/canvas/use-world-pointer';
 import { useCanvas } from '@/state/canvas';
+
+/* As long as `duration-150` on the path. */
+const MORPH_MS = 150;
 
 const CURSOR: Record<ResizeEdge, string> = {
     n: 'cursor-ns-resize',
@@ -49,13 +53,26 @@ export const ResizeHandles = memo(function ResizeHandles({ rootRef }: { rootRef:
         return quiet ? null : resizeHandle(candidates, point, zoom);
     }, [candidates, grabbed, locked, nodes, point, quiet, resizing, zoom]);
 
+    /* Only a change of shape glides: a pill following the pointer along an edge would trail behind it. */
+    const shape = handle === null ? null : `${handle.nodeId}:${handle.edge}`;
+    const [lastShape, setLastShape] = useState(shape);
+    const [morphing, setMorphing] = useState(false);
+    if (shape !== lastShape) {
+        setLastShape(shape);
+        setMorphing(shape !== null && lastShape !== null && shape.split(':')[0] === lastShape.split(':')[0]);
+    }
+    useEffect(() => {
+        if (!morphing) {
+            return;
+        }
+        const timer = window.setTimeout(() => setMorphing(false), MORPH_MS);
+        return () => window.clearTimeout(timer);
+    }, [morphing, lastShape]);
+
     if (handle === null) {
         return null;
     }
     const corner = handle.edge.length === 2;
-    const points = handlePoints(handle, zoom)
-        .map(({ x, y }) => `${x} ${y}`)
-        .join(' L ');
     return (
         <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width="1" height="1">
             <g style={{ opacity: handle.strength }} onPointerDown={() => setGrabbed({ nodeId: handle.nodeId, edge: handle.edge })}>
@@ -68,8 +85,14 @@ export const ResizeHandles = memo(function ResizeHandles({ rootRef }: { rootRef:
                     stroke={handle.hot ? 'var(--accent)' : 'var(--edge-line)'}
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="transition-[d,stroke-width,stroke] duration-150 ease-out motion-reduce:transition-none"
-                    style={{ d: `path("M ${points}")`, strokeWidth: (corner ? 2 : 4) / zoom }}
+                    className={clsx(
+                        morphing ? 'transition-[d,stroke-width,stroke]' : 'transition-[stroke-width,stroke]',
+                        'duration-150 ease-out motion-reduce:transition-none'
+                    )}
+                    style={{
+                        d: `path("${handlePath(handle, zoom)}")`,
+                        strokeWidth: (corner ? 2 : 4) / zoom
+                    }}
                 />
             </g>
         </svg>
