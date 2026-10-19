@@ -42,6 +42,7 @@ import { CanvasMenuPopup } from '@/canvas/CanvasMenu';
 import { EmptyCanvas } from '@/canvas/EmptyCanvas';
 import { EdgeLayer } from '@/canvas/EdgeLayer';
 import { PortHints } from '@/canvas/PortHints';
+import { ResizeHandles } from '@/canvas/ResizeHandles';
 import { NodeFrame } from '@/canvas/NodeFrame';
 import { TextElementView } from '@/canvas/TextElementView';
 import { TextToolbar } from '@/canvas/TextToolbar';
@@ -478,17 +479,19 @@ export function Canvas() {
             return;
         }
 
-        const resizeEdge = target.closest<HTMLElement>('[data-resize]')?.dataset.resize;
-        if (resizeEdge && nodeId && !s.locks.resize) {
+        const resizeElement = target.closest<Element>('[data-resize]');
+        const resizeEdge = resizeElement?.getAttribute('data-resize');
+        const resizeNode = resizeElement?.getAttribute('data-resize-node');
+        if (resizeEdge && resizeNode && s.nodes[resizeNode] && !s.locks.resize) {
             e.preventDefault();
-            s.setResizing(nodeId);
+            s.setResizing(resizeNode);
             startGesture(
                 {
                     kind: 'resize',
-                    nodeId,
+                    nodeId: resizeNode,
                     edge: resizeEdge,
                     start: point,
-                    rect: { ...s.nodes[nodeId] }
+                    rect: { ...s.nodes[resizeNode] }
                 },
                 e
             );
@@ -787,6 +790,7 @@ export function Canvas() {
                     ))}
                     {/* Over the nodes, so a port beside one is never covered by the node standing next to it. */}
                     {maximizedId === null && <PortHints rootRef={rootRef} />}
+                    {maximizedId === null && <ResizeHandles rootRef={rootRef} />}
                 </div>
                 {drawIds.length === 0 && textIds.length === 0 && Object.keys(lines).length === 0 && <EmptyCanvas />}
                 {lineTool !== null && maximizedId === null && <CanvasLineTool key={lineTool} onDraftChange={setLineDraft} />}

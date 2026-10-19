@@ -121,22 +121,9 @@ const STATUS_MARK: Partial<Record<AgentStatus, { icon: LucideIcon; className: st
     exited: { icon: CirclePower, className: 'text-text-faint' }
 };
 
-const RESIZE_EDGES = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as const;
-
 /* A group is a frame under its nodes: a faint tint of its accent, never a surface of its own. */
 const GROUP_FRAME =
     'border-dashed bg-[color-mix(in_srgb,var(--group-accent,var(--text-faint))_7%,transparent)] hover:bg-[color-mix(in_srgb,var(--group-accent,var(--text-faint))_10%,transparent)]';
-
-const EDGE_STYLE: Record<(typeof RESIZE_EDGES)[number], string> = {
-    n: 'top-0 left-3 right-3 h-2 -translate-y-1/2 cursor-ns-resize',
-    s: 'bottom-0 left-3 right-3 h-2 translate-y-1/2 cursor-ns-resize',
-    e: 'right-0 top-3 bottom-3 w-2 translate-x-1/2 cursor-ew-resize',
-    w: 'left-0 top-3 bottom-3 w-2 -translate-x-1/2 cursor-ew-resize',
-    ne: 'top-0 right-0 h-3.5 w-3.5 -translate-y-1/2 translate-x-1/2 cursor-nesw-resize',
-    nw: 'top-0 left-0 h-3.5 w-3.5 -translate-y-1/2 -translate-x-1/2 cursor-nwse-resize',
-    se: 'bottom-0 right-0 h-3.5 w-3.5 translate-y-1/2 translate-x-1/2 cursor-nwse-resize',
-    sw: 'bottom-0 left-0 h-3.5 w-3.5 translate-y-1/2 -translate-x-1/2 cursor-nesw-resize'
-};
 
 /* `plain` drops the tooltip: inside a control that already has a name of its own, a second tooltip
    under the pointer only fights the first one. A screen reader still hears the status either way. */
@@ -386,7 +373,6 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
        the keyboard, or a node remounting beside it pulls the grid's focus over. */
     const cellHasFocus = useCellHasFocus();
     const takesKeyboard = active && cellHasFocus;
-    const resizable = useCanvas((s) => !s.locks.resize);
     const resizing = useCanvas((s) => s.resizing === id);
     const maximizedPlace = useMaximizedPlace(id);
     const maximized = maximizedPlace !== null;
@@ -637,12 +623,6 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                         </NodeBodyBoundary>
                     </div>
                 )}
-                {/* Every node resizes, selected or not: the edges are a grip, not something a
-                    selection unlocks. They carry no paint, so an idle node looks no different. */}
-                {resizable &&
-                    !collapsed &&
-                    !maximized &&
-                    RESIZE_EDGES.map((edge) => <div key={edge} data-resize={edge} className={clsx('absolute z-10', EDGE_STYLE[edge])} />)}
                 {resizing && (
                     <div className="pointer-events-none absolute bottom-2 right-2 rounded-md bg-accent px-2 py-0.5 font-mono text-xs tabular-nums text-accent-text shadow-float">
                         {Math.round(node.w)} × {Math.round(node.h)}

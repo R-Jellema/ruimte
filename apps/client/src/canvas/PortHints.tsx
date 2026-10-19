@@ -1,8 +1,9 @@
-import { memo, useEffect, useMemo, useState, type RefObject } from 'react';
+import { memo, useMemo, type RefObject } from 'react';
 import { textRect } from '@/canvas/edge-lines';
-import { toWorld, type Point, type Rect } from '@/canvas/math';
+import type { Rect } from '@/canvas/math';
 import { HINT_HOT, HINT_REACH, portHints, portKey, takenPorts } from '@/canvas/port-hints';
-import { useCanvas, useCanvasStore } from '@/state/canvas';
+import { useWorldPointer } from '@/canvas/use-world-pointer';
+import { useCanvas } from '@/state/canvas';
 
 /*
  * The ports a node offers the pointer that comes near one. They are drawn here and not in the frame,
@@ -10,7 +11,6 @@ import { useCanvas, useCanvasStore } from '@/state/canvas';
  * of the canvas around it.
  */
 export const PortHints = memo(function PortHints({ rootRef }: { rootRef: RefObject<HTMLDivElement | null> }) {
-    const canvasStore = useCanvasStore();
     const nodes = useCanvas((s) => s.nodes);
     const texts = useCanvas((s) => s.texts);
     const edges = useCanvas((s) => s.edges);
@@ -18,37 +18,7 @@ export const PortHints = memo(function PortHints({ rootRef }: { rootRef: RefObje
     const zoom = useCanvas((s) => s.camera.zoom);
     // Nothing is offered while a gesture is running: a port that lights up under a node being dragged is noise.
     const quiet = useCanvas((s) => s.gesturing || s.linkDraft !== null);
-    const [point, setPoint] = useState<Point | null>(null);
-
-    useEffect(() => {
-        const el = rootRef.current;
-        if (!el) {
-            return;
-        }
-        let frame: number | null = null;
-        let latest: Point | null = null;
-        const onMove = (e: PointerEvent): void => {
-            const rect = el.getBoundingClientRect();
-            latest = toWorld(canvasStore.getState().camera, { x: e.clientX - rect.left, y: e.clientY - rect.top });
-            // A port lighting up must not re-render on every sample the pointer sends.
-            if (frame === null) {
-                frame = window.requestAnimationFrame(() => {
-                    frame = null;
-                    setPoint(latest);
-                });
-            }
-        };
-        const onLeave = (): void => setPoint(null);
-        el.addEventListener('pointermove', onMove);
-        el.addEventListener('pointerleave', onLeave);
-        return () => {
-            el.removeEventListener('pointermove', onMove);
-            el.removeEventListener('pointerleave', onLeave);
-            if (frame !== null) {
-                window.cancelAnimationFrame(frame);
-            }
-        };
-    }, [canvasStore, rootRef]);
+    const point = useWorldPointer(rootRef);
 
     /* A group is a frame under its nodes, never something you draw a line from by brushing past its border. */
     const open = useMemo(() => Object.values(nodes).filter((node) => node.kind !== 'group' && !hidden.has(node.id)), [hidden, nodes]);
