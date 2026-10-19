@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { handlePath, heldHandle, resizeHandle, type ResizeCandidate } from '@/canvas/resize-handles';
+import { handleRail, heldHandle, resizeHandle, type ResizeCandidate } from '@/canvas/resize-handles';
 
 const node: ResizeCandidate = { id: 'a', x: 0, y: 0, w: 400, h: 200, group: false };
 
@@ -58,24 +58,21 @@ describe('heldHandle', () => {
     });
 });
 
-describe('handlePath', () => {
-    const ends = (path: string): number[][] => {
-        const numbers = path.match(/-?[\d.]+/g)!.map(Number);
-        return [numbers.slice(0, 2), numbers.slice(-2)];
-    };
-
-    test('a corner keeps the distance of the pill from the frame', () => {
-        const pill = resizeHandle([node], { x: 340, y: -5 }, 1)!;
-        const corner = resizeHandle([node], { x: 395, y: -5 }, 1)!;
-        const [[, pillY]] = ends(handlePath(pill, 1));
-        const [[, cornerY], [cornerX]] = ends(handlePath(corner, 1));
-        expect(cornerY).toBe(pillY);
-        expect(cornerX).toBe(400 - pillY);
+describe('handleRail', () => {
+    test('a pill and the corner it slides into run on the same rail, the corner round the bend', () => {
+        const pill = handleRail(node, resizeHandle([node], { x: 340, y: -5 }, 1)!, 1);
+        const corner = handleRail(node, resizeHandle([node], { x: 395, y: -5 }, 1)!, 1);
+        expect(corner.path).toBe(pill.path);
+        expect(pill.length).toBe(36);
+        expect(corner.from).toBeGreaterThan(pill.from + pill.length);
+        expect(corner.length).toBeGreaterThan(pill.length / 2);
     });
 
-    test('draws every shape with the same commands, so one can glide into the other', () => {
-        const pill = handlePath(resizeHandle([node], { x: 340, y: -5 }, 1)!, 1);
-        const corner = handlePath(resizeHandle([node], { x: 395, y: -5 }, 1)!, 1);
-        expect(pill.replace(/[-\d. ]+/g, '')).toBe(corner.replace(/[-\d. ]+/g, ''));
+    test('a pill sits on the rail where the pointer is', () => {
+        const rail = handleRail(node, resizeHandle([node], { x: 100, y: -5 }, 1)!, 1);
+        const radius = 12 + 7;
+        // Half the left side up, the bend, then along the top to the pill's start.
+        const top = (200 + 14) / 2 - radius + (Math.PI * radius) / 2;
+        expect(rail.from).toBeCloseTo(top + (100 - 18) - (-7 + radius));
     });
 });

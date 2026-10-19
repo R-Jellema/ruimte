@@ -76,47 +76,81 @@ export function heldHandle(node: Rect & { id: string }, edge: ResizeEdge, point:
 
 /* The frame's own rounding, `rounded-xl` in `NodeFrame.tsx`, in world units since the frame scales with the zoom. */
 const NODE_RADIUS = 12;
-/* The quarter circle as one cubic Bézier. */
-const ARC = 0.5523;
+/* Screen pixels a corner runs on along each edge past its bend. */
+const CORNER_ARM = 6;
 
-const ALONG: Record<ResizeEdge, Point> = {
-    n: { x: 1, y: 0 },
-    e: { x: 0, y: 1 },
-    s: { x: -1, y: 0 },
-    w: { x: 0, y: -1 },
-    ne: { x: 1, y: 0 },
-    se: { x: 0, y: 1 },
-    sw: { x: -1, y: 0 },
-    nw: { x: 0, y: -1 }
-};
+/* A handle as a stretch of the rail: a rounded rectangle at the pill's distance around the frame. */
+export interface HandleRail {
+    /* Clockwise, starting halfway down the left side, where a port and never a free handle sits. */
+    path: string;
+    perimeter: number;
+    /* Where the handle starts along the rail, and how far it runs, in world units. */
+    from: number;
+    length: number;
+}
 
 /*
- * The path a handle is drawn as, the same `M L C L` for every shape and clockwise around its node, so
- * a pill that slides into a corner bends into it point for point. A corner keeps the pill's distance
- * from the frame and runs round with the frame's own rounding.
+ * Where a handle runs on the rail around its node. A pill and a corner are both a stretch of the same
+ * rail, so one that glides into the other follows the frame round and never cuts through the node.
  */
-export function handlePath(handle: ResizeHandle, zoom: number): string {
+export function handleRail(frame: Rect, handle: ResizeHandle, zoom: number): HandleRail {
     const out = OUT / zoom;
-    const first = ALONG[handle.edge];
-    const at = (from: Point, direction: Point, distance: number): Point => ({ x: from.x + direction.x * distance, y: from.y + direction.y * distance });
-    let points: Point[];
-    if (handle.edge.length === 1) {
-        const half = handle.length / 2;
-        points = [at(handle.at, first, -half), handle.at, handle.at, handle.at, handle.at, at(handle.at, first, half)];
-    } else {
-        const second = { x: -first.y, y: first.x };
-        const corner = {
-            x: handle.at.x + (handle.edge.includes('w') ? -out : out),
-            y: handle.at.y + (handle.edge.includes('n') ? -out : out)
-        };
-        const radius = NODE_RADIUS + out;
-        const start = at(corner, first, -radius);
-        const end = at(corner, second, radius);
-        const arm = 6 / zoom;
-        points = [at(start, first, -arm), start, at(start, first, ARC * radius), at(end, second, -ARC * radius), end, at(end, second, arm)];
+    const x = frame.x - out;
+    const y = frame.y - out;
+    const width = frame.w + 2 * out;
+    const height = frame.h + 2 * out;
+    const radius = Math.min(NODE_RADIUS + out, width / 2, height / 2);
+    const quarter = (Math.PI * radius) / 2;
+    const across = width - 2 * radius;
+    const down = height - 2 * radius;
+    const upperLeft = height / 2 - radius;
+    const top = upperLeft + quarter;
+    const right = top + across + quarter;
+    const bottom = right + down + quarter;
+    const lowerLeft = bottom + across + quarter;
+    const perimeter = lowerLeft + upperLeft;
+    const path = [
+        `M ${x} ${y + height / 2}`,
+        `L ${x} ${y + radius}`,
+        `A ${radius} ${radius} 0 0 1 ${x + radius} ${y}`,
+        `L ${x + width - radius} ${y}`,
+        `A ${radius} ${radius} 0 0 1 ${x + width} ${y + radius}`,
+        `L ${x + width} ${y + height - radius}`,
+        `A ${radius} ${radius} 0 0 1 ${x + width - radius} ${y + height}`,
+        `L ${x + radius} ${y + height}`,
+        `A ${radius} ${radius} 0 0 1 ${x} ${y + height - radius}`,
+        'Z'
+    ].join(' ');
+    const { at } = handle;
+    let middle: number;
+    switch (handle.edge) {
+        case 'n':
+            middle = top + at.x - (x + radius);
+            break;
+        case 'e':
+            middle = right + at.y - (y + radius);
+            break;
+        case 's':
+            middle = bottom + x + width - radius - at.x;
+            break;
+        case 'w':
+            middle = at.y > y + height / 2 ? lowerLeft + y + height - radius - at.y : y + height / 2 - at.y;
+            break;
+        case 'nw':
+            middle = upperLeft + quarter / 2;
+            break;
+        case 'ne':
+            middle = top + across + quarter / 2;
+            break;
+        case 'se':
+            middle = right + down + quarter / 2;
+            break;
+        case 'sw':
+            middle = bottom + across + quarter / 2;
+            break;
     }
-    const [from, arcStart, control1, control2, arcEnd, to] = points.map(({ x, y }) => `${x} ${y}`);
-    return `M ${from} L ${arcStart} C ${control1} ${control2} ${arcEnd} L ${to}`;
+    const length = handle.edge.length === 2 ? quarter + (2 * CORNER_ARM) / zoom : handle.length;
+    return { path, perimeter, from: (middle - length / 2 + perimeter) % perimeter, length };
 }
 
 function sideHandle(

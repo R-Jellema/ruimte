@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { memo, useEffect, useMemo, useState, type RefObject } from 'react';
 import { HINT_HOT } from '@/canvas/port-hints';
-import { handlePath, heldHandle, RESIZE_CORNER, resizeHandle, type ResizeCandidate, type ResizeEdge, type ResizeHandle } from '@/canvas/resize-handles';
+import { handleRail, heldHandle, RESIZE_CORNER, resizeHandle, type ResizeCandidate, type ResizeEdge, type ResizeHandle } from '@/canvas/resize-handles';
 import { useWorldPointer } from '@/canvas/use-world-pointer';
 import { useCanvas } from '@/state/canvas';
 
@@ -72,27 +72,27 @@ export const ResizeHandles = memo(function ResizeHandles({ rootRef }: { rootRef:
     if (handle === null) {
         return null;
     }
-    const corner = handle.edge.length === 2;
+    const frame = nodes[handle.nodeId]!;
+    const rail = handleRail(frame, handle, zoom);
     return (
         <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width="1" height="1">
             <g style={{ opacity: handle.strength }} onPointerDown={() => setGrabbed({ nodeId: handle.nodeId, edge: handle.edge })}>
-                {corner ? <CornerArea handle={handle} zoom={zoom} /> : <PillArea handle={handle} zoom={zoom} />}
-                {/* One path for every shape, so moving from an edge into a corner bends the same handle.
-                    Keyed on the zoom, or a zoom step would glide where it should jump. */}
+                {handle.edge.length === 2 ? <CornerArea handle={handle} zoom={zoom} /> : <PillArea handle={handle} zoom={zoom} />}
+                {/* The whole rail, of which only the handle's stretch is drawn: a change of shape slides along
+                    it. Keyed on the zoom, or a zoom step would glide where it should jump. */}
                 <path
                     key={`${handle.nodeId}:${zoom}`}
+                    d={rail.path}
                     fill="none"
                     stroke={handle.hot ? 'var(--accent)' : 'var(--edge-line)'}
+                    strokeWidth={4 / zoom}
                     strokeLinecap="round"
-                    strokeLinejoin="round"
+                    // In style and not as attributes, so a change is one a transition sees.
+                    style={{ strokeDasharray: `${rail.length} ${rail.perimeter - rail.length}`, strokeDashoffset: -rail.from }}
                     className={clsx(
-                        morphing ? 'transition-[d,stroke-width,stroke]' : 'transition-[stroke-width,stroke]',
+                        morphing ? 'transition-[stroke-dasharray,stroke-dashoffset,stroke]' : 'transition-[stroke]',
                         'duration-150 ease-out motion-reduce:transition-none'
                     )}
-                    style={{
-                        d: `path("${handlePath(handle, zoom)}")`,
-                        strokeWidth: (corner ? 2 : 4) / zoom
-                    }}
                 />
             </g>
         </svg>
