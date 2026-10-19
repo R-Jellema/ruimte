@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { FolderGit2, LoaderCircle, Sparkles } from 'lucide-react';
 import type { GitCapabilitiesResult } from '@ruimte/contracts';
-import { Button, Icon, TextArea, Tooltip, KEY_SHORTCUTS, matchesShortcut } from '@adecore/ui';
+import { Button, Icon, IconButton, TextArea, Tooltip, KEY_SHORTCUTS, matchesShortcut } from '@adecore/ui';
 import { cancelGitRunAction, perform } from '@/actions/client-actions';
 import { commitTargets, nextActionId, splitMessage, type CommitCandidate } from '@/shell/panels/git-actions';
 import { CommitSuggestion } from './commit-suggestion';
@@ -40,6 +41,7 @@ export function CommitBox({ messageKey, checkouts, named, capabilities, busy, on
     const ready = subject !== '' && targets.length > 0 && !busy;
     /* A message is written from one repository's staged diff; over two there is no one diff to read. */
     const writeFrom = targets.length === 1 ? targets[0]!.path : null;
+    const canWrite = capabilities !== null && capabilities.messageProvider !== null;
 
     const source = JSON.stringify(targets.map((target) => [target.path, target.revision, target.status?.files]));
     useLayoutEffect(() => {
@@ -124,21 +126,41 @@ export function CommitBox({ messageKey, checkouts, named, capabilities, busy, on
                     <span className="truncate">{t('git.commit.in', { repos: targets.map((target) => target.label).join(', ') })}</span>
                 </div>
             )}
-            <TextArea
-                size="sm"
-                rows={3}
-                spellCheck={false}
-                aria-label={t('git.commit.label')}
-                placeholder={t('git.commit.placeholder')}
-                value={message}
-                onChange={(event) => useGit.getState().setMessage(messageKey, event.target.value)}
-                onKeyDown={(event) => {
-                    if (matchesShortcut(KEY_SHORTCUTS.modEnter, event, isApplePlatform())) {
-                        event.preventDefault();
-                        commit(false);
-                    }
-                }}
-            />
+            {/* The writer sits in the field it fills, so the row below holds only what commits. */}
+            <div className="relative flex flex-col">
+                <TextArea
+                    size="sm"
+                    rows={3}
+                    spellCheck={false}
+                    className={canWrite ? 'pr-8' : undefined}
+                    aria-label={t('git.commit.label')}
+                    placeholder={t('git.commit.placeholder')}
+                    value={message}
+                    onChange={(event) => useGit.getState().setMessage(messageKey, event.target.value)}
+                    onKeyDown={(event) => {
+                        if (matchesShortcut(KEY_SHORTCUTS.modEnter, event, isApplePlatform())) {
+                            event.preventDefault();
+                            commit(false);
+                        }
+                    }}
+                />
+                {canWrite && (
+                    <IconButton
+                        icon={writing ? LoaderCircle : Sparkles}
+                        size="sm"
+                        className={clsx('absolute right-1 bottom-1', writing && '[&_svg]:animate-spin')}
+                        label={
+                            writing
+                                ? t('git.commit.stopWriting')
+                                : writeFrom === null
+                                  ? t('git.commit.writeOneRepo')
+                                  : t('git.commit.letWrite', { provider: capabilities.messageProvider })
+                        }
+                        disabled={!changed || (writeFrom === null && !writing)}
+                        onClick={write}
+                    />
+                )}
+            </div>
             {offered !== null && offered.key === messageKey && offered.source === source && (
                 <div className="flex flex-col gap-2 rounded-md border border-border p-2">
                     <p className="text-xs text-text-muted">{t('git.commit.suggestionReady')}</p>
@@ -159,24 +181,7 @@ export function CommitBox({ messageKey, checkouts, named, capabilities, busy, on
                     </div>
                 </div>
             )}
-            <div className="flex flex-wrap items-center gap-2">
-                {capabilities !== null && capabilities.messageProvider !== null && (
-                    <Tooltip
-                        label={
-                            writing
-                                ? t('git.commit.stopWriting')
-                                : writeFrom === null
-                                  ? t('git.commit.writeOneRepo')
-                                  : t('git.commit.letWrite', { provider: capabilities.messageProvider })
-                        }
-                    >
-                        <Button size="sm" disabled={!changed || (writeFrom === null && !writing)} onClick={write}>
-                            <Icon icon={writing ? LoaderCircle : Sparkles} size={12} className={writing ? 'animate-spin' : undefined} />
-                            {writing ? t('git.commit.writing') : t('git.commit.write')}
-                        </Button>
-                    </Tooltip>
-                )}
-                <span className="grow" />
+            <div className="flex items-center justify-end gap-2">
                 <Tooltip label={ready ? t('git.commit.commitAndPushHint') : targets.length === 0 ? t('git.commit.needsStaged') : t('git.commit.needsMessage')}>
                     <Button size="sm" variant="secondary" disabled={!ready} onClick={() => commit(true)}>
                         {t('git.commit.commitAndPush')}
@@ -184,7 +189,7 @@ export function CommitBox({ messageKey, checkouts, named, capabilities, busy, on
                 </Tooltip>
                 <Tooltip label={stageAll ? t('git.commit.stageAllHint') : t('git.commit.commitStagedHint')}>
                     <Button size="sm" variant="primary" disabled={!ready} onClick={() => commit(false)}>
-                        {stageAll ? t('git.commit.stageAllAndCommit') : t('git.commit.commit')}
+                        {t('git.commit.commit')}
                     </Button>
                 </Tooltip>
             </div>
