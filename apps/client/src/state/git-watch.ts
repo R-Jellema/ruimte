@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
-import type { GitStatus } from '@ruimte/contracts';
+import type { GitStatus, GitWatchResult } from '@ruimte/contracts';
 import { HeldWatches, type HeldWatch } from '@/state/held-watches';
 import { currentEndpointId, endpointKey, useEndpointId } from '@/state/keys';
 import { machineTransport, transportFor } from '@/transport';
 import type { Transport } from '@/transport/transport';
 
 /* The checkouts this client is watching, counted, so the files panel letting go of what the git panel still looks at leaves neither blind. */
-export class GitWatches extends HeldWatches {
-    protected ask(link: Transport, cwd: string): Promise<unknown> {
-        return link.request('git.watch', { cwd });
+export class GitWatches extends HeldWatches<GitWatchResult> {
+    protected ask(link: Transport, cwd: string): Promise<GitWatchResult> {
+        return link.request('git.watch', { cwd, status: true });
     }
 
     protected unask(link: Transport, cwd: string): Promise<unknown> {
@@ -19,7 +19,7 @@ export class GitWatches extends HeldWatches {
 const gitWatches = new GitWatches(machineTransport);
 
 /* A watch on a checkout of the machine on screen. `renewed` reads again once a link that came back watches it again. */
-export function watchGit(cwd: string, renewed?: () => void): HeldWatch {
+export function watchGit(cwd: string, renewed?: () => void): HeldWatch<GitWatchResult> {
     return gitWatches.watch(currentEndpointId(), cwd, renewed);
 }
 
@@ -48,7 +48,13 @@ export function useGitStatus(cwd: string | null): GitStatus | null {
                 .catch(() => undefined);
         };
         const watch = watchGit(cwd, read);
-        void watch.ready.then(read);
+        void watch.answer.then((answer) => {
+            if (answer?.status === undefined) {
+                read();
+            } else if (!cancelled) {
+                setHeld({ key, status: answer.status });
+            }
+        });
         return () => {
             cancelled = true;
             watch.release();

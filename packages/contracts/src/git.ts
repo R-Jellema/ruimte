@@ -113,6 +113,18 @@ export const GitCwdPayloadSchema = z.object({
 });
 export type GitCwdPayload = z.infer<typeof GitCwdPayloadSchema>;
 
+export const GitWatchPayloadSchema = GitCwdPayloadSchema.extend({
+    // Asks for the status read once the watch is up, which spares a first read its own round trip.
+    status: z.boolean().optional()
+});
+export type GitWatchPayload = z.infer<typeof GitWatchPayloadSchema>;
+
+export const GitWatchResultSchema = z.object({
+    // Only when asked for; a daemon from before it answers none and the client reads the status itself.
+    status: GitStatusSchema.optional()
+});
+export type GitWatchResult = z.infer<typeof GitWatchResultSchema>;
+
 // `nested`: a repository that happens to sit under the project folder.
 export const GitRepoKindSchema = z.enum(['root', 'submodule', 'nested']);
 export type GitRepoKind = z.infer<typeof GitRepoKindSchema>;

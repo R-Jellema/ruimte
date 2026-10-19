@@ -244,7 +244,14 @@ export function useGitCheckouts(refs: readonly GitCheckoutRef[]): GitCheckouts {
             paces.set(cwd, pace);
             // The watch goes up before the first status, so a write in between is reported, not missed.
             const watch = watchGit(cwd, () => void read(cwd));
-            void watch.ready.then(() => read(cwd));
+            void watch.answer.then((answer) => {
+                if (answer?.status === undefined) {
+                    void read(cwd);
+                } else {
+                    show(cwd, answer.status);
+                    pace.mark();
+                }
+            });
             return { cwd, watch, pace };
         });
         return () => {

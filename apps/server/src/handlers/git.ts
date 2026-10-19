@@ -96,8 +96,10 @@ export function registerGitHandlers(
         await statuses.watch(client.id, payload.cwd);
         if (client.closed) {
             statuses.detachAll(client.id);
+            return {};
         }
-        return {};
+        // Read after the watch is up, so a write in between is in this status or reported after it.
+        return payload.status === true ? { status: await statuses.status(payload.cwd) } : {};
     });
 
     dispatcher.register('git.unwatch', (payload, client) => {

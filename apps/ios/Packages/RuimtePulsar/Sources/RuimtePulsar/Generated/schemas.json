@@ -49295,6 +49295,9 @@
       "cwd": {
         "type": "string",
         "minLength": 1
+      },
+      "status": {
+        "type": "boolean"
       }
     },
     "required": [
@@ -49304,7 +49307,136 @@
   "request.git.watch.result": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
-    "properties": {}
+    "properties": {
+      "status": {
+        "type": "object",
+        "properties": {
+          "repo": {
+            "type": "boolean"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "merge",
+              "rebase",
+              "cherry-pick",
+              "revert"
+            ]
+          },
+          "root": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "branch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "detached": {
+            "type": "boolean"
+          },
+          "upstream": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ahead": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "behind": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "base": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mergeBase": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "files": {
+            "maxItems": 1000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "oldPath": {
+                  "type": "string"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "staged",
+                    "unstaged",
+                    "untracked",
+                    "conflicted"
+                  ]
+                },
+                "status": {
+                  "type": "string"
+                },
+                "added": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "deleted": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "binary": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "path",
+                "state",
+                "status",
+                "added",
+                "deleted",
+                "binary"
+              ]
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "live": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "repo",
+          "root",
+          "branch",
+          "detached",
+          "upstream",
+          "ahead",
+          "behind",
+          "base",
+          "mergeBase",
+          "files",
+          "truncated",
+          "live"
+        ]
+      }
+    }
   },
   "request.git.unwatch.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",

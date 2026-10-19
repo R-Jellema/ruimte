@@ -9,7 +9,7 @@ function fakeLink(): { link: Transport; calls: string[]; setStatus(status: Trans
     const link = {
         request: (type: string, payload: { cwd: string }) => {
             calls.push(`${type} ${payload.cwd}`);
-            return Promise.resolve({});
+            return Promise.resolve(type === 'git.watch' ? { status: { cwd: payload.cwd } } : {});
         },
         on: () => () => undefined,
         status: 'open',
@@ -61,5 +61,16 @@ describe('GitWatches', () => {
         setStatus('closed');
         setStatus('open');
         expect(calls).toEqual(['git.watch /repo', 'git.watch /repo', 'git.unwatch /repo']);
+    });
+
+    test('only the reader that opened the watch gets the status it answered', async () => {
+        const { link } = fakeLink();
+        const watches = new GitWatches(() => link);
+        const panel = watches.watch('local', '/repo');
+        const tab = watches.watch('local', '/repo');
+        expect(await panel.answer).toEqual({ status: { cwd: '/repo' } } as never);
+        expect(await tab.answer).toBeUndefined();
+        panel.release();
+        tab.release();
     });
 });

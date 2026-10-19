@@ -38,6 +38,25 @@ test('a client that closed while its git.watch was set up leaves no watcher behi
     expect(fake.openOn(repo)).toHaveLength(0);
 });
 
+test('a git.watch that asks for the status answers it once the watch is up', async () => {
+    const repo = join(root, 'repo');
+    await initRepo(repo, { 'a.txt': 'a\n' });
+    const fake = new FakeWatch();
+    const statuses = new GitStatusWatcher('darwin', fake);
+    const dispatcher = new Dispatcher();
+    registerGitHandlers(dispatcher, {} as never, {} as never, statuses, {} as never);
+    const replies: ServerFrame[] = [];
+    const client = { id: 'phone', closed: false, send: (frame: ServerFrame) => replies.push(frame) };
+
+    await dispatcher.handle(client, JSON.stringify({ id: 'plain', type: 'git.watch', payload: { cwd: repo } }));
+    await dispatcher.handle(client, JSON.stringify({ id: 'asked', type: 'git.watch', payload: { cwd: join(repo, '.'), status: true } }));
+
+    const answers = replies.filter((frame) => 'ok' in frame);
+    expect(answers[0]).toMatchObject({ ok: true, result: {} });
+    expect(answers[1]).toMatchObject({ ok: true, result: { status: { root: repo } } });
+    statuses.detachAll('phone');
+});
+
 test('git.pr-watch refuses a chat the project does not place', async () => {
     const started: string[] = [];
     const watches = { start: (projectId: string, chatId: string) => (started.push(`${projectId}/${chatId}`), Promise.resolve({ chatId })) };
