@@ -325,8 +325,8 @@ export function isPdfMime(mime: string): boolean {
     return mime === FS_PDF_MIME;
 }
 
-// Binary models only: a `.gltf` is JSON whose buffers and textures may sit beside it, so it reads as text.
-export const FS_MODEL_MIMES = ['model/gltf-binary', 'model/vnd.usdz+zip'] as const;
+// Models that hold themselves whole: a `.gltf` is JSON whose buffers and textures may sit beside it, so it reads as text.
+export const FS_MODEL_MIMES = ['model/gltf-binary', 'model/vnd.usdz+zip', 'model/stl'] as const;
 
 export function isModelMime(mime: string): boolean {
     return (FS_MODEL_MIMES as readonly string[]).includes(mime);

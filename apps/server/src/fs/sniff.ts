@@ -116,8 +116,29 @@ function isUsdz(bytes: Uint8Array): boolean {
     return nameLength > 0 && bytes.length >= 30 + nameLength && USD_LAYER.test(latin1(bytes.subarray(30, 30 + nameLength)).toLowerCase());
 }
 
-/* The mime a file's first bytes claim, or null when nothing recognizes them. */
-export function sniffMime(bytes: Uint8Array): string | null {
+// An STL has no magic: a binary one is an 80-byte header, a triangle count and 50 bytes per triangle.
+const STL_HEADER_BYTES = 84;
+const STL_TRIANGLE_BYTES = 50;
+
+function isBinaryStl(bytes: Uint8Array, size: number): boolean {
+    if (bytes.length < STL_HEADER_BYTES) {
+        return false;
+    }
+    const triangles = uint32(bytes, 80, true);
+    return triangles > 0 && size === STL_HEADER_BYTES + STL_TRIANGLE_BYTES * triangles;
+}
+
+// An ASCII STL opens a solid and says `facet normal` soon after, or closes it at once when it is empty.
+function isAsciiStl(bytes: Uint8Array): boolean {
+    const head = latin1(bytes).trimStart().toLowerCase();
+    return /^solid(\s|$)/.test(head) && (/\bfacet\s+normal\b/.test(head) || /\bendsolid\b/.test(head));
+}
+
+/*
+ * The mime a file's first bytes claim, or null when nothing recognizes them. `size` is the whole
+ * file's, which a binary STL is recognized by; it defaults to the bytes given, for a file read whole.
+ */
+export function sniffMime(bytes: Uint8Array, size = bytes.length): string | null {
     for (const { mime, signature } of MAGIC) {
         if (startsWith(bytes, signature)) {
             return mime;
@@ -186,6 +207,10 @@ export function sniffMime(bytes: Uint8Array): string | null {
     const frame = frameSync(bytes);
     if (frame !== null) {
         return frame === 'aac' ? 'audio/aac' : 'audio/mpeg';
+    }
+    // The size rule goes first, since a binary header may just as well open with `solid`.
+    if (isBinaryStl(bytes, size) || isAsciiStl(bytes)) {
+        return 'model/stl';
     }
     return null;
 }

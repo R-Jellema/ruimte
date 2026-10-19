@@ -176,7 +176,7 @@ export async function inspect(path: string): Promise<{ file: FileStat; mime: str
     const file = await statFile(path);
     const head = new Uint8Array(await Bun.file(file.path).slice(0, SNIFF_BYTES).arrayBuffer());
     const bom = startsWithBom(head);
-    const magic = sniffMime(head);
+    const magic = sniffMime(head, file.size);
     if (magic) {
         return { file, mime: magic, bom };
     }

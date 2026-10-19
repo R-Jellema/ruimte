@@ -253,7 +253,7 @@ function isUtf8(bytes: Uint8Array): boolean {
 /* What an entry's own bytes claim, the way `inspect` reads a file: a known format, text, or a binary nothing draws. */
 export function entryMime(bytes: Uint8Array): string {
     const head = bytes.subarray(0, SNIFF_BYTES);
-    const magic = sniffMime(head);
+    const magic = sniffMime(head, bytes.length);
     if (magic !== null) {
         return magic;
     }

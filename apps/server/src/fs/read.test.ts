@@ -24,6 +24,14 @@ function ftyp(major: string, ...compatible: string[]): Buffer {
 const ICO = Buffer.from([0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x10, 0x10, 0x00, 0x00, 0x01, 0x00, 0x20, 0x00, ...new Array(8).fill(0)]);
 const BMP = Buffer.concat([Buffer.from('BM'), Buffer.from([0x46, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0x36, 0, 0, 0, 0x28, 0, 0, 0]), Buffer.alloc(8)]);
 
+/* A binary STL with `triangles` zeroed triangles behind an 80-byte header that opens with `header`. */
+function binaryStl(triangles: number, header = ''): Buffer {
+    const bytes = Buffer.alloc(84 + 50 * triangles);
+    bytes.write(header, 0, 'latin1');
+    bytes.writeUInt32LE(triangles, 80);
+    return bytes;
+}
+
 /* The header of a binary glTF: the magic, a container version and the total length. */
 function glb(version: number): Buffer {
     const header = Buffer.alloc(12);
@@ -130,6 +138,27 @@ describe('the binary sniff', () => {
         expect(sniffMime(new Uint8Array(zipEntry('teapot.usdc').subarray(0, 36)))).toBe('application/zip');
     });
 
+    test('names a binary STL by its size and an ASCII STL by its opening words', () => {
+        const ascii = 'solid bracket\n  facet normal 0 0 1\n    outer loop\n      vertex 0 0 0\n    endloop\n  endfacet\nendsolid bracket\n';
+        expect(sniffMime(binaryStl(2))).toBe('model/stl');
+        expect(sniffMime(latin1(ascii))).toBe('model/stl');
+        expect(sniffMime(latin1('\n\t SOLID part\nFacet  Normal 0 0 1\n'))).toBe('model/stl');
+        expect(sniffMime(latin1('solid empty\nendsolid empty\n'))).toBe('model/stl');
+        // Many exporters write their name into the binary header, `solid` included.
+        expect(sniffMime(binaryStl(3, 'solid exported by a CAD tool'))).toBe('model/stl');
+        // Only the head was read: the size of the whole file is what has to match.
+        expect(sniffMime(binaryStl(3).subarray(0, 100), 84 + 50 * 3)).toBe('model/stl');
+    });
+
+    test('takes nothing for an STL that only looks like one', () => {
+        expect(sniffMime(latin1('solid ground is what this note is about.\n'))).toBeNull();
+        expect(sniffMime(latin1('solidarity\nendsolid\n'))).toBeNull();
+        const stl = binaryStl(2);
+        expect(sniffMime(stl.subarray(0, stl.length - 1))).toBeNull();
+        expect(sniffMime(stl, stl.length + 50)).toBeNull();
+        expect(sniffMime(binaryStl(0))).toBeNull();
+    });
+
     test('names a zip, an empty zip, a gzip and a ustar tar', () => {
         expect(sniffMime(latin1('PK\x05\x06' + '\x00'.repeat(18)))).toBe('application/zip');
         expect(sniffMime(new Uint8Array([0x1f, 0x8b, 0x08, 0x00]))).toBe('application/gzip');
@@ -230,7 +259,9 @@ describe('fs.read', () => {
             'scan.tiff': Buffer.from('II*\x00\x08\x00\x00\x00', 'latin1'),
             'paper.pdf': Buffer.from('%PDF-1.7\n'),
             'duck.glb': glb(2),
-            'teapot.usdz': zipEntry('teapot.usdc')
+            'teapot.usdz': zipEntry('teapot.usdc'),
+            'bracket.stl': binaryStl(2, 'solid bracket'),
+            'gear.stl': 'solid gear\nfacet normal 0 0 1\nendfacet\nendsolid gear\n'
         };
         const mimes = await Promise.all(Object.entries(served).map(async ([name, bytes]) => (await readServedFile(await write(name, bytes)))?.mime));
         expect(mimes).toEqual([
@@ -242,7 +273,9 @@ describe('fs.read', () => {
             'image/tiff',
             'application/pdf',
             'model/gltf-binary',
-            'model/vnd.usdz+zip'
+            'model/vnd.usdz+zip',
+            'model/stl',
+            'model/stl'
         ]);
         expect(await readServedFile(await write('archive.zip', zipEntry('README.md')))).toBeNull();
         expect(await readFile(await write('bundle.zip', zipEntry('README.md')))).toMatchObject({ kind: 'binary', mime: 'application/zip' });
