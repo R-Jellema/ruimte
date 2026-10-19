@@ -180,13 +180,18 @@ function sideHandle(
     if (!held && along > length - RESIZE_CORNER) {
         return cornerHandle(node, endCorner, strength, near);
     }
-    // The middle of an edge is the port's: near it the pointer gets the port and no handle.
-    if (!held && Math.abs(along - length / 2) < PORT_CLEAR + pill / 2) {
+    const port = length / 2;
+    // The middle of an edge is the port's: the pill stops beside it and fades out as the pointer goes on to it.
+    const fade = held ? 1 : Math.min(1, Math.max(0, (Math.abs(along - port) - PORT_CLEAR) / pill));
+    if (fade === 0) {
         return null;
     }
-    const middle = Math.max(RESIZE_CORNER + pill / 2, Math.min(length - RESIZE_CORNER - pill / 2, along));
+    let middle = Math.max(RESIZE_CORNER + pill / 2, Math.min(length - RESIZE_CORNER - pill / 2, along));
+    if (!held && Math.abs(middle - port) < PORT_CLEAR + pill / 2) {
+        middle = middle < port ? port - PORT_CLEAR - pill / 2 : port + PORT_CLEAR + pill / 2;
+    }
     const onPill = Math.abs(along - middle) <= pill / 2;
-    return { ...pillAt(node, side, middle, pill, zoom), strength, hot: near && (held || onPill) };
+    return { ...pillAt(node, side, middle, pill, zoom), strength: strength * fade, hot: near && (held || (onPill && fade === 1)) };
 }
 
 function pillAt(node: Rect & { id: string }, side: ResizeSide, middle: number, pill: number, zoom: number): Omit<ResizeHandle, 'strength' | 'hot'> {

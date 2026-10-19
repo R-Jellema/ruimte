@@ -24,6 +24,15 @@ describe('resizeHandle', () => {
         expect(resizeHandle([node], { x: 240, y: -5 }, 1)?.edge).toBe('n');
     });
 
+    test('fades out beside the port as the pointer goes on to it', () => {
+        const far = resizeHandle([node], { x: 260, y: -5 }, 1)!;
+        const near = resizeHandle([node], { x: 230, y: -5 }, 1)!;
+        expect(far.strength).toBe(1);
+        expect(near.strength).toBeGreaterThan(0);
+        expect(near.strength).toBeLessThan(1);
+        expect(near.at.x).toBe(200 + 14 + 18);
+    });
+
     test('near the end of an edge it becomes the corner', () => {
         expect(resizeHandle([node], { x: 395, y: -6 }, 1)?.edge).toBe('ne');
         expect(resizeHandle([node], { x: -6, y: 206 }, 1)?.edge).toBe('sw');
