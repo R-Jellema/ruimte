@@ -2432,10 +2432,14 @@ describe('view new', () => {
     });
 
     test('a project holds only so many rows', async () => {
-        const start = (await onDisk()).views.length;
-        for (let index = start; index < MAX_PROJECT_VIEWS; index += 1) {
-            await post('view', ['new', `View ${index}`]);
-        }
+        await store.mutate(projectId, (current) => {
+            const next = structuredClone(current);
+            for (let index = next.views.length; index < MAX_PROJECT_VIEWS - 1; index += 1) {
+                next.views.push({ kind: 'canvas', id: `view-${index}`, name: `View ${index}`, nodes: [], texts: [], edges: [], layouts: [] });
+            }
+            return { content: next, result: null };
+        });
+        expect((await post('view', ['new', 'The last one'])).status).toBe(200);
         const { status, lines } = await post('view', ['new', 'One too many']);
         expect(status).toBe(422);
         expect(lines[0]).toBe(`refused\ttoo-many-views\tThis project has ${MAX_PROJECT_VIEWS} views and a project holds at most ${MAX_PROJECT_VIEWS}`);

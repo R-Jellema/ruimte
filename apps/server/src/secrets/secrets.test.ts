@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { LAUNCH_SECRET_REFERENCE, type LaunchConfigEntry } from '@ruimte/contracts';
 import { FakeWatch } from '@adecore/agents/testing';
 import { MachineHome } from '../fs/machine-home.ts';
@@ -58,10 +58,12 @@ describe('SecretStore', () => {
         await secrets.write('p1', { launchId: 'api', variable: 'API_KEY' }, VALUE);
         await secrets.write('p1', { launchId: 'api', variable: 'API_KEY' }, 'second');
         const path = secrets.pathOf('p1');
-        expect((await stat(path)).mode & 0o777).toBe(0o600);
-        expect((await stat(join(home, 'secrets'))).mode & 0o777).toBe(0o700);
+        if (process.platform !== 'win32') {
+            expect((await stat(path)).mode & 0o777).toBe(0o600);
+            expect((await stat(join(home, 'secrets'))).mode & 0o777).toBe(0o700);
+        }
         // No temporary file is left beside it.
-        expect(await readdir(join(home, 'secrets'))).toEqual([path.split('/').at(-1)!]);
+        expect(await readdir(join(home, 'secrets'))).toEqual([basename(path)]);
         expect(path).not.toContain('p1');
         expect(await secrets.has('p1', { launchId: 'api', variable: 'API_KEY' })).toBe(true);
         expect(await secrets.resolveEnv('p1', 'api', { API_KEY: LAUNCH_SECRET_REFERENCE })).toEqual({ API_KEY: 'second' });

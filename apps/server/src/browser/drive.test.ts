@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import type { BrowserDriveAction, BrowserInfo, BrowserPageState } from '@ruimte/contracts';
 import { BrowserDriver, type DriveOutcome } from './drive.ts';
 
@@ -132,8 +132,8 @@ describe('BrowserDriver', () => {
         ownPage = infoOf('page-1');
         await driverOf().shot('page-1');
         const names = await readdir(folder);
-        expect(names).not.toContain(old.split('/').at(-1)!);
-        expect(names).toContain(recent.split('/').at(-1)!);
+        expect(names).not.toContain(basename(old));
+        expect(names).toContain(basename(recent));
     });
 
     test('a client that holds the page but cannot photograph it says so instead of writing a file', async () => {

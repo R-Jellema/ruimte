@@ -20,7 +20,9 @@ describe('the peer key', () => {
         const first = new PeerKey(home);
         const publicKey = await first.publicKey();
         expect(publicKey).toMatch(/^[A-Za-z0-9_-]{43}$/);
-        expect((await stat(join(home, PEER_KEY_FILE))).mode & 0o777).toBe(0o600);
+        if (process.platform !== 'win32') {
+            expect((await stat(join(home, PEER_KEY_FILE))).mode & 0o777).toBe(0o600);
+        }
         expect(await new PeerKey(home).publicKey()).toBe(publicKey);
     });
 

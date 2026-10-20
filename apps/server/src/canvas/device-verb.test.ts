@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import type { DeviceInfo, ProjectContent, ProjectEdge, ProjectNode } from '@ruimte/contracts';
 import { ManualTimers } from '../computer/computer-test-helpers.ts';
 import { DeviceDriver } from '../devices/agent-driver.ts';
@@ -171,7 +171,9 @@ describe('ruimte-context device', () => {
 
     test('writes a shot and prints its path and size, then taps in its pixels', async () => {
         const [line] = await run(['shot', 'phone-1']);
-        expect(line).toMatch(new RegExp(`^shot\\t${join(home, 'screenshots')}/phone-1-\\d+\\.png\\t1000x2000\\t`));
+        const [kind, path, size] = line!.split('\t');
+        expect([kind, dirname(path!), size]).toEqual(['shot', join(home, 'screenshots'), '1000x2000']);
+        expect(basename(path!)).toMatch(/^phone-1-\d+\.png$/);
         expect(await run(['tap', 'phone-1', '--at', '500,500'])).toEqual([
             'done\ttap\tphone-1\tiPhone 18 Pro',
             'next\truimte-context device shot <id>\tshows what it did'
@@ -437,7 +439,9 @@ describe('ruimte-context device tools', () => {
         expect(backend.clipboard).toBe('mine');
 
         const [line] = await run(['record', 'phone-1', '--seconds', '5']);
-        expect(line).toMatch(new RegExp(`^recording\\t${join(home, 'device-captures')}/phone-1-\\d+\\.mp4\\t`));
+        const [kind, path] = line!.split('\t');
+        expect([kind, dirname(path!)]).toEqual(['recording', join(home, 'device-captures')]);
+        expect(basename(path!)).toMatch(/^phone-1-\d+\.mp4$/);
         expect(backend.recordings).toEqual([{ file: line!.split('\t')[1]!, stopped: true }]);
         expect((await run(['record', 'phone-1', '--seconds', '61']))[0]).toStartWith('refused\tbad-arguments\t--seconds is between 1 and 60');
     });

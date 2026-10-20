@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { GITIGNORE_TEXT } from './project-files.ts';
 import { PROJECT_VERSION, ProjectOpenResultSchema, emptyCanvasView, type ProjectCanvasView, type ProjectContent } from '@ruimte/contracts';
 import { FakeWatch } from '@adecore/agents/testing';
@@ -804,6 +804,8 @@ describe('the project index', () => {
 });
 
 describe('portable paths', () => {
+    const REPO = resolve('/repo');
+
     test('paths inside the folder go relative, the folder itself is a dot, outside stays absolute', () => {
         const portable = toPortable(
             {
@@ -815,27 +817,27 @@ describe('portable paths', () => {
                         id: 'main',
                         name: 'Canvas',
                         nodes: [
-                            { id: 'a', kind: 'terminal', title: '', x: 0, y: 0, w: 1, h: 1, cwd: '/repo/apps' },
-                            { id: 'b', kind: 'terminal', title: '', x: 0, y: 0, w: 1, h: 1, cwd: '/repo' },
+                            { id: 'a', kind: 'terminal', title: '', x: 0, y: 0, w: 1, h: 1, cwd: join(REPO, 'apps') },
+                            { id: 'b', kind: 'terminal', title: '', x: 0, y: 0, w: 1, h: 1, cwd: REPO },
                             { id: 'c', kind: 'terminal', title: '', x: 0, y: 0, w: 1, h: 1, cwd: '/elsewhere' },
                             { id: 'd', kind: 'chat', title: '', x: 0, y: 0, w: 1, h: 1 },
-                            { id: 'f', kind: 'terminal', title: '', x: 0, y: 0, w: 1, h: 1, cwd: '/repo/..cache' }
+                            { id: 'f', kind: 'terminal', title: '', x: 0, y: 0, w: 1, h: 1, cwd: join(REPO, '..cache') }
                         ],
                         texts: [],
                         edges: [],
                         layouts: []
                     },
-                    { kind: 'terminal', id: 'e', name: 'deploy', node: { cwd: '/repo/apps/server' } }
+                    { kind: 'terminal', id: 'e', name: 'deploy', node: { cwd: join(REPO, 'apps', 'server') } }
                 ]
             },
-            '/repo'
+            REPO
         );
         expect(canvas(portable).nodes.map((node) => node.cwd)).toEqual(['./apps', '.', '/elsewhere', undefined, './..cache']);
         // A standalone view carries a folder too, and travels the same way.
         expect(portable.views[1]).toMatchObject({ node: { cwd: './apps/server' } });
-        const back = fromPortable(portable, '/repo');
-        expect(canvas(back).nodes.map((node) => node.cwd)).toEqual(['/repo/apps', '/repo', '/elsewhere', undefined, '/repo/..cache']);
-        expect(back.views[1]).toMatchObject({ node: { cwd: '/repo/apps/server' } });
+        const back = fromPortable(portable, REPO);
+        expect(canvas(back).nodes.map((node) => node.cwd)).toEqual([join(REPO, 'apps'), REPO, '/elsewhere', undefined, join(REPO, '..cache')]);
+        expect(back.views[1]).toMatchObject({ node: { cwd: join(REPO, 'apps', 'server') } });
     });
 
     test('a relative folder that climbs out of the project is dropped on the way in', () => {
@@ -858,10 +860,10 @@ describe('portable paths', () => {
                     }
                 ]
             },
-            '/repo'
+            REPO
         );
         expect(canvas(back).nodes[0]).not.toHaveProperty('cwd');
-        expect(canvas(back).nodes[1]!.cwd).toBe('/repo/server');
+        expect(canvas(back).nodes[1]!.cwd).toBe(join(REPO, 'server'));
     });
 });
 

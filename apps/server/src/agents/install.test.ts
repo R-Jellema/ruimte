@@ -152,7 +152,9 @@ describe('installHooks', () => {
 
         expect(await installHooks(link, 'claude')).toEqual({ result: 'written', createdFile: false, createdHooksKey: true });
         expect((await lstat(link)).isSymbolicLink()).toBe(true);
-        expect((await stat(target)).mode & 0o777).toBe(0o600);
+        if (process.platform !== 'win32') {
+            expect((await stat(target)).mode & 0o777).toBe(0o600);
+        }
         const written = JSON.parse(await readFile(target, 'utf8'));
         expect(written.model).toBe('opus');
         expect(JSON.stringify(written.hooks)).toContain(HOOK_MARKER);
@@ -188,8 +190,8 @@ describe('installCodexRules', () => {
     });
 
     test('lands in the rules folder of CODEX_HOME', () => {
-        expect(defaultCodexRulesPath({ CODEX_HOME: '/x/codex', HOME: '/home/a' })).toBe('/x/codex/rules/ruimte.rules');
-        expect(defaultCodexRulesPath({ HOME: '/home/a' })).toBe('/home/a/.codex/rules/ruimte.rules');
+        expect(defaultCodexRulesPath({ CODEX_HOME: '/x/codex', HOME: '/home/a' })).toBe(join('/x/codex', 'rules', 'ruimte.rules'));
+        expect(defaultCodexRulesPath({ HOME: '/home/a' })).toBe(join('/home/a', '.codex', 'rules', 'ruimte.rules'));
     });
 });
 

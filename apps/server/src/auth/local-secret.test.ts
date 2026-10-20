@@ -21,8 +21,10 @@ describe('the local secret', () => {
 
         const first = await readOrCreateLocalSecret(home);
         expect(first.length).toBeGreaterThan(40);
-        expect((await stat(localSecretPath(home))).mode & 0o777).toBe(0o600);
-        expect((await stat(home)).mode & 0o777).toBe(0o700);
+        if (process.platform !== 'win32') {
+            expect((await stat(localSecretPath(home))).mode & 0o777).toBe(0o600);
+            expect((await stat(home)).mode & 0o777).toBe(0o700);
+        }
 
         expect(await readOrCreateLocalSecret(home)).toBe(first);
         expect(await readLocalSecret(home)).toBe(first);

@@ -298,7 +298,7 @@ describe('renderCommand', () => {
         expect(renderCommand(false, '/bin/bun', ['--conditions=source', '--watch'], '/repo/apps/server/src')).toEqual([
             '/bin/bun',
             '--conditions=source',
-            '/repo/apps/server/src/main.ts',
+            join('/repo/apps/server/src', 'main.ts'),
             'visual-render'
         ]);
     });

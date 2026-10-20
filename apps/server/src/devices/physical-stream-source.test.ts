@@ -11,11 +11,13 @@ afterEach(async () => {
 });
 
 test('the production helper lives beside the compiled daemon', () => {
-    expect(physicalStreamHelperPath(true, '/Applications/Ruimte/server', '/source/server')).toBe('/Applications/Ruimte/native/ios-device-bridge');
+    expect(physicalStreamHelperPath(true, '/Applications/Ruimte/server', '/source/server')).toBe(join('/Applications/Ruimte', 'native', 'ios-device-bridge'));
 });
 
 test('the development helper is loaded from the Rust release build', () => {
-    expect(physicalStreamHelperPath(false, '/usr/local/bin/bun', '/source/apps')).toBe('/source/apps/ios-device-bridge/target/release/ios-device-bridge');
+    expect(physicalStreamHelperPath(false, '/usr/local/bin/bun', '/source/apps')).toBe(
+        join('/source/apps', 'ios-device-bridge', 'target', 'release', 'ios-device-bridge')
+    );
 });
 
 test('the HEVC source is only offered when the Rust helper exists', async () => {

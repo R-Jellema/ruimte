@@ -294,7 +294,9 @@ describe('the copy the service runs', () => {
         const binDir = join(dir, 'home', 'bin');
         copyServiceBinaries(packageBin(join(dir, 'first'), 'one', ['scrcpy-server', 'ruimte-foundation-models']), binDir, 'darwin');
         expect(readFileSync(join(binDir, 'native', 'scrcpy-server'), 'utf8')).toBe('scrcpy-server');
-        expect(statSync(join(binDir, 'native', 'ruimte-foundation-models')).mode & 0o111).not.toBe(0);
+        if (process.platform !== 'win32') {
+            expect(statSync(join(binDir, 'native', 'ruimte-foundation-models')).mode & 0o111).not.toBe(0);
+        }
 
         copyServiceBinaries(packageBin(join(dir, 'second'), 'two', ['scrcpy-server']), binDir, 'darwin');
         expect(readFileSync(join(binDir, 'ruimte.build'), 'utf8')).toBe('two');

@@ -7,17 +7,22 @@ import { ExternalChatSessions, ownSessionSources, resumesOfViews, type ExternalC
 const folder = '/work/app';
 const line = (text: string) => JSON.stringify({ type: 'user', message: { role: 'user', content: text } });
 
+/* The files are written with forward slashes; the daemon joins the paths it asks for in the form of its platform. */
+function posix(path: string): string {
+    return path.replaceAll('\\', '/');
+}
+
 function fsOf(files: Record<string, string>): SessionFs {
     return {
         readdir: async (path) => [
             ...new Set(
                 Object.keys(files)
-                    .filter((file) => file.startsWith(`${path}/`))
+                    .filter((file) => file.startsWith(`${posix(path)}/`))
                     .map((file) => file.slice(path.length + 1).split('/')[0]!)
             )
         ],
-        stat: async (path) => (path in files ? { mtimeMs: path.includes('newer') ? 20 : 10 } : null),
-        readHead: async (path) => files[path] ?? ''
+        stat: async (path) => (posix(path) in files ? { mtimeMs: path.includes('newer') ? 20 : 10 } : null),
+        readHead: async (path) => files[posix(path)] ?? ''
     };
 }
 
@@ -64,7 +69,7 @@ describe('sessions started outside Ruimte', () => {
         const fs = fsOf({});
         const broken: SessionFs = {
             ...fs,
-            readdir: async (path) => (path.startsWith('/work-claude') ? Promise.reject(new Error('denied')) : fs.readdir(path))
+            readdir: async (path) => (posix(path).startsWith('/work-claude') ? Promise.reject(new Error('denied')) : fs.readdir(path))
         };
         const { failed } = await setup({ fs: broken }).list('p1', 'client');
         expect(failed).toEqual([{ provider: 'claude', reason: 'denied' }]);

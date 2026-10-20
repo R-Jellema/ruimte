@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { join } from 'node:path';
 import { SelfUpdater, buildFileOf, readBuildFile, selfUpdateVerdict, type SelfUpdateTimers, type SelfUpdaterOptions } from './self-update.ts';
 
 describe('selfUpdateVerdict', () => {
@@ -44,7 +45,9 @@ describe('selfUpdateVerdict', () => {
 
 describe('the build file', () => {
     test('sits beside the binary', () => {
-        expect(buildFileOf('/Applications/Ruimte.app/Contents/Resources/bin/ruimte')).toBe('/Applications/Ruimte.app/Contents/Resources/bin/ruimte.build');
+        expect(buildFileOf('/Applications/Ruimte.app/Contents/Resources/bin/ruimte')).toBe(
+            join('/Applications/Ruimte.app/Contents/Resources/bin', 'ruimte.build')
+        );
     });
 
     test('is read trimmed, and a missing or empty one is null', () => {

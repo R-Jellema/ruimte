@@ -43,8 +43,10 @@ describe('extracting an archive', () => {
         const result = await extract({ path, to });
         expect(result).toMatchObject({ to, files: 2, directories: 2, bytes: 13, skipped: [], skippedTotal: 0 });
         expect(await readFile(join(to, 'docs', 'a.md'), 'utf-8')).toBe('# A');
-        expect((await stat(join(to, 'run.sh'))).mode & 0o100).toBe(0o100);
-        expect((await stat(join(to, 'docs', 'a.md'))).mode & 0o111).toBe(0);
+        if (process.platform !== 'win32') {
+            expect((await stat(join(to, 'run.sh'))).mode & 0o100).toBe(0o100);
+            expect((await stat(join(to, 'docs', 'a.md'))).mode & 0o111).toBe(0);
+        }
         expect((await stat(join(to, 'empty'))).isDirectory()).toBe(true);
     });
 

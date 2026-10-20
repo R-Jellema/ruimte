@@ -36,7 +36,7 @@ async function names(folder: string): Promise<string[]> {
 
 describe('ownFolderOf', () => {
     test('is the folder of a chat id in the scratch folder', () => {
-        expect(ownFolderOf('/home/.ruimte/scratch', 'chat-1')).toBe('/home/.ruimte/scratch/chat-1');
+        expect(ownFolderOf('/home/.ruimte/scratch', 'chat-1')).toBe(join('/home/.ruimte/scratch', 'chat-1'));
     });
 
     test('refuses an id that is more than one name', () => {

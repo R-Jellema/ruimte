@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { writeFile } from 'node:fs/promises';
+import { basename } from 'node:path';
 import type { DeviceAction } from '@ruimte/contracts';
 import { FakeRecorder, pngOf } from './device-test-helpers.ts';
 import { DeviceHelperSource } from './helper-source.ts';
@@ -135,7 +136,7 @@ describe('IosSimulatorBackend', () => {
 
         expect(await backend.screenshot('phone-1')).toEqual(pngOf(1206, 2622));
         expect(calls[0]!.slice(0, 4)).toEqual(['io', 'phone-1', 'screenshot', '--type=png']);
-        expect(calls[0]!.at(-1)).toEndWith('/screen.png');
+        expect(basename(calls[0]!.at(-1)!)).toBe('screen.png');
     });
 
     test('pastes text through the pasteboard, a newline as Return, waiting after each paste', async () => {

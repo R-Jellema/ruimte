@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { AgentIntegrations, IntegrationsFixed } from './integrations.ts';
 import { CODEX_RULES, hookEntry, installHooks } from './install.ts';
 
@@ -17,7 +17,7 @@ function integrations(fixed = false): AgentIntegrations {
 /* Every file below a folder, relative, so a test can say nothing was written outside the home. */
 async function tree(folder: string): Promise<string[]> {
     const entries = await readdir(folder, { recursive: true, withFileTypes: true }).catch(() => []);
-    return entries.filter((entry) => entry.isFile()).map((entry) => join(entry.parentPath, entry.name).slice(folder.length));
+    return entries.filter((entry) => entry.isFile()).map((entry) => join(entry.parentPath, entry.name).slice(folder.length).split(sep).join('/'));
 }
 
 function settingsPath(): string {

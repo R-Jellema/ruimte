@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test';
+import { normalize } from 'node:path';
 import { locateAndroidSdk, type AndroidSdkEnvironment } from './android-sdk.ts';
 
 function environment(overrides: Partial<AndroidSdkEnvironment> & { files?: string[] }): AndroidSdkEnvironment {
-    const files = new Set(overrides.files ?? []);
+    // The SDK joins its paths in the form of the platform the test runs on.
+    const files = new Set((overrides.files ?? []).map((file) => normalize(file)));
     return {
         env: {},
         platform: 'darwin',
@@ -25,9 +27,9 @@ describe('locateAndroidSdk', () => {
         );
 
         expect(sdk).toEqual({
-            adb: '/Users/bas/Development/Environment/android-sdk/platform-tools/adb',
-            emulator: '/Users/bas/Development/Environment/android-sdk/emulator/emulator',
-            avdHome: '/Users/bas/.android/avd'
+            adb: normalize('/Users/bas/Development/Environment/android-sdk/platform-tools/adb'),
+            emulator: normalize('/Users/bas/Development/Environment/android-sdk/emulator/emulator'),
+            avdHome: normalize('/Users/bas/.android/avd')
         });
     });
 
@@ -39,7 +41,7 @@ describe('locateAndroidSdk', () => {
             })
         );
 
-        expect(sdk).toEqual({ adb: '/opt/android/platform-tools/adb', emulator: null, avdHome: '/data/avd' });
+        expect(sdk).toEqual({ adb: normalize('/opt/android/platform-tools/adb'), emulator: null, avdHome: '/data/avd' });
     });
 
     test('falls back to the default folder of the platform', () => {
@@ -51,14 +53,14 @@ describe('locateAndroidSdk', () => {
             })
         );
 
-        expect(sdk?.emulator).toBe('/home/bas/Android/Sdk/emulator/emulator');
+        expect(sdk?.emulator).toBe(normalize('/home/bas/Android/Sdk/emulator/emulator'));
     });
 
     test('keeps a lone adb on PATH that sits in no SDK, and nothing without one', () => {
         expect(locateAndroidSdk(environment({ which: () => '/opt/homebrew/bin/adb' }))).toEqual({
             adb: '/opt/homebrew/bin/adb',
             emulator: null,
-            avdHome: '/Users/bas/.android/avd'
+            avdHome: normalize('/Users/bas/.android/avd')
         });
         expect(locateAndroidSdk(environment({}))).toBeNull();
     });

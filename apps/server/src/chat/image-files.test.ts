@@ -75,7 +75,9 @@ describe('ChatImageFiles', () => {
         await chmod(path, 0o4750);
         const target = await files.target(payload, 'person');
         await files.save({ ...payload, replace: target.revision! }, 'person');
-        expect((await stat(path)).mode & 0o7777).toBe(0o750);
+        if (process.platform !== 'win32') {
+            expect((await stat(path)).mode & 0o7777).toBe(0o750);
+        }
     });
 
     test('a replacement does not write through hard links to another folder', async () => {

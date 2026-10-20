@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { chmod, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { browseDirectories, resolveBrowsePath } from './browse.ts';
 import { revealCommand } from './reveal.ts';
 
@@ -25,21 +25,21 @@ afterEach(async () => {
 
 describe('resolveBrowsePath', () => {
     test('expands the home tilde, resolves relative paths against cwd, and refuses what it cannot', () => {
-        expect(resolveBrowsePath('~/x', undefined, { home: '/home/me', platform: 'linux' })).toBe('/home/me/x');
-        expect(resolveBrowsePath('~', undefined, { home: '/home/me', platform: 'linux' })).toBe('/home/me');
-        expect(resolveBrowsePath('./a', '/repo', { platform: 'linux' })).toBe('/repo/a');
+        expect(resolveBrowsePath('~/x', undefined, { home: '/home/me', platform: 'linux' })).toBe(join('/home/me', 'x'));
+        expect(resolveBrowsePath('~', undefined, { home: '/home/me', platform: 'linux' })).toBe(join('/home/me'));
+        expect(resolveBrowsePath('./a', '/repo', { platform: 'linux' })).toBe(resolve('/repo', 'a'));
         expect(() => resolveBrowsePath('../a', undefined, { platform: 'linux' })).toThrow('open project');
         expect(() => resolveBrowsePath('C:\\Users', undefined, { platform: 'darwin' })).toThrow('Windows path');
-        expect(resolveBrowsePath('/abs/x', undefined, { platform: 'linux' })).toBe('/abs/x');
+        expect(resolveBrowsePath('/abs/x', undefined, { platform: 'linux' })).toBe(resolve('/abs/x'));
     });
 });
 
 describe('browseDirectories', () => {
     test('a path ending in a separator lists directories only, hidden ones left out, canvases marked', async () => {
-        const result = await browseDirectories(`${root}/`, undefined, { platform: 'linux' });
+        const result = await browseDirectories(`${root}/`, undefined);
         expect(result.parentPath).toBe(root);
         expect(result.entries.map((entry) => entry.name)).toEqual(['apps', 'assets']);
-        const server = await browseDirectories(`${root}/apps/`, undefined, { platform: 'linux' });
+        const server = await browseDirectories(`${root}/apps/`, undefined);
         expect(server.entries).toEqual([{ name: 'server', fullPath: join(root, 'apps', 'server'), hasCanvas: true }]);
     });
 

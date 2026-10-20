@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { ACTION_DEFINITIONS } from '@ruimte/actions';
 import type { ProjectContent } from '@ruimte/contracts';
 import { ManualClock } from '@adecore/agents/testing';
@@ -226,7 +226,7 @@ describe('finding an agent image', () => {
             const found = await daemon.chats.findAttachment('chat-lead', id!);
             expect(found!.name).toBe(kept!);
             expect(found!.name).toBe(name.length > 150 ? name.slice(0, found!.name.length) : name.replaceAll(/[\t\n]/g, ''));
-            expect(Buffer.byteLength(found!.path.split('/').pop()!)).toBeLessThan(255);
+            expect(Buffer.byteLength(basename(found!.path))).toBeLessThan(255);
         }
     });
 
@@ -245,9 +245,7 @@ describe('finding an agent image', () => {
         await symlink(outside, join(home, 'attachments', 'chat-lead', `${linked}.png`));
         expect(await daemon.chats.findAttachment('chat-lead', linked)).toBeNull();
         await daemon.chats.copyAgentImages('chat-lead', 'chat-fork-2');
-        expect(await readdir(join(home, 'attachments', 'chat-fork-2'))).toEqual([
-            (await daemon.chats.findAttachment('chat-lead', id!))!.path.split('/').pop()!
-        ]);
+        expect(await readdir(join(home, 'attachments', 'chat-fork-2'))).toEqual([basename((await daemon.chats.findAttachment('chat-lead', id!))!.path)]);
         // Nothing to copy leaves no folder behind.
         await daemon.chats.copyAgentImages('chat-without-images', 'chat-empty');
         expect(await stat(join(home, 'attachments', 'chat-empty')).catch(() => null)).toBeNull();
