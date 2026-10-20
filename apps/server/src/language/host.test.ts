@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
+import { pathToFileUri } from '@adecore/lsp';
 import { LANGUAGE_ERROR_CODES, type LanguageServerKind } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
 import { FakeWatch } from '@adecore/agents/testing';
@@ -9,13 +10,21 @@ import type { SessionEvent } from '../sessions/manager.ts';
 import { LanguageChoices } from './choices.ts';
 import { CustomLanguageServers } from './custom.ts';
 import { LanguageHost } from './host.ts';
-import { NativePolicy, type Download } from './native.ts';
+import { NativePolicy, nativeProgramFile, type Download } from './native.ts';
 import { KIND_PROFILES, type ProjectSqlSettings } from './profiles.ts';
 import { FULL_CAPABILITIES, fakeSpawner, ManualClock, settle, type FakeProcess, type FakeSpawner } from './test-fakes.ts';
 import { tarGz } from './test-archives.ts';
 import { versionOf } from './versions.ts';
 
 let root = '';
+
+const WORK = resolve('/work');
+const MACHINE_STATE = resolve('/home/.ruimte');
+
+/* The URI a server knows a file of the project by. */
+function uri(path: string): string {
+    return pathToFileUri(join(WORK, path));
+}
 
 const STUBS_COMMIT = 'c'.repeat(40);
 
@@ -73,12 +82,12 @@ function rig(
     const disk = new Set<string>();
     const host = new LanguageHost({
         root,
-        folderOf: (projectId) => (projectId === 'p1' ? '/work' : null),
+        folderOf: (projectId) => (projectId === 'p1' ? WORK : null),
         holders: () => [...holders],
         findProgram: () => [],
         machineHome: {
             refuse: async (path) => {
-                if (path.startsWith('/home/.ruimte/')) {
+                if (path.startsWith(`${MACHINE_STATE}${sep}`)) {
                     throw new Refused('machine-state', `${path} belongs to this machine's own state`);
                 }
             }
@@ -90,14 +99,14 @@ function rig(
         download: stubsDownload,
         checkoutRevision: async () => options.revision?.() ?? null,
         run: async (spec, onLine) => {
-            if (spec.command.endsWith('php-language-server')) {
+            if (spec.command.endsWith(nativeProgramFile('php-native', process.platform))) {
                 onLine('php-language-server 0.1.0');
                 return 0;
             }
             if (spec.args[0] === 'build') {
                 installs.push('php-native');
                 await mkdir(join(spec.cwd, 'target', 'release'), { recursive: true });
-                await writeFile(join(spec.cwd, 'target', 'release', 'php-language-server'), '');
+                await writeFile(join(spec.cwd, 'target', 'release', nativeProgramFile('php-native', process.platform)), '');
                 return 0;
             }
             if (spec.args.includes('--version')) {
@@ -123,9 +132,9 @@ function rig(
         }),
         exists: async (path) => (options.files ?? []).includes(path) || (options.folders ?? []).includes(path),
         isFolder: async (path) => (options.folders ?? []).includes(path),
-        readText: async (path) => (path === '/work/package.json' ? (options.packageJson ?? null) : (options.texts?.[path] ?? null)),
+        readText: async (path) => (path === join(WORK, 'package.json') ? (options.packageJson ?? null) : (options.texts?.[path] ?? null)),
         ...(options.sqlSettings === undefined ? {} : { sqlSettings: options.sqlSettings }),
-        untrusted: (path) => (options.untrusted ?? []).some((folder) => path === folder || path.startsWith(`${folder}/`))
+        untrusted: (path) => (options.untrusted ?? []).some((folder) => path === folder || path.startsWith(`${folder}${sep}`))
     });
     const events: Record<string, SessionEvent[]> = { 'client-1': [], 'client-2': [] };
     const heard = new Set<(event: SessionEvent) => void>();
@@ -270,7 +279,7 @@ describe('a project that uses Vue', () => {
         await settle();
         expect(spawner.of('typescript')).toHaveLength(1);
         expect(spawner.of('vue')).toHaveLength(1);
-        expect(spawner.of('typescript')[0].server.documents.has('file:///work/src/main.ts')).toBe(true);
+        expect(spawner.of('typescript')[0].server.documents.has(uri('src/main.ts'))).toBe(true);
     });
 
     it('leaves a project without Vue on the TypeScript kind', async () => {
@@ -288,7 +297,7 @@ describe('a project that uses Vue', () => {
         expect(spawner.of('typescript')[0].kills.length).toBeGreaterThan(0);
         // The Vue kind starts its own TypeScript server, which now holds the script.
         const live = spawner.of('typescript').at(-1)!;
-        expect(live.server.documents.has('file:///work/src/main.ts')).toBe(true);
+        expect(live.server.documents.has(uri('src/main.ts'))).toBe(true);
         expect((await host.status('p1')).find((status) => status.server === 'typescript')?.state).toBe('stopped');
     });
 });
@@ -300,7 +309,7 @@ describe('documents', () => {
         expect(result).toEqual({ version: 1, servers: ['typescript'], providers: {} });
         await ready(host);
         expect(spawner.processes).toHaveLength(1);
-        expect(spawner.processes[0].server.documents.get('file:///work/src/a.ts')?.text).toBe('let a = 1;\n');
+        expect(spawner.processes[0].server.documents.get(uri('src/a.ts'))?.text).toBe('let a = 1;\n');
     });
 
     it('answers what the document may ask once the server is up, and tells the clients when it comes up later', async () => {
@@ -325,7 +334,7 @@ describe('documents', () => {
         expect(await host.change(change(1, '2', 9))).toEqual({ version: 2 });
         expect(await host.change(change(2, '3', 10))).toEqual({ version: 3 });
         await settle();
-        expect(spawner.processes[0].server.documents.get('file:///work/src/a.ts')).toEqual({ languageId: 'typescript', text: 'let a = 123;\n', version: 3 });
+        expect(spawner.processes[0].server.documents.get(uri('src/a.ts'))).toEqual({ languageId: 'typescript', text: 'let a = 123;\n', version: 3 });
     });
 
     it('refuses a change against another base with a code the client knows, and changes nothing', async () => {
@@ -340,7 +349,7 @@ describe('documents', () => {
             changes: [{ range: { start: { line: 9, character: 0 }, end: { line: 9, character: 0 } }, text: 'x' }]
         });
         await expect(outside).rejects.toMatchObject({ code: LANGUAGE_ERROR_CODES.staleDocument });
-        expect(spawner.processes[0].server.documents.get('file:///work/src/a.ts')).toEqual({ languageId: 'typescript', text: 'let a = 1;\n', version: 1 });
+        expect(spawner.processes[0].server.documents.get(uri('src/a.ts'))).toEqual({ languageId: 'typescript', text: 'let a = 1;\n', version: 1 });
         expect(await open(host, 'src/a.ts', 'let a = 2;\n')).toMatchObject({ version: 2 });
     });
 
@@ -350,13 +359,13 @@ describe('documents', () => {
         expect((await open(host, 'src/a.ts', 'let a = 1;\n', 'client-2')).version).toBe(1);
         expect((await open(host, 'src/a.ts', 'let a = 9;\n', 'client-2')).version).toBe(2);
         await settle();
-        expect(spawner.processes[0].server.documents.get('file:///work/src/a.ts')?.text).toBe('let a = 9;\n');
+        expect(spawner.processes[0].server.documents.get(uri('src/a.ts'))?.text).toBe('let a = 9;\n');
         await host.closeDocument('client-1', { projectId: 'p1', path: 'src/a.ts' });
         await settle();
-        expect(spawner.processes[0].server.documents.has('file:///work/src/a.ts')).toBe(true);
+        expect(spawner.processes[0].server.documents.has(uri('src/a.ts'))).toBe(true);
         await host.closeDocument('client-2', { projectId: 'p1', path: 'src/a.ts' });
         await settle();
-        expect(spawner.processes[0].server.documents.has('file:///work/src/a.ts')).toBe(false);
+        expect(spawner.processes[0].server.documents.has(uri('src/a.ts'))).toBe(false);
         await expect(host.change({ projectId: 'p1', path: 'src/a.ts', baseVersion: 2, changes: [{ text: '' }] })).rejects.toMatchObject({
             code: LANGUAGE_ERROR_CODES.documentNotOpen
         });
@@ -365,7 +374,7 @@ describe('documents', () => {
     it('names a file the same whether the path is relative or absolute', async () => {
         const { host, spawner } = await installed();
         await openReady(host, 'src/a.ts');
-        await open(host, '/work/src/../src/a.ts', 'let a = 1;\n', 'client-2');
+        await open(host, join(WORK, 'src/../src/a.ts'), 'let a = 1;\n', 'client-2');
         await settle();
         expect(spawner.processes[0].server.documents.size).toBe(1);
     });
@@ -475,7 +484,7 @@ describe('requests', () => {
 });
 
 describe('several servers on one document', () => {
-    const eslintFiles = ['/work/eslint.config.js'];
+    const eslintFiles = [join(WORK, 'eslint.config.js')];
     const caps = (extra: object = {}) => ({ textDocumentSync: 2 as const, hoverProvider: true, ...extra });
 
     it('adds ESLint to the kind of the language in a project that has an ESLint config, and nothing without one', async () => {
@@ -483,8 +492,8 @@ describe('several servers on one document', () => {
         expect((await open(host)).servers).toEqual(['typescript', 'eslint']);
         await ready(host);
         await ready(host, 'eslint');
-        expect(spawner.of('eslint')[0]!.server.documents.has('file:///work/src/a.ts')).toBe(true);
-        expect(spawner.of('typescript')[0]!.server.documents.has('file:///work/src/a.ts')).toBe(true);
+        expect(spawner.of('eslint')[0]!.server.documents.has(uri('src/a.ts'))).toBe(true);
+        expect(spawner.of('typescript')[0]!.server.documents.has(uri('src/a.ts'))).toBe(true);
         expect(
             (await installed(['typescript', 'eslint'])).host.open('client-1', { projectId: 'p1', path: 'src/a.ts', languageId: 'typescript', text: '' })
         ).resolves.toMatchObject({
@@ -493,11 +502,14 @@ describe('several servers on one document', () => {
     });
 
     it('adds no server that runs project code to work another machine sent, in a folder of it or a project made of it', async () => {
-        const inside = await installed(['typescript', 'eslint'], { files: [...eslintFiles, '/work/peer/eslint.config.js'], untrusted: ['/work/peer'] });
+        const inside = await installed(['typescript', 'eslint'], {
+            files: [...eslintFiles, join(WORK, 'peer/eslint.config.js')],
+            untrusted: [join(WORK, 'peer')]
+        });
         expect((await open(inside.host)).servers).toEqual(['typescript', 'eslint']);
         expect((await open(inside.host, 'peer/src/a.ts')).servers).toEqual(['typescript']);
 
-        const whole = await installed(['typescript', 'eslint'], { files: eslintFiles, untrusted: ['/work'] });
+        const whole = await installed(['typescript', 'eslint'], { files: eslintFiles, untrusted: [WORK] });
         expect((await open(whole.host)).servers).toEqual(['typescript']);
     });
 
@@ -524,9 +536,7 @@ describe('several servers on one document', () => {
         await ready(host);
         await ready(host, 'eslint');
         const item = { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, message: 'm' };
-        await spawner
-            .of('eslint')[0]!
-            .server.connection.notify('textDocument/publishDiagnostics', { uri: 'file:///work/src/a.ts', version: 1, diagnostics: [item] });
+        await spawner.of('eslint')[0]!.server.connection.notify('textDocument/publishDiagnostics', { uri: uri('src/a.ts'), version: 1, diagnostics: [item] });
         await settle();
         const reports = kinds(events['client-1'], 'language.diagnostics').map(
             (event) => (event as { payload: { server: string; diagnostics: unknown[] } }).payload
@@ -572,7 +582,7 @@ describe('several servers on one document', () => {
         const item = (name: string, data?: unknown) => ({
             name,
             kind: 12,
-            uri: 'file:///work/src/a.ts',
+            uri: uri('src/a.ts'),
             range,
             selectionRange: range,
             ...(data === undefined ? {} : { data })
@@ -605,7 +615,7 @@ describe('several servers on one document', () => {
         const stale = {
             name: 'rule',
             kind: 12,
-            uri: 'file:///work/src/a.ts',
+            uri: uri('src/a.ts'),
             range,
             selectionRange: range,
             data: { $ruimteServer: 'eslint', data: { id: 7 } }
@@ -780,7 +790,7 @@ describe('language servers of a person', () => {
         expect(opened.servers).toEqual([saved.id]);
         await ready(host, saved.id);
         const [process] = spawner.of('zls');
-        expect(process!.spec).toMatchObject({ command: 'zls', args: ['--stdio'], cwd: '/work', env: { ZLS_LOG: '1' } });
+        expect(process!.spec).toMatchObject({ command: 'zls', args: ['--stdio'], cwd: WORK, env: { ZLS_LOG: '1' } });
         expect(process!.spec.env.BUN_BE_BUN).toBeUndefined();
         expect(process!.server.received.find((message) => message.method === 'initialize')?.params).toMatchObject({
             initializationOptions: { snippets: true }
@@ -790,7 +800,7 @@ describe('language servers of a person', () => {
             result: { contents: 'zig hover' },
             server: saved.id
         });
-        await process!.server.connection.notify('textDocument/publishDiagnostics', { uri: 'file:///work/src/main.zig', version: 1, diagnostics: [] });
+        await process!.server.connection.notify('textDocument/publishDiagnostics', { uri: uri('src/main.zig'), version: 1, diagnostics: [] });
         await settle();
         expect(kinds(events['client-1'], 'language.diagnostics').at(-1)).toMatchObject({ payload: { server: saved.id } });
     });
@@ -810,7 +820,7 @@ describe('language servers of a person', () => {
         expect((await open(host, 'src/main.zig', '', 'client-1', 'zig')).servers).toEqual([]);
         const saved = await host.customSave(zig);
         await ready(host, saved.id);
-        expect(spawner.of('zls')[0]!.server.documents.has('file:///work/src/main.zig')).toBe(true);
+        expect(spawner.of('zls')[0]!.server.documents.has(uri('src/main.zig'))).toBe(true);
         expect(kinds(events['client-2'], 'language.custom.changed')).toHaveLength(1);
         await host.customRemove(saved.id);
         expect(spawner.of('zls')[0]!.server.exited).toBe(true);
@@ -839,7 +849,7 @@ describe('language servers of a person', () => {
         await second.load();
         const held = new LanguageHost({
             root,
-            folderOf: () => '/work',
+            folderOf: () => WORK,
             holders: () => [],
             machineHome: { refuse: async () => undefined },
             spawn: spawner.spawn,
@@ -870,7 +880,7 @@ describe('language servers of a person', () => {
 });
 
 describe('commands', () => {
-    const edit = { changes: { 'file:///work/src/a.ts': [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } }, newText: 'const' }] } };
+    const edit = { changes: { [uri('src/a.ts')]: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } }, newText: 'const' }] } };
 
     async function commandRig() {
         const result = await installed();
@@ -981,7 +991,7 @@ describe('events', () => {
         const { host, spawner, events } = await installed();
         await openReady(host);
         const diagnostic = { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } }, message: 'bad' };
-        await spawner.processes[0].server.publishDiagnostics('file:///work/src/a.ts', [diagnostic], 1);
+        await spawner.processes[0].server.publishDiagnostics(uri('src/a.ts'), [diagnostic], 1);
         await settle();
         expect(kinds(events['client-1'], 'language.diagnostics')).toEqual([
             { event: 'language.diagnostics', payload: { projectId: 'p1', path: 'src/a.ts', server: 'typescript', version: 1, diagnostics: [diagnostic] } }
@@ -1093,7 +1103,7 @@ describe('install and status', () => {
         const failing = rig();
         const host = new LanguageHost({
             root,
-            folderOf: () => '/work',
+            folderOf: () => WORK,
             holders: () => [],
             machineHome: { refuse: async () => undefined },
             run: async () => 1,
@@ -1114,7 +1124,7 @@ describe('install and status', () => {
         expect((await host.status('p1'))[0]).toMatchObject({ state: 'crashed' });
         expect(await host.restart('p1', 'typescript')).toMatchObject({ state: 'ready' });
         expect(spawner.processes).toHaveLength(2);
-        expect(spawner.processes[1].server.documents.has('file:///work/src/a.ts')).toBe(true);
+        expect(spawner.processes[1].server.documents.has(uri('src/a.ts'))).toBe(true);
     });
 
     it('serves the log of a kind: what the installer and the server wrote, in order', async () => {
@@ -1145,14 +1155,14 @@ describe('files that change on disk', () => {
         expect(watch.watchers).toHaveLength(0);
 
         await registerWatchers(php, 'php-files', [{ globPattern: '**/*.{php,phtml}' }]);
-        expect(watch.openOn('/work')).toHaveLength(1);
+        expect(watch.openOn(WORK)).toHaveLength(1);
 
-        disk.add('/work/Generated.php');
-        watch.on('/work').emit('Generated.php', 'rename');
-        watch.on('/work').emit('notes.txt', 'rename');
+        disk.add(join(WORK, 'Generated.php'));
+        watch.on(WORK).emit('Generated.php', 'rename');
+        watch.on(WORK).emit('notes.txt', 'rename');
         expect(watch.pending).toBe(1);
         await watch.settle();
-        expect(php.server.paramsOf('workspace/didChangeWatchedFiles')).toEqual([{ changes: [{ uri: 'file:///work/Generated.php', type: 1 }] }]);
+        expect(php.server.paramsOf('workspace/didChangeWatchedFiles')).toEqual([{ changes: [{ uri: uri('Generated.php'), type: 1 }] }]);
     });
 
     it('hands the PHP server of Ruimte the files of other languages its patterns name, without looking at their language', async () => {
@@ -1193,14 +1203,14 @@ describe('files that change on disk', () => {
             'vendor/composer/autoload_classmap.php'
         ];
         for (const path of changed) {
-            disk.add(`/work/${path}`);
-            watch.on('/work').emit(path, 'change');
+            disk.add(join(WORK, path));
+            watch.on(WORK).emit(path, 'change');
         }
-        watch.on('/work').emit('resources/js/Components/Button.vue', 'change');
-        watch.on('/work').emit('vendor/laravel/framework/src/Foundation/Application.php', 'change');
+        watch.on(WORK).emit('resources/js/Components/Button.vue', 'change');
+        watch.on(WORK).emit('vendor/laravel/framework/src/Foundation/Application.php', 'change');
         await watch.settle();
         const [{ changes }] = php!.server.paramsOf('workspace/didChangeWatchedFiles') as [{ changes: { uri: string }[] }];
-        expect(changes.map((change) => change.uri).sort()).toEqual(changed.map((path) => `file:///work/${path}`).sort());
+        expect(changes.map((change) => change.uri).sort()).toEqual(changed.map((path) => uri(path)).sort());
     });
 
     it('tells a server that a file changed or went, in one batch per burst', async () => {
@@ -1210,16 +1220,16 @@ describe('files that change on disk', () => {
         const [php] = spawner.of('php');
         await registerWatchers(php, 'php-files', [{ globPattern: '**/*.php' }]);
 
-        disk.add('/work/src/Kept.php');
-        watch.on('/work').emit('src/Kept.php', 'change');
-        watch.on('/work').emit('src/Gone.php', 'rename');
-        watch.on('/work').emit('src/Kept.php', 'change');
+        disk.add(join(WORK, 'src/Kept.php'));
+        watch.on(WORK).emit('src/Kept.php', 'change');
+        watch.on(WORK).emit('src/Gone.php', 'rename');
+        watch.on(WORK).emit('src/Kept.php', 'change');
         await watch.settle();
         expect(php.server.paramsOf('workspace/didChangeWatchedFiles')).toEqual([
             {
                 changes: [
-                    { uri: 'file:///work/src/Gone.php', type: 3 },
-                    { uri: 'file:///work/src/Kept.php', type: 2 }
+                    { uri: uri('src/Gone.php'), type: 3 },
+                    { uri: uri('src/Kept.php'), type: 2 }
                 ]
             }
         ]);
@@ -1232,18 +1242,18 @@ describe('files that change on disk', () => {
         const [php] = spawner.of('php');
         await registerWatchers(php, 'php-files', [{ globPattern: '**/*.php' }]);
 
-        watch.on('/work').emit('vendor/acme/Thing.php', 'change');
-        watch.on('/work').emit('node_modules/x/Thing.php', 'change');
+        watch.on(WORK).emit('vendor/acme/Thing.php', 'change');
+        watch.on(WORK).emit('node_modules/x/Thing.php', 'change');
         expect(watch.pending).toBe(0);
 
         await registerWatchers(php, 'vendor-files', [{ globPattern: 'vendor/composer/installed.json' }]);
-        watch.on('/work').emit('vendor/composer/installed.json', 'change');
+        watch.on(WORK).emit('vendor/composer/installed.json', 'change');
         expect(watch.pending).toBe(1);
     });
 
     it('sends the change of an ESLint or Tailwind config only to the server that registered for it', async () => {
         const { host, spawner, watch, disk } = await installed(['typescript', 'eslint', 'tailwind'], {
-            files: ['/work/eslint.config.js', '/work/tailwind.config.js']
+            files: [join(WORK, 'eslint.config.js'), join(WORK, 'tailwind.config.js')]
         });
         await open(host, 'src/a.ts', 'let a = 1;\n');
         await until(host, async () => spawner.of('eslint').length > 0 && spawner.of('tailwind').length > 0 && spawner.of('typescript').length > 0);
@@ -1254,13 +1264,13 @@ describe('files that change on disk', () => {
         await registerWatchers(eslint, 'eslint-config', [{ globPattern: '**/eslint.config.*' }, { globPattern: '**/package.json' }]);
         await registerWatchers(tailwind, 'tailwind-config', [{ globPattern: '**/tailwind.config.{js,cjs,mjs,ts}' }]);
 
-        disk.add('/work/eslint.config.js');
-        disk.add('/work/tailwind.config.js');
-        watch.on('/work').emit('eslint.config.js', 'change');
-        watch.on('/work').emit('tailwind.config.js', 'change');
+        disk.add(join(WORK, 'eslint.config.js'));
+        disk.add(join(WORK, 'tailwind.config.js'));
+        watch.on(WORK).emit('eslint.config.js', 'change');
+        watch.on(WORK).emit('tailwind.config.js', 'change');
         await watch.settle();
-        expect(eslint.server.paramsOf('workspace/didChangeWatchedFiles')).toEqual([{ changes: [{ uri: 'file:///work/eslint.config.js', type: 2 }] }]);
-        expect(tailwind.server.paramsOf('workspace/didChangeWatchedFiles')).toEqual([{ changes: [{ uri: 'file:///work/tailwind.config.js', type: 2 }] }]);
+        expect(eslint.server.paramsOf('workspace/didChangeWatchedFiles')).toEqual([{ changes: [{ uri: uri('eslint.config.js'), type: 2 }] }]);
+        expect(tailwind.server.paramsOf('workspace/didChangeWatchedFiles')).toEqual([{ changes: [{ uri: uri('tailwind.config.js'), type: 2 }] }]);
         expect(typescript.server.paramsOf('workspace/didChangeWatchedFiles')).toEqual([]);
     });
 
@@ -1270,16 +1280,16 @@ describe('files that change on disk', () => {
         await ready(host, 'php');
         const [php] = spawner.of('php');
         await registerWatchers(php, 'php-files', [{ globPattern: '**/*.php' }]);
-        expect(watch.openOn('/work')).toHaveLength(1);
+        expect(watch.openOn(WORK)).toHaveLength(1);
 
         await php.server.request('client/unregisterCapability', { unregisterations: [{ id: 'php-files', method: 'workspace/didChangeWatchedFiles' }] });
         await settle();
-        expect(watch.openOn('/work')).toHaveLength(0);
+        expect(watch.openOn(WORK)).toHaveLength(0);
 
         await registerWatchers(php, 'php-again', [{ globPattern: '**/*.php' }]);
-        expect(watch.openOn('/work')).toHaveLength(1);
+        expect(watch.openOn(WORK)).toHaveLength(1);
         await host.end('p1');
-        expect(watch.openOn('/work')).toHaveLength(0);
+        expect(watch.openOn(WORK)).toHaveLength(0);
     });
 
     it('watches the directories of the open documents where a tree cannot be watched in one call', async () => {
@@ -1288,15 +1298,15 @@ describe('files that change on disk', () => {
         await ready(host, 'php');
         const [php] = spawner.of('php');
         await registerWatchers(php, 'php-files', [{ globPattern: '**/*.php' }]);
-        expect(watch.openOn('/work')[0]?.recursive).toBe(false);
+        expect(watch.openOn(WORK)[0]?.recursive).toBe(false);
         await open(host, 'src/Http/Controller.php', '<?php', 'client-1', 'php');
-        expect(watch.openOn('/work/src/Models')).toHaveLength(1);
-        expect(watch.openOn('/work/src/Http')).toHaveLength(1);
+        expect(watch.openOn(join(WORK, 'src/Models'))).toHaveLength(1);
+        expect(watch.openOn(join(WORK, 'src/Http'))).toHaveLength(1);
 
-        disk.add('/work/src/Models/Post.php');
-        watch.on('/work/src/Models').emit('Post.php', 'rename');
+        disk.add(join(WORK, 'src/Models/Post.php'));
+        watch.on(join(WORK, 'src/Models')).emit('Post.php', 'rename');
         await watch.settle();
-        expect(php.server.paramsOf('workspace/didChangeWatchedFiles')).toEqual([{ changes: [{ uri: 'file:///work/src/Models/Post.php', type: 1 }] }]);
+        expect(php.server.paramsOf('workspace/didChangeWatchedFiles')).toEqual([{ changes: [{ uri: uri('src/Models/Post.php'), type: 1 }] }]);
     });
 });
 
@@ -1320,7 +1330,7 @@ describe('the PHP server of Ruimte and Intelephense', () => {
         await ready(host, 'php-native');
         const [process] = spawner.of('php-native');
         const install = join(root, 'php-native');
-        expect(process!.spec.command).toBe(join(root, 'repo', 'target', 'release', 'php-language-server'));
+        expect(process!.spec.command).toBe(join(root, 'repo', 'target', 'release', nativeProgramFile('php-native', globalThis.process.platform)));
         expect(process!.spec.args).toEqual(['--stdio']);
         expect(process!.server.paramsOf('initialize')[0]).toMatchObject({
             initializationOptions: { storagePath: join(install, 'storage'), stubsPath: join(install, 'storage', 'stubs', STUBS_COMMIT) }
@@ -1333,7 +1343,7 @@ describe('the PHP server of Ruimte and Intelephense', () => {
     });
 
     it('serves Twig, Blade and the configuration of a Symfony project with the server of Ruimte', async () => {
-        const { host } = await installed(['php-native', 'yaml'], { files: ['/work/composer.json'] });
+        const { host } = await installed(['php-native', 'yaml'], { files: [join(WORK, 'composer.json')] });
         expect((await open(host, 'templates/base.html.twig', '{{ title }}', 'client-1', 'twig')).servers).toEqual(['php-native']);
         expect((await open(host, 'resources/views/welcome.blade.php', '@if(true)', 'client-1', 'php')).servers).toEqual(['php-native']);
         expect((await open(host, 'config/services.yaml', 'services:', 'client-1', 'yaml')).servers).toEqual(['yaml', 'php-native']);
@@ -1405,15 +1415,15 @@ describe('the PHP server of Ruimte and Intelephense', () => {
 describe('files that move', () => {
     const filters = [{ scheme: 'file', pattern: { glob: '**/*.ts', matches: 'file' as const } }];
     const capabilities = { typescript: { ...FULL_CAPABILITIES, workspace: { fileOperations: { willRename: { filters }, didRename: { filters } } } } };
-    const aToC = { from: '/work/src/a.ts', to: '/work/src/c.ts' };
+    const aToC = { from: join(WORK, 'src/a.ts'), to: join(WORK, 'src/c.ts') };
     const line = (path: string, text: string) => ({
-        textDocument: { uri: `file://${path}`, version: null },
+        textDocument: { uri: pathToFileUri(path), version: null },
         edits: [{ range: { start: { line: 0, character: 8 }, end: { line: 0, character: 11 } }, newText: text }]
     });
 
     async function moveRig(answer?: (params: unknown) => unknown, texts: Record<string, string> = {}, folders: string[] = []) {
         const spawner = fakeSpawner(capabilities, [], answer === undefined ? {} : { typescript: { 'workspace/willRenameFiles': answer } });
-        const result = await installed(['typescript'], { spawner, texts: { '/work/src/b.ts': 'import "./a";\n', ...texts }, folders });
+        const result = await installed(['typescript'], { spawner, texts: { [join(WORK, 'src/b.ts')]: 'import "./a";\n', ...texts }, folders });
         await openReady(result.host, 'src/a.ts', 'export "./a";\n');
         const calls: string[] = [];
         const written: Array<{ path: string; text: string }> = [];
@@ -1434,7 +1444,7 @@ describe('files that move', () => {
         return { ...result, server, calls, written, file };
     }
 
-    const importEdits = () => ({ documentChanges: [line('/work/src/a.ts', './c'), line('/work/src/b.ts', './c')] });
+    const importEdits = () => ({ documentChanges: [line(join(WORK, 'src/a.ts'), './c'), line(join(WORK, 'src/b.ts'), './c')] });
 
     it('makes what a server would change before the move, in the open editor and in the file nobody has open, and tells it afterwards', async () => {
         const { host, server, calls, written, file, events } = await moveRig(importEdits);
@@ -1442,18 +1452,18 @@ describe('files that move', () => {
         await until(host, () => kinds(events['client-1'], 'language.edit').length > 0);
         const [asked] = kinds(events['client-1'], 'language.edit');
         const { editId, edit } = (asked as { payload: { editId: string; edit: { documentChanges: Array<{ textDocument: { uri: string } }> } } }).payload;
-        expect(edit.documentChanges.map((change) => change.textDocument.uri)).toEqual(['file:///work/src/a.ts']);
+        expect(edit.documentChanges.map((change) => change.textDocument.uri)).toEqual([uri('src/a.ts')]);
         expect(calls).toEqual([]);
         host.answerEdit('client-1', { projectId: 'p1', editId, applied: true });
-        expect(await moving).toEqual(['/work/src/a.ts', '/work/src/b.ts']);
+        expect(await moving).toEqual([join(WORK, 'src/a.ts'), join(WORK, 'src/b.ts')]);
         expect(calls).toEqual(['write', 'move']);
-        expect(written).toEqual([{ path: '/work/src/b.ts', text: 'import "./c";\n' }]);
-        expect(server.paramsOf('workspace/willRenameFiles')).toEqual([{ files: [{ oldUri: 'file:///work/src/a.ts', newUri: 'file:///work/src/c.ts' }] }]);
-        expect(server.paramsOf('workspace/didRenameFiles')).toEqual([{ files: [{ oldUri: 'file:///work/src/a.ts', newUri: 'file:///work/src/c.ts' }] }]);
+        expect(written).toEqual([{ path: join(WORK, 'src/b.ts'), text: 'import "./c";\n' }]);
+        expect(server.paramsOf('workspace/willRenameFiles')).toEqual([{ files: [{ oldUri: uri('src/a.ts'), newUri: uri('src/c.ts') }] }]);
+        expect(server.paramsOf('workspace/didRenameFiles')).toEqual([{ files: [{ oldUri: uri('src/a.ts'), newUri: uri('src/c.ts') }] }]);
     });
 
     it('makes a file the server creates first, with the text the edit writes into it', async () => {
-        const index = 'file:///work/src/index.ts';
+        const index = uri('src/index.ts');
         const { host, calls, written, file } = await moveRig(() => ({
             documentChanges: [
                 { kind: 'create', uri: index, options: { overwrite: false, ignoreIfExists: false } },
@@ -1461,20 +1471,20 @@ describe('files that move', () => {
                     textDocument: { uri: index, version: null },
                     edits: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, newText: 'export * from "./c";\n' }]
                 },
-                line('/work/src/b.ts', './c')
+                line(join(WORK, 'src/b.ts'), './c')
             ]
         }));
-        expect(await host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, file)).toEqual(['/work/src/index.ts', '/work/src/b.ts']);
+        expect(await host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, file)).toEqual([join(WORK, 'src/index.ts'), join(WORK, 'src/b.ts')]);
         expect(calls).toEqual(['create', 'write', 'move']);
         expect(written).toEqual([
-            { path: '/work/src/index.ts', text: 'export * from "./c";\n' },
-            { path: '/work/src/b.ts', text: 'import "./c";\n' }
+            { path: join(WORK, 'src/index.ts'), text: 'export * from "./c";\n' },
+            { path: join(WORK, 'src/b.ts'), text: 'import "./c";\n' }
         ]);
     });
 
     it('moves anyway, without the edit, when the server creates a file that is there', async () => {
         const { host, calls, file } = await moveRig(() => ({
-            documentChanges: [{ kind: 'create', uri: 'file:///work/src/b.ts' }, line('/work/src/b.ts', './c')]
+            documentChanges: [{ kind: 'create', uri: uri('src/b.ts') }, line(join(WORK, 'src/b.ts'), './c')]
         }));
         expect(await host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, file)).toEqual([]);
         expect(calls).toEqual(['move']);
@@ -1525,7 +1535,7 @@ describe('files that move', () => {
     it('asks nothing when the caller made the edits itself, and nothing of a file no filter takes', async () => {
         const { host, calls, file, server } = await moveRig(importEdits);
         await host.renameFiles('client-1', 'p1', aToC.from, aToC.to, false, file);
-        await host.renameFiles('client-1', 'p1', '/work/notes.md', '/work/todo.md', true, file);
+        await host.renameFiles('client-1', 'p1', join(WORK, 'notes.md'), join(WORK, 'todo.md'), true, file);
         expect(server.paramsOf('workspace/willRenameFiles')).toEqual([]);
         expect(server.paramsOf('workspace/didRenameFiles')).toHaveLength(1);
         expect(calls).toEqual(['move', 'move']);
@@ -1533,7 +1543,7 @@ describe('files that move', () => {
 
     it('moves anyway, and skips the whole edit, when the server deletes a file that is not there', async () => {
         const { host, calls, written, file, events, server } = await moveRig(() => ({
-            documentChanges: [line('/work/src/b.ts', './c'), { kind: 'delete', uri: 'file:///work/src/old.ts' }]
+            documentChanges: [line(join(WORK, 'src/b.ts'), './c'), { kind: 'delete', uri: uri('src/old.ts') }]
         }));
         expect(await host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, file)).toEqual([]);
         expect(calls).toEqual(['move']);
@@ -1547,41 +1557,41 @@ describe('files that move', () => {
         const { host, calls, written, file } = await moveRig(
             () => ({
                 documentChanges: [
-                    { kind: 'rename', oldUri: 'file:///work/src/b.ts', newUri: 'file:///work/src/d.ts' },
-                    line('/work/src/d.ts', './c'),
-                    { kind: 'delete', uri: 'file:///work/src/old.ts' },
-                    { kind: 'create', uri: 'file:///work/src/index.ts' },
+                    { kind: 'rename', oldUri: uri('src/b.ts'), newUri: uri('src/d.ts') },
+                    line(join(WORK, 'src/d.ts'), './c'),
+                    { kind: 'delete', uri: uri('src/old.ts') },
+                    { kind: 'create', uri: uri('src/index.ts') },
                     {
-                        textDocument: { uri: 'file:///work/src/index.ts', version: null },
+                        textDocument: { uri: uri('src/index.ts'), version: null },
                         edits: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, newText: 'export {};\n' }]
                     }
                 ]
             }),
-            { '/work/src/old.ts': 'old\n' }
+            { [join(WORK, 'src/old.ts')]: 'old\n' }
         );
-        expect(await host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, file)).toEqual(['/work/src/d.ts', '/work/src/index.ts']);
-        expect(calls).toEqual(['rename /work/src/b.ts /work/src/d.ts', 'write', 'delete /work/src/old.ts', 'create', 'move']);
+        expect(await host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, file)).toEqual([join(WORK, 'src/d.ts'), join(WORK, 'src/index.ts')]);
+        expect(calls).toEqual([`rename ${join(WORK, 'src/b.ts')} ${join(WORK, 'src/d.ts')}`, 'write', `delete ${join(WORK, 'src/old.ts')}`, 'create', 'move']);
         expect(written).toEqual([
-            { path: '/work/src/d.ts', text: 'import "./c";\n' },
-            { path: '/work/src/index.ts', text: 'export {};\n' }
+            { path: join(WORK, 'src/d.ts'), text: 'import "./c";\n' },
+            { path: join(WORK, 'src/index.ts'), text: 'export {};\n' }
         ]);
     });
 
-    const held = 'file:///work/src/a.ts';
+    const held = uri('src/a.ts');
     const refusedPlans: Record<string, Array<Record<string, unknown>>> = {
-        'a rename of a held file': [{ kind: 'rename', oldUri: held, newUri: 'file:///work/src/d.ts' }],
-        'a rename onto a held file': [{ kind: 'rename', oldUri: 'file:///work/src/b.ts', newUri: held, options: { overwrite: true } }],
+        'a rename of a held file': [{ kind: 'rename', oldUri: held, newUri: uri('src/d.ts') }],
+        'a rename onto a held file': [{ kind: 'rename', oldUri: uri('src/b.ts'), newUri: held, options: { overwrite: true } }],
         'an overwriting create of a held file': [{ kind: 'create', uri: held, options: { overwrite: true } }],
         'a delete of a held file': [{ kind: 'delete', uri: held }]
     };
     const folderPlans: Record<string, Array<Record<string, unknown>>> = {
-        'a rename of a folder that holds a file': [{ kind: 'rename', oldUri: 'file:///work/src', newUri: 'file:///work/lib' }],
-        'a delete of a folder that holds a file': [{ kind: 'delete', uri: 'file:///work/src', options: { recursive: true } }]
+        'a rename of a folder that holds a file': [{ kind: 'rename', oldUri: uri('src'), newUri: uri('lib') }],
+        'a delete of a folder that holds a file': [{ kind: 'delete', uri: uri('src'), options: { recursive: true } }]
     };
 
     for (const [name, steps] of Object.entries(refusedPlans)) {
         it(`refuses ${name} and changes nothing`, async () => {
-            const rig = await moveRig(() => ({ documentChanges: [{ kind: 'create', uri: 'file:///work/src/e.ts' }, ...steps] }));
+            const rig = await moveRig(() => ({ documentChanges: [{ kind: 'create', uri: uri('src/e.ts') }, ...steps] }));
             await expect(rig.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, rig.file)).rejects.toMatchObject({
                 code: LANGUAGE_ERROR_CODES.failed
             });
@@ -1592,7 +1602,7 @@ describe('files that move', () => {
 
     for (const [name, steps] of Object.entries(folderPlans)) {
         it(`refuses ${name} and changes nothing`, async () => {
-            const rig = await moveRig(() => ({ documentChanges: [{ kind: 'create', uri: 'file:///work/e.ts' }, ...steps] }), {}, ['/work/src']);
+            const rig = await moveRig(() => ({ documentChanges: [{ kind: 'create', uri: uri('e.ts') }, ...steps] }), {}, [join(WORK, 'src')]);
             await expect(rig.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, rig.file)).rejects.toMatchObject({
                 code: LANGUAGE_ERROR_CODES.failed
             });
@@ -1602,7 +1612,7 @@ describe('files that move', () => {
 
     it('leaves the disk as it was when the editor refuses the edit of a plan that also moves a closed file', async () => {
         const rig = await moveRig(() => ({
-            documentChanges: [{ kind: 'rename', oldUri: 'file:///work/src/b.ts', newUri: 'file:///work/src/d.ts' }, line('/work/src/a.ts', './c')]
+            documentChanges: [{ kind: 'rename', oldUri: uri('src/b.ts'), newUri: uri('src/d.ts') }, line(join(WORK, 'src/a.ts'), './c')]
         }));
         const moving = rig.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, rig.file);
         const outcome = moving.then(
@@ -1624,9 +1634,9 @@ describe('files that move', () => {
     it('edits the held documents first, then moves and writes the closed files', async () => {
         const rig = await moveRig(() => ({
             documentChanges: [
-                { kind: 'rename', oldUri: 'file:///work/src/b.ts', newUri: 'file:///work/src/d.ts' },
-                line('/work/src/d.ts', './c'),
-                line('/work/src/a.ts', './c')
+                { kind: 'rename', oldUri: uri('src/b.ts'), newUri: uri('src/d.ts') },
+                line(join(WORK, 'src/d.ts'), './c'),
+                line(join(WORK, 'src/a.ts'), './c')
             ]
         }));
         const moving = rig.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, rig.file);
@@ -1634,14 +1644,14 @@ describe('files that move', () => {
         expect(rig.calls).toEqual([]);
         const [asked] = kinds(rig.events['client-1'], 'language.edit');
         rig.host.answerEdit('client-1', { projectId: 'p1', editId: (asked as { payload: { editId: string } }).payload.editId, applied: true });
-        expect(await moving).toEqual(['/work/src/d.ts', '/work/src/a.ts']);
-        expect(rig.calls).toEqual(['rename /work/src/b.ts /work/src/d.ts', 'write', 'move']);
-        expect(rig.written).toEqual([{ path: '/work/src/d.ts', text: 'import "./c";\n' }]);
+        expect(await moving).toEqual([join(WORK, 'src/d.ts'), join(WORK, 'src/a.ts')]);
+        expect(rig.calls).toEqual([`rename ${join(WORK, 'src/b.ts')} ${join(WORK, 'src/d.ts')}`, 'write', 'move']);
+        expect(rig.written).toEqual([{ path: join(WORK, 'src/d.ts'), text: 'import "./c";\n' }]);
     });
 
     it('checks the version of a held document against the daemon, and leaves a stale edit out', async () => {
         const stale = (version: number) => ({
-            documentChanges: [{ textDocument: { uri: 'file:///work/src/a.ts', version }, edits: line('/work/src/a.ts', './c').edits }]
+            documentChanges: [{ textDocument: { uri: uri('src/a.ts'), version }, edits: line(join(WORK, 'src/a.ts'), './c').edits }]
         });
         const fresh = await moveRig(() => stale(1));
         const document = [...fresh.host['projects'].get('p1')!.documents.values()][0]!;
@@ -1651,7 +1661,7 @@ describe('files that move', () => {
         const payload = (asked as { payload: { editId: string; edit: { documentChanges: Array<{ textDocument: { version: number } }> } } }).payload;
         expect(payload.edit.documentChanges[0]!.textDocument.version).toBe(document.version);
         fresh.host.answerEdit('client-1', { projectId: 'p1', editId: payload.editId, applied: true });
-        expect(await moving).toEqual(['/work/src/a.ts']);
+        expect(await moving).toEqual([join(WORK, 'src/a.ts')]);
 
         const old = await moveRig(() => stale(99));
         expect(await old.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, old.file)).toEqual([]);
@@ -1663,7 +1673,7 @@ describe('files that move', () => {
     it('moves anyway, and skips the edit, when it does not fit the text', async () => {
         const unfit = await moveRig(() => ({
             documentChanges: [
-                { ...line('/work/src/b.ts', 'c'), edits: [{ range: { start: { line: 9, character: 0 }, end: { line: 9, character: 1 } }, newText: 'x' }] }
+                { ...line(join(WORK, 'src/b.ts'), 'c'), edits: [{ range: { start: { line: 9, character: 0 }, end: { line: 9, character: 1 } }, newText: 'x' }] }
             ]
         }));
         expect(await unfit.host.renameFiles('client-1', 'p1', aToC.from, aToC.to, true, unfit.file)).toEqual([]);
@@ -1707,11 +1717,11 @@ describe('files that are made or deleted', () => {
         didDelete: { filters: [...files, ...folders] }
     };
     const capabilities = { typescript: { ...FULL_CAPABILITIES, workspace: { fileOperations: operations } } };
-    const created = 'file:///work/src/new.ts';
+    const created = uri('src/new.ts');
     const barrel = (text: string) => ({
         documentChanges: [
             {
-                textDocument: { uri: 'file:///work/src/b.ts', version: null },
+                textDocument: { uri: uri('src/b.ts'), version: null },
                 edits: [{ range: { start: { line: 0, character: 8 }, end: { line: 0, character: 11 } }, newText: text }]
             }
         ]
@@ -1719,7 +1729,7 @@ describe('files that are made or deleted', () => {
 
     async function rig(handlers: Record<string, (params: unknown) => unknown> = {}) {
         const spawner = fakeSpawner(capabilities, [], { typescript: handlers });
-        const result = await installed(['typescript'], { spawner, texts: { '/work/src/b.ts': 'import "./a";\n' } });
+        const result = await installed(['typescript'], { spawner, texts: { [join(WORK, 'src/b.ts')]: 'import "./a";\n' } });
         await openReady(result.host, 'src/a.ts', 'export "./a";\n');
         const calls: string[] = [];
         const written: Array<{ path: string; text: string }> = [];
@@ -1738,32 +1748,32 @@ describe('files that are made or deleted', () => {
 
     it('asks what a new file changes before it is made, applies the edit, and tells the server afterwards', async () => {
         const { host, server, calls, written, file } = await rig({ 'workspace/willCreateFiles': () => barrel('./new') });
-        expect(await host.createFiles('client-1', 'p1', '/work/src/new.ts', false, true, file)).toEqual(['/work/src/b.ts']);
+        expect(await host.createFiles('client-1', 'p1', join(WORK, 'src/new.ts'), false, true, file)).toEqual([join(WORK, 'src/b.ts')]);
         expect(calls).toEqual(['write', 'run']);
-        expect(written).toEqual([{ path: '/work/src/b.ts', text: 'import "./new";\n' }]);
+        expect(written).toEqual([{ path: join(WORK, 'src/b.ts'), text: 'import "./new";\n' }]);
         expect(server.paramsOf('workspace/willCreateFiles')).toEqual([{ files: [{ uri: created }] }]);
         expect(server.paramsOf('workspace/didCreateFiles')).toEqual([{ files: [{ uri: created }] }]);
     });
 
     it('asks what a delete changes while the file is still there, and tells the server afterwards', async () => {
         const { host, server, calls, file } = await rig({ 'workspace/willDeleteFiles': () => barrel('./gone') });
-        expect(await host.deleteFiles('client-1', 'p1', '/work/src/b.ts', true, file)).toEqual(['/work/src/b.ts']);
+        expect(await host.deleteFiles('client-1', 'p1', join(WORK, 'src/b.ts'), true, file)).toEqual([join(WORK, 'src/b.ts')]);
         expect(calls).toEqual(['write', 'run']);
-        expect(server.paramsOf('workspace/willDeleteFiles')).toEqual([{ files: [{ uri: 'file:///work/src/b.ts' }] }]);
-        expect(server.paramsOf('workspace/didDeleteFiles')).toEqual([{ files: [{ uri: 'file:///work/src/b.ts' }] }]);
+        expect(server.paramsOf('workspace/willDeleteFiles')).toEqual([{ files: [{ uri: uri('src/b.ts') }] }]);
+        expect(server.paramsOf('workspace/didDeleteFiles')).toEqual([{ files: [{ uri: uri('src/b.ts') }] }]);
     });
 
     it('matches a folder as a folder', async () => {
         const { host, server, file } = await rig();
-        await host.createFiles('client-1', 'p1', '/work/src/gen', true, true, file);
-        await host.deleteFiles('client-1', 'p1', '/work/src/gen', true, file);
+        await host.createFiles('client-1', 'p1', join(WORK, 'src/gen'), true, true, file);
+        await host.deleteFiles('client-1', 'p1', join(WORK, 'src/gen'), true, file);
         expect(server.paramsOf('workspace/didCreateFiles')).toEqual([]);
         expect(server.paramsOf('workspace/willDeleteFiles')).toEqual([]);
     });
 
     it('only tells the servers when the caller made the edits itself', async () => {
         const { host, server, calls, file } = await rig({ 'workspace/willCreateFiles': () => barrel('./new') });
-        await host.createFiles('client-1', 'p1', '/work/src/new.ts', false, false, file);
+        await host.createFiles('client-1', 'p1', join(WORK, 'src/new.ts'), false, false, file);
         expect(server.paramsOf('workspace/willCreateFiles')).toEqual([]);
         expect(server.paramsOf('workspace/didCreateFiles')).toHaveLength(1);
         expect(calls).toEqual(['run']);
@@ -1775,17 +1785,17 @@ describe('files that are made or deleted', () => {
                 throw new Error('boom');
             }
         });
-        expect(await failing.host.createFiles('client-1', 'p1', '/work/src/new.ts', false, true, failing.file)).toEqual([]);
+        expect(await failing.host.createFiles('client-1', 'p1', join(WORK, 'src/new.ts'), false, true, failing.file)).toEqual([]);
         expect(failing.calls).toEqual(['run']);
-        const unfit = await rig({ 'workspace/willDeleteFiles': () => ({ documentChanges: [{ kind: 'delete', uri: 'file:///work/src/old.ts' }] }) });
-        expect(await unfit.host.deleteFiles('client-1', 'p1', '/work/src/b.ts', true, unfit.file)).toEqual([]);
+        const unfit = await rig({ 'workspace/willDeleteFiles': () => ({ documentChanges: [{ kind: 'delete', uri: uri('src/old.ts') }] }) });
+        expect(await unfit.host.deleteFiles('client-1', 'p1', join(WORK, 'src/b.ts'), true, unfit.file)).toEqual([]);
         expect(unfit.calls).toEqual(['run']);
         expect((await unfit.host.log('p1', 'typescript')).map((entry) => entry.text).join('\n')).toContain('left out the edit of a delete');
     });
 
     it('only runs the operation when no server of the project is up', async () => {
         const { host, calls, file } = await rig();
-        expect(await host.deleteFiles('client-1', 'other', '/work/src/b.ts', true, file)).toEqual([]);
+        expect(await host.deleteFiles('client-1', 'other', join(WORK, 'src/b.ts'), true, file)).toEqual([]);
         expect(calls).toEqual(['run']);
     });
 });
@@ -1808,7 +1818,7 @@ describe('format on type', () => {
         const params = { position: { line: 0, character: 1 }, ch: '}', options: { tabSize: 4, insertSpaces: true } };
         const answer = await host.request({ projectId: 'p1', path: 'src/a.ts', method: 'textDocument/onTypeFormatting', params });
         expect(answer.result).toEqual(edits);
-        expect(spawner.processes[0].server.paramsOf('textDocument/onTypeFormatting')).toEqual([{ textDocument: { uri: 'file:///work/src/a.ts' }, ...params }]);
+        expect(spawner.processes[0].server.paramsOf('textDocument/onTypeFormatting')).toEqual([{ textDocument: { uri: uri('src/a.ts') }, ...params }]);
     });
 });
 
@@ -1820,7 +1830,7 @@ describe('an agent asking about a file', () => {
         const { host } = await installed(['typescript'], { spawner });
         const answer = await host.forAgent(
             'p1',
-            { path: '/work/src/a.ts', languageId: 'typescript', disk: 'let a = 1;\n', owner: 'agent:chat-1' },
+            { path: join(WORK, 'src/a.ts'), languageId: 'typescript', disk: 'let a = 1;\n', owner: 'agent:chat-1' },
             async (document) => {
                 expect(document).toMatchObject({
                     storedPath: 'src/a.ts',
@@ -1843,7 +1853,7 @@ describe('an agent asking about a file', () => {
     it('joins a document a person has open and keeps the text in their editor', async () => {
         const { host, spawner } = await installed(['typescript']);
         await openReady(host, 'src/a.ts', 'let edited = 2;\n');
-        await host.forAgent('p1', { path: '/work/src/a.ts', languageId: 'typescript', disk: 'let a = 1;\n', owner: 'agent:chat-1' }, async (document) => {
+        await host.forAgent('p1', { path: join(WORK, 'src/a.ts'), languageId: 'typescript', disk: 'let a = 1;\n', owner: 'agent:chat-1' }, async (document) => {
             expect(document.text).toBe('let edited = 2;\n');
             expect(document.unsaved).toBe(true);
         });
@@ -1855,12 +1865,12 @@ describe('an agent asking about a file', () => {
 
     it('waits for the first report of a server that pushes what it finds', async () => {
         const { host, spawner } = await installed(['yaml']);
-        const asked = host.forAgent('p1', { path: '/work/a.yaml', languageId: 'yaml', disk: 'a: [', owner: 'agent:chat-1' }, (document) =>
+        const asked = host.forAgent('p1', { path: join(WORK, 'a.yaml'), languageId: 'yaml', disk: 'a: [', owner: 'agent:chat-1' }, (document) =>
             document.diagnostics()
         );
         await ready(host, 'yaml');
         const [process] = spawner.of('yaml');
-        await process!.server.publishDiagnostics('file:///work/a.yaml', [
+        await process!.server.publishDiagnostics(uri('a.yaml'), [
             { range: { start: { line: 0, character: 3 }, end: { line: 0, character: 4 } }, message: 'Unclosed' }
         ]);
         expect(await asked).toEqual([{ server: 'yaml', diagnostics: [expect.objectContaining({ message: 'Unclosed' })] }]);
@@ -1870,7 +1880,7 @@ describe('an agent asking about a file', () => {
         const { host, installs } = rig();
         const servers = await host.forAgent(
             'p1',
-            { path: '/work/src/a.ts', languageId: 'typescript', disk: '', owner: 'agent:chat-1' },
+            { path: join(WORK, 'src/a.ts'), languageId: 'typescript', disk: '', owner: 'agent:chat-1' },
             async (document) => document.servers
         );
         expect(servers).toEqual([{ kind: 'typescript', state: 'not-installed' }]);

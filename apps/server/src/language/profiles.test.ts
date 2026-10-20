@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test';
+import { normalize } from 'node:path';
 import {
     activates,
     additionKindsForLanguage,
@@ -69,7 +70,11 @@ describe('server profiles', () => {
             expect(alongsideKindsForPath(path)).toEqual([]);
         }
         const [[, needs]] = alongsideKindsForPath('config/services.yaml') as [[string, { activation: Activation }]];
-        const facts = (files: string[]) => ({ folder: '/work', packageJson: null, exists: async (path: string) => files.includes(path) });
+        const facts = (files: string[]) => ({
+            folder: '/work',
+            packageJson: null,
+            exists: async (path: string) => files.map((file) => normalize(file)).includes(path)
+        });
         expect(await activates(needs, facts(['/work/composer.json']))).toBe(true);
         expect(await activates(needs, facts([]))).toBe(false);
     });
@@ -78,7 +83,7 @@ describe('server profiles', () => {
         const facts = (packageJson: string | null, files: string[] = []) => ({
             folder: '/work',
             packageJson,
-            exists: async (path: string) => files.includes(path)
+            exists: async (path: string) => files.map((file) => normalize(file)).includes(path)
         });
         expect(await activates(KIND_PROFILES.eslint, facts(null, ['/work/eslint.config.mjs']))).toBe(true);
         expect(await activates(KIND_PROFILES.eslint, facts(null, ['/work/.eslintrc.json']))).toBe(true);
@@ -96,7 +101,7 @@ describe('server profiles', () => {
         const facts = (files: string[], found: string[] = []) => ({
             folder: '/work',
             packageJson: null,
-            exists: async (path: string) => files.includes(path),
+            exists: async (path: string) => files.map((file) => normalize(file)).includes(path),
             find: async () => found
         });
         expect(await activates(KIND_PROFILES.rust, facts(['/work/Cargo.toml']))).toBe(true);
@@ -157,7 +162,7 @@ describe('server profiles', () => {
         expect(typescript.initializationOptions(context)).toMatchObject({
             hostInfo: 'ruimte',
             disableAutomaticTypingAcquisition: true,
-            tsserver: { path: '/work/app/node_modules/typescript/lib/tsserver.js', useSyntaxServer: 'never' },
+            tsserver: { path: normalize('/work/app/node_modules/typescript/lib/tsserver.js'), useSyntaxServer: 'never' },
             preferences: {
                 includeCompletionsForModuleExports: true,
                 includeInlayParameterNameHints: 'all',
@@ -178,7 +183,7 @@ describe('server profiles', () => {
         expect(typescript.name).toBe('typescript');
         expect(vue.name).toBe('vue');
         expect(typescript.initializationOptions(context)).toMatchObject({
-            plugins: [{ name: '@vue/typescript-plugin', location: '/home/.ruimte/language-servers/vue/node_modules', languages: ['vue'] }]
+            plugins: [{ name: '@vue/typescript-plugin', location: normalize('/home/.ruimte/language-servers/vue/node_modules'), languages: ['vue'] }]
         });
         expect(vue.args(context)).toEqual(['--stdio', '--tsdk=/work/app/node_modules/typescript/lib']);
     });
@@ -201,8 +206,8 @@ describe('server profiles', () => {
     it('keeps the PHP index in the install and its telemetry off', () => {
         const [php] = KIND_PROFILES.php.components;
         expect(php.initializationOptions(context)).toEqual({
-            storagePath: '/home/.ruimte/language-servers/vue/storage',
-            globalStoragePath: '/home/.ruimte/language-servers/vue/storage'
+            storagePath: normalize('/home/.ruimte/language-servers/vue/storage'),
+            globalStoragePath: normalize('/home/.ruimte/language-servers/vue/storage')
         });
         expect(php.env).toEqual({ INTELEPHENSE_TELEMETRY_ENABLED: 'false' });
     });
@@ -213,8 +218,8 @@ describe('server profiles', () => {
         expect(php.program?.({ ...context, native })).toBe(native.executable);
         expect(php.args(context)).toEqual(['--stdio']);
         expect(php.initializationOptions({ ...context, native })).toEqual({
-            storagePath: '/home/.ruimte/language-servers/vue/storage',
-            stubsPath: '/home/.ruimte/language-servers/vue/storage/stubs/abc'
+            storagePath: normalize('/home/.ruimte/language-servers/vue/storage'),
+            stubsPath: normalize('/home/.ruimte/language-servers/vue/storage/stubs/abc')
         });
         expect(php.pullDiagnostics).toBe(true);
     });
@@ -235,10 +240,10 @@ describe('server profiles', () => {
     });
 
     it('prefers the TypeScript of the project and falls back to the pinned one', async () => {
-        const has = new Set(['/work/app/node_modules/typescript/lib/tsserver.js']);
+        const has = new Set([normalize('/work/app/node_modules/typescript/lib/tsserver.js')]);
         const exists = async (path: string) => has.has(path);
-        expect(await resolveTypescriptLib('/work/app', '/install/typescript', exists)).toBe('/work/app/node_modules/typescript/lib');
-        expect(await resolveTypescriptLib('/work/other', '/install/typescript', exists)).toBe('/install/typescript/node_modules/typescript/lib');
+        expect(await resolveTypescriptLib('/work/app', '/install/typescript', exists)).toBe(normalize('/work/app/node_modules/typescript/lib'));
+        expect(await resolveTypescriptLib('/work/other', '/install/typescript', exists)).toBe(normalize('/install/typescript/node_modules/typescript/lib'));
     });
 });
 
@@ -246,23 +251,23 @@ describe('the native TypeScript server of a project', () => {
     /* A project folder whose files are the keys, with `typescript` linked to a real folder where pnpm keeps it. */
     function files(texts: Record<string, string>, links: Record<string, string> = {}) {
         return {
-            exists: async (path: string) => path in texts,
-            readText: async (path: string) => texts[path] ?? null,
-            realPath: async (path: string) => links[path] ?? path
+            exists: async (path: string) => Object.keys(texts).some((key) => normalize(key) === path),
+            readText: async (path: string) => Object.entries(texts).find(([key]) => normalize(key) === path)?.[1] ?? null,
+            realPath: async (path: string) => normalize(Object.entries(links).find(([key]) => normalize(key) === path)?.[1] ?? path)
         };
     }
 
-    const pinned = `/install/typescript/node_modules/${nativeEntry}`;
+    const pinned = normalize(`/install/typescript/node_modules/${nativeEntry}`);
     const manifest = (version: string) => JSON.stringify({ name: 'typescript', version });
 
     it('runs the program of the TypeScript 7 in the project, found beside the package', async () => {
-        const program = `/work/app/node_modules/${nativeEntry}`;
+        const program = normalize(`/work/app/node_modules/${nativeEntry}`);
         const lookup = files({ '/work/app/node_modules/typescript/package.json': manifest('7.1.0'), [program]: '' });
         expect(await resolveNativeTypescript('/work/app', '/install/typescript', lookup)).toBe(program);
     });
 
     it('finds the platform package beside the real folder of a linked typescript', async () => {
-        const program = `/work/.pnpm/typescript@7.0.2/node_modules/${nativeEntry}`;
+        const program = normalize(`/work/.pnpm/typescript@7.0.2/node_modules/${nativeEntry}`);
         const lookup = files(
             { '/work/app/node_modules/typescript/package.json': manifest('7.0.2'), [program]: '' },
             { '/work/app/node_modules/typescript': '/work/.pnpm/typescript@7.0.2/node_modules/typescript' }
@@ -271,7 +276,7 @@ describe('the native TypeScript server of a project', () => {
     });
 
     it('looks upward from the folder, as a monorepo hoists its packages', async () => {
-        const program = `/work/node_modules/${nativeEntry}`;
+        const program = normalize(`/work/node_modules/${nativeEntry}`);
         const lookup = files({ '/work/node_modules/typescript/package.json': manifest('7.0.2'), [program]: '' });
         expect(await resolveNativeTypescript('/work/packages/app', '/install/typescript', lookup)).toBe(program);
     });

@@ -6,6 +6,7 @@ import {
     fetchStubs,
     installRelease,
     NativePolicy,
+    nativeProgramFile,
     nativeStubsOf,
     NATIVE_RELEASES,
     phpLanguageServerCheckout,
@@ -188,7 +189,7 @@ describe('the SQL checkout', () => {
         expect(policy.plan('sql-native', '/home/sql-native')).toEqual({
             source: 'dev',
             version: '0.1.4',
-            executable: '/checkout/sql/target/release/sql-language-server',
+            executable: join('/checkout/sql', 'target', 'release', nativeProgramFile('sql-native', process.platform)),
             checkout: '/checkout/sql'
         });
         expect(policy.plan('php-native', '/home/php-native')).not.toBeNull();
@@ -224,7 +225,7 @@ describe('the SQL checkout', () => {
         expect(policy.plan('sql-native', '/home/sql-native')).toEqual({
             source: 'release',
             version: '0.1.4',
-            executable: '/home/sql-native/bin/sql-language-server',
+            executable: join('/home/sql-native', 'bin', 'sql-language-server'),
             asset: release.assets['linux-x64']
         });
     });
@@ -264,7 +265,7 @@ describe('native policy', () => {
             source: 'dev',
             version: '0.1.0',
             stubsCommit: COMMIT,
-            executable: '/checkout/php-language-server/target/release/php-language-server',
+            executable: join('/checkout/php-language-server', 'target', 'release', nativeProgramFile('php-native', process.platform)),
             checkout: '/checkout/php-language-server'
         });
     });
@@ -274,7 +275,7 @@ describe('native policy', () => {
         expect(policy.plan('php-native', '/home/php-native')).toMatchObject({
             source: 'release',
             version: '1.2.3',
-            executable: '/home/php-native/bin/php-language-server',
+            executable: join('/home/php-native', 'bin', 'php-language-server'),
             asset: release.assets['darwin-arm64']
         });
     });
@@ -303,7 +304,9 @@ describe('installing a release', () => {
     it('unpacks the archive into bin and leaves the executable runnable', async () => {
         const lines: string[] = [];
         await installRelease(asset(), folder, serving({ 'https://example.test/server.tar.gz': archive }), (line) => lines.push(line));
-        expect((await stat(join(folder, 'bin', 'php-language-server'))).mode & 0o111).not.toBe(0);
+        if (process.platform !== 'win32') {
+            expect((await stat(join(folder, 'bin', 'php-language-server'))).mode & 0o111).not.toBe(0);
+        }
         expect(lines).toContain('Checksum matches');
     });
 

@@ -34,14 +34,20 @@ export interface FakeSpawner {
 }
 
 function nameOf(spec: LanguageProcessSpec): string {
+    // Read with forward slashes, since the daemon joins the paths of a spec in the form of its platform.
+    const command = spec.command.replaceAll('\\', '/');
+    const args = spec.args.map((arg) => arg.replaceAll('\\', '/'));
     // The install directory (`<kind>/versions/<id>`) names the kind, which tells apart processes that run the same script, like the sidecar of TypeScript and the TypeScript server of Vue.
-    const kind = spec.args.map((arg) => /\/([^/]+)\/(?:versions\/[^/]+\/)?node_modules\//.exec(arg)?.[1]).find((name) => name !== undefined);
+    const kind = args.map((arg) => /\/([^/]+)\/(?:versions\/[^/]+\/)?node_modules\//.exec(arg)?.[1]).find((name) => name !== undefined);
     const profiles = kind !== undefined && kind in KIND_PROFILES ? [KIND_PROFILES[kind as keyof typeof KIND_PROFILES]] : Object.values(KIND_PROFILES);
-    // A native server is its own command, and a server of a person's own is named by it.
+    // A native server is its own command, with `.exe` on Windows, and a server of a person's own is named by it.
     return (
         profiles
             .flatMap((profile) => profile.components)
-            .find((component) => spec.command.endsWith(component.entry) || spec.args.some((arg) => arg.endsWith(component.entry)))?.name ?? spec.command
+            .find(
+                (component) =>
+                    command.endsWith(component.entry) || command.endsWith(`${component.entry}.exe`) || args.some((arg) => arg.endsWith(component.entry))
+            )?.name ?? spec.command
     );
 }
 

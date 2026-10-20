@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test';
+import { normalize } from 'node:path';
 import { INITIALIZE_TIMEOUT_MS, LanguageServer, STABLE_AFTER_MS, type LanguageServerHooks, type LanguageServerOptions, type SharedDocument } from './server.ts';
 import { KIND_PROFILES, type ProjectSqlSettings } from './profiles.ts';
 import { fakeSpawner, ManualClock, settle, type FakeSpawner } from './test-fakes.ts';
@@ -115,7 +116,9 @@ describe('a language server of one kind in one project', () => {
         await settle();
         const [process] = spawner.processes;
         expect(process.spec.command).toBe(
-            `/home/language-servers/typescript/node_modules/@typescript/typescript-${globalThis.process.platform}-${globalThis.process.arch}/lib/${globalThis.process.platform === 'win32' ? 'tsc.exe' : 'tsc'}`
+            normalize(
+                `/home/language-servers/typescript/node_modules/@typescript/typescript-${globalThis.process.platform}-${globalThis.process.arch}/lib/${globalThis.process.platform === 'win32' ? 'tsc.exe' : 'tsc'}`
+            )
         );
         expect(process.spec.args).toEqual(['--lsp', '--stdio']);
         expect(process.spec.env.BUN_BE_BUN).toBeUndefined();
@@ -124,10 +127,12 @@ describe('a language server of one kind in one project', () => {
     });
 
     it("runs the project's own TypeScript, but never that of a folder another machine sent", async () => {
-        const own = `/work/node_modules/@typescript/typescript-${globalThis.process.platform}-${globalThis.process.arch}/lib/${globalThis.process.platform === 'win32' ? 'tsc.exe' : 'tsc'}`;
+        const own = normalize(
+            `/work/node_modules/@typescript/typescript-${globalThis.process.platform}-${globalThis.process.arch}/lib/${globalThis.process.platform === 'win32' ? 'tsc.exe' : 'tsc'}`
+        );
         const files: Partial<LanguageServerOptions> = {
             exists: async (path) => path === own,
-            readText: async (path) => (path === '/work/node_modules/typescript/package.json' ? JSON.stringify({ version: '7.0.2' }) : null)
+            readText: async (path) => (path === normalize('/work/node_modules/typescript/package.json') ? JSON.stringify({ version: '7.0.2' }) : null)
         };
         const trusted = rig('typescript', fakeSpawner(), files);
         trusted.server.attach(document('/work/src/a.ts', 'typescript', 'let a = 1;'));
@@ -572,7 +577,7 @@ describe('the Vue pair', () => {
         server.attach(sfc);
         await settle();
         expect(spawner.processes.map((process) => process.name)).toEqual(['typescript', 'vue']);
-        expect(spawner.processes[1].spec.args.at(-1)).toBe('--tsdk=/home/language-servers/vue/node_modules/typescript/lib');
+        expect(spawner.processes[1].spec.args.at(-1)).toBe(`--tsdk=${normalize('/home/language-servers/vue/node_modules/typescript/lib')}`);
         for (const process of spawner.processes) {
             expect(process.server.documents.get('file:///work/App.vue')?.languageId).toBe('vue');
         }
@@ -920,8 +925,8 @@ describe('the settings of a project the SQL servers read', () => {
         await settle();
         const process = spawner.processes[0]!;
         expect((process.server.paramsOf('initialize')[0] as { initializationOptions: unknown }).initializationOptions).toEqual({
-            storagePath: '/home/language-servers/php-native/storage',
-            stubsPath: `/home/language-servers/php-native/storage/stubs/${'c'.repeat(40)}`,
+            storagePath: normalize('/home/language-servers/php-native/storage'),
+            stubsPath: normalize(`/home/language-servers/php-native/storage/stubs/${'c'.repeat(40)}`),
             sql: settings.php
         });
         const [answer] = await process.server.request<unknown[]>('workspace/configuration', {
@@ -936,8 +941,8 @@ describe('the settings of a project the SQL servers read', () => {
         await settle();
         const process = spawner.processes[0]!;
         expect((process.server.paramsOf('initialize')[0] as { initializationOptions: unknown }).initializationOptions).toEqual({
-            storagePath: '/home/language-servers/php-native/storage',
-            stubsPath: `/home/language-servers/php-native/storage/stubs/${'c'.repeat(40)}`
+            storagePath: normalize('/home/language-servers/php-native/storage'),
+            stubsPath: normalize(`/home/language-servers/php-native/storage/stubs/${'c'.repeat(40)}`)
         });
         expect(process.server.paramsOf('workspace/didChangeConfiguration')).toEqual([]);
     });

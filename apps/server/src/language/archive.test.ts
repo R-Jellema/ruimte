@@ -26,14 +26,18 @@ describe('archives', () => {
             const entries = readArchive(format === 'zip' ? zip(FILES) : tarGz(FILES), format);
             expect(entries.map((entry) => entry.path)).toEqual(['bin/server', 'docs/readme.txt']);
             expect(entries.map((entry) => new TextDecoder().decode(entry.data))).toEqual(['#!/bin/sh\n', 'hello']);
-            expect(entries[0]!.mode & 0o777).toBe(0o755);
+            if (process.platform !== 'win32') {
+                expect(entries[0]!.mode & 0o777).toBe(0o755);
+            }
         });
 
         it(`writes a ${format} under a folder, executable where the archive says so`, async () => {
             await extractEntries(readArchive(format === 'zip' ? zip(FILES) : tarGz(FILES), format), folder);
             expect(await readFile(join(folder, 'docs', 'readme.txt'), 'utf8')).toBe('hello');
-            expect((await stat(join(folder, 'bin', 'server'))).mode & 0o111).not.toBe(0);
-            expect((await stat(join(folder, 'docs', 'readme.txt'))).mode & 0o111).toBe(0);
+            if (process.platform !== 'win32') {
+                expect((await stat(join(folder, 'bin', 'server'))).mode & 0o111).not.toBe(0);
+                expect((await stat(join(folder, 'docs', 'readme.txt'))).mode & 0o111).toBe(0);
+            }
         });
     }
 

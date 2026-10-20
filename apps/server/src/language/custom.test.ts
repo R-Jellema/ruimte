@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { CustomLanguageServerInput } from '@ruimte/contracts';
 import { CustomLanguageServers, customProfile, resolveCommandOnPath } from './custom.ts';
 
@@ -102,10 +102,10 @@ describe('the language servers of a person', () => {
 
 describe('finding a command', () => {
     it('finds an executable by its absolute path and on the PATH, and nothing relative', () => {
-        expect(resolveCommandOnPath('/bin/sh')).toBe('/bin/sh');
-        expect(resolveCommandOnPath('sh')).toMatch(/\/sh$/);
-        expect(resolveCommandOnPath('./sh')).toBeNull();
-        expect(resolveCommandOnPath('/bin/does-not-exist')).toBeNull();
+        expect(resolveCommandOnPath(process.execPath)).toBe(process.execPath);
+        expect(resolveCommandOnPath('bun')).toMatch(/[\\/]bun(\.exe)?$/);
+        expect(resolveCommandOnPath('./bun')).toBeNull();
+        expect(resolveCommandOnPath(join(dirname(process.execPath), 'does-not-exist'))).toBeNull();
         expect(resolveCommandOnPath('does-not-exist-anywhere')).toBeNull();
     });
 });

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { LanguageServerKind } from '@ruimte/contracts';
 import { LanguageInstaller } from './installer.ts';
-import { NativePolicy, nativeStubsOf, type Download, type NativeRelease } from './native.ts';
+import { NativePolicy, nativeProgramFile, nativeStubsOf, type Download, type NativeRelease } from './native.ts';
 import { KIND_PROFILES } from './profiles.ts';
 import type { LanguageProcessSpec, RunCommand } from './runtime.ts';
 import { sha256, tarGz } from './test-archives.ts';
@@ -221,7 +221,7 @@ describe('native install', () => {
             }
             onLine('Compiling php-language-server');
             await mkdir(join(spec.cwd, 'target', 'release'), { recursive: true });
-            await writeFile(join(spec.cwd, 'target', 'release', 'php-language-server'), '');
+            await writeFile(join(spec.cwd, 'target', 'release', nativeProgramFile('php-native', process.platform)), '');
             return 0;
         };
     }
@@ -252,7 +252,10 @@ describe('native install', () => {
         expect(installer.failureOf('php-native')).toBeNull();
         expect(await installer.state('php-native')).toBe('installed');
         expect(calls[0]).toMatchObject({ args: ['build', '--release', '--locked'], cwd: join(root, 'repo') });
-        expect(calls[1]).toMatchObject({ command: join(root, 'repo', 'target', 'release', 'php-language-server'), args: ['--version'] });
+        expect(calls[1]).toMatchObject({
+            command: join(root, 'repo', 'target', 'release', nativeProgramFile('php-native', process.platform)),
+            args: ['--version']
+        });
         expect(requested).toEqual([STUBS_URL]);
         expect(await readFile(join(nativeStubsOf(join(root, 'php-native'), COMMIT), 'standard', 'a.php'), 'utf8')).toBe('<?php');
         expect(
@@ -261,7 +264,10 @@ describe('native install', () => {
                 .tail()
                 .map((line) => line.text)
         ).toContain('Compiling php-language-server');
-        expect(installer.launchOf('php-native')).toEqual({ executable: join(root, 'repo', 'target', 'release', 'php-language-server'), stubsCommit: COMMIT });
+        expect(installer.launchOf('php-native')).toEqual({
+            executable: join(root, 'repo', 'target', 'release', nativeProgramFile('php-native', process.platform)),
+            stubsCommit: COMMIT
+        });
         expect(installer.versionOf('php-native')).toBe('0.1.0');
     });
 
@@ -538,7 +544,7 @@ describe('native install', () => {
         });
 
         it('takes over a release installed before installs had a folder each, and removes it once it is two versions back', async () => {
-            const legacy = join(root, 'php-native', 'bin', 'php-language-server');
+            const legacy = join(root, 'php-native', 'bin', nativeProgramFile('php-native', process.platform));
             await mkdir(dirname(legacy), { recursive: true });
             await writeFile(legacy, '');
             const stubs = nativeStubsOf(join(root, 'php-native'), COMMIT);
@@ -588,7 +594,7 @@ describe('the SQL server install', () => {
                 return 0;
             }
             await mkdir(join(spec.cwd, 'target', 'release'), { recursive: true });
-            await writeFile(join(spec.cwd, 'target', 'release', 'sql-language-server'), '');
+            await writeFile(join(spec.cwd, 'target', 'release', nativeProgramFile('sql-native', process.platform)), '');
             return 0;
         };
     }
@@ -611,7 +617,9 @@ describe('the SQL server install', () => {
         expect(await installer.state('sql-native')).toBe('installed');
         expect(calls.map((call) => call.args)).toEqual([['build', '--release', '--locked'], ['--version']]);
         expect(requested).toEqual([]);
-        expect(installer.launchOf('sql-native')).toEqual({ executable: join(root, 'sql', 'target', 'release', 'sql-language-server') });
+        expect(installer.launchOf('sql-native')).toEqual({
+            executable: join(root, 'sql', 'target', 'release', nativeProgramFile('sql-native', process.platform))
+        });
         const marker = JSON.parse(await readFile(join(await currentFolder('sql-native'), 'installed.json'), 'utf8')) as Record<string, unknown>;
         expect(marker).toMatchObject({ versions: { 'sql-language-server': '0.1.3' }, source: 'dev' });
         expect(marker).not.toHaveProperty('stubs');
