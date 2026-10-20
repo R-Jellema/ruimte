@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { foregroundGroup, holdsForeground } from './foreground.ts';
+import { foregroundGroup, holdsForeground, readTpgid } from './foreground.ts';
 
 function printed(output: string | null) {
     return async (): Promise<string | null> => output;
@@ -23,5 +23,11 @@ describe('foregroundGroup', () => {
     test('is the group in front, whichever process asked', async () => {
         expect(await foregroundGroup(4211, printed('  5120\n'))).toBe(5120);
         expect(await foregroundGroup(4211, printed('   -1\n'))).toBeNull();
+    });
+});
+
+describe('readTpgid', () => {
+    test('says nothing on Windows, where a console has no foreground group', async () => {
+        expect(await readTpgid(process.pid, 'win32')).toBeNull();
     });
 });

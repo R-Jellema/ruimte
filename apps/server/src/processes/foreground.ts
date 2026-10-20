@@ -1,7 +1,11 @@
 /* What `ps -o tpgid=` printed for `pid`, or null when it could not run or failed. */
 export type TpgidReader = (pid: number) => Promise<string | null>;
 
-async function readTpgid(pid: number): Promise<string | null> {
+/* Null on Windows without asking: a console has no process groups, so there is no foreground to read. */
+export async function readTpgid(pid: number, platform: string = process.platform): Promise<string | null> {
+    if (platform === 'win32') {
+        return null;
+    }
     try {
         const child = Bun.spawn(['ps', '-o', 'tpgid=', '-p', String(pid)], { stdout: 'pipe', stderr: 'ignore' });
         const [output, code] = await Promise.all([new Response(child.stdout).text(), child.exited]);
