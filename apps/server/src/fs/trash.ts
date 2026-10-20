@@ -43,6 +43,29 @@ function localIso(at: Date): string {
     return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}:${pad(at.getSeconds())}`;
 }
 
+/*
+ * The Recycle Bin keeps its own record of where an item came from, so only the shell may put it there.
+ * The path rides in the environment rather than in the script, so no quoting can break it.
+ */
+async function trashWindows(path: string): Promise<void> {
+    const script = [
+        'Add-Type -AssemblyName Microsoft.VisualBasic',
+        '$target = $env:RUIMTE_TRASH_PATH',
+        "if (Test-Path -LiteralPath $target -PathType Container) { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory($target, 'OnlyErrorDialogs', 'SendToRecycleBin') } " +
+            "else { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($target, 'OnlyErrorDialogs', 'SendToRecycleBin') }"
+    ].join('; ');
+    const child = Bun.spawn(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', script], {
+        env: { ...process.env, RUIMTE_TRASH_PATH: path },
+        stdin: 'ignore',
+        stdout: 'ignore',
+        stderr: 'pipe'
+    });
+    const [code, errors] = await Promise.all([child.exited, new Response(child.stderr).text()]);
+    if (code !== 0) {
+        throw new TrashError('trash-failed', errors.trim() || 'The file could not be moved to the Recycle Bin');
+    }
+}
+
 /* The trash of the freedesktop.org spec in the home directory, with the `.trashinfo` a file manager restores from. */
 async function trashLinux(path: string, original: string, home: string, env: NodeJS.ProcessEnv): Promise<void> {
     const root = join(env.XDG_DATA_HOME || join(home, '.local', 'share'), 'Trash');
@@ -95,6 +118,9 @@ export async function trashPath(
         }
         case 'linux':
             await trashLinux(path, original, home, env);
+            return;
+        case 'win32':
+            await trashWindows(path);
             return;
         default:
             throw new TrashError('trash-unsupported', 'This machine has no trash Ruimte can move files to');

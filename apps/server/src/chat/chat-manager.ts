@@ -36,6 +36,7 @@ import { ChatError } from './errors.ts';
 import { RUIMTE_UI_FENCE } from './ui-fence.ts';
 import { InlineEditNotes } from './inline-edit.ts';
 import { countChatStarted, countTurn } from '../stats/usage-stats.ts';
+import { prependPath } from '../env-path.ts';
 
 export type { InterruptedRun } from '@adecore/agents/chat';
 
@@ -111,7 +112,7 @@ function chatEnvOf(env: Record<string, string | undefined>, binDir: string | und
         }
     }
     if (binDir) {
-        chat.PATH = chat.PATH ? `${binDir}:${chat.PATH}` : binDir;
+        prependPath(chat, binDir);
     }
     return chat;
 }

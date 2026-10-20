@@ -189,6 +189,10 @@ if (values.os === 'mac' || values.os === 'linux') {
 
 await copyFile(join(root, 'bin', 'ruimte-context'), join(outDir, 'ruimte-context'));
 await chmod(join(outDir, 'ruimte-context'), 0o755);
+if (values.os === 'win') {
+    // Git Bash runs the script above; cmd and PowerShell find this one through PATHEXT.
+    await copyFile(join(root, 'bin', 'ruimte-context.cmd'), join(outDir, 'ruimte-context.cmd'));
+}
 await writeFile(join(outDir, 'ruimte.build'), `${buildId}\n`);
 console.log(`Compiled ${binary}`);
 

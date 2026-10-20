@@ -95,3 +95,19 @@ deb:
     - libsecret-1-0
 rpm:
   compression: gzip
+win:
+  # There is no background service on Windows: the shell runs the daemon as its child (`serviceSupport`).
+  target: [nsis, zip]
+  # electron-builder turns the 1024 px PNG into the .ico Windows asks for.
+  icon: build/icon.png
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  executableName: Ruimte
+nsis:
+  artifactName: ${productName}-${version}-${arch}-setup.${ext}
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Ruimte
+  runAfterFinish: true

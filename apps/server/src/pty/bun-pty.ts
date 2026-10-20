@@ -49,7 +49,29 @@ class BunPtyProcess implements PtyProcess {
         if (this.processExitCode !== null) {
             return;
         }
+        if (process.platform === 'win32') {
+            this.killOnWindows(signal);
+            return;
+        }
         this.process.kill(signal);
+    }
+
+    /*
+     * Windows has no signals, and Bun terminates the process for any it accepts (SIGHUP it refuses). An
+     * interrupt is the Ctrl+C the console turns into its own event; anything else takes the whole tree,
+     * since an agent the shell started is no child the console would end with it.
+     */
+    private killOnWindows(signal: NodeJS.Signals): void {
+        if (signal === 'SIGINT') {
+            this.process.terminal?.write('\x03');
+            return;
+        }
+        Bun.spawnSync(['taskkill', '/PID', String(this.pid), '/T', '/F'], { stdin: 'ignore', stdout: 'ignore', stderr: 'ignore' });
+        try {
+            this.process.kill('SIGKILL');
+        } catch {
+            // taskkill already ended it.
+        }
     }
 
     onData(callback: (data: Uint8Array) => void): void {

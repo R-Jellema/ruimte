@@ -119,6 +119,6 @@ describe('trashPath on Linux', () => {
 
 describe('trashPath elsewhere', () => {
     test('refuses a platform without a trash it can reach', async () => {
-        await expect(trashPath(join(root, 'a'), 'win32', home)).rejects.toMatchObject({ code: 'trash-unsupported' });
+        await expect(trashPath(join(root, 'a'), 'freebsd', home)).rejects.toMatchObject({ code: 'trash-unsupported' });
     });
 });

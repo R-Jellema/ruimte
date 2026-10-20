@@ -17,6 +17,7 @@ import { errorText } from '../error-text.ts';
 import { CodedError } from '@adecore/agents';
 import { ClientSinks } from '../client-sinks.ts';
 import { countUsage } from '../stats/usage-stats.ts';
+import { prependPath } from '../env-path.ts';
 
 type SessionErrorCode =
     | 'session-exists'
@@ -766,7 +767,7 @@ export class SessionManager {
             env.RUIMTE_CONTEXT_URL = this.contextUrl;
         }
         if (this.binDir) {
-            env.PATH = env.PATH ? `${this.binDir}:${env.PATH}` : this.binDir;
+            prependPath(env, this.binDir);
         }
         if (!options.command && !options.launch && options.args.every((arg) => ['-l', '-i'].includes(arg))) {
             this.shellEnvironment?.(options.shell, env);

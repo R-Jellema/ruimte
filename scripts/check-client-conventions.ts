@@ -1,10 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Glob } from 'bun';
 import { parseSync, Visitor } from 'oxc-parser';
 
-const HERE = new URL('../apps/client/src/', import.meta.url).pathname;
+const HERE = fileURLToPath(new URL('../apps/client/src/', import.meta.url));
 const SOURCES = [...new Glob('**/*.{ts,tsx}').scanSync(HERE)]
+    // The rules below name files with forward slashes, which Windows does not hand back.
+    .map((path) => path.replaceAll('\\', '/'))
     .filter((path) => !path.endsWith('.test.ts') && !path.endsWith('.test.tsx'))
     .sort()
     .map((path) => ({ path, text: readFileSync(join(HERE, path), 'utf8') }));

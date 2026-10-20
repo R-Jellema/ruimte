@@ -1,9 +1,8 @@
-import { basename } from 'node:path';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { Terminal } from '@xterm/headless';
 import { trackTerminalCwd, terminalCwdScreenSize, type TerminalCwd, type AgentInfo, type AgentLaunch, type RuntimeMode } from '@ruimte/contracts';
-import type { PtyAdapter, PtyProcess } from '../pty/pty.ts';
+import { shellName, type PtyAdapter, type PtyProcess } from '../pty/pty.ts';
 import { fitScreen } from './fit-screen.ts';
 import { ShellPrompt } from './shell-prompt.ts';
 import { openShellEditor } from './shell-editor.ts';
@@ -132,7 +131,7 @@ export class Session {
     private readonly decoder = new TextDecoder('utf-8', { fatal: false });
 
     constructor(options: SessionOptions) {
-        this.shell = basename(options.shell);
+        this.shell = shellName(options.shell);
         this.plainShell = ['sh', 'bash', 'zsh'].includes(this.shell) && options.args.every((arg) => ['-l', '-i'].includes(arg)) && !options.command;
         this.id = options.id;
         this.cwd = options.cwd;
