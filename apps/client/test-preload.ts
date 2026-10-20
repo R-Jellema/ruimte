@@ -6,6 +6,7 @@ import { AGENTS_LOCALES } from '@adecore/agents-react/locales';
 import editorWords from '@adecore/editor-react/locales/en.json' with { type: 'json' };
 import { connectFormat } from './src/format/source';
 import { FALLBACK_LANGUAGE } from './src/i18n/languages';
+import { fileURLToPath } from 'node:url';
 
 /*
  * The English words, in memory, before the first test runs, so a pure function that builds a label
@@ -14,7 +15,7 @@ import { FALLBACK_LANGUAGE } from './src/i18n/languages';
  * Synchronous and off disk, since `import.meta.glob` is Vite's. It sits beside `src` rather than in it,
  * because the client never imports Node.
  */
-const here = new URL('.', import.meta.url).pathname;
+const here = fileURLToPath(new URL('.', import.meta.url));
 const dir = join(here, 'src', 'i18n', 'locales', FALLBACK_LANGUAGE);
 
 function namespacesIn(folder: string): Record<string, Record<string, unknown>> {

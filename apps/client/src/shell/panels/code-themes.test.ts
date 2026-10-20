@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { createHighlighter } from 'shiki';
 import { CODE_PALETTES, CODE_THEMES, type CodeRole } from './code-themes';
+import { fileURLToPath } from 'node:url';
 
-const HERE = new URL('.', import.meta.url).pathname;
+const HERE = fileURLToPath(new URL('.', import.meta.url));
 
 function luminance(hex: string): number {
     const value = Number.parseInt(hex.slice(1, 7), 16);

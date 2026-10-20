@@ -3,6 +3,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { z } from 'zod';
 import { storedJson, storedText, type KeyValueStorage } from './stored-json';
+import { fileURLToPath } from 'node:url';
 
 function memoryStorage(): KeyValueStorage & { values: Map<string, string> } {
     const values = new Map<string, string>();
@@ -82,7 +83,7 @@ describe('storedText', () => {
     });
 });
 
-const SOURCES = new URL('..', import.meta.url).pathname;
+const SOURCES = fileURLToPath(new URL('..', import.meta.url));
 
 function sourcesIn(folder: string): string[] {
     return readdirSync(folder).flatMap((name) => {

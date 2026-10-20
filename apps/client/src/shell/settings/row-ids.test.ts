@@ -2,8 +2,9 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { SETTINGS_INDEX } from './search';
+import { fileURLToPath } from 'node:url';
 
-const HERE = new URL('.', import.meta.url).pathname;
+const HERE = fileURLToPath(new URL('.', import.meta.url));
 
 // Ids a pane composes at run time, or that the shared agents package draws, so no literal is in these sources.
 const COMPOSED_PREFIXES = ['editor.folding.', 'editor.smartKeys.', 'agents.', 'keyboard.', 'computer.grant.', 'providers.defaults.', 'usage.'];
