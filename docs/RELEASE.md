@@ -6,6 +6,32 @@ draft release. macOS is built for Apple silicon only: `minimumSystemVersion` is 
 Intel Macs that reach macOS 26 are frozen there, because 27 is Apple silicon only. Linux is built
 for x64 and arm64 on Ubuntu 22.04 runners, as AppImage, deb and rpm; see `docs/LINUX.md`.
 
+## Windows
+
+Windows 11 x64 is built but not shipped yet (`docs/WINDOWS.md`). The `windows` job in `release.yml`
+runs only when the repository variable `WINDOWS_RELEASE` is `true`; otherwise it is skipped and the
+release goes out for macOS and Linux as before. With the variable on, it builds the client and
+compiles the daemon on `windows-latest` (NSIS needs Windows; the daemon itself would cross-compile),
+then `electron-builder --win --x64 --publish always` uploads `Ruimte-<version>-x64-setup.exe`, its
+blockmap, `latest.yml` and a zip into the same draft. `publish` waits for it, so a failed Windows build
+keeps the whole release a draft. `after-pack.cjs` refuses a Windows package without `bin/ruimte.exe`,
+`bin/ruimte-context.cmd` and `bin/native/adecore-database.exe`. The site sends `/download/windows` to
+the installer of the latest release.
+
+npm reads the same variable: without it `build.ts --skip win32-x64` leaves `@ruimte/win32-x64` out of
+the release and out of the launcher's dependencies. The launcher refuses Windows either way, until
+`WINDOWS_REFUSAL` comes off.
+
+The build is unsigned: SmartScreen warns on the installer, and electron-updater has no publisher
+to check an update against. Before `WINDOWS_RELEASE` goes on, Bas decides:
+
+- How to sign: an OV or EV certificate (electron-builder reads `WIN_CSC_LINK` and
+  `WIN_CSC_KEY_PASSWORD`, or a hardware token), or a cloud signing service, which needs a signing step
+  in the `windows` job. The job marks where it goes.
+- Whether an unsigned first Windows release is acceptable.
+- Publishing the `@ruimte/win32-x64` placeholder once and setting Trusted Publishing on it, as below.
+  Without that the npm publish fails on Windows before the launcher goes out.
+
 ## Build caches
 
 CI's `packaged (macOS)` job, the macOS desktop release and the macOS npm build share the native build
@@ -19,15 +45,16 @@ computer use app is assembled with that version before signing and notarization.
 
 ## npm
 
-Publishing a release also publishes `ruimte` and its three platform binary packages at the
-application version. Shared libraries come from Adecore at the version pinned in the manifests and
+Publishing a release also publishes `ruimte` and its platform binary packages at the application
+version: three, and `win32-x64` once Windows ships. Shared libraries come from Adecore at the version pinned in the manifests and
 `bun.lock`; Ruimte's application version moves on its own.
 
 `.github/workflows/npm.yml` runs on `release: published`, on the dispatch sent by `release.yml`, or
 by hand (`gh workflow run npm.yml -f version=0.2.0`, for an existing tag). The dispatch from
 `release.yml` names its own run in `release_run`, and npm.yml publishes the daemons that run
 compiled for the desktop builds, kept as artifacts for 7 days. Without `release_run` it compiles
-the daemon itself, for `darwin-arm64` on macOS and `linux-x64`/`linux-arm64` on Ubuntu. Either way
+the daemon itself, for `darwin-arm64` on macOS and `linux-x64`, `linux-arm64` and `win32-x64` on
+Ubuntu. Either way
 `packages/npm/scripts/build.ts` prepares the packages. `publish.ts` publishes the platform binaries before the
 launcher, skips versions already on npm and uses `next` for prereleases.
 
@@ -55,7 +82,7 @@ To try the packages without publishing:
 ```sh
 RUIMTE_VERSION=0.0.0-local bun apps/server/scripts/compile.ts --target darwin-arm64 --outdir /tmp/npm/binaries/darwin-arm64
 bun packages/npm/scripts/build.ts --version 0.0.0-local --binaries /tmp/npm/binaries --out /tmp/npm/out --only darwin-arm64
-bun packages/npm/scripts/publish.ts --out /tmp/npm/out --dry-run    # wants all three platforms
+bun packages/npm/scripts/publish.ts --out /tmp/npm/out --dry-run    # wants every platform the launcher names
 ```
 
 `bun run test:package` does the first two and runs `node <launcher> --version` against the result. It also runs as part of `bun run test:integration`; CI checks it in a separate job alongside the core integrations.

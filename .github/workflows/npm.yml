@@ -41,8 +41,9 @@ jobs:
                   echo "ref=$ref" >> "$GITHUB_OUTPUT"
 
     # A macOS binary has to be re-signed with codesign after Bun writes it, or the kernel kills it on
-    # launch, so the darwin targets build on macOS. Bun cross-compiles the Linux ones from anywhere.
-    # A release run already compiled all three, so only a publish without one builds them here.
+    # launch, so the darwin targets build on macOS. Bun cross-compiles the Linux and Windows ones from
+    # anywhere, and compile.ts fetches the Windows database helper at the version bun.lock pins.
+    # A release run already compiled them, so only a publish without one builds them here.
     binaries:
         needs: version
         if: ${{ !inputs.release_run }}
@@ -54,6 +55,8 @@ jobs:
                     - target: linux-x64
                       runner: ubuntu-latest
                     - target: linux-arm64
+                      runner: ubuntu-latest
+                    - target: win32-x64
                       runner: ubuntu-latest
         runs-on: ${{ matrix.runner }}
         steps:
@@ -113,9 +116,17 @@ jobs:
                   path: binaries
                   run-id: ${{ inputs.release_run }}
                   github-token: ${{ github.token }}
+            # Windows ships only once the repository variable WINDOWS_RELEASE is `true`, the same one
+            # release.yml reads, and only after @ruimte/win32-x64 trusts this workflow (docs/RELEASE.md).
             - name: Lay out the packages
               env:
                   VERSION: ${{ needs.version.outputs.version }}
-              run: bun packages/npm/scripts/build.ts --version "$VERSION" --binaries binaries --out npm-packages
+                  WINDOWS_RELEASE: ${{ vars.WINDOWS_RELEASE }}
+              run: |
+                  skip=()
+                  if [ "$WINDOWS_RELEASE" != true ]; then
+                    skip=(--skip win32-x64)
+                  fi
+                  bun packages/npm/scripts/build.ts --version "$VERSION" --binaries binaries --out npm-packages "${skip[@]}"
             - name: Publish platform packages before the launcher
               run: bun packages/npm/scripts/publish.ts --out npm-packages

@@ -12,6 +12,13 @@ module.exports = async (context) => {
     if (!existsSync(daemon)) {
         throw new Error(`No daemon at ${daemon}; run \`bun run --cwd apps/server compile\` for this os and arch first`);
     }
+    if (context.electronPlatformName === 'win32') {
+        for (const name of ['ruimte-context.cmd', join('native', 'adecore-database.exe')]) {
+            if (!existsSync(join(resources, 'bin', name))) {
+                throw new Error(`No ${name} in ${join(resources, 'bin')}; run \`bun run --cwd apps/server compile -- --os win --arch x64\` first`);
+            }
+        }
+    }
     // Speech to Text ships on macOS only; see `apps/speech-bridge/README.md`.
     if (context.electronPlatformName === 'darwin' && !existsSync(join(resources, 'bin', 'native', 'speech-bridge'))) {
         throw new Error('No speech helper; compile the server resources for this os and arch first');

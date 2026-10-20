@@ -2,7 +2,8 @@ name: Release
 
 # A tag `v1.2.3` builds the desktop app for macOS and Linux and uploads it to a draft GitHub release
 # with the files electron-updater reads (`latest-mac.yml`, `latest-linux.yml`,
-# `latest-linux-arm64.yml`). The notes come off the annotated tag. Once every build and the checks
+# `latest-linux-arm64.yml`), and Windows with `latest.yml` once the repository variable
+# WINDOWS_RELEASE is `true`. The notes come off the annotated tag. Once every build and the checks
 # pass, the draft is published, which ships it.
 on:
   push:
@@ -15,7 +16,7 @@ permissions:
 jobs:
   # Two artifacts that finish at once both find no release and both create one. One of the races
   # loses, and its upload with it: v0.0.1 landed without the x64 zip that `latest-mac.yml` names.
-  # With three builds in parallel the draft has to exist before any of them starts.
+  # With the builds in parallel the draft has to exist before any of them starts.
   draft:
     runs-on: ubuntu-latest
     steps:
@@ -31,7 +32,7 @@ jobs:
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && exit 0
           # An annotated tag carries the release notes; a lightweight one would hand back the commit
           # message, which is not what anyone wrote for the release. Nothing here may fail. Without a
-          # draft the three builds race to create one and the loser's upload goes missing, so a tag
+          # draft the builds race to create one and the loser's upload goes missing, so a tag
           # this cannot read leaves the notes empty and the release still gets made.
           notes="$RUNNER_TEMP/notes.md"
           : > "$notes"
@@ -182,6 +183,54 @@ jobs:
           bun x electron-builder --linux --${{ matrix.arch }} --publish always \
             -c.extraMetadata.version="$RUIMTE_VERSION"
 
+  # Unsigned until Bas picks a code signing route (docs/RELEASE.md, "Windows"); the certificate goes in
+  # here as WIN_CSC_LINK and WIN_CSC_KEY_PASSWORD, or as a signing service's step before the build.
+  # Off unless the repository variable WINDOWS_RELEASE is `true`, so it never holds up the others.
+  # NSIS only builds on Windows; the daemon would cross-compile anywhere.
+  windows:
+    needs: draft
+    if: vars.WINDOWS_RELEASE == 'true'
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/install
+      - name: Version from the tag
+        run: echo "RUIMTE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - name: Build the client
+        env:
+          RUIMTE_TELEMETRY: '1'
+        run: bun run --cwd apps/client build
+      - uses: ./.github/actions/client-source-maps
+        with:
+          dist: apps/client/dist
+          project: desktop
+          release: ruimte@${{ env.RUIMTE_VERSION }}
+          auth-token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      - name: Compile the daemon
+        env:
+          RUIMTE_TELEMETRY: '1'
+        run: bun run --cwd apps/server compile -- --os win --arch x64
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: win32-x64
+          path: apps/server/dist/win-x64
+          if-no-files-found: error
+          retention-days: 7
+      # The installer, its blockmap and `latest.yml` go up together: electron-updater reads the feed of
+      # the NSIS target, and the zip rides along for whoever wants it without an installer.
+      - name: Build and upload
+        working-directory: apps/desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUIMTE_TELEMETRY: '1'
+        run: |
+          bun run build:main
+          bun x electron-builder --win --x64 --publish always \
+            -c.extraMetadata.version="$RUIMTE_VERSION"
+
   # The release the daemon, the shell and the page report under, `ruimte@<version>`. Bun maps a
   # stack trace of the daemon back to the source inside the binary; the page's source maps go up from
   # the build jobs. Reports arrive without it as well, so an error tracker that is down never holds
@@ -206,7 +255,9 @@ jobs:
           npx --yes @sentry/cli@3.8.0 releases finalize "$release"
 
   publish:
-    needs: [verify, build, linux]
+    needs: [verify, build, linux, windows]
+    # A skipped Windows build (WINDOWS_RELEASE off) holds nothing up; a failed one keeps the draft a draft.
+    if: ${{ !cancelled() && needs.verify.result == 'success' && needs.build.result == 'success' && needs.linux.result == 'success' && (needs.windows.result == 'success' || needs.windows.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

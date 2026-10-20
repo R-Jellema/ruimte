@@ -106,7 +106,11 @@ Do not reverse one without asking Bas.
 
 ### 6. Packaging and the service
 
-- Code signing and `latest.yml` for `electron-updater` in the release workflow.
+- The release pipeline builds Windows behind the repository variable `WINDOWS_RELEASE`: the installer,
+  `latest.yml` and the zip in `release.yml`, `@ruimte/win32-x64` in `npm.yml`, `/download/windows` on the
+  site (`docs/RELEASE.md`, "Windows"). Open: code signing, publishing the npm placeholder, and turning
+  the variable on.
+- The site detects Windows and offers the installer once a release has one.
 - `@adecore/service` has no Windows manager (`platform.ts`). The scheduled task goes there, as a change in
   ADE CORE; the callers already ask for it by `'windows'`.
 - The npm launcher's refusal comes off last.
