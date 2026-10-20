@@ -20,6 +20,7 @@ import {
     Command,
     Copy,
     CornerUpRight,
+    Crosshair,
     Database,
     DatabaseZap,
     Download,
@@ -635,7 +636,7 @@ const TABLE = {
     },
     'zoom-node': {
         key: 'zoomToNode',
-        icon: Focus,
+        icon: Crosshair,
         shortcut: CANVAS_SHORTCUTS.zoomNode,
         binds: 'workspace',
         palette: true,

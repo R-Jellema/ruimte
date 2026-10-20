@@ -9,6 +9,7 @@ import {
     CirclePower,
     CircleQuestionMark,
     CircleX,
+    Crosshair,
     Eye,
     FileText,
     CircleDot,
@@ -17,7 +18,6 @@ import {
     Hand,
     LayoutGrid,
     Link2,
-    Maximize2,
     MessageSquare,
     PenTool,
     Shrink,
@@ -561,7 +561,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                             <IconButton icon={Shrink} size="sm" label={t('node.restore')} onClick={() => canvasStore.getState().toggleMaximizedNode(id)} />
                         ) : (
                             <IconButton
-                                icon={Maximize2}
+                                icon={Crosshair}
                                 size="sm"
                                 label={t('node.zoomTo')}
                                 onClick={() => focusNodeAction(canvasStore.getState().viewId, id)}

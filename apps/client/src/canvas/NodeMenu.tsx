@@ -5,6 +5,7 @@ import {
     ChevronsUpDown,
     CircleStop,
     Copy,
+    Crosshair,
     Eraser,
     EyeOff,
     Expand,
@@ -15,7 +16,6 @@ import {
     Group,
     LayoutGrid,
     Link2,
-    Maximize2,
     MessageSquare,
     MessagesSquare,
     Move,
@@ -348,7 +348,7 @@ function NodeMenuContent({ id, viewId: targetViewId, node, onRename, snooze }: N
                 </ContextMenu.SubmenuTrigger>
                 <ContextMenu.Popup>
                     <ContextMenu.Item onClick={zoomTo}>
-                        <Icon icon={Maximize2} size={14} /> {t('node.zoomTo')}
+                        <Icon icon={Crosshair} size={14} /> {t('node.zoomTo')}
                     </ContextMenu.Item>
                     {node.kind !== 'group' && (
                         <ContextMenu.Item onClick={() => canvas().getState().toggleMaximizedNode(id)}>
@@ -480,7 +480,7 @@ function UnknownNodeMenuPopup({ onZoom, onDelete }: { onZoom(): void; onDelete()
     return (
         <ContextMenu.Popup>
             <ContextMenu.Item onClick={onZoom}>
-                <Icon icon={Maximize2} size={14} /> {t('node.zoomTo')}
+                <Icon icon={Crosshair} size={14} /> {t('node.zoomTo')}
             </ContextMenu.Item>
             <ContextMenu.Separator />
             <ContextMenu.Item className="text-status-error" onClick={onDelete}>
