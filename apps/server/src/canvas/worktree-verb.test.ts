@@ -78,7 +78,7 @@ beforeEach(async () => {
 afterEach(async () => {
     await daemon.stop();
     store.closeAll();
-    await rm(root, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true, maxRetries: 5 });
 });
 
 function firstTurn(chatId: string): ChatTurnItem | undefined {
