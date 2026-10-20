@@ -191,7 +191,7 @@ describe('installCodexRules', () => {
 
     test('lands in the rules folder of CODEX_HOME', () => {
         expect(defaultCodexRulesPath({ CODEX_HOME: '/x/codex', HOME: '/home/a' })).toBe(join('/x/codex', 'rules', 'ruimte.rules'));
-        expect(defaultCodexRulesPath({ HOME: '/home/a' })).toBe(join('/home/a', '.codex', 'rules', 'ruimte.rules'));
+        expect(defaultCodexRulesPath({ HOME: '/home/a', USERPROFILE: '/home/a' })).toBe(join('/home/a', '.codex', 'rules', 'ruimte.rules'));
     });
 });
 

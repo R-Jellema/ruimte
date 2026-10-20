@@ -142,8 +142,10 @@ test('a node that is not an opener of the worktree gets not-yours, and nothing i
 });
 
 test('a conflict is taken back and refused, leaving the target clean', async () => {
-    await team('shared.txt from the lexer', 'shared.txt from the parser');
-    expect((await runVerb(daemon, 'chat-lead', 'worktree', ['merge', 'lexer']))[0]).toBe('merged\tlexer\tmain\tmerge');
+    await team('lexer.txt from the lexer', 'shared.txt from the parser');
+    // main moves on under the parser by a commit of its own, which costs fewer processes than a merge of the lexer.
+    await writeFile(join(folder, 'shared.txt'), 'from the lexer\n');
+    await gitIn(folder, ['commit', '--quiet', '--all', '--message', 'shared.txt on main']);
 
     const refused = await runVerb(daemon, 'chat-lead', 'worktree', ['merge', 'parser']);
 

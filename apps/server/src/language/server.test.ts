@@ -143,7 +143,7 @@ describe('a language server of one kind in one project', () => {
         const sent = rig('typescript', fakeSpawner(), { ...files, ownTypescript: false });
         sent.server.attach(document('/work/src/a.ts', 'typescript', 'let a = 1;'));
         await settle();
-        expect(sent.spawner.processes[0]!.spec.command).toStartWith('/home/language-servers/typescript/node_modules/');
+        expect(sent.spawner.processes[0]!.spec.command).toStartWith(normalize('/home/language-servers/typescript/node_modules/'));
         await sent.server.stop();
     });
 
