@@ -60,7 +60,7 @@ export function DownloadButton() {
                         ? `Version ${release?.version}, ${detail}`
                         : failed
                           ? 'Could not check the latest builds'
-                          : platform !== null && release !== null
+                          : platform !== null && platform !== 'windows' && release !== null
                             ? 'This build is not in the latest release'
                             : 'Available for macOS and Linux'}
                 </span>
