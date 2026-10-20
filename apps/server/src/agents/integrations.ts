@@ -58,7 +58,7 @@ function unset(): ProviderState {
 }
 
 function expandHome(path: string, env: Record<string, string | undefined>): string {
-    const home = env.HOME ?? '';
+    const home = env.HOME ?? env.USERPROFILE ?? '';
     if (path === '~') {
         return home;
     }

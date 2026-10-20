@@ -124,7 +124,7 @@ export function createMachine(options: MachineOptions): Machine {
             const log = openSync(join(logs, 'daemon.log'), 'a');
             stdio = ['ignore', log, log];
         }
-        daemon = spawn(target.command, target.args, { stdio, env });
+        daemon = spawn(target.command, target.args, { stdio, env, windowsHide: true });
         daemon.on('error', (e: NodeJS.ErrnoException) => {
             reportShellProblem({ kind: 'daemon-spawn-failed', code: e.code ?? 'unknown' });
             dialog.showErrorBox('Ruimte', `The background service could not start: ${e.message}`);
