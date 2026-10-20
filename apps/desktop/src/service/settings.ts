@@ -13,16 +13,10 @@ export function serviceSupport(facts: SupportFacts): ServiceSupport {
     if (!facts.packaged) {
         return 'dev';
     }
-    if (facts.platform === 'win32') {
-        return 'windows';
-    }
     if (facts.platform === 'linux' && facts.appImage) {
         return 'appimage';
     }
-    if (facts.platform === 'darwin' || facts.platform === 'linux') {
-        return 'supported';
-    }
-    return 'windows';
+    return 'supported';
 }
 
 export interface KeepRunningSetting {

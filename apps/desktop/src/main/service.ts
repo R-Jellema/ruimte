@@ -186,6 +186,7 @@ export function createMachine(options: MachineOptions): Machine {
             throw new Error(MISSING_DAEMON);
         }
         const spec = daemonServiceSpec({
+            platform: process.platform,
             program: target.command,
             args: target.args,
             home: homedir(),
@@ -209,7 +210,7 @@ export function createMachine(options: MachineOptions): Machine {
         manager,
         setting: keepRunningSetting(join(app.getPath('userData'), 'background-service.json'), support),
         definition: serviceDefinition,
-        // Only a launchd definition names a log file; systemd writes to the journal.
+        // systemd writes to the journal, and the Task Scheduler's manager makes its log folder itself.
         prepare: () => {
             if (manager?.kind === 'launchd') {
                 mkdirSync(dirname(serviceLogFile(homedir())), { recursive: true });

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { definitionRunsProgram, type ServiceFiles, type ServiceManager } from '@adecore/service';
@@ -14,7 +14,20 @@ const MAC: ServiceFacts = {
     compiled: true,
     path: '/Users/bas/.npm/_npx/1a2b/node_modules/.bin:/opt/homebrew/bin:/usr/bin:/bin',
     port: 4210,
-    flags: []
+    flags: [],
+    env: {}
+};
+
+const WINDOWS: ServiceFacts = {
+    platform: 'win32',
+    home: 'C:\\Users\\bas',
+    ruimteHome: 'C:\\Users\\bas\\.ruimte',
+    executable: 'C:\\Users\\bas\\AppData\\Local\\npm-cache\\_npx\\1a2b\\node_modules\\@ruimte\\win32-x64\\bin\\ruimte.exe',
+    compiled: true,
+    path: 'C:\\Users\\bas\\AppData\\Local\\npm-cache\\_npx\\1a2b\\node_modules\\.bin;C:\\Program Files\\Git\\cmd;C:\\Windows\\System32',
+    port: 4210,
+    flags: [],
+    env: { LOCALAPPDATA: 'C:\\Users\\bas\\AppData\\Local', USERDOMAIN: 'PC', USERNAME: 'bas' }
 };
 
 const LINUX: ServiceFacts = {
@@ -85,12 +98,17 @@ function setup(options: { existing?: string; linger?: boolean; health?: BuildIde
 
 describe('servicePath', () => {
     test('leaves out the folders npx and bunx put in front', () => {
-        expect(servicePath(MAC.path)).toBe('/opt/homebrew/bin:/usr/bin:/bin');
-        expect(servicePath('/tmp/bunx-501-ruimte@latest/node_modules/.bin:/usr/bin:/usr/bin')).toBe('/usr/bin');
+        expect(servicePath(MAC.path, 'darwin')).toBe('/opt/homebrew/bin:/usr/bin:/bin');
+        expect(servicePath('/tmp/bunx-501-ruimte@latest/node_modules/.bin:/usr/bin:/usr/bin', 'linux')).toBe('/usr/bin');
     });
 
     test('falls back to the system folders when nothing is left', () => {
-        expect(servicePath(undefined)).toBe('/usr/local/bin:/usr/bin:/bin');
+        expect(servicePath(undefined, 'darwin')).toBe('/usr/local/bin:/usr/bin:/bin');
+        expect(servicePath(undefined, 'win32')).toBe('C:\\Windows\\System32;C:\\Windows');
+    });
+
+    test('splits a Windows PATH on semicolons and leaves out the npx folders there too', () => {
+        expect(servicePath(WINDOWS.path, 'win32')).toBe('C:\\Program Files\\Git\\cmd;C:\\Windows\\System32');
     });
 });
 
@@ -118,8 +136,22 @@ describe('servicePlan', () => {
         expect(plan.definition).toContain('Environment="RUIMTE_HOME=/home/bas/.ruimte"');
     });
 
-    test('no service on Windows', () => {
-        expect(servicePlan({ ...MAC, platform: 'win32' })).toBe('The background service runs on macOS and Linux only.');
+    test('a scheduled task on Windows that runs the copy under the home', () => {
+        const plan = servicePlan(WINDOWS);
+        if (typeof plan === 'string') {
+            throw new Error(plan);
+        }
+        expect(plan.kind).toBe('task-scheduler');
+        expect(plan.binDir).toBe('C:\\Users\\bas\\.ruimte\\bin');
+        expect(plan.program).toBe('C:\\Users\\bas\\.ruimte\\bin\\ruimte.exe');
+        expect(plan.definition).not.toContain('_npx');
+        expect(plan.definition).toContain('<UserId>PC\\bas</UserId>');
+        expect(plan.definition).toContain('set ^"PATH=C:\\Program^ Files\\Git\\cmd^;C:\\Windows\\System32^"');
+        expect(definitionRunsProgram(plan.definition, plan.program)).toBe(true);
+    });
+
+    test('no service elsewhere', () => {
+        expect(servicePlan({ ...MAC, platform: 'freebsd' })).toBe('The background service runs on macOS, Linux and Windows only.');
     });
 });
 
@@ -244,10 +276,10 @@ describe('the copy the service runs', () => {
         dir = null;
     });
 
-    const packageBin = (root: string, build: string, helpers: string[]): string => {
+    const packageBin = (root: string, build: string, helpers: string[], executables = ['ruimte', 'ruimte-context']): string => {
         const bin = join(root, 'package', 'bin');
         mkdirSync(join(bin, 'native'), { recursive: true });
-        for (const name of ['ruimte', 'ruimte-context']) {
+        for (const name of executables) {
             writeFileSync(join(bin, name), `#!${name}`, { mode: 0o755 });
         }
         writeFileSync(join(bin, 'ruimte.build'), build);
@@ -260,16 +292,34 @@ describe('the copy the service runs', () => {
     test('takes the native helpers along, and an update drops the ones its package no longer has', () => {
         dir = mkdtempSync(join(tmpdir(), 'ruimte-service-bin-'));
         const binDir = join(dir, 'home', 'bin');
-        copyServiceBinaries(packageBin(join(dir, 'first'), 'one', ['scrcpy-server', 'ruimte-foundation-models']), binDir);
+        copyServiceBinaries(packageBin(join(dir, 'first'), 'one', ['scrcpy-server', 'ruimte-foundation-models']), binDir, 'darwin');
         expect(readFileSync(join(binDir, 'native', 'scrcpy-server'), 'utf8')).toBe('scrcpy-server');
         expect(statSync(join(binDir, 'native', 'ruimte-foundation-models')).mode & 0o111).not.toBe(0);
 
-        copyServiceBinaries(packageBin(join(dir, 'second'), 'two', ['scrcpy-server']), binDir);
+        copyServiceBinaries(packageBin(join(dir, 'second'), 'two', ['scrcpy-server']), binDir, 'darwin');
         expect(readFileSync(join(binDir, 'ruimte.build'), 'utf8')).toBe('two');
         expect(existsSync(join(binDir, 'native', 'ruimte-foundation-models'))).toBe(false);
 
-        removeServiceBinaries(binDir);
+        removeServiceBinaries(binDir, 'darwin');
         expect(existsSync(join(binDir, 'native'))).toBe(false);
         expect(existsSync(join(binDir, 'ruimte'))).toBe(false);
+    });
+
+    test('on Windows the running executable is renamed out of the way, and removed by the next copy', () => {
+        dir = mkdtempSync(join(tmpdir(), 'ruimte-service-bin-'));
+        const binDir = join(dir, 'home', 'bin');
+        const executables = ['ruimte.exe', 'ruimte-context', 'ruimte-context.cmd'];
+        copyServiceBinaries(packageBin(join(dir, 'first'), 'one', [], executables), binDir, 'win32');
+        expect(readdirSync(binDir).filter((name) => name.endsWith('.retired'))).toEqual([]);
+
+        copyServiceBinaries(packageBin(join(dir, 'second'), 'two', [], executables), binDir, 'win32');
+        expect(readdirSync(binDir).filter((name) => name.endsWith('.retired'))).toHaveLength(1);
+        expect(readFileSync(join(binDir, 'ruimte.build'), 'utf8')).toBe('two');
+
+        copyServiceBinaries(packageBin(join(dir, 'third'), 'three', [], executables), binDir, 'win32');
+        expect(readdirSync(binDir).filter((name) => name.endsWith('.retired'))).toHaveLength(1);
+
+        removeServiceBinaries(binDir, 'win32');
+        expect(readdirSync(binDir)).toEqual([]);
     });
 });

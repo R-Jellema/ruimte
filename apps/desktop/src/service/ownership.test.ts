@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test';
-import { launchAgentPlist, systemdUnit } from '@adecore/service';
+import { launchAgentPlist, scheduledTask, systemdUnit } from '@adecore/service';
 import { daemonServiceSpec } from '@ruimte/service/host';
 import { definitionHome, serviceOwnership } from './ownership';
 
 const IDENTITY = { ruimteHome: '/home/bas/.ruimte', commandLineProgram: '/home/bas/.ruimte/bin/ruimte' };
 
 function specOf(program: string, ruimteHome: string) {
-    return daemonServiceSpec({ program, args: ['--port', '4210'], home: '/home/bas', ruimteHome, path: '/usr/bin:/bin' });
+    return daemonServiceSpec({ platform: 'linux', program, args: ['--port', '4210'], home: '/home/bas', ruimteHome, path: '/usr/bin:/bin' });
 }
 
 describe('definitionHome', () => {
@@ -14,6 +14,21 @@ describe('definitionHome', () => {
         const home = '/home/bas/My "100%" Ruimte\\ & <home>';
         expect(definitionHome(launchAgentPlist(specOf('/opt/Ruimte/resources/bin/ruimte', home)))).toBe(home);
         expect(definitionHome(systemdUnit(specOf('/opt/Ruimte/resources/bin/ruimte', home)))).toBe(home);
+    });
+
+    test('reads the home of a scheduled task, through the escapes of its cmd.exe line', () => {
+        const home = 'C:\\Users\\bas\\My "100%" Ruimte ^ & <home> && (x)';
+        const spec = daemonServiceSpec({
+            platform: 'win32',
+            program: 'C:\\Program Files\\Ruimte\\resources\\bin\\ruimte.exe',
+            args: ['--port', '4210'],
+            home: 'C:\\Users\\bas',
+            ruimteHome: home,
+            path: 'C:\\Windows\\System32',
+            env: { USERDOMAIN: 'PC', USERNAME: 'bas' }
+        });
+        expect(definitionHome(scheduledTask(spec))).toBe(home);
+        expect(definitionHome('<Task><Actions><Exec><Command>cmd.exe</Command></Exec></Actions></Task>')).toBeNull();
     });
 
     test('a plist that names no home, or names one twice, has none', () => {

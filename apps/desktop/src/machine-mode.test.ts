@@ -179,7 +179,9 @@ describe('removeOwnDefinition', () => {
     }
 
     function plist(program: string, ruimteHome: string): string {
-        return launchAgentPlist(daemonServiceSpec({ program, args: ['--port', '4210'], home: '/home/bas', ruimteHome, path: '/usr/bin:/bin' }));
+        return launchAgentPlist(
+            daemonServiceSpec({ platform: 'darwin', program, args: ['--port', '4210'], home: '/home/bas', ruimteHome, path: '/usr/bin:/bin' })
+        );
     }
 
     test('takes the definition of this installation away while the app runs its own daemon', () => {

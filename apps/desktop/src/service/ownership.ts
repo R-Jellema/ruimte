@@ -50,8 +50,32 @@ function unitHome(definition: string): string | null {
     return home;
 }
 
+/* The task's cmd.exe line sets each variable as `set ^"NAME=value^"`, every character cmd reads as syntax behind a caret; the last one wins. */
+function scheduledTaskHome(definition: string): string | null {
+    const exec = definition.match(/<Exec>[\s\S]*?<\/Exec>/g);
+    if (exec?.length !== 1) {
+        return null;
+    }
+    const args = /<Arguments>([^<]*)<\/Arguments>/.exec(exec[0])?.[1];
+    const line = args === undefined ? undefined : /\/c "([\s\S]*)"$/.exec(args.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'))?.[1];
+    if (line === undefined) {
+        return null;
+    }
+    let home: string | null = null;
+    for (const step of line.split(' && ')) {
+        const assignment = /^set "(.*)"$/.exec(step.replace(/\^(.)/g, '$1'))?.[1];
+        if (assignment?.startsWith(`${HOME_VARIABLE}=`)) {
+            home = assignment.slice(HOME_VARIABLE.length + 1);
+        }
+    }
+    return home;
+}
+
 /* The home a definition gives its daemon, as `daemonServiceSpec` writes it; null when it names none. */
 export function definitionHome(definition: string): string | null {
+    if (/<Task[\s>]/.test(definition)) {
+        return scheduledTaskHome(definition);
+    }
     return definition.trimStart().startsWith('<') ? plistHome(definition) : unitHome(definition);
 }
 

@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { launchAgentPlist, systemdUnit } from '@adecore/service';
-import { daemonServiceSpec, commandLineServiceProgram } from './host';
+import { definitionRunsProgram, launchAgentPlist, scheduledTask, systemdUnit } from '@adecore/service';
+import { commandLineServiceProgram, daemonServiceSpec, platformServiceManager, scheduledTaskFile, serviceLogFile } from './host';
 
 describe('Ruimte service host', () => {
     test('keeps installed identity, log paths and daemon ownership across the extraction', () => {
         const spec = daemonServiceSpec({
+            platform: 'darwin',
             program: '/Apps/Ruimte & Tools/ruimte',
             args: ['--port', '4210'],
             home: '/Users/test',
@@ -23,6 +24,41 @@ describe('Ruimte service host', () => {
         expect(unit).toContain('Description=Ruimte machine');
         expect(unit).toContain('Environment="RUIMTE_SERVICE=1"');
         expect(unit).toContain('WorkingDirectory=/Users/test');
-        expect(commandLineServiceProgram('/Users/test/.ruimte')).toBe('/Users/test/.ruimte/bin/ruimte');
+        expect(commandLineServiceProgram('/Users/test/.ruimte', 'darwin')).toBe('/Users/test/.ruimte/bin/ruimte');
+    });
+
+    test('a scheduled task for the person on Windows, with its files under the local app data', () => {
+        const env = { LOCALAPPDATA: 'C:\\Users\\test\\AppData\\Local', USERDOMAIN: 'DESKTOP-1', USERNAME: 'test' };
+        const program = 'C:\\Users\\test\\AppData\\Local\\Programs\\Ruimte\\resources\\bin\\ruimte.exe';
+        const spec = daemonServiceSpec({
+            platform: 'win32',
+            program,
+            args: ['--port', '4210'],
+            home: 'C:\\Users\\test',
+            ruimteHome: 'C:\\Users\\test\\.ruimte',
+            path: 'C:\\Windows\\System32;C:\\Program Files\\Git\\cmd',
+            env
+        });
+        expect(spec.user).toBe('DESKTOP-1\\test');
+        expect(spec.logFile).toBe('C:\\Users\\test\\AppData\\Local\\Ruimte\\logs\\daemon.log');
+        const task = scheduledTask(spec);
+        expect(task).toContain('<URI>\\app.ruimte.daemon</URI>');
+        expect(task).toContain('<UserId>DESKTOP-1\\test</UserId>');
+        expect(task).toContain('<WorkingDirectory>C:\\Users\\test</WorkingDirectory>');
+        expect(task).toContain('set ^"RUIMTE_SERVICE=1^"');
+        expect(definitionRunsProgram(task, program)).toBe(true);
+        expect(scheduledTaskFile('C:\\Users\\test', env)).toBe('C:\\Users\\test\\AppData\\Local\\Ruimte\\service\\app.ruimte.daemon.xml');
+        expect(commandLineServiceProgram('C:\\Users\\test\\.ruimte', 'win32')).toBe('C:\\Users\\test\\.ruimte\\bin\\ruimte.exe');
+    });
+
+    test('falls back to the profile when Windows names no local app data', () => {
+        expect(serviceLogFile('C:\\Users\\test', 'win32', {})).toBe('C:\\Users\\test\\AppData\\Local\\Ruimte\\logs\\daemon.log');
+    });
+
+    test('a Task Scheduler manager on Windows', () => {
+        const manager = platformServiceManager('win32', { LOCALAPPDATA: 'C:\\Users\\test\\AppData\\Local' });
+        expect(manager?.kind).toBe('task-scheduler');
+        expect(manager?.path).toBe('C:\\Users\\test\\AppData\\Local\\Ruimte\\service\\app.ruimte.daemon.xml');
+        expect(platformServiceManager('freebsd')).toBeNull();
     });
 });

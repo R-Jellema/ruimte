@@ -2,7 +2,8 @@
  * Where a background service can run. The dev app never gets one: it runs its own daemon on 4211
  * with ~/.ruimte-dev beside an installed Ruimte, and a service of its own would be a second daemon
  * that outlives every `bun dev`. An AppImage runs from a mount that is gone once the app quits, so a
- * service pointing into it would start nothing. Windows has no service yet.
+ * service pointing into it would start nothing. Only a shell from before the scheduled task on Windows
+ * sends `windows`.
  */
 export type ServiceSupport = 'supported' | 'dev' | 'windows' | 'appimage';
 

@@ -28,8 +28,8 @@ Do not reverse one without asking Bas.
   created without admin. It runs in the person's session, so their files, Credential Manager and CLI logins
   are there. Running while nobody is logged on is a later opt-in, the counterpart of `loginctl
   enable-linger` on Linux. A Windows service was weighed and rejected: as LocalSystem it would run every
-  agent as SYSTEM, and as the user it needs their password. Until the task exists, the desktop app runs the
-  daemon as its child.
+  agent as SYSTEM, and as the user it needs their password. A packaged app and `ruimte service install`
+  register the task; the dev app runs the daemon as its child, as on the other platforms.
 
 ## Done
 
@@ -43,6 +43,13 @@ Do not reverse one without asking Bas.
   and no `HOME`.
 - `win:` and `nsis:` in `apps/desktop/electron-builder.yml`: an installer and a zip, unsigned.
 - `bun run check:types`, `lint` and `format:check` pass on Windows.
+- The background service as decided: `taskSchedulerManager` in `@adecore/service`, wired in
+  `packages/service/src/host.ts` with the task `app.ruimte.daemon`, its definition and log under
+  `%LOCALAPPDATA%\Ruimte` (`service\app.ruimte.daemon.xml`, `logs\daemon.log`). The desktop app treats a
+  packaged Windows build as supported and recognizes its own task by the `RUIMTE_HOME` in it
+  (`apps/desktop/src/service/ownership.ts`). The task runs again every minute, so a daemon that ends for an
+  update is back within a minute. `ruimte service install` copies `ruimte.exe` to `$RUIMTE_HOME\bin` and
+  renames a running one out of the way first. Unit tested only; unverified on a PC.
 
 ## Open, in the order they block
 
@@ -111,8 +118,9 @@ Do not reverse one without asking Bas.
   site (`docs/RELEASE.md`, "Windows"). Open: code signing, publishing the npm placeholder, and turning
   the variable on.
 - The site detects Windows and offers the installer once a release has one.
-- `@adecore/service` has no Windows manager (`platform.ts`). The scheduled task goes there, as a change in
-  ADE CORE; the callers already ask for it by `'windows'`.
+- An app update replaces `resources\bin\ruimte.exe`, which Windows refuses while the scheduled task runs
+  it. The installer either has to stop the task first or the task has to run a copy outside the install
+  folder, as `ruimte service install` does.
 - The npm launcher's refusal comes off last.
 
 ## Not on Windows
@@ -133,3 +141,5 @@ Open questions for the next test at the PC:
 - Does a console window appear beside the desktop app when it starts the daemon?
 - Does deleting a file that another program holds open show a Windows error dialog?
 - Does an agent started from a terminal report its status through the hooks?
+- Does the packaged app register the scheduled task without admin, does it start at logon and after a
+  crash, and do "Stop the machine" and a restart onto a new build end the whole tree?

@@ -19,6 +19,7 @@ const COMMAND_LINE_PROGRAM = `${HOME}/bin/ruimte`;
 function definitionOf(options: { program?: string; args?: string[]; ruimteHome?: string; path?: string } = {}): string {
     return launchAgentPlist(
         daemonServiceSpec({
+            platform: 'darwin',
             program: options.program ?? '/Applications/Ruimte.app/Contents/Resources/bin/ruimte',
             args: options.args ?? ['--port', '4210'],
             home: '/Users/bas',
@@ -562,7 +563,7 @@ describe('the dev app', () => {
         expect(serviceSupport({ packaged: true, platform: 'darwin', appImage: undefined })).toBe('supported');
         expect(serviceSupport({ packaged: true, platform: 'linux', appImage: undefined })).toBe('supported');
         expect(serviceSupport({ packaged: true, platform: 'linux', appImage: '/home/bas/Ruimte.AppImage' })).toBe('appimage');
-        expect(serviceSupport({ packaged: true, platform: 'win32', appImage: undefined })).toBe('windows');
+        expect(serviceSupport({ packaged: true, platform: 'win32', appImage: undefined })).toBe('supported');
     });
 });
 

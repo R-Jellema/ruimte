@@ -1,9 +1,9 @@
-import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import { buildIdentityOf, MACHINE_HEALTH_PATH, type BuildIdentity } from '@ruimte/contracts';
 import { homedir, userInfo } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { definitionRunsProgram, diskFiles, serviceDefinition, type ServiceFiles, type ServiceManager } from '@adecore/service';
-import { commandLineServiceProgram, daemonServiceSpec, platformServiceManager } from '@ruimte/service/host';
+import { commandLineServiceProgram, daemonServiceSpec, pathsOf, platformServiceManager, type HostEnvironment } from '@ruimte/service/host';
 import { buildFileOf, readBuildFile } from '../service/self-update.ts';
 import { describeError } from '../error-text.ts';
 import { replaceSync, tempNameFor } from '@adecore/agents';
@@ -16,7 +16,15 @@ import { replaceSync, tempNameFor } from '@adecore/agents';
  */
 
 /* What travels with the daemon: `ruimte-context` goes on every session's PATH, `ruimte.build` is how an update is seen. */
-export const BINARY_FILES = ['ruimte', 'ruimte-context', 'ruimte.build'] as const;
+export function binaryFiles(platform: NodeJS.Platform): string[] {
+    if (platform === 'win32') {
+        return ['ruimte.exe', 'ruimte-context', 'ruimte-context.cmd', 'ruimte.build'];
+    }
+    return ['ruimte', 'ruimte-context', 'ruimte.build'];
+}
+
+/* Windows will not replace an executable that runs, but lets it be renamed; what is left is removed once it ended. */
+const RETIRED_SUFFIX = '.retired';
 
 /* The helpers the daemon finds beside its binary, such as the Android screen server it pushes onto a device. */
 const NATIVE_DIR = 'native';
@@ -33,10 +41,12 @@ export interface ServiceFacts {
     port: number;
     /* The daemon flags after the action, written into the definition as they were typed. */
     flags: string[];
+    /* Where Windows names the profile's local folder and the account the task starts for. */
+    env: HostEnvironment;
 }
 
 export interface ServicePlan {
-    kind: 'launchd' | 'systemd';
+    kind: 'launchd' | 'systemd' | 'task-scheduler';
     binDir: string;
     program: string;
     definition: string;
@@ -46,20 +56,31 @@ export interface ServicePlan {
  * `npx` and `bunx` put their own `node_modules/.bin` folders in front of PATH, and those are gone
  * once the cache is cleared; a service that kept them would look for tools in folders that are not there.
  */
-export function servicePath(path: string | undefined): string {
-    const kept = (path ?? '').split(':').filter((entry) => entry !== '' && !entry.includes('node_modules/.bin') && !entry.includes('/_npx/'));
+export function servicePath(path: string | undefined, platform: NodeJS.Platform = process.platform): string {
+    const windows = platform === 'win32';
+    const delimiter = windows ? ';' : ':';
+    const kept = (path ?? '').split(delimiter).filter((entry) => {
+        const slashed = windows ? entry.replace(/\\/g, '/') : entry;
+        return entry !== '' && !slashed.includes('node_modules/.bin') && !slashed.includes('/_npx/');
+    });
     const unique = [...new Set(kept)];
-    return unique.length > 0 ? unique.join(':') : '/usr/local/bin:/usr/bin:/bin';
+    if (unique.length > 0) {
+        return unique.join(delimiter);
+    }
+    return windows ? 'C:\\Windows\\System32;C:\\Windows' : '/usr/local/bin:/usr/bin:/bin';
 }
 
-export const UNSUPPORTED_PLATFORM = 'The background service runs on macOS and Linux only.';
+export const UNSUPPORTED_PLATFORM = 'The background service runs on macOS, Linux and Windows only.';
 
-export function serviceKindOf(platform: NodeJS.Platform): 'launchd' | 'systemd' | null {
+export function serviceKindOf(platform: NodeJS.Platform): ServicePlan['kind'] | null {
     if (platform === 'darwin') {
         return 'launchd';
     }
     if (platform === 'linux') {
         return 'systemd';
+    }
+    if (platform === 'win32') {
+        return 'task-scheduler';
     }
     return null;
 }
@@ -69,14 +90,16 @@ export function servicePlan(facts: ServiceFacts): ServicePlan | string {
     if (kind === null) {
         return UNSUPPORTED_PLATFORM;
     }
-    const program = commandLineServiceProgram(facts.ruimteHome);
-    const binDir = dirname(program);
+    const program = commandLineServiceProgram(facts.ruimteHome, facts.platform);
+    const binDir = pathsOf(facts.platform).dirname(program);
     const spec = daemonServiceSpec({
+        platform: facts.platform,
         program,
         args: facts.flags,
         home: facts.home,
         ruimteHome: facts.ruimteHome,
-        path: servicePath(facts.path)
+        path: servicePath(facts.path, facts.platform),
+        env: facts.env
     });
     return { kind, binDir, program, definition: serviceDefinition(facts.platform, spec) };
 }
@@ -125,13 +148,13 @@ async function install(facts: ServiceFacts, plan: ServicePlan, deps: ServiceDeps
         deps.err(APP_OWNS);
         return 1;
     }
-    const sourceDir = dirname(facts.executable);
+    const sourceDir = pathsOf(facts.platform).dirname(facts.executable);
     if (sourceDir !== plan.binDir) {
         deps.copyBinaries(sourceDir, plan.binDir);
     }
     const changed = deps.manager.install(plan.definition);
     if (owner === 'this' && changed) {
-        // The flags or the PATH changed, and launchd and systemd only read a definition when they start the job.
+        // The flags or the PATH changed, and a service manager only reads a definition when it starts the job.
         await deps.manager.restart();
         deps.out('The service now runs with the new definition.');
     } else {
@@ -215,7 +238,7 @@ export async function runServiceAction(action: string, facts: ServiceFacts, deps
  * Each file lands under a temporary name first, so a daemon reading `ruimte.build` never sees half a
  * file. The helpers go first and whole, since a new `ruimte.build` is what restarts the daemon onto them.
  */
-export function copyServiceBinaries(from: string, to: string): void {
+export function copyServiceBinaries(from: string, to: string, platform: NodeJS.Platform = process.platform): void {
     mkdirSync(to, { recursive: true });
     const native = join(to, NATIVE_DIR);
     rmSync(native, { recursive: true, force: true });
@@ -224,20 +247,37 @@ export function copyServiceBinaries(from: string, to: string): void {
         cpSync(join(from, NATIVE_DIR), temporary, { recursive: true });
         replaceSync(temporary, native);
     }
-    for (const name of BINARY_FILES) {
+    removeRetired(to);
+    for (const name of binaryFiles(platform)) {
         const target = join(to, name);
         const temporary = tempNameFor(target);
         copyFileSync(join(from, name), temporary);
         chmodSync(temporary, name === 'ruimte.build' ? 0o644 : 0o755);
+        if (platform === 'win32' && name.endsWith('.exe') && existsSync(target)) {
+            renameSync(target, `${tempNameFor(target)}${RETIRED_SUFFIX}`);
+        }
         replaceSync(temporary, target);
     }
 }
 
-export function removeServiceBinaries(dir: string): void {
-    for (const name of BINARY_FILES) {
+/* Best effort: a retired executable that still runs stays until a later copy or removal. */
+function removeRetired(dir: string): void {
+    const names = existsSync(dir) ? readdirSync(dir) : [];
+    for (const name of names.filter((entry) => entry.endsWith(RETIRED_SUFFIX))) {
+        try {
+            rmSync(join(dir, name), { force: true });
+        } catch {
+            continue;
+        }
+    }
+}
+
+export function removeServiceBinaries(dir: string, platform: NodeJS.Platform = process.platform): void {
+    for (const name of binaryFiles(platform)) {
         rmSync(join(dir, name), { force: true });
     }
     rmSync(join(dir, NATIVE_DIR), { recursive: true, force: true });
+    removeRetired(dir);
 }
 
 async function health(port: number): Promise<BuildIdentity | null> {
@@ -265,7 +305,8 @@ export function runService(args: string[], options: { port: number; ruimteHome: 
             compiled: options.compiled,
             path: process.env.PATH,
             port: options.port,
-            flags: args.slice(1)
+            flags: args.slice(1),
+            env: process.env
         },
         {
             manager,
