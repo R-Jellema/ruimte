@@ -791,7 +791,7 @@ export class SessionManager {
             env.RUIMTE_CONTEXT_URL = this.contextUrl;
         }
         if (this.binDir) {
-            prependPath(env, this.binDir);
+            prependPath(env, this.binDir, this.platform);
         }
         if (!options.command && !options.launch && options.args.every((arg) => ['-l', '-i'].includes(arg))) {
             this.shellEnvironment?.(options.shell, env);

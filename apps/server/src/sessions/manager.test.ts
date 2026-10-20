@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { delimiter } from 'node:path';
 import { RESTORED_TEXT } from './session.ts';
 import { Recorder, makeHarness, type Harness } from './test-helpers.ts';
 
@@ -323,7 +324,7 @@ describe('SessionManager', () => {
             RUIMTE_HOOK_URL: 'http://127.0.0.1:1/hooks',
             RUIMTE_CONTEXT_URL: 'http://127.0.0.1:1/context',
             // In front, so `ruimte-context` wins over anything of the same name on the machine.
-            PATH: '/opt/ruimte/bin:/usr/bin:/bin'
+            PATH: ['/opt/ruimte/bin', '/usr/bin:/bin'].join(delimiter)
         });
         // A login shell reads the profile that sets PATH, which a daemon started from launchd lacks.
         expect(harness.adapter.forSession('s10').options.args).toEqual(['-l']);
