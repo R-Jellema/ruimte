@@ -194,7 +194,15 @@ describe('NanoGPT backend', () => {
         expect(file).toMatch(/^\d{4}-\d{2}\.jsonl$/);
         const lines = (await readFile(join(chat.service.usageDirectory, file!), 'utf8')).trim().split('\n');
         expect(lines.map((line) => JSON.parse(line))).toEqual([
-            expect.objectContaining({ model: 'tool-model', session: session.agentSessionId, prompt: 120, cached: 20, completion: 30, reasoning: 5 })
+            expect.objectContaining({
+                model: 'tool-model',
+                session: session.agentSessionId,
+                input: 100,
+                cacheRead: 20,
+                cacheWrite: 0,
+                output: 30,
+                reasoning: 5
+            })
         ]);
     });
 

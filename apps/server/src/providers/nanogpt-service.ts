@@ -2,7 +2,7 @@ import { appendFile, mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { isNotFound, Serializer, writeAtomic } from '@adecore/agents';
-import { nanoGptUsageLine, readNanoGptUsage, type NanoGptUsageEntry, type ProbeResult } from '@adecore/agents/usage';
+import { apiUsageLine, readNanoGptUsage, type ProbeResult } from '@adecore/agents/usage';
 import { ModelCatalog } from '@adecore/agents/providers';
 import { DEFAULT_NANOGPT_SETTINGS, NanoGptSettingsSchema, type NanoGptSettings, type NanoGptStatus } from '@ruimte/contracts';
 import { nanoGptVendorOf } from './nanogpt-vendor.ts';
@@ -28,6 +28,17 @@ const ModelsSchema = z.object({
 type NanoModel = z.infer<typeof ModelsSchema>['data'][number];
 
 export type NanoFetch = (url: string, init?: RequestInit) => Promise<Response>;
+
+/* One call a chat made, with the counts as NanoGPT reports them. */
+export interface NanoGptCall {
+    model: string;
+    session: string;
+    cwd: string;
+    prompt: number;
+    cached: number;
+    completion: number;
+    reasoning: number;
+}
 
 /* A sentence for an HTTP status, never the body, which may quote the request and with it the key. */
 export function nanoHttpError(status: number): Error {
@@ -114,13 +125,29 @@ export class NanoGptService {
         return () => this.callListeners.delete(listener);
     }
 
-    /* Never fails a turn: a call that was made counts whether or not its line could be written. */
-    async logUsage(entry: Omit<NanoGptUsageEntry, 'at'>): Promise<void> {
+    /*
+     * Never fails a turn: a call that was made counts whether or not its line could be written. NanoGPT counts the
+     * OpenAI way, a prompt that holds its cached part and a completion that holds its reasoning, and the log keeps
+     * the kinds apart, so the cached part leaves the input here. NanoGPT has no cache write to report.
+     */
+    async logUsage(call: NanoGptCall): Promise<void> {
         try {
             await mkdir(this.usageDirectory, { recursive: true, mode: 0o700 });
             const at = Date.now();
             const month = new Date(at).toISOString().slice(0, 7);
-            await appendFile(join(this.usageDirectory, `${month}.jsonl`), nanoGptUsageLine({ at, ...entry }), { mode: 0o600 });
+            const cacheRead = Math.min(call.prompt, call.cached);
+            const line = apiUsageLine({
+                at,
+                model: call.model,
+                session: call.session,
+                cwd: call.cwd,
+                input: call.prompt - cacheRead,
+                cacheRead,
+                cacheWrite: 0,
+                output: call.completion,
+                reasoning: call.reasoning
+            });
+            await appendFile(join(this.usageDirectory, `${month}.jsonl`), line, { mode: 0o600 });
         } catch {
             console.warn('A NanoGPT call could not be added to the usage log');
         }

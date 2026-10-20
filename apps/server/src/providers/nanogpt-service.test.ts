@@ -287,8 +287,11 @@ describe('NanoGPT usage', () => {
 
         const [file] = await readdir(service.usageDirectory);
         const lines = (await readFile(join(service.usageDirectory, file!), 'utf8')).trim().split('\n');
-        expect(lines.map((line) => JSON.parse(line).prompt)).toEqual([100, 150]);
-        expect(JSON.parse(lines[0]!)).toMatchObject({ model: 'tool-model', session: 's-1', cwd: '/work', completion: 20 });
+        // The cached part of a prompt is not input as well: the second call read 100 of its 150 from the cache.
+        expect(lines.map((line) => JSON.parse(line))).toEqual([
+            expect.objectContaining({ model: 'tool-model', session: 's-1', cwd: '/work', input: 100, cacheRead: 0, cacheWrite: 0, output: 20, reasoning: 0 }),
+            expect.objectContaining({ input: 50, cacheRead: 100, cacheWrite: 0, output: 30, reasoning: 4 })
+        ]);
         expect(typeof JSON.parse(lines[0]!).at).toBe('number');
     });
 });
