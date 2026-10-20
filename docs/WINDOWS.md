@@ -113,20 +113,22 @@ Open:
 
 ### 5. Paths from git and in the client
 
-- `git/status-watcher.ts` compares git's `C:/x/y` with the watcher's `C:\x\y`, so every event looks outside
-  the checkout and triggers a status run.
-- `git/run.ts`, `git/repos.ts`, `git/status.ts`, `git/worktrees.ts`, `git/checkpoints.ts` and
-  `provenance/file-versions.ts` mix git's forward slashes with `resolve()` in keys and comparisons.
-  Normalize where git output enters the daemon.
-- `database/sql-analysis.ts` and the client's `database/console-file.ts` build prefixes with `/`.
-- `language/host.ts` appends `/` in `holdsUnder`.
-- Client spots that take a daemon path to be absolute only with `/` or split on `/`:
-  `launches/model.ts`, `launches/editing.ts`, `language/project-files.ts`, `state/file-moves.ts`,
-  `editor-ai/inline-edit-session.ts`, `launches/LaunchesPanel.tsx`, and the `${cwd}/${path}` joins in
-  `GitFileList.tsx`, `GitPanel.tsx`, `file-rename.ts` and `ImageSaveHost.tsx`. `files-tree.ts` already
-  handles both.
-- `projects/project-files.ts` and `fs/rename.ts` rename without the retry Windows needs for a file another
-  process holds open.
+Done, covered by unit tests with Windows paths; not yet tried on the PC.
+
+- A path git prints goes through `nativePath` (`apps/server/src/git/native-path.ts`) where it enters the
+  daemon: `rev-parse --show-toplevel`, `--git-common-dir`, `--git-path`, `--absolute-git-dir`,
+  `worktree list` and `check-ignore`. The status watcher, the repositories, checkpoints, worktrees and
+  provenance compare it with `resolve()` from then on. Paths git prints relative to its checkout (status,
+  diff, blame) stay POSIX on the wire.
+- A repository's `label` and a detected launch's `cwd` and `path` are POSIX, as a project file holds them.
+- `isPathBelow` in `packages/contracts/src/stored-path.ts` takes either separator; the console folders of
+  `database/sql-analysis.ts` and the client's `database/console-file.ts`, and `holdsUnder` in
+  `language/host.ts` use it.
+- The client joins with `absoluteOf`, splits with `basenameOf` and `dirnameOf`, and tests with
+  `isAbsolutePath`, `isPathBelow` and `relativeTo`, all through `shell/panels/files-tree.ts`.
+- `projects/project-files.ts` and `fs/rename.ts` rename through `retryingRename` (`fs/busy-retry.ts`), which
+  tries again for about a second on win32 while another process holds the file (EPERM, EBUSY, EACCES).
+  `writeAtomic` of `@adecore/agents` renames without it.
 
 ### 6. Packaging and the service
 
