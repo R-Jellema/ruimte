@@ -20,7 +20,7 @@ Reviewed on October 17, 2026.
 | 10. Remote access and media     | Next                                        | Measurements from 3                           |
 | 11. iOS devices                 | Next                                        | Nothing                                       |
 | 12. Intelligent UI              | Next                                        | Nothing                                       |
-| 14. Gemini chat                 | Later                                       | 9                                             |
+| 14. Antigravity chat            | Waits on a decision by Bas                  | Google's terms                                |
 | 15. Language servers            | Per server                                  | Decision 15.4                                 |
 | 16. Plugins                     | After 1.0                                   | A compatibility release                       |
 | 17. Linux and Windows           | Windows per its plan                        | Platform spikes and CI                        |
@@ -87,7 +87,7 @@ Done when geometry changes undo cleanly and image, line and note data survive sa
 4. Drop the background behind the machine tiles in the Account pane.
 
 Accepted limits: a Claude chat cannot move to an account with another folder after its first turn (fork instead);
-Gemini and Copilot only have their default account.
+Antigravity and Copilot only have their default account.
 
 ## 10. Remote access and media
 
@@ -106,12 +106,13 @@ Gemini and Copilot only have their default account.
 4. Newly written words fade in in a growing native block, without changing an input's identity or focus.
 5. Phase 2 of the Generative UI report: the diff and schema views and the host components.
 
-## 14. Gemini chat
+## 14. Antigravity chat
 
-Source: [the provider research](reports/2026-09-25-provider-research.html).
-
-1. A bounded spike of Gemini over ACP (`createAcpProvider`, as Copilot and Grok run); pick from permission, question,
-   resume and packaged-Bun behavior.
+1. A chat over Google's ACP server (`agy-acp-server`, listed in the ACP registry as `antigravity-acp`), installed on
+   a person's Install from a release file pinned to version and sha256 per platform, like the native language
+   servers. It waits on a decision: section 6 of the Antigravity terms (antigravity.google/terms) calls using the
+   service "in connection with products not provided by us" and "third party software, tools, or services to access
+   the Service" a breach that may end the account. Antigravity runs as a terminal (`agy`) until then.
 
 ## 15. Language servers
 
