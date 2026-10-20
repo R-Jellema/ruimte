@@ -225,6 +225,6 @@ describe('installInFolder', () => {
     });
 
     test('writes nothing for a CLI whose hooks the daemon cannot read', async () => {
-        expect(await installInFolder('gemini', dir)).toEqual([]);
+        expect(await installInFolder('antigravity', dir)).toEqual([]);
     });
 });

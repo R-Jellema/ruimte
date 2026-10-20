@@ -40,8 +40,8 @@ function terminalProvider(kind: AgentKind, name: string, command: string, resume
     };
 }
 
-export const geminiProvider: ChatProvider = {
-    // `--prompt` answers and exits; `-i` (`--prompt-interactive`) runs the prompt and stays.
-    ...terminalProvider('gemini', 'Gemini', 'gemini', 'gemini {flags} --resume {id}', (prompt) => ['-i', prompt]),
-    oneShotArgs: (prompt) => ['--prompt', prompt]
+export const antigravityProvider: ChatProvider = {
+    // Antigravity CLI 1.4 reads a prompt only from `-p` (answers and exits), `-i` (runs it and stays) or stdin.
+    ...terminalProvider('antigravity', 'Antigravity', 'agy', 'agy {flags} --conversation {id}', (prompt) => ['-i', prompt]),
+    oneShotArgs: (prompt) => ['-p', prompt]
 };

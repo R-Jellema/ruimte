@@ -260,7 +260,7 @@ enum ProcessesText {
         switch kind {
         case "claude": "Claude Code"
         case "codex": "Codex"
-        case "gemini": "Gemini"
+        case "antigravity": "Antigravity"
         case "copilot": "Copilot"
         case "grok": "Grok"
         default: kind.prefix(1).uppercased() + kind.dropFirst()

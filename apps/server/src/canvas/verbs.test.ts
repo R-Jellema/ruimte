@@ -178,7 +178,7 @@ beforeEach(async () => {
     madeWorktrees = [];
     removedWorktrees = [];
     breakWrites = false;
-    installed = ['claude', 'codex', 'gemini', 'copilot'];
+    installed = ['claude', 'codex', 'antigravity', 'copilot'];
     held = [];
     started = [];
     onStart = null;
@@ -1528,8 +1528,8 @@ describe('agent', () => {
     });
 
     test('a CLI without a chat backend opens as a terminal, with or without --terminal', async () => {
-        const plain = await post('agent', ['gemini']);
-        const asked = await post('agent', ['gemini', '--terminal']);
+        const plain = await post('agent', ['antigravity']);
+        const asked = await post('agent', ['antigravity', '--terminal']);
         expect([plain.status, asked.status]).toEqual([200, 200]);
         expect([plain.lines[0]!.split('\t')[1], asked.lines[0]!.split('\t')[1]]).toEqual(['terminal', 'terminal']);
         expect(started.map((start) => start.node)).toEqual(['terminal', 'terminal']);
@@ -1795,7 +1795,7 @@ describe('team', () => {
     const THREE = [
         { title: 'Lexer', prompt: 'fix the tokenizer', provider: 'claude', terminal: true },
         { title: 'Parser', prompt: 'fix the parser', provider: 'codex' },
-        { title: 'Docs', prompt: 'write the docs', provider: 'gemini' }
+        { title: 'Docs', prompt: 'write the docs', provider: 'antigravity' }
     ];
 
     const args = (roles: unknown, label = 'Crew'): string[] => ['--label', label, '--roles', JSON.stringify(roles)];
@@ -1815,7 +1815,7 @@ describe('team', () => {
         expect(members.map((fields) => fields.slice(1, 5))).toEqual([
             ['terminal', 'Lexer', 'main', 'claude'],
             ['chat', 'Parser', 'main', 'codex'],
-            ['terminal', 'Docs', 'main', 'gemini']
+            ['terminal', 'Docs', 'main', 'antigravity']
         ]);
 
         const ids = members.map((fields) => fields[0]!);
@@ -1839,7 +1839,7 @@ describe('team', () => {
         expect(started.map((start) => [start.nodeId, start.node, start.provider, start.openedBy, start.cwd])).toEqual([
             [ids[0], 'terminal', 'claude', 'term-1', folder],
             [ids[1], 'chat', 'codex', 'term-1', folder],
-            [ids[2], 'terminal', 'gemini', 'term-1', folder]
+            [ids[2], 'terminal', 'antigravity', 'term-1', folder]
         ]);
     });
 
@@ -1935,7 +1935,7 @@ describe('team', () => {
             'dry-run\tgroup\tCrew\tmain\t-\t-',
             'dry-run\tterminal\tLexer\tmain\tclaude\tterm-1 -> <Lexer>',
             'dry-run\tchat\tParser\tmain\tcodex\tterm-1 -> <Parser>',
-            'dry-run\tterminal\tDocs\tmain\tgemini\tterm-1 -> <Docs>'
+            'dry-run\tterminal\tDocs\tmain\tantigravity\tterm-1 -> <Docs>'
         ]);
         expect((await onDisk()).rev).toBe(1);
         expect(held).toEqual([]);

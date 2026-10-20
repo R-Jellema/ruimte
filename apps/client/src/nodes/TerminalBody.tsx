@@ -90,7 +90,7 @@ export function TerminalBody({ id, focused }: { id: string; focused: boolean }) 
     const heldCommand = useSessionRow(id, (row) => row?.heldCommand);
     const find = useFind(surfaceRef, failure === null);
     const terminalFind = useTerminalFind(find, viewRef, builds);
-    // Claude Code and Codex write a name down; the daemon sends none for Gemini or Copilot.
+    // Claude Code and Codex write a name down; the daemon sends none for the other CLIs.
     useSuggestedTitle(id, agentRecord?.kind === 'claude' || agentRecord?.kind === 'codex' ? agentRecord.suggestedTitle : undefined);
 
     useEffect(() => {

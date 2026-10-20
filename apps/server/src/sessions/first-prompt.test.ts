@@ -67,3 +67,17 @@ test('a kill that arrives while the session is being made ends the session that 
     await killed;
     expect(harness.adapter.forSession('terminal-d').signals.length).toBeGreaterThan(0);
 });
+
+test('a node of a CLI this machine no longer offers opens its shell, types nothing and says why', async () => {
+    await prompts!.put('project', 'terminal-gemini', 'say hello');
+    const info = await harness.manager.create({
+        sessionId: 'terminal-gemini',
+        cols: 80,
+        rows: 24,
+        cwd: harness.home,
+        agent: { kind: 'gemini', runtimeMode: 'supervised' }
+    });
+    expect(info.exited).toBe(false);
+    expect(harness.adapter.forSession('terminal-gemini').input).toEqual([]);
+    expect(await harness.manager.get('terminal-gemini')!.plainText()).toContain('gemini is not available on this machine');
+});

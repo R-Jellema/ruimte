@@ -8,7 +8,14 @@ describe('ProviderRegistry', () => {
         const registry = new ProviderRegistry({ detect: async () => ({ installed: true, version: '1.2.3' }) });
         const providers = await registry.list();
         expect(providers.map((provider) => provider.kind)).toEqual([...BUILT_IN_KINDS]);
-        expect(providers.map((provider) => provider.name)).toEqual(['Claude Code', 'Codex', 'Gemini', 'GitHub Copilot', 'Grok', 'Apple Foundation Models']);
+        expect(providers.map((provider) => provider.name)).toEqual([
+            'Claude Code',
+            'Codex',
+            'Antigravity',
+            'GitHub Copilot',
+            'Grok',
+            'Apple Foundation Models'
+        ]);
         expect(providers.map((provider) => provider.capabilities.chat)).toEqual([true, true, false, true, true, true]);
         expect(providers.map((provider) => provider.capabilities.terminal)).toEqual([true, true, true, true, true, false]);
         for (const provider of providers) {
@@ -17,10 +24,11 @@ describe('ProviderRegistry', () => {
     });
 
     test('a terminal-only CLI reports no models and detection still answers for it', async () => {
-        const registry = new ProviderRegistry({ detect: async (command) => ({ installed: command === 'gemini', version: null }) });
+        const registry = new ProviderRegistry({ detect: async (command) => ({ installed: command === 'agy', version: null }) });
         const providers = await registry.list();
-        const gemini = providers.find((provider) => provider.kind === 'gemini');
-        expect(gemini).toMatchObject({ installed: true, models: [], defaultModel: null, resumeCommand: 'gemini {flags} --resume {id}' });
+        const antigravity = providers.find((provider) => provider.kind === 'antigravity');
+        expect(antigravity).toMatchObject({ installed: true, models: [], defaultModel: null, resumeCommand: 'agy {flags} --conversation {id}' });
+        expect(antigravity?.capabilities).toMatchObject({ chat: false, terminal: true, hooks: false });
         expect(providers.find((provider) => provider.kind === 'copilot')?.installed).toBe(false);
     });
 

@@ -2,10 +2,13 @@ import type { ProcessGroup, ProcessGroupKind, ProcessRow, ProcessScope, ProcessS
 import { identityOf, type ProcessRate, type RawProcess, type RawSample } from './sampler.ts';
 
 /* The AI CLIs and apps recognized by name or path, so a `claude` started from iTerm stands out in "All". */
-export const AI_FAMILIES = ['claude', 'codex', 'gemini', 'copilot', 'grok', 'opencode', 'ollama', 'cursor', 'aider'] as const;
+export const AI_FAMILIES = ['claude', 'codex', 'antigravity', 'copilot', 'grok', 'opencode', 'ollama', 'cursor', 'aider'] as const;
+
+// The words a family goes by besides its own name: Antigravity's CLI installs as `agy`.
+const FAMILY_WORDS: Partial<Record<(typeof AI_FAMILIES)[number], string>> = { antigravity: 'antigravity|agy' };
 
 // A whole word of the path or name: `~/.local/share/claude/versions/2.1.269`, `Claude.app`, `codex-aarch64`.
-const FAMILY_PATTERNS = AI_FAMILIES.map((family) => [family, new RegExp(`(^|[/\\s._@-])${family}([/\\s._-]|$)`, 'i')] as const);
+const FAMILY_PATTERNS = AI_FAMILIES.map((family) => [family, new RegExp(`(^|[/\\s._@-])(${FAMILY_WORDS[family] ?? family})([/\\s._-]|$)`, 'i')] as const);
 
 /* Which AI the process itself is, from its path, its name and the script a runtime was given. */
 export function ownFamilyOf(name: string, path: string | null, args: readonly string[] | null = null): string | null {

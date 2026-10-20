@@ -202,7 +202,7 @@ export function toggledState(state: PlanStepState): PlanStepState {
 }
 
 /* Product names, the same word in every language. */
-const AGENT_NAMES: Record<string, string> = { claude: 'Claude', codex: 'Codex', gemini: 'Gemini', copilot: 'Copilot', grok: 'Grok' };
+const AGENT_NAMES: Record<string, string> = { claude: 'Claude', codex: 'Codex', antigravity: 'Antigravity', copilot: 'Copilot', grok: 'Grok' };
 
 /* The short name of the agent a chat runs, as a person calls it. */
 export function agentName(provider: AgentKind | string | null | undefined): string {

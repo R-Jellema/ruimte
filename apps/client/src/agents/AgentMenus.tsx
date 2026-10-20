@@ -60,7 +60,7 @@ function ProviderItems({ target, provider, hint, onPick }: { target: AgentTarget
 /*
  * The agent rows of one submenu, straight from the daemon's catalog so the dock, the canvas menu
  * and the palette can never drift apart. A CLI the daemon did not find is left out entirely: the
- * Agents settings pane is where "where did Gemini go" gets answered, not a disabled row here.
+ * Agents settings pane is where "where did Copilot go" gets answered, not a disabled row here.
  */
 function AgentRows({ target, onPick }: { target: AgentTarget; onPick: PickAgent }) {
     const { t } = useTranslation('agents');

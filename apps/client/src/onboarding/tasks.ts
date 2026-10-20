@@ -101,7 +101,7 @@ function t(key: string, values?: Record<string, unknown>): string {
     return i18next.t(`onboarding:${key}`, values ?? {});
 }
 
-/* Names as a sentence lists them: `Gemini CLI and Copilot`, `A, B and C`. */
+/* Names as a sentence lists them: `Antigravity and Copilot`, `A, B and C`. */
 export function joinNames(names: readonly string[]): string {
     return names.length <= 1 ? (names[0] ?? '') : t('list', { rest: names.slice(0, -1).join(', '), last: names[names.length - 1] });
 }

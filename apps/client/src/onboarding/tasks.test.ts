@@ -24,7 +24,7 @@ function provider(kind: AgentKind, name: string, installed: boolean): ProviderIn
         models: [],
         defaultModel: null,
         // Only whether it chats is read here.
-        capabilities: { chat: kind !== 'gemini' } as ProviderInfo['capabilities'],
+        capabilities: { chat: kind !== 'antigravity' } as ProviderInfo['capabilities'],
         resumeCommand: ''
     };
 }
@@ -46,7 +46,7 @@ function status(id: string, kind: string, state: ProviderAccountStatus['state'])
 const PROVIDERS = [
     provider('claude', 'Claude Code', true),
     provider('codex', 'Codex', true),
-    provider('gemini', 'Gemini CLI', false),
+    provider('antigravity', 'Antigravity', false),
     provider('copilot', 'Copilot', false),
     provider('apple', 'Apple Foundation Models', false)
 ];
@@ -108,19 +108,19 @@ describe('the providers task', () => {
         expect(rows[0]?.loggedIn?.id).toBe('claude_work');
         expect(rows[0]?.loginAccount?.id).toBe('claude');
         expect(rows[1]?.loggedIn).toBeNull();
-        expect(missingClisOf(PROVIDERS)).toEqual(['Gemini CLI', 'Copilot']);
-        expect(joinNames(missingClisOf(PROVIDERS))).toBe('Gemini CLI and Copilot');
+        expect(missingClisOf(PROVIDERS)).toEqual(['Antigravity', 'Copilot']);
+        expect(joinNames(missingClisOf(PROVIDERS))).toBe('Antigravity and Copilot');
         expect(joinNames(['A', 'B', 'C'])).toBe('A, B and C');
     });
 
     test('counts a login only for a CLI that has one, and says who', () => {
-        const gemini = cliRowsOf([provider('gemini', 'Gemini CLI', true)], {
+        const antigravity = cliRowsOf([provider('antigravity', 'Antigravity', true)], {
             ...accounts({}),
-            accounts: { gemini: { kind: 'gemini' } },
-            statuses: [status('gemini', 'gemini', 'ready')]
+            accounts: { antigravity: { kind: 'antigravity' } },
+            statuses: [status('antigravity', 'antigravity', 'ready')]
         });
-        expect(gemini[0]?.canLogIn).toBe(false);
-        expect(gemini[0]?.loggedIn).toBeNull();
+        expect(antigravity[0]?.canLogIn).toBe(false);
+        expect(antigravity[0]?.loggedIn).toBeNull();
         const done = factsOf(true, cliRowsOf(PROVIDERS, accounts({ claude: 'ready' })), 'off');
         expect(done.loggedIn).toEqual(['Claude Code']);
         expect(done.notLoggedIn).toEqual(['Codex']);

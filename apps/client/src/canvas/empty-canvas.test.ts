@@ -32,7 +32,7 @@ function ids(tiles: { id: string }[]): string[] {
 describe('the tiles of an empty canvas', () => {
     test('terminal agents stay available beside the chat with a model picker', () => {
         const { agents } = emptyCanvasSections(
-            input({ providers: [provider('claude'), provider('codex', { terminal: false }), provider('gemini', { installed: false })] })
+            input({ providers: [provider('claude'), provider('codex', { terminal: false }), provider('antigravity', { installed: false })] })
         );
         expect(ids(agents)).toEqual(['agent-terminal-claude', 'node-chat']);
     });

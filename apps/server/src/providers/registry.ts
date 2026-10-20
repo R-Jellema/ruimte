@@ -5,10 +5,10 @@ import { createAppleProvider, appleProvider } from './apple-provider.ts';
 import { claudeProvider } from './claude-provider.ts';
 import { codexProvider } from './codex-provider.ts';
 import { copilotProvider, grokProvider } from './acp-providers.ts';
-import { geminiProvider } from './terminal-providers.ts';
+import { antigravityProvider } from './terminal-providers.ts';
 
 // The CLIs the daemon ships with, in the order of `BUILT_IN_KINDS`. A new one is one more value in both.
-const BUILT_IN_PROVIDERS: ChatProvider[] = [claudeProvider, codexProvider, geminiProvider, copilotProvider, grokProvider];
+const BUILT_IN_PROVIDERS: ChatProvider[] = [claudeProvider, codexProvider, antigravityProvider, copilotProvider, grokProvider];
 
 // Offers nothing, so it answers a kind this version does not know with a provider that starts nothing.
 const UNOFFERED = new AgentProviderRegistry({ providers: [] });

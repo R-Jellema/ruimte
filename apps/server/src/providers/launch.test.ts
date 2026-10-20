@@ -18,8 +18,10 @@ describe('terminalCommand', () => {
         expect(terminalCommand({ kind: 'claude', runtimeMode: 'full-access' })).toBe(`claude ${ALLOW} --permission-mode bypassPermissions`);
         expect(terminalCommand({ kind: 'codex', runtimeMode: 'auto' })).toBe('codex --ask-for-approval on-request --sandbox workspace-write');
         expect(terminalCommand({ kind: 'codex', runtimeMode: 'full-access' })).toBe('codex --ask-for-approval never --sandbox danger-full-access');
-        expect(terminalCommand({ kind: 'gemini', runtimeMode: 'auto-accept-edits' })).toBe('gemini --approval-mode auto_edit');
-        expect(terminalCommand({ kind: 'gemini', runtimeMode: 'full-access' })).toBe('gemini --approval-mode yolo');
+        expect(terminalCommand({ kind: 'antigravity', runtimeMode: 'supervised' })).toBe('agy');
+        expect(terminalCommand({ kind: 'antigravity', runtimeMode: 'auto-accept-edits' })).toBe('agy --mode=accept-edits');
+        expect(terminalCommand({ kind: 'antigravity', runtimeMode: 'auto' })).toBe('agy --mode=accept-edits');
+        expect(terminalCommand({ kind: 'antigravity', runtimeMode: 'full-access' })).toBe('agy --dangerously-skip-permissions');
         expect(terminalCommand({ kind: 'copilot', runtimeMode: 'full-access' })).toBe('copilot');
     });
 
@@ -29,7 +31,7 @@ describe('terminalCommand', () => {
 
     test('a model reaches the CLIs that take one, quoted', () => {
         expect(terminalCommand({ kind: 'claude', runtimeMode: 'supervised', model: 'claude-opus-5' })).toBe(`claude ${ALLOW} --model 'claude-opus-5'`);
-        expect(terminalCommand({ kind: 'gemini', runtimeMode: 'supervised', model: 'gemini-3-pro' })).toBe('gemini');
+        expect(terminalCommand({ kind: 'antigravity', runtimeMode: 'supervised', model: 'some-model' })).toBe('agy');
     });
 
     test("a first prompt rides on the line as the CLI's own prompt argument, quoted", () => {
@@ -37,7 +39,7 @@ describe('terminalCommand', () => {
         expect(terminalCommand({ kind: 'codex', runtimeMode: 'supervised' }, "it's here")).toBe(
             "codex --ask-for-approval on-request --sandbox workspace-write 'it'\\''s here'"
         );
-        expect(terminalCommand({ kind: 'gemini', runtimeMode: 'supervised' }, 'go')).toBe("gemini '-i' 'go'");
+        expect(terminalCommand({ kind: 'antigravity', runtimeMode: 'supervised' }, 'go')).toBe("agy '-i' 'go'");
         expect(terminalCommand({ kind: 'copilot', runtimeMode: 'supervised' }, 'go')).toBe("copilot '-i' 'go'");
         expect(terminalCommand({ kind: 'grok', runtimeMode: 'supervised' }, 'go')).toBe("grok --permission-mode default 'go'");
     });
@@ -144,7 +146,10 @@ describe('resumeCommand', () => {
        the fresh default on that line would hand it full access it was never asked to have. */
     test('a launch that names no mode adds no mode flag', () => {
         expect(resumeCommand({ kind: 'claude' }, 'abc-123')).toBe(`claude ${ALLOW} --resume 'abc-123'`);
-        expect(resumeCommand({ kind: 'gemini' }, 'abc-123')).toBe("gemini --resume 'abc-123'");
+        expect(resumeCommand({ kind: 'antigravity' }, 'abc-123')).toBe("agy --conversation 'abc-123'");
+        expect(resumeCommand({ kind: 'antigravity', runtimeMode: 'full-access' }, 'abc-123')).toBe(
+            "agy --dangerously-skip-permissions --conversation 'abc-123'"
+        );
     });
 });
 

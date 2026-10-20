@@ -32,7 +32,7 @@ export function chartSeries(fine: readonly ProcessPoint[], coarse: readonly Proc
     return fine.length >= 2 ? { points: fine, windowMs: 300 * fineIntervalMs, fine: true } : { points: coarse, windowMs: 288 * coarseIntervalMs, fine: false };
 }
 
-const AGENT_NAMES: Record<string, string> = { claude: 'Claude Code', codex: 'Codex', gemini: 'Gemini', copilot: 'Copilot', grok: 'Grok' };
+const AGENT_NAMES: Record<string, string> = { claude: 'Claude Code', codex: 'Codex', antigravity: 'Antigravity', copilot: 'Copilot', grok: 'Grok' };
 
 export function agentName(kind: string): string {
     return AGENT_NAMES[kind] ?? kind.charAt(0).toUpperCase() + kind.slice(1);

@@ -1,5 +1,6 @@
 import { resumeCommandFor, type AgentKind, type AgentLaunch, type RuntimeMode } from '@ruimte/contracts';
 import { CLAUDE_ALLOW_CONTEXT } from './claude-provider.ts';
+import { BUILT_IN_KINDS } from './kinds.ts';
 import { providerFor } from './registry.ts';
 
 /*
@@ -24,12 +25,6 @@ const RUNTIME_FLAGS: Partial<Record<AgentKind, Record<RuntimeMode, string[]>>> =
         auto: ['--ask-for-approval', 'on-request', '--sandbox', 'workspace-write'],
         'full-access': ['--ask-for-approval', 'never', '--sandbox', 'danger-full-access']
     },
-    gemini: {
-        supervised: [],
-        'auto-accept-edits': ['--approval-mode', 'auto_edit'],
-        auto: [],
-        'full-access': ['--approval-mode', 'yolo']
-    },
     copilot: {
         supervised: [],
         'auto-accept-edits': [],
@@ -42,8 +37,20 @@ const RUNTIME_FLAGS: Partial<Record<AgentKind, Record<RuntimeMode, string[]>>> =
         'auto-accept-edits': ['--permission-mode', 'acceptEdits'],
         auto: ['--permission-mode', 'auto'],
         'full-access': ['--permission-mode', 'bypassPermissions']
+    },
+    // Antigravity CLI 1.4 has no `--mode` for `auto`, so it shares the narrower accept-edits; plan mode widens nothing.
+    antigravity: {
+        supervised: [],
+        'auto-accept-edits': ['--mode=accept-edits'],
+        auto: ['--mode=accept-edits'],
+        'full-access': ['--dangerously-skip-permissions']
     }
 };
+
+/* Whether this daemon has a CLI of this kind at all; a node may still name one it dropped (`gemini`) or never knew. */
+export function offersKind(kind: AgentKind): boolean {
+    return (BUILT_IN_KINDS as readonly string[]).includes(kind);
+}
 
 // The flag that names a model, for the CLIs whose catalog the client can pick from.
 const MODEL_FLAG: Partial<Record<AgentKind, string>> = {
