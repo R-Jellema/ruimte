@@ -40,7 +40,7 @@ export async function deepestExisting(path: string): Promise<{ base: string; mis
 
 function failure(e: unknown, path: string): unknown {
     const code = (e as NodeJS.ErrnoException).code;
-    if (code === 'EEXIST') {
+    if (code === 'EEXIST' || code === 'ELOOP') {
         return new CreateError('exists', `${path} is already there`);
     }
     if (code === 'ENOTDIR') {
@@ -65,8 +65,15 @@ export async function createEntry(payload: FsCreatePayload, boundary: WriteBound
     return (await planCreate(payload, boundary)).run();
 }
 
-/* Checks a create the way `createEntry` makes it; nothing is made until `run`. */
-export async function planCreate(payload: FsCreatePayload, boundary: WriteBoundary): Promise<{ run(): Promise<FsCreateResult> }> {
+/*
+ * Checks a create the way `createEntry` makes it; nothing is made until `run`. `noFollow` is 0 on
+ * Windows, which has no `O_NOFOLLOW`.
+ */
+export async function planCreate(
+    payload: FsCreatePayload,
+    boundary: WriteBoundary,
+    noFollow: number = constants.O_NOFOLLOW ?? 0
+): Promise<{ run(): Promise<FsCreateResult> }> {
     const { path, kind } = payload;
     if (!isAbsolute(path) || path.includes('\0')) {
         throw new CreateError('bad-path', 'The path must be absolute');
@@ -101,12 +108,16 @@ export async function planCreate(payload: FsCreatePayload, boundary: WriteBounda
                     await mkdir(real);
                     return { size: 0, mtime: Math.round((await lstat(real)).mtimeMs) };
                 }
-                const handle = await open(
-                    real,
-                    constants.O_WRONLY | constants.O_CREAT | (replacing ? constants.O_TRUNC : constants.O_EXCL) | constants.O_NOFOLLOW,
-                    0o644
-                );
+                const handle = await open(real, constants.O_WRONLY | (replacing ? 0 : constants.O_CREAT | constants.O_EXCL) | noFollow, 0o644);
                 try {
+                    // Truncated only once the handle is the file the plan saw: without `O_NOFOLLOW`, a link put in its place since would be followed.
+                    if (replacing) {
+                        const opened = await handle.stat();
+                        if (opened.ino !== taken.ino || opened.dev !== taken.dev) {
+                            throw new CreateError('exists', `${target} changed before it was replaced`);
+                        }
+                        await handle.truncate(0);
+                    }
                     await handle.writeFile(bytes);
                     const created = await handle.stat();
                     return { size: created.size, mtime: Math.round(created.mtimeMs) };
@@ -114,6 +125,9 @@ export async function planCreate(payload: FsCreatePayload, boundary: WriteBounda
                     await handle.close();
                 }
             } catch (e) {
+                if (replacing && (e as NodeJS.ErrnoException).code === 'ENOENT') {
+                    throw new CreateError('exists', `${target} changed before it was replaced`);
+                }
                 throw failure(e, target);
             }
         }

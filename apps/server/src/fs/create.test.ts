@@ -172,6 +172,22 @@ describe('fs.create', () => {
         expect(await readFile(join(outside, 'c.txt'), 'utf8')).toBe('c');
     });
 
+    for (const [platform, noFollow] of [
+        ['with O_NOFOLLOW', undefined],
+        ['without O_NOFOLLOW, as on Windows', 0]
+    ] as const) {
+        test(`never follows a link put in place of a file it plans to replace, ${platform}`, async () => {
+            const path = join(project, 'src', 'a.ts');
+            await writeFile(join(outside, 'c.txt'), 'c');
+            const plan = await planCreate({ path, kind: 'file', text: 'x', overwrite: true }, boundary(), noFollow);
+            await rm(path);
+            await symlink(join(outside, 'c.txt'), path);
+
+            expect(await codeOf(plan.run())).toBe('exists');
+            expect(await readFile(join(outside, 'c.txt'), 'utf8')).toBe('c');
+        });
+    }
+
     test('checks everything in a plan before it makes anything', async () => {
         const plan = await planCreate({ path: join(project, 'deep', 'new.ts'), kind: 'file', text: 'x' }, boundary());
 
