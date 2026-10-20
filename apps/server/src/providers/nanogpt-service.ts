@@ -62,6 +62,7 @@ export class NanoGptService {
     private key = '';
     private models: NanoModel[] = [];
     private readonly writes = new Serializer();
+    private readonly callListeners = new Set<() => void>();
 
     constructor(request: NanoFetch = fetch) {
         this.request = request;
@@ -88,6 +89,12 @@ export class NanoGptService {
         return { configured: this.key !== '', models: this.models.length };
     }
 
+    /* Told after every call a chat made, for whatever should look at the quota it just spent. */
+    onCall(listener: () => void): () => void {
+        this.callListeners.add(listener);
+        return () => this.callListeners.delete(listener);
+    }
+
     /* Never fails a turn: a call that was made counts whether or not its line could be written. */
     async logUsage(entry: Omit<NanoGptUsageEntry, 'at'>): Promise<void> {
         try {
@@ -97,6 +104,9 @@ export class NanoGptService {
             await appendFile(join(this.usageDirectory, `${month}.jsonl`), nanoGptUsageLine({ at, ...entry }), { mode: 0o600 });
         } catch {
             console.warn('A NanoGPT call could not be added to the usage log');
+        }
+        for (const listener of this.callListeners) {
+            listener();
         }
     }
 

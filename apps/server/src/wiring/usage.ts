@@ -2,6 +2,7 @@ import { limitAccountsOf, usageAccountsOf, usageRootsOf, UsageMonitor, UsageServ
 import type { ServerConfig } from '../config.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 import { RUIMTE_CODEX_CLIENT } from '../providers/codex-provider.ts';
+import { followPlan } from '../usage/nanogpt-live.ts';
 import { sessionAccountsOf } from '../usage/session-accounts.ts';
 import type { AgentsBundle } from './agents.ts';
 import type { ProvidersBundle } from './providers.ts';
@@ -34,5 +35,8 @@ export function wireUsage(config: ServerConfig, providers: ProvidersBundle, agen
         plans: { nanogpt: () => providers.nanogpt.readPlan() }
     });
     providers.accounts.listen(() => limits.accountsChanged());
+    providers.nanogpt.onCall(
+        followPlan(() => providers.nanogpt.readPlan(), { apply: ({ plan, windows }) => limits.applyLive({ kind: 'nanogpt', plan, windows }) })
+    );
     return { usage, limits };
 }

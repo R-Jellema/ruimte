@@ -205,6 +205,18 @@ describe('NanoGPT usage', () => {
         expect(summary.sessions).toBe(1);
     });
 
+    test('every call is announced once it is logged, to whoever follows the quota', async () => {
+        const folder = await home();
+        const service = new NanoGptService(api().request);
+        await service.load(folder);
+        const heard: string[] = [];
+        const stop = service.onCall(() => heard.push('call'));
+        await service.logUsage({ model: 'tool-model', session: 's-1', cwd: '/work', prompt: 10, cached: 0, completion: 2, reasoning: 0 });
+        stop();
+        await service.logUsage({ model: 'tool-model', session: 's-1', cwd: '/work', prompt: 10, cached: 0, completion: 2, reasoning: 0 });
+        expect(heard).toEqual(['call']);
+    });
+
     test('a call is added to the log of its month, one line each', async () => {
         const folder = await home();
         const service = new NanoGptService(api().request);
