@@ -86,7 +86,6 @@ jobs:
       - uses: ./.github/actions/install
       - run: bun run test --shard=${{ matrix.shard }}/2
 
-  # Not in the final check until the unit tests pass on Windows (docs/WINDOWS.md).
   windows:
     name: unit (Windows)
     runs-on: windows-latest
@@ -213,7 +212,7 @@ jobs:
   checks:
     name: CI checks
     if: ${{ always() }}
-    needs: [changes, verify, build, unit, dom, integration, packaged, integration-linux, packaged-linux, rust, swift-pulsar, swift-transport, computer-use, foundation-models]
+    needs: [changes, verify, build, unit, windows, dom, integration, packaged, integration-linux, packaged-linux, rust, swift-pulsar, swift-transport, computer-use, foundation-models]
     runs-on: ubuntu-latest
     steps:
       - name: Check job results

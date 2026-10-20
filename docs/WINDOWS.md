@@ -35,6 +35,9 @@ Do not reverse one without asking Bas.
 
 - PATH with `;` and under the name the variable already has (`apps/server/src/env-path.ts`), in terminals
   and chats.
+- A save never writes through a link (no `O_NOFOLLOW` there, so `fs/write.ts` looks at the name first), a
+  rename never folds two hard links of one file and takes a case-only change of a name (`fs/rename.ts`),
+  and a detected launch writes its paths with `/` (`launches/detect.ts`, `launches/vscode.ts`).
 - `ruimte-context` finds `ruimte.exe`, and `ruimte-context.cmd` ships beside it for cmd and PowerShell.
 - Terminals start in Git Bash with `-l`; `shellName` drops `.exe`, so `plainShell` applies.
 - Ending a session, as in the stopping decision.
@@ -57,8 +60,9 @@ Do not reverse one without asking Bas.
 
 - `.gitattributes` holds every text file at LF, `.cmd` and `.bat` at CRLF. With `core.autocrlf` on, a
   checked-out fixture reads CRLF and tests fail.
-- Many unit and integration tests assume `/bin/sh` or POSIX paths. A Windows job in CI follows once they
-  pass.
+- Integration tests still assume `/bin/sh` and POSIX paths. The unit tests pass on Windows: `unit
+  (Windows)` in `ci.yml` is part of the final check and runs on two workers, since four files starting git
+  processes at once pushed tests past Bun's five seconds on that runner.
 
 ### 2. The daemon starts and stops
 
