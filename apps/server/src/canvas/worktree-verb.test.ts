@@ -99,8 +99,7 @@ async function team(lexerWrites: string, parserWrites: string): Promise<{ lexer:
     const [lexer, parser] = lines.slice(1).map((line) => line.split('\t')[0]!);
     daemon.worker.start();
     await daemon.worker.settled();
-    // A turn's checkpoint diff settles after it ended, in git processes of its own that would still hold the worktree on Windows when the test ends.
-    await daemon.until(() => [lexer!, parser!].every((id) => firstTurn(id)?.state === 'done' && firstTurn(id)?.checkpointDiff !== undefined));
+    await daemon.until(() => firstTurn(lexer!)?.state === 'done' && firstTurn(parser!)?.state === 'done');
     return { lexer: lexer!, parser: parser! };
 }
 
