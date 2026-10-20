@@ -44,10 +44,14 @@ describe('checkWorktreeRoot', () => {
         expect(await checkWorktreeRoot(join(base, 'link', 'secrets'), home, userHome)).toMatchObject({ refusal: 'root-refused' });
     });
 
-    test('refuses a file, and a folder that cannot be written', async () => {
+    test('refuses a file', async () => {
         await writeFile(join(base, 'file'), 'x');
         expect(await checkWorktreeRoot(join(base, 'file'), home, userHome)).toMatchObject({ refusal: 'not-a-folder' });
         expect(await checkWorktreeRoot(join(base, 'file', 'wt'), home, userHome)).toMatchObject({ refusal: 'not-a-folder' });
+    });
+
+    // Windows ignores the write bits of a folder's mode.
+    test.skipIf(process.platform === 'win32')('refuses a folder that cannot be written', async () => {
         await mkdir(join(base, 'locked'));
         await chmod(join(base, 'locked'), 0o555);
         expect(await checkWorktreeRoot(join(base, 'locked', 'wt'), home, userHome)).toMatchObject({ refusal: 'not-a-folder' });

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { diffCommit } from './diff.ts';
 import { parseLog, readCommit, readLog } from './log.ts';
+import { nativePath } from './native-path.ts';
 import { parseRefs, parseWorktreeBranches } from './refs.ts';
 import { gitIn } from './test-repo.ts';
 
@@ -113,8 +114,8 @@ describe('refs', () => {
         const output = 'worktree /a/main\nHEAD abc\nbranch refs/heads/main\n\nworktree /a/side\nHEAD def\nbranch refs/heads/side\n';
         expect(parseWorktreeBranches(output)).toEqual(
             new Map([
-                ['main', '/a/main'],
-                ['side', '/a/side']
+                ['main', nativePath('/a/main')],
+                ['side', nativePath('/a/side')]
             ])
         );
     });

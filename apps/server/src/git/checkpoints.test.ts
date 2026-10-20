@@ -33,6 +33,7 @@ beforeAll(async () => {
     await git(['config', 'user.email', 'test@example.com'], repo);
     await git(['config', 'user.name', 'Test'], repo);
     await git(['config', 'commit.gpgsign', 'false'], repo);
+    await git(['config', 'core.autocrlf', 'false'], repo);
     await writeFile(join(repo, '.gitignore'), 'ignored.txt\n');
     await writeFile(join(repo, 'kept.txt'), 'one\ntwo\nthree\n');
     await writeFile(join(repo, 'gone.txt'), 'bye\n');
