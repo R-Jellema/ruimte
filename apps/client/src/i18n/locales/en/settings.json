@@ -1397,7 +1397,19 @@
             "ready_other": "Connected, {{count}} models included.",
             "disconnected": "No key saved on this machine.",
             "unavailable": "This machine does not offer NanoGPT yet. Update Ruimte on it.",
-            "failed": "Could not change NanoGPT on this machine."
+            "failed": "Could not change NanoGPT on this machine.",
+            "continue": {
+                "label": "Continue automatically",
+                "description": "When a chat reaches its tool rounds for one run, it goes on by itself. Off, it stops and waits for your message."
+            },
+            "rounds": {
+                "label": "Tool rounds per run",
+                "description": "How many rounds of tools a run takes before it is cut, from 5 to 200."
+            },
+            "runs": {
+                "label": "Runs before it stops",
+                "description": "How many runs a chat takes by itself, from 1 to 20. Every call spends your allowance, so this is the limit on a loop that never ends."
+            }
         }
     }
 }

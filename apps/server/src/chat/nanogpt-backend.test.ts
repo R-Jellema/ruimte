@@ -284,6 +284,17 @@ describe('NanoGPT backend', () => {
         expect(last.content).toContain('limit of tool rounds');
     });
 
+    test('what a person set in Settings decides, as the run starts: without continuing it stops at its first cut', async () => {
+        const chat = await rig([listCall, listCall, listCall, listCall, listCall, () => reply('Never.')], { mode: 'full-access' });
+        await chat.service.setSettings({ autoContinue: false, roundsPerRun: 5 });
+        await chat.backend.start();
+        chat.backend.sendTurn(turn);
+
+        expect(await chat.until(isDone)).toMatchObject({ state: 'error', error: 'NanoGPT reached 5 tool rounds. Send another message to continue.' });
+        expect(chat.tools).toHaveLength(5);
+        expect(chat.events.some((event) => event.type === 'note')).toBe(false);
+    });
+
     test('a loop that never ends still stops, after the runs it is allowed', async () => {
         const chat = await rig([listCall, listCall, listCall, listCall], { mode: 'full-access', limits: { roundsPerRun: 2, runs: 2 } });
         await chat.backend.start();

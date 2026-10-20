@@ -1,11 +1,55 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { NanoGptConfigurePayload, NanoGptStatus } from '@ruimte/contracts';
-import { Button, Input } from '@adecore/ui';
+import type { NanoGptConfigurePayload, NanoGptSettings, NanoGptStatus } from '@ruimte/contracts';
+import { Button, Input, Switch } from '@adecore/ui';
 import { SettingsRow } from '@adecore/ui/settings';
 import { useProvidersStore } from '@adecore/agents-react/state';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { transportFor } from '@/transport';
+
+/* A whole number a person types, kept as text until they leave the field, and sent once if it is one inside the range. */
+function CountField({
+    value,
+    min,
+    max,
+    label,
+    disabled,
+    onCommit
+}: {
+    value: number;
+    min: number;
+    max: number;
+    label: string;
+    disabled: boolean;
+    onCommit(next: number): void;
+}) {
+    const [draft, setDraft] = useState<string | null>(null);
+    const commit = (): void => {
+        const next = Number(draft);
+        setDraft(null);
+        if (draft !== null && Number.isInteger(next) && next >= min && next <= max && next !== value) {
+            onCommit(next);
+        }
+    };
+    return (
+        <Input
+            type="number"
+            inputMode="numeric"
+            min={min}
+            max={max}
+            value={draft ?? String(value)}
+            aria-label={label}
+            disabled={disabled}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={commit}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                    commit();
+                }
+            }}
+        />
+    );
+}
 
 /*
  * The NanoGPT subscription of a machine. The key goes to the machine once and never comes back: the
@@ -61,6 +105,21 @@ export function NanoGptSection({ endpointId }: { endpointId: string }) {
         }
     };
 
+    // Settings alone fetch nothing and change no model, so only the answer is kept.
+    const change = async (settings: Partial<NanoGptSettings>): Promise<void> => {
+        const link = transportFor(endpointId);
+        if (!link) {
+            return;
+        }
+        setError('');
+        try {
+            setStatus(await link.request('nanogpt.configure', { settings }));
+        } catch (cause) {
+            setError(cause instanceof Error ? cause.message : t('providers.nanogpt.failed'));
+        }
+    };
+
+    const settings = status?.settings;
     const state = busy
         ? t('providers.nanogpt.loading')
         : status === null
@@ -103,6 +162,49 @@ export function NanoGptSection({ endpointId }: { endpointId: string }) {
                     </div>
                 }
             />
+            {settings !== undefined && (
+                <>
+                    <SettingsRow
+                        label={t('providers.nanogpt.continue.label')}
+                        description={t('providers.nanogpt.continue.description')}
+                        control={
+                            <Switch
+                                checked={settings.autoContinue}
+                                onCheckedChange={(autoContinue) => void change({ autoContinue })}
+                                label={t('providers.nanogpt.continue.label')}
+                            />
+                        }
+                    />
+                    <SettingsRow
+                        label={t('providers.nanogpt.rounds.label')}
+                        description={t('providers.nanogpt.rounds.description')}
+                        control={
+                            <CountField
+                                value={settings.roundsPerRun}
+                                min={5}
+                                max={200}
+                                label={t('providers.nanogpt.rounds.label')}
+                                disabled={false}
+                                onCommit={(roundsPerRun) => void change({ roundsPerRun })}
+                            />
+                        }
+                    />
+                    <SettingsRow
+                        label={t('providers.nanogpt.runs.label')}
+                        description={t('providers.nanogpt.runs.description')}
+                        control={
+                            <CountField
+                                value={settings.runs}
+                                min={1}
+                                max={20}
+                                label={t('providers.nanogpt.runs.label')}
+                                disabled={!settings.autoContinue}
+                                onCommit={(runs) => void change({ runs })}
+                            />
+                        }
+                    />
+                </>
+            )}
             {error !== '' && (
                 <p role="alert" className="px-3 pb-3 break-words text-status-error">
                     {error}

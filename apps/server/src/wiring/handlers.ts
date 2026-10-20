@@ -104,7 +104,14 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
     // A key bills a person's subscription, so only the owner of the machine sets or removes one.
     dispatcher.register(
         'nanogpt.configure',
-        async ({ apiKey }) => {
+        async ({ apiKey, settings }) => {
+            if (settings !== undefined) {
+                const saved = await providers.nanogpt.setSettings(settings);
+                // Only settings changed: the key and the models stay as they are.
+                if (apiKey === undefined) {
+                    return saved;
+                }
+            }
             const result = await providers.nanogpt.configure(apiKey);
             providers.providers.invalidate('nanogpt');
             return result;

@@ -46,7 +46,7 @@ describe('NanoGPT subscription', () => {
         const service = new NanoGptService(request);
         await service.load(folder);
 
-        expect(await service.configure('  nano-key  ')).toEqual({ configured: true, models: 2 });
+        expect(await service.configure('  nano-key  ')).toMatchObject({ configured: true, models: 2 });
         expect(calls.map((call) => call.url)).toEqual([`${NANOGPT_URL}/usage`, `${NANOGPT_URL}/models?detailed=true`]);
         for (const call of calls) {
             expect(call.init?.redirect).toBe('error');
@@ -69,7 +69,7 @@ describe('NanoGPT subscription', () => {
         const again = new NanoGptService(api().request);
         await again.load(folder);
         expect(again.apiKey).toBe('nano-key');
-        expect(again.status()).toEqual({ configured: true, models: 2 });
+        expect(again.status()).toMatchObject({ configured: true, models: 2 });
         expect(await readFile(join(folder, 'nanogpt', 'credential'), 'utf8')).toBe('nano-key');
         if (process.platform !== 'win32') {
             expect((await stat(join(folder, 'nanogpt', 'credential'))).mode & 0o777).toBe(0o600);
@@ -82,7 +82,7 @@ describe('NanoGPT subscription', () => {
         await service.load(folder);
 
         await expect(service.configure('wrong-key')).rejects.toThrow('NanoGPT rejected the API key.');
-        expect(service.status()).toEqual({ configured: false, models: 0 });
+        expect(service.status()).toMatchObject({ configured: false, models: 0 });
         await expect(stat(join(folder, 'nanogpt', 'credential'))).rejects.toThrow();
     });
 
@@ -103,13 +103,13 @@ describe('NanoGPT subscription', () => {
         await service.load(folder);
         await service.configure('nano-key');
 
-        expect(await service.configure('')).toEqual({ configured: false, models: 0 });
+        expect(await service.configure('')).toMatchObject({ configured: false, models: 0 });
         expect(service.catalog.list()).toEqual([]);
         await expect(stat(join(folder, 'nanogpt', 'credential'))).rejects.toThrow();
 
         const again = new NanoGptService(api().request);
         await again.load(folder);
-        expect(again.status()).toEqual({ configured: false, models: 0 });
+        expect(again.status()).toMatchObject({ configured: false, models: 0 });
     });
 
     test('a refresh keeps the saved key and needs one', async () => {
@@ -124,6 +124,67 @@ describe('NanoGPT subscription', () => {
         expect(calls).toHaveLength(4);
         expect(new Headers(calls[2]!.init?.headers).get('authorization')).toBe('Bearer nano-key');
         expect(service.apiKey).toBe('nano-key');
+    });
+});
+
+describe('NanoGPT settings', () => {
+    test('start as the defaults and come back after a restart', async () => {
+        const folder = await home();
+        const first = new NanoGptService(api().request);
+        await first.load(folder);
+        expect(first.status().settings).toEqual({ autoContinue: true, roundsPerRun: 40, runs: 5 });
+
+        expect((await first.setSettings({ roundsPerRun: 25, runs: 3 })).settings).toEqual({ autoContinue: true, roundsPerRun: 25, runs: 3 });
+        const again = new NanoGptService(api().request);
+        await again.load(folder);
+        expect(again.status().settings).toEqual({ autoContinue: true, roundsPerRun: 25, runs: 3 });
+    });
+
+    test('stay inside what the wire allows, and a refused change changes nothing', async () => {
+        const folder = await home();
+        const service = new NanoGptService(api().request);
+        await service.load(folder);
+
+        await expect(service.setSettings({ roundsPerRun: 4 })).rejects.toThrow();
+        await expect(service.setSettings({ runs: 21 })).rejects.toThrow();
+        await expect(service.setSettings({ roundsPerRun: 12.5 })).rejects.toThrow();
+        expect(service.status().settings).toEqual({ autoContinue: true, roundsPerRun: 40, runs: 5 });
+    });
+
+    test('give a chat one run when it may not go on by itself', async () => {
+        const folder = await home();
+        const service = new NanoGptService(api().request);
+        await service.load(folder);
+        expect(service.runLimits()).toEqual({ roundsPerRun: 40, runs: 5 });
+        await service.setSettings({ autoContinue: false, roundsPerRun: 10 });
+        expect(service.runLimits()).toEqual({ roundsPerRun: 10, runs: 1 });
+    });
+
+    test('a file that cannot be read leaves the defaults', async () => {
+        const folder = await home();
+        const first = new NanoGptService(api().request);
+        await first.load(folder);
+        await first.setSettings({ runs: 2 });
+        await Bun.write(join(folder, 'nanogpt', 'settings.json'), '{"autoContinue":"yes"}');
+
+        const again = new NanoGptService(api().request);
+        await again.load(folder);
+        expect(again.status().settings).toEqual({ autoContinue: true, roundsPerRun: 40, runs: 5 });
+    });
+
+    test('the models carry who made them', async () => {
+        const folder = await home();
+        const service = new NanoGptService(async (url) =>
+            url.endsWith('/usage')
+                ? new Response('{}')
+                : new Response(JSON.stringify({ data: [{ id: 'z-ai/glm-5.3', name: 'GLM 5.3' }, { id: 'deepseek-chat' }] }))
+        );
+        await service.load(folder);
+        await service.configure('nano-key');
+        expect(service.catalog.list().map((model) => [model.slug, model.vendor])).toEqual([
+            ['z-ai/glm-5.3', 'Z.ai'],
+            ['deepseek-chat', 'DeepSeek']
+        ]);
     });
 });
 

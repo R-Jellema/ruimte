@@ -948,6 +948,9 @@
                   "badge": {
                     "type": "string"
                   },
+                  "vendor": {
+                    "type": "string"
+                  },
                   "profile": {
                     "type": "string",
                     "minLength": 1
@@ -30726,6 +30729,9 @@
                   "badge": {
                     "type": "string"
                   },
+                  "vendor": {
+                    "type": "string"
+                  },
                   "legacy": {
                     "type": "boolean"
                   },
@@ -59574,6 +59580,29 @@
         "type": "integer",
         "minimum": 0,
         "maximum": 9007199254740991
+      },
+      "settings": {
+        "type": "object",
+        "properties": {
+          "autoContinue": {
+            "type": "boolean"
+          },
+          "roundsPerRun": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 200
+          },
+          "runs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [
+          "autoContinue",
+          "roundsPerRun",
+          "runs"
+        ]
       }
     },
     "required": [
@@ -59588,6 +59617,24 @@
       "apiKey": {
         "type": "string",
         "maxLength": 4096
+      },
+      "settings": {
+        "type": "object",
+        "properties": {
+          "autoContinue": {
+            "type": "boolean"
+          },
+          "roundsPerRun": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 200
+          },
+          "runs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        }
       }
     }
   },
@@ -59602,6 +59649,29 @@
         "type": "integer",
         "minimum": 0,
         "maximum": 9007199254740991
+      },
+      "settings": {
+        "type": "object",
+        "properties": {
+          "autoContinue": {
+            "type": "boolean"
+          },
+          "roundsPerRun": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 200
+          },
+          "runs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [
+          "autoContinue",
+          "roundsPerRun",
+          "runs"
+        ]
       }
     },
     "required": [

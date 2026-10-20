@@ -36,7 +36,6 @@ export interface NanoGptLimits {
     roundsPerRun: number;
     runs: number;
 }
-const DEFAULT_LIMITS: NanoGptLimits = { roundsPerRun: 40, runs: 5 };
 const CONTINUE_MESSAGE =
     'You reached the limit of tool rounds for one run. Carry on with the task where you left off, and finish it or ask what you need with ask_user.';
 
@@ -59,15 +58,15 @@ export class NanoGptBackend implements ChatBackend {
     private readonly host: BackendHost;
     private readonly service: NanoGptService;
     private readonly executeTool: typeof executeNanoTool;
-    private readonly limits: NanoGptLimits;
+    private readonly limitsOverride: NanoGptLimits | undefined;
     readonly pid = null;
     private readonly mode: RuntimeMode;
-    constructor(launch: BackendLaunch, host: BackendHost, service: NanoGptService, executeTool = executeNanoTool, limits = DEFAULT_LIMITS) {
+    constructor(launch: BackendLaunch, host: BackendHost, service: NanoGptService, executeTool = executeNanoTool, limits?: NanoGptLimits) {
         this.launch = launch;
         this.host = host;
         this.service = service;
         this.executeTool = executeTool;
-        this.limits = limits;
+        this.limitsOverride = limits;
         // A change of mode restarts the backend, so the mode it started with holds for its whole life.
         this.mode = nanoEffectiveMode(launch.runtimeMode);
         this.sessionId = launch.resume ?? randomUUID();
@@ -132,10 +131,12 @@ export class NanoGptBackend implements ChatBackend {
         try {
             this.messages.push({ role: 'user', content: [input.preamble, input.text].filter(Boolean).join('\n\n') });
             await this.save();
-            const rounds = this.limits.roundsPerRun * this.limits.runs;
+            // Read as the run starts, so a change in Settings holds from the next message.
+            const limits = this.limitsOverride ?? this.service.runLimits();
+            const rounds = limits.roundsPerRun * limits.runs;
             for (let round = 0; round < rounds; round++) {
                 controller.signal.throwIfAborted();
-                if (round > 0 && round % this.limits.roundsPerRun === 0) {
+                if (round > 0 && round % limits.roundsPerRun === 0) {
                     this.host.onEvent({ type: 'note', level: 'info', text: `Continuing after ${round} tool rounds.` });
                     this.messages.push({ role: 'user', content: CONTINUE_MESSAGE });
                     await this.save();

@@ -4,7 +4,8 @@ import { z } from 'zod';
 import { isNotFound, Serializer, writeAtomic } from '@adecore/agents';
 import { nanoGptUsageLine, readNanoGptUsage, type NanoGptUsageEntry, type ProbeResult } from '@adecore/agents/usage';
 import { ModelCatalog } from '@adecore/agents/providers';
-import type { NanoGptStatus } from '@ruimte/contracts';
+import { DEFAULT_NANOGPT_SETTINGS, NanoGptSettingsSchema, type NanoGptSettings, type NanoGptStatus } from '@ruimte/contracts';
+import { nanoGptVendorOf } from './nanogpt-vendor.ts';
 
 // Deliberately not configurable: neither a setting nor a redirect may route a chat to pay as you go.
 export const NANOGPT_URL = 'https://nano-gpt.com/api/subscription/v1';
@@ -12,6 +13,7 @@ export const NANOGPT_URL = 'https://nano-gpt.com/api/subscription/v1';
 export const NANOGPT_DIR = 'nanogpt';
 const CREDENTIAL_FILE = 'credential';
 const MODELS_FILE = 'models.json';
+const SETTINGS_FILE = 'settings.json';
 
 const ModelsSchema = z.object({
     data: z.array(
@@ -61,6 +63,7 @@ export class NanoGptService {
     private home: string | null = null;
     private key = '';
     private models: NanoModel[] = [];
+    private settings: NanoGptSettings = DEFAULT_NANOGPT_SETTINGS;
     private readonly writes = new Serializer();
     private readonly callListeners = new Set<() => void>();
 
@@ -86,7 +89,23 @@ export class NanoGptService {
     }
 
     status(): NanoGptStatus {
-        return { configured: this.key !== '', models: this.models.length };
+        return { configured: this.key !== '', models: this.models.length, settings: this.settings };
+    }
+
+    /* The cut of a run of tool rounds, as a person set it: without automatic continuing a chat gets one run. */
+    runLimits(): { roundsPerRun: number; runs: number } {
+        const { autoContinue, roundsPerRun, runs } = this.settings;
+        return { roundsPerRun, runs: autoContinue ? runs : 1 };
+    }
+
+    /* Keeps what a person changed, within what the wire allows, for the chats that start their next run after it. */
+    setSettings(change: Partial<NanoGptSettings>): Promise<NanoGptStatus> {
+        return this.writes.run(async () => {
+            this.settings = NanoGptSettingsSchema.parse({ ...this.settings, ...change });
+            await mkdir(this.directory, { recursive: true, mode: 0o700 });
+            await writeAtomic(join(this.directory, SETTINGS_FILE), JSON.stringify(this.settings), 0o600);
+            return this.status();
+        });
     }
 
     /* Told after every call a chat made, for whatever should look at the quota it just spent. */
@@ -137,6 +156,7 @@ export class NanoGptService {
     async load(home: string): Promise<void> {
         this.home = home;
         this.key = '';
+        this.settings = DEFAULT_NANOGPT_SETTINGS;
         this.setModels([]);
         await mkdir(this.directory, { recursive: true, mode: 0o700 });
         try {
@@ -146,6 +166,14 @@ export class NanoGptService {
                 // Not the error itself: a parser or a path in it says nothing a person can act on here.
                 console.warn('The NanoGPT credential could not be read and counts as missing');
             }
+        }
+        try {
+            const saved = NanoGptSettingsSchema.safeParse(JSON.parse(await readFile(join(this.directory, SETTINGS_FILE), 'utf8')));
+            if (saved.success) {
+                this.settings = saved.data;
+            }
+        } catch {
+            // No settings yet, or ones this version cannot read: the defaults hold.
         }
         try {
             this.setModels(ModelsSchema.parse(JSON.parse(await readFile(join(this.directory, MODELS_FILE), 'utf8'))).data);
@@ -214,7 +242,8 @@ export class NanoGptService {
                 slug: model.id,
                 name: model.name ?? model.id,
                 profile: model.id,
-                badge: model.capabilities?.tool_calling ? 'Subscription · Tools' : 'Subscription'
+                badge: model.capabilities?.tool_calling ? 'Subscription · Tools' : 'Subscription',
+                vendor: nanoGptVendorOf(model.id)
             }))
         });
     }

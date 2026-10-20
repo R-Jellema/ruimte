@@ -1397,7 +1397,19 @@
             "ready_other": "Gekoppeld, {{count}} modellen inbegrepen.",
             "disconnected": "Geen sleutel opgeslagen op deze machine.",
             "unavailable": "Deze machine biedt NanoGPT nog niet aan. Werk Ruimte daar bij.",
-            "failed": "NanoGPT kon niet worden gewijzigd op deze machine."
+            "failed": "NanoGPT kon niet worden gewijzigd op deze machine.",
+            "continue": {
+                "label": "Automatisch doorgaan",
+                "description": "Als een chat zijn toolrondes voor één run bereikt, gaat hij zelf verder. Uit, dan stopt hij en wacht op jouw bericht."
+            },
+            "rounds": {
+                "label": "Toolrondes per run",
+                "description": "Hoeveel rondes tools een run neemt voordat hij wordt afgekapt, van 5 tot 200."
+            },
+            "runs": {
+                "label": "Runs voordat hij stopt",
+                "description": "Hoeveel runs een chat zelf neemt, van 1 tot 20. Elke call kost van je allowance, dus dit is de rem op een lus die nooit stopt."
+            }
         }
     }
 }

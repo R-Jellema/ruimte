@@ -79,12 +79,16 @@ async function openNanoGpt(): Promise<void> {
 }
 
 beforeEach(() => {
-    status = { configured: false, models: 0 };
+    status = { configured: false, models: 0, settings: { autoContinue: true, roundsPerRun: 40, runs: 5 } };
     machine = new FakeMachine();
     machine.answer('provider.list', () => ({ providers: [nanogpt(status.configured)] }));
     machine.answer('nanogpt.status', () => status);
-    machine.answer('nanogpt.configure', ({ apiKey }) => {
-        status = apiKey === '' ? { configured: false, models: 0 } : { configured: true, models: 3 };
+    machine.answer('nanogpt.configure', ({ apiKey, settings }) => {
+        if (settings !== undefined && apiKey === undefined) {
+            status = { ...status, settings: { ...status.settings!, ...settings } };
+            return status;
+        }
+        status = apiKey === '' ? { ...status, configured: false, models: 0 } : { ...status, configured: true, models: 3 };
         return status;
     });
 });
@@ -93,6 +97,42 @@ afterEach(async () => {
     await act(async () => useUi.getState().setSettings({ open: false }));
     await page.unmount();
     workspace.close();
+});
+
+function numberField(label: string): HTMLInputElement | null {
+    return document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`);
+}
+
+describe('How a NanoGPT chat behaves', () => {
+    test('automatic continuing is a switch that sends only itself, and turning it off leaves the runs field idle', async () => {
+        await openNanoGpt();
+        const toggle = document.querySelector<HTMLElement>('[aria-label="Continue automatically"]');
+        expect(toggle).not.toBeNull();
+        expect(numberField('Runs before it stops')!.disabled).toBe(false);
+
+        await clickOn(toggle);
+        await until(() => numberField('Runs before it stops')!.disabled);
+        // Nothing but the setting goes over the wire: no key, so nothing is fetched and the key stays.
+        expect(machine.requests('nanogpt.configure')).toEqual([{ settings: { autoContinue: false } }]);
+    });
+
+    test('a number is sent when the field is left, and only if it is inside the range and different', async () => {
+        await openNanoGpt();
+        const rounds = numberField('Tool rounds per run')!;
+        expect(rounds.value).toBe('40');
+
+        await typeInto(rounds, '60');
+        await act(async () => rounds.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+        await until(() => machine.requests('nanogpt.configure').length === 1);
+        expect(machine.requests('nanogpt.configure')).toEqual([{ settings: { roundsPerRun: 60 } }]);
+
+        // Out of range and unchanged are both left alone.
+        await typeInto(rounds, '3');
+        await act(async () => rounds.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+        await typeInto(rounds, '60');
+        await act(async () => rounds.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+        expect(machine.requests('nanogpt.configure')).toHaveLength(1);
+    });
 });
 
 describe('NanoGPT in Settings', () => {
