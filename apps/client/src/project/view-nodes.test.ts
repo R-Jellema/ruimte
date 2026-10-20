@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { Glob } from 'bun';
 import { parseSync, Visitor } from 'oxc-parser';
 import type { ProjectCanvasView, ProjectView } from '@ruimte/contracts';
@@ -107,7 +107,10 @@ describe('projectNodes', () => {
 });
 
 describe('reading the nodes of a view', () => {
-    const files = [...new Glob('**/*.{ts,tsx}').scanSync(SOURCE)].filter((path) => !/\.test\.tsx?$/.test(path)).sort();
+    const files = [...new Glob('**/*.{ts,tsx}').scanSync(SOURCE)]
+        .map((path) => path.split(sep).join('/'))
+        .filter((path) => !/\.test\.tsx?$/.test(path))
+        .sort();
 
     test('goes through nodesOfView outside the files that load and write the document', () => {
         const direct = files.flatMap((path) => {

@@ -31,7 +31,9 @@ describe('fileSecretStore', () => {
 
         expect(store.persistent()).toBe(true);
         expect(readFileSync(path, 'utf8')).not.toContain('sk-test-secret');
-        expect(statSync(path).mode & 0o777).toBe(0o600);
+        if (process.platform !== 'win32') {
+            expect(statSync(path).mode & 0o777).toBe(0o600);
+        }
         expect(await fileSecretStore(path, fakeCipher()).read()).toBe('sk-test-secret');
     });
 

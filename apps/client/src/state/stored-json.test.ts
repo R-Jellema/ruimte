@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { z } from 'zod';
 import { storedJson, storedText, type KeyValueStorage } from './stored-json';
 import { fileURLToPath } from 'node:url';
@@ -97,7 +97,7 @@ function sourcesIn(folder: string): string[] {
 
 describe('the browser storage', () => {
     test('is read and written only through stored-json', () => {
-        const sources = sourcesIn(SOURCES).map((path) => relative(SOURCES, path));
+        const sources = sourcesIn(SOURCES).map((path) => relative(SOURCES, path).split(sep).join('/'));
         expect(sources).toContain('state/stored-json.ts');
         const direct = sources
             .filter((path) => path !== 'state/stored-json.ts')

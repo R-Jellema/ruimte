@@ -37,7 +37,9 @@ describe('fileSessionStore', () => {
         await fileSessionStore(path, fakeCipher()).write(session);
         const onDisk = readFileSync(path);
         expect(onDisk.toString('utf8')).not.toContain(session.refreshToken);
-        expect(statSync(path).mode & 0o777).toBe(0o600);
+        if (process.platform !== 'win32') {
+            expect(statSync(path).mode & 0o777).toBe(0o600);
+        }
         expect(await fileSessionStore(path, fakeCipher()).read()).toEqual(session);
     });
 
@@ -89,7 +91,9 @@ describe('fileSessionKey', () => {
         const first = await fileSessionKey(path, fakeCipher())();
         expect(first.publicKey).toMatch(/^[A-Za-z0-9_-]{43}$/);
         expect(verifies(first.publicKey, 'hello', await first.sign('hello'))).toBe(true);
-        expect(statSync(path).mode & 0o777).toBe(0o600);
+        if (process.platform !== 'win32') {
+            expect(statSync(path).mode & 0o777).toBe(0o600);
+        }
         const again = await fileSessionKey(path, fakeCipher())();
         expect(again.publicKey).toBe(first.publicKey);
         expect(verifies(first.publicKey, 'again', await again.sign('again'))).toBe(true);

@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from 'bun:test';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { openImageCopy } from './open-image';
 
 const IMAGE = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jWZkAAAAASUVORK5CYII=', 'base64');
@@ -18,7 +18,7 @@ test('opens only a temporary image copy with an image extension', async () => {
         opened = path;
         return '';
     });
-    expect(opened.startsWith(`${folder}/`)).toBe(true);
+    expect(opened.startsWith(`${folder}${sep}`)).toBe(true);
     expect(opened.endsWith('.png')).toBe(true);
     expect(await readFile(opened)).toEqual(IMAGE);
     for (const mime of ['text/plain', 'image/svg+xml', 'constructor', 'image/jpeg']) {

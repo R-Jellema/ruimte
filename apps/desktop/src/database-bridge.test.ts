@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { dirname, join } from 'node:path';
 import { allFilesLabel, databaseSecretFile, openDialogPlan, parseOpenPathRequest, parseSavePathRequest, parseSecret, parseSecretKey } from './database-bridge';
 
 describe('database secrets', () => {
@@ -15,7 +16,8 @@ describe('database secrets', () => {
 
     test('names the file after a hash of the key, so a key never names a path', () => {
         const file = databaseSecretFile('/data/database-secrets', '../../etc/passwd');
-        expect(file).toMatch(/^\/data\/database-secrets\/[0-9a-f]{64}\.bin$/);
+        expect(dirname(file)).toBe(join('/data/database-secrets'));
+        expect(file.slice(dirname(file).length + 1)).toMatch(/^[0-9a-f]{64}\.bin$/);
         expect(databaseSecretFile('/data', 'a')).toBe(databaseSecretFile('/data', 'a'));
         expect(databaseSecretFile('/data', 'a')).not.toBe(databaseSecretFile('/data', 'b'));
     });
@@ -40,7 +42,7 @@ describe('database file dialogs', () => {
     test('opens an SSH key in ~/.ssh with hidden files shown', () => {
         expect(openDialogPlan({ purpose: 'identity' }, '/Users/me', 'All files')).toEqual({
             filters: [],
-            defaultPath: '/Users/me/.ssh',
+            defaultPath: join('/Users/me', '.ssh'),
             showHiddenFiles: true
         });
     });

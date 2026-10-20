@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { join } from 'node:path';
 import { binaryPathOf, exitCodeOf, INTEL_NODE_REFUSAL, LauncherError, MUSL_REFUSAL, platformPackageOf, WINDOWS_REFUSAL, type Resolve } from './launcher';
 
 function installed(...names: string[]): Resolve {
@@ -39,7 +40,7 @@ describe('platformPackageOf', () => {
 describe('binaryPathOf', () => {
     test('the binary inside the platform package npm installed', () => {
         const path = binaryPathOf({ platform: 'linux', arch: 'arm64' }, installed('@ruimte/linux-arm64'));
-        expect(path).toBe('/project/node_modules/@ruimte/linux-arm64/bin/ruimte');
+        expect(path).toBe(join('/project/node_modules/@ruimte/linux-arm64', 'bin', 'ruimte'));
     });
 
     test('explains a platform package left out of the install', () => {
