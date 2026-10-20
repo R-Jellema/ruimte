@@ -293,7 +293,7 @@ The daemon writes each session's screen to `sessions/<sessionId>.txt` (temp file
 
 ## Agent status via hooks
 
-Claude Code and Codex report status through hooks. Gemini and GitHub Copilot have none, so their terminals show only the session's own status.
+Claude Code and Codex report status through hooks. Gemini, GitHub Copilot and Grok have none, so their terminals show only the session's own status; their chats take it from the protocol.
 
 The daemon writes into a CLI's global settings only for a provider a person on this machine allowed. The choice is per provider (`claude`, `codex`), kept in `$RUIMTE_HOME/agent-integrations.json` (`0600`) and changed only with the local secret, through `endpoint.setAgentIntegration`; any other client gets `forbidden`. A fresh home writes nothing until then. A home whose CLI already holds Ruimte's hooks counts as allowed and asks once (`reviewed: false`).
 
@@ -375,11 +375,15 @@ TalkBack shows up as a tool only on an image that has it, and typing needs Andro
 
 ## Providers and models
 
-Each agent CLI is one `ChatProvider` value (`@adecore/agents/providers/provider.ts`). The daemon's list is `src/providers/registry.ts`, with `terminal-providers.ts` and `apple-provider.ts` beside it: Claude Code, Codex, Gemini, GitHub Copilot and the Apple on-device model (`src/chat/apple-backend.ts`, when the machine turned it on). Gemini and Copilot are terminal only. `provider.list` answers per CLI whether it is installed, its version, its models, its resume template and its capabilities.
+Each agent CLI is one `ChatProvider` value (`@adecore/agents/providers/provider.ts`). The daemon's list is `src/providers/registry.ts`, in the order of `src/providers/kinds.ts`, with `acp-providers.ts`, `terminal-providers.ts` and `apple-provider.ts` beside it: Claude Code, Codex, Gemini, GitHub Copilot, Grok and the Apple on-device model (`src/chat/apple-backend.ts`, when the machine turned it on). Gemini is terminal only. `provider.list` answers per CLI whether it is installed, its version, its models, its resume template and its capabilities.
+
+A kind is an open word on the wire (`AgentKindSchema`, a lowercase identifier of at most 32 characters), so a newer machine can offer a CLI an older client never heard of: the client draws it with a neutral mark and its name from `provider.list`. A kind this daemon does not offer gets a provider that starts nothing, and a chat of it is not counted in the usage batches.
+
+Copilot and Grok chat over the Agent Client Protocol (`createAcpProvider`, `@adecore/agents/providers`; the backend is described in that repository's `docs/agents/acp.md`). The daemon starts `copilot --acp --stdio --no-auto-update` and `grok --no-auto-update agent stdio` and leaves each its own model (the catalog holds one `default` entry). Neither has a session mode that widens what it may do on its own, so only `supervised` names one (`agent` for Copilot, `default` for Grok) and the backend answers the permission requests a wider runtime mode allows. Grok signs in with `XAI_API_KEY` when the environment has it and otherwise with the login `grok login` left in `GROK_HOME` (default `~/.grok`), which is also what makes a Grok account. Copilot keeps its login in the system credential store (`copilot login`, or `COPILOT_GITHUB_TOKEN`, `GH_TOKEN` or `GITHUB_TOKEN`) and so has only its default account. Nothing in Ruimte reads either login. Install Copilot with `npm install -g @github/copilot` (or Homebrew, `copilot-cli`) and Grok with `curl -fsSL https://x.ai/cli/install.sh | bash`.
 
 The model catalogs are `claude-models.json` and `codex-models.json` in `@adecore/agents/providers`. Adding a model there is a JSON edit. The address book hands out the same files on `GET /v1/models/catalog`, so a model added there reaches every machine without a release. The daemon asks at start and on `provider.list` once the last answer is six hours old, and keeps the answer in `models/catalogs.json`. A catalog older than the one the app shipped with is never taken. `--no-model-fetch` turns the fetch off.
 
-The runtime mode (`supervised`, `auto-accept-edits`, `auto`, `full-access`) is one vocabulary for every provider. Each provider maps it to its own flags: `--permission-mode` for Claude Code, an approval policy plus a sandbox for Codex.
+The runtime mode (`supervised`, `auto-accept-edits`, `auto`, `full-access`) is one vocabulary for every provider. Each provider maps it to its own flags: `--permission-mode` for Claude Code and a Grok terminal (`default`, `acceptEdits`, `auto`, `bypassPermissions`), an approval policy plus a sandbox for Codex.
 
 ## Chats
 

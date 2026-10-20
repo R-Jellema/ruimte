@@ -20,7 +20,7 @@ Reviewed on October 17, 2026.
 | 10. Remote access and media     | Next                                        | Measurements from 3                           |
 | 11. iOS devices                 | Next                                        | Nothing                                       |
 | 12. Intelligent UI              | Next                                        | Nothing                                       |
-| 14. Copilot and Gemini chat     | Later                                       | 9; compatibility checks below                 |
+| 14. Gemini chat                 | Later                                       | 9                                             |
 | 15. Language servers            | Per server                                  | Decision 15.4                                 |
 | 16. Plugins                     | After 1.0                                   | A compatibility release                       |
 | 17. Linux and Windows           | Windows per its plan                        | Platform spikes and CI                        |
@@ -106,17 +106,12 @@ Gemini and Copilot only have their default account.
 4. Newly written words fade in in a growing native block, without changing an input's identity or focus.
 5. Phase 2 of the Generative UI report: the diff and schema views and the host components.
 
-## 14. Copilot and Gemini chat
+## 14. Gemini chat
 
 Source: [the provider research](reports/2026-09-25-provider-research.html).
 
-1. Copilot's terminal first prompt still uses `-p` (`terminal-providers.ts`); use the interactive flag of the
-   installed CLI so the session stays open.
-2. Bounded spikes: Copilot SDK against ACP, and Gemini ACP; pick from permission, question, resume and packaged-Bun
-   behavior.
-3. One backend and protocol mapper per provider in `@adecore/agents`.
-4. Unknown-provider handling in `@adecore/agent-contracts` so an older desktop does not reject a whole answer; a new
-   enum word only after the iPhone's open-enum build shipped.
+1. A bounded spike of Gemini over ACP (`createAcpProvider`, as Copilot and Grok run); pick from permission, question,
+   resume and packaged-Bun behavior.
 
 ## 15. Language servers
 
