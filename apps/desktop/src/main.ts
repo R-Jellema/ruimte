@@ -389,12 +389,21 @@ function createWindow(
             menu.setStatic();
         }
     });
+    let recoveredAt = 0;
     // Without a page nobody answers a command, but Quit still has to be there.
-    contents.on('render-process-gone', () => {
+    contents.on('render-process-gone', (_event, details) => {
         menu.forget(id);
         if (windows.focused() === window) {
             menu.setStatic();
         }
+        // Electron leaves a dead page blank; the window's address holds what it showed, so a reload puts it back.
+        // A page that dies again within a minute stays down rather than crash in a loop.
+        const now = Date.now();
+        if (details.reason === 'clean-exit' || window.isDestroyed() || now - recoveredAt < 60_000) {
+            return;
+        }
+        recoveredAt = now;
+        contents.reload();
     });
     // In fullscreen macOS hides the traffic lights, so the client can take the room back.
     window.on('enter-full-screen', () => contents.send('window:fullscreen', true));
