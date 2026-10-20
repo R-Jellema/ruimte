@@ -21,6 +21,13 @@ describe('platformManifest', () => {
         const manifest = platformManifest({ os: 'linux', cpu: 'x64' }, '0.2.0');
         expect(manifest).toMatchObject({ name: '@ruimte/linux-x64', os: ['linux'], cpu: ['x64'], libc: ['glibc'] });
     });
+
+    test('a Windows package installs on win32 and asks for no libc', () => {
+        const manifest = platformManifest({ os: 'win32', cpu: 'x64' }, '0.2.0');
+        expect(manifest).toMatchObject({ name: '@ruimte/win32-x64', os: ['win32'], cpu: ['x64'] });
+        expect(manifest.description).toContain('for Windows on x64');
+        expect(manifest.libc).toBeUndefined();
+    });
 });
 
 describe('launcherManifest', () => {
@@ -35,9 +42,15 @@ describe('launcherManifest', () => {
             optionalDependencies: {
                 '@ruimte/darwin-arm64': '0.3.1',
                 '@ruimte/linux-x64': '0.3.1',
-                '@ruimte/linux-arm64': '0.3.1'
+                '@ruimte/linux-arm64': '0.3.1',
+                '@ruimte/win32-x64': '0.3.1'
             }
         });
         expect(manifest.os).toBeUndefined();
+    });
+
+    test('leaves a platform the release skips out of the install', () => {
+        const manifest = launcherManifest('0.3.1', [{ os: 'darwin', cpu: 'arm64' }]);
+        expect(manifest.optionalDependencies).toEqual({ '@ruimte/darwin-arm64': '0.3.1' });
     });
 });

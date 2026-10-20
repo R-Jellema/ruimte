@@ -16,7 +16,7 @@ const COMMON = {
     repository: { type: 'git', url: 'git+https://github.com/basmilius/ruimte.git', directory: 'packages/npm' }
 };
 
-const OS_NAMES: Record<Target['os'], string> = { darwin: 'macOS', linux: 'Linux' };
+const OS_NAMES: Record<Target['os'], string> = { darwin: 'macOS', linux: 'Linux', win32: 'Windows' };
 
 export function platformManifest(target: Target, version: string): Manifest {
     return {
@@ -32,7 +32,8 @@ export function platformManifest(target: Target, version: string): Manifest {
     };
 }
 
-export function launcherManifest(version: string): Manifest {
+/* `targets` is what this release ships; a platform left out of it is left out of the install as well. */
+export function launcherManifest(version: string, targets: readonly Target[] = TARGETS): Manifest {
     return {
         name: LAUNCHER_NAME,
         version,
@@ -43,6 +44,6 @@ export function launcherManifest(version: string): Manifest {
         bin: { ruimte: 'bin/ruimte.js' },
         files: ['bin'],
         engines: { node: '>=18' },
-        optionalDependencies: Object.fromEntries(TARGETS.map((target) => [packageNameOf(target), version]))
+        optionalDependencies: Object.fromEntries(targets.map((target) => [packageNameOf(target), version]))
     };
 }

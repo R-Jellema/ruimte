@@ -22,6 +22,10 @@ describe('platformPackageOf', () => {
         expect(() => platformPackageOf({ platform: 'win32', arch: 'x64' })).toThrow(WINDOWS_REFUSAL);
     });
 
+    test('refuses Windows even with its platform package installed', () => {
+        expect(() => binaryPathOf({ platform: 'win32', arch: 'x64' }, installed('@ruimte/win32-x64'))).toThrow(WINDOWS_REFUSAL);
+    });
+
     test('names a platform or architecture it has no build for', () => {
         expect(() => platformPackageOf({ platform: 'freebsd', arch: 'x64' })).toThrow('Ruimte has no build for freebsd on x64.');
         expect(() => platformPackageOf({ platform: 'linux', arch: 'ia32' })).toThrow(LauncherError);

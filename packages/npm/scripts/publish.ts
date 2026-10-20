@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { latestFromView, planPublish, publishedFromView, type PackageToPublish } from '../src/publish-plan';
-import { LAUNCHER_NAME, targetId, TARGETS } from '../src/targets';
+import { LAUNCHER_NAME } from '../src/targets';
 
 /* Publishes the platform binaries before the launcher, skipping versions already on npm.
    Shared libraries are published by Adecore's workflow. */
@@ -22,7 +22,14 @@ if (!values.out) {
 }
 
 const out = resolve(values.out);
-const dirs = [...TARGETS.map(targetId), LAUNCHER_NAME];
+const launcherPath = join(out, LAUNCHER_NAME, 'package.json');
+if (!existsSync(launcherPath)) {
+    console.error(`Missing ${launcherPath}; every package goes out together.`);
+    process.exit(1);
+}
+// The launcher names the platforms this release ships (`build.ts --skip` leaves one out), and each of them goes out with it.
+const launcher = JSON.parse(await readFile(launcherPath, 'utf8')) as { optionalDependencies?: Record<string, string> };
+const dirs = [...Object.keys(launcher.optionalDependencies ?? {}).map((name) => name.replace(/^@ruimte\//, '')), LAUNCHER_NAME];
 const packages: PackageToPublish[] = [];
 let version: string | null = null;
 for (const dir of dirs) {

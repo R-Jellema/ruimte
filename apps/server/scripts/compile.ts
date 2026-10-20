@@ -27,7 +27,7 @@ const { values: flags } = parseArgs({
 });
 
 // `--target` speaks Node's names (`darwin-arm64`), which is what the npm packages are called after.
-const nodeOs: Record<string, string> = { darwin: 'mac', linux: 'linux', windows: 'win' };
+const nodeOs: Record<string, string> = { darwin: 'mac', linux: 'linux', win32: 'win', windows: 'win' };
 const [targetOs = '', targetArch = ''] = flags.target?.split('-') ?? [];
 const values = flags.target ? { os: nodeOs[targetOs] ?? targetOs, arch: targetArch } : { os: flags.os, arch: flags.arch };
 

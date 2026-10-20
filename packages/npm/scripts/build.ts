@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { launcherManifest, platformManifest } from '../src/manifest';
-import { LAUNCHER_NAME, targetId, TARGETS } from '../src/targets';
+import { binaryNameOf, LAUNCHER_NAME, targetId, TARGETS } from '../src/targets';
 
 /*
  * Lays out every package that goes to npm, ready for `npm publish` in each folder:
@@ -11,8 +11,9 @@ import { LAUNCHER_NAME, targetId, TARGETS } from '../src/targets';
  *   bun scripts/build.ts --version 0.2.0 --binaries <dir> --out <dir>
  *
  * `--binaries` holds one folder per target (`darwin-arm64/`, ...), each what `compile.ts --target`
- * wrote: `ruimte`, `ruimte-context` and `ruimte.build`. `--only darwin-arm64` builds the packages
- * for the binaries that exist, which is what a local try on one machine has.
+ * wrote: `ruimte` (`ruimte.exe` on Windows), `ruimte-context` and `ruimte.build`. `--only darwin-arm64`
+ * builds the packages for the binaries that exist, which is what a local try on one machine has.
+ * `--skip win32-x64` leaves a platform out of the release, the launcher's dependencies included.
  */
 const { values } = parseArgs({
     args: process.argv.slice(2),
@@ -20,7 +21,8 @@ const { values } = parseArgs({
         version: { type: 'string' },
         binaries: { type: 'string' },
         out: { type: 'string' },
-        only: { type: 'string', multiple: true, default: [] }
+        only: { type: 'string', multiple: true, default: [] },
+        skip: { type: 'string', multiple: true, default: [] }
     },
     strict: true
 });
@@ -35,7 +37,8 @@ const repoRoot = join(packageRoot, '..', '..');
 const binaries = resolve(values.binaries);
 const out = resolve(values.out);
 const version = values.version;
-const targets = values.only.length > 0 ? TARGETS.filter((target) => values.only.includes(targetId(target))) : TARGETS;
+const released = TARGETS.filter((target) => !values.skip.includes(targetId(target)));
+const targets = values.only.length > 0 ? released.filter((target) => values.only.includes(targetId(target))) : released;
 
 function writeJson(path: string, value: unknown): Promise<void> {
     return writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
@@ -47,7 +50,10 @@ for (const target of targets) {
     const source = join(binaries, targetId(target));
     const dir = join(out, targetId(target));
     await mkdir(join(dir, 'bin'), { recursive: true });
-    for (const name of ['ruimte', 'ruimte-context', 'ruimte.build']) {
+    const binary = binaryNameOf(target.os);
+    // Git Bash runs `ruimte-context`; cmd and PowerShell find the `.cmd` beside it.
+    const files = [binary, 'ruimte-context', 'ruimte.build', ...(target.os === 'win32' ? ['ruimte-context.cmd'] : [])];
+    for (const name of files) {
         if (!existsSync(join(source, name))) {
             console.error(`Missing ${join(source, name)}`);
             process.exit(1);
@@ -69,16 +75,17 @@ for (const target of targets) {
         await copyFile(`${foundationHelper}.NOTICES`, `${targetHelper}.NOTICES`);
         await chmod(targetHelper, 0o755);
     }
-    const databaseHelper = join(source, 'native', 'adecore-database');
+    const databaseHelperName = target.os === 'win32' ? 'adecore-database.exe' : 'adecore-database';
+    const databaseHelper = join(source, 'native', databaseHelperName);
     if (existsSync(databaseHelper)) {
         await mkdir(join(dir, 'bin', 'native'), { recursive: true });
-        const targetHelper = join(dir, 'bin', 'native', 'adecore-database');
+        const targetHelper = join(dir, 'bin', 'native', databaseHelperName);
         await copyFile(databaseHelper, targetHelper);
-        await copyFile(`${databaseHelper}.LICENSE`, `${targetHelper}.LICENSE`);
+        await copyFile(join(source, 'native', 'adecore-database.LICENSE'), join(dir, 'bin', 'native', 'adecore-database.LICENSE'));
         await chmod(targetHelper, 0o755);
     }
     // An artifact download drops the mode, and npm packs the mode it finds.
-    await chmod(join(dir, 'bin', 'ruimte'), 0o755);
+    await chmod(join(dir, 'bin', binary), 0o755);
     await chmod(join(dir, 'bin', 'ruimte-context'), 0o755);
     await writeJson(join(dir, 'package.json'), platformManifest(target, version));
     await copyFile(join(repoRoot, 'LICENSE'), join(dir, 'LICENSE'));
@@ -95,7 +102,7 @@ if (!bundle.success) {
 const launcherPath = join(launcherDir, 'bin', 'ruimte.js');
 await writeFile(launcherPath, await bundle.outputs[0]!.text());
 await chmod(launcherPath, 0o755);
-await writeJson(join(launcherDir, 'package.json'), launcherManifest(version));
+await writeJson(join(launcherDir, 'package.json'), launcherManifest(version, released));
 await copyFile(join(packageRoot, 'README.md'), join(launcherDir, 'README.md'));
 await copyFile(join(repoRoot, 'LICENSE'), join(launcherDir, 'LICENSE'));
 console.log(`Laid out ${launcherDir}`);

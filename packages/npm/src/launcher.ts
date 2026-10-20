@@ -1,5 +1,5 @@
 import { dirname, join } from 'node:path';
-import { packageNameOf, TARGETS } from './targets';
+import { binaryNameOf, packageNameOf, TARGETS } from './targets';
 
 /*
  * What the `ruimte` launcher decides before it runs anything: which platform package holds the
@@ -57,7 +57,7 @@ export function binaryPathOf(host: Host, resolve: Resolve, libc: () => Libc = ()
                 'so an install with --omit=optional or --no-optional leaves it out. Install ruimte again without that flag.'
         );
     }
-    return join(dirname(manifest), 'bin', 'ruimte');
+    return join(dirname(manifest), 'bin', binaryNameOf(host.platform));
 }
 
 /* The launcher's exit code for a binary that ended: its own code, or 128 plus the signal as a shell reports it. */
