@@ -75,17 +75,34 @@ Do not reverse one without asking Bas.
 
 ### 3. Terminals
 
-- **Git Bash paths.** Git Bash writes `/c/Users/...`. `packages/contracts/src/terminal-cwd.ts` and
-  `sessions/shell-prompt.ts` take only paths that start with `/` and have no drive letter, so the cwd of a
-  terminal stays `null`. A bash integration (OSC 7 through `PROMPT_COMMAND`, the counterpart of the zsh
-  one) and a conversion from `/c/` to `C:\` fix both.
-- **Path conversion.** MSYS rewrites an argument that looks like a POSIX path when bash calls a native
-  `.exe`. Where that breaks a line the daemon types, set `MSYS_NO_PATHCONV=1` for it.
-- **Dropped paths.** `apps/client/src/terminal/drop-path.ts` wraps a path in double quotes on Windows. With
-  Git Bash behind every agent and launch, POSIX single quotes on the converted path are right.
-- `launches/sessions.ts` and `processes/foreground.ts` read the foreground group through `ps`, and
-  `prepare-terminal.ts` refuses whenever that answer is null, so preparing a command line never works on
-  Windows.
+Done, to be confirmed on the PC:
+
+- **Git Bash for every typed line.** On Windows a session that types a line (a command, held or not, an
+  agent's start, a launch) starts in `gitBash()` (`apps/server/src/pty/pty.ts`) whatever shell was asked
+  for, and is refused with `git-bash-missing` when Git for Windows is not there. A plain terminal keeps
+  the fallback to PowerShell and cmd. The app does not say so yet.
+- **Git Bash paths.** On a Windows machine the cwd tracker on the daemon and in the client reads
+  `/c/Users/x` as `C:\Users\x` (`windowsPathOfMsys`, `packages/contracts/src/terminal-cwd.ts`); a path
+  off any drive (`/usr`, `/tmp`) stays unknown. A plain Git Bash terminal emits OSC 7 at every prompt
+  through an exported function and `PROMPT_COMMAND` (`sessions/shell-integration.ts`), set before the
+  person's startup files run: a file that adds to `PROMPT_COMMAND` keeps both, one that replaces it leaves
+  the cwd unknown. `sessions/shell-prompt.ts` is unchanged: its cwd comes only from the zsh editor channel.
+- **Dropped paths.** `apps/client/src/terminal/drop-path.ts` types `C:\x\y` as `/c/x/y` in POSIX single
+  quotes. The client does not know a session's shell and assumes Git Bash.
+- **Foreground.** `processes/foreground.ts` answers unknown on Windows without spawning `ps`. A resume
+  and a launch's stop go on as they do when `ps` cannot say.
+
+Open:
+
+- **Preparing a command line.** `prepare-terminal.ts` needs an empty prompt from the zsh editor channel,
+  which bash cannot offer (no way to insert into its line from outside while it waits), so no terminal on
+  Windows is a target, as with bash on Linux. The foreground check is not what blocks it.
+- **Path conversion.** MSYS rewrites an argument that starts with `/` when bash calls a native program, so
+  an agent's first prompt such as `/init` would reach the CLI as `C:/Program Files/Git/init`.
+  `MSYS_NO_PATHCONV=1` on the session would fix that line but also reach the agent's own Bash tool, where
+  the conversion is wanted; not set until that trade-off is decided.
+- **Resume in a person's shell.** `session.resume` types its line into the shell the session has; a
+  terminal a person opened in PowerShell or cmd gets a POSIX line there.
 
 ### 4. Agents
 
