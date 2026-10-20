@@ -3,6 +3,7 @@ import type { GitStatus } from '@ruimte/contracts';
 import { PerClientWatches, settled, supportsRecursive, SYSTEM_WATCH, type DirectoryWatcher, type Settled, type WatchSeams } from '@adecore/agents';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 import { ignoredPaths } from './ignore.ts';
+import { nativePath } from './native-path.ts';
 import { git } from './run.ts';
 import { noRepository, readStatusAt, repositoryRoot, trackedFiles } from './status.ts';
 import { ClientSinks } from '../client-sinks.ts';
@@ -126,7 +127,8 @@ export class GitStatusWatcher {
         }
         // A linked worktree keeps its refs in the repository it came from, where a commit on another
         // branch is what makes this one's ahead and behind move.
-        const common = (await git(['rev-parse', '--path-format=absolute', '--git-common-dir'], root))?.trim();
+        const printed = (await git(['rev-parse', '--path-format=absolute', '--git-common-dir'], root))?.trim();
+        const common = printed ? nativePath(printed) : printed;
         const existing = this.roots.get(root);
         if (existing !== undefined) {
             return existing;

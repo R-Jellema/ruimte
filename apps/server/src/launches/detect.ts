@@ -1,6 +1,6 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { basename, dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import type { LaunchConfig, LaunchConfigEnv, LaunchConfigKind, LaunchSuggestion } from '@ruimte/contracts';
 import { isInside } from '../canvas/project-paths.ts';
 import { readVscodeLaunch } from './vscode.ts';
@@ -318,6 +318,11 @@ export function readRunFile(text: string, context: RunFileContext): Built[] {
         });
 }
 
+/* A path relative to the project folder with forward slashes, the form a project file holds on every machine. */
+function portable(path: string): string {
+    return path.split(sep).join('/');
+}
+
 async function exists(path: string): Promise<boolean> {
     return stat(path)
         .then(() => true)
@@ -532,7 +537,7 @@ export async function detectLaunches(folder: string, checkouts: readonly string[
             id = `${base}-${i}`;
         }
         taken.add(id);
-        const cwd = built.launch.cwd === undefined ? undefined : relative(folder, built.launch.cwd);
+        const cwd = built.launch.cwd === undefined ? undefined : portable(relative(folder, built.launch.cwd));
         const launch: LaunchConfig = { ...built.launch, id };
         if (cwd === undefined || cwd === '') {
             delete launch.cwd;
@@ -545,7 +550,7 @@ export async function detectLaunches(folder: string, checkouts: readonly string[
         return {
             launch,
             source,
-            path: relative(folder, path),
+            path: portable(relative(folder, path)),
             detail: built.detail,
             private: built.outside,
             ...(built.unsupported === undefined ? {} : { unsupported: built.unsupported })

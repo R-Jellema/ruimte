@@ -1,5 +1,6 @@
 import { realpath } from 'node:fs/promises';
 import type { GitIdentity, GitIdentityMiss, GitIdentityResult } from '@ruimte/contracts';
+import { nativePath } from './native-path.ts';
 import { READ_ONLY_GIT, runGit } from './run.ts';
 
 // The same cap the contract holds the lists to.
@@ -89,7 +90,7 @@ export class IdentityReader {
     }
 
     private async readIdentity(path: string): Promise<GitIdentity | null> {
-        const where = linesOf(await read(['rev-parse', '--show-toplevel', '--absolute-git-dir'], path));
+        const where = linesOf(await read(['rev-parse', '--show-toplevel', '--absolute-git-dir'], path)).map((line) => nativePath(line));
         // A folder inside a repository is not a checkout of it: a dotfiles repository at the home folder would otherwise claim every project below it.
         if (where.length < 2 || (await real(where[0]!)) !== (await real(path))) {
             return null;

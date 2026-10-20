@@ -6,6 +6,7 @@ import type { Worktree, WorktreeWork } from '@ruimte/contracts';
 import type { SessionSink } from '../sessions/manager.ts';
 import { checkpointIndexFile } from './checkpoints.ts';
 import { resolveBase } from './status.ts';
+import { nativePath } from './native-path.ts';
 import { GitError, READ_ONLY_GIT, git, gitOrThrow as run, runGit, toplevel } from './run.ts';
 import { WorktreeRegister, type WorktreeRecord } from './worktree-register.ts';
 import { KeyedQueue } from '../keyed-queue.ts';
@@ -77,7 +78,7 @@ function parsePorcelain(output: string): Listed[] {
     let current: Listed | null = null;
     for (const line of output.split('\n')) {
         if (line.startsWith('worktree ')) {
-            current = { path: line.slice('worktree '.length), branch: null, head: null, locked: false, prunable: false };
+            current = { path: nativePath(line.slice('worktree '.length)), branch: null, head: null, locked: false, prunable: false };
             entries.push(current);
         } else if (!current) {
             continue;
@@ -568,7 +569,7 @@ export class Worktrees {
         const paths = output.split('\n').filter((line) => line !== '');
         for (const [index, operation] of OPERATIONS.entries()) {
             const found = paths[index];
-            if (found !== undefined && (await fileExists(isAbsolute(found) ? found : join(path, found)))) {
+            if (found !== undefined && (await fileExists(isAbsolute(found) ? nativePath(found) : join(path, found)))) {
                 return operation.name;
             }
         }

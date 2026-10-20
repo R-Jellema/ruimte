@@ -1,4 +1,5 @@
 import { dirname } from 'node:path';
+import { nativePath } from './native-path.ts';
 import { runGit } from './run.ts';
 
 /*
@@ -22,7 +23,12 @@ async function checkIgnore(paths: readonly string[], cwd: string): Promise<Set<s
     if (code > 1) {
         return new Set();
     }
-    return new Set(stdout.split('\0').filter((path) => path !== ''));
+    return new Set(
+        stdout
+            .split('\0')
+            .filter((path) => path !== '')
+            .map((path) => nativePath(path))
+    );
 }
 
 interface Batch {

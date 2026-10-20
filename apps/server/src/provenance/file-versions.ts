@@ -1,4 +1,5 @@
 import { splitLines } from '@adecore/merge';
+import { nativePath } from '../git/native-path.ts';
 import { git, runGit } from '../git/run.ts';
 
 /* Past this a file is not read for its lines, here or in the editor. */
@@ -9,7 +10,8 @@ export type VersionLines = string[] | null;
 
 /* The repository a file is in, by the path git reports; null for a file in none. */
 export async function repositoryOf(directory: string): Promise<string | null> {
-    return (await git(['rev-parse', '--show-toplevel'], directory))?.trim() || null;
+    const top = (await git(['rev-parse', '--show-toplevel'], directory))?.trim();
+    return top ? nativePath(top) : null;
 }
 
 async function blobLines(top: string, sha: string): Promise<VersionLines> {

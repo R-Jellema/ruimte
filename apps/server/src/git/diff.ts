@@ -5,6 +5,7 @@ import { missingSides, patchFits } from '@adecore/merge';
 import type { ChatCheckpointDiff, ChatCheckpointFile, GitDiffFile, GitDiffResult, GitDiffScope } from '@ruimte/contracts';
 import { climbsOut } from '../projects/project-files.ts';
 import { readCommit } from './log.ts';
+import { nativePath } from './native-path.ts';
 import { git, runGit, runGitBytes, toplevel, GitError } from './run.ts';
 
 // Beyond these a diff stops being something a person reads, and the chat file stops being small.
@@ -357,7 +358,7 @@ export async function diffCheckout(cwd: string, from: string | null): Promise<Gi
         const own = (await git(['rev-parse', '--git-path', 'index'], top))?.trim();
         if (own) {
             // A checkout without an index yet starts from an empty one, and git then hashes every file.
-            await copyFile(isAbsolute(own) ? own : join(top, own), index).catch(() => undefined);
+            await copyFile(isAbsolute(own) ? nativePath(own) : join(top, own), index).catch(() => undefined);
         }
         const env = { GIT_INDEX_FILE: index };
         if ((await git(['add', '-A'], top, env)) === null) {

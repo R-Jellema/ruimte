@@ -1,4 +1,5 @@
 import type { GitRef, GitRefCommitResult, GitRefsResult, GitStash } from '@ruimte/contracts';
+import { nativePath } from './native-path.ts';
 import { FIELD, GitError, git, toplevel } from './run.ts';
 import { resolveBase } from './status.ts';
 
@@ -13,7 +14,7 @@ export function parseWorktreeBranches(output: string): Map<string, string> {
     let path: string | null = null;
     for (const line of output.split('\n')) {
         if (line.startsWith('worktree ')) {
-            path = line.slice('worktree '.length);
+            path = nativePath(line.slice('worktree '.length));
         } else if (line.startsWith('branch refs/heads/') && path !== null) {
             branches.set(line.slice('branch refs/heads/'.length), path);
         }

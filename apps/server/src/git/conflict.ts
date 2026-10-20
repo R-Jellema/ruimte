@@ -12,6 +12,7 @@ import type {
 } from '@ruimte/contracts';
 import type { ProgressSink } from './actions.ts';
 import { parseNumstat } from './diff.ts';
+import { nativePath } from './native-path.ts';
 import { git, runGit, runGitBytes, streamGit, toplevel, GitError } from './run.ts';
 
 // A side larger than this is one nobody merges line by line; the file is then a choice between whole sides.
@@ -29,7 +30,7 @@ export async function gitPath(cwd: string, name: string): Promise<string | null>
     if (found === undefined || found === '') {
         return null;
     }
-    const path = isAbsolute(found) ? found : join(cwd, found);
+    const path = isAbsolute(found) ? nativePath(found) : join(cwd, found);
     return await stat(path).then(
         () => path,
         () => null

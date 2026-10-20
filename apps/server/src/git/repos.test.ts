@@ -47,6 +47,11 @@ describe('repoLabel', () => {
     test('so does a repository the folder is only a corner of', () => {
         expect(repoLabel('/work/app/apps/client', '/work/app')).toBe('app');
     });
+
+    test('writes the path under a folder on Windows with forward slashes', () => {
+        expect(repoLabel('C:\\work\\app', 'C:\\work\\app\\packages\\ui', 'win32')).toBe('packages/ui');
+        expect(repoLabel('C:\\work\\app\\apps\\client', 'C:\\work\\app', 'win32')).toBe('app');
+    });
 });
 
 describe('parseSubmodulePaths', () => {

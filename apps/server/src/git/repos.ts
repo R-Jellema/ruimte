@@ -1,10 +1,11 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { fileExists } from '@adecore/agents';
-import { basename, join, relative } from 'node:path';
+import { join, posix, win32 } from 'node:path';
 import type { GitRepo, GitReposResult } from '@ruimte/contracts';
-import { climbsOut, isBelow, parseSharedFile, PROJECT_DIR, PROJECT_FILE } from '../projects/project-files.ts';
+import { isBelow, parseSharedFile, PROJECT_DIR, PROJECT_FILE } from '../projects/project-files.ts';
 import { readIdeaName } from '../projects/project-identity.ts';
 import { ignoredPaths } from './ignore.ts';
+import { nativePath } from './native-path.ts';
 import { git } from './run.ts';
 
 /*
@@ -20,11 +21,14 @@ export const MAX_REPOS = 24;
 // Folders the scan never enters: they hold dependencies or build output, never a checkout a person works in.
 const SKIPPED = new Set(['node_modules', 'vendor', 'dist', 'build', 'target', 'coverage', 'Pods']);
 
-/* What the panel calls a repository: its path under the project folder, or its own name when the
-   folder sits inside it instead of the other way round. */
-export function repoLabel(folder: string, path: string): string {
-    const within = relative(folder, path);
-    return within === '' || climbsOut(within) ? basename(path) : within;
+/* What the panel calls a repository: its path under the project folder with forward slashes, the way
+   a launch stores its folder, or its own name when the folder sits inside it instead of the other way round. */
+export function repoLabel(folder: string, path: string, platform: NodeJS.Platform = process.platform): string {
+    const paths = platform === 'win32' ? win32 : posix;
+    const within = paths.relative(folder, path);
+    return within === '' || within === '..' || within.startsWith(`..${paths.sep}`) || paths.isAbsolute(within)
+        ? paths.basename(path)
+        : within.split(paths.sep).join('/');
 }
 
 /*
@@ -131,7 +135,8 @@ async function addSubmodules(folder: string, checkouts: readonly string[], add: 
  * a project that is one corner of a large repository does not inherit that repository's submodules.
  */
 export async function listRepos(folder: string): Promise<GitReposResult> {
-    const root = (await git(['rev-parse', '--show-toplevel'], folder))?.trim() || null;
+    const top = (await git(['rev-parse', '--show-toplevel'], folder))?.trim();
+    const root = top ? nativePath(top) : null;
     const repos: GitRepo[] = [];
     const known = new Set<string>();
 

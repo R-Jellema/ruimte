@@ -4,6 +4,7 @@ import { basename, join } from 'node:path';
 import type { ChatCheckpointDiff } from '@ruimte/contracts';
 import { KeyedQueue } from '../keyed-queue.ts';
 import { diffTrees } from './diff.ts';
+import { nativePath } from './native-path.ts';
 import { GitError, git, gitOrThrow, runGit } from './run.ts';
 
 export interface CheckpointService {
@@ -113,7 +114,7 @@ export class Checkpoints implements CheckpointService {
 
     private async toplevel(cwd: string): Promise<string | null> {
         const top = await git(['rev-parse', '--show-toplevel'], cwd);
-        return top === null ? null : top.trim() || null;
+        return top === null || top.trim() === '' ? null : nativePath(top.trim());
     }
 
     private async indexFile(top: string): Promise<string | null> {

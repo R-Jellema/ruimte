@@ -1,4 +1,5 @@
 import { CodedError } from '@adecore/agents';
+import { nativePath } from './native-path.ts';
 
 export interface GitResult<Output = string> {
     code: number;
@@ -133,7 +134,7 @@ export async function toplevel(cwd: string): Promise<string> {
     if (!top) {
         throw new GitError('not-a-repo', `${cwd} is not inside a git repository`);
     }
-    return top;
+    return nativePath(top);
 }
 
 export interface StreamOptions {

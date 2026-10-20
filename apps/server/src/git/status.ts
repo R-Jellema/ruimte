@@ -1,6 +1,7 @@
 import { GIT_STATUS_MAX_FILES, type GitFile, type GitStatus } from '@ruimte/contracts';
 import { operationOf } from './conflict.ts';
 import { parseNumstat, type Numstat } from './diff.ts';
+import { nativePath } from './native-path.ts';
 import { git, readGit } from './run.ts';
 import { untrackedNumstat } from './untracked-lines.ts';
 
@@ -202,7 +203,8 @@ export async function readStatus(cwd: string): Promise<GitStatus> {
 
 /* The top of the working tree `cwd` is in, or null outside a repository. */
 export async function repositoryRoot(cwd: string): Promise<string | null> {
-    return (await git(['rev-parse', '--show-toplevel'], cwd))?.trim() || null;
+    const top = (await git(['rev-parse', '--show-toplevel'], cwd))?.trim();
+    return top ? nativePath(top) : null;
 }
 
 /* What a folder outside any repository reads as. */
