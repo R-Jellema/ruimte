@@ -381,6 +381,14 @@ The model catalogs are `claude-models.json` and `codex-models.json` in `@adecore
 
 The runtime mode (`supervised`, `auto-accept-edits`, `auto`, `full-access`) is one vocabulary for every provider. Each provider maps it to its own flags: `--permission-mode` for Claude Code, an approval policy plus a sandbox for Codex.
 
+### NanoGPT
+
+NanoGPT's subscription API is a chat with no CLI (`src/providers/nanogpt-provider.ts`, `src/chat/nanogpt-backend.ts`). A person saves a subscription API key in Settings, Providers, which `nanogpt.configure` checks against `/usage` before it keeps it, since the model list answers any key. The daemon only ever calls `https://nano-gpt.com/api/subscription/v1`: neither a setting nor a redirect can reach pay as you go, and a model slug with a suffix (`:online`) is never offered, because it can pick a paid route.
+
+The key is a 0600 file in `$RUIMTE_HOME/nanogpt` beside the model list, each conversation (the API keeps none, so the thread is a file of its own) and the usage log. No client reads that folder (`MachineHome`), and only the owner of the machine sets or removes a key. The runtime mode decides which tools ask: `supervised` asks for all, `auto-accept-edits` lets reads and edits through and asks for a command, `full-access` asks for none. `auto` is a CLI's own classifier, which a plain API lacks, so it works as `auto-accept-edits`.
+
+The usage page reads two things. Every call appends a line to `nanogpt/usage/<year>-<month>.jsonl`, which the scanner reads like a transcript, so tokens per model and per day show without a price (a flat subscription has none). The plan windows (daily and weekly input tokens) come from `/usage` with the key, on the limits monitor's clock.
+
 ## Chats
 
 The chat lifecycle, the backends per CLI and the projector that builds the thread live in `@adecore/agents/chat`. `src/chat/chat-manager.ts` binds them to Ruimte, and `src/chat/CLAUDE.md` has the invariants of forks, plans, bookmarks and visuals. What the daemon owns on disk:

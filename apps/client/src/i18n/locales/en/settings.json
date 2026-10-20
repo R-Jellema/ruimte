@@ -1380,6 +1380,24 @@
             "unavailable": "The local model is not available.",
             "saveFailed": "Could not change Apple Foundation Models",
             "requiresMac": "Requires a Mac with Apple silicon."
+        },
+        "nanogpt": {
+            "description": "Chat with the models your NanoGPT subscription includes. Requests go only to the subscription API, never to pay as you go.",
+            "footer": "The key stays on this machine and is never shown again. Every tool a model asks for needs your approval.",
+            "key": "API key",
+            "keyDescription": "A subscription API key from nano-gpt.com. Saving checks it and fetches the included models.",
+            "saved": "Saved",
+            "status": "Subscription",
+            "save": "Save",
+            "refresh": "Refresh models",
+            "disconnect": "Disconnect",
+            "loading": "Checking with NanoGPT…",
+            "unknown": "The machine has not answered yet.",
+            "ready_one": "Connected, {{count}} model included.",
+            "ready_other": "Connected, {{count}} models included.",
+            "disconnected": "No key saved on this machine.",
+            "unavailable": "This machine does not offer NanoGPT yet. Update Ruimte on it.",
+            "failed": "Could not change NanoGPT on this machine."
         }
     }
 }

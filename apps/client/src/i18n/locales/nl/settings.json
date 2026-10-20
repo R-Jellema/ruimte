@@ -1380,6 +1380,24 @@
             "unavailable": "Het lokale model is niet beschikbaar.",
             "saveFailed": "Apple Foundation Models kon niet worden gewijzigd",
             "requiresMac": "Vereist een Mac met Apple silicon."
+        },
+        "nanogpt": {
+            "description": "Chat met de modellen die je NanoGPT-abonnement bevat. Verzoeken gaan alleen naar de abonnements-API, nooit naar pay as you go.",
+            "footer": "De sleutel blijft op deze machine en wordt nooit meer getoond. Elke tool die een model vraagt, heeft jouw goedkeuring nodig.",
+            "key": "API-sleutel",
+            "keyDescription": "Een abonnements-API-sleutel van nano-gpt.com. Bij opslaan wordt hij gecontroleerd en worden de inbegrepen modellen opgehaald.",
+            "saved": "Opgeslagen",
+            "status": "Abonnement",
+            "save": "Opslaan",
+            "refresh": "Modellen vernieuwen",
+            "disconnect": "Ontkoppelen",
+            "loading": "Bezig met controleren bij NanoGPT…",
+            "unknown": "De machine heeft nog niet geantwoord.",
+            "ready_one": "Gekoppeld, {{count}} model inbegrepen.",
+            "ready_other": "Gekoppeld, {{count}} modellen inbegrepen.",
+            "disconnected": "Geen sleutel opgeslagen op deze machine.",
+            "unavailable": "Deze machine biedt NanoGPT nog niet aan. Werk Ruimte daar bij.",
+            "failed": "NanoGPT kon niet worden gewijzigd op deze machine."
         }
     }
 }

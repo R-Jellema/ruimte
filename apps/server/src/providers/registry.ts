@@ -4,6 +4,7 @@ import { ProviderRegistry as AgentProviderRegistry } from '@adecore/agents/provi
 import { createAppleProvider, appleProvider } from './apple-provider.ts';
 import { claudeProvider } from './claude-provider.ts';
 import { codexProvider } from './codex-provider.ts';
+import { nanoGptProvider } from './nanogpt-provider.ts';
 import { copilotProvider, geminiProvider } from './terminal-providers.ts';
 
 // The CLIs the daemon ships with, in the order every menu lists them. A new one is one more value here.
@@ -11,7 +12,13 @@ const BUILT_IN_PROVIDERS: ChatProvider[] = [claudeProvider, codexProvider, gemin
 
 /* The provider of a kind, for the places that have no registry at hand (the hooks). */
 export function providerFor(kind: AgentKind): ChatProvider {
-    return kind === 'apple' ? appleProvider : (BUILT_IN_PROVIDERS.find((provider) => provider.kind === kind) ?? claudeProvider);
+    if (kind === 'apple') {
+        return appleProvider;
+    }
+    if (kind === 'nanogpt') {
+        return nanoGptProvider;
+    }
+    return BUILT_IN_PROVIDERS.find((provider) => provider.kind === kind) ?? claudeProvider;
 }
 
 interface ProviderRegistryOptions {
@@ -31,7 +38,7 @@ export class ProviderRegistry extends AgentProviderRegistry {
 
     constructor(options: ProviderRegistryOptions = {}) {
         super({
-            providers: options.providers ?? [...BUILT_IN_PROVIDERS, createAppleProvider(options.appleEnabled ?? (() => false))],
+            providers: options.providers ?? [...BUILT_IN_PROVIDERS, createAppleProvider(options.appleEnabled ?? (() => false)), nanoGptProvider],
             ...(options.commands ? { commands: options.commands } : {}),
             ...(options.detect ? { detect: options.detect } : {})
         });

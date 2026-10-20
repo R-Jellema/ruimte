@@ -18,7 +18,8 @@ export function wireUsage(config: ServerConfig, providers: ProvidersBundle, agen
         home: config.home,
         allowPriceFetch: config.priceFetch,
         knownProjects: () => projects.known(),
-        roots: () => usageRootsOf(providers.accounts),
+        // The calls of a subscription API have no transcript of a CLI's, so the daemon keeps a log of them that the scan reads.
+        roots: () => [...usageRootsOf(providers.accounts), { provider: 'nanogpt', path: providers.nanogpt.usageDirectory }],
         sessionAccounts: () =>
             sessionAccountsOf(
                 chats.list(),
@@ -29,7 +30,8 @@ export function wireUsage(config: ServerConfig, providers: ProvidersBundle, agen
     const limits = new UsageMonitor({
         providers: providers.providers,
         accounts: limitAccountsOf(providers.accounts, providers.nameOfCli, process.env),
-        client: RUIMTE_CODEX_CLIENT
+        client: RUIMTE_CODEX_CLIENT,
+        plans: { nanogpt: () => providers.nanogpt.readPlan() }
     });
     providers.accounts.listen(() => limits.accountsChanged());
     return { usage, limits };

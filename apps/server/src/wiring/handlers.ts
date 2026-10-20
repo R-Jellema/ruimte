@@ -100,6 +100,17 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
     const { runtime, machine, stores, providers, agents, projects, work, launches, git, devices, processes, power, push, canvasHost, remote, stats, later } =
         input;
     const { config } = runtime;
+    dispatcher.register('nanogpt.status', () => providers.nanogpt.status());
+    // A key bills a person's subscription, so only the owner of the machine sets or removes one.
+    dispatcher.register(
+        'nanogpt.configure',
+        async ({ apiKey }) => {
+            const result = await providers.nanogpt.configure(apiKey);
+            providers.providers.invalidate('nanogpt');
+            return result;
+        },
+        { owner: true }
+    );
     const { identity } = machine;
     const { sessions, chats } = agents;
     const store = projects.store;

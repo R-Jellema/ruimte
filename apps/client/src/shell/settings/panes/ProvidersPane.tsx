@@ -1,6 +1,7 @@
 import type { ProviderInfo } from '@ruimte/contracts';
 import { ProvidersPane as Pane } from '@adecore/agents-react/providers';
 import { AppleFoundationSection } from '@/shell/settings/providers/AppleFoundationSection';
+import { NanoGptSection } from '@/shell/settings/providers/NanoGptSection';
 import { useEndpointId } from '@/state/keys';
 import { useUi } from '@/state/ui';
 
@@ -8,6 +9,11 @@ import { useUi } from '@/state/ui';
 export function ProvidersPane() {
     const endpointId = useEndpointId();
     const target = useUi((s) => s.settings.target);
-    const detailOf = (provider: ProviderInfo) => (provider.kind === 'apple' ? <AppleFoundationSection endpointId={endpointId} provider={provider} /> : null);
+    const detailOf = (provider: ProviderInfo) =>
+        provider.kind === 'nanogpt' ? (
+            <NanoGptSection key={endpointId} endpointId={endpointId} />
+        ) : provider.kind === 'apple' ? (
+            <AppleFoundationSection endpointId={endpointId} provider={provider} />
+        ) : null;
     return <Pane target={target} detailOf={detailOf} />;
 }
