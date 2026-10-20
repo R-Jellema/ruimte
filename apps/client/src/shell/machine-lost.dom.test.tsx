@@ -75,8 +75,10 @@ async function openWorkspaceOnThisComputer(): Promise<void> {
     await page.renderApp();
 }
 
+// The connection dot is a status too, so the screen is the status that offers a way out.
 function lostScreen(): HTMLElement | null {
-    return page.host.querySelector<HTMLElement>('[role="status"]');
+    const statuses = [...page.host.querySelectorAll<HTMLElement>('[role="status"]')];
+    return statuses.find((status) => [...status.querySelectorAll('button')].some((entry) => entry.textContent?.trim() === 'Open another project')) ?? null;
 }
 
 function button(label: string): HTMLButtonElement | null {
