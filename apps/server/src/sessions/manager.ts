@@ -9,7 +9,7 @@ import { isTerminalReply } from './terminal-replies.ts';
 import { DEFAULT_RUNTIME_MODE, freshCommand, launchedMode, resumeCommand, resumeOrFreshCommand, terminalCommand } from '../providers/launch.ts';
 import { narrowerMode, launchEnv, storedAccount, type AccountLaunches } from '@adecore/agents/providers';
 import { contextHint, verbsNote } from '../context/context-note.ts';
-import { defaultShell, defaultShellArgs, type PtyAdapter } from '../pty/pty.ts';
+import { defaultShell, defaultShellArgs, gitBash, type PtyAdapter } from '../pty/pty.ts';
 import { Session } from './session.ts';
 import type { ShellEnvironment } from './shell-integration.ts';
 import type { SessionSnapshot, SnapshotStore } from './snapshot-store.ts';
@@ -28,7 +28,8 @@ type SessionErrorCode =
     | 'agent-live'
     | 'agent-resuming'
     | 'shell-busy'
-    | 'login-unavailable';
+    | 'login-unavailable'
+    | 'git-bash-missing';
 
 /*
  * How long a typed resume has to produce a live agent before another one is allowed. A CLI that is
@@ -131,6 +132,9 @@ export interface SessionManagerOptions {
     accounts?: AccountLaunches;
     // The account a person picked for new agents of a CLI, for a first launch that names none.
     preferredAccount?: (kind: AgentKind) => string | undefined;
+    // Lets a test pose as Windows, where a session that types a line needs Git Bash.
+    platform?: string;
+    findGitBash?: () => string | null;
 }
 
 export interface CommandGate {
@@ -197,6 +201,8 @@ export class SessionManager {
     private readonly checkCwd: (sessionId: string, cwd: string) => Promise<void>;
     private readonly accounts: AccountLaunches | null;
     private readonly preferredAccount: (kind: AgentKind) => string | undefined;
+    private readonly platform: string;
+    private readonly findGitBash: () => string | null;
     // Told when the process tree of a session is about to change or just did: the end of a turn, an exit, a kill.
     onProcessChange: ((sessionId: string, phase: ProcessChangePhase) => void) | null = null;
     // Whether the process monitor found the agent of a session gone while its status still says it runs.
@@ -229,6 +235,8 @@ export class SessionManager {
         this.checkCwd = options.checkCwd ?? (() => Promise.resolve());
         this.accounts = options.accounts ?? null;
         this.preferredAccount = options.preferredAccount ?? (() => undefined);
+        this.platform = options.platform ?? process.platform;
+        this.findGitBash = options.findGitBash ?? (() => gitBash(this.env));
     }
 
     /* The session a hook or context token belongs to. */
@@ -292,6 +300,7 @@ export class SessionManager {
         }
         const cwd = options.cwd ?? this.env.HOME ?? homedir();
         await this.checkCwd(options.sessionId, cwd);
+        const shell = this.shellFor(options);
         const restored = existing
             ? { agent: existing.agent ?? undefined, account: existing.launch?.kind === options.agent?.kind ? existing.launch?.account : undefined }
             : await this.agents?.readRecord(options.sessionId);
@@ -317,7 +326,6 @@ export class SessionManager {
             options.command && options.forClient === undefined && this.commands?.approved(options.sessionId, options.command) === false
                 ? options.command
                 : null;
-        const shell = options.shell ?? defaultShell(this.env);
         const session = this.spawn({
             id: options.sessionId,
             shell,
@@ -345,6 +353,22 @@ export class SessionManager {
         }
         this.broadcastListChanged();
         return this.info(session);
+    }
+
+    /*
+     * The shell a session starts in. On Windows one that types a line (an agent, a command, held or not,
+     * a launch) runs in Git Bash whatever the person chose, since that line is POSIX.
+     */
+    private shellFor(options: CreateSessionOptions): string {
+        const types = options.command !== undefined || options.agent !== undefined || options.exec !== undefined;
+        if (this.platform !== 'win32' || !types) {
+            return options.shell ?? defaultShell(this.env);
+        }
+        const bash = this.findGitBash();
+        if (bash === null) {
+            throw new SessionError('git-bash-missing', 'Git for Windows is required to start this. Install it from https://gitforwindows.org and try again.');
+        }
+        return bash;
     }
 
     /*

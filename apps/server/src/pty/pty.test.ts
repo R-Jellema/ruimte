@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { defaultShell, defaultShellArgs, shellName, signalExitCode } from './pty.ts';
+import { defaultShell, defaultShellArgs, gitBash, shellName, signalExitCode } from './pty.ts';
 
 describe('defaultShell', () => {
     test('prefers $SHELL', () => {
@@ -60,6 +60,19 @@ describe('defaultShell on Windows', () => {
                 () => false
             )
         ).toBe(cmd);
+    });
+});
+
+describe('gitBash', () => {
+    test('finds bash under the git in mingw64/bin', () => {
+        const which = (program: string): string | null => (program === 'git' ? String.raw`C:\Git\mingw64\bin\git.exe` : null);
+        const found = String.raw`C:\Git\bin\bash.exe`;
+        expect(gitBash({}, which, (path) => path === found)).toBe(found);
+    });
+
+    test('is null without Git for Windows, even with PowerShell there', () => {
+        const which = (program: string): string | null => (program === 'pwsh' ? String.raw`C:\pwsh\pwsh.exe` : null);
+        expect(gitBash({ COMSPEC: String.raw`C:\Windows\cmd.exe`, ProgramFiles: String.raw`C:\Program Files` }, which, () => false)).toBeNull();
     });
 });
 

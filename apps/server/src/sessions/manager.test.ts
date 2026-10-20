@@ -329,3 +329,38 @@ describe('SessionManager', () => {
         expect(harness.adapter.forSession('s10').options.args).toEqual(['-l']);
     });
 });
+
+describe('SessionManager on Windows', () => {
+    const bash = String.raw`C:\Program Files\Git\bin\bash.exe`;
+
+    test('a session that types a line runs in Git Bash, whatever shell was asked for', async () => {
+        const windows = await makeHarness({ platform: 'win32', findGitBash: () => bash });
+        try {
+            const base = { cols: 80, rows: 24, shell: 'pwsh.exe', cwd: windows.home };
+            await windows.manager.create({ ...base, sessionId: 'command', command: 'echo hi' });
+            await windows.manager.create({ ...base, sessionId: 'launch', exec: 'bun dev' });
+            await windows.manager.create({ ...base, sessionId: 'plain' });
+            expect(windows.adapter.forSession('command').options.shell).toBe(bash);
+            expect(windows.adapter.forSession('launch').options.shell).toBe(bash);
+            expect(windows.adapter.forSession('launch').options.args).toEqual(['-l', '-i', '-c', 'bun dev']);
+            expect(windows.adapter.forSession('plain').options.shell).toBe('pwsh.exe');
+        } finally {
+            await windows.cleanup();
+        }
+    });
+
+    test('without Git Bash such a session is refused and a plain terminal still opens', async () => {
+        const windows = await makeHarness({ platform: 'win32', findGitBash: () => null });
+        try {
+            const base = { cols: 80, rows: 24, cwd: windows.home };
+            await expect(windows.manager.create({ ...base, sessionId: 'agent', agent: { kind: 'claude' } })).rejects.toMatchObject({
+                code: 'git-bash-missing'
+            });
+            expect(windows.adapter.spawned).toHaveLength(0);
+            await windows.manager.create({ ...base, sessionId: 'plain', shell: 'cmd.exe' });
+            expect(windows.adapter.forSession('plain').options.shell).toBe('cmd.exe');
+        } finally {
+            await windows.cleanup();
+        }
+    });
+});

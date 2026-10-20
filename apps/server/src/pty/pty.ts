@@ -42,12 +42,20 @@ export function defaultShell(
     return platform === 'darwin' ? '/bin/zsh' : '/bin/bash';
 }
 
-/*
- * Git Bash first: every line the daemon types (an agent's start, a resume with `||`, a long line through
- * `eval`) is POSIX, and Claude Code on Windows runs its own tools in that same shell. Without Git for
- * Windows a terminal still opens, in PowerShell, but an agent's start line may not parse there.
- */
+/* Git Bash when Git for Windows is there; else a terminal still opens, in PowerShell or cmd. */
 function windowsShell(env: Record<string, string | undefined>, which: (program: string) => string | null, exists: (path: string) => boolean): string {
+    return gitBash(env, which, exists) ?? which('pwsh') ?? which('powershell') ?? env.COMSPEC ?? 'cmd.exe';
+}
+
+/*
+ * The `bash.exe` of Git for Windows, or null without it. Every line the daemon types on Windows (an
+ * agent's start, a resume with `||`, a long line through `eval`, a launch) is POSIX and runs here.
+ */
+export function gitBash(
+    env: Record<string, string | undefined> = process.env,
+    which: (program: string) => string | null = (program) => Bun.which(program, { PATH: env.PATH ?? env.Path ?? '' }),
+    exists: (path: string) => boolean = existsSync
+): string | null {
     const git = which('git');
     const roots = [
         git === null ? null : win32.resolve(win32.dirname(git), '..'),
@@ -65,7 +73,7 @@ function windowsShell(env: Record<string, string | undefined>, which: (program: 
             }
         }
     }
-    return which('pwsh') ?? which('powershell') ?? env.COMSPEC ?? 'cmd.exe';
+    return null;
 }
 
 // Shells that understand -l. A PTY already makes them interactive; the login flag is what
