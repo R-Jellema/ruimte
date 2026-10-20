@@ -38,7 +38,19 @@ describe('terminalCommand', () => {
             "codex --ask-for-approval on-request --sandbox workspace-write 'it'\\''s here'"
         );
         expect(terminalCommand({ kind: 'gemini', runtimeMode: 'supervised' }, 'go')).toBe("gemini '-i' 'go'");
-        expect(terminalCommand({ kind: 'copilot', runtimeMode: 'supervised' }, 'go')).toBe("copilot '-p' 'go'");
+        expect(terminalCommand({ kind: 'copilot', runtimeMode: 'supervised' }, 'go')).toBe("copilot '-i' 'go'");
+        expect(terminalCommand({ kind: 'grok', runtimeMode: 'supervised' }, 'go')).toBe("grok --permission-mode default 'go'");
+    });
+
+    test('a Grok terminal starts in the permission mode of its runtime mode, and resumes in it', () => {
+        expect(terminalCommand({ kind: 'grok', runtimeMode: 'auto-accept-edits' })).toBe('grok --permission-mode acceptEdits');
+        expect(terminalCommand({ kind: 'grok', runtimeMode: 'auto' })).toBe('grok --permission-mode auto');
+        expect(terminalCommand({ kind: 'grok' })).toBe('grok --permission-mode bypassPermissions');
+        expect(terminalCommand({ kind: 'grok', runtimeMode: 'supervised', resume: 'abc' })).toBe("grok --permission-mode default --resume 'abc'");
+    });
+
+    test('a kind this daemon does not offer starts nothing', () => {
+        expect(() => terminalCommand({ kind: 'future-cli', runtimeMode: 'supervised' })).toThrow();
     });
 
     test('a Codex launch carries the note as developer instructions, one shell word holding a TOML string', () => {

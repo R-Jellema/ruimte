@@ -37,7 +37,7 @@ export async function wireProviders(
     const modelCatalogs = new ModelCatalogFeed({
         home: config.home,
         allowFetch: config.modelFetch,
-        catalogs: { claude: providers.catalogFor('claude'), codex: providers.catalogFor('codex') }
+        catalogs: Object.fromEntries((['claude', 'codex', 'copilot', 'grok'] as const).map((kind) => [kind, providers.catalogFor(kind)]))
     });
     // What a person allowed in the CLIs' global settings; the accounts below ask it before they write anywhere.
     const integrations = new AgentIntegrations({

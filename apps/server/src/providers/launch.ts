@@ -10,7 +10,7 @@ import { providerFor } from './registry.ts';
  * Codex 0.153 takes only `on-request` and `never` on `--ask-for-approval`, so the three modes that
  * still ask share one policy and differ in nothing; the sandbox is what full access widens.
  */
-const RUNTIME_FLAGS: Record<AgentKind, Record<RuntimeMode, string[]>> = {
+const RUNTIME_FLAGS: Partial<Record<AgentKind, Record<RuntimeMode, string[]>>> = {
     apple: { supervised: [], 'auto-accept-edits': [], auto: [], 'full-access': [] },
     claude: {
         supervised: [],
@@ -35,6 +35,13 @@ const RUNTIME_FLAGS: Record<AgentKind, Record<RuntimeMode, string[]>> = {
         'auto-accept-edits': [],
         auto: [],
         'full-access': []
+    },
+    // Grok's own `--permission-mode` values (xai-org/grok-build); `bypassPermissions` is its always-approve.
+    grok: {
+        supervised: ['--permission-mode', 'default'],
+        'auto-accept-edits': ['--permission-mode', 'acceptEdits'],
+        auto: ['--permission-mode', 'auto'],
+        'full-access': ['--permission-mode', 'bypassPermissions']
     }
 };
 
@@ -124,7 +131,7 @@ export function takesNoteOnLine(kind: AgentKind): boolean {
  * otherwise be handed full access.
  */
 function launchFlags(launch: AgentLaunch, runtimeMode: RuntimeMode | undefined): string[] {
-    const flags = [...alwaysFlags(launch.kind), ...(runtimeMode === undefined ? [] : RUNTIME_FLAGS[launch.kind][runtimeMode])];
+    const flags = [...alwaysFlags(launch.kind), ...(runtimeMode === undefined ? [] : (RUNTIME_FLAGS[launch.kind]?.[runtimeMode] ?? []))];
     const modelFlag = MODEL_FLAG[launch.kind];
     if (launch.model && modelFlag) {
         flags.push(modelFlag, quote(launch.model));

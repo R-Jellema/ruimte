@@ -30,7 +30,6 @@ import {
 } from 'lucide-react';
 import { focusNodeAction, renameNodeAction } from '@/actions/client-actions';
 import { desktop } from '@/desktop/bridge';
-import { AgentIcon } from '@adecore/agents-react/providers';
 import { taskStatusWord, useSubagentTrail } from '@adecore/agents-react/chat';
 import { UnseenMark } from '@/attention/UnseenMark';
 import { WorkingMark } from '@/attention/WorkingMark';
@@ -90,6 +89,7 @@ import { useBrowserDisplayTitle } from '@/browser/title';
 import { fixedSlot, FileToolbarSlotProvider } from '@/shell/panels/file-toolbar-slot';
 import { useUnsavedStoredPath } from '@/shell/panels/use-unsaved';
 import { resetTitle } from '@/nodes/node-host';
+import { AgentMark } from '@/agents/AgentMark';
 
 const ICONS: Record<CanvasNodeKind, ReactNode> = {
     terminal: <Icon icon={Terminal} size={14} />,
@@ -492,7 +492,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     )}
                     <span className="flex shrink-0 items-center text-text-muted">
                         {node.provider ? (
-                            <AgentIcon kind={node.provider} />
+                            <AgentMark kind={node.provider} />
                         ) : node.kind === 'browser' ? (
                             <Favicon id={id} />
                         ) : node.kind === 'file' && node.path ? (

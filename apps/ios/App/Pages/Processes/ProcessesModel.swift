@@ -262,6 +262,7 @@ enum ProcessesText {
         case "codex": "Codex"
         case "gemini": "Gemini"
         case "copilot": "Copilot"
+        case "grok": "Grok"
         default: kind.prefix(1).uppercased() + kind.dropFirst()
         }
     }

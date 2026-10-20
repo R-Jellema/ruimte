@@ -104,6 +104,9 @@ export class ModelCatalogFeed {
     private apply(catalogs: Record<string, unknown>): boolean {
         let changed = false;
         for (const [kind, catalog] of Object.entries(this.options.catalogs)) {
+            if (catalog === undefined) {
+                continue;
+            }
             const data = ModelCatalogDataSchema.safeParse(catalogs[kind]);
             if (data.success && catalog.replace(data.data)) {
                 changed = true;

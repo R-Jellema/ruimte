@@ -948,6 +948,9 @@
                   "badge": {
                     "type": "string"
                   },
+                  "vendor": {
+                    "type": "string"
+                  },
                   "profile": {
                     "type": "string",
                     "minLength": 1
@@ -6402,13 +6405,9 @@
                   "properties": {
                     "provider": {
                       "type": "string",
-                      "enum": [
-                        "claude",
-                        "codex",
-                        "gemini",
-                        "copilot",
-                        "apple"
-                      ]
+                      "minLength": 1,
+                      "maxLength": 32,
+                      "pattern": "^[a-z][a-z0-9-]*$"
                     },
                     "state": {
                       "type": "string",
@@ -6646,6 +6645,9 @@
         "properties": {
           "kind": {
             "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
             "x-open-enum": [
               "claude",
               "codex",
@@ -6736,6 +6738,9 @@
             "properties": {
               "kind": {
                 "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "pattern": "^[a-z][a-z0-9-]*$",
                 "x-open-enum": [
                   "claude",
                   "codex",
@@ -7394,6 +7399,9 @@
             },
             "provider": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9-]*$",
               "x-open-enum": [
                 "claude",
                 "codex",
@@ -7573,6 +7581,9 @@
       },
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
@@ -8607,6 +8618,9 @@
                   "properties": {
                     "kind": {
                       "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32,
+                      "pattern": "^[a-z][a-z0-9-]*$",
                       "x-open-enum": [
                         "claude",
                         "codex",
@@ -8941,6 +8955,9 @@
       },
       "kind": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
@@ -9020,6 +9037,9 @@
             "properties": {
               "kind": {
                 "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "pattern": "^[a-z][a-z0-9-]*$",
                 "x-open-enum": [
                   "claude",
                   "codex",
@@ -12535,6 +12555,9 @@
       },
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
@@ -12602,6 +12625,9 @@
       },
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
@@ -14958,6 +14984,9 @@
           },
           "provider": {
             "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
             "x-open-enum": [
               "claude",
               "codex",
@@ -20725,6 +20754,9 @@
                     },
                     "provider": {
                       "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32,
+                      "pattern": "^[a-z][a-z0-9-]*$",
                       "x-open-enum": [
                         "claude",
                         "codex",
@@ -21381,6 +21413,9 @@
                     },
                     "provider": {
                       "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32,
+                      "pattern": "^[a-z][a-z0-9-]*$",
                       "x-open-enum": [
                         "claude",
                         "codex",
@@ -24753,6 +24788,9 @@
       },
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
@@ -25413,6 +25451,9 @@
         "type": "object",
         "propertyNames": {
           "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
           "x-open-enum": [
             "claude",
             "codex",
@@ -25451,6 +25492,9 @@
         "type": "object",
         "propertyNames": {
           "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
           "x-open-enum": [
             "claude",
             "codex",
@@ -25645,6 +25689,9 @@
       },
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
@@ -25701,6 +25748,9 @@
           },
           "provider": {
             "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
             "x-open-enum": [
               "claude",
               "codex",
@@ -26470,6 +26520,9 @@
               },
               "provider": {
                 "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "pattern": "^[a-z][a-z0-9-]*$",
                 "x-open-enum": [
                   "claude",
                   "codex",
@@ -29103,6 +29156,9 @@
         "properties": {
           "provider": {
             "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
             "x-open-enum": [
               "claude",
               "codex",
@@ -29843,6 +29899,9 @@
           "properties": {
             "provider": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9-]*$",
               "x-open-enum": [
                 "claude",
                 "codex",
@@ -29885,6 +29944,9 @@
           "properties": {
             "provider": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9-]*$",
               "x-open-enum": [
                 "claude",
                 "codex",
@@ -30667,6 +30729,9 @@
           "properties": {
             "kind": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9-]*$",
               "x-open-enum": [
                 "claude",
                 "codex",
@@ -30700,6 +30765,9 @@
                     "type": "string"
                   },
                   "badge": {
+                    "type": "string"
+                  },
+                  "vendor": {
                     "type": "string"
                   },
                   "legacy": {
@@ -31069,6 +31137,9 @@
         "type": "object",
         "propertyNames": {
           "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
           "x-open-enum": [
             "claude",
             "codex",
@@ -31303,6 +31374,9 @@
         "type": "object",
         "propertyNames": {
           "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
           "x-open-enum": [
             "claude",
             "codex",
@@ -31471,6 +31545,9 @@
         "type": "object",
         "propertyNames": {
           "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
           "x-open-enum": [
             "claude",
             "codex",
@@ -31495,6 +31572,9 @@
     "properties": {
       "kind": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
@@ -31662,6 +31742,9 @@
         "type": "object",
         "propertyNames": {
           "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
           "x-open-enum": [
             "claude",
             "codex",
@@ -32236,6 +32319,9 @@
                         "anyOf": [
                           {
                             "type": "string",
+                            "minLength": 1,
+                            "maxLength": 32,
+                            "pattern": "^[a-z][a-z0-9-]*$",
                             "x-open-enum": [
                               "claude",
                               "codex",
@@ -32292,6 +32378,9 @@
                               "anyOf": [
                                 {
                                   "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 32,
+                                  "pattern": "^[a-z][a-z0-9-]*$",
                                   "x-open-enum": [
                                     "claude",
                                     "codex",
@@ -32355,6 +32444,9 @@
                                 "anyOf": [
                                   {
                                     "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 32,
+                                    "pattern": "^[a-z][a-z0-9-]*$",
                                     "x-open-enum": [
                                       "claude",
                                       "codex",
@@ -33517,6 +33609,9 @@
                           },
                           "provider": {
                             "type": "string",
+                            "minLength": 1,
+                            "maxLength": 32,
+                            "pattern": "^[a-z][a-z0-9-]*$",
                             "x-open-enum": [
                               "claude",
                               "codex",
@@ -34227,6 +34322,9 @@
                         },
                         "provider": {
                           "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32,
+                          "pattern": "^[a-z][a-z0-9-]*$",
                           "x-open-enum": [
                             "claude",
                             "codex",
@@ -34523,6 +34621,9 @@
                         },
                         "provider": {
                           "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32,
+                          "pattern": "^[a-z][a-z0-9-]*$",
                           "x-open-enum": [
                             "claude",
                             "codex",
@@ -37140,6 +37241,9 @@
                           },
                           "provider": {
                             "type": "string",
+                            "minLength": 1,
+                            "maxLength": 32,
+                            "pattern": "^[a-z][a-z0-9-]*$",
                             "x-open-enum": [
                               "claude",
                               "codex",
@@ -37850,6 +37954,9 @@
                         },
                         "provider": {
                           "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32,
+                          "pattern": "^[a-z][a-z0-9-]*$",
                           "x-open-enum": [
                             "claude",
                             "codex",
@@ -38146,6 +38253,9 @@
                         },
                         "provider": {
                           "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32,
+                          "pattern": "^[a-z][a-z0-9-]*$",
                           "x-open-enum": [
                             "claude",
                             "codex",
@@ -41218,6 +41328,9 @@
     "properties": {
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
@@ -41541,6 +41654,9 @@
       },
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
@@ -50972,6 +51088,9 @@
       },
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
@@ -51120,6 +51239,9 @@
         "anyOf": [
           {
             "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
             "x-open-enum": [
               "claude",
               "codex",
@@ -51153,6 +51275,9 @@
       },
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
@@ -54298,6 +54423,9 @@
               "properties": {
                 "provider": {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
@@ -55121,6 +55249,9 @@
               "properties": {
                 "provider": {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
@@ -55731,6 +55862,9 @@
               "properties": {
                 "provider": {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
@@ -56299,6 +56433,9 @@
               "properties": {
                 "provider": {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
@@ -56400,6 +56537,9 @@
               "properties": {
                 "provider": {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
@@ -56443,6 +56583,9 @@
           "properties": {
             "provider": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9-]*$",
               "x-open-enum": [
                 "claude",
                 "codex",
@@ -56489,6 +56632,9 @@
     "properties": {
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
@@ -56520,6 +56666,9 @@
               "properties": {
                 "provider": {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
@@ -57055,6 +57204,9 @@
               "properties": {
                 "provider": {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
@@ -57810,6 +57962,9 @@
             },
             "provider": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9-]*$",
               "x-open-enum": [
                 "claude",
                 "codex",
@@ -59380,6 +59535,9 @@
             },
             "provider": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9-]*$",
               "x-open-enum": [
                 "claude",
                 "codex",
@@ -59753,6 +59911,9 @@
             "properties": {
               "kind": {
                 "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "pattern": "^[a-z][a-z0-9-]*$",
                 "x-open-enum": [
                   "claude",
                   "codex",
@@ -62236,6 +62397,9 @@
                   },
                   "provider": {
                     "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32,
+                    "pattern": "^[a-z][a-z0-9-]*$",
                     "x-open-enum": [
                       "claude",
                       "codex",
@@ -62892,6 +63056,9 @@
                   },
                   "provider": {
                     "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32,
+                    "pattern": "^[a-z][a-z0-9-]*$",
                     "x-open-enum": [
                       "claude",
                       "codex",
@@ -65195,6 +65362,9 @@
           },
           "provider": {
             "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
             "x-open-enum": [
               "claude",
               "codex",
@@ -66322,6 +66492,9 @@
               "properties": {
                 "provider": {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
@@ -67227,6 +67400,9 @@
                           },
                           "provider": {
                             "type": "string",
+                            "minLength": 1,
+                            "maxLength": 32,
+                            "pattern": "^[a-z][a-z0-9-]*$",
                             "x-open-enum": [
                               "claude",
                               "codex",
@@ -67937,6 +68113,9 @@
                         },
                         "provider": {
                           "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32,
+                          "pattern": "^[a-z][a-z0-9-]*$",
                           "x-open-enum": [
                             "claude",
                             "codex",
@@ -68233,6 +68412,9 @@
                         },
                         "provider": {
                           "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32,
+                          "pattern": "^[a-z][a-z0-9-]*$",
                           "x-open-enum": [
                             "claude",
                             "codex",
@@ -70477,6 +70659,9 @@
               "anyOf": [
                 {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
@@ -70533,6 +70718,9 @@
                     "anyOf": [
                       {
                         "type": "string",
+                        "minLength": 1,
+                        "maxLength": 32,
+                        "pattern": "^[a-z][a-z0-9-]*$",
                         "x-open-enum": [
                           "claude",
                           "codex",
@@ -70596,6 +70784,9 @@
                       "anyOf": [
                         {
                           "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32,
+                          "pattern": "^[a-z][a-z0-9-]*$",
                           "x-open-enum": [
                             "claude",
                             "codex",
@@ -73259,6 +73450,9 @@
         "type": "object",
         "propertyNames": {
           "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
           "x-open-enum": [
             "claude",
             "codex",

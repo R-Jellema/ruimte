@@ -2,7 +2,7 @@ import type { ProcessGroup, ProcessGroupKind, ProcessRow, ProcessScope, ProcessS
 import { identityOf, type ProcessRate, type RawProcess, type RawSample } from './sampler.ts';
 
 /* The AI CLIs and apps recognized by name or path, so a `claude` started from iTerm stands out in "All". */
-export const AI_FAMILIES = ['claude', 'codex', 'gemini', 'copilot', 'opencode', 'ollama', 'cursor', 'aider'] as const;
+export const AI_FAMILIES = ['claude', 'codex', 'gemini', 'copilot', 'grok', 'opencode', 'ollama', 'cursor', 'aider'] as const;
 
 // A whole word of the path or name: `~/.local/share/claude/versions/2.1.269`, `Claude.app`, `codex-aarch64`.
 const FAMILY_PATTERNS = AI_FAMILIES.map((family) => [family, new RegExp(`(^|[/\\s._@-])${family}([/\\s._-]|$)`, 'i')] as const);

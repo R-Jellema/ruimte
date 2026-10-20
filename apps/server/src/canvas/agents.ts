@@ -1,6 +1,7 @@
-import { AgentKindSchema, type AgentKind, type ProjectCanvasView, type ProjectNode, type RuntimeMode } from '@ruimte/contracts';
+import { type AgentKind, type ProjectCanvasView, type ProjectNode, type RuntimeMode } from '@ruimte/contracts';
 import { MAX_PROMPT_LENGTH } from '@ruimte/actions';
 import { DEFAULT_RUNTIME_MODE } from '../providers/launch.ts';
+import { BUILT_IN_KINDS } from '../providers/kinds.ts';
 import { providerFor } from '../providers/registry.ts';
 import { MAX_LINKS } from './links.ts';
 import { narrowerMode } from '@adecore/agents/providers';
@@ -8,7 +9,7 @@ import type { placeInGroup, Rect } from './placement.ts';
 import { readPromptFile } from './project-paths.ts';
 import { VerbRefusal, field, orNote, type CanvasHost, type VerbCall } from './verb.ts';
 
-export const AGENT_KINDS = AgentKindSchema.options;
+export const AGENT_KINDS = BUILT_IN_KINDS;
 
 /* The CLIs with a chat backend; the rest only ever runs in a shell, so an agent of theirs is always a terminal. */
 export function chatKinds(): AgentKind[] {

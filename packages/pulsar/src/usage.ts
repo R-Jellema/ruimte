@@ -1,4 +1,4 @@
-import type { AgentKind } from '@adecore/agent-contracts/agent';
+import type { KnownAgentKind } from '@adecore/agent-contracts/agent';
 import { z } from 'zod';
 
 /*
@@ -139,13 +139,14 @@ export const USAGE_VIEW_COUNTERS = {
     database: 'viewsDatabase'
 } as const satisfies Record<string, UsageCounter>;
 
+// Only the kinds the layout has doubles for; a chat of any other kind is not counted.
 export const USAGE_CHAT_COUNTERS = {
     claude: { chats: 'chatsClaude', turns: 'turnsClaude' },
     codex: { chats: 'chatsCodex', turns: 'turnsCodex' },
     gemini: { chats: 'chatsGemini', turns: 'turnsGemini' },
     copilot: { chats: 'chatsCopilot', turns: 'turnsCopilot' },
     apple: { chats: 'chatsApple', turns: 'turnsApple' }
-} as const satisfies Record<AgentKind, { chats: UsageCounter; turns: UsageCounter }>;
+} as const satisfies Record<KnownAgentKind, { chats: UsageCounter; turns: UsageCounter }>;
 
 // Every `ruimte-context` verb in one group, since twenty doubles hold fewer than the verbs there are.
 export const USAGE_VERB_COUNTERS = {

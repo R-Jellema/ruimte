@@ -23,7 +23,8 @@ describe('inlineEditAgentFrom', () => {
 
     test('leaves the account out when there is none, and falls back to the default for what makes no sense', () => {
         expect(inlineEditAgentFrom({ provider: 'claude', model: '', account: '' })).toEqual({ provider: 'claude', model: null });
-        expect(inlineEditAgentFrom({ provider: 'nope', model: 4, account: 7 })).toEqual({ provider: 'claude', model: null });
+        expect(inlineEditAgentFrom({ provider: 'No one', model: 4, account: 7 })).toEqual({ provider: 'claude', model: null });
+        expect(inlineEditAgentFrom({ provider: 'future-cli', model: null })).toEqual({ provider: 'future-cli', model: null });
         expect(inlineEditAgentFrom(null)).toEqual({ provider: 'claude', model: null });
     });
 });

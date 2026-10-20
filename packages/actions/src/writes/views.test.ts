@@ -23,7 +23,7 @@ describeWrites('views', {
         input: created,
         refused: {
             'a kind nobody may make': { ...created, kind: 'files' },
-            'an unknown provider': { ...created, provider: 'someone' },
+            'a provider that is no identifier': { ...created, provider: 'Some One' },
             'a blank command': { ...created, command: ' ' },
             'no name at all': without(created, 'name'),
             'a database view in a mode it has not': { ...created, kind: 'database', mode: 'graph' }

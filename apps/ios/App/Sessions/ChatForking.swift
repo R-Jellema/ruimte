@@ -49,8 +49,8 @@ struct ChatMessageMark: Identifiable, Equatable {
 /// `fork.branch.*` in `apps/client/src/i18n/locales/en/chat.json`, and nothing holds the two together: a change to one
 /// of those keys has to be made here by hand.
 enum ChatForking {
-    /// Whether a machine can fork this CLI's conversation and go on with it in a fork. Every kind the daemon knows is
-    /// answered here, so a CLI added to `AgentKindSchema` is decided on before it is offered a fork.
+    /// Whether a machine can fork this CLI's conversation and go on with it in a fork. Every kind this app knows by name
+    /// is answered here, so a CLI added to `KNOWN_AGENT_KINDS` is decided on before it is offered a fork.
     static func forkable(_ kind: AgentKind) -> Bool {
         switch kind {
         case .claude, .codex: true

@@ -3,7 +3,6 @@ import { FileText, Globe, LayoutGrid, LayoutTemplate, MessageSquare, PenTool, St
 import { Trans, useTranslation } from 'react-i18next';
 import { applyLayoutAction, createNodeAction, createTextAction, showViewOnCanvasAction } from '@/actions/client-actions';
 import { ProviderRows } from '@/agents/ProviderRows';
-import { AgentIcon } from '@adecore/agents-react/providers';
 import { emptyCanvasSections, type EmptyCanvasTile } from '@/canvas/empty-canvas';
 import { toWorld } from '@/canvas/math';
 import { ADD_NODE_SHORTCUTS } from '@/canvas/shortcuts';
@@ -15,6 +14,7 @@ import { useProviders } from '@adecore/agents-react/state';
 import { useUi } from '@/state/ui';
 import { Icon, Kbd, SectionLabel, Tile } from '@adecore/ui';
 import type { Shortcut } from '@adecore/ui';
+import { AgentMark } from '@/agents/AgentMark';
 
 interface TileLook {
     icon: ReactNode;
@@ -55,7 +55,7 @@ export function EmptyCanvas() {
         switch (tile.kind) {
             case 'agent': {
                 return {
-                    icon: <AgentIcon kind={tile.provider} size={16} />,
+                    icon: <AgentMark kind={tile.provider} size={16} />,
                     title: tile.name,
                     description: t('empty.agent.terminal'),
                     run: () => void createNodeAction(tile.target, { provider: tile.provider })

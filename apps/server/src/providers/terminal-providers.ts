@@ -45,5 +45,3 @@ export const geminiProvider: ChatProvider = {
     ...terminalProvider('gemini', 'Gemini', 'gemini', 'gemini {flags} --resume {id}', (prompt) => ['-i', prompt]),
     oneShotArgs: (prompt) => ['--prompt', prompt]
 };
-
-export const copilotProvider = terminalProvider('copilot', 'GitHub Copilot', 'copilot', 'copilot {flags} --resume={id}', (prompt) => ['-p', prompt]);

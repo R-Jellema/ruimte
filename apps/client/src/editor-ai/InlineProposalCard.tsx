@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useStore } from 'zustand';
 import { Square, X } from 'lucide-react';
 import type { AgentKind } from '@ruimte/contracts';
-import { AgentIcon, ProviderLogo } from '@adecore/agents-react/providers';
+import { ProviderLogo } from '@adecore/agents-react/providers';
 import { useProviders } from '@adecore/agents-react/state';
 import { Button, Icon, IconButton, Input, Kbd, Spinner, shortcut } from '@adecore/ui';
 import { formatDuration } from '@adecore/ui/format';
@@ -11,6 +11,8 @@ import { diffSegments, emphasisOf } from '@adecore/editor-react/models';
 import type { EditorLanguage as RuimteEditorLanguage } from '@/language/ruimte-editor-language';
 import { isShortcut } from '@/language/shortcut-keys';
 import type { ApplyOutcome, InlineEditSession, InlineEditState } from './inline-edit-session';
+import { AgentMark } from '@/agents/AgentMark';
+import { hasProviderLogo } from '@/agents/provider-logo';
 
 type EditorLanguage = Pick<RuimteEditorLanguage, 'editor' | 'inlineEdit'>;
 
@@ -20,7 +22,7 @@ const APPLY = shortcut('Mod+Enter');
 function ProviderMark({ kind }: { kind: AgentKind }) {
     return (
         <span className={`flex shrink-0 items-center ${kind === 'claude' ? 'text-(--agent-1)' : 'text-text-muted'}`}>
-            {kind === 'claude' || kind === 'codex' ? <ProviderLogo provider={kind} size={14} /> : <AgentIcon kind={kind} size={14} />}
+            {hasProviderLogo(kind) ? <ProviderLogo provider={kind} size={14} /> : <AgentMark kind={kind} size={14} />}
         </span>
     );
 }

@@ -11,6 +11,7 @@ import { focusChat } from '@/plan/plan-actions';
 import { colorOfChat } from './agent-runs';
 import { commentRowId, type AgentReview, type ReviewItem } from './agent-review';
 import { useChatIdentity, useProviderName } from './use-chat-identity';
+import { hasProviderLogo } from '@/agents/provider-logo';
 
 /* The gutter's width keeps a row's words in line with the code beside it. */
 const INDENT = { paddingLeft: 'var(--se-gutter-width)' };
@@ -202,7 +203,7 @@ export function ReviewBar({ review }: { review: AgentReview }) {
             className="flex min-h-9.5 shrink-0 flex-wrap items-center gap-2 border-b border-border bg-surface py-1.5 pr-2.5 pl-4 text-sm text-text"
             role="status"
         >
-            {single !== null && single.provider !== undefined && (single.provider === 'claude' || single.provider === 'codex') && (
+            {single !== null && hasProviderLogo(single.provider) && (
                 <span className="flex shrink-0 items-center" style={{ color: `var(${colorOfChat(single.chatId)})` }}>
                     <ProviderLogo provider={single.provider} size={14} />
                 </span>

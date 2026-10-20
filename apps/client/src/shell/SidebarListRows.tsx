@@ -14,7 +14,6 @@ import { useUi } from '@/state/ui';
 import { useEndpointId } from '@/state/keys';
 import { SnoozeButton, SnoozedMark, SnoozeMenuItems } from '@/shell/Snooze';
 import { heaviestWork, viewNameOf, waitsOnYou, type SidebarGroup, type SidebarNodeRow, type SidebarRow, type SidebarViewRow } from '@/shell/sidebar-rows';
-import { AgentIcon } from '@adecore/agents-react/providers';
 import { UnseenMark } from '@/attention/UnseenMark';
 import { WorkingMark } from '@/attention/WorkingMark';
 import { TaskMark } from '@/tasks/TaskMark';
@@ -38,6 +37,7 @@ import { NewViewItems } from '@/shell/NewViewMenu';
 import { newChatOn } from '@/project/new-chat';
 import { useUnsavedStoredPath } from '@/shell/panels/use-unsaved';
 import { NODE_KIND_ICONS } from '@/canvas/node-icons';
+import { AgentMark } from '@/agents/AgentMark';
 
 const ROW = 'w-full gap-2 text-left text-sm';
 
@@ -65,7 +65,7 @@ function RowIcon({ id, kind, provider, className }: { id: string; kind: CanvasNo
         return <Favicon id={id} />;
     }
     if (provider && (kind === 'chat' || kind === 'terminal')) {
-        return <AgentIcon kind={provider} size={14} className={className} />;
+        return <AgentMark kind={provider} size={14} className={className} />;
     }
     return <Icon icon={NODE_KIND_ICONS[kind]} size={14} className={className} />;
 }

@@ -99,7 +99,7 @@ type Raise = (alert: Omit<ProcessAlert, 'id'>, identity: string | null, stamp: n
 
 const LAUNCHD_PID = 1;
 const IDLE_BASELINE_POINTS = 30;
-const AGENT_KINDS = new Set(['claude', 'codex', 'gemini', 'copilot']);
+const AGENT_KINDS = new Set(['claude', 'codex', 'gemini', 'copilot', 'grok']);
 
 /* The points that cover the last `windowMs`, or null when the series does not reach back that far. */
 function covering<T extends { at: number; durationMs: number }>(points: readonly T[], at: number, windowMs: number, slackMs: number): T[] | null {
