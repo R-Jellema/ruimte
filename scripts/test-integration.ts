@@ -1,28 +1,32 @@
 import { Glob } from 'bun';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 
 export type IntegrationSuite = 'default' | 'core' | 'package' | 'devices' | 'browser';
 
 export function integrationFiles(root: string, suite: IntegrationSuite = 'default'): string[] {
-    return [...new Glob('{apps,packages,scripts}/**/*.integration.test.ts').scanSync({ cwd: root, onlyFiles: true, followSymlinks: false })]
-        .filter((path) => {
-            if (path.split('/').includes('node_modules')) {
-                return false;
-            }
-            const group = path.endsWith('.browser.integration.test.ts')
-                ? 'browser'
-                : path.endsWith('.device.integration.test.ts')
-                  ? 'devices'
-                  : path.endsWith('.package.integration.test.ts')
-                    ? 'package'
-                    : 'core';
-            return suite === 'default' ? group === 'core' || group === 'package' : group === suite;
-        })
-        .sort()
-        .map((path) => `./${path}`);
+    return (
+        [...new Glob('{apps,packages,scripts}/**/*.integration.test.ts').scanSync({ cwd: root, onlyFiles: true, followSymlinks: false })]
+            // The scan answers in the separator of the platform; the list is read and sorted with `/`.
+            .map((path) => path.split(sep).join('/'))
+            .filter((path) => {
+                if (path.split('/').includes('node_modules')) {
+                    return false;
+                }
+                const group = path.endsWith('.browser.integration.test.ts')
+                    ? 'browser'
+                    : path.endsWith('.device.integration.test.ts')
+                      ? 'devices'
+                      : path.endsWith('.package.integration.test.ts')
+                        ? 'package'
+                        : 'core';
+                return suite === 'default' ? group === 'core' || group === 'package' : group === suite;
+            })
+            .sort()
+            .map((path) => `./${path}`)
+    );
 }
 
 async function main(): Promise<void> {

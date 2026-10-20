@@ -162,7 +162,7 @@ export function packageStatus(root: string, adecore: string): PackageStatus[] {
         const manifest = target !== null && isInstalled(root, target) ? readPackage(target).manifest : null;
         const npm = manifest?.name === dep.name && (!EXACT_VERSION.test(dep.version) || manifest.version === dep.version);
         const mode = target === null ? 'missing' : isInside(local, target) ? 'local' : npm ? 'npm' : 'other';
-        return { workspace: relative(root, dep.consumer.folder) || '.', name: dep.name, version: dep.version, target, mode };
+        return { workspace: relative(root, dep.consumer.folder).split(sep).join('/') || '.', name: dep.name, version: dep.version, target, mode };
     });
 }
 
