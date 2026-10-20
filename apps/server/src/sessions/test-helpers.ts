@@ -97,6 +97,9 @@ export class TrackedAgentStore extends AgentStore {
     }
 }
 
+/* Where a session that types a line starts on Windows; a test's own PATH leads to no Git for Windows. */
+export const TEST_GIT_BASH = 'C:\\Program Files\\Git\\bin\\bash.exe';
+
 export interface Harness {
     manager: SessionManager;
     adapter: FakePtyAdapter;
@@ -119,6 +122,7 @@ export async function makeHarness(extra: Partial<SessionManagerOptions> = {}, ov
         agents,
         env: { PATH: '/usr/bin:/bin', HOME: home },
         hookUrl: 'http://127.0.0.1:1/hooks',
+        findGitBash: () => TEST_GIT_BASH,
         ...extra
     });
     return {

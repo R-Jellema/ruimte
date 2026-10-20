@@ -57,7 +57,7 @@ beforeEach(async () => {
     projectId = opened.summary.projectId;
     await store.save(projectId, opened.document.rev, content());
     store.release(projectId);
-    const env = { PATH: process.env.PATH, HOME: home, ANTHROPIC_API_KEY: 'sk-inherited' };
+    const env = { PATH: process.env.PATH, HOME: home, USERPROFILE: home, ANTHROPIC_API_KEY: 'sk-inherited' };
     folders = new Set([personal, join(home, '.codex'), join(root, 'codex_work')]);
     limitUpdates = [];
     machine = { resumeAtReset: false };

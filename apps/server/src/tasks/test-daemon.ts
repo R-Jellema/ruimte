@@ -39,6 +39,7 @@ import { ProviderRegistry } from '../providers/registry.ts';
 import { FakePtyAdapter } from '../pty/fake-pty.ts';
 import type { PtyAdapter } from '../pty/pty.ts';
 import { SessionManager } from '../sessions/manager.ts';
+import { TEST_GIT_BASH } from '../sessions/test-helpers.ts';
 import { agentVisuals } from '../visuals/agent-host.ts';
 import { RemoteTasks, type RemoteTasksDeps } from '../remote/remote-tasks.ts';
 import { registerPeerTaskHandlers } from '../handlers/peer-tasks.ts';
@@ -169,7 +170,8 @@ export async function bootTestDaemon({
         firstPrompt: (id) => prompts.take(id),
         modeCeiling: (sessionId) => lineage.ceilingOf(sessionId),
         ...(accounts ? { accounts } : {}),
-        preferredAccount: (kind) => chats.composerPreferences.for(kind).account
+        preferredAccount: (kind) => chats.composerPreferences.for(kind).account,
+        findGitBash: () => TEST_GIT_BASH
     });
     const attachments = new AttachmentStore(home);
     const drops: Promise<void>[] = [];

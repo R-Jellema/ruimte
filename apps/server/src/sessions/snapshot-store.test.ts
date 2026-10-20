@@ -22,8 +22,9 @@ describe('SnapshotStore', () => {
         expect(await harness.snapshots.read('a')).toBe('two');
         expect(await harness.snapshots.read('missing')).toBeNull();
 
-        const mode = (await stat(harness.snapshots.dir)).mode & 0o777;
-        expect(mode).toBe(0o700);
+        if (process.platform !== 'win32') {
+            expect((await stat(harness.snapshots.dir)).mode & 0o777).toBe(0o700);
+        }
         // No temp file may survive a completed write.
         expect(await readdir(harness.snapshots.dir)).toEqual(['a.txt']);
 

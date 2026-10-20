@@ -11,6 +11,7 @@ import { CommandApprovals } from '../sessions/command-approvals.ts';
 import { SessionManager } from '../sessions/manager.ts';
 import { launchSessionIdOf, LaunchRunner, PROBE_INTERVAL_MS, STOP_GRACE_MS } from './runner.ts';
 import { managerSessions } from './sessions.ts';
+import { TEST_GIT_BASH } from '../sessions/test-helpers.ts';
 import { LaunchStore } from './store.ts';
 
 let root: string;
@@ -72,7 +73,7 @@ beforeEach(async () => {
         seams: fake
     });
     adapter = new FakePtyAdapter();
-    manager = new SessionManager({ adapter, env: { PATH: '/usr/bin:/bin', HOME: root, SHELL: '/bin/zsh' } });
+    manager = new SessionManager({ adapter, env: { PATH: '/usr/bin:/bin', HOME: root, SHELL: '/bin/zsh' }, findGitBash: () => TEST_GIT_BASH });
     timers = new ManualTimers();
     listening = new Set();
     runner = new LaunchRunner({

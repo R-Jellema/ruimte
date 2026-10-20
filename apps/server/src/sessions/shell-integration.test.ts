@@ -7,7 +7,7 @@ import { prepareShellIntegration } from './shell-integration.ts';
 test('shell integration only changes the environment of supported Ruimte shells', async () => {
     const home = await mkdtemp(join(tmpdir(), 'ruimte-shell-env-'));
     try {
-        const integrate = await prepareShellIntegration(home);
+        const integrate = await prepareShellIntegration(home, 'darwin');
         const zsh: Record<string, string> = { HOME: '/home/person', ZDOTDIR: '/custom' };
         integrate('/bin/zsh', zsh);
         expect(zsh.RUIMTE_USER_ZDOTDIR).toBe('/custom');

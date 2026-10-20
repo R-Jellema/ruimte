@@ -17,7 +17,7 @@ beforeEach(async () => {
     preferred = undefined;
     codexIndexes = [];
     const home = await mkdtemp(join(tmpdir(), 'ruimte-account-'));
-    env = { PATH: '/usr/bin:/bin', HOME: home, ANTHROPIC_API_KEY: 'sk-inherited' };
+    env = { PATH: '/usr/bin:/bin', HOME: home, USERPROFILE: home, ANTHROPIC_API_KEY: 'sk-inherited' };
     accounts = await testAccounts({
         home,
         env,

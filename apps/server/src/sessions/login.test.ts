@@ -20,7 +20,7 @@ let dispatcher: Dispatcher;
 
 beforeEach(async () => {
     const home = await mkdtemp(join(tmpdir(), 'ruimte-login-'));
-    const env = { PATH: '/usr/bin:/bin', HOME: home };
+    const env = { PATH: '/usr/bin:/bin', HOME: home, USERPROFILE: home };
     accounts = await testAccounts({
         home,
         env,
