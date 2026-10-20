@@ -859,4 +859,12 @@ export * from './apple-foundation.ts';
 
 export { FileLocationSchema, type FileLocation } from './file-location.ts';
 
-export { TerminalCwdSnapshotSchema, TERMINAL_CWD_OSC, trackTerminalCwd, terminalCwdScreenSize, type CwdTerminal, type TerminalCwd } from './terminal-cwd.ts';
+export {
+    TerminalCwdSnapshotSchema,
+    TERMINAL_CWD_OSC,
+    trackTerminalCwd,
+    terminalCwdScreenSize,
+    windowsPathOfMsys,
+    type CwdTerminal,
+    type TerminalCwd
+} from './terminal-cwd.ts';

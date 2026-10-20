@@ -1,6 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import { join, basename } from 'node:path';
 import { writeAtomic } from '@adecore/agents';
+import { shellName } from '../pty/pty.ts';
 
 export type ShellEnvironment = (shell: string, env: Record<string, string>) => void;
 
@@ -117,8 +118,30 @@ fi
 }
 `.replaceAll('\\${', '${');
 
-/* The shim leaves startup files and prompts intact. Other shells have no verified editor channel. */
-export async function prepareShellIntegration(home: string): Promise<ShellEnvironment> {
+/*
+ * Bash has no startup file to slip in front of a login shell's own, so the hook rides in the environment:
+ * an exported function and a PROMPT_COMMAND that names it. The person's files run after and may add to
+ * PROMPT_COMMAND; one that replaces it only leaves the cwd unknown.
+ */
+const BASH_OUTPUT_CWD = String.raw`() {
+    local previous_status=$? directory="$PWD" marker=$'\e]7;unknown\a'
+    if [[ "$directory" == /* && "$directory" != *[[:cntrl:]]* ]]; then
+        directory="\${directory//\%/%25}"
+        directory="\${directory//\#/%23}"
+        directory="\${directory//\?/%3F}"
+        directory="\${directory// /%20}"
+        directory="\${directory//\\/%5C}"
+        marker=$'\e]7;file://localhost'"$directory"$'\a'
+    fi
+    builtin printf '%s' "$marker"
+    return $previous_status
+}`.replaceAll('\\${', '${');
+
+/*
+ * The shim leaves startup files and prompts intact. Bash only reports its cwd, and only on Windows for
+ * now, where Git Bash is every terminal's shell. Other shells have no verified editor channel.
+ */
+export async function prepareShellIntegration(home: string, platform: string = process.platform): Promise<ShellEnvironment> {
     const zshDirectory = join(home, 'shell-integration', 'zsh');
     await mkdir(zshDirectory, { recursive: true, mode: 0o700 });
     await writeAtomic(join(zshDirectory, '.zshenv'), ZSH_INIT, 0o600);
@@ -127,6 +150,9 @@ export async function prepareShellIntegration(home: string): Promise<ShellEnviro
             env.RUIMTE_USER_ZDOTDIR = env.ZDOTDIR ?? '';
             env.ZDOTDIR = zshDirectory;
             env.RUIMTE_ZLE_INTEGRATION = '1';
+        } else if (platform === 'win32' && shellName(shell) === 'bash') {
+            env['BASH_FUNC__ruimte_output_cwd%%'] = BASH_OUTPUT_CWD;
+            env.PROMPT_COMMAND = env.PROMPT_COMMAND ? `_ruimte_output_cwd;${env.PROMPT_COMMAND}` : '_ruimte_output_cwd';
         }
     };
 }

@@ -8,7 +8,7 @@ const MAX_SNAPSHOT_UNITS = 32_768;
 const CwdSchema = z
     .string()
     .max(4096)
-    .startsWith('/')
+    .refine((path) => path.startsWith('/') || /^[A-Za-z]:\\/.test(path))
     .refine((path) => !/[\p{Cc}\p{Cf}]/u.test(path));
 export const TerminalCwdSnapshotSchema = z.object({
     version: z.literal(1),
@@ -57,9 +57,19 @@ export interface TerminalCwd {
     dispose(): void;
 }
 
+/* The Windows path Git Bash means by `/c/Users/x`; null for one off any drive, such as `/usr` or `/tmp`. */
+export function windowsPathOfMsys(path: string): string | null {
+    const match = /^\/([A-Za-z]):?(\/.*)?$/.exec(path);
+    if (match === null) {
+        return null;
+    }
+    return `${match[1]!.toUpperCase()}:${(match[2] ?? '/').replaceAll('/', '\\')}`;
+}
+
 /* One marker per cwd transition, not per output line. Retention and lookup work stay bounded even
-   for a process that writes millions of lines; evicted history becomes unknown. */
-export function trackTerminalCwd(term: CwdTerminal): TerminalCwd {
+   for a process that writes millions of lines; evicted history becomes unknown. `platform` is the
+   machine's that runs the shell. */
+export function trackTerminalCwd(term: CwdTerminal, platform: string | null = null): TerminalCwd {
     const entries = new Map<Marker, { cwd: string | null; order: number }>();
     let order = 0;
     let base: { cwd: string | null; order: number } = { cwd: null, order: -1 };
@@ -138,7 +148,8 @@ export function trackTerminalCwd(term: CwdTerminal): TerminalCwd {
         let value: string | null = null;
         try {
             const url = new URL(data);
-            const parsed = CwdSchema.safeParse(decodeURIComponent(url.pathname));
+            const path = decodeURIComponent(url.pathname);
+            const parsed = CwdSchema.safeParse(platform === 'win32' ? windowsPathOfMsys(path) : path);
             if (url.protocol === 'file:' && !url.search && !url.hash && parsed.success) {
                 value = parsed.data;
             }

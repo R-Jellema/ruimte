@@ -23,3 +23,22 @@ test('shell integration only changes the environment of supported Ruimte shells'
         await rm(home, { recursive: true, force: true });
     }
 });
+
+test('on Windows Git Bash reports its cwd through PROMPT_COMMAND, before whatever was there', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'ruimte-shell-env-'));
+    try {
+        const integrate = await prepareShellIntegration(home, 'win32');
+        const bash: Record<string, string> = { PROMPT_COMMAND: 'existing_hook' };
+        integrate(String.raw`C:\Program Files\Git\bin\bash.exe`, bash);
+        expect(bash.PROMPT_COMMAND).toBe('_ruimte_output_cwd;existing_hook');
+        expect(bash['BASH_FUNC__ruimte_output_cwd%%']).toStartWith('() {');
+        const fresh: Record<string, string> = {};
+        integrate('bash', fresh);
+        expect(fresh.PROMPT_COMMAND).toBe('_ruimte_output_cwd');
+        const pwsh = { HOME: 'C:\\Users\\person' };
+        integrate('pwsh.exe', pwsh);
+        expect(pwsh).toEqual({ HOME: 'C:\\Users\\person' });
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+});

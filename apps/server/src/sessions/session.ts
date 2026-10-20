@@ -156,7 +156,7 @@ export class Session {
         // The clients measure with Unicode 11 too (`matchDaemonWidths`), so a screen lands on the cells of the live stream.
         this.terminal.loadAddon(new Unicode11Addon());
         this.terminal.unicode.activeVersion = '11';
-        this.outputCwd = trackTerminalCwd(this.terminal);
+        this.outputCwd = trackTerminalCwd(this.terminal, process.platform);
         this.serializer = new SerializeAddon();
         this.terminal.loadAddon(this.serializer);
         if (options.restoredScreen !== undefined) {

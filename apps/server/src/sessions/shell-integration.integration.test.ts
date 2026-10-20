@@ -112,3 +112,32 @@ test('cwd output without a controlling terminal preserves strict options, status
         await rm(home, { recursive: true, force: true });
     }
 });
+
+test("a real bash with the Windows hook reports its cwd at every prompt and keeps the person's PROMPT_COMMAND", async () => {
+    const home = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-bash-cwd-')));
+    await writeFile(join(home, '.bashrc'), 'PROMPT_COMMAND="$PROMPT_COMMAND;printf PERSON_HOOK"\nPS1="person> "\n');
+    const manager = new SessionManager({
+        adapter: new BunPtyAdapter(),
+        shellEnvironment: await prepareShellIntegration(join(home, 'ruimte'), 'win32'),
+        env: { HOME: home, PATH: '/usr/bin:/bin', BASH_SILENCE_DEPRECATION_WARNING: '1' }
+    });
+    let output = '';
+    manager.subscribe('person', (event) => {
+        if (event.event === 'session.output') {
+            output += event.payload.data;
+        }
+    });
+    try {
+        await manager.create({ sessionId: 'bash', cwd: home, shell: '/bin/bash', args: ['-i'], cols: 100, rows: 24 });
+        await manager.attach('bash', 'person', 100, 24);
+        await waitFor(() => output.includes(`\x1b]7;file://localhost${home}\x07PERSON_HOOK`), 'the first prompt reporting its cwd').catch(() => {
+            throw new Error(JSON.stringify(output));
+        });
+        manager.write('bash', 'cd /\r', 'person');
+        await waitFor(() => output.includes('\x1b]7;file://localhost/\x07PERSON_HOOK'), 'the prompt after cd reporting the new cwd');
+    } finally {
+        manager.killAll();
+        await waitFor(() => manager.list().every((session) => session.exited), 'test shell exiting');
+        await rm(home, { recursive: true, force: true });
+    }
+});

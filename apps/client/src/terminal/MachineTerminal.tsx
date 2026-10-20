@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { isApplePlatform, isDesktop } from '@/desktop/bridge';
 import { openFileLink } from '@/shell/panels/file-links';
 import { useEndpoints } from '@/state/endpoints';
+import { useServers } from '@/state/server';
 import { useSettings } from '@/state/settings';
 import { useToasts } from '@/state/toasts';
 import { useWindow, workspaceOf } from '@/state/window';
@@ -39,6 +40,7 @@ export function MachineTerminal({ endpointId, sourceId, onFileLinkHover, classNa
     const { t } = useTranslation('canvas');
     const viewRef = useRef<TerminalViewHandle>(null);
     const [hovered, setHovered] = useState<HoveredLink | null>(null);
+    const platform = useServers((state) => state.byEndpoint[endpointId]?.platform ?? null);
     useImperativeHandle(ref, () => viewRef.current!, []);
 
     useEffect(() => {
@@ -47,7 +49,7 @@ export function MachineTerminal({ endpointId, sourceId, onFileLinkHover, classNa
             return;
         }
         matchDaemonWidths(term);
-        const cwd = trackOutputCwd(term);
+        const cwd = trackOutputCwd(term, platform);
         const unbind = bindTerminalFileLinks(term, cwd.at, endpointId, {
             open: (link, event) => {
                 if (isTerminalLinkClick(event, isApplePlatform())) {
@@ -77,7 +79,7 @@ export function MachineTerminal({ endpointId, sourceId, onFileLinkHover, classNa
             unbind();
             cwd.dispose();
         };
-    }, [endpointId, sourceId, onFileLinkHover]);
+    }, [endpointId, sourceId, onFileLinkHover, platform]);
     const link = hovered?.endpointId === endpointId && hovered.sourceId === sourceId ? hovered : null;
     const machine = useEndpoints((state) => state.endpoints.find((entry) => entry.id === endpointId)?.label);
     const destination = useSettings((state) => state.terminalLinkDestination);

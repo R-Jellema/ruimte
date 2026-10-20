@@ -1,14 +1,14 @@
 import { expect, test } from 'bun:test';
 import { Terminal } from '@xterm/headless';
 import { SerializeAddon } from '@xterm/addon-serialize';
-import { trackTerminalCwd } from '@ruimte/contracts';
+import { trackTerminalCwd, windowsPathOfMsys } from '@ruimte/contracts';
 
 const root = '\x1b]7;file://localhost/root\x07';
 const child = '\x1b]7;file://localhost/root/nested\x07';
 
-function fixture(scrollback = 10000) {
+function fixture(scrollback = 10000, platform: string | null = null) {
     const term = new Terminal({ cols: 40, rows: 8, scrollback, allowProposedApi: true });
-    const cwd = trackTerminalCwd(term);
+    const cwd = trackTerminalCwd(term, platform);
     const serialize = new SerializeAddon();
     term.loadAddon(serialize);
     return {
@@ -166,5 +166,34 @@ test('reduced snapshot scrollback keeps the directory of the retained prefix', a
     } finally {
         original.dispose();
         restored.dispose();
+    }
+});
+
+test('an MSYS path is the Windows path it means, and one off any drive is unknown', () => {
+    expect(windowsPathOfMsys('/c/Users/bas/my project')).toBe('C:\\Users\\bas\\my project');
+    expect(windowsPathOfMsys('/d')).toBe('D:\\');
+    expect(windowsPathOfMsys('/C:/Users')).toBe('C:\\Users');
+    expect(windowsPathOfMsys('/usr/bin')).toBeNull();
+    expect(windowsPathOfMsys('/tmp')).toBeNull();
+    expect(windowsPathOfMsys('/')).toBeNull();
+});
+
+test('on Windows the cwd Git Bash reports is a Windows path, and round-trips with the screen', async () => {
+    const windows = fixture(10000, 'win32');
+    const restored = fixture(10000, 'win32');
+    const posix = fixture();
+    try {
+        const marker = '\x1b]7;file://localhost/c/Users/bas/my%20project\x07';
+        await windows.write(marker + 'out.ts:1\r\n\x1b]7;file://localhost/usr/bin\x07usr.ts:1\r\n');
+        expect(windows.cwd.at(1)).toBe('C:\\Users\\bas\\my project');
+        expect(windows.cwd.at(2)).toBeNull();
+        await restored.write(windows.snapshot());
+        expect(restored.cwd.at(1)).toBe('C:\\Users\\bas\\my project');
+        await posix.write(marker + 'out.ts:1\r\n');
+        expect(posix.cwd.at(1)).toBe('/c/Users/bas/my project');
+    } finally {
+        windows.dispose();
+        restored.dispose();
+        posix.dispose();
     }
 });
