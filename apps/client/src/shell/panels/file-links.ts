@@ -181,8 +181,10 @@ export function parseFileRef(text: string, allowSpaces = false): FileRef | null 
 export function normalizedPath(path: string): string {
     const separator = /^[a-zA-Z]:\\|^\\\\/.test(path) ? '\\' : '/';
     const root = /^[a-zA-Z]:[\\/]/.test(path) ? path.slice(0, 3) : /^[\\/]{2}/.test(path) ? path.slice(0, 2) : /^[\\/]/.test(path) ? path.slice(0, 1) : '';
+    // On a POSIX machine a backslash is part of a name, so only a Windows path splits on it.
+    const separators = /^[a-zA-Z]:[\\/]|^\\\\/.test(path) ? /[\\/]+/ : /\/+/;
     const parts: string[] = [];
-    for (const part of path.slice(root.length).split(/[\\/]+/)) {
+    for (const part of path.slice(root.length).split(separators)) {
         if (part === '' || part === '.') {
             continue;
         }

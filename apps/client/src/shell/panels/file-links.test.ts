@@ -103,6 +103,12 @@ describe('normalizedPath', () => {
         expect(normalizedPath('../a.ts')).toBe('../a.ts');
     });
 
+    test('a backslash in a POSIX path stays part of its name', () => {
+        expect(normalizedPath('/repo/a \\ b/./same.ts')).toBe('/repo/a \\ b/same.ts');
+        expect(resolveFileRef('/repo/a \\ b', { path: 'same.ts', directory: false })).toBe('/repo/a \\ b/same.ts');
+        expect(normalizedPath('C:/repo\\src/..\\a.ts')).toBe('C:/repo/a.ts');
+    });
+
     test('a relative reference that climbs out of its folder resolves to where it lands', () => {
         expect(resolveFileRef('/repo/apps/client', { path: '../server/main.ts', directory: false })).toBe('/repo/apps/server/main.ts');
     });
