@@ -26,6 +26,7 @@ import {
     type SharedFileRead
 } from '@ruimte/contracts';
 import { fileExists, isNotFound, writeAtomic } from '@adecore/agents';
+import { retryingRename } from '../fs/busy-retry.ts';
 
 export const PROJECT_DIR = '.ruimte';
 export const PROJECT_FILE = 'project.json';
@@ -109,7 +110,7 @@ export async function readJsonDocument<T>(
         return { kind: 'unreadable' };
     }
     const setAside = `${path}.corrupt-${new Date().toISOString().replace(/[:.]/g, '-')}`;
-    await rename(path, setAside);
+    await retryingRename(rename)(path, setAside);
     return { kind: 'corrupt', setAside };
 }
 

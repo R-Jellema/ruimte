@@ -4,6 +4,7 @@ import type { Stats } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { CodedError } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
+import { retryingRename } from './busy-retry.ts';
 import { renameNoReplace } from './no-replace-rename.ts';
 import { trashPath } from './trash.ts';
 import { realEntryPath, realRoots, stateRefusal, type WriteBoundary } from './write.ts';
@@ -177,7 +178,7 @@ export async function planRename(
         }
     }
     // Every move refuses a taken name in the call itself; whatever runs between the plan and `run` (a language server's edits) can fill it.
-    const move = options.rename ?? renameNoReplace;
+    const move = options.rename ?? retryingRename(renameNoReplace);
     return {
         run: async () => {
             try {
