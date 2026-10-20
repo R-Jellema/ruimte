@@ -50,9 +50,6 @@ Do not reverse one without asking Bas.
 
 - `.gitattributes` holds every text file at LF, `.cmd` and `.bat` at CRLF. With `core.autocrlf` on, a
   checked-out fixture reads CRLF and tests fail.
-- `patches/@adecore%2Fagents@0.29.0.patch` makes a forced `rm` that fails with `EFAULT` count as removed
-  (Bun on Windows, two deletes of one outbox record). The fix belongs in ADE CORE; once it is released the
-  bump drops the patch.
 - Many unit and integration tests assume `/bin/sh` or POSIX paths. A Windows job in CI follows once they
   pass.
 
