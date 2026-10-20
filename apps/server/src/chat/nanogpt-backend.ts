@@ -28,6 +28,19 @@ const MessageSchema = z.object({
 type Message = z.infer<typeof MessageSchema>;
 
 /*
+ * A run of tool rounds is cut at a number the model cannot argue with, since a loop that never ends spends
+ * the subscription. Where it is cut the chat goes on by itself with a short message, as a person would,
+ * until a few runs have passed, and only then says it stopped.
+ */
+export interface NanoGptLimits {
+    roundsPerRun: number;
+    runs: number;
+}
+const DEFAULT_LIMITS: NanoGptLimits = { roundsPerRun: 40, runs: 5 };
+const CONTINUE_MESSAGE =
+    'You reached the limit of tool rounds for one run. Carry on with the task where you left off, and finish it or ask what you need with ask_user.';
+
+/*
  * A chat on NanoGPT's subscription API, which keeps no conversation of its own: the thread is a file
  * beside the key (`<session id>.json`), written after every step so a resume picks it up where it
  * stopped. Tools are the Apple backend's project tools, held for a person's approval as far as the
@@ -46,13 +59,15 @@ export class NanoGptBackend implements ChatBackend {
     private readonly host: BackendHost;
     private readonly service: NanoGptService;
     private readonly executeTool: typeof executeNanoTool;
+    private readonly limits: NanoGptLimits;
     readonly pid = null;
     private readonly mode: RuntimeMode;
-    constructor(launch: BackendLaunch, host: BackendHost, service: NanoGptService, executeTool = executeNanoTool) {
+    constructor(launch: BackendLaunch, host: BackendHost, service: NanoGptService, executeTool = executeNanoTool, limits = DEFAULT_LIMITS) {
         this.launch = launch;
         this.host = host;
         this.service = service;
         this.executeTool = executeTool;
+        this.limits = limits;
         // A change of mode restarts the backend, so the mode it started with holds for its whole life.
         this.mode = nanoEffectiveMode(launch.runtimeMode);
         this.sessionId = launch.resume ?? randomUUID();
@@ -117,8 +132,14 @@ export class NanoGptBackend implements ChatBackend {
         try {
             this.messages.push({ role: 'user', content: [input.preamble, input.text].filter(Boolean).join('\n\n') });
             await this.save();
-            for (let round = 0; round < 40; round++) {
+            const rounds = this.limits.roundsPerRun * this.limits.runs;
+            for (let round = 0; round < rounds; round++) {
                 controller.signal.throwIfAborted();
+                if (round > 0 && round % this.limits.roundsPerRun === 0) {
+                    this.host.onEvent({ type: 'note', level: 'info', text: `Continuing after ${round} tool rounds.` });
+                    this.messages.push({ role: 'user', content: CONTINUE_MESSAGE });
+                    await this.save();
+                }
                 if (!this.service.apiKey) {
                     throw new Error('NanoGPT was disconnected in Settings.');
                 }
@@ -185,7 +206,7 @@ export class NanoGptBackend implements ChatBackend {
                     await this.tool(call, controller.signal);
                 }
             }
-            throw new Error('NanoGPT reached 40 tool rounds. Send another message to continue.');
+            throw new Error(`NanoGPT reached ${rounds} tool rounds. Send another message to continue.`);
         } catch (error) {
             // Never forward fetch errors or raw remote bodies: these can contain credentials.
             failure =

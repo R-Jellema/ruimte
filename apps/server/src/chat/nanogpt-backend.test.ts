@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type { RuntimeMode } from '@ruimte/contracts';
 import type { BackendEvent, BackendLaunch, TurnInput } from '@adecore/agents/chat';
 import { NANOGPT_URL, NanoGptService } from '../providers/nanogpt-service.ts';
-import { NanoGptBackend } from './nanogpt-backend.ts';
+import { NanoGptBackend, type NanoGptLimits } from './nanogpt-backend.ts';
 import type { executeNanoTool } from './nanogpt-tools.ts';
 
 const turn: TurnInput = { text: 'What is in the project?', preamble: null, attachments: [], mentions: [], skills: [] };
@@ -44,7 +44,10 @@ interface Rig {
 }
 
 /* A backend against a fake API that answers each chat request with the next response given. */
-async function rig(responses: Array<() => Response>, options: { resume?: string; home?: string; mode?: RuntimeMode } = {}): Promise<Rig> {
+async function rig(
+    responses: Array<() => Response>,
+    options: { resume?: string; home?: string; mode?: RuntimeMode; limits?: NanoGptLimits } = {}
+): Promise<Rig> {
     const home = options.home ?? (await mkdtemp(join(tmpdir(), 'ruimte-nanogpt-chat-')));
     if (options.home === undefined) {
         homes.push(home);
@@ -97,7 +100,8 @@ async function rig(responses: Array<() => Response>, options: { resume?: string;
             }
         },
         service,
-        executeTool
+        executeTool,
+        options.limits
     );
     backends.push(backend);
     return {
@@ -264,6 +268,29 @@ describe('NanoGPT backend', () => {
         stopped.backend.interrupt();
         expect(await stopped.until(isDone)).toMatchObject({ state: 'aborted' });
         expect(stopped.events).toContainEqual({ type: 'request.withdrawn', requestId: open.requestId });
+    });
+
+    test('a run that reaches its limit of tool rounds goes on by itself, and says so', async () => {
+        const chat = await rig([listCall, listCall, () => reply('Done.')], { mode: 'full-access', limits: { roundsPerRun: 2, runs: 3 } });
+        await chat.backend.start();
+        chat.backend.sendTurn(turn);
+
+        expect(await chat.until(isDone)).toMatchObject({ state: 'done' });
+        expect(chat.tools).toEqual(['list_files', 'list_files']);
+        expect(chat.events).toContainEqual({ type: 'note', level: 'info', text: 'Continuing after 2 tool rounds.' });
+        // The model hears it was cut and is told to carry on, as a message of the person's would say.
+        const last = chat.bodies[2]!.messages.at(-1)!;
+        expect(last.role).toBe('user');
+        expect(last.content).toContain('limit of tool rounds');
+    });
+
+    test('a loop that never ends still stops, after the runs it is allowed', async () => {
+        const chat = await rig([listCall, listCall, listCall, listCall], { mode: 'full-access', limits: { roundsPerRun: 2, runs: 2 } });
+        await chat.backend.start();
+        chat.backend.sendTurn(turn);
+
+        expect(await chat.until(isDone)).toMatchObject({ state: 'error', error: 'NanoGPT reached 4 tool rounds. Send another message to continue.' });
+        expect(chat.tools).toHaveLength(4);
     });
 
     test('a denied tool does not run and the model is told so', async () => {
