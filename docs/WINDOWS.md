@@ -61,8 +61,10 @@ Do not reverse one without asking Bas.
 - `.gitattributes` holds every text file at LF, `.cmd` and `.bat` at CRLF. With `core.autocrlf` on, a
   checked-out fixture reads CRLF and tests fail.
 - Integration tests still assume `/bin/sh` and POSIX paths. The unit tests pass on Windows: `unit
-  (Windows)` in `ci.yml` is part of the final check and runs on two workers, since four files starting git
-  processes at once pushed tests past Bun's five seconds on that runner.
+  (Windows)` in `ci.yml` runs on two workers, since four files starting git processes at once pushed tests
+  past Bun's five seconds on that runner. It stays out of the final check until Windows ships: the worktree
+  tests (`canvas/worktree-verb.test.ts`, `git/worktree-merge.test.ts`) still time out there now and then and
+  leave a temporary folder Windows holds on to (`EBUSY`).
 
 ### 2. The daemon starts and stops
 
