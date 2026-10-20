@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FS_READ_MAX_TEXT_BYTES } from '@ruimte/contracts';
 import { readFile as readForViewer } from './read.ts';
-import { writeTextFile, type WriteBoundary } from './write.ts';
+import { openForSave, writeTextFile, type WriteBoundary } from './write.ts';
 
 let root: string;
 let project: string;
@@ -88,7 +88,9 @@ describe('fs.write', () => {
 
         const after = await stat(path);
         expect(after.ino).toBe(before.ino);
-        expect(after.mode & 0o777).toBe(0o754);
+        if (process.platform !== 'win32') {
+            expect(after.mode & 0o777).toBe(0o754);
+        }
         expect(await readFile(twin, 'utf8')).toBe('echo two\n');
     });
 
@@ -204,6 +206,16 @@ describe('fs.write', () => {
 
         expect(await codeOf(writeTextFile(alias, 'mine\n', mtime, boundary()))).toBe('not-a-file');
         expect(await readFile(path, 'utf8')).toBe('real\n');
+    });
+
+    test('refuses a symlink where the platform has no O_NOFOLLOW, and opens a plain file', async () => {
+        const { path } = await put(join(project, 'real.txt'), 'real\n');
+        const alias = join(project, 'alias.txt');
+        await symlink(path, alias);
+
+        expect(await codeOf(openForSave(alias, undefined))).toBe('ELOOP');
+        const handle = await openForSave(path, undefined);
+        await handle.close();
     });
 
     test('answers the read codes for what is not there, not a file or not absolute', async () => {

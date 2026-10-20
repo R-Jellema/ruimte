@@ -93,8 +93,16 @@ function sameEntry(left: Stats, right: Stats): boolean {
 }
 
 /*
- * A new case of the same name (or another hard link of the same file), through a spare name, since a
- * rename that refuses a taken name sees the target taken by the source itself.
+ * Whether `target` is the name of `source` in another case. Only then is a target the source itself: a hard
+ * link of it under another name is a name of its own, which a rename on Windows would fold into the source.
+ */
+function isCaseVariant(source: string, target: string): boolean {
+    return dirname(source) === dirname(target) && basename(source).toLowerCase() === basename(target).toLowerCase();
+}
+
+/*
+ * A new case of the same name, through a spare name, since a rename that refuses a taken name sees the
+ * target taken by the source itself.
  */
 async function throughSpareName(source: string, target: string, move: Rename): Promise<void> {
     const spare = join(dirname(source), `.ruimte-rename-${randomUUID()}`);
@@ -162,18 +170,20 @@ export async function planRename(
     }
     assertOpenGround(relative(sourceRoot, source).split(sep), path);
     assertOpenGround(relative(targetRoot, target).split(sep), to);
-    if (target !== source && isInside(source, target)) {
+    // `relative` ignores case on Windows, so a case-only change answers '' there.
+    if (relative(source, target) !== '' && isInside(source, target)) {
         throw new RenameError('into-itself', `${path} cannot be moved into itself`);
     }
     const deviceOf = options.deviceOf ?? deviceOfPlace;
     if ((await deviceOf(source)) !== (await deviceOf(target))) {
         throw new RenameError('other-volume', `${path} cannot be moved to another volume from here`);
     }
+    const caseChange = isCaseVariant(source, target);
     const taken = await lstat(target).catch(() => null);
     if (taken !== null) {
         const moving = await lstat(source);
         // Only a plain file replaces a plain file; the trash keeps what it replaced.
-        if (!sameEntry(taken, moving) && (options.overwrite !== true || !taken.isFile() || !moving.isFile())) {
+        if (!(caseChange && sameEntry(taken, moving)) && (options.overwrite !== true || !taken.isFile() || !moving.isFile())) {
             throw new RenameError('exists', `${to} is already there`);
         }
     }
@@ -185,7 +195,7 @@ export async function planRename(
                 await mkdir(dirname(target), { recursive: true });
                 const moving = await lstat(source);
                 const there = await lstat(target).catch(() => null);
-                if (there !== null && sameEntry(there, moving)) {
+                if (there !== null && caseChange && sameEntry(there, moving)) {
                     if (target !== source) {
                         await throughSpareName(source, target, move);
                     }
