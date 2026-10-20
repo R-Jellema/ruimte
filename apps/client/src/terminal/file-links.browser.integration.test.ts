@@ -172,7 +172,8 @@ for (const [platform, language, zoom] of [
                     const linkTop=screen.top+${row}*screen.height/term.rows;
                     return {center:box.x+box.width/2,expectedCenter:screen.x+cells*screen.width/term.cols/2,top:box.top,bottom:box.bottom,linkTop,linkBottom:linkTop+screen.height/term.rows};
                 })()`);
-                    expect(geometry.center).toBeCloseTo(geometry.expectedCenter, 0);
+                    // The positioner rounds the anchor's width and its own offset to whole pixels, half a pixel each.
+                    expect(Math.abs(geometry.center - geometry.expectedCenter)).toBeLessThanOrEqual(1);
                     expect(geometry.bottom <= geometry.linkTop || geometry.top >= geometry.linkBottom).toBe(true);
                     expect(await view.evaluate<string>(`document.querySelector('[role=tooltip]').textContent`)).toBe(words + text);
                 }
@@ -242,7 +243,7 @@ async function click(view: View, point: { x: number; y: number }, button: 'left'
 
 async function menuOpen(view: View): Promise<void> {
     const point = await view.evaluate<{ x: number; y: number }>(`(() => {
-        const item=[...document.querySelectorAll('[role=menuitem]')].find(element=>element.textContent.includes('Open file in preview'));
+        const item=[...document.querySelectorAll('[role=menuitem]')].find(element=>element.textContent.includes('Open in preview'));
         if(!item) throw new Error('No file preview menu item');
         const rect=item.getBoundingClientRect();return {x:rect.x+rect.width/2,y:rect.y+rect.height/2};
     })()`);
@@ -369,9 +370,7 @@ test('relative links without output cwd, including a replaced screen, never use 
             expect(await view.evaluate<unknown>('window.files.getState().tabs')).toEqual([]);
             await click(view, await hover(view, 'local', 0), 'right');
             expect(
-                await view.evaluate<boolean>(
-                    `[...document.querySelectorAll('[role=menuitem]')].some(element=>element.textContent.includes('Open file in preview'))`
-                )
+                await view.evaluate<boolean>(`[...document.querySelectorAll('[role=menuitem]')].some(element=>element.textContent.includes('Open in preview'))`)
             ).toBe(false);
             await view.cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
             await view.cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
@@ -431,7 +430,7 @@ async function expectCorrectPreviewOrRefusal(view: View, row: number, route: 'cl
     } else {
         await click(view, point, 'right');
         const available = await view.evaluate<boolean>(
-            `[...document.querySelectorAll('[role=menuitem]')].some(element=>element.textContent.includes('Open file in preview'))`
+            `[...document.querySelectorAll('[role=menuitem]')].some(element=>element.textContent.includes('Open in preview'))`
         );
         if (available) {
             await menuOpen(view);
@@ -563,7 +562,7 @@ async function fileServer(): Promise<{ url: string; close(): Promise<void> }> {
             async message(socket, message) {
                 const request = JSON.parse(String(message)) as { id: string; type: string; payload: { path?: string } };
                 if (request.type === 'endpoint.info') {
-                    socket.send(JSON.stringify({ id: request.id, ok: true, result: { protocol: PROTOCOL_VERSION } }));
+                    socket.send(JSON.stringify({ id: request.id, ok: true, result: { protocol: PROTOCOL_VERSION, features: ['fs.read'] } }));
                     return;
                 }
                 const file = files.get(`${socket.data.owner}:${request.payload.path}`);
@@ -640,9 +639,9 @@ async function assertRefused(view: View, row: number): Promise<void> {
     expect(await view.evaluate<unknown>('window.files.getState().tabs')).toEqual([]);
     expect(await view.evaluate<unknown>('window.reads')).toEqual([]);
     await click(view, await hover(view, 'local', row), 'right');
-    expect(
-        await view.evaluate<boolean>(`[...document.querySelectorAll('[role=menuitem]')].some(item=>item.textContent.includes('Open file in preview'))`)
-    ).toBe(false);
+    expect(await view.evaluate<boolean>(`[...document.querySelectorAll('[role=menuitem]')].some(item=>item.textContent.includes('Open in preview'))`)).toBe(
+        false
+    );
     await view.cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
     await view.cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
 }
@@ -665,7 +664,7 @@ test('returning from a cursor-addressed TUI preserves older normal output and le
             expect(await view.evaluate<number>('window.files.getState().revealLine.nonce')).toBe(nonce);
             await click(view, await hover(view, 'local', 1), 'right');
             expect(
-                await view.evaluate<boolean>(`[...document.querySelectorAll('[role=menuitem]')].some(item=>item.textContent.includes('Open file in preview'))`)
+                await view.evaluate<boolean>(`[...document.querySelectorAll('[role=menuitem]')].some(item=>item.textContent.includes('Open in preview'))`)
             ).toBe(false);
         },
         '\x1b]7;file://fixture/repo/worktree\x07same.ts:12:4-16\r\n'

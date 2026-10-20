@@ -381,7 +381,7 @@ test('TerminalBody links work through canvas focus, zoom, selection and dragging
             await view.cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', ...filePoint, button: 'right', buttons: 0, clickCount: 1 });
             await view.evaluate(frame);
             const menuPoint = await view.evaluate<{ x: number; y: number }>(`(() => {
-                const item=[...document.querySelectorAll('[role=menuitem]')].find(element=>element.textContent.includes('Open file in preview'));
+                const item=[...document.querySelectorAll('[role=menuitem]')].find(element=>element.textContent.includes('Open in preview'));
                 const rect=item.getBoundingClientRect();return {x:rect.x+rect.width/2,y:rect.y+rect.height/2};
             })()`);
             await click(view, menuPoint, 0);
