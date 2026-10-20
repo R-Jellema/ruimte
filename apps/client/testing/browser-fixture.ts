@@ -4,6 +4,9 @@ import { join } from 'node:path';
 
 export const clientDirectory = join(import.meta.dir, '..');
 
+// What Vite puts in `import.meta.env` for the client; Bun.build leaves it undefined.
+const viteEnv = { 'import.meta.env': JSON.stringify({ DEV: false, PROD: true, MODE: 'test', BASE_URL: '/' }) };
+
 export async function withBrowserFixture(entryCode: string, styles: string, run: (view: InstanceType<typeof Bun.WebView>) => Promise<void>): Promise<void> {
     const directory = await mkdtemp(join(tmpdir(), 'ruimte-canvas-'));
     let view: InstanceType<typeof Bun.WebView> | null = null;
@@ -28,6 +31,7 @@ export async function withBrowserFixture(entryCode: string, styles: string, run:
             entrypoints: [entry],
             target: 'browser',
             conditions: ['source'],
+            define: viteEnv,
             plugins: [
                 {
                     name: 'fixture-imports',
@@ -67,7 +71,7 @@ export async function withBrowserFixture(entryCode: string, styles: string, run:
             throw new AggregateError(build.logs, 'Could not bundle the canvas fixture');
         }
         for (const [route, file] of workers) {
-            const result = await Bun.build({ entrypoints: [file], target: 'browser' });
+            const result = await Bun.build({ entrypoints: [file], target: 'browser', define: viteEnv });
             if (!result.success) {
                 throw new AggregateError(result.logs, 'Could not bundle the fixture worker');
             }
