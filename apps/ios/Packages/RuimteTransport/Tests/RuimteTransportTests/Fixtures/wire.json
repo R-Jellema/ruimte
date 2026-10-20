@@ -366,7 +366,9 @@
     "provenance.read",
     "provenance.review",
     "nanogpt.status",
-    "nanogpt.configure"
+    "nanogpt.configure",
+    "claudeApi.status",
+    "claudeApi.configure"
   ],
   "eventTypes": [
     "push.attention",

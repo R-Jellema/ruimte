@@ -3562,6 +3562,7 @@ public enum AgentKind: String, CaseIterable, Codable, Sendable, Equatable {
     case `copilot` = "copilot"
     case `apple` = "apple"
     case `nanogpt` = "nanogpt"
+    case `anthropicClaudeApi` = "anthropic-claude-api"
 }
 
 public enum AgentStatus: String, CaseIterable, Codable, Sendable, Equatable {
