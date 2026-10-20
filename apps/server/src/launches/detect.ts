@@ -158,7 +158,7 @@ export class PathScope {
             this.outside = true;
             return absolute;
         }
-        return relative(this.cwd, absolute) || '.';
+        return portable(relative(this.cwd, absolute)) || '.';
     }
 
     /* Every macro path inside a line of arguments, rewritten the same way. */
@@ -319,7 +319,7 @@ export function readRunFile(text: string, context: RunFileContext): Built[] {
 }
 
 /* A path relative to the project folder with forward slashes, the form a project file holds on every machine. */
-function portable(path: string): string {
+export function portable(path: string): string {
     return path.split(sep).join('/');
 }
 

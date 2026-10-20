@@ -1,8 +1,8 @@
 import { homedir } from 'node:os';
-import { relative, resolve } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 import type { LaunchConfigEnv } from '@ruimte/contracts';
 import { isInside } from '../canvas/project-paths.ts';
-import { kindOfScript, shellQuote, type Built } from './detect.ts';
+import { kindOfScript, portable, shellQuote, type Built } from './detect.ts';
 import { parseJsonc } from './jsonc.ts';
 
 /*
@@ -131,8 +131,8 @@ function build(configuration: Record_, name: string, root: string, folder: strin
             return shellQuote(expanded);
         }
         // Only a path a variable made absolute is the project's to place; an argument that happens to start with a slash is not.
-        if (expanded.startsWith('/') && isInside(folder, expanded)) {
-            const below = relative(cwd, expanded) || '.';
+        if (isAbsolute(expanded) && isInside(folder, expanded)) {
+            const below = portable(relative(cwd, expanded)) || '.';
             // A bare name would be looked up on the PATH instead of in the working folder.
             return shellQuote(executable && !below.includes('/') ? `./${below}` : below);
         }

@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { homedir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { shellQuote } from './detect.ts';
 import { readVscodeLaunch } from './vscode.ts';
 
-const ROOT = '/work/passly';
+const ROOT = resolve('/work/passly');
 
 function read(configurations: unknown[], compounds: unknown[] = []) {
     return readVscodeLaunch(JSON.stringify({ version: '0.2.0', configurations, compounds }), ROOT, ROOT);
@@ -28,17 +30,17 @@ describe('node launch configurations', () => {
 
     test('the working folder defaults to the root and follows the cwd setting', () => {
         expect(one({ program: 'a.js' }).launch.cwd).toBe(ROOT);
-        expect(one({ program: 'a.js', cwd: '${workspaceFolder}/api' }).launch.cwd).toBe('/work/passly/api');
+        expect(one({ program: 'a.js', cwd: '${workspaceFolder}/api' }).launch.cwd).toBe(join(ROOT, 'api'));
     });
 
     test('env values are read with their variables', () => {
-        expect(one({ program: 'a.js', env: { DIR: '${workspaceFolder}/x', PORT: '3000' } }).launch.env).toEqual({ DIR: '/work/passly/x', PORT: '3000' });
+        expect(one({ program: 'a.js', env: { DIR: '${workspaceFolder}/x', PORT: '3000' } }).launch.env).toEqual({ DIR: `${ROOT}/x`, PORT: '3000' });
     });
 
     test('the home folder makes the launch private', () => {
         const built = one({ program: '${userHome}/tool.js' });
         expect(built.outside).toBe(true);
-        expect(built.launch.command).toBe(`node ${homedir()}/tool.js`);
+        expect(built.launch.command).toBe(`node ${shellQuote(`${homedir()}/tool.js`)}`);
     });
 
     test('an executable inside the working folder keeps a path form instead of a PATH lookup', () => {
