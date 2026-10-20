@@ -26,7 +26,7 @@ export function ClaudeApiSection({ endpointId }: { endpointId: string }) {
             return;
         }
         let active = true;
-        link.request('claudeApi.status', {}).then(
+        link.request('anthropic.status', {}).then(
             (value) => {
                 if (active) {
                     setStatus(value);
@@ -51,7 +51,7 @@ export function ClaudeApiSection({ endpointId }: { endpointId: string }) {
         setBusy(true);
         setError('');
         try {
-            setStatus(await link.request('claudeApi.configure', payload));
+            setStatus(await link.request('anthropic.configure', payload));
             setApiKey('');
             const { providers } = await link.request('provider.list', {});
             useProvidersStore.getState().setProviders(endpointId, providers);
@@ -70,7 +70,7 @@ export function ClaudeApiSection({ endpointId }: { endpointId: string }) {
         }
         setError('');
         try {
-            setStatus(await link.request('claudeApi.configure', { settings }));
+            setStatus(await link.request('anthropic.configure', { settings }));
         } catch (cause) {
             setError(cause instanceof Error ? cause.message : t('providers.claudeApi.failed'));
         }
@@ -103,7 +103,7 @@ export function ClaudeApiSection({ endpointId }: { endpointId: string }) {
                 }
             />
             <SettingsRow
-                label={t('providers.claudeApi.status')}
+                label={t('providers.anthropic.status')}
                 description={state}
                 control={
                     <div className="flex gap-2">

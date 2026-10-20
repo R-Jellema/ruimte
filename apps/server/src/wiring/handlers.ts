@@ -118,10 +118,10 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
         },
         { owner: true }
     );
-    dispatcher.register('claudeApi.status', () => providers.claudeApi.status());
+    dispatcher.register('anthropic.status', () => providers.anthropic.status());
     // A key spends a person's money, so only the owner of the machine sets or removes one.
     dispatcher.register(
-        'claudeApi.configure',
+        'anthropic.configure',
         async ({ apiKey, settings }) => {
             if (settings !== undefined) {
                 const saved = await providers.claudeApi.setSettings(settings);
@@ -130,7 +130,7 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
                     return saved;
                 }
             }
-            const result = await providers.claudeApi.configure(apiKey);
+            const result = await providers.anthropic.configure(apiKey);
             providers.providers.invalidate('anthropic-claude-api');
             return result;
         },

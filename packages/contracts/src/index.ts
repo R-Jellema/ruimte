@@ -756,8 +756,8 @@ export const REQUEST_SCHEMAS = {
     'provenance.review': { payload: ProvenanceReviewPayloadSchema, result: ProvenanceReviewResultSchema },
     'nanogpt.status': { payload: EmptySchema, result: NanoGptStatusSchema },
     'nanogpt.configure': { payload: NanoGptConfigurePayloadSchema, result: NanoGptStatusSchema },
-    'claudeApi.status': { payload: EmptySchema, result: ClaudeApiStatusSchema },
-    'claudeApi.configure': { payload: ClaudeApiConfigurePayloadSchema, result: ClaudeApiStatusSchema }
+    'anthropic.status': { payload: EmptySchema, result: ClaudeApiStatusSchema },
+    'anthropic.configure': { payload: ClaudeApiConfigurePayloadSchema, result: ClaudeApiStatusSchema }
 } as const satisfies Record<string, { payload: z.ZodType; result: z.ZodType }>;
 
 export type RequestType = keyof typeof REQUEST_SCHEMAS;

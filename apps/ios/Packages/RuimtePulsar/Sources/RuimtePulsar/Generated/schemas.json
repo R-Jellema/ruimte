@@ -59740,12 +59740,12 @@
       "models"
     ]
   },
-  "request.claudeApi.status.payload": {
+  "request.anthropic.status.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {}
   },
-  "request.claudeApi.status.result": {
+  "request.anthropic.status.result": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
@@ -59792,7 +59792,7 @@
       "models"
     ]
   },
-  "request.claudeApi.configure.payload": {
+  "request.anthropic.configure.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
@@ -59825,7 +59825,7 @@
       }
     }
   },
-  "request.claudeApi.configure.result": {
+  "request.anthropic.configure.result": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {

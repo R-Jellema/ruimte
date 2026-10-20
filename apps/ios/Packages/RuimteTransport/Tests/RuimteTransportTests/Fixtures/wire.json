@@ -367,8 +367,8 @@
     "provenance.review",
     "nanogpt.status",
     "nanogpt.configure",
-    "claudeApi.status",
-    "claudeApi.configure"
+    "anthropic.status",
+    "anthropic.configure"
   ],
   "eventTypes": [
     "push.attention",

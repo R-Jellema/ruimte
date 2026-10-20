@@ -91,8 +91,8 @@ beforeEach(() => {
     status = { configured: false, models: 0, settings: { ...DEFAULTS } };
     machine = new FakeMachine();
     machine.answer('provider.list', () => ({ providers: [claudeApi(status.configured)] }));
-    machine.answer('claudeApi.status', () => status);
-    machine.answer('claudeApi.configure', ({ apiKey, settings }) => {
+    machine.answer('anthropic.status', () => status);
+    machine.answer('anthropic.configure', ({ apiKey, settings }) => {
         if (settings !== undefined && apiKey === undefined) {
             status = { ...status, settings: { ...status.settings!, ...settings } };
             return status;
@@ -124,7 +124,7 @@ describe('The key of the Claude API in Settings', () => {
         await clickOn(button('Save')!);
         await until(() => everything().includes('Connected, 3 models available.'));
 
-        expect(machine.requests('claudeApi.configure')).toEqual([{ apiKey: 'sk-ant-key' }]);
+        expect(machine.requests('anthropic.configure')).toEqual([{ apiKey: 'sk-ant-key' }]);
         expect(keyField()!.value).toBe('');
         expect(keyField()!.placeholder).toBe('Saved');
         expect(everything()).not.toContain('sk-ant-key');
@@ -140,11 +140,11 @@ describe('The key of the Claude API in Settings', () => {
         await clickOn(button('Disconnect')!);
         await until(() => everything().includes('No key saved on this machine.'));
 
-        expect(machine.requests('claudeApi.configure')).toEqual([{}, { apiKey: '' }]);
+        expect(machine.requests('anthropic.configure')).toEqual([{}, { apiKey: '' }]);
     });
 
     test('a key Anthropic refuses is said in the section and nothing is saved', async () => {
-        machine.answer('claudeApi.configure', () => {
+        machine.answer('anthropic.configure', () => {
             throw new Error('Anthropic rejected the API key.');
         });
         await openClaudeApi();
@@ -165,9 +165,9 @@ describe('How a Claude API chat behaves', () => {
         expect(toggle!.getAttribute('aria-checked') ?? toggle!.getAttribute('data-checked')).not.toBe('true');
 
         await clickOn(toggle);
-        await until(() => machine.requests('claudeApi.configure').length === 1);
+        await until(() => machine.requests('anthropic.configure').length === 1);
         // Nothing but the setting goes over the wire: no key, so nothing is fetched and the key stays.
-        expect(machine.requests('claudeApi.configure')).toEqual([{ settings: { autoContinue: true } }]);
+        expect(machine.requests('anthropic.configure')).toEqual([{ settings: { autoContinue: true } }]);
     });
 
     test('the runs field is idle while continuing is off, and ready once it is on', async () => {
@@ -183,8 +183,8 @@ describe('How a Claude API chat behaves', () => {
         expect(rounds.value).toBe('40');
         await typeInto(rounds, '60');
         await leave(rounds);
-        await until(() => machine.requests('claudeApi.configure').length === 1);
-        expect(machine.requests('claudeApi.configure')).toEqual([{ settings: { roundsPerRun: 60 } }]);
+        await until(() => machine.requests('anthropic.configure').length === 1);
+        expect(machine.requests('anthropic.configure')).toEqual([{ settings: { roundsPerRun: 60 } }]);
 
         // Out of range, not whole and unchanged are all left alone.
         await typeInto(rounds, '3');
@@ -193,7 +193,7 @@ describe('How a Claude API chat behaves', () => {
         await leave(rounds);
         await typeInto(rounds, '60');
         await leave(rounds);
-        expect(machine.requests('claudeApi.configure')).toHaveLength(1);
+        expect(machine.requests('anthropic.configure')).toHaveLength(1);
     });
 
     test('the tokens of a reply have a field of their own, from 1,024 to 128,000', async () => {
@@ -205,11 +205,11 @@ describe('How a Claude API chat behaves', () => {
         await leave(tokens);
         await typeInto(tokens, '200000');
         await leave(tokens);
-        expect(machine.requests('claudeApi.configure')).toHaveLength(0);
+        expect(machine.requests('anthropic.configure')).toHaveLength(0);
 
         await typeInto(tokens, '16000');
         await leave(tokens);
-        await until(() => machine.requests('claudeApi.configure').length === 1);
-        expect(machine.requests('claudeApi.configure')).toEqual([{ settings: { maxOutputTokens: 16000 } }]);
+        await until(() => machine.requests('anthropic.configure').length === 1);
+        expect(machine.requests('anthropic.configure')).toEqual([{ settings: { maxOutputTokens: 16000 } }]);
     });
 });
