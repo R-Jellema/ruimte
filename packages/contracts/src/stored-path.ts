@@ -16,6 +16,12 @@ function isUnder(base: string, path: string): boolean {
     return path === base || (path.startsWith(base) && (path[base.length] === '/' || path[base.length] === '\\'));
 }
 
+/* Whether `path` lies below `base`, the base itself not counted, whichever separator the daemon's machine uses. */
+export function isPathBelow(base: string, path: string): boolean {
+    const root = withoutTrailingSeparator(base);
+    return path !== root && isUnder(root, path);
+}
+
 /* An absolute path from the daemon as a folder-relative one: POSIX and relative to the folder. */
 export function relativeTo(root: string, path: string): string {
     const base = withoutTrailingSeparator(root);

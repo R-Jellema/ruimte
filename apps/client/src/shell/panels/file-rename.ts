@@ -1,4 +1,4 @@
-import { absoluteOf, basenameOf, dirnameOf } from '@/shell/panels/files-tree';
+import { absoluteOf, basenameOf, dirnameOf, isPathBelow } from '@/shell/panels/files-tree';
 
 /* A file or folder on its way to another place, by absolute path. */
 export interface PlannedMove {
@@ -8,7 +8,7 @@ export interface PlannedMove {
 
 /* A row of the tree as a path of the machine, without the slash that marks a folder. */
 function absoluteOfRow(folder: string, treePath: string): string {
-    return absoluteOf(folder, treePath).replace(/\/+$/, '');
+    return absoluteOf(folder, treePath).replace(/[\\/]+$/, '');
 }
 
 /*
@@ -19,8 +19,8 @@ function absoluteOfRow(folder: string, treePath: string): string {
 export function dropMovesOf(folder: string, dragged: readonly string[], target: string | null): PlannedMove[] {
     const destination = absoluteOfRow(folder, target ?? '');
     const sources = [...new Set(dragged.map((treePath) => absoluteOfRow(folder, treePath)))];
-    const outermost = sources.filter((path) => !sources.some((other) => path.startsWith(`${other}/`)));
+    const outermost = sources.filter((path) => !sources.some((other) => isPathBelow(other, path)));
     return outermost
-        .filter((path) => dirnameOf(path) !== destination && destination !== path && !destination.startsWith(`${path}/`))
-        .map((path) => ({ from: path, to: `${destination}/${basenameOf(path)}` }));
+        .filter((path) => dirnameOf(path) !== destination && destination !== path && !isPathBelow(path, destination))
+        .map((path) => ({ from: path, to: absoluteOf(destination, basenameOf(path)) }));
 }

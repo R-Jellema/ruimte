@@ -53,6 +53,13 @@ describe('what a file is read against', () => {
         expect(choiceFor(FOLDER, {}, connections, `${FOLDER}/db/other.sql`)).toEqual({ source: 'none' });
     });
 
+    test('a console on a Windows machine, by either separator', () => {
+        expect(consoleConnectionOf('C:\\work\\shop', 'C:\\work\\shop\\.ruimte\\private\\consoles\\local\\Local 1.sql')).toBe('local');
+        expect(consoleConnectionOf('C:\\work\\shop', 'C:\\work\\shop\\.ruimte\\private\\consoles\\local\\deeper\\Local 1.sql')).toBeNull();
+        expect(consoleConnectionOf('C:\\work\\shop', 'C:\\work\\shop-old\\.ruimte\\private\\consoles\\local\\Local 1.sql')).toBeNull();
+        expect(consoleFolderOf('C:\\work\\shop', 'local')).toBe('C:\\work\\shop\\.ruimte\\private\\consoles\\local');
+    });
+
     test('a choice of a connection that left the project falls back on the default', () => {
         expect(choiceFor(FOLDER, { files: { 'a.sql': { connectionId: 'gone' } } }, connections, `${FOLDER}/a.sql`)).toEqual({ source: 'none' });
     });

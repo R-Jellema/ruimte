@@ -10,6 +10,7 @@ import { functionSourceAt, isFunctionSignature } from '@/ondevice/explain-model'
 import { onDeviceClientFor, type OnDeviceClient } from '@/ondevice/ondevice-client';
 import { explainPrompt } from '@/ondevice/prompts';
 import type { HostLanguage as EditorLanguage } from './host-language';
+import { isPathBelow, relativeTo } from '@/shell/panels/files-tree';
 
 const TOAST_ID = 'language-explain';
 
@@ -148,7 +149,7 @@ export class ExplainFeature {
     private fileOf(uri: string): string {
         const path = fileUriToPath(uri) ?? uri;
         const folder = this.language.project.folder;
-        return path.startsWith(`${folder}/`) ? path.slice(folder.length + 1) : path;
+        return isPathBelow(folder, path) ? relativeTo(folder, path) : path;
     }
 
     private async run(subject: HoverView['subject'], input: Parameters<typeof explainPrompt>[0]): Promise<void> {

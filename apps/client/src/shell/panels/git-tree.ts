@@ -3,7 +3,7 @@ import { FileTree } from '@adecore/ui';
 import i18next from 'i18next';
 import type { GitFile, GitStatus } from '@ruimte/contracts';
 import { formatNumber } from '@adecore/ui/format';
-import { compareRows, treeGitStatus, type SortRow } from '@/shell/panels/files-tree';
+import { compareRows, isPathBelow, relativeTo, treeGitStatus, type SortRow } from '@/shell/panels/files-tree';
 import type { FileTab } from '@/state/files';
 
 export interface GitTreeRow {
@@ -491,5 +491,5 @@ export function activeDiff(tab: FileTab | undefined): { cwd: string; path: strin
     if (tab === undefined || root === undefined) {
         return null;
     }
-    return tab.path.startsWith(`${root}/`) ? { cwd: root, path: tab.path.slice(root.length + 1) } : null;
+    return isPathBelow(root, tab.path) ? { cwd: root, path: relativeTo(root, tab.path) } : null;
 }

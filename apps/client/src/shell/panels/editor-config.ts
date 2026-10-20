@@ -1,6 +1,6 @@
 import type { FsReadResult } from '@ruimte/contracts';
 import type { EditorIndentation } from '@adecore/editor';
-import { dirnameOf } from '@/shell/panels/files-tree';
+import { absoluteOf, dirnameOf } from '@/shell/panels/files-tree';
 import { isUnderFolder } from '@/state/fs-watch';
 
 export const DEFAULT_INDENTATION: EditorIndentation = { tabSize: 4, insertSpaces: true };
@@ -224,7 +224,7 @@ export type ReadText = (path: string) => Promise<FsReadResult>;
 export async function loadEditorConfigs(path: string, roots: readonly string[], read: ReadText): Promise<EditorConfigFile[]> {
     const files: EditorConfigFile[] = [];
     for (const dir of editorConfigDirs(path, roots)) {
-        const result = await read(`${dir}/.editorconfig`).catch(() => null);
+        const result = await read(absoluteOf(dir, '.editorconfig')).catch(() => null);
         if (result?.kind === 'text') {
             const config = parseEditorConfig(result.text);
             files.push({ dir, config });

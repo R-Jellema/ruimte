@@ -24,7 +24,7 @@ import { BranchMenu, type CheckoutRefs } from '@/shell/panels/BranchMenu';
 import { FILE_TOOLBAR } from '@/shell/panels/classes';
 import { CommitBox } from '@/shell/panels/CommitBox';
 import { CommitLog, type LogSource } from '@/shell/panels/CommitLog';
-import { basenameOf } from '@/shell/panels/files-tree';
+import { absoluteOf, basenameOf } from '@/shell/panels/files-tree';
 import { GitChoice, GitDiverged, type Choice } from '@/shell/panels/GitDialogs';
 import { PromptDialog, useColumnResize, Button, ButtonGroup, FormError, Icon, IconButton, Pill, Separator, PanelEmpty, Menu } from '@adecore/ui';
 import { GitFileList, type GitWork } from '@/shell/panels/GitFileList';
@@ -322,7 +322,7 @@ export function GitPanel() {
         const staged = files.filter((file) => file.state === 'staged').map((file) => file.path);
         const unstaged = staged.length > 0 ? perform('git.unstage', { repository: path, paths: staged }) : Promise.resolve();
         return unstaged
-            .then(() => perform('file.delete', { paths: files.map((file) => `${path}/${file.path}`) }))
+            .then(() => perform('file.delete', { paths: files.map((file) => absoluteOf(path, file.path)) }))
             .then(() => {
                 useToasts.getState().show({ title: t('git.panel.deleteDone', { path: nameOf(files) }), kind: 'success' });
             })
@@ -347,7 +347,7 @@ export function GitPanel() {
         const entry = worktrees.find((candidate) => candidate.path === path);
         const base = entry === undefined ? undefined : worktreeBase(entry);
         return {
-            path: `${path}/${file.path}`,
+            path: absoluteOf(path, file.path),
             view: { kind: 'diff', cwd: path, scope, staged: file.state === 'staged', ...(base === undefined ? {} : { base }) }
         };
     };
@@ -365,7 +365,7 @@ export function GitPanel() {
 
     /* The file next to its diff, for a change a person wants to read whole rather than as a patch. */
     const openFile = (path: string, file: GitFile): void => {
-        void perform('file.preview', { path: `${path}/${file.path}`, line: null }).catch(ignoreRefusal);
+        void perform('file.preview', { path: absoluteOf(path, file.path), line: null }).catch(ignoreRefusal);
     };
 
     const openCommit = (path: string, commit: { hash: string }): void => {

@@ -5,6 +5,7 @@ import { useFiles } from '@/state/files';
 import { useSettings } from '@/state/settings';
 import { useTransport } from '@/transport/context';
 import { useGitRoot } from '@/shell/panels/use-git-root';
+import { isPathBelow, relativeTo } from '@/shell/panels/files-tree';
 
 /*
  * Tells the rows above declarations who wrote the file, which git answers for the text on disk. It is
@@ -31,12 +32,12 @@ export function useGitBlame(language: EditorLanguage | null, path: string, disk:
         if (language === null || !authors || root === undefined) {
             return;
         }
-        if (root === null || !path.startsWith(`${root}/`)) {
+        if (root === null || !isPathBelow(root, path)) {
             language.codeVision.setBlame(null);
             return;
         }
         let alive = true;
-        const relative = path.slice(root.length + 1);
+        const relative = relativeTo(root, path);
         void (async () => {
             const head = await transport
                 .request('git.log', { cwd: root, limit: 1 })

@@ -13,6 +13,8 @@ import type { HostLanguage as EditorLanguage } from './host-language';
 import { GhostHint } from './GhostHint';
 import { shikiLanguageOf } from '@adecore/editor-react';
 import { isShortcut } from './shortcut-keys';
+import { fileUriToPath } from '@adecore/lsp';
+import { isPathBelow, relativeTo } from '@/shell/panels/files-tree';
 
 const TOAST_ID = 'language-ghost';
 const PROGRESS_OWNER = 'ghost-progress';
@@ -234,9 +236,9 @@ export class GhostTextFeature {
     }
 
     private fileName(): string {
-        const path = decodeURIComponent(this.language.uri.replace(/^file:\/\//, ''));
+        const path = fileUriToPath(this.language.uri) ?? this.language.uri;
         const folder = this.language.project.folder;
-        return path.startsWith(`${folder}/`) ? path.slice(folder.length + 1) : path;
+        return isPathBelow(folder, path) ? relativeTo(folder, path) : path;
     }
 
     private showProgress(position: EditorPosition): void {

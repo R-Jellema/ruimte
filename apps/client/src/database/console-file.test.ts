@@ -34,6 +34,14 @@ describe('the name of a console file', () => {
         expect(consoleConnectionOf('/repo', '/repo/.ruimte/private/consoles/%E0%A4/q.sql')).toBeNull();
     });
 
+    test('knows a console on a Windows machine by its folder', () => {
+        expect(consolesFolderOf('C:\\repo')).toBe('C:\\repo\\.ruimte\\private\\consoles');
+        expect(consoleFolderOf('C:\\repo', 'shop')).toBe('C:\\repo\\.ruimte\\private\\consoles\\shop');
+        expect(consoleConnectionOf('C:\\repo', 'C:\\repo\\.ruimte\\private\\consoles\\shop\\q 1.sql')).toBe('shop');
+        expect(consoleConnectionOf('C:\\repo', 'C:\\repo\\.ruimte\\private\\consoles\\shop\\old\\q 1.sql')).toBeNull();
+        expect(consoleConnectionOf('C:\\repo', 'C:\\repo2\\.ruimte\\private\\consoles\\shop\\q 1.sql')).toBeNull();
+    });
+
     test('groups a listing of the consoles by connection', () => {
         const base = '/repo/.ruimte/private/consoles';
         const listing = [

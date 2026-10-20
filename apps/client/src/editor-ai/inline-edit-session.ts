@@ -7,6 +7,7 @@ import { endOfInsertion, fitReplacement, locateSelection, parseAnswer, replaceRa
 import type { DiskText } from '@/state/text-drafts';
 import type { InlineEditRecord } from './inline-edit-record';
 import { inlineMessage } from './inline-message';
+import { basenameOf } from '@/shell/panels/files-tree';
 
 export type InlinePhase = 'running' | 'proposal' | 'answer' | 'failed' | 'stopped';
 
@@ -554,7 +555,7 @@ export class InlineEditSession {
         if (state.shown && state.attached) {
             return;
         }
-        const name = this.init.path.slice(this.init.path.lastIndexOf('/') + 1);
+        const name = basenameOf(this.init.path);
         if (state.phase === 'proposal' && !state.attached) {
             this.deps.notify({
                 kind: 'success',

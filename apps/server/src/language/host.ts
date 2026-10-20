@@ -3,6 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import {
     LANGUAGE_ERROR_CODES,
     LANGUAGE_METHODS,
+    isPathBelow,
     resolveStoredPath,
     storedPathOf,
     type LanguageCommandResult,
@@ -1197,9 +1198,8 @@ export class LanguageHost {
 
     /* Whether a client holds the file at the path, or a file inside it when it is a folder. */
     private holdsUnder(project: ProjectLanguage, path: string): boolean {
-        const inside = path.endsWith('/') ? path : `${path}/`;
         return [...project.documents.values()].some(
-            (document) => document.clients.size > 0 && (document.absolutePath === path || document.absolutePath.startsWith(inside))
+            (document) => document.clients.size > 0 && (document.absolutePath === path || isPathBelow(path, document.absolutePath))
         );
     }
 

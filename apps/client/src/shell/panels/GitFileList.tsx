@@ -8,7 +8,7 @@ import { ChevronsDownUp, ChevronsUpDown, CornerUpRight, EyeOff, FileDiff, FileTe
 import type { GitFile, GitStatus } from '@ruimte/contracts';
 import { FileActionItems } from '@/shell/panels/FileActionItems';
 import { FileCopyRow } from '@/shell/panels/FileCopyRow';
-import { revealableInFiles } from '@/shell/panels/files-tree';
+import { absoluteOf, revealableInFiles } from '@/shell/panels/files-tree';
 import {
     buildGitTree,
     byCheckout,
@@ -366,7 +366,7 @@ function GitTree({
         }
     };
     const copyTargets = menuItems.map((item) => ({
-        absolute: `${item.cwd}/${item.entry.path}`.replace(/\/+$/, ''),
+        absolute: absoluteOf(item.cwd, item.entry.path),
         relative: item.entry.path,
         gone: isGone(item.entry)
     }));
@@ -465,7 +465,7 @@ function GitTree({
                         )}
                         {stageItems}
                         {(single.group === 'conflicts' || toStage.length > 0 || toUnstage.length > 0) && <ContextMenu.Separator />}
-                        <FileActionItems path={`${single.cwd}/${single.path}`} on="list" gone={isGone(single.item.entry)} />
+                        <FileActionItems path={absoluteOf(single.cwd, single.path)} on="list" gone={isGone(single.item.entry)} />
                         {single.group !== 'conflicts' && <ContextMenu.Separator />}
                         {/* A conflict is resolved by staging it or by a merge tool; discarding one side of it
                             silently is the one way out that loses work nobody can name afterwards. */}
@@ -489,7 +489,7 @@ function GitTree({
                         </ContextMenu.Item>
                         {stageItems}
                         <ContextMenu.Separator />
-                        <RowPathItems absolute={`${single.cwd}/${single.path}`} relative={single.path} folder={folder} platform={platform} gone={false} />
+                        <RowPathItems absolute={absoluteOf(single.cwd, single.path)} relative={single.path} folder={folder} platform={platform} gone={false} />
                     </>
                 )}
                 {single?.kind === 'repo' && (

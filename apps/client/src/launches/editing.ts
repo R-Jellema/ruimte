@@ -1,5 +1,6 @@
 import i18next from 'i18next';
-import type { GitRepo, LaunchConfigEntry, LaunchConfigKind, LaunchesDocument, LaunchSuggestion } from '@ruimte/contracts';
+import { isAbsolutePath, type GitRepo, type LaunchConfigEntry, type LaunchConfigKind, type LaunchesDocument, type LaunchSuggestion } from '@ruimte/contracts';
+import { basenameOf } from '@/shell/panels/files-tree';
 
 /* The daemon's import writes ids the same way, so an imported launch and a typed one read alike. */
 export function slugOf(name: string): string {
@@ -132,7 +133,7 @@ export function withoutDraft(drafts: readonly LaunchDraft[], id: string): Launch
 
 /* The folders a launch picks from: the project folder itself (''), then each checkout inside it, by its path there. */
 export function folderRoots(repos: readonly GitRepo[]): string[] {
-    return ['', ...repos.filter((repo) => repo.kind !== 'root' && !repo.label.startsWith('/') && !repo.label.startsWith('..')).map((repo) => repo.label)];
+    return ['', ...repos.filter((repo) => repo.kind !== 'root' && !isAbsolutePath(repo.label) && !repo.label.startsWith('..')).map((repo) => repo.label)];
 }
 
 /* A launch's folder as the checkout it is in and the path below that. */
@@ -146,7 +147,7 @@ export function splitFolder(cwd: string | undefined, roots: readonly string[]): 
 
 export function joinFolder(root: string, sub: string): string {
     const below = sub.trim().replace(/^\.\/+/, '');
-    if (below.startsWith('/') || root === '') {
+    if (isAbsolutePath(below) || root === '') {
         return below;
     }
     return below === '' ? root : `${root}/${below}`;
@@ -237,7 +238,7 @@ export function withImported(drafts: readonly LaunchDraft[], suggestions: readon
 }
 
 function dirnameOf(path: string): string {
-    const at = path.lastIndexOf('/');
+    const at = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
     return at < 0 ? '.' : path.slice(0, at);
 }
 
@@ -276,6 +277,6 @@ export function suggestionSource(suggestion: LaunchSuggestion): string {
         return suggestion.detail;
     }
     const folder = dirnameOf(suggestion.path);
-    const file = suggestion.path.slice(suggestion.path.lastIndexOf('/') + 1);
+    const file = basenameOf(suggestion.path);
     return folder === '.' ? file : `${folder} · ${file}`;
 }

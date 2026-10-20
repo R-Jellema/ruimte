@@ -8,6 +8,7 @@ import type { Transport } from '@/transport/transport';
 import { AgentChanges } from './agent-changes';
 import { AgentReview, type ReviewSource } from './agent-review';
 import { providerNameOf } from './use-chat-identity';
+import { isPathBelow, relativeTo } from '@/shell/panels/files-tree';
 
 export interface AgentChangesFile {
     endpointId: string;
@@ -24,7 +25,7 @@ export type AgentReviewApp = Pick<ReviewSource, 'offer' | 'focusChat' | 'chatExi
 
 /* The path the way a chat reads it: inside the project folder it is relative to it. */
 export function projectRelative(path: string, folder: string | null): string {
-    return folder !== null && path.startsWith(`${folder}/`) ? path.slice(folder.length + 1) : path;
+    return folder !== null && isPathBelow(folder, path) ? relativeTo(folder, path) : path;
 }
 
 function reviewSourceOf(transport: Pick<Transport, 'request'>, file: AgentChangesFile, app: AgentReviewApp): ReviewSource {

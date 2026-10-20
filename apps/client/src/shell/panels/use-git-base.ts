@@ -3,6 +3,7 @@ import { useGitRoot } from '@/shell/panels/use-git-root';
 import { useGitSignal } from '@/state/git-watch';
 import { useEndpointId } from '@/state/keys';
 import { useTransport } from '@/transport/context';
+import { isPathBelow, relativeTo } from '@/shell/panels/files-tree';
 
 /*
  * What the file is compared against in the editor's margin: its text in the last commit, or null when
@@ -24,11 +25,11 @@ export function useGitBase(path: string, disk: string): string | null {
     }, [disk]);
 
     useEffect(() => {
-        if (root === null || root === undefined || !path.startsWith(`${root}/`)) {
+        if (root === null || root === undefined || !isPathBelow(root, path)) {
             return;
         }
         let alive = true;
-        const relative = path.slice(root.length + 1);
+        const relative = relativeTo(root, path);
         const read = (staged: boolean) => transport.request('git.diff', { cwd: root, path: relative, scope: 'worktree', staged }).catch(() => null);
         // The commit's text is the old side of the staged diff when something is staged, else the index's is.
         void Promise.all([read(true), read(false)]).then(([staged, unstaged]) => {

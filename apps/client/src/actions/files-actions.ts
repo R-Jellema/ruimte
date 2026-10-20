@@ -5,7 +5,7 @@ import { copyTextOrRefuse } from '@/actions/clipboard';
 import { asRefusal } from '@/actions/developer-actions';
 import { desktop } from '@/desktop/bridge';
 import { canCopyFilesOn } from '@/shell/panels/file-copy';
-import { absoluteOf, basenameOf, isAbsolutePath, relativeTo, revealableInFiles } from '@/shell/panels/files-tree';
+import { absoluteOf, basenameOf, isAbsolutePath, isPathBelow, relativeTo, revealableInFiles } from '@/shell/panels/files-tree';
 import { useFiles } from '@/state/files';
 import { forgetDeleted, moveFile } from '@/state/file-moves';
 import { currentEndpointId } from '@/state/keys';
@@ -103,7 +103,7 @@ function resolvedPath(machine: FilesMachine, path: string, actor: ActionActorKin
 /* The paths named, once each, without those inside a folder that is named too. */
 function outermostPaths(machine: FilesMachine, paths: readonly string[], actor: ActionActorKind): string[] {
     const absolutes = [...new Set(paths.map((path) => resolvedPath(machine, path, actor)))];
-    return absolutes.filter((path) => !absolutes.some((other) => path.startsWith(`${other}/`)));
+    return absolutes.filter((path) => !absolutes.some((other) => isPathBelow(other, path)));
 }
 
 /*

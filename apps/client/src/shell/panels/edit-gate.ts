@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 import { isUnderFolder } from '@/state/fs-watch';
+import { absoluteOf } from '@ruimte/contracts';
 
 /* Why a file is read only here. Binary files, files too large to read and diffs never reach an editor at all. */
 export type EditBlock = 'outside-project' | 'ruimte-state' | 'large' | 'plain' | 'touch';
@@ -32,7 +33,7 @@ export function editBlockOf({ path, roots, large, plain, coarse }: EditGateInput
         return 'outside-project';
     }
     // A person's database consoles are files like any other, the one place in `.ruimte` the machine writes from here.
-    if (inside.some((root) => isInside(`${root}/.ruimte`, path) && !isUnderFolder(path, `${root}/.ruimte/private/consoles`))) {
+    if (inside.some((root) => isInside(absoluteOf(root, '.ruimte'), path) && !isUnderFolder(path, absoluteOf(root, '.ruimte/private/consoles')))) {
         return 'ruimte-state';
     }
     if (large) {

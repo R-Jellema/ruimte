@@ -20,6 +20,11 @@ describe('a drop in the files tree', () => {
         expect(dropMovesOf('/repo', ['src/', 'src/a.ts', 'src/a.ts'], 'lib/')).toEqual([{ from: '/repo/src', to: '/repo/lib/src' }]);
     });
 
+    test('moves on a Windows machine with its own separator', () => {
+        expect(dropMovesOf('C:\\repo', ['src/a.ts', 'src/'], 'lib/')).toEqual([{ from: 'C:\\repo\\src', to: 'C:\\repo\\lib\\src' }]);
+        expect(dropMovesOf('C:\\repo', ['src/'], 'src/deep/')).toEqual([]);
+    });
+
     test('a name that only starts like the folder is no part of it', () => {
         expect(dropMovesOf('/repo', ['src2/'], 'src/')).toEqual([{ from: '/repo/src2', to: '/repo/src/src2' }]);
     });

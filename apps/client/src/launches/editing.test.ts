@@ -125,6 +125,7 @@ describe('the folder', () => {
         expect(joinFolder('backend', '')).toBe('backend');
         expect(joinFolder('', './frontend')).toBe('frontend');
         expect(joinFolder('backend', '/abs')).toBe('/abs');
+        expect(joinFolder('backend', 'C:\\abs')).toBe('C:\\abs');
     });
 });
 

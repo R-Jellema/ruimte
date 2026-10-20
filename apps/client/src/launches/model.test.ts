@@ -164,6 +164,21 @@ describe('the menu', () => {
         expect(launchFolder(launch('a', { cwd: 'backend', overlay: { cwd: '/elsewhere/' } }), '/p')).toBe('/elsewhere');
     });
 
+    test('a folder on a Windows machine', () => {
+        expect(launchFolder(launch('a', { cwd: 'apps/web' }), 'C:\\p')).toBe('C:\\p\\apps\\web');
+        expect(launchFolder(launch('a', { cwd: 'D:\\elsewhere\\' }), 'C:\\p')).toBe('D:\\elsewhere');
+        expect(launchFolder(launch('a', { cwd: 'C:\\' }), 'C:\\p')).toBe('C:\\');
+        const winRepos = [
+            { path: 'C:\\p', label: 'p', kind: 'root' as const },
+            { path: 'C:\\p\\frontend', label: 'frontend', kind: 'nested' as const }
+        ];
+        const launches = [launch('web', { cwd: 'frontend' }), launch('root')];
+        expect(launchSections(launches, 'C:\\p', winRepos)).toEqual([
+            { label: null, launches: [launches[1]] },
+            { label: 'frontend', launches: [launches[0]] }
+        ]);
+    });
+
     test('an address reads without its scheme', () => {
         expect(shortAddress('http://localhost:8000/')).toBe('localhost:8000');
     });

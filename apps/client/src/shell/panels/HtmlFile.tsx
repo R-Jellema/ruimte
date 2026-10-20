@@ -12,7 +12,7 @@ import { useFind } from '@/find/use-find';
 import { CodeFile } from '@/shell/panels/CodeFile';
 import { FileToolbar, FileToolbarToggle } from '@/shell/panels/FileToolbar';
 import { localFileUrl } from '@/shell/panels/file-url';
-import { dirnameOf } from '@/shell/panels/files-tree';
+import { dirnameOf, isPathBelow } from '@/shell/panels/files-tree';
 import { htmlPreviewDocument } from '@/shell/panels/html-preview';
 import { trackPageReady, usePreviewFind, type FindablePage, type FoundInPage } from '@/shell/panels/use-preview-find';
 import { useEndpoints } from '@/state/endpoints';
@@ -163,7 +163,7 @@ export function HtmlFile({ path, name, read }: { path: string; name: string; rea
         }
         const folder = dirnameOf(path);
         return transport.on('fs.changed', (payload) => {
-            if (payload.paths.some((changed) => changed === folder || changed.startsWith(`${folder}/`))) {
+            if (payload.paths.some((changed) => changed === folder || isPathBelow(folder, changed))) {
                 page.current?.reload();
             }
         });

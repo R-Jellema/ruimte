@@ -20,7 +20,7 @@ import {
     type Worktree
 } from '@ruimte/contracts';
 import type { StoreApi } from 'zustand';
-import { basenameOf } from '@/shell/panels/files-tree';
+import { basenameOf, isPathBelow, relativeTo } from '@/shell/panels/files-tree';
 import { commitTargets, nextActionId } from '@/shell/panels/git-actions';
 import { nodesInWorktree } from '@/shell/panels/worktree-rows';
 import { nodesOfView } from '@/project/view-nodes';
@@ -79,7 +79,7 @@ function isAbsolutePath(value: string): boolean {
 
 /* What the panel calls a checkout: its path under the project folder, or its own name when it sits elsewhere. */
 function labelOf(folder: string, path: string): string {
-    return path.startsWith(`${folder}/`) ? path.slice(folder.length + 1) : basenameOf(path);
+    return isPathBelow(folder, path) ? relativeTo(folder, path) : basenameOf(path);
 }
 
 function quoted(items: readonly string[]): string {
@@ -194,7 +194,7 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
         if (worktree) {
             return { path: worktree.path, label: worktree.branch };
         }
-        if (repository === folder || repository.startsWith(`${folder}/`)) {
+        if (repository === folder || isPathBelow(folder, repository)) {
             return { path: repository, label: labelOf(folder, repository) };
         }
         throw new ActionRefusal(

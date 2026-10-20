@@ -5,6 +5,7 @@ import { isUnsavedDraft, textDrafts, useTextDrafts, type TextDrafts } from '@/st
 import { useToasts } from '@/state/toasts';
 import type { Transport } from '@/transport/transport';
 import type { ProjectFiles, StagedFile } from '@adecore/editor-react';
+import { basenameOf } from '@/shell/panels/files-tree';
 
 /* How many files a toast names before it says how many more there are. */
 const NAMED_FILES = 3;
@@ -15,10 +16,6 @@ const stagedToasts = new Map<string, () => void>();
 export interface DraftProjectFiles extends ProjectFiles {
     /* Hears the unsaved text of every file of the machine, by path: at once, and again after every change of a draft. */
     watchUnsaved(listener: (texts: ReadonlyMap<string, string>) => void): () => void;
-}
-
-function nameOf(path: string): string {
-    return path.slice(path.lastIndexOf('/') + 1);
 }
 
 function unsavedTexts(endpointId: string): Map<string, string> {
@@ -85,7 +82,7 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
             for (const file of files) {
                 drafts.stage(endpointId, file.path, diskOf(file), file.text);
                 if (!(await drafts.save(endpointId, file.path))) {
-                    return i18next.t('panels:language.edit.notSaved', { name: nameOf(file.path) });
+                    return i18next.t('panels:language.edit.notSaved', { name: basenameOf(file.path) });
                 }
             }
             return null;
@@ -165,7 +162,7 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
                 dismissStaged(id);
                 return;
             }
-            const names = unsaved.slice(0, NAMED_FILES).map((file) => nameOf(file.path));
+            const names = unsaved.slice(0, NAMED_FILES).map((file) => basenameOf(file.path));
             const more = unsaved.length - names.length;
             useToasts.getState().show({
                 id,

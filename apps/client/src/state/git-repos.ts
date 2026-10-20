@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import i18next from 'i18next';
 import type { GitFile, GitRepo, GitRepoKind, GitStatus } from '@ruimte/contracts';
-import { basenameOf } from '@/shell/panels/files-tree';
+import { basenameOf, isPathBelow, relativeTo } from '@/shell/panels/files-tree';
 import { GIT_PANEL_PACE_MS, paced, type Pace } from '@/shell/panels/pace';
 import { watchGit } from '@/state/git-watch';
 import { endpointKey, useEndpointId } from '@/state/keys';
@@ -110,7 +110,7 @@ export function withoutNestedRepos(status: GitStatus | null, root: string, other
     if (status === null) {
         return status;
     }
-    const inside = new Set(others.filter((path) => path.startsWith(`${root}/`)).map((path) => `${path.slice(root.length + 1)}/`));
+    const inside = new Set(others.filter((path) => isPathBelow(root, path)).map((path) => `${relativeTo(root, path)}/`));
     if (inside.size === 0) {
         return status;
     }

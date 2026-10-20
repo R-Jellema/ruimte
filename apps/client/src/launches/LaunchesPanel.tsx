@@ -24,6 +24,7 @@ import { useUi } from '@/state/ui';
 import { isAppShortcut, isTerminalPaste, macMotionSequence } from '@/terminal/keymap';
 import { fittedGrid } from '@/terminal/xterm';
 import { deviceClientFor, sessionClientFor } from '@/transport/connections';
+import { basenameOf } from '@/shell/panels/files-tree';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -37,7 +38,7 @@ function pickerDetail(view: LaunchView, now: number, t: Translate): string {
         return '';
     }
     const ran = (status.endedAt ?? now) - status.startedAt;
-    const where = status.worktree === undefined ? [] : [t('afterSettle.inWorktree', { name: status.worktree.split('/').at(-1) })];
+    const where = status.worktree === undefined ? [] : [t('afterSettle.inWorktree', { name: basenameOf(status.worktree) })];
     if (phase === 'starting' || phase === 'stopping') {
         return [t(`phase.${phase}`), formatDuration(ran), ...where].join(' · ');
     }

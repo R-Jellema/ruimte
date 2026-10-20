@@ -1,6 +1,6 @@
 import type { GitStatus, GitStatusEntry } from '@pierre/trees';
 import { FileTree } from '@adecore/ui';
-import { absoluteOf, isAbsolutePath, relativeTo, resolveStoredPath, storedPathOf, type FsEntry, type GitFile } from '@ruimte/contracts';
+import { absoluteOf, isAbsolutePath, isPathBelow, relativeTo, resolveStoredPath, storedPathOf, type FsEntry, type GitFile } from '@ruimte/contracts';
 import { chipText } from '@adecore/agents-react/chat';
 
 /* A directory whose children have not arrived yet gets one child nobody sees, so the row keeps its
@@ -17,7 +17,7 @@ export interface TreeInput {
     ignored: string[];
 }
 
-export { absoluteOf, isAbsolutePath, relativeTo, resolveStoredPath, storedPathOf };
+export { absoluteOf, isAbsolutePath, isPathBelow, relativeTo, resolveStoredPath, storedPathOf };
 
 /* Whether a folder listed again says what it said before, so the tree is not built again for nothing. */
 export function sameEntries(before: readonly FsEntry[], after: readonly FsEntry[]): boolean {
@@ -40,7 +40,7 @@ export function sameEntries(before: readonly FsEntry[], after: readonly FsEntry[
 /* A path the files panel can bring into view is one inside the folder that panel lists; a worktree
    or another checkout on the same machine is not. */
 export function revealableInFiles(folder: string | null, path: string): boolean {
-    return folder !== null && (path === folder || path.startsWith(`${folder}/`) || path.startsWith(`${folder}\\`));
+    return folder !== null && (path === folder || isPathBelow(folder, path));
 }
 
 /*

@@ -1,4 +1,4 @@
-import type { GitRepo, LaunchConfigEntry, LaunchesDocument, LaunchStatus } from '@ruimte/contracts';
+import { absoluteOf, isAbsolutePath, isPathBelow, type GitRepo, type LaunchConfigEntry, type LaunchesDocument, type LaunchStatus } from '@ruimte/contracts';
 
 /*
  * What a launch looks like from here. A launch a person stopped, or a service that ended cleanly on
@@ -147,18 +147,20 @@ export interface LaunchSection {
     launches: LaunchConfigEntry[];
 }
 
+/* A path without the separators after it, though a root such as `/` or `C:\` keeps its own. */
 function trimSlashes(path: string): string {
-    return path.replace(/\/+$/, '');
+    const trimmed = path.replace(/[\\/]+$/, '');
+    return trimmed === '' || /^[a-zA-Z]:$/.test(trimmed) ? path : trimmed;
 }
 
 /* Where a launch runs, absolute. A private overlay may name a folder of its own. */
 export function launchFolder(launch: LaunchConfigEntry, folder: string): string {
     const cwd = (launch.overlay?.cwd ?? launch.cwd ?? '').trim();
-    if (cwd.startsWith('/')) {
+    if (isAbsolutePath(cwd)) {
         return trimSlashes(cwd);
     }
-    const relative = cwd.replace(/^\.\/?/, '');
-    return relative === '' ? trimSlashes(folder) : `${trimSlashes(folder)}/${trimSlashes(relative)}`;
+    const relative = cwd.replace(/^\.[\\/]?/, '');
+    return absoluteOf(trimSlashes(folder), trimSlashes(relative));
 }
 
 /*
@@ -173,7 +175,7 @@ export function launchSections(launches: readonly LaunchConfigEntry[], folder: s
     const byRepo = new Map<string, LaunchConfigEntry[]>();
     for (const launch of launches) {
         const at = launch.kind === 'group' ? root : launchFolder(launch, root);
-        const repo = inner.find((candidate) => at === trimSlashes(candidate.path) || at.startsWith(`${trimSlashes(candidate.path)}/`));
+        const repo = inner.find((candidate) => at === trimSlashes(candidate.path) || isPathBelow(candidate.path, at));
         if (repo === undefined) {
             loose.push(launch);
         } else {

@@ -24,6 +24,7 @@ import { LanguageStatusTracker } from './status';
 import { WireLanguageService, type WireLanguageServiceOptions } from './wire-service';
 import { readPanelHeight, writePanelHeight } from './panel-height';
 import type { DraftProjectFiles } from './project-files';
+import { isPathBelow } from '@/shell/panels/files-tree';
 
 export class ProjectLanguage extends SharedProjectLanguage {
     declare readonly service: WireLanguageService;
@@ -135,7 +136,7 @@ function holdUnsavedTexts(service: WireLanguageService, folder: string, files: D
     return files.watchUnsaved((texts) => {
         const holding = new Set<string>();
         for (const [path, text] of texts) {
-            const languageId = path.startsWith(`${folder}/`) ? lspLanguageIdOf(shikiLanguageOfPath(path)) : null;
+            const languageId = isPathBelow(folder, path) ? lspLanguageIdOf(shikiLanguageOfPath(path)) : null;
             if (languageId !== null) {
                 const uri = pathToFileUri(path);
                 holding.add(uri);

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { consoleFilesOf, consolesFolderOf } from '@/database/console-file';
+import { absoluteOf } from '@/shell/panels/files-tree';
 import { isUnderFolder, useFolderWatch } from '@/state/fs-watch';
 import { useProject } from '@/state/project';
 import { useConnection } from '@/transport/context';
@@ -11,7 +12,7 @@ export function useConsoleFiles(): Record<string, string[]> {
     const [files, setFiles] = useState<Record<string, string[]>>({});
     const [reads, setReads] = useState(0);
     // The private state is there once the machine opened the project; the consoles folder only once a console is.
-    const watched = folder === null ? null : `${folder}/.ruimte/private`;
+    const watched = folder === null ? null : absoluteOf(folder, '.ruimte/private');
 
     useFolderWatch(endpointId, watched);
 

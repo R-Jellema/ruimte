@@ -5,12 +5,13 @@ import { useDocument } from '@/state/document';
 import { isDatabaseTab, useFiles } from '@/state/files';
 import { endpointKey, splitKey } from '@/state/keys';
 import { isUnsavedDraft, textDrafts, useTextDrafts, type TextDrafts } from '@/state/text-drafts';
+import { basenameOf, isPathBelow } from '@/shell/panels/files-tree';
 
 /* The paths of the drafts at a path, or under it for a folder; with `unsavedOnly` just those holding text that is not saved. */
 export function draftPathsUnder(endpointId: string, path: string, unsavedOnly: boolean): string[] {
     const prefix = endpointKey(endpointId, path);
     return Object.entries(useTextDrafts.getState().rows)
-        .filter(([key, draft]) => (key === prefix || key.startsWith(`${prefix}/`)) && (!unsavedOnly || isUnsavedDraft(draft)))
+        .filter(([key, draft]) => (key === prefix || isPathBelow(prefix, key)) && (!unsavedOnly || isUnsavedDraft(draft)))
         .map(([key]) => splitKey(key).id);
 }
 
@@ -33,7 +34,7 @@ export function forgetDeleted(endpointId: string, path: string, drafts: TextDraf
         drafts.discard(endpointId, draftPath);
     }
     for (const tab of useFiles.getState().tabs) {
-        if (!isDatabaseTab(tab) && (tab.path === path || tab.path.startsWith(`${path}/`))) {
+        if (!isDatabaseTab(tab) && (tab.path === path || isPathBelow(path, tab.path))) {
             useFiles.getState().close(tab.key);
         }
     }
@@ -48,10 +49,6 @@ export function followMove(endpointId: string, from: string, to: string, focus =
     if (focus && moved !== undefined && moved !== activeViewId) {
         useFiles.getState().requestCaret(moved);
     }
-}
-
-function nameOf(path: string): string {
-    return path.slice(path.lastIndexOf('/') + 1);
 }
 
 /*
@@ -70,7 +67,7 @@ export async function moveFile(
 ): Promise<void> {
     const unsaved = await saveBeforeMove(endpointId, from, drafts);
     if (unsaved !== null) {
-        throw new Error(i18next.t('panels:files.rename.unsaved', { name: nameOf(unsaved) }));
+        throw new Error(i18next.t('panels:files.rename.unsaved', { name: basenameOf(unsaved) }));
     }
     await transport.request('fs.rename', {
         path: from,

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { absoluteOf, relativeTo, resolveStoredPath, storedPathOf } from './stored-path.ts';
+import { absoluteOf, isPathBelow, relativeTo, resolveStoredPath, storedPathOf } from './stored-path.ts';
 
 describe('relativeTo and absoluteOf', () => {
     test('cross between the daemon\u2019s absolute path and a folder-relative one', () => {
@@ -68,5 +68,20 @@ describe('resolveStoredPath', () => {
 
     test('answers null for a relative path with no folder to resolve it against', () => {
         expect(resolveStoredPath(null, 'src/main.ts')).toBeNull();
+    });
+});
+
+describe('isPathBelow', () => {
+    test('takes a path below the base by either separator', () => {
+        expect(isPathBelow('/repo', '/repo/src/a.ts')).toBe(true);
+        expect(isPathBelow('C:\\repo', 'C:\\repo\\src\\a.ts')).toBe(true);
+        expect(isPathBelow('C:/repo', 'C:/repo/src/a.ts')).toBe(true);
+        expect(isPathBelow('C:\\repo\\', 'C:\\repo\\a.ts')).toBe(true);
+    });
+
+    test('leaves out the base itself and a sibling that only shares its start', () => {
+        expect(isPathBelow('C:\\repo', 'C:\\repo')).toBe(false);
+        expect(isPathBelow('C:\\repo', 'C:\\repo-old\\a.ts')).toBe(false);
+        expect(isPathBelow('/repo', '/repo-old/a.ts')).toBe(false);
     });
 });

@@ -5,7 +5,7 @@ import { databaseConnections, ensureDatabaseConnections } from '@/database/conne
 import { databaseStorageKey } from '@/database/environment';
 import { useDatabasePanel } from '@/database/state';
 import { extensionOf } from '@/shell/panels/file-kind';
-import { basenameOf } from '@/shell/panels/files-tree';
+import { absoluteOf, basenameOf, isPathBelow, relativeTo } from '@/shell/panels/files-tree';
 import { moveFile } from '@/state/file-moves';
 import { useDocument } from '@/state/document';
 import { fileTabOf, isDatabaseTab, useFiles, type ConsoleBinding, type TabState } from '@/state/files';
@@ -28,7 +28,7 @@ const UNSAFE_CHARACTERS = new Set(['/', '\\', ':', '*', '?', '"', '<', '>', '|']
 
 /* Where a project keeps a person's consoles: beside its private file, which the `.gitignore` of `.ruimte` keeps out of git. */
 export function consolesFolderOf(folder: string): string {
-    return `${folder}/.ruimte/private/consoles`;
+    return absoluteOf(folder, '.ruimte/private/consoles');
 }
 
 /*
@@ -36,16 +36,16 @@ export function consolesFolderOf(folder: string): string {
  * no second record to keep in step, and a rename or a delete of the file takes its binding along.
  */
 export function consoleFolderOf(folder: string, connectionId: string): string {
-    return `${consolesFolderOf(folder)}/${encodeURIComponent(connectionId)}`;
+    return absoluteOf(consolesFolderOf(folder), encodeURIComponent(connectionId));
 }
 
 /* The connection a console file belongs to by its folder, or null for any other file. */
 export function consoleConnectionOf(folder: string, path: string): string | null {
-    const prefix = `${consolesFolderOf(folder)}/`;
-    if (!path.startsWith(prefix) || !isSqlPath(path)) {
+    const consoles = consolesFolderOf(folder);
+    if (!isPathBelow(consoles, path) || !isSqlPath(path)) {
         return null;
     }
-    const [segment, name, ...deeper] = path.slice(prefix.length).split('/');
+    const [segment, name, ...deeper] = relativeTo(consoles, path).split('/');
     if (segment === undefined || segment === '' || name === undefined || name === '' || deeper.length > 0) {
         return null;
     }
@@ -140,7 +140,7 @@ export async function createConsoleFile(
     );
     const first = nextConsoleNumber(base, listed);
     for (let number = first; number < first + CREATE_ATTEMPTS; number += 1) {
-        const path = `${directory}/${consoleFileName(base, number)}`;
+        const path = absoluteOf(directory, consoleFileName(base, number));
         try {
             await transport.request('fs.create', { path, kind: 'file', text });
             return path;

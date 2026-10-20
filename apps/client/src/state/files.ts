@@ -1,5 +1,5 @@
 import type { TableKind } from '@adecore/database/protocol';
-import type { FileLocation, GitDiffScope, ProjectConsoleBinding, ProjectFileTabView } from '@ruimte/contracts';
+import { isPathBelow, type FileLocation, type GitDiffScope, type ProjectConsoleBinding, type ProjectFileTabView } from '@ruimte/contracts';
 import { create } from 'zustand';
 import { closeAfterSaving } from '@/shell/panels/unsaved-close';
 import { canDropAsTab, canSplit, cellAt, cellViewIds, locateView, viewIdsIn, type CellAt, type SplitZone } from '@/shell/split';
@@ -158,7 +158,7 @@ export function moveTabs(state: TabPool, from: string, to: string): TabPool & { 
         if (isDatabaseTab(tab)) {
             return tab;
         }
-        const path = tab.path === from ? to : tab.path.startsWith(`${from}/`) ? `${to}${tab.path.slice(from.length)}` : null;
+        const path = tab.path === from ? to : isPathBelow(from, tab.path) ? `${to}${tab.path.slice(from.length)}` : null;
         if (path === null || tab.view?.commit !== undefined || isCheckoutDiff(tab.path, tab.view)) {
             return tab;
         }

@@ -1,5 +1,8 @@
 import { resolve } from 'node:path';
 import {
+    absoluteOf,
+    isPathBelow,
+    relativeTo,
     resolveStoredPath,
     storedPathOf,
     type DatabaseAgentAccess,
@@ -25,18 +28,22 @@ export type SqlAnalysisErrorCode = 'project-not-found' | 'unknown-connection' | 
 
 export class SqlAnalysisError extends CodedError<SqlAnalysisErrorCode> {}
 
+function consolesFolderOf(folder: string): string {
+    return absoluteOf(folder, `${PROJECT_DIR}/${PRIVATE_DIR}/${CONSOLES_DIR}`);
+}
+
 /* Where a project keeps a person's consoles, the folder of each connection under it; the same as the client's `consoleFolderOf`. */
 export function consoleFolderOf(folder: string, connectionId: string): string {
-    return resolve(folder, PROJECT_DIR, PRIVATE_DIR, CONSOLES_DIR, encodeURIComponent(connectionId));
+    return absoluteOf(consolesFolderOf(folder), encodeURIComponent(connectionId));
 }
 
 /* The connection a console file belongs to by the folder it is in, or null for any other file. */
 export function consoleConnectionOf(folder: string, path: string): string | null {
-    const root = `${resolve(folder, PROJECT_DIR, PRIVATE_DIR, CONSOLES_DIR)}/`;
-    if (!path.startsWith(root) || !path.toLowerCase().endsWith('.sql')) {
+    const root = consolesFolderOf(folder);
+    if (!isPathBelow(root, path) || !path.toLowerCase().endsWith('.sql')) {
         return null;
     }
-    const [segment, name, ...deeper] = path.slice(root.length).split('/');
+    const [segment, name, ...deeper] = relativeTo(root, path).split('/');
     if (segment === undefined || segment === '' || name === undefined || name === '' || deeper.length > 0) {
         return null;
     }
