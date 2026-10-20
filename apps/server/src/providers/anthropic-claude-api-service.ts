@@ -26,7 +26,10 @@ const ModelSchema = z.object({
     lifecycle: z.enum(['active', 'deprecated', 'retired']).optional(),
     line: z.string().nullish(),
     max_input_tokens: z.number().positive().nullish(),
-    max_tokens: z.number().positive().nullish()
+    max_tokens: z.number().positive().nullish(),
+    capabilities: z
+        .object({ thinking: z.object({ types: z.object({ adaptive: z.object({ supported: z.boolean().optional() }).optional() }).optional() }).optional() })
+        .nullish()
 });
 type AnthropicModel = z.infer<typeof ModelSchema>;
 
@@ -140,6 +143,11 @@ export class AnthropicClaudeApiService {
     maxOutputTokensFor(model: string): number {
         const allowed = this.models.find((entry) => entry.id === model)?.max_tokens;
         return allowed ? Math.min(this.settings.maxOutputTokens, allowed) : this.settings.maxOutputTokens;
+    }
+
+    /* Whether the model takes `thinking: { type: 'adaptive' }`, which is how the older ones are asked to think; the newer ones think without being asked. */
+    supportsAdaptiveThinking(model: string): boolean {
+        return this.models.find((entry) => entry.id === model)?.capabilities?.thinking?.types?.adaptive?.supported === true;
     }
 
     /* Keeps what a person changed, within what the wire allows, for the chats that start their next run after it. */

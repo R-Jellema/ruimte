@@ -233,6 +233,28 @@ describe('Claude API settings', () => {
         expect(again.status().settings?.runs).toBe(3);
     });
 
+    test('a model that takes adaptive thinking says so, since that is how it is asked to think', async () => {
+        const folder = await home();
+        const withThinking = {
+            id: 'claude-opus-4-6',
+            display_name: 'Claude Opus 4.6',
+            lifecycle: 'active',
+            capabilities: { thinking: { supported: true, types: { adaptive: { supported: true } } } }
+        };
+        const without = {
+            id: 'claude-haiku-4-5',
+            display_name: 'Claude Haiku 4.5',
+            lifecycle: 'active',
+            capabilities: { thinking: { supported: false, types: { adaptive: { supported: false } } } }
+        };
+        const service = new AnthropicClaudeApiService(api({ pages: [{ data: [withThinking, without], has_more: false, last_id: null }] }).request);
+        await service.load(folder);
+        await service.configure('sk-ant-key');
+        expect(service.supportsAdaptiveThinking('claude-opus-4-6')).toBe(true);
+        expect(service.supportsAdaptiveThinking('claude-haiku-4-5')).toBe(false);
+        expect(service.supportsAdaptiveThinking('unknown')).toBe(false);
+    });
+
     test('the tokens of a reply are what a person set, never more than the model allows', async () => {
         const folder = await home();
         const service = new AnthropicClaudeApiService(api().request);
