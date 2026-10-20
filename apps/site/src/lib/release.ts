@@ -15,7 +15,8 @@ export const PLATFORMS = {
     'deb-x64': { os: 'Linux', format: 'Debian package', arch: 'x64', suffix: '-amd64.deb' },
     'deb-arm64': { os: 'Linux', format: 'Debian package', arch: 'arm64', suffix: '-arm64.deb' },
     'rpm-x64': { os: 'Linux', format: 'RPM package', arch: 'x64', suffix: '-x86_64.rpm' },
-    'rpm-arm64': { os: 'Linux', format: 'RPM package', arch: 'arm64', suffix: '-aarch64.rpm' }
+    'rpm-arm64': { os: 'Linux', format: 'RPM package', arch: 'arm64', suffix: '-aarch64.rpm' },
+    windows: { os: 'Windows', format: 'Installer', arch: 'x64', suffix: '-x64-setup.exe' }
 } as const;
 
 export type Platform = keyof typeof PLATFORMS;

@@ -17,7 +17,11 @@ const answer = {
         asset('Ruimte-0.6.0-arm64.AppImage'),
         asset('Ruimte-0.6.0-amd64.deb'),
         asset('Ruimte-0.6.0-arm64.deb'),
-        asset('Ruimte-0.6.0-x86_64.rpm')
+        asset('Ruimte-0.6.0-x86_64.rpm'),
+        asset('latest.yml'),
+        asset('Ruimte-0.6.0-x64-setup.exe'),
+        asset('Ruimte-0.6.0-x64-setup.exe.blockmap'),
+        asset('Ruimte-0.6.0-x64.zip')
     ]
 };
 
@@ -43,6 +47,10 @@ describe('assetUrl', () => {
         expect(assetUrl(release, 'appimage-x64')).toEndWith('/Ruimte-0.6.0-x86_64.AppImage');
         expect(assetUrl(release, 'deb-x64')).toEndWith('/Ruimte-0.6.0-amd64.deb');
         expect(assetUrl(release, 'deb-arm64')).toEndWith('/Ruimte-0.6.0-arm64.deb');
+    });
+
+    test('picks the Windows installer, not its blockmap or the zip', () => {
+        expect(assetUrl(release, 'windows')).toEndWith('/Ruimte-0.6.0-x64-setup.exe');
     });
 
     test('is null for a build the release does not have', () => {

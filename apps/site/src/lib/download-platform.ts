@@ -7,6 +7,9 @@ export function downloadPlatform(userAgent: string): Platform | null {
     if (/Macintosh|Mac OS X/i.test(userAgent)) {
         return 'mac';
     }
+    if (/Windows NT/i.test(userAgent)) {
+        return 'windows';
+    }
     if (/Linux/i.test(userAgent)) {
         return /aarch64|arm64/i.test(userAgent) ? 'appimage-arm64' : 'appimage-x64';
     }
