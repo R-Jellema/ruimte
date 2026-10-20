@@ -25,6 +25,11 @@ function buttonWithText(text: string): HTMLElement | null {
     return [...document.body.querySelectorAll<HTMLElement>('button')].find((candidate) => candidate.textContent?.trim() === text) ?? null;
 }
 
+/* The window's connection light is a status too, so the badge is found by its label. */
+function recordingBadge(): HTMLElement | null {
+    return page.host.querySelector<HTMLElement>('[role="status"][aria-label^="Recording, "]');
+}
+
 async function openTools(view: ProjectView): Promise<void> {
     workspace = await openFakeWorkspace(machine, { views: [view] }, { activeViewId: view.id, views: {} });
     page = mount();
@@ -229,14 +234,14 @@ describe('capturing a device', () => {
         expect(document.body.textContent).toContain('Android stops a recording by itself after 3 minutes.');
         await clickOn(buttonWithText('Record'));
         await until(() => button('Stop recording') !== null);
-        expect(page.host.querySelector('[role="status"]')).not.toBeNull();
+        expect(recordingBadge()).not.toBeNull();
 
-        await clickOn(page.host.querySelector('[role="status"] button'));
+        await clickOn(recordingBadge()?.querySelector('button') ?? null);
         await until(() => downloads.length === 1);
 
         expect(machine.requests('device.record').map((request) => request.mode)).toEqual(['start', 'stop']);
         expect(downloads[0]).toMatch(/^Pixel 9 .*\.mp4$/);
-        expect(page.host.querySelector('[role="status"]')).toBeNull();
+        expect(recordingBadge()).toBeNull();
     });
 
     test('a recording that ended by itself before a reload shows as ended, offers no new one and saves its video', async () => {
