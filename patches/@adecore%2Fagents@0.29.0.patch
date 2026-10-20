@@ -1,0 +1,106 @@
+diff --git a/dist/record-directory.js b/dist/record-directory.js
+index 8ad1f2ac52b295f89d3906d1929c4c98add8297b..06af70c13dc182e9f48acb9c03a7a1d2e44e5e91 100644
+--- a/dist/record-directory.js
++++ b/dist/record-directory.js
+@@ -2,6 +2,21 @@ import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
+ import { join } from 'node:path';
+ import { isNotFound, writeAtomic } from './fs.js';
+ import { KeyedSerializer } from './serializer.js';
++
++/*
++ * Bun on Windows fails a forced rm with EFAULT while another delete of the same file is still pending
++ * (two writers dropping one record). The file is going either way, so that counts as removed.
++ */
++async function removeRecordFile(path) {
++    try {
++        await rm(path, { force: true });
++    } catch (error) {
++        if ((error).code !== 'EFAULT') {
++            throw error;
++        }
++    }
++}
++
+ // The id is a node id or a chat id a client chose, so it is encoded before it becomes a file name.
+ export function recordFileName(id) {
+     return `${encodeURIComponent(id)}.json`;
+@@ -59,7 +74,7 @@ export class RecordDirectory {
+             }
+             const record = this.keep === null ? parsed.data : this.keep(parsed.data);
+             if (record === null) {
+-                await rm(join(this.dir, name), { force: true });
++                await removeRecordFile(join(this.dir, name));
+                 continue;
+             }
+             this.records.set(this.idOf(record), record);
+@@ -89,7 +104,7 @@ export class RecordDirectory {
+             await mkdir(this.dir, { recursive: true, mode: 0o700 });
+             await this.writeFile(this.pathOf(id), JSON.stringify(record));
+             if (!this.records.has(id)) {
+-                await rm(this.pathOf(id), { force: true });
++                await removeRecordFile(this.pathOf(id));
+                 return false;
+             }
+             return true;
+@@ -98,7 +113,7 @@ export class RecordDirectory {
+     /* Forgets a record here and now; its file follows. */
+     remove(id) {
+         this.records.delete(id);
+-        return rm(this.pathOf(id), { force: true });
++        return removeRecordFile(this.pathOf(id));
+     }
+     async prune(drop) {
+         for (const listed of this.all()) {
+diff --git a/src/record-directory.ts b/src/record-directory.ts
+index a953938a08cd61fb5644e4f2529ba2431c738a5e..5d7ab394d3d563e1f80d01f4f72f22139d8ad72c 100644
+--- a/src/record-directory.ts
++++ b/src/record-directory.ts
+@@ -4,6 +4,21 @@ import type { z } from 'zod';
+ import { isNotFound, writeAtomic } from './fs.ts';
+ import { KeyedSerializer } from './serializer.ts';
+ 
++/*
++ * Bun on Windows fails a forced rm with EFAULT while another delete of the same file is still pending
++ * (two writers dropping one record). The file is going either way, so that counts as removed.
++ */
++async function removeRecordFile(path: string): Promise<void> {
++    try {
++        await rm(path, { force: true });
++    } catch (error: unknown) {
++        if ((error as NodeJS.ErrnoException).code !== 'EFAULT') {
++            throw error;
++        }
++    }
++}
++
++
+ // The id is a node id or a chat id a client chose, so it is encoded before it becomes a file name.
+ export function recordFileName(id: string): string {
+     return `${encodeURIComponent(id)}.json`;
+@@ -74,7 +89,7 @@ export class RecordDirectory<T> {
+             }
+             const record = this.keep === null ? parsed.data : this.keep(parsed.data);
+             if (record === null) {
+-                await rm(join(this.dir, name), { force: true });
++                await removeRecordFile(join(this.dir, name));
+                 continue;
+             }
+             this.records.set(this.idOf(record), record);
+@@ -108,7 +123,7 @@ export class RecordDirectory<T> {
+             await mkdir(this.dir, { recursive: true, mode: 0o700 });
+             await this.writeFile(this.pathOf(id), JSON.stringify(record));
+             if (!this.records.has(id)) {
+-                await rm(this.pathOf(id), { force: true });
++                await removeRecordFile(this.pathOf(id));
+                 return false;
+             }
+             return true;
+@@ -118,7 +133,7 @@ export class RecordDirectory<T> {
+     /* Forgets a record here and now; its file follows. */
+     remove(id: string): Promise<void> {
+         this.records.delete(id);
+-        return rm(this.pathOf(id), { force: true });
++        return removeRecordFile(this.pathOf(id));
+     }
+ 
+     async prune(drop: (record: T) => boolean): Promise<void> {

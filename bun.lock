@@ -332,6 +332,7 @@
   ],
   "patchedDependencies": {
     "werift@0.24.4": "patches/werift@0.24.4.patch",
+    "@adecore/agents@0.29.0": "patches/@adecore%2Fagents@0.29.0.patch",
   },
   "packages": {
     "@adecore/agent-contracts": ["@adecore/agent-contracts@0.29.0", "", { "dependencies": { "@adecore/intelligent-ui": "0.29.0", "zod": "^4.6.5" } }, "sha512-PD+AXyItT9Dpf0mMbnqh8Uszwc+vyzC65HHrtv7whNdjkshIOfeRpafJFa74+lqiY4bg/af6K+4qKTo0fgqptQ=="],
