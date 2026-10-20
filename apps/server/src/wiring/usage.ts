@@ -20,7 +20,11 @@ export function wireUsage(config: ServerConfig, providers: ProvidersBundle, agen
         allowPriceFetch: config.priceFetch,
         knownProjects: () => projects.known(),
         // The calls of a subscription API have no transcript of a CLI's, so the daemon keeps a log of them that the scan reads.
-        roots: () => [...usageRootsOf(providers.accounts), { provider: 'nanogpt', path: providers.nanogpt.usageDirectory }],
+        roots: () => [
+            ...usageRootsOf(providers.accounts),
+            { provider: 'nanogpt', path: providers.nanogpt.usageDirectory },
+            { provider: 'anthropic-claude-api', path: providers.claudeApi.usageDirectory }
+        ],
         sessionAccounts: () =>
             sessionAccountsOf(
                 chats.list(),

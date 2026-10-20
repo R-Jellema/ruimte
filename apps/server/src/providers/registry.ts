@@ -2,6 +2,7 @@ import type { AgentKind, ProviderInfo } from '@ruimte/contracts';
 import type { CliDetection, ChatProvider } from '@adecore/agents/providers';
 import { ProviderRegistry as AgentProviderRegistry } from '@adecore/agents/providers';
 import { createAppleProvider, appleProvider } from './apple-provider.ts';
+import { anthropicClaudeApiProvider } from './anthropic-claude-api-provider.ts';
 import { claudeProvider } from './claude-provider.ts';
 import { codexProvider } from './codex-provider.ts';
 import { nanoGptProvider } from './nanogpt-provider.ts';
@@ -17,6 +18,9 @@ export function providerFor(kind: AgentKind): ChatProvider {
     }
     if (kind === 'nanogpt') {
         return nanoGptProvider;
+    }
+    if (kind === 'anthropic-claude-api') {
+        return anthropicClaudeApiProvider;
     }
     return BUILT_IN_PROVIDERS.find((provider) => provider.kind === kind) ?? claudeProvider;
 }
@@ -38,7 +42,12 @@ export class ProviderRegistry extends AgentProviderRegistry {
 
     constructor(options: ProviderRegistryOptions = {}) {
         super({
-            providers: options.providers ?? [...BUILT_IN_PROVIDERS, createAppleProvider(options.appleEnabled ?? (() => false)), nanoGptProvider],
+            providers: options.providers ?? [
+                ...BUILT_IN_PROVIDERS,
+                createAppleProvider(options.appleEnabled ?? (() => false)),
+                nanoGptProvider,
+                anthropicClaudeApiProvider
+            ],
             ...(options.commands ? { commands: options.commands } : {}),
             ...(options.detect ? { detect: options.detect } : {})
         });

@@ -118,6 +118,24 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
         },
         { owner: true }
     );
+    dispatcher.register('claudeApi.status', () => providers.claudeApi.status());
+    // A key spends a person's money, so only the owner of the machine sets or removes one.
+    dispatcher.register(
+        'claudeApi.configure',
+        async ({ apiKey, settings }) => {
+            if (settings !== undefined) {
+                const saved = await providers.claudeApi.setSettings(settings);
+                // Only settings changed: the key and the models stay as they are.
+                if (apiKey === undefined) {
+                    return saved;
+                }
+            }
+            const result = await providers.claudeApi.configure(apiKey);
+            providers.providers.invalidate('anthropic-claude-api');
+            return result;
+        },
+        { owner: true }
+    );
     const { identity } = machine;
     const { sessions, chats } = agents;
     const store = projects.store;

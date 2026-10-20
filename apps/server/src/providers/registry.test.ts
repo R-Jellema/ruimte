@@ -3,20 +3,21 @@ import { hasHooks } from '../agents/hooks.ts';
 import { ProviderRegistry } from './registry.ts';
 
 describe('ProviderRegistry', () => {
-    test('lists CLIs, the disabled local model and the subscription API with their capabilities', async () => {
+    test('lists CLIs, the disabled local model and the two APIs with their capabilities', async () => {
         const registry = new ProviderRegistry({ detect: async () => ({ installed: true, version: '1.2.3' }) });
         const providers = await registry.list();
-        expect(providers.map((provider) => provider.kind)).toEqual(['claude', 'codex', 'gemini', 'copilot', 'apple', 'nanogpt']);
+        expect(providers.map((provider) => provider.kind)).toEqual(['claude', 'codex', 'gemini', 'copilot', 'apple', 'nanogpt', 'anthropic-claude-api']);
         expect(providers.map((provider) => provider.name)).toEqual([
             'Claude Code',
             'Codex',
             'Gemini',
             'GitHub Copilot',
             'Apple Foundation Models',
-            'NanoGPT Subscription'
+            'NanoGPT Subscription',
+            'Claude API'
         ]);
-        expect(providers.map((provider) => provider.capabilities.chat)).toEqual([true, true, false, false, true, true]);
-        expect(providers.map((provider) => provider.capabilities.terminal)).toEqual([true, true, true, true, false, false]);
+        expect(providers.map((provider) => provider.capabilities.chat)).toEqual([true, true, false, false, true, true, true]);
+        expect(providers.map((provider) => provider.capabilities.terminal)).toEqual([true, true, true, true, false, false, false]);
         for (const provider of providers) {
             expect(provider.capabilities.hooks).toBe(hasHooks(provider.kind));
         }

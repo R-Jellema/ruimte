@@ -7,12 +7,15 @@ import { RUIMTE_CODEX_CLIENT } from '../providers/codex-provider.ts';
 import { ModelCatalogFeed } from '../providers/model-catalogs.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
 import type { ServerConfig } from '../config.ts';
+import { anthropicClaudeApiService } from '../providers/anthropic-claude-api-provider.ts';
+import type { AnthropicClaudeApiService } from '../providers/anthropic-claude-api-service.ts';
 import { nanoGptService } from '../providers/nanogpt-provider.ts';
 import type { NanoGptService } from '../providers/nanogpt-service.ts';
 
 /* The agent CLIs of this machine, their accounts and what a person allowed in their settings. */
 export interface ProvidersBundle {
     nanogpt: NanoGptService;
+    claudeApi: AnthropicClaudeApiService;
     providers: ProviderRegistry;
     modelCatalogs: ModelCatalogFeed;
     integrations: AgentIntegrations;
@@ -32,6 +35,8 @@ export async function wireProviders(
 ): Promise<ProvidersBundle> {
     const nanogpt = nanoGptService;
     await nanogpt.load(config.home);
+    const claudeApi = anthropicClaudeApiService;
+    await claudeApi.load(config.home);
     const providers = new ProviderRegistry({
         appleEnabled: () => identity.appleFoundationEnabled,
         onList: () => {
@@ -67,5 +72,5 @@ export async function wireProviders(
         install: (kind, folder) => integrations.installFolder(kind, folder)
     });
     await accounts.load();
-    return { nanogpt, providers, modelCatalogs, integrations, accounts, nameOfCli: (kind) => providers.get(kind).name };
+    return { nanogpt, claudeApi, providers, modelCatalogs, integrations, accounts, nameOfCli: (kind) => providers.get(kind).name };
 }
