@@ -21,7 +21,13 @@ export const NANOGPT_TOOLS = [
     tool('search_files', 'Search project files for text.', { path: string, query: string, glob: string }, ['path', 'query']),
     tool('edit_file', 'Replace one exact occurrence of oldText in a project file. Read it first.', { path: string, oldText: string, newText: string }),
     tool('write_file', 'Write a project file, up to 12000 characters.', { path: string, content: string }),
-    tool('run_command', 'Run a shell command in the project. Windows uses PowerShell; macOS/Linux use sh.', { command: string })
+    tool('run_command', 'Run a shell command in the project. Windows uses PowerShell; macOS/Linux use sh.', { command: string }),
+    tool(
+        'ask_user',
+        'Ask the person a question and wait for the answer. Use it whenever you need a decision, a preference or a fact you cannot find in the project, instead of writing the question in your reply. Give options when the answer is a choice.',
+        { question: string, options: { type: 'array', items: string, maxItems: 6 } },
+        ['question']
+    )
 ];
 
 /*

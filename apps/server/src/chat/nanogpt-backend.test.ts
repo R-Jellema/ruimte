@@ -194,6 +194,78 @@ describe('NanoGPT backend', () => {
         ]);
     });
 
+    test('a question is a card the person answers, in any mode, and the model hears the answer', async () => {
+        const ask = () =>
+            stream({
+                choices: [
+                    {
+                        delta: {
+                            tool_calls: [
+                                {
+                                    index: 0,
+                                    id: 'call-q',
+                                    function: { name: 'ask_user', arguments: '{"question":"Which name?","options":["claude-api","anthropic"]}' }
+                                }
+                            ]
+                        },
+                        finish_reason: 'tool_calls'
+                    }
+                ]
+            });
+        const chat = await rig([ask, () => reply('Using anthropic.')], { mode: 'full-access' });
+        await chat.backend.start();
+        chat.backend.sendTurn(turn);
+
+        const card = (await chat.until((event) => event.type === 'question.requested')) as {
+            requestId: string;
+            questions: Array<{ id: string; question: string; choices: Array<{ label: string }>; multiSelect: boolean }>;
+        };
+        expect(card.questions).toEqual([
+            expect.objectContaining({
+                id: card.requestId,
+                question: 'Which name?',
+                choices: [expect.objectContaining({ label: 'claude-api' }), expect.objectContaining({ label: 'anthropic' })],
+                multiSelect: false
+            })
+        ]);
+        // Nothing to approve: a question is the person's whatever the mode is.
+        expect(chat.events.some((event) => event.type === 'approval.requested')).toBe(false);
+
+        expect(chat.backend.respondQuestion(card.requestId, { [card.requestId]: 'anthropic' })).toBe(true);
+        expect(await chat.until(isDone)).toMatchObject({ state: 'done' });
+        expect(chat.bodies[1]!.messages.at(-1)).toEqual({ role: 'tool', tool_call_id: 'call-q', content: 'anthropic' });
+        expect(chat.tools).toEqual([]);
+        // An answer to a question that is not open, or one that is not text, is refused.
+        expect(chat.backend.respondQuestion(card.requestId, { [card.requestId]: 'again' })).toBe(false);
+    });
+
+    test('a question the person declines, or a stop while it waits, ends without an answer', async () => {
+        const ask = () =>
+            stream({
+                choices: [
+                    {
+                        delta: { tool_calls: [{ index: 0, id: 'call-q', function: { name: 'ask_user', arguments: '{"question":"Sure?"}' } }] },
+                        finish_reason: 'tool_calls'
+                    }
+                ]
+            });
+        const declined = await rig([ask, () => reply('Fine.')]);
+        await declined.backend.start();
+        declined.backend.sendTurn(turn);
+        const card = (await declined.until((event) => event.type === 'question.requested')) as { requestId: string };
+        expect(declined.backend.declineRequest(card.requestId, 'No thanks')).toBe(true);
+        expect(await declined.until(isDone)).toMatchObject({ state: 'done' });
+        expect(declined.bodies[1]!.messages.at(-1)?.content).toContain('declined');
+
+        const stopped = await rig([ask]);
+        await stopped.backend.start();
+        stopped.backend.sendTurn(turn);
+        const open = (await stopped.until((event) => event.type === 'question.requested')) as { requestId: string };
+        stopped.backend.interrupt();
+        expect(await stopped.until(isDone)).toMatchObject({ state: 'aborted' });
+        expect(stopped.events).toContainEqual({ type: 'request.withdrawn', requestId: open.requestId });
+    });
+
     test('a denied tool does not run and the model is told so', async () => {
         const chat = await rig([listCall, () => reply('Understood.')]);
         await chat.backend.start();
