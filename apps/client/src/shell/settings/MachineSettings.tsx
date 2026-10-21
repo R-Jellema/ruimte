@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import i18next from 'i18next';
 import { Trash } from 'lucide-react';
 import { Trans, useTranslation } from 'react-i18next';
 import { brokerHostOf, brokerUrlProblem, type BrokerSetting } from '@ruimte/pulsar';
-import type { AuthSession, LanDoor, PeerLink, RuntimeMode } from '@ruimte/contracts';
+import type { AuthSession, LanDoor, PeerLink, ReachCheck, RuntimeMode } from '@ruimte/contracts';
 import { RUNTIME_MODES, runtimeModeLabel } from '@adecore/agents-react/chat';
 import { messageOf, Segmented, Select, Skeleton, Switch, Button, IconButton, Tooltip, FormError, Input } from '@adecore/ui';
 import { formatNumericDate, formatAgo } from '@adecore/ui/format';
@@ -11,6 +11,7 @@ import { ConfirmDialog, SettingsRow } from '@adecore/ui/settings';
 import { perform } from '@/actions/client-actions';
 import { desktop } from '@/desktop/bridge';
 import { forgetEndpoint } from '@/endpoint';
+import { reachText } from '@/shell/settings/reach-text';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { useEndpoints, type Endpoint } from '@/state/endpoints';
 import { useServers } from '@/state/server';
@@ -261,6 +262,87 @@ export function LanDoorRow({ endpoint, reason }: { endpoint: Endpoint; reason: s
                         label={t('machine.lanDoor.toggle', { machine: endpoint.label })}
                         disabled={busy || unavailable !== null}
                     />
+                </WithReason>
+            }
+        />
+    );
+}
+
+type ReachState = { state: 'checking'; last: ReachCheck | null } | { state: 'done'; check: ReachCheck | null } | { state: 'failed'; message: string };
+
+/*
+ * Whether other devices reach the machine, as the machine checks it itself: what is wrong and what a
+ * person can do about it. The machine checks when its broker takes it and when its network changed;
+ * Check again asks it now.
+ */
+export function ReachRow({ endpoint, reason }: { endpoint: Endpoint; reason: string | null }) {
+    const { t } = useTranslation('settings');
+    const answers = useMachineAnswers(endpoint.id, 'endpoint.reach');
+    const [reach, setReach] = useState<ReachState>({ state: 'checking', last: null });
+    const [attempt, setAttempt] = useState<{ check: boolean; n: number }>({ check: false, n: 0 });
+
+    useEffect(() => {
+        const transport = transportFor(endpoint.id);
+        if (!answers || reason !== null || transport === null) {
+            return;
+        }
+        let current = true;
+        transport.request('endpoint.reach', attempt.check ? { check: true } : {}).then(
+            (answer) => current && setReach({ state: 'done', check: answer.reach }),
+            (e: unknown) => current && setReach({ state: 'failed', message: messageOf(e) })
+        );
+        return () => {
+            current = false;
+        };
+    }, [endpoint.id, answers, reason, attempt]);
+
+    if (!answers) {
+        return null;
+    }
+    const shown = reach.state === 'done' ? reach.check : reach.state === 'checking' ? reach.last : null;
+    const text = shown === null ? null : reachText(shown);
+    const description = (): ReactNode => {
+        if (reason !== null) {
+            return t('machine.notAnswering');
+        }
+        if (reach.state === 'failed') {
+            return (
+                <span className="text-status-error" role="alert">
+                    {t('machine.reach.failed', { message: reach.message })}
+                </span>
+            );
+        }
+        if (text === null || shown === null) {
+            return reach.state === 'checking' ? t('machine.reach.checking') : null;
+        }
+        const sentence = [text.problem, text.fix, t('machine.reach.checkedAt', { when: ago(shown.checkedAt) })].filter((part) => part !== null).join(' ');
+        return shown.severity === 'unreachable' ? (
+            <span className="text-status-error" role="alert">
+                {sentence}
+            </span>
+        ) : (
+            sentence
+        );
+    };
+
+    return (
+        <SettingsRow
+            searchId="machines.machine.reach"
+            label={t('machine.reach.label')}
+            description={description()}
+            control={
+                <WithReason reason={reason}>
+                    <Button
+                        variant="secondary"
+                        disabled={reason !== null || reach.state === 'checking'}
+                        aria-label={t('machine.reach.checkAgainLabel', { machine: endpoint.label })}
+                        onClick={() => {
+                            setReach({ state: 'checking', last: shown });
+                            setAttempt((before) => ({ check: true, n: before.n + 1 }));
+                        }}
+                    >
+                        {t('machine.reach.checkAgain')}
+                    </Button>
                 </WithReason>
             }
         />

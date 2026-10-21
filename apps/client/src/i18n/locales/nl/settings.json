@@ -1137,6 +1137,59 @@
             "fixedNote": "Ingesteld met een flag bij het starten van de machine, dus deze schakelaar wacht tot die zonder draait.",
             "toggle": "{{machine}} bereikbaar maken voor een client op het lokale netwerk, zonder de broker"
         },
+        "reach": {
+            "label": "Bereikbaar voor andere apparaten",
+            "search": "Controleert of andere apparaten de machine bereiken via de broker, de relay of het lokale netwerk.",
+            "checking": "Controleren of andere apparaten deze machine bereiken…",
+            "checkAgain": "Opnieuw controleren",
+            "checkAgainLabel": "Opnieuw controleren of andere apparaten {{machine}} bereiken",
+            "failed": "De controle is niet afgerond: {{message}}",
+            "checkedAt": "Gecontroleerd {{when}}.",
+            "causes": {
+                "ok": { "problem": "Andere apparaten bereiken deze machine, direct of via de relay." },
+                "brokerOff": {
+                    "problem": "De broker staat uit, dus geen apparaat buiten dit netwerk bereikt de machine.",
+                    "fix": "Kies hierboven een broker."
+                },
+                "brokerUnreachable": {
+                    "problem": "De machine bereikt de broker op {{broker}} niet, dus geen apparaat buiten dit netwerk vindt hem.",
+                    "fix": "Controleer de internetverbinding, en of een firewall of proxy een beveiligde WebSocket naar de broker doorlaat."
+                },
+                "noRelay": {
+                    "problem": "De broker geeft geen relay, dus een apparaat achter een strikte NAT of firewall kan niet verbinden.",
+                    "fix": "Gebruik een broker die een relay geeft, zoals de standaardbroker."
+                },
+                "turnUnreachable": {
+                    "problem": "Geen relay antwoordt, dus een apparaat achter een strikte NAT of firewall kan niet verbinden.",
+                    "fix": "Laat de machine de relay bereiken op UDP 3478 en TCP 3478 of 5349 door de firewall."
+                },
+                "turnRefused": {
+                    "problem": "De relay antwoordt maar neemt de gegevens van de broker niet aan, dus een apparaat achter een strikte NAT of firewall kan niet verbinden.",
+                    "fix": "Wie de broker beheert, moet hem het geheim geven dat de relay verwacht. Probeer het bij de standaardbroker later opnieuw."
+                },
+                "udpBlocked": {
+                    "problem": "UDP is op dit netwerk geblokkeerd, dus elke verbinding gaat via de relay over TCP, en dat is trager.",
+                    "fix": "Sta uitgaand UDP toe op dit netwerk, in elk geval naar poort 3478."
+                },
+                "vpnRelayed": {
+                    "problem": "Verkeer gaat via {{tunnel}}, een VPN of exit node die UDP laat vallen, dus verbindingen werken alleen via de relay over TCP.",
+                    "fix": "Laat Ruimte buiten de VPN om gaan (split tunneling), zet de exit node uit, of laat UDP erdoor."
+                },
+                "vpnBlocked": {
+                    "problem": "Verkeer gaat via {{tunnel}}, een VPN of exit node die UDP laat vallen, dus andere apparaten kunnen niet verbinden.",
+                    "fix": "Laat Ruimte buiten de VPN om gaan (split tunneling), zet de exit node uit, of laat UDP erdoor."
+                },
+                "blocked": {
+                    "problem": "UDP komt dit netwerk niet uit en de relay over TCP ook niet, dus andere apparaten kunnen niet verbinden.",
+                    "fix": "Controleer de firewall of proxy van dit netwerk. Die moet UDP doorlaten, of TCP naar de relay op 3478 of 5349."
+                },
+                "lanDoorDown": {
+                    "problem": "De machine luistert niet op het lokale netwerk omdat poort {{port}} bezet is, dus apparaten op dit netwerk gaan via de broker.",
+                    "fix": "Stop wat de poort bezet houdt, of start de machine met een andere --lan-port."
+                },
+                "unknown": { "problem": "De machine meldt {{cause}}, en deze versie van Ruimte kent dat nog niet." }
+            }
+        },
         "worktreeFolder": {
             "label": "Worktree-map",
             "description": "Nieuwe worktrees komen in de datamap van Ruimte. Kies een andere map om ze daar te maken.",

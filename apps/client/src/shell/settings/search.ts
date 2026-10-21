@@ -450,6 +450,13 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         available: hasOpenedMachine
     },
     {
+        id: 'machines.machine.reach',
+        section: 'machines',
+        label: 'settings:machine.reach.label',
+        description: 'settings:machine.reach.search',
+        available: hasOpenedMachine
+    },
+    {
         id: 'machines.machine.direct',
         section: 'machines',
         label: 'settings:machine.direct.label',

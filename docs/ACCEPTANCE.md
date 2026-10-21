@@ -290,6 +290,14 @@ and its device token. `apps/pulsar-worker/APNS.md` has the environments and secr
   Claude Code from its own installer shows only its version. A Homebrew formula or cask, if one is installed, says so.
 - [ ] From a remote client the Install, Update and Remove buttons are off and the section says why.
 
+## Reachable from other devices
+
+- [ ] Settings, Machines, this machine shows Reachable from other devices with a verdict, and Check again runs a new check.
+- [ ] With a VPN or a Tailscale exit node that drops UDP, the row and `ruimte status` name the tunnel and say what to change;
+  with it off again, Check again says the machine is reachable.
+- [ ] With the broker off the row says so; with another process on the door's port it says the port is taken.
+- [ ] `ruimte status --check --json` prints the whole check, and the TURN servers of the default broker allocate (`answers`).
+
 ## Apple Foundation Models
 
 `apps/foundation-models/verification.json` holds the recorded runs.
