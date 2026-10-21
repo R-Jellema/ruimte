@@ -62,13 +62,25 @@ describe('ProviderRegistry', () => {
         expect(install.apple).toBeUndefined();
     });
 
-    test('Antigravity is there once its server is installed, and its chat starts that server', async () => {
-        const server = { launch: () => ['/srv/agy_acp_server.par'], detection: () => ({ installed: true, version: '1.4.1' }) };
-        const registry = new ProviderRegistry({ antigravityServer: server });
-        const antigravity = registry.get('antigravity');
-        expect(antigravity.command).toEqual(['/srv/agy_acp_server.par']);
-        expect(await antigravity.detect('agy', {})).toEqual({ installed: true, version: '1.4.1' });
-        expect(await new ProviderRegistry().get('antigravity').detect('agy', {})).toEqual({ installed: false, version: null });
+    test('Antigravity is installed once `agy` is, and chats once its server is there too', async () => {
+        let serverPath: string | null = null;
+        const server = { launch: () => (serverPath === null ? null : [serverPath]) };
+        const probed: string[] = [];
+        const registry = new ProviderRegistry({
+            antigravityServer: server,
+            detect: async (command) => {
+                probed.push(command);
+                return { installed: command === 'agy', version: command === 'agy' ? '1.4.0' : null };
+            }
+        });
+        const antigravity = async () => (await registry.list()).find((provider) => provider.kind === 'antigravity');
+
+        expect(await antigravity()).toMatchObject({ installed: true, version: '1.4.0', capabilities: { chat: false, terminal: true } });
+        serverPath = '/srv/agy_acp_server.par';
+        registry.invalidate('antigravity');
+        expect(await antigravity()).toMatchObject({ installed: true, version: '1.4.0', capabilities: { chat: true, terminal: true } });
+        expect(registry.get('antigravity').command).toEqual(['/srv/agy_acp_server.par']);
+        expect(probed).not.toContain('/srv/agy_acp_server.par');
     });
 
     test('a kind this daemon does not offer gets a provider that starts nothing, never another CLI', async () => {

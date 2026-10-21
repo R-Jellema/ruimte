@@ -187,10 +187,9 @@ describe('a catalog store', () => {
 describe('Antigravity', () => {
     const SERVER_MODES = ['default', 'auto_edit', 'yolo'];
     const installed: AcpServerLaunch = {
-        launch: () => ['/home/.ruimte/agent-servers/antigravity/1.4.1/agy_acp_server.par', '--uid='],
-        detection: () => ({ installed: true, version: '1.4.1' })
+        launch: () => ['/home/.ruimte/agent-servers/antigravity/1.4.1/agy_acp_server.par', '--uid=']
     };
-    const missing: AcpServerLaunch = { launch: () => null, detection: () => ({ installed: false, version: null }) };
+    const missing: AcpServerLaunch = { launch: () => null };
 
     test('chats on the installed server, keeps its accounts apart in GEMINI_HOME and runs `agy` as a terminal', async () => {
         const provider = createAntigravityProvider(installed);
@@ -201,12 +200,12 @@ describe('Antigravity', () => {
         expect(provider.home?.loginCommand).toBeUndefined();
         expect(provider.firstPromptArgs('go')).toEqual(['-i', 'go']);
         expect(provider.resumeCommand).toBe('agy {flags} --conversation {id}');
-        expect(await provider.detect('agy', {})).toEqual({ installed: true, version: '1.4.1' });
     });
 
-    test('without an installed server it is listed as not installed and starts no chat', async () => {
+    test('without an installed server it offers no chat and starts none, but stays a terminal', () => {
         const provider = createAntigravityProvider(missing);
-        expect(await provider.detect('agy', {})).toEqual({ installed: false, version: null });
+        expect([provider.capabilities.chat, provider.capabilities.terminal]).toEqual([false, true]);
+        expect(createAntigravityProvider(null).capabilities.chat).toBe(true);
         expect(() => provider.createBackend({} as BackendLaunch, { onEvent: () => undefined })).toThrow('Install the Antigravity server');
     });
 

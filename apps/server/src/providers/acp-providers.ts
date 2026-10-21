@@ -254,7 +254,10 @@ export function antigravityOneShotArgs(prompt: string): string[] {
     return ['-p', prompt, '--output-format', 'text'];
 }
 
-/* Antigravity's chat runs on the server a person installed; without one it is listed as not installed and starts nothing. */
+/*
+ * Antigravity is installed once `agy` is, which is all its terminal needs. Its chat runs on the server a person
+ * installed apart from it, so without one it offers no chat and starts none.
+ */
 export function createAntigravityProvider(server: AcpServerLaunch | null, catalogStore?: AcpCatalogStore): ChatProvider {
     const base = createAcpProvider({ ...ANTIGRAVITY_SPEC, catalog: agentDefaultCatalog(), ...storing(catalogStore) });
     return {
@@ -262,7 +265,10 @@ export function createAntigravityProvider(server: AcpServerLaunch | null, catalo
         get command() {
             return server?.launch() ?? base.command;
         },
-        detect: () => Promise.resolve(server?.detection() ?? { installed: false, version: null }),
+        // `providerFor` has no server at hand, so it keeps what the CLI can do once one is there.
+        get capabilities() {
+            return server === null || server.launch() !== null ? base.capabilities : { ...base.capabilities, chat: false };
+        },
         createBackend: (launch, host) => {
             if (server?.launch() == null) {
                 throw new Error('Install the Antigravity server in Settings, Providers first.');

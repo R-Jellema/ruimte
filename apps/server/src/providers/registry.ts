@@ -67,7 +67,8 @@ export class ProviderRegistry extends AgentProviderRegistry {
     constructor(options: ProviderRegistryOptions = {}) {
         super({
             providers: options.providers ?? builtInProviders(options),
-            ...(options.commands ? { commands: options.commands } : {}),
+            // `agy`, never the server that stands in its place once installed: the server's state is its own status.
+            commands: { antigravity: ANTIGRAVITY_CLI, ...options.commands },
             ...(options.detect ? { detect: options.detect } : {})
         });
         this.onList = options.onList ?? null;
