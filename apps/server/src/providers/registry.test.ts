@@ -4,7 +4,7 @@ import { BUILT_IN_KINDS } from './kinds.ts';
 import { ProviderRegistry, providerFor } from './registry.ts';
 
 describe('ProviderRegistry', () => {
-    test('lists CLIs and the disabled local model with their capabilities', async () => {
+    test('lists CLIs, the disabled local model and the subscription API with their capabilities', async () => {
         const registry = new ProviderRegistry({ detect: async () => ({ installed: true, version: '1.2.3' }) });
         const providers = await registry.list();
         expect(providers.map((provider) => provider.kind)).toEqual([...BUILT_IN_KINDS]);
@@ -14,10 +14,11 @@ describe('ProviderRegistry', () => {
             'Antigravity',
             'GitHub Copilot',
             'Grok',
-            'Apple Foundation Models'
+            'Apple Foundation Models',
+            'NanoGPT Subscription'
         ]);
-        expect(providers.map((provider) => provider.capabilities.chat)).toEqual([true, true, true, true, true, true]);
-        expect(providers.map((provider) => provider.capabilities.terminal)).toEqual([true, true, true, true, true, false]);
+        expect(providers.map((provider) => provider.capabilities.chat)).toEqual([true, true, true, true, true, true, true]);
+        expect(providers.map((provider) => provider.capabilities.terminal)).toEqual([true, true, true, true, true, false, false]);
         for (const provider of providers) {
             expect(provider.capabilities.hooks).toBe(hasHooks(provider.kind));
         }

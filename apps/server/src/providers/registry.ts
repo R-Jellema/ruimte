@@ -15,6 +15,7 @@ import {
     grokProvider
 } from './acp-providers.ts';
 import type { AcpServerLaunch } from './acp-server.ts';
+import { nanoGptProvider } from './nanogpt-provider.ts';
 
 // The CLIs the daemon ships with, in the order of `BUILT_IN_KINDS`. A new one is one more value there, here and in `builtInProviders`.
 const BUILT_IN_PROVIDERS: ChatProvider[] = [claudeProvider, codexProvider, createAntigravityProvider(null), copilotProvider, grokProvider];
@@ -27,7 +28,13 @@ const UNOFFERED = new AgentProviderRegistry({ providers: [] });
 
 /* The provider of a kind, for the places that have no registry at hand (the hooks). */
 export function providerFor(kind: AgentKind): ChatProvider {
-    return kind === 'apple' ? appleProvider : (BUILT_IN_PROVIDERS.find((provider) => provider.kind === kind) ?? UNOFFERED.get(kind));
+    if (kind === 'apple') {
+        return appleProvider;
+    }
+    if (kind === 'nanogpt') {
+        return nanoGptProvider;
+    }
+    return BUILT_IN_PROVIDERS.find((provider) => provider.kind === kind) ?? UNOFFERED.get(kind);
 }
 
 interface ProviderRegistryOptions {
@@ -54,7 +61,8 @@ function builtInProviders(options: ProviderRegistryOptions): ChatProvider[] {
         createAntigravityProvider(options.antigravityServer ?? null, store('antigravity')),
         createCopilotProvider(store('copilot')),
         createGrokProvider(store('grok')),
-        createAppleProvider(options.appleEnabled ?? (() => false))
+        createAppleProvider(options.appleEnabled ?? (() => false)),
+        nanoGptProvider
     ];
 }
 

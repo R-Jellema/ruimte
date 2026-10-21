@@ -14,6 +14,7 @@ import { providerFor } from './registry.ts';
  */
 const RUNTIME_FLAGS: Partial<Record<AgentKind, Record<RuntimeMode, string[]>>> = {
     apple: { supervised: [], 'auto-accept-edits': [], auto: [], 'full-access': [] },
+    nanogpt: { supervised: [], 'auto-accept-edits': [], auto: [], 'full-access': [] },
     claude: {
         supervised: [],
         'auto-accept-edits': ['--permission-mode', 'acceptEdits'],

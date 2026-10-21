@@ -4,6 +4,7 @@ import { ProvidersPane as Pane } from '@adecore/agents-react/providers';
 import { AcpServerSection, AcpServerStepBody } from '@/shell/settings/providers/AcpServerSection';
 import { useAcpServer } from '@/shell/settings/providers/use-acp-server';
 import { AppleFoundationSection } from '@/shell/settings/providers/AppleFoundationSection';
+import { NanoGptSection } from '@/shell/settings/providers/NanoGptSection';
 import { useEndpointId } from '@/state/keys';
 import { useUi } from '@/state/ui';
 import { useDetectProviders } from '@/transport/provider-detection';
@@ -16,6 +17,9 @@ export function ProvidersPane() {
     const antigravity = useAcpServer(endpointId, 'antigravity');
     useDetectProviders();
     const detailOf = (provider: ProviderInfo) => {
+        if (provider.kind === 'nanogpt') {
+            return <NanoGptSection key={endpointId} endpointId={endpointId} />;
+        }
         if (provider.kind === 'apple') {
             return <AppleFoundationSection endpointId={endpointId} provider={provider} />;
         }
